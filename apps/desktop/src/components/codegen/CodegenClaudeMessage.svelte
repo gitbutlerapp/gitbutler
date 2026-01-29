@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CodegenApprovalToolCall from '$components/codegen/CodegenApprovalToolCall.svelte';
+	import CodegenAskUserQuestion from '$components/codegen/CodegenAskUserQuestion.svelte';
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
 	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
@@ -17,12 +18,19 @@
 			decision: PermissionDecision,
 			useWildcard: boolean
 		) => Promise<void>;
+		onAnswerQuestion?: (answers: Record<string, string>) => Promise<void>;
 		toolCallExpandedState?: {
 			groups: Map<string, boolean>;
 			individual: Map<string, boolean>;
 		};
 	};
-	const { projectId, message, onPermissionDecision, toolCallExpandedState }: Props = $props();
+	const {
+		projectId,
+		message,
+		onPermissionDecision,
+		onAnswerQuestion,
+		toolCallExpandedState
+	}: Props = $props();
 
 	let expanded = $state(false);
 </script>
@@ -36,6 +44,14 @@
 				{@render compactionSummary(message.message)}
 			{/snippet}
 		</CodegenServiceMessage>
+	{:else if 'subtype' in message && message.subtype === 'askUserQuestion'}
+		<CodegenAskUserQuestion
+			questions={message.questions}
+			answered={message.answered}
+			onSubmitAnswers={async (answers) => {
+				await onAnswerQuestion?.(answers);
+			}}
+		/>
 	{:else}
 		<CodegenAssistantMessage content={message.message} />
 		<CodegenToolCalls

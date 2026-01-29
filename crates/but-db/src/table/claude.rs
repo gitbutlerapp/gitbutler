@@ -120,6 +120,19 @@ pub struct ClaudePermissionRequest {
     pub use_wildcard: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ClaudeAskUserQuestionRequest {
+    pub id: String,
+    pub created_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::NaiveDateTime,
+    /// JSON-encoded questions array
+    pub questions: String,
+    /// JSON-encoded answers map (question text -> answer), None if not yet answered
+    pub answers: Option<String>,
+    /// The stack ID this question is associated with
+    pub stack_id: Option<String>,
+}
+
 impl DbHandle {
     pub fn claude(&self) -> Claude<'_> {
         Claude { conn: &self.conn }
@@ -188,6 +201,96 @@ impl Claude<'_> {
                 input: row.get(4)?,
                 decision: row.get(5)?,
                 use_wildcard: row.get(6)?,
+            })
+        })?;
+
+        results.collect::<Result<Vec<_>, _>>()
+    }
+
+    // AskUserQuestion Requests
+    pub fn get_ask_user_question_request(&self, id: &str) -> rusqlite::Result<Option<ClaudeAskUserQuestionRequest>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, created_at, updated_at, questions, answers, stack_id \
+             FROM claude_ask_user_question_requests WHERE id = ?1",
+        )?;
+
+        let result = stmt
+            .query_row([id], |row| {
+                Ok(ClaudeAskUserQuestionRequest {
+                    id: row.get(0)?,
+                    created_at: row.get(1)?,
+                    updated_at: row.get(2)?,
+                    questions: row.get(3)?,
+                    answers: row.get(4)?,
+                    stack_id: row.get(5)?,
+                })
+            })
+            .optional()?;
+
+        Ok(result)
+    }
+
+    /// Get the pending (unanswered) AskUserQuestion request for a specific stack
+    pub fn get_pending_ask_user_question_request_by_stack(
+        &self,
+        stack_id: &str,
+    ) -> rusqlite::Result<Option<ClaudeAskUserQuestionRequest>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, created_at, updated_at, questions, answers, stack_id \
+             FROM claude_ask_user_question_requests WHERE stack_id = ?1 AND answers IS NULL \
+             ORDER BY created_at DESC LIMIT 1",
+        )?;
+
+        let result = stmt
+            .query_row([stack_id], |row| {
+                Ok(ClaudeAskUserQuestionRequest {
+                    id: row.get(0)?,
+                    created_at: row.get(1)?,
+                    updated_at: row.get(2)?,
+                    questions: row.get(3)?,
+                    answers: row.get(4)?,
+                    stack_id: row.get(5)?,
+                })
+            })
+            .optional()?;
+
+        Ok(result)
+    }
+
+    pub fn list_ask_user_question_requests(&self) -> rusqlite::Result<Vec<ClaudeAskUserQuestionRequest>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, created_at, updated_at, questions, answers, stack_id \
+             FROM claude_ask_user_question_requests",
+        )?;
+
+        let results = stmt.query_map([], |row| {
+            Ok(ClaudeAskUserQuestionRequest {
+                id: row.get(0)?,
+                created_at: row.get(1)?,
+                updated_at: row.get(2)?,
+                questions: row.get(3)?,
+                answers: row.get(4)?,
+                stack_id: row.get(5)?,
+            })
+        })?;
+
+        results.collect::<Result<Vec<_>, _>>()
+    }
+
+    pub fn list_pending_ask_user_question_requests(&self) -> rusqlite::Result<Vec<ClaudeAskUserQuestionRequest>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, created_at, updated_at, questions, answers, stack_id \
+             FROM claude_ask_user_question_requests WHERE answers IS NULL",
+        )?;
+
+        let results = stmt.query_map([], |row| {
+            Ok(ClaudeAskUserQuestionRequest {
+                id: row.get(0)?,
+                created_at: row.get(1)?,
+                updated_at: row.get(2)?,
+                questions: row.get(3)?,
+                answers: row.get(4)?,
+                stack_id: row.get(5)?,
             })
         })?;
 
@@ -333,6 +436,51 @@ impl ClaudeMut<'_> {
     pub fn delete_permission_request(&mut self, id: &str) -> rusqlite::Result<()> {
         self.conn
             .execute("DELETE FROM claude_permission_requests WHERE id = ?1", [id])?;
+        Ok(())
+    }
+
+    // AskUserQuestion Requests
+    pub fn insert_ask_user_question_request(&mut self, request: ClaudeAskUserQuestionRequest) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "INSERT INTO claude_ask_user_question_requests (id, created_at, updated_at, questions, answers, stack_id) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![
+                request.id,
+                request.created_at,
+                request.updated_at,
+                request.questions,
+                request.answers,
+                request.stack_id,
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Set answers for the pending AskUserQuestion request for a specific stack
+    pub fn set_ask_user_question_answers_by_stack(
+        &mut self,
+        stack_id: &str,
+        answers: Option<String>,
+    ) -> rusqlite::Result<bool> {
+        let rows_affected = self.conn.execute(
+            "UPDATE claude_ask_user_question_requests SET answers = ?1, updated_at = ?2 \
+             WHERE stack_id = ?3 AND answers IS NULL",
+            rusqlite::params![answers, chrono::Local::now().naive_local(), stack_id],
+        )?;
+        Ok(rows_affected > 0)
+    }
+
+    pub fn set_ask_user_question_answers(&mut self, id: &str, answers: Option<String>) -> rusqlite::Result<()> {
+        self.conn.execute(
+            "UPDATE claude_ask_user_question_requests SET answers = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![answers, chrono::Local::now().naive_local(), id],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_ask_user_question_request(&mut self, id: &str) -> rusqlite::Result<()> {
+        self.conn
+            .execute("DELETE FROM claude_ask_user_question_requests WHERE id = ?1", [id])?;
         Ok(())
     }
 

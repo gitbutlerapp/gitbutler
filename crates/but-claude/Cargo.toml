@@ -42,4 +42,4 @@ nix = { version = "0.30.1", features = ["signal"] }
 notify-rust = { workspace = true }
 url.workspace = true
 futures.workspace = true
-claude-agent-sdk-rs = "0.6"
+claude-agent-sdk-rs = { git = "https://github.com/gitbutlerapp/claude-agent-sdk-rs", branch = "can-use-tool" }

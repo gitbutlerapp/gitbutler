@@ -167,19 +167,13 @@ impl McpConfig {
 
 /// Convert McpConfig to SDK's McpServers format.
 /// Only stdio-based MCP servers are currently supported by the SDK path.
-pub fn convert_mcp_config_to_sdk(
-    mcp_config: &crate::claude_mcp::McpConfig,
-) -> claude_agent_sdk_rs::McpServers {
+pub fn convert_mcp_config_to_sdk(mcp_config: &crate::claude_mcp::McpConfig) -> claude_agent_sdk_rs::McpServers {
     use claude_agent_sdk_rs::{McpServerConfig, McpServers, types::mcp::McpStdioServerConfig};
 
     let mut servers = HashMap::new();
     for (name, server) in &mcp_config.mcp_servers {
         // Check if this is a stdio server (has command, and type is either "stdio" or unset)
-        let is_stdio = server.command.is_some()
-            && server
-                .r#type
-                .as_ref()
-                .is_none_or(|t| t == "stdio" || t.is_empty());
+        let is_stdio = server.command.is_some() && server.r#type.as_ref().is_none_or(|t| t == "stdio" || t.is_empty());
 
         if is_stdio {
             if let Some(command) = &server.command {

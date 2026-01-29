@@ -172,6 +172,85 @@ pub fn update_permission_request(
     Ok(())
 }
 
+// AskUserQuestion request functions
+
+/// Creates a new AskUserQuestion request and saves it to the database.
+pub fn insert_ask_user_question_request(
+    ctx: &mut Context,
+    request: crate::ClaudeAskUserQuestionRequest,
+) -> anyhow::Result<()> {
+    ctx.db
+        .get_mut()?
+        .claude_mut()
+        .insert_ask_user_question_request(request.try_into()?)?;
+    Ok(())
+}
+
+/// Gets an AskUserQuestion request by ID.
+pub fn get_ask_user_question_request(
+    ctx: &Context,
+    id: &str,
+) -> anyhow::Result<Option<crate::ClaudeAskUserQuestionRequest>> {
+    let request = ctx.db.get()?.claude().get_ask_user_question_request(id)?;
+    match request {
+        Some(r) => Ok(Some(r.try_into()?)),
+        None => Ok(None),
+    }
+}
+
+/// Lists all pending (unanswered) AskUserQuestion requests.
+pub fn list_pending_ask_user_question_requests(
+    ctx: &Context,
+) -> anyhow::Result<Vec<crate::ClaudeAskUserQuestionRequest>> {
+    let requests = ctx.db.get()?.claude().list_pending_ask_user_question_requests()?;
+    requests.into_iter().map(|r| r.try_into()).collect::<Result<_, _>>()
+}
+
+/// Updates the answers for an AskUserQuestion request.
+pub fn set_ask_user_question_answers(
+    ctx: &mut Context,
+    id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<()> {
+    let answers_str = serde_json::to_string(&answers)?;
+    ctx.db
+        .get_mut()?
+        .claude_mut()
+        .set_ask_user_question_answers(id, Some(answers_str))?;
+    Ok(())
+}
+
+/// Alias for set_ask_user_question_answers for API compatibility.
+pub fn answer_ask_user_question(
+    ctx: &mut Context,
+    id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<()> {
+    set_ask_user_question_answers(ctx, id, answers)
+}
+
+/// Updates the answers for the pending AskUserQuestion request for a specific stack.
+/// Returns true if an update was made, false if no pending request was found for the stack.
+pub fn set_ask_user_question_answers_by_stack(
+    ctx: &mut Context,
+    stack_id: gitbutler_stack::StackId,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<bool> {
+    let answers_str = serde_json::to_string(&answers)?;
+    let updated = ctx
+        .db
+        .get_mut()?
+        .claude_mut()
+        .set_ask_user_question_answers_by_stack(&stack_id.to_string(), Some(answers_str))?;
+    Ok(updated)
+}
+
+/// Deletes an AskUserQuestion request from the database.
+pub fn delete_ask_user_question_request(ctx: &mut Context, id: &str) -> anyhow::Result<()> {
+    ctx.db.get_mut()?.claude_mut().delete_ask_user_question_request(id)?;
+    Ok(())
+}
+
 impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudeSession) -> Result<Self, Self::Error> {
@@ -315,6 +394,40 @@ impl TryFrom<crate::ClaudePermissionRequest> for but_db::ClaudePermissionRequest
             input: serde_json::to_string(&value.input)?,
             decision,
             use_wildcard: value.use_wildcard,
+        })
+    }
+}
+
+impl TryFrom<but_db::ClaudeAskUserQuestionRequest> for crate::ClaudeAskUserQuestionRequest {
+    type Error = anyhow::Error;
+    fn try_from(value: but_db::ClaudeAskUserQuestionRequest) -> Result<Self, Self::Error> {
+        let questions: Vec<crate::AskUserQuestion> = serde_json::from_str(&value.questions)?;
+        let answers: Option<std::collections::HashMap<String, String>> =
+            value.answers.as_ref().map(|s| serde_json::from_str(s)).transpose()?;
+        let stack_id = value.stack_id.as_ref().map(|s| s.parse()).transpose()?;
+        Ok(crate::ClaudeAskUserQuestionRequest {
+            id: value.id,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+            questions,
+            answers,
+            stack_id,
+        })
+    }
+}
+
+impl TryFrom<crate::ClaudeAskUserQuestionRequest> for but_db::ClaudeAskUserQuestionRequest {
+    type Error = anyhow::Error;
+    fn try_from(value: crate::ClaudeAskUserQuestionRequest) -> Result<Self, Self::Error> {
+        let questions = serde_json::to_string(&value.questions)?;
+        let answers = value.answers.as_ref().map(serde_json::to_string).transpose()?;
+        Ok(but_db::ClaudeAskUserQuestionRequest {
+            id: value.id,
+            created_at: value.created_at,
+            updated_at: value.updated_at,
+            questions,
+            answers,
+            stack_id: value.stack_id.map(|s| s.to_string()),
         })
     }
 }

@@ -45,6 +45,12 @@ impl FrontendEvent {
                     "kind": "claude-permission-requests"
                 }),
             },
+            ItemKind::ClaudeAskUserQuestionRequests => FrontendEvent {
+                name: format!("project://{project_id}/claude-ask-user-question-requests"),
+                payload: json!({
+                    "kind": "claude-ask-user-question-requests"
+                }),
+            },
             _ => {
                 tracing::warn!("Unhandled ItemKind in from_db_item: {item:?}");
                 FrontendEvent {

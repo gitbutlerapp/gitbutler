@@ -57,6 +57,10 @@ export class ClaudeCodeService {
 		return this.api.endpoints.updatePermissionRequest.mutate;
 	}
 
+	get answerAskUserQuestion() {
+		return this.api.endpoints.answerAskUserQuestion.mutate;
+	}
+
 	get cancelSession() {
 		return this.api.endpoints.cancelSession.mutate;
 	}
@@ -242,6 +246,20 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				invalidatesTags: (_result, _error, args) => [
 					invalidatesItem(ReduxTag.ClaudePermissionRequests, args.projectId)
 				]
+			}),
+			answerAskUserQuestion: build.mutation<
+				boolean,
+				{
+					projectId: string;
+					stackId: string;
+					answers: Record<string, string>;
+				}
+			>({
+				extraOptions: {
+					command: 'claude_answer_ask_user_question',
+					actionName: 'Answer Question'
+				},
+				query: (args) => args
 			}),
 			cancelSession: build.mutation<
 				boolean,

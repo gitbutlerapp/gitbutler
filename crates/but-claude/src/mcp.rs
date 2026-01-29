@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::Path,
     sync::{Arc, Mutex},
 };
@@ -66,6 +67,11 @@ impl Mcp {
         &self,
         request: Parameters<McpPermissionRequest>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
+        // Check if this is an AskUserQuestion request
+        if request.0.tool_name == "AskUserQuestion" {
+            return self.handle_ask_user_question(request);
+        }
+
         let approved = self
             .approval_inner(request.0.clone().into(), std::time::Duration::from_secs(60 * 60 * 24))
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
@@ -80,6 +86,114 @@ impl Mcp {
             },
         });
         result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
+    }
+
+    /// Handle AskUserQuestion tool call
+    fn handle_ask_user_question(
+        &self,
+        request: Parameters<McpPermissionRequest>,
+    ) -> Result<CallToolResult, rmcp::ErrorData> {
+        let answers = self
+            .ask_user_question_inner(
+                &request.0.tool_use_id,
+                &request.0.input,
+                std::time::Duration::from_secs(60), // 60 second timeout for questions
+            )
+            .map_err(|e| {
+                tracing::error!("AskUserQuestion failed: {}", e);
+                rmcp::ErrorData::internal_error(e.to_string(), None)
+            })?;
+
+        // Build the updated input with answers
+        let mut updated_input = request.0.input.clone();
+        if let Some(obj) = updated_input.as_object_mut() {
+            obj.insert("answers".to_string(), serde_json::json!(answers));
+        }
+
+        let result = Ok(McpPermissionResponse {
+            behavior: Behavior::Allow,
+            updated_input: Some(updated_input),
+            message: None,
+        });
+        result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
+    }
+
+    /// Inner handler for AskUserQuestion that stores the request and polls for answers
+    fn ask_user_question_inner(
+        &self,
+        id: &str,
+        input: &serde_json::Value,
+        timeout: std::time::Duration,
+    ) -> anyhow::Result<HashMap<String, String>> {
+        let ctx = &mut Context::new_from_legacy_project(self.project.clone())?;
+
+        // Extract questions from input
+        let questions_json =
+            serde_json::to_string(input.get("questions").unwrap_or(&serde_json::json!([])))?;
+
+        // Create a record in the database
+        let now = chrono::Utc::now().naive_utc();
+        ctx.db
+            .get_mut()?
+            .claude_mut()
+            .insert_ask_user_question_request(but_db::ClaudeAskUserQuestionRequest {
+                id: id.to_string(),
+                created_at: now,
+                updated_at: now,
+                questions: questions_json.clone(),
+                answers: None,
+                stack_id: None, // MCP path doesn't have stack context; SDK canUseTool callback uses stack_id
+            })?;
+
+        // Poll for user answers
+        let rx = ctx.db.get()?.poll_changes(
+            ItemKind::ClaudeAskUserQuestionRequests,
+            std::time::Duration::from_millis(200),
+        )?;
+
+        let start_time = std::time::Instant::now();
+        let mut answers: HashMap<String, String> = HashMap::new();
+
+        for item in rx {
+            if start_time.elapsed() > timeout {
+                // Timeout - clean up and return empty answers
+                tracing::warn!("Timeout waiting for user answers after {:?}", start_time.elapsed());
+                let _ = ctx
+                    .db
+                    .get_mut()
+                    .map(|mut db| db.claude_mut().delete_ask_user_question_request(id));
+                anyhow::bail!("Timeout waiting for user answers (60 seconds)");
+            }
+            match item {
+                Ok(ItemKind::ClaudeAskUserQuestionRequests) => {
+                    let updated = ctx.db.get()?.claude().get_ask_user_question_request(id)?;
+                    if let Some(updated) = updated {
+                        if let Some(answers_str) = updated.answers {
+                            // Parse the answers JSON
+                            answers = serde_json::from_str(&answers_str)?;
+
+                            // Clean up the request
+                            let _ = ctx
+                                .db
+                                .get_mut()
+                                .map(|mut db| db.claude_mut().delete_ask_user_question_request(id));
+
+                            break;
+                        }
+                    } else {
+                        // Request was deleted (user cancelled)
+                        anyhow::bail!("User cancelled the question");
+                    }
+                }
+                Ok(_) => continue,
+                Err(e) => {
+                    tracing::error!("Error polling for changes: {e}");
+                    break;
+                }
+            }
+        }
+
+        Ok(answers)
     }
 
     fn approval_inner(

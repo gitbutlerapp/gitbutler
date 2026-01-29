@@ -12,6 +12,7 @@ bitflags! {
         const Assignments = 1 << 2;
         const Rules = 1 << 3;
         const ClaudePermissionRequests = 1 << 4;
+        const ClaudeAskUserQuestionRequests = 1 << 5;
     }
 }
 
@@ -39,10 +40,15 @@ impl DbHandle {
                 let mut prev_actions = Vec::new();
                 let mut prev_rules = Vec::new();
                 let mut prev_claude_requests = Vec::new();
+                let mut prev_ask_user_question_requests = Vec::new();
                 'outer: loop {
                     std::thread::sleep(interval);
                     for to_check in ItemKind::all().iter() {
-                        let send_result = if kind & to_check == ItemKind::Actions {
+                        // Skip item kinds we're not interested in
+                        if !kind.contains(to_check) {
+                            continue;
+                        }
+                        let send_result = if to_check == ItemKind::Actions {
                             let res = db.butler_actions().list(0, i64::MAX);
                             match res {
                                 Ok((_num_items, items)) => {
@@ -55,7 +61,7 @@ impl DbHandle {
                                 }
                                 Err(e) => tx.send(Err(e)),
                             }
-                        } else if kind & to_check == ItemKind::Workflows {
+                        } else if to_check == ItemKind::Workflows {
                             let res = db.workflows().list(0, i64::MAX);
                             match res {
                                 Ok((_num_items, items)) => {
@@ -68,7 +74,7 @@ impl DbHandle {
                                 }
                                 Err(e) => tx.send(Err(e)),
                             }
-                        } else if kind & to_check == ItemKind::Assignments {
+                        } else if to_check == ItemKind::Assignments {
                             let res = db.hunk_assignments().list_all();
                             match res {
                                 Ok(items) => {
@@ -81,7 +87,7 @@ impl DbHandle {
                                 }
                                 Err(e) => tx.send(Err(e)),
                             }
-                        } else if kind & to_check == ItemKind::Rules {
+                        } else if to_check == ItemKind::Rules {
                             let res = db.workspace_rules().list();
                             match res {
                                 Ok(items) => {
@@ -94,13 +100,26 @@ impl DbHandle {
                                 }
                                 Err(e) => tx.send(Err(e)),
                             }
-                        } else if kind & to_check == ItemKind::ClaudePermissionRequests {
+                        } else if to_check == ItemKind::ClaudePermissionRequests {
                             let res = db.claude().list_permission_requests();
                             match res {
                                 Ok(items) => {
                                     if items != prev_claude_requests {
                                         prev_claude_requests = items;
                                         tx.send(Ok(ItemKind::ClaudePermissionRequests))
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                Err(e) => tx.send(Err(e)),
+                            }
+                        } else if to_check == ItemKind::ClaudeAskUserQuestionRequests {
+                            let res = db.claude().list_ask_user_question_requests();
+                            match res {
+                                Ok(items) => {
+                                    if items != prev_ask_user_question_requests {
+                                        prev_ask_user_question_requests = items;
+                                        tx.send(Ok(ItemKind::ClaudeAskUserQuestionRequests))
                                     } else {
                                         continue;
                                     }
@@ -142,11 +161,16 @@ impl DbHandle {
             let mut prev_actions = Vec::new();
             let mut prev_rules = Vec::new();
             let mut prev_claude_requests = Vec::new();
+            let mut prev_ask_user_question_requests = Vec::new();
             let mut ticker = tokio::time::interval(interval);
             loop {
                 ticker.tick().await;
                 for to_check in ItemKind::all().iter() {
-                    let send_result = if kind & to_check == ItemKind::Actions {
+                    // Skip item kinds we're not interested in
+                    if !kind.contains(to_check) {
+                        continue;
+                    }
+                    let send_result = if to_check == ItemKind::Actions {
                         let res = this.butler_actions().list(0, i64::MAX);
                         match res {
                             Ok((_num_items, items)) => {
@@ -159,7 +183,7 @@ impl DbHandle {
                             }
                             Err(e) => tx.send(Err(e.into())).await,
                         }
-                    } else if kind & to_check == ItemKind::Workflows {
+                    } else if to_check == ItemKind::Workflows {
                         let res = this.workflows().list(0, i64::MAX);
                         match res {
                             Ok((_num_items, items)) => {
@@ -172,7 +196,7 @@ impl DbHandle {
                             }
                             Err(e) => tx.send(Err(e.into())).await,
                         }
-                    } else if kind & to_check == ItemKind::Assignments {
+                    } else if to_check == ItemKind::Assignments {
                         let res = this.hunk_assignments().list_all();
                         match res {
                             Ok(items) => {
@@ -185,7 +209,7 @@ impl DbHandle {
                             }
                             Err(e) => tx.send(Err(e.into())).await,
                         }
-                    } else if kind & to_check == ItemKind::Rules {
+                    } else if to_check == ItemKind::Rules {
                         let res = this.workspace_rules().list();
                         match res {
                             Ok(items) => {
@@ -198,13 +222,26 @@ impl DbHandle {
                             }
                             Err(e) => tx.send(Err(e.into())).await,
                         }
-                    } else if kind & to_check == ItemKind::ClaudePermissionRequests {
+                    } else if to_check == ItemKind::ClaudePermissionRequests {
                         let res = this.claude().list_permission_requests();
                         match res {
                             Ok(items) => {
                                 if items != prev_claude_requests {
                                     prev_claude_requests = items;
                                     tx.send(Ok(ItemKind::ClaudePermissionRequests)).await
+                                } else {
+                                    continue;
+                                }
+                            }
+                            Err(e) => tx.send(Err(e.into())).await,
+                        }
+                    } else if to_check == ItemKind::ClaudeAskUserQuestionRequests {
+                        let res = this.claude().list_ask_user_question_requests();
+                        match res {
+                            Ok(items) => {
+                                if items != prev_ask_user_question_requests {
+                                    prev_ask_user_question_requests = items;
+                                    tx.send(Ok(ItemKind::ClaudeAskUserQuestionRequests)).await
                                 } else {
                                     continue;
                                 }
@@ -249,7 +286,8 @@ pub fn watch_in_background(
             | ItemKind::Workflows
             | ItemKind::Assignments
             | ItemKind::Rules
-            | ItemKind::ClaudePermissionRequests,
+            | ItemKind::ClaudePermissionRequests
+            | ItemKind::ClaudeAskUserQuestionRequests,
         std::time::Duration::from_millis(500),
     )?;
 

@@ -72,6 +72,7 @@
 		onChange: (value: string) => void;
 		onAbort?: () => Promise<void>;
 		onSubmit?: (prompt: string) => Promise<void>;
+		onAnswerQuestion?: (answers: Record<string, string>) => Promise<void>;
 	};
 	const {
 		projectId,
@@ -88,7 +89,8 @@
 		onChange,
 		onAbort,
 		onSubmit,
-		onMcpSettings
+		onMcpSettings,
+		onAnswerQuestion
 	}: Props = $props();
 
 	const stableBranchName = $derived(branchName);
@@ -261,7 +263,9 @@
 		}
 	}
 
-	const formattedMessages = $derived(formatMessages(events, permissionRequests, isStackActive));
+	const formattedMessages = $derived.by(() => {
+		return formatMessages(events, permissionRequests, isStackActive);
+	});
 </script>
 
 <div class="chat" use:focusable={{ vertical: true }}>
@@ -465,6 +469,7 @@
 								{projectId}
 								{message}
 								{onPermissionDecision}
+								{onAnswerQuestion}
 								{toolCallExpandedState}
 							/>
 						{/snippet}

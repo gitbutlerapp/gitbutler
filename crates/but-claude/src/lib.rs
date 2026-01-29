@@ -391,6 +391,49 @@ pub struct ClaudePermissionRequest {
     pub use_wildcard: bool,
 }
 
+/// A single option in an AskUserQuestion question.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AskUserQuestionOption {
+    /// Display label for the option
+    pub label: String,
+    /// Description of what this option means
+    pub description: String,
+}
+
+/// A single question in an AskUserQuestion request.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AskUserQuestion {
+    /// The question text to display
+    pub question: String,
+    /// Short header label (max 12 chars)
+    pub header: String,
+    /// Available options (2-4 choices)
+    pub options: Vec<AskUserQuestionOption>,
+    /// Whether multiple selections are allowed
+    pub multi_select: bool,
+}
+
+/// Represents a request from Claude to ask the user clarifying questions.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeAskUserQuestionRequest {
+    /// Maps to the tool_use_id from the MCP request
+    pub id: String,
+    /// When the request was made.
+    pub created_at: chrono::NaiveDateTime,
+    /// When the request was updated.
+    pub updated_at: chrono::NaiveDateTime,
+    /// The questions to ask the user
+    pub questions: Vec<AskUserQuestion>,
+    /// The user's answers, keyed by question text
+    /// None if not yet answered
+    pub answers: Option<std::collections::HashMap<String, String>>,
+    /// The stack ID this question is associated with
+    pub stack_id: Option<gitbutler_stack::StackId>,
+}
+
 /// Represents the thinking level for Claude Code.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

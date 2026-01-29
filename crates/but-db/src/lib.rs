@@ -63,7 +63,7 @@ pub use table::{
     hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
     butler_actions::ButlerAction,
     workflows::Workflow,
-    claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession},
+    claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession, ClaudeAskUserQuestionRequest},
     file_write_locks::FileWriteLock,
     workspace_rules::WorkspaceRule,
     gerrit_metadata::GerritMeta,

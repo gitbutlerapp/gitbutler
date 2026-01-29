@@ -636,6 +636,12 @@ pub async fn run() {
             )),
         )
         .route(
+            "/claude_answer_ask_user_question",
+            post(json_response(
+                legacy::claude::claude_answer_ask_user_question_cmd,
+            )),
+        )
+        .route(
             "/claude_list_prompt_templates",
             post(json_response(
                 legacy::claude::claude_list_prompt_templates_cmd,
