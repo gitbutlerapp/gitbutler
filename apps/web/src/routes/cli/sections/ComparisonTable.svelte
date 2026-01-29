@@ -28,7 +28,7 @@
 		{#each features as feature}
 			<div class="table-row">
 				<div class="text-15 text-semibold feature-cell">{feature.name}</div>
-				<div class="status-cell">
+				<div class="status-cell" data-label="Git">
 					{#if feature.git}
 						<svg
 							width="20"
@@ -59,7 +59,7 @@
 						</svg>
 					{/if}
 				</div>
-				<div class="status-cell">
+				<div class="status-cell" data-label="GitButler">
 					{#if feature.gitbutler}
 						<svg
 							width="20"
@@ -95,9 +95,10 @@
 	</div>
 
 	<div class="comparison-description">
-		<p class="text-15 text-body text-center">
+		<p class="text-15 text-body text-center text-balance">
 			GitButler works with your existing Git repositories and remotes.
-			<br />
+		</p>
+		<p class="text-15 text-body text-center text-balance">
 			Zero configuration required. It simply layers onto your current workflow.
 		</p>
 		<svg
@@ -222,5 +223,85 @@
 	.grainy-2 {
 		right: -20%;
 		bottom: -70%;
+	}
+
+	@media (--mobile-viewport) {
+		.comparison-wrapper {
+			margin: 0 -16px;
+			padding: 32px 16px;
+			border-radius: 0;
+		}
+
+		.comparison-table {
+			border: none;
+			border-radius: 0;
+			background: none;
+		}
+
+		/* Hide the header on mobile */
+		.table-header {
+			display: none;
+		}
+
+		/* Convert rows to card-style blocks */
+		.table-row {
+			display: block;
+			margin-bottom: 6px;
+			overflow: hidden;
+			border-bottom: none;
+			border: 1px solid var(--clr-border-2);
+			border-radius: 12px;
+		}
+
+		.table-row:last-child {
+			margin-bottom: 0;
+		}
+
+		/* Feature name spans full width */
+		.feature-cell {
+			display: block;
+			padding: 16px;
+			border-bottom: 1px solid var(--clr-border-2);
+			background: var(--clr-bg-2);
+			font-size: 14px;
+		}
+
+		/* Status cells show label and icon side by side */
+		.status-cell {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			padding: 12px 16px;
+			border-bottom: 1px solid var(--clr-border-2);
+		}
+
+		.status-cell:last-child {
+			border-bottom: none;
+		}
+
+		/* Show the data-label attribute before the icon */
+		.status-cell::before {
+			content: attr(data-label);
+			color: var(--clr-text-2);
+			font-weight: 600;
+			font-size: 13px;
+		}
+
+		.status-cell svg {
+			width: 18px;
+			height: 18px;
+		}
+
+		.comparison-description {
+			margin-top: 24px;
+		}
+
+		.comparison-description p {
+			font-size: 13px;
+		}
+
+		.description-underline {
+			bottom: -20px;
+		}
 	}
 </style>

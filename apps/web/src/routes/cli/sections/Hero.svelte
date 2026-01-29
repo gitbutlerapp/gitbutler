@@ -60,6 +60,7 @@
 	.terminal-with-switcher {
 		display: flex;
 		position: relative;
+		flex-direction: column;
 		margin-top: 32px;
 	}
 
@@ -71,5 +72,20 @@
 		justify-content: center;
 		width: calc(100% - 30px);
 		transform: translateY(60%) translateX(-50%);
+	}
+
+	@media (max-width: 700px) {
+		.script-switcher {
+			position: relative;
+			left: -16px;
+			width: calc(100% + 32px);
+			margin-top: 8px;
+			transform: none;
+
+			/* hide scrollbar */
+			&::-webkit-scrollbar {
+				display: none;
+			}
+		}
 	}
 </style>

@@ -91,8 +91,6 @@
 		padding-top: 52px;
 	}
 
-	/* Remove title, description-wrapper, and description styles */
-
 	.title-caption {
 		display: inline-flex;
 		transform: translateY(14px);

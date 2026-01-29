@@ -114,4 +114,20 @@
 			height: 100%;
 		}
 	}
+
+	@media (max-width: 700px) {
+		.script-switcher {
+			padding: 6px 16px 0;
+			overflow-x: auto;
+			scroll-padding: 16px;
+			/* snap to children */
+			scroll-snap-type: x mandatory;
+		}
+
+		.script-button {
+			min-width: fit-content;
+			/* snap to center */
+			scroll-snap-align: start;
+		}
+	}
 </style>

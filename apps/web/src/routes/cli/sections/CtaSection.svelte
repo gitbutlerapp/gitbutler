@@ -74,4 +74,14 @@
 		right: -30%;
 		bottom: -120%;
 	}
+
+	@media (--mobile-viewport) {
+		.cta-section {
+			padding: 24px;
+		}
+		.cta-section__header {
+			font-size: 48px;
+			text-wrap: balance;
+		}
+	}
 </style>

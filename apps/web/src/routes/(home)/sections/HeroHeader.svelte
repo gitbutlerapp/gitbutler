@@ -216,10 +216,30 @@
 		}
 	}
 
+	@media (--tablet-viewport) {
+		.description-wrapper {
+			flex-direction: column;
+			gap: 24px;
+		}
+		.toggle-switch {
+			width: 100%;
+		}
+
+		.toggle-option {
+			flex: 1;
+			justify-content: center;
+			font-size: 32px;
+		}
+	}
+
 	@media (--mobile-viewport) {
 		.title {
 			margin-bottom: 16px;
-			font-size: 62px;
+			font-size: 58px;
+		}
+
+		.description-wrapper {
+			gap: 16px;
 		}
 	}
 </style>

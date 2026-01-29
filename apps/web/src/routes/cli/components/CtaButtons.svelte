@@ -4,6 +4,16 @@
 	}
 
 	const { darkMode = false }: Props = $props();
+
+	let copied = $state(false);
+
+	function handleCopy() {
+		navigator.clipboard.writeText('curl -fsSL https://gitbutler.com/install.sh | sh');
+		copied = true;
+		setTimeout(() => {
+			copied = false;
+		}, 2000);
+	}
 </script>
 
 <section class="cta-wrap">
@@ -11,11 +21,25 @@
 		type="button"
 		class="copy-button"
 		class:dark-mode={darkMode}
-		onclick={() =>
-			navigator.clipboard.writeText('curl -fsSL https://gitbutler.com/install.sh | sh')}
+		class:copied
+		onclick={handleCopy}
 	>
 		<h3>Get But CLI</h3>
 		<code>curl -fsSL https://gitbutler.com/install.sh | sh</code>
+
+		<svg
+			class="copy-button__tick-icon"
+			width="32"
+			height="29"
+			viewBox="0 0 32 29"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+		>
+			<path
+				d="M20.8096 5.75H7C5.20507 5.75 3.75 7.20507 3.75 9V21C3.75 22.7949 5.20507 24.25 7 24.25H21C22.7949 24.25 24.25 22.7949 24.25 21V17.1055H25.75V21C25.75 23.6234 23.6234 25.75 21 25.75H7C4.37665 25.75 2.25 23.6234 2.25 21V9C2.25 6.37665 4.37665 4.25 7 4.25H20.8096V5.75ZM31.0498 5.51074L19.1787 18.2881C17.7582 19.8171 15.3621 19.8921 13.8486 18.4551L7.9834 12.8867L9.0166 11.7988L14.8818 17.3682C15.7899 18.2301 17.2269 18.1848 18.0791 17.2676L29.9502 4.48926L31.0498 5.51074Z"
+				fill="var(--clr-core-safe-60)"
+			/>
+		</svg>
 
 		<svg
 			class="copy-button__term-icon"
@@ -105,7 +129,7 @@
 		transition: background 0.2s;
 		--copy-button-icon-fill: white;
 
-		h3 {
+		& h3 {
 			color: var(--clr-text-1);
 			color: white;
 			font-size: 48px;
@@ -113,7 +137,7 @@
 			font-family: var(--font-accent);
 		}
 
-		code {
+		& code {
 			color: var(--clr-core-pop-70);
 			font-size: 14px;
 			opacity: 0.7;
@@ -148,7 +172,8 @@
 	}
 
 	.copy-button__term-icon,
-	.copy-button__copy-icon {
+	.copy-button__copy-icon,
+	.copy-button__tick-icon {
 		position: absolute;
 		top: 20px;
 		right: 24px;
@@ -162,6 +187,24 @@
 	.copy-button__copy-icon {
 		transform: scale(0.8);
 		opacity: 0;
+	}
+
+	.copy-button__tick-icon {
+		transform: scale(0.8);
+		opacity: 0;
+	}
+
+	.copy-button.copied {
+		& .copy-button__term-icon,
+		& .copy-button__copy-icon {
+			transform: scale(0.8);
+			opacity: 0;
+		}
+
+		& .copy-button__tick-icon {
+			transform: scale(1);
+			opacity: 1;
+		}
 	}
 
 	.docs-button {
@@ -216,5 +259,19 @@
 	.docs-button__book {
 		margin-bottom: 8px;
 		fill: var(--clr-text-2);
+	}
+
+	@media (--tablet-viewport) {
+		.copy-button code {
+			font-size: 12px;
+		}
+	}
+
+	@media (--mobile-viewport) {
+		.cta-wrap {
+			flex-direction: column;
+			margin-top: 20px;
+			gap: 12px;
+		}
 	}
 </style>
