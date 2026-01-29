@@ -2,16 +2,20 @@
 	interface Props {
 		scriptsData: Record<string, any>;
 		onScriptChange?: (scriptId: string) => void;
+		selectedScript?: string;
+		scriptProgress?: number;
 	}
 
-	const { scriptsData, onScriptChange }: Props = $props();
-
-	let selectedScript = $state('parallel-branches');
+	const {
+		scriptsData,
+		onScriptChange,
+		selectedScript = 'parallel-branches',
+		scriptProgress = 0
+	}: Props = $props();
 
 	const scripts = Object.values(scriptsData);
 
 	function handleScriptSelect(scriptId: string) {
-		selectedScript = scriptId;
 		onScriptChange?.(scriptId);
 	}
 </script>
@@ -24,6 +28,13 @@
 			class:active={selectedScript === script.id}
 			onclick={() => handleScriptSelect(script.id)}
 		>
+			{#if selectedScript === script.id}
+				<div
+					class="script-switcher__scale-progress"
+					style="width: calc({scriptProgress} * (100% - 40px))"
+				></div>
+			{/if}
+
 			{#if script.icon}
 				<div class="script-button__icon">
 					{@html script.icon}
@@ -38,7 +49,6 @@
 	.script-switcher {
 		display: flex;
 		padding: 4px;
-		/* overflow: hidden; */
 
 		&::-webkit-scrollbar {
 			display: none;
@@ -47,11 +57,13 @@
 
 	.script-button {
 		display: flex;
-		/* flex: 1; */
+		z-index: 1;
+		position: relative;
 		flex-direction: column;
 		align-items: flex-start;
 		margin-left: -1px;
 		padding: 16px;
+		overflow: hidden;
 		gap: 8px;
 		border: 1px solid var(--clr-border-2);
 		background-image: radial-gradient(
@@ -98,6 +110,17 @@
 		&:hover {
 			background-color: color-mix(in srgb, var(--clr-bg-1) 90%, var(--clr-bg-2));
 		}
+	}
+
+	.script-switcher__scale-progress {
+		position: absolute;
+		top: 0;
+		left: 20px;
+		height: 4px;
+		overflow: hidden;
+		border-radius: 8px;
+		background: var(--clr-theme-pop-element);
+		transition: width 0.05s linear;
 	}
 
 	.script-button__icon {

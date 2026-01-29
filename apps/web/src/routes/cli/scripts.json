@@ -10,7 +10,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created branch 'feature/api-base' from 'main'", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>feature/api-base</span> from <span class='t-dim'>main</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -18,7 +21,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Committed abc123d", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Committed <span class='t-accent'>abc123d</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -26,7 +32,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created stacked branch 'feature/api-auth' on 'feature/api-base'", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created stacked branch <span class='t-highlight'>feature/api-auth</span> on <span class='t-dim'>feature/api-base</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -34,7 +43,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Pushed 2 stacked branches:", "feature/api-base → feature/api-auth"]
+				"lines": [
+					"<span class='t-success'>✓</span> Pushed <span class='t-highlight'>2</span> stacked branches:",
+					"<span class='t-cyan'>feature/api-base</span> → <span class='t-cyan'>feature/api-auth</span>"
+				]
 			}
 		]
 	},
@@ -49,7 +61,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created branch user-bookmarks", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>user-bookmarks</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -57,7 +72,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created commit e677a2e on branch user-bookmarks", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>e677a2e</span> on branch <span class='t-highlight'>user-bookmarks</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -65,7 +83,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created branch liked-tweets stacked on user-bookmarks", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>liked-tweets</span> stacked on <span class='t-dim'>user-bookmarks</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -73,7 +94,9 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created commit 71f4fe2 on branch liked-tweets"]
+				"lines": [
+					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>71f4fe2</span> on branch <span class='t-highlight'>liked-tweets</span>"
+				]
 			}
 		]
 	},
@@ -88,7 +111,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created commit 3a1658b on branch feature-branch", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>3a1658b</span> on branch <span class='t-highlight'>feature-branch</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -97,8 +123,8 @@
 			{
 				"type": "output",
 				"lines": [
-					"Reverting to: CreateCommit (2026-01-29 14:32:15)",
-					"✓ Undo completed successfully!",
+					"<span class='t-dim'>Reverting to:</span> <span class='t-warning'>CreateCommit</span> <span class='t-dim'>(2026-01-29 14:32:15)</span>",
+					"<span class='t-success'>✓</span> Undo completed successfully!",
 					""
 				]
 			},
@@ -109,11 +135,11 @@
 			{
 				"type": "output",
 				"lines": [
-					"Operations History",
-					"──────────────────────────────────────────────────",
-					"1defea872de8 2026-01-29 14:32:15 [UNDO] UndoCommit",
-					"b2a8ac4944b1 2026-01-29 14:32:03 [CREATE] CreateCommit",
-					"4e95ee342738 2026-01-29 14:30:12 [AMEND] AmendCommit"
+					"<span class='t-highlight'>Operations History</span>",
+					"<span class='t-dim'>──────────────────────────────────────────────────</span>",
+					"<span class='t-accent'>1defea872de8</span> <span class='t-dim'>2026-01-29 14:32:15</span> <span class='t-warning'>[UNDO]</span> UndoCommit",
+					"<span class='t-accent'>b2a8ac4944b1</span> <span class='t-dim'>2026-01-29 14:32:03</span> <span class='t-success'>[CREATE]</span> CreateCommit",
+					"<span class='t-accent'>4e95ee342738</span> <span class='t-dim'>2026-01-29 14:30:12</span> <span class='t-cyan'>[AMEND]</span> AmendCommit"
 				]
 			}
 		]
@@ -129,7 +155,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Amended app/models/user.rb → da42d06", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Amended <span class='t-highlight'>app/models/user.rb</span> → <span class='t-accent'>da42d06</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -137,7 +166,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Squashed da42d06 → fdbd753", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Squashed <span class='t-accent'>da42d06</span> → <span class='t-accent'>fdbd753</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -145,7 +177,9 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Moved commit 21 → [feature-branch]"]
+				"lines": [
+					"<span class='t-success'>✓</span> Moved commit <span class='t-accent'>21</span> → <span class='t-highlight'>[feature-branch]</span>"
+				]
 			}
 		]
 	},
@@ -164,7 +198,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created branch 'feature/ai-integration'", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>feature/ai-integration</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -172,7 +209,10 @@
 			},
 			{
 				"type": "output",
-				"lines": ["✓ Created commit abc123d", ""]
+				"lines": [
+					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>abc123d</span>",
+					""
+				]
 			},
 			{
 				"type": "input",
@@ -180,7 +220,9 @@
 			},
 			{
 				"type": "output",
-				"lines": ["{\"branches\": [{\"name\": \"feature/ai-integration\", \"commits\": 1}]}"]
+				"lines": [
+					"<span class='t-dim'>{</span><span class='t-cyan'>\"branches\"</span><span class='t-dim'>:</span> <span class='t-dim'>[{</span><span class='t-cyan'>\"name\"</span><span class='t-dim'>:</span> <span class='t-highlight'>\"feature/ai-integration\"</span><span class='t-dim'>,</span> <span class='t-cyan'>\"commits\"</span><span class='t-dim'>:</span> <span class='t-accent'>1</span><span class='t-dim'>}]}</span>"
+				]
 			}
 		]
 	}

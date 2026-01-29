@@ -1,11 +1,187 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import type { ScriptStep } from './terminal-types';
+
 	interface Props {
 		height?: string;
+		script?: ScriptStep[];
+		typingSpeed?: number; // Average delay per character in milliseconds
+		onComplete?: () => void; // Called when script finishes playing
+		onProgress?: (progress: number) => void; // Called with progress 0-1
 	}
 
-	const { height = '400px' }: Props = $props();
+	const {
+		height = '400px',
+		script = [],
+		typingSpeed = 55,
+		onComplete,
+		onProgress
+	}: Props = $props();
 
 	let currentOs = $state('macOS');
+	let displayedLines = $state<Array<{ text: string; type: 'input' | 'output' }>>([]);
+	let currentStepIndex = 0;
+	let currentLineIndex = 0;
+	let currentCharIndex = 0;
+	let isPlaying = $state(false);
+	let timeoutId: ReturnType<typeof setTimeout> | null = null;
+	let progressIntervalId: ReturnType<typeof setInterval> | null = null;
+	let startTime = 0;
+	let estimatedDuration = 0;
+
+	// Reset and play script whenever it changes
+	$effect(() => {
+		// Track script changes
+		const currentScript = script;
+
+		// Untrack all the state updates that happen during playback
+		untrack(() => {
+			if (currentScript.length > 0) {
+				resetAndPlay();
+			}
+		});
+	});
+
+	function calculateDuration(script: ScriptStep[]): number {
+		let total = 0;
+		const avgTypingDelay = typingSpeed; // Use base typing speed for estimation
+
+		script.forEach((step) => {
+			if (step.type === 'input') {
+				step.lines.forEach((line) => {
+					total += line.length * avgTypingDelay; // Time to type characters
+					total += 100; // Delay between lines
+				});
+				total += 500; // Pause after input step
+			} else {
+				total += 400; // Pause after output step
+			}
+		});
+
+		// Add 2 second delay before switching to next script
+		total += 2000;
+
+		return total;
+	}
+
+	function startProgressTracking() {
+		if (progressIntervalId) {
+			clearInterval(progressIntervalId);
+		}
+
+		startTime = Date.now();
+		estimatedDuration = calculateDuration(script);
+
+		// Update progress smoothly every 50ms
+		progressIntervalId = setInterval(() => {
+			if (!isPlaying) {
+				if (progressIntervalId) {
+					clearInterval(progressIntervalId);
+					progressIntervalId = null;
+				}
+				return;
+			}
+
+			const elapsed = Date.now() - startTime;
+			const progress = Math.min(elapsed / estimatedDuration, 1);
+			onProgress?.(progress);
+		}, 50);
+	}
+
+	function resetAndPlay() {
+		// Clear any pending timeouts
+		if (timeoutId) {
+			clearTimeout(timeoutId);
+			timeoutId = null;
+		}
+		if (progressIntervalId) {
+			clearInterval(progressIntervalId);
+			progressIntervalId = null;
+		}
+
+		displayedLines = [];
+		currentStepIndex = 0;
+		currentLineIndex = 0;
+		currentCharIndex = 0;
+		isPlaying = true;
+		startProgressTracking();
+		playNextStep();
+	}
+
+	function playNextStep() {
+		if (!isPlaying || currentStepIndex >= script.length) {
+			// Keep progress tracking running for the 2 second delay
+			timeoutId = setTimeout(() => {
+				isPlaying = false;
+				if (progressIntervalId) {
+					clearInterval(progressIntervalId);
+					progressIntervalId = null;
+				}
+				onProgress?.(1);
+				onComplete?.();
+			}, 2000);
+			return;
+		}
+
+		const step = script[currentStepIndex];
+
+		if (step.type === 'output') {
+			// Output: show all lines immediately
+			step.lines.forEach((line) => {
+				displayedLines = [...displayedLines, { text: line, type: 'output' }];
+			});
+			currentStepIndex++;
+			timeoutId = setTimeout(() => playNextStep(), 400); // Brief pause before next step
+		} else {
+			// Input: type character by character
+			typeNextCharacter();
+		}
+	}
+
+	function typeNextCharacter() {
+		if (!isPlaying) return;
+
+		const step = script[currentStepIndex];
+		if (!step || step.type !== 'input') return;
+
+		if (currentLineIndex >= step.lines.length) {
+			// Finished this input step, move to next
+			currentStepIndex++;
+			currentLineIndex = 0;
+			currentCharIndex = 0;
+			timeoutId = setTimeout(() => playNextStep(), 500); // Pause after completing input
+			return;
+		}
+
+		const currentLine = step.lines[currentLineIndex];
+
+		if (currentCharIndex === 0) {
+			// Start new line
+			displayedLines = [...displayedLines, { text: '', type: 'input' }];
+		}
+
+		if (currentCharIndex < currentLine.length) {
+			// Add next character
+			const lastIndex = displayedLines.length - 1;
+			const newLines = [...displayedLines];
+			newLines[lastIndex] = {
+				...newLines[lastIndex],
+				text: currentLine.substring(0, currentCharIndex + 1)
+			};
+			displayedLines = newLines;
+			currentCharIndex++;
+
+			// Variable typing speed for more natural feel
+			const variance = typingSpeed * 0.4; // 40% variance
+			const delay = Math.random() * variance * 2 + (typingSpeed - variance);
+			timeoutId = setTimeout(() => typeNextCharacter(), delay);
+		} else {
+			// Finished this line, move to next
+			currentLineIndex++;
+			currentCharIndex = 0;
+			timeoutId = setTimeout(() => typeNextCharacter(), 100); // Brief pause between lines
+		}
+	}
 </script>
 
 <div
@@ -23,12 +199,17 @@
 	</div>
 	<div class="terminal-mockup__body">
 		<code class="terminal-mockup__code">
-			<span class="terminal-mockup__prompt">$</span> curl -fsSL https://gitbutler.com/install.sh |
-			sh
-			<br />
-			<span class="terminal-mockup__comment"># Installing GitButler CLI...</span>
-			<br />
-			<span class="terminal-mockup__success">✔ GitButler CLI installed successfully!</span>
+			{#each displayedLines as line, index}
+				{#if line.type === 'input'}
+					<span class="terminal-mockup__line terminal-mockup__input">{@html line.text}</span
+					>{#if isPlaying && index === displayedLines.length - 1 && line.type === 'input'}<span
+							class="terminal-mockup__cursor"
+						></span>{/if}
+				{:else}
+					<span class="terminal-mockup__line terminal-mockup__output">{@html line.text}</span>
+				{/if}
+				<br />
+			{/each}
 		</code>
 	</div>
 </div>
@@ -69,11 +250,68 @@
 	.terminal-mockup__body {
 		flex: 1;
 		padding: 24px;
+		overflow-y: auto;
 		background: var(--clr-core-gray-10);
 		box-shadow: inset 0px 4px 100px var(--clr-core-gray-20);
 		color: #d4d4d4;
 		font-size: 14px;
 		line-height: 1.5;
 		font-family: 'Source Code Pro', monospace;
+	}
+
+	.terminal-mockup__code {
+		display: block;
+	}
+
+	.terminal-mockup__line {
+		display: inline;
+	}
+
+	.terminal-mockup__input {
+		color: #ffffff;
+	}
+
+	.terminal-mockup__output {
+		color: #4ec9b0;
+	}
+
+	.terminal-mockup__cursor {
+		display: inline-block;
+		width: 0.6em;
+		height: 1.2em;
+		margin-left: 2px;
+		background-color: #ffffff;
+		vertical-align: text-bottom;
+	}
+
+	/* Utility classes for colored text in terminal output */
+	:global(.terminal-mockup__code .t-highlight) {
+		color: #ffd700;
+		font-weight: 600;
+	}
+
+	:global(.terminal-mockup__code .t-success) {
+		color: #50fa7b;
+	}
+
+	:global(.terminal-mockup__code .t-error) {
+		color: #ff5555;
+	}
+
+	:global(.terminal-mockup__code .t-warning) {
+		color: #ffb86c;
+	}
+
+	:global(.terminal-mockup__code .t-dim) {
+		color: #8d9cc4;
+		opacity: 0.7;
+	}
+
+	:global(.terminal-mockup__code .t-accent) {
+		color: #bd93f9;
+	}
+
+	:global(.terminal-mockup__code .t-cyan) {
+		color: #8be9fd;
 	}
 </style>

@@ -7,6 +7,7 @@
 	import Header from '$lib/components/marketing/Header.svelte';
 
 	import { type Snippet } from 'svelte';
+	import type { ScriptStep } from './terminal-types';
 
 	interface Props {
 		currentPage?: 'home' | 'cli';
@@ -15,10 +16,31 @@
 
 	const { currentPage = 'home', descriptionContent }: Props = $props();
 
+	const scriptKeys = Object.keys(scriptsData);
 	let selectedScript = $state('parallel-branches');
+	let scriptProgress = $state(0);
 
 	function handleScriptChange(scriptId: string) {
 		selectedScript = scriptId;
+		scriptProgress = 0;
+	}
+
+	function handleProgress(progress: number) {
+		scriptProgress = progress;
+	}
+
+	function handleScriptComplete() {
+		const currentIndex = scriptKeys.indexOf(selectedScript);
+		const nextIndex = (currentIndex + 1) % scriptKeys.length;
+
+		// Switch to next script immediately (delay is handled in TerminalMockup)
+		selectedScript = scriptKeys[nextIndex];
+	}
+
+	function getScript(): ScriptStep[] | undefined {
+		return scriptsData[selectedScript as keyof typeof scriptsData]?.script as
+			| ScriptStep[]
+			| undefined;
 	}
 </script>
 
@@ -31,9 +53,18 @@
 		<CtaButtons />
 
 		<div class="terminal-with-switcher">
-			<TerminalMockup />
+			<TerminalMockup
+				script={getScript()}
+				onComplete={handleScriptComplete}
+				onProgress={handleProgress}
+			/>
 			<div class="script-switcher">
-				<ScriptSwitcher {scriptsData} onScriptChange={handleScriptChange} />
+				<ScriptSwitcher
+					{scriptsData}
+					onScriptChange={handleScriptChange}
+					{selectedScript}
+					{scriptProgress}
+				/>
 			</div>
 		</div>
 	</div>
