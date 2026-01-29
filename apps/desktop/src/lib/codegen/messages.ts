@@ -10,7 +10,8 @@ import type {
 	ClaudeTodo,
 	PromptAttachment,
 	GitButlerUpdate,
-	SystemMessage
+	SystemMessage,
+	AskUserQuestion
 } from '$lib/codegen/types';
 
 /** A content block that can be either text or a tool call, preserving original order */
@@ -45,6 +46,17 @@ export type Message = { createdAt: string } &
 				toolCalls: ToolCall[];
 				toolCallsPendingApproval: ToolCall[];
 				contentBlocks: ContentBlock[];
+		  }
+		/* Claude is asking the user a question */
+		| {
+				source: 'claude';
+				subtype: 'askUserQuestion';
+				/** The tool_use_id from the AskUserQuestion tool call */
+				toolUseId: string;
+				/** The questions to ask the user */
+				questions: AskUserQuestion[];
+				/** Whether the question has been answered */
+				answered: boolean;
 		  }
 		| ({
 				source: 'system';
@@ -99,7 +111,10 @@ export function formatMessages(
 	const out: Message[] = [];
 	// A mapping to better handle tool call responses when they come in.
 	let toolCalls: Record<string, ToolCall> = {};
+	// Track AskUserQuestion tool calls by their tool_use_id
+	const askUserQuestionToolCalls: Record<string, Message> = {};
 
+	// Type for standard claude messages (not askUserQuestion)
 	type StandardClaudeMessage = { createdAt: string } & {
 		source: 'claude';
 		message: string;
@@ -150,6 +165,23 @@ export function formatMessages(
 					} else if (contentBlock.type === 'tool_use') {
 						const content = contentBlock;
 
+						if (content.name === 'AskUserQuestion') {
+							const input = content.input as { questions: AskUserQuestion[] };
+							const askMessage: Message = {
+								createdAt: message.createdAt,
+								source: 'claude',
+								subtype: 'askUserQuestion',
+								toolUseId: content.id,
+								questions: input.questions,
+								answered: false
+							};
+							out.push(askMessage);
+							askUserQuestionToolCalls[content.id] = askMessage;
+							// Clear lastAssistantMessage since AskUserQuestion is not a standard message
+							lastAssistantMessage = undefined;
+							continue;
+						}
+
 						const toolCall: ToolCall = {
 							id: content.id,
 							name: content.name,
@@ -192,6 +224,19 @@ export function formatMessages(
 				const content = payload.data.message.content;
 				if (Array.isArray(content) && content[0]!.type === 'tool_result') {
 					const result = content[0]!;
+
+					// Check if this is a response to an AskUserQuestion
+					const askMessage = askUserQuestionToolCalls[result.tool_use_id];
+					if (
+						askMessage &&
+						askMessage.source === 'claude' &&
+						'subtype' in askMessage &&
+						askMessage.subtype === 'askUserQuestion'
+					) {
+						askMessage.answered = true;
+						continue;
+					}
+
 					const foundToolCall = toolCalls[result.tool_use_id];
 					if (!foundToolCall) {
 						// This should never happen
@@ -296,7 +341,11 @@ export function formatMessages(
 		}
 		toolCalls = {};
 		// Move pending approval tool calls to completed tool calls
-		if (lastAssistantMessage?.source === 'claude') {
+		// Skip AskUserQuestion messages as they don't have toolCalls
+		if (
+			lastAssistantMessage?.source === 'claude' &&
+			!('subtype' in lastAssistantMessage && lastAssistantMessage.subtype === 'askUserQuestion')
+		) {
 			lastAssistantMessage.toolCalls = [
 				...lastAssistantMessage.toolCalls,
 				...lastAssistantMessage.toolCallsPendingApproval
@@ -335,6 +384,10 @@ type UserFeedbackStatus =
 export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
 	const lastMessage = messages.filter((m) => m.source !== 'gitButler')?.at(-1);
 	if (!lastMessage || lastMessage.source === 'user' || lastMessage.source === 'system') {
+		return { waitingForFeedback: false, msSpentWaiting: 0 };
+	}
+	// AskUserQuestion messages don't have toolCallsPendingApproval
+	if ('subtype' in lastMessage && lastMessage.subtype === 'askUserQuestion') {
 		return { waitingForFeedback: false, msSpentWaiting: 0 };
 	}
 	if (lastMessage.toolCallsPendingApproval.length > 0) {
