@@ -59,6 +59,7 @@ To return to GitButler mode, run:
 /// - Picks the first branch and returns HEAD to it
 /// - Removes other branches' work from working directory
 /// - Preserves virtual branch state
+/// - Preserves all branches
 #[test]
 fn multiple_branches_preserves_state() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
@@ -120,6 +121,16 @@ To return to GitButler mode, run:
         !file_b.exists(),
         "File B should not exist in working directory after teardown"
     );
+
+    // Verify that all branches still exist in Git
+    insta::assert_snapshot!(env.git_log()?, @r"
+    *   c128bce (gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 9477ae7 (HEAD -> A) add A
+    * | d3e2ba3 (B) add B
+    |/  
+    * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+    ");
 
     Ok(())
 }
