@@ -225,8 +225,8 @@ pub trait AnyhowContextExt: private::Sealed {
     /// Note that it could not be named `context()` as this method already exists.
     fn custom_context(&self) -> Option<Context>;
 
-    /// Return our custom context or default it to the root-cause of the error.
-    fn custom_context_or_root_cause(&self) -> Context;
+    /// Return our custom context or, if none is attached, a context whose message contains the error chain.
+    fn custom_context_or_error_chain(&self) -> Context;
 }
 
 impl private::Sealed for anyhow::Error {}
@@ -239,12 +239,28 @@ impl AnyhowContextExt for anyhow::Error {
         }
     }
 
-    fn custom_context_or_root_cause(&self) -> Context {
+    fn custom_context_or_error_chain(&self) -> Context {
         self.custom_context().unwrap_or_else(|| Context {
             code: Code::Unknown,
-            message: Some(self.root_cause().to_string().into()),
+            message: Some(cause_chain(self.as_ref()).into()),
         })
     }
+}
+
+fn cause_chain(err: &(dyn std::error::Error + 'static)) -> String {
+    use std::fmt::Write;
+    let mut message = err.to_string();
+    let mut source = err.source();
+    let mut count = 1;
+    if source.is_some() {
+        message.push_str("\n\nCaused by:\n");
+        while let Some(err) = source {
+            writeln!(message, "    {count}: {err}").ok();
+            source = err.source();
+            count += 1;
+        }
+    }
+    message
 }
 
 /// A way to mark errors using `[anyhow::Context::context]` for later retrieval, e.g. to know

@@ -116,3 +116,6 @@ git2.workspace = true
 open.workspace = true
 url = { version = "2.5", optional = true }
 uuid.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
