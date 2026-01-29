@@ -203,12 +203,9 @@
 		cursor: pointer;
 		transition: color 0.2s ease;
 
-		&.active {
-			color: var(--clr-theme-gray-on-element);
-		}
-
+		&.active,
 		&.hovered {
-			color: var(--clr-theme-pop-on-element);
+			color: var(--clr-bg-1);
 		}
 
 		&.dimmed {
