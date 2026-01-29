@@ -45,7 +45,7 @@
 </script>
 
 <section class="hero">
-	<Header disableLogoLink />
+	<Header />
 
 	<div class="hero-content">
 		<HeroHeader {currentPage} {descriptionContent} />
