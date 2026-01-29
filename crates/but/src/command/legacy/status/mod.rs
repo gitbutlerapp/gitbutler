@@ -1057,7 +1057,7 @@ impl CliDisplay for but_update::AvailableUpdate {
             format!(
                 "Update available: {} {}",
                 version_info,
-                "(run `but status -v` for link or `but update suppress` to dismiss)".dimmed()
+                "(you can run `but update install` or `but update suppress` to dismiss)".dimmed()
             )
         }
     }
