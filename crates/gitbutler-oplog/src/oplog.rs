@@ -379,11 +379,6 @@ pub fn prepare_snapshot(
     let default_target_commit = repo.find_commit(vb_state.get_default_target()?.sha)?;
     let target_tree_id = default_target_commit.tree_id();
 
-    // Create a blob out of `.git/gitbutler/virtual_branches.toml`
-    let vb_path = repo.path().join("gitbutler").join("virtual_branches.toml");
-    let vb_content = fs::read(vb_path)?;
-    let vb_blob_id = repo.blob(&vb_content)?;
-
     // Create a tree out of the conflicts state if present
     let conflicts_tree_id = write_conflicts_tree(&repo)?;
 
@@ -396,7 +391,6 @@ pub fn prepare_snapshot(
     tree_builder.insert("index", index_tree_oid, FileMode::Tree.into())?;
     tree_builder.insert("target_tree", target_tree_id, FileMode::Tree.into())?;
     tree_builder.insert("conflicts", conflicts_tree_id, FileMode::Tree.into())?;
-    tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
 
     // go through all virtual branches and create a subtree for each with the tree and any commits encoded
     let mut branches_tree_builder = repo.treebuilder(None)?;
@@ -450,6 +444,14 @@ pub fn prepare_snapshot(
         )?;
     }
 
+    // The loop above may update the toml file in the stack.sync_heads_with_references call so write the virtual_branches.toml after
+    // It may be the case that with the refactoring through `but-meta` the head value is no longer in sync so sync_heads_with_references is the final attempt to sync it
+    // This is relevant only for snapshot restore.
+    // Create a blob out of `.git/gitbutler/virtual_branches.toml`
+    let vb_path = repo.path().join("gitbutler").join("virtual_branches.toml");
+    let vb_content = fs::read(vb_path)?;
+    let vb_blob_id = repo.blob(&vb_content)?;
+    tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
     // Add the worktree tree
     let worktree = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
     tree_builder.insert("worktree", worktree.id(), FileMode::Tree.into())?;
