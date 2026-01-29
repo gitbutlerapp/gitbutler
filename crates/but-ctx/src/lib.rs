@@ -5,6 +5,8 @@
 use but_core::sync::{WorkspaceReadGuard, WorkspaceWriteGuard, WorktreeWritePermission};
 use but_core::{RepositoryExt, sync::WorktreeReadPermission};
 use but_settings::AppSettings;
+use std::cell;
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use tracing::instrument;
 
@@ -85,6 +87,10 @@ pub struct Context {
     /// The legacy implementation, for all the old code.
     #[cfg(feature = "legacy")]
     pub legacy_project: LegacyProject,
+
+    /// A workspace based on any version of `repo`. It's expected to be kept up-to-date
+    /// by anyone who changes it.
+    workspace: RefCell<Option<but_graph::projection::Workspace>>,
 }
 
 /// A structure that can be passed across thread boundaries.
@@ -128,6 +134,7 @@ impl From<ThreadSafeContext> for Context {
             app_cache_dir,
             #[cfg(feature = "legacy")]
             legacy_project,
+            workspace: Default::default(),
         }
     }
 }
@@ -178,6 +185,7 @@ impl Context {
                 db: new_ondemand_db(gitdir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
+                workspace: Default::default(),
             })
         }
         #[cfg(feature = "legacy")]
@@ -198,6 +206,7 @@ impl Context {
                 db: new_ondemand_db(gitdir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
+                workspace: Default::default(),
             }
             .with_repo(repo))
         }
@@ -226,6 +235,7 @@ impl Context {
                 db: new_ondemand_db(gitdir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
+                workspace: Default::default(),
             }
             .with_repo(repo))
         }
@@ -241,6 +251,7 @@ impl Context {
                 db: new_ondemand_db(gitdir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
+                workspace: Default::default(),
             })
         }
     }
@@ -264,6 +275,7 @@ impl Context {
             db: new_ondemand_db(gitdir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
+            workspace: Default::default(),
         }
         .with_repo(repo))
     }
@@ -309,20 +321,54 @@ impl Context {
         Ok((guard, meta, graph.into_workspace()?))
     }
 
-    /// Create a new workspace as seen from the current HEAD for editing, and return it.
+    /// Create a cached workspace as seen from the current HEAD for editing, and return it.
     /// `perm` ensures exclusive process-wide access to the workspace.
+    /// Once the repository is changed, the cache should be updated.
+    ///
+    /// **IMPORTANT**: if the workspace was changed,
+    /// use [set_workspace_cache()](Self::set_workspace_cache) to update it.
+    // TODO: it would be great to also get meta out of the returned `db`
     #[instrument(
         name = "Context::workspace_for_editing_with_perm",
         level = "debug",
-        skip_all,
-        err(Debug)
+        skip_all
     )]
     pub fn workspace_for_editing_with_perm(
-        &self,
+        &mut self,
         perm: &mut WorktreeWritePermission,
-    ) -> anyhow::Result<but_graph::projection::Workspace> {
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::projection::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        let repo = self.repo.get()?;
+        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
+        {
+            let db = self.db.get_mut()?;
+            return Ok((repo, cached, db));
+        }
         let (_meta, graph) = self.graph_and_read_only_meta_from_head(perm.read_permission())?;
-        graph.into_workspace()
+        let ws = graph.into_workspace()?;
+
+        {
+            let mut value = self.workspace.try_borrow_mut()?;
+            *value = Some(ws);
+        }
+        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| opt.as_ref())
+            .unwrap_or_else(|_| unreachable!("just set the value"));
+        let db = self.db.get_mut()?;
+        Ok((repo, ws, db))
+    }
+
+    /// Update the cached workspace to be `ws` instead.
+    /// This should be called each time the workspace is changed.
+    pub fn set_workspace_cache(
+        &mut self,
+        ws: but_graph::projection::Workspace,
+    ) -> anyhow::Result<()> {
+        let mut value = self.workspace.try_borrow_mut()?;
+        *value = Some(ws);
+        Ok(())
     }
 
     /// Create a new workspace as seen from the current HEAD for editing and return it,
@@ -459,21 +505,6 @@ impl Context {
         )
     }
 
-    /// Return a wrapper for metadata that supports mutation when presented with the project wide permission
-    /// to write data.
-    /// This is helping to prevent races with other mutable instances.
-    // TODO: remove _read_only as we don't need it anymore with a DB based implementation as long as the instances
-    //       starts a transaction to isolate reads.
-    //       For a correct implementation, this would also have to hold on to `_exclusive`.
-    pub fn meta_mut(
-        &mut self,
-        _exclusive: &but_core::sync::WorktreeWritePermission,
-    ) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
-        but_meta::VirtualBranchesTomlMetadata::from_path(
-            self.project_data_dir().join("virtual_branches.toml"),
-        )
-    }
-
     /// Copy all copyable values into an instance to pass across thread boundaries.
     pub fn to_sync(&self) -> ThreadSafeContext {
         ThreadSafeContext {
@@ -498,6 +529,7 @@ impl Context {
             app_cache_dir,
             #[cfg(feature = "legacy")]
             legacy_project,
+            workspace: _,
         } = self;
         ThreadSafeContext {
             settings,

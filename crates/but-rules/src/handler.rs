@@ -1,12 +1,12 @@
 use crate::{Filter, StackTarget};
+use anyhow::ensure;
 use but_core::sync::WorktreeWritePermission;
 use but_core::{ChangeId, DiffSpec, ref_metadata::StackId};
 use but_ctx::Context;
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
-use but_meta::VirtualBranchesTomlMetadata;
-use but_workspace::legacy::{StacksFilter, commit_engine, ui::StackEntry};
+use but_workspace::legacy::commit_engine;
 use itertools::Itertools;
 use std::path::Path;
 use std::str::FromStr;
@@ -41,54 +41,69 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    let repo = &*ctx.repo.get()?;
-    let ws = &ctx.workspace_for_editing_with_perm(perm)?;
+    // TODO: meta to be retrieved from `db` instead.
+    let maybe_new_ws = {
+        let project_data_dir = ctx.project_data_dir();
+        let context_lines = ctx.settings.context_lines;
+        let mut meta = ctx.meta(perm.read_permission())?;
+        let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
 
-    let stacks_in_ws = {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::legacy::stacks_v3(repo, &meta, StacksFilter::InWorkspace, None)
-    }?;
+        let stack_ids: Vec<_> = ws.stacks.iter().filter_map(|s| s.id).collect();
+        let mut new_ws = None;
 
-    for rule in rules {
-        match rule.action {
-            super::Action::Explicit(super::Operation::Assign { target }) => {
-                if let Some(stack_id) = get_or_create_stack_id(ctx, target, &stacks_in_ws, perm) {
-                    let assignments = matching(assignments, rule.filters.clone())
-                        .into_iter()
-                        .filter(|e| e.stack_id != Some(stack_id))
-                        .map(|mut e| {
-                            e.stack_id = Some(stack_id);
-                            e
-                        })
-                        .collect_vec();
-                    updates += handle_assign(
-                        ctx.db.get_mut()?.hunk_assignments_mut()?,
-                        repo,
-                        ws,
+        for rule in rules {
+            match rule.action {
+                super::Action::Explicit(super::Operation::Assign { target }) => {
+                    if let Some((stack_id, maybe_new_ws)) =
+                        get_or_create_stack_id(&repo, &ws, &mut meta, target, &stack_ids, perm)
+                    {
+                        if let Some(ws) = maybe_new_ws {
+                            ensure!(
+                                new_ws.is_none(),
+                                "BUG: new stacks are only created once if there are no stacks"
+                            );
+                            new_ws = Some(ws);
+                        }
+                        let assignments = matching(assignments, rule.filters.clone())
+                            .into_iter()
+                            .filter(|e| e.stack_id != Some(stack_id))
+                            .map(|mut e| {
+                                e.stack_id = Some(stack_id);
+                                e
+                            })
+                            .collect_vec();
+                        updates += handle_assign(
+                            db.hunk_assignments_mut()?,
+                            &repo,
+                            new_ws.as_ref().unwrap_or(&ws),
+                            assignments,
+                            dependencies.as_ref(),
+                            context_lines,
+                        )
+                        .unwrap_or_default();
+                    }
+                }
+                super::Action::Explicit(super::Operation::Amend { change_id }) => {
+                    let assignments = matching(assignments, rule.filters.clone());
+                    handle_amend(
+                        &project_data_dir,
+                        &repo,
+                        new_ws.as_ref().unwrap_or(&ws),
                         assignments,
-                        dependencies.as_ref(),
-                        ctx.settings.context_lines,
+                        &change_id,
+                        perm,
+                        context_lines,
                     )
                     .unwrap_or_default();
                 }
-            }
-            super::Action::Explicit(super::Operation::Amend { change_id }) => {
-                let assignments = matching(assignments, rule.filters.clone());
-                handle_amend(
-                    &ctx.project_data_dir(),
-                    repo,
-                    ws,
-                    assignments,
-                    &change_id,
-                    perm,
-                    ctx.settings.context_lines,
-                )
-                .unwrap_or_default();
-            }
-            _ => continue,
-        };
+                _ => continue,
+            };
+        }
+        new_ws
+    };
+
+    if let Some(ws) = maybe_new_ws {
+        ctx.set_workspace_cache(ws)?;
     }
     Ok(updates)
 }
@@ -136,21 +151,18 @@ fn handle_amend(
 }
 
 fn get_or_create_stack_id(
-    ctx: &Context,
+    repo: &gix::Repository,
+    ws: &but_graph::projection::Workspace,
+    meta: &mut impl but_core::RefMetadata,
     target: StackTarget,
-    stacks_in_ws: &[StackEntry],
+    stack_ids_in_ws: &[StackId],
     perm: &mut WorktreeWritePermission,
-) -> Option<StackId> {
-    let sorted_stack_ids = stacks_in_ws
-        .iter()
-        .sorted_by(|a, b| Ord::cmp(&a.order.unwrap_or_default(), &b.order.unwrap_or_default()))
-        .filter_map(|s| s.id)
-        .collect_vec();
+) -> Option<(StackId, Option<but_graph::projection::Workspace>)> {
     match target {
         StackTarget::StackId(stack_id) => {
             if let Ok(stack_id) = StackId::from_str(&stack_id) {
-                if sorted_stack_ids.iter().any(|e| e == &stack_id) {
-                    Some(stack_id)
+                if stack_ids_in_ws.iter().any(|e| e == &stack_id) {
+                    Some((stack_id, None))
                 } else {
                     None
                 }
@@ -159,44 +171,50 @@ fn get_or_create_stack_id(
             }
         }
         StackTarget::Leftmost => {
-            if sorted_stack_ids.is_empty() {
-                create_stack(ctx, perm).ok()
+            if stack_ids_in_ws.is_empty() {
+                create_stack(repo, ws, meta, perm)
+                    .ok()
+                    .map(|(id, ws)| (id, Some(ws)))
             } else {
-                sorted_stack_ids.first().cloned()
+                stack_ids_in_ws.first().copied().map(|id| (id, None))
             }
         }
         StackTarget::Rightmost => {
-            if sorted_stack_ids.is_empty() {
-                create_stack(ctx, perm).ok()
+            if stack_ids_in_ws.is_empty() {
+                create_stack(repo, ws, meta, perm)
+                    .ok()
+                    .map(|(id, ws)| (id, Some(ws)))
             } else {
-                sorted_stack_ids.last().cloned()
+                stack_ids_in_ws.last().copied().map(|id| (id, None))
             }
         }
     }
 }
 
-fn create_stack(ctx: &Context, perm: &mut WorktreeWritePermission) -> anyhow::Result<StackId> {
+fn create_stack(
+    repo: &gix::Repository,
+    ws: &but_graph::projection::Workspace,
+    meta: &mut impl but_core::RefMetadata,
+    _perm: &mut WorktreeWritePermission,
+) -> anyhow::Result<(StackId, but_graph::projection::Workspace)> {
     use anyhow::Context;
-    let repo = &*ctx.repo.get()?;
     let branch_name = but_core::branch::unique_canned_refname(repo)?;
-    let ws = ctx.workspace_for_editing_with_perm(perm)?;
-    let mut meta = ctx.meta(perm.read_permission())?;
     let new_ws = but_workspace::branch::create_reference(
         branch_name.as_ref(),
         None,
         repo,
-        &ws,
-        &mut meta,
+        ws,
+        meta,
         |_| StackId::generate(),
         None,
     )?;
     let (stack, _) = new_ws
         .find_segment_and_stack_by_refname(branch_name.as_ref())
         .context("BUG: need to find stack that was just created")?;
-    // TODO: when caching is available, return new_ws and update the mut ctx
     stack
         .id
         .context("BUG: newly created stacks always have an ID")
+        .map(|id| (id, new_ws.into_owned()))
 }
 
 fn handle_assign(

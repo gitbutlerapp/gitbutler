@@ -306,24 +306,24 @@ pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
 /// NOTE: may create an empty branch!
 pub fn process_rules(ctx: &mut Context, perm: &mut WorktreeWritePermission) -> anyhow::Result<()> {
     let (assignments, dependencies) = {
-        let ws = ctx.workspace_for_editing_with_perm(perm)?;
-        let repo = &*ctx.repo.get()?;
-        let wt_changes = but_core::diff::worktree_changes(repo)?;
+        let context_lines = ctx.settings.context_lines;
+        let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
+        let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            repo,
+            &repo,
             &ws,
             Some(wt_changes.changes.clone()),
         )?;
 
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
-            repo,
+            db.hunk_assignments_mut()?,
+            &repo,
             &ws,
             false,
             Some(wt_changes.changes),
             Some(&dependencies),
-            ctx.settings.context_lines,
+            context_lines,
         )
         .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
         (assignments, dependencies)

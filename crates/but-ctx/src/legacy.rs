@@ -35,6 +35,7 @@ impl Context {
             db: new_ondemand_db(gitdir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
+            workspace: Default::default(),
         }
     }
 
@@ -53,6 +54,7 @@ impl Context {
             db: new_ondemand_db(gitdir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
+            workspace: Default::default(),
         })
     }
 
@@ -71,6 +73,7 @@ impl Context {
             db: new_ondemand_db(gitdir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
+            workspace: Default::default(),
         })
     }
 }

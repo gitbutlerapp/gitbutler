@@ -93,8 +93,8 @@ impl Handler {
         ctx: &mut Context,
         perm: &mut WorktreeWritePermission,
     ) -> Result<()> {
-        let repo = ctx.repo.get()?;
-        let ws = ctx.workspace_for_editing_with_perm(perm)?;
+        let context_lines = ctx.settings.context_lines;
+        let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
 
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
@@ -105,12 +105,12 @@ impl Handler {
         );
 
         let (assignments, assignments_error) = assignments_and_errors(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
             &ws,
             wt_changes.changes.clone(),
             &dependencies,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
 
         let mut changes = but_hunk_assignment::WorktreeChanges {
@@ -123,7 +123,7 @@ impl Handler {
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
-        drop(repo);
+        drop((repo, ws, db));
         if let Ok(update_count) = but_rules::handler::process_workspace_rules(
             ctx,
             &assignments,
@@ -131,15 +131,15 @@ impl Handler {
             perm,
         ) && update_count > 0
         {
-            let repo = &*ctx.repo.get()?;
+            let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
             // Getting these again since they were updated
             let (assignments, assignments_error) = assignments_and_errors(
-                ctx.db.get_mut()?.hunk_assignments_mut()?,
-                repo,
+                db.hunk_assignments_mut()?,
+                &repo,
                 &ws,
                 wt_changes.changes.clone(),
                 &dependencies,
-                ctx.settings.context_lines,
+                context_lines,
             )?;
             changes = but_hunk_assignment::WorktreeChanges {
                 worktree_changes: wt_changes.into(),
