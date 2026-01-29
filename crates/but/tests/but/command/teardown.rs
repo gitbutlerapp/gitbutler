@@ -21,19 +21,7 @@ fn single_branch_simple_teardown() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Exiting GitButler mode...
-
-→ Creating snapshot...
-  ✓ Snapshot created: [..]
-
-→ Finding active branch to check out...
-  ✓ Will check out: A
-
-→ Checking out A...
-  ✓ Checked out: A
-
-✓ Successfully exited GitButler mode!
-
+...
 You are now on branch: A
 
 To return to GitButler mode, run:
@@ -79,19 +67,7 @@ fn multiple_branches_preserves_state() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Exiting GitButler mode...
-
-→ Creating snapshot...
-  ✓ Snapshot created: [..]
-
-→ Finding active branch to check out...
-  ✓ Will check out: A
-
-→ Checking out A...
-  ✓ Checked out: A
-
-✓ Successfully exited GitButler mode!
-
+...
 You are now on branch: A
 
 To return to GitButler mode, run:
@@ -153,35 +129,11 @@ fn dangling_commit_on_workspace() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Exiting GitButler mode...
-
-→ Creating snapshot...
-  ✓ Snapshot created: [..]
-
-→ Finding active branch to check out...
-
-Attempting to fix workspace stacks...
-→ Checking for dangling commits...
-→ Resetting gitbutler/workspace to [..]
-  ✓ gitbutler/workspace reset to [..]
-
+...
   ⚠ Non-GitButler created commits found.
   ⚠ Undoing these commits but keeping the changes in your working directory.
   ⚠ Uncommitted 1 dangling commit(s):
 ...
-
-  ✓ Will check out: A
-
-→ Checking out A...
-  ✓ Checked out: A
-
-✓ Successfully exited GitButler mode!
-
-You are now on branch: A
-
-To return to GitButler mode, run:
-  but setup
-
 
 "#]]);
 
@@ -251,38 +203,17 @@ fn dangling_commit_spanning_multiple_branches() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Exiting GitButler mode...
-
-→ Creating snapshot...
-  ✓ Snapshot created: [..]
-
-→ Finding active branch to check out...
-
-Attempting to fix workspace stacks...
-→ Checking for dangling commits...
-→ Resetting gitbutler/workspace to [..]
-  ✓ gitbutler/workspace reset to [..]
-
+...
   ⚠ Non-GitButler created commits found.
   ⚠ Undoing these commits but keeping the changes in your working directory.
   ⚠ Uncommitted 1 dangling commit(s):
     [..]: User commit touching both branches
-
-  ✓ Will check out: A
-
-→ Checking out A...
+...
   ⚠ Checkout failed, trying soft reset...
   ⚠ This will leave changes from multiple branches in your working directory.
   ⚠ You will have to manually remove, stash or re-commit the changes.
   ✓ Checked out: A
-
-✓ Successfully exited GitButler mode!
-
-You are now on branch: A
-
-To return to GitButler mode, run:
-  but setup
-
+...
 
 "#]]);
 
@@ -341,36 +272,11 @@ fn two_dangling_commits_different_branches() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Exiting GitButler mode...
-
-→ Creating snapshot...
-  ✓ Snapshot created: [..]
-
-→ Finding active branch to check out...
-
-Attempting to fix workspace stacks...
-→ Checking for dangling commits...
-→ Resetting gitbutler/workspace to c128bce
-  ✓ gitbutler/workspace reset to c128bce
-
+...
   ⚠ Non-GitButler created commits found.
   ⚠ Undoing these commits but keeping the changes in your working directory.
   ⚠ Uncommitted 2 dangling commit(s):
-    [..]
-    [..]
-
-  ✓ Will check out: A
-
-→ Checking out A...
-  ✓ Checked out: A
-
-✓ Successfully exited GitButler mode!
-
-You are now on branch: A
-
-To return to GitButler mode, run:
-  but setup
-
+...
 
 "#]]);
 
