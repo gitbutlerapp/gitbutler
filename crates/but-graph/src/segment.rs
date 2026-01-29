@@ -1,7 +1,6 @@
+use crate::{CommitIndex, SegmentIndex};
 use bitflags::bitflags;
 use bstr::{BString, ByteSlice};
-
-use crate::{CommitIndex, SegmentIndex};
 
 /// A commit with must useful information extracted from the Git commit itself.
 #[derive(Clone, Eq, PartialEq)]

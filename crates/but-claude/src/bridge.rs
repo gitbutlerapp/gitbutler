@@ -26,9 +26,21 @@ use std::{
     sync::Arc,
 };
 
+use crate::{
+    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
+    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
+    broadcaster::FrontendEvent,
+    claude_config::fmt_claude_settings,
+    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
+    claude_settings::ClaudeSettings,
+    db::{self, list_messages_by_session},
+    rules::{create_claude_assignment_rule, list_claude_assignment_rules},
+    send_claude_message,
+};
 use anyhow::{Result, bail};
 use but_action::cli::get_cli_path;
 use but_core::ref_metadata::StackId;
+use but_core::sync::WorktreeWritePermission;
 use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
@@ -40,18 +52,6 @@ use tokio::{
         Mutex,
         mpsc::{UnboundedSender, unbounded_channel},
     },
-};
-
-use crate::{
-    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
-    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
-    broadcaster::FrontendEvent,
-    claude_config::fmt_claude_settings,
-    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
-    claude_settings::ClaudeSettings,
-    db::{self, list_messages_by_session},
-    rules::{create_claude_assignment_rule, list_claude_assignment_rules},
-    send_claude_message,
 };
 
 /// Holds the CC instances. Currently keyed by stackId, since our current model
@@ -201,13 +201,9 @@ impl Claudes {
         // simplify this
         let (summary_to_resume, session_id, session) = {
             let mut ctx = sync_ctx.clone().into_thread_local();
+            let mut guard = ctx.exclusive_worktree_access();
 
             // Create repo and workspace once at the entry point
-            let guard = ctx.exclusive_worktree_access();
-            let repo = ctx.repo.get()?.clone();
-            let (_, workspace) =
-                ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
             let rule = {
                 list_claude_assignment_rules(&ctx)?
                     .into_iter()
@@ -216,7 +212,7 @@ impl Claudes {
 
             let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
-            let session = upsert_session(&mut ctx, &repo, &workspace, session_id, stack_id)?;
+            let session = upsert_session(&mut ctx, session_id, stack_id, guard.write_permission())?;
             let ctx = sync_ctx.clone().into_thread_local();
             let messages = list_messages_by_session(&ctx, session.id)?;
 
@@ -544,7 +540,7 @@ async fn spawn_command(
             command.arg(format_message(&message, user_params.thinking_level));
         }
     }
-    tracing::info!("spawn_command: {:?}", command);
+    tracing::debug!(?command, "claude::spawn_command");
     Ok(command.spawn()?)
 }
 
@@ -855,17 +851,16 @@ fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
 /// and makes a corresponding rule
 fn upsert_session(
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     session_id: uuid::Uuid,
     stack_id: StackId,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<crate::ClaudeSession> {
     let session = if let Some(session) = db::get_session_by_id(ctx, session_id)? {
         db::set_session_in_gui(ctx, session_id, true)?;
         session
     } else {
         let session = db::save_new_session_with_gui_flag(ctx, session_id, true)?;
-        create_claude_assignment_rule(ctx, repo, workspace, session_id, stack_id)?;
+        create_claude_assignment_rule(ctx, session_id, stack_id, perm)?;
         session
     };
     Ok(session)

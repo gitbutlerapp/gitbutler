@@ -125,6 +125,17 @@ impl Workspace {
             .all(|s| s.segments.iter().all(|s| !s.is_entrypoint))
     }
 
+    /// Return an iterator over all commits in the workspace,
+    /// i.e. all commits in all segments in all stacks.
+    ///
+    /// This doesn't include the workspace commit.
+    pub fn commits(&self) -> impl Iterator<Item = &StackCommit> + '_ {
+        self.stacks
+            .iter()
+            .flat_map(|s| s.segments.iter())
+            .flat_map(|s| s.commits.iter())
+    }
+
     /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch.
     pub fn is_branch_the_target_or_its_local_tracking_branch(
         &self,

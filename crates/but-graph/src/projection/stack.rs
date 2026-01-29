@@ -3,6 +3,7 @@ use std::fmt::Formatter;
 use anyhow::{Context as _, bail};
 use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
+use gix::prelude::ObjectIdExt;
 use petgraph::Direction;
 
 use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata, init::PetGraph};
@@ -415,7 +416,7 @@ impl StackSegment {
     }
 }
 
-/// A combination of [Commits](crate::Commit).
+/// The same as [Commits](crate::Commit), but with [StackCommitFlags].
 #[derive(Clone, Eq, PartialEq)]
 pub struct StackCommit {
     /// The hash of the commit.
@@ -429,7 +430,22 @@ pub struct StackCommit {
     pub refs: Vec<crate::RefInfo>,
 }
 
+/// Utilities
 impl StackCommit {
+    /// Attach this commit to `repo` for more detailed access of the commit itself
+    /// via [`but_core::Commit`].
+    ///
+    /// # Performance Warning
+    ///
+    /// Don't do this light-heartedly as it decodes the commit, parses it, *and* copies
+    /// all fields into an owned instance. This is expensive.
+    pub fn attach<'repo>(
+        &self,
+        repo: &'repo gix::Repository,
+    ) -> anyhow::Result<but_core::Commit<'repo>> {
+        but_core::Commit::from_id(self.id.attach(repo))
+    }
+
     /// Return an iterator over all reference names that point to this commit.
     pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> + Clone {
         self.refs.iter().map(|ri| ri.ref_name.as_ref())

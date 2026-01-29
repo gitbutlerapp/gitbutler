@@ -37,6 +37,20 @@ pub struct ProjectHandle(#[expect(dead_code)] String);
 ///
 /// It's fine for it to one day receive thread-safe shared state, as needed, similar to [`gix::Repository`].
 ///
+/// ### DEADLOCK-ALERT: Beware of passing `ctx`: About Composability!
+///
+/// The callee *may* try to obtain their own locks which will deadlock if the caller is also holding
+/// any lock. Don't for get to drop your own guards before making such calls.
+///
+/// Assume all `but_api` functions obtain a lock on their own.
+///
+/// Alternatively, design the callee to use [`WorktreeWritePermission`] or [`WorktreeReadPermission`] which
+/// is automatically composable and deadlock free.
+///
+/// Locks may only be acquired by top-level callers, with permissions being passed down as needed.
+/// Note that plumbing should not be forced to create permissions (which is inconvenient for testing),
+/// and instead rely on the caller to know it's needed.
+///
 /// ### Why Interior Mutability?
 ///
 /// This is for ergonomics, to avoid having to set the context as `mut` for all uses effectively as it
@@ -269,20 +283,21 @@ impl Context {
 
 /// Trampolines that create new uncached instances of major types.
 impl Context {
-    /// Create a new workspace as seen from the current HEAD and return it,
-    /// without the metadata that was used to create it,
-    /// but returning a guard for exclusive access to the workspace.
+    /// Create a new workspace as seen from the current HEAD for editing and return it,
+    /// along with the metadata that was used to create it, and
+    /// a guard for exclusive access to the workspace.
     ///
     /// # IMPORTANT
     ///
-    /// Keep the guard alive like `let (_guard, ws) = …`!
+    /// Keep the guard alive like `let (_guard, meta, ws) = …`!
+    // TODO: do not return the metadata as it's part of the database.
     #[instrument(
-        name = "Context::workspace_and_meta_from_head_for_editing",
+        name = "Context::workspace_and_meta_for_editing",
         level = "debug",
         skip_all,
         err(Debug)
     )]
-    pub fn workspace_and_meta_from_head_for_editing(
+    pub fn workspace_and_meta_for_editing(
         &self,
     ) -> anyhow::Result<(
         WorkspaceWriteGuard,
@@ -294,9 +309,46 @@ impl Context {
         Ok((guard, meta, graph.into_workspace()?))
     }
 
-    /// Create a new workspace as seen from the current HEAD and return it,
-    /// without the metadata that used to create it,
-    /// but with a guard to prevent writers while the read is in progress.
+    /// Create a new workspace as seen from the current HEAD for editing, and return it.
+    /// `perm` ensures exclusive process-wide access to the workspace.
+    #[instrument(
+        name = "Context::workspace_for_editing_with_perm",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn workspace_for_editing_with_perm(
+        &self,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<but_graph::projection::Workspace> {
+        let (_meta, graph) = self.graph_and_read_only_meta_from_head(perm.read_permission())?;
+        graph.into_workspace()
+    }
+
+    /// Create a new workspace as seen from the current HEAD for editing and return it,
+    /// but without the metadata that was used to create it, and
+    /// a guard for exclusive access to the workspace.
+    ///
+    /// # IMPORTANT
+    ///
+    /// Keep the guard alive like `let (_guard, ws) = …`!
+    #[instrument(
+        name = "Context::workspace_for_editing",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn workspace_for_editing(
+        &self,
+    ) -> anyhow::Result<(WorkspaceWriteGuard, but_graph::projection::Workspace)> {
+        let guard = self.exclusive_worktree_access();
+        let (_meta, graph) = self.graph_and_read_only_meta_from_head(guard.read_permission())?;
+        Ok((guard, graph.into_workspace()?))
+    }
+
+    /// Create a new workspace as seen from the current HEAD for reading and return it,
+    /// but without the metadata that was used to create it, and
+    /// a guard for shared access to the workspace.
     ///
     /// # IMPORTANT
     ///
@@ -307,7 +359,7 @@ impl Context {
         skip_all,
         err(Debug)
     )]
-    pub fn workspace_from_head(
+    pub fn workspace(
         &self,
     ) -> anyhow::Result<(WorkspaceReadGuard, but_graph::projection::Workspace)> {
         let guard = self.shared_worktree_access();
@@ -401,6 +453,21 @@ impl Context {
     pub fn meta(
         &self,
         _read_only: &but_core::sync::WorktreeReadPermission,
+    ) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
+        but_meta::VirtualBranchesTomlMetadata::from_path(
+            self.project_data_dir().join("virtual_branches.toml"),
+        )
+    }
+
+    /// Return a wrapper for metadata that supports mutation when presented with the project wide permission
+    /// to write data.
+    /// This is helping to prevent races with other mutable instances.
+    // TODO: remove _read_only as we don't need it anymore with a DB based implementation as long as the instances
+    //       starts a transaction to isolate reads.
+    //       For a correct implementation, this would also have to hold on to `_exclusive`.
+    pub fn meta_mut(
+        &mut self,
+        _exclusive: &but_core::sync::WorktreeWritePermission,
     ) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
         but_meta::VirtualBranchesTomlMetadata::from_path(
             self.project_data_dir().join("virtual_branches.toml"),

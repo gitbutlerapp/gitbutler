@@ -19,6 +19,7 @@ impl Context {
     /// Return a guard for exclusive (read+write) worktree access, blocking while waiting for someone else,
     /// in the same process only, to release it, or for all readers to disappear.
     /// Locking is fair.
+    /// Note that this works on a shared reference as internal state isn't changed.
     ///
     /// Note that this in-process locking works only under the assumption that no two instances of
     /// GitButler are able to read or write the same repository.

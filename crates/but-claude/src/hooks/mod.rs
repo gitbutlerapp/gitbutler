@@ -143,23 +143,11 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
 
     // Create repo and workspace once at the entry point
     let mut guard = defer.ctx.exclusive_worktree_access();
-    let repo = defer.ctx.repo.get()?.clone();
-    let (_, workspace) = defer
-        .ctx
-        .workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
     let stacks = list_stacks(defer.ctx)?;
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let stack_id = get_or_create_session(
-        defer.ctx,
-        guard.write_permission(),
-        &repo,
-        &workspace,
-        &session_id,
-        stacks,
-    )?;
+    let stack_id = get_or_create_session(defer.ctx, guard.write_permission(), &session_id, stacks)?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
     // lock so we need to drop this here to ensure we don't end up with a deadlock.
@@ -436,14 +424,7 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
 
     let stacks = list_stacks(defer.ctx)?;
 
-    let stack_id = get_or_create_session(
-        defer.ctx,
-        guard.write_permission(),
-        &repo,
-        &workspace,
-        &session_id,
-        stacks,
-    )?;
+    let stack_id = get_or_create_session(defer.ctx, guard.write_permission(), &session_id, stacks)?;
 
     let changes =
         but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
@@ -513,8 +494,6 @@ fn original_session_id(ctx: &mut Context, current_id: String) -> Result<String> 
 pub fn get_or_create_session(
     ctx: &mut Context,
     perm: &mut WorktreeWritePermission,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     session_id: &str,
     stacks: Vec<but_workspace::legacy::ui::StackEntry>,
 ) -> Result<StackId, anyhow::Error> {
@@ -533,9 +512,7 @@ pub fn get_or_create_session(
             stack_id
         } else {
             let stack_id = create_stack(ctx, perm)?;
-            crate::rules::update_claude_assignment_rule_target(
-                ctx, repo, workspace, rule.id, stack_id,
-            )?;
+            crate::rules::update_claude_assignment_rule_target(ctx, rule.id, stack_id, perm)?;
             stack_id
         }
     } else {
@@ -544,10 +521,9 @@ pub fn get_or_create_session(
         let stack_id = create_stack(ctx, perm)?;
         crate::rules::create_claude_assignment_rule(
             ctx,
-            repo,
-            workspace,
             Uuid::parse_str(session_id)?,
             stack_id,
+            perm,
         )?;
         stack_id
     };

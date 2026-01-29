@@ -14,7 +14,7 @@ pub(crate) fn assign_uncommitted_to_branch(
 ) -> anyhow::Result<()> {
     let description = uncommitted_cli_id.describe();
 
-    let (_guard, ws) = ctx.workspace_from_head()?;
+    let (_guard, ws) = ctx.workspace()?;
 
     let assignments = uncommitted_cli_id
         .hunk_assignments
@@ -41,7 +41,7 @@ pub(crate) fn assign_uncommitted_to_stack(
 ) -> anyhow::Result<()> {
     let description = uncommitted_cli_id.describe();
 
-    let (_guard, workspace) = ctx.workspace_from_head()?;
+    let (_guard, workspace) = ctx.workspace()?;
 
     let assignments = uncommitted_cli_id
         .hunk_assignments
@@ -73,7 +73,7 @@ pub(crate) fn unassign_uncommitted(
 ) -> anyhow::Result<()> {
     let description = uncommitted_cli_id.describe();
 
-    let (_guard, ws) = ctx.workspace_from_head()?;
+    let (_guard, ws) = ctx.workspace()?;
 
     let assignments = uncommitted_cli_id
         .hunk_assignments
@@ -142,7 +142,7 @@ fn assign_all_inner(
     )?
     .changes;
 
-    let (_, ws) = ctx.workspace_from_head()?;
+    let (_, ws) = ctx.workspace()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         ctx.db.get_mut()?.hunk_assignments_mut()?,
         &*ctx.repo.get()?,

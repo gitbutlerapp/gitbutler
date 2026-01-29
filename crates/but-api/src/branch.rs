@@ -13,7 +13,7 @@ pub fn apply_only(
     ctx: &but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
-    let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
+    let (_guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
     let repo = ctx.repo.get()?;
     let out = but_workspace::branch::apply(
         existing_branch,

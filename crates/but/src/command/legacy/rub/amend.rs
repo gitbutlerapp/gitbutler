@@ -81,7 +81,7 @@ fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
     )?
     .changes;
     let repo = ctx.repo.get()?.clone();
-    let (_guard, ws) = ctx.workspace_from_head()?;
+    let (_guard, ws) = ctx.workspace()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         ctx.db.get_mut()?.hunk_assignments_mut()?,
         &repo,

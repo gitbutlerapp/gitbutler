@@ -33,9 +33,8 @@ pub fn tree_change_diffs(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
-    let guard = ctx.shared_worktree_access();
     let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let (mut guard, workspace) = ctx.workspace_for_editing()?;
     let changes = but_core::diff::worktree_changes(&repo)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
@@ -69,10 +68,9 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 
     but_rules::handler::process_workspace_rules(
         ctx,
-        &repo,
-        &workspace,
         &assignments,
         &dependencies.as_ref().ok().cloned(),
+        guard.write_permission(),
     )
     .ok();
 

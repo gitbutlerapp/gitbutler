@@ -1,8 +1,11 @@
 use std::{path::PathBuf, sync::Arc};
 
+use crate::Change;
 use anyhow::{Context as _, Result};
 use but_core::TreeChange;
+use but_core::sync::WorktreeWritePermission;
 use but_ctx::Context;
+use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
@@ -12,8 +15,6 @@ use gitbutler_filemonitor::{
 use gitbutler_operating_modes::operating_mode;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
-
-use crate::Change;
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)
@@ -46,23 +47,15 @@ impl Handler {
     ) -> Result<()> {
         match event {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
-                let ctx =
-                    &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
-                let guard = ctx.exclusive_worktree_access();
-                let repo = ctx.repo.get()?.clone();
-                let (_, workspace) =
-                    ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-                self.project_files_change(paths, ctx, &repo, &workspace)
+                let mut ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                let mut guard = ctx.exclusive_worktree_access();
+                self.project_files_change(paths, &mut ctx, guard.write_permission())
             }
 
             InternalEvent::GitFilesChange(project_id, paths) => {
-                let ctx =
-                    &mut self.open_command_context(project_id, app_settings.get()?.clone())?;
-                let guard = ctx.exclusive_worktree_access();
-                let repo = ctx.repo.get()?.clone();
-                let (_, workspace) =
-                    ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-                self.git_files_change(paths, ctx, &repo, &workspace)
+                let mut ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                let mut guard = ctx.exclusive_worktree_access();
+                self.git_files_change(paths, &mut ctx, guard.write_permission())
                     .context("failed to handle git file change event")
             }
         }
@@ -84,39 +77,40 @@ impl Handler {
         ))
     }
 
-    #[instrument(skip(self, paths, ctx, repo, workspace), fields(paths = paths.len()))]
+    #[instrument(skip_all, fields(paths = paths.len()))]
     fn project_files_change(
         &self,
         paths: Vec<PathBuf>,
         ctx: &mut Context,
-        repo: &gix::Repository,
-        workspace: &but_graph::projection::Workspace,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<()> {
-        let _ = self.emit_worktree_changes(ctx, repo, workspace);
-
+        _ = self.emit_worktree_changes(ctx, perm);
         Ok(())
     }
 
     fn emit_worktree_changes(
         &self,
         ctx: &mut Context,
-        repo: &gix::Repository,
-        workspace: &but_graph::projection::Workspace,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<()> {
-        let wt_changes = but_core::diff::worktree_changes(repo)?;
+        let repo = ctx.repo.get()?;
+        let ws = ctx.workspace_for_editing_with_perm(perm)?;
+
+        let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            repo,
-            workspace,
+            &repo,
+            &ws,
             Some(wt_changes.changes.clone()),
         );
 
         let (assignments, assignments_error) = assignments_and_errors(
-            ctx,
-            repo,
-            workspace,
+            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            &repo,
+            &ws,
             wt_changes.changes.clone(),
             &dependencies,
+            ctx.settings.context_lines,
         )?;
 
         let mut changes = but_hunk_assignment::WorktreeChanges {
@@ -129,21 +123,23 @@ impl Handler {
                 .err()
                 .map(|err| serde_error::Error::new(&**err)),
         };
+        drop(repo);
         if let Ok(update_count) = but_rules::handler::process_workspace_rules(
             ctx,
-            repo,
-            workspace,
             &assignments,
             &dependencies.as_ref().ok().cloned(),
+            perm,
         ) && update_count > 0
         {
+            let repo = &*ctx.repo.get()?;
             // Getting these again since they were updated
             let (assignments, assignments_error) = assignments_and_errors(
-                ctx,
+                ctx.db.get_mut()?.hunk_assignments_mut()?,
                 repo,
-                workspace,
+                &ws,
                 wt_changes.changes.clone(),
                 &dependencies,
+                ctx.settings.context_lines,
             )?;
             changes = but_hunk_assignment::WorktreeChanges {
                 worktree_changes: wt_changes.into(),
@@ -167,8 +163,7 @@ impl Handler {
         &self,
         paths: Vec<PathBuf>,
         ctx: &mut Context,
-        repo: &gix::Repository,
-        workspace: &but_graph::projection::Workspace,
+        perm: &mut WorktreeWritePermission,
     ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
 
@@ -194,7 +189,7 @@ impl Handler {
                     })?;
                 }
                 INDEX => {
-                    let _ = self.emit_worktree_changes(ctx, repo, workspace);
+                    let _ = self.emit_worktree_changes(ctx, perm);
                 }
                 HEAD => {
                     let git2_repo = ctx.git2_repo.get()?;
@@ -227,21 +222,22 @@ fn head_info(ctx: &mut Context) -> Result<(String, String)> {
 }
 
 fn assignments_and_errors(
-    ctx: &mut Context,
+    db: HunkAssignmentsHandleMut,
     repo: &gix::Repository,
     workspace: &but_graph::projection::Workspace,
     tree_changes: Vec<TreeChange>,
     dependencies: &Result<but_hunk_dependency::ui::HunkDependencies>,
+    context_lines: u32,
 ) -> Result<(Vec<HunkAssignment>, Option<serde_error::Error>)> {
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db,
             repo,
             workspace,
             false,
             Some(tree_changes),
             Some(dependencies),
-            ctx.settings.context_lines,
+            context_lines,
         )?,
         Err(e) => (
             vec![],

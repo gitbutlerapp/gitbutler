@@ -95,26 +95,22 @@ pub(crate) async fn worktree(
     }
 
     // Process rules with exclusive access to create repo and workspace
-    {
-        let guard = ctx.shared_worktree_access();
-        let repo = ctx.repo.get()?.clone();
-        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        but_rules::process_rules(ctx, &repo, &workspace).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
-    }
+    let head_info = {
+        let mut guard = ctx.exclusive_worktree_access();
+        but_rules::process_rules(ctx, guard.write_permission()).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
+        let meta = ctx.meta(guard.read_permission())?;
 
-    let guard = ctx.shared_worktree_access();
-    let meta = ctx.meta(guard.read_permission())?;
-
-    // TODO: use this for JSON status information (regular status information
-    // already uses this)
-    let head_info = but_workspace::head_info(
-        &*ctx.repo.get()?,
-        &meta,
-        but_workspace::ref_info::Options {
-            expensive_commit_info: true,
-            ..Default::default()
-        },
-    )?;
+        // TODO: use this for JSON status information (regular status information
+        //       already uses this)
+        but_workspace::head_info(
+            &*ctx.repo.get()?,
+            &meta,
+            but_workspace::ref_info::Options {
+                expensive_commit_info: true,
+                ..Default::default()
+            },
+        )?
+    };
 
     let cache_config = if refresh_prs {
         but_forge::CacheConfig::NoCache
@@ -242,8 +238,6 @@ pub(crate) async fn worktree(
     // We need to drop locks before computing merge statuses
     // because upstream_integration_statuses requires exclusive access
     let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if show_upstream {
-        drop(guard);
-        drop(meta);
         compute_branch_merge_statuses(ctx).await?
     } else {
         BTreeMap::new()

@@ -49,7 +49,7 @@ members = [
     "crates/but-worktrees",         # 📄Worktree creation and removal;
     # 👉Could be exemplary after review.
     "crates/but-update",            # 📄Retrieve information about available program versions to guide updates.
-    # 👉Lacks top-level docs and tests; uses various legacy crates.
+    # 👉Lacks top-level docs and tests; uses legacy features
     "crates/but-rules",             # 📄Decide what to do when files change in the worktree
     # 👉Unclear purpose (a mix of everything?); lacks tests and docs. Uses legacy crates (a lot).
     "crates/but-action",            # 📄TBD

@@ -55,10 +55,10 @@ fn mark_commit(
         return Ok(());
     }
 
-    let repo = ctx.repo.get()?.clone();
-    let (_guard, ws) = ctx.workspace_from_head()?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     let req = {
+        let repo = ctx.repo.get()?;
         let commit = repo.find_commit(oid)?;
         let change_id = commit.change_id().ok_or_else(|| {
             anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", oid)
@@ -72,7 +72,7 @@ fn mark_commit(
             action,
         }
     };
-    but_rules::create_rule(ctx, &repo, &ws, req)?;
+    but_rules::create_rule(ctx, req, guard.write_permission())?;
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -103,8 +103,7 @@ fn mark_branch(
         return Ok(());
     }
 
-    let repo = ctx.repo.get()?.clone();
-    let (_guard, ws) = ctx.workspace_from_head()?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     // TODO: if there are other marks of this kind, get rid of them
     let stack_id = stack_id.expect("Cannot find stack for this branch");
@@ -118,7 +117,7 @@ fn mark_branch(
         )?)],
         action,
     };
-    but_rules::create_rule(ctx, &repo, &ws, req)?;
+    but_rules::create_rule(ctx, req, guard.write_permission())?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Changes will be assigned to → {branch_name}")?;
     }

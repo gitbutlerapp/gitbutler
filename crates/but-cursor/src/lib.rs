@@ -161,8 +161,6 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
     let stack_id = but_claude::hooks::get_or_create_session(
         ctx,
         guard.write_permission(),
-        &gix_repo,
-        &workspace,
         &input.conversation_id,
         stacks,
     )?;
@@ -251,15 +249,10 @@ pub async fn handle_stop(
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
-    let gix_repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
     let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
     let stack_id = but_claude::hooks::get_or_create_session(
         ctx,
         guard.write_permission(),
-        &gix_repo,
-        &workspace,
         &input.conversation_id,
         stacks,
     )?;

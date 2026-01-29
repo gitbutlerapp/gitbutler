@@ -571,7 +571,7 @@ pub fn remove_reference(
 
 pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyhow::Result<()> {
     let ctx = Context::discover(&args.current_dir)?;
-    let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
+    let (_guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
     let repo = ctx.repo.get()?;
     let branch = repo.find_reference(short_name)?;
     let apply_outcome = but_workspace::branch::apply(

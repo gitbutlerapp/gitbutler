@@ -70,8 +70,8 @@ pub fn try_exclusive_inter_process_access(
     Ok(lock)
 }
 
-/// Return a guard for exclusive (read+write) worktree access for the project at `git_dir`,
-/// blocking while waiting for someone else, in the same process only, to release it, or for all readers to disappear.
+/// Return a guard for exclusive (read+write) *in-process* worktree access for the project at `git_dir`,
+/// blocking while waiting for someone else to release it, or for all readers to disappear.
 /// Locking is fair.
 ///
 /// Note that this **in-process** locking works only under the assumption that no two instances of

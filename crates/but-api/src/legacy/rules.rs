@@ -18,10 +18,8 @@ pub fn create_workspace_rule(
     ctx: &mut Context,
     request: CreateRuleRequest,
 ) -> Result<WorkspaceRule> {
-    let guard = ctx.exclusive_worktree_access();
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-    create_rule(ctx, &repo, &workspace, request)
+    let mut guard = ctx.exclusive_worktree_access();
+    create_rule(ctx, request, guard.write_permission())
 }
 
 #[but_api]
@@ -36,10 +34,8 @@ pub fn update_workspace_rule(
     ctx: &mut Context,
     request: UpdateRuleRequest,
 ) -> Result<WorkspaceRule> {
-    let guard = ctx.exclusive_worktree_access();
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-    update_rule(ctx, &repo, &workspace, request)
+    let mut guard = ctx.exclusive_worktree_access();
+    update_rule(ctx, request, guard.write_permission())
 }
 
 #[but_api]

@@ -75,7 +75,7 @@ pub fn create_reference(
         })
         .transpose()?;
 
-    let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
+    let (_guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
     let repo = ctx.repo.get()?;
     let ws = but_workspace::branch::create_reference(
         new_ref.clone(),
@@ -103,7 +103,7 @@ pub fn create_branch(
 ) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     use but_workspace::branch::create_reference::Position::Above;
-    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
+    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
     let repo = ctx.repo.get()?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
     let normalized_name = branch::normalize_short_name(request.name.as_str())?.to_string();
@@ -157,7 +157,7 @@ pub fn create_branch(
 #[instrument(err(Debug))]
 pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
+    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
     let repo = ctx.repo.get()?;
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name.as_str())

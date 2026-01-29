@@ -37,7 +37,7 @@ pub fn create_virtual_branch(
     branch: BranchCreateRequest,
 ) -> Result<StackEntryNoOpt> {
     let stack_entry = {
-        let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
+        let (_guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
         let repo = ctx.repo.get()?;
         let branch_name = match branch.name {
             Some(name) => normalize_name(&name)?,

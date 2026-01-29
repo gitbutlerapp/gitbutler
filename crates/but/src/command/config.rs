@@ -673,7 +673,7 @@ async fn target_config(
         }
         Some(new_branch) => {
             // refuse to run if there are any applied branches. if so, ask user to unapply first.
-            let (guard, ws) = ctx.workspace_from_head()?;
+            let (guard, ws) = ctx.workspace()?;
             if !ws.stacks.is_empty() {
                 // list the applied branches
                 if let Some(out) = out.for_human() {
