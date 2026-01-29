@@ -398,6 +398,14 @@
 		}
 	}
 
+	@media (--tablet-viewport) {
+		.footer {
+			flex-direction: column;
+			margin-bottom: 40px;
+			gap: 40px;
+		}
+	}
+
 	@media (max-width: 500px) {
 		.download-links {
 			column-gap: 0;
