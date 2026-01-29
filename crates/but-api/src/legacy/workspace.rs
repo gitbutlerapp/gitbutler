@@ -658,10 +658,8 @@ pub fn stash_into_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn canned_branch_name(ctx: &Context) -> Result<String> {
-    let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
-    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let repo = ctx.repo.get()?;
-    gitbutler_stack::Stack::next_available_name(&repo, &state, template, false)
+    let rn = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+    Ok(rn.shorten().to_string())
 }
 
 #[but_api]

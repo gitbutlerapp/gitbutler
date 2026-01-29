@@ -1,7 +1,7 @@
-use std::vec;
-
+use but_core::branch;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
+use std::vec;
 
 use crate::workflow::{self, Workflow};
 
@@ -41,7 +41,7 @@ pub fn rename_branch(
     let commit_messages = vec![commit_message];
     let branch_name =
         crate::generate::branch_name(llm, &commit_messages, &diffs, &existing_branch_names)?;
-    let normalized_branch_name = gitbutler_reference::normalize_branch_name(&branch_name)?;
+    let normalized_branch_name = branch::normalize_short_name(branch_name.as_str())?.to_string();
 
     let update = gitbutler_branch_actions::stack::update_branch_name(
         ctx,

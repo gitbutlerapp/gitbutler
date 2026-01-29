@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use but_core::{ChangeId, DiffSpec, ref_metadata::StackId};
 use but_ctx::Context;
 use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
@@ -7,6 +5,7 @@ use but_hunk_dependency::ui::HunkDependencies;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::{StacksFilter, commit_engine, ui::StackEntry};
 use itertools::Itertools;
+use std::str::FromStr;
 
 use crate::{Filter, StackTarget};
 
@@ -167,12 +166,10 @@ fn get_or_create_stack_id(
 }
 
 fn create_stack(ctx: &Context) -> anyhow::Result<StackId> {
-    let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
-    let vb_state = &gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
-    let branch_name =
-        gitbutler_stack::Stack::next_available_name(&*ctx.repo.get()?, vb_state, template, false)?;
+    let repo = &*ctx.repo.get()?;
+    let branch_name = but_core::branch::unique_canned_refname(repo)?;
     let create_req = gitbutler_branch::BranchCreateRequest {
-        name: Some(branch_name),
+        name: Some(branch_name.shorten().to_string()),
         order: None,
     };
 

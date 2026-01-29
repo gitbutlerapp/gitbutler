@@ -2,11 +2,11 @@ use std::borrow::Cow;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
+use but_core::branch;
 use but_ctx::Context;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::ProjectId;
-use gitbutler_reference::normalize_branch_name;
 use gitbutler_stack::StackId;
 use gix::refs::Category;
 use tracing::instrument;
@@ -45,9 +45,10 @@ pub fn create_reference(
     ctx: &Context,
     request: create_reference::Request,
 ) -> Result<(Option<StackId>, gix::refs::FullName)> {
+    use bstr::ByteSlice;
     let create_reference::Request { new_name, anchor } = request;
     let new_ref = Category::LocalBranch
-        .to_full_name(normalize_branch_name(&new_name)?.as_str())
+        .to_full_name(branch::normalize_short_name(new_name.as_str())?.as_bstr())
         .map_err(anyhow::Error::from)?;
     let anchor = anchor
         .map(|anchor| -> Result<_> {
@@ -105,7 +106,7 @@ pub fn create_branch(
     let (mut guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
     let repo = ctx.repo.get()?;
     let stack = ws.try_find_stack_by_id(stack_id)?;
-    let normalized_name = normalize_branch_name(&request.name)?;
+    let normalized_name = branch::normalize_short_name(request.name.as_str())?.to_string();
     let new_ref = Category::LocalBranch
         .to_full_name(normalized_name.as_str())
         .map_err(anyhow::Error::from)?;

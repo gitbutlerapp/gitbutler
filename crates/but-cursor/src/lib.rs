@@ -7,7 +7,6 @@ use but_llm::LLMProvider;
 use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::StacksFilter;
 use gitbutler_project::Project;
-use gitbutler_stack::VirtualBranchesHandle;
 use gix::diff::blob::{
     Algorithm, UnifiedDiff,
     unified_diff::{ConsumeBinaryHunk, ContextSize},
@@ -152,7 +151,6 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
-    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
@@ -167,7 +165,6 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         &workspace,
         &input.conversation_id,
         stacks,
-        vb_state,
     )?;
 
     let changes =
@@ -251,7 +248,6 @@ pub async fn handle_stop(
     let meta = VirtualBranchesTomlMetadata::from_path(
         ctx.project_data_dir().join("virtual_branches.toml"),
     )?;
-    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
@@ -266,7 +262,6 @@ pub async fn handle_stop(
         &workspace,
         &input.conversation_id,
         stacks,
-        vb_state,
     )?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive

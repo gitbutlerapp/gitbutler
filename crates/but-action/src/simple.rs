@@ -117,7 +117,7 @@ fn handle_changes_simple_inner(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
-    let stacks = crate::stacks_creating_if_none(ctx, vb_state, &repo, perm)?;
+    let stacks = crate::stacks_creating_if_none(ctx, perm)?;
 
     // Put the assignments into buckets by stack ID.
     let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> = stacks

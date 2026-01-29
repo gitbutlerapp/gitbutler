@@ -1,0 +1,62 @@
+use but_core::branch::normalize_short_name;
+
+#[test]
+fn valid_substitutions() {
+    for (input, expected) in [
+        ("a", "a"),
+        ("a+b", "a+b"),
+        ("a^b", "a-b"),
+        ("a^^^b", "a-b"),
+        ("a~b", "a-b"),
+        ("a<b", "a<b"),
+        ("a>b", "a>b"),
+        ("a\\b", "a-b"),
+        ("a:b", "a-b"),
+        ("a*b", "a-b"),
+        ("a b", "a-b"),
+        ("a\tb", "a-b"),
+        ("a\nb", "a-b"),
+        ("a\rb", "a-b"),
+        ("a\r\nb", "a-b"),
+        ("-a-", "a"),
+        ("/a/", "a"),
+        ("-/a/-", "a"),
+        ("/-a-/", "a"),
+        (".a.", "a"),
+    ] {
+        assert_eq!(
+            normalize_short_name(input).expect("valid"),
+            expected,
+            "{input} -> {expected}"
+        );
+    }
+}
+
+#[test]
+fn clear_error_on_failure() {
+    assert_eq!(
+        normalize_short_name("-").unwrap_err().to_string(),
+        "Could not turn \"-\" into a valid reference name",
+        "show the original value, not the processed one to be familiar to the user"
+    );
+}
+
+#[test]
+fn complex_valid() -> anyhow::Result<()> {
+    assert_eq!(normalize_short_name("feature/branch")?, "feature/branch");
+    assert_eq!(
+        normalize_short_name("refs/heads/feature/branch")?,
+        "refs/heads/feature/branch"
+    );
+    assert_eq!(normalize_short_name("#[test]")?, "#-test]");
+    assert_eq!(normalize_short_name("foo#branch")?, "foo#branch");
+    assert_eq!(normalize_short_name("foo!branch")?, "foo!branch");
+    let input = r#"Revert "GitButler Workspace Commit"
+
+This reverts commit d6efa5fd96d36da445d5d1345b84163f05f5f229."#;
+    assert_eq!(
+        normalize_short_name(input)?,
+        "Revert-\"GitButler-Workspace-Commit\"-This-reverts-commit-d6efa5fd96d36da445d5d1345b84163f05f5f229"
+    );
+    Ok(())
+}

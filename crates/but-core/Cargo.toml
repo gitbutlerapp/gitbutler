@@ -27,6 +27,7 @@ serde.workspace = true
 bstr.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
+unicode-segmentation.workspace = true
 gix = { workspace = true, features = [
     "dirwalk",
     "credentials",

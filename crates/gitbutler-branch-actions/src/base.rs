@@ -197,7 +197,7 @@ pub(crate) fn set_base_branch(
             };
 
             let branch_name = if branch_matches_target {
-                canned_branch_name(repo)?
+                canned_branch_name(&*ctx.repo.get()?)?
             } else {
                 head_name.to_string().replace("refs/heads/", "")
             };

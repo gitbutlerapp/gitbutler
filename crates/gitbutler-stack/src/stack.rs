@@ -13,11 +13,8 @@ use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
-use gitbutler_repo::{
-    RepositoryExt,
-    logging::{LogUntil, RepositoryExt as _},
-};
-use gix::{utils::str::decompose, validate::reference::name_partial};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gix::validate::reference::name_partial;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -790,29 +787,8 @@ fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<b
         .any(|r| r.name() == name))
 }
 
-pub fn canned_branch_name(repo: &git2::Repository) -> Result<String> {
-    if let Ok((author, _committer)) = repo.signatures() {
-        generate_branch_name(author)
-    } else {
-        let author = git2::Signature::now("Firstname Lastname", "name@example.com")?;
-        generate_branch_name(author)
-    }
-}
-
-fn generate_branch_name(author: git2::Signature) -> Result<String> {
-    let mut initials = decompose(author.name().unwrap_or_default().into())
-        .chars()
-        .filter(|c| c.is_ascii_alphabetic() || c.is_whitespace())
-        .collect::<String>()
-        .split_whitespace()
-        .map(|word| word.chars().next().unwrap_or_default())
-        .collect::<String>()
-        .to_lowercase();
-    if !initials.is_empty() {
-        initials.push('-');
-    }
-    let branch_name = format!("{}{}-1", initials, "branch");
-    normalize_branch_name(&branch_name)
+pub fn canned_branch_name(repo: &gix::Repository) -> Result<String> {
+    but_core::branch::canned_refname(repo).map(|rn| rn.shorten().to_string())
 }
 
 fn local_reference_exists(repo: &gix::Repository, name: &str) -> Result<bool> {
@@ -829,50 +805,4 @@ fn remote_reference_exists(
         state.get_default_target()?.push_remote_name().as_str(),
     );
     local_reference_exists(repo, &remote_ref)
-}
-
-#[cfg(test)]
-mod test {
-    use git2::{Signature, Time};
-
-    use super::*;
-
-    #[test]
-    fn gen_name() -> Result<()> {
-        let author = Signature::new("Foo Bar", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "fb-branch-1");
-        Ok(())
-    }
-    #[test]
-    fn gen_name_with_some_umlauts_and_accents() -> Result<()> {
-        // handles accents
-        let author = Signature::new("Äx Öx Åx Üx Éx Áx", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "aoauea-branch-1");
-        // bails on norwegian characters
-        let author = Signature::new("Æx Øx", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "xx-branch-1");
-        Ok(())
-    }
-
-    #[test]
-    fn gen_name_emojis() -> Result<()> {
-        // only emoji gets ignored
-        let author = Signature::new("🍑", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "branch-1");
-        // if there is a latin character, it gets included
-        let author = Signature::new("🍑x", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "x-branch-1");
-
-        let author = Signature::new("🍑 Foo", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "f-branch-1");
-        Ok(())
-    }
-
-    #[test]
-    fn gen_name_chinese_character() -> Result<()> {
-        // ignore all
-        let author = Signature::new("吉特·巴特勒", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "branch-1");
-        Ok(())
-    }
 }

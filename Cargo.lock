@@ -1018,6 +1018,7 @@ dependencies = [
  "toml 0.9.10+spec-1.1.0",
  "tracing",
  "ts-rs",
+ "unicode-segmentation",
  "uuid",
 ]
 
@@ -1357,7 +1358,6 @@ dependencies = [
  "chrono",
  "gitbutler-branch",
  "gitbutler-branch-actions",
- "gitbutler-stack",
  "gix",
  "itertools",
  "regex",
@@ -3794,6 +3794,7 @@ name = "gitbutler-reference"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-core",
  "git2",
  "gix",
  "serde",

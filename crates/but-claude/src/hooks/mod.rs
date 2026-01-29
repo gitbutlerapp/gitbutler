@@ -12,7 +12,6 @@ use but_workspace::{
 };
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_project::Project;
-use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
 mod file_lock;
@@ -149,8 +148,6 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
         .ctx
         .workspace_and_read_only_meta_from_head(guard.read_permission())?;
 
-    let vb_state = &VirtualBranchesHandle::new(defer.ctx.project_data_dir());
-
     let stacks = list_stacks(defer.ctx)?;
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
@@ -162,7 +159,6 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
         &workspace,
         &session_id,
         stacks,
-        vb_state,
     )?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
@@ -440,8 +436,6 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
 
     let stacks = list_stacks(defer.ctx)?;
 
-    let vb_state = &VirtualBranchesHandle::new(defer.ctx.project_data_dir());
-
     let stack_id = get_or_create_session(
         defer.ctx,
         guard.write_permission(),
@@ -449,7 +443,6 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         &workspace,
         &session_id,
         stacks,
-        vb_state,
     )?;
 
     let changes =
@@ -524,7 +517,6 @@ pub fn get_or_create_session(
     workspace: &but_graph::projection::Workspace,
     session_id: &str,
     stacks: Vec<but_workspace::legacy::ui::StackEntry>,
-    vb_state: &VirtualBranchesHandle,
 ) -> Result<StackId, anyhow::Error> {
     if crate::db::get_session_by_id(ctx, Uuid::parse_str(session_id)?)?.is_none() {
         crate::db::save_new_session(ctx, Uuid::parse_str(session_id)?)?;
@@ -540,7 +532,7 @@ pub fn get_or_create_session(
         }) {
             stack_id
         } else {
-            let stack_id = create_stack(ctx, vb_state, perm)?;
+            let stack_id = create_stack(ctx, perm)?;
             crate::rules::update_claude_assignment_rule_target(
                 ctx, repo, workspace, rule.id, stack_id,
             )?;
@@ -549,7 +541,7 @@ pub fn get_or_create_session(
     } else {
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
-        let stack_id = create_stack(ctx, vb_state, perm)?;
+        let stack_id = create_stack(ctx, perm)?;
         crate::rules::create_claude_assignment_rule(
             ctx,
             repo,
@@ -562,16 +554,10 @@ pub fn get_or_create_session(
     Ok(stack_id)
 }
 
-fn create_stack(
-    ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
-    perm: &mut WorktreeWritePermission,
-) -> anyhow::Result<StackId> {
-    let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
-    let branch_name =
-        gitbutler_stack::Stack::next_available_name(&*ctx.repo.get()?, vb_state, template, false)?;
+fn create_stack(ctx: &Context, perm: &mut WorktreeWritePermission) -> anyhow::Result<StackId> {
+    let branch_name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
     let create_req = BranchCreateRequest {
-        name: Some(branch_name),
+        name: Some(branch_name.shorten().to_string()),
         order: None,
     };
     let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;

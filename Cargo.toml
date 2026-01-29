@@ -266,6 +266,7 @@ sysinfo = { version = "0.37.2", default-features = false }
 shell-words = "1.1.1"
 nonempty = "0.12.0"
 self_cell = "1.2.2"
+unicode-segmentation = "1.12.0"
 
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,

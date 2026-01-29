@@ -219,21 +219,15 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 /// Returns the currently applied stacks, creating one if none exists.
 fn stacks_creating_if_none(
     ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
-    repo: &gix::Repository,
     perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<Vec<StackEntry>> {
+    let repo = &*ctx.repo.get()?;
     let stacks = stacks(ctx, repo)?;
     if stacks.is_empty() {
-        let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
-        let branch_name = gitbutler_stack::Stack::next_available_name(
-            &*ctx.repo.get()?,
-            vb_state,
-            template,
-            false,
-        )?;
+        let template = but_core::branch::canned_refname(repo)?;
+        let branch_name = but_core::branch::find_unique_refname(repo, template.as_ref())?;
         let create_req = BranchCreateRequest {
-            name: Some(branch_name),
+            name: Some(branch_name.shorten().to_string()),
             order: None,
         };
         let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;

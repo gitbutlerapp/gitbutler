@@ -3,7 +3,6 @@ use std::vec;
 use anyhow::Result;
 use but_ctx::access::WorktreeWritePermission;
 use gitbutler_branch::BranchUpdateRequest;
-use gitbutler_reference::ReferenceName;
 use gitbutler_stack::Stack;
 
 use super::entry::Trailer;
@@ -11,6 +10,9 @@ use crate::{
     entry::{OperationKind, SnapshotDetails},
     oplog::OplogExt,
 };
+
+/// The name of a reference i.e. `refs/heads/master`
+pub type ReferenceName = String;
 
 pub trait SnapshotExt {
     fn snapshot_branch_unapplied(
