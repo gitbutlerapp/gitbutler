@@ -106,6 +106,18 @@ pub fn claude_update_permission_request(
     but_claude::db::update_permission_request(ctx, &request_id, decision, use_wildcard)
 }
 
+#[but_api]
+#[instrument(err(Debug))]
+pub fn claude_answer_ask_user_question(
+    project_id: ProjectId,
+    stack_id: StackId,
+    answers: std::collections::HashMap<String, String>,
+) -> Result<bool> {
+    let project = gitbutler_project::get(project_id)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    but_claude::db::set_ask_user_question_answers_by_stack(&mut ctx, stack_id, answers)
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelSessionParams {

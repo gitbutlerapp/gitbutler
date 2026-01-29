@@ -336,6 +336,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::claude::tauri_claude_get_session_details::claude_get_session_details,
                 legacy::claude::tauri_claude_list_permission_requests::claude_list_permission_requests,
                 legacy::claude::tauri_claude_update_permission_request::claude_update_permission_request,
+                legacy::claude::tauri_claude_answer_ask_user_question::claude_answer_ask_user_question,
                 legacy::claude::tauri_claude_check_available::claude_check_available,
                 legacy::claude::tauri_claude_list_prompt_templates::claude_list_prompt_templates,
                 legacy::claude::tauri_claude_get_prompt_dirs::claude_get_prompt_dirs,

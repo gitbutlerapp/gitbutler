@@ -188,6 +188,33 @@ pub fn set_ask_user_question_answers(
     crate::pending_requests::pending_requests().respond_question(id, answers)
 }
 
+/// Alias for set_ask_user_question_answers for API compatibility.
+pub fn answer_ask_user_question(
+    ctx: &mut Context,
+    id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<()> {
+    set_ask_user_question_answers(ctx, id, answers)
+}
+
+/// Updates the answers for the pending AskUserQuestion request for a specific stack.
+/// Returns true if an update was made, false if no pending request was found for the stack.
+pub fn set_ask_user_question_answers_by_stack(
+    _ctx: &mut Context,
+    stack_id: gitbutler_stack::StackId,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<bool> {
+    let pending = crate::pending_requests::pending_requests();
+
+    // Find the pending question for this stack
+    if let Some(request) = pending.get_question_by_stack(&stack_id) {
+        pending.respond_question(&request.id, answers)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudeSession) -> Result<Self, Self::Error> {

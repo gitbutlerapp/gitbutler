@@ -7,6 +7,7 @@
 //! Key components:
 //! - `Claudes`: Manages active Claude sessions, keyed by stack ID
 //! - `spawn_claude_inner`: Main entry point that connects to Claude SDK and streams responses
+//! - Permission handling via `can_use_tool` callback for tool approvals and AskUserQuestion
 //! - Hook callbacks (PreToolUse, PostToolUse, Stop) for file locking, hunk assignment, and commits
 
 use std::{collections::HashMap, sync::Arc};
@@ -396,6 +397,7 @@ impl Claudes {
             extra_args,
             add_dirs: user_params.add_dirs.iter().map(Into::into).collect(),
             hooks: Some(hooks),
+            can_use_tool: Some(can_use_tool_callback),
             // This is critical: tells CLI to send permission requests via stdio control protocol
             // instead of using built-in UI. Required for can_use_tool callback to work.
             permission_prompt_tool_name: Some("stdio".to_string()),
@@ -1166,13 +1168,19 @@ or commits, is unspecified.
 /// Creates a can_use_tool callback that handles tool permissions and AskUserQuestion.
 ///
 /// This callback is invoked by the SDK for every tool call and handles:
-/// - If `auto_approve_tools` is true (bypass mode), auto-approve everything.
-/// - Otherwise, check stored permissions; if no match, prompt the user and wait
-///   for their decision via in-memory channel.
+///
+/// 1. **AskUserQuestion**: Waits for user answers via in-memory channel, then returns
+///    `PermissionResultAllow` with `updated_input` containing the answers. The CLI uses
+///    these answers directly instead of executing the built-in AskUserQuestion tool.
+///
+/// 2. **Other tools**: Checks permissions against runtime and session permissions.
+///    - If `auto_approve_tools` is true (bypass mode), auto-approve everything.
+///    - Otherwise, check stored permissions; if no match, prompt the user and wait
+///      for their decision via in-memory channel.
 fn create_can_use_tool_callback(
     sync_ctx: ThreadSafeContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
-    _stack_id: gitbutler_stack::StackId,
+    stack_id: gitbutler_stack::StackId,
     auto_approve_tools: bool,
     session_id: uuid::Uuid,
 ) -> claude_agent_sdk_rs::CanUseToolCallback {
@@ -1187,11 +1195,19 @@ fn create_can_use_tool_callback(
         move |tool_name: String, tool_input: serde_json::Value, context: ToolPermissionContext| {
             let sync_ctx = sync_ctx.clone();
             let broadcaster = broadcaster.clone();
+            let stack_id = stack_id;
             let auto_approve = auto_approve_tools;
             let session_id = session_id;
             let runtime_permissions = Arc::clone(&runtime_permissions);
 
             async move {
+                // Handle AskUserQuestion specially - poll for user answers
+                if tool_name == "AskUserQuestion" {
+                    return handle_ask_user_question(sync_ctx, stack_id, session_id, tool_input).await;
+                }
+
+                // For all other tools, check permissions
+                // If auto_approve is true (bypass mode), allow everything
                 if auto_approve {
                     return PermissionResult::Allow(PermissionResultAllow {
                         updated_input: Some(tool_input),
@@ -1388,6 +1404,93 @@ fn create_can_use_tool_callback(
             .boxed()
         },
     )
+}
+
+/// Handle AskUserQuestion tool - waits for user answers via in-memory channel
+async fn handle_ask_user_question(
+    sync_ctx: ThreadSafeContext,
+    stack_id: gitbutler_stack::StackId,
+    session_id: uuid::Uuid,
+    tool_input: serde_json::Value,
+) -> claude_agent_sdk_rs::PermissionResult {
+    use claude_agent_sdk_rs::{PermissionResult, PermissionResultAllow, PermissionResultDeny};
+
+    // Parse the questions from the input
+    let questions: Vec<crate::AskUserQuestion> = match tool_input.get("questions") {
+        Some(q) => match serde_json::from_value(q.clone()) {
+            Ok(questions) => questions,
+            Err(e) => {
+                tracing::error!("Failed to parse AskUserQuestion questions: {}", e);
+                return PermissionResult::Deny(PermissionResultDeny {
+                    message: format!("Failed to parse AskUserQuestion: {}", e),
+                    interrupt: false,
+                });
+            }
+        },
+        None => {
+            tracing::error!("AskUserQuestion input missing 'questions' field");
+            return PermissionResult::Deny(PermissionResultDeny {
+                message: "AskUserQuestion input missing 'questions' field".to_string(),
+                interrupt: false,
+            });
+        }
+    };
+
+    // Generate a unique ID for this request
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().naive_utc();
+
+    let request = crate::ClaudeAskUserQuestionRequest {
+        id: request_id.clone(),
+        created_at: now,
+        updated_at: now,
+        questions,
+        answers: None,
+        stack_id: Some(stack_id),
+    };
+
+    // Store in-memory and get receiver for response
+    // Use the actual session_id so cancel_session() can properly cancel pending AskUserQuestion requests
+    let receiver = crate::pending_requests::pending_requests().insert_question(request, session_id);
+
+    // Send notification
+    if let Err(e) = crate::notifications::notify_permission_request(&sync_ctx.settings, "AskUserQuestion") {
+        tracing::warn!("Failed to send AskUserQuestion notification: {}", e);
+    }
+
+    // Wait for user answers with timeout
+    let timeout = crate::pending_requests::DEFAULT_REQUEST_TIMEOUT;
+    match tokio::time::timeout(timeout, receiver).await {
+        Ok(Ok(answers)) => {
+            // Build updated input with answers
+            let mut updated_input = tool_input.clone();
+            if let Some(obj) = updated_input.as_object_mut() {
+                obj.insert("answers".to_string(), serde_json::json!(answers));
+            }
+
+            PermissionResult::Allow(PermissionResultAllow {
+                updated_input: Some(updated_input),
+                ..Default::default()
+            })
+        }
+        Ok(Err(_)) => {
+            // Sender dropped (session cancelled)
+            tracing::warn!("AskUserQuestion request cancelled");
+            PermissionResult::Deny(PermissionResultDeny {
+                message: "AskUserQuestion request cancelled".to_string(),
+                interrupt: false,
+            })
+        }
+        Err(_) => {
+            // Timeout - clean up
+            crate::pending_requests::pending_requests().remove_question(&request_id);
+            tracing::warn!("AskUserQuestion timeout after 24 hours");
+            PermissionResult::Deny(PermissionResultDeny {
+                message: "AskUserQuestion request timed out".to_string(),
+                interrupt: false,
+            })
+        }
+    }
 }
 
 /// Creates a PreToolUse hook that performs file locking and keeps the stream open.

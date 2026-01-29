@@ -37,6 +37,14 @@ struct PendingPermission {
     pub session_id: Uuid,
 }
 
+/// A pending user question request with its response channel.
+struct PendingQuestion {
+    pub request: ClaudeAskUserQuestionRequest,
+    pub sender: oneshot::Sender<HashMap<String, String>>,
+    pub created_at: Instant,
+    pub session_id: Uuid,
+}
+
 /// In-memory storage for pending requests awaiting user responses.
 ///
 /// This replaces the database-based polling mechanism for ephemeral request/response
@@ -115,6 +123,68 @@ impl PendingRequests {
         permissions.remove(id).map(|p| p.request)
     }
 
+    /// Inserts a pending user question request and returns a receiver for the response.
+    pub fn insert_question(
+        &self,
+        request: ClaudeAskUserQuestionRequest,
+        session_id: Uuid,
+    ) -> oneshot::Receiver<HashMap<String, String>> {
+        let (sender, receiver) = oneshot::channel();
+        let id = request.id.clone();
+
+        let pending = PendingQuestion {
+            request,
+            sender,
+            created_at: Instant::now(),
+            session_id,
+        };
+
+        let mut questions = self.questions.lock().unwrap();
+        questions.insert(id, pending);
+
+        receiver
+    }
+
+    /// Gets a pending question request by ID without removing it.
+    pub fn get_question(&self, id: &str) -> Option<ClaudeAskUserQuestionRequest> {
+        let questions = self.questions.lock().unwrap();
+        questions.get(id).map(|p| p.request.clone())
+    }
+
+    /// Gets a pending question request by stack ID.
+    pub fn get_question_by_stack(&self, stack_id: &gitbutler_stack::StackId) -> Option<ClaudeAskUserQuestionRequest> {
+        let questions = self.questions.lock().unwrap();
+        questions
+            .values()
+            .find(|p| p.request.stack_id.as_ref() == Some(stack_id))
+            .map(|p| p.request.clone())
+    }
+
+    /// Lists all pending question requests.
+    pub fn list_questions(&self) -> Vec<ClaudeAskUserQuestionRequest> {
+        let questions = self.questions.lock().unwrap();
+        questions.values().map(|p| p.request.clone()).collect()
+    }
+
+    /// Responds to a pending question request with user answers.
+    ///
+    /// This removes the request from storage and sends the answers to the waiting task.
+    pub fn respond_question(&self, id: &str, answers: HashMap<String, String>) -> anyhow::Result<()> {
+        let mut questions = self.questions.lock().unwrap();
+        let pending = questions
+            .remove(id)
+            .ok_or_else(|| anyhow::anyhow!("Question request not found: {}", id))?;
+
+        let _ = pending.sender.send(answers);
+        Ok(())
+    }
+
+    /// Removes a pending question request without responding.
+    pub fn remove_question(&self, id: &str) -> Option<ClaudeAskUserQuestionRequest> {
+        let mut questions = self.questions.lock().unwrap();
+        questions.remove(id).map(|p| p.request)
+    }
+
     /// Cancels all pending requests for a given session.
     ///
     /// This drops all senders for the session, causing the receivers to return errors.
@@ -132,6 +202,20 @@ impl PendingRequests {
 
             for id in ids_to_remove {
                 permissions.remove(&id);
+                count += 1;
+            }
+        }
+
+        {
+            let mut questions = self.questions.lock().unwrap();
+            let ids_to_remove: Vec<_> = questions
+                .iter()
+                .filter(|(_, p)| p.session_id == session_id)
+                .map(|(id, _)| id.clone())
+                .collect();
+
+            for id in ids_to_remove {
+                questions.remove(&id);
                 count += 1;
             }
         }
@@ -156,6 +240,20 @@ impl PendingRequests {
 
             for id in ids_to_remove {
                 permissions.remove(&id);
+                count += 1;
+            }
+        }
+
+        {
+            let mut questions = self.questions.lock().unwrap();
+            let ids_to_remove: Vec<_> = questions
+                .iter()
+                .filter(|(_, p)| now.duration_since(p.created_at) > timeout)
+                .map(|(id, _)| id.clone())
+                .collect();
+
+            for id in ids_to_remove {
+                questions.remove(&id);
                 count += 1;
             }
         }
@@ -197,13 +295,38 @@ mod tests {
 
         // Respond in another task
         store
-            .respond_permission("test-1", PermissionDecision::AllowOnce)
+            .respond_permission("test-1", PermissionDecision::AllowOnce, false)
             .unwrap();
 
         // Receiver should get the response
         let (decision, use_wildcard) = receiver.await.unwrap();
         assert_eq!(decision, PermissionDecision::AllowOnce);
         assert!(!use_wildcard);
+    }
+
+    #[tokio::test]
+    async fn test_question_request_response() {
+        let store = PendingRequests::new();
+        let session_id = Uuid::new_v4();
+
+        let request = ClaudeAskUserQuestionRequest {
+            id: "test-q-1".to_string(),
+            created_at: chrono::Utc::now().naive_utc(),
+            updated_at: chrono::Utc::now().naive_utc(),
+            questions: vec![],
+            answers: None,
+            stack_id: None,
+        };
+
+        let receiver = store.insert_question(request, session_id);
+
+        let mut answers = HashMap::new();
+        answers.insert("q1".to_string(), "answer1".to_string());
+
+        store.respond_question("test-q-1", answers.clone()).unwrap();
+
+        let received = receiver.await.unwrap();
+        assert_eq!(received, answers);
     }
 
     #[tokio::test]
