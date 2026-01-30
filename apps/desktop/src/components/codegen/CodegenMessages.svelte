@@ -415,11 +415,6 @@
 								{@html noClaudeCodeSvg}
 								<h2 class="text-serif-42">Connect Claude Code</h2>
 								<p class="text-13 text-body clr-text-2">
-									If you haven't installed Claude Code, check our <Link
-										class="clr-text-1"
-										href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
-										>installation guide</Link
-									>.
 									<br />
 									Click the button below to check if Claude Code is now available.
 								</p>
