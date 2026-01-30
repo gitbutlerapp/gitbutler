@@ -435,3 +435,30 @@ Details: Connection timeout after 30 seconds
 		</div>
 	{/snippet}
 </Story>
+
+<Story
+	name="With custom content"
+	parameters={{
+		docs: {
+			description: {
+				story:
+					'Example demonstrating the use of custom content within the InfoMessage component, allowing for more fully opaque content.'
+			}
+		}
+	}}
+>
+	{#snippet template()}
+		<div style="padding: 20px; background: var(--clr-bg-1);">
+			<InfoMessage style="info">
+				{#snippet customContent()}
+					<p>This is a custom content block within the InfoMessage component.</p>
+					<ul>
+						<li>It can include multiple elements.</li>
+						<li>You can use lists, links, or any HTML content.</li>
+						<li>Great for detailed information!</li>
+					</ul>
+				{/snippet}
+			</InfoMessage>
+		</div>
+	{/snippet}
+</Story>
