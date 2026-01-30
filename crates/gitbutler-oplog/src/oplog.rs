@@ -448,7 +448,7 @@ pub fn prepare_snapshot(
     // It may be the case that with the refactoring through `but-meta` the head value is no longer in sync so sync_heads_with_references is the final attempt to sync it
     // This is relevant only for snapshot restore.
     // Create a blob out of `.git/gitbutler/virtual_branches.toml`
-    let vb_path = repo.path().join("gitbutler").join("virtual_branches.toml");
+    let vb_path = ctx.project_data_dir().join("virtual_branches.toml");
     let vb_content = fs::read(vb_path)?;
     let vb_blob_id = repo.blob(&vb_content)?;
     tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
