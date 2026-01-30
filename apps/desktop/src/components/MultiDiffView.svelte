@@ -75,7 +75,7 @@
 			{startIndex}
 			grow
 			items={changes}
-			defaultHeight={140}
+			defaultHeight={102}
 			visibility="scroll"
 			renderDistance={100}
 		>
