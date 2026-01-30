@@ -3,7 +3,7 @@
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
 	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Link, Spacer, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
@@ -55,13 +55,6 @@
 <CardGroup.Item standalone>
 	<ClaudeCheck showTitle />
 </CardGroup.Item>
-
-<p class="text-13 text-body clr-text-2">
-	Get the full guide to Agents in GitButler in <Link
-		href="https://docs.gitbutler.com/features/agents-tab#installing-claude-code"
-		>our documentation
-	</Link>
-</p>
 
 <Spacer margin={10} dotted />
 
