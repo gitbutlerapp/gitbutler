@@ -648,10 +648,7 @@ fn restore_snapshot(
 
     // Update virtual_branches.toml with the state from the snapshot
     fs::write(
-        git2_repo
-            .path()
-            .join("gitbutler")
-            .join("virtual_branches.toml"),
+        ctx.project_data_dir().join("virtual_branches.toml"),
         vb_toml_blob.content(),
     )?;
 
