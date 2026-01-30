@@ -36,6 +36,7 @@
 		error?: string | undefined;
 		title?: Snippet;
 		content?: Snippet;
+		customContent?: Snippet;
 		testId?: string;
 	}
 
@@ -61,6 +62,7 @@
 		error,
 		title,
 		content,
+		customContent,
 		testId
 	}: Props = $props();
 
@@ -103,6 +105,12 @@
 			{#if title}
 				<div class="info-message__title text-13 text-body text-bold">
 					{@render title()}
+				</div>
+			{/if}
+
+			{#if customContent}
+				<div class="info-message__custom-content">
+					{@render customContent()}
 				</div>
 			{/if}
 
@@ -197,6 +205,12 @@
 	}
 	.info-message__text {
 		opacity: 60%;
+		&:empty {
+			display: none;
+		}
+	}
+	.info-message__custom-content {
+		opacity: 100%;
 		&:empty {
 			display: none;
 		}
