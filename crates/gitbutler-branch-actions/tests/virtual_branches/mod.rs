@@ -102,7 +102,7 @@ pub fn create_commit(ctx: &Context, stack_id: StackId, message: &str) -> anyhow:
     let file_changes: Vec<but_core::DiffSpec> =
         worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
 
-    let meta = ctx.legacy_meta(guard.read_permission())?;
+    let meta = ctx.legacy_meta()?;
     let stacks = but_workspace::legacy::stacks_v3(
         &repo,
         &meta,

@@ -1,7 +1,7 @@
 use anyhow::Context as _;
 use bstr::{BStr, ByteSlice};
 use but_core::{
-    ref_metadata,
+    RefMetadata, ref_metadata,
     ref_metadata::{
         StackId,
         StackKind::{Applied, AppliedAndUnapplied},
@@ -302,6 +302,28 @@ impl Workspace {
     }
 }
 
+/// Lifecycle
+impl Workspace {
+    /// Redo the graph traversal with the same settings as before, but use the latest
+    /// data from `repo` and `meta` to do it.
+    /// This is useful to make this instance represent changes to `repo` or `meta`.
+    #[instrument(
+        name = "Workspace::refresh_from_head",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn refresh_from_head(
+        &mut self,
+        repo: &gix::Repository,
+        meta: &impl RefMetadata,
+    ) -> anyhow::Result<()> {
+        let graph = Graph::from_head(repo, meta, self.graph.options.clone())?;
+        *self = graph.into_workspace()?;
+        Ok(())
+    }
+}
+
 /// A classifier for the workspace.
 #[derive(Debug, Clone)]
 pub enum WorkspaceKind {
@@ -467,7 +489,7 @@ pub(crate) enum Downgrade {
 }
 
 impl Graph {
-    /// Analyse the current graph starting at its [entrypoint](Self::lookup_entrypoint()).
+    /// Analyze the current graph starting at its [entrypoint](Self::lookup_entrypoint()).
     ///
     /// No matter what, each location of `HEAD`, which corresponds to the entrypoint, can be represented as workspace.
     /// Further, the most expensive operations we perform to query additional commit information by reading it, but we

@@ -51,9 +51,8 @@ pub fn doit(
         dangerously_skip_postprocessing_for_debugging,
     };
 
-    // Never drop - this is read-only.
-    let guard = ctx.shared_worktree_access();
-    let meta = std::mem::ManuallyDrop::new(ctx.meta(guard.read_permission())?);
+    let _guard = ctx.shared_worktree_access();
+    let meta = std::mem::ManuallyDrop::new(ctx.meta()?);
     let graph = match ref_name {
         None => but_graph::Graph::from_head(repo, &*meta, opts),
         Some(ref_name) => {

@@ -174,7 +174,7 @@ impl OplogExt for Context {
 
     #[instrument(skip(self), err(Debug))]
     fn get_snapshot(&self, sha: git2::Oid) -> Result<Snapshot> {
-        let repo = self.clone_repo_for_merging()?;
+        let repo = self.repo.get()?;
         let commit = repo.find_commit(sha.to_gix())?;
         let commit_time = gix_time_to_git2(commit.time()?);
         let details = commit
@@ -200,7 +200,7 @@ impl OplogExt for Context {
         exclude_kind: Vec<OperationKind>,
         include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>> {
-        let repo = self.clone_repo_for_merging()?;
+        let repo = self.repo.get()?;
         let traversal_root_id = git2_to_gix_object_id(match oplog_commit_id {
             Some(id) => id,
             None => {

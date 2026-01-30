@@ -1,5 +1,6 @@
-use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
+use but_core::sync::WorktreeWritePermission;
 use but_settings::AppSettings;
+use tracing::instrument;
 
 use crate::{
     Context, LegacyProjectId, ThreadSafeContext, app_settings, new_ondemand_app_cache,
@@ -98,16 +99,34 @@ impl TryFrom<LegacyProjectId> for ThreadSafeContext {
 
 /// Legacy - none of this should be kept.
 impl Context {
+    /// Create a new workspace as seen from the current HEAD and return it,
+    /// along with read-only metadata.
+    ///
+    /// The write-permission is required to obtain an exclusive metadata instance, which is needed
+    /// to lock the workspace and its metadata for modification.
+    #[deprecated = "Prefer Context::workspace_from_head_for_editing()"]
+    #[instrument(
+        name = "DEPRECATED: Context::workspace_and_meta_from_head",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn workspace_and_meta_from_head(
+        &self,
+        _exclusive_access: &WorktreeWritePermission,
+    ) -> anyhow::Result<(
+        impl but_core::RefMetadata + 'static,
+        but_graph::projection::Workspace,
+    )> {
+        let ws = self.workspace_from_head()?;
+        Ok((self.meta()?, ws))
+    }
+
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
     /// to read data.
     /// This is helping to prevent races with mutable instances.
-    // TODO: remove _read_only as we don't need it anymore with a DB based implementation as long as the instances
-    //       starts a transaction to isolate reads.
-    //       For a correct implementation, this would also have to hold on to `_read_only`.
-    pub fn legacy_meta(
-        &self,
-        _read_only: &WorktreeReadPermission,
-    ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
+    // TODO: For a correct implementation, this would also have to hold on to `_read_only`.
+    pub fn legacy_meta(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         self.meta_inner()
     }
 

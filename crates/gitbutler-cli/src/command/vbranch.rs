@@ -1,7 +1,6 @@
 use anyhow::{Context as _, Result, bail};
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch_actions::BranchManagerExt;
@@ -31,9 +30,7 @@ pub fn list(project: Project) -> Result<()> {
 pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let stacks = {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
+        let meta = ctx.legacy_meta()?;
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     }?;
     let mut details = vec![];
@@ -42,9 +39,7 @@ pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
             .id
             .context("BUG(opt-stack-id): CLI code shouldn't trigger this")?;
         details.push((stack_id, {
-            let meta = VirtualBranchesTomlMetadata::from_path(
-                ctx.project_data_dir().join("virtual_branches.toml"),
-            )?;
+            let meta = ctx.legacy_meta()?;
             but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
         }?));
     }

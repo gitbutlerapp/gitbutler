@@ -1,5 +1,6 @@
 use std::{collections::HashSet, str::FromStr};
 
+use crate::json::HexHash;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::{RepositoryExt, sync::WorkspaceWriteGuard};
@@ -14,15 +15,15 @@ use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_project::{Project, ProjectId};
+use gitbutler_project::ProjectId;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use tracing::instrument;
 
-use crate::json::HexHash;
-
-fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
+// Used to bypass read-only permissions, apparently.
+// TODO(ctx): remove this once vb.toml is in metadata.
+fn ref_metadata_toml(ctx: &Context) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))
 }
 
 #[but_api]
@@ -30,7 +31,7 @@ fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMet
 pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    let meta = ref_metadata_toml(&ctx)?;
     but_workspace::head_info(
         &repo,
         &meta,
@@ -52,7 +53,7 @@ pub fn stacks(
     filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    let meta = ref_metadata_toml(ctx)?;
     but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
 }
 
@@ -62,7 +63,7 @@ pub fn stacks(
 pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let repo = ctx.open_isolated_repo()?;
-    let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    let meta = ref_metadata_toml(&ctx)?;
     let mut graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -116,7 +117,7 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(&ctx.legacy_project)?;
+        let meta = ref_metadata_toml(ctx)?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
     }?;
     let repo = ctx.repo.get()?;
@@ -205,7 +206,7 @@ pub fn branch_details(
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(&ctx.legacy_project)?;
+        let meta = ref_metadata_toml(&ctx)?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")
@@ -386,32 +387,31 @@ mod json {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn move_changes_between_commits(
-    project_id: ProjectId,
+    ctx: &mut Context,
     source_stack_id: StackId,
     source_commit_id: HexHash,
     destination_stack_id: StackId,
     destination_commit_id: HexHash,
     changes: Vec<but_core::DiffSpec>,
 ) -> Result<json::UIMoveChangesResult> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let mut guard = ctx.exclusive_worktree_access();
-
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::AmendCommit),
         guard.write_permission(),
     );
     let result = but_workspace::legacy::move_changes_between_commits(
-        &ctx,
+        ctx,
         source_stack_id,
         source_commit_id.into(),
         destination_stack_id,
         destination_commit_id.into(),
         changes,
-        ctx.settings.context_lines,
+        guard.write_permission(),
     )?;
 
+    // TODO(ctx): remove this, with the rebase engine this is done above
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, &ctx, false)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     Ok(result.into())
 }
@@ -419,31 +419,30 @@ pub fn move_changes_between_commits(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn split_branch(
-    project_id: ProjectId,
+    ctx: &mut Context,
     source_stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
 ) -> Result<json::UIMoveChangesResult> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let mut guard = ctx.exclusive_worktree_access();
-
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SplitBranch),
         guard.write_permission(),
     );
 
     let (_, move_changes_result) = but_workspace::legacy::split_branch(
-        &ctx,
+        ctx,
         source_stack_id,
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.settings.context_lines,
+        guard.write_permission(),
     )?;
 
+    // TODO(ctx): remove this, it's done above
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, &ctx, false)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&new_branch_name, None));
     let branch_manager = ctx.branch_manager();
@@ -453,6 +452,11 @@ pub fn split_branch(
         None,
         guard.write_permission(),
     )?;
+
+    // TODO(ctx): use new branch creation, which would update the ctx workspace as well.
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(move_changes_result.into())
 }
@@ -480,7 +484,7 @@ pub fn split_branch_into_dependent_branch(
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.settings.context_lines,
+        guard.write_permission(),
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -497,23 +501,17 @@ pub fn split_branch_into_dependent_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn uncommit_changes(
-    project_id: ProjectId,
+    ctx: &mut Context,
     stack_id: StackId,
     commit_id: HexHash,
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<StackId>,
 ) -> Result<json::UIMoveChangesResult> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let mut guard = ctx.exclusive_worktree_access();
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
         guard.write_permission(),
     );
-
     // If we want to assign the changes after uncommitting, we could try to do
     // something with the hunk headers, but this is not precise as the hunk
     // headers might have changed from what they were like when they were
@@ -522,15 +520,17 @@ pub fn uncommit_changes(
     // As such, we take all the old assignments, and all the new assignments from after the
     // uncommit, and find the ones that are not present in the old assignments.
     // We then convert those into assignment requests for the given stack.
+    let context_lines = ctx.settings.context_lines;
     let before_assignments = if assign_to.is_some() {
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
         let changes = but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
         Some(changes.0)
     } else {
@@ -538,25 +538,26 @@ pub fn uncommit_changes(
     };
 
     let result = but_workspace::legacy::remove_changes_from_commit_in_stack(
-        &ctx,
+        ctx,
         stack_id,
         commit_id.into(),
         changes,
-        ctx.settings.context_lines,
+        guard.write_permission(),
     )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    update_workspace_commit(&vb_state, &ctx, false)?;
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
 
         let before_assignments = before_assignments
@@ -575,12 +576,12 @@ pub fn uncommit_changes(
             .collect::<Vec<_>>();
 
         but_hunk_assignment::assign(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             to_assign,
             None,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
     }
 
@@ -594,13 +595,10 @@ pub fn uncommit_changes(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
-    project_id: ProjectId,
+    ctx: &Context,
     branch_name: String,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let repo = ctx.clone_repo_for_merging()?;
-
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
@@ -615,11 +613,11 @@ pub fn stash_into_branch(
         perm,
     )?;
 
-    let parent_commit_id = stack.head_oid(&ctx)?;
+    let parent_commit_id = stack.head_oid(ctx)?;
     let branch_name = stack.derived_name()?;
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
-        &repo,
+        &*ctx.repo.get()?,
         &ctx.project_data_dir(),
         Some(stack.id),
         commit_engine::Destination::NewCommit {
@@ -638,7 +636,7 @@ pub fn stash_into_branch(
     );
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx, false)
+    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
     branch_manager.unapply(

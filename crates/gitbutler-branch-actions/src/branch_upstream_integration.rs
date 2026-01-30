@@ -111,7 +111,7 @@ pub fn integrate_branch_with_steps(
     let mut source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
 
-    let original_rebase_steps = source_stack.as_rebase_steps_rev(ctx, &repository)?;
+    let original_rebase_steps = source_stack.as_rebase_steps_rev(ctx)?;
     let mut new_rebase_steps = vec![];
 
     let branch_ref = repository

@@ -25,8 +25,9 @@ fn configured_repo(
     Ok(repo)
 }
 
-pub fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
+// TODO(ctx): shouldn't be needed once meta in in db
+pub fn ref_metadata_toml(ctx: &but_ctx::Context) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))
 }
 
 pub fn repo_and_maybe_project(

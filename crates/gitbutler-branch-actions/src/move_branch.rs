@@ -237,7 +237,7 @@ fn extract_branch_steps(
     source_stack: &gitbutler_stack::Stack,
     subject_branch_name: &str,
 ) -> Result<(Vec<RebaseStep>, Vec<RebaseStep>)> {
-    let source_steps = source_stack.as_rebase_steps_rev(ctx, repository)?;
+    let source_steps = source_stack.as_rebase_steps_rev(ctx)?;
     let mut new_source_steps = Vec::new();
     let mut subject_branch_steps = Vec::new();
     let mut inside_branch = false;
@@ -290,7 +290,7 @@ fn inject_branch_steps(
     destination_branch_name: &str,
     branch_steps: Vec<RebaseStep>,
 ) -> Result<Vec<RebaseStep>> {
-    let destination_steps = destination_stack.as_rebase_steps_rev(ctx, repository)?;
+    let destination_steps = destination_stack.as_rebase_steps_rev(ctx)?;
     let mut branch_steps = branch_steps.clone();
     branch_steps.reverse();
 

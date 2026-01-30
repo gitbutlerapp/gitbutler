@@ -33,7 +33,8 @@ impl<T> OnDemand<T> {
 
 /// Access
 impl<T> OnDemand<T> {
-    /// Get a shared reference to the cached value or fallibly initialise it.
+    /// Get a shared reference to the cached value or fallibly initialize it.
+    /// There can be multiple of these reference at the same time as long as there is no mutable one.
     pub fn get(&self) -> anyhow::Result<cell::Ref<'_, T>> {
         if let Ok(cached) = cell::Ref::filter_map(self.value.try_borrow()?, |opt| opt.as_ref()) {
             return Ok(cached);
@@ -48,7 +49,8 @@ impl<T> OnDemand<T> {
         )
     }
 
-    /// Get an exclusive references to the cached value or fallibly initialise it.
+    /// Get an exclusive references to the cached value or fallibly initialize it.
+    /// This can only happen if there are no other shared or mutable references.
     pub fn get_mut(&mut self) -> anyhow::Result<cell::RefMut<'_, T>> {
         if let Ok(cached) =
             cell::RefMut::filter_map(self.value.try_borrow_mut()?, |opt| opt.as_mut())
@@ -65,7 +67,8 @@ impl<T> OnDemand<T> {
         )
     }
 
-    /// Return the existing value if there is one.
+    /// Return the existing value if there is one, without automatically initializing it.
+    /// There can be multiple of these reference at the same time as long as there is no mutable one.
     pub fn get_opt(&self) -> cell::Ref<'_, Option<T>> {
         self.value.borrow()
     }
@@ -73,11 +76,13 @@ impl<T> OnDemand<T> {
     /// Take the existing value out of the cache if there is one.
     ///
     /// On next access, the cache will be re-initialised.
+    /// This can only happen if there are no other shared or mutable references.
     pub fn take(&mut self) -> Option<T> {
         self.value.borrow_mut().take()
     }
 
     /// Assign `value` and return a reference to it, dropping the previous cached value if it existed.
+    /// This can only happen if there are no other shared or mutable references.
     // TODO: make this private and replace it with `Context` constructors or `with_*` post-construction modifiers.
     pub fn assign(&mut self, value: T) -> cell::RefMut<'_, T> {
         self.value = RefCell::new(Some(value));

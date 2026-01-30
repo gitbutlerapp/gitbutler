@@ -20,9 +20,7 @@ pub fn worktree_new(
     perm: &WorktreeReadPermission,
     refname: &gix::refs::FullNameRef,
 ) -> Result<NewWorktreeOutcome> {
-    let repo = &*ctx.repo.get()?;
-
-    let (_, ws) = ctx.workspace_and_read_only_meta_from_head(perm)?;
+    let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
     if !ws.refname_is_segment(refname) {
         bail!("Branch not found in workspace");
     }
@@ -51,7 +49,7 @@ pub fn worktree_new(
         base: to_checkout.detach(),
     };
 
-    save_worktree_meta(repo, meta)?;
+    save_worktree_meta(&repo, meta)?;
 
     Ok(NewWorktreeOutcome {
         created: Worktree {

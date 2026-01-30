@@ -38,7 +38,7 @@ impl BranchManager<'_> {
 
         _ = self.ctx.snapshot_branch_deletion(stack.name(), perm);
 
-        let repo = self.ctx.git2_repo.get()?;
+        let git2_repo = self.ctx.git2_repo.get()?;
 
         // Commit any assigned diffspecs if such exist so that it will be part of the unapplied branch.
         if !assigned_diffspec.is_empty()
@@ -59,10 +59,10 @@ impl BranchManager<'_> {
         stack.in_workspace = false;
         vb_state.set_stack(stack.clone())?;
 
-        let gix_repo = self.ctx.clone_repo_for_merging()?;
+        let repo = self.ctx.clone_repo_for_merging()?;
         if safe_checkout {
             // This reads the just stored data and re-merges it all stacks, excluding the unapplied one.
-            let res = checkout_remerged_head(self.ctx, &gix_repo);
+            let res = checkout_remerged_head(self.ctx, &repo);
             // Undo the removal, stack is still there officially now.
             if res.is_err() {
                 stack.in_workspace = true;
@@ -85,29 +85,29 @@ impl BranchManager<'_> {
             // keep any locked changes in the cwdt.
 
             // dump current assignments into a WIP commit
-            let merge_options = gix_repo
+            let merge_options = repo
                 .tree_merge_options()?
                 .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
                 .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
 
-            let cwdt = repo.create_wd_tree(0)?.id().to_gix();
-            let workspace_base = gix_repo
+            let cwdt = git2_repo.create_wd_tree(0)?.id().to_gix();
+            let workspace_base = repo
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;
-            let stack_head =
-                gix_repo.find_real_tree(&stack.head_oid(self.ctx)?, Default::default())?;
+            let stack_head = repo.find_real_tree(&stack.head_oid(self.ctx)?, Default::default())?;
 
-            let mut merge = gix_repo.merge_trees(
+            let mut merge = repo.merge_trees(
                 stack_head,
                 cwdt,
                 workspace_base,
-                gix_repo.default_merge_labels(),
+                repo.default_merge_labels(),
                 merge_options,
             )?;
             let new_workspace_tree_with_worktree_changes =
-                repo.find_tree(merge.tree.write()?.to_git2())?;
+                git2_repo.find_tree(merge.tree.write()?.to_git2())?;
 
-            repo.checkout_tree_builder(&new_workspace_tree_with_worktree_changes)
+            git2_repo
+                .checkout_tree_builder(&new_workspace_tree_with_worktree_changes)
                 .force()
                 .checkout()
                 .context("failed to checkout tree")?;

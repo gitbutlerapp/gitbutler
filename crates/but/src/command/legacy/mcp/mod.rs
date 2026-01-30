@@ -40,7 +40,6 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 
 #[derive(Debug, Clone)]
 pub struct Mcp {
-    app_settings: AppSettings,
     metrics: BackgroundMetrics,
     client_info: Arc<Mutex<Option<Implementation>>>,
     event_handler: event::Handler,
@@ -53,7 +52,6 @@ impl Mcp {
         let metrics = BackgroundMetrics::new_in_background(&app_settings);
         let event_handler = event::Handler::new_in_background();
         Self {
-            app_settings,
             metrics,
             client_info,
             event_handler,
@@ -149,8 +147,7 @@ impl Mcp {
                         external_prompt: request.full_prompt.clone(),
                         branch_name: branch.branch_name.clone(),
                         commit_id,
-                        project: project.clone(),
-                        app_settings: self.app_settings.clone(),
+                        ctx: ctx.to_sync(),
                         trigger: id,
                     };
                     self.event_handler.process_commit(commit_event);

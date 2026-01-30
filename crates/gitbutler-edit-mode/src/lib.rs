@@ -31,10 +31,10 @@ const UNCOMMITTED_CHANGES_REF: &str = "refs/gitbutler/edit-uncommitted-changes";
 /// during the merge.
 fn get_commit_index(ctx: &Context, commit: &git2::Commit) -> Result<git2::Index> {
     let commit_tree = commit.tree().context("Failed to get commit's tree")?;
-    let gix_repo = ctx.clone_repo_for_merging()?;
-    let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
+    let repo = ctx.repo.get()?;
+    let commit = repo.find_commit(commit.id().to_gix())?;
     // Checkout the commit as unstaged changes
-    if gix_commit.is_conflicted() {
+    if commit.is_conflicted() {
         let base = commit_tree
             .get_name(".conflict-base-0")
             .context("Failed to get base")?
@@ -48,7 +48,7 @@ fn get_commit_index(ctx: &Context, commit: &git2::Commit) -> Result<git2::Index>
             .context("Failed to get base")?
             .id();
 
-        let gix_repo = ctx.clone_repo_for_merging()?;
+        let gix_repo = repo.clone().for_tree_diffing()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = gix_repo.merge_trees(
             git2_to_gix_object_id(base),
@@ -267,7 +267,7 @@ pub(crate) fn save_and_return_to_workspace(
 
     let gix_repo = repository.to_gix_repo()?;
 
-    let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
+    let mut steps = stack.as_rebase_steps(ctx)?;
     // swap out the old commit with the new, updated one
     steps.iter_mut().for_each(|step| {
         if let but_rebase::RebaseStep::Pick { commit_id, .. } = step

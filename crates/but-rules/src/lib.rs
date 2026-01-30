@@ -307,7 +307,7 @@ pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
 pub fn process_rules(ctx: &mut Context, perm: &mut WorktreeWritePermission) -> anyhow::Result<()> {
     let (assignments, dependencies) = {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
         let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(

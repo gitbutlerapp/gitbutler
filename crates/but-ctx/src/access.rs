@@ -13,6 +13,8 @@ impl Context {
     ///
     /// Note that the lock is automatically released on `Drop`, or when the process quits for any reason,
     /// so it can't go stale.
+    ///
+    /// # IMPORTANT: KEEP THE LOCK ALIVE!
     pub fn try_exclusive_access(&self) -> anyhow::Result<LockFile> {
         but_core::sync::try_exclusive_inter_process_access(&self.gitdir, AllOperations)
     }
@@ -23,6 +25,8 @@ impl Context {
     ///
     /// Note that this in-process locking works only under the assumption that no two instances of
     /// GitButler are able to read or write the same repository.
+    ///
+    /// # IMPORTANT: KEEP THE GUARD ALIVE!
     pub fn exclusive_worktree_access(&self) -> WorkspaceWriteGuard {
         but_core::sync::exclusive_worktree_access(&self.gitdir)
     }
@@ -30,6 +34,8 @@ impl Context {
     /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.
     /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
     /// thus block readers to prevent writer starvation.
+    ///
+    /// # IMPORTANT: KEEP THE GUARD ALIVE!
     pub fn shared_worktree_access(&self) -> WorkspaceReadGuard {
         but_core::sync::shared_worktree_access(&self.gitdir)
     }

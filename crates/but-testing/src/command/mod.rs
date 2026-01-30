@@ -1,4 +1,4 @@
-use std::{borrow::Cow, mem::ManuallyDrop, path::Path};
+use std::{borrow::Cow, path::Path};
 
 use anyhow::{Context as _, anyhow, bail};
 use but_core::{
@@ -6,14 +6,12 @@ use but_core::{
     worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_db::poll::ItemKind;
-use but_meta::VirtualBranchesTomlMetadata;
-use but_settings::AppSettings;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     create_reference::{Anchor, Position},
 };
-use gitbutler_project::{Project, ProjectId};
+use gitbutler_project::ProjectId;
 use gix::{
     bstr::{BString, ByteSlice},
     refs::Category,
@@ -22,13 +20,8 @@ use tokio::sync::mpsc::unbounded_channel;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
 
-pub fn project_from_path(path: &Path) -> anyhow::Result<Project> {
-    Project::from_path(path)
-}
-
-pub fn project_repo(path: &Path) -> anyhow::Result<gix::Repository> {
-    let project = project_from_path(path)?;
-    configured_repo(project.open_repo()?, RepositoryOpenMode::General)
+pub fn repo_at_path(path: &Path) -> anyhow::Result<gix::Repository> {
+    configured_repo(gix::discover(path)?, RepositoryOpenMode::General)
 }
 
 pub enum RepositoryOpenMode {
@@ -50,44 +43,6 @@ fn configured_repo(
         }
     }
     Ok(repo)
-}
-
-fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
-}
-
-/// Operate like GitButler would in the future, on a Git repository and optionally with additional metadata as obtained
-/// from the previously added project.
-pub fn repo_and_maybe_project(
-    args: &super::Args,
-    mode: RepositoryOpenMode,
-) -> anyhow::Result<(gix::Repository, Option<Project>)> {
-    let repo = configured_repo(gix::discover(&args.current_dir)?, mode)?;
-    let res = if let Some(work_dir) = repo.workdir() {
-        let work_dir = gix::path::realpath(work_dir)?;
-        (
-            repo,
-            gitbutler_project::Project::find_by_worktree_dir(&work_dir).ok(),
-        )
-    } else {
-        (repo, None)
-    };
-    Ok(res)
-}
-
-pub fn repo_and_maybe_project_and_graph(
-    args: &super::Args,
-    mode: RepositoryOpenMode,
-) -> anyhow::Result<(
-    gix::Repository,
-    Option<Project>,
-    but_graph::Graph,
-    ManuallyDrop<VirtualBranchesTomlMetadata>,
-)> {
-    let (repo, project) = repo_and_maybe_project(args, mode)?;
-    let meta = meta_from_maybe_project(project.as_ref())?;
-    let graph = but_graph::Graph::from_head(&repo, &*meta, Default::default())?;
-    Ok((repo, project, graph, meta))
 }
 
 fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
@@ -120,25 +75,21 @@ pub mod assignment {
 
     use but_ctx::Context;
     use but_hunk_assignment::HunkAssignmentRequest;
-    use but_settings::AppSettings;
 
-    use crate::command::{debug_print, project_from_path};
+    use crate::command::debug_print;
 
     pub fn hunk_assignments(current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        let ctx =
-            &mut Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
-        let guard = ctx.exclusive_worktree_access();
-        let repo = ctx.repo.get()?.clone();
-        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+        let mut ctx = Context::discover(current_dir)?;
+        let context_lines = ctx.settings.context_lines;
+        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
         if use_json {
             let json = serde_json::to_string_pretty(&assignments)?;
@@ -154,19 +105,16 @@ pub mod assignment {
         use_json: bool,
         assignment: HunkAssignmentRequest,
     ) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        let ctx =
-            &mut Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
-        let guard = ctx.exclusive_worktree_access();
-        let repo = ctx.repo.get()?.clone();
-        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+        let mut ctx = Context::discover(current_dir)?;
+        let context_lines = ctx.settings.context_lines;
+        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
         let rejections = but_hunk_assignment::assign(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             vec![assignment],
             None,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
         if use_json {
             let json = serde_json::to_string_pretty(&rejections)?;
@@ -181,19 +129,16 @@ pub mod assignment {
 pub mod stacks {
     use std::{path::Path, str::FromStr};
 
+    use crate::command::debug_print;
     use anyhow::Context as _;
     use but_ctx::Context;
-    use but_settings::AppSettings;
     use but_workspace::legacy::{StacksFilter, stack_branches, ui};
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;
     use gix::bstr::ByteSlice;
 
-    use crate::command::{debug_print, project_from_path, ref_metadata_toml};
-
     pub fn list(current_dir: &Path, use_json: bool, in_workspace: bool) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let ctx = Context::discover(current_dir)?;
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let filter = if in_workspace {
             StacksFilter::InWorkspace
@@ -201,7 +146,7 @@ pub mod stacks {
             StacksFilter::All
         };
         let stacks = {
-            let meta = ref_metadata_toml(&ctx.legacy_project)?;
+            let meta = ctx.legacy_meta()?;
             but_workspace::legacy::stacks_v3(&repo, &meta, filter, None)
         }?;
         if use_json {
@@ -214,10 +159,9 @@ pub mod stacks {
     }
 
     pub fn details(id: Option<StackId>, current_dir: &Path) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let ctx = Context::discover(current_dir)?;
         let details = {
-            let meta = ref_metadata_toml(&ctx.legacy_project)?;
+            let meta = ctx.legacy_meta()?;
             let repo = ctx.clone_repo_for_merging_non_persisting()?;
             but_workspace::legacy::stack_details_v3(id, &repo, &meta)
         }?;
@@ -225,19 +169,17 @@ pub mod stacks {
     }
 
     pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
-        let meta = ref_metadata_toml(&ctx.legacy_project)?;
+        let ctx = Context::discover(current_dir)?;
+        let meta = ctx.meta()?;
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
         let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
-        let details = { but_workspace::branch_details(&repo, ref_name.as_ref(), &meta) }?;
+        let details = but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)?;
         debug_print(details)
     }
 
     pub fn branches(id: StackId, current_dir: &Path, use_json: bool) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let ctx = Context::discover(current_dir)?;
         let branches = stack_branches(id, &ctx)?;
         if use_json {
             let json = serde_json::to_string_pretty(&branches)?;
@@ -333,27 +275,10 @@ pub mod stacks {
         destination_branch: &str,
         current_dir: &Path,
     ) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        // Enable v3 feature flags for the command context
-        let app_settings = AppSettings {
-            feature_flags: but_settings::app_settings::FeatureFlags {
-                apply3: false,
-                cv3: false,
-                undo: false,
-                rules: false,
-                single_branch: false,
-                watch_mode: "auto".into(),
-            },
-            ..AppSettings::default()
-        };
-
-        let ctx = Context::new_from_legacy_project_and_settings(&project, app_settings);
-        let repo = ctx.repo.get()?;
-
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
-        )?;
-        let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
+        let ctx = Context::discover(current_dir)?;
+        let meta = ctx.legacy_meta()?;
+        let stacks =
+            but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
         let subject_stack = stacks
             .clone()
             .into_iter()
@@ -393,23 +318,8 @@ pub mod stacks {
         remote: bool,
         use_json: bool,
     ) -> anyhow::Result<()> {
-        let project = project_from_path(current_dir)?;
-        // Enable v3 feature flags for the command context
-        let app_settings = AppSettings {
-            feature_flags: but_settings::app_settings::FeatureFlags {
-                apply3: false,
-                cv3: false,
-                undo: false,
-                rules: false,
-                single_branch: false,
-                watch_mode: "auto".into(),
-            },
-            ..AppSettings::default()
-        };
-
-        let ctx = Context::new_from_legacy_project_and_settings(&project, app_settings);
+        let ctx = Context::discover(current_dir)?;
         let repo = ctx.repo.get()?;
-
         let stack_entry = match id {
             Some(id) => add_branch_to_stack(&ctx, id, name, &repo)?,
             None => create_stack_with_branch(&ctx, name, remote)?,
@@ -460,15 +370,14 @@ pub(crate) fn discard_change(
 }
 
 pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Result<()> {
-    let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let ctx = Context::discover(&args.current_dir)?;
     let (tx, mut rx) = unbounded_channel();
     let start = std::time::Instant::now();
-    let workdir = repo
-        .workdir()
-        .context("really only want to watch workdirs")?;
+    #[allow(deprecated)]
+    let workdir = ctx.workdir_needed()?;
     let _monitor = gitbutler_filemonitor::spawn(
-        project.map(|p| p.id).unwrap_or(ProjectId::generate()),
-        workdir,
+        ProjectId::generate(),
+        &workdir,
         tx,
         watch_mode.and_then(|m| m.parse().ok()).unwrap_or_default(),
     )?;
@@ -485,9 +394,7 @@ pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Resu
     Ok(())
 }
 pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
-    let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
-    let project = project.context("Couldn't find GitButler project in directory, needed here")?;
-    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+    let ctx = Context::discover(&args.current_dir)?;
     let db = ctx.db.get()?;
     let rx = db.poll_changes(
         ItemKind::Actions | ItemKind::Assignments | ItemKind::Workflows,
@@ -502,77 +409,52 @@ pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
 }
 
 pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
-    let (_repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
-    let project = project.context("Couldn't find GitButler project in directory")?;
-    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
-
+    let ctx = Context::discover(&args.current_dir)?;
     debug_print(gitbutler_operating_modes::operating_mode(&ctx))
 }
 
 pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> anyhow::Result<()> {
-    let (repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::Merge)?;
+    let ctx = Context::discover(&args.current_dir)?;
     let opts = but_workspace::ref_info::Options {
         expensive_commit_info: expensive,
         traversal: Default::default(),
     };
 
-    let project = project.with_context(|| {
-        format!(
-            "Currently there must be an official project so we have metadata: {project_dir}",
-            project_dir = args.current_dir.display()
-        )
-    })?;
-    let meta = ref_metadata_toml(&project)?;
+    let _guard = ctx.shared_worktree_access();
+    let meta = ctx.meta()?;
+    let repo = &*ctx.repo.get()?;
     debug_print(match ref_name {
-        None => but_workspace::head_info(&repo, &meta, opts),
+        None => but_workspace::head_info(repo, &meta, opts),
         Some(ref_name) => but_workspace::ref_info(repo.find_reference(ref_name)?, &meta, opts),
     }?)
 }
 
 pub mod graph;
 
-/// NOTE: THis is a special case while vb.toml is used and while projects are somewhat special.
-fn meta_from_maybe_project(
-    project: Option<&Project>,
-) -> anyhow::Result<ManuallyDrop<VirtualBranchesTomlMetadata>> {
-    let meta = ManuallyDrop::new(match project {
-        None => VirtualBranchesTomlMetadata::from_path("should-never-be-written-back.toml")?,
-        Some(project) => ref_metadata_toml(project)?,
-    });
-    Ok(meta)
-}
-
 pub fn remove_reference(
     args: &super::Args,
     short_name: &str,
     opts: but_workspace::branch::remove_reference::Options,
 ) -> anyhow::Result<()> {
-    let (repo, _project, graph, mut meta) =
-        repo_and_maybe_project_and_graph(args, RepositoryOpenMode::General)?;
-
+    let mut ctx = Context::discover(&args.current_dir)?;
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let ref_name = Category::LocalBranch.to_full_name(short_name)?;
-    let deleted = but_workspace::branch::remove_reference(
-        ref_name.as_ref(),
-        &repo,
-        &graph.into_workspace()?,
-        &mut *meta,
-        opts,
-    )?
-    .is_some();
-    if deleted {
+    let deleted =
+        but_workspace::branch::remove_reference(ref_name.as_ref(), &repo, &ws, &mut meta, opts)?;
+    if let Some(new_ws) = deleted {
+        *ws = new_ws;
         eprintln!("Deleted");
     } else {
         eprintln!("Nothing deleted");
     }
-    // write metadata if there are projects - this is a special case while we use vb.toml.
-    ManuallyDrop::into_inner(meta);
     Ok(())
 }
 
 pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyhow::Result<()> {
-    let ctx = Context::discover(&args.current_dir)?;
-    let (_guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
-    let repo = ctx.repo.get()?;
+    let mut ctx = Context::discover(&args.current_dir)?;
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let branch = repo.find_reference(short_name)?;
     let apply_outcome = but_workspace::branch::apply(
         branch.name(),
@@ -589,7 +471,11 @@ pub fn apply(args: &super::Args, short_name: &str, order: Option<usize>) -> anyh
         },
     )?;
 
-    debug_print(apply_outcome)
+    let res = debug_print(&apply_outcome);
+    if let Cow::Owned(new_ws) = apply_outcome.workspace {
+        *ws = new_ws;
+    }
+    res
 }
 
 pub fn create_reference(
@@ -598,8 +484,9 @@ pub fn create_reference(
     above: Option<&str>,
     below: Option<&str>,
 ) -> anyhow::Result<()> {
-    let (repo, project, graph, mut meta) =
-        repo_and_maybe_project_and_graph(args, RepositoryOpenMode::General)?;
+    let mut ctx = Context::discover(&args.current_dir)?;
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let resolve = |spec: &str, position: Position| -> anyhow::Result<Anchor<'_>> {
         Ok(match repo.try_find_reference(spec)? {
             None => Anchor::AtCommit {
@@ -618,21 +505,20 @@ pub fn create_reference(
         .transpose()?;
 
     let new_ref = Category::LocalBranch.to_full_name(short_name)?;
-    let ws = graph.into_workspace()?;
-    _ = but_workspace::branch::create_reference(
+    let new_ws = but_workspace::branch::create_reference(
         new_ref.as_ref(),
         anchor,
         &repo,
         &ws,
-        &mut *meta,
+        &mut meta,
         |_| StackId::generate(),
         None,
     )?;
 
-    if project.is_some() {
-        // write metadata if there are projects - this is a special case while we use vb.toml.
-        ManuallyDrop::into_inner(meta);
+    if let Cow::Owned(new_ws) = new_ws {
+        *ws = new_ws;
     }
+
     Ok(())
 }
 
@@ -697,9 +583,8 @@ fn path_to_rela_path(path: &Path) -> anyhow::Result<BString> {
     Ok(rela_path)
 }
 
-pub fn branch_list(project: Option<Project>) -> anyhow::Result<()> {
-    let project = project.context("legacy code needs project")?;
-    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+pub fn branch_list(current_dir: &Path) -> anyhow::Result<()> {
+    let ctx = Context::discover(current_dir)?;
     debug_print(gitbutler_branch_actions::list_branches(
         &ctx,
         Some(BranchListingFilter {

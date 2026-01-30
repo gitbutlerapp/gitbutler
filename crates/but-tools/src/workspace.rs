@@ -4,6 +4,10 @@ use std::{
     sync::Arc,
 };
 
+use crate::{
+    emit::{Emittable, Emitter, StackUpdate},
+    tool::{Tool, ToolResult, Toolset, WorkspaceToolset, error_to_json, result_to_json},
+};
 use anyhow::Context as _;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
@@ -16,15 +20,9 @@ use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_project::Project;
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
-
-use crate::{
-    emit::{Emittable, Emitter, StackUpdate},
-    tool::{Tool, ToolResult, Toolset, WorkspaceToolset, error_to_json, result_to_json},
-};
 
 /// Creates a toolset for any kind of workspace operations.
 pub fn workspace_toolset(
@@ -723,7 +721,7 @@ impl Tool for MoveFileChanges {
     }
 }
 
-pub fn move_file_changes(
+fn move_file_changes(
     ctx: &mut Context,
     emitter: Arc<Emitter>,
     params: MoveFileChangesParameters,
@@ -746,6 +744,7 @@ pub fn move_file_changes(
         })
         .collect::<Vec<_>>();
 
+    let mut guard = ctx.exclusive_worktree_access();
     let result = but_workspace::legacy::move_changes_between_commits(
         ctx,
         source_stack_id,
@@ -753,9 +752,10 @@ pub fn move_file_changes(
         destination_stack_id,
         destination_commit_id,
         changes,
-        ctx.settings.context_lines,
+        guard.write_permission(),
     )?;
 
+    // TODO(ctx): remove this, with the rebase engine this is done above
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)?;
 
@@ -1227,7 +1227,7 @@ pub fn split_branch(
         params.source_branch_name,
         params.new_branch_name.clone(),
         &params.files_to_split_off,
-        ctx.settings.context_lines,
+        guard.write_permission(),
     )?;
 
     update_workspace_commit(&vb_state, ctx, false)?;
@@ -1360,12 +1360,13 @@ pub fn split_commit(
         .map(Into::into)
         .collect::<Vec<but_workspace::legacy::CommitFiles>>();
 
+    let mut guard = ctx.exclusive_worktree_access();
     let outcome = but_workspace::legacy::split_commit(
         ctx,
         source_stack_id,
         source_commit_id,
         &pieces,
-        ctx.settings.context_lines,
+        guard.write_permission(),
     )?;
 
     let CommmitSplitOutcome {
@@ -1455,8 +1456,9 @@ impl From<CommitShard> for but_workspace::legacy::CommitFiles {
     }
 }
 
-fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
+// TODO(ctx): remove this once vb.toml is in metadata.
+fn ref_metadata_toml(ctx: &Context) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1612,9 +1614,8 @@ pub fn get_filtered_changes(
     ctx: &mut Context,
     filter_changes: Option<Vec<BString>>,
 ) -> Result<Vec<FileChange>, anyhow::Error> {
-    let guard = ctx.exclusive_worktree_access();
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     let changes = if let Some(filter) = filter_changes {
         worktree
@@ -1625,12 +1626,11 @@ pub fn get_filtered_changes(
     } else {
         worktree.changes.clone()
     };
-    let context_lines = ctx.settings.context_lines;
     let diff = unified_diff_for_changes(&repo, changes, context_lines)?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        db.hunk_assignments_mut()?,
         &repo,
-        &workspace,
+        &ws,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
@@ -1873,7 +1873,7 @@ fn find_the_right_commit_id(
 }
 
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    let meta = ref_metadata_toml(ctx)?;
     let repo = &*ctx.repo.get()?;
     but_workspace::legacy::stacks_v3(
         repo,

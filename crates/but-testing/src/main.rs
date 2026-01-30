@@ -6,13 +6,10 @@ use command::parse_diff_spec;
 use gix::bstr::BString;
 
 mod args;
+use crate::{args::Subcommands, command::graph::Dot};
 use args::Args;
 use but_core::HunkHeader;
-
-use crate::{
-    args::Subcommands,
-    command::{RepositoryOpenMode, graph::Dot, repo_and_maybe_project},
-};
+use but_ctx::Context;
 
 mod command;
 
@@ -95,11 +92,10 @@ async fn main() -> Result<()> {
             stack_segment_ref,
             diff_spec,
         } => {
-            let (repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
+            let ctx = Context::discover(&args.current_dir)?;
             let diff_spec = parse_diff_spec(diff_spec)?;
             command::commit(
-                repo,
-                project,
+                ctx.repo.get()?.clone(),
                 message.as_deref(),
                 *amend,
                 parent.as_deref(),
@@ -138,10 +134,7 @@ async fn main() -> Result<()> {
         args::Subcommands::Stacks { workspace_only } => {
             command::stacks::list(&args.current_dir, args.json, *workspace_only)
         }
-        args::Subcommands::BranchList => {
-            let (_repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
-            command::branch_list(project)
-        }
+        args::Subcommands::BranchList => command::branch_list(&args.current_dir),
         args::Subcommands::BranchDetails { ref_name } => {
             command::stacks::branch_details(ref_name, &args.current_dir)
         }

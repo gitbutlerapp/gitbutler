@@ -1,7 +1,6 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
@@ -214,10 +213,7 @@ pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termt
 pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
     let repo = ctx.clone_repo_for_merging_non_persisting().unwrap();
     let stacks = {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )
-        .unwrap();
+        let meta = ctx.legacy_meta().unwrap();
         but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
     }
     .unwrap();
@@ -229,10 +225,7 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
         details.push((
             stack_id,
             {
-                let meta = VirtualBranchesTomlMetadata::from_path(
-                    ctx.project_data_dir().join("virtual_branches.toml"),
-                )
-                .unwrap();
+                let meta = ctx.legacy_meta().unwrap();
                 but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
             }
             .unwrap(),

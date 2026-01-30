@@ -1,4 +1,5 @@
 use anyhow::{Result, bail};
+use but_core::sync::WorktreeWritePermission;
 use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::Context;
 use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
@@ -55,13 +56,13 @@ use crate::legacy::stack_ext::StackExt;
 /// us the potential to handle the case where the patch doesn't apply well to
 /// destination commit well.
 pub fn move_changes_between_commits(
-    ctx: &Context,
+    ctx: &mut Context,
     source_stack_id: StackId,
     source_commit_id: gix::ObjectId,
     destination_stack_id: StackId,
     destination_commit_id: gix::ObjectId,
     changes_to_remove_from_source: impl IntoIterator<Item = DiffSpec>,
-    context_lines: u32,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<MoveChangesResult> {
     if source_commit_id == destination_commit_id {
         return Ok(MoveChangesResult {
@@ -72,8 +73,7 @@ pub fn move_changes_between_commits(
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let repo = ctx.repo.get()?;
 
-    let source_commit = repo.find_commit(source_commit_id)?;
-    let source_tree_id = source_commit.tree_id()?;
+    let source_tree_id = repo.find_commit(source_commit_id)?.tree_id()?;
 
     let (source_tree_without_changes_id, dropped_diffs) = create_tree_without_diff(
         &repo,
@@ -81,14 +81,14 @@ pub fn move_changes_between_commits(
             id: source_commit_id,
         },
         changes_to_remove_from_source,
-        context_lines,
+        ctx.settings.context_lines,
     )?;
     if !dropped_diffs.is_empty() {
         bail!("Failed to extract described changes from source commit");
     }
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
-    let mut source_stack_steps = source_stack.as_rebase_steps(ctx, &repo)?;
+    let mut source_stack_steps = source_stack.as_rebase_steps(ctx)?;
 
     let rewritten_source_commit =
         replace_commit_tree(&repo, source_commit_id, source_tree_without_changes_id)?;
@@ -132,7 +132,7 @@ pub fn move_changes_between_commits(
     }
     let final_destination_tree = final_destination.tree.write()?;
 
-    if source_stack_id == destination_stack_id {
+    let res = if source_stack_id == destination_stack_id {
         // We need to rebase the source stack a second time. This loop both
         // updates the steps to consider the first rebase, and also injects the
         // new destination commit's tree.
@@ -182,7 +182,7 @@ pub fn move_changes_between_commits(
         })
     } else {
         let destination_stack = vb_state.get_stack_in_workspace(destination_stack_id)?;
-        let mut destination_stack_steps = destination_stack.as_rebase_steps(ctx, &repo)?;
+        let mut destination_stack_steps = destination_stack.as_rebase_steps(ctx)?;
 
         let rewritten_destination_commit = replace_commit_tree(
             &repo,
@@ -215,5 +215,12 @@ pub fn move_changes_between_commits(
         Ok(MoveChangesResult {
             replaced_commits: output_commit_mapping,
         })
-    }
+    };
+
+    drop(repo);
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    ws.refresh_from_head(&repo, &meta)?;
+
+    res
 }

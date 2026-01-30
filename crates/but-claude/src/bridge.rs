@@ -40,7 +40,7 @@ use crate::{
 use anyhow::{Result, bail};
 use but_action::cli::get_cli_path;
 use but_core::ref_metadata::StackId;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
 use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
@@ -507,9 +507,7 @@ async fn spawn_command(
     let branch_info = {
         let mut ctx = sync_ctx.clone().into_thread_local();
         let guard = ctx.exclusive_worktree_access();
-        let repo = ctx.repo.get()?.clone();
-        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        format_branch_info(&mut ctx, &repo, &workspace, stack_id)
+        format_branch_info(&mut ctx, stack_id, guard.read_permission())
     };
     let system_prompt = format!("{}\n\n{}", system_prompt(), branch_info);
     command.args(["--append-system-prompt", &system_prompt]);
@@ -641,9 +639,8 @@ Uncommitted changes (assigned to this stack):
 /// Formats branch information for the system prompt
 fn format_branch_info(
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     stack_id: StackId,
+    perm: &WorktreeReadPermission,
 ) -> String {
     let mut output = String::from(
         "<branch-info>\n\
@@ -662,7 +659,7 @@ fn format_branch_info(
 
     append_target_branch_info(&mut output, ctx);
     append_stack_branches_info(&mut output, stack_id, ctx);
-    append_assigned_files_info(&mut output, stack_id, ctx, repo, workspace).ok();
+    append_assigned_files_info(&mut output, stack_id, ctx, perm).ok();
 
     output.push_str("</branch-info>");
     output
@@ -686,7 +683,7 @@ fn append_target_branch_info(output: &mut String, ctx: &Context) {
 }
 
 /// Appends information about branches in the stack
-fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut Context) {
+fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &Context) {
     match but_workspace::legacy::stack_branches(stack_id, ctx) {
         Ok(branches) if !branches.is_empty() => {
             if let Some(first_branch) = branches.first() {
@@ -728,17 +725,18 @@ fn append_assigned_files_info(
     output: &mut String,
     stack_id: StackId,
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
+    perm: &WorktreeReadPermission,
 ) -> anyhow::Result<()> {
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let assignments = match but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
-        repo,
-        workspace,
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
-        ctx.settings.context_lines,
+        context_lines,
     ) {
         Ok((assignments, _error)) => assignments,
         Err(e) => {

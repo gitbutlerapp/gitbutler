@@ -885,11 +885,8 @@ mod util {
     }
 
     pub fn worktree_ranges_digest_for_workspace(ctx: &Context) -> anyhow::Result<WorkspaceDigest> {
-        let guard = ctx.exclusive_worktree_access();
-        let (_meta, workspace) =
-            ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        let repo = ctx.repo.get()?;
-        let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &workspace)?;
+        let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+        let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &ws)?;
         let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
         let worktree_changes = but_core::diff::worktree_changes(&repo)?.changes;
         intersect_workspace_ranges(&repo, ranges, worktree_changes)

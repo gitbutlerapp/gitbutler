@@ -127,7 +127,7 @@ pub fn cherry_apply(
     let repo = ctx.repo.get()?.clone().for_tree_diffing()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(target)?;
-    let mut steps = stack.as_rebase_steps(ctx, &repo)?;
+    let mut steps = stack.as_rebase_steps(ctx)?;
     // Insert before the head references (len - 1)
     steps.insert(
         steps.len() - 1,

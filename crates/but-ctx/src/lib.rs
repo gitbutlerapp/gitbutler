@@ -2,6 +2,7 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+use anyhow::anyhow;
 use but_core::sync::{WorkspaceReadGuard, WorkspaceWriteGuard, WorktreeWritePermission};
 use but_core::{RepositoryExt, sync::WorktreeReadPermission};
 use but_settings::AppSettings;
@@ -29,8 +30,8 @@ use crate::ondemand_cache::OnDemandCache;
 ///
 /// With it, all project data and metadata can be accessed.
 /// Further, this ID is URL-safe, but it is *not* for human consumption.
-// TODO: needs actual implementation to make it usable in the `Context` API.
-//       Needs implementation to turn it into a `PathBuf`, and to create it from a `Path`.
+// TODO(ctx): needs actual implementation to make it usable in the `Context` API.
+//            Needs implementation to turn it into a `PathBuf`, and to create it from a `Path`.
 pub struct ProjectHandle(#[expect(dead_code)] String);
 
 /// A context specific to a repository, along with commonly used information to make higher-level functions
@@ -38,6 +39,12 @@ pub struct ProjectHandle(#[expect(dead_code)] String);
 /// This type is *not* thread-safe, and cheap to clone. That way it may own per-thread caches.
 ///
 /// It's fine for it to one day receive thread-safe shared state, as needed, similar to [`gix::Repository`].
+///
+/// ### Keep it read-only if you can
+///
+/// Whenever something is mutable, either the database or the workspace, the `Context` used for interaction
+/// must be mutable as well as `&mut Context`. Thus, in purely read-only situations, be sure to keep the `Context`
+/// behind a shared reference as well as `&Context`.
 ///
 /// ### DEADLOCK-ALERT: Beware of passing `ctx`: About Composability!
 ///
@@ -76,6 +83,11 @@ pub struct Context {
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
+    ///
+    /// # Tree-Diff optimization present
+    ///
+    /// Note that the standard repository comes with a decently sized object cache, but further optimization can
+    /// be performed by using [`Self::clone_repo_for_merging()`].
     pub repo: OnDemand<gix::Repository>,
     /// The most recently opened `git2` repository of the project.
     pub git2_repo: OnDemand<git2::Repository>,
@@ -94,7 +106,7 @@ pub struct Context {
 }
 
 /// A structure that can be passed across thread boundaries.
-// TODO: make fields non-pub once `CommandContext` is gone.
+// TODO(ctx): make fields non-pub once `CommandContext` is gone.
 #[derive(Clone)]
 pub struct ThreadSafeContext {
     /// The application context, here for convenience and as feature toggles and flags are needed.
@@ -295,190 +307,243 @@ impl Context {
 
 /// Trampolines that create new uncached instances of major types.
 impl Context {
-    /// Create a new workspace as seen from the current HEAD for editing and return it,
-    /// along with the metadata that was used to create it, and
-    /// a guard for exclusive access to the workspace.
-    ///
-    /// # IMPORTANT
-    ///
-    /// Keep the guard alive like `let (_guard, meta, ws) = …`!
-    // TODO: do not return the metadata as it's part of the database.
-    #[instrument(
-        name = "Context::workspace_and_meta_for_editing",
-        level = "debug",
-        skip_all,
-        err(Debug)
-    )]
-    pub fn workspace_and_meta_for_editing(
-        &self,
-    ) -> anyhow::Result<(
-        WorkspaceWriteGuard,
-        impl but_core::RefMetadata + 'static,
-        but_graph::projection::Workspace,
-    )> {
-        let guard = self.exclusive_worktree_access();
-        let (meta, graph) = self.graph_and_read_only_meta_from_head(guard.read_permission())?;
-        Ok((guard, meta, graph.into_workspace()?))
-    }
-
-    /// Create a cached workspace as seen from the current HEAD for editing, and return it.
-    /// `perm` ensures exclusive process-wide access to the workspace.
+    /// Create a cached workspace as seen from the current HEAD for editing, and return it,
+    /// along with `(&repo, &mut ws, &mut db)`.
+    /// `perm` ensures exclusive process-wide access to the repository.
     /// Once the repository is changed, the cache should be updated.
     ///
-    /// **IMPORTANT**: if the workspace was changed,
-    /// use [set_workspace_cache()](Self::set_workspace_cache) to update it.
-    // TODO: it would be great to also get meta out of the returned `db`
+    /// # IMPORTANT
+    /// * if the workspace was changed, write the new workspace back into `&mut ws`.
+    #[instrument(name = "Context::workspace_mut_and_db_mut", level = "debug", skip_all)]
+    #[allow(clippy::type_complexity)]
+    pub fn workspace_mut_and_db_mut(
+        &mut self,
+    ) -> anyhow::Result<(
+        WorkspaceWriteGuard,
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::projection::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        let mut guard = self.exclusive_worktree_access();
+        let (repo, ws, db) = self.workspace_mut_and_db_mut_with_perm(guard.write_permission())?;
+        Ok((guard, repo, ws, db))
+    }
+
+    /// Create a cached workspace as seen from the current HEAD for editing, and return it,
+    /// along with `(&repo, &mut ws, &mut db)`.
+    /// `perm` ensures exclusive process-wide access to the repository.
+    /// Once the repository is changed, the cache should be updated.
+    ///
+    /// # IMPORTANT
+    /// * if the workspace was changed, write it back into `&mut ws`.
+    /// * Keep the guard alive like `let (_guard, …) = …`!
+    // TODO(ctx): it would be great to also get meta out of the returned `db`
     #[instrument(
-        name = "Context::workspace_for_editing_with_perm",
+        name = "Context::workspace_mut_and_db_mut_with_perm",
         level = "debug",
         skip_all
     )]
-    pub fn workspace_for_editing_with_perm(
+    pub fn workspace_mut_and_db_mut_with_perm(
         &mut self,
-        perm: &mut WorktreeWritePermission,
+        _perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::projection::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        let repo = self.repo.get()?;
+        if let Ok(cached) =
+            cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
+        {
+            let db = self.db.get_mut()?;
+            return Ok((repo, cached, db));
+        }
+        let ws = self.workspace_from_head()?;
+        {
+            let mut value = self.workspace.try_borrow_mut()?;
+            *value = Some(ws);
+        }
+        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
+            .unwrap_or_else(|_| unreachable!("just set the value"));
+        let db = self.db.get_mut()?;
+        Ok((repo, ws, db))
+    }
+
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(guard, &repo, &mut ws, &mut db)`.
+    /// The `db` is writable as this is more useful and naturally synced.
+    /// The guard is for shared access to the repository.
+    ///
+    /// # IMPORTANT
+    /// * if the workspace was changed, write it back into `&mut ws`.
+    /// * Keep the guard alive like `let (_guard, …) = …`!
+    #[instrument(name = "Context::workspace_and_db_mut", level = "debug", skip_all)]
+    #[allow(clippy::type_complexity)]
+    pub fn workspace_and_db_mut(
+        &mut self,
+    ) -> anyhow::Result<(
+        WorkspaceReadGuard,
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::projection::Workspace>,
+        cell::RefMut<'_, but_db::DbHandle>,
+    )> {
+        let guard = self.shared_worktree_access();
+        let (repo, ws, db) = self.workspace_and_db_mut_with_perm(guard.read_permission())?;
+        Ok((guard, repo, ws, db))
+    }
+
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(guard, &repo, &mut ws, &mut db)`, given a read-`perm`ission.
+    /// The `db` is writable as this is more useful and naturally synced.
+    /// The guard is for shared access to the repository.
+    ///
+    /// # IMPORTANT
+    /// * if the workspace was changed, write it back into `&mut ws`.
+    /// * Keep the guard alive like `let (_guard, …) = …`!
+    #[instrument(
+        name = "Context::workspace_and_db_mut_with_perm",
+        level = "debug",
+        skip_all
+    )]
+    #[allow(clippy::type_complexity)]
+    pub fn workspace_and_db_mut_with_perm(
+        &mut self,
+        _perm: &WorktreeReadPermission,
     ) -> anyhow::Result<(
         cell::Ref<'_, gix::Repository>,
         cell::Ref<'_, but_graph::projection::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
     )> {
-        let repo = self.repo.get()?;
         if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
         {
-            let db = self.db.get_mut()?;
-            return Ok((repo, cached, db));
+            return Ok((self.repo.get()?, cached, self.db.get_mut()?));
         }
-        let (_meta, graph) = self.graph_and_read_only_meta_from_head(perm.read_permission())?;
-        let ws = graph.into_workspace()?;
-
+        let ws = self.workspace_from_head()?;
         {
             let mut value = self.workspace.try_borrow_mut()?;
             *value = Some(ws);
         }
         let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| opt.as_ref())
             .unwrap_or_else(|_| unreachable!("just set the value"));
-        let db = self.db.get_mut()?;
-        Ok((repo, ws, db))
+        Ok((self.repo.get()?, ws, self.db.get_mut()?))
     }
 
-    /// Update the cached workspace to be `ws` instead.
-    /// This should be called each time the workspace is changed.
-    pub fn set_workspace_cache(
+    /// Create a new cached workspace as seen from the current HEAD for *writing* and return it,
+    /// along with `(guard, &repo, &mut ws, &db)`.
+    /// The `db` is read-only.
+    /// The guard is for exclusive access to the repository.
+    ///
+    /// # IMPORTANT
+    /// * if the workspace was changed, write it back into `&mut ws`.
+    /// * Keep the guard alive like `let (_guard, …) = …`!
+    #[instrument(name = "Context::workspace_mut_from_head", level = "debug", skip_all)]
+    #[allow(clippy::type_complexity)]
+    pub fn workspace_mut_and_db(
         &mut self,
-        ws: but_graph::projection::Workspace,
-    ) -> anyhow::Result<()> {
-        let mut value = self.workspace.try_borrow_mut()?;
-        *value = Some(ws);
-        Ok(())
+    ) -> anyhow::Result<(
+        WorkspaceWriteGuard,
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::projection::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
+    )> {
+        let mut guard = self.exclusive_worktree_access();
+        let (repo, ws, db) = self.workspace_mut_and_db_with_perm(guard.write_permission())?;
+        Ok((guard, repo, ws, db))
     }
 
-    /// Create a new workspace as seen from the current HEAD for editing and return it,
-    /// but without the metadata that was used to create it, and
-    /// a guard for exclusive access to the workspace.
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(guard, &repo, &mut ws, &db)`, given a read-`perm`ission.
+    /// The `db` is read-only.
     ///
     /// # IMPORTANT
-    ///
-    /// Keep the guard alive like `let (_guard, ws) = …`!
+    /// * if the workspace was changed, write it back into `&mut ws`.
     #[instrument(
-        name = "Context::workspace_for_editing",
+        name = "Context::workspace_mut_and_db_with_perm",
         level = "debug",
-        skip_all,
-        err(Debug)
+        skip_all
     )]
-    pub fn workspace_for_editing(
+    #[allow(clippy::type_complexity)]
+    pub fn workspace_mut_and_db_with_perm(
         &self,
-    ) -> anyhow::Result<(WorkspaceWriteGuard, but_graph::projection::Workspace)> {
-        let guard = self.exclusive_worktree_access();
-        let (_meta, graph) = self.graph_and_read_only_meta_from_head(guard.read_permission())?;
-        Ok((guard, graph.into_workspace()?))
+        _perm: &WorktreeWritePermission,
+    ) -> anyhow::Result<(
+        cell::Ref<'_, gix::Repository>,
+        cell::RefMut<'_, but_graph::projection::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
+    )> {
+        if let Ok(cached) =
+            cell::RefMut::filter_map(self.workspace.try_borrow_mut()?, |opt| opt.as_mut())
+        {
+            return Ok((self.repo.get()?, cached, self.db.get()?));
+        }
+        let ws = self.workspace_from_head()?;
+        {
+            let mut value = self.workspace.try_borrow_mut()?;
+            *value = Some(ws);
+        }
+        let ws = cell::RefMut::filter_map(self.workspace.borrow_mut(), |opt| opt.as_mut())
+            .unwrap_or_else(|_| unreachable!("just set the value"));
+        Ok((self.repo.get()?, ws, self.db.get()?))
     }
 
-    /// Create a new workspace as seen from the current HEAD for reading and return it,
-    /// but without the metadata that was used to create it, and
-    /// a guard for shared access to the workspace.
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(guard, &repo, &ws, &db)`.
+    /// The `db` is read-only.
+    /// The guard is for shared access to the repository.
     ///
     /// # IMPORTANT
-    ///
-    /// Keep the guard alive like `let (_guard, ws) = …`!
-    #[instrument(
-        name = "Context::workspace_from_head",
-        level = "debug",
-        skip_all,
-        err(Debug)
-    )]
-    pub fn workspace(
+    /// * Keep the guard alive like `let (_guard, …) = …`!
+    #[instrument(name = "Context::workspace_from_head", level = "debug", skip_all)]
+    #[allow(clippy::type_complexity)]
+    pub fn workspace_and_db(
         &self,
-    ) -> anyhow::Result<(WorkspaceReadGuard, but_graph::projection::Workspace)> {
+    ) -> anyhow::Result<(
+        WorkspaceReadGuard,
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::projection::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
+    )> {
         let guard = self.shared_worktree_access();
-        let (_meta, graph) = self.graph_and_read_only_meta_from_head(guard.read_permission())?;
-        Ok((guard, graph.into_workspace()?))
+        let (repo, ws, db) = self.workspace_and_db_with_perm(guard.read_permission())?;
+        Ok((guard, repo, ws, db))
     }
 
-    /// Create a new workspace as seen from the current HEAD and return it,
-    /// along with read-only metadata.
-    ///
-    /// The read-permission is required to obtain a shared metadata instance.
+    /// Create a new cached workspace as seen from the current HEAD for *reading* and return it,
+    /// along with `(guard, &repo, &ws, &db)`, given a read-`perm`ission.
+    /// The `db` is read-only.
     #[instrument(
-        name = "Context::workspace_and_read_only_meta_from_head",
+        name = "Context::workspace_and_db_with_perm",
         level = "debug",
-        skip_all,
-        err(Debug)
+        skip_all
     )]
-    pub fn workspace_and_read_only_meta_from_head(
+    #[allow(clippy::type_complexity)]
+    pub fn workspace_and_db_with_perm(
         &self,
-        _read_only: &WorktreeReadPermission,
+        _perm: &WorktreeReadPermission,
     ) -> anyhow::Result<(
-        impl but_core::RefMetadata + 'static,
-        but_graph::projection::Workspace,
+        cell::Ref<'_, gix::Repository>,
+        cell::Ref<'_, but_graph::projection::Workspace>,
+        cell::Ref<'_, but_db::DbHandle>,
     )> {
-        let (meta, graph) = self.graph_and_read_only_meta_from_head(_read_only)?;
-        Ok((meta, graph.into_workspace()?))
+        if let Ok(cached) = cell::Ref::filter_map(self.workspace.try_borrow()?, |opt| opt.as_ref())
+        {
+            return Ok((self.repo.get()?, cached, self.db.get()?));
+        }
+        let ws = self.workspace_from_head()?;
+        {
+            let mut value = self.workspace.try_borrow_mut()?;
+            *value = Some(ws);
+        }
+        let ws = cell::Ref::filter_map(self.workspace.borrow(), |opt| opt.as_ref())
+            .unwrap_or_else(|_| unreachable!("just set the value"));
+        Ok((self.repo.get()?, ws, self.db.get()?))
     }
 
-    /// Create a new graph as seen from the current HEAD and return it,
-    /// along with read-only metadata.
-    ///
-    /// The read-permission is required to obtain a shared metadata instance.
-    #[instrument(
-        name = "Context::graph_and_read_only_meta_from_head",
-        level = "debug",
-        skip_all,
-        err(Debug)
-    )]
-    pub fn graph_and_read_only_meta_from_head(
-        &self,
-        _read_only: &WorktreeReadPermission,
-    ) -> anyhow::Result<(
-        impl but_core::RefMetadata + 'static + use<>,
-        but_graph::Graph,
-    )> {
+    fn workspace_from_head(&self) -> anyhow::Result<but_graph::projection::Workspace> {
         let repo = self.repo.get()?;
         let meta = self.meta_inner()?;
         let graph = but_graph::Graph::from_head(&repo, &meta, but_graph::init::Options::limited())?;
-        Ok((meta, graph))
-    }
-
-    /// Create a new workspace as seen from the current HEAD and return it,
-    /// along with read-only metadata.
-    ///
-    /// The write-permission is required to obtain an exclusive metadata instance, which is needed
-    /// to lock the workspace and its metadata for modification.
-    #[deprecated = "Prefer workspace_and_meta_from_head_for_editing()"]
-    #[instrument(
-        name = "DEPRECATED: Context::workspace_and_meta_from_head",
-        level = "debug",
-        skip_all,
-        err(Debug)
-    )]
-    pub fn workspace_and_meta_from_head(
-        &self,
-        _exclusive_access: &WorktreeWritePermission,
-    ) -> anyhow::Result<(
-        impl but_core::RefMetadata + 'static,
-        but_graph::projection::Workspace,
-    )> {
-        let (meta, graph) =
-            self.graph_and_read_only_meta_from_head(_exclusive_access.read_permission())?;
-        Ok((meta, graph.into_workspace()?))
+        graph.into_workspace()
     }
 
     fn meta_inner(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
@@ -493,13 +558,11 @@ impl Context {
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
     /// to read data.
     /// This is helping to prevent races with mutable instances.
-    // TODO: remove _read_only as we don't need it anymore with a DB based implementation as long as the instances
-    //       starts a transaction to isolate reads.
-    //       For a correct implementation, this would also have to hold on to `_read_only`.
-    pub fn meta(
-        &self,
-        _read_only: &but_core::sync::WorktreeReadPermission,
-    ) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
+    // TODO(ctx): remove method entirely as we don't need it anymore with a DB
+    //            based implementation as long as the instances starts a transaction to isolate
+    //            reads. For a correct implementation, this would also have to hold on to
+    //            `_read_only`.
+    pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata + 'static> {
         but_meta::VirtualBranchesTomlMetadata::from_path(
             self.project_data_dir().join("virtual_branches.toml"),
         )
@@ -556,16 +619,26 @@ impl Context {
         project_data_dir(&self.gitdir)
     }
 
-    /// Return the worktree directory associated with the context Git [repository](Self::repo).
-    pub fn workdir(&self) -> anyhow::Result<Option<PathBuf>> {
-        self.repo.get().map(|repo| repo.workdir().map(Into::into))
-    }
-
     /// The path to the worktree directory or the `.git` directory if there is no worktree directory.
     /// Fallible as it may need to open a repository.
     pub fn workdir_or_gitdir(&self) -> anyhow::Result<PathBuf> {
         let repo = self.repo.get()?;
         Ok(repo.workdir().unwrap_or(repo.git_dir()).to_owned())
+    }
+
+    /// Return the worktree directory associated with the context Git [repository](Self::repo).
+    pub fn workdir(&self) -> anyhow::Result<Option<PathBuf>> {
+        self.repo.get().map(|repo| repo.workdir().map(Into::into))
+    }
+
+    /// Return the worktree directory associated with the context Git [repository](Self::repo),
+    /// or fail.
+    #[deprecated = "We need to write code that isn't workdir dependent, use `workdir()` or `workdir_or_gitdir` to handle this gracefully"]
+    pub fn workdir_needed(&self) -> anyhow::Result<PathBuf> {
+        let repo = self.repo.get()?;
+        repo.workdir()
+            .ok_or_else(|| anyhow!("Cannot currently work in repositories without a worktree"))
+            .map(Into::into)
     }
 }
 
@@ -611,9 +684,18 @@ fn project_data_dir(gitdir: &Path) -> PathBuf {
     gitdir.join("gitbutler")
 }
 
+/// For now, always make sure we have object caches setup to make diffs fast in the common case.
+/// Optimizing this based on better heuristics can be done with [Context::clone_repo_for_merging()].
 #[instrument(level = "trace")]
 fn new_ondemand_repo(gitdir: PathBuf) -> OnDemand<gix::Repository> {
-    OnDemand::new(move || gix::open(&gitdir).map_err(Into::into))
+    OnDemand::new(move || {
+        gix::open(&gitdir)
+            .map_err(anyhow::Error::from)
+            .map(|mut repo| {
+                repo.object_cache_size_if_unset(100 * 1024 * 1024);
+                repo
+            })
+    })
 }
 
 #[instrument(level = "trace")]

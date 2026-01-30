@@ -31,9 +31,9 @@ impl Archival {
     /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
     pub fn zip_anonymous_graph(&self, project_id: LegacyProjectId) -> Result<PathBuf> {
         let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
-        let guard = ctx.shared_worktree_access();
+        let _guard = ctx.shared_worktree_access();
         let repo = ctx.repo.get()?;
-        let meta = ctx.legacy_meta(guard.read_permission())?;
+        let meta = ctx.meta()?;
         let mut graph =
             but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
                 but_graph::Graph::from_head(

@@ -2,11 +2,10 @@ use std::path::Path;
 
 use but_ctx::Context;
 use but_hunk_dependency::ui::HunkDependencies;
-use but_settings::AppSettings;
 use gix::bstr::BString;
 use itertools::Itertools;
 
-use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
+use crate::command::{UI_CONTEXT_LINES, debug_print, repo_at_path};
 
 pub fn commit_changes(
     current_dir: &Path,
@@ -14,7 +13,7 @@ pub fn commit_changes(
     previous_commit: Option<&str>,
     unified_diff: bool,
 ) -> anyhow::Result<()> {
-    let repo = project_repo(current_dir)?;
+    let repo = repo_at_path(current_dir)?;
     let previous_commit = previous_commit
         .map(|revspec| repo.rev_parse_single(revspec))
         .transpose()?;
@@ -35,7 +34,7 @@ pub fn status(
     context_lines: u32,
     use_json: bool,
 ) -> anyhow::Result<()> {
-    let repo = project_repo(current_dir)?;
+    let repo = repo_at_path(current_dir)?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     if unified_diff {
         handle_unified_diff(&repo, worktree, context_lines, use_json)?;
@@ -74,14 +73,10 @@ fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> an
 }
 
 pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result<()> {
-    let project = project_from_path(current_dir)?;
-    let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
-    let repo = ctx.repo.get()?;
+    let ctx = Context::discover(current_dir)?;
+    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(
-        ctx.exclusive_worktree_access().read_permission(),
-    )?;
-    let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &workspace)?;
+    let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &ws)?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
 
     if simple {

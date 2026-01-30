@@ -6,7 +6,6 @@ use but_core::branch;
 use but_ctx::Context;
 use gitbutler_branch_actions::{internal::PushResult, stack::CreateSeriesRequest};
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
 use gix::refs::Category;
 use tracing::instrument;
@@ -42,7 +41,7 @@ pub mod create_reference {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_reference(
-    ctx: &Context,
+    ctx: &mut Context,
     request: create_reference::Request,
 ) -> Result<(Option<StackId>, gix::refs::FullName)> {
     use bstr::ByteSlice;
@@ -75,9 +74,9 @@ pub fn create_reference(
         })
         .transpose()?;
 
-    let (_guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
-    let repo = ctx.repo.get()?;
-    let ws = but_workspace::branch::create_reference(
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let new_ws = but_workspace::branch::create_reference(
         new_ref.clone(),
         anchor,
         &repo,
@@ -87,40 +86,42 @@ pub fn create_reference(
         None,
     )?;
 
-    let stack_id = ws
+    let stack_id = new_ws
         .find_segment_and_stack_by_refname(new_ref.as_ref())
         .and_then(|(stack, _)| stack.id);
 
+    *ws = new_ws.into_owned();
     Ok((stack_id, new_ref))
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_branch(
-    project_id: ProjectId,
+    ctx: &mut Context,
     stack_id: StackId,
     request: CreateSeriesRequest,
 ) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    use but_workspace::branch::create_reference::Position::Above;
-    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
-    let repo = ctx.repo.get()?;
-    let stack = ws.try_find_stack_by_id(stack_id)?;
     let normalized_name = branch::normalize_short_name(request.name.as_str())?.to_string();
     let new_ref = Category::LocalBranch
         .to_full_name(normalized_name.as_str())
         .map_err(anyhow::Error::from)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let mut meta = ctx.meta()?;
+    ctx.snapshot_create_dependent_branch(&normalized_name, guard.write_permission())
+        .ok();
+
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let stack = ws.try_find_stack_by_id(stack_id)?;
     if request.preceding_head.is_some() {
         return Err(anyhow!(
             "BUG: cannot have preceding head name set - let's use the new API instead"
         ));
     }
 
-    ctx.snapshot_create_dependent_branch(&normalized_name, guard.write_permission())
-        .ok();
-    _ = but_workspace::branch::create_reference(
+    let new_ws = but_workspace::branch::create_reference(
         new_ref.as_ref(),
         {
+            use but_workspace::branch::create_reference::Position::Above;
             let segment = stack.segments.first().context("BUG: no empty stacks")?;
             segment
                 .ref_info
@@ -150,21 +151,23 @@ pub fn create_branch(
         |_| StackId::generate(),
         None, // order - not used for dependent branches
     )?;
+
+    *ws = new_ws.into_owned();
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: String) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let (mut guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
-    let repo = ctx.repo.get()?;
+pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) -> Result<()> {
     let ref_name = Category::LocalBranch
         .to_full_name(branch_name.as_str())
         .map_err(anyhow::Error::from)?;
+    let mut guard = ctx.exclusive_worktree_access();
     ctx.snapshot_remove_dependent_branch(&branch_name, guard.write_permission())
         .ok();
-    but_workspace::branch::remove_reference(
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let new_ws = but_workspace::branch::remove_reference(
         ref_name.as_ref(),
         &repo,
         &ws,
@@ -177,6 +180,10 @@ pub fn remove_branch(project_id: ProjectId, stack_id: StackId, branch_name: Stri
             keep_metadata: false,
         },
     )?;
+
+    if let Some(new_ws) = new_ws {
+        *ws = new_ws;
+    }
     Ok(())
 }
 

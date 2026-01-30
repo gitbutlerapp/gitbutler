@@ -14,14 +14,12 @@ pub(crate) fn assign_uncommitted_to_branch(
 ) -> anyhow::Result<()> {
     let description = uncommitted_cli_id.describe();
 
-    let (_guard, ws) = ctx.workspace()?;
-
     let assignments = uncommitted_cli_id
         .hunk_assignments
         .into_iter()
         .map(|hunk_assignment| (hunk_assignment.hunk_header, hunk_assignment.path_bytes));
     let reqs = to_assignment_request(ctx, assignments, Some(branch_name))?;
-    do_assignments(ctx, &ws, reqs, out)?;
+    do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -41,8 +39,6 @@ pub(crate) fn assign_uncommitted_to_stack(
 ) -> anyhow::Result<()> {
     let description = uncommitted_cli_id.describe();
 
-    let (_guard, workspace) = ctx.workspace()?;
-
     let assignments = uncommitted_cli_id
         .hunk_assignments
         .into_iter()
@@ -54,7 +50,7 @@ pub(crate) fn assign_uncommitted_to_stack(
             req
         })
         .collect();
-    do_assignments(ctx, &workspace, reqs, out)?;
+    do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         writeln!(
             out,
@@ -73,14 +69,12 @@ pub(crate) fn unassign_uncommitted(
 ) -> anyhow::Result<()> {
     let description = uncommitted_cli_id.describe();
 
-    let (_guard, ws) = ctx.workspace()?;
-
     let assignments = uncommitted_cli_id
         .hunk_assignments
         .into_iter()
         .map(|hunk_assignment| (hunk_assignment.hunk_header, hunk_assignment.path_bytes));
     let reqs = to_assignment_request(ctx, assignments, None)?;
-    do_assignments(ctx, &ws, reqs, out)?;
+    do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Unstaged {description}")?;
     }
@@ -142,15 +136,16 @@ fn assign_all_inner(
     )?
     .changes;
 
-    let (_, ws) = ctx.workspace()?;
+    let context_lines = ctx.settings.context_lines;
+    let (_, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
-        &*ctx.repo.get()?,
+        db.hunk_assignments_mut()?,
+        &repo,
         &ws,
         false,
         Some(changes),
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
 
     let mut reqs = Vec::new();
@@ -163,7 +158,8 @@ fn assign_all_inner(
             });
         }
     }
-    do_assignments(ctx, &ws, reqs, out)?;
+    drop((repo, ws, db));
+    do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         if to_branch.is_some() {
             writeln!(
@@ -191,18 +187,18 @@ fn assign_all_inner(
 
 fn do_assignments(
     ctx: &mut Context,
-    workspace: &but_graph::projection::Workspace,
     reqs: Vec<HunkAssignmentRequest>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let repo = &*ctx.repo.get()?;
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let rejections = but_hunk_assignment::assign(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
-        repo,
-        workspace,
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
         reqs,
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
     if !rejections.is_empty()
         && let Some(out) = out.for_human()

@@ -191,7 +191,6 @@ pub(crate) fn update_commit_message(
     }
     let vb_state = ctx.legacy_project.virtual_branches();
     let default_target = vb_state.get_default_target()?;
-    let gix_repo = ctx.repo.get()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = ctx.git2_repo.get()?.l(
@@ -204,7 +203,7 @@ pub(crate) fn update_commit_message(
         bail!("commit {commit_id} not in the branch");
     }
 
-    let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
+    let mut steps = stack.as_rebase_steps(ctx)?;
     // Update the commit message
     for step in steps.iter_mut() {
         if let RebaseStep::Pick {
@@ -217,13 +216,16 @@ pub(crate) fn update_commit_message(
         }
     }
     let merge_base = stack.merge_base(ctx)?;
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
-    rebase.rebase_noops(false);
-    rebase.steps(steps)?;
-    let output = rebase.rebase()?;
+    let output = {
+        let repo = ctx.repo.get()?;
+        let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
+        rebase.rebase_noops(false);
+        rebase.steps(steps)?;
+        rebase.rebase()?
+    };
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &gix_repo, new_head)?;
+    stack.set_stack_head(&vb_state, &*ctx.repo.get()?, new_head)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)

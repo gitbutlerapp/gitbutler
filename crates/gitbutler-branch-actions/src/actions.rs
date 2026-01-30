@@ -183,7 +183,7 @@ pub fn update_stack_order(ctx: &Context, updates: Vec<BranchUpdateRequest>) -> R
 
 /// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
 pub fn unapply_stack(
-    ctx: &Context,
+    ctx: &mut Context,
     perm: &mut WorktreeWritePermission,
     stack_id: StackId,
     assigned_diffspec: Vec<DiffSpec>,
@@ -200,6 +200,9 @@ pub fn unapply_stack(
         assigned_diffspec,
         ctx.settings.feature_flags.cv3,
     )?;
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    ws.refresh_from_head(&repo, &meta)?;
     Ok(branch_name)
 }
 
@@ -282,7 +285,7 @@ pub fn reorder_stack(ctx: &Context, stack_id: StackId, stack_order: StackOrder) 
 }
 
 pub fn squash_commits(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     source_ids: Vec<git2::Oid>,
     destination_id: git2::Oid,

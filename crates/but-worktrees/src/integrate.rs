@@ -164,7 +164,7 @@ fn worktree_integration_inner(
         .context("Failed to find branch in vb state")?
         .clone();
 
-    let mut steps = stack.as_rebase_steps(ctx, &repo)?;
+    let mut steps = stack.as_rebase_steps(ctx)?;
     let Some(to_insert_at) = steps.iter().enumerate().find_map(|(i, entry)| {
         if let RebaseStep::Reference(reference) = entry {
             let matches_target = match reference {

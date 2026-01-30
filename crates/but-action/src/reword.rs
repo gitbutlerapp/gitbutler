@@ -1,17 +1,13 @@
-use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
+use but_ctx::{Context, ThreadSafeContext};
 use but_oxidize::{ObjectIdExt, OidExt};
-use but_settings::AppSettings;
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
-use gitbutler_project::Project;
 use uuid::Uuid;
 
 use crate::workflow::{self, Workflow};
 
 #[derive(Debug, Clone)]
 pub struct CommitEvent {
-    pub project: Project,
-    pub app_settings: AppSettings,
+    pub ctx: ThreadSafeContext,
     pub external_summary: String,
     pub external_prompt: String,
     pub branch_name: String,
@@ -24,7 +20,7 @@ pub fn commit(
     event: CommitEvent,
 ) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
     let (diff, sync_ctx) = {
-        let ctx = Context::new_from_legacy_project(event.project.clone())?;
+        let ctx = event.ctx.into_thread_local();
         let repo = &ctx.clone_repo_for_merging_non_persisting()?;
         let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
             repo,
@@ -92,8 +88,6 @@ pub fn commit(
 
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
+    let meta = ctx.legacy_meta()?;
     but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
 }

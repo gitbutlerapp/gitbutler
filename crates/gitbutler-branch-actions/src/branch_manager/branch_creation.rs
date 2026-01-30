@@ -335,7 +335,7 @@ impl BranchManager<'_> {
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
         if merge_base != default_target.sha || !has_change_id {
-            let steps = stack.as_rebase_steps(self.ctx, &gix_repo)?;
+            let steps = stack.as_rebase_steps(self.ctx)?;
             let mut rebase = but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(true);

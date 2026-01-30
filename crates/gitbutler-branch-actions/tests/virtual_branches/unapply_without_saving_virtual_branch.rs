@@ -4,7 +4,7 @@ use super::*;
 
 #[test]
 fn should_unapply_diff() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     gitbutler_branch_actions::set_base_branch(
         ctx,

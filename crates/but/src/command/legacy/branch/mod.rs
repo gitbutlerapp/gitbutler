@@ -1,7 +1,6 @@
 use anyhow::bail;
 use branch::Subcommands;
 use but_core::ref_metadata::StackId;
-use but_ctx::LegacyProject;
 use but_workspace::legacy::ui::StackEntry;
 
 use crate::{
@@ -148,13 +147,7 @@ pub fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_branch_deletion(
-                        &ctx.legacy_project,
-                        sid,
-                        &branch_name,
-                        force,
-                        out,
-                    );
+                    return confirm_branch_deletion(ctx, sid, &branch_name, force, out);
                 }
             }
 
@@ -180,13 +173,7 @@ pub fn handle(
                 }
 
                 if let Some(sid) = stack_entry.id {
-                    return confirm_unapply_stack(
-                        &ctx.legacy_project,
-                        sid,
-                        stack_entry,
-                        force,
-                        out,
-                    );
+                    return confirm_unapply_stack(ctx, sid, stack_entry, force, out);
                 }
             }
 
@@ -199,7 +186,7 @@ pub fn handle(
 }
 
 fn confirm_unapply_stack(
-    project: &LegacyProject,
+    ctx: &mut but_ctx::Context,
     sid: StackId,
     stack_entry: &StackEntry,
     force: bool,
@@ -222,7 +209,7 @@ fn confirm_unapply_stack(
         bail!("Aborted unapply operation.");
     }
 
-    but_api::legacy::virtual_branches::unapply_stack(project.id, sid)?;
+    but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
 
     if let Some(out) = out.for_human() {
         writeln!(
@@ -235,7 +222,7 @@ fn confirm_unapply_stack(
 }
 
 fn confirm_branch_deletion(
-    project: &LegacyProject,
+    ctx: &mut but_ctx::Context,
     sid: StackId,
     branch_name: &str,
     force: bool,
@@ -251,7 +238,7 @@ fn confirm_branch_deletion(
         bail!("Aborted branch deletion.");
     }
 
-    but_api::legacy::stack::remove_branch(project.id, sid, branch_name.to_owned())?;
+    but_api::legacy::stack::remove_branch(ctx, sid, branch_name.to_owned())?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Deleted branch {branch_name}")?;

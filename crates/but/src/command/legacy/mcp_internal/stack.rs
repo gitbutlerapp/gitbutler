@@ -11,7 +11,7 @@ use serde::Serialize;
 pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<BranchDetails> {
     let project = super::project::project_from_path(current_dir)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
-    let meta = super::project::ref_metadata_toml(&ctx.legacy_project)?;
+    let meta = super::project::ref_metadata_toml(&ctx)?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 

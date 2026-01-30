@@ -33,7 +33,7 @@ pub(crate) fn undo_commit(
     let merge_base = stack.merge_base(ctx)?;
     let repo = ctx.repo.get()?;
     let steps = stack
-        .as_rebase_steps(ctx, &repo)?
+        .as_rebase_steps(ctx)?
         .into_iter()
         .filter(|s| match s {
             RebaseStep::Pick {

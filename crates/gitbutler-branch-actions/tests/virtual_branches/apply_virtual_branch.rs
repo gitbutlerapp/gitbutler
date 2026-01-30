@@ -10,7 +10,7 @@ use super::*;
 
 #[test]
 fn rebase_commit() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // make sure we have an undiscovered commit in the remote branch
     {

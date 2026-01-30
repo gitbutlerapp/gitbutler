@@ -33,13 +33,13 @@ pub fn tree_change_diffs(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
-    let repo = ctx.repo.get()?.clone();
-    let (mut guard, workspace) = ctx.workspace_for_editing()?;
+    let context_lines = ctx.settings.context_lines;
+    let (mut guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
     let changes = but_core::diff::worktree_changes(&repo)?;
 
     let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
         &repo,
-        &workspace,
+        &ws,
         Some(changes.changes.clone()),
     );
 
@@ -47,25 +47,26 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
     // so we pass an empty HunkDependencies in that case.
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             false,
             Some(changes.changes.clone()),
             Some(dependencies),
-            ctx.settings.context_lines,
+            context_lines,
         )?,
         Err(_) => but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             false,
             Some(changes.changes.clone()),
             Some(&HunkDependencies::default()), // empty dependencies on error
-            ctx.settings.context_lines,
+            context_lines,
         )?,
     };
 
+    drop((repo, ws, db));
     but_rules::handler::process_workspace_rules(
         ctx,
         &assignments,
@@ -92,16 +93,15 @@ pub fn assign_hunk(
     ctx: &mut Context,
     assignments: Vec<HunkAssignmentRequest>,
 ) -> anyhow::Result<Vec<AssignmentRejection>> {
-    let guard = ctx.exclusive_worktree_access();
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let rejections = but_hunk_assignment::assign(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        db.hunk_assignments_mut()?,
         &repo,
-        &workspace,
+        &ws,
         assignments,
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
     Ok(rejections)
 }

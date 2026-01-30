@@ -4,7 +4,6 @@ use std::str::FromStr;
 use anyhow::Result;
 use but_api_macros::but_api;
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_rules::{
     CreateRuleRequest, UpdateRuleRequest, WorkspaceRule, create_rule, delete_rule, list_rules,
     update_rule,
@@ -44,9 +43,7 @@ pub fn list_workspace_rules(ctx: &mut Context) -> Result<Vec<WorkspaceRule>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     let in_workspace = {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
-        )?;
+        let meta = ctx.legacy_meta()?;
         but_workspace::legacy::stacks_v3(
             &repo,
             &meta,

@@ -66,11 +66,13 @@ pub(crate) fn insert_blank_commit(
             )
         }
         CliId::Branch { name, .. } => {
-            let repo = ctx.repo.get()?;
-            let reference = repo.find_reference(name)?;
+            let reference = {
+                let repo = ctx.repo.get()?;
+                repo.find_reference(name)?.detach()
+            };
             commit_insert_blank(
                 ctx,
-                but_api::commit::ui::RelativeTo::Reference(reference.name().into()),
+                but_api::commit::ui::RelativeTo::Reference(reference.name),
                 insert_side,
             )?;
             match insert_side {
@@ -373,7 +375,7 @@ pub(crate) fn commit(
 
 fn create_independent_branch(
     branch_name: &str,
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
@@ -403,7 +405,7 @@ fn create_independent_branch(
 
 fn select_stack(
     id_map: &IdMap,
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stacks: &[(
         but_core::ref_metadata::StackId,
         but_workspace::ui::StackDetails,

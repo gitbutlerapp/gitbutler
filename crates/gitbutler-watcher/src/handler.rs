@@ -94,7 +94,7 @@ impl Handler {
         perm: &mut WorktreeWritePermission,
     ) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
-        let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
@@ -131,7 +131,7 @@ impl Handler {
             perm,
         ) && update_count > 0
         {
-            let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
+            let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             // Getting these again since they were updated
             let (assignments, assignments_error) = assignments_and_errors(
                 db.hunk_assignments_mut()?,

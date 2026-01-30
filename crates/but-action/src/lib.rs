@@ -13,7 +13,7 @@ use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_project::{Project, ProjectId};
+use gitbutler_project::ProjectId;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
@@ -203,7 +203,7 @@ fn default_target_setting_if_none(
 }
 
 fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    let meta = ref_metadata_toml(&ctx.legacy_project)?;
+    let meta = ref_metadata_toml(ctx)?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
@@ -212,8 +212,9 @@ fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntr
     )
 }
 
-fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
+// TODO(ctx): remove this once vb.toml is in metadata.
+fn ref_metadata_toml(ctx: &Context) -> anyhow::Result<VirtualBranchesTomlMetadata> {
+    VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))
 }
 
 /// Returns the currently applied stacks, creating one if none exists.

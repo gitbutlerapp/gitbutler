@@ -220,7 +220,7 @@ impl Queue {
             .inner
             .iter_mut()
             .find_map(|(info, _, _, limit)| (info.id == id).then_some(limit))
-            .expect("BUG: id is queued");
+            .unwrap_or_else(|| panic!("BUG: {id} is queued"));
         *limit = limit.additional_goal(goal);
     }
 }

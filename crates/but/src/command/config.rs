@@ -673,7 +673,7 @@ async fn target_config(
         }
         Some(new_branch) => {
             // refuse to run if there are any applied branches. if so, ask user to unapply first.
-            let (guard, ws) = ctx.workspace()?;
+            let (guard, _, ws, _) = ctx.workspace_and_db()?;
             if !ws.stacks.is_empty() {
                 // list the applied branches
                 if let Some(out) = out.for_human() {
@@ -723,7 +723,7 @@ async fn target_config(
             // from the new_branch string, we need to parse out the remote name and branch name
             cfg_if! {
                 if #[cfg(feature = "legacy")] {
-                    drop(guard);
+                    drop((guard, ws));
                     but_api::legacy::virtual_branches::set_base_branch(
                         ctx,
                         new_branch.clone(),

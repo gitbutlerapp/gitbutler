@@ -11,7 +11,8 @@ use crate::{
 
 /// See [`super::worktree_changes()`].
 pub fn worktree_changes_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result<WorktreeChanges> {
-    let repo = gix::open(worktree_dir)?;
+    // TODO(ctx): this shouldn't be needed, but is done because the callers can't really pass `repo` in.
+    let repo = crate::open_repo_for_merging(worktree_dir)?;
     Ok(super::worktree_changes(&repo)?.into())
 }
 

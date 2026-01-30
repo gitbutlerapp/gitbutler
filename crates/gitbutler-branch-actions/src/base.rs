@@ -67,17 +67,17 @@ pub fn get_base_branch_data(ctx: &Context) -> Result<BaseBranch> {
 
 #[instrument(skip(ctx), err(Debug))]
 fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<BaseBranch> {
-    let gix_repo = ctx.clone_repo_for_merging()?;
+    let repo = ctx.repo.get()?;
     if ctx.settings.feature_flags.cv3 {
         let workspace_commit_to_checkout =
             but_workspace::legacy::remerged_workspace_commit_v2(ctx)?;
-        let tree_to_checkout_to_avoid_ref_update = gix_repo
+        let tree_to_checkout_to_avoid_ref_update = repo
             .find_commit(workspace_commit_to_checkout.to_gix())?
             .tree_id()?;
         but_core::worktree::safe_checkout(
-            gix_repo.head_id()?.detach(),
+            repo.head_id()?.detach(),
             tree_to_checkout_to_avoid_ref_update.detach(),
-            &gix_repo,
+            &repo,
             but_core::worktree::checkout::Options {
                 uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                 skip_head_update: false,
@@ -85,7 +85,7 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
         )?;
     } else {
         let (mut outcome, conflict_kind) =
-            but_workspace::legacy::merge_worktree_with_workspace(ctx, &gix_repo)?;
+            but_workspace::legacy::merge_worktree_with_workspace(ctx, &repo)?;
 
         if outcome.has_unresolved_conflicts(conflict_kind) {
             return Err(anyhow!("Conflicts while going back to gitbutler/workspace"))
@@ -94,9 +94,10 @@ fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<Base
 
         let final_tree_id = outcome.tree.write()?.detach();
 
-        let repo = &*ctx.git2_repo.get()?;
-        let final_tree = repo.find_tree(final_tree_id.to_git2())?;
-        repo.checkout_tree_builder(&final_tree)
+        let git2_repo = &*ctx.git2_repo.get()?;
+        let final_tree = git2_repo.find_tree(final_tree_id.to_git2())?;
+        git2_repo
+            .checkout_tree_builder(&final_tree)
             .force()
             .checkout()
             .context("failed to checkout tree")?;

@@ -180,7 +180,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
         gix_repo: &'a gix::Repository,
         review_map: &'a HashMap<String, but_forge::ForgeReview>,
     ) -> Result<Self> {
-        let meta = ctx.meta(permission.read_permission())?;
+        let meta = ctx.meta()?;
         let repo = ctx.repo.get()?;
         let git2_repo = &*ctx.git2_repo.get()?;
         let _ref_info = but_workspace::head_info(
@@ -239,9 +239,7 @@ fn stack_details(
     stack_id: Option<StackId>,
 ) -> anyhow::Result<but_workspace::ui::StackDetails> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
+    let meta = ctx.legacy_meta()?;
     but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
 }
 
@@ -357,8 +355,8 @@ pub fn upstream_integration_statuses(
     let git2_repo = &*ctx.git2_repo.get()?;
     let old_target = git2_repo.find_commit(target.sha)?;
 
-    let gix_repo = context.ctx.clone_repo_for_merging()?;
-    let gix_repo_in_memory = gix_repo.clone().with_object_memory();
+    let repo = context.ctx.clone_repo_for_merging()?;
+    let repo_in_memory = repo.clone().with_object_memory();
 
     if *new_target == old_target.id() {
         return Ok(StackStatuses::UpToDate);
@@ -373,7 +371,7 @@ pub fn upstream_integration_statuses(
         .collect::<Vec<_>>();
 
     // The merge base tree of all of the applied stacks plus the new target
-    let merge_base_tree = gix_repo
+    let merge_base_tree = repo
         .merge_base_octopus(heads)?
         .object()?
         .into_commit()
@@ -389,16 +387,15 @@ pub fn upstream_integration_statuses(
         .to_gix();
 
     // The target tree
-    let target_tree = gix_repo.find_commit(new_target.to_gix())?.tree_id()?;
+    let target_tree = repo.find_commit(new_target.to_gix())?.tree_id()?;
 
-    let (merge_options_fail_fast, _conflict_kind) =
-        gix_repo.merge_options_no_rewrites_fail_fast()?;
+    let (merge_options_fail_fast, _conflict_kind) = repo.merge_options_no_rewrites_fail_fast()?;
 
-    let merge_outcome = gix_repo.merge_trees(
+    let merge_outcome = repo.merge_trees(
         merge_base_tree,
-        gix_repo.head()?.peel_to_commit()?.tree_id()?,
+        repo.head()?.peel_to_commit()?.tree_id()?,
         target_tree,
-        gix_repo.default_merge_labels(),
+        repo.default_merge_labels(),
         merge_options_fail_fast.clone(),
     )?;
     let committed_conflicts = merge_outcome
@@ -407,12 +404,12 @@ pub fn upstream_integration_statuses(
         .filter(|c| c.is_unresolved(TreatAsUnresolved::git()))
         .collect::<Vec<_>>();
 
-    let worktree_conflicts = gix_repo
+    let worktree_conflicts = repo
         .merge_trees(
             merge_base_tree,
             workdir_tree,
             target_tree,
-            gix_repo.default_merge_labels(),
+            repo.default_merge_labels(),
             merge_options_fail_fast.clone(),
         )?
         .conflicts
@@ -429,7 +426,7 @@ pub fn upstream_integration_statuses(
             Ok((
                 stack.id,
                 get_stack_status(
-                    &gix_repo_in_memory,
+                    &repo_in_memory,
                     git2_to_gix_object_id(*new_target),
                     stack.id,
                     review_map,

@@ -98,16 +98,16 @@ fn handle_changes_simple_inner(
     }
 
     // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(perm.read_permission())?;
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        db.hunk_assignments_mut()?,
         &repo,
-        &workspace,
+        &ws,
         true,
         None::<Vec<but_core::TreeChange>>,
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
     if assignments.is_empty() {
@@ -117,6 +117,7 @@ fn handle_changes_simple_inner(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
+    drop((repo, ws, db));
     let stacks = crate::stacks_creating_if_none(ctx, perm)?;
 
     // Put the assignments into buckets by stack ID.

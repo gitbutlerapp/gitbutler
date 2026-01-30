@@ -347,30 +347,32 @@ impl IdMap {
     }
 
     /// Creates a new instance from `ctx` for more convenience over calling [IdMap::new].
+    ///
+    /// # NOTE: claims a read-only workspace lock!
+    /// TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
     pub fn new_from_context(
         ctx: &mut Context,
         assignments: Option<Vec<HunkAssignment>>,
     ) -> anyhow::Result<Self> {
-        let guard = ctx.shared_worktree_access();
-        let meta = ctx.meta(guard.read_permission())?;
+        let meta = ctx.meta()?;
+        let context_lines = ctx.settings.context_lines;
+        let worktree_dir = ctx.workdir()?;
+        let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
 
         let hunk_assignments = match assignments {
             Some(assignments) => assignments,
             None => {
-                if let Some(worktree_dir) = ctx.workdir()? {
+                if let Some(worktree_dir) = worktree_dir {
                     let changes =
                         but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
-                    let repo = ctx.repo.get()?.clone();
-                    let (_, workspace) =
-                        ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
                     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-                        ctx.db.get_mut()?.hunk_assignments_mut()?,
+                        db.hunk_assignments_mut()?,
                         &repo,
-                        &workspace,
+                        &ws,
                         false,
                         Some(changes),
                         None,
-                        ctx.settings.context_lines,
+                        context_lines,
                     )?;
                     assignments
                 } else {
@@ -379,9 +381,8 @@ impl IdMap {
             }
         };
 
-        let repo = &*ctx.repo.get()?;
         let head_info = but_workspace::head_info(
-            repo,
+            &repo,
             &meta,
             but_workspace::ref_info::Options {
                 expensive_commit_info: false,

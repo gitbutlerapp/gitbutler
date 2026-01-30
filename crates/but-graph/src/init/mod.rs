@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
 use bstr::ByteSlice;
 use but_core::{RefMetadata, extract_remote_name, ref_metadata};
 use gix::{
@@ -355,9 +355,9 @@ impl Graph {
         };
 
         let mut next = Queue::new_with_limit(hard_limit);
-        let tip_is_not_workspace_commit = !workspaces
+        let tip_ref_matches_ws_ref = workspaces
             .iter()
-            .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
+            .find_map(|(ws_tip, ws_rn, _)| (Some(ws_rn) == ref_name.as_ref()).then_some(ws_tip));
         let worktree_by_branch =
             repo.worktree_branches(graph.entrypoint_ref.as_ref().map(|r| r.as_ref()))?;
 
@@ -371,20 +371,31 @@ impl Graph {
             dangerously_skip_postprocessing_for_debugging,
             worktree_by_branch,
         };
-        if tip_is_not_workspace_commit {
-            let current = graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
-                None,
-                meta,
-                Some((&ctx.refs_by_id, tip)),
-                &ctx.worktree_by_branch,
-            )?);
-            let tip_info = find(commit_graph.as_ref(), repo.for_find_only(), tip, &mut buf)?;
-            _ = next.push_back_exhausted((
-                tip_info,
-                tip_flags,
-                Instruction::CollectCommit { into: current },
-                max_limit,
-            ));
+        match tip_ref_matches_ws_ref {
+            None => {
+                let current =
+                    graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
+                        None,
+                        meta,
+                        Some((&ctx.refs_by_id, tip)),
+                        &ctx.worktree_by_branch,
+                    )?);
+                let tip_info = find(commit_graph.as_ref(), repo.for_find_only(), tip, &mut buf)?;
+                _ = next.push_back_exhausted((
+                    tip_info,
+                    tip_flags,
+                    Instruction::CollectCommit { into: current },
+                    max_limit,
+                ));
+            }
+            Some(ws_tip) => {
+                ensure!(
+                    *ws_tip == tip,
+                    format!(
+                        "BUG:: {ref_name:?} points to {ws_tip}, but the caller claimed it points to {tip}"
+                    )
+                );
+            }
         }
 
         let target_limit = max_limit

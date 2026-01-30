@@ -1,6 +1,5 @@
 use but_api_macros::but_api;
 use but_ctx::Context;
-use but_graph::Graph;
 use but_hunk_assignment::{
     AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment,
 };
@@ -11,7 +10,12 @@ use std::{
 };
 use tracing::instrument;
 
+use crate::{
+    commit::commit_insert_blank_only_impl,
+    legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
+};
 use bstr::{BString, ByteSlice};
+use but_core::sync::WorktreeWritePermission;
 use but_core::{DiffSpec, sync::WorkspaceWriteGuard};
 use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
 use but_rebase::graph_rebase::mutate::InsertSide;
@@ -22,11 +26,6 @@ use gitbutler_oplog::{
 };
 use gitbutler_stack::StackId;
 use itertools::Itertools;
-
-use crate::{
-    commit::commit_insert_blank_only_impl,
-    legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
-};
 
 /// Absorb multiple changes into their target commits as per the provided absorption plan
 #[but_api]
@@ -162,12 +161,11 @@ pub fn absorption_plan(
         }
     };
 
-    let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
-    let repo = ctx.repo.get()?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     // Group all changes by their target commit
-    let changes_by_commit = group_changes_by_target_commit(ctx, &graph, &repo, &assignments)?;
+    let changes_by_commit =
+        group_changes_by_target_commit(ctx, &assignments, guard.write_permission())?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
@@ -177,10 +175,9 @@ pub fn absorption_plan(
 
 /// Group changes by their target commit based on dependencies and assignments
 fn group_changes_by_target_commit(
-    ctx: &Context,
-    graph: &Graph,
-    repo: &gix::Repository,
+    ctx: &mut Context,
     assignments: &[HunkAssignment],
+    perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<GroupedChanges> {
     let mut changes_by_commit: GroupedChanges = BTreeMap::new();
 
@@ -190,7 +187,7 @@ fn group_changes_by_target_commit(
     for assignment in assignments {
         // Determine the target commit for this assignment
         let (stack_id, commit_id, reason) =
-            determine_target_commit(ctx, assignment, &mut stack_details_cache, graph, repo)?;
+            determine_target_commit(ctx, assignment, &mut stack_details_cache, perm)?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -209,7 +206,7 @@ fn group_changes_by_target_commit(
 // Find the lock that is highest in the application order (child-most commit)
 fn find_top_most_lock<'a>(
     locks: &'a [HunkLock],
-    ctx: &Context,
+    ctx: &mut Context,
     stack_details_cache: &'a mut HashMap<StackId, StackDetails>,
 ) -> Option<&'a HunkLock> {
     // These are all the stack IDs that the hunk is dependent on.
@@ -247,11 +244,10 @@ fn find_top_most_lock<'a>(
 
 /// Determine the target commit for an assignment based on dependencies and assignments
 fn determine_target_commit(
-    ctx: &Context,
+    ctx: &mut Context,
     assignment: &HunkAssignment,
     stack_details_cache: &mut HashMap<StackId, StackDetails>,
-    graph: &Graph,
-    repo: &gix::Repository,
+    perm: &mut WorktreeWritePermission,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     gix::ObjectId,
@@ -289,10 +285,10 @@ fn determine_target_commit(
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
-            graph,
-            repo,
+            ctx,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
+            perm,
         )?;
 
         // Now fetch the stack details again to get the newly created commit
@@ -324,10 +320,10 @@ fn determine_target_commit(
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
-            graph,
-            repo,
+            ctx,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
+            perm,
         )?;
 
         // Now fetch the stack details again to get the newly created commit

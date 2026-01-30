@@ -100,7 +100,7 @@ fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<St
 }
 
 fn edit_commit_message_by_id(
-    ctx: &Context,
+    ctx: &mut Context,
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,
     message: Option<&str>,

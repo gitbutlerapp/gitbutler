@@ -12,8 +12,8 @@ mod util {
         let ctx = Context::from_repo(repo)?;
         // update the vb-toml metadata - trigger reconciliation and write the vb.toml according to what's there.
         {
-            let guard = ctx.shared_worktree_access();
-            let meta = ctx.legacy_meta(guard.read_permission())?;
+            let _guard = ctx.exclusive_worktree_access();
+            let meta = ctx.legacy_meta()?;
             meta.write_reconciled(&*ctx.repo.get()?)?;
         }
         let handle = VirtualBranchesHandle::new(ctx.project_data_dir());

@@ -7,8 +7,10 @@ use std::{
     vec,
 };
 
+use crate::{VirtualBranchesExt, gravatar::gravatar_url_from_email};
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
+use but_core::RepositoryExt;
 use but_ctx::Context;
 use but_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use but_serde::BStringForFrontend;
@@ -17,8 +19,6 @@ use gitbutler_reference::{RemoteRefname, normalize_branch_name};
 use gitbutler_stack::{StackId, Target};
 use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
-
-use crate::{VirtualBranchesExt, gravatar::gravatar_url_from_email};
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(
@@ -64,8 +64,7 @@ pub fn list_branches(
     let stacks = {
         if let Some(workspace_ref) = repo.try_find_reference("refs/heads/gitbutler/workspace")? {
             // Let's get this here for convenience, and hope this isn't ever called by a writer (or there will be a deadlock).
-            let read_guard = ctx.shared_worktree_access();
-            let meta = ctx.meta(read_guard.read_permission())?;
+            let meta = ctx.meta()?;
             let info = but_workspace::ref_info(
                 workspace_ref,
                 &meta,
@@ -619,7 +618,7 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let repo = ctx.clone_repo_for_merging()?;
+    let repo = ctx.repo.get()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
@@ -647,7 +646,7 @@ pub fn get_branch_listing_details(
         let diffstats = std::thread::Builder::new()
             .name("gitbutler-diff-stats".into())
             .spawn({
-                let repo = repo.clone();
+                let repo = repo.clone().for_tree_diffing()?;
                 move || -> Result<()> {
                     let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
                     for (change_rx, res_tx) in start_rx {
@@ -701,8 +700,7 @@ pub fn get_branch_listing_details(
             .spawn({
                 let repo = repo.clone().into_sync();
                 move || -> anyhow::Result<()> {
-                    let mut repo = repo.to_thread_local();
-                    repo.object_cache_size_if_unset(50 * 1024 * 1024);
+                    let repo = repo.to_thread_local().for_tree_diffing()?;
                     let cache = repo.commit_graph_if_enabled()?;
                     let mut graph = repo.revision_graph(cache.as_ref());
                     for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {

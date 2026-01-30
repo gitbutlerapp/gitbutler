@@ -33,12 +33,10 @@ pub fn normalize_branch_name(name: String) -> Result<String> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch(
-    ctx: &Context,
+    ctx: &mut Context,
     branch: BranchCreateRequest,
 ) -> Result<StackEntryNoOpt> {
     let stack_entry = {
-        let (_guard, mut meta, ws) = ctx.workspace_and_meta_for_editing()?;
-        let repo = ctx.repo.get()?;
         let branch_name = match branch.name {
             Some(name) => normalize_name(&name)?,
             None => canned_branch_name(ctx)?,
@@ -47,7 +45,9 @@ pub fn create_virtual_branch(
             .to_full_name(branch_name.as_str())
             .map_err(anyhow::Error::from)?;
 
-        let ws = but_workspace::branch::create_reference(
+        let mut meta = ctx.meta()?;
+        let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+        let new_ws = but_workspace::branch::create_reference(
             new_ref.as_ref(),
             None,
             &repo,
@@ -57,15 +57,15 @@ pub fn create_virtual_branch(
             branch.order,
         )?;
 
-        let (stack_idx, segment_idx) = ws
+        let (stack_idx, segment_idx) = new_ws
             .find_segment_owner_indexes_by_refname(new_ref.as_ref())
             .context("BUG: didn't find a stack that was just created")?;
-        let stack = &ws.stacks[stack_idx];
+        let stack = &new_ws.stacks[stack_idx];
         let tip = stack.segments[segment_idx]
             .tip()
             .unwrap_or(repo.object_hash().null());
 
-        StackEntryNoOpt {
+        let out = StackEntryNoOpt {
             id: stack
                 .id
                 .context("BUG: all new stacks are created with an ID")?,
@@ -77,7 +77,10 @@ pub fn create_virtual_branch(
             tip,
             order: Some(stack_idx),
             is_checked_out: false,
-        }
+        };
+
+        *ws = new_ws.into_owned();
+        out
     };
     Ok(stack_entry)
 }
@@ -241,23 +244,18 @@ pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
+    let workdir = ctx.workdir_or_gitdir()?;
+    let context_lines = ctx.settings.context_lines;
+    let (mut guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        db.hunk_assignments_mut()?,
         &repo,
-        &workspace,
+        &ws,
         false,
-        Some(
-            but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
-                .changes,
-        ),
+        Some(but_core::diff::ui::worktree_changes_by_worktree_dir(workdir)?.changes),
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
     let assigned_diffspec = but_workspace::flatten_diff_specs(
         assignments
@@ -266,6 +264,7 @@ pub fn unapply_stack(project_id: ProjectId, stack_id: StackId) -> Result<()> {
             .map(|a| a.into())
             .collect::<Vec<DiffSpec>>(),
     );
+    drop((repo, ws, db));
     gitbutler_branch_actions::unapply_stack(
         ctx,
         guard.write_permission(),
@@ -334,12 +333,11 @@ pub fn get_branch_listing_details(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn squash_commits(
-    project_id: ProjectId,
+    ctx: &mut Context,
     stack_id: StackId,
     source_commit_ids: Vec<String>,
     target_commit_id: String,
 ) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let source_commit_ids: Vec<git2::Oid> = source_commit_ids
         .into_iter()
         .map(|oid| git2::Oid::from_str(&oid))
@@ -347,7 +345,7 @@ pub fn squash_commits(
         .map_err(|e| anyhow!(e))?;
     let destination_commit_id = git2::Oid::from_str(&target_commit_id).map_err(|e| anyhow!(e))?;
     gitbutler_branch_actions::squash_commits(
-        &ctx,
+        ctx,
         stack_id,
         source_commit_ids,
         destination_commit_id,

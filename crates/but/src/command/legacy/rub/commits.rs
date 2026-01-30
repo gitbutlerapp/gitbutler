@@ -8,22 +8,24 @@ use gitbutler_stack::VirtualBranchesHandle;
 use crate::{command::legacy::rub::assign::branch_name_to_stack_id, utils::OutputChannel};
 
 pub fn commited_file_to_another_commit(
-    ctx: &Context,
+    ctx: &mut Context,
     path: &BStr,
     source_id: gix::ObjectId,
     target_id: gix::ObjectId,
     out: &mut OutputChannel,
 ) -> Result<()> {
-    let repo = ctx.repo.get()?;
-    let source_commit = repo.find_commit(source_id)?;
-    let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
+    let relevant_changes = {
+        let repo = ctx.repo.get()?;
+        let source_commit = repo.find_commit(source_id)?;
+        let source_commit_parent_id = source_commit.parent_ids().next().context("First parent")?;
 
-    let tree_changes = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
-    let relevant_changes = tree_changes
-        .into_iter()
-        .filter(|tc| tc.path == path)
-        .map(Into::into)
-        .collect::<Vec<DiffSpec>>();
+        let tree_changes = tree_changes(&repo, Some(source_commit_parent_id.detach()), source_id)?;
+        tree_changes
+            .into_iter()
+            .filter(|tc| tc.path == path)
+            .map(Into::into)
+            .collect::<Vec<DiffSpec>>()
+    };
 
     but_api::commit::commit_move_changes_between_only(
         ctx,

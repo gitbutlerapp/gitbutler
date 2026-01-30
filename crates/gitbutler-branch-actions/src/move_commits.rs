@@ -78,7 +78,7 @@ fn take_commit_from_source_stack(
     let merge_base = source_stack.merge_base(ctx)?;
     let gix_repo = ctx.repo.get()?;
     let steps = source_stack
-        .as_rebase_steps(ctx, &gix_repo)?
+        .as_rebase_steps(ctx)?
         .into_iter()
         .filter(|s| match s {
             RebaseStep::Pick {
@@ -109,7 +109,7 @@ fn move_commit_to_destination_stack(
 ) -> Result<(), anyhow::Error> {
     let gix_repo = ctx.repo.get()?;
     let merge_base = destination_stack.merge_base(ctx)?;
-    let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
+    let mut steps = destination_stack.as_rebase_steps(ctx)?;
     // TODO: In the future we can make the API provide additional info for exactly where to place the commit on the destination stack
     steps.insert(
         steps.len() - 1,

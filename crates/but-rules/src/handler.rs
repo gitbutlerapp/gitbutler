@@ -41,70 +41,68 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    // TODO: meta to be retrieved from `db` instead.
-    let maybe_new_ws = {
-        let project_data_dir = ctx.project_data_dir();
-        let context_lines = ctx.settings.context_lines;
-        let mut meta = ctx.meta(perm.read_permission())?;
-        let (repo, ws, mut db) = ctx.workspace_for_editing_with_perm(perm)?;
+    // TODO(ctx): meta to be retrieved from `db` instead.
+    let project_data_dir = ctx.project_data_dir();
+    let context_lines = ctx.settings.context_lines;
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
 
-        let stack_ids: Vec<_> = ws.stacks.iter().filter_map(|s| s.id).collect();
-        let mut new_ws = None;
+    let stack_ids: Vec<_> = ws.stacks.iter().filter_map(|s| s.id).collect();
+    let mut new_ws = None;
 
-        for rule in rules {
-            match rule.action {
-                super::Action::Explicit(super::Operation::Assign { target }) => {
-                    if let Some((stack_id, maybe_new_ws)) =
-                        get_or_create_stack_id(&repo, &ws, &mut meta, target, &stack_ids, perm)
-                    {
-                        if let Some(ws) = maybe_new_ws {
-                            ensure!(
-                                new_ws.is_none(),
-                                "BUG: new stacks are only created once if there are no stacks"
-                            );
-                            new_ws = Some(ws);
-                        }
-                        let assignments = matching(assignments, rule.filters.clone())
-                            .into_iter()
-                            .filter(|e| e.stack_id != Some(stack_id))
-                            .map(|mut e| {
-                                e.stack_id = Some(stack_id);
-                                e
-                            })
-                            .collect_vec();
-                        updates += handle_assign(
-                            db.hunk_assignments_mut()?,
-                            &repo,
-                            new_ws.as_ref().unwrap_or(&ws),
-                            assignments,
-                            dependencies.as_ref(),
-                            context_lines,
-                        )
-                        .unwrap_or_default();
+    for rule in rules {
+        match rule.action {
+            super::Action::Explicit(super::Operation::Assign { target }) => {
+                if let Some((stack_id, maybe_new_ws)) =
+                    get_or_create_stack_id(&repo, &ws, &mut meta, target, &stack_ids, perm)
+                {
+                    if let Some(ws) = maybe_new_ws {
+                        ensure!(
+                            new_ws.is_none(),
+                            "BUG: new stacks are only created once if there are no stacks"
+                        );
+                        new_ws = Some(ws);
                     }
-                }
-                super::Action::Explicit(super::Operation::Amend { change_id }) => {
-                    let assignments = matching(assignments, rule.filters.clone());
-                    handle_amend(
-                        &project_data_dir,
+                    let assignments = matching(assignments, rule.filters.clone())
+                        .into_iter()
+                        .filter(|e| e.stack_id != Some(stack_id))
+                        .map(|mut e| {
+                            e.stack_id = Some(stack_id);
+                            e
+                        })
+                        .collect_vec();
+                    updates += handle_assign(
+                        db.hunk_assignments_mut()?,
                         &repo,
                         new_ws.as_ref().unwrap_or(&ws),
                         assignments,
-                        &change_id,
-                        perm,
+                        dependencies.as_ref(),
                         context_lines,
                     )
                     .unwrap_or_default();
                 }
-                _ => continue,
-            };
-        }
-        new_ws
-    };
-
-    if let Some(ws) = maybe_new_ws {
-        ctx.set_workspace_cache(ws)?;
+            }
+            super::Action::Explicit(super::Operation::Amend { change_id }) => {
+                let assignments = matching(assignments, rule.filters.clone());
+                handle_amend(
+                    &project_data_dir,
+                    &repo,
+                    new_ws.as_ref().unwrap_or(&ws),
+                    assignments,
+                    &change_id,
+                    perm,
+                    context_lines,
+                )
+                .unwrap_or_default();
+            }
+            _ => continue,
+        };
     }
+
+    if let Some(new_ws) = new_ws {
+        *ws = new_ws;
+    }
+
     Ok(updates)
 }
 

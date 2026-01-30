@@ -98,10 +98,10 @@ pub(crate) async fn worktree(
     let head_info = {
         let mut guard = ctx.exclusive_worktree_access();
         but_rules::process_rules(ctx, guard.write_permission()).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
-        let meta = ctx.meta(guard.read_permission())?;
 
         // TODO: use this for JSON status information (regular status information
         //       already uses this)
+        let meta = ctx.meta()?;
         but_workspace::head_info(
             &*ctx.repo.get()?,
             &meta,
