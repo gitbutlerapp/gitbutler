@@ -51,6 +51,9 @@ export class HttpClient {
 
 		const butlerHeaders = new Headers(DEFAULT_HEADERS);
 
+		const token = get(this.token);
+		if (token) butlerHeaders.set('X-Auth-Token', token);
+
 		if (opts.headers) {
 			Object.entries(opts.headers).forEach(([key, value]) => {
 				if (value) {
@@ -60,9 +63,6 @@ export class HttpClient {
 				}
 			});
 		}
-
-		const token = get(this.token);
-		if (token) butlerHeaders.set('X-Auth-Token', token);
 
 		const response = await this.fetch(this.getApiUrl(path), {
 			method: opts.method,
