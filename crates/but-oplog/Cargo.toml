@@ -20,4 +20,4 @@ but-oxidize.workspace = true
 gitbutler-oplog = { workspace = true, optional = true }
 
 gix.workspace = true
-anyhow = "1.0.100"
+anyhow.workspace = true
