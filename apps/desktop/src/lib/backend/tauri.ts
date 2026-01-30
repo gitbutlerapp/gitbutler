@@ -94,14 +94,43 @@ export default class Tauri implements IBackend {
 }
 
 const LAST_PROCESSED_DEEP_LINK_URL_KEY = 'lastProcessedDeepLinkUrl';
+const STORAGE_LOGIN_PREFIX = 'login|';
 
-function alreadyProcessedDeepLinkUrl(url: string): boolean {
-	const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
-	return lastProcessedUrl === url;
+function alreadyProcessedDeepLinkUrl(
+	topLevel: DeepLinkTopLevelPath,
+	url: string,
+	timestamp: string
+): boolean {
+	switch (topLevel) {
+		case 'open': {
+			const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
+			return lastProcessedUrl === url;
+		}
+		case 'login': {
+			const value = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
+			if (!value) return false;
+			if (!value.startsWith(STORAGE_LOGIN_PREFIX)) return false;
+			const storedTimestamp = value.replace(STORAGE_LOGIN_PREFIX, '').trim();
+			return storedTimestamp === timestamp;
+		}
+	}
 }
 
-function markDeepLinkUrlAsProcessed(url: string): void {
-	localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
+function markDeepLinkUrlAsProcessed(
+	topLevel: DeepLinkTopLevelPath,
+	url: string,
+	timestamp: string
+): true {
+	switch (topLevel) {
+		case 'open':
+			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
+			return true;
+		case 'login': {
+			const value = `${STORAGE_LOGIN_PREFIX}${timestamp}`;
+			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, value);
+			return true;
+		}
+	}
 }
 
 function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
@@ -127,12 +156,12 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 		return;
 	}
 
-	if (alreadyProcessedDeepLinkUrl(url)) {
+	if (alreadyProcessedDeepLinkUrl(topLevel, url, timestamp)) {
 		// Already processed this URL.
 		return;
 	}
 
-	markDeepLinkUrlAsProcessed(url);
+	markDeepLinkUrlAsProcessed(topLevel, url, timestamp);
 
 	handleTopLevel(topLevel, params, handlers);
 }
