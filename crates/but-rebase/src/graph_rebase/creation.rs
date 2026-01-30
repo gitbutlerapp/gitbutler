@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use but_graph::{Commit, CommitFlags, Graph, Segment, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
@@ -143,7 +143,7 @@ impl GraphExt for Graph {
         for sidx in segment_ids {
             let s = &self[sidx];
             for (idx, c) in s.commits.iter().enumerate() {
-                let parent_ids = if idx == s.commits.len() - 1 {
+                let mut parent_ids = if idx == s.commits.len() - 1 {
                     find_segment_edge_commits(self, sidx)
                 } else {
                     vec![CommitViaReference {
@@ -153,6 +153,45 @@ impl GraphExt for Graph {
                         via_reference: true,
                     }]
                 };
+
+                // It seems like the but-graph doesn't always result in the
+                // parents being ordered correctly, so we need to correct this
+                // from the commit graph.
+                //
+                // I'm not sure on the circumstances that cause this.
+                parent_ids.sort_by_cached_key(|parent| {
+                    c.parent_ids
+                        .iter()
+                        .enumerate()
+                        .find(|id| *id.1 == parent.commit.id)
+                        .map(|(idx, _)| idx)
+                        .unwrap_or(usize::MAX)
+                });
+
+                if c.parent_ids != parent_ids.iter().map(|p| p.commit.id).collect::<Vec<_>>() {
+                    if let Some(StepChain { bottom, .. }) = steps_for_commits.get(&c.id)
+                        && let Step::Pick(Pick {
+                            preserved_parents, ..
+                        }) = &graph[*bottom]
+                        && preserved_parents.is_some()
+                    {
+                        // The commit has preserved parents, so the parent
+                        // connections don't really matter.
+                    } else {
+                        bail!(
+                            "BUG: Parents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
+                            c.id,
+                            parent_ids
+                                .iter()
+                                .map(|p| p.commit.id.to_string())
+                                .collect::<Vec<_>>(),
+                            c.parent_ids
+                                .iter()
+                                .map(|p| p.to_string())
+                                .collect::<Vec<_>>(),
+                        );
+                    }
+                }
 
                 for (i, p) in parent_ids.iter().enumerate() {
                     if let (
