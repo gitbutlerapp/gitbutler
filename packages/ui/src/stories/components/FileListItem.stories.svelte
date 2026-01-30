@@ -141,6 +141,8 @@
 				fileStatus="rename"
 				fileStatusStyle="dot"
 				clickable={true}
+				selected={true}
+				active={true}
 				{showCheckbox}
 				checked={false}
 				draggable={true}

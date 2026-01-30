@@ -6,7 +6,6 @@
 		checked?: boolean;
 		value?: string;
 		indeterminate?: boolean;
-		invertColors?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onchange?: (
 			e: (Event | KeyboardEvent) & {
@@ -26,7 +25,6 @@
 		checked = $bindable(),
 		value = '',
 		indeterminate = false,
-		invertColors,
 		onclick,
 		onchange
 	}: Props = $props();
@@ -34,7 +32,6 @@
 	function getCheckmarkColor(): string {
 		if (disabled) return 'var(--clr-text-2)';
 		if (!checked) return 'var(--clr-text-2)';
-		if (invertColors) return 'var(--clr-theme-pop-element)';
 		return 'var(--clr-theme-pop-on-element)';
 	}
 
@@ -70,7 +67,6 @@
 	class:small
 	class:disabled
 	class:indeterminate
-	class:invert-colors={invertColors}
 	style:--checkmark-color={checkmarkColor}
 >
 	<div class="checkbox-checkmark">
@@ -136,13 +132,8 @@
 			height: 14px;
 		}
 
-		/* Inverted colors removes border */
-		&.invert-colors {
-			box-shadow: none;
-		}
-
 		/* Unchecked states */
-		&:not(.checked):not(.disabled):not(.invert-colors):hover {
+		&:not(.checked):not(.disabled):hover {
 			box-shadow: inset 0 0 0 var(--border-width) var(--clr-border-1);
 
 			& .checkbox-checkmark {
@@ -165,7 +156,7 @@
 				opacity: 1;
 			}
 
-			&:hover:not(.invert-colors) {
+			&:hover {
 				background-color: var(--hover-pop);
 				box-shadow: inset 0 0 0 var(--border-width) var(--hover-pop);
 			}
@@ -173,11 +164,6 @@
 			&:has(.checkbox-input:focus-visible) {
 				outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 80%, var(--clr-text-1));
 				outline-offset: -2px;
-			}
-
-			&.invert-colors {
-				background-color: var(--clr-theme-pop-on-element);
-				box-shadow: none;
 			}
 		}
 

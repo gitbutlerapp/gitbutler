@@ -104,12 +104,6 @@
 	class:conflicted
 	class:list-mode={listMode === 'list'}
 	class:is-last={isLast}
-	style:--file-list-item-selected-fg={selected && active
-		? 'var(--clr-theme-pop-on-element)'
-		: undefined}
-	style:--file-list-item-selected-bg={selected && active
-		? 'var(--clr-theme-pop-element)'
-		: undefined}
 	aria-selected={selected}
 	role="option"
 	tabindex="0"
@@ -138,24 +132,12 @@
 			{/if}
 
 			{#if showCheckbox}
-				<Checkbox
-					small
-					{checked}
-					{indeterminate}
-					onchange={oncheck}
-					onclick={oncheckclick}
-					invertColors={selected && active}
-				/>
+				<Checkbox small {checked} {indeterminate} onchange={oncheck} onclick={oncheckclick} />
 			{/if}
 		</div>
 	{/if}
 
-	<FileName
-		{filePath}
-		hideFilePath={listMode === 'tree'}
-		{pathFirst}
-		color="var(--file-list-item-selected-fg)"
-	/>
+	<FileName {filePath} hideFilePath={listMode === 'tree'} {pathFirst} />
 
 	<div class="file-list-item__details">
 		{#if executable}
@@ -169,12 +151,7 @@
 				</div>
 			</Tooltip>
 		{:else if fileStatus}
-			<FileStatusBadge
-				tooltip={fileStatusTooltip}
-				status={fileStatus}
-				style={fileStatusStyle}
-				color="var(--file-list-item-selected-fg)"
-			/>
+			<FileStatusBadge tooltip={fileStatusTooltip} status={fileStatus} style={fileStatusStyle} />
 		{/if}
 
 		{#if locked}
@@ -226,16 +203,6 @@
 		background-color: var(--clr-bg-1);
 		text-align: left;
 		user-select: none;
-		--file-list-item-selected-activated-border: color-mix(
-			in srgb,
-			var(--file-list-item-selected-bg) 70%,
-			white
-		);
-		--file-list-item-selected-activated-indent-line: color-mix(
-			in srgb,
-			var(--file-list-item-selected-bg) 20%,
-			white
-		);
 
 		&:focus-visible {
 			outline: none;
@@ -276,12 +243,31 @@
 		}
 
 		&.selected {
-			background-color: var(--clr-bg-2);
+			border-bottom: 1px solid
+				color-mix(in srgb, var(--clr-selected-not-in-focus-bg) 90%, var(--clr-text-1));
+			background-color: var(--clr-selected-not-in-focus-bg);
+
+			&:hover {
+				background-color: color-mix(
+					in srgb,
+					var(--clr-selected-not-in-focus-bg) 96%,
+					var(--clr-theme-gray-element)
+				);
+			}
 		}
 
 		&.active.selected {
-			border-bottom: 1px solid var(--file-list-item-selected-activated-border);
-			background-color: var(--file-list-item-selected-bg);
+			border-bottom: 1px solid
+				color-mix(in srgb, var(--clr-selected-in-focus-bg) 90%, var(--clr-text-1));
+			background-color: var(--clr-selected-in-focus-bg);
+
+			&:hover {
+				background-color: color-mix(
+					in srgb,
+					var(--clr-selected-in-focus-bg) 93%,
+					var(--clr-theme-pop-element)
+				);
+			}
 		}
 
 		&.active.selected.list-mode.is-last {
@@ -297,14 +283,18 @@
 			justify-content: center;
 			width: 6px;
 			transform: translateY(-50%);
-			color: var(--file-list-item-selected-fg, var(--clr-text-2));
+			color: var(--clr-text-2);
 			opacity: 0.6;
 		}
 
 		.conflicted-icon {
 			display: flex;
 			margin-right: -2px;
-			color: var(--file-list-item-selected-fg, var(--clr-theme-danger-element));
+			color: var(--clr-theme-danger-element);
+		}
+
+		&.active.selected .conflicted-icon {
+			color: var(--clr-theme-pop-on-element);
 		}
 	}
 
@@ -324,7 +314,7 @@
 
 		& .locked {
 			display: flex;
-			color: var(--file-list-item-selected-fg, var(--clr-change-icon-modification));
+			color: var(--clr-change-icon-modification);
 		}
 	}
 </style>
