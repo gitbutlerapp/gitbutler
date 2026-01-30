@@ -57,7 +57,7 @@
 						style="pop"
 						disabled={accessToken.trim().length === 0}
 						onclick={async () => {
-							await userService.setUserAccessToken(accessToken.trim());
+							await userService.setUserAccessToken(accessToken.trim(), true);
 							accessToken = '';
 						}}>Authorize access token</Button
 					>

@@ -16,10 +16,19 @@ type ExtraAction = {
 	onClick: (dismiss: () => void) => void;
 };
 
+export type ToastContentType = 'text' | 'login-confirmation';
+
 export interface Toast {
 	id?: string;
 	testId?: string;
 	message?: string;
+	/**
+	 * The type of content in the message.
+	 *
+	 * Defaults to 'text'.
+	 * If this is not text, the `title` & `message` will potentially be ignored.
+	 */
+	contentType?: ToastContentType;
 	error?: any;
 	title?: string;
 	style?: MessageStyle;
