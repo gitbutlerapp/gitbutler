@@ -16,19 +16,10 @@ type ExtraAction = {
 	onClick: (dismiss: () => void) => void;
 };
 
-export type ToastContentType = 'text';
-
 export interface Toast {
 	id?: string;
 	testId?: string;
 	message?: string;
-	/**
-	 * The type of content in the message.
-	 *
-	 * Defaults to 'text'.
-
-	 */
-	contentType?: ToastContentType;
 	error?: any;
 	title?: string;
 	style?: MessageStyle;
