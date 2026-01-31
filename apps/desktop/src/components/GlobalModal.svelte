@@ -5,11 +5,13 @@
 	import LoginConfirmationModalContent from '$components/LoginConfirmationModalContent.svelte';
 	import ProjectSettingsModalContent from '$components/ProjectSettingsModalContent.svelte';
 	import { type GlobalModalState, UI_STATE } from '$lib/state/uiState.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { Modal, TestId } from '@gitbutler/ui';
 	import type { ModalProps } from '@gitbutler/ui';
 
 	const uiState = inject(UI_STATE);
+	const userService = inject(USER_SERVICE);
 
 	type ModalData = {
 		state: GlobalModalState;
@@ -71,7 +73,8 @@
 						testId: TestId.LoginConfirmationModal,
 						closeButton: false,
 						width: 360,
-						noPadding: true
+						noPadding: true,
+						preventCloseOnClickOutside: true
 					}
 				};
 			}
@@ -96,13 +99,22 @@
 	function closeModal() {
 		modal?.close();
 	}
+
+	function handleModalClose() {
+		// If the login confirmation modal is closed without explicit user action (e.g., via ESC),
+		// we should reject the incoming user to maintain state consistency
+		if (modalProps?.state.type === 'login-confirmation') {
+			userService.rejectIncomingUser();
+		}
+		uiState.global.modal.set(undefined);
+	}
 </script>
 
 {#if modalProps}
 	<Modal
 		bind:this={modal}
 		{...modalProps.props}
-		onClose={() => uiState.global.modal.set(undefined)}
+		onClose={handleModalClose}
 		onSubmit={(close) => close()}
 	>
 		{#if modalProps.state.type === 'commit-failed'}
