@@ -125,11 +125,10 @@ impl Mcp {
         input: &serde_json::Value,
         timeout: std::time::Duration,
     ) -> anyhow::Result<HashMap<String, String>> {
-        let ctx = &mut Context::new_from_legacy_project(self.project.clone())?;
+        let ctx = &mut self.ctx.clone().into_thread_local();
 
         // Extract questions from input
-        let questions_json =
-            serde_json::to_string(input.get("questions").unwrap_or(&serde_json::json!([])))?;
+        let questions_json = serde_json::to_string(input.get("questions").unwrap_or(&serde_json::json!([])))?;
 
         // Create a record in the database
         let now = chrono::Utc::now().naive_utc();

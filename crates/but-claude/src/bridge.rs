@@ -393,9 +393,7 @@ impl Claudes {
         let system_prompt_append = {
             let mut ctx = sync_ctx.clone().into_thread_local();
             let guard = ctx.exclusive_worktree_access();
-            let repo = ctx.repo.get()?.clone();
-            let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-            let branch_info = format_branch_info(&mut ctx, &repo, &workspace, stack_id);
+            let branch_info = format_branch_info(&mut ctx, stack_id, guard.read_permission());
             format!("{}\n\n{}", system_prompt(), branch_info)
         };
         let sdk_system_prompt = SystemPrompt::Preset(claude_agent_sdk_rs::SystemPromptPreset::with_append(
@@ -439,12 +437,33 @@ impl Claudes {
         );
         // Keep a PreToolUse hook as well for the dummy hook requirement (keeps stream open)
         let pretool_hook = create_pretool_use_hook(sync_ctx.clone(), stack_id);
+        // Add PostToolUse hook to assign hunks to the session's stack (critical for commit creation)
+        let posttool_hook = create_post_tool_use_hook();
+        // Add Stop hook to handle commit creation when Claude finishes
+        let stop_hook = create_stop_hook();
         let mut hooks = std::collections::HashMap::new();
         hooks.insert(
             claude_agent_sdk_rs::HookEvent::PreToolUse,
             vec![
                 claude_agent_sdk_rs::HookMatcher::builder()
                     .hooks(vec![pretool_hook])
+                    .build(),
+            ],
+        );
+        hooks.insert(
+            claude_agent_sdk_rs::HookEvent::PostToolUse,
+            vec![
+                claude_agent_sdk_rs::HookMatcher::builder()
+                    .matcher("Edit|MultiEdit|Write".to_string())
+                    .hooks(vec![posttool_hook])
+                    .build(),
+            ],
+        );
+        hooks.insert(
+            claude_agent_sdk_rs::HookEvent::Stop,
+            vec![
+                claude_agent_sdk_rs::HookMatcher::builder()
+                    .hooks(vec![stop_hook])
                     .build(),
             ],
         );
@@ -657,9 +676,8 @@ fn setup_session(sync_ctx: &ThreadSafeContext, stack_id: StackId) -> Result<Sess
     let mut ctx = sync_ctx.clone().into_thread_local();
 
     // Create repo and workspace once at the entry point
-    let guard = ctx.exclusive_worktree_access();
+    let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
 
     let rule = {
         list_claude_assignment_rules(&ctx)?
@@ -668,7 +686,7 @@ fn setup_session(sync_ctx: &ThreadSafeContext, stack_id: StackId) -> Result<Sess
     };
 
     let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
-    let session = upsert_session(&mut ctx, &repo, &workspace, session_id, stack_id)?;
+    let session = upsert_session(&mut ctx, session_id, stack_id, guard.write_permission())?;
     let project_workdir = repo
         .workdir()
         .ok_or_else(|| anyhow::anyhow!("Repository has no working directory"))?
@@ -1448,16 +1466,12 @@ fn create_can_use_tool_callback(
     auto_approve_tools: bool,
     session_id: uuid::Uuid,
 ) -> claude_agent_sdk_rs::CanUseToolCallback {
-    use claude_agent_sdk_rs::{
-        PermissionResult, PermissionResultAllow, PermissionResultDeny, ToolPermissionContext,
-    };
+    use claude_agent_sdk_rs::{PermissionResult, PermissionResultAllow, PermissionResultDeny, ToolPermissionContext};
     use futures::FutureExt;
     use std::sync::Arc;
 
     // Runtime permissions for this session
-    let runtime_permissions = Arc::new(std::sync::Mutex::new(
-        crate::permissions::Permissions::default(),
-    ));
+    let runtime_permissions = Arc::new(std::sync::Mutex::new(crate::permissions::Permissions::default()));
 
     Arc::new(
         move |tool_name: String, tool_input: serde_json::Value, context: ToolPermissionContext| {
@@ -1514,13 +1528,10 @@ fn create_can_use_tool_callback(
 
                     // Merge runtime and session permissions
                     let runtime_perms = runtime_permissions.lock().unwrap();
-                    let combined_perms =
-                        crate::permissions::Permissions::merge([&*runtime_perms, &session_perms]);
+                    let combined_perms = crate::permissions::Permissions::merge([&*runtime_perms, &session_perms]);
                     drop(runtime_perms);
 
-                    combined_perms
-                        .check(&permission_request)
-                        .unwrap_or_default()
+                    combined_perms.check(&permission_request).unwrap_or_default()
                 };
 
                 match check_result {
@@ -1545,12 +1556,8 @@ fn create_can_use_tool_callback(
                 {
                     let mut ctx = sync_ctx.clone().into_thread_local();
                     let insert_result: anyhow::Result<()> = (|| {
-                        let db_request: but_db::ClaudePermissionRequest =
-                            permission_request.clone().try_into()?;
-                        ctx.db
-                            .get_mut()?
-                            .claude_mut()
-                            .insert_permission_request(db_request)?;
+                        let db_request: but_db::ClaudePermissionRequest = permission_request.clone().try_into()?;
+                        ctx.db.get_mut()?.claude_mut().insert_permission_request(db_request)?;
                         Ok(())
                     })();
                     if let Err(e) = insert_result {
@@ -1563,9 +1570,7 @@ fn create_can_use_tool_callback(
                 }
 
                 // Send notification
-                if let Err(e) =
-                    crate::notifications::notify_permission_request(&sync_ctx.settings, &tool_name)
-                {
+                if let Err(e) = crate::notifications::notify_permission_request(&sync_ctx.settings, &tool_name) {
                     tracing::warn!("Failed to send notification: {}", e);
                 }
 
@@ -1641,9 +1646,7 @@ async fn handle_ask_user_question(
     }
 
     // Send notification
-    if let Err(e) =
-        crate::notifications::notify_permission_request(&sync_ctx.settings, "AskUserQuestion")
-    {
+    if let Err(e) = crate::notifications::notify_permission_request(&sync_ctx.settings, "AskUserQuestion") {
         tracing::warn!("Failed to send AskUserQuestion notification: {}", e);
     }
 
@@ -1789,14 +1792,13 @@ async fn poll_for_permission_decision(
                 };
 
                 if let Some(decision_str) = updated.decision {
-                    let decision: crate::PermissionDecision =
-                        match serde_json::from_str(&decision_str) {
-                            Ok(d) => d,
-                            Err(e) => {
-                                tracing::error!("Failed to parse permission decision: {}", e);
-                                continue;
-                            }
-                        };
+                    let decision: crate::PermissionDecision = match serde_json::from_str(&decision_str) {
+                        Ok(d) => d,
+                        Err(e) => {
+                            tracing::error!("Failed to parse permission decision: {}", e);
+                            continue;
+                        }
+                    };
 
                     let approved = decision.is_allowed();
 
@@ -1814,19 +1816,14 @@ async fn poll_for_permission_decision(
                     // Handle the decision (update runtime permissions, persist to settings)
                     {
                         let mut ctx = sync_ctx.clone().into_thread_local();
-                        if let Ok(Some(workdir)) = ctx.workdir()
-                            && let Ok(project_path) = workdir.canonicalize()
-                        {
-                            let mut perms = runtime_permissions.lock().unwrap();
-                            if let Err(e) = decision.handle(
-                                &perm_request,
-                                &project_path,
-                                &mut perms,
-                                Some(&mut ctx),
-                                Some(session_id),
-                            ) {
-                                tracing::warn!("Failed to handle permission decision: {}", e);
-                            }
+                        let mut perms = runtime_permissions.lock().unwrap();
+                        if let Err(e) = decision.handle(
+                            &perm_request,
+                            &mut perms,
+                            &mut ctx,
+                            session_id,
+                        ) {
+                            tracing::warn!("Failed to handle permission decision: {}", e);
                         }
                     }
 
@@ -1855,13 +1852,14 @@ async fn poll_for_permission_decision(
     })
 }
 
-/// Creates a dummy PreToolUse hook that keeps the stream open.
+/// Creates a PreToolUse hook that performs file locking and keeps the stream open.
 ///
-/// This is required by the Python SDK docs: "can_use_tool requires streaming mode
-/// and a PreToolUse hook that returns {"continue_": True} to keep the stream open.
-/// Without this hook, the stream closes before the permission callback can be invoked."
-///
-/// The actual AskUserQuestion handling is done in the can_use_tool callback.
+/// This hook is required for two reasons:
+/// 1. The Python SDK docs state: "can_use_tool requires streaming mode
+///    and a PreToolUse hook that returns {"continue_": True} to keep the stream open.
+///    Without this hook, the stream closes before the permission callback can be invoked."
+/// 2. It performs file locking to track which files are being edited during the session,
+///    matching the behavior of the binary path.
 #[allow(unused_variables)]
 fn create_pretool_use_hook(
     sync_ctx: ThreadSafeContext,
@@ -1872,14 +1870,182 @@ fn create_pretool_use_hook(
     use std::sync::Arc;
 
     Arc::new(
-        move |_input: HookInput, _tool_use_id: Option<String>, _context: HookContext| {
+        move |input: HookInput, _tool_use_id: Option<String>, _context: HookContext| {
             async move {
-                // Dummy hook - just return continue=true to keep the stream open
-                // The actual permission handling is done in the can_use_tool callback
+                if let HookInput::PreToolUse(pre_tool_input) = input {
+                    // Extract file_path from tool_input for file locking
+                    let file_path = pre_tool_input.tool_input.get("file_path").and_then(|v| v.as_str());
+
+                    if let Some(file_path) = file_path {
+                        tracing::info!(
+                            "PreToolUse hook: tool_name={}, session_id={}, file_path={}",
+                            pre_tool_input.tool_name,
+                            pre_tool_input.session_id,
+                            file_path
+                        );
+
+                        // Perform file locking using the SDK variant
+                        if let Err(e) =
+                            crate::hooks::handle_pre_tool_call_for_sdk(&pre_tool_input.session_id, file_path)
+                        {
+                            tracing::warn!("PreToolUse file locking failed: {}", e);
+                            // Continue even if locking fails - don't block the tool execution
+                        }
+                    }
+                }
+
+                // Always return continue=true to keep the stream open
                 HookJsonOutput::Sync(SyncHookJsonOutput {
                     continue_: Some(true),
                     ..Default::default()
                 })
+            }
+            .boxed()
+        },
+    )
+}
+
+/// Creates a PostToolUse hook that assigns hunks to the session's stack.
+/// This is critical - without it, changes made by Claude won't be assigned to the stack
+/// and won't be committed when the session ends.
+fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
+    use claude_agent_sdk_rs::{HookContext, HookInput, HookJsonOutput, SyncHookJsonOutput};
+    use futures::FutureExt;
+    use std::sync::Arc;
+
+    Arc::new(
+        move |input: HookInput, _tool_use_id: Option<String>, _context: HookContext| {
+            async move {
+                tracing::info!(
+                    "PostToolUse hook called, input type: {:?}",
+                    std::mem::discriminant(&input)
+                );
+                if let HookInput::PostToolUse(post_tool_input) = input {
+                    tracing::info!(
+                        "PostToolUse hook: tool_name={}, session_id={}, tool_response keys: {:?}",
+                        post_tool_input.tool_name,
+                        post_tool_input.session_id,
+                        post_tool_input
+                            .tool_response
+                            .as_object()
+                            .map(|o| o.keys().collect::<Vec<_>>())
+                    );
+
+                    // Extract file_path and structured_patch from tool_response
+                    let file_path = post_tool_input
+                        .tool_response
+                        .get("filePath")
+                        .or_else(|| post_tool_input.tool_response.get("file_path"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+
+                    let structured_patch: Vec<crate::hooks::StructuredPatch> = post_tool_input
+                        .tool_response
+                        .get("structuredPatch")
+                        .or_else(|| post_tool_input.tool_response.get("structured_patch"))
+                        .and_then(|v| serde_json::from_value(v.clone()).ok())
+                        .unwrap_or_default();
+
+                    tracing::info!(
+                        "PostToolUse hook: file_path='{}', structured_patch count={}",
+                        file_path,
+                        structured_patch.len()
+                    );
+
+                    if file_path.is_empty() {
+                        tracing::warn!(
+                            "PostToolUse hook: file_path is empty, skipping. Full tool_response: {:?}",
+                            post_tool_input.tool_response
+                        );
+                        return HookJsonOutput::Sync(SyncHookJsonOutput {
+                            continue_: Some(true),
+                            ..Default::default()
+                        });
+                    }
+
+                    // Use the _for_sdk variant which skips the GUI check (SDK hooks always run in GUI context)
+                    match crate::hooks::handle_post_tool_call_from_input_for_sdk(
+                        &post_tool_input.session_id,
+                        file_path,
+                        &structured_patch,
+                    ) {
+                        Ok(output) => {
+                            tracing::info!(
+                                "PostToolUse hook: handler succeeded, should_continue={}",
+                                output.should_continue()
+                            );
+                            HookJsonOutput::Sync(SyncHookJsonOutput {
+                                continue_: Some(output.should_continue()),
+                                ..Default::default()
+                            })
+                        }
+                        Err(e) => {
+                            tracing::warn!("PostToolUse hook failed: {}", e);
+                            HookJsonOutput::Sync(SyncHookJsonOutput {
+                                continue_: Some(true),
+                                ..Default::default()
+                            })
+                        }
+                    }
+                } else {
+                    tracing::debug!("PostToolUse hook: received non-PostToolUse input, ignoring");
+                    HookJsonOutput::Sync(SyncHookJsonOutput {
+                        continue_: Some(true),
+                        ..Default::default()
+                    })
+                }
+            }
+            .boxed()
+        },
+    )
+}
+
+/// Creates a Stop hook that handles commit creation when Claude finishes.
+/// This is the SDK equivalent of the binary's Stop hook configured via --settings.
+fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
+    use claude_agent_sdk_rs::{HookContext, HookInput, HookJsonOutput, SyncHookJsonOutput};
+    use futures::FutureExt;
+    use std::sync::Arc;
+
+    Arc::new(
+        move |input: HookInput, _tool_use_id: Option<String>, _context: HookContext| {
+            async move {
+                tracing::info!("Stop hook called, input type: {:?}", std::mem::discriminant(&input));
+                if let HookInput::Stop(stop_input) = input {
+                    tracing::info!(
+                        "Stop hook: session_id={}, transcript_path={}",
+                        stop_input.session_id,
+                        stop_input.transcript_path
+                    );
+                    // Use the _for_sdk variant which skips the GUI check (SDK hooks always run in GUI context)
+                    match crate::hooks::handle_stop_from_input_for_sdk(
+                        &stop_input.session_id,
+                        &stop_input.transcript_path,
+                    ) {
+                        Ok(output) => {
+                            tracing::info!(
+                                "Stop hook: handler succeeded, should_continue={}",
+                                output.should_continue()
+                            );
+                            HookJsonOutput::Sync(SyncHookJsonOutput {
+                                continue_: Some(output.should_continue()),
+                                ..Default::default()
+                            })
+                        }
+                        Err(e) => {
+                            tracing::warn!("Stop hook failed: {}", e);
+                            HookJsonOutput::Sync(SyncHookJsonOutput {
+                                continue_: Some(true),
+                                ..Default::default()
+                            })
+                        }
+                    }
+                } else {
+                    HookJsonOutput::Sync(SyncHookJsonOutput {
+                        continue_: Some(true),
+                        ..Default::default()
+                    })
+                }
             }
             .boxed()
         },
