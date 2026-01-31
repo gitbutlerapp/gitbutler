@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_core::{DiffSpec, RepositoryExt};
 use but_ctx::Context;
 use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
@@ -62,7 +62,7 @@ pub fn move_changes_between_commits(
     destination_stack_id: StackId,
     destination_commit_id: gix::ObjectId,
     changes_to_remove_from_source: impl IntoIterator<Item = DiffSpec>,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<MoveChangesResult> {
     if source_commit_id == destination_commit_id {
         return Ok(MoveChangesResult {

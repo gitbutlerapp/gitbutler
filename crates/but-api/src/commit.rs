@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use crate::json;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
@@ -115,7 +115,7 @@ pub(crate) fn commit_insert_blank_only_impl(
     ctx: &mut but_ctx::Context,
     relative_to: ui::RelativeTo,
     side: InsertSide,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<gix::ObjectId> {
     let meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;

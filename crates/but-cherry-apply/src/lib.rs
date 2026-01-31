@@ -26,7 +26,7 @@ use anyhow::{Context as _, Result, bail};
 use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::{
     Context,
-    access::{WorktreeReadPermission, WorktreeWritePermission},
+    access::{RepoExclusive, RepoShared},
 };
 use but_meta::VirtualBranchesTomlMetadata;
 use but_rebase::Rebase;
@@ -49,7 +49,7 @@ pub enum CherryApplyStatus {
 
 pub fn cherry_apply_status(
     ctx: &Context,
-    _perm: &WorktreeReadPermission,
+    _perm: &RepoShared,
     subject: ObjectId,
 ) -> Result<CherryApplyStatus> {
     let repo = ctx
@@ -100,7 +100,7 @@ pub fn cherry_apply_status(
 
 pub fn cherry_apply(
     ctx: &Context,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     subject: ObjectId,
     target: StackId,
 ) -> Result<()> {

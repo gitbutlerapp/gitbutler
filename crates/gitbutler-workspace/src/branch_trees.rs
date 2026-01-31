@@ -1,7 +1,7 @@
 use anyhow::Result;
 use but_ctx::{
     Context,
-    access::{WorktreeReadPermission, WorktreeWritePermission},
+    access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::RepositoryExt;
@@ -20,7 +20,7 @@ pub struct WorkspaceState {
 }
 
 impl WorkspaceState {
-    pub fn create(ctx: &Context, perm: &WorktreeReadPermission) -> Result<Self> {
+    pub fn create(ctx: &Context, perm: &RepoShared) -> Result<Self> {
         let repo = &*ctx.git2_repo.get()?;
         let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
@@ -46,7 +46,7 @@ impl WorkspaceState {
 
     pub fn create_from_heads(
         ctx: &Context,
-        perm: &WorktreeReadPermission,
+        perm: &RepoShared,
         heads: &[gix::ObjectId],
     ) -> Result<Self> {
         let repo = &*ctx.git2_repo.get()?;
@@ -77,7 +77,7 @@ pub fn update_uncommitted_changes(
     ctx: &Context,
     old: WorkspaceState,
     new: WorkspaceState,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
     let uncommitted_changes = (!ctx.settings.feature_flags.cv3)
@@ -94,7 +94,7 @@ pub fn update_uncommitted_changes_with_tree(
     new: WorkspaceState,
     old_uncommitted_changes: Option<git2::Oid>,
     always_checkout: Option<bool>,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
     if let Some(worktree_id) = old_uncommitted_changes {

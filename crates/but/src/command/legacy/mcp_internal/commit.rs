@@ -61,7 +61,7 @@ pub fn commit(
         stack_segment,
     };
 
-    let mut guard = but_core::sync::exclusive_worktree_access(project.git_dir());
+    let mut guard = but_core::sync::exclusive_repo_access(project.git_dir());
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project.gb_dir(),
@@ -107,7 +107,7 @@ pub fn amend(
         new_message: Some(commit_message),
     };
 
-    let mut guard = but_core::sync::exclusive_worktree_access(project.git_dir());
+    let mut guard = but_core::sync::exclusive_repo_access(project.git_dir());
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
         &project.gb_dir(),

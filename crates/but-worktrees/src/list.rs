@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_ctx::{Context, access::WorktreeReadPermission};
+use but_ctx::{Context, access::RepoShared};
 use serde::Serialize;
 
 use crate::{Worktree, WorktreeId, db::list_worktree_meta};
@@ -12,10 +12,7 @@ pub struct ListWorktreeOutcome {
 }
 
 /// Lists worktrees
-pub fn worktree_list(
-    ctx: &mut Context,
-    _perm: &WorktreeReadPermission,
-) -> Result<ListWorktreeOutcome> {
+pub fn worktree_list(ctx: &mut Context, _perm: &RepoShared) -> Result<ListWorktreeOutcome> {
     let repo = &*ctx.repo.get()?;
 
     let metas = list_worktree_meta(repo)?;

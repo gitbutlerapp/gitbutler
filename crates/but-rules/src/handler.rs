@@ -1,6 +1,6 @@
 use crate::{Filter, StackTarget};
 use anyhow::ensure;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_core::{ChangeId, DiffSpec, ref_metadata::StackId};
 use but_ctx::Context;
 use but_db::HunkAssignmentsHandleMut;
@@ -15,7 +15,7 @@ pub fn process_workspace_rules(
     ctx: &mut Context,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
     if assignments.is_empty() {
@@ -112,7 +112,7 @@ fn handle_amend(
     ws: &but_graph::projection::Workspace,
     assignments: Vec<HunkAssignment>,
     change_id: &ChangeId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     context_lines: u32,
 ) -> anyhow::Result<()> {
     let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
@@ -154,7 +154,7 @@ fn get_or_create_stack_id(
     meta: &mut impl but_core::RefMetadata,
     target: StackTarget,
     stack_ids_in_ws: &[StackId],
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Option<(StackId, Option<but_graph::projection::Workspace>)> {
     match target {
         StackTarget::StackId(stack_id) => {
@@ -193,7 +193,7 @@ fn create_stack(
     repo: &gix::Repository,
     ws: &but_graph::projection::Workspace,
     meta: &mut impl but_core::RefMetadata,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> anyhow::Result<(StackId, but_graph::projection::Workspace)> {
     use anyhow::Context;
     let branch_name = but_core::branch::unique_canned_refname(repo)?;

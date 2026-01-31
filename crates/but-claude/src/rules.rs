@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use but_core::ref_metadata::StackId;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_rules::{CreateRuleRequest, UpdateRuleRequest};
 use serde::{Deserialize, Serialize};
@@ -64,7 +64,7 @@ pub(crate) fn update_claude_assignment_rule_target(
     ctx: &mut Context,
     rule_id: String,
     stack_id: StackId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {
     let mut req: UpdateRuleRequest = but_rules::get_rule(ctx, &rule_id)?.into();
     req.action = req.action.and_then(|a| match a {
@@ -86,7 +86,7 @@ pub(crate) fn create_claude_assignment_rule(
     ctx: &mut Context,
     session_id: Uuid,
     stack_id: StackId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {
     let existing_rules = list_claude_assignment_rules(ctx)?;
     if existing_rules.iter().any(|rule| rule.stack_id == stack_id) {

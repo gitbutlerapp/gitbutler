@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
@@ -24,7 +24,7 @@ pub(crate) fn undo_commit(
     ctx: &Context,
     stack_id: StackId,
     commit_to_remove: git2::Oid,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> Result<Stack> {
     let vb_state = ctx.legacy_project.virtual_branches();
 

@@ -15,8 +15,8 @@ use crate::{
     legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
 };
 use bstr::{BString, ByteSlice};
-use but_core::sync::WorktreeWritePermission;
-use but_core::{DiffSpec, sync::WorkspaceWriteGuard};
+use but_core::sync::RepoExclusive;
+use but_core::{DiffSpec, sync::RepoExclusiveGuard};
 use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::ui::StackDetails;
@@ -48,7 +48,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
 
 pub fn absorb_impl(
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut WorkspaceWriteGuard,
+    guard: &mut RepoExclusiveGuard,
     repo: &gix::Repository,
     data_dir: &Path,
 ) -> anyhow::Result<usize> {
@@ -177,7 +177,7 @@ pub fn absorption_plan(
 fn group_changes_by_target_commit(
     ctx: &mut Context,
     assignments: &[HunkAssignment],
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<GroupedChanges> {
     let mut changes_by_commit: GroupedChanges = BTreeMap::new();
 
@@ -247,7 +247,7 @@ fn determine_target_commit(
     ctx: &mut Context,
     assignment: &HunkAssignment,
     stack_details_cache: &mut HashMap<StackId, StackDetails>,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<(
     but_core::ref_metadata::StackId,
     gix::ObjectId,

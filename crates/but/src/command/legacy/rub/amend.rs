@@ -1,5 +1,5 @@
 use but_core::{DiffSpec, ref_metadata::StackId};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;
@@ -99,7 +99,7 @@ fn amend_diff_specs(
     diff_specs: Vec<DiffSpec>,
     stack_id: Option<StackId>,
     oid: ObjectId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
     but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &*ctx.repo.get()?,

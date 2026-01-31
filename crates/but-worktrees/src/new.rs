@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::{Result, bail};
-use but_ctx::{Context, access::WorktreeReadPermission};
+use but_ctx::{Context, access::RepoShared};
 use serde::Serialize;
 
 use crate::{Worktree, WorktreeId, WorktreeMeta, db::save_worktree_meta, git::git_worktree_add};
@@ -17,7 +17,7 @@ pub struct NewWorktreeOutcome {
 // TODO: make this plumbing to take the `but_graph::projection::Workspace` directly.
 pub fn worktree_new(
     ctx: &mut Context,
-    perm: &WorktreeReadPermission,
+    perm: &RepoShared,
     refname: &gix::refs::FullNameRef,
 ) -> Result<NewWorktreeOutcome> {
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;

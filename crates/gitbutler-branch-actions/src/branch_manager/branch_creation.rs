@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{RepositoryExt, worktree::checkout::UncommitedWorktreeChanges};
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::access::RepoExclusive;
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use but_workspace::{
@@ -54,7 +54,7 @@ impl BranchManager<'_> {
     pub fn create_virtual_branch(
         &self,
         create: &BranchCreateRequest,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<Stack> {
         let vb_state = self.ctx.legacy_project.virtual_branches();
         let default_target = vb_state.get_default_target()?;
@@ -101,7 +101,7 @@ impl BranchManager<'_> {
         target: &Refname,
         upstream_branch: Option<RemoteRefname>,
         pr_number: Option<usize>,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
         let branch_name = target
             .branch()
@@ -262,7 +262,7 @@ impl BranchManager<'_> {
     fn apply_branch(
         &self,
         stack_id: StackId,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
         workspace_state: WorkspaceState,
         old_cwd: Option<git2::Oid>,
     ) -> Result<(String, Vec<StackId>)> {

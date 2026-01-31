@@ -7,7 +7,7 @@ use crate::legacy::{
     },
 };
 use anyhow::{Result, bail};
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_core::{DiffSpec, TreeChange};
 use but_ctx::Context;
 use but_rebase::{Rebase, replace_commit_tree};
@@ -35,7 +35,7 @@ pub fn remove_changes_from_commit_in_stack(
     source_stack_id: StackId,
     source_commit_id: gix::ObjectId,
     changes: impl IntoIterator<Item = DiffSpec>,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<MoveChangesResult> {
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let source_stack = vb_state.get_stack(source_stack_id)?;
@@ -77,7 +77,7 @@ fn remove_changes_from_commit(
     ctx: &Context,
     source_commit_id: gix::ObjectId,
     changes: impl IntoIterator<Item = DiffSpec>,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> Result<ObjectId> {
     let repo = ctx.repo.get()?;
     let (source_tree_without_changes, rejected_specs) = create_tree_without_diff(
@@ -104,7 +104,7 @@ pub(crate) fn keep_only_file_changes_in_commit(
     source_commit_id: gix::ObjectId,
     file_changes_to_keep: &[String],
     skip_if_empty: bool,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<Option<gix::ObjectId>> {
     let commit_changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
         &*ctx.repo.get()?,
@@ -135,7 +135,7 @@ pub(crate) fn remove_file_changes_from_commit(
     source_commit_id: gix::ObjectId,
     file_changes_to_split_off: &[String],
     skip_if_empty: bool,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<Option<gix::ObjectId>> {
     let commit_changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
         &*ctx.repo.get()?,

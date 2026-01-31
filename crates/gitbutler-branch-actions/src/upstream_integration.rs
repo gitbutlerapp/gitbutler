@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::ByteSlice;
 use but_core::{Reference, RepositoryExt};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
 use but_rebase::{RebaseOutput, RebaseStep};
@@ -163,7 +163,7 @@ enum IntegrationResult {
 }
 
 pub struct UpstreamIntegrationContext<'a> {
-    _permission: Option<&'a mut WorktreeWritePermission>,
+    _permission: Option<&'a mut RepoExclusive>,
     ctx: &'a Context,
     stacks_in_workspace: Vec<but_workspace::legacy::ui::StackEntry>,
     new_target: git2::Oid,
@@ -176,7 +176,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
     pub(crate) fn open(
         ctx: &'a Context,
         target_commit_oid: Option<git2::Oid>,
-        permission: &'a mut WorktreeWritePermission,
+        permission: &'a mut RepoExclusive,
         gix_repo: &'a gix::Repository,
         review_map: &'a HashMap<String, but_forge::ForgeReview>,
     ) -> Result<Self> {
@@ -447,7 +447,7 @@ pub(crate) fn integrate_upstream(
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
     review_map: &HashMap<String, but_forge::ForgeReview>,
-    permission: &mut WorktreeWritePermission,
+    permission: &mut RepoExclusive,
 ) -> Result<IntegrationOutcome> {
     let old_workspace = WorkspaceState::create(ctx, permission.read_permission())?;
 
@@ -649,7 +649,7 @@ pub(crate) fn resolve_upstream_integration(
     ctx: &Context,
     resolution_approach: BaseBranchResolutionApproach,
     review_map: &HashMap<String, but_forge::ForgeReview>,
-    permission: &mut WorktreeWritePermission,
+    permission: &mut RepoExclusive,
 ) -> Result<git2::Oid> {
     let gix_repo = ctx.repo.get()?;
     let context = UpstreamIntegrationContext::open(ctx, None, permission, &gix_repo, review_map)?;

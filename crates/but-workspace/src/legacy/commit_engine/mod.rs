@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::{DiffSpec, ref_metadata::StackId, tree::create_tree::RejectionReason};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_rebase::merge::ConflictErrorContext;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
@@ -43,7 +43,7 @@ pub fn create_commit_simple(
     worktree_changes: Vec<DiffSpec>,
     message: String,
     stack_branch_name: String,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
     let repo = ctx.repo.get()?;
     // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
@@ -409,7 +409,7 @@ pub fn create_commit_and_update_refs_with_project(
     destination: Destination,
     changes: Vec<DiffSpec>,
     context_lines: u32,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
     let vbh = VirtualBranchesHandle::new(project_data_dir);
     let mut vb = vbh.read_file()?;

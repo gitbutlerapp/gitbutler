@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use but_core::{DiffSpec, ref_metadata::StackId};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::OidExt;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
@@ -79,7 +79,7 @@ fn handle_changes_simple_inner(
     change_summary: &str,
     external_prompt: Option<String>,
     vb_state: &VirtualBranchesHandle,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<Outcome> {
     match gitbutler_operating_modes::operating_mode(ctx) {

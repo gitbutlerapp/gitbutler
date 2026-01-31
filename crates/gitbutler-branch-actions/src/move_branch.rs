@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::legacy::stack_ext::StackExt;
@@ -28,7 +28,7 @@ pub(crate) fn move_branch(
     target_branch_name: &str,
     source_stack_id: StackId,
     subject_branch_name: &str,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repo = ctx.repo.get()?;
@@ -85,7 +85,7 @@ pub(crate) fn tear_off_branch(
     ctx: &Context,
     source_stack_id: StackId,
     subject_branch_name: &str,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repository = ctx.repo.get()?;

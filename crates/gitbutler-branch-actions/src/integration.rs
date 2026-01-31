@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result, anyhow};
 use bstr::ByteSlice;
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
@@ -191,7 +191,7 @@ pub fn update_workspace_commit(
     Ok(final_commit)
 }
 
-pub fn verify_branch(ctx: &Context, perm: &mut WorktreeWritePermission) -> Result<()> {
+pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     verify_current_branch_name(ctx)
         .and_then(verify_head_is_set)
         .and_then(|()| verify_head_is_clean(ctx, perm))
@@ -231,7 +231,7 @@ fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
 }
 
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &Context, perm: &mut WorktreeWritePermission) -> Result<()> {
+fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let git2_repo = &*ctx.git2_repo.get()?;
     let head_commit = git2_repo
         .head()

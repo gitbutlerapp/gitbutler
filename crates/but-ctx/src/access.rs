@@ -1,8 +1,7 @@
 use crate::Context;
 use but_core::sync::LockScope::AllOperations;
 pub use but_core::sync::{
-    LockFile, WorkspaceReadGuard, WorkspaceWriteGuard, WorktreeReadPermission,
-    WorktreeWritePermission,
+    LockFile, RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard,
 };
 
 /// Locking utilities to protect against concurrency on the same repo.
@@ -27,8 +26,8 @@ impl Context {
     /// GitButler are able to read or write the same repository.
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!
-    pub fn exclusive_worktree_access(&self) -> WorkspaceWriteGuard {
-        but_core::sync::exclusive_worktree_access(&self.gitdir)
+    pub fn exclusive_worktree_access(&self) -> RepoExclusiveGuard {
+        but_core::sync::exclusive_repo_access(&self.gitdir)
     }
 
     /// Return a guard for shared (read) worktree access, and block while waiting for writers to disappear.
@@ -36,7 +35,7 @@ impl Context {
     /// thus block readers to prevent writer starvation.
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!
-    pub fn shared_worktree_access(&self) -> WorkspaceReadGuard {
-        but_core::sync::shared_worktree_access(&self.gitdir)
+    pub fn shared_worktree_access(&self) -> RepoSharedGuard {
+        but_core::sync::shared_repo_access(&self.gitdir)
     }
 }

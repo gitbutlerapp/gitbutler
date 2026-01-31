@@ -7,7 +7,7 @@ use std::{
 };
 
 use but_core::TreeChange;
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_llm::{ChatMessage, ToolCallContent, ToolResponseContent};
 use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
@@ -220,7 +220,7 @@ fn ref_metadata_toml(ctx: &Context) -> anyhow::Result<VirtualBranchesTomlMetadat
 /// Returns the currently applied stacks, creating one if none exists.
 fn stacks_creating_if_none(
     ctx: &Context,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<Vec<StackEntry>> {
     let repo = &*ctx.repo.get()?;
     let stacks = stacks(ctx, repo)?;

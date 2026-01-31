@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::Path, str::FromStr};
 
 use anyhow::{Context as _, Result, anyhow};
 use but_action::{ActionHandler, Source, rename_branch::RenameBranchParams, reword::CommitEvent};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_llm::LLMProvider;
 use but_workspace::{
@@ -487,7 +487,7 @@ fn original_session_id(ctx: &mut Context, current_id: String) -> Result<String> 
 
 pub fn get_or_create_session(
     ctx: &mut Context,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     session_id: &str,
     stacks: Vec<but_workspace::legacy::ui::StackEntry>,
 ) -> Result<StackId, anyhow::Error> {
@@ -524,7 +524,7 @@ pub fn get_or_create_session(
     Ok(stack_id)
 }
 
-fn create_stack(ctx: &Context, perm: &mut WorktreeWritePermission) -> anyhow::Result<StackId> {
+fn create_stack(ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<StackId> {
     let branch_name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
     let create_req = BranchCreateRequest {
         name: Some(branch_name.shorten().to_string()),

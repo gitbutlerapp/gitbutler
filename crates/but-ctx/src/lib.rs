@@ -3,8 +3,8 @@
 #![forbid(unsafe_code)]
 
 use anyhow::anyhow;
-use but_core::sync::{WorkspaceReadGuard, WorkspaceWriteGuard, WorktreeWritePermission};
-use but_core::{RepositoryExt, sync::WorktreeReadPermission};
+use but_core::sync::{RepoExclusive, RepoExclusiveGuard, RepoSharedGuard};
+use but_core::{RepositoryExt, sync::RepoShared};
 use but_settings::AppSettings;
 use std::cell;
 use std::cell::RefCell;
@@ -53,7 +53,7 @@ pub struct ProjectHandle(#[expect(dead_code)] String);
 ///
 /// Assume all `but_api` functions obtain a lock on their own.
 ///
-/// Alternatively, design the callee to use [`WorktreeWritePermission`] or [`WorktreeReadPermission`] which
+/// Alternatively, design the callee to use [`RepoExclusive`] or [`RepoShared`] which
 /// is automatically composable and deadlock free.
 ///
 /// Locks may only be acquired by top-level callers, with permissions being passed down as needed.
@@ -319,7 +319,7 @@ impl Context {
     pub fn workspace_mut_and_db_mut(
         &mut self,
     ) -> anyhow::Result<(
-        WorkspaceWriteGuard,
+        RepoExclusiveGuard,
         cell::Ref<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::projection::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
@@ -345,7 +345,7 @@ impl Context {
     )]
     pub fn workspace_mut_and_db_mut_with_perm(
         &mut self,
-        _perm: &mut WorktreeWritePermission,
+        _perm: &mut RepoExclusive,
     ) -> anyhow::Result<(
         cell::Ref<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::projection::Workspace>,
@@ -382,7 +382,7 @@ impl Context {
     pub fn workspace_and_db_mut(
         &mut self,
     ) -> anyhow::Result<(
-        WorkspaceReadGuard,
+        RepoSharedGuard,
         cell::Ref<'_, gix::Repository>,
         cell::Ref<'_, but_graph::projection::Workspace>,
         cell::RefMut<'_, but_db::DbHandle>,
@@ -408,7 +408,7 @@ impl Context {
     #[allow(clippy::type_complexity)]
     pub fn workspace_and_db_mut_with_perm(
         &mut self,
-        _perm: &WorktreeReadPermission,
+        _perm: &RepoShared,
     ) -> anyhow::Result<(
         cell::Ref<'_, gix::Repository>,
         cell::Ref<'_, but_graph::projection::Workspace>,
@@ -441,7 +441,7 @@ impl Context {
     pub fn workspace_mut_and_db(
         &mut self,
     ) -> anyhow::Result<(
-        WorkspaceWriteGuard,
+        RepoExclusiveGuard,
         cell::Ref<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::projection::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
@@ -465,7 +465,7 @@ impl Context {
     #[allow(clippy::type_complexity)]
     pub fn workspace_mut_and_db_with_perm(
         &self,
-        _perm: &WorktreeWritePermission,
+        _perm: &RepoExclusive,
     ) -> anyhow::Result<(
         cell::Ref<'_, gix::Repository>,
         cell::RefMut<'_, but_graph::projection::Workspace>,
@@ -498,7 +498,7 @@ impl Context {
     pub fn workspace_and_db(
         &self,
     ) -> anyhow::Result<(
-        WorkspaceReadGuard,
+        RepoSharedGuard,
         cell::Ref<'_, gix::Repository>,
         cell::Ref<'_, but_graph::projection::Workspace>,
         cell::Ref<'_, but_db::DbHandle>,
@@ -519,7 +519,7 @@ impl Context {
     #[allow(clippy::type_complexity)]
     pub fn workspace_and_db_with_perm(
         &self,
-        _perm: &WorktreeReadPermission,
+        _perm: &RepoShared,
     ) -> anyhow::Result<(
         cell::Ref<'_, gix::Repository>,
         cell::Ref<'_, but_graph::projection::Workspace>,

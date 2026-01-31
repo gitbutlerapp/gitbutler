@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
@@ -16,7 +16,7 @@ pub(crate) fn move_commit(
     ctx: &Context,
     target_stack_id: StackId,
     subject_commit_oid: git2::Oid,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;

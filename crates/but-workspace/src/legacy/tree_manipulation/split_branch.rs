@@ -1,6 +1,6 @@
 use anyhow::Result;
 use but_core::Reference;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
@@ -35,7 +35,7 @@ pub fn split_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: &[String],
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<(ReferenceSpec, MoveChangesResult)> {
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
@@ -155,7 +155,7 @@ pub fn split_into_dependent_branch(
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: &[String],
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<MoveChangesResult> {
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
@@ -258,7 +258,7 @@ fn filter_file_changes_in_branch(
     source_stack: gitbutler_stack::Stack,
     source_branch_name: String,
     merge_base: gix::ObjectId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<but_rebase::RebaseOutput, anyhow::Error> {
     let source_steps = construct_source_steps(
         ctx,
@@ -290,7 +290,7 @@ fn construct_source_steps(
     source_stack: &gitbutler_stack::Stack,
     source_branch_name: String,
     steps_to_insert: Option<&[RebaseStep]>,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<Vec<RebaseStep>, anyhow::Error> {
     let source_steps = source_stack.as_rebase_steps_rev(ctx)?;
     let mut new_source_steps = Vec::new();

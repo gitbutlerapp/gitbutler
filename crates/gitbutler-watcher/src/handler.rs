@@ -3,7 +3,7 @@ use std::{path::PathBuf, sync::Arc};
 use crate::Change;
 use anyhow::{Context as _, Result};
 use but_core::TreeChange;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
@@ -82,17 +82,13 @@ impl Handler {
         &self,
         paths: Vec<PathBuf>,
         ctx: &mut Context,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<()> {
         _ = self.emit_worktree_changes(ctx, perm);
         Ok(())
     }
 
-    fn emit_worktree_changes(
-        &self,
-        ctx: &mut Context,
-        perm: &mut WorktreeWritePermission,
-    ) -> Result<()> {
+    fn emit_worktree_changes(&self, ctx: &mut Context, perm: &mut RepoExclusive) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
@@ -163,7 +159,7 @@ impl Handler {
         &self,
         paths: Vec<PathBuf>,
         ctx: &mut Context,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
 

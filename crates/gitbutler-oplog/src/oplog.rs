@@ -9,7 +9,7 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{RepositoryExt, TreeChange, diff::tree_changes};
 use but_ctx::{
     Context,
-    access::{WorktreeReadPermission, WorktreeWritePermission},
+    access::{RepoExclusive, RepoShared},
 };
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{
@@ -57,7 +57,7 @@ pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
-    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid>;
+    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<git2::Oid>;
 
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
@@ -72,7 +72,7 @@ pub trait OplogExt {
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<git2::Oid>;
 
     /// Creates a snapshot of the current state of the working directory as well as GitButler data.
@@ -86,7 +86,7 @@ pub trait OplogExt {
     fn create_snapshot(
         &self,
         details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<git2::Oid>;
 
     /// Lists the snapshots that have been created for the given repository, up to the given limit,
@@ -121,7 +121,7 @@ pub trait OplogExt {
     fn restore_snapshot(
         &self,
         snapshot_commit_id: git2::Oid,
-        guard: &mut WorktreeWritePermission,
+        guard: &mut RepoExclusive,
     ) -> Result<git2::Oid>;
 
     /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
@@ -137,7 +137,7 @@ pub trait OplogExt {
 }
 
 impl OplogExt for Context {
-    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid> {
+    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<git2::Oid> {
         prepare_snapshot(self, perm)
     }
 
@@ -145,7 +145,7 @@ impl OplogExt for Context {
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<git2::Oid> {
         commit_snapshot(
             &self.project_data_dir(),
@@ -160,7 +160,7 @@ impl OplogExt for Context {
     fn create_snapshot(
         &self,
         details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<git2::Oid> {
         let tree_id = prepare_snapshot(self, perm.read_permission())?;
         commit_snapshot(
@@ -280,7 +280,7 @@ impl OplogExt for Context {
     fn restore_snapshot(
         &self,
         snapshot_commit_id: git2::Oid,
-        guard: &mut WorktreeWritePermission,
+        guard: &mut RepoExclusive,
     ) -> Result<git2::Oid> {
         // let mut guard = self.exclusive_worktree_access();
         restore_snapshot(self, snapshot_commit_id, guard)
@@ -367,10 +367,7 @@ fn get_workdir_tree(
     }
 }
 
-pub fn prepare_snapshot(
-    ctx: &Context,
-    _shared_access: &WorktreeReadPermission,
-) -> Result<git2::Oid> {
+pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<git2::Oid> {
     let repo = ctx.git2_repo.get()?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -500,7 +497,7 @@ fn commit_snapshot(
     repo: &git2::Repository,
     snapshot_tree_id: git2::Oid,
     details: SnapshotDetails,
-    _exclusive_access: &mut WorktreeWritePermission,
+    _exclusive_access: &mut RepoExclusive,
 ) -> Result<git2::Oid> {
     let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
 
@@ -535,7 +532,7 @@ fn commit_snapshot(
 fn restore_snapshot(
     ctx: &Context,
     snapshot_commit_id: git2::Oid,
-    exclusive_access: &mut WorktreeWritePermission,
+    exclusive_access: &mut RepoExclusive,
 ) -> Result<git2::Oid> {
     let git2_repo = ctx.git2_repo.get()?;
     // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.

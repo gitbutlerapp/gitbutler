@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
@@ -102,7 +102,7 @@ pub fn integrate_branch_with_steps(
     stack_id: StackId,
     branch_name: String,
     steps: Vec<InteractiveIntegrationStep>,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<()> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let repository = ctx.repo.get()?;
@@ -236,7 +236,7 @@ fn integration_steps_to_rebase_steps(
 pub fn integrate_upstream_commits_for_series(
     ctx: &Context,
     stack_id: StackId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
 ) -> Result<()> {

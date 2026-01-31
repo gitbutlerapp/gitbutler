@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Ok, Result, bail};
 use but_core::commit::Headers;
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -28,7 +28,7 @@ pub(crate) fn squash_commits(
     stack_id: StackId,
     source_ids: Vec<git2::Oid>,
     desitnation_id: git2::Oid,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<git2::Oid> {
     // create a snapshot
     let snap = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
@@ -59,7 +59,7 @@ fn do_squash_commits(
     stack_id: StackId,
     mut source_ids: Vec<git2::Oid>,
     destination_id: git2::Oid,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<git2::Oid> {
     let new_commit_oid = {
         let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;

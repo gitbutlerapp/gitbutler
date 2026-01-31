@@ -3,7 +3,7 @@ use bstr::{BString, ByteSlice};
 use but_core::RepositoryExt;
 use but_ctx::{
     Context,
-    access::{WorktreeReadPermission, WorktreeWritePermission},
+    access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseOutput, RebaseStep};
@@ -48,7 +48,7 @@ pub enum WorktreeIntegrationStatus {
 /// alternative to the rebase engine.
 pub fn worktree_integration_status(
     ctx: &mut Context,
-    perm: &WorktreeReadPermission,
+    perm: &RepoShared,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<WorktreeIntegrationStatus> {
@@ -61,7 +61,7 @@ pub fn worktree_integration_status(
 /// alternative to the rebase engine.
 pub fn worktree_integrate(
     ctx: &mut Context,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<()> {
@@ -94,7 +94,7 @@ struct IntegrationResult {
 /// status, and output if it's integratable
 fn worktree_integration_inner(
     ctx: &mut Context,
-    perm: &WorktreeReadPermission,
+    perm: &RepoShared,
     id: &WorktreeId,
     target: &gix::refs::FullNameRef,
 ) -> Result<(WorktreeIntegrationStatus, Option<IntegrationResult>)> {

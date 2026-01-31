@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_rebase::Rebase;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
@@ -26,7 +26,7 @@ pub fn split_commit(
     stack_id: StackId,
     source_commit_id: gix::ObjectId,
     pieces: &[CommitFiles],
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<CommmitSplitOutcome> {
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
@@ -71,7 +71,7 @@ fn new_commits(
     ctx: &Context,
     source_commit_id: gix::ObjectId,
     pieces: &[CommitFiles],
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<Vec<(gix::ObjectId, Option<String>)>> {
     let mut new_commits = Vec::new();
     for piece in pieces {

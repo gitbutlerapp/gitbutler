@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::{DiffSpec, RepositoryExt};
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::access::RepoExclusive;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_oplog::SnapshotExt;
@@ -18,7 +18,7 @@ impl BranchManager<'_> {
     pub fn unapply(
         &self,
         stack_id: StackId,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
         delete_vb_state: bool,
         assigned_diffspec: Vec<DiffSpec>,
         safe_checkout: bool,

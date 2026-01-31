@@ -70,39 +70,39 @@ pub fn try_exclusive_inter_process_access(
     Ok(lock)
 }
 
-/// Return a guard for exclusive (read+write) *in-process* worktree access for the project at `git_dir`,
+/// Return a guard for exclusive (read+write) *in-process* repository access for the project at `git_dir`,
 /// blocking while waiting for someone else to release it, or for all readers to disappear.
 /// Locking is fair.
 ///
 /// Note that this **in-process** locking works only under the assumption that no two instances of
 /// GitButler are able to read or write the same repository.
-pub fn exclusive_worktree_access(git_dir: impl Into<PathBuf>) -> WorkspaceWriteGuard {
+pub fn exclusive_repo_access(git_dir: impl Into<PathBuf>) -> RepoExclusiveGuard {
     let mut map = WORKTREE_LOCKS.lock();
     let git_dir = git_dir.into();
-    WorkspaceWriteGuard {
+    RepoExclusiveGuard {
         inner: map.entry(git_dir).or_default().write_arc().into(),
-        perm: WorktreeWritePermission(()),
+        perm: RepoExclusive(()),
     }
 }
 
-/// Return a guard for shared (read) worktree access for the project at `git_dir`,
+/// Return a guard for shared (read) repository access for the project at `git_dir`,
 /// and block while waiting for writers to disappear.
 /// There can be multiple readers, but only a single writer. Waiting writers will be handled with priority,
 /// thus block readers to prevent writer starvation.
-pub fn shared_worktree_access(git_dir: impl Into<PathBuf>) -> WorkspaceReadGuard {
+pub fn shared_repo_access(git_dir: impl Into<PathBuf>) -> RepoSharedGuard {
     let mut map = WORKTREE_LOCKS.lock();
     let git_dir = git_dir.into();
-    WorkspaceReadGuard(Some(map.entry(git_dir).or_default().read_arc()))
+    RepoSharedGuard(Some(map.entry(git_dir).or_default().read_arc()))
 }
 
 /// A utility that drops an exclusive lock on drop.
 #[must_use]
-pub struct WorkspaceWriteGuard {
+pub struct RepoExclusiveGuard {
     inner: Option<parking_lot::ArcRwLockWriteGuard<RawRwLock, ()>>,
-    perm: WorktreeWritePermission,
+    perm: RepoExclusive,
 }
 
-impl Drop for WorkspaceWriteGuard {
+impl Drop for RepoExclusiveGuard {
     fn drop(&mut self) {
         let lock = self
             .inner
@@ -112,7 +112,7 @@ impl Drop for WorkspaceWriteGuard {
     }
 }
 
-impl Drop for WorkspaceReadGuard {
+impl Drop for RepoSharedGuard {
     fn drop(&mut self) {
         let lock = self
             .0
@@ -122,46 +122,46 @@ impl Drop for WorkspaceReadGuard {
     }
 }
 
-impl WorkspaceWriteGuard {
+impl RepoExclusiveGuard {
     /// Signal that a write-permission is available - useful as API-marker to assure these
     /// can only be called when the respective protection/permission is present.
-    pub fn write_permission(&mut self) -> &mut WorktreeWritePermission {
+    pub fn write_permission(&mut self) -> &mut RepoExclusive {
         &mut self.perm
     }
 
     /// Signal that a read-permission is available - useful as API-marker to assure these
     /// can only be called when the respective protection/permission is present.
-    pub fn read_permission(&self) -> &WorktreeReadPermission {
+    pub fn read_permission(&self) -> &RepoShared {
         self.perm.read_permission()
     }
 }
 
 /// A utility that drops a shared lock on drop.
 #[must_use]
-pub struct WorkspaceReadGuard(Option<parking_lot::ArcRwLockReadGuard<RawRwLock, ()>>);
+pub struct RepoSharedGuard(Option<ArcRwLockReadGuard<RawRwLock, ()>>);
 
-impl WorkspaceReadGuard {
+impl RepoSharedGuard {
     /// Signal that a read-permission is available - useful as API-marker to assure these
     /// can only be called when the respective protection/permission is present.
-    pub fn read_permission(&self) -> &WorktreeReadPermission {
-        static READ: WorktreeReadPermission = WorktreeReadPermission(());
+    pub fn read_permission(&self) -> &RepoShared {
+        static READ: RepoShared = RepoShared(());
         &READ
     }
 }
 
-/// A token to indicate read-only access was granted to the worktree, assuring there are no writers
+/// A token to indicate read-only access was granted to the repository, assuring there are no writers
 /// *within this process*.
-pub struct WorktreeReadPermission(());
+pub struct RepoShared(());
 
-/// A token to indicate exclusive access was granted to the worktree, assuring there are no readers or other writers
+/// A token to indicate exclusive access was granted to the repository, assuring there are no readers or other writers
 /// *within this process*.
-pub struct WorktreeWritePermission(());
+pub struct RepoExclusive(());
 
-impl WorktreeWritePermission {
+impl RepoExclusive {
     /// Signal that a read-permission is available - useful as API-marker to assure these
     /// can only be called when the respective protection/permission is present.
-    pub fn read_permission(&self) -> &WorktreeReadPermission {
-        static READ: WorktreeReadPermission = WorktreeReadPermission(());
+    pub fn read_permission(&self) -> &RepoShared {
+        static READ: RepoShared = RepoShared(());
         &READ
     }
 }

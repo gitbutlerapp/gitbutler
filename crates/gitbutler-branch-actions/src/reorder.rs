@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result, bail};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use git2::Oid;
@@ -25,7 +25,7 @@ pub fn reorder_stack(
     ctx: &Context,
     stack_id: StackId,
     new_order: StackOrder,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let state = ctx.legacy_project.virtual_branches();

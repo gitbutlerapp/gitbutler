@@ -1,5 +1,5 @@
 use but_core::ChangeId;
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_ctx::Context;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use serde::{Deserialize, Serialize};
@@ -191,7 +191,7 @@ pub struct CreateRuleRequest {
 pub fn create_rule(
     ctx: &mut Context,
     req: CreateRuleRequest,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
     let rule = WorkspaceRule {
         id: uuid::Uuid::new_v4().to_string(),
@@ -247,7 +247,7 @@ impl From<WorkspaceRule> for UpdateRuleRequest {
 pub fn update_rule(
     ctx: &mut Context,
     req: UpdateRuleRequest,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
     let mut rule: WorkspaceRule = {
         let db = ctx.db.get_mut()?;
@@ -304,7 +304,7 @@ pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
 }
 
 /// NOTE: may create an empty branch!
-pub fn process_rules(ctx: &mut Context, perm: &mut WorktreeWritePermission) -> anyhow::Result<()> {
+pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
     let (assignments, dependencies) = {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;

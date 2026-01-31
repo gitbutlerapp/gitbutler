@@ -3,7 +3,7 @@ use std::{collections::HashSet, str::FromStr};
 use crate::json::HexHash;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
-use but_core::{RepositoryExt, sync::WorkspaceWriteGuard};
+use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_meta::VirtualBranchesTomlMetadata;
@@ -311,7 +311,7 @@ pub fn amend_commit_and_count_failures(
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
-    guard: &mut WorkspaceWriteGuard,
+    guard: &mut RepoExclusiveGuard,
     repo: &gix::Repository,
     data_dir: &std::path::Path,
 ) -> anyhow::Result<commit_engine::ui::CreateCommitOutcome> {

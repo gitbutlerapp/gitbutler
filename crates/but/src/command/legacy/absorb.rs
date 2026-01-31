@@ -1,7 +1,7 @@
 use colored::Colorize;
 use std::path::Path;
 
-use but_core::sync::WorkspaceWriteGuard;
+use but_core::sync::RepoExclusiveGuard;
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
@@ -103,7 +103,7 @@ pub(crate) fn handle(
 /// Absorb a single file into the appropriate commit
 fn absorb_assignments(
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut WorkspaceWriteGuard,
+    guard: &mut RepoExclusiveGuard,
     repo: &gix::Repository,
     data_dir: &Path,
     out: &mut OutputChannel,

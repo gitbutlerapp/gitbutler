@@ -1,4 +1,4 @@
-use but_core::sync::WorktreeWritePermission;
+use but_core::sync::RepoExclusive;
 use but_settings::AppSettings;
 use tracing::instrument;
 
@@ -113,7 +113,7 @@ impl Context {
     )]
     pub fn workspace_and_meta_from_head(
         &self,
-        _exclusive_access: &WorktreeWritePermission,
+        _exclusive_access: &RepoExclusive,
     ) -> anyhow::Result<(
         impl but_core::RefMetadata + 'static,
         but_graph::projection::Workspace,
@@ -138,7 +138,7 @@ impl Context {
     //       For a correct implementation, this would also have to hold on to `_exclusive`.
     pub fn legacy_meta_mut(
         &mut self,
-        _exclusive: &WorktreeWritePermission,
+        _exclusive: &RepoExclusive,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         self.meta_inner()
     }

@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_core::DiffSpec;
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{commit_engine, stack_heads_info, ui};
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
@@ -35,7 +35,7 @@ use crate::{
 pub fn create_virtual_branch(
     ctx: &Context,
     create: &BranchCreateRequest,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<ui::StackEntryNoOpt> {
     ctx.verify(perm)?;
     ensure_open_workspace_mode(ctx).context("Creating a branch requires open workspace mode")?;
@@ -91,7 +91,7 @@ pub fn delete_local_branch(ctx: &Context, refname: &Refname, given_name: String)
 pub fn set_base_branch(
     ctx: &Context,
     target_branch: &RemoteRefname,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<BaseBranch> {
     let _ = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch), perm);
     base::set_base_branch(ctx, target_branch)
@@ -184,7 +184,7 @@ pub fn update_stack_order(ctx: &Context, updates: Vec<BranchUpdateRequest>) -> R
 /// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
 pub fn unapply_stack(
     ctx: &mut Context,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     stack_id: StackId,
     assigned_diffspec: Vec<DiffSpec>,
 ) -> Result<String> {
@@ -489,11 +489,11 @@ pub fn resolve_upstream_integration(
 }
 
 pub(crate) trait Verify {
-    fn verify(&self, perm: &mut WorktreeWritePermission) -> Result<()>;
+    fn verify(&self, perm: &mut RepoExclusive) -> Result<()>;
 }
 
 impl Verify for Context {
-    fn verify(&self, perm: &mut WorktreeWritePermission) -> Result<()> {
+    fn verify(&self, perm: &mut RepoExclusive) -> Result<()> {
         crate::integration::verify_branch(self, perm)
     }
 }

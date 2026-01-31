@@ -40,7 +40,7 @@ use crate::{
 use anyhow::{Result, bail};
 use but_action::cli::get_cli_path;
 use but_core::ref_metadata::StackId;
-use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
+use but_core::sync::{RepoExclusive, RepoShared};
 use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
@@ -637,11 +637,7 @@ Uncommitted changes (assigned to this stack):
 }
 
 /// Formats branch information for the system prompt
-fn format_branch_info(
-    ctx: &mut Context,
-    stack_id: StackId,
-    perm: &WorktreeReadPermission,
-) -> String {
+fn format_branch_info(ctx: &mut Context, stack_id: StackId, perm: &RepoShared) -> String {
     let mut output = String::from(
         "<branch-info>\n\
         This repository uses GitButler for branch management. While git shows you are on\n\
@@ -725,7 +721,7 @@ fn append_assigned_files_info(
     output: &mut String,
     stack_id: StackId,
     ctx: &mut Context,
-    perm: &WorktreeReadPermission,
+    perm: &RepoShared,
 ) -> anyhow::Result<()> {
     let context_lines = ctx.settings.context_lines;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
@@ -851,7 +847,7 @@ fn upsert_session(
     ctx: &mut Context,
     session_id: uuid::Uuid,
     stack_id: StackId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<crate::ClaudeSession> {
     let session = if let Some(session) = db::get_session_by_id(ctx, session_id)? {
         db::set_session_in_gui(ctx, session_id, true)?;

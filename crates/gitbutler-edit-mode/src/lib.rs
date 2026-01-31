@@ -5,7 +5,7 @@ use bstr::{BString, ByteSlice};
 use but_core::{RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
 use but_ctx::{
     Context,
-    access::{WorktreeReadPermission, WorktreeWritePermission},
+    access::{RepoExclusive, RepoShared},
 };
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index};
 use but_workspace::legacy::stack_ext::StackExt;
@@ -178,7 +178,7 @@ pub(crate) fn enter_edit_mode(
     ctx: &Context,
     commit: git2::Commit,
     stack_id: StackId,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> Result<EditModeMetadata> {
     let edit_mode_metadata = EditModeMetadata {
         commit_oid: commit.id(),
@@ -198,7 +198,7 @@ pub(crate) fn enter_edit_mode(
 
 pub(crate) fn abort_and_return_to_workspace(
     ctx: &Context,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> Result<()> {
     let repository = &*ctx.git2_repo.get()?;
 
@@ -218,10 +218,7 @@ pub(crate) fn abort_and_return_to_workspace(
     Ok(())
 }
 
-pub(crate) fn save_and_return_to_workspace(
-    ctx: &Context,
-    perm: &mut WorktreeWritePermission,
-) -> Result<()> {
+pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
     let repository = &*ctx.git2_repo.get()?;
     let gix_repo = &*ctx.repo.get()?;
@@ -323,7 +320,7 @@ pub struct ConflictEntryPresence {
 
 pub(crate) fn starting_index_state(
     ctx: &Context,
-    _perm: &WorktreeReadPermission,
+    _perm: &RepoShared,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
     let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
         bail!("Starting index state can only be fetched while in edit mode")
@@ -386,10 +383,7 @@ pub(crate) fn starting_index_state(
     Ok(outcome)
 }
 
-pub(crate) fn changes_from_initial(
-    ctx: &Context,
-    _perm: &WorktreeReadPermission,
-) -> Result<Vec<TreeChange>> {
+pub(crate) fn changes_from_initial(ctx: &Context, _perm: &RepoShared) -> Result<Vec<TreeChange>> {
     let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
