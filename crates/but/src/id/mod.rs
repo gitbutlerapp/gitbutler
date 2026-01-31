@@ -356,28 +356,22 @@ impl IdMap {
     ) -> anyhow::Result<Self> {
         let meta = ctx.meta()?;
         let context_lines = ctx.settings.context_lines;
-        let worktree_dir = ctx.workdir()?;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
 
         let hunk_assignments = match assignments {
             Some(assignments) => assignments,
             None => {
-                if let Some(worktree_dir) = worktree_dir {
-                    let changes =
-                        but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
-                    let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-                        db.hunk_assignments_mut()?,
-                        &repo,
-                        &ws,
-                        false,
-                        Some(changes),
-                        None,
-                        context_lines,
-                    )?;
-                    assignments
-                } else {
-                    Vec::new()
-                }
+                let changes = but_core::diff::ui::worktree_changes(&repo)?.changes;
+                let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+                    db.hunk_assignments_mut()?,
+                    &repo,
+                    &ws,
+                    false,
+                    Some(changes),
+                    None,
+                    context_lines,
+                )?;
+                assignments
             }
         };
 

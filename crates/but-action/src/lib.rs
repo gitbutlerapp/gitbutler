@@ -29,7 +29,6 @@ mod simple;
 mod workflow;
 pub use action::{ActionListing, Source, list_actions};
 use but_core::ref_metadata::StackId;
-use but_meta::VirtualBranchesTomlMetadata;
 use strum::EnumString;
 use uuid::Uuid;
 pub use workflow::{WorkflowList, list_workflows};
@@ -203,18 +202,13 @@ fn default_target_setting_if_none(
 }
 
 fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    let meta = ref_metadata_toml(ctx)?;
+    let meta = ctx.legacy_meta()?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,
         but_workspace::legacy::StacksFilter::InWorkspace,
         None,
     )
-}
-
-// TODO(ctx): remove this once vb.toml is in metadata.
-fn ref_metadata_toml(ctx: &Context) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))
 }
 
 /// Returns the currently applied stacks, creating one if none exists.

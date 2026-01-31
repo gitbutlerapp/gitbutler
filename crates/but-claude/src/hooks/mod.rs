@@ -88,10 +88,7 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
     let transcript = Transcript::from_file(Path::new(&input.transcript_path))?;
     let cwd = transcript.dir()?;
     let mut ctx = Context::discover(cwd)?;
-    #[allow(deprecated)]
-    let workdir = ctx.workdir_needed()?;
-
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(workdir)?.changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
 
     // This is a naive way of handling this case.
     // If the user simply asks a question and there are no changes, we don't need to create a stack
@@ -418,7 +415,7 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         stacks,
     )?;
 
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(worktree_dir)?.changes;
+    let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
     let context_lines = defer.ctx.settings.context_lines;
     let (repo, ws, mut db) = defer
         .ctx

@@ -131,10 +131,7 @@ fn assign_all_inner(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Get all assignment requests from the from_stack_id
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
 
     let context_lines = ctx.settings.context_lines;
     let (_, repo, ws, mut db) = ctx.workspace_and_db_mut()?;

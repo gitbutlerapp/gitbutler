@@ -12,7 +12,6 @@ use anyhow::Context as _;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
 use but_workspace::legacy::{CommmitSplitOutcome, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
@@ -1456,11 +1455,6 @@ impl From<CommitShard> for but_workspace::legacy::CommitFiles {
     }
 }
 
-// TODO(ctx): remove this once vb.toml is in metadata.
-fn ref_metadata_toml(ctx: &Context) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))
-}
-
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RichHunk {
@@ -1873,7 +1867,7 @@ fn find_the_right_commit_id(
 }
 
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let meta = ref_metadata_toml(ctx)?;
+    let meta = ctx.legacy_meta()?;
     let repo = &*ctx.repo.get()?;
     but_workspace::legacy::stacks_v3(
         repo,

@@ -27,12 +27,9 @@ fn unapply_with_data() -> anyhow::Result<()> {
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        #[allow(deprecated)]
-        ctx.workdir_needed()?,
-    )
-    .unwrap()
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)
+        .unwrap()
+        .changes;
 
     let context_lines = ctx.settings.context_lines;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;

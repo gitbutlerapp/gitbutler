@@ -1,12 +1,10 @@
+use crate::diff::worktree_changes::repo_in;
 use but_testsupport::gix_testtools;
 
 #[test]
 fn worktree_changes() -> anyhow::Result<()> {
-    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
-        .map_err(anyhow::Error::from_boxed)?;
-    let actual = serde_json::to_string_pretty(
-        &but_core::diff::ui::worktree_changes_by_worktree_dir(root.join("many-in-worktree"))?,
-    )?;
+    let repo = repo_in("status-repo", "many-in-worktree")?;
+    let actual = serde_json::to_string_pretty(&but_core::diff::ui::worktree_changes(&repo)?)?;
     insta::assert_snapshot!(actual, @r#"
     {
       "changes": [

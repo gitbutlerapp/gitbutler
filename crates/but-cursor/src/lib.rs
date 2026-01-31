@@ -154,11 +154,7 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         stacks,
     )?;
 
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        #[allow(deprecated)]
-        ctx.workdir_needed()?,
-    )?
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     let context_lines = ctx.settings.context_lines;
     let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
@@ -222,11 +218,7 @@ pub async fn handle_stop(
         .map(|p| cursor_path_to_pathbuf(p))?;
     let mut ctx = Context::discover(&dir)?;
 
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        #[allow(deprecated)]
-        ctx.workdir_needed()?,
-    )?
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
 
     if changes.is_empty() {
         return Ok(CursorHookOutput::default());

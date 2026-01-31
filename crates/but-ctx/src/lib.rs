@@ -106,7 +106,6 @@ pub struct Context {
 }
 
 /// A structure that can be passed across thread boundaries.
-// TODO(ctx): make fields non-pub once `CommandContext` is gone.
 #[derive(Clone)]
 pub struct ThreadSafeContext {
     /// The application context, here for convenience and as feature toggles and flags are needed.
@@ -337,7 +336,6 @@ impl Context {
     /// # IMPORTANT
     /// * if the workspace was changed, write it back into `&mut ws`.
     /// * Keep the guard alive like `let (_guard, …) = …`!
-    // TODO(ctx): it would be great to also get meta out of the returned `db`
     #[instrument(
         name = "Context::workspace_mut_and_db_mut_with_perm",
         level = "debug",

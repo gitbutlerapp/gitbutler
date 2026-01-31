@@ -76,10 +76,7 @@ pub(crate) fn assignments_to_commit(
 }
 
 fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     let context_lines = ctx.settings.context_lines;
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(

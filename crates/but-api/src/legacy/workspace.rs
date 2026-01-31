@@ -6,7 +6,6 @@ use but_api_macros::but_api;
 use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
 use but_workspace::{commit_engine, commit_engine::StackSegmentId, legacy::ui::StackEntry};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
@@ -20,18 +19,12 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use tracing::instrument;
 
-// Used to bypass read-only permissions, apparently.
-// TODO(ctx): remove this once vb.toml is in metadata.
-fn ref_metadata_toml(ctx: &Context) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))
-}
-
 #[but_api]
 #[instrument(err(Debug))]
 pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo> {
     let ctx = Context::new_from_legacy_project_id(project_id)?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ref_metadata_toml(&ctx)?;
+    let meta = ctx.legacy_meta()?;
     but_workspace::head_info(
         &repo,
         &meta,
@@ -53,17 +46,16 @@ pub fn stacks(
     filter: Option<but_workspace::legacy::StacksFilter>,
 ) -> Result<Vec<StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = ref_metadata_toml(ctx)?;
+    let meta = ctx.legacy_meta()?;
     but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
 }
 
 #[cfg(unix)]
 #[but_api]
 #[instrument(err(Debug))]
-pub fn show_graph_svg(project_id: ProjectId) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
+pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     let repo = ctx.open_isolated_repo()?;
-    let meta = ref_metadata_toml(&ctx)?;
+    let meta = ctx.legacy_meta()?;
     let mut graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -117,7 +109,7 @@ pub fn stack_details(
 ) -> Result<but_workspace::ui::StackDetails> {
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(ctx)?;
+        let meta = ctx.legacy_meta()?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
     }?;
     let repo = ctx.repo.get()?;
@@ -206,7 +198,7 @@ pub fn branch_details(
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let mut details = {
         let repo = ctx.clone_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(&ctx)?;
+        let meta = ctx.legacy_meta()?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")
@@ -409,7 +401,7 @@ pub fn move_changes_between_commits(
         guard.write_permission(),
     )?;
 
-    // TODO(ctx): remove this, with the rebase engine this is done above
+    // TODO(ctx): remove this, with the rebase engine this is done above - needs at least manual testing to be sure
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
 

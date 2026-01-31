@@ -41,7 +41,6 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    // TODO(ctx): meta to be retrieved from `db` instead.
     let project_data_dir = ctx.project_data_dir();
     let context_lines = ctx.settings.context_lines;
     let mut meta = ctx.meta()?;

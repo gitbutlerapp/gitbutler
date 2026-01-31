@@ -38,10 +38,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
     gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
 
     // should be two uncommitted files now (file2.txt and file3.txt)
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     assert_eq!(changes.len(), 2);
     let (_, b) = stack_details(ctx)
         .into_iter()
@@ -113,10 +110,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     gitbutler_branch_actions::undo_commit(ctx, stack_entry.id, commit2_id).unwrap();
 
     // should be two uncommitted files now (file2.txt and file3.txt)
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     assert_eq!(changes.len(), 2);
 
     let (_, b) = stack_details(ctx)

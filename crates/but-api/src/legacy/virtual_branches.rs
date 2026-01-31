@@ -245,7 +245,6 @@ pub fn update_stack_order(project_id: ProjectId, stacks: Vec<BranchUpdateRequest
 #[but_api]
 #[instrument(err(Debug))]
 pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
-    let workdir = ctx.workdir_or_gitdir()?;
     let context_lines = ctx.settings.context_lines;
     let (mut guard, repo, ws, mut db) = ctx.workspace_mut_and_db_mut()?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
@@ -253,7 +252,7 @@ pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
         &repo,
         &ws,
         false,
-        Some(but_core::diff::ui::worktree_changes_by_worktree_dir(workdir)?.changes),
+        Some(but_core::diff::ui::worktree_changes(&repo)?.changes),
         None,
         context_lines,
     )?;
