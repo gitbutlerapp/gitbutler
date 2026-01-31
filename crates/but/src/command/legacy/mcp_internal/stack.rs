@@ -23,18 +23,18 @@ pub fn create_stack_with_branch(
     name: &str,
     current_dir: &Path,
 ) -> anyhow::Result<but_workspace::legacy::ui::StackEntryNoOpt> {
-    let ctx = Context::discover(current_dir)?;
+    let mut ctx = Context::discover(current_dir)?;
 
     let creation_request = gitbutler_branch::BranchCreateRequest {
         name: Some(name.to_string()),
         ..Default::default()
     };
 
-    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        &ctx,
-        &creation_request,
-        ctx.exclusive_worktree_access().write_permission(),
-    )?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(&ctx, &creation_request, perm)?;
+    drop(guard);
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(stack_entry.id)?;

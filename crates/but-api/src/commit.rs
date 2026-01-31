@@ -50,7 +50,8 @@ pub fn commit_reword(
 
     let res = commit_reword_only(ctx, commit_id, message);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
     res
 }
@@ -151,12 +152,10 @@ pub fn commit_insert_blank(
     )
     .ok();
 
-    let res = {
-        let mut guard = ctx.exclusive_worktree_access();
-        commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission())
-    };
+    let mut guard = ctx.exclusive_worktree_access();
+    let res = commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission());
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
     res
 }
@@ -226,7 +225,8 @@ pub fn commit_move_changes_between(
         changes,
     );
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
     res
 }
@@ -336,7 +336,8 @@ pub fn commit_uncommit_changes(
     let res = commit_uncommit_changes_only(ctx, commit_id, changes, assign_to);
 
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
 
     res

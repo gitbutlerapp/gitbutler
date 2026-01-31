@@ -182,8 +182,8 @@ pub fn create_commit(
     emitter: Arc<Emitter>,
     params: CommitParameters,
 ) -> Result<but_workspace::commit_engine::ui::CreateCommitOutcome, anyhow::Error> {
-    let repo = ctx.repo.get()?;
     let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
@@ -502,9 +502,9 @@ pub fn amend_commit_inner(
     params: AmendParameters,
     commit_mapping: Option<&HashMap<gix::ObjectId, gix::ObjectId>>,
 ) -> anyhow::Result<but_workspace::commit_engine::CreateCommitOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let context_lines = ctx.settings.context_lines;
-    let mut guard = ctx.exclusive_worktree_access();
     let worktree = but_core::diff::worktree_changes(&repo)?;
 
     let file_changes: Vec<but_core::DiffSpec> = worktree

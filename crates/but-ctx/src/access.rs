@@ -27,8 +27,7 @@ impl Context {
     /// GitButler are able to read or write the same repository.
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!
-    // TODO(ctx): make it need &mut
-    pub fn exclusive_worktree_access(&self) -> RepoExclusiveGuard {
+    pub fn exclusive_worktree_access(&mut self) -> RepoExclusiveGuard {
         but_core::sync::exclusive_repo_access(&self.gitdir)
     }
 

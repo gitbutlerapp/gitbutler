@@ -91,7 +91,11 @@ pub fn list_commit_files(
     .map(|d| d.diff_with_first_parent)
 }
 
-pub fn create_commit(ctx: &Context, stack_id: StackId, message: &str) -> anyhow::Result<git2::Oid> {
+pub fn create_commit(
+    ctx: &mut Context,
+    stack_id: StackId,
+    message: &str,
+) -> anyhow::Result<git2::Oid> {
     let mut guard = ctx.exclusive_worktree_access();
 
     let repo = ctx.repo.get()?;

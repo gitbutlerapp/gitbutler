@@ -11,15 +11,16 @@ use super::*;
 
 #[test]
 fn workdir_vbranch_restore() -> anyhow::Result<()> {
-    let test = Test::default();
-    let Test { repo, ctx, .. } = &test;
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let worktree_dir = repo.path();
     for round in 0..3 {
@@ -28,14 +29,16 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             worktree_dir.join(format!("file{round}.txt")),
             make_lines(line_count),
         )?;
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some(round.to_string()),
                 ..Default::default()
             },
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )?;
+        drop(guard);
         super::create_commit(ctx, stack_entry.id, &format!("commit {round}"))?;
         assert_eq!(
             wd_file_count(&worktree_dir)?,
@@ -43,11 +46,13 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             "each round creates a new file, and it persists"
         );
     }
+    let mut guard = ctx.exclusive_worktree_access();
     let _empty = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &Default::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
 
     let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
     assert_eq!(
@@ -86,19 +91,23 @@ fn make_lines(count: usize) -> Vec<u8> {
 
 #[test]
 fn basic_oplog() -> anyhow::Result<()> {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content")?;
@@ -125,11 +134,13 @@ fn basic_oplog() -> anyhow::Result<()> {
     std::fs::write(&base_merge_parent_path, "parent A")?;
 
     // create state with conflict state
+    let mut guard = ctx.exclusive_worktree_access();
     let _empty_branch_id = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
 
     std::fs::remove_file(&base_merge_parent_path)?;
     std::fs::remove_file(&conflicts_path)?;
@@ -233,13 +244,15 @@ fn basic_oplog() -> anyhow::Result<()> {
 
 #[test]
 fn restores_gitbutler_workspace() -> anyhow::Result<()> {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
 
     assert_eq!(
         VirtualBranchesHandle::new(ctx.project_data_dir())
@@ -247,11 +260,13 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
             .len(),
         0
     );
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
     assert_eq!(
         VirtualBranchesHandle::new(ctx.project_data_dir())
             .list_stacks_in_workspace()?
@@ -263,26 +278,31 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     fs::write(repo.path().join("file.txt"), "content")?;
     let _commit1_id = super::create_commit(ctx, stack_entry.id, "commit one")?;
 
-    let repo = ctx.git2_repo.get()?;
-
     // check the workspace commit
-    let head = repo.head().expect("never unborn");
-    let commit = &head.peel_to_commit()?;
-    let commit1_id = commit.id();
-    let message = commit.summary().unwrap();
-    assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
+    let commit1_id = {
+        let git2_repo = ctx.git2_repo.get()?;
+        let head = git2_repo.head().expect("never unborn");
+        let commit = &head.peel_to_commit()?;
+        let commit1_id = commit.id();
+        let message = commit.summary().unwrap();
+        assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
+        commit1_id
+    };
 
     // create second commit
     fs::write(repo.path().join("file.txt"), "changed content")?;
     let _commit2_id = super::create_commit(ctx, stack_entry.id, "commit two")?;
 
     // check the workspace commit changed
-    let head = repo.head().expect("never unborn");
-    let commit = &head.peel_to_commit()?;
-    let commit2_id = commit.id();
-    let message = commit.summary().unwrap();
-    assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
-    assert_ne!(commit1_id, commit2_id);
+    {
+        let git2_repo = ctx.git2_repo.get()?;
+        let head = git2_repo.head().expect("never unborn");
+        let commit = &head.peel_to_commit()?;
+        let commit2_id = commit.id();
+        let message = commit.summary().unwrap();
+        assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
+        assert_ne!(commit1_id, commit2_id);
+    }
 
     // restore the first
     let snapshots = ctx.list_snapshots(10, None, Vec::new(), None)?;
@@ -295,14 +315,18 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("can restore the most recent snapshot, to undo commit 2, resetting to commit 1");
+    drop(guard);
 
-    let head = repo.head().expect("never unborn");
-    let current_commit = &head.peel_to_commit()?;
-    let id_of_restored_commit = current_commit.id();
-    assert_eq!(
-        commit1_id, id_of_restored_commit,
-        "head now points to the first commit, it's not commit 2 anymore"
-    );
+    {
+        let git2_repo = ctx.git2_repo.get()?;
+        let head = git2_repo.head().expect("never unborn");
+        let current_commit = &head.peel_to_commit()?;
+        let id_of_restored_commit = current_commit.id();
+        assert_eq!(
+            commit1_id, id_of_restored_commit,
+            "head now points to the first commit, it's not commit 2 anymore"
+        );
+    }
 
     let stacks = VirtualBranchesHandle::new(ctx.project_data_dir()).list_stacks_in_workspace()?;
     assert_eq!(
@@ -341,20 +365,24 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 // test operations-log.toml head is not a commit
 #[test]
 fn head_corrupt_is_recreated_automatically() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let snapshots = ctx.list_snapshots(10, None, Vec::new(), None).unwrap();
     assert_eq!(
@@ -371,10 +399,11 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .unwrap();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .expect("the snapshot doesn't fail despite the corrupt head");
 
@@ -388,19 +417,23 @@ fn head_corrupt_is_recreated_automatically() {
 
 #[test]
 fn first_snapshot_diff_works() -> anyhow::Result<()> {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse()?,
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
+    drop(guard);
 
     // create first commit to create the very first snapshot
     fs::write(repo.path().join("file.txt"), "content")?;

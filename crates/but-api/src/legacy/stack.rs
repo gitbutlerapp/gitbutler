@@ -188,7 +188,7 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn update_branch_name(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     new_name: String,
@@ -200,7 +200,7 @@ pub fn update_branch_name(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn update_branch_pr_number(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     pr_number: Option<usize>,

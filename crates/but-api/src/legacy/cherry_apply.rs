@@ -6,7 +6,10 @@ use tracing::instrument;
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn cherry_apply_status(ctx: &but_ctx::Context, subject: String) -> Result<CherryApplyStatus> {
+pub fn cherry_apply_status(
+    ctx: &mut but_ctx::Context,
+    subject: String,
+) -> Result<CherryApplyStatus> {
     let guard = ctx.exclusive_worktree_access();
     let subject_oid = gix::ObjectId::from_hex(subject.as_bytes())
         .map_err(|e| anyhow::anyhow!("Invalid commit ID: {}", e))?;
@@ -16,7 +19,7 @@ pub fn cherry_apply_status(ctx: &but_ctx::Context, subject: String) -> Result<Ch
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn cherry_apply(ctx: &but_ctx::Context, subject: String, target: StackId) -> Result<()> {
+pub fn cherry_apply(ctx: &mut but_ctx::Context, subject: String, target: StackId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     let subject_oid = gix::ObjectId::from_hex(subject.as_bytes())
         .map_err(|e| anyhow::anyhow!("Invalid commit ID: {}", e))?;

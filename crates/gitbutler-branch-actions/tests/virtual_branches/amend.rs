@@ -23,12 +23,14 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     )
     .unwrap();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     gitbutler_project::update_with_path(
         data_dir.as_ref().unwrap(),
@@ -36,12 +38,14 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     )
     .unwrap();
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -89,21 +93,25 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
 #[test]
 fn non_locked_hunk() -> anyhow::Result<()> {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();
@@ -146,21 +154,25 @@ fn non_locked_hunk() -> anyhow::Result<()> {
 
 #[test]
 fn non_existing_ownership() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // create commit
     fs::write(repo.path().join("file.txt"), "content").unwrap();

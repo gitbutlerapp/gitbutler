@@ -521,7 +521,7 @@ enum PublishReviewResult {
 }
 
 async fn publish_review_for_branch(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: Option<StackId>,
     branch_name: &str,
     target_branch: &str,

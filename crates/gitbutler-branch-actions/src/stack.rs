@@ -31,7 +31,7 @@ use crate::{
 /// If there are multiple heads pointing to the same patch and `preceding_head` is not specified,
 /// that means the new head will be first in order for that patch.
 /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
-pub fn create_branch(ctx: &Context, stack_id: StackId, req: CreateSeriesRequest) -> Result<()> {
+pub fn create_branch(ctx: &mut Context, stack_id: StackId, req: CreateSeriesRequest) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
@@ -68,7 +68,7 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
-pub fn remove_branch(ctx: &Context, stack_id: StackId, branch_name: &str) -> Result<()> {
+pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: &str) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_remove_dependent_branch(branch_name, guard.write_permission());
@@ -80,7 +80,7 @@ pub fn remove_branch(ctx: &Context, stack_id: StackId, branch_name: &str) -> Res
 /// Updates the name an existing branch and resets the pr_number to None.
 /// Same invariants as `create_branch` apply.
 pub fn update_branch_name(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     new_name: String,
@@ -110,7 +110,7 @@ pub fn update_branch_name(
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed
 pub fn update_branch_pr_number(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     pr_number: Option<usize>,
@@ -137,7 +137,8 @@ pub fn push_stack(
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
-    ctx.verify(ctx.exclusive_worktree_access().write_permission())?;
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.virtual_branches();
     let stack = state.get_stack(stack_id)?;

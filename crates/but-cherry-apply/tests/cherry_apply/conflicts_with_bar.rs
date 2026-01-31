@@ -3,13 +3,14 @@ use crate::util::test_ctx;
 
 #[test]
 fn status_is_locked_to_bar() -> anyhow::Result<()> {
-    let test_ctx = test_ctx("conflicts-with-bar")?;
+    let mut test_ctx = test_ctx("conflicts-with-bar")?;
 
     let repo = test_ctx.ctx.repo.get()?;
     let commit_id = repo
         .rev_parse_single("refs/gitbutler/bar-conflict")?
         .detach();
 
+    drop(repo);
     let status = test_ctx.get_status(commit_id)?;
 
     let bar_id = test_ctx
@@ -27,7 +28,7 @@ fn status_is_locked_to_bar() -> anyhow::Result<()> {
 
 #[test]
 fn can_only_apply_to_bar_stack() -> anyhow::Result<()> {
-    let test_ctx = test_ctx("conflicts-with-bar")?;
+    let mut test_ctx = test_ctx("conflicts-with-bar")?;
 
     let repo = test_ctx.ctx.repo.get()?;
     let commit_id = repo
@@ -43,6 +44,7 @@ fn can_only_apply_to_bar_stack() -> anyhow::Result<()> {
         .id;
 
     // Apply to bar should succeed
+    drop(repo);
     test_ctx.apply(commit_id, bar_id)?;
 
     // Verify the commit is now in the bar stack by checking for its message
@@ -52,6 +54,7 @@ fn can_only_apply_to_bar_stack() -> anyhow::Result<()> {
             .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
+    let repo = test_ctx.ctx.repo.get()?;
     let details = stack_details_v3(Some(bar_id), &repo, &meta)?;
 
     let has_commit = details

@@ -54,8 +54,9 @@ pub fn create_virtual_branch(
 /// Deletes a local branch reference and it's associated virtual branch.
 /// If there is a virtual branch and it is applied, this function will return an error.
 /// If there is no such local reference, this function will return an error.
-pub fn delete_local_branch(ctx: &Context, refname: &Refname, given_name: String) -> Result<()> {
-    ctx.verify(ctx.exclusive_worktree_access().write_permission())?;
+pub fn delete_local_branch(ctx: &mut Context, refname: &Refname, given_name: String) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     let repo = &*ctx.git2_repo.get()?;
     let handle = ctx.virtual_branches();
     let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
@@ -106,7 +107,7 @@ pub fn push_base_branch(ctx: &Context, with_force: bool) -> Result<()> {
 }
 
 pub fn integrate_upstream_commits(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
@@ -143,7 +144,7 @@ pub fn get_initial_integration_steps_for_branch(
 }
 
 pub fn integrate_branch_with_steps(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     steps: Vec<branch_upstream_integration::InteractiveIntegrationStep>,
@@ -165,8 +166,9 @@ pub fn integrate_branch_with_steps(
     )
 }
 
-pub fn update_stack_order(ctx: &Context, updates: Vec<BranchUpdateRequest>) -> Result<()> {
-    ctx.verify(ctx.exclusive_worktree_access().write_permission())?;
+pub fn update_stack_order(ctx: &mut Context, updates: Vec<BranchUpdateRequest>) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx)
         .context("Updating branch order requires open workspace mode")?;
     for stack_update in updates {
@@ -206,16 +208,18 @@ pub fn unapply_stack(
 }
 
 pub fn amend(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     commit_oid: git2::Oid,
     worktree_changes: Vec<DiffSpec>,
 ) -> Result<git2::Oid> {
-    ctx.verify(ctx.exclusive_worktree_access().write_permission())?;
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx).context("Amending a commit requires open workspace mode")?;
     {
-        // commit_engine::create_commit_and_update_refs_with_project is also doing a write lock, so we want to allow this gurd to be dropped first
-        let mut guard = ctx.exclusive_worktree_access();
+        // commit_engine::create_commit_and_update_refs_with_project is also doing a write lock,
+        // so we want to allow this guard to be dropped first
+        let mut guard = guard;
         let _ = ctx.create_snapshot(
             SnapshotDetails::new(OperationKind::AmendCommit),
             guard.write_permission(),
@@ -226,7 +230,7 @@ pub fn amend(
 
 /// This is backported version of amending using the new commit engine, in the old API
 fn amend_with_commit_engine(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     commit_oid: git2::Oid,
     worktree_changes: Vec<DiffSpec>,
@@ -252,7 +256,7 @@ fn amend_with_commit_engine(
     Ok(new_commit.to_git2())
 }
 
-pub fn undo_commit(ctx: &Context, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
+pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx).context("Undoing a commit requires open workspace mode")?;
@@ -271,7 +275,7 @@ pub fn undo_commit(ctx: &Context, stack_id: StackId, commit_oid: git2::Oid) -> R
     result
 }
 
-pub fn reorder_stack(ctx: &Context, stack_id: StackId, stack_order: StackOrder) -> Result<()> {
+pub fn reorder_stack(ctx: &mut Context, stack_id: StackId, stack_order: StackOrder) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx).context("Reordering a commit requires open workspace mode")?;
@@ -302,7 +306,7 @@ pub fn squash_commits(
 }
 
 pub fn update_commit_message(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     commit_oid: git2::Oid,
     message: &str,
@@ -346,7 +350,7 @@ pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<Fetc
 }
 
 pub fn move_commit(
-    ctx: &Context,
+    ctx: &mut Context,
     target_stack_id: StackId,
     commit_oid: git2::Oid,
     source_stack_id: StackId,
@@ -368,7 +372,7 @@ pub fn move_commit(
 }
 
 pub fn move_branch(
-    ctx: &Context,
+    ctx: &mut Context,
     target_stack_id: StackId,
     target_branch_name: &str,
     source_stack_id: StackId,
@@ -392,7 +396,7 @@ pub fn move_branch(
 }
 
 pub fn tear_off_branch(
-    ctx: &Context,
+    ctx: &mut Context,
     source_stack_id: StackId,
     subject_branch_name: &str,
 ) -> Result<MoveBranchResult> {
@@ -413,7 +417,7 @@ pub fn tear_off_branch(
 
 #[instrument(level = "debug", skip(ctx), err(Debug))]
 pub fn create_virtual_branch_from_branch(
-    ctx: &Context,
+    ctx: &mut Context,
     branch: &Refname,
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
@@ -432,7 +436,7 @@ pub fn create_virtual_branch_from_branch(
 }
 
 pub fn upstream_integration_statuses(
-    ctx: &Context,
+    ctx: &mut Context,
     target_commit_oid: Option<git2::Oid>,
     review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
 ) -> Result<StackStatuses> {
@@ -451,7 +455,7 @@ pub fn upstream_integration_statuses(
 }
 
 pub fn integrate_upstream(
-    ctx: &Context,
+    ctx: &mut Context,
     resolutions: &[Resolution],
     base_branch_resolution: Option<BaseBranchResolution>,
     review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
@@ -473,7 +477,7 @@ pub fn integrate_upstream(
 }
 
 pub fn resolve_upstream_integration(
-    ctx: &Context,
+    ctx: &mut Context,
     resolution_approach: BaseBranchResolutionApproach,
     review_map: &std::collections::HashMap<String, but_forge::ForgeReview>,
 ) -> Result<git2::Oid> {

@@ -23,21 +23,25 @@ fn rebase_commit() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let mut stack_1_id = {
         // create a branch with some committed work
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest::default(),
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
         fs::write(repo.path().join("another_file.txt"), "virtual").unwrap();
 
         super::create_commit(ctx, stack_entry_1.id, "virtual commit").unwrap();
@@ -52,13 +56,15 @@ fn rebase_commit() {
 
     let unapplied_branch = {
         // unapply first vbranch
+        let mut guard = ctx.exclusive_worktree_access();
         let unapplied_branch = gitbutler_branch_actions::unapply_stack(
             ctx,
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
             stack_1_id,
             Vec::new(),
         )
         .unwrap();
+        drop(guard);
 
         assert_eq!(
             fs::read_to_string(repo.path().join("another_file.txt")).unwrap(),
@@ -126,7 +132,7 @@ fn rebase_commit() {
 
 #[test]
 fn upstream_integration_status_without_review_map() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -138,24 +144,28 @@ fn upstream_integration_status_without_review_map() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
         super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
@@ -190,7 +200,7 @@ fn upstream_integration_status_without_review_map() {
 
 #[test]
 fn upstream_integration_status_with_merged_pr() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -202,24 +212,28 @@ fn upstream_integration_status_with_merged_pr() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let (stack_id, commit_id) = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
         let commit_id = super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
@@ -283,7 +297,7 @@ fn upstream_integration_status_with_merged_pr() {
 
 #[test]
 fn upstream_integration_status_with_merged_pr_mismatched_head() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -295,24 +309,28 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
         super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
@@ -376,7 +394,7 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
 
 #[test]
 fn upstream_integration_status_with_closed_but_not_merged_pr() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -388,24 +406,28 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
         super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
@@ -469,7 +491,7 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
 
 #[test]
 fn upstream_integration_status_with_different_branch_pr() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -481,24 +503,28 @@ fn upstream_integration_status_with_different_branch_pr() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
         super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();

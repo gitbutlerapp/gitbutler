@@ -3,13 +3,14 @@ use crate::util::test_ctx;
 
 #[test]
 fn status_is_applicable_to_any_stack() -> anyhow::Result<()> {
-    let test_ctx = test_ctx("clean-to-both")?;
+    let mut test_ctx = test_ctx("clean-to-both")?;
 
     let repo = test_ctx.ctx.repo.get()?;
     let commit_id = repo
         .rev_parse_single("refs/gitbutler/clean-commit")?
         .detach();
 
+    drop(repo);
     let status = test_ctx.get_status(commit_id)?;
 
     assert_eq!(status, CherryApplyStatus::ApplicableToAnyStack);
@@ -19,7 +20,7 @@ fn status_is_applicable_to_any_stack() -> anyhow::Result<()> {
 
 #[test]
 fn can_apply_to_foo_stack() -> anyhow::Result<()> {
-    let test_ctx = test_ctx("clean-to-both")?;
+    let mut test_ctx = test_ctx("clean-to-both")?;
 
     let repo = test_ctx.ctx.repo.get()?;
     let commit_id = repo
@@ -35,6 +36,7 @@ fn can_apply_to_foo_stack() -> anyhow::Result<()> {
         .id;
 
     // Apply should succeed
+    drop(repo);
     test_ctx.apply(commit_id, foo_id)?;
 
     // Verify the commit is now in the foo stack by checking for its message
@@ -44,6 +46,7 @@ fn can_apply_to_foo_stack() -> anyhow::Result<()> {
             .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
+    let repo = test_ctx.ctx.repo.get()?;
     let details = stack_details_v3(Some(foo_id), &repo, &meta)?;
 
     let has_commit = details
@@ -67,7 +70,7 @@ fn can_apply_to_foo_stack() -> anyhow::Result<()> {
 
 #[test]
 fn can_apply_to_bar_stack() -> anyhow::Result<()> {
-    let test_ctx = test_ctx("clean-to-both")?;
+    let mut test_ctx = test_ctx("clean-to-both")?;
 
     let repo = test_ctx.ctx.repo.get()?;
     let commit_id = repo
@@ -83,6 +86,7 @@ fn can_apply_to_bar_stack() -> anyhow::Result<()> {
         .id;
 
     // Apply should succeed
+    drop(repo);
     test_ctx.apply(commit_id, bar_id)?;
 
     // Verify the commit is now in the bar stack by checking for its message
@@ -92,6 +96,7 @@ fn can_apply_to_bar_stack() -> anyhow::Result<()> {
             .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
+    let repo = test_ctx.ctx.repo.get()?;
     let details = stack_details_v3(Some(bar_id), &repo, &meta)?;
 
     let has_commit = details

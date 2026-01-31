@@ -28,13 +28,10 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         .canonicalize()?;
     let outcome = gitbutler_project::add_at_app_data_dir(data_dir, path)?;
     let project = outcome.try_project()?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     if let Some(refname) = refname {
-        gitbutler_branch_actions::set_base_branch(
-            &ctx,
-            &refname,
-            ctx.exclusive_worktree_access().write_permission(),
-        )?;
+        let mut guard = ctx.exclusive_worktree_access();
+        gitbutler_branch_actions::set_base_branch(&ctx, &refname, guard.write_permission())?;
     };
     debug_print(project)
 }

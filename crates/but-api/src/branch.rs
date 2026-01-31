@@ -55,7 +55,8 @@ pub fn apply(
 
     let res = apply_only(ctx, existing_branch);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     }
     res
 }

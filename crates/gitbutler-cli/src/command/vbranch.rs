@@ -70,7 +70,7 @@ fn apply_by_name(ctx: &mut Context, branch_name: String) -> Result<()> {
         )?,
     )
 }
-fn apply_from_branch(ctx: &Context, branch_name: String) -> Result<()> {
+fn apply_from_branch(ctx: &mut Context, branch_name: String) -> Result<()> {
     let refname = Refname::Local(LocalRefname::new(&branch_name, None));
     let target = if let Some(stack) = stack_by_refname(&ctx.project_data_dir(), &refname)? {
         stack
@@ -90,13 +90,14 @@ fn apply_from_branch(ctx: &Context, branch_name: String) -> Result<()> {
 }
 
 pub fn create(ctx: &mut Context, branch_name: String) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
     let new_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest {
             name: Some(branch_name),
             ..Default::default()
         },
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )?;
     debug_print(new_stack_entry)
 }
@@ -114,9 +115,8 @@ pub fn commit(ctx: &mut Context, branch_name: String, message: String) -> Result
         .find(|(i, _)| *i == stack.id)
         .unwrap();
 
-    let repo = ctx.repo.get()?;
+    let worktree = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let worktree = but_core::diff::worktree_changes(&repo)?;
     let file_changes: Vec<but_core::DiffSpec> =
         worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
 

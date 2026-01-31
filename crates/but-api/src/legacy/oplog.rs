@@ -83,7 +83,10 @@ pub fn get_snapshot(ctx: &but_ctx::Context, sha: gix::ObjectId) -> Result<Snapsh
 /// Returns an error if the project cannot be found or if there is an issue creating the snapshot.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn create_snapshot(ctx: &but_ctx::Context, message: Option<String>) -> Result<gix::ObjectId> {
+pub fn create_snapshot(
+    ctx: &mut but_ctx::Context,
+    message: Option<String>,
+) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut details = SnapshotDetails::new(OperationKind::OnDemandSnapshot);
     details.body = message;
@@ -105,7 +108,7 @@ pub fn create_snapshot(ctx: &but_ctx::Context, message: Option<String>) -> Resul
 /// Additionally, a new snapshot is created in the oplog to record the restore action.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn restore_snapshot(ctx: &but_ctx::Context, sha: gix::ObjectId) -> Result<()> {
+pub fn restore_snapshot(ctx: &mut but_ctx::Context, sha: gix::ObjectId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.restore_snapshot(sha.to_git2(), guard.write_permission())?;
     Ok(())

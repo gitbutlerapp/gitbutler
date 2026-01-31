@@ -96,30 +96,30 @@ fn unapply_with_data() -> anyhow::Result<()> {
 fn delete_if_empty() {
     let Test { ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 
-    gitbutler_branch_actions::unapply_stack(
-        ctx,
-        ctx.exclusive_worktree_access().write_permission(),
-        stacks[0].0,
-        Vec::new(),
-    )
-    .unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::unapply_stack(ctx, guard.write_permission(), stacks[0].0, Vec::new())
+        .unwrap();
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 0);

@@ -54,7 +54,7 @@ pub(crate) fn reword_target(
 }
 
 fn edit_branch_name(
-    ctx: &Context,
+    ctx: &mut Context,
     branch_name: &str,
     out: &mut OutputChannel,
     message: Option<&str>,

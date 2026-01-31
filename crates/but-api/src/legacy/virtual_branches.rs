@@ -88,7 +88,7 @@ pub fn create_virtual_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn delete_local_branch(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     refname: Refname,
     given_name: String,
 ) -> Result<()> {
@@ -99,7 +99,7 @@ pub fn delete_local_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_virtual_branch_from_branch(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     branch: Refname,
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
@@ -113,7 +113,7 @@ pub fn create_virtual_branch_from_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn integrate_upstream_commits(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
@@ -130,7 +130,7 @@ pub fn integrate_upstream_commits(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn get_initial_integration_steps_for_branch(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: Option<StackId>,
     branch_name: String,
 ) -> Result<
@@ -148,7 +148,7 @@ pub fn get_initial_integration_steps_for_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn integrate_branch_with_steps(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     branch_name: String,
     steps: Vec<gitbutler_branch_actions::branch_upstream_integration::InteractiveIntegrationStep>,
@@ -166,17 +166,11 @@ pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch
         .parse()
         .context("Invalid branch name")?;
 
-    gitbutler_branch_actions::set_base_branch(
-        ctx,
-        &branch_name,
-        ctx.exclusive_worktree_access().write_permission(),
-    )?;
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(ctx, &branch_name, guard.write_permission())?;
 
-    {
-        let mut guard = ctx.exclusive_worktree_access();
-        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission())
-            .ok();
-    }
+    crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission())
+        .ok();
 
     Ok(base_branch)
 }
@@ -219,14 +213,17 @@ pub fn set_base_branch(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn push_base_branch(ctx: &but_ctx::Context, with_force: bool) -> Result<()> {
+pub fn push_base_branch(ctx: &mut but_ctx::Context, with_force: bool) -> Result<()> {
     gitbutler_branch_actions::push_base_branch(ctx, with_force)?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn update_stack_order(ctx: &but_ctx::Context, stacks: Vec<BranchUpdateRequest>) -> Result<()> {
+pub fn update_stack_order(
+    ctx: &mut but_ctx::Context,
+    stacks: Vec<BranchUpdateRequest>,
+) -> Result<()> {
     gitbutler_branch_actions::update_stack_order(ctx, stacks)?;
     Ok(())
 }
@@ -265,7 +262,7 @@ pub fn unapply_stack(ctx: &mut Context, stack_id: StackId) -> Result<()> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn amend_virtual_branch(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<DiffSpec>,
@@ -278,7 +275,7 @@ pub fn amend_virtual_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn undo_commit(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     commit_id: gix::ObjectId,
 ) -> Result<()> {
@@ -289,7 +286,7 @@ pub fn undo_commit(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn reorder_stack(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     stack_order: StackOrder,
 ) -> Result<()> {
@@ -367,7 +364,7 @@ pub fn fetch_from_remotes(ctx: &Context, action: Option<String>) -> Result<BaseB
 #[but_api]
 #[instrument(err(Debug))]
 pub fn move_commit(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
     target_stack_id: StackId,
     source_stack_id: StackId,
@@ -383,7 +380,7 @@ pub fn move_commit(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn move_branch(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     target_stack_id: StackId,
     target_branch_name: String,
     source_stack_id: StackId,
@@ -401,7 +398,7 @@ pub fn move_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn tear_off_branch(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     source_stack_id: StackId,
     subject_branch_name: String,
 ) -> Result<MoveBranchResult> {
@@ -411,7 +408,7 @@ pub fn tear_off_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn update_commit_message(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     commit_id: gix::ObjectId,
     message: String,
@@ -446,8 +443,8 @@ pub async fn upstream_integration_statuses(
     };
 
     let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
-    let ctx = ctx.into_thread_local();
-    gitbutler_branch_actions::upstream_integration_statuses(&ctx, commit_id, &resolved_reviews)
+    let mut ctx = ctx.into_thread_local();
+    gitbutler_branch_actions::upstream_integration_statuses(&mut ctx, commit_id, &resolved_reviews)
 }
 
 #[but_api]
@@ -463,9 +460,9 @@ pub async fn integrate_upstream(
         (base_branch, ctx.to_sync())
     };
     let resolved_reviews = resolve_review_map(ctx.clone(), &base_branch).await?;
-    let ctx = ctx.into_thread_local();
+    let mut ctx = ctx.into_thread_local();
     let outcome = gitbutler_branch_actions::integrate_upstream(
-        &ctx,
+        &mut ctx,
         &resolutions,
         base_branch_resolution,
         &resolved_reviews,
@@ -486,9 +483,9 @@ pub async fn resolve_upstream_integration(
         (base_branch, ctx.into_sync())
     };
     let resolved_reviews = resolve_review_map(sync_ctx.clone(), &base_branch).await?;
-    let ctx = sync_ctx.into_thread_local();
+    let mut ctx = sync_ctx.into_thread_local();
     let new_target_id = gitbutler_branch_actions::resolve_upstream_integration(
-        &ctx,
+        &mut ctx,
         resolution_approach,
         &resolved_reviews,
     )?;

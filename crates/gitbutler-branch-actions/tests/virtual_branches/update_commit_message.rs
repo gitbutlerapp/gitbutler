@@ -8,22 +8,25 @@ use super::*;
 
 #[test]
 fn head() {
-    let Test { repo, ctx, .. } = &Test::default();
-    let gix_repo = ctx.repo.get().unwrap();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -39,8 +42,11 @@ fn head() {
         fs::write(repo.path().join("file three.txt"), "").unwrap();
         super::create_commit(ctx, stack_entry.id, "commit three").unwrap()
     };
-    let commit_three = gix_repo.find_commit(commit_three_oid.to_gix()).unwrap();
-    let before_change_id = &commit_three.change_id();
+    let before_change_id = {
+        let gix_repo = ctx.repo.get().unwrap();
+        let commit_three = gix_repo.find_commit(commit_three_oid.to_gix()).unwrap();
+        commit_three.change_id()
+    };
 
     gitbutler_branch_actions::update_commit_message(
         ctx,
@@ -61,13 +67,14 @@ fn head() {
         .collect::<Vec<_>>();
 
     // get the last commit
+    let gix_repo = ctx.repo.get().unwrap();
     let commit = gix_repo
         .find_commit(b.branch_details[0].commits[0].id)
         .unwrap();
 
     // make sure the SHA changed, but the change ID did not
-    assert_ne!(&commit_three.id(), &commit.id());
-    assert_eq!(before_change_id, &commit.change_id());
+    assert_ne!(commit_three_oid.to_gix(), commit.id());
+    assert_eq!(before_change_id, commit.change_id());
 
     assert_eq!(
         messages,
@@ -77,21 +84,25 @@ fn head() {
 
 #[test]
 fn middle() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -143,12 +154,14 @@ fn forcepush_allowed() {
         ..
     } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     gitbutler_project::update_with_path(
         data_dir.as_ref().unwrap(),
@@ -156,12 +169,14 @@ fn forcepush_allowed() {
     )
     .unwrap();
 
+    let mut guard = ctx.exclusive_worktree_access();
     let stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -206,21 +221,25 @@ fn forcepush_allowed() {
 
 #[test]
 fn root() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let branch_id = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();
@@ -263,21 +282,25 @@ fn root() {
 
 #[test]
 fn empty() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
+    let mut guard = ctx.exclusive_worktree_access();
     let branch_id = gitbutler_branch_actions::create_virtual_branch(
         ctx,
         &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let commit_one_oid = {
         fs::write(repo.path().join("file one.txt"), "").unwrap();

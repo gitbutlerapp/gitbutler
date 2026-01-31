@@ -51,7 +51,7 @@ pub fn commit(
         .and_then(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("Stack with name '{}' not found", event.branch_name))?;
     let result = gitbutler_branch_actions::update_commit_message(
-        &ctx,
+        &mut ctx,
         stack_id,
         event.commit_id.to_git2(),
         &message,

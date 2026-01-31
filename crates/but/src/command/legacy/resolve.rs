@@ -124,13 +124,11 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
         )
     })?;
 
+    drop((commit, git2_repo));
+    drop(repo);
+
     // Enter edit mode
     enter_edit_mode(ctx, commit_oid.to_gix(), stack_id).context("Failed to enter edit mode")?;
-
-    // Drop the git2 objects to release the borrow
-    drop(commit);
-    drop(git2_repo);
-    drop(repo);
 
     // Show checkout message
     if let Some(out) = out.for_human() {

@@ -13,7 +13,7 @@ use tempfile::TempDir;
 
 #[test]
 fn noop_reorder_errors() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -27,7 +27,7 @@ fn noop_reorder_errors() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    let result = reorder_stack(&ctx, test_ctx.stack.id, order);
+    let result = reorder_stack(&mut ctx, test_ctx.stack.id, order);
     assert_eq!(
         result.unwrap_err().to_string(),
         "The new order is the same as the current order"
@@ -37,7 +37,7 @@ fn noop_reorder_errors() -> Result<()> {
 
 #[test]
 fn reorder_in_top_series() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -51,7 +51,7 @@ fn reorder_in_top_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -68,7 +68,7 @@ fn reorder_in_top_series() -> Result<()> {
 
 #[test]
 fn reorder_in_top_series_head() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -82,7 +82,7 @@ fn reorder_in_top_series_head() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -99,7 +99,7 @@ fn reorder_in_top_series_head() -> Result<()> {
 
 #[test]
 fn reorder_between_series() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -113,7 +113,7 @@ fn reorder_between_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -134,7 +134,7 @@ fn reorder_between_series() -> Result<()> {
 
 #[test]
 fn reorder_series_head_to_another_series() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -148,7 +148,7 @@ fn reorder_series_head_to_another_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -169,7 +169,7 @@ fn reorder_series_head_to_another_series() -> Result<()> {
 
 #[test]
 fn reorder_stack_head_to_another_series() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -183,7 +183,7 @@ fn reorder_stack_head_to_another_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -206,7 +206,7 @@ fn reorder_stack_head_to_another_series() -> Result<()> {
 
 #[test]
 fn reorder_shift_last_in_series_to_previous() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -220,7 +220,7 @@ fn reorder_shift_last_in_series_to_previous() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -238,7 +238,7 @@ fn reorder_shift_last_in_series_to_previous() -> Result<()> {
 
 #[test]
 fn reorder_stack_making_top_empty_series() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits-small")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits-small")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![],
@@ -247,7 +247,7 @@ fn reorder_stack_making_top_empty_series() -> Result<()> {
             test_ctx.bottom_commits["commit 1"],
         ],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -262,7 +262,7 @@ fn reorder_stack_making_top_empty_series() -> Result<()> {
 
 #[test]
 fn reorder_stack_making_bottom_empty_series() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits-small")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits-small")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -271,7 +271,7 @@ fn reorder_stack_making_bottom_empty_series() -> Result<()> {
         ],
         vec![],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -283,7 +283,7 @@ fn reorder_stack_making_bottom_empty_series() -> Result<()> {
 
 #[test]
 fn reorder_stack_into_empty_top() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits-empty-top")?;
+    let (mut ctx, _temp_dir) = command_ctx("multiple-commits-empty-top")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
         vec![
@@ -291,7 +291,7 @@ fn reorder_stack_into_empty_top() -> Result<()> {
         ],
         vec![],
     ]);
-    reorder_stack(&ctx, test_ctx.stack.id, order.clone())?;
+    reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
@@ -310,8 +310,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // |              :                 :
     // MB:       a    : MB:        a    :
 
-    let (ctx, _temp_dir) = command_ctx("overlapping-commits")?;
-    let repo = &*ctx.git2_repo.get()?;
+    let (mut ctx, _temp_dir) = command_ctx("overlapping-commits")?;
     let test = test_ctx(&ctx)?;
 
     // There is a stack of 2:
@@ -336,7 +335,7 @@ fn conflicting_reorder_stack() -> Result<()> {
             test.bottom_commits["commit 2"],
         ],
     ]);
-    reorder_stack(&ctx, test.stack.id, new_order.clone())?;
+    reorder_stack(&mut ctx, test.stack.id, new_order.clone())?;
     let test = test_ctx(&ctx)?;
     let commits = vb_commits(&ctx);
 
@@ -346,20 +345,23 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert_eq!(file(&ctx, test.stack.head_oid(&ctx)?), "x\n"); // x is the last version
     // assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order NB: This assertion started failing after switching to ws3
 
-    let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
-    assert_commit_tree_matches(repo, &commit_1_prime, &[("file", b"x\n")]);
+    {
+        let repo = &*ctx.git2_repo.get()?;
+        let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
+        assert_commit_tree_matches(repo, &commit_1_prime, &[("file", b"x\n")]);
 
-    let commit_2_prime = repo.find_commit(commits[1].ids()[1])?;
-    assert_commit_tree_matches(
-        repo,
-        &commit_2_prime,
-        &[
-            (".auto-resolution/file", b"a\n"),
-            (".conflict-base-0/file", b"x\n"),
-            (".conflict-side-0/file", b"a\n"),
-            (".conflict-side-1/file", b"y\n"),
-        ],
-    );
+        let commit_2_prime = repo.find_commit(commits[1].ids()[1])?;
+        assert_commit_tree_matches(
+            repo,
+            &commit_2_prime,
+            &[
+                (".auto-resolution/file", b"a\n"),
+                (".conflict-base-0/file", b"x\n"),
+                (".conflict-side-0/file", b"a\n"),
+                (".conflict-side-1/file", b"y\n"),
+            ],
+        );
+    }
 
     // Reordered the commits back to the original order
     let new_order = order(vec![
@@ -370,7 +372,7 @@ fn conflicting_reorder_stack() -> Result<()> {
         ],
     ]);
 
-    reorder_stack(&ctx, test.stack.id, new_order.clone())?;
+    reorder_stack(&mut ctx, test.stack.id, new_order.clone())?;
     let test = test_ctx(&ctx)?;
     let commits = vb_commits(&ctx);
 
@@ -380,11 +382,14 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert_eq!(file(&ctx, test.stack.head_oid(&ctx)?), "y\n"); // y is the last version again
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
-    let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;
-    assert_commit_tree_matches(repo, &commit_2_prime_prime, &[("file", b"y\n")]);
+    {
+        let repo = &*ctx.git2_repo.get()?;
+        let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;
+        assert_commit_tree_matches(repo, &commit_2_prime_prime, &[("file", b"y\n")]);
 
-    let commit_1_prime_prime = repo.find_commit(commits[1].ids()[1])?;
-    assert_commit_tree_matches(repo, &commit_1_prime_prime, &[("file", b"x\n")]);
+        let commit_1_prime_prime = repo.find_commit(commits[1].ids()[1])?;
+        assert_commit_tree_matches(repo, &commit_1_prime_prime, &[("file", b"x\n")]);
+    }
 
     Ok(())
 }

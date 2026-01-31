@@ -15,7 +15,7 @@ pub fn commit(
     branch_name: String,
 ) -> anyhow::Result<but_workspace::commit_engine::ui::CreateCommitOutcome> {
     let changes: Vec<but_core::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
-    let ctx = Context::open(project_dir)?;
+    let mut ctx = Context::open(project_dir)?;
     let project_data_dir = ctx.project_data_dir();
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
@@ -77,7 +77,7 @@ pub fn amend(
     branch_name: String,
 ) -> anyhow::Result<but_workspace::commit_engine::ui::CreateCommitOutcome> {
     let changes: Vec<but_core::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
-    let ctx = Context::open(project_dir)?;
+    let mut ctx = Context::open(project_dir)?;
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let commit_id = resolve_parent_id(&repo, &commit_id)?;

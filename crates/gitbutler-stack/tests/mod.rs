@@ -648,7 +648,7 @@ fn archive_heads_success() -> Result<()> {
 
 // #[test]
 // fn does_not_archive_head_on_merge_base() -> Result<()> {
-//     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+//     let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
 //     let mut test_ctx = test_ctx(&ctx)?;
 //     let merge_base = ctx.repository().find_commit(
 //         ctx.repository()

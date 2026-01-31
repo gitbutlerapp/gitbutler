@@ -73,6 +73,8 @@ members = [
     "crates/but-secret",            # 📄Retrieve and store secrets in the platform keychain.
     # 👉Might be exemplary if it was fully documented.
     "crates/but-settings",          # 📄Store and retrieve layered application settings, react to changes in realtime.
+    # 👉Has tests, but leans heavily on legacy crates.
+    "crates/but-cherry-apply",      # 📄Apply commits to different stacks.
 
     ##
     ### Soon obsolete

@@ -173,8 +173,7 @@ pub(crate) fn restore_to_oplog(
     oplog_sha: &str,
     force: bool,
 ) -> anyhow::Result<()> {
-    let repo = ctx.repo.get()?;
-    let commit_id = repo.rev_parse_single(oplog_sha)?.detach();
+    let commit_id = ctx.repo.get()?.rev_parse_single(oplog_sha)?.detach();
     let target_snapshot = &but_api::legacy::oplog::get_snapshot(ctx, commit_id)?;
 
     let commit_sha_string = commit_id.to_string();

@@ -12,14 +12,17 @@ fn twice() {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .expect("failed to add project")
             .unwrap_project();
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let mut ctx =
+            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
 
+        let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
         let stacks = stack_details(&ctx);
         assert_eq!(stacks.len(), 0);
         gitbutler_project::delete_with_path(data_dir.path(), project.id).unwrap();
@@ -29,15 +32,18 @@ fn twice() {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .unwrap()
             .unwrap_project();
-        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let mut ctx =
+            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             &ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
 
         // even though project is on gitbutler/workspace, we should not import it
+        drop(guard);
         let stacks = stack_details(&ctx);
         assert_eq!(stacks.len(), 0);
     }
@@ -47,19 +53,21 @@ fn twice() {
 fn dirty_non_target() {
     // a situation when you initialize project while being on the local version of the master
     // that has uncommitted changes.
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
 
     fs::write(repo.path().join("file.txt"), "content").unwrap();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 
+    drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
     assert_eq!(stacks[0].1.derived_name, "some-feature");
@@ -69,19 +77,21 @@ fn dirty_non_target() {
 fn dirty_target() {
     // a situation when you initialize project while being on the local version of the master
     // that has uncommitted changes.
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let old = std::env::var("GIT_AUTHOR_NAME").ok();
     unsafe { std::env::set_var("GIT_AUTHOR_NAME", "GitButler") };
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 
+    drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
     // Due to race conditions, this can either be "g-branch-1" or "a-branch-1".
@@ -100,19 +110,21 @@ fn dirty_target() {
 
 #[test]
 fn commit_on_non_target_local() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
     fs::write(repo.path().join("file.txt"), "content").unwrap();
     repo.commit_all("commit on target");
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 
+    drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
     assert_eq!(stacks[0].1.derived_name, "some-feature");
@@ -120,20 +132,22 @@ fn commit_on_non_target_local() {
 
 #[test]
 fn commit_on_non_target_remote() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     repo.checkout(&"refs/heads/some-feature".parse().unwrap());
     fs::write(repo.path().join("file.txt"), "content").unwrap();
     repo.commit_all("commit on target");
     repo.push_branch(&"refs/heads/some-feature".parse().unwrap());
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 
+    drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
     assert_eq!(stacks[0].1.derived_name, "some-feature");
@@ -142,7 +156,7 @@ fn commit_on_non_target_remote() {
 
 #[test]
 fn commit_on_target() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     let old = std::env::var("GIT_AUTHOR_NAME").ok();
     unsafe {
@@ -152,13 +166,15 @@ fn commit_on_target() {
     fs::write(repo.path().join("file.txt"), "content").unwrap();
     repo.commit_all("commit on target");
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 
+    drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
     // Due to race conditions, this can either be "g-branch-1" or "a-branch-1".
@@ -178,20 +194,22 @@ fn commit_on_target() {
 
 #[test]
 fn submodule() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     let test_project = TestProject::default();
     let submodule_url: gitbutler_url::Url =
         test_project.path().display().to_string().parse().unwrap();
     repo.add_submodule(&submodule_url, path::Path::new("submodule"));
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 
+    drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 }

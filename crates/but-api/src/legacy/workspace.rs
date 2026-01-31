@@ -233,7 +233,7 @@ pub fn branch_details(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn create_commit_from_worktree_changes(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     parent_id: Option<HexHash>,
     worktree_changes: Vec<but_core::DiffSpec>,
@@ -275,7 +275,7 @@ pub fn create_commit_from_worktree_changes(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
@@ -330,7 +330,7 @@ pub fn amend_commit_and_count_failures(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<Vec<but_core::DiffSpec>> {
     let mut guard = ctx.exclusive_worktree_access();
@@ -448,7 +448,7 @@ pub fn split_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn split_branch_into_dependent_branch(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     source_stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
@@ -578,7 +578,7 @@ pub fn uncommit_changes(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
-    ctx: &Context,
+    ctx: &mut Context,
     branch_name: String,
     worktree_changes: Vec<but_core::DiffSpec>,
 ) -> Result<commit_engine::ui::CreateCommitOutcome> {

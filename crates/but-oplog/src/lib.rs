@@ -75,6 +75,8 @@ pub mod legacy {
 
 #[cfg(feature = "legacy")]
 mod oplog_snapshot {
+    use but_ctx::Context;
+    use but_ctx::access::RepoExclusive;
     use but_oxidize::{ObjectIdExt, OidExt};
     use gitbutler_oplog::OplogExt;
 
@@ -96,14 +98,10 @@ mod oplog_snapshot {
     }
 
     impl UnmaterializedOplogSnapshot {
-        /// Call this method only if the main effect succeeded so the snapshot should be added to the operation log.
-        pub fn commit(self, ctx: &but_ctx::Context) -> anyhow::Result<()> {
-            let mut guard = ctx.exclusive_worktree_access();
-            let _commit_id = ctx.commit_snapshot(
-                self.tree_id.to_git2(),
-                self.details,
-                guard.write_permission(),
-            )?;
+        /// Call this method only if the main effect succeeded so the snapshot should be added to the operation log,
+        /// using `ctx` with granted edit `perm`ission.
+        pub fn commit(self, ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+            let _commit_id = ctx.commit_snapshot(self.tree_id.to_git2(), self.details, perm)?;
             Ok(())
         }
     }

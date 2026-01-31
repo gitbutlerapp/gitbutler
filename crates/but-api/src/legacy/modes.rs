@@ -53,7 +53,7 @@ pub fn head_sha(ctx: &but_ctx::Context) -> Result<HeadSha, Error> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn enter_edit_mode(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
     stack_id: StackId,
 ) -> Result<EditModeMetadata> {
@@ -62,7 +62,7 @@ pub fn enter_edit_mode(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn abort_edit_and_return_to_workspace(ctx: &but_ctx::Context) -> Result<()> {
+pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
     gitbutler_edit_mode::commands::abort_and_return_to_workspace(ctx)?;
 
     Ok(())
@@ -71,7 +71,7 @@ pub fn abort_edit_and_return_to_workspace(ctx: &but_ctx::Context) -> Result<()> 
 // GUI-facing API that returns () for serialization compatibility
 #[but_api]
 #[instrument(err(Debug))]
-pub fn save_edit_and_return_to_workspace(ctx: &but_ctx::Context) -> Result<()> {
+pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
     gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx)?;
 
     Ok(())
@@ -79,7 +79,7 @@ pub fn save_edit_and_return_to_workspace(ctx: &but_ctx::Context) -> Result<()> {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn save_edit_and_return_to_workspace_with_output(ctx: &but_ctx::Context) -> Result<()> {
+pub fn save_edit_and_return_to_workspace_with_output(ctx: &mut but_ctx::Context) -> Result<()> {
     gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx)?;
     Ok(())
 }
@@ -87,13 +87,13 @@ pub fn save_edit_and_return_to_workspace_with_output(ctx: &but_ctx::Context) -> 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn edit_initial_index_state(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
     gitbutler_edit_mode::commands::starting_index_state(ctx)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn edit_changes_from_initial(ctx: &but_ctx::Context) -> Result<Vec<TreeChange>> {
+pub fn edit_changes_from_initial(ctx: &mut but_ctx::Context) -> Result<Vec<TreeChange>> {
     gitbutler_edit_mode::commands::changes_from_initial(ctx)
 }

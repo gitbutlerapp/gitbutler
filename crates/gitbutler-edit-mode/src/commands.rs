@@ -10,7 +10,7 @@ use gitbutler_oplog::{
 use crate::ConflictEntryPresence;
 
 pub fn enter_edit_mode(
-    ctx: &Context,
+    ctx: &mut Context,
     commit_oid: git2::Oid,
     stack_id: StackId,
 ) -> Result<EditModeMetadata> {
@@ -40,7 +40,7 @@ pub fn enter_edit_mode(
     Ok(edit_mode_metadata)
 }
 
-pub fn save_and_return_to_workspace(ctx: &Context) -> Result<()> {
+pub fn save_and_return_to_workspace(ctx: &mut Context) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx).context("Edit mode may only be left while in edit mode")?;
@@ -48,7 +48,7 @@ pub fn save_and_return_to_workspace(ctx: &Context) -> Result<()> {
     crate::save_and_return_to_workspace(ctx, guard.write_permission())
 }
 
-pub fn abort_and_return_to_workspace(ctx: &Context) -> Result<()> {
+pub fn abort_and_return_to_workspace(ctx: &mut Context) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx).context("Edit mode may only be left while in edit mode")?;
@@ -57,7 +57,7 @@ pub fn abort_and_return_to_workspace(ctx: &Context) -> Result<()> {
 }
 
 pub fn starting_index_state(
-    ctx: &Context,
+    ctx: &mut Context,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
     let guard = ctx.exclusive_worktree_access();
 
@@ -67,7 +67,7 @@ pub fn starting_index_state(
     Ok(state.into_iter().map(|(a, b)| (a.into(), b)).collect())
 }
 
-pub fn changes_from_initial(ctx: &Context) -> Result<Vec<TreeChange>> {
+pub fn changes_from_initial(ctx: &mut Context) -> Result<Vec<TreeChange>> {
     let guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx)?;

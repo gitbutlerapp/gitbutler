@@ -9,7 +9,7 @@ mod util {
         let (repo, tmpdir) = but_testsupport::writable_scenario(name);
         // TODO: all this should work without `Context` once it's switched to the new rebase engine,
         //       making this crate either obsolete or proper plumbing.
-        let ctx = Context::from_repo(repo)?;
+        let mut ctx = Context::from_repo(repo)?;
         // update the vb-toml metadata - trigger reconciliation and write the vb.toml according to what's there.
         {
             let _guard = ctx.exclusive_worktree_access();
@@ -32,25 +32,21 @@ mod util {
     }
 
     impl TestContext {
-        pub fn get_status(&self, commit_id: gix::ObjectId) -> anyhow::Result<CherryApplyStatus> {
-            cherry_apply_status(
-                &self.ctx,
-                self.ctx.exclusive_worktree_access().read_permission(),
-                commit_id,
-            )
+        pub fn get_status(
+            &mut self,
+            commit_id: gix::ObjectId,
+        ) -> anyhow::Result<CherryApplyStatus> {
+            let guard = self.ctx.exclusive_worktree_access();
+            cherry_apply_status(&self.ctx, guard.read_permission(), commit_id)
         }
 
         pub fn apply(
-            &self,
+            &mut self,
             commit_id: gix::ObjectId,
             target_stack: but_core::ref_metadata::StackId,
         ) -> anyhow::Result<()> {
-            cherry_apply(
-                &self.ctx,
-                self.ctx.exclusive_worktree_access().write_permission(),
-                commit_id,
-                target_stack,
-            )
+            let mut guard = self.ctx.exclusive_worktree_access();
+            cherry_apply(&self.ctx, guard.write_permission(), commit_id, target_stack)
         }
     }
 }
@@ -69,13 +65,14 @@ mod no_stacks {
 
     #[test]
     fn status_is_no_stacks() -> anyhow::Result<()> {
-        let test_ctx = test_ctx("no-stacks")?;
+        let mut test_ctx = test_ctx("no-stacks")?;
 
         let repo = test_ctx.ctx.repo.get()?;
         let commit_id = repo
             .rev_parse_single("refs/gitbutler/no-stacks-commit")?
             .detach();
 
+        drop(repo);
         let status = test_ctx.get_status(commit_id)?;
 
         assert_eq!(status, CherryApplyStatus::NoStacks);

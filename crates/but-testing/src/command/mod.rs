@@ -167,13 +167,13 @@ pub mod stacks {
 
     /// Create a new stack containing only a branch with the given name.
     fn create_stack_with_branch(
-        ctx: &Context,
+        ctx: &mut Context,
         name: &str,
         remote: bool,
     ) -> anyhow::Result<ui::StackEntry> {
-        let repo = ctx.repo.get()?;
-        let remotes = repo.remote_names();
         if remote {
+            let repo = ctx.repo.get()?;
+            let remotes = repo.remote_names();
             let remote_name = remotes
                 .first()
                 .map(|r| r.to_str().unwrap())
@@ -181,6 +181,7 @@ pub mod stacks {
 
             let ref_name = Refname::from_str(&format!("refs/remotes/{remote_name}/{name}"))?;
             let remote_ref_name = RemoteRefname::new(remote_name, name);
+            drop(repo);
 
             let (stack_id, _, _) = gitbutler_branch_actions::create_virtual_branch_from_branch(
                 ctx,
@@ -189,6 +190,7 @@ pub mod stacks {
                 None,
             )?;
 
+            let repo = ctx.repo.get()?;
             let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
                 ctx.project_data_dir().join("virtual_branches.toml"),
             )?;
@@ -207,10 +209,11 @@ pub mod stacks {
             name: Some(name.to_string()),
             ..Default::default()
         };
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &creation_request,
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )?;
 
         Ok(stack_entry.into())
@@ -218,10 +221,9 @@ pub mod stacks {
 
     /// Add a branch to an existing stack.
     fn add_branch_to_stack(
-        ctx: &Context,
+        ctx: &mut Context,
         stack_id: StackId,
         name: &str,
-        repo: &gix::Repository,
     ) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch_actions::stack::CreateSeriesRequest {
             name: name.to_string(),
@@ -230,11 +232,12 @@ pub mod stacks {
         };
 
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
+        let repo = ctx.repo.get()?;
         let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
             ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         let stack_entries =
-            but_workspace::legacy::stacks_v3(repo, &meta, Default::default(), None)?;
+            but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
 
         let stack_entry = stack_entries
             .into_iter()
@@ -250,7 +253,7 @@ pub mod stacks {
         destination_branch: &str,
         current_dir: &Path,
     ) -> anyhow::Result<()> {
-        let ctx = Context::discover(current_dir)?;
+        let mut ctx = Context::discover(current_dir)?;
         let meta = ctx.legacy_meta()?;
         let stacks =
             but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
@@ -270,7 +273,7 @@ pub mod stacks {
             ))?;
 
         let outcome = gitbutler_branch_actions::move_branch(
-            &ctx,
+            &mut ctx,
             destination_stack
                 .id
                 .context("BUG(opt-destination-stack-id)")?,
@@ -293,11 +296,10 @@ pub mod stacks {
         remote: bool,
         use_json: bool,
     ) -> anyhow::Result<()> {
-        let ctx = Context::discover(current_dir)?;
-        let repo = ctx.repo.get()?;
+        let mut ctx = Context::discover(current_dir)?;
         let stack_entry = match id {
-            Some(id) => add_branch_to_stack(&ctx, id, name, &repo)?,
-            None => create_stack_with_branch(&ctx, name, remote)?,
+            Some(id) => add_branch_to_stack(&mut ctx, id, name)?,
+            None => create_stack_with_branch(&mut ctx, name, remote)?,
         };
 
         if use_json {

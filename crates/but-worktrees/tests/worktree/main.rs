@@ -8,7 +8,7 @@ mod util {
         let (repo, tmpdir) = but_testsupport::writable_scenario(name);
         // TODO: all this should work without `Context` once it's switched to the new rebase engine,
         //       making this crate either obsolete or proper plumbing.
-        let ctx = Context::from_repo(repo)?;
+        let mut ctx = Context::from_repo(repo)?;
         // update the vb-toml metadata - trigger reconciliation and write the vb.toml according to what's there.
         {
             let _guard = ctx.exclusive_worktree_access();
