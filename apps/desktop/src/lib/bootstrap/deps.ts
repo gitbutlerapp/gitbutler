@@ -119,7 +119,6 @@ export function initDependencies(args: {
 	const secretsService = new RustSecretService(backend);
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
-	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog);
 
 	// ============================================================================
 	// FORGE CLIENTS & INTEGRATIONS
@@ -152,6 +151,7 @@ export function initDependencies(args: {
 		reactive(() => clientState.uiState ?? uiStateSlice.getInitialState()),
 		clientState.dispatch
 	);
+	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog, uiState);
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
 	const attachmentService = new AttachmentService(clientState);
 

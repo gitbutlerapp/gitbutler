@@ -2,6 +2,7 @@
 	import AuthorMissingModalContent from '$components/AuthorMissingModalContent.svelte';
 	import CommitFailedModalContent from '$components/CommitFailedModalContent.svelte';
 	import GeneralSettingsModalContent from '$components/GeneralSettingsModalContent.svelte';
+	import LoginConfirmationModalContent from '$components/LoginConfirmationModalContent.svelte';
 	import ProjectSettingsModalContent from '$components/ProjectSettingsModalContent.svelte';
 	import { type GlobalModalState, UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -63,6 +64,17 @@
 					}
 				};
 			}
+			case 'login-confirmation': {
+				return {
+					state: modalState,
+					props: {
+						testId: TestId.LoginConfirmationModal,
+						closeButton: false,
+						width: 360,
+						noPadding: true
+					}
+				};
+			}
 		}
 	}
 
@@ -101,6 +113,8 @@
 			<GeneralSettingsModalContent data={modalProps.state} />
 		{:else if modalProps.state.type === 'project-settings'}
 			<ProjectSettingsModalContent data={modalProps.state} />
+		{:else if modalProps.state.type === 'login-confirmation'}
+			<LoginConfirmationModalContent data={modalProps.state} close={closeModal} />
 		{/if}
 	</Modal>
 {/if}

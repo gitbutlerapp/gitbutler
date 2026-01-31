@@ -1,5 +1,6 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
-import { showError, showToast } from '$lib/notifications/toasts';
+import { showError } from '$lib/notifications/toasts';
+import { UI_STATE } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/core/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { chipToasts } from '@gitbutler/ui';
@@ -58,7 +59,8 @@ export class UserService {
 		private backend: IBackend,
 		private httpClient: HttpClient,
 		private tokenMemoryService: TokenMemoryService,
-		private posthog: PostHogWrapper
+		private posthog: PostHogWrapper,
+		private uiState: typeof UI_STATE.Context
 	) {}
 
 	async setUser(user: User | undefined) {
@@ -96,10 +98,9 @@ export class UserService {
 			}
 
 			this.incomingUserLogin.set(user);
-			// Display a login in confirmation toast
-			showToast({
-				style: 'info',
-				contentType: 'login-confirmation'
+			// Display a login confirmation modal
+			this.uiState.global.modal.set({
+				type: 'login-confirmation'
 			});
 		} catch (error) {
 			console.error('Error setting user access token', error);
