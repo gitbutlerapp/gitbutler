@@ -1,6 +1,6 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { showError } from '$lib/notifications/toasts';
-import { UI_STATE } from '$lib/state/uiState.svelte';
+import { UI_STATE, type UiState } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/core/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { chipToasts } from '@gitbutler/ui';
@@ -60,7 +60,7 @@ export class UserService {
 		private httpClient: HttpClient,
 		private tokenMemoryService: TokenMemoryService,
 		private posthog: PostHogWrapper,
-		private uiState: typeof UI_STATE.Context
+		private uiState: UiState
 	) {}
 
 	async setUser(user: User | undefined) {
