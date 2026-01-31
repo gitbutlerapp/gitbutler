@@ -10,7 +10,6 @@ use but_workspace::{
     ui::StackDetails,
 };
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_project::Project;
 use serde::{Deserialize, Serialize};
 
 mod file_lock;
@@ -334,21 +333,17 @@ pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHo
     let dir = std::path::Path::new(&input.tool_input.file_path)
         .parent()
         .ok_or(anyhow!("Failed to get parent directory of file path"))?;
-    let repo = gix::discover(dir)?;
-    let project = Project::from_path(
-        repo.workdir()
-            .ok_or(anyhow!("No worktree found for repo"))?,
-    )?;
+    let mut ctx = Context::discover(dir)?;
+    let worktree_dir = ctx.workdir_or_fail()?;
     let relative_file_path = std::path::PathBuf::from(&input.tool_input.file_path)
-        .strip_prefix(project.worktree_dir()?)?
+        .strip_prefix(worktree_dir)?
         .to_string_lossy()
         .to_string();
     input.tool_input.file_path = relative_file_path;
 
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let session_id = original_session_id(ctx, input.session_id.clone())?;
+    let session_id = original_session_id(&mut ctx, input.session_id.clone())?;
 
-    if should_exit_early(ctx, &input.session_id)? {
+    if should_exit_early(&mut ctx, &input.session_id)? {
         return Ok(ClaudeHookOutput {
             do_continue: true,
             stop_reason: "Session running in GUI, skipping hook".to_string(),
@@ -356,7 +351,7 @@ pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHo
         });
     }
 
-    file_lock::obtain_or_insert(ctx, session_id, input.tool_input.file_path.clone())?;
+    file_lock::obtain_or_insert(&mut ctx, session_id, input.tool_input.file_path.clone())?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -380,8 +375,7 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         .parent()
         .ok_or(anyhow!("Failed to get parent directory of file path"))?;
     let mut ctx = Context::discover(dir)?;
-    #[expect(deprecated)]
-    let worktree_dir = ctx.workdir_needed()?;
+    let worktree_dir = ctx.workdir_or_fail()?;
 
     let relative_file_path = std::path::PathBuf::from(&input.tool_response.file_path)
         .strip_prefix(&worktree_dir)?

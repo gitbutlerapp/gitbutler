@@ -4,9 +4,8 @@ use std::{
 };
 
 use anyhow::Result;
-use but_ctx::Context;
+use but_ctx::{Context, ThreadSafeContext};
 use but_db::poll::ItemKind;
-use gitbutler_project::Project;
 use rmcp::{
     ServerHandler, ServiceExt,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
@@ -19,7 +18,7 @@ use rmcp::{
 use crate::permissions::{PermissionCheck, Permissions};
 
 pub async fn start(repo_path: &Path, session_id_str: &str) -> Result<()> {
-    let project = Project::from_path(repo_path).expect("Failed to create project from path");
+    let ctx = Context::open(repo_path)?;
     let client_info = Arc::new(Mutex::new(None));
     let transport = (tokio::io::stdin(), tokio::io::stdout());
 
@@ -28,8 +27,7 @@ pub async fn start(repo_path: &Path, session_id_str: &str) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("Invalid session ID '{}': {}", session_id_str, e))?;
 
     // Look up the session by current_id to get the stable session ID
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let session = crate::db::get_session_by_current_id(ctx, current_session_id)?
+    let session = crate::db::get_session_by_current_id(&ctx, current_session_id)?
         .ok_or_else(|| anyhow::anyhow!("Session not found in database: {}", current_session_id))?;
 
     tracing::info!(
@@ -40,7 +38,7 @@ pub async fn start(repo_path: &Path, session_id_str: &str) -> Result<()> {
 
     // Use the stable session.id, not the current_id
     let server = Mcp {
-        project,
+        ctx: ctx.into_sync(),
         tool_router: Mcp::tool_router(),
         runtime_permissions: Default::default(),
         session_id: session.id,
@@ -57,7 +55,7 @@ pub async fn start(repo_path: &Path, session_id_str: &str) -> Result<()> {
 
 #[derive(Debug, Clone)]
 pub struct Mcp {
-    project: Project,
+    ctx: ThreadSafeContext,
     tool_router: ToolRouter<Self>,
     runtime_permissions: Arc<Mutex<Permissions>>,
     session_id: uuid::Uuid,
@@ -101,10 +99,10 @@ impl Mcp {
         req: crate::ClaudePermissionRequest,
         timeout: std::time::Duration,
     ) -> anyhow::Result<bool> {
-        let ctx = &mut Context::new_from_legacy_project(self.project.clone())?;
+        let mut ctx = self.ctx.clone().into_thread_local();
 
         // Load session permissions from database (using stable session ID)
-        let session = crate::db::get_session_by_id(ctx, self.session_id)?
+        let session = crate::db::get_session_by_id(&ctx, self.session_id)?
             .ok_or_else(|| anyhow::anyhow!("Session not found: {}", self.session_id))?;
 
         // Merge runtime and session permissions
@@ -161,15 +159,12 @@ impl Mcp {
                             approved_state = decision.is_allowed();
 
                             // Handle the decision - persist to settings/session/database and update runtime permissions
-                            let project_path = self.project.worktree_dir()?.canonicalize()?;
                             let mut runtime_perms = self.runtime_permissions.lock().unwrap();
-
                             if let Err(e) = decision.handle(
                                 &updated.try_into()?,
-                                &project_path,
                                 &mut runtime_perms,
-                                Some(ctx),
-                                Some(self.session_id),
+                                &mut ctx,
+                                self.session_id,
                             ) {
                                 tracing::warn!("Failed to handle permission decision: {}", e);
                             }

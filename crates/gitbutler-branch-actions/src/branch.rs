@@ -59,7 +59,7 @@ pub fn list_branches(
         });
     }
 
-    let vb_handle = ctx.legacy_project.virtual_branches();
+    let vb_handle = ctx.virtual_branches();
     let remote_names = repo.remote_names();
     let stacks = {
         if let Some(workspace_ref) = repo.try_find_reference("refs/heads/gitbutler/workspace")? {
@@ -623,7 +623,6 @@ pub fn get_branch_listing_details(
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
         let target = ctx
-            .legacy_project
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;

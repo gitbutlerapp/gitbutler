@@ -20,7 +20,7 @@ pub(crate) fn move_commit(
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     let repo = &*ctx.git2_repo.get()?;
 
     let applied_stacks = vb_state
@@ -95,7 +95,7 @@ fn take_commit_from_source_stack(
     let new_source_head = output.top_commit.to_git2();
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     source_stack.set_stack_head(&vb_state, &gix_repo, new_source_head)?;
     Ok(None)
 }

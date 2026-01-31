@@ -254,7 +254,11 @@ impl Claudes {
 
         let (read_stderr, write_stderr) = std::io::pipe()?;
         // Clone so the reference to ctx can be immediately dropped
-        let project_workdir = sync_ctx.legacy_project.worktree_dir()?.to_owned();
+        let project_workdir = sync_ctx
+            .clone()
+            .into_thread_local()
+            .workdir_or_fail()?
+            .to_owned();
         let mut handle = spawn_command(
             writer,
             write_stderr,

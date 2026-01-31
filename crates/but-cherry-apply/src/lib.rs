@@ -59,9 +59,9 @@ pub fn cherry_apply_status(
         .for_tree_diffing()?
         .with_object_memory();
 
-    let project = &ctx.legacy_project;
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+    )?;
     let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
 
     if stacks.is_empty() {

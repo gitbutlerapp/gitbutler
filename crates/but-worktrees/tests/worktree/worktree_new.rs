@@ -14,8 +14,7 @@ fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
     let meta = VirtualBranchesTomlMetadata::from_path(
         test_ctx
             .ctx
-            .legacy_project
-            .gb_dir()
+            .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
     let stacks = stacks_v3(
@@ -67,8 +66,7 @@ fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
     let meta = VirtualBranchesTomlMetadata::from_path(
         test_ctx
             .ctx
-            .legacy_project
-            .gb_dir()
+            .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
     let stacks = stacks_v3(
@@ -120,8 +118,7 @@ fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
     let meta = VirtualBranchesTomlMetadata::from_path(
         test_ctx
             .ctx
-            .legacy_project
-            .gb_dir()
+            .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
     let stacks = stacks_v3(

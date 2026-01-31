@@ -17,7 +17,7 @@ pub fn show(
     generate_ai_summary: bool,
     check_merge: bool,
 ) -> anyhow::Result<()> {
-    let id_map = load_id_map(&ctx.legacy_project)?;
+    let id_map = load_id_map(&ctx.project_data_dir())?;
 
     // Find the branch name from the ID
     let branch_name = if branch_id.len() == 2 {

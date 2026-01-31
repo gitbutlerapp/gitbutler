@@ -233,9 +233,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
 #[test]
 fn restores_gitbutler_workspace() -> anyhow::Result<()> {
-    let Test {
-        repo, project, ctx, ..
-    } = &Test::default();
+    let Test { repo, ctx, .. } = &Test::default();
 
     gitbutler_branch_actions::set_base_branch(
         ctx,
@@ -244,7 +242,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     )?;
 
     assert_eq!(
-        VirtualBranchesHandle::new(project.gb_dir())
+        VirtualBranchesHandle::new(ctx.project_data_dir())
             .list_stacks_in_workspace()?
             .len(),
         0
@@ -255,7 +253,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         ctx.exclusive_worktree_access().write_permission(),
     )?;
     assert_eq!(
-        VirtualBranchesHandle::new(project.gb_dir())
+        VirtualBranchesHandle::new(ctx.project_data_dir())
             .list_stacks_in_workspace()?
             .len(),
         1
@@ -265,7 +263,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     fs::write(repo.path().join("file.txt"), "content")?;
     let _commit1_id = super::create_commit(ctx, stack_entry.id, "commit one")?;
 
-    let repo = project.open_git2()?;
+    let repo = ctx.git2_repo.get()?;
 
     // check the workspace commit
     let head = repo.head().expect("never unborn");
@@ -306,7 +304,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         "head now points to the first commit, it's not commit 2 anymore"
     );
 
-    let stacks = VirtualBranchesHandle::new(project.gb_dir()).list_stacks_in_workspace()?;
+    let stacks = VirtualBranchesHandle::new(ctx.project_data_dir()).list_stacks_in_workspace()?;
     assert_eq!(
         stacks.len(),
         1,

@@ -14,6 +14,7 @@ impl Context {
     /// so it can't go stale.
     ///
     /// # IMPORTANT: KEEP THE LOCK ALIVE!
+    // TODO(ctx): make it need &mut
     pub fn try_exclusive_access(&self) -> anyhow::Result<LockFile> {
         but_core::sync::try_exclusive_inter_process_access(&self.gitdir, AllOperations)
     }
@@ -26,6 +27,7 @@ impl Context {
     /// GitButler are able to read or write the same repository.
     ///
     /// # IMPORTANT: KEEP THE GUARD ALIVE!
+    // TODO(ctx): make it need &mut
     pub fn exclusive_worktree_access(&self) -> RepoExclusiveGuard {
         but_core::sync::exclusive_repo_access(&self.gitdir)
     }

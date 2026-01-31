@@ -1,10 +1,10 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
-use gitbutler_project::Project;
 
 use crate::utils::OutputChannel;
 
@@ -29,9 +29,8 @@ fn store_id_map(ctx: &Context, id_map: &HashMap<String, String>) -> Result<(), a
 }
 
 /// Load the ID map from file
-pub fn load_id_map(project: &Project) -> Result<HashMap<String, String>, anyhow::Error> {
-    let gb_dir = project.gb_dir();
-    let id_map_path = gb_dir.join("branch_id_map.json");
+pub fn load_id_map(project_data_dir: &Path) -> Result<HashMap<String, String>, anyhow::Error> {
+    let id_map_path = project_data_dir.join("branch_id_map.json");
 
     if !id_map_path.exists() {
         return Err(anyhow::anyhow!(

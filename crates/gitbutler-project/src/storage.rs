@@ -196,8 +196,8 @@ impl Storage {
             project.git_dir = path;
         }
 
-        if let Some(path) = path {
-            project.set_worktree_dir(path.clone())?;
+        if let Some(repo_path) = path {
+            project.set_worktree_dir(repo_path.clone())?;
         }
 
         if let Some(api) = api {

@@ -16,7 +16,6 @@ mod add {
         let project = gitbutler_project::add_at_app_data_dir(tmp.path(), path)
             .unwrap()
             .unwrap_project();
-        assert_eq!(project.worktree_dir()?, path);
         assert_eq!(
             project.title,
             path.iter().next_back().unwrap().to_str().unwrap()
@@ -160,7 +159,8 @@ mod delete {
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok()); // idempotent
         assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
-        assert!(!project.gb_dir().exists());
+        assert!(repository.path().exists());
+        assert!(!repository.path().join("gitbutler").exists());
     }
 
     #[test]
@@ -249,7 +249,8 @@ mod delete {
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
-        assert!(!project.gb_dir().exists());
+        assert!(repository.path().exists());
+        assert!(!repository.path().join("gitbutler").exists());
 
         // Nothing changed - no reference was touched.
         insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"

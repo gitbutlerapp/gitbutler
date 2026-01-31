@@ -56,7 +56,7 @@ impl BranchManager<'_> {
         create: &BranchCreateRequest,
         perm: &mut RepoExclusive,
     ) -> Result<Stack> {
-        let vb_state = self.ctx.legacy_project.virtual_branches();
+        let vb_state = self.ctx.virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut all_stacks = vb_state
@@ -188,7 +188,7 @@ impl BranchManager<'_> {
             }
         };
 
-        let vb_state = self.ctx.legacy_project.virtual_branches();
+        let vb_state = self.ctx.virtual_branches();
 
         let default_target = vb_state.get_default_target()?;
 
@@ -268,7 +268,7 @@ impl BranchManager<'_> {
     ) -> Result<(String, Vec<StackId>)> {
         let repo = &*self.ctx.git2_repo.get()?;
 
-        let vb_state = self.ctx.legacy_project.virtual_branches();
+        let vb_state = self.ctx.virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut stack = vb_state.get_stack_in_workspace(stack_id)?;

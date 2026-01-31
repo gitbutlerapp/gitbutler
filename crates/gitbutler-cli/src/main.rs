@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result, bail};
 
 mod args;
-use args::Args;
-
 use crate::args::{project, vbranch};
+use args::Args;
+use but_ctx::Context;
 
 mod command;
 
@@ -20,21 +20,21 @@ fn main() -> Result<()> {
 
     match args.cmd {
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
-            let project = command::prepare::project_from_path(args.current_dir)?;
+            let mut ctx = Context::discover(args.current_dir)?;
             match cmd {
                 Some(vbranch::SubCommands::Apply { name, branch }) => {
-                    command::vbranch::apply(project, name, branch)
+                    command::vbranch::apply(&mut ctx, name, branch)
                 }
                 Some(vbranch::SubCommands::Commit { message, name }) => {
-                    command::vbranch::commit(project, name, message)
+                    command::vbranch::commit(&mut ctx, name, message)
                 }
                 Some(vbranch::SubCommands::Series { name, series_name }) => {
-                    command::vbranch::series(project, name, series_name)
+                    command::vbranch::series(&ctx, name, series_name)
                 }
                 Some(vbranch::SubCommands::Create { name, .. }) => {
-                    command::vbranch::create(project, name)
+                    command::vbranch::create(&mut ctx, name)
                 }
-                None => command::vbranch::list(project),
+                None => command::vbranch::list(&ctx),
             }
         }
         args::Subcommands::Project(project::Platform {

@@ -2,7 +2,7 @@ use std::{borrow::Cow, path::Path};
 
 use anyhow::{Context as _, anyhow, bail};
 use but_core::{
-    DiffSpec, HunkHeader, UnifiedPatch, ref_metadata::StackId,
+    DiffSpec, HunkHeader, RepositoryExt, UnifiedPatch, ref_metadata::StackId,
     worktree::checkout::UncommitedWorktreeChanges,
 };
 use but_db::poll::ItemKind;
@@ -19,31 +19,6 @@ use gix::{
 use tokio::sync::mpsc::unbounded_channel;
 
 pub(crate) const UI_CONTEXT_LINES: u32 = 3;
-
-pub fn repo_at_path(path: &Path) -> anyhow::Result<gix::Repository> {
-    configured_repo(gix::discover(path)?, RepositoryOpenMode::General)
-}
-
-pub enum RepositoryOpenMode {
-    Merge,
-    General,
-}
-
-fn configured_repo(
-    mut repo: gix::Repository,
-    mode: RepositoryOpenMode,
-) -> anyhow::Result<gix::Repository> {
-    match mode {
-        RepositoryOpenMode::Merge => {
-            let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
-            repo.object_cache_size_if_unset(bytes);
-        }
-        RepositoryOpenMode::General => {
-            repo.object_cache_size_if_unset(512 * 1024);
-        }
-    }
-    Ok(repo)
-}
 
 fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
     println!("{this:#?}");
@@ -215,7 +190,7 @@ pub mod stacks {
             )?;
 
             let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-                ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
+                ctx.project_data_dir().join("virtual_branches.toml"),
             )?;
             let stack_entries =
                 but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
@@ -256,7 +231,7 @@ pub mod stacks {
 
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
         let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            ctx.legacy_project.gb_dir().join("virtual_branches.toml"),
+            ctx.project_data_dir().join("virtual_branches.toml"),
         )?;
         let stack_entries =
             but_workspace::legacy::stacks_v3(repo, &meta, Default::default(), None)?;
@@ -347,7 +322,7 @@ pub(crate) fn discard_change(
     previous_rela_path: Option<&Path>,
     indices_or_headers: Option<discard_change::IndicesOrHeaders<'_>>,
 ) -> anyhow::Result<()> {
-    let repo = configured_repo(gix::discover(cwd)?, RepositoryOpenMode::Merge)?;
+    let repo = gix::discover(cwd)?.for_tree_diffing()?;
 
     let previous_path = previous_rela_path.map(path_to_rela_path).transpose()?;
     let path = path_to_rela_path(current_rela_path)?;
@@ -373,8 +348,7 @@ pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Resu
     let ctx = Context::discover(&args.current_dir)?;
     let (tx, mut rx) = unbounded_channel();
     let start = std::time::Instant::now();
-    #[expect(deprecated)]
-    let workdir = ctx.workdir_needed()?;
+    let workdir = ctx.workdir_or_fail()?;
     let _monitor = gitbutler_filemonitor::spawn(
         ProjectId::generate(),
         &workdir,

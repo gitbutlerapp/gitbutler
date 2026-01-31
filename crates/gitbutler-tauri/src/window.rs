@@ -4,7 +4,6 @@ pub(crate) mod state {
     use anyhow::Result;
     use but_ctx::Context;
     use but_settings::AppSettingsWithDiskSync;
-    use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use tauri::AppHandle;
     use tracing::instrument;
@@ -162,17 +161,17 @@ pub(crate) mod state {
         /// uniquely identified by `window`.
         ///
         /// The previous state will be removed and its resources cleaned up.
-        #[instrument(skip(self, project, app_settings, ctx), err(Debug))]
+        #[instrument(skip_all, err(Debug))]
         pub fn set_project_to_window(
             &self,
             window: &WindowLabelRef,
-            project: &projects::Project,
             app_settings: &AppSettingsWithDiskSync,
             ctx: &mut Context,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
+            let project_id = ctx.legacy_project.id;
             if let Some(state) = state_by_label.get(window)
-                && state.project_id == project.id
+                && state.project_id == project_id
             {
                 return Ok(state
                     .exclusive_access
@@ -182,8 +181,7 @@ pub(crate) mod state {
             }
             let exclusive_access = ctx.try_exclusive_access().ok();
             let handler = handler_from_app(&self.app_handle)?;
-            let worktree_dir = project.worktree_dir()?;
-            let project_id = project.id;
+            let worktree_dir = ctx.workdir_or_fail()?;
             let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
                 &app_settings.get()?.feature_flags.watch_mode,
             );

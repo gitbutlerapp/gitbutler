@@ -23,7 +23,7 @@ impl BranchManager<'_> {
         assigned_diffspec: Vec<DiffSpec>,
         safe_checkout: bool,
     ) -> Result<String> {
-        let vb_state = self.ctx.legacy_project.virtual_branches();
+        let vb_state = self.ctx.virtual_branches();
         let mut stack = vb_state.get_stack(stack_id)?;
 
         // We don't want to try unapplying branches which are marked as not in workspace by the new metric

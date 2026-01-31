@@ -48,9 +48,9 @@ pub fn get_initial_integration_steps_for_branch(
     branch_name: String,
 ) -> Result<Vec<InteractiveIntegrationStep>> {
     let repo = ctx.repo.get()?;
-    let project = &ctx.legacy_project;
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+    )?;
     let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
 
     let branch_details = stack_details

@@ -224,10 +224,10 @@ pub async fn generate_summary(
     session: &ClaudeSession,
 ) -> Result<String> {
     let mut command = {
-        let session_id =
-            Transcript::current_valid_session_id(sync_ctx.legacy_project.worktree_dir()?, session)
-                .await?
-                .context("Cannot find current session id")?;
+        let worktree_dir = sync_ctx.clone().into_thread_local().workdir_or_fail()?;
+        let session_id = Transcript::current_valid_session_id(&worktree_dir, session)
+            .await?
+            .context("Cannot find current session id")?;
         let app_settings = sync_ctx.settings.clone();
         let claude_executable = app_settings.claude.executable.clone();
 
@@ -240,7 +240,7 @@ pub async fn generate_summary(
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
-        cmd.current_dir(sync_ctx.legacy_project.worktree_dir()?);
+        cmd.current_dir(worktree_dir);
         cmd.args(["--resume", &format!("{session_id}")]);
         cmd.arg("-p");
         cmd.arg(SUMMARY_PROMPT);

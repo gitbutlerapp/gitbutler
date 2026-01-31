@@ -438,15 +438,15 @@ fn main() -> anyhow::Result<()> {
 fn migrate_projects() -> anyhow::Result<()> {
     for mut project in gitbutler_project::dangerously_list_projects_without_migration()? {
         if let Ok(true) = project.migrate() {
-            let (title, worktree_dir) = (project.title.clone(), project.worktree_dir()?.to_owned());
+            let (title, git_dir) = (project.title.clone(), project.git_dir().to_owned());
             if let Err(err) = gitbutler_project::update(project.into()) {
                 tracing::warn!(
                     "Failed to store migrated project {} at {}: {err}",
                     title,
-                    worktree_dir.display()
+                    git_dir.display()
                 );
             } else {
-                tracing::info!("Migrated project {} at {}", title, worktree_dir.display());
+                tracing::info!("Migrated project {} at {}", title, git_dir.display());
             }
         }
     }

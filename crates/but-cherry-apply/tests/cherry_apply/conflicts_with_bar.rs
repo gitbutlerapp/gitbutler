@@ -49,8 +49,7 @@ fn can_only_apply_to_bar_stack() -> anyhow::Result<()> {
     let meta = VirtualBranchesTomlMetadata::from_path(
         test_ctx
             .ctx
-            .legacy_project
-            .gb_dir()
+            .project_data_dir()
             .join("virtual_branches.toml"),
     )?;
     let details = stack_details_v3(Some(bar_id), &repo, &meta)?;

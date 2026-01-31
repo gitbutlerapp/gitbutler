@@ -65,13 +65,13 @@ pub fn set_project_active(
                 err
             }
         })?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
+    let mut ctx = Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
 
     {
         let mut guard = ctx.exclusive_worktree_access();
         but_api::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
-            ctx,
+            &mut ctx,
             guard.write_permission(),
         )
         .ok();
@@ -84,8 +84,7 @@ pub fn set_project_active(
             tracing::error!("{err}");
         }
     }
-    let mode =
-        window_state.set_project_to_window(window.label(), &project, &app_settings_sync, ctx)?;
+    let mode = window_state.set_project_to_window(window.label(), &app_settings_sync, &mut ctx)?;
     let is_exclusive = match mode {
         ProjectAccessMode::First => true,
         ProjectAccessMode::Shared => false,

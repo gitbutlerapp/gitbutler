@@ -57,7 +57,7 @@ pub fn create_virtual_branch(
 pub fn delete_local_branch(ctx: &Context, refname: &Refname, given_name: String) -> Result<()> {
     ctx.verify(ctx.exclusive_worktree_access().write_permission())?;
     let repo = &*ctx.git2_repo.get()?;
-    let handle = ctx.legacy_project.virtual_branches();
+    let handle = ctx.virtual_branches();
     let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
         stack
             .source_refname
@@ -171,7 +171,6 @@ pub fn update_stack_order(ctx: &Context, updates: Vec<BranchUpdateRequest>) -> R
         .context("Updating branch order requires open workspace mode")?;
     for stack_update in updates {
         let stack = ctx
-            .legacy_project
             .virtual_branches()
             .get_stack_in_workspace(stack_update.id.context("BUG(opt-stack-id)")?)?;
         if stack_update.order != Some(stack.order) {
@@ -339,7 +338,7 @@ pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<Fetc
             error: fetch_errors.join("\n"),
         }
     };
-    let state = ctx.legacy_project.virtual_branches();
+    let state = ctx.virtual_branches();
 
     state.garbage_collect(&*ctx.git2_repo.get()?)?;
 

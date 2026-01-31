@@ -1,6 +1,9 @@
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+use crate::utils::{BackgroundMetrics, metrics};
 use anyhow::Result;
+use but_ctx::Context;
 use but_settings::AppSettings;
 use rmcp::{
     RoleServer, ServerHandler, ServiceExt,
@@ -15,12 +18,13 @@ use rmcp::{
     tool, tool_handler, tool_router,
 };
 
-use crate::utils::{BackgroundMetrics, metrics};
-
 pub mod commit;
-pub mod project;
 pub mod stack;
-pub mod status;
+
+pub fn project_status(project_dir: &Path) -> anyhow::Result<but_tools::workspace::ProjectStatus> {
+    let mut ctx = Context::open(project_dir)?;
+    but_tools::workspace::get_project_status(&mut ctx, None)
+}
 
 pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
     // Use `-t` to enable logging
@@ -71,7 +75,7 @@ impl Mcp {
 
         let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.0.current_working_directory);
-        let status = status::project_status(&project_path)
+        let status = project_status(&project_path)
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let mut event: metrics::Event = metrics::EventKind::McpInternal.into();

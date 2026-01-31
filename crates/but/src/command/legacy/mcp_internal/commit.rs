@@ -1,11 +1,10 @@
 use std::path::Path;
 
 use bstr::BString;
+use but_ctx::Context;
 use but_workspace::commit_engine::StackSegmentId;
 use rmcp::schemars;
 use serde::{Deserialize, Serialize};
-
-use crate::command::legacy::mcp_internal::project;
 
 /// Commit changes to the repository.
 pub fn commit(
@@ -16,22 +15,17 @@ pub fn commit(
     branch_name: String,
 ) -> anyhow::Result<but_workspace::commit_engine::ui::CreateCommitOutcome> {
     let changes: Vec<but_core::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
-    let (repo, project) =
-        project::repo_and_maybe_project(project_dir, project::RepositoryOpenMode::Merge)?;
-
-    let project = project.ok_or_else(|| {
-        anyhow::anyhow!(
-            "No project found in the specified directory: {}",
-            project_dir.display()
-        )
-    })?;
+    let ctx = Context::open(project_dir)?;
+    let project_data_dir = ctx.project_data_dir();
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
 
     let branch_full_name = normalize_stack_segment_ref(&branch_name)?;
     let parent_commit_id = parent_id
         .map(|id| resolve_parent_id(&repo, &id))
         .transpose()?;
 
-    let stack_segment = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir())
+    let stack_segment = gitbutler_stack::VirtualBranchesHandle::new(&project_data_dir)
         .list_stacks_in_workspace()?
         .iter()
         .find(|s| s.heads(false).contains(&branch_name))
@@ -61,10 +55,9 @@ pub fn commit(
         stack_segment,
     };
 
-    let mut guard = but_core::sync::exclusive_repo_access(project.git_dir());
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        &project.gb_dir(),
+        &project_data_dir,
         None,
         destination,
         changes,
@@ -84,19 +77,12 @@ pub fn amend(
     branch_name: String,
 ) -> anyhow::Result<but_workspace::commit_engine::ui::CreateCommitOutcome> {
     let changes: Vec<but_core::DiffSpec> = diff_spec.into_iter().map(Into::into).collect();
-    let (repo, project) =
-        project::repo_and_maybe_project(project_dir, project::RepositoryOpenMode::Merge)?;
-
-    let project = project.ok_or_else(|| {
-        anyhow::anyhow!(
-            "No project found in the specified directory: {}",
-            project_dir.display()
-        )
-    })?;
-
+    let ctx = Context::open(project_dir)?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
     let commit_id = resolve_parent_id(&repo, &commit_id)?;
 
-    let stack_id = gitbutler_stack::VirtualBranchesHandle::new(project.gb_dir())
+    let stack_id = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir())
         .list_stacks_in_workspace()?
         .iter()
         .find(|s| s.heads(false).contains(&branch_name))
@@ -107,10 +93,9 @@ pub fn amend(
         new_message: Some(commit_message),
     };
 
-    let mut guard = but_core::sync::exclusive_repo_access(project.git_dir());
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
         &repo,
-        &project.gb_dir(),
+        &ctx.project_data_dir(),
         stack_id,
         destination,
         changes,

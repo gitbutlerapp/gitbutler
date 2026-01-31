@@ -255,10 +255,9 @@ impl PermissionDecision {
     pub fn handle(
         &self,
         request: &ClaudePermissionRequest,
-        project_path: &std::path::Path,
         runtime_permissions: &mut crate::permissions::Permissions,
-        ctx: Option<&mut but_ctx::Context>,
-        session_id: Option<uuid::Uuid>,
+        ctx: &mut but_ctx::Context,
+        session_id: uuid::Uuid,
     ) -> anyhow::Result<()> {
         use crate::permissions::{
             Permission, SerializationContext, SettingsKind, add_permission_to_settings,
@@ -271,7 +270,8 @@ impl PermissionDecision {
         let home_path = dirs::home_dir()
             .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
         let global_claude_dir = home_path.join(".claude");
-
+        let worktree_dir = ctx.workdir_or_fail()?;
+        let settings_path = worktree_dir.join(".claude/settings.local.json");
         match self {
             PermissionDecision::AllowOnce => {
                 // Single request - no persistence needed
@@ -284,20 +284,18 @@ impl PermissionDecision {
                 }
 
                 // Also save to session database if available
-                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
-                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
-                {
+                if let Ok(Some(session)) = db::get_session_by_current_id(ctx, session_id) {
                     let mut approved = session.approved_permissions().to_vec();
                     approved.extend(permissions);
                     let denied = session.denied_permissions().to_vec();
-                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
+                    db::update_session_permissions(ctx, session.id, &approved, &denied)?;
                 }
                 Ok(())
             }
             PermissionDecision::AllowProject => {
-                let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
-                let settings_path = project_path.join(".claude/settings.local.json");
+                let claude_ctx =
+                    SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
+                let settings_path = worktree_dir.join(".claude/settings.local.json");
 
                 // Ensure .claude directory exists
                 if let Some(parent) = settings_path.parent() {
@@ -308,7 +306,7 @@ impl PermissionDecision {
                     add_permission_to_settings(
                         &SettingsKind::Allow,
                         &permission,
-                        &ctx,
+                        &claude_ctx,
                         &settings_path,
                     )?;
                     runtime_permissions.add_approved(permission);
@@ -317,7 +315,7 @@ impl PermissionDecision {
             }
             PermissionDecision::AllowAlways => {
                 let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                    SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
                 let settings_path = home_path.join(".claude/settings.json");
 
                 // Ensure .claude directory exists
@@ -347,20 +345,17 @@ impl PermissionDecision {
                 }
 
                 // Also save to session database if available
-                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
-                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
-                {
+                if let Ok(Some(session)) = db::get_session_by_current_id(ctx, session_id) {
                     let approved = session.approved_permissions().to_vec();
                     let mut denied = session.denied_permissions().to_vec();
                     denied.extend(permissions);
-                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
+                    db::update_session_permissions(ctx, session.id, &approved, &denied)?;
                 }
                 Ok(())
             }
             PermissionDecision::DenyProject => {
                 let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
-                let settings_path = project_path.join(".claude/settings.local.json");
+                    SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
 
                 // Ensure .claude directory exists
                 if let Some(parent) = settings_path.parent() {
@@ -380,7 +375,7 @@ impl PermissionDecision {
             }
             PermissionDecision::DenyAlways => {
                 let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                    SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
                 let settings_path = home_path.join(".claude/settings.json");
 
                 // Ensure .claude directory exists

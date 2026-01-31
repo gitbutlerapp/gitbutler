@@ -8,11 +8,13 @@ use crate::command::debug_print;
 
 pub fn list() -> Result<()> {
     for project in gitbutler_project::dangerously_list_projects_without_migration()? {
+        let ctx = Context::new_from_legacy_project(project.clone())?;
+        let workdir = ctx.workdir_or_fail()?;
         println!(
             "{id} {name} {path}",
             id = project.id,
             name = project.title,
-            path = project.worktree_dir()?.display()
+            path = workdir.display()
         );
     }
     Ok(())

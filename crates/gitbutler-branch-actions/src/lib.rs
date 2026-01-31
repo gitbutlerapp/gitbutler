@@ -41,13 +41,14 @@ mod undo_commit;
 mod author;
 mod gravatar;
 use gitbutler_stack::VirtualBranchesHandle;
+
 trait VirtualBranchesExt {
     fn virtual_branches(&self) -> VirtualBranchesHandle;
 }
 
-impl VirtualBranchesExt for gitbutler_project::Project {
+impl VirtualBranchesExt for but_ctx::Context {
     fn virtual_branches(&self) -> VirtualBranchesHandle {
-        VirtualBranchesHandle::new(self.gb_dir())
+        VirtualBranchesHandle::new(self.project_data_dir())
     }
 }
 

@@ -79,7 +79,7 @@ pub fn update_workspace_commit(
     }
     let prev_head_id = head_ref.target();
 
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
 
     // get all virtual branches, we need to try to update them all
     let virtual_branches: Vec<Stack> = vb_state

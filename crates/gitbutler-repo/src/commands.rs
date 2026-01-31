@@ -1,17 +1,16 @@
 use std::{path::Path, sync::Mutex};
 
+use crate::{RepositoryExt, remote::GitRemote};
 use anyhow::{Context as _, Result, bail};
 use base64::engine::Engine as _;
+use but_ctx::Context;
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use git2::Oid;
-use gitbutler_project::Project;
 use ignore::WalkBuilder;
 use infer::MatcherType;
 use itertools::Itertools;
 use serde::Serialize;
 use tracing::warn;
-
-use crate::{RepositoryExt, remote::GitRemote};
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -178,9 +177,9 @@ pub trait RepoCommands {
     fn find_files(&self, query: &str, limit: usize) -> Result<Vec<String>>;
 }
 
-impl RepoCommands for Project {
+impl RepoCommands for Context {
     fn check_signing_settings(&self) -> Result<bool> {
-        let signed = self.open_git2()?.sign_buffer(b"test");
+        let signed = self.git2_repo.get()?.sign_buffer(b"test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
@@ -188,7 +187,7 @@ impl RepoCommands for Project {
     }
 
     fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
-        let repo = self.open_git2()?;
+        let repo = self.git2_repo.get()?;
         let remotes = repo
             .remotes_as_string()?
             .iter()
@@ -201,7 +200,7 @@ impl RepoCommands for Project {
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
-        let repo = self.open_git2()?;
+        let repo = self.git2_repo.get()?;
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
@@ -231,7 +230,7 @@ impl RepoCommands for Project {
             );
         }
 
-        let repo = self.open_git2()?;
+        let repo = self.git2_repo.get()?;
         let tree = repo.find_commit(commit_id)?.tree()?;
 
         Ok(match tree.get_path(relative_path) {
@@ -245,7 +244,7 @@ impl RepoCommands for Project {
     }
 
     fn read_file_from_workspace(&self, probably_relative_path: &Path) -> Result<FileInfo> {
-        let repo = self.open_git2()?;
+        let repo = self.git2_repo.get()?;
         let workdir = repo.workdir().context(
             "BUG: can't yet handle bare repos and we shouldn't run into this until we do",
         )?;
@@ -304,10 +303,10 @@ impl RepoCommands for Project {
         static FAIR_QUEUE: Mutex<()> = Mutex::new(());
         let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
 
-        let workdir = self.worktree_dir()?;
+        let workdir = self.workdir_or_fail()?;
         let matcher = SkimMatcherV2::default();
 
-        let scored_files = WalkBuilder::new(workdir)
+        let scored_files = WalkBuilder::new(&workdir)
             .git_exclude(true) // Respect .git/info/exclude
             .git_global(true) // Respect global gitignore
             .git_ignore(true) // Respect .gitignore
@@ -315,7 +314,7 @@ impl RepoCommands for Project {
             .filter_map(Result::ok)
             .filter(|entry| entry.file_type().is_some_and(|ft| ft.is_file()))
             .filter_map(|entry| {
-                let relative_path = entry.path().strip_prefix(workdir).ok()?;
+                let relative_path = entry.path().strip_prefix(&workdir).ok()?;
                 let path_str = relative_path.to_string_lossy();
                 let score = compute_match_score(&matcher, &path_str, relative_path, query)?;
                 Some((score, path_str.to_string()))

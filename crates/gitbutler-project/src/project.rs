@@ -301,54 +301,10 @@ impl Project {
 }
 
 impl Project {
-    /// Determines if the project Operations log will be synched with the GitButHub
-    pub fn oplog_sync_enabled(&self) -> bool {
-        let has_url = self.api.as_ref().map(|api| api.git_url.clone()).is_some();
-        self.api.as_ref().map(|api| api.sync).unwrap_or_default() && has_url
-    }
-    /// Determines if the project code will be synched with the GitButHub
-    pub fn code_sync_enabled(&self) -> bool {
-        let has_code_url = self
-            .api
-            .as_ref()
-            .and_then(|api| api.code_git_url.clone())
-            .is_some();
-        self.api
-            .as_ref()
-            .map(|api| api.sync_code)
-            .unwrap_or_default()
-            && has_code_url
-    }
-
-    pub fn has_code_url(&self) -> bool {
-        self.api
-            .as_ref()
-            .map(|api| api.code_git_url.is_some())
-            .unwrap_or_default()
-    }
-
-    /// Returns the path to the directory containing the `GitButler` state for this project.
-    ///
-    /// Normally this is `.git/gitbutler` in the project's repository.
-    pub fn gb_dir(&self) -> PathBuf {
-        self.git_dir().join("gitbutler")
-    }
-
-    pub fn snapshot_lines_threshold(&self) -> usize {
-        self.snapshot_lines_threshold.unwrap_or(20)
-    }
-
-    // TODO(ST): Actually remove this - people should use the `gix::Repository` for worktree handling (which makes it optional, too)
-    pub fn worktree_dir(&self) -> anyhow::Result<&Path> {
-        // TODO: open a repo and get the workdir.
-        // For now we don't have to open a repo as we only support repos with worktree.
-        Ok(&self.worktree_dir)
-    }
-
-    /// Set the worktree directory to `worktree_dir`.
-    pub fn set_worktree_dir(&mut self, worktree_dir: PathBuf) -> anyhow::Result<()> {
-        let repo = gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
-        self.worktree_dir = worktree_dir;
+    /// Set the worktree directory to `repo_path`, the worktree or git dir.
+    pub fn set_worktree_dir(&mut self, repo_path: PathBuf) -> anyhow::Result<()> {
+        let repo = gix::open_opts(&repo_path, gix::open::Options::isolated())?;
+        self.worktree_dir = repo_path;
         self.git_dir = repo.git_dir().to_owned();
         Ok(())
     }
@@ -362,10 +318,11 @@ impl Project {
         &self.git_dir
     }
 
-    /// Return the path to the Git directory of the 'prime' repository, the one that holds all worktrees.
-    pub fn common_git_dir(&self) -> anyhow::Result<PathBuf> {
-        let repo = self.open_isolated_repo()?;
-        Ok(repo.common_dir().to_owned())
+    /// Returns the path to the directory containing the `GitButler` state for this project.
+    ///
+    /// Normally this is `.git/gitbutler` in the project's repository.
+    pub(crate) fn gb_dir(&self) -> PathBuf {
+        self.git_dir().join("gitbutler")
     }
 }
 

@@ -63,7 +63,7 @@ fn do_squash_commits(
 ) -> Result<git2::Oid> {
     let new_commit_oid = {
         let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-        let vb_state = ctx.legacy_project.virtual_branches();
+        let vb_state = ctx.virtual_branches();
         let stack = vb_state.get_stack_in_workspace(stack_id)?;
         let gix_repo = ctx.repo.get()?;
 

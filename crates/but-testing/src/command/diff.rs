@@ -1,11 +1,11 @@
 use std::path::Path;
 
+use crate::command::{UI_CONTEXT_LINES, debug_print};
+use but_core::RepositoryExt;
 use but_ctx::Context;
 use but_hunk_dependency::ui::HunkDependencies;
 use gix::bstr::BString;
 use itertools::Itertools;
-
-use crate::command::{UI_CONTEXT_LINES, debug_print, repo_at_path};
 
 pub fn commit_changes(
     current_dir: &Path,
@@ -13,7 +13,7 @@ pub fn commit_changes(
     previous_commit: Option<&str>,
     unified_diff: bool,
 ) -> anyhow::Result<()> {
-    let repo = repo_at_path(current_dir)?;
+    let repo = gix::discover(current_dir)?.for_tree_diffing()?;
     let previous_commit = previous_commit
         .map(|revspec| repo.rev_parse_single(revspec))
         .transpose()?;
@@ -34,7 +34,7 @@ pub fn status(
     context_lines: u32,
     use_json: bool,
 ) -> anyhow::Result<()> {
-    let repo = repo_at_path(current_dir)?;
+    let repo = gix::discover(current_dir)?.for_tree_diffing()?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     if unified_diff {
         handle_unified_diff(&repo, worktree, context_lines, use_json)?;

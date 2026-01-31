@@ -14,11 +14,7 @@ use tracing::instrument;
 #[but_api]
 #[instrument(err(Debug))]
 pub fn pr_templates(ctx: &but_ctx::Context, forge: ForgeName) -> Result<Vec<String>> {
-    Ok(available_review_templates(
-        #[expect(deprecated)]
-        &ctx.workdir_needed()?,
-        &forge,
-    ))
+    Ok(available_review_templates(&ctx.workdir_or_fail()?, &forge))
 }
 
 /// Get the list of review template paths for the given project.
@@ -51,15 +47,13 @@ pub fn pr_template(
         ..
     } = get_review_template_functions(&forge);
 
-    let project = &ctx.legacy_project;
     if !is_valid_review_template_path(&relative_path) {
         return Err(anyhow::format_err!(
             "Invalid review template path: {:?}",
-            project.worktree_dir()?.join(relative_path),
+            ctx.workdir_or_fail()?.join(relative_path),
         ));
     }
-    project
-        .read_file_from_workspace(&relative_path)?
+    ctx.read_file_from_workspace(&relative_path)?
         .content
         .context("PR template was not valid UTF-8")
 }
@@ -104,10 +98,10 @@ pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>
             if !is_valid_review_template_path(&path) {
                 return Err(anyhow::format_err!(
                     "Invalid review template path: {:?}",
-                    project.worktree_dir()?.join(path),
+                    ctx.workdir_or_fail()?.join(path),
                 ));
             }
-            let content = project
+            let content = ctx
                 .read_file_from_workspace(&path)?
                 .content
                 .context("PR template was not valid UTF-8")?;
@@ -144,8 +138,7 @@ pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>
     if let Some(ref path) = template_path {
         let path_buf = std::path::PathBuf::from(path);
         if !is_valid_review_template_path(&path_buf) {
-            #[expect(deprecated)]
-            let wd = ctx.workdir_needed()?.join(&path_buf);
+            let wd = ctx.workdir_or_fail()?.join(&path_buf);
             return Err(anyhow::format_err!("Invalid review template path: {wd:?}"));
         }
     }

@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
+use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch_actions::hooks;
-use gitbutler_project::ProjectId;
 use gitbutler_repo::{
     FileInfo, RepoCommands,
     hooks::{HookResult, MessageHookResult},
@@ -15,9 +15,8 @@ use tracing::instrument;
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn check_signing_settings(project_id: ProjectId) -> Result<bool> {
-    let project = gitbutler_project::get(project_id)?;
-    project.check_signing_settings()
+pub fn check_signing_settings(ctx: &Context) -> Result<bool> {
+    ctx.check_signing_settings()
 }
 
 /// NOTE: this function currently needs a tokio runtime to work.
@@ -45,19 +44,17 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn get_commit_file(
-    project_id: ProjectId,
+    ctx: &Context,
     relative_path: PathBuf,
     commit_id: gix::ObjectId,
 ) -> Result<FileInfo> {
-    let project = gitbutler_project::get(project_id)?;
-    project.read_file_from_commit(commit_id.to_git2(), &relative_path)
+    ctx.read_file_from_commit(commit_id.to_git2(), &relative_path)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn get_workspace_file(project_id: ProjectId, relative_path: PathBuf) -> Result<FileInfo> {
-    let project = gitbutler_project::get(project_id)?;
-    project.read_file_from_workspace(&relative_path)
+pub fn get_workspace_file(ctx: &Context, relative_path: PathBuf) -> Result<FileInfo> {
+    ctx.read_file_from_workspace(&relative_path)
 }
 
 /// Retrieves file content directly from a Git blob object by its blob ID.
@@ -119,12 +116,7 @@ pub fn message_hook(ctx: &but_ctx::Context, message: String) -> Result<MessageHo
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn find_files(
-    project_id: ProjectId,
-    query: String,
-    limit: Option<usize>,
-) -> Result<Vec<String>> {
-    let project = gitbutler_project::get(project_id)?;
+pub fn find_files(ctx: &Context, query: String, limit: Option<usize>) -> Result<Vec<String>> {
     let limit = limit.unwrap_or(10);
-    project.find_files(&query, limit)
+    ctx.find_files(&query, limit)
 }

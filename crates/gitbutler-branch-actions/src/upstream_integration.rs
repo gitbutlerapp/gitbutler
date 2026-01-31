@@ -192,7 +192,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             },
         )?;
 
-        let virtual_branches_handle = ctx.legacy_project.virtual_branches();
+        let virtual_branches_handle = ctx.virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
         let target_branch = git2_repo
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
@@ -223,9 +223,9 @@ fn stacks(
     ctx: &Context,
     repo: &gix::Repository,
 ) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let project = &ctx.legacy_project;
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+    let meta = VirtualBranchesTomlMetadata::from_path(
+        ctx.project_data_dir().join("virtual_branches.toml"),
+    )?;
     but_workspace::legacy::stacks_v3(
         repo,
         &meta,

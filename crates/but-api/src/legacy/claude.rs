@@ -68,8 +68,7 @@ pub async fn claude_get_session_details(
         let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
         let session = but_claude::db::get_session_by_id(&ctx, session_id)?
             .context("Could not find session")?;
-        #[expect(deprecated)]
-        let worktree_dir = ctx.workdir_needed()?;
+        let worktree_dir = ctx.workdir_or_fail()?;
         (worktree_dir, session)
     };
     let current_id = Transcript::current_valid_session_id(&worktree_dir, &session).await?;
@@ -180,29 +179,28 @@ pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParam
 pub fn claude_list_prompt_templates(
     ctx: &but_ctx::Context,
 ) -> Result<Vec<prompt_templates::PromptTemplate>> {
-    let templates = prompt_templates::list_templates(&ctx.legacy_project)?;
+    let templates = prompt_templates::list_templates(&ctx.project_data_dir())?;
     Ok(templates)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn claude_get_prompt_dirs(ctx: &but_ctx::Context) -> Result<Vec<prompt_templates::PromptDir>> {
-    let dirs = prompt_templates::prompt_dirs(&ctx.legacy_project)?;
+    let dirs = prompt_templates::prompt_dirs(&ctx.project_data_dir())?;
     Ok(dirs)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn claude_maybe_create_prompt_dir(ctx: &but_ctx::Context, path: String) -> Result<()> {
-    prompt_templates::maybe_create_dir(&ctx.legacy_project, &path)?;
+    prompt_templates::maybe_create_dir(&ctx.workdir_or_fail()?, &path)?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_get_mcp_config(ctx: ThreadSafeContext) -> Result<McpConfig> {
-    #[expect(deprecated)]
-    let worktree_dir = ctx.into_thread_local().workdir_needed()?;
+    let worktree_dir = ctx.into_thread_local().workdir_or_fail()?;
     let settings = ClaudeSettings::open(&worktree_dir).await;
     let mcp_config = ClaudeMcpConfig::open(&settings, &worktree_dir).await;
     Ok(mcp_config.mcp_servers())
@@ -211,8 +209,7 @@ pub async fn claude_get_mcp_config(ctx: ThreadSafeContext) -> Result<McpConfig> 
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_get_sub_agents(ctx: ThreadSafeContext) -> Result<Vec<but_claude::SubAgent>> {
-    #[expect(deprecated)]
-    let workdir = ctx.into_thread_local().workdir_needed()?;
+    let workdir = ctx.into_thread_local().workdir_or_fail()?;
     let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&workdir).await;
     Ok(sub_agents)
 }
@@ -225,8 +222,7 @@ pub async fn claude_verify_path(ctx: ThreadSafeContext, path: String) -> Result<
         std::path::PathBuf::from(&path)
     } else {
         // If relative, make it relative to project path
-        #[expect(deprecated)]
-        ctx.into_thread_local().workdir_needed()?.join(&path)
+        ctx.into_thread_local().workdir_or_fail()?.join(&path)
     };
 
     // Check if the path exists and is a directory

@@ -164,7 +164,7 @@ pub(crate) fn set_base_branch(
         push_remote_name: None,
     };
 
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     vb_state.set_default_target(target.clone())?;
 
     // TODO: make sure this is a real branch
@@ -241,7 +241,7 @@ pub(crate) fn set_target_push_remote(ctx: &Context, push_remote_name: &str) -> R
         .context("failed to get remote name")?
         .to_string()
         .into();
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     vb_state.set_default_target(target)?;
 
     Ok(())

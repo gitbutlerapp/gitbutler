@@ -28,7 +28,7 @@ pub fn reorder_stack(
     perm: &mut RepoExclusive,
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let state = ctx.legacy_project.virtual_branches();
+    let state = ctx.virtual_branches();
     let repo = &*ctx.git2_repo.get()?;
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;

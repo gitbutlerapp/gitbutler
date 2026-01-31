@@ -223,10 +223,21 @@ impl Context {
         }
     }
 
-    /// Discover the Git repository in `directory` and return it as context.
+    /// Discover the Git repository in `directory`, or search upwards until one is found, and return it as context.
     pub fn discover(directory: impl AsRef<Path>) -> anyhow::Result<Context> {
         let directory = directory.as_ref();
         let repo = gix::discover(directory)?;
+        Self::from_repo_with_legacy_support(repo)
+    }
+
+    /// Open the Git repository in `directory` and return it as context.
+    pub fn open(directory: impl AsRef<Path>) -> anyhow::Result<Context> {
+        let directory = directory.as_ref();
+        let repo = gix::open(directory)?;
+        Self::from_repo_with_legacy_support(repo)
+    }
+
+    fn from_repo_with_legacy_support(repo: gix::Repository) -> anyhow::Result<Context> {
         let app_cache_dir = but_path::app_cache_dir().ok();
         #[cfg(feature = "legacy")]
         {
@@ -631,8 +642,9 @@ impl Context {
 
     /// Return the worktree directory associated with the context Git [repository](Self::repo),
     /// or fail.
-    #[deprecated = "We need to write code that isn't workdir dependent, use `workdir()` or `workdir_or_gitdir` to handle this gracefully"]
-    pub fn workdir_needed(&self) -> anyhow::Result<PathBuf> {
+    ///
+    /// # Try to gracefully degrade if there is no worktree!
+    pub fn workdir_or_fail(&self) -> anyhow::Result<PathBuf> {
         let repo = self.repo.get()?;
         repo.workdir()
             .ok_or_else(|| anyhow!("Cannot currently work in repositories without a worktree"))

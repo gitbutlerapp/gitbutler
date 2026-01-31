@@ -41,7 +41,7 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
 }
 
 pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
 
     if let Some(order) = update.order {
@@ -189,7 +189,7 @@ pub(crate) fn update_commit_message(
     if message.is_empty() {
         bail!("commit message can not be empty");
     }
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;

@@ -26,7 +26,7 @@ pub(crate) fn undo_commit(
     commit_to_remove: git2::Oid,
     _perm: &mut RepoExclusive,
 ) -> Result<Stack> {
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
