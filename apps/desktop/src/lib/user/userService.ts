@@ -1,6 +1,6 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { showError } from '$lib/notifications/toasts';
-import { UI_STATE, type UiState } from '$lib/state/uiState.svelte';
+import { type UiState } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/core/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { chipToasts } from '@gitbutler/ui';
