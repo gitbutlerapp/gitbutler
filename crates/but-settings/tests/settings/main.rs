@@ -87,7 +87,7 @@ mod load {
             )
             .unwrap();
 
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             let value = settings.ui.check_for_updates_interval_in_seconds;
             assert_eq!(
                 value, 0,

@@ -16,6 +16,7 @@ use axum::{
 };
 use but_api::{commit, diff, github, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
+use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use gitbutler_project::ProjectId;
@@ -973,7 +974,8 @@ async fn handle_command(
                 project_id: ProjectId,
             }
             let params = serde_json::from_value::<Params>(request.params)?;
-            let result = legacy::claude::claude_get_mcp_config(params.project_id).await;
+            let ctx = Context::new_from_legacy_project_id(params.project_id)?;
+            let result = legacy::claude::claude_get_mcp_config(ctx.into_sync()).await;
             result.map(|r| json!(r))
         }
         "claude_get_messages" => {
@@ -999,8 +1001,10 @@ async fn handle_command(
                     project_id,
                     session_id,
                 }) => {
+                    let ctx = Context::new_from_legacy_project_id(project_id)?;
                     let result =
-                        legacy::claude::claude_get_session_details(project_id, session_id).await;
+                        legacy::claude::claude_get_session_details(ctx.into_sync(), session_id)
+                            .await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -1047,7 +1051,8 @@ async fn handle_command(
                 project_id: ProjectId,
             }
             let params = serde_json::from_value::<Params>(request.params)?;
-            let result = legacy::claude::claude_get_sub_agents(params.project_id).await;
+            let ctx = Context::new_from_legacy_project_id(params.project_id)?;
+            let result = legacy::claude::claude_get_sub_agents(ctx.into_sync()).await;
             result.map(|r| json!(r))
         }
         "claude_verify_path" => {
@@ -1058,7 +1063,8 @@ async fn handle_command(
                 pub path: String,
             }
             let params = serde_json::from_value::<Params>(request.params)?;
-            let result = legacy::claude::claude_verify_path(params.project_id, params.path).await;
+            let ctx = Context::new_from_legacy_project_id(params.project_id)?;
+            let result = legacy::claude::claude_verify_path(ctx.into_sync(), params.path).await;
             result.map(|r| json!(r))
         }
 

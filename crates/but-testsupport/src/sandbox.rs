@@ -447,7 +447,7 @@ impl Sandbox {
             ui: UiSettings {
                 use_native_title_bar: false,
                 cli_is_managed_by_package_manager: false,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 check_for_updates_interval_in_seconds: 0,
             },
             app_updates_check_interval_sec: 0,

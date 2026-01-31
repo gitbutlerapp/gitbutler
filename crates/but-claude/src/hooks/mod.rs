@@ -380,7 +380,7 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
         .parent()
         .ok_or(anyhow!("Failed to get parent directory of file path"))?;
     let mut ctx = Context::discover(dir)?;
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     let worktree_dir = ctx.workdir_needed()?;
 
     let relative_file_path = std::path::PathBuf::from(&input.tool_response.file_path)

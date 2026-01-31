@@ -56,7 +56,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     }
 
     let snapshot = but_api::legacy::oplog::create_snapshot(
-        ctx.legacy_project.id,
+        ctx,
         Some("Teardown: exiting GitButler mode".to_string()),
     )?;
 

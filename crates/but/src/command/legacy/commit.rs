@@ -169,7 +169,6 @@ pub(crate) fn commit(
     let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Get all stacks using but-api
-    let project_id = ctx.legacy_project.id;
     let stack_entries = workspace::stacks(ctx, None)?;
     let stacks: Vec<(
         but_core::ref_metadata::StackId,
@@ -241,7 +240,7 @@ pub(crate) fn commit(
     // This runs BEFORE getting the commit message so the user doesn't waste time writing a message
     // for a commit that will fail the hook
     if !no_hooks {
-        let hook_result = repo::pre_commit_hook_diffspecs(project_id, diff_specs.clone())?;
+        let hook_result = repo::pre_commit_hook_diffspecs(ctx, diff_specs.clone())?;
         match hook_result {
             hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
                 // Hook passed or not configured, proceed with commit
@@ -272,7 +271,7 @@ pub(crate) fn commit(
     // Run commit-msg hook unless --no-hooks was specified
     // This hook can validate and optionally modify the commit message
     let final_commit_message = if !no_hooks {
-        let hook_result = repo::message_hook(project_id, commit_message.clone())?;
+        let hook_result = repo::message_hook(ctx, commit_message.clone())?;
         match hook_result {
             gitbutler_repo::hooks::MessageHookResult::Success => {
                 // Hook passed without modification
@@ -332,7 +331,7 @@ pub(crate) fn commit(
 
     // Use but-api to create the commit
     let outcome = workspace::create_commit_from_worktree_changes(
-        project_id,
+        ctx,
         target_stack_id,
         Some(HexHash::from(parent_commit_id)),
         diff_specs,
@@ -355,7 +354,7 @@ pub(crate) fn commit(
     // Run post-commit hook unless --no-hooks was specified
     // Note: post-commit hooks run after the commit is created, so failures don't prevent the commit
     if !no_hooks {
-        let hook_result = repo::post_commit_hook(project_id)?;
+        let hook_result = repo::post_commit_hook(ctx)?;
         match hook_result {
             hooks::HookResult::Success | hooks::HookResult::NotConfigured => {
                 // Hook passed or not configured, nothing to do

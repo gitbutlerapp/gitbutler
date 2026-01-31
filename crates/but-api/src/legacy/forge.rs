@@ -6,7 +6,6 @@ use but_ctx::{Context, ThreadSafeContext};
 use but_forge::{
     ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
 };
-use gitbutler_project::ProjectId;
 use gitbutler_repo::RepoCommands;
 use tracing::instrument;
 
@@ -14,9 +13,12 @@ use tracing::instrument;
 /// This function is deprecated in favor of `list_available_review_templates`.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>> {
-    let project = gitbutler_project::get_validated(project_id)?;
-    Ok(available_review_templates(project.worktree_dir()?, &forge))
+pub fn pr_templates(ctx: &but_ctx::Context, forge: ForgeName) -> Result<Vec<String>> {
+    Ok(available_review_templates(
+        #[expect(deprecated)]
+        &ctx.workdir_needed()?,
+        &forge,
+    ))
 }
 
 /// Get the list of review template paths for the given project.
@@ -40,17 +42,16 @@ pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn pr_template(
-    project_id: ProjectId,
+    ctx: &but_ctx::Context,
     relative_path: std::path::PathBuf,
     forge: ForgeName,
 ) -> Result<String> {
-    let project = gitbutler_project::get_validated(project_id)?;
-
     let ReviewTemplateFunctions {
         is_valid_review_template_path,
         ..
     } = get_review_template_functions(&forge);
 
+    let project = &ctx.legacy_project;
     if !is_valid_review_template_path(&relative_path) {
         return Err(anyhow::format_err!(
             "Invalid review template path: {:?}",
@@ -124,13 +125,11 @@ pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>
 /// The template path will be validated.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn set_review_template(project_id: ProjectId, template_path: Option<String>) -> Result<()> {
-    let project = gitbutler_project::get_validated(project_id)?;
-    let repo = project.open_isolated_repo()?;
+pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>) -> Result<()> {
+    let repo = ctx.open_isolated_repo()?;
     let mut git_config = repo.git_settings()?;
 
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let forge = &base_branch
         .forge_repo_info
         .as_ref()
@@ -145,10 +144,9 @@ pub fn set_review_template(project_id: ProjectId, template_path: Option<String>)
     if let Some(ref path) = template_path {
         let path_buf = std::path::PathBuf::from(path);
         if !is_valid_review_template_path(&path_buf) {
-            return Err(anyhow::format_err!(
-                "Invalid review template path: {:?}",
-                project.worktree_dir()?.join(&path_buf),
-            ));
+            #[expect(deprecated)]
+            let wd = ctx.workdir_needed()?.join(&path_buf);
+            return Err(anyhow::format_err!("Invalid review template path: {wd:?}"));
         }
     }
 
@@ -240,17 +238,17 @@ pub async fn publish_review(
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn list_reviews_for_branch(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     branch: String,
     filter: Option<but_forge::ForgeReviewFilter>,
 ) -> Result<Vec<but_forge::ForgeReview>> {
     let (storage, base_branch, project) = {
-        let ctx = Context::new_from_legacy_project_id(project_id)?;
+        let ctx = ctx.into_thread_local();
         let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
         (
             but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
             base_branch,
-            ctx.legacy_project,
+            ctx.legacy_project.clone(),
         )
     };
     but_forge::list_forge_reviews_for_branch(

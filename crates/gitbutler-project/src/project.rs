@@ -293,21 +293,6 @@ impl Project {
         )?)
     }
 
-    /// Open a standard Git repository at the project directory, just like a real user would.
-    ///
-    /// This repository is good for standard tasks, like checking refs and traversing the commit graph,
-    /// and for reading objects as well.
-    ///
-    /// Diffing and merging is better done with [`Self::open_repo_for_merging()`].
-    pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open(self.git_dir())?)
-    }
-
-    /// Calls [`but_core::open_repo_for_merging()`]
-    pub fn open_repo_for_merging(&self) -> anyhow::Result<gix::Repository> {
-        but_core::open_repo_for_merging(self.git_dir())
-    }
-
     /// Open a git2 repository.
     /// Deprecated, but still in use.
     pub fn open_git2(&self) -> anyhow::Result<git2::Repository> {

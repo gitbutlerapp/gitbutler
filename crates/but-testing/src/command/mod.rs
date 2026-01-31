@@ -373,7 +373,7 @@ pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Resu
     let ctx = Context::discover(&args.current_dir)?;
     let (tx, mut rx) = unbounded_channel();
     let start = std::time::Instant::now();
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     let workdir = ctx.workdir_needed()?;
     let _monitor = gitbutler_filemonitor::spawn(
         ProjectId::generate(),

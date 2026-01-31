@@ -125,8 +125,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     })?;
 
     // Enter edit mode
-    enter_edit_mode(ctx.legacy_project.id, commit_oid.to_string(), stack_id)
-        .context("Failed to enter edit mode")?;
+    enter_edit_mode(ctx, commit_oid.to_gix(), stack_id).context("Failed to enter edit mode")?;
 
     // Drop the git2 objects to release the borrow
     drop(commit);
@@ -216,8 +215,8 @@ fn show_status_impl(
 }
 
 fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<bool> {
-    let conflicted_files = edit_initial_index_state(ctx.legacy_project.id)
-        .context("Failed to get conflicted files")?;
+    let conflicted_files =
+        edit_initial_index_state(ctx).context("Failed to get conflicted files")?;
 
     let initially_conflicted: Vec<_> = conflicted_files
         .iter()
@@ -335,7 +334,7 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     let conflicts_before = find_conflicted_commits(ctx)?;
 
     // Save and return to workspace, capturing the rebase output
-    save_edit_and_return_to_workspace_with_output(ctx.legacy_project.id)
+    save_edit_and_return_to_workspace_with_output(ctx)
         .context("Failed to save resolution and return to workspace")?;
 
     if let Some(human_out) = out.for_human() {
@@ -367,7 +366,7 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     }
 
     // Abort and return to workspace
-    abort_edit_and_return_to_workspace(ctx.legacy_project.id)
+    abort_edit_and_return_to_workspace(ctx)
         .context("Failed to cancel resolution and return to workspace")?;
 
     if let Some(out) = out.for_human() {

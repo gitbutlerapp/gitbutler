@@ -11,10 +11,7 @@ use crate::{args::worktree::Subcommands, utils::OutputChannel};
 /// - Just the worktree name
 ///
 /// Returns the WorktreeId.
-fn parse_worktree_identifier(
-    input: &str,
-    _project: &gitbutler_project::Project,
-) -> Result<WorktreeId> {
+fn parse_worktree_identifier(input: &str) -> Result<WorktreeId> {
     // If it's an absolute path or looks like a full path, extract the name from it
     let input_path = PathBuf::from(input);
     if input_path.is_absolute() || input_path.components().count() > 1 {
@@ -25,7 +22,7 @@ fn parse_worktree_identifier(
     Ok(WorktreeId::from_bstr(input))
 }
 
-pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Result<()> {
+pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     match cmd {
         Subcommands::New { reference } => {
             // Naivly append refs/heads/ if it's not present to always have a
@@ -35,7 +32,7 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
             } else {
                 gix::refs::FullName::try_from(format!("refs/heads/{}", reference))?
             };
-            let output = but_api::legacy::worktree::worktree_new(ctx.legacy_project.id, reference)?;
+            let output = but_api::legacy::worktree::worktree_new(ctx, reference)?;
             if let Some(out) = out.for_json() {
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
@@ -51,7 +48,7 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
             Ok(())
         }
         Subcommands::List => {
-            let output = but_api::legacy::worktree::worktree_list(ctx.legacy_project.id)?;
+            let output = but_api::legacy::worktree::worktree_list(ctx)?;
             if let Some(out) = out.for_json() {
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
@@ -73,7 +70,7 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
             Ok(())
         }
         Subcommands::Integrate { path, target, dry } => {
-            let id = parse_worktree_identifier(&path, &ctx.legacy_project)?;
+            let id = parse_worktree_identifier(&path)?;
 
             // Determine the target reference
             let target_ref = if let Some(target_str) = target {
@@ -87,8 +84,7 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
             } else {
                 // No target specified - get it from the worktree metadata
                 // First, we need to get the worktree metadata to find what reference it was created from
-                let worktree_list =
-                    but_api::legacy::worktree::worktree_list(ctx.legacy_project.id)?;
+                let worktree_list = but_api::legacy::worktree::worktree_list(ctx)?;
                 let worktree_entry = worktree_list
                     .entries
                     .iter()
@@ -103,7 +99,7 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
             if dry {
                 // Dry run - check integration status
                 let status = but_api::legacy::worktree::worktree_integration_status(
-                    ctx.legacy_project.id,
+                    ctx,
                     id.clone(),
                     target_ref.clone(),
                 )?;
@@ -152,11 +148,7 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
                 }
             } else {
                 // Actual integration
-                but_api::legacy::worktree::worktree_integrate(
-                    ctx.legacy_project.id,
-                    id.clone(),
-                    target_ref.clone(),
-                )?;
+                but_api::legacy::worktree::worktree_integrate(ctx, id.clone(), target_ref.clone())?;
 
                 if let Some(out) = out.for_json() {
                     out.write_value(serde_json::json!({"status": "success"}))?;
@@ -179,7 +171,7 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
                 };
 
                 let output = but_api::legacy::worktree::worktree_destroy_by_reference(
-                    ctx.legacy_project.id,
+                    ctx,
                     reference.clone(),
                 )?;
 
@@ -202,11 +194,8 @@ pub fn handle(cmd: Subcommands, ctx: &Context, out: &mut OutputChannel) -> Resul
                 }
             } else {
                 // Treat target as a path or worktree name
-                let id = parse_worktree_identifier(&target, &ctx.legacy_project)?;
-                let output = but_api::legacy::worktree::worktree_destroy_by_id(
-                    ctx.legacy_project.id,
-                    id.clone(),
-                )?;
+                let id = parse_worktree_identifier(&target)?;
+                let output = but_api::legacy::worktree::worktree_destroy_by_id(ctx, id.clone())?;
 
                 if let Some(out) = out.for_json() {
                     out.write_value(output)?;

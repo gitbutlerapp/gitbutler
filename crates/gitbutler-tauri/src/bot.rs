@@ -45,8 +45,10 @@ pub async fn forge_branch_chat(
     filter: Option<but_forge::ForgeReviewFilter>,
     model: String,
 ) -> anyhow::Result<String, Error> {
+    let ctx = Context::new_from_legacy_project_id(project_id)?;
     let reviews =
-        but_api::legacy::forge::list_reviews_for_branch(project_id, branch.clone(), filter).await?;
+        but_api::legacy::forge::list_reviews_for_branch(ctx.into_sync(), branch.clone(), filter)
+            .await?;
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
             tracing::error!("Failed to emit event '{}': {}", name, e);

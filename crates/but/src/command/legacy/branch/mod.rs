@@ -91,7 +91,7 @@ pub fn handle(
                 match anchor_id {
                     CliId::Commit { commit_id: oid, .. } => {
                         Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
-                            commit_id: (*oid).into(),
+                            commit_id: (*oid),
                             position: but_workspace::branch::create_reference::Position::Above,
                         })
                     }
@@ -156,9 +156,7 @@ pub fn handle(
             }
             Ok(())
         }
-        Some(Subcommands::Apply { branch_name }) => {
-            apply::apply(&ctx.legacy_project, &branch_name, out)
-        }
+        Some(Subcommands::Apply { branch_name }) => apply::apply(ctx, &branch_name, out),
         Some(Subcommands::Unapply { branch_name, force }) => {
             let stacks = but_api::legacy::workspace::stacks(
                 ctx,

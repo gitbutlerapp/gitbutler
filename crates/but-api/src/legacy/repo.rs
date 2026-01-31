@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
-use but_ctx::Context;
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch_actions::hooks;
 use gitbutler_project::ProjectId;
@@ -13,8 +12,6 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::askpass;
 use tracing::instrument;
-
-use crate::json::HexHash;
 
 #[but_api]
 #[instrument(err(Debug))]
@@ -50,10 +47,10 @@ async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> 
 pub fn get_commit_file(
     project_id: ProjectId,
     relative_path: PathBuf,
-    commit_id: HexHash,
+    commit_id: gix::ObjectId,
 ) -> Result<FileInfo> {
     let project = gitbutler_project::get(project_id)?;
-    project.read_file_from_commit(commit_id.0.to_git2(), &relative_path)
+    project.read_file_from_commit(commit_id.to_git2(), &relative_path)
 }
 
 #[but_api]
@@ -74,12 +71,11 @@ pub fn get_workspace_file(project_id: ProjectId, relative_path: PathBuf) -> Resu
 #[but_api]
 #[instrument(err(Debug))]
 pub fn get_blob_file(
-    project_id: ProjectId,
+    ctx: &but_ctx::Context,
     relative_path: PathBuf,
-    blob_id: HexHash,
+    blob_id: gix::ObjectId,
 ) -> Result<FileInfo> {
-    let project = gitbutler_project::get(project_id)?;
-    let repo = project.open_isolated_repo()?;
+    let repo = ctx.repo.get()?;
     let object = repo.find_object(blob_id).context("Failed to find blob")?;
     let blob = object.try_into_blob().context("Object is not a blob")?;
     Ok(FileInfo::from_content(&relative_path, &blob.data))
@@ -88,11 +84,9 @@ pub fn get_blob_file(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn pre_commit_hook_diffspecs(
-    project_id: ProjectId,
+    ctx: &but_ctx::Context,
     changes: Vec<DiffSpec>,
 ) -> Result<HookResult> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-
     let repository = ctx.repo.get()?;
     let head = repository
         .head_tree_id_or_empty()
@@ -109,21 +103,18 @@ pub fn pre_commit_hook_diffspecs(
         context_lines,
     )?;
 
-    hooks::pre_commit_with_tree(&ctx, new_tree.to_git2())
+    hooks::pre_commit_with_tree(ctx, new_tree.to_git2())
+}
+#[but_api]
+#[instrument(err(Debug))]
+pub fn post_commit_hook(ctx: &but_ctx::Context) -> Result<HookResult> {
+    gitbutler_repo::hooks::post_commit(ctx)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn post_commit_hook(project_id: ProjectId) -> Result<HookResult> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_repo::hooks::post_commit(&ctx)
-}
-
-#[but_api]
-#[instrument(err(Debug))]
-pub fn message_hook(project_id: ProjectId, message: String) -> Result<MessageHookResult> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_repo::hooks::commit_msg(&ctx, message)
+pub fn message_hook(ctx: &but_ctx::Context, message: String) -> Result<MessageHookResult> {
+    gitbutler_repo::hooks::commit_msg(ctx, message)
 }
 
 #[but_api]

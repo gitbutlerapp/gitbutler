@@ -24,7 +24,7 @@ pub fn set_review_template(
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
         let message = format!("Set review template path to: {}", &path);
-        but_api::legacy::forge::set_review_template(ctx.legacy_project.id, Some(path))?;
+        but_api::legacy::forge::set_review_template(ctx, Some(path))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
@@ -51,10 +51,7 @@ pub fn set_review_template(
             .display()
             .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
         let message = format!("Set review template path to: {}", &selected_template);
-        but_api::legacy::forge::set_review_template(
-            ctx.legacy_project.id,
-            Some(selected_template.clone()),
-        )?;
+        but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }

@@ -1,51 +1,43 @@
 // Re-export for use in other crates
 use anyhow::Result;
 use but_api_macros::but_api;
-use but_ctx::Context;
 pub use but_worktrees::integrate::WorktreeIntegrationStatus as IntegrationStatus;
 use but_worktrees::{
     WorktreeId, destroy::DestroyWorktreeOutcome, integrate::WorktreeIntegrationStatus,
     list::ListWorktreeOutcome, new::NewWorktreeOutcome,
 };
-use gitbutler_project::ProjectId;
 use tracing::instrument;
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_new(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     reference: gix::refs::FullName,
 ) -> Result<NewWorktreeOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let guard = ctx.exclusive_worktree_access();
 
-    but_worktrees::new::worktree_new(&mut ctx, guard.read_permission(), reference.as_ref())
+    but_worktrees::new::worktree_new(ctx, guard.read_permission(), reference.as_ref())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn worktree_list(project_id: ProjectId) -> Result<ListWorktreeOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+pub fn worktree_list(ctx: &mut but_ctx::Context) -> Result<ListWorktreeOutcome> {
     let guard = ctx.exclusive_worktree_access();
 
-    but_worktrees::list::worktree_list(&mut ctx, guard.read_permission())
+    but_worktrees::list::worktree_list(ctx, guard.read_permission())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_integration_status(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     id: WorktreeId,
     target: gix::refs::FullName,
 ) -> Result<WorktreeIntegrationStatus> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let guard = ctx.exclusive_worktree_access();
 
     but_worktrees::integrate::worktree_integration_status(
-        &mut ctx,
+        ctx,
         guard.read_permission(),
         &id,
         target.as_ref(),
@@ -55,16 +47,14 @@ pub fn worktree_integration_status(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_integrate(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     id: WorktreeId,
     target: gix::refs::FullName,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let mut guard = ctx.exclusive_worktree_access();
 
     but_worktrees::integrate::worktree_integrate(
-        &mut ctx,
+        ctx,
         guard.write_permission(),
         &id,
         target.as_ref(),
@@ -74,28 +64,24 @@ pub fn worktree_integrate(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_destroy_by_id(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     id: WorktreeId,
 ) -> Result<DestroyWorktreeOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let mut guard = ctx.exclusive_worktree_access();
 
-    but_worktrees::destroy::worktree_destroy_by_id(&mut ctx, guard.write_permission(), &id)
+    but_worktrees::destroy::worktree_destroy_by_id(ctx, guard.write_permission(), &id)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn worktree_destroy_by_reference(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     reference: gix::refs::FullName,
 ) -> Result<DestroyWorktreeOutcome> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     let mut guard = ctx.exclusive_worktree_access();
 
     but_worktrees::destroy::worktree_destroy_by_reference(
-        &mut ctx,
+        ctx,
         guard.write_permission(),
         reference.as_ref(),
     )

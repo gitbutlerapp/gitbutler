@@ -89,23 +89,23 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
             // Dummy values for backwards compatibility
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             notes: String::new(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             ownership: virtual_branches_legacy_types::BranchOwnershipClaims::default(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             allow_rebasing: true,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             post_commits: false,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             tree: gix::hash::Kind::Sha1.null(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             created_timestamp_ms: 0,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             updated_timestamp_ms: 0,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             name: String::default(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             head: gix::hash::Kind::Sha1.null(),
         }
     }

@@ -109,7 +109,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         )?;
     }
     let outcome = but_api::legacy::projects::add_project(repo_path.to_path_buf())?;
-    let project = match outcome.clone() {
+    match outcome.clone() {
         gitbutler_project::AddProjectOutcome::Added(project) => Ok(project),
         gitbutler_project::AddProjectOutcome::AlreadyExists(project) => Ok(project),
         gitbutler_project::AddProjectOutcome::PathNotFound => Err(anyhow::anyhow!(
@@ -291,16 +291,17 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
     }
 
     // what branch is head() pointing to?
-    let repo = ctx.repo.get()?;
-    let head = repo.head()?;
-    let head_name = head
-        .referent_name()
-        .map(|n| n.shorten().to_string())
-        .unwrap_or_default();
+    let head_name = {
+        let repo = ctx.repo.get()?;
+        let head = repo.head()?;
+        head.referent_name()
+            .map(|n| n.shorten().to_string())
+            .unwrap_or_default()
+    };
 
     // switch to gitbutler/workspace if not already there
     if !head_name.starts_with("gitbutler/") {
-        but_api::legacy::virtual_branches::switch_back_to_workspace(project.id)?;
+        but_api::legacy::virtual_branches::switch_back_to_workspace(&mut ctx)?;
     }
 
     // Install managed hooks to prevent accidental git commits

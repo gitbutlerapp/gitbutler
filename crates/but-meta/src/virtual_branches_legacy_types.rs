@@ -154,23 +154,23 @@ mod stack {
                 // unclear, obsolete
 
                 // For serialization backwards compatibility
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 notes: String::new(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 ownership: BranchOwnershipClaims::default(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 allow_rebasing: true,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 post_commits: false,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 tree: gix::hash::Kind::Sha1.null(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 created_timestamp_ms: 0,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 updated_timestamp_ms: 0,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 name: String::default(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 head: gix::hash::Kind::Sha1.null(),
             }
         }

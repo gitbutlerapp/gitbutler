@@ -1,4 +1,4 @@
-use but_oxidize::TimeExt;
+use but_oxidize::{OidExt, TimeExt};
 use colored::Colorize;
 use gitbutler_oplog::entry::{OperationKind, Snapshot};
 use gix::date::time::CustomFormat;
@@ -43,13 +43,7 @@ pub(crate) fn show_oplog(
         None
     };
 
-    let snapshots = but_api::legacy::oplog::list_snapshots(
-        ctx.legacy_project.id,
-        20,
-        since_sha,
-        None,
-        include_kind,
-    )?;
+    let snapshots = but_api::legacy::oplog::list_snapshots(ctx, 20, since_sha, None, include_kind)?;
 
     if snapshots.is_empty() {
         if let Some(out) = out.for_json() {
@@ -181,8 +175,7 @@ pub(crate) fn restore_to_oplog(
 ) -> anyhow::Result<()> {
     let repo = ctx.repo.get()?;
     let commit_id = repo.rev_parse_single(oplog_sha)?.detach();
-    let target_snapshot =
-        &but_api::legacy::oplog::get_snapshot(ctx.legacy_project.id, commit_id.to_string())?;
+    let target_snapshot = &but_api::legacy::oplog::get_snapshot(ctx, commit_id)?;
 
     let commit_sha_string = commit_id.to_string();
 
@@ -225,7 +218,7 @@ pub(crate) fn restore_to_oplog(
     }
 
     // Restore to the target snapshot using the but-api crate
-    but_api::legacy::oplog::restore_snapshot(ctx.legacy_project.id, commit_sha_string)?;
+    but_api::legacy::oplog::restore_snapshot(ctx, commit_id)?;
 
     if let Some(out) = out.for_human() {
         writeln!(
@@ -249,8 +242,7 @@ pub(crate) fn undo_last_operation(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Get the last two snapshots - restore to the second one back
-    let snapshots =
-        but_api::legacy::oplog::list_snapshots(ctx.legacy_project.id, 2, None, None, None)?;
+    let snapshots = but_api::legacy::oplog::list_snapshots(ctx, 2, None, None, None)?;
 
     if snapshots.len() < 2 {
         if let Some(out) = out.for_human() {
@@ -282,10 +274,7 @@ pub(crate) fn undo_last_operation(
 
     // Restore to the previous snapshot using the but_api
     // TODO: Why does this not require force? It will also overwrite user changes (I think).
-    but_api::legacy::oplog::restore_snapshot(
-        ctx.legacy_project.id,
-        target_snapshot.commit_id.to_string(),
-    )?;
+    but_api::legacy::oplog::restore_snapshot(ctx, target_snapshot.commit_id.to_gix())?;
 
     if let Some(out) = out.for_human() {
         let restore_commit_short = format!(
@@ -312,8 +301,7 @@ pub(crate) fn create_snapshot(
     out: &mut OutputChannel,
     message: Option<&str>,
 ) -> anyhow::Result<()> {
-    let snapshot_id =
-        but_api::legacy::oplog::create_snapshot(ctx.legacy_project.id, message.map(String::from))?;
+    let snapshot_id = but_api::legacy::oplog::create_snapshot(ctx, message.map(String::from))?;
 
     if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({

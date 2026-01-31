@@ -23,8 +23,8 @@ pub fn create_workspace_rule(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn delete_workspace_rule(ctx: &mut Context, id: String) -> Result<()> {
-    delete_rule(ctx, &id)
+pub fn delete_workspace_rule(ctx: &mut Context, rule_id: String) -> Result<()> {
+    delete_rule(ctx, &rule_id)
 }
 
 #[but_api]
