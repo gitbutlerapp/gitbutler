@@ -63,7 +63,6 @@ export enum TestId {
 	UnifiedDiffView = 'unified-diff-view',
 	UnifiedDiffViewLockWarning = 'unified-diff-view-lock-warning',
 	ToastInfoMessage = 'toast-info-message',
-	ToastLoginConfirmation = 'toast-login-confirmation',
 	Stack = 'stack',
 	StackHeader = 'stack-header',
 	StackOfflaneDropzone = 'stack-offlane-dropzone',
