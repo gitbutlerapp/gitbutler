@@ -44,7 +44,7 @@
 	const avatarSize = '3.25rem';
 </script>
 
-<ModalHeader type="info">Confirm login attempt</ModalHeader>
+<ModalHeader type="info">Confirm login</ModalHeader>
 <div class="modal-content">
 	{#await getUserAvatarURL()}
 		<SkeletonBone width={avatarSize} height={avatarSize} radius="100%" />
@@ -53,9 +53,8 @@
 	{/await}
 
 	<p class="text-13 text-body clr-text-2">
-		A new login attempt has been detected for the user
-		<span class="text-bold clr-text-1">{incomingUserName}</span>. Would you like to accept this
-		login?
+		You are about to log in as
+		<span class="text-bold clr-text-1">{incomingUserName}</span>. Would you like to proceed?
 	</p>
 </div>
 <ModalFooter>
