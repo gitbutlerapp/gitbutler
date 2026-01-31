@@ -44,7 +44,7 @@
 	const avatarSize = '3.25rem';
 </script>
 
-<ModalHeader type="info">Confirm the login of {incomingUserName}</ModalHeader>
+<ModalHeader type="info">Confirm login attempt</ModalHeader>
 <div class="modal-content">
 	{#await getUserAvatarURL()}
 		<SkeletonBone width={avatarSize} height={avatarSize} radius="100%" />
@@ -59,7 +59,7 @@
 	</p>
 </div>
 <ModalFooter>
-	<Button kind="outline" onclick={rejectLogin}>Reject login</Button>
+	<Button kind="outline" onclick={rejectLogin}>Reject</Button>
 	<Button style="pop" onclick={acceptLogin}>Accept login</Button>
 </ModalFooter>
 
