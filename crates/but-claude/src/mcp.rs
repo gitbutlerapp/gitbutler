@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::Result;
 use but_ctx::{Context, ThreadSafeContext};
-use but_db::poll::ItemKind;
 use rmcp::{
     ServerHandler, ServiceExt,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
@@ -118,87 +117,49 @@ impl Mcp {
         result.map(|outcome| Ok(CallToolResult::success(vec![Content::json(outcome)?])))?
     }
 
-    /// Inner handler for AskUserQuestion that stores the request and polls for answers
+    /// Inner handler for AskUserQuestion that stores the request and waits for answers
     fn ask_user_question_inner(
         &self,
         id: &str,
         input: &serde_json::Value,
-        timeout: std::time::Duration,
+        _timeout: std::time::Duration,
     ) -> anyhow::Result<HashMap<String, String>> {
-        let ctx = &mut self.ctx.clone().into_thread_local();
+        // Parse questions from input
+        let questions: Vec<crate::AskUserQuestion> = input
+            .get("questions")
+            .map(|q| serde_json::from_value(q.clone()))
+            .transpose()?
+            .unwrap_or_default();
 
-        // Extract questions from input
-        let questions_json = serde_json::to_string(input.get("questions").unwrap_or(&serde_json::json!([])))?;
-
-        // Create a record in the database
         let now = chrono::Utc::now().naive_utc();
-        ctx.db
-            .get_mut()?
-            .claude_mut()
-            .insert_ask_user_question_request(but_db::ClaudeAskUserQuestionRequest {
-                id: id.to_string(),
-                created_at: now,
-                updated_at: now,
-                questions: questions_json.clone(),
-                answers: None,
-                stack_id: None, // MCP path doesn't have stack context; SDK canUseTool callback uses stack_id
-            })?;
+        let request = crate::ClaudeAskUserQuestionRequest {
+            id: id.to_string(),
+            created_at: now,
+            updated_at: now,
+            questions,
+            answers: None,
+            stack_id: None, // MCP path doesn't have stack context
+        };
 
-        // Poll for user answers
-        let rx = ctx.db.get()?.poll_changes(
-            ItemKind::ClaudeAskUserQuestionRequests,
-            std::time::Duration::from_millis(200),
-        )?;
+        // Store in-memory and get receiver for response
+        let receiver = crate::pending_requests::pending_requests()
+            .insert_question(request, self.session_id);
 
-        let start_time = std::time::Instant::now();
-        let mut answers: HashMap<String, String> = HashMap::new();
-
-        for item in rx {
-            if start_time.elapsed() > timeout {
-                // Timeout - clean up and return empty answers
-                tracing::warn!("Timeout waiting for user answers after {:?}", start_time.elapsed());
-                let _ = ctx
-                    .db
-                    .get_mut()
-                    .map(|mut db| db.claude_mut().delete_ask_user_question_request(id));
-                anyhow::bail!("Timeout waiting for user answers (60 seconds)");
-            }
-            match item {
-                Ok(ItemKind::ClaudeAskUserQuestionRequests) => {
-                    let updated = ctx.db.get()?.claude().get_ask_user_question_request(id)?;
-                    if let Some(updated) = updated {
-                        if let Some(answers_str) = updated.answers {
-                            // Parse the answers JSON
-                            answers = serde_json::from_str(&answers_str)?;
-
-                            // Clean up the request
-                            let _ = ctx
-                                .db
-                                .get_mut()
-                                .map(|mut db| db.claude_mut().delete_ask_user_question_request(id));
-
-                            break;
-                        }
-                    } else {
-                        // Request was deleted (user cancelled)
-                        anyhow::bail!("User cancelled the question");
-                    }
-                }
-                Ok(_) => continue,
-                Err(e) => {
-                    tracing::error!("Error polling for changes: {e}");
-                    break;
-                }
+        // Wait for user answers with timeout (blocking)
+        match receiver.blocking_recv() {
+            Ok(answers) => Ok(answers),
+            Err(_) => {
+                // Sender dropped (session cancelled or timeout)
+                crate::pending_requests::pending_requests().remove_question(id);
+                anyhow::bail!("Question request cancelled or timed out")
             }
         }
-
-        Ok(answers)
     }
 
     fn approval_inner(
         &self,
         req: crate::ClaudePermissionRequest,
-        timeout: std::time::Duration,
+        _timeout: std::time::Duration,
     ) -> anyhow::Result<bool> {
         let mut ctx = self.ctx.clone().into_thread_local();
 
@@ -225,59 +186,29 @@ impl Mcp {
             tracing::warn!("Failed to send permission request notification: {}", e);
         }
 
-        // Create a record that will be seen by the user in the UI
-        ctx.db
-            .get_mut()?
-            .claude_mut()
-            .insert_permission_request(req.clone().try_into()?)?;
-        // Poll for user approval
-        let rx = ctx.db.get()?.poll_changes(
-            ItemKind::Actions
-                | ItemKind::Workflows
-                | ItemKind::Assignments
-                | ItemKind::Rules
-                | ItemKind::ClaudePermissionRequests,
-            std::time::Duration::from_millis(500),
-        )?;
-        let mut approved_state = false;
-        let start_time = std::time::Instant::now();
+        // Store in-memory and get receiver for response
+        let receiver = crate::pending_requests::pending_requests()
+            .insert_permission(req.clone(), self.session_id);
 
-        for item in rx {
-            if start_time.elapsed() > timeout {
-                eprintln!("Timeout waiting for permission approval (1 day)");
-                break;
+        // Wait for user decision (blocking)
+        match receiver.blocking_recv() {
+            Ok(decision) => {
+                let approved = decision.is_allowed();
+
+                // Handle the decision - persist to settings/session/database and update runtime permissions
+                let mut runtime_perms = self.runtime_permissions.lock().unwrap();
+                if let Err(e) = decision.handle(&req, &mut runtime_perms, &mut ctx, self.session_id) {
+                    tracing::warn!("Failed to handle permission decision: {}", e);
+                }
+
+                Ok(approved)
             }
-            match item {
-                Ok(ItemKind::ClaudePermissionRequests) => {
-                    let updated = ctx.db.get()?.claude().get_permission_request(&req.id)?;
-                    if let Some(updated) = updated {
-                        if let Some(decision_str) = updated.decision.clone() {
-                            let decision: crate::PermissionDecision = serde_json::from_str(&decision_str)?;
-                            approved_state = decision.is_allowed();
-
-                            // Handle the decision - persist to settings/session/database and update runtime permissions
-                            let mut runtime_perms = self.runtime_permissions.lock().unwrap();
-                            if let Err(e) =
-                                decision.handle(&updated.try_into()?, &mut runtime_perms, &mut ctx, self.session_id)
-                            {
-                                tracing::warn!("Failed to handle permission decision: {}", e);
-                            }
-
-                            break;
-                        }
-                    } else {
-                        eprintln!("Permission request not found: {}", req.id);
-                        break;
-                    }
-                }
-                Ok(_) => continue, // Ignore other item kinds
-                Err(e) => {
-                    eprintln!("Error polling for changes: {e}");
-                    break;
-                }
+            Err(_) => {
+                // Sender dropped (session cancelled)
+                crate::pending_requests::pending_requests().remove_permission(&req.id);
+                Ok(false)
             }
         }
-        Ok(approved_state)
     }
 }
 

@@ -24,6 +24,7 @@ pub mod hooks;
 pub(crate) mod legacy;
 pub mod mcp;
 pub mod notifications;
+pub mod pending_requests;
 pub mod permissions;
 pub mod prompt_templates;
 mod rules;

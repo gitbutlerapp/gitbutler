@@ -207,7 +207,7 @@ impl Claudes {
             summary_to_resume,
             session_id,
             session,
-            project_workdir,
+            project_workdir: _,
         } = setup_session(&sync_ctx, stack_id)?;
 
         // Store the original message for UI display (without inlined file content)
@@ -250,6 +250,8 @@ impl Claudes {
         // but it's "good enough" for now.
         response_streamer.abort();
         self.requests.lock().await.remove(&stack_id);
+        // Clean up any pending permission/question requests for this session
+        crate::pending_requests::pending_requests().cancel_session(session_id);
 
         handle_exit(
             sync_ctx.clone(),
@@ -489,6 +491,7 @@ impl Claudes {
         let mut client = ClaudeClient::new(options);
         if let Err(e) = client.connect().await {
             self.requests.lock().await.remove(&stack_id);
+            crate::pending_requests::pending_requests().cancel_session(session_id);
             send_claude_message(
                 sync_ctx.clone(),
                 broadcaster.clone(),
@@ -521,6 +524,7 @@ impl Claudes {
 
         if let Err(e) = client.query(&formatted_message).await {
             self.requests.lock().await.remove(&stack_id);
+            crate::pending_requests::pending_requests().cancel_session(session_id);
             client.disconnect().await?;
             send_claude_message(
                 sync_ctx.clone(),
@@ -650,6 +654,7 @@ impl Claudes {
         // Clean up
         drop(stream);
         self.requests.lock().await.remove(&stack_id);
+        crate::pending_requests::pending_requests().cancel_session(session_id);
         client.disconnect().await?;
 
         broadcast_gitbutler_messages(&sync_ctx, &broadcaster, session_id, stack_id, session_start_time).await;
@@ -1552,52 +1557,77 @@ fn create_can_use_tool_callback(
                     }
                 }
 
-                // Insert permission request into DB for user to see
-                {
-                    let mut ctx = sync_ctx.clone().into_thread_local();
-                    let insert_result: anyhow::Result<()> = (|| {
-                        let db_request: but_db::ClaudePermissionRequest = permission_request.clone().try_into()?;
-                        ctx.db.get_mut()?.claude_mut().insert_permission_request(db_request)?;
-                        Ok(())
-                    })();
-                    if let Err(e) = insert_result {
-                        tracing::error!("Failed to insert permission request: {}", e);
-                        return PermissionResult::Deny(PermissionResultDeny {
-                            message: format!("Failed to create permission request: {}", e),
-                            interrupt: false,
-                        });
-                    }
-                }
+                // Store in-memory and get receiver for response
+                let receiver = crate::pending_requests::pending_requests()
+                    .insert_permission(permission_request.clone(), session_id);
 
                 // Send notification
                 if let Err(e) = crate::notifications::notify_permission_request(&sync_ctx.settings, &tool_name) {
                     tracing::warn!("Failed to send notification: {}", e);
                 }
 
-                // Poll for user decision
-                poll_for_permission_decision(
-                    sync_ctx.clone(),
-                    &request_id,
-                    &tool_name,
-                    &tool_input,
-                    session_id,
-                    Arc::clone(&runtime_permissions),
-                )
-                .await
+                // Wait for user decision with timeout
+                let timeout = crate::pending_requests::DEFAULT_REQUEST_TIMEOUT;
+                match tokio::time::timeout(timeout, receiver).await {
+                    Ok(Ok(decision)) => {
+                        let approved = decision.is_allowed();
+
+                        // Handle the decision (update runtime permissions, persist to settings)
+                        {
+                            let mut ctx = sync_ctx.clone().into_thread_local();
+                            let mut perms = runtime_permissions.lock().unwrap();
+                            if let Err(e) = decision.handle(
+                                &permission_request,
+                                &mut perms,
+                                &mut ctx,
+                                session_id,
+                            ) {
+                                tracing::warn!("Failed to handle permission decision: {}", e);
+                            }
+                        }
+
+                        if approved {
+                            PermissionResult::Allow(PermissionResultAllow {
+                                updated_input: Some(tool_input.clone()),
+                                ..Default::default()
+                            })
+                        } else {
+                            PermissionResult::Deny(PermissionResultDeny {
+                                message: "Denied by user".to_string(),
+                                interrupt: false,
+                            })
+                        }
+                    }
+                    Ok(Err(_)) => {
+                        // Sender dropped (session cancelled)
+                        PermissionResult::Deny(PermissionResultDeny {
+                            message: "Permission request cancelled".to_string(),
+                            interrupt: false,
+                        })
+                    }
+                    Err(_) => {
+                        // Timeout - clean up
+                        crate::pending_requests::pending_requests().remove_permission(&request_id);
+                        PermissionResult::Deny(PermissionResultDeny {
+                            message: "Permission request timed out".to_string(),
+                            interrupt: false,
+                        })
+                    }
+                }
             }
             .boxed()
         },
     )
 }
 
-/// Handle AskUserQuestion tool - polls DB for user answers
+/// Handle AskUserQuestion tool - waits for user answers via in-memory channel
 async fn handle_ask_user_question(
     sync_ctx: ThreadSafeContext,
     stack_id: gitbutler_stack::StackId,
     tool_input: serde_json::Value,
 ) -> claude_agent_sdk_rs::PermissionResult {
-    use but_db::poll::ItemKind;
     use claude_agent_sdk_rs::{PermissionResult, PermissionResultAllow};
+    let _ = sync_ctx; // Silence unused warning - may be needed for future enhancements
 
     // Parse the questions from the input
     let questions: Vec<crate::AskUserQuestion> = match tool_input.get("questions") {
@@ -1633,223 +1663,53 @@ async fn handle_ask_user_question(
         stack_id: Some(stack_id),
     };
 
-    // Store the request in the database
-    {
-        let mut ctx = sync_ctx.clone().into_thread_local();
-        if let Err(e) = crate::db::insert_ask_user_question_request(&mut ctx, request) {
-            tracing::error!("Failed to insert AskUserQuestion request: {}", e);
-            return PermissionResult::Allow(PermissionResultAllow {
-                updated_input: Some(tool_input),
-                ..Default::default()
-            });
-        }
-    }
+    // Generate a session_id for tracking
+    // Note: We use a new UUID for each request. Session cancellation will need to be handled
+    // by looking up requests by stack_id instead.
+    let session_id_for_tracking = uuid::Uuid::new_v4();
+
+    // Store in-memory and get receiver for response
+    let receiver = crate::pending_requests::pending_requests()
+        .insert_question(request, session_id_for_tracking);
 
     // Send notification
     if let Err(e) = crate::notifications::notify_permission_request(&sync_ctx.settings, "AskUserQuestion") {
         tracing::warn!("Failed to send AskUserQuestion notification: {}", e);
     }
 
-    // Poll for user answers
-    let timeout = std::time::Duration::from_secs(60 * 60 * 24); // 24 hour timeout
-    let start_time = std::time::Instant::now();
-
-    let mut rx = {
-        let ctx = sync_ctx.clone().into_thread_local();
-        match ctx.db.get() {
-            Ok(db) => match db.poll_changes_async(
-                ItemKind::ClaudeAskUserQuestionRequests,
-                std::time::Duration::from_millis(500),
-            ) {
-                Ok(rx) => rx,
-                Err(e) => {
-                    tracing::error!("Failed to start polling for AskUserQuestion: {}", e);
-                    return PermissionResult::Allow(PermissionResultAllow {
-                        updated_input: Some(tool_input),
-                        ..Default::default()
-                    });
-                }
-            },
-            Err(e) => {
-                tracing::error!("Failed to get DB handle for AskUserQuestion: {}", e);
-                return PermissionResult::Allow(PermissionResultAllow {
-                    updated_input: Some(tool_input),
-                    ..Default::default()
-                });
+    // Wait for user answers with timeout
+    let timeout = crate::pending_requests::DEFAULT_REQUEST_TIMEOUT;
+    match tokio::time::timeout(timeout, receiver).await {
+        Ok(Ok(answers)) => {
+            // Build updated input with answers
+            let mut updated_input = tool_input.clone();
+            if let Some(obj) = updated_input.as_object_mut() {
+                obj.insert("answers".to_string(), serde_json::json!(answers));
             }
-        }
-    };
 
-    while let Some(item) = rx.recv().await {
-        if start_time.elapsed() > timeout {
+            PermissionResult::Allow(PermissionResultAllow {
+                updated_input: Some(updated_input),
+                ..Default::default()
+            })
+        }
+        Ok(Err(_)) => {
+            // Sender dropped (session cancelled) - allow with original input
+            tracing::warn!("AskUserQuestion request cancelled");
+            PermissionResult::Allow(PermissionResultAllow {
+                updated_input: Some(tool_input),
+                ..Default::default()
+            })
+        }
+        Err(_) => {
+            // Timeout - clean up and allow with original input
+            crate::pending_requests::pending_requests().remove_question(&request_id);
             tracing::warn!("AskUserQuestion timeout after 24 hours");
-            break;
-        }
-
-        match item {
-            Ok(ItemKind::ClaudeAskUserQuestionRequests) => {
-                let ctx = sync_ctx.clone().into_thread_local();
-                let updated = match crate::db::get_ask_user_question_request(&ctx, &request_id) {
-                    Ok(Some(req)) => req,
-                    Ok(None) => break,
-                    Err(_) => continue,
-                };
-
-                if let Some(answers) = updated.answers {
-                    // Clean up the request
-                    {
-                        let mut ctx = sync_ctx.clone().into_thread_local();
-                        let _ = crate::db::delete_ask_user_question_request(&mut ctx, &request_id);
-                    }
-
-                    // Build updated input with answers
-                    let mut updated_input = tool_input.clone();
-                    if let Some(obj) = updated_input.as_object_mut() {
-                        obj.insert("answers".to_string(), serde_json::json!(answers));
-                    }
-
-                    return PermissionResult::Allow(PermissionResultAllow {
-                        updated_input: Some(updated_input),
-                        ..Default::default()
-                    });
-                }
-            }
-            Ok(_) => continue,
-            Err(_) => break,
+            PermissionResult::Allow(PermissionResultAllow {
+                updated_input: Some(tool_input),
+                ..Default::default()
+            })
         }
     }
-
-    // Timeout or error
-    PermissionResult::Allow(PermissionResultAllow {
-        updated_input: Some(tool_input),
-        ..Default::default()
-    })
-}
-
-/// Poll for user permission decision on a tool request
-async fn poll_for_permission_decision(
-    sync_ctx: ThreadSafeContext,
-    request_id: &str,
-    tool_name: &str,
-    tool_input: &serde_json::Value,
-    session_id: uuid::Uuid,
-    runtime_permissions: std::sync::Arc<std::sync::Mutex<crate::permissions::Permissions>>,
-) -> claude_agent_sdk_rs::PermissionResult {
-    use but_db::poll::ItemKind;
-    use claude_agent_sdk_rs::{PermissionResult, PermissionResultAllow, PermissionResultDeny};
-
-    let timeout = std::time::Duration::from_secs(60 * 60 * 24); // 24 hour timeout
-    let start_time = std::time::Instant::now();
-
-    let mut rx = {
-        let ctx = sync_ctx.clone().into_thread_local();
-        match ctx.db.get() {
-            Ok(db) => match db.poll_changes_async(
-                ItemKind::ClaudePermissionRequests,
-                std::time::Duration::from_millis(500),
-            ) {
-                Ok(rx) => rx,
-                Err(e) => {
-                    tracing::error!("Failed to start polling: {}", e);
-                    return PermissionResult::Deny(PermissionResultDeny {
-                        message: format!("Failed to poll for permission: {}", e),
-                        interrupt: false,
-                    });
-                }
-            },
-            Err(e) => {
-                tracing::error!("Failed to get DB handle: {}", e);
-                return PermissionResult::Deny(PermissionResultDeny {
-                    message: format!("Database error: {}", e),
-                    interrupt: false,
-                });
-            }
-        }
-    };
-
-    while let Some(item) = rx.recv().await {
-        if start_time.elapsed() > timeout {
-            tracing::warn!("Permission request timeout after 24 hours");
-            break;
-        }
-
-        match item {
-            Ok(ItemKind::ClaudePermissionRequests) => {
-                let ctx = sync_ctx.clone().into_thread_local();
-                let updated = match ctx.db.get() {
-                    Ok(db) => match db.claude().get_permission_request(request_id) {
-                        Ok(Some(req)) => req,
-                        Ok(None) => {
-                            // Request was deleted (user cancelled)
-                            return PermissionResult::Deny(PermissionResultDeny {
-                                message: "Permission request cancelled".to_string(),
-                                interrupt: false,
-                            });
-                        }
-                        Err(_) => continue,
-                    },
-                    Err(_) => continue,
-                };
-
-                if let Some(decision_str) = updated.decision {
-                    let decision: crate::PermissionDecision = match serde_json::from_str(&decision_str) {
-                        Ok(d) => d,
-                        Err(e) => {
-                            tracing::error!("Failed to parse permission decision: {}", e);
-                            continue;
-                        }
-                    };
-
-                    let approved = decision.is_allowed();
-
-                    // Build the permission request for handling
-                    let perm_request = crate::ClaudePermissionRequest {
-                        id: request_id.to_string(),
-                        created_at: updated.created_at,
-                        updated_at: updated.updated_at,
-                        tool_name: tool_name.to_string(),
-                        input: tool_input.clone(),
-                        decision: Some(decision.clone()),
-                        use_wildcard: updated.use_wildcard,
-                    };
-
-                    // Handle the decision (update runtime permissions, persist to settings)
-                    {
-                        let mut ctx = sync_ctx.clone().into_thread_local();
-                        let mut perms = runtime_permissions.lock().unwrap();
-                        if let Err(e) = decision.handle(
-                            &perm_request,
-                            &mut perms,
-                            &mut ctx,
-                            session_id,
-                        ) {
-                            tracing::warn!("Failed to handle permission decision: {}", e);
-                        }
-                    }
-
-                    if approved {
-                        return PermissionResult::Allow(PermissionResultAllow {
-                            updated_input: Some(tool_input.clone()),
-                            ..Default::default()
-                        });
-                    } else {
-                        return PermissionResult::Deny(PermissionResultDeny {
-                            message: "Denied by user".to_string(),
-                            interrupt: false,
-                        });
-                    }
-                }
-            }
-            Ok(_) => continue,
-            Err(_) => break,
-        }
-    }
-
-    // Timeout
-    PermissionResult::Deny(PermissionResultDeny {
-        message: "Permission request timed out".to_string(),
-        interrupt: false,
-    })
 }
 
 /// Creates a PreToolUse hook that performs file locking and keeps the stream open.
