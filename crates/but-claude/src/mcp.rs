@@ -142,8 +142,7 @@ impl Mcp {
         };
 
         // Store in-memory and get receiver for response
-        let receiver = crate::pending_requests::pending_requests()
-            .insert_question(request, self.session_id);
+        let receiver = crate::pending_requests::pending_requests().insert_question(request, self.session_id);
 
         // Wait for user answers with timeout (blocking)
         match receiver.blocking_recv() {
@@ -187,8 +186,7 @@ impl Mcp {
         }
 
         // Store in-memory and get receiver for response
-        let receiver = crate::pending_requests::pending_requests()
-            .insert_permission(req.clone(), self.session_id);
+        let receiver = crate::pending_requests::pending_requests().insert_permission(req.clone(), self.session_id);
 
         // Wait for user decision (blocking)
         match receiver.blocking_recv() {

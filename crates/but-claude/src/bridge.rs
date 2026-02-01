@@ -86,10 +86,26 @@ impl Claudes {
         // The session streams results via the broadcaster, so the frontend gets updates in real-time.
         let claudes = Arc::clone(self);
         tokio::spawn(async move {
+            let start = std::time::Instant::now();
+            tracing::debug!(stack_id = ?stack_id, "Claude session task spawned");
+
             claudes
                 .spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params)
                 .await;
-            let _ = claudes.maybe_compact_context(ctx, broadcaster, stack_id).await;
+
+            match claudes.maybe_compact_context(ctx, broadcaster, stack_id).await {
+                Ok(_) => tracing::info!(
+                    stack_id = ?stack_id,
+                    duration_ms = start.elapsed().as_millis(),
+                    "Claude session completed successfully"
+                ),
+                Err(e) => tracing::error!(
+                    stack_id = ?stack_id,
+                    error = %e,
+                    duration_ms = start.elapsed().as_millis(),
+                    "Claude session cleanup (compaction check) failed"
+                ),
+            }
         });
 
         Ok(())
@@ -1386,11 +1402,23 @@ fn create_pretool_use_hook(
                         );
 
                         // Perform file locking using the SDK variant
-                        if let Err(e) =
-                            crate::hooks::handle_pre_tool_call_for_sdk(&pre_tool_input.session_id, file_path)
-                        {
-                            tracing::warn!("PreToolUse file locking failed: {}", e);
-                            // Continue even if locking fails - don't block the tool execution
+                        // Use spawn_blocking to avoid blocking the async runtime with file I/O
+                        let session_id = pre_tool_input.session_id.clone();
+                        let file_path = file_path.to_string();
+                        let result = tokio::task::spawn_blocking(move || {
+                            crate::hooks::handle_pre_tool_call_for_sdk(&session_id, &file_path)
+                        })
+                        .await;
+
+                        match result {
+                            Ok(Ok(_)) => {}
+                            Ok(Err(e)) => {
+                                tracing::warn!("PreToolUse file locking failed: {}", e);
+                                // Continue even if locking fails - don't block the tool execution
+                            }
+                            Err(e) => {
+                                tracing::warn!("PreToolUse spawn_blocking failed: {}", e);
+                            }
                         }
                     }
                 }
@@ -1465,12 +1493,20 @@ fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
                     }
 
                     // Use the _for_sdk variant which skips the GUI check (SDK hooks always run in GUI context)
-                    match crate::hooks::handle_post_tool_call_from_input_for_sdk(
-                        &post_tool_input.session_id,
-                        file_path,
-                        &structured_patch,
-                    ) {
-                        Ok(output) => {
+                    // Use spawn_blocking to avoid blocking the async runtime with file I/O
+                    let session_id = post_tool_input.session_id.clone();
+                    let file_path = file_path.to_string();
+                    let result = tokio::task::spawn_blocking(move || {
+                        crate::hooks::handle_post_tool_call_from_input_for_sdk(
+                            &session_id,
+                            &file_path,
+                            &structured_patch,
+                        )
+                    })
+                    .await;
+
+                    match result {
+                        Ok(Ok(output)) => {
                             tracing::info!(
                                 "PostToolUse hook: handler succeeded, should_continue={}",
                                 output.should_continue()
@@ -1480,8 +1516,15 @@ fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
                                 ..Default::default()
                             })
                         }
-                        Err(e) => {
+                        Ok(Err(e)) => {
                             tracing::warn!("PostToolUse hook failed: {}", e);
+                            HookJsonOutput::Sync(SyncHookJsonOutput {
+                                continue_: Some(true),
+                                ..Default::default()
+                            })
+                        }
+                        Err(e) => {
+                            tracing::warn!("PostToolUse spawn_blocking failed: {}", e);
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(true),
                                 ..Default::default()
@@ -1519,11 +1562,16 @@ fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
                         stop_input.transcript_path
                     );
                     // Use the _for_sdk variant which skips the GUI check (SDK hooks always run in GUI context)
-                    match crate::hooks::handle_stop_from_input_for_sdk(
-                        &stop_input.session_id,
-                        &stop_input.transcript_path,
-                    ) {
-                        Ok(output) => {
+                    // Wrap in spawn_blocking since handle_stop_from_input_for_sdk performs blocking I/O
+                    let session_id = stop_input.session_id.clone();
+                    let transcript_path = stop_input.transcript_path.clone();
+                    let result = tokio::task::spawn_blocking(move || {
+                        crate::hooks::handle_stop_from_input_for_sdk(&session_id, &transcript_path)
+                    })
+                    .await;
+
+                    match result {
+                        Ok(Ok(output)) => {
                             tracing::info!(
                                 "Stop hook: handler succeeded, should_continue={}",
                                 output.should_continue()
@@ -1533,8 +1581,15 @@ fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
                                 ..Default::default()
                             })
                         }
-                        Err(e) => {
+                        Ok(Err(e)) => {
                             tracing::warn!("Stop hook failed: {}", e);
+                            HookJsonOutput::Sync(SyncHookJsonOutput {
+                                continue_: Some(true),
+                                ..Default::default()
+                            })
+                        }
+                        Err(e) => {
+                            tracing::warn!("Stop hook spawn_blocking failed: {}", e);
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(true),
                                 ..Default::default()

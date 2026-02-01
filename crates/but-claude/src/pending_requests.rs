@@ -140,10 +140,7 @@ impl PendingRequests {
     }
 
     /// Gets a pending question request by stack ID.
-    pub fn get_question_by_stack(
-        &self,
-        stack_id: &gitbutler_stack::StackId,
-    ) -> Option<ClaudeAskUserQuestionRequest> {
+    pub fn get_question_by_stack(&self, stack_id: &gitbutler_stack::StackId) -> Option<ClaudeAskUserQuestionRequest> {
         let questions = self.questions.lock().unwrap();
         questions
             .values()
@@ -160,11 +157,7 @@ impl PendingRequests {
     /// Responds to a pending question request with user answers.
     ///
     /// This removes the request from storage and sends the answers to the waiting task.
-    pub fn respond_question(
-        &self,
-        id: &str,
-        answers: HashMap<String, String>,
-    ) -> anyhow::Result<()> {
+    pub fn respond_question(&self, id: &str, answers: HashMap<String, String>) -> anyhow::Result<()> {
         let mut questions = self.questions.lock().unwrap();
         let pending = questions
             .remove(id)
