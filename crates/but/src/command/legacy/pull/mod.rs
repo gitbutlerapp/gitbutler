@@ -273,7 +273,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
             writeln!(
                 out,
                 "\n{} {} upstream commits on {}",
-                "Found".bright_white(),
+                "Found".bold(),
                 base_branch.behind.to_string().bright_yellow(),
                 base_branch.branch_name.bright_cyan()
             )?;
@@ -547,7 +547,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                         writeln!(
                             out,
                             "{} of {} {}",
-                            "Rebase".bright_white(),
+                            "Rebase".bold(),
                             branch_name.as_str().bright_cyan(),
                             "successful".green()
                         )?;
@@ -571,7 +571,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                             writeln!(
                                 out,
                                 "{} {} has been integrated upstream and removed locally",
-                                "Branch".bright_white(),
+                                "Branch".bold(),
                                 branch.bright_green()
                             )?;
                         }
@@ -618,7 +618,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
 
                     // Undo instructions
                     writeln!(out)?;
-                    writeln!(out, "{}", "To undo this operation:".bright_white())?;
+                    writeln!(out, "{}", "To undo this operation:".bold())?;
                     writeln!(out, "  Run `but undo`")?;
                 }
 
