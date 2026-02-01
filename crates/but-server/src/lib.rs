@@ -1,3 +1,5 @@
+//! TODO(DP): The whole server seems to need something akin to
+//!           `#[tauri::command(async))]` for each blocking call it executes. Right?
 use std::{future::Future, net::SocketAddr, sync::Arc};
 
 use axum::{
@@ -18,9 +20,9 @@ use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use gitbutler_project::ProjectId;
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::sync::Mutex;
 use tower_http::cors::{self, CorsLayer};
 
 mod projects;
@@ -724,13 +726,13 @@ async fn handle_ws_request(ws: WebSocketUpgrade, broadcaster: Arc<Mutex<Broadcas
 }
 
 async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>>) {
-    let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
+    let (send, recv) = flume::unbounded();
     let id = uuid::Uuid::new_v4();
-    broadcaster.lock().await.register_sender(&id, send);
+    broadcaster.lock().register_sender(&id, send);
 
     let (mut socket_send, mut socket_recv) = socket.split();
     let thread = tokio::spawn(async move {
-        while let Some(event) = recv.recv().await {
+        while let Ok(event) = recv.recv_async().await {
             socket_send
                 .send(Message::Text(serde_json::to_string(&event).unwrap().into()))
                 .await
@@ -749,7 +751,7 @@ async fn handle_websocket(socket: WebSocket, broadcaster: Arc<Mutex<Broadcaster>
         }
     }
 
-    broadcaster.lock().await.deregister_sender(&id);
+    broadcaster.lock().deregister_sender(&id);
 }
 
 async fn handle_command(
@@ -781,8 +783,8 @@ async fn handle_command(
         "update_reviews" => deserialize_json(request.params)
             .and_then(|params| legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))),
         // Project management (need extra or app)
-        "list_projects" => projects::list_projects(&extra).await,
-        "set_project_active" => projects::set_project_active(&app, &extra, app_settings_sync, request.params).await,
+        "list_projects" => projects::list_projects(&extra),
+        "set_project_active" => projects::set_project_active(&app, &extra, app_settings_sync, request.params),
         // Async virtual branches commands (not yet migrated due to different pattern)
         "upstream_integration_statuses" => {
             let params = deserialize_json(request.params);
@@ -913,7 +915,7 @@ async fn handle_command(
         // Claude commands (need app)
         "claude_send_message" => {
             let params = deserialize_json(request.params)?;
-            let result = legacy::claude::claude_send_message(&app, params).await;
+            let result = legacy::claude::claude_send_message(&app, params);
             result.map(|r| json!(r))
         }
         "claude_get_mcp_config" => {
@@ -924,7 +926,7 @@ async fn handle_command(
             }
             let params = serde_json::from_value::<Params>(request.params)?;
             let ctx = Context::new_from_legacy_project_id(params.project_id)?;
-            let result = legacy::claude::claude_get_mcp_config(ctx.into_sync()).await;
+            let result = legacy::claude::claude_get_mcp_config(&ctx);
             result.map(|r| json!(r))
         }
         "claude_get_messages" => {
@@ -948,7 +950,7 @@ async fn handle_command(
             match params {
                 Ok(Params { project_id, session_id }) => {
                     let ctx = Context::new_from_legacy_project_id(project_id)?;
-                    let result = legacy::claude::claude_get_session_details(ctx.into_sync(), session_id).await;
+                    let result = legacy::claude::claude_get_session_details(&ctx, session_id);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -958,21 +960,21 @@ async fn handle_command(
             let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
-                    let result = legacy::claude::claude_cancel_session(&app, params).await;
+                    let result = legacy::claude::claude_cancel_session(&app, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
             }
         }
         "claude_check_available" => {
-            let result = legacy::claude::claude_check_available().await;
+            let result = legacy::claude::claude_check_available();
             result.map(|r| json!(r))
         }
         "claude_is_stack_active" => {
             let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
-                    let result = legacy::claude::claude_is_stack_active(&app, params).await;
+                    let result = legacy::claude::claude_is_stack_active(&app, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -982,7 +984,7 @@ async fn handle_command(
             let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
-                    let result = legacy::claude::claude_compact_history(&app, params).await;
+                    let result = legacy::claude::claude_compact_history(&app, params);
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),
@@ -996,7 +998,7 @@ async fn handle_command(
             }
             let params = serde_json::from_value::<Params>(request.params)?;
             let ctx = Context::new_from_legacy_project_id(params.project_id)?;
-            let result = legacy::claude::claude_get_sub_agents(ctx.into_sync()).await;
+            let result = legacy::claude::claude_get_sub_agents(&ctx);
             result.map(|r| json!(r))
         }
         "claude_verify_path" => {
@@ -1008,7 +1010,7 @@ async fn handle_command(
             }
             let params = serde_json::from_value::<Params>(request.params)?;
             let ctx = Context::new_from_legacy_project_id(params.project_id)?;
-            let result = legacy::claude::claude_verify_path(ctx.into_sync(), params.path).await;
+            let result = legacy::claude::claude_verify_path(&ctx, params.path);
             result.map(|r| json!(r))
         }
 

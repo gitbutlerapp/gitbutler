@@ -13,7 +13,7 @@ use tracing::instrument;
 #[allow(clippy::too_many_arguments)]
 #[tauri::command(async)]
 #[instrument(skip(claude), err(Debug))]
-pub async fn claude_send_message(
+pub fn claude_send_message(
     claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
@@ -41,7 +41,6 @@ pub async fn claude_send_message(
             },
         },
     )
-    .await
     .map_err(Into::into)
 }
 
@@ -57,36 +56,30 @@ pub fn claude_get_messages(
 
 #[tauri::command(async)]
 #[instrument(skip(claude), err(Debug))]
-pub async fn claude_cancel_session(
+pub fn claude_cancel_session(
     claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
-    claude::claude_cancel_session(&claude, CancelSessionParams { project_id, stack_id })
-        .await
-        .map_err(Into::into)
+    claude::claude_cancel_session(&claude, CancelSessionParams { project_id, stack_id }).map_err(Into::into)
 }
 
 #[tauri::command(async)]
 #[instrument(skip(claude), err(Debug))]
-pub async fn claude_is_stack_active(
+pub fn claude_is_stack_active(
     claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
-    claude::claude_is_stack_active(&claude, IsStackActiveParams { project_id, stack_id })
-        .await
-        .map_err(Into::into)
+    claude::claude_is_stack_active(&claude, IsStackActiveParams { project_id, stack_id }).map_err(Into::into)
 }
 
 #[tauri::command(async)]
 #[instrument(skip(claude), err(Debug))]
-pub async fn claude_compact_history(
+pub fn claude_compact_history(
     claude: State<'_, Claude>,
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<(), Error> {
-    claude::claude_compact_history(&claude, CompactHistoryParams { project_id, stack_id })
-        .await
-        .map_err(Into::into)
+    claude::claude_compact_history(&claude, CompactHistoryParams { project_id, stack_id }).map_err(Into::into)
 }

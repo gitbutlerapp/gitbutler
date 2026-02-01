@@ -31,6 +31,8 @@ gitbutler-project.workspace = true
 gitbutler-watcher.workspace = true
 
 serde.workspace = true
+flume.workspace = true
+parking_lot.workspace = true
 axum = { version = "0.8.8", features = ["ws"] }
 futures-util = { version = "0.3", default-features = false, features = [
     "sink",

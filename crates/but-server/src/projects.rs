@@ -77,7 +77,7 @@ impl ActiveProjects {
                     },
                 };
 
-                broadcaster.blocking_lock().send(frontend_event);
+                broadcaster.lock().send(frontend_event);
                 Ok(())
             }
         });
@@ -100,10 +100,7 @@ impl ActiveProjects {
                 let project_id = ctx.legacy_project.id;
                 move |item| {
                     let event = FrontendEvent::from_db_item(project_id, item);
-                    let broadcaster = broadcaster.clone();
-                    tokio::task::spawn(async move {
-                        broadcaster.lock().await.send(event);
-                    });
+                    broadcaster.lock().send(event);
                     Ok(())
                 }
             })?
@@ -131,14 +128,14 @@ pub struct ProjectInfo {
     headsup: Option<String>,
 }
 
-pub async fn list_projects(extra: &Extra) -> anyhow::Result<serde_json::Value> {
-    let active_projects = extra.active_projects.lock().await;
+pub fn list_projects(extra: &Extra) -> anyhow::Result<serde_json::Value> {
+    let active_projects = extra.active_projects.lock();
     let project_ids: Vec<ProjectId> = active_projects.projects.keys().copied().collect();
     let projects_for_frontend = but_api::legacy::projects::list_projects(project_ids)?;
     Ok(json!(projects_for_frontend))
 }
 
-pub async fn set_project_active(
+pub fn set_project_active(
     claude: &Claude,
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
@@ -149,7 +146,7 @@ pub async fn set_project_active(
     // TODO(ctx): Adding projects to a list of active projects requires some more
     //            knowledge around how many unique tabs are looking at it
 
-    let mut active_projects = extra.active_projects.lock().await;
+    let mut active_projects = extra.active_projects.lock();
     let mut ctx = Context::new_from_legacy_project_id(params.id)?;
     active_projects.set_active(&mut ctx, claude, app_settings_sync)?;
 

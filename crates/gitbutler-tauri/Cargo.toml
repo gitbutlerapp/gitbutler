@@ -54,6 +54,7 @@ tauri-plugin-clipboard-manager = "2.3.2"
 
 
 anyhow.workspace = true
+flume.workspace = true
 
 # For error casting
 rusqlite.workspace = true

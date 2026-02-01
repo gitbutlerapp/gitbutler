@@ -24,9 +24,11 @@ use std::{
     fs,
     io::{BufRead, BufReader, PipeReader, Read as _},
     process::{Child, Command, ExitStatus},
-    sync::{Arc, Mutex},
+    sync::Arc,
     thread::JoinHandle,
 };
+
+use parking_lot::Mutex;
 
 use anyhow::{Result, bail};
 use but_action::cli::get_cli_path;
@@ -71,30 +73,25 @@ impl Claudes {
 
     pub fn send_message(
         &self,
-        ctx: ThreadSafeContext,
+        ctx: &mut Context,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
-        if self.requests.lock().expect("lock poisoned").contains_key(&stack_id) {
+        if self.requests.lock().contains_key(&stack_id) {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             );
         } else {
-            self.spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params);
-            let _ = self.maybe_compact_context(ctx, broadcaster, stack_id);
+            self.spawn_claude(ctx, broadcaster.clone(), stack_id, user_params);
+            let _ = self.maybe_compact_context(ctx, &broadcaster.lock(), stack_id);
         };
 
         Ok(())
     }
 
-    pub fn compact_history(
-        &self,
-        ctx: ThreadSafeContext,
-        broadcaster: Arc<Mutex<Broadcaster>>,
-        stack_id: StackId,
-    ) -> Result<()> {
-        if self.requests.lock().expect("lock poisoned").contains_key(&stack_id) {
+    pub fn compact_history(&self, ctx: &mut Context, broadcaster: &Broadcaster, stack_id: StackId) -> Result<()> {
+        if self.requests.lock().contains_key(&stack_id) {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             )
@@ -119,7 +116,7 @@ impl Claudes {
 
     /// Cancel a running Claude session for the given stack
     pub fn cancel_session(&self, stack_id: StackId) -> Result<bool> {
-        let requests = self.requests.lock().expect("lock poisoned");
+        let requests = self.requests.lock();
         if let Some(claude) = requests.get(&stack_id) {
             // Send the kill signal
             claude
@@ -134,32 +131,29 @@ impl Claudes {
 
     /// Check if there is an active Claude session for the given stack ID
     pub fn is_stack_active(&self, stack_id: StackId) -> bool {
-        let requests = self.requests.lock().expect("lock poisoned");
+        let requests = self.requests.lock();
         requests.contains_key(&stack_id)
     }
 
     fn spawn_claude(
         &self,
-        sync_ctx: ThreadSafeContext,
+        ctx: &mut Context,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) {
-        let res = self.spawn_claude_inner(sync_ctx.clone(), broadcaster.clone(), stack_id, user_params);
+        let res = self.spawn_claude_inner(ctx, broadcaster.clone(), stack_id, user_params);
         if let Err(res) = res {
-            self.requests.lock().expect("lock poisoned").remove(&stack_id);
+            self.requests.lock().remove(&stack_id);
 
-            let rule = {
-                let ctx = sync_ctx.clone().into_thread_local();
-                list_claude_assignment_rules(&ctx)
-                    .ok()
-                    .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id))
-            };
+            let rule = list_claude_assignment_rules(ctx)
+                .ok()
+                .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id));
 
             if let Some(rule) = rule {
                 let _ = send_claude_message(
-                    sync_ctx,
-                    broadcaster.clone(),
+                    ctx,
+                    &broadcaster.lock(),
                     rule.session_id,
                     stack_id,
                     MessagePayload::System(crate::SystemMessage::UnhandledException {
@@ -172,7 +166,7 @@ impl Claudes {
 
     fn spawn_claude_inner(
         &self,
-        sync_ctx: ThreadSafeContext,
+        ctx: &mut Context,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
@@ -183,7 +177,6 @@ impl Claudes {
         let (send_kill, recv_kill) = flume::unbounded();
         self.requests
             .lock()
-            .expect("lock poisoned")
             .insert(stack_id, Arc::new(Claude { kill: send_kill }));
 
         // We're also making the bold assumption that if we can find the
@@ -193,21 +186,19 @@ impl Claudes {
         // <https://github.com/anthropics/claude-code/issues/5161> could
         // simplify this
         let (summary_to_resume, session_id, session) = {
-            let mut ctx = sync_ctx.clone().into_thread_local();
             let mut guard = ctx.exclusive_worktree_access();
 
             // Create repo and workspace once at the entry point
             let rule = {
-                list_claude_assignment_rules(&ctx)?
+                list_claude_assignment_rules(ctx)?
                     .into_iter()
                     .find(|rule| rule.stack_id == stack_id)
             };
 
             let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
-            let session = upsert_session(&mut ctx, session_id, stack_id, guard.write_permission())?;
-            let ctx = sync_ctx.clone().into_thread_local();
-            let messages = list_messages_by_session(&ctx, session.id)?;
+            let session = upsert_session(ctx, session_id, stack_id, guard.write_permission())?;
+            let messages = list_messages_by_session(ctx, session.id)?;
 
             let summary = if let Some(ClaudeMessage { payload, .. }) = messages.last() {
                 match payload {
@@ -222,30 +213,31 @@ impl Claudes {
 
         // Store the original message for UI display (without inlined file content)
         // while Claude gets the enhanced message with file content inlined
-        send_claude_message(
-            sync_ctx.clone(),
-            broadcaster.clone(),
-            session_id,
-            stack_id,
-            MessagePayload::User(UserInput {
-                message: user_params.message.clone(), // Original user message for display
-                attachments: user_params.attachments.clone(),
-            }),
-        )?;
+        {
+            send_claude_message(
+                ctx,
+                &broadcaster.lock(),
+                session_id,
+                stack_id,
+                MessagePayload::User(UserInput {
+                    message: user_params.message.clone(), // Original user message for display
+                    attachments: user_params.attachments.clone(),
+                }),
+            )?;
+        }
 
         let (read_stdout, writer) = std::io::pipe()?;
         let response_streamer =
-            spawn_response_streaming(sync_ctx.clone(), broadcaster.clone(), read_stdout, session_id, stack_id);
+            spawn_response_streaming(ctx.to_sync(), broadcaster.clone(), read_stdout, session_id, stack_id);
 
         let (read_stderr, write_stderr) = std::io::pipe()?;
-        // Clone so the reference to ctx can be immediately dropped
-        let project_workdir = sync_ctx.clone().into_thread_local().workdir_or_fail()?.to_owned();
+        let project_workdir = ctx.workdir_or_fail()?.to_owned();
         let mut handle = spawn_command(
             writer,
             write_stderr,
             session,
             project_workdir,
-            sync_ctx.clone(),
+            ctx,
             user_params,
             summary_to_resume,
             stack_id,
@@ -266,9 +258,7 @@ impl Claudes {
         let cmd_exit = flume::Selector::new()
             .recv(&wait_rx, |result| match result {
                 Ok(status) => Exit::WithStatus(status),
-                Err(_) => Exit::WithStatus(Err(std::io::Error::other(
-                    "Process wait channel closed unexpectedly",
-                ))),
+                Err(_) => Exit::WithStatus(Err(std::io::Error::other("Process wait channel closed unexpectedly"))),
             })
             .recv(&recv_kill, |_| Exit::ByUser)
             .wait();
@@ -276,11 +266,11 @@ impl Claudes {
         // The response streamer thread will terminate naturally when the pipe is closed
         // (which happens when the Claude process exits). We drop the handle here to detach it.
         drop(response_streamer);
-        self.requests.lock().expect("lock poisoned").remove(&stack_id);
+        self.requests.lock().remove(&stack_id);
 
         handle_exit(
-            sync_ctx.clone(),
-            broadcaster.clone(),
+            ctx,
+            &broadcaster.lock(),
             stack_id,
             session_id,
             read_stderr,
@@ -290,11 +280,8 @@ impl Claudes {
 
         // Broadcast system any messages created during this Claude session
         // (e.g., commit created notification from the Stop hook)
-        let project_id = sync_ctx.legacy_project.id;
-        let all_messages = {
-            let ctx = sync_ctx.clone().into_thread_local();
-            db::list_messages_by_session(&ctx, session_id)
-        };
+        let project_id = ctx.legacy_project.id;
+        let all_messages = db::list_messages_by_session(ctx, session_id);
         if let Ok(all_messages) = all_messages {
             let new_messages: Vec<_> = all_messages
                 .into_iter()
@@ -304,7 +291,7 @@ impl Claudes {
 
             // Broadcast each new message
             for message in new_messages {
-                broadcaster.lock().expect("lock poisoned").send(FrontendEvent {
+                broadcaster.lock().send(FrontendEvent {
                     name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
                     payload: serde_json::json!(message),
                 });
@@ -312,7 +299,7 @@ impl Claudes {
         }
 
         // Send completion notification
-        if let Err(e) = crate::notifications::notify_completion(&sync_ctx.settings) {
+        if let Err(e) = crate::notifications::notify_completion(&ctx.settings) {
             tracing::warn!("Failed to send completion notification: {}", e);
         }
 
@@ -321,8 +308,8 @@ impl Claudes {
 }
 
 fn handle_exit(
-    ctx: ThreadSafeContext,
-    broadcaster: Arc<Mutex<Broadcaster>>,
+    ctx: &mut Context,
+    broadcaster: &Broadcaster,
     stack_id: StackId,
     session_id: uuid::Uuid,
     mut read_stderr: PipeReader,
@@ -336,7 +323,7 @@ fn handle_exit(
             read_stderr.read_to_string(&mut buf)?;
             send_claude_message(
                 ctx,
-                broadcaster.clone(),
+                broadcaster,
                 session_id,
                 stack_id,
                 MessagePayload::System(crate::SystemMessage::ClaudeExit {
@@ -366,7 +353,7 @@ fn handle_exit(
             }
             send_claude_message(
                 ctx,
-                broadcaster.clone(),
+                broadcaster,
                 session_id,
                 stack_id,
                 MessagePayload::System(crate::SystemMessage::UserAbort),
@@ -388,7 +375,7 @@ fn spawn_command(
     write_stderr: std::io::PipeWriter,
     session: crate::ClaudeSession,
     project_path: std::path::PathBuf,
-    sync_ctx: ThreadSafeContext,
+    ctx: &mut Context,
     user_params: ClaudeUserParams,
     summary_to_resume: Option<String>,
     stack_id: StackId,
@@ -396,7 +383,7 @@ fn spawn_command(
     // Write and obtain our own claude hooks path.
     let settings = fmt_claude_settings()?;
 
-    let claude_executable = sync_ctx.settings.claude.executable.clone();
+    let claude_executable = ctx.settings.claude.executable.clone();
     let cc_settings = ClaudeSettings::open(&project_path);
 
     // Determine what session ID Claude will use - needed for MCP server configuration
@@ -429,6 +416,7 @@ fn spawn_command(
     // Don't create a terminal window on windows.
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
@@ -450,13 +438,13 @@ fn spawn_command(
     command.args(["--output-format", "stream-json"]);
 
     // Only add --model if useConfiguredModel is false
-    if !sync_ctx.settings.clone().claude.use_configured_model {
+    if !ctx.settings.claude.use_configured_model {
         command.args(["--model", user_params.model.to_cli_string()]);
     }
 
     command.args(["--verbose"]);
 
-    if sync_ctx.settings.clone().claude.dangerously_allow_all_permissions {
+    if ctx.settings.claude.dangerously_allow_all_permissions {
         command.arg("--dangerously-skip-permissions");
     } else {
         command.args(["--permission-prompt-tool", "mcp__but-security__approval_prompt"]);
@@ -493,9 +481,8 @@ fn spawn_command(
 
     // Format branch information for the system prompt
     let branch_info = {
-        let mut ctx = sync_ctx.clone().into_thread_local();
         let guard = ctx.exclusive_worktree_access();
-        format_branch_info(&mut ctx, stack_id, guard.read_permission())
+        format_branch_info(ctx, stack_id, guard.read_permission())
     };
     let system_prompt = format!("{}\n\n{}", system_prompt(), branch_info);
     command.args(["--append-system-prompt", &system_prompt]);
@@ -848,6 +835,7 @@ fn spawn_response_streaming(
     stack_id: StackId,
 ) -> JoinHandle<()> {
     std::thread::spawn(move || {
+        let mut ctx = sync_ctx.into_thread_local();
         let reader = BufReader::new(read_stdout);
         let mut first = true;
 
@@ -857,31 +845,22 @@ fn spawn_response_streaming(
                 Err(_) => continue,
             };
 
-            {
-                let mut ctx = sync_ctx.clone().into_thread_local();
-                if first {
-                    if let Some(sid) = parsed_event["session_id"].as_str()
-                        && let Ok(current_session_id) = sid.parse()
-                    {
-                        let session = db::get_session_by_id(&ctx, session_id).ok().flatten();
-                        if session.is_some() {
-                            let _ = db::add_session_id(&mut ctx, session_id, current_session_id);
-                        }
+            if first {
+                if let Some(sid) = parsed_event["session_id"].as_str()
+                    && let Ok(current_session_id) = sid.parse()
+                {
+                    let session = db::get_session_by_id(&ctx, session_id).ok().flatten();
+                    if session.is_some() {
+                        let _ = db::add_session_id(&mut ctx, session_id, current_session_id);
                     }
-                    first = false;
                 }
+                first = false;
             }
 
             let message_content = MessagePayload::Claude(ClaudeOutput {
                 data: parsed_event.clone(),
             });
-            let _ = send_claude_message(
-                sync_ctx.clone(),
-                broadcaster.clone(),
-                session_id,
-                stack_id,
-                message_content,
-            );
+            let _ = send_claude_message(&mut ctx, &broadcaster.lock(), session_id, stack_id, message_content);
         }
     })
 }

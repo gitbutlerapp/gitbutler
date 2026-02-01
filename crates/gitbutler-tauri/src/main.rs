@@ -10,6 +10,8 @@
 
 use std::sync::Arc;
 
+use parking_lot::Mutex;
+
 use anyhow::{Context, bail};
 use but_api::{commit, diff, github, legacy, platform};
 use but_claude::{Broadcaster, Claude};
@@ -20,7 +22,6 @@ use gitbutler_tauri::{
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
-use tokio::sync::Mutex;
 
 fn main() -> anyhow::Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
@@ -152,18 +153,14 @@ fn main() -> anyhow::Result<()> {
 
                 let broadcaster = Arc::new(Mutex::new(Broadcaster::new()));
 
-                let (send, mut recv) = tokio::sync::mpsc::unbounded_channel();
-                let broadcaster2 = broadcaster.clone();
-                tokio::spawn(async move {
-                    broadcaster2
-                        .lock()
-                        .await
-                        .register_sender(&uuid::Uuid::new_v4(), send)
-                });
+                let (send, recv) = flume::unbounded();
+                broadcaster
+                    .lock()
+                    .register_sender(&uuid::Uuid::new_v4(), send);
 
                 let window2 = window.clone();
                 std::thread::spawn(move || {
-                    while let Some(message) = recv.blocking_recv() {
+                    while let Ok(message) = recv.recv() {
                         window2.emit(&message.name, message.payload).unwrap();
                     }
                 });

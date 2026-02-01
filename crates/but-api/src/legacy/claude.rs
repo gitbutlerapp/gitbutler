@@ -7,7 +7,7 @@ use but_claude::{
     prompt_templates,
 };
 use but_core::ref_metadata::StackId;
-use but_ctx::{Context, ThreadSafeContext};
+use but_ctx::Context;
 use but_settings::AppSettings;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
@@ -22,18 +22,14 @@ pub struct SendMessageParams {
     pub user_params: ClaudeUserParams,
 }
 
-pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> Result<()> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    claude
-        .instance_by_stack
-        .send_message(
-            ctx.into_sync(),
-            claude.broadcaster.clone(),
-            params.stack_id,
-            params.user_params,
-        )
-        .await?;
+pub fn claude_send_message(claude: &Claude, params: SendMessageParams) -> Result<()> {
+    let mut ctx = Context::new_from_legacy_project_id(params.project_id)?;
+    claude.instance_by_stack.send_message(
+        &mut ctx,
+        claude.broadcaster.clone(),
+        params.stack_id,
+        params.user_params,
+    )?;
     Ok(())
 }
 
@@ -46,26 +42,18 @@ pub struct GetMessagesParams {
 }
 
 pub fn claude_get_messages(claude: &Claude, params: GetMessagesParams) -> Result<Vec<ClaudeMessage>> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let ctx = Context::new_from_legacy_project_id(params.project_id)?;
     let messages = claude.instance_by_stack.get_messages(&ctx, params.stack_id)?;
     Ok(messages)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_session_details(
-    ctx: ThreadSafeContext,
-    session_id: String,
-) -> Result<but_claude::ClaudeSessionDetails> {
-    let (worktree_dir, session) = {
-        let ctx = ctx.into_thread_local();
-        let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
-        let session = but_claude::db::get_session_by_id(&ctx, session_id)?.context("Could not find session")?;
-        let worktree_dir = ctx.workdir_or_fail()?;
-        (worktree_dir, session)
-    };
-    let current_id = Transcript::current_valid_session_id(&worktree_dir, &session).await?;
+pub fn claude_get_session_details(ctx: &Context, session_id: String) -> Result<but_claude::ClaudeSessionDetails> {
+    let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
+    let session = but_claude::db::get_session_by_id(ctx, session_id)?.context("Could not find session")?;
+    let worktree_dir = ctx.workdir_or_fail()?;
+    let current_id = Transcript::current_valid_session_id(&worktree_dir, &session)?;
     if let Some(current_id) = current_id {
         let transcript_path = but_claude::Transcript::get_transcript_path(&worktree_dir, current_id)?;
         let transcript = but_claude::Transcript::from_file(&transcript_path)?;
@@ -113,17 +101,17 @@ pub struct CancelSessionParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_cancel_session(claude: &Claude, params: CancelSessionParams) -> Result<bool> {
-    let cancelled = claude.instance_by_stack.cancel_session(params.stack_id).await?;
+pub fn claude_cancel_session(claude: &Claude, params: CancelSessionParams) -> Result<bool> {
+    let cancelled = claude.instance_by_stack.cancel_session(params.stack_id)?;
     Ok(cancelled)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_check_available() -> Result<ClaudeCheckResult> {
+pub fn claude_check_available() -> Result<ClaudeCheckResult> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let claude_executable = app_settings.claude.executable.clone();
-    Ok(but_claude::bridge::check_claude_available(&claude_executable).await)
+    Ok(but_claude::bridge::check_claude_available(&claude_executable))
 }
 
 #[derive(Deserialize)]
@@ -133,8 +121,8 @@ pub struct IsStackActiveParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_is_stack_active(claude: &Claude, params: IsStackActiveParams) -> Result<bool> {
-    let is_active = claude.instance_by_stack.is_stack_active(params.stack_id).await;
+pub fn claude_is_stack_active(claude: &Claude, params: IsStackActiveParams) -> Result<bool> {
+    let is_active = claude.instance_by_stack.is_stack_active(params.stack_id);
     Ok(is_active)
 }
 
@@ -146,13 +134,11 @@ pub struct CompactHistoryParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParams) -> Result<()> {
-    let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
+pub fn claude_compact_history(claude: &Claude, params: CompactHistoryParams) -> Result<()> {
+    let mut ctx = Context::new_from_legacy_project_id(params.project_id)?;
     claude
         .instance_by_stack
-        .compact_history(ctx.into_sync(), claude.broadcaster.clone(), params.stack_id)
-        .await?;
+        .compact_history(&mut ctx, &claude.broadcaster.lock(), params.stack_id)?;
     Ok(())
 }
 
@@ -179,44 +165,32 @@ pub fn claude_maybe_create_prompt_dir(ctx: &but_ctx::Context, path: String) -> R
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_mcp_config(ctx: ThreadSafeContext) -> Result<McpConfig> {
-    let worktree_dir = ctx.into_thread_local().workdir_or_fail()?;
-    let settings = ClaudeSettings::open(&worktree_dir).await;
-    let mcp_config = ClaudeMcpConfig::open(&settings, &worktree_dir).await;
+pub fn claude_get_mcp_config(ctx: &Context) -> Result<McpConfig> {
+    let worktree_dir = ctx.workdir_or_fail()?;
+    let settings = ClaudeSettings::open(&worktree_dir);
+    let mcp_config = ClaudeMcpConfig::open(&settings, &worktree_dir);
     Ok(mcp_config.mcp_servers())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_sub_agents(ctx: ThreadSafeContext) -> Result<Vec<but_claude::SubAgent>> {
-    let workdir = ctx.into_thread_local().workdir_or_fail()?;
-    let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&workdir).await;
+pub fn claude_get_sub_agents(ctx: &Context) -> Result<Vec<but_claude::SubAgent>> {
+    let workdir = ctx.workdir_or_fail()?;
+    let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&workdir);
     Ok(sub_agents)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_verify_path(ctx: ThreadSafeContext, path: String) -> Result<bool> {
+pub fn claude_verify_path(ctx: &Context, path: String) -> Result<bool> {
     // Check if it's an absolute path first
     let path = if std::path::Path::new(&path).is_absolute() {
         std::path::PathBuf::from(&path)
     } else {
         // If relative, make it relative to project path
-        ctx.into_thread_local().workdir_or_fail()?.join(&path)
+        ctx.workdir_or_fail()?.join(&path)
     };
 
     // Check if the path exists and is a directory
-    match tokio::fs::try_exists(&path).await {
-        Ok(exists) => {
-            if exists {
-                match tokio::fs::metadata(&path).await {
-                    Ok(metadata) => Ok(metadata.is_dir()),
-                    Err(_) => Ok(false),
-                }
-            } else {
-                Ok(false)
-            }
-        }
-        Err(_) => Ok(false),
-    }
+    Ok(path.is_dir())
 }

@@ -1,7 +1,6 @@
-use std::{
-    path::Path,
-    sync::{Arc, Mutex},
-};
+use std::{path::Path, sync::Arc};
+
+use parking_lot::Mutex;
 
 use anyhow::Result;
 use but_ctx::{Context, ThreadSafeContext};
@@ -43,9 +42,7 @@ pub async fn start(repo_path: &Path, session_id_str: &str) -> Result<()> {
     };
     let service = server.serve(transport).await?;
     let info = service.peer_info();
-    if let Ok(mut guard) = client_info.lock() {
-        *guard = info.map(|i| i.client_info.clone());
-    }
+    *client_info.lock() = info.map(|i| i.client_info.clone());
     service.waiting().await?;
     // serve_server(server, transport).await?;
     Ok(())
@@ -94,7 +91,7 @@ impl Mcp {
             .ok_or_else(|| anyhow::anyhow!("Session not found: {}", self.session_id))?;
 
         // Merge runtime and session permissions
-        let runtime_perms = self.runtime_permissions.lock().unwrap();
+        let runtime_perms = self.runtime_permissions.lock();
         let session_perms = Permissions::from_slices(session.approved_permissions(), session.denied_permissions());
         let combined_perms = Permissions::merge([&*runtime_perms, &session_perms]);
         drop(runtime_perms); // Release the lock
@@ -143,7 +140,7 @@ impl Mcp {
                             approved_state = decision.is_allowed();
 
                             // Handle the decision - persist to settings/session/database and update runtime permissions
-                            let mut runtime_perms = self.runtime_permissions.lock().unwrap();
+                            let mut runtime_perms = self.runtime_permissions.lock();
                             if let Err(e) =
                                 decision.handle(&updated.try_into()?, &mut runtime_perms, &mut ctx, self.session_id)
                             {

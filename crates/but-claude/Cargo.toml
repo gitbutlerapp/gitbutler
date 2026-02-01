@@ -34,8 +34,9 @@ strum = { version = "0.27", features = ["derive"] }
 chrono.workspace = true
 uuid.workspace = true
 gix.workspace = true
-flume = "0.11.1"
+flume.workspace = true
 dirs.workspace = true
+parking_lot.workspace = true
 rmcp.workspace = true
 tracing.workspace = true
 nix = { version = "0.30.1", features = ["signal"] }

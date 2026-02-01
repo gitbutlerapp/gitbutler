@@ -1,8 +1,10 @@
 #![deny(unsafe_code)]
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use parking_lot::Mutex;
 
 use anyhow::Result;
-use but_ctx::ThreadSafeContext;
+use but_ctx::Context;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -449,27 +451,21 @@ pub struct ClaudeUserParams {
 }
 
 pub fn send_claude_message(
-    sync_ctx: ThreadSafeContext,
-    broadcaster: Arc<Mutex<Broadcaster>>,
+    ctx: &mut Context,
+    broadcaster: &Broadcaster,
     session_id: uuid::Uuid,
     stack_id: StackId,
     content: MessagePayload,
 ) -> Result<()> {
-    let (message, project_id) = {
-        let mut ctx = sync_ctx.into_thread_local();
-        (
-            db::save_new_message(&mut ctx, session_id, content.clone())?,
-            ctx.legacy_project.id,
-        )
-    };
+    let (message, project_id) = (
+        db::save_new_message(ctx, session_id, content.clone())?,
+        ctx.legacy_project.id,
+    );
 
-    broadcaster
-        .lock()
-        .expect("lock poisoned")
-        .send(FrontendEvent {
-            name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-            payload: json!(message),
-        });
+    broadcaster.send(FrontendEvent {
+        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+        payload: json!(message),
+    });
     Ok(())
 }
 
