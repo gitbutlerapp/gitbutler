@@ -169,7 +169,7 @@ fn move_commit_with_after_flag_and_branch_target() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to move commit. The --after flag only makes sense when the target is a commit, not a branch.
+Failed to move commit. The --after flag only makes sense when moving a commit to another commit.
 When moving to a branch, the commit is placed at the top of the stack by default.
 
 "#]]);
@@ -259,6 +259,71 @@ fn move_cross_stack_shows_helpful_error() -> anyhow::Result<()> {
 Failed to move commit. Cannot move commit to specific position in another stack
 
 "#]]);
+
+    Ok(())
+}
+
+#[test]
+fn move_committed_file_to_another_commit() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+
+    env.setup_metadata(&["A"])?;
+
+    // Create two commits with different files
+    commit_two_files_as_two_hunks_each(&env, "A", "a.txt", "b.txt", "first commit");
+    commit_two_files_as_two_hunks_each(&env, "A", "c.txt", "d.txt", "second commit");
+
+    // Get commit IDs and file IDs from status with files (-f flag)
+    let status_output = env.but("--json status -f").allow_json().output()?;
+    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let commits = &status_json["stacks"][0]["branches"][0]["commits"];
+
+    // commits[0] = "second commit" with c.txt and d.txt
+    // commits[1] = "first commit" with a.txt and b.txt
+    let first_commit_id = commits[1]["cliId"].as_str().unwrap();
+
+    // Get the file ID for c.txt in the second commit
+    // Files are under the "changes" array in the commit
+    let c_txt_file_id = commits[0]["changes"]
+        .as_array()
+        .and_then(|changes| {
+            changes
+                .iter()
+                .find(|change| change["filePath"].as_str() == Some("c.txt"))
+        })
+        .and_then(|change| change["cliId"].as_str())
+        .expect("Could not find c.txt file ID in status output");
+
+    // Move c.txt from second commit to first commit
+    env.but(format!("move {} {}", c_txt_file_id, first_commit_id))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+Moved files between commits!
+
+"#]]);
+
+    // Verify the file was moved by checking status again
+    let status_output = env.but("--json status -f").allow_json().output()?;
+    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let commits = &status_json["stacks"][0]["branches"][0]["commits"];
+
+    // After the move:
+    // - The second commit should now only have d.txt
+    // - The first commit should now have a.txt, b.txt, and c.txt
+    let second_commit_changes = commits[0]["changes"].as_array().unwrap();
+    let first_commit_changes = commits[1]["changes"].as_array().unwrap();
+
+    assert_eq!(
+        second_commit_changes.len(),
+        1,
+        "Second commit should have 1 file change after moving c.txt"
+    );
+    assert_eq!(
+        first_commit_changes.len(),
+        3,
+        "First commit should have 3 file changes after receiving c.txt"
+    );
 
     Ok(())
 }
