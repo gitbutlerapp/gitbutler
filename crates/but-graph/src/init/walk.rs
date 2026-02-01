@@ -585,12 +585,22 @@ impl TraverseInfo {
             .collect();
         Ok(match self.commit {
             Some(commit) => Commit { refs, flags, ..commit },
-            None => Commit {
-                id: self.inner.id,
-                parent_ids: self.inner.parent_ids.into_iter().collect(),
-                flags,
-                refs,
-            },
+            None => {
+                // Deduplicate parent_ids to handle malformed merge commits from old GitButler code.
+                let mut seen = gix::hashtable::HashSet::default();
+                let parent_ids = self
+                    .inner
+                    .parent_ids
+                    .into_iter()
+                    .filter(|id| seen.insert(*id))
+                    .collect();
+                Commit {
+                    id: self.inner.id,
+                    parent_ids,
+                    flags,
+                    refs,
+                }
+            }
         })
     }
 }
@@ -650,10 +660,18 @@ pub fn find(
                     Err(err) => return Err(err.into()),
                 };
             }
+            // Deduplicate parent_ids to handle malformed merge commits from old GitButler code.
+            // See `no_duplicate_parents` comment in `queue_parents` for context.
+            let mut seen_parents = gix::hashtable::HashSet::default();
+            let deduped_parent_ids: Vec<_> = parent_ids
+                .iter()
+                .filter(|id| seen_parents.insert(**id))
+                .cloned()
+                .collect();
             (
                 Some(Commit {
                     id,
-                    parent_ids: parent_ids.iter().cloned().collect(),
+                    parent_ids: deduped_parent_ids,
                     refs: Vec::new(),
                     flags: CommitFlags::empty(),
                 }),
