@@ -543,7 +543,21 @@ impl Claudes {
                             .await?;
                             break;
                         }
-                        None => break,
+                        None => {
+                            // Stream ended without a Result message - unexpected termination
+                            send_claude_message(
+                                sync_ctx.clone(),
+                                broadcaster.clone(),
+                                session_id,
+                                stack_id,
+                                MessagePayload::System(SystemMessage::ClaudeExit {
+                                    code: 1,
+                                    message: "Claude session ended unexpectedly".to_string(),
+                                }),
+                            )
+                            .await?;
+                            break;
+                        }
                     }
                 }
                 _ = recv_kill.recv() => {
