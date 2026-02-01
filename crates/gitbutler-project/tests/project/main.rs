@@ -11,8 +11,8 @@ mod add {
     #[test]
     fn success() -> anyhow::Result<()> {
         let tmp = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(tmp.path(), path)
             .unwrap()
             .unwrap_project();
@@ -72,8 +72,8 @@ mod add {
         #[test]
         fn twice() {
             let data_dir = paths::data_dir();
-            let repository = gitbutler_testsupport::TestProject::default();
-            let path = repository.path();
+            let repo = gitbutler_testsupport::TestProject::default();
+            let path = repo.path();
             gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
 
             let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
@@ -138,23 +138,23 @@ mod delete {
     #[test]
     fn success() {
         let data_dir = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
             .unwrap()
             .unwrap_project();
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok()); // idempotent
         assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
-        assert!(repository.path().exists());
-        assert!(!repository.path().join("gitbutler").exists());
+        assert!(repo.path().exists());
+        assert!(!repo.path().join("gitbutler").exists());
     }
 
     #[test]
     fn deletes_gitbutler_references() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
 
         let repo = project.open_isolated_repo()?;
@@ -211,8 +211,8 @@ mod delete {
     fn deletes_project_without_gitbutler_references() -> anyhow::Result<()> {
         // This test ensures that deletion works even when there are no gitbutler references
         let data_dir = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
 
         let repo = project.open_isolated_repo()?;
@@ -234,8 +234,8 @@ mod delete {
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
-        assert!(repository.path().exists());
-        assert!(!repository.path().join("gitbutler").exists());
+        assert!(repo.path().exists());
+        assert!(!repo.path().join("gitbutler").exists());
 
         // Nothing changed - no reference was touched.
         insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"

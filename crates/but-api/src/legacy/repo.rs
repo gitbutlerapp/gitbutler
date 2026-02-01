@@ -73,15 +73,14 @@ pub fn get_blob_file(ctx: &but_ctx::Context, relative_path: PathBuf, blob_id: gi
 #[but_api]
 #[instrument(err(Debug))]
 pub fn pre_commit_hook_diffspecs(ctx: &but_ctx::Context, changes: Vec<DiffSpec>) -> Result<HookResult> {
-    let repository = ctx.repo.get()?;
-    let head = repository.head_tree_id_or_empty().context("Failed to get head tree")?;
+    let repo = ctx.repo.get()?;
+    let head = repo.head_tree_id_or_empty().context("Failed to get head tree")?;
 
     let context_lines = ctx.settings.context_lines;
 
     let mut changes = changes.into_iter().map(Ok).collect::<Vec<_>>();
 
-    let (new_tree, ..) =
-        but_core::tree::apply_worktree_changes(head.detach(), &repository, &mut changes, context_lines)?;
+    let (new_tree, ..) = but_core::tree::apply_worktree_changes(head.detach(), &repo, &mut changes, context_lines)?;
 
     hooks::pre_commit_with_tree(ctx, new_tree.to_git2())
 }

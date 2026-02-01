@@ -97,7 +97,7 @@ pub fn integrate_branch_with_steps(
     perm: &mut RepoExclusive,
 ) -> Result<()> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let repository = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let mut source_stack = vb_state.get_stack_in_workspace(stack_id)?;
@@ -106,7 +106,7 @@ pub fn integrate_branch_with_steps(
     let original_rebase_steps = source_stack.as_rebase_steps_rev(ctx)?;
     let mut new_rebase_steps = vec![];
 
-    let branch_ref = repository
+    let branch_ref = repo
         .try_find_reference(&branch_name)?
         .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", branch_name))?;
     let branch_ref_name = branch_ref.name().to_owned();
@@ -154,13 +154,13 @@ pub fn integrate_branch_with_steps(
 
     new_rebase_steps.reverse();
 
-    let mut rebase = Rebase::new(&repository, merge_base, None)?;
+    let mut rebase = Rebase::new(&repo, merge_base, None)?;
     rebase.steps(new_rebase_steps)?;
     rebase.rebase_noops(false);
     let result = rebase.rebase()?;
     let head = result.top_commit.to_git2();
 
-    source_stack.set_stack_head(&vb_state, &repository, head)?;
+    source_stack.set_stack_head(&vb_state, &repo, head)?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;

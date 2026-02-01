@@ -278,11 +278,8 @@ fn read_only() -> anyhow::Result<()> {
     assert!(!toml_path.exists(), "implemented brutally by file deletion");
 
     // Asking for the workspace
-    let workspace = store.workspace("refs/heads/gitbutler/integration".try_into()?)?;
-    assert!(
-        workspace.is_default(),
-        "The workspace was deleted so it doesn't exist anymore"
-    );
+    let ws = store.workspace("refs/heads/gitbutler/integration".try_into()?)?;
+    assert!(ws.is_default(), "The workspace was deleted so it doesn't exist anymore");
 
     let was_deleted = store.remove("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(!was_deleted, "and clearing out everything can only happen once");

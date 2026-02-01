@@ -476,14 +476,14 @@ pub(crate) mod function {
             .graph
             .redo_traversal_with_overlay(&in_memory_repo, meta, overlay.clone())?;
 
-        let mut workspace = graph.into_workspace()?;
-        let collect_unapplied_branches = |workspace: &but_graph::projection::Workspace| {
+        let mut ws = graph.into_workspace()?;
+        let collect_unapplied_branches = |ws: &but_graph::projection::Workspace| {
             branches_to_apply
                 .iter()
-                .filter(|rn| !workspace.refname_is_segment(rn.as_ref()))
+                .filter(|rn| !ws.refname_is_segment(rn.as_ref()))
                 .collect::<Vec<_>>()
         };
-        let unapplied_branches = collect_unapplied_branches(&workspace);
+        let unapplied_branches = collect_unapplied_branches(&ws);
         if !unapplied_branches.is_empty() {
             // Now that the merge is done, try to redo the operation one last time with dependent branches instead.
             // Only do that for the still unapplied branches, which should always find some sort of anchor.
@@ -497,7 +497,7 @@ pub(crate) mod function {
                 // or if it has to be a dependent branch. Stacks only work if the ref rests on a base
                 // outside the workspace, so if we find it in the workspace (in an ambiguous spot) it must be
                 // a dependent branch
-                if let Some(segment_to_insert_above) = workspace
+                if let Some(segment_to_insert_above) = ws
                     .stacks
                     .iter()
                     .flat_map(|stack| stack.segments.iter())
@@ -539,14 +539,14 @@ pub(crate) mod function {
 
             // Redo the merge, with the different stack configuration.
             // Note that this is the exception, typically using stacks will be fine.
-            let existing_stacks_superseded_by_branch = find_superseded_stacks(branch.as_ref(), &workspace, &mut ws_md);
+            let existing_stacks_superseded_by_branch = find_superseded_stacks(branch.as_ref(), &ws, &mut ws_md);
             merge_result = WorkspaceCommit::from_new_merge_with_metadata(
                 filter_superseded_metadata_stacks(
                     ws_md.stacks.iter().filter(|s| s.is_in_workspace()),
                     &existing_stacks_superseded_by_branch,
                 ),
-                filter_superseded_anon_stacks(anon_stacks(&workspace.stacks), &existing_stacks_superseded_by_branch),
-                &workspace.graph,
+                filter_superseded_anon_stacks(anon_stacks(&ws.stacks), &existing_stacks_superseded_by_branch),
+                &ws.graph,
                 &in_memory_repo,
                 Some(branch.as_ref()),
             )?;
@@ -555,7 +555,7 @@ pub(crate) mod function {
             if merge_result.has_conflicts() && on_workspace_conflict.should_abort() {
                 let conflicting_stack_ids = correlate_conflicting_stack_ids(&ws_md, &merge_result.conflicting_stacks);
                 return Ok(Outcome {
-                    workspace: Cow::Owned(workspace),
+                    workspace: Cow::Owned(ws),
                     workspace_ref_created: needs_ws_ref_creation,
                     workspace_merge: Some(merge_result),
                     conflicting_stack_ids,
@@ -566,7 +566,7 @@ pub(crate) mod function {
             conflicting_stack_ids =
                 correlate_conflicting_stack_ids_and_remove_from_workspace(&mut ws_md, &merge_result.conflicting_stacks);
             let ws_md_override = Some((workspace_ref_name_to_update.clone(), (*ws_md).clone()));
-            workspace = workspace
+            ws = ws
                 .graph
                 .redo_traversal_with_overlay(
                     &in_memory_repo,
@@ -576,7 +576,7 @@ pub(crate) mod function {
                         .with_workspace_metadata_override(ws_md_override),
                 )?
                 .into_workspace()?;
-            let unapplied_branches = collect_unapplied_branches(&workspace);
+            let unapplied_branches = collect_unapplied_branches(&ws);
 
             if !unapplied_branches.is_empty() {
                 bail!(
@@ -615,7 +615,7 @@ pub(crate) mod function {
             (!ws_ref_exists).then_some(workspace_ref_name_to_update.as_ref()),
         )?;
         Ok(Outcome {
-            workspace: Cow::Owned(workspace),
+            workspace: Cow::Owned(ws),
             workspace_ref_created: needs_ws_ref_creation,
             workspace_merge: Some(merge_result),
             conflicting_stack_ids,

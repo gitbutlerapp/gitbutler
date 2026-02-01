@@ -3,8 +3,8 @@ use gitbutler_testsupport::paths;
 #[test]
 fn current_directory_dot() -> anyhow::Result<()> {
     let tmp = paths::data_dir();
-    let repository = gitbutler_testsupport::TestProject::default();
-    let repo_path = repository.path();
+    let repo = gitbutler_testsupport::TestProject::default();
+    let repo_path = repo.path();
 
     // Change to the repository directory and add "." as the path
     std::env::set_current_dir(repo_path)?;

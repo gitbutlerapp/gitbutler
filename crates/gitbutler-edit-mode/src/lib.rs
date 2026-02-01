@@ -134,31 +134,31 @@ fn find_or_create_base_commit<'a>(
 }
 
 fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
-    let repository = &*ctx.git2_repo.get()?;
-    let uncommited_changes = repository.create_wd_tree(0)?;
-    repository.reference(UNCOMMITTED_CHANGES_REF, uncommited_changes.id(), true, "")?;
+    let repo = &*ctx.git2_repo.get()?;
+    let uncommited_changes = repo.create_wd_tree(0)?;
+    repo.reference(UNCOMMITTED_CHANGES_REF, uncommited_changes.id(), true, "")?;
     Ok(())
 }
 
 fn get_uncommited_changes(ctx: &Context) -> Result<git2::Oid> {
-    let repository = &*ctx.git2_repo.get()?;
-    let uncommited_changes = repository.find_reference(UNCOMMITTED_CHANGES_REF)?.peel_to_tree()?.id();
+    let repo = &*ctx.git2_repo.get()?;
+    let uncommited_changes = repo.find_reference(UNCOMMITTED_CHANGES_REF)?.peel_to_tree()?.id();
     Ok(uncommited_changes)
 }
 
 fn checkout_edit_branch(ctx: &Context, commit: git2::Commit) -> Result<()> {
-    let repository = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.git2_repo.get()?;
 
     // Checkout commits's parent
-    let commit_parent = find_or_create_base_commit(repository, &commit)?;
-    repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
-    repository.set_head(EDIT_BRANCH_REF)?;
-    repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
+    let commit_parent = find_or_create_base_commit(repo, &commit)?;
+    repo.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
+    repo.set_head(EDIT_BRANCH_REF)?;
+    repo.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
     // Checkout the commit as unstaged changes
     let mut index = get_commit_index(ctx, &commit)?;
 
-    repository.checkout_index(
+    repo.checkout_index(
         Some(&mut index),
         Some(
             CheckoutBuilder::new()
@@ -194,17 +194,16 @@ pub(crate) fn enter_edit_mode(
 }
 
 pub(crate) fn abort_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclusive) -> Result<()> {
-    let repository = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.git2_repo.get()?;
 
     // Checkout gitbutler workspace branch
-    repository
-        .set_head(WORKSPACE_BRANCH_REF)
+    repo.set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
 
     let uncommited_changes = get_uncommited_changes(ctx)?;
-    let uncommited_changes = repository.find_tree(uncommited_changes)?;
+    let uncommited_changes = repo.find_tree(uncommited_changes)?;
 
-    repository.checkout_tree(
+    repo.checkout_tree(
         uncommited_changes.as_object(),
         Some(CheckoutBuilder::new().force().remove_untracked(true)),
     )?;
@@ -214,14 +213,14 @@ pub(crate) fn abort_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclu
 
 pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
-    let repository = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.git2_repo.get()?;
     let gix_repo = &*ctx.repo.get()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
 
     // Get important references
-    let commit = repository
+    let commit = repo
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
     let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
@@ -232,12 +231,12 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let parents = commit.parents().collect::<Vec<_>>();
 
     // Write out all the changes, including unstaged changes to a tree for re-committing
-    let mut index = repository.index()?;
+    let mut index = repo.index()?;
     index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
     index.write()?;
-    let tree = repository.create_wd_tree(0)?;
+    let tree = repo.create_wd_tree(0)?;
 
-    let (_, committer) = repository.signatures()?;
+    let (_, committer) = repo.signatures()?;
     let commit_headers = Headers::try_from_commit(&commit_obj).map(|commit_headers| Headers {
         conflicted: None,
         ..commit_headers
@@ -256,7 +255,7 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
         )
         .context("Failed to commit new commit")?;
 
-    let gix_repo = repository.to_gix_repo()?;
+    let gix_repo = repo.to_gix_repo()?;
 
     let mut steps = stack.as_rebase_steps(ctx)?;
     // swap out the old commit with the new, updated one
@@ -276,10 +275,9 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     // Switch branch to gitbutler/workspace
-    repository
-        .set_head(WORKSPACE_BRANCH_REF)
+    repo.set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
-    repository.checkout_head(Some(CheckoutBuilder::new().force()))?;
+    repo.checkout_head(Some(CheckoutBuilder::new().force()))?;
 
     update_workspace_commit(&vb_state, ctx, false)?;
 
@@ -297,8 +295,8 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
 
     // Currently if the index goes wonky then files don't appear quite right.
     // This just makes sure the index is all good.
-    let mut index = repository.index()?;
-    index.read_tree(&repository.head()?.peel_to_tree()?)?;
+    let mut index = repo.index()?;
+    index.read_tree(&repo.head()?.peel_to_tree()?)?;
     index.write()?;
 
     Ok(())
@@ -320,13 +318,13 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let repository = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.git2_repo.get()?;
     let gix_repo = &*ctx.repo.get()?;
 
-    let commit = repository.find_commit(metadata.commit_oid)?;
+    let commit = repo.find_commit(metadata.commit_oid)?;
     let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
     let commit_parent_tree = if gix_commit.is_conflicted() {
-        repository.find_real_tree(&commit, ConflictedTreeKey::Base)?
+        repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
     } else {
         commit.parent(0)?.tree()?
     };
@@ -363,10 +361,7 @@ pub(crate) fn starting_index_state(
     let tree_changes = but_core::diff::tree_changes(
         &gix_repo,
         Some(commit_parent_tree.id().to_gix()),
-        repository
-            .find_real_tree(&commit, ConflictedTreeKey::Theirs)?
-            .id()
-            .to_gix(),
+        repo.find_real_tree(&commit, ConflictedTreeKey::Theirs)?.id().to_gix(),
     )?;
 
     let outcome = tree_changes
@@ -382,10 +377,10 @@ pub(crate) fn changes_from_initial(ctx: &Context, _perm: &RepoShared) -> Result<
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let repository = &*ctx.git2_repo.get()?;
-    let commit = repository.find_commit(metadata.commit_oid)?;
-    let base = repository.find_real_tree(&commit, Default::default())?.id().to_gix();
-    let head = repository.create_wd_tree(0)?.id().to_gix();
+    let repo = &*ctx.git2_repo.get()?;
+    let commit = repo.find_commit(metadata.commit_oid)?;
+    let base = repo.find_real_tree(&commit, Default::default())?.id().to_gix();
+    let head = repo.create_wd_tree(0)?.id().to_gix();
 
     let gix_repo = ctx.repo.get()?;
     let tree_changes = but_core::diff::tree_changes(&gix_repo, Some(base), head)?;

@@ -88,7 +88,7 @@ pub(crate) fn tear_off_branch(
     perm: &mut RepoExclusive,
 ) -> Result<MoveBranchResult> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let repository = ctx.repo.get()?;
+    let repo = ctx.repo.get()?;
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
@@ -98,14 +98,14 @@ pub(crate) fn tear_off_branch(
         ctx,
         source_stack_id,
         subject_branch_name,
-        &repository,
+        &repo,
         &vb_state,
         source_stack,
         source_merge_base,
     )?;
 
     // Create a new stack for the torn-off branch
-    let mut new_stack_rebase = Rebase::new(&repository, source_merge_base, None)?;
+    let mut new_stack_rebase = Rebase::new(&repo, source_merge_base, None)?;
     new_stack_rebase.steps(subject_branch_steps)?;
     new_stack_rebase.rebase_noops(false);
     let new_stack_rebase_output = new_stack_rebase.rebase()?;
@@ -118,7 +118,7 @@ pub(crate) fn tear_off_branch(
         .context("subject branch not found in rebase output")?;
 
     let subject_branch_reference_name = format!("refs/heads/{}", subject_branch_name);
-    repository.reference(
+    repo.reference(
         subject_branch_reference_name.clone(),
         subject_branch_reference_spec.commit_id,
         PreviousValue::Any,

@@ -73,11 +73,11 @@ pub(crate) mod function {
         let mut graph = workspace
             .graph
             .redo_traversal_with_overlay(repo, meta, Default::default())?;
-        let workspace = graph.into_workspace()?;
+        let ws = graph.into_workspace()?;
         if avoid_anonymous_stacks {
-            let Some(stack) = workspace.stacks.iter().find(|s| s.id == stack_id) else {
+            let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
                 // The whole stack is gone, so nothing that could be anonymous.
-                return Ok(Some(workspace));
+                return Ok(Some(ws));
             };
             if avoid_anonymous_stacks
                 && let Some(commit) = stack
@@ -90,7 +90,7 @@ pub(crate) mod function {
                     .iter()
                     .find_map(|s| {
                         let rn = s.ref_name()?;
-                        workspace.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
+                        ws.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
                     })
                     .with_context(|| {
                         "BUG: should not try to delete branch if anon \
@@ -103,15 +103,13 @@ pub(crate) mod function {
                     PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                     "move segment reference up to avoid anonymous stack",
                 )?;
-                graph = workspace
-                    .graph
-                    .redo_traversal_with_overlay(repo, meta, Default::default())?;
+                graph = ws.graph.redo_traversal_with_overlay(repo, meta, Default::default())?;
                 Ok(Some(graph.into_workspace()?))
             } else {
-                Ok(Some(workspace))
+                Ok(Some(ws))
             }
         } else {
-            Ok(Some(workspace))
+            Ok(Some(ws))
         }
     }
 }

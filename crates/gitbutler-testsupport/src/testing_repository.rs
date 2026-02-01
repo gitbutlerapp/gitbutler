@@ -17,25 +17,24 @@ pub struct TestingRepository {
 impl TestingRepository {
     pub fn open() -> Self {
         let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init_opts(tempdir.path(), &init_opts()).unwrap();
+        let repo = git2::Repository::init_opts(tempdir.path(), &init_opts()).unwrap();
         // TODO(ST): remove this once `gix::Repository::index_or_load_from_tree_or_empty()`
         //           is available and used to get merge/diff resource caches. Also: name this
         //          `open_unborn()` to make it clear.
         // For now we need a resemblance of an initialized repo.
         let signature = git2::Signature::now("Caleb", "caleb@gitbutler.com").unwrap();
-        let empty_tree_id = repository.treebuilder(None).unwrap().write().unwrap();
-        repository
-            .commit(
-                Some("refs/heads/master"),
-                &signature,
-                &signature,
-                "init to prevent load index failure",
-                &repository.find_tree(empty_tree_id).unwrap(),
-                &[],
-            )
-            .unwrap();
+        let empty_tree_id = repo.treebuilder(None).unwrap().write().unwrap();
+        repo.commit(
+            Some("refs/heads/master"),
+            &signature,
+            &signature,
+            "init to prevent load index failure",
+            &repo.find_tree(empty_tree_id).unwrap(),
+            &[],
+        )
+        .unwrap();
 
-        let config = repository.config().unwrap();
+        let config = repo.config().unwrap();
         match config.open_level(git2::ConfigLevel::Local) {
             Ok(mut local) => {
                 local.set_str("commit.gpgsign", "false").unwrap();
@@ -45,7 +44,10 @@ impl TestingRepository {
             Err(err) => panic!("{}", err),
         }
 
-        Self { tempdir, repository }
+        Self {
+            tempdir,
+            repository: repo,
+        }
     }
 
     pub fn gix_repository(&self) -> gix::Repository {
@@ -54,9 +56,9 @@ impl TestingRepository {
 
     pub fn open_with_initial_commit(files: &[(&str, &str)]) -> Self {
         let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init_opts(tempdir.path(), &init_opts()).unwrap();
+        let repo = git2::Repository::init_opts(tempdir.path(), &init_opts()).unwrap();
 
-        let config = repository.config().unwrap();
+        let config = repo.config().unwrap();
         match config.open_level(git2::ConfigLevel::Local) {
             Ok(mut local) => {
                 local.set_str("commit.gpgsign", "false").unwrap();
@@ -66,12 +68,15 @@ impl TestingRepository {
             Err(err) => panic!("{}", err),
         }
 
-        let repository = Self { tempdir, repository };
+        let repo = Self {
+            tempdir,
+            repository: repo,
+        };
         {
-            let commit = repository.commit_tree(None, files);
-            repository.repository.branch("master", &commit, true).unwrap();
+            let commit = repo.commit_tree(None, files);
+            repo.repository.branch("master", &commit, true).unwrap();
         }
-        repository
+        repo
     }
 
     pub fn commit_tree_with_change_id<'a>(
