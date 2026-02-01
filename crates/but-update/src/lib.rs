@@ -69,9 +69,5 @@ pub use cache::{AvailableUpdate, available_update, last_checked, suppress_update
 
 /// Return `true` if we are still holding a lock on our data as we are fetching it.
 pub fn is_probably_still_running(cache: &mut but_db::AppCacheHandle) -> bool {
-    cache
-        .immediate_transaction_nonblocking()
-        .ok()
-        .flatten()
-        .is_none()
+    cache.immediate_transaction_nonblocking().ok().flatten().is_none()
 }

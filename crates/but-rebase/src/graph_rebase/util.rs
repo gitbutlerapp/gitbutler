@@ -10,10 +10,7 @@ use crate::graph_rebase::{Pick, Step, StepGraph, StepGraphIndex};
 /// ordering.
 ///
 /// We do this via a pruned depth first search.
-pub(crate) fn collect_ordered_parents(
-    graph: &StepGraph,
-    target: StepGraphIndex,
-) -> Vec<StepGraphIndex> {
+pub(crate) fn collect_ordered_parents(graph: &StepGraph, target: StepGraphIndex) -> Vec<StepGraphIndex> {
     let mut potential_parent_edges = graph
         .edges_directed(target, petgraph::Direction::Outgoing)
         .collect::<Vec<_>>();

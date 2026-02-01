@@ -48,12 +48,10 @@ pub mod git {
                 GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
-                    gitbutler_forge_review_template_path: gitbutler_forge_review_template_path
-                        .map(Into::into),
+                    gitbutler_forge_review_template_path: gitbutler_forge_review_template_path.map(Into::into),
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
-                    gpg_program: gpg_program
-                        .and_then(|v| gix::path::os_string_into_bstring(v).ok().map(Into::into)),
+                    gpg_program: gpg_program.and_then(|v| gix::path::os_string_into_bstring(v).ok().map(Into::into)),
                     gpg_ssh_program: gpg_ssh_program
                         .and_then(|v| gix::path::os_string_into_bstring(v).ok().map(Into::into)),
                 }
@@ -75,8 +73,7 @@ pub mod git {
                 crate::GitConfigSettings {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
-                    gitbutler_forge_review_template_path: gitbutler_forge_review_template_path
-                        .map(Into::into),
+                    gitbutler_forge_review_template_path: gitbutler_forge_review_template_path.map(Into::into),
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
                     gpg_program: gpg_program.map(Into::into),
@@ -128,9 +125,8 @@ pub mod git {
                 .or_else(|| config.boolean(GIT_SIGN_COMMITS))
                 .or(Some(false));
             let gitbutler_gerrit_mode = config.boolean(GITBUTLER_GERRIT_MODE).or(Some(false));
-            let gitbutler_forge_review_template_path = config
-                .string(GITBUTLER_FORGE_TEMPLATE_PATH)
-                .map(Cow::into_owned);
+            let gitbutler_forge_review_template_path =
+                config.string(GITBUTLER_FORGE_TEMPLATE_PATH).map(Cow::into_owned);
             let signing_key = config.string(SIGNING_KEY).map(Cow::into_owned);
             let signing_format = config.string(SIGNING_FORMAT).map(Cow::into_owned);
             let gpg_program = config.trusted_program(GPG_PROGRAM).map(Cow::into_owned);
@@ -152,22 +148,13 @@ pub mod git {
             //       auto-reload it/assure it's up-to-date.
             let mut config = repo.local_common_config_for_editing()?;
             if let Some(sign_commits) = self.gitbutler_sign_commits {
-                config.set_raw_value(
-                    &GITBUTLER_SIGN_COMMITS,
-                    if sign_commits { "true" } else { "false" },
-                )?;
+                config.set_raw_value(&GITBUTLER_SIGN_COMMITS, if sign_commits { "true" } else { "false" })?;
             };
             if let Some(gerrit_mode) = self.gitbutler_gerrit_mode {
-                config.set_raw_value(
-                    &GITBUTLER_GERRIT_MODE,
-                    if gerrit_mode { "true" } else { "false" },
-                )?;
+                config.set_raw_value(&GITBUTLER_GERRIT_MODE, if gerrit_mode { "true" } else { "false" })?;
             };
             if let Some(forge_template_path) = &self.gitbutler_forge_review_template_path {
-                config.set_raw_value(
-                    &GITBUTLER_FORGE_TEMPLATE_PATH,
-                    forge_template_path.as_bstr(),
-                )?;
+                config.set_raw_value(&GITBUTLER_FORGE_TEMPLATE_PATH, forge_template_path.as_bstr())?;
             };
             if let Some(signing_key) = &self.signing_key {
                 config.set_raw_value(&SIGNING_KEY, signing_key.as_bstr())?;
@@ -178,11 +165,7 @@ pub mod git {
             if let Some(gpg_program) = self.gpg_program.as_ref().and_then(osstring_into_bstring) {
                 config.set_raw_value(&GPG_PROGRAM, gpg_program.as_bstr())?;
             }
-            if let Some(gpg_ssh_program) = self
-                .gpg_ssh_program
-                .as_ref()
-                .and_then(osstring_into_bstring)
-            {
+            if let Some(gpg_ssh_program) = self.gpg_ssh_program.as_ref().and_then(osstring_into_bstring) {
                 config.set_raw_value(&GPG_SSH_PROGRAM, gpg_ssh_program.as_bstr())?;
             }
 

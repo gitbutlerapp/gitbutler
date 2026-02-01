@@ -148,10 +148,7 @@ pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
         let key = format!(
             "{}:{}",
             spec.path,
-            spec.previous_path
-                .clone()
-                .map(|p| p.to_string())
-                .unwrap_or_default()
+            spec.previous_path.clone().map(|p| p.to_string()).unwrap_or_default()
         );
         output
             .entry(key)

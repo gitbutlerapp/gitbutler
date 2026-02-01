@@ -16,11 +16,7 @@ pub struct WorktreeChanges {
 }
 
 impl WorktreeChanges {
-    pub fn try_to_unidiff(
-        &self,
-        repo: &gix::Repository,
-        context_lines: u32,
-    ) -> anyhow::Result<BString> {
+    pub fn try_to_unidiff(&self, repo: &gix::Repository, context_lines: u32) -> anyhow::Result<BString> {
         changes_to_unidiff(self.changes.clone(), repo, context_lines)
     }
 }
@@ -52,21 +48,13 @@ pub struct TreeChanges {
 }
 
 impl TreeChanges {
-    pub fn try_to_unidiff(
-        &self,
-        repo: &gix::Repository,
-        context_lines: u32,
-    ) -> anyhow::Result<BString> {
+    pub fn try_to_unidiff(&self, repo: &gix::Repository, context_lines: u32) -> anyhow::Result<BString> {
         changes_to_unidiff(self.changes.clone(), repo, context_lines)
     }
 }
 
 /// Notably skip changes that
-fn changes_to_unidiff(
-    changes: Vec<TreeChange>,
-    repo: &gix::Repository,
-    context_lines: u32,
-) -> anyhow::Result<BString> {
+fn changes_to_unidiff(changes: Vec<TreeChange>, repo: &gix::Repository, context_lines: u32) -> anyhow::Result<BString> {
     let mut out = BString::default();
     for change in changes {
         let Some(diff) = crate::TreeChange::from(change).unified_diff(repo, context_lines)? else {
@@ -150,10 +138,7 @@ pub enum TreeStatus {
 impl From<TreeStatus> for crate::TreeStatus {
     fn from(value: TreeStatus) -> Self {
         match value {
-            TreeStatus::Addition {
-                state,
-                is_untracked,
-            } => crate::TreeStatus::Addition {
+            TreeStatus::Addition { state, is_untracked } => crate::TreeStatus::Addition {
                 state: state.into(),
                 is_untracked,
             },
@@ -188,10 +173,7 @@ impl From<TreeStatus> for crate::TreeStatus {
 impl From<crate::TreeStatus> for TreeStatus {
     fn from(value: crate::TreeStatus) -> Self {
         match value {
-            crate::TreeStatus::Addition {
-                state,
-                is_untracked,
-            } => TreeStatus::Addition {
+            crate::TreeStatus::Addition { state, is_untracked } => TreeStatus::Addition {
                 state: state.into(),
                 is_untracked,
             },
@@ -376,17 +358,9 @@ pub struct UnifiedWorktreeChanges {
     changes: Vec<ChangeUnifiedDiff>,
 }
 
-impl
-    From<(
-        crate::WorktreeChanges,
-        &Vec<(crate::TreeChange, crate::UnifiedPatch)>,
-    )> for UnifiedWorktreeChanges
-{
+impl From<(crate::WorktreeChanges, &Vec<(crate::TreeChange, crate::UnifiedPatch)>)> for UnifiedWorktreeChanges {
     fn from(
-        (worktree_changes, changes): (
-            crate::WorktreeChanges,
-            &Vec<(crate::TreeChange, crate::UnifiedPatch)>,
-        ),
+        (worktree_changes, changes): (crate::WorktreeChanges, &Vec<(crate::TreeChange, crate::UnifiedPatch)>),
     ) -> Self {
         UnifiedWorktreeChanges {
             ignored_changes: worktree_changes.ignored_changes,

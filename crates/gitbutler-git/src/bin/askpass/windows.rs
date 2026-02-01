@@ -27,8 +27,7 @@ impl UnixCompatibility for Pipe {
         // NOTE(qix-):
         // NOTE(qix-): This is indeed the case here, but we try to make it work
         // NOTE(qix-): anyway.
-        let timeout_ms: Option<*const u32> =
-            timeout.map(|timeout| timeout.as_millis() as *const u32);
+        let timeout_ms: Option<*const u32> = timeout.map(|timeout| timeout.as_millis() as *const u32);
 
         let r = unsafe { SetNamedPipeHandleState(self.get_handle(), None, None, timeout_ms) };
 

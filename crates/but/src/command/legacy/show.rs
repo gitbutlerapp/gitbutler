@@ -17,8 +17,7 @@ pub(crate) fn show_commit(
     // First check if this is a branch by trying to find it in the branch list
     let branches = but_api::legacy::virtual_branches::list_branches(ctx, None)?;
     let branch_match = branches.iter().find(|b| {
-        b.name.to_string() == commit_id_str
-            || b.name.to_string().to_lowercase() == commit_id_str.to_lowercase()
+        b.name.to_string() == commit_id_str || b.name.to_string().to_lowercase() == commit_id_str.to_lowercase()
     });
 
     if let Some(branch) = branch_match {
@@ -27,17 +26,12 @@ pub(crate) fn show_commit(
     }
 
     // Also check stacks to find branches within stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
 
     for stack in &stacks {
         for head in &stack.heads {
             let head_name = head.name.to_str_lossy().to_string();
-            if head_name == commit_id_str
-                || head_name.to_lowercase() == commit_id_str.to_lowercase()
-            {
+            if head_name == commit_id_str || head_name.to_lowercase() == commit_id_str.to_lowercase() {
                 // Found the branch in a stack
                 return show_branch(ctx, out, &head_name, verbose);
             }
@@ -231,12 +225,7 @@ pub(crate) fn show_commit(
     Ok(())
 }
 
-fn show_branch(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    branch_name: &str,
-    verbose: bool,
-) -> Result<()> {
+fn show_branch(ctx: &mut Context, out: &mut OutputChannel, branch_name: &str, verbose: bool) -> Result<()> {
     // Get the commits for the branch
     let (commits, base_commit_info) = get_branch_commits(ctx, branch_name, verbose)?;
 
@@ -375,11 +364,7 @@ fn show_branch(
             writeln!(out)?;
             writeln!(out, "{}", "Stacked on:".bold())?;
             for (i, chain_branch) in stack_chain.iter().enumerate() {
-                let connector = if i == stack_chain.len() - 1 {
-                    "└─"
-                } else {
-                    "├─"
-                };
+                let connector = if i == stack_chain.len() - 1 { "└─" } else { "├─" };
                 writeln!(
                     out,
                     "  {} {} ({})",
@@ -388,11 +373,7 @@ fn show_branch(
                     format!(
                         "{} commit{}",
                         chain_branch.commit_count,
-                        if chain_branch.commit_count == 1 {
-                            ""
-                        } else {
-                            "s"
-                        }
+                        if chain_branch.commit_count == 1 { "" } else { "s" }
                     )
                     .dimmed()
                 )?;
@@ -449,10 +430,7 @@ fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<git2::Oid> {
     }
 
     // Not found in list_branches, check stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
 
     for stack in &stacks {
         for head in &stack.heads {
@@ -477,11 +455,7 @@ fn get_branch_commits(
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
-    let target_ref_name = format!(
-        "refs/remotes/{}/{}",
-        target.branch.remote(),
-        target.branch.branch()
-    );
+    let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
     let gix_repo = ctx.repo.get()?;
     let target_commit = match gix_repo.find_reference(&target_ref_name) {
         Ok(reference) => {
@@ -732,10 +706,7 @@ fn show_branch_summary(out: &mut dyn std::fmt::Write, commits: &[BranchCommitInf
 
 fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBranch>> {
     // Get all stacks
-    let stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let stacks = but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
 
     // Find the stack containing this branch
     let stack = stacks
@@ -748,10 +719,7 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
     };
 
     // Find the position of this branch in the stack
-    let branch_index = stack
-        .heads
-        .iter()
-        .position(|h| h.name.to_str_lossy() == branch_name);
+    let branch_index = stack.heads.iter().position(|h| h.name.to_str_lossy() == branch_name);
 
     let Some(branch_index) = branch_index else {
         return Ok(vec![]);
@@ -790,11 +758,7 @@ fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch
-    let target_ref_name = format!(
-        "refs/remotes/{}/{}",
-        target.branch.remote(),
-        target.branch.branch()
-    );
+    let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
     let gix_repo = ctx.repo.get()?;
     let target_commit = match gix_repo.find_reference(&target_ref_name) {
         Ok(reference) => {

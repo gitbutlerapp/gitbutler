@@ -53,27 +53,16 @@ mod util {
             filename2,
             format!("{first_line}\n{}last\n", "line\n".repeat(context_distance)),
         );
-        env.but(format!(
-            "commit {branch} -m 'create {filename1} and {filename2}'"
-        ))
-        .assert()
-        .success();
+        env.but(format!("commit {branch} -m 'create {filename1} and {filename2}'"))
+            .assert()
+            .success();
     }
 
     /// Create a file with `filename`, commit it to `branch`, then edit it once more to have two uncommitted hunks.
-    pub fn commit_file_with_worktree_changes_as_two_hunks(
-        env: &Sandbox,
-        branch: &str,
-        filename: &str,
-    ) {
+    pub fn commit_file_with_worktree_changes_as_two_hunks(env: &Sandbox, branch: &str, filename: &str) {
         let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
-        env.file(
-            filename,
-            format!("first\n{}last\n", "line\n".repeat(context_distance)),
-        );
-        env.but(format!("commit {branch} -m {filename}"))
-            .assert()
-            .success();
+        env.file(filename, format!("first\n{}last\n", "line\n".repeat(context_distance)));
+        env.but(format!("commit {branch} -m {filename}")).assert().success();
         env.file(
             filename,
             format!("firsta\n{}lasta\n", "line\n".repeat(context_distance)),

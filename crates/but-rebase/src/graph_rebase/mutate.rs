@@ -32,9 +32,7 @@ impl Editor {
     pub fn select_reference(&self, target: &gix::refs::FullNameRef) -> Result<Selector> {
         match self.try_select_reference(target) {
             Some(selector) => Ok(selector),
-            None => Err(anyhow!(
-                "Failed to find reference {target} in rebase editor"
-            )),
+            None => Err(anyhow!("Failed to find reference {target} in rebase editor")),
         }
     }
 

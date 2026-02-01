@@ -37,10 +37,7 @@ impl<'a> MoveOperation<'a> {
                 target_str,
                 after,
             } => move_to_commit(ctx, out, source, target, target_str, after),
-            MoveOperation::CommitToBranch {
-                source,
-                target_branch,
-            } => move_to_branch(ctx, out, source, target_branch),
+            MoveOperation::CommitToBranch { source, target_branch } => move_to_branch(ctx, out, source, target_branch),
         }
     }
 }
@@ -57,26 +54,14 @@ fn route_move_operation<'a>(
 
     match (source, target) {
         // Commit -> Commit: move commit to specific position
-        (
-            Commit {
-                commit_id: source, ..
-            },
-            Commit {
-                commit_id: target, ..
-            },
-        ) => Some(MoveOperation::CommitToCommit {
+        (Commit { commit_id: source, .. }, Commit { commit_id: target, .. }) => Some(MoveOperation::CommitToCommit {
             source,
             target,
             target_str,
             after,
         }),
         // Commit -> Branch: move commit to top of branch
-        (
-            Commit {
-                commit_id: source, ..
-            },
-            Branch { name, .. },
-        ) => Some(MoveOperation::CommitToBranch {
+        (Commit { commit_id: source, .. }, Branch { name, .. }) => Some(MoveOperation::CommitToBranch {
             source,
             target_branch: name,
         }),
@@ -259,11 +244,7 @@ fn move_to_branch(
         });
 
         // Add to the top (beginning) of the target branch
-        if let Some(series) = stack_order
-            .series
-            .iter_mut()
-            .find(|s| s.name == target_branch_name)
-        {
+        if let Some(series) = stack_order.series.iter_mut().find(|s| s.name == target_branch_name) {
             series.commit_ids.insert(0, git2_oid);
         } else {
             bail!("Branch '{}' not found in stack", target_branch_name);
@@ -289,10 +270,7 @@ fn move_to_branch(
                     "Note:".yellow(),
                     target_branch_name
                 )?;
-                writeln!(
-                    out,
-                    "To move it to a specific position within the branch, you can run:"
-                )?;
+                writeln!(out, "To move it to a specific position within the branch, you can run:")?;
                 writeln!(out)?;
                 let source_str = source_oid.to_string();
                 let cmd = format!("but move {} <target-commit> [--after]", &source_str[..7]);
@@ -301,12 +279,9 @@ fn move_to_branch(
         }
     } else {
         // Different stack - use move_commit API
-        if let Some(illegal_move) = gitbutler_branch_actions::move_commit(
-            ctx,
-            target_stack_id,
-            source_oid.to_git2(),
-            source_stack_id,
-        )? {
+        if let Some(illegal_move) =
+            gitbutler_branch_actions::move_commit(ctx, target_stack_id, source_oid.to_git2(), source_stack_id)?
+        {
             if let Some(out) = out.for_human() {
                 match illegal_move {
                     gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
@@ -355,10 +330,7 @@ fn move_to_branch(
                     "Note:".yellow(),
                     target_branch_name
                 )?;
-                writeln!(
-                    out,
-                    "To move it to a specific position within the branch, you can run:"
-                )?;
+                writeln!(out, "To move it to a specific position within the branch, you can run:")?;
                 writeln!(out)?;
                 let source_str = source_oid.to_string();
                 let cmd = format!("but move {} <target-commit> [--after]", &source_str[..7]);
@@ -391,18 +363,10 @@ fn move_within_stack(
     let mut target_position_in_series = None;
 
     for (series_idx, series) in stack_order.series.iter().enumerate() {
-        if let Some(pos) = series
-            .commit_ids
-            .iter()
-            .position(|oid| *oid == git2_source_oid)
-        {
+        if let Some(pos) = series.commit_ids.iter().position(|oid| *oid == git2_source_oid) {
             source_series_idx = Some((series_idx, pos));
         }
-        if let Some(pos) = series
-            .commit_ids
-            .iter()
-            .position(|oid| *oid == git2_target_oid)
-        {
+        if let Some(pos) = series.commit_ids.iter().position(|oid| *oid == git2_target_oid) {
             target_series_idx = Some(series_idx);
             target_position_in_series = Some(pos);
         }
@@ -477,8 +441,9 @@ fn get_topmost_branch_name(ctx: &Context, stack_id: StackId) -> anyhow::Result<S
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bstr::BString;
+
+    use super::*;
 
     // Helper to create test CliIds
     fn commit_id(id: &str) -> CliId {

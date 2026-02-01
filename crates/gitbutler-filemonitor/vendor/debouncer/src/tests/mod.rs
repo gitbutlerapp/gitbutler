@@ -75,8 +75,7 @@ fn state(
     )]
     file_name: &str,
 ) {
-    let file_content =
-        std::fs::read_to_string(Path::new(&format!("tests/fixtures/{file_name}.hjson"))).unwrap();
+    let file_content = std::fs::read_to_string(Path::new(&format!("tests/fixtures/{file_name}.hjson"))).unwrap();
     let mut test_case = deser_hjson::from_str::<TestCase>(&file_content).unwrap();
 
     MockClock::set_time(Duration::default());
@@ -98,10 +97,7 @@ fn state(
     let expected_errors = std::mem::take(&mut test_case.expected.errors);
     let expected_events = std::mem::take(&mut test_case.expected.events);
     let expected_state = test_case.expected.into_debounce_data_inner(time);
-    assert_eq!(
-        state.queues, expected_state.queues,
-        "queues not as expected"
-    );
+    assert_eq!(state.queues, expected_state.queues, "queues not as expected");
     assert_eq!(
         state.rename_event, expected_state.rename_event,
         "rename event not as expected"
@@ -110,17 +106,10 @@ fn state(
         state.rescan_event, expected_state.rescan_event,
         "rescan event not as expected"
     );
-    assert_eq!(
-        state.cache.paths, expected_state.cache.paths,
-        "cache not as expected"
-    );
+    assert_eq!(state.cache.paths, expected_state.cache.paths, "cache not as expected");
 
     assert_eq!(
-        state
-            .errors
-            .iter()
-            .map(|e| format!("{e:?}"))
-            .collect::<Vec<_>>(),
+        state.errors.iter().map(|e| format!("{e:?}")).collect::<Vec<_>>(),
         expected_errors
             .iter()
             .map(|e| format!("{:?}", e.clone().into_notify_error()))

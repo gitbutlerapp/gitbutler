@@ -1,14 +1,14 @@
 use std::collections::HashSet;
 
-use crate::json;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
-use but_graph::Graph;
+use but_core::sync::RepoExclusive;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
-use but_workspace::commit::{move_changes_between_commits, uncommit_changes};
 use tracing::instrument;
+
+use crate::json;
 
 /// Rewords a commit
 ///
@@ -16,17 +16,14 @@ use tracing::instrument;
 #[but_api]
 #[instrument(err(Debug))]
 pub fn commit_reword_only(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
 ) -> anyhow::Result<gix::ObjectId> {
-    let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
-    let repo = ctx.repo.get()?;
-    let editor = graph.to_editor(&repo)?;
+    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+    let editor = ws.graph.to_editor(&repo)?;
 
-    let (outcome, edited_commit_selector) =
-        but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
+    let (outcome, edited_commit_selector) = but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
 
     let outcome = outcome.materialize()?;
     let id = outcome.lookup_pick(edited_commit_selector)?;
@@ -40,7 +37,7 @@ pub fn commit_reword_only(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn commit_reword(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     commit_id: gix::ObjectId,
     message: BString,
 ) -> anyhow::Result<gix::ObjectId> {
@@ -53,7 +50,8 @@ pub fn commit_reword(
 
     let res = commit_reword_only(ctx, commit_id, message);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
     res
 }
@@ -77,12 +75,8 @@ pub mod ui {
     impl From<but_workspace::commit::insert_blank_commit::RelativeTo<'_>> for RelativeTo {
         fn from(value: but_workspace::commit::insert_blank_commit::RelativeTo) -> Self {
             match value {
-                but_workspace::commit::insert_blank_commit::RelativeTo::Commit(c) => {
-                    Self::Commit(c)
-                }
-                but_workspace::commit::insert_blank_commit::RelativeTo::Reference(r) => {
-                    Self::Reference(r.into())
-                }
+                but_workspace::commit::insert_blank_commit::RelativeTo::Commit(c) => Self::Commit(c),
+                but_workspace::commit::insert_blank_commit::RelativeTo::Reference(r) => Self::Reference(r.into()),
             }
         }
     }
@@ -103,34 +97,36 @@ pub mod ui {
 #[but_api(json::HexHash)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank_only(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     relative_to: ui::RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<gix::ObjectId> {
-    let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
-    let repo = ctx.repo.get()?;
-    commit_insert_blank_only_impl(&graph, &repo, relative_to, side)
+    let mut guard = ctx.exclusive_worktree_access();
+    commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission())
 }
 
 /// Implementation of inserting a blank commit relative to either a commit or a reference
 ///
 /// Returns the ID of the newly created blank commit
-pub fn commit_insert_blank_only_impl(
-    graph: &Graph,
-    repo: &gix::Repository,
+pub(crate) fn commit_insert_blank_only_impl(
+    ctx: &mut but_ctx::Context,
     relative_to: ui::RelativeTo,
     side: InsertSide,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<gix::ObjectId> {
-    let editor = graph.to_editor(repo)?;
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = ws.graph.to_editor(&repo)?;
 
     let relative_to = (&relative_to).into();
 
-    let (outcome, blank_commit_selector) =
-        but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
+    let (outcome, blank_commit_selector) = but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
 
     let outcome = outcome.materialize()?;
     let id = outcome.lookup_pick(blank_commit_selector)?;
+
+    // Play it safe and refresh the workspace - who knows how the context is used after this.
+    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(id)
 }
@@ -141,7 +137,7 @@ pub fn commit_insert_blank_only_impl(
 #[but_api(json::HexHash)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     relative_to: ui::RelativeTo,
     side: InsertSide,
 ) -> anyhow::Result<gix::ObjectId> {
@@ -151,9 +147,10 @@ pub fn commit_insert_blank(
     )
     .ok();
 
-    let res = commit_insert_blank_only(ctx, relative_to, side);
+    let mut guard = ctx.exclusive_worktree_access();
+    let res = commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission());
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
     res
 }
@@ -168,26 +165,28 @@ pub fn commit_insert_blank(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn commit_move_changes_between_only(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     source_commit_id: json::HexHash,
     destination_commit_id: json::HexHash,
     changes: Vec<but_core::DiffSpec>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
-    let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
-    let repo = ctx.repo.get()?;
-    let editor = graph.to_editor(&repo)?;
+    let context_lines = ctx.settings.context_lines;
+    let meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let editor = ws.graph.to_editor(&repo)?;
 
-    let outcome = move_changes_between_commits(
+    let outcome = but_workspace::commit::move_changes_between_commits(
         editor,
         source_commit_id.into(),
         destination_commit_id.into(),
         changes,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
     let materialized = outcome.rebase.materialize()?;
     let new_source_commit_id = materialized.lookup_pick(outcome.source_selector)?;
     let new_destination_commit_id = materialized.lookup_pick(outcome.destination_selector)?;
+
+    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(json::UIMoveChangesResult {
         replaced_commits: vec![
@@ -203,21 +202,19 @@ pub fn commit_move_changes_between_only(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn commit_move_changes_between(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     source_commit_id: json::HexHash,
     destination_commit_id: json::HexHash,
     changes: Vec<but_core::DiffSpec>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
-        ctx,
-        SnapshotDetails::new(OperationKind::MoveCommitFile),
-    )
-    .ok();
+    let maybe_oplog_entry =
+        but_oplog::UnmaterializedOplogSnapshot::from_details(ctx, SnapshotDetails::new(OperationKind::MoveCommitFile))
+            .ok();
 
-    let res =
-        commit_move_changes_between_only(ctx, source_commit_id, destination_commit_id, changes);
+    let res = self::commit_move_changes_between_only(ctx, source_commit_id, destination_commit_id, changes);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
     res
 }
@@ -238,59 +235,44 @@ pub fn commit_uncommit_changes_only(
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<but_core::ref_metadata::StackId>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
-    let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
-    // We need to pass a mutable ctx below, so we can't hold a reference to the repo
-    let repo = ctx.repo.get()?.clone();
-    let editor = graph.to_editor(&repo)?;
-
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let context_lines = ctx.settings.context_lines;
+    let meta = ctx.meta()?;
+    let (_guard, repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut()?;
 
     let before_assignments = if assign_to.is_some() {
         let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
         Some(assignments)
     } else {
         None
     };
 
-    let outcome = uncommit_changes(
-        editor,
-        commit_id.into(),
-        changes,
-        ctx.settings.context_lines,
-    )?;
+    let editor = ws.graph.to_editor(&repo)?;
+    let outcome = but_workspace::commit::uncommit_changes(editor, commit_id.into(), changes, context_lines)?;
 
     let materialized = outcome.rebase.materialize_without_checkout()?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
 
-    let workspace = ctx
-        .workspace_and_read_only_meta_from_head(guard.read_permission())
-        .map(|x| x.1);
-    if let (Some(before_assignments), Some(stack_id), Ok(workspace)) =
-        (before_assignments, assign_to, workspace)
-    {
+    ws.refresh_from_head(&repo, &meta)?;
+    if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
+            db.hunk_assignments_mut()?,
             &repo,
-            &workspace,
+            &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
-            ctx.settings.context_lines,
+            context_lines,
         )?;
 
-        let before_ids: HashSet<_> = before_assignments
-            .into_iter()
-            .filter_map(|a| a.id)
-            .collect();
+        let before_ids: HashSet<_> = before_assignments.into_iter().filter_map(|a| a.id).collect();
 
         let to_assign: Vec<_> = after_assignments
             .into_iter()
@@ -302,14 +284,7 @@ pub fn commit_uncommit_changes_only(
             })
             .collect();
 
-        but_hunk_assignment::assign(
-            ctx.db.get_mut()?.hunk_assignments_mut()?,
-            &repo,
-            &workspace,
-            to_assign,
-            None,
-            ctx.settings.context_lines,
-        )?;
+        but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, to_assign, None, context_lines)?;
     }
 
     Ok(json::UIMoveChangesResult {
@@ -329,16 +304,15 @@ pub fn commit_uncommit_changes(
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<but_core::ref_metadata::StackId>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
-        ctx,
-        SnapshotDetails::new(OperationKind::DiscardChanges),
-    )
-    .ok();
+    let maybe_oplog_entry =
+        but_oplog::UnmaterializedOplogSnapshot::from_details(ctx, SnapshotDetails::new(OperationKind::DiscardChanges))
+            .ok();
 
     let res = commit_uncommit_changes_only(ctx, commit_id, changes, assign_to);
 
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     };
 
     res

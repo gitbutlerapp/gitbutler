@@ -17,15 +17,7 @@ pub(crate) fn commits(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Delegate to the shared squashing logic
-    squash_commits_internal(
-        ctx,
-        vec![*source],
-        *destination,
-        false,
-        custom_message,
-        None,
-        out,
-    )
+    squash_commits_internal(ctx, vec![*source], *destination, false, custom_message, None, out)
 }
 
 /// Handler for `but squash` command with support for:
@@ -59,29 +51,15 @@ pub(crate) fn handle(
 
             // Check if it's a branch - if so, squash all commits in the branch
             if let CliId::Branch { name, stack_id, .. } = entity {
-                return squash_branch_commits(
-                    ctx,
-                    out,
-                    name,
-                    *stack_id,
-                    drop_message,
-                    custom_message,
-                    ai,
-                    &id_map,
-                );
+                return squash_branch_commits(ctx, out, name, *stack_id, drop_message, custom_message, ai, &id_map);
             }
 
             // If it's a single commit, error - need at least 2 commits
             if let CliId::Commit { .. } = entity {
-                bail!(
-                    "Need at least 2 commits to squash. To squash all commits in a branch, use the branch name."
-                );
+                bail!("Need at least 2 commits to squash. To squash all commits in a branch, use the branch name.");
             }
 
-            bail!(
-                "'{}' must be a branch name or commit identifier",
-                entity_str
-            );
+            bail!("'{}' must be a branch name or commit identifier", entity_str);
         }
 
         // If we get multiple matches, it's ambiguous
@@ -163,15 +141,7 @@ fn handle_multi_commit_squash(
     let target_oid = commit_oids.pop().expect("We validated sources.len() >= 2");
 
     // Delegate to the shared squashing logic
-    squash_commits_internal(
-        ctx,
-        commit_oids,
-        target_oid,
-        drop_message,
-        custom_message,
-        ai,
-        out,
-    )
+    squash_commits_internal(ctx, commit_oids, target_oid, drop_message, custom_message, ai, out)
 }
 
 /// Internal shared logic for squashing commits
@@ -258,22 +228,11 @@ fn squash_commits_internal(
             destination_message.unwrap_or_default(),
             user_summary,
         )?;
-        but_api::commit::commit_reword_only(
-            ctx,
-            new_commit_oid.to_gix(),
-            BString::from(ai_message),
-        )?
-        .to_git2()
+        but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(ai_message))?.to_git2()
     } else if let Some(msg) = custom_message {
-        but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(msg))?
-            .to_git2()
+        but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(msg))?.to_git2()
     } else if let Some(target_msg) = target_message {
-        but_api::commit::commit_reword_only(
-            ctx,
-            new_commit_oid.to_gix(),
-            BString::from(target_msg),
-        )?
-        .to_git2()
+        but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(target_msg))?.to_git2()
     } else {
         new_commit_oid
     };
@@ -314,9 +273,8 @@ fn squash_branch_commits(
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
     // Find the stack containing this branch
-    let stack_id = stack_id.ok_or_else(|| {
-        anyhow::anyhow!("Branch '{}' is not associated with a stack", branch_name)
-    })?;
+    let stack_id =
+        stack_id.ok_or_else(|| anyhow::anyhow!("Branch '{}' is not associated with a stack", branch_name))?;
 
     // Find all commits in this branch (segment)
     let mut branch_commits: Vec<gix::ObjectId> = Vec::new();
@@ -342,10 +300,7 @@ fn squash_branch_commits(
     }
 
     if branch_commits.len() < 2 {
-        bail!(
-            "Branch '{}' has only one commit, nothing to squash",
-            branch_name
-        );
+        bail!("Branch '{}' has only one commit, nothing to squash", branch_name);
     }
 
     // The commits are in order from newest (top) to oldest (bottom)
@@ -354,33 +309,17 @@ fn squash_branch_commits(
     let source_oids = branch_commits; // These are already ObjectIds
 
     // Delegate to the shared squashing logic
-    squash_commits_internal(
-        ctx,
-        source_oids,
-        target_oid,
-        drop_message,
-        custom_message,
-        ai,
-        out,
-    )?;
+    squash_commits_internal(ctx, source_oids, target_oid, drop_message, custom_message, ai, out)?;
 
     // Add branch-specific output message
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "Squashed all commits in branch '{}'",
-            branch_name.blue()
-        )?
+        writeln!(out, "Squashed all commits in branch '{}'", branch_name.blue())?
     }
     Ok(())
 }
 
 /// Parse a commit range like "c1..c3" and return all commits in the range
-fn parse_commit_range(
-    ctx: &mut Context,
-    id_map: &IdMap,
-    range_str: &str,
-) -> anyhow::Result<Vec<CliId>> {
+fn parse_commit_range(ctx: &mut Context, id_map: &IdMap, range_str: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = range_str.split("..").collect();
     if parts.len() != 2 {
         bail!("Range format should be 'start..end', got '{}'", range_str);
@@ -394,10 +333,7 @@ fn parse_commit_range(
     let end_matches = id_map.parse_using_context(end_str, ctx)?;
 
     if start_matches.len() != 1 {
-        bail!(
-            "Start of range '{}' must match exactly one commit",
-            start_str
-        );
+        bail!("Start of range '{}' must match exactly one commit", start_str);
     }
     if end_matches.len() != 1 {
         bail!("End of range '{}' must match exactly one commit", end_str);
@@ -410,12 +346,9 @@ fn parse_commit_range(
     let (start_commit_oid, end_commit_oid) = match (start_id, end_id) {
         (
             CliId::Commit {
-                commit_id: start_oid,
-                ..
+                commit_id: start_oid, ..
             },
-            CliId::Commit {
-                commit_id: end_oid, ..
-            },
+            CliId::Commit { commit_id: end_oid, .. },
         ) => (start_oid, end_oid),
         _ => {
             bail!("Range endpoints must be commits, not other types");
@@ -458,12 +391,8 @@ fn parse_commit_range(
     }
 
     // Find the positions of start and end commits
-    let start_pos = all_commits_in_order
-        .iter()
-        .position(|(oid, _)| oid == start_commit_oid);
-    let end_pos = all_commits_in_order
-        .iter()
-        .position(|(oid, _)| oid == end_commit_oid);
+    let start_pos = all_commits_in_order.iter().position(|(oid, _)| oid == start_commit_oid);
+    let end_pos = all_commits_in_order.iter().position(|(oid, _)| oid == end_commit_oid);
 
     match (start_pos, end_pos) {
         (Some(start_idx), Some(end_idx)) => {
@@ -486,11 +415,7 @@ fn parse_commit_range(
 }
 
 /// Parse a comma-separated list of commits like "c1,c2,c3"
-fn parse_commit_list(
-    ctx: &mut Context,
-    id_map: &IdMap,
-    list_str: &str,
-) -> anyhow::Result<Vec<CliId>> {
+fn parse_commit_list(ctx: &mut Context, id_map: &IdMap, list_str: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = list_str.split(',').collect();
     let mut result = Vec::new();
 
@@ -512,11 +437,7 @@ fn parse_commit_list(
         match &matches[0] {
             CliId::Commit { .. } => result.push(matches[0].clone()),
             other => {
-                bail!(
-                    "'{}' is {} but must be a commit",
-                    part,
-                    other.kind_for_humans()
-                );
+                bail!("'{}' is {} but must be a commit", part, other.kind_for_humans());
             }
         }
     }

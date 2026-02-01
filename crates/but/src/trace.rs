@@ -1,7 +1,6 @@
 use tracing::Level;
-use tracing_subscriber::filter::DynFilterFn;
 use tracing_subscriber::{
-    Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+    Layer, filter::DynFilterFn, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 pub fn init(level: u8) -> anyhow::Result<()> {
@@ -18,11 +17,7 @@ pub fn init(level: u8) -> anyhow::Result<()> {
         if level_t > Level::DEBUG {
             return true;
         }
-        if level_t > Level::INFO
-            && meta
-                .module_path()
-                .is_some_and(|p| p.starts_with("gitbutler_"))
-        {
+        if level_t > Level::INFO && meta.module_path().is_some_and(|p| p.starts_with("gitbutler_")) {
             return true;
         }
         if meta

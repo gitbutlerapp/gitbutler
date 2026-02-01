@@ -126,10 +126,7 @@ mod util {
         gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
     }
 
-    pub fn list_branches(
-        ctx: &Context,
-        filter: Option<BranchListingFilter>,
-    ) -> Result<Vec<BranchListing>> {
+    pub fn list_branches(ctx: &Context, filter: Option<BranchListingFilter>) -> Result<Vec<BranchListing>> {
         let mut branches = gitbutler_branch_actions::list_branches(ctx, filter, None)?;
         branches.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(branches)

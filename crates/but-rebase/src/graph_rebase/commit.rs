@@ -20,11 +20,7 @@ impl Editor {
     }
 
     /// Writes a commit with correct signing to the in memory repository.
-    pub fn new_commit(
-        &self,
-        commit: but_core::Commit<'_>,
-        date_mode: DateMode,
-    ) -> Result<gix::ObjectId> {
+    pub fn new_commit(&self, commit: but_core::Commit<'_>, date_mode: DateMode) -> Result<gix::ObjectId> {
         // TODO(GB-983): As part of moving to only signing at the materializing
         // step, this should have sign_if_configured false here.
         create(&self.repo, commit.inner, date_mode, true)

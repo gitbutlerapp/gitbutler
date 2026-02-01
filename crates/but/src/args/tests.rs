@@ -249,10 +249,7 @@ mod push {
             let flags = result.unwrap();
             assert_eq!(flags.len(), 5); // Wip + 2 hashtags + Topic + Private
 
-            let wip_count = flags
-                .iter()
-                .filter(|f| matches!(f, but_gerrit::PushFlag::Wip))
-                .count();
+            let wip_count = flags.iter().filter(|f| matches!(f, but_gerrit::PushFlag::Wip)).count();
             assert_eq!(wip_count, 1);
 
             let hashtag_count = flags
@@ -292,12 +289,7 @@ mod push {
 
             let result = get_gerrit_flags(&args, "test-branch", true);
             assert!(result.is_err());
-            assert!(
-                result
-                    .unwrap_err()
-                    .to_string()
-                    .contains("Hashtag cannot be empty")
-            );
+            assert!(result.unwrap_err().to_string().contains("Hashtag cannot be empty"));
         }
 
         #[test]
@@ -318,12 +310,7 @@ mod push {
 
             let result = get_gerrit_flags(&args, "test-branch", true);
             assert!(result.is_err());
-            assert!(
-                result
-                    .unwrap_err()
-                    .to_string()
-                    .contains("Topic cannot be empty")
-            );
+            assert!(result.unwrap_err().to_string().contains("Topic cannot be empty"));
         }
     }
 }

@@ -21,14 +21,12 @@ pub fn ci_checks_for_ref_with_cache(
                     return Ok(cached);
                 }
             }
-            let checks =
-                ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, reference)?;
+            let checks = ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, reference)?;
             crate::db::cache_ci_checks(db, reference, &checks).ok();
             checks
         }
         crate::CacheConfig::NoCache => {
-            let checks =
-                ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, reference)?;
+            let checks = ci_checks_for_ref(preferred_forge_user, forge_repo_info, storage, reference)?;
             crate::db::cache_ci_checks(db, reference, &checks).ok();
             checks
         }
@@ -42,14 +40,10 @@ fn ci_checks_for_ref(
     storage: &but_forge_storage::Controller,
     reference: &str,
 ) -> anyhow::Result<Vec<CiCheck>> {
-    let crate::forge::ForgeRepoInfo {
-        forge, owner, repo, ..
-    } = forge_repo_info;
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
-            let preferred_account = preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.github().cloned());
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github().cloned());
             let gh = but_github::GitHubClient::from_storage(storage, preferred_account.as_ref())?;
 
             // Clone owned data for thread
@@ -197,9 +191,7 @@ impl From<octorust::types::CheckRun> for CiCheck {
     fn from(value: octorust::types::CheckRun) -> Self {
         let status = match value.status {
             octorust::types::JobStatus::Completed => {
-                if let (Some(conclusion), Some(completed_at)) =
-                    (value.conclusion, value.completed_at)
-                {
+                if let (Some(conclusion), Some(completed_at)) = (value.conclusion, value.completed_at) {
                     CiStatus::Complete {
                         conclusion: conclusion.into(),
                         completed_at,
@@ -223,11 +215,7 @@ impl From<octorust::types::CheckRun> for CiCheck {
             url: value.url,
             html_url: value.html_url,
             details_url: value.details_url,
-            pull_requests: value
-                .pull_requests
-                .into_iter()
-                .map(|pr| pr.into())
-                .collect(),
+            pull_requests: value.pull_requests.into_iter().map(|pr| pr.into()).collect(),
             reference: String::new(), // Will be set by the caller
             last_sync_at: chrono::Local::now().naive_local(),
         }

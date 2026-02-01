@@ -1,8 +1,6 @@
 mod gitbutler_merge_commits {
     use gitbutler_repo::rebase::gitbutler_merge_commits;
-    use gitbutler_testsupport::testing_repository::{
-        TestingRepository, assert_commit_tree_matches,
-    };
+    use gitbutler_testsupport::testing_repository::{TestingRepository, assert_commit_tree_matches};
 
     #[test]
     fn unconflicting_merge() {
@@ -13,9 +11,7 @@ mod gitbutler_merge_commits {
         let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
         let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "a")]);
 
-        let result =
-            gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
-                .unwrap();
+        let result = gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature").unwrap();
 
         assert_commit_tree_matches(
             &test_repository.repository,
@@ -33,9 +29,7 @@ mod gitbutler_merge_commits {
         let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
         let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c")]);
 
-        let result =
-            gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
-                .unwrap();
+        let result = gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature").unwrap();
 
         assert_commit_tree_matches(
             &test_repository.repository,
@@ -59,18 +53,9 @@ mod gitbutler_merge_commits {
         let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c")]);
         let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "a")]);
 
-        let bc_result =
-            gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
-                .unwrap();
+        let bc_result = gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature").unwrap();
 
-        let result = gitbutler_merge_commits(
-            &test_repository.repository,
-            bc_result,
-            d,
-            "master",
-            "feature",
-        )
-        .unwrap();
+        let result = gitbutler_merge_commits(&test_repository.repository, bc_result, d, "master", "feature").unwrap();
 
         // While its based on a conflicted commit, merging `bc_result` and `d`
         // should not conflict, because the auto-resolution of `bc_result`,
@@ -97,22 +82,12 @@ mod gitbutler_merge_commits {
         let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "b")]);
         let e = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "c")]);
 
-        let bc_result =
-            gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
-                .unwrap();
+        let bc_result = gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature").unwrap();
 
-        let de_result =
-            gitbutler_merge_commits(&test_repository.repository, d, e, "master", "feature")
-                .unwrap();
+        let de_result = gitbutler_merge_commits(&test_repository.repository, d, e, "master", "feature").unwrap();
 
-        let result = gitbutler_merge_commits(
-            &test_repository.repository,
-            bc_result,
-            de_result,
-            "master",
-            "feature",
-        )
-        .unwrap();
+        let result =
+            gitbutler_merge_commits(&test_repository.repository, bc_result, de_result, "master", "feature").unwrap();
 
         // We don't expect result to be conflicted, because we've chosen the
         // setup such that the auto-resolution of `bc_result` and `de_result`
@@ -144,22 +119,12 @@ mod gitbutler_merge_commits {
         let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "d")]);
         let e = test_repository.commit_tree(Some(&a), &[("foo.txt", "f")]);
 
-        let bc_result =
-            gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
-                .unwrap();
+        let bc_result = gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature").unwrap();
 
-        let de_result =
-            gitbutler_merge_commits(&test_repository.repository, d, e, "master", "feature")
-                .unwrap();
+        let de_result = gitbutler_merge_commits(&test_repository.repository, d, e, "master", "feature").unwrap();
 
-        let result = gitbutler_merge_commits(
-            &test_repository.repository,
-            bc_result,
-            de_result,
-            "master",
-            "feature",
-        )
-        .unwrap();
+        let result =
+            gitbutler_merge_commits(&test_repository.repository, bc_result, de_result, "master", "feature").unwrap();
 
         // bc_result auto-resoultion tree:
         // foo.txt: c

@@ -6,14 +6,11 @@
 //! - Protection of non-GitButler hooks from being overwritten or removed
 
 use std::fs;
-
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use anyhow::Result;
-use gitbutler_repo::managed_hooks::{
-    HookInstallationResult, install_managed_hooks, uninstall_managed_hooks,
-};
+use gitbutler_repo::managed_hooks::{HookInstallationResult, install_managed_hooks, uninstall_managed_hooks};
 use tempfile::TempDir;
 
 /// Helper to create a test git repository
@@ -81,14 +78,8 @@ fn test_install_creates_pre_commit_and_post_checkout_hooks() -> Result<()> {
 
     install_managed_hooks(&repo)?;
 
-    assert!(
-        hook_exists(&repo, "pre-commit"),
-        "pre-commit hook should exist"
-    );
-    assert!(
-        hook_exists(&repo, "post-checkout"),
-        "post-checkout hook should exist"
-    );
+    assert!(hook_exists(&repo, "pre-commit"), "pre-commit hook should exist");
+    assert!(hook_exists(&repo, "post-checkout"), "post-checkout hook should exist");
     Ok(())
 }
 
@@ -119,10 +110,7 @@ fn test_installed_hooks_are_executable() -> Result<()> {
 
     install_managed_hooks(&repo)?;
 
-    assert!(
-        is_executable(&repo, "pre-commit"),
-        "pre-commit should be executable"
-    );
+    assert!(is_executable(&repo, "pre-commit"), "pre-commit should be executable");
     assert!(
         is_executable(&repo, "post-checkout"),
         "post-checkout should be executable"
@@ -154,22 +142,15 @@ fn test_install_is_idempotent() -> Result<()> {
 fn test_install_backs_up_existing_user_hook() -> Result<()> {
     let (_temp, repo) = create_test_repo()?;
 
-    let user_hook_content =
-        "#!/bin/sh\n# User's custom pre-commit hook\necho 'Running user hook'\n";
+    let user_hook_content = "#!/bin/sh\n# User's custom pre-commit hook\necho 'Running user hook'\n";
     create_user_hook(&repo, "pre-commit", user_hook_content)?;
 
     install_managed_hooks(&repo)?;
 
     // Original hook should be backed up
-    assert!(
-        hook_exists(&repo, "pre-commit-user"),
-        "User hook should be backed up"
-    );
+    assert!(hook_exists(&repo, "pre-commit-user"), "User hook should be backed up");
     let backup_content = read_hook(&repo, "pre-commit-user")?;
-    assert_eq!(
-        backup_content, user_hook_content,
-        "Backup should have original content"
-    );
+    assert_eq!(backup_content, user_hook_content, "Backup should have original content");
 
     // New hook should be GitButler managed
     let new_hook = read_hook(&repo, "pre-commit")?;
@@ -198,10 +179,7 @@ fn test_install_does_not_overwrite_existing_backup() -> Result<()> {
 
     // Backup should still have original content
     let backup_content = read_hook(&repo, "pre-commit-user")?;
-    assert_eq!(
-        backup_content, original_backup,
-        "Backup should not be overwritten"
-    );
+    assert_eq!(backup_content, original_backup, "Backup should not be overwritten");
     Ok(())
 }
 
@@ -215,14 +193,8 @@ fn test_uninstall_removes_managed_hooks() -> Result<()> {
 
     uninstall_managed_hooks(&repo)?;
 
-    assert!(
-        !hook_exists(&repo, "pre-commit"),
-        "pre-commit should be removed"
-    );
-    assert!(
-        !hook_exists(&repo, "post-checkout"),
-        "post-checkout should be removed"
-    );
+    assert!(!hook_exists(&repo, "pre-commit"), "pre-commit should be removed");
+    assert!(!hook_exists(&repo, "post-checkout"), "post-checkout should be removed");
     Ok(())
 }
 
@@ -240,10 +212,7 @@ fn test_uninstall_restores_user_hooks() -> Result<()> {
     // Uninstall should restore the backup
     uninstall_managed_hooks(&repo)?;
 
-    assert!(
-        hook_exists(&repo, "pre-commit"),
-        "User hook should be restored"
-    );
+    assert!(hook_exists(&repo, "pre-commit"), "User hook should be restored");
     assert!(
         !hook_exists(&repo, "pre-commit-user"),
         "Backup should be removed after restore"
@@ -331,10 +300,7 @@ fn test_install_uninstall_roundtrip_with_user_hooks() -> Result<()> {
     // Verify original hooks are restored
     let restored_pre = read_hook(&repo, "pre-commit")?;
     let restored_post = read_hook(&repo, "post-checkout")?;
-    assert_eq!(
-        restored_pre, original_pre_commit,
-        "pre-commit should be restored"
-    );
+    assert_eq!(restored_pre, original_pre_commit, "pre-commit should be restored");
     assert_eq!(
         restored_post, original_post_checkout,
         "post-checkout should be restored"
@@ -368,10 +334,7 @@ fn test_multiple_install_uninstall_cycles() -> Result<()> {
     // User hook should still be intact
     assert!(hook_exists(&repo, "pre-commit"));
     let content = read_hook(&repo, "pre-commit")?;
-    assert_eq!(
-        content, user_hook,
-        "User hook should survive multiple cycles"
-    );
+    assert_eq!(content, user_hook, "User hook should survive multiple cycles");
     Ok(())
 }
 
@@ -444,26 +407,14 @@ fn test_partial_installation_with_one_existing_hook() -> Result<()> {
     assert!(hook_exists(&repo, "pre-commit"));
     assert!(hook_exists(&repo, "pre-commit-user"));
     assert!(hook_exists(&repo, "post-checkout"));
-    assert!(
-        !hook_exists(&repo, "post-checkout-user"),
-        "No backup for post-checkout"
-    );
+    assert!(!hook_exists(&repo, "post-checkout-user"), "No backup for post-checkout");
 
     // Uninstall should restore pre-commit, remove post-checkout
     uninstall_managed_hooks(&repo)?;
 
-    assert!(
-        hook_exists(&repo, "pre-commit"),
-        "pre-commit should be restored"
-    );
-    assert!(
-        !hook_exists(&repo, "pre-commit-user"),
-        "Backup should be removed"
-    );
-    assert!(
-        !hook_exists(&repo, "post-checkout"),
-        "post-checkout should be removed"
-    );
+    assert!(hook_exists(&repo, "pre-commit"), "pre-commit should be restored");
+    assert!(!hook_exists(&repo, "pre-commit-user"), "Backup should be removed");
+    assert!(!hook_exists(&repo, "post-checkout"), "post-checkout should be removed");
     Ok(())
 }
 
@@ -472,11 +423,7 @@ fn test_hook_with_shebang_variations() -> Result<()> {
     let (_temp, repo) = create_test_repo()?;
 
     // Create hooks with different shebangs
-    create_user_hook(
-        &repo,
-        "pre-commit",
-        "#!/usr/bin/env bash\necho 'bash hook'\n",
-    )?;
+    create_user_hook(&repo, "pre-commit", "#!/usr/bin/env bash\necho 'bash hook'\n")?;
     create_user_hook(&repo, "post-checkout", "#!/bin/bash\necho 'bash hook'\n")?;
 
     install_managed_hooks(&repo)?;
@@ -532,9 +479,6 @@ fn test_concurrent_installs_with_backup_present() -> Result<()> {
     install_managed_hooks(&repo)?;
 
     let backup = read_hook(&repo, "pre-commit-user")?;
-    assert_eq!(
-        backup, backup_content,
-        "Existing backup should not be modified"
-    );
+    assert_eq!(backup, backup_content, "Existing backup should not be modified");
     Ok(())
 }

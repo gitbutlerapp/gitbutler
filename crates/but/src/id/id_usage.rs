@@ -60,24 +60,16 @@ impl UintId {
         let index = Self::FIRST_CHARS.iter().position(|e| e == first_char)?;
         result += index;
 
-        let index = Self::SUBSEQUENT_CHARS
-            .iter()
-            .position(|e| e == second_char)?;
+        let index = Self::SUBSEQUENT_CHARS.iter().position(|e| e == second_char)?;
         result += index * 20;
 
         if let Some(third_char) = third_char {
-            let index = Self::SUBSEQUENT_CHARS
-                .iter()
-                .position(|e| e == third_char)?;
+            let index = Self::SUBSEQUENT_CHARS.iter().position(|e| e == third_char)?;
             result += (index + 1) * 20 * 36;
         }
 
         let result: u16 = result.try_into().expect("below u16::MAX");
-        debug_assert!(
-            result < Self::LIMIT,
-            "BUG: {result} is beyond limit of {}",
-            Self::LIMIT
-        );
+        debug_assert!(result < Self::LIMIT, "BUG: {result} is beyond limit of {}", Self::LIMIT);
         Some(Self(result))
     }
 }

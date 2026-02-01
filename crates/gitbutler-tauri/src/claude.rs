@@ -1,14 +1,10 @@
 use but_api::{
     json::Error,
     legacy::claude::{
-        self, CancelSessionParams, CompactHistoryParams, GetMessagesParams, IsStackActiveParams,
-        SendMessageParams,
+        self, CancelSessionParams, CompactHistoryParams, GetMessagesParams, IsStackActiveParams, SendMessageParams,
     },
 };
-use but_claude::{
-    Claude, ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment,
-    ThinkingLevel,
-};
+use but_claude::{Claude, ClaudeMessage, ClaudeUserParams, ModelType, PermissionMode, PromptAttachment, ThinkingLevel};
 use but_core::ref_metadata::StackId;
 use gitbutler_project::ProjectId;
 use tauri::State;
@@ -56,14 +52,7 @@ pub fn claude_get_messages(
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<Vec<ClaudeMessage>, Error> {
-    claude::claude_get_messages(
-        &claude,
-        GetMessagesParams {
-            project_id,
-            stack_id,
-        },
-    )
-    .map_err(Into::into)
+    claude::claude_get_messages(&claude, GetMessagesParams { project_id, stack_id }).map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -73,15 +62,9 @@ pub async fn claude_cancel_session(
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
-    claude::claude_cancel_session(
-        &claude,
-        CancelSessionParams {
-            project_id,
-            stack_id,
-        },
-    )
-    .await
-    .map_err(Into::into)
+    claude::claude_cancel_session(&claude, CancelSessionParams { project_id, stack_id })
+        .await
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -91,15 +74,9 @@ pub async fn claude_is_stack_active(
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<bool, Error> {
-    claude::claude_is_stack_active(
-        &claude,
-        IsStackActiveParams {
-            project_id,
-            stack_id,
-        },
-    )
-    .await
-    .map_err(Into::into)
+    claude::claude_is_stack_active(&claude, IsStackActiveParams { project_id, stack_id })
+        .await
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -109,13 +86,7 @@ pub async fn claude_compact_history(
     project_id: ProjectId,
     stack_id: StackId,
 ) -> Result<(), Error> {
-    claude::claude_compact_history(
-        &claude,
-        CompactHistoryParams {
-            project_id,
-            stack_id,
-        },
-    )
-    .await
-    .map_err(Into::into)
+    claude::claude_compact_history(&claude, CompactHistoryParams { project_id, stack_id })
+        .await
+        .map_err(Into::into)
 }

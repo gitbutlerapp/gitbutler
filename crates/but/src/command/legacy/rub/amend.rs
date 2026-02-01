@@ -1,5 +1,5 @@
 use but_core::{DiffSpec, ref_metadata::StackId};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_hunk_assignment::HunkAssignment;
 use but_workspace::commit_engine::{self, CreateCommitOutcome};
 use colored::Colorize;
@@ -76,20 +76,17 @@ pub(crate) fn assignments_to_commit(
 }
 
 fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.into(),
-    )?
-    .changes;
-    let repo = ctx.repo.get()?.clone();
-    let (_guard, ws) = ctx.workspace_from_head()?;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
+    let context_lines = ctx.settings.context_lines;
+    let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        db.hunk_assignments_mut()?,
         &repo,
         &ws,
         false,
         Some(changes.clone()),
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
     Ok(assignments)
 }
@@ -99,10 +96,10 @@ fn amend_diff_specs(
     diff_specs: Vec<DiffSpec>,
     stack_id: Option<StackId>,
     oid: ObjectId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
     but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
-        &ctx.clone_repo_for_merging()?,
+        &*ctx.repo.get()?,
         &ctx.project_data_dir(),
         stack_id,
         commit_engine::Destination::AmendCommit {

@@ -36,7 +36,6 @@ futures-util = { version = "0.3", default-features = false, features = [
     "sink",
     "std",
 ] }
-tower = "0.5.2"
 tower-http = { version = "0.6.8", features = ["cors"] }
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true

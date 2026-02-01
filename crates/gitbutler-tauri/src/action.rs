@@ -14,8 +14,8 @@ pub fn list_actions(
     limit: i64,
 ) -> anyhow::Result<but_action::ActionListing, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &Context::new_from_legacy_project(project.clone())?;
-    but_action::list_actions(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    but_action::list_actions(&ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
 #[tauri::command(async)]
@@ -26,9 +26,9 @@ pub fn handle_changes(
     handler: but_action::ActionHandler,
 ) -> anyhow::Result<but_action::Outcome, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     but_action::handle_changes(
-        ctx,
+        &mut ctx,
         &change_summary,
         None,
         handler,
@@ -47,8 +47,8 @@ pub fn list_workflows(
     limit: i64,
 ) -> anyhow::Result<but_action::WorkflowList, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &Context::new_from_legacy_project(project.clone())?;
-    but_action::list_workflows(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    but_action::list_workflows(&ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
 #[tauri::command(async)]
@@ -60,11 +60,9 @@ pub fn auto_commit(
     model: String,
 ) -> anyhow::Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
-    let changes: Vec<but_core::TreeChange> =
-        changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let git_config =
-        gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let changes: Vec<but_core::TreeChange> = changes.into_iter().map(|change| change.into()).collect();
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let git_config = gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
 
     let llm = LLMProvider::from_git_config(&git_config);
 
@@ -75,7 +73,7 @@ pub fn auto_commit(
     });
 
     match llm {
-        Some(llm) => but_action::auto_commit(emitter, ctx, &llm, changes, model)
+        Some(llm) => but_action::auto_commit(emitter, &mut ctx, &llm, changes, model)
             .map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
@@ -92,11 +90,9 @@ pub fn auto_branch_changes(
     model: String,
 ) -> anyhow::Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
-    let changes: Vec<but_core::TreeChange> =
-        changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let git_config =
-        gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let changes: Vec<but_core::TreeChange> = changes.into_iter().map(|change| change.into()).collect();
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let git_config = gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
     let llm = LLMProvider::from_git_config(&git_config);
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
@@ -106,7 +102,7 @@ pub fn auto_branch_changes(
     });
 
     match llm {
-        Some(llm) => but_action::branch_changes(emitter, ctx, &llm, changes, model)
+        Some(llm) => but_action::branch_changes(emitter, &mut ctx, &llm, changes, model)
             .map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
@@ -124,7 +120,7 @@ pub fn freestyle(
     model: String,
 ) -> anyhow::Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
@@ -132,20 +128,11 @@ pub fn freestyle(
         });
     });
 
-    let git_config =
-        gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let git_config = gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
     let llm = LLMProvider::from_git_config(&git_config);
     match llm {
-        Some(llm) => but_action::freestyle(
-            project_id,
-            message_id,
-            emitter,
-            ctx,
-            &llm,
-            chat_messages,
-            model,
-        )
-        .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        Some(llm) => but_action::freestyle(project_id, message_id, emitter, &mut ctx, &llm, chat_messages, model)
+            .map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
         ))),

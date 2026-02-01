@@ -10,12 +10,12 @@ use std::{
 use windows::{
     Win32::{
         Foundation::{
-            CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, ERROR_PIPE_NOT_CONNECTED,
-            GENERIC_READ, GENERIC_WRITE, HANDLE, WIN32_ERROR,
+            CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, ERROR_PIPE_NOT_CONNECTED, GENERIC_READ, GENERIC_WRITE,
+            HANDLE, WIN32_ERROR,
         },
         Storage::FileSystem::{
-            CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE,
-            FlushFileBuffers, OPEN_EXISTING, ReadFile, WriteFile,
+            CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE, FlushFileBuffers, OPEN_EXISTING,
+            ReadFile, WriteFile,
         },
         System::{
             Pipes::{NMPWAIT_USE_DEFAULT_WAIT, WaitNamedPipeW},
@@ -68,11 +68,7 @@ pub struct Pipe {
 
 impl Pipe {
     pub fn connect(path: &Path) -> io::Result<Pipe> {
-        let mut wide_path: Vec<u16> = path
-            .as_os_str()
-            .encode_wide()
-            .chain(std::iter::once(0))
-            .collect();
+        let mut wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
 
         let pwstr_path = PWSTR(wide_path.as_mut_ptr());
         let _ = unsafe { WaitNamedPipeW(pwstr_path, NMPWAIT_USE_DEFAULT_WAIT) };
@@ -130,8 +126,7 @@ impl Write for Pipe {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let mut bytes_written = 0u32;
 
-        let res =
-            unsafe { WriteFile(self.handle.inner, Some(buf), Some(&mut bytes_written), None) };
+        let res = unsafe { WriteFile(self.handle.inner, Some(buf), Some(&mut bytes_written), None) };
 
         match res {
             Ok(_) => Ok(bytes_written as usize),

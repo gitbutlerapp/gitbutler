@@ -262,12 +262,7 @@ pub mod git_credentials {
     }
 
     impl CredentialBuilderApi for Builder {
-        fn build(
-            &self,
-            _target: Option<&str>,
-            service: &str,
-            _user: &str,
-        ) -> keyring::Result<Box<Credential>> {
+        fn build(&self, _target: Option<&str>, service: &str, _user: &str) -> keyring::Result<Box<Credential>> {
             let credential = Entry {
                 handle: service.to_string(),
                 store: self.store.clone(),

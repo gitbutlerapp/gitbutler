@@ -7,13 +7,13 @@ use std::{
 };
 
 use but_core::TreeChange;
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_llm::{ChatMessage, ToolCallContent, ToolResponseContent};
 use but_oxidize::ObjectIdExt;
 use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_project::{Project, ProjectId};
+use gitbutler_project::ProjectId;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
@@ -29,7 +29,6 @@ mod simple;
 mod workflow;
 pub use action::{ActionListing, Source, list_actions};
 use but_core::ref_metadata::StackId;
-use but_meta::VirtualBranchesTomlMetadata;
 use strum::EnumString;
 use uuid::Uuid;
 pub use workflow::{WorkflowList, list_workflows};
@@ -47,8 +46,7 @@ pub fn freestyle(
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
-    let mut toolset =
-        but_tools::workspace::workspace_toolset(ctx, emitter.clone(), message_id.clone());
+    let mut toolset = but_tools::workspace::workspace_toolset(ctx, emitter.clone(), message_id.clone());
 
     let system_message ="
     You are a GitButler agent that can perform various actions on a Git project.
@@ -106,12 +104,8 @@ pub fn freestyle(
 
     // Now we trigger the tool calling loop.
 
-    let (response, _) = llm.tool_calling_loop_stream(
-        system_message,
-        internal_chat_messages,
-        &mut toolset,
-        &model,
-        {
+    let (response, _) =
+        llm.tool_calling_loop_stream(system_message, internal_chat_messages, &mut toolset, &model, {
             let emitter = emitter.clone();
             move |token: &str| {
                 let token_update = TokenUpdate {
@@ -122,8 +116,7 @@ pub fn freestyle(
                 let (name, payload) = token_update.emittable();
                 (emitter)(&name, payload);
             }
-        },
-    )?;
+        })?;
 
     Ok(response)
 }
@@ -157,20 +150,13 @@ pub fn handle_changes(
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<(Uuid, Outcome)> {
     match handler {
-        ActionHandler::HandleChangesSimple => simple::handle_changes(
-            ctx,
-            change_summary,
-            external_prompt,
-            source,
-            exclusive_stack,
-        ),
+        ActionHandler::HandleChangesSimple => {
+            simple::handle_changes(ctx, change_summary, external_prompt, source, exclusive_stack)
+        }
     }
 }
 
-fn default_target_setting_if_none(
-    ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
-) -> anyhow::Result<Target> {
+fn default_target_setting_if_none(ctx: &Context, vb_state: &VirtualBranchesHandle) -> anyhow::Result<Target> {
     if let Ok(default_target) = vb_state.get_default_target() {
         return Ok(default_target);
     }
@@ -188,8 +174,7 @@ fn default_target_setting_if_none(
 
     let head_commit = head_ref.peel_to_commit()?;
 
-    let remote_refname =
-        gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
+    let remote_refname = gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
 
     let target = Target {
         branch: remote_refname,
@@ -203,37 +188,19 @@ fn default_target_setting_if_none(
 }
 
 fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    let meta = ref_metadata_toml(&ctx.legacy_project)?;
-    but_workspace::legacy::stacks_v3(
-        repo,
-        &meta,
-        but_workspace::legacy::StacksFilter::InWorkspace,
-        None,
-    )
-}
-
-fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
+    let meta = ctx.legacy_meta()?;
+    but_workspace::legacy::stacks_v3(repo, &meta, but_workspace::legacy::StacksFilter::InWorkspace, None)
 }
 
 /// Returns the currently applied stacks, creating one if none exists.
-fn stacks_creating_if_none(
-    ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
-    repo: &gix::Repository,
-    perm: &mut WorktreeWritePermission,
-) -> anyhow::Result<Vec<StackEntry>> {
+fn stacks_creating_if_none(ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<Vec<StackEntry>> {
+    let repo = &*ctx.repo.get()?;
     let stacks = stacks(ctx, repo)?;
     if stacks.is_empty() {
-        let template = gitbutler_stack::canned_branch_name(&*ctx.git2_repo.get()?)?;
-        let branch_name = gitbutler_stack::Stack::next_available_name(
-            &*ctx.repo.get()?,
-            vb_state,
-            template,
-            false,
-        )?;
+        let template = but_core::branch::canned_refname(repo)?;
+        let branch_name = but_core::branch::find_unique_refname(repo, template.as_ref())?;
         let create_req = BranchCreateRequest {
-            name: Some(branch_name),
+            name: Some(branch_name.shorten().to_string()),
             order: None,
         };
         let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;

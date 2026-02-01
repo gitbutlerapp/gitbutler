@@ -45,13 +45,8 @@ pub struct ApiProject {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum FetchResult {
-    Fetched {
-        timestamp: time::SystemTime,
-    },
-    Error {
-        timestamp: time::SystemTime,
-        error: String,
-    },
+    Fetched { timestamp: time::SystemTime },
+    Error { timestamp: time::SystemTime, error: String },
 }
 
 impl FetchResult {
@@ -117,10 +112,7 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
     pub forge_override: Option<String>,
-    #[serde(
-        default,
-        deserialize_with = "but_forge::deserialize_preferred_forge_user_opt"
-    )]
+    #[serde(default, deserialize_with = "but_forge::deserialize_preferred_forge_user_opt")]
     pub preferred_forge_user: Option<but_forge::ForgeUser>,
 }
 
@@ -149,11 +141,7 @@ impl Project {
 
     /// A utility to support old code for basic path needs, but without actually needing full
     /// or meaningful metadata.
-    pub fn with_paths_for_testing(
-        mut self,
-        git_dir: PathBuf,
-        worktree_dir: Option<PathBuf>,
-    ) -> Self {
+    pub fn with_paths_for_testing(mut self, git_dir: PathBuf, worktree_dir: Option<PathBuf>) -> Self {
         self.git_dir = git_dir;
         if let Some(worktree_dir) = worktree_dir {
             self.worktree_dir = worktree_dir;
@@ -200,14 +188,12 @@ impl Project {
         if !self.git_dir.as_os_str().is_empty() {
             return Ok(false);
         }
-        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated()).inspect_err(
-            |err| {
-                tracing::error!(
-                    "failed to open worktree at {} for migration: {err}",
-                    self.worktree_dir.display()
-                )
-            },
-        )?;
+        let repo = gix::open_opts(&self.worktree_dir, gix::open::Options::isolated()).inspect_err(|err| {
+            tracing::error!(
+                "failed to open worktree at {} for migration: {err}",
+                self.worktree_dir.display()
+            )
+        })?;
         self.git_dir = repo.git_dir().to_owned();
         // NOTE: we set the worktree so the frontend is happier until this usage can be reviewed,
         // probably for supporting bare repositories.
@@ -239,8 +225,7 @@ impl Project {
     }
     /// Finds an existing project by its path. Errors out if not found.
     pub fn find_by_worktree_dir(worktree_dir: &Path) -> anyhow::Result<Project> {
-        Self::find_by_worktree_dir_opt(worktree_dir)?
-            .context("No project found with the given path")
+        Self::find_by_worktree_dir_opt(worktree_dir)?.context("No project found with the given path")
     }
 
     /// Finds an existing project by its path or return `None` if there was none. Errors out if not found.
@@ -260,9 +245,7 @@ impl Project {
                 .reverse()
         });
         let resolved_path = if worktree_dir.is_relative() {
-            worktree_dir
-                .canonicalize()
-                .context("Failed to canonicalize path")?
+            worktree_dir.canonicalize().context("Failed to canonicalize path")?
         } else {
             worktree_dir.to_path_buf()
         };
@@ -287,25 +270,7 @@ impl Project {
     ///
     /// Use it for fastest-possible access, when incomplete configuration is acceptable.
     pub fn open_isolated_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open_opts(
-            self.git_dir(),
-            gix::open::Options::isolated(),
-        )?)
-    }
-
-    /// Open a standard Git repository at the project directory, just like a real user would.
-    ///
-    /// This repository is good for standard tasks, like checking refs and traversing the commit graph,
-    /// and for reading objects as well.
-    ///
-    /// Diffing and merging is better done with [`Self::open_repo_for_merging()`].
-    pub fn open_repo(&self) -> anyhow::Result<gix::Repository> {
-        Ok(gix::open(self.git_dir())?)
-    }
-
-    /// Calls [`but_core::open_repo_for_merging()`]
-    pub fn open_repo_for_merging(&self) -> anyhow::Result<gix::Repository> {
-        but_core::open_repo_for_merging(self.git_dir())
+        Ok(gix::open_opts(self.git_dir(), gix::open::Options::isolated())?)
     }
 
     /// Open a git2 repository.
@@ -316,54 +281,10 @@ impl Project {
 }
 
 impl Project {
-    /// Determines if the project Operations log will be synched with the GitButHub
-    pub fn oplog_sync_enabled(&self) -> bool {
-        let has_url = self.api.as_ref().map(|api| api.git_url.clone()).is_some();
-        self.api.as_ref().map(|api| api.sync).unwrap_or_default() && has_url
-    }
-    /// Determines if the project code will be synched with the GitButHub
-    pub fn code_sync_enabled(&self) -> bool {
-        let has_code_url = self
-            .api
-            .as_ref()
-            .and_then(|api| api.code_git_url.clone())
-            .is_some();
-        self.api
-            .as_ref()
-            .map(|api| api.sync_code)
-            .unwrap_or_default()
-            && has_code_url
-    }
-
-    pub fn has_code_url(&self) -> bool {
-        self.api
-            .as_ref()
-            .map(|api| api.code_git_url.is_some())
-            .unwrap_or_default()
-    }
-
-    /// Returns the path to the directory containing the `GitButler` state for this project.
-    ///
-    /// Normally this is `.git/gitbutler` in the project's repository.
-    pub fn gb_dir(&self) -> PathBuf {
-        self.git_dir().join("gitbutler")
-    }
-
-    pub fn snapshot_lines_threshold(&self) -> usize {
-        self.snapshot_lines_threshold.unwrap_or(20)
-    }
-
-    // TODO(ST): Actually remove this - people should use the `gix::Repository` for worktree handling (which makes it optional, too)
-    pub fn worktree_dir(&self) -> anyhow::Result<&Path> {
-        // TODO: open a repo and get the workdir.
-        // For now we don't have to open a repo as we only support repos with worktree.
-        Ok(&self.worktree_dir)
-    }
-
-    /// Set the worktree directory to `worktree_dir`.
-    pub fn set_worktree_dir(&mut self, worktree_dir: PathBuf) -> anyhow::Result<()> {
-        let repo = gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
-        self.worktree_dir = worktree_dir;
+    /// Set the worktree directory to `repo_path`, the worktree or git dir.
+    pub fn set_worktree_dir(&mut self, repo_path: PathBuf) -> anyhow::Result<()> {
+        let repo = gix::open_opts(&repo_path, gix::open::Options::isolated())?;
+        self.worktree_dir = repo_path;
         self.git_dir = repo.git_dir().to_owned();
         Ok(())
     }
@@ -377,10 +298,11 @@ impl Project {
         &self.git_dir
     }
 
-    /// Return the path to the Git directory of the 'prime' repository, the one that holds all worktrees.
-    pub fn common_git_dir(&self) -> anyhow::Result<PathBuf> {
-        let repo = self.open_isolated_repo()?;
-        Ok(repo.common_dir().to_owned())
+    /// Returns the path to the directory containing the `GitButler` state for this project.
+    ///
+    /// Normally this is `.git/gitbutler` in the project's repository.
+    pub(crate) fn gb_dir(&self) -> PathBuf {
+        self.git_dir().join("gitbutler")
     }
 }
 
@@ -416,22 +338,12 @@ impl AddProjectOutcome {
             AddProjectOutcome::Added(p) => Ok(p),
             AddProjectOutcome::AlreadyExists(_) => Err(anyhow::anyhow!("project already exists")),
             AddProjectOutcome::PathNotFound => Err(anyhow::anyhow!("project path not found")),
-            AddProjectOutcome::NotADirectory => {
-                Err(anyhow::anyhow!("project path is not a directory"))
-            }
-            AddProjectOutcome::BareRepository => {
-                Err(anyhow::anyhow!("bare repositories are not supported"))
-            }
-            AddProjectOutcome::NonMainWorktree => {
-                Err(anyhow::anyhow!("non-main worktrees are not supported"))
-            }
+            AddProjectOutcome::NotADirectory => Err(anyhow::anyhow!("project path is not a directory")),
+            AddProjectOutcome::BareRepository => Err(anyhow::anyhow!("bare repositories are not supported")),
+            AddProjectOutcome::NonMainWorktree => Err(anyhow::anyhow!("non-main worktrees are not supported")),
             AddProjectOutcome::NoWorkdir => Err(anyhow::anyhow!("no workdir found for repository")),
-            AddProjectOutcome::NoDotGitDirectory => {
-                Err(anyhow::anyhow!("no .git directory found in repository"))
-            }
-            AddProjectOutcome::NotAGitRepository(msg) => {
-                Err(anyhow::anyhow!("not a git repository: {}", msg))
-            }
+            AddProjectOutcome::NoDotGitDirectory => Err(anyhow::anyhow!("no .git directory found in repository")),
+            AddProjectOutcome::NotAGitRepository(msg) => Err(anyhow::anyhow!("not a git repository: {}", msg)),
         }
     }
 }

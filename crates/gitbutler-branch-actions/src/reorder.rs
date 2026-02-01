@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result, bail};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use git2::Oid;
@@ -25,10 +25,10 @@ pub fn reorder_stack(
     ctx: &Context,
     stack_id: StackId,
     new_order: StackOrder,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let state = ctx.legacy_project.virtual_branches();
+    let state = ctx.virtual_branches();
     let repo = &*ctx.git2_repo.get()?;
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;
@@ -49,9 +49,7 @@ pub fn reorder_stack(
                 new_message: None,
             });
         }
-        steps.push(RebaseStep::Reference(but_core::Reference::Virtual(
-            series.name.clone(),
-        )));
+        steps.push(RebaseStep::Reference(but_core::Reference::Virtual(series.name.clone())));
     }
     let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
     let builder = builder.steps(steps)?;
@@ -68,8 +66,7 @@ pub fn reorder_stack(
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
     let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&state, ctx, false)
-        .context("failed to update gitbutler workspace")?;
+    crate::integration::update_workspace_commit(&state, ctx, false).context("failed to update gitbutler workspace")?;
 
     Ok(output)
 }
@@ -107,11 +104,7 @@ impl StackOrder {
         }
         // Ensure that the names in the reorder update request match the names in the stack
         for series_order in &self.series {
-            if !current_order
-                .series
-                .iter()
-                .any(|s| s.name == series_order.name)
-            {
+            if !current_order.series.iter().any(|s| s.name == series_order.name) {
                 bail!("Series '{}' does not exist in the stack", series_order.name);
             }
         }
@@ -155,16 +148,8 @@ impl StackOrder {
         }
 
         // Ensure the new order is not a noop
-        if self
-            .series
-            .iter()
-            .map(|s| s.commit_ids.clone())
-            .collect_vec()
-            == current_order
-                .series
-                .iter()
-                .map(|s| s.commit_ids.clone())
-                .collect_vec()
+        if self.series.iter().map(|s| s.commit_ids.clone()).collect_vec()
+            == current_order.series.iter().map(|s| s.commit_ids.clone()).collect_vec()
         {
             bail!("The new order is the same as the current order");
         }

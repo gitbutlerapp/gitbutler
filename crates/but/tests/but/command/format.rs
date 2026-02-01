@@ -13,8 +13,9 @@ fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
 
     #[cfg(feature = "legacy")]
     {
-        use crate::utils::CommandExt;
         use snapbox::str;
+
+        use crate::utils::CommandExt;
         // Test with actual commands that need a repo (they'll fail but should accept the flag)
         // Before subcommand
         env.but("--json status")

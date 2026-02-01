@@ -1,8 +1,7 @@
 #[test]
 fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
-    let (actual, _ctx) = hunk_dependencies_for_workspace_separated(
-        "complex-file-manipulation-multiple-hunks-with-changes",
-    )?;
+    let (actual, _ctx) =
+        hunk_dependencies_for_workspace_separated("complex-file-manipulation-multiple-hunks-with-changes")?;
     let actual_str = serde_json::to_string_pretty(&actual).unwrap();
     let stack_ids = targets_by_diffs(&actual);
     let actual_str = simplify_stack_ids_in_string(stack_ids.iter(), actual_str);
@@ -84,9 +83,7 @@ fn hunk_dependencies_json_sample() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
-    let (actual, _ctx) = hunk_dependencies_for_workspace_separated(
-        "complex-file-manipulation-with-worktree-changes",
-    )?;
+    let (actual, _ctx) = hunk_dependencies_for_workspace_separated("complex-file-manipulation-with-worktree-changes")?;
     insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
@@ -142,9 +139,8 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow::Result<()> {
-    let (actual, _ctx) = hunk_dependencies_for_workspace_separated(
-        "complex-file-manipulation-multiple-hunks-with-changes",
-    )?;
+    let (actual, _ctx) =
+        hunk_dependencies_for_workspace_separated("complex-file-manipulation-multiple-hunks-with-changes")?;
     insta::assert_snapshot!(to_stable_string(actual), @r#"
     StableHunkDependencies {
         diffs: [
@@ -250,8 +246,7 @@ mod util {
     use but_core::unified_diff::DiffHunk;
     use but_ctx::Context;
     use but_hunk_dependency::ui::{
-        HunkDependencies, HunkLock, HunkLockTarget,
-        hunk_dependencies_for_workspace_changes_by_worktree_dir,
+        HunkDependencies, HunkLock, HunkLockTarget, hunk_dependencies_for_workspace_changes_by_worktree_dir,
     };
     use but_testsupport::gix_testtools::tempfile;
     use itertools::Itertools;
@@ -281,22 +276,15 @@ mod util {
         to_simplify
     }
 
-    pub fn hunk_dependencies_for_workspace_separated(
-        name: &str,
-    ) -> anyhow::Result<(HunkDependencies, TestContext)> {
+    pub fn hunk_dependencies_for_workspace_separated(name: &str) -> anyhow::Result<(HunkDependencies, TestContext)> {
         let (ctx, command_context) = test_scenario(name)?;
         let deps = hunk_dependencies_for_workspace_by_ctx(&command_context)?;
         Ok((deps, ctx))
     }
 
-    fn hunk_dependencies_for_workspace_by_ctx(
-        command_context: &Context,
-    ) -> anyhow::Result<HunkDependencies> {
-        let guard = command_context.exclusive_worktree_access();
-        let (_meta, workspace) =
-            command_context.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        let repo = &*command_context.repo.get()?;
-        hunk_dependencies_for_workspace_changes_by_worktree_dir(repo, &workspace, None)
+    fn hunk_dependencies_for_workspace_by_ctx(command_context: &Context) -> anyhow::Result<HunkDependencies> {
+        let (_guard, repo, ws, _) = command_context.workspace_and_db()?;
+        hunk_dependencies_for_workspace_changes_by_worktree_dir(&repo, &ws, None)
     }
 
     #[derive(Debug)]
@@ -332,12 +320,7 @@ mod util {
         // TODO: make this a read-only scenario once we don't rely on vb.toml anymore.
         let (repo, tmpdir) = but_testsupport::writable_scenario(name);
         let ctx = Context::from_repo(repo)?;
-        Ok((
-            TestContext {
-                tmpdir: Some(tmpdir),
-            },
-            ctx,
-        ))
+        Ok((TestContext { tmpdir: Some(tmpdir) }, ctx))
     }
 
     pub fn targets_by_diffs(deps: &HunkDependencies) -> HashSet<HunkLockTarget> {

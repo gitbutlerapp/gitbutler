@@ -317,9 +317,7 @@ impl From<&crate::ref_info::Commit> for ui::UpstreamCommit {
             id: *id,
             message: message.clone(),
             created_at: author.time.seconds as i128 * 1000,
-            author: author
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
+            author: author.to_ref(&mut gix::date::parse::TimeBuf::default()).into(),
         }
     }
 }
@@ -351,9 +349,7 @@ impl From<&LocalCommit> for ui::Commit {
             has_conflicts: *has_conflicts,
             state: (*relation).into(),
             created_at: author.time.seconds as i128 * 1000,
-            author: author
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
+            author: author.to_ref(&mut gix::date::parse::TimeBuf::default()).into(),
             gerrit_review_url: None,
         }
     }

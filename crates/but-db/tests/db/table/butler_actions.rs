@@ -1,5 +1,6 @@
-use crate::table::in_memory_db;
 use but_db::ButlerAction;
+
+use crate::table::in_memory_db;
 
 #[test]
 fn insert_and_list() -> anyhow::Result<()> {
@@ -145,11 +146,7 @@ fn transaction_rollback() -> anyhow::Result<()> {
     let (total, actions) = db.butler_actions().list(0, 10)?;
 
     assert_eq!(total, 1);
-    assert_eq!(
-        actions.len(),
-        1,
-        "after the rollback, it's like nothing happened"
-    );
+    assert_eq!(actions.len(), 1, "after the rollback, it's like nothing happened");
     assert_eq!(actions[0], action1);
 
     Ok(())
@@ -164,9 +161,7 @@ fn butler_action(
 ) -> ButlerAction {
     ButlerAction {
         id: id.to_string(),
-        created_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        created_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         external_prompt: None,
         external_summary: external_summary.to_string(),
         handler: handler.to_string(),

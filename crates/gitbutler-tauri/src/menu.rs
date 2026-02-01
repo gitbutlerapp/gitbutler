@@ -15,9 +15,7 @@ static SHORTCUT_EVENT: &str = "menu://shortcut";
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
 pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Result<(), Error> {
-    let window = handle
-        .get_window("main")
-        .expect("main window always present");
+    let window = handle.get_window("main").expect("main window always present");
 
     let menu_item = window
         .menu()
@@ -39,15 +37,10 @@ pub fn build<R: Runtime>(
     #[cfg_attr(target_os = "linux", allow(unused_variables))] settings: &AppSettingsWithDiskSync,
 ) -> tauri::Result<Menu<R>> {
     #[cfg(not(feature = "disable-auto-updates"))]
-    let check_for_updates =
-        MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
+    let check_for_updates = MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
 
     #[cfg(target_os = "macos")]
-    let app_name = handle
-        .config()
-        .product_name
-        .clone()
-        .context("App name not defined.")?;
+    let app_name = handle.config().product_name.clone().context("App name not defined.")?;
 
     #[cfg(target_os = "macos")]
     let settings_menu = MenuItemBuilder::with_id("global/settings", "Settings")
@@ -176,20 +169,17 @@ pub fn build<R: Runtime>(
 
     #[cfg(target_os = "macos")]
     {
-        project_menu_builder =
-            project_menu_builder.text("project/show-in-finder", "Show in Finder");
+        project_menu_builder = project_menu_builder.text("project/show-in-finder", "Show in Finder");
     }
 
     #[cfg(target_os = "windows")]
     {
-        project_menu_builder =
-            project_menu_builder.text("project/show-in-finder", "Show in Explorer");
+        project_menu_builder = project_menu_builder.text("project/show-in-finder", "Show in Explorer");
     }
 
     #[cfg(target_os = "linux")]
     {
-        project_menu_builder =
-            project_menu_builder.text("project/show-in-finder", "Show in File Manager");
+        project_menu_builder = project_menu_builder.text("project/show-in-finder", "Show in File Manager");
     }
 
     let project_menu = &project_menu_builder
@@ -226,12 +216,9 @@ pub fn build<R: Runtime>(
         .text("help/x", "X")
         .separator()
         .item(
-            &MenuItemBuilder::with_id(
-                "help/version",
-                format!("Version {}", handle.package_info().version),
-            )
-            .enabled(false)
-            .build(handle)?,
+            &MenuItemBuilder::with_id("help/version", format!("Version {}", handle.package_info().version))
+                .enabled(false)
+                .build(handle)?,
         )
         .build()?;
 
@@ -382,16 +369,10 @@ pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     'open_link: {
         let result = match event.id().0.as_str() {
             "help/documentation" => open::that("https://docs.gitbutler.com"),
-            "help/debugging-guide" => {
-                open::that("https://docs.gitbutler.com/development/debugging")
-            }
+            "help/debugging-guide" => open::that("https://docs.gitbutler.com/development/debugging"),
             "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
-            "help/release-notes" => {
-                open::that("https://github.com/gitbutlerapp/gitbutler/releases")
-            }
-            "help/report-issue" => {
-                open::that("https://github.com/gitbutlerapp/gitbutler/issues/new/choose")
-            }
+            "help/release-notes" => open::that("https://github.com/gitbutlerapp/gitbutler/releases"),
+            "help/report-issue" => open::that("https://github.com/gitbutlerapp/gitbutler/issues/new/choose"),
             "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
             "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
             "help/bluesky" => open::that("https://bsky.app/profile/gitbutler.com"),

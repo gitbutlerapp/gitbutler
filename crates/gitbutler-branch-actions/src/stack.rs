@@ -31,12 +31,12 @@ use crate::{
 /// If there are multiple heads pointing to the same patch and `preceding_head` is not specified,
 /// that means the new head will be first in order for that patch.
 /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
-pub fn create_branch(ctx: &Context, stack_id: StackId, req: CreateSeriesRequest) -> Result<()> {
+pub fn create_branch(ctx: &mut Context, stack_id: StackId, req: CreateSeriesRequest) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_create_dependent_branch(&req.name, guard.write_permission());
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.legacy_project.virtual_branches().get_stack(stack_id)?;
+    let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     let repo = ctx.repo.get()?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
@@ -68,28 +68,23 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
-pub fn remove_branch(ctx: &Context, stack_id: StackId, branch_name: &str) -> Result<()> {
+pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: &str) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_remove_dependent_branch(branch_name, guard.write_permission());
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.legacy_project.virtual_branches().get_stack(stack_id)?;
+    let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     stack.remove_branch(ctx, branch_name)
 }
 
 /// Updates the name an existing branch and resets the pr_number to None.
 /// Same invariants as `create_branch` apply.
-pub fn update_branch_name(
-    ctx: &Context,
-    stack_id: StackId,
-    branch_name: String,
-    new_name: String,
-) -> Result<()> {
+pub fn update_branch_name(ctx: &mut Context, stack_id: StackId, branch_name: String, new_name: String) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.legacy_project.virtual_branches().get_stack(stack_id)?;
+    let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_name)?;
     stack.update_branch(
         ctx,
@@ -110,7 +105,7 @@ pub fn update_branch_name(
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed
 pub fn update_branch_pr_number(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: StackId,
     branch_name: String,
     pr_number: Option<usize>,
@@ -122,7 +117,7 @@ pub fn update_branch_pr_number(
         guard.write_permission(),
     );
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.legacy_project.virtual_branches().get_stack(stack_id)?;
+    let mut stack = ctx.virtual_branches().get_stack(stack_id)?;
     stack.set_pr_number(ctx, &branch_name, pr_number)
 }
 
@@ -137,9 +132,10 @@ pub fn push_stack(
     run_hooks: bool,
     push_opts: Vec<but_gerrit::PushFlag>,
 ) -> Result<PushResult> {
-    ctx.verify(ctx.exclusive_worktree_access().write_permission())?;
+    let mut guard = ctx.exclusive_worktree_access();
+    ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let state = ctx.legacy_project.virtual_branches();
+    let state = ctx.virtual_branches();
     let stack = state.get_stack(stack_id)?;
 
     let git2_repo = ctx.git2_repo.get()?;
@@ -151,10 +147,7 @@ pub fn push_stack(
         .to_gix();
 
     // First fetch, because we dont want to push integrated series
-    ctx.fetch(
-        &default_target.push_remote_name(),
-        Some("push_stack".into()),
-    )?;
+    ctx.fetch(&default_target.push_remote_name(), Some("push_stack".into()))?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let stack_branches = stack.branches();
     let mut result = PushResult {
@@ -162,13 +155,9 @@ pub fn push_stack(
         branch_to_remote: vec![],
         branch_sha_updates: vec![],
     };
-    let gerrit_mode = gix_repo
-        .git_settings()?
-        .gitbutler_gerrit_mode
-        .unwrap_or(false);
+    let gerrit_mode = gix_repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
 
-    let force_push_protection =
-        !skip_force_push_protection && ctx.legacy_project.force_push_protection;
+    let force_push_protection = !skip_force_push_protection && ctx.legacy_project.force_push_protection;
 
     drop(git2_repo);
     for branch in stack_branches {
@@ -180,15 +169,11 @@ pub fn push_stack(
         }
         if branch.head_oid(&gix_repo)? == merge_base_id {
             // Nothing to push for this one
-            tracing::debug!(
-                branch = branch.name,
-                "nothing to push as head_oid == merge_base"
-            );
+            tracing::debug!(branch = branch.name, "nothing to push as head_oid == merge_base");
             continue;
         }
         let mut graph = gix_repo.revision_graph(cache.as_ref());
-        let mut check_commit =
-            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
+        let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
         if branch_integrated(&mut check_commit, &branch, &git2_repo, &gix_repo)? {
             // Already integrated, nothing to push
             tracing::debug!(branch = branch.name, "Skipping push for integrated branch");
@@ -220,10 +205,7 @@ pub fn push_stack(
             )? {
                 hooks::HookResult::Success | hooks::HookResult::NotConfigured => {}
                 hooks::HookResult::Failure(error_data) => {
-                    return Err(anyhow::anyhow!(
-                        "pre-push hook failed: {}",
-                        error_data.error
-                    ));
+                    return Err(anyhow::anyhow!("pre-push hook failed: {}", error_data.error));
                 }
             }
         }
@@ -257,25 +239,18 @@ pub fn push_stack(
         drop(git2_repo);
         if gerrit_mode {
             let push_output = but_gerrit::parse::push_output(&out)?;
-            let stacks = stack
-                .commits(ctx)?
-                .iter()
-                .map(|id| id.to_gix())
-                .collect_vec();
+            let stacks = stack.commits(ctx)?.iter().map(|id| id.to_gix()).collect_vec();
             but_gerrit::record_push_metadata(ctx, stacks, push_output)?;
         }
 
-        result.branch_to_remote.push((
-            branch.name().to_owned(),
-            push_details.remote_refname.to_owned().into(),
-        ));
+        result
+            .branch_to_remote
+            .push((branch.name().to_owned(), push_details.remote_refname.to_owned().into()));
 
         // Record the SHA update (before -> after)
-        result.branch_sha_updates.push((
-            branch.name().to_owned(),
-            before_sha.to_string(),
-            local_sha.to_string(),
-        ));
+        result
+            .branch_sha_updates
+            .push((branch.name().to_owned(), before_sha.to_string(), local_sha.to_string()));
 
         if branch.name().eq(&branch_limit) {
             break;

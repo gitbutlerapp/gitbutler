@@ -1,10 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
-use gitbutler_project::Project;
 
 use crate::utils::OutputChannel;
 
@@ -29,9 +28,8 @@ fn store_id_map(ctx: &Context, id_map: &HashMap<String, String>) -> Result<(), a
 }
 
 /// Load the ID map from file
-pub fn load_id_map(project: &Project) -> Result<HashMap<String, String>, anyhow::Error> {
-    let gb_dir = project.gb_dir();
-    let id_map_path = gb_dir.join("branch_id_map.json");
+pub fn load_id_map(project_data_dir: &Path) -> Result<HashMap<String, String>, anyhow::Error> {
+    let id_map_path = project_data_dir.join("branch_id_map.json");
 
     if !id_map_path.exists() {
         return Err(anyhow::anyhow!(
@@ -66,18 +64,13 @@ pub fn list(
     };
 
     let branch_review_map = if review {
-        crate::command::legacy::forge::review::get_review_map(
-            ctx,
-            Some(but_forge::CacheConfig::CacheOnly),
-        )?
+        crate::command::legacy::forge::review::get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?
     } else {
         HashMap::new()
     };
 
-    let mut applied_stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let mut applied_stacks =
+        but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
 
     // Apply name filter to applied stacks if provided
     if let Some(ref filter_str) = filter {
@@ -118,24 +111,12 @@ pub fn list(
     // Apply name filter if provided
     if let Some(ref filter_str) = filter {
         let filter_lower = filter_str.to_lowercase();
-        branches.retain(|branch| {
-            branch
-                .name
-                .to_string()
-                .to_lowercase()
-                .contains(&filter_lower)
-        });
+        branches.retain(|branch| branch.name.to_string().to_lowercase().contains(&filter_lower));
     }
 
     // Filter out dependabot branches unless --all is specified
     if !all {
-        branches.retain(|branch| {
-            !branch
-                .name
-                .to_string()
-                .to_lowercase()
-                .contains("dependabot")
-        });
+        branches.retain(|branch| !branch.name.to_string().to_lowercase().contains("dependabot"));
     }
 
     // Sort all branches by last commit date (most recent first)
@@ -163,11 +144,7 @@ pub fn list(
 
     // Check merge status if requested
     let merge_status_map: Option<HashMap<String, bool>> = if check_merge {
-        Some(check_branches_merge_cleanly(
-            ctx,
-            &applied_stacks,
-            &branches_to_show,
-        )?)
+        Some(check_branches_merge_cleanly(ctx, &applied_stacks, &branches_to_show)?)
     } else {
         None
     };
@@ -237,11 +214,7 @@ pub fn list(
         }
 
         if more_count > 0 {
-            writeln!(
-                out,
-                "\n... and {} more branches (use --all to show all)",
-                more_count
-            )?;
+            writeln!(out, "\n... and {} more branches (use --all to show all)", more_count)?;
         }
     }
     Ok(())
@@ -273,31 +246,28 @@ fn output_json(
                 .iter()
                 .map(|head| {
                     let reviews = get_reviews_json(&head.name.to_string(), branch_review_map);
-                    let commits_ahead =
-                        commits_ahead_map.and_then(|map| map.get(&head.name.to_string()).copied());
-                    let merges_cleanly =
-                        merge_status_map.and_then(|map| map.get(&head.name.to_string()).copied());
+                    let commits_ahead = commits_ahead_map.and_then(|map| map.get(&head.name.to_string()).copied());
+                    let merges_cleanly = merge_status_map.and_then(|map| map.get(&head.name.to_string()).copied());
 
                     // Get commit information
-                    let (last_commit_at, last_author) =
-                        match repo.find_commit(gix_to_git2_oid(head.tip)) {
-                            Ok(commit) => {
-                                let author = commit.author();
-                                let timestamp_ms = (commit.time().seconds() * 1000) as u128;
-                                let author_output = AuthorOutput {
-                                    name: author.name().map(|s| s.to_string()),
-                                    email: author.email().map(|s| s.to_string()),
-                                };
-                                (timestamp_ms, author_output)
-                            }
-                            Err(_) => (
-                                0,
-                                AuthorOutput {
-                                    name: None,
-                                    email: None,
-                                },
-                            ),
-                        };
+                    let (last_commit_at, last_author) = match repo.find_commit(gix_to_git2_oid(head.tip)) {
+                        Ok(commit) => {
+                            let author = commit.author();
+                            let timestamp_ms = (commit.time().seconds() * 1000) as u128;
+                            let author_output = AuthorOutput {
+                                name: author.name().map(|s| s.to_string()),
+                                email: author.email().map(|s| s.to_string()),
+                            };
+                            (timestamp_ms, author_output)
+                        }
+                        Err(_) => (
+                            0,
+                            AuthorOutput {
+                                name: None,
+                                email: None,
+                            },
+                        ),
+                    };
 
                     BranchHeadOutput {
                         name: head.name.to_string(),
@@ -321,10 +291,8 @@ fn output_json(
         .iter()
         .map(|branch| {
             let reviews = get_reviews_json(&branch.name.to_string(), branch_review_map);
-            let commits_ahead =
-                commits_ahead_map.and_then(|map| map.get(&branch.name.to_string()).copied());
-            let merges_cleanly =
-                merge_status_map.and_then(|map| map.get(&branch.name.to_string()).copied());
+            let commits_ahead = commits_ahead_map.and_then(|map| map.get(&branch.name.to_string()).copied());
+            let merges_cleanly = merge_status_map.and_then(|map| map.get(&branch.name.to_string()).copied());
             BranchOutput {
                 name: branch.name.to_string(),
                 reviews,
@@ -343,11 +311,7 @@ fn output_json(
     let output = BranchListOutput {
         applied_stacks: applied_stacks_output,
         branches: branches_output,
-        more_branches: if more_count > 0 {
-            Some(more_count)
-        } else {
-            None
-        },
+        more_branches: if more_count > 0 { Some(more_count) } else { None },
     };
 
     out.write_value(output)?;
@@ -385,11 +349,7 @@ fn check_branches_merge_cleanly(
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
-    let target_ref_name = format!(
-        "refs/remotes/{}/{}",
-        target.branch.remote(),
-        target.branch.branch()
-    );
+    let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
     let target_commit = match repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
@@ -483,11 +443,7 @@ fn calculate_commits_ahead(
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
-    let target_ref_name = format!(
-        "refs/remotes/{}/{}",
-        target.branch.remote(),
-        target.branch.branch()
-    );
+    let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
     let target_commit = match ctx.repo.get()?.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
@@ -528,10 +484,7 @@ fn calculate_commits_ahead(
 fn format_date_for_display(timestamp_ms: u128) -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis();
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
 
     // Calculate days ago
     let age_ms = now.saturating_sub(timestamp_ms);
@@ -564,8 +517,9 @@ fn print_applied_branches_table(
     id_map: &HashMap<String, String>,
     out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
-    use crate::tui::{Table, table::Cell};
     use but_oxidize::gix_to_git2_oid;
+
+    use crate::tui::{Table, table::Cell};
 
     if applied_stacks.is_empty() {
         return Ok(());
@@ -644,8 +598,7 @@ fn print_applied_branches_table(
             };
 
             // Get PR/review info
-            let reviews_str = if let Some(reviews) = branch_review_map.get(&branch.name.to_string())
-            {
+            let reviews_str = if let Some(reviews) = branch_review_map.get(&branch.name.to_string()) {
                 let review_numbers = reviews
                     .iter()
                     .map(|r| format!("{}{}", r.unit_symbol, r.number))

@@ -278,9 +278,7 @@ fn every_commit_is_sequentially_dependent() -> anyhow::Result<()> {
 
 #[test]
 fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_separated(
-        "sequentially-dependent-commits-multi-stack",
-    );
+    let actual = worktree_ranges_digest_for_workspace_separated("sequentially-dependent-commits-multi-stack");
     insta::assert_debug_snapshot!(actual, @r#"
     Ok(
         WorkspaceDigest {
@@ -320,8 +318,7 @@ fn every_commit_is_sequentially_dependent_multi_stack() -> anyhow::Result<()> {
 
 #[test]
 fn delete_and_recreate_file_multi_stack() -> anyhow::Result<()> {
-    let actual =
-        worktree_ranges_digest_for_workspace_separated("delete-and-recreate-file-multi-stack")?;
+    let actual = worktree_ranges_digest_for_workspace_separated("delete-and-recreate-file-multi-stack")?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -439,9 +436,7 @@ fn complex_file_manipulation() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_named(
-        "complex-file-manipulation-with-worktree-changes",
-    )?;
+    let actual = worktree_ranges_digest_for_workspace_named("complex-file-manipulation-with-worktree-changes")?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -588,8 +583,7 @@ fn complex_file_manipulation_with_uncommitted_changes() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
-    let actual =
-        worktree_ranges_digest_for_workspace_separated("complex-file-manipulation-multiple-hunks")?;
+    let actual = worktree_ranges_digest_for_workspace_separated("complex-file-manipulation-multiple-hunks")?;
     insta::assert_debug_snapshot!(actual, @r#"
     WorkspaceDigest {
         ranges_by_path: [
@@ -678,9 +672,7 @@ fn complex_file_manipulation_multiple_hunks() -> anyhow::Result<()> {
 
 #[test]
 fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> anyhow::Result<()> {
-    let actual = worktree_ranges_digest_for_workspace_named(
-        "complex-file-manipulation-multiple-hunks-with-changes",
-    )?;
+    let actual = worktree_ranges_digest_for_workspace_named("complex-file-manipulation-multiple-hunks-with-changes")?;
 
     insta::assert_debug_snapshot!(actual.partial(), @r#"
     WorkspaceWithoutRanges {
@@ -870,26 +862,19 @@ mod util {
 
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
 
-    pub fn worktree_ranges_digest_for_workspace_named(
-        name: &str,
-    ) -> anyhow::Result<WorkspaceDigest> {
+    pub fn worktree_ranges_digest_for_workspace_named(name: &str) -> anyhow::Result<WorkspaceDigest> {
         let test_ctx = test_ctx_separated(name)?;
         worktree_ranges_digest_for_workspace(&test_ctx.ctx)
     }
 
-    pub fn worktree_ranges_digest_for_workspace_separated(
-        name: &str,
-    ) -> anyhow::Result<WorkspaceDigest> {
+    pub fn worktree_ranges_digest_for_workspace_separated(name: &str) -> anyhow::Result<WorkspaceDigest> {
         let test_ctx = test_ctx_separated(name)?;
         worktree_ranges_digest_for_workspace(&test_ctx.ctx)
     }
 
     pub fn worktree_ranges_digest_for_workspace(ctx: &Context) -> anyhow::Result<WorkspaceDigest> {
-        let guard = ctx.exclusive_worktree_access();
-        let (_meta, workspace) =
-            ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        let repo = ctx.repo.get()?;
-        let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &workspace)?;
+        let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+        let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &ws)?;
         let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
         let worktree_changes = but_core::diff::worktree_changes(&repo)?.changes;
         intersect_workspace_ranges(&repo, ranges, worktree_changes)

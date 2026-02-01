@@ -197,10 +197,7 @@ To return to GitButler mode, run:
 
     // Verify the change is left uncommitted (not cherry-picked)
     let file_path = env.projects_root().join("UserFile");
-    assert!(
-        file_path.exists(),
-        "UserFile should exist in working directory"
-    );
+    assert!(file_path.exists(), "UserFile should exist in working directory");
 
     // Check that there are uncommitted changes
     let status = std::process::Command::new("git")
@@ -317,8 +314,7 @@ To return to GitButler mode, run:
 /// - After teardown, second branch should be unapplied
 #[test]
 fn two_dangling_commits_different_branches() -> anyhow::Result<()> {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("teardown-two-dangling-commits")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("teardown-two-dangling-commits")?;
     // Initial state: user has made two commits on top of workspace
     insta::assert_snapshot!(env.git_log()?, @r"
     * fc13bfb (HEAD -> gitbutler/workspace) add FileForB
@@ -436,8 +432,7 @@ fn json_output_single_branch() -> anyhow::Result<()> {
 /// Test: JSON output with dangling commits
 #[test]
 fn json_output_with_dangling_commits() -> anyhow::Result<()> {
-    let env =
-        Sandbox::init_scenario_with_target_and_default_settings("teardown-dangling-single-commit")?;
+    let env = Sandbox::init_scenario_with_target_and_default_settings("teardown-dangling-single-commit")?;
     env.setup_metadata(&["A"])?;
 
     env.but("--json teardown")

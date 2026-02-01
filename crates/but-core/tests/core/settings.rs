@@ -63,10 +63,7 @@ mod git {
 
         let repo = but_testsupport::open_repo(repo.path())?;
         let actual = repo.git_settings()?;
-        assert_eq!(
-            actual, expected,
-            "it only writes what is given (as changed)"
-        );
+        assert_eq!(actual, expected, "it only writes what is given (as changed)");
 
         Ok(())
     }

@@ -75,8 +75,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
                     json_ty,
                     json_ident,
                     from_mode: _,
-                }) =
-                    json_ty_by_name.get(&ident.ident.to_string())
+                }) = json_ty_by_name.get(&ident.ident.to_string())
                 {
                     let name = json_ident.as_ref().unwrap_or(name);
                     (name, quote! { pub #name: #json_ty })
@@ -308,10 +307,7 @@ fn build_json_type_mapping<'a>(
             // Extract the referenced type
             let inner = &r.elem;
             let syn::Type::Path(tp) = &**inner else {
-                return Err(syn::Error::new_spanned(
-                    inner,
-                    "Expected a type path inside reference",
-                ));
+                return Err(syn::Error::new_spanned(inner, "Expected a type path inside reference"));
             };
 
             (&tp.path, true)
@@ -323,10 +319,7 @@ fn build_json_type_mapping<'a>(
 
         let segments = &path.segments;
         if segments.is_empty() {
-            return Err(syn::Error::new_spanned(
-                ty,
-                "Unexpected empty type path in reference",
-            ));
+            return Err(syn::Error::new_spanned(ty, "Unexpected empty type path in reference"));
         }
 
         let last = &segments.last().unwrap().ident;
@@ -368,10 +361,7 @@ fn extract_ok_type(output: &syn::ReturnType) -> syn::Result<syn::Type> {
     let ty = match output {
         syn::ReturnType::Type(_, ty) => ty.as_ref(),
         _ => {
-            return Err(syn::Error::new_spanned(
-                output,
-                "function must return a type",
-            ));
+            return Err(syn::Error::new_spanned(output, "function must return a type"));
         }
     };
 
@@ -386,17 +376,11 @@ fn extract_ok_type(output: &syn::ReturnType) -> syn::Result<syn::Type> {
         .ok_or_else(|| syn::Error::new_spanned(tp, "unexpected empty type path"))?;
 
     if last.ident != "Result" {
-        return Err(syn::Error::new_spanned(
-            last,
-            "expected Result<T> or Result<T, E>",
-        ));
+        return Err(syn::Error::new_spanned(last, "expected Result<T> or Result<T, E>"));
     }
 
     let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
-        return Err(syn::Error::new_spanned(
-            last,
-            "expected Result<T> or Result<T, E>",
-        ));
+        return Err(syn::Error::new_spanned(last, "expected Result<T> or Result<T, E>"));
     };
 
     if args.args.is_empty() {

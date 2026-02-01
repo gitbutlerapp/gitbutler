@@ -3,10 +3,7 @@ use but_settings::AppSettingsWithDiskSync;
 use tauri::utils::config::{Csp, CspDirectiveSources};
 
 /// Constructs a new CSP object with additional `connect-src` and `img-src` hosts as provided by the AppSettings.
-pub fn csp_with_extras(
-    csp: Option<Csp>,
-    settings: &AppSettingsWithDiskSync,
-) -> Result<Option<Csp>> {
+pub fn csp_with_extras(csp: Option<Csp>, settings: &AppSettingsWithDiskSync) -> Result<Option<Csp>> {
     let extra_csp = settings.get()?.clone().extra_csp;
 
     let hosts = extra_csp

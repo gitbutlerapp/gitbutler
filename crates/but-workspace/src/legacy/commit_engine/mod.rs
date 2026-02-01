@@ -5,7 +5,7 @@ use std::path::Path;
 use anyhow::{Context as _, bail};
 use bstr::BString;
 use but_core::{DiffSpec, ref_metadata::StackId, tree::create_tree::RejectionReason};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_rebase::merge::ConflictErrorContext;
 use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
@@ -43,9 +43,9 @@ pub fn create_commit_simple(
     worktree_changes: Vec<DiffSpec>,
     message: String,
     stack_branch_name: String,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
-    let repo = ctx.clone_repo_for_merging()?;
+    let repo = ctx.repo.get()?;
     // If parent_id was not set but a stack branch name was provided, pick the current head of that branch as parent.
     let parent_commit_id: Option<gix::ObjectId> = match parent_id {
         Some(id) => Some(id),
@@ -128,9 +128,7 @@ pub fn create_commit_and_update_refs(
     };
 
     let (commit_to_find, is_amend) = match destination {
-        Destination::NewCommit {
-            parent_commit_id, ..
-        } => (parent_commit_id, false),
+        Destination::NewCommit { parent_commit_id, .. } => (parent_commit_id, false),
         Destination::AmendCommit { commit_id, .. } => (Some(commit_id), true),
     };
 
@@ -143,45 +141,41 @@ pub fn create_commit_and_update_refs(
             Some((id, r.inner.name))
         });
         let (platform_storage, platform_storage_2);
-        let checked_out_and_gitbutler_refs =
-            checked_out_ref
-                .into_iter()
-                // TODO: remove this as `refs/gitbutler/` won't contain relevant refs anymore.
-                .chain({
-                    platform_storage_2 = repo.references()?;
-                    platform_storage_2
-                        .prefixed("refs/gitbutler/")?
-                        .filter_map(Result::ok)
-                        .filter_map(|r| r.try_id().map(|id| (id.detach(), r.inner.name)))
-                })
-                .chain(
-                    // When amending, we want to update all branches that pointed to the old commit to now point to the new commit.
-                    if is_amend {
-                        Box::new({
-                            platform_storage = repo.references()?;
-                            platform_storage
-                                .prefixed("refs/heads/")?
-                                .filter_map(Result::ok)
-                                .filter_map(|r| {
-                                    let is_checked_out = checked_out_ref_name.as_ref().is_some_and(
-                                        |checked_out_ref| checked_out_ref == &r.inner.name,
-                                    );
-                                    if is_checked_out {
-                                        None
-                                    } else {
-                                        r.try_id().map(|id| (id.detach(), r.inner.name))
-                                    }
-                                })
-                        }) as Box<dyn Iterator<Item = _>>
-                    } else {
-                        Box::new(std::iter::empty())
-                    },
-                );
+        let checked_out_and_gitbutler_refs = checked_out_ref
+            .into_iter()
+            // TODO: remove this as `refs/gitbutler/` won't contain relevant refs anymore.
+            .chain({
+                platform_storage_2 = repo.references()?;
+                platform_storage_2
+                    .prefixed("refs/gitbutler/")?
+                    .filter_map(Result::ok)
+                    .filter_map(|r| r.try_id().map(|id| (id.detach(), r.inner.name)))
+            })
+            .chain(
+                // When amending, we want to update all branches that pointed to the old commit to now point to the new commit.
+                if is_amend {
+                    Box::new({
+                        platform_storage = repo.references()?;
+                        platform_storage
+                            .prefixed("refs/heads/")?
+                            .filter_map(Result::ok)
+                            .filter_map(|r| {
+                                let is_checked_out = checked_out_ref_name
+                                    .as_ref()
+                                    .is_some_and(|checked_out_ref| checked_out_ref == &r.inner.name);
+                                if is_checked_out {
+                                    None
+                                } else {
+                                    r.try_id().map(|id| (id.detach(), r.inner.name))
+                                }
+                            })
+                    }) as Box<dyn Iterator<Item = _>>
+                } else {
+                    Box::new(std::iter::empty())
+                },
+            );
         for (commit_id, git_reference) in checked_out_and_gitbutler_refs {
-            all_refs_by_id
-                .entry(commit_id)
-                .or_default()
-                .push(git_reference);
+            all_refs_by_id.entry(commit_id).or_default().push(git_reference);
         }
 
         // Special case: commit/amend on top of `HEAD` and no merge above: no rebase necessary
@@ -228,9 +222,7 @@ pub fn create_commit_and_update_refs(
                 );
             }
 
-            let workspace_tip = frame
-                .workspace_tip
-                .filter(|ws_tip| !commits_to_rebase.contains(ws_tip));
+            let workspace_tip = frame.workspace_tip.filter(|ws_tip| !commits_to_rebase.contains(ws_tip));
             let rebase = {
                 fn conflicts_to_specs(
                     outcome: &mut CreateCommitOutcome,
@@ -244,12 +236,8 @@ pub fn create_commit_and_update_refs(
                                 .iter()
                                 .find_map(|spec| {
                                     (spec.path == *conflicting_rela_path
-                                        || spec.previous_path.as_ref()
-                                            == Some(conflicting_rela_path))
-                                    .then_some((
-                                        RejectionReason::WorkspaceMergeConflict,
-                                        spec.to_owned(),
-                                    ))
+                                        || spec.previous_path.as_ref() == Some(conflicting_rela_path))
+                                    .then_some((RejectionReason::WorkspaceMergeConflict, spec.to_owned()))
                                 })
                                 .unwrap_or_else(|| {
                                     (
@@ -268,12 +256,15 @@ pub fn create_commit_and_update_refs(
                 }
                 // Set commits leading up to the tip on top of the new commit, serving as base.
                 let mut builder = but_rebase::Rebase::new(repo, new_commit, Some(commit_in_graph))?;
-                builder.steps(commits_to_rebase.into_iter().rev().map(|commit_id| {
-                    but_rebase::RebaseStep::Pick {
-                        commit_id,
-                        new_message: None,
-                    }
-                }))?;
+                builder.steps(
+                    commits_to_rebase
+                        .into_iter()
+                        .rev()
+                        .map(|commit_id| but_rebase::RebaseStep::Pick {
+                            commit_id,
+                            new_message: None,
+                        }),
+                )?;
                 if let Some(workspace_tip) = workspace_tip {
                     // Special Hack (https://github.com/gitbutlerapp/gitbutler/pull/7976)
                     // See if `branch_tip` isn't yet in the workspace-tip if it is managed, and if so, add it
@@ -306,10 +297,10 @@ pub fn create_commit_and_update_refs(
                     match builder.rebase() {
                         Ok(mut outcome) => {
                             if commit_id != workspace_tip {
-                                let Some(rewritten_old) =
-                                    outcome.commit_mapping.iter_mut().find_map(
-                                        |(_base, old, _new)| (old == &commit_id).then_some(old),
-                                    )
+                                let Some(rewritten_old) = outcome
+                                    .commit_mapping
+                                    .iter_mut()
+                                    .find_map(|(_base, old, _new)| (old == &commit_id).then_some(old))
                                 else {
                                     bail!(
                                         "BUG: Needed to find modified {commit_id} to set it back its previous value, but couldn't find it"
@@ -320,9 +311,7 @@ pub fn create_commit_and_update_refs(
                             outcome
                         }
                         Err(err) => {
-                            return if let Some(conflicts) =
-                                err.downcast_ref::<ConflictErrorContext>()
-                            {
+                            return if let Some(conflicts) = err.downcast_ref::<ConflictErrorContext>() {
                                 conflicts_to_specs(&mut out, &conflicts.paths, &changes)?;
                                 Ok(out)
                             } else {
@@ -334,9 +323,7 @@ pub fn create_commit_and_update_refs(
                     match builder.rebase() {
                         Ok(rebase) => rebase,
                         Err(err) => {
-                            return if let Some(conflicts) =
-                                err.downcast_ref::<ConflictErrorContext>()
-                            {
+                            return if let Some(conflicts) = err.downcast_ref::<ConflictErrorContext>() {
                                 conflicts_to_specs(&mut out, &conflicts.paths, &changes)?;
                                 Ok(out)
                             } else {
@@ -365,27 +352,17 @@ pub fn create_commit_and_update_refs(
 
         let tree_index = repo.index_from_tree(&repo.head_tree_id()?)?;
         let mut disk_index = repo.open_index()?;
-        index::apply_lhs_to_rhs(
-            repo.workdir().expect("non-bare"),
-            &tree_index,
-            &mut disk_index,
-        )?;
+        index::apply_lhs_to_rhs(repo.workdir().expect("non-bare"), &tree_index, &mut disk_index)?;
         out.index = disk_index.into();
     } else {
         // unborn branch special case.
         repo.reference(
-            repo.head_name()?
-                .context("unborn HEAD must contain a ref-name")?,
+            repo.head_name()?.context("unborn HEAD must contain a ref-name")?,
             new_commit,
             PreviousValue::Any,
             format!(
                 "commit (initial): {title}",
-                title = new_commit
-                    .attach(repo)
-                    .object()?
-                    .into_commit()
-                    .message()?
-                    .title
+                title = new_commit.attach(repo).object()?.into_commit().message()?.title
             ),
         )?;
         let new_tree = new_commit.attach(repo).object()?.into_commit().tree_id()?;
@@ -409,7 +386,7 @@ pub fn create_commit_and_update_refs_with_project(
     destination: Destination,
     changes: Vec<DiffSpec>,
     context_lines: u32,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> anyhow::Result<CreateCommitOutcome> {
     let vbh = VirtualBranchesHandle::new(project_data_dir);
     let mut vb = vbh.read_file()?;
@@ -426,18 +403,13 @@ pub fn create_commit_and_update_refs_with_project(
 
             match (maybe_commit_id, maybe_stack_id) {
                 (None, None) => ReferenceFrame::default(),
-                (_, Some(stack_id)) => {
-                    ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?
-                }
-                (Some(commit_id), None) => {
-                    ReferenceFrame::infer(repo, &vb, InferenceMode::CommitIdInStack(commit_id))?
-                }
+                (_, Some(stack_id)) => ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?,
+                (Some(commit_id), None) => ReferenceFrame::infer(repo, &vb, InferenceMode::CommitIdInStack(commit_id))?,
             }
         }
         Some(stack_id) => ReferenceFrame::infer(repo, &vb, InferenceMode::StackId(stack_id))?,
     };
-    let out =
-        create_commit_and_update_refs(repo, frame, &mut vb, destination, changes, context_lines)?;
+    let out = create_commit_and_update_refs(repo, frame, &mut vb, destination, changes, context_lines)?;
 
     vbh.write_file(&vb)?;
     Ok(out)

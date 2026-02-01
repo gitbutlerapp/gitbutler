@@ -1,17 +1,13 @@
-use but_ctx::Context;
-use but_meta::VirtualBranchesTomlMetadata;
+use but_ctx::{Context, ThreadSafeContext};
 use but_oxidize::{ObjectIdExt, OidExt};
-use but_settings::AppSettings;
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
-use gitbutler_project::Project;
 use uuid::Uuid;
 
 use crate::workflow::{self, Workflow};
 
 #[derive(Debug, Clone)]
 pub struct CommitEvent {
-    pub project: Project,
-    pub app_settings: AppSettings,
+    pub ctx: ThreadSafeContext,
     pub external_summary: String,
     pub external_prompt: String,
     pub branch_name: String,
@@ -19,30 +15,17 @@ pub struct CommitEvent {
     pub trigger: Uuid,
 }
 
-pub fn commit(
-    llm: &but_llm::LLMProvider,
-    event: CommitEvent,
-) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
+pub fn commit(llm: &but_llm::LLMProvider, event: CommitEvent) -> anyhow::Result<Option<(gix::ObjectId, String)>> {
     let (diff, sync_ctx) = {
-        let ctx = Context::new_from_legacy_project(event.project.clone())?;
+        let ctx = event.ctx.into_thread_local();
         let repo = &ctx.clone_repo_for_merging_non_persisting()?;
-        let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
-            repo,
-            event.commit_id,
-        )?;
+        let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(repo, event.commit_id)?;
         (
-            changes
-                .try_to_unidiff(repo, ctx.settings.context_lines)?
-                .to_string(),
+            changes.try_to_unidiff(repo, ctx.settings.context_lines)?.to_string(),
             ctx.into_sync(),
         )
     };
-    let message = crate::generate::commit_message(
-        llm,
-        &event.external_summary,
-        &event.external_prompt,
-        &diff,
-    )?;
+    let message = crate::generate::commit_message(llm, &event.external_summary, &event.external_prompt, &diff)?;
 
     // Format the commit message to follow email RFC format (80 char line wrapping)
     let message = crate::commit_format::format_commit_message(&message);
@@ -54,12 +37,8 @@ pub fn commit(
         .find(|s| s.heads.iter().any(|h| h.name == event.branch_name))
         .and_then(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("Stack with name '{}' not found", event.branch_name))?;
-    let result = gitbutler_branch_actions::update_commit_message(
-        &ctx,
-        stack_id,
-        event.commit_id.to_git2(),
-        &message,
-    );
+    let result =
+        gitbutler_branch_actions::update_commit_message(&mut ctx, stack_id, event.commit_id.to_git2(), &message);
     let status = match &result {
         Ok(_) => workflow::Status::Completed,
         Err(e) => workflow::Status::Failed(e.to_string()),
@@ -92,8 +71,6 @@ pub fn commit(
 
 fn stacks(ctx: &Context) -> anyhow::Result<Vec<StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
+    let meta = ctx.legacy_meta()?;
     but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)
 }

@@ -13,11 +13,8 @@ use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::ReferenceSpec;
 use git2::Commit;
 use gitbutler_reference::{Refname, RemoteRefname, VirtualRefname, normalize_branch_name};
-use gitbutler_repo::{
-    RepositoryExt,
-    logging::{LogUntil, RepositoryExt as _},
-};
-use gix::{utils::str::decompose, validate::reference::name_partial};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use gix::validate::reference::name_partial;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -92,23 +89,23 @@ impl From<Stack> for virtual_branches_legacy_types::Stack {
             in_workspace,
             heads: heads.into_iter().map(Into::into).collect(),
             // Dummy values for backwards compatibility
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             notes: String::new(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             ownership: virtual_branches_legacy_types::BranchOwnershipClaims::default(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             allow_rebasing: true,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             post_commits: false,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             tree: gix::hash::Kind::Sha1.null(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             created_timestamp_ms: 0,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             updated_timestamp_ms: 0,
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             name: String::default(),
-            #[allow(deprecated)]
+            #[expect(deprecated)]
             head: gix::hash::Kind::Sha1.null(),
         }
     }
@@ -135,10 +132,7 @@ impl Stack {
     /// The name of the stack, defined as the name of the first head (branch) in the stack.
     /// The usage of this is discouraged
     pub fn name(&self) -> String {
-        self.heads
-            .first()
-            .map(|head| head.name.clone())
-            .unwrap_or_default()
+        self.heads.first().map(|head| head.name.clone()).unwrap_or_default()
     }
 
     pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
@@ -308,11 +302,7 @@ impl Stack {
 
     /// Creates a new StackBranch pointing to the given head commit with the given name.
     /// This also creates a git reference in the repository.
-    fn create_stack_branch(
-        repo: &gix::Repository,
-        head: gix::ObjectId,
-        name: String,
-    ) -> Result<StackBranch> {
+    fn create_stack_branch(repo: &gix::Repository, head: gix::ObjectId, name: String) -> Result<StackBranch> {
         let commit = repo.find_commit(head)?;
         let reference = StackBranch::new(commit.id, name, repo)?;
         Ok(reference)
@@ -384,13 +374,7 @@ impl Stack {
             self.head_oid(ctx)?.to_git2(),
             &state,
         )?;
-        let updated_heads = add_head(
-            self.heads.clone(),
-            new_head,
-            preceding_head,
-            patches,
-            &gix_repo,
-        )?;
+        let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches, &gix_repo)?;
         self.heads = updated_heads;
         state.set_stack(self.clone())
     }
@@ -398,9 +382,10 @@ impl Stack {
     /// A convenience method just like `add_series`, but adds a new branch on top of the stack.
     pub fn add_series_top_of_stack(&mut self, ctx: &Context, name: String) -> Result<()> {
         self.ensure_initialized()?;
-        let current_top_head = self.heads.last().ok_or(anyhow!(
-            "Stack is in an invalid state - heads list is empty"
-        ))?;
+        let current_top_head = self
+            .heads
+            .last()
+            .ok_or(anyhow!("Stack is in an invalid state - heads list is empty"))?;
         let repo = ctx.repo.get()?;
         let new_head = StackBranch::new(current_top_head.head_oid(&repo)?, name, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
@@ -424,12 +409,7 @@ impl Stack {
     /// If the branch name is updated, the pr_number will be reset to None.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    pub fn update_branch(
-        &mut self,
-        ctx: &Context,
-        branch_name: String,
-        update: &PatchReferenceUpdate,
-    ) -> Result<()> {
+    pub fn update_branch(&mut self, ctx: &Context, branch_name: String, update: &PatchReferenceUpdate) -> Result<()> {
         self.ensure_initialized()?;
         if update == &PatchReferenceUpdate::default() {
             return Ok(()); // noop
@@ -553,8 +533,7 @@ impl Stack {
                 head.pr_number = None;
             }
 
-            let new_name =
-                Stack::new_name(repo, &state, self.upstream.clone(), self.name(), false)?;
+            let new_name = Stack::new_name(repo, &state, self.upstream.clone(), self.name(), false)?;
             let new_branch = Stack::create_stack_branch(repo, self.head_oid(ctx)?, new_name)?;
             self.heads.push(new_branch);
         }
@@ -573,8 +552,7 @@ impl Stack {
         let git2_repo = ctx.git2_repo.get()?;
         let commit = git2_repo.find_commit(oid)?;
         let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
-        let upstream_refname =
-            RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
+        let upstream_refname = RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
         Ok(PushDetails {
             head: commit.id(),
             remote_refname: upstream_refname,
@@ -644,23 +622,14 @@ impl Stack {
     /// # Errors
     /// If the series does not exist, this method will return an error.
     /// If the stack has not been initialized, this method will return an error.
-    pub fn set_pr_number(
-        &mut self,
-        ctx: &Context,
-        branch_name: &str,
-        new_pr_number: Option<usize>,
-    ) -> Result<()> {
+    pub fn set_pr_number(&mut self, ctx: &Context, branch_name: &str, new_pr_number: Option<usize>) -> Result<()> {
         self.ensure_initialized()?;
         match self.heads.iter_mut().find(|r| r.name() == branch_name) {
             Some(head) => {
                 head.pr_number = new_pr_number;
                 branch_state(ctx).set_stack(self.clone())
             }
-            None => bail!(
-                "Series {} does not exist on stack {}",
-                branch_name,
-                self.name()
-            ),
+            None => bail!("Series {} does not exist on stack {}", branch_name, self.name()),
         }
     }
 
@@ -694,8 +663,7 @@ impl Stack {
         } else {
             self.commits(ctx)?
         };
-        let patches: Vec<gix::ObjectId> =
-            commits.into_iter().rev().map(|oid| oid.to_gix()).collect();
+        let patches: Vec<gix::ObjectId> = commits.into_iter().rev().map(|oid| oid.to_gix()).collect();
         Ok(patches)
     }
 }
@@ -790,89 +758,15 @@ fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<b
         .any(|r| r.name() == name))
 }
 
-pub fn canned_branch_name(repo: &git2::Repository) -> Result<String> {
-    if let Ok((author, _committer)) = repo.signatures() {
-        generate_branch_name(author)
-    } else {
-        let author = git2::Signature::now("Firstname Lastname", "name@example.com")?;
-        generate_branch_name(author)
-    }
-}
-
-fn generate_branch_name(author: git2::Signature) -> Result<String> {
-    let mut initials = decompose(author.name().unwrap_or_default().into())
-        .chars()
-        .filter(|c| c.is_ascii_alphabetic() || c.is_whitespace())
-        .collect::<String>()
-        .split_whitespace()
-        .map(|word| word.chars().next().unwrap_or_default())
-        .collect::<String>()
-        .to_lowercase();
-    if !initials.is_empty() {
-        initials.push('-');
-    }
-    let branch_name = format!("{}{}-1", initials, "branch");
-    normalize_branch_name(&branch_name)
+pub fn canned_branch_name(repo: &gix::Repository) -> Result<String> {
+    but_core::branch::canned_refname(repo).map(|rn| rn.shorten().to_string())
 }
 
 fn local_reference_exists(repo: &gix::Repository, name: &str) -> Result<bool> {
     Ok(repo.find_reference(name_partial(name.into())?).is_ok())
 }
 
-fn remote_reference_exists(
-    repo: &gix::Repository,
-    state: &VirtualBranchesHandle,
-    name: &String,
-) -> Result<bool> {
-    let remote_ref = remote_reference(
-        name,
-        state.get_default_target()?.push_remote_name().as_str(),
-    );
+fn remote_reference_exists(repo: &gix::Repository, state: &VirtualBranchesHandle, name: &String) -> Result<bool> {
+    let remote_ref = remote_reference(name, state.get_default_target()?.push_remote_name().as_str());
     local_reference_exists(repo, &remote_ref)
-}
-
-#[cfg(test)]
-mod test {
-    use git2::{Signature, Time};
-
-    use super::*;
-
-    #[test]
-    fn gen_name() -> Result<()> {
-        let author = Signature::new("Foo Bar", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "fb-branch-1");
-        Ok(())
-    }
-    #[test]
-    fn gen_name_with_some_umlauts_and_accents() -> Result<()> {
-        // handles accents
-        let author = Signature::new("Äx Öx Åx Üx Éx Áx", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "aoauea-branch-1");
-        // bails on norwegian characters
-        let author = Signature::new("Æx Øx", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "xx-branch-1");
-        Ok(())
-    }
-
-    #[test]
-    fn gen_name_emojis() -> Result<()> {
-        // only emoji gets ignored
-        let author = Signature::new("🍑", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "branch-1");
-        // if there is a latin character, it gets included
-        let author = Signature::new("🍑x", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "x-branch-1");
-
-        let author = Signature::new("🍑 Foo", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "f-branch-1");
-        Ok(())
-    }
-
-    #[test]
-    fn gen_name_chinese_character() -> Result<()> {
-        // ignore all
-        let author = Signature::new("吉特·巴特勒", "fb@example.com", &Time::new(0, 0))?;
-        assert_eq!(generate_branch_name(author)?, "branch-1");
-        Ok(())
-    }
 }

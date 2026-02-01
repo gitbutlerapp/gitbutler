@@ -1,3 +1,13 @@
+use std::{
+    any::Any,
+    cell::RefCell,
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet, HashSet},
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    time::Instant,
+};
+
 use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{
@@ -14,15 +24,6 @@ use gix::{
     refs::{FullName, FullNameRef},
 };
 use itertools::Itertools;
-use std::cmp::Ordering;
-use std::{
-    any::Any,
-    cell::RefCell,
-    collections::{BTreeMap, BTreeSet, HashSet},
-    ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
-    time::Instant,
-};
 use tracing::instrument;
 
 use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};
@@ -51,20 +52,14 @@ impl Snapshot {
     }
 
     fn write_if_changed(&mut self, reconcile: ReconcileWithWorkspace) -> anyhow::Result<()> {
-        if self.changed_at.is_some()
-            || self.has_null_head_hash()
-            || self.clone().enforce_constraints(None)
-        {
+        if self.changed_at.is_some() || self.has_null_head_hash() || self.clone().enforce_constraints(None) {
             if self.content == Default::default() {
                 std::fs::remove_file(&self.path)?;
             } else {
                 if let Some(dir) = self.path.parent() {
                     std::fs::create_dir_all(dir)?;
                 }
-                fs::write(
-                    &self.path,
-                    toml::to_string(&self.to_consistent_data(reconcile))?,
-                )?;
+                fs::write(&self.path, toml::to_string(&self.to_consistent_data(reconcile))?)?;
             }
             self.changed_at.take();
         }
@@ -141,9 +136,7 @@ impl Snapshot {
                 .heads
                 .iter()
                 .enumerate()
-                .filter_map(|(head_idx, head)| {
-                    (!seen_refnames.insert(head.name.clone())).then_some(head_idx)
-                })
+                .filter_map(|(head_idx, head)| (!seen_refnames.insert(head.name.clone())).then_some(head_idx))
                 .collect();
             for head_idx in head_indices_to_remove.into_iter().rev() {
                 let head = stack.heads.remove(head_idx);
@@ -194,18 +187,14 @@ impl Snapshot {
                 .iter()
                 .filter_map(|s| {
                     s.ref_name().and_then(|rn| {
-                        let is_in_vb_stack_branches =
-                            vb_stack.heads.iter().any(|sb| sb.name == rn.shorten());
+                        let is_in_vb_stack_branches = vb_stack.heads.iter().any(|sb| sb.name == rn.shorten());
                         (!is_in_vb_stack_branches).then_some((s, rn))
                     })
                 })
                 .collect();
 
             for (segment, segment_name) in segments_to_add {
-                let first_commit_or_null = segment
-                    .commits
-                    .first()
-                    .map_or(gix::hash::Kind::Sha1.null(), |c| c.id);
+                let first_commit_or_null = segment.commits.first().map_or(gix::hash::Kind::Sha1.null(), |c| c.id);
                 tracing::warn!(segment_name=%segment_name.shorten(), first_commit_or_null=%first_commit_or_null, stack_id=?vb_stack.id, "Adding head to stack");
                 vb_stack.heads.push(StackBranch {
                     head: first_commit_or_null,
@@ -260,9 +249,7 @@ impl Snapshot {
         }
         let mut seen = BTreeSet::new();
 
-        if let Some((computed_lower_bound, target)) =
-            ws.lower_bound.zip(self.content.default_target.as_mut())
-        {
+        if let Some((computed_lower_bound, target)) = ws.lower_bound.zip(self.content.default_target.as_mut()) {
             // The computed lower bound takes the stored target hash into consideration.
             // Either the computed one ends up being the stored one, or the computed one has to be used to be the actual base,
             // i.e. the commit that is reachable by all stacks.
@@ -297,16 +284,12 @@ impl Snapshot {
         for (ws_stack, in_workspace_stack_id, ws_stack_idx) in ws_stacks_to_represent_in_vb_toml {
             seen.insert(in_workspace_stack_id);
             let mut inserted_new_stack = false;
-            let vb_stack = self
-                .content
-                .branches
-                .entry(in_workspace_stack_id)
-                .or_insert_with(|| {
-                    inserted_new_stack = true;
-                    let mut stack = Stack::new_with_just_heads(vec![], ws_stack_idx, true);
-                    stack.id = in_workspace_stack_id;
-                    stack
-                });
+            let vb_stack = self.content.branches.entry(in_workspace_stack_id).or_insert_with(|| {
+                inserted_new_stack = true;
+                let mut stack = Stack::new_with_just_heads(vec![], ws_stack_idx, true);
+                stack.id = in_workspace_stack_id;
+                stack
+            });
             let made_heads_match = make_heads_match(ws_stack, vb_stack);
             if !vb_stack.in_workspace {
                 tracing::warn!(
@@ -316,9 +299,7 @@ impl Snapshot {
                 self.set_changed_to_necessitate_write();
             }
             if made_heads_match {
-                tracing::warn!(
-                    "Adjusted segments in stack {in_workspace_stack_id} to match what's actually there"
-                );
+                tracing::warn!("Adjusted segments in stack {in_workspace_stack_id} to match what's actually there");
                 self.set_changed_to_necessitate_write();
             }
             if inserted_new_stack {
@@ -399,8 +380,7 @@ impl VirtualBranchesTomlMetadata {
         self.snapshot.reconcile_and_fix_vb_toml(repo)?;
 
         // Then write changes back.
-        self.snapshot
-            .write_if_changed(ReconcileWithWorkspace::Disallow)
+        self.snapshot.write_if_changed(ReconcileWithWorkspace::Disallow)
     }
 }
 
@@ -427,8 +407,7 @@ impl VirtualBranchesTomlMetadata {
 // Emergency-behaviour in case the application winds down, we don't want data-loss (at least a chance).
 impl Drop for VirtualBranchesTomlMetadata {
     fn drop(&mut self) {
-        self.snapshot
-            .try_write_if_changed(ReconcileWithWorkspace::Allow);
+        self.snapshot.try_write_if_changed(ReconcileWithWorkspace::Allow);
     }
 }
 
@@ -447,17 +426,11 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
 
         // Brute force, but simple.
         for stack in data.branches.values().sorted_by(order_then_name) {
-            for branch_ref_name in stack
-                .heads
-                .iter()
-                .filter_map(|branch| full_branch_name(&branch.name))
-            {
-                out.push(self.branch(branch_ref_name.as_ref()).map(|branch| {
-                    (
-                        branch_ref_name.clone(),
-                        Box::new((*branch).clone()) as Box<dyn Any>,
-                    )
-                }));
+            for branch_ref_name in stack.heads.iter().filter_map(|branch| full_branch_name(&branch.name)) {
+                out.push(
+                    self.branch(branch_ref_name.as_ref())
+                        .map(|branch| (branch_ref_name.clone(), Box::new((*branch).clone()) as Box<dyn Any>)),
+                );
             }
         }
 
@@ -497,9 +470,8 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             .sorted_by(order_then_name)
             .find_map(|stack| {
                 stack.heads.iter().find_map(|branch| {
-                    full_branch_name(branch.name.as_str()).and_then(|full_name| {
-                        (full_name.as_ref() == ref_name).then_some((stack, branch))
-                    })
+                    full_branch_name(branch.name.as_str())
+                        .and_then(|full_name| (full_name.as_ref() == ref_name).then_some((stack, branch)))
                 })
             })
         else {
@@ -554,26 +526,25 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 }
                 if stack_id.is_none() {
                     stack_id = *branch.stack_id.borrow();
-                } else if let Some(stack_id) = branch.stack_id.borrow().zip(stack_id).and_then(
-                    |(branch_stack_id, stack_id)| (branch_stack_id != stack_id).then_some(stack_id),
-                ) {
+                } else if let Some(stack_id) = branch
+                    .stack_id
+                    .borrow()
+                    .zip(stack_id)
+                    .and_then(|(branch_stack_id, stack_id)| (branch_stack_id != stack_id).then_some(stack_id))
+                {
                     // This branch was in another stack previously, but is now assigned to this one
                     // via the workspace data.
                     // Make sure we move it in the underlying data structure to here.
-                    let to_move =
-                        self.remove_branch(branch.ref_name.as_ref())?
-                            .with_context(|| {
-                                format!(
-                                    "BUG: couldn't remove branch {branch} from its original stack",
-                                    branch = branch.ref_name
-                                )
-                            })?;
+                    let to_move = self.remove_branch(branch.ref_name.as_ref())?.with_context(|| {
+                        format!(
+                            "BUG: couldn't remove branch {branch} from its original stack",
+                            branch = branch.ref_name
+                        )
+                    })?;
                     self.data_mut()
                         .branches
                         .get_mut(&stack_id)
-                        .context(
-                            "BUG: stack id we saw should exist for inserting moved stack branch",
-                        )?
+                        .context("BUG: stack id we saw should exist for inserting moved stack branch")?
                         .heads
                         .push(to_move);
                 }
@@ -596,18 +567,10 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     self.set_branch(&branch)?;
                     let new_stack_id = branch.stack_id.borrow().expect("was just created");
                     *branch.stack_id.borrow_mut() = Some(stack.id);
-                    let mut vb_stack = self
-                        .data_mut()
-                        .branches
-                        .remove(&new_stack_id)
-                        .expect("just added");
+                    let mut vb_stack = self.data_mut().branches.remove(&new_stack_id).expect("just added");
                     vb_stack.id = stack.id;
                     self.data_mut().branches.insert(stack.id, vb_stack);
-                    let vb_stack = self
-                        .data_mut()
-                        .branches
-                        .get_mut(&stack.id)
-                        .expect("just added");
+                    let vb_stack = self.data_mut().branches.get_mut(&stack.id).expect("just added");
                     seen_stack_ids.insert(stack.id);
                     vb_stack
                 }
@@ -626,9 +589,11 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
             }
             vb_stack.in_workspace = stack.is_in_workspace();
             vb_stack.heads.sort_by_key(|head| {
-                stack.branches.iter().enumerate().find_map(|(idx, branch)| {
-                    (branch.ref_name.shorten() == head.name.as_str()).then_some(idx)
-                })
+                stack
+                    .branches
+                    .iter()
+                    .enumerate()
+                    .find_map(|(idx, branch)| (branch.ref_name.shorten() == head.name.as_str()).then_some(idx))
             });
 
             // remove heads that aren't there anymore.
@@ -676,9 +641,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                 changed_target = true;
             }
             (None, Some(_new)) => {
-                bail!(
-                    "Cannot reasonably set a target in the old data structure as we don't have repo access here"
-                )
+                bail!("Cannot reasonably set a target in the old data structure as we don't have repo access here")
             }
             (Some(existing), Some(new)) => {
                 if existing.branch != new {
@@ -726,17 +689,12 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     archived,
                     review_id,
                     ..
-                } = stack
-                    .heads
-                    .iter_mut()
-                    .find(|b| short_name == b.name.as_str())
-                    .expect(
-                        "It's not possible anymore to place values at any ref \
+                } = stack.heads.iter_mut().find(|b| short_name == b.name.as_str()).expect(
+                    "It's not possible anymore to place values at any ref \
                     - one first has to get them, which binds values to their name.",
-                    );
+                );
 
-                let metadata_stack_indices =
-                    ws.find_owner_indexes_by_name(ref_name, AppliedAndUnapplied);
+                let metadata_stack_indices = ws.find_owner_indexes_by_name(ref_name, AppliedAndUnapplied);
                 self.snapshot.changed_at = Some(Instant::now());
                 *pr_number = value.review.pull_request;
                 *review_id = value.review.review_id.clone();
@@ -772,8 +730,7 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
                     Ok(false)
                 }
             } else {
-                let existed_as_non_default =
-                    Self::workspace_from_data(self.data()) != default_workspace();
+                let existed_as_non_default = Self::workspace_from_data(self.data()) != default_workspace();
                 self.snapshot.content = Default::default();
                 // Make sure it's not going to be written in its default state.
                 self.snapshot.claim_unchanged();
@@ -790,9 +747,7 @@ fn branch_from_ref_name(ref_name: &FullNameRef) -> anyhow::Result<RemoteRefname>
         .category_and_short_name()
         .context("couldn't classify supposed remote tracking branch")?;
     if category != Category::RemoteBranch {
-        bail!(
-            "Cannot set target branches to a branch that isn't a remote tracking branch: '{short_name}'"
-        );
+        bail!("Cannot set target branches to a branch that isn't a remote tracking branch: '{short_name}'");
     }
 
     // TODO: remove this as we don't handle symbolic names with slashes correctly.
@@ -820,12 +775,7 @@ impl VirtualBranchesTomlMetadata {
             })
             .unwrap_or_default();
 
-        let stacks: Vec<_> = data
-            .branches
-            .values()
-            .sorted_by(order_then_name)
-            .cloned()
-            .collect();
+        let stacks: Vec<_> = data.branches.values().sorted_by(order_then_name).cloned().collect();
 
         Workspace {
             ref_info: managed_ref_info(),
@@ -846,11 +796,9 @@ impl VirtualBranchesTomlMetadata {
                         .iter()
                         .rev()
                         .filter_map(|sb| {
-                            full_branch_name(sb.name.as_str()).map(|ref_name| {
-                                WorkspaceStackBranch {
-                                    ref_name,
-                                    archived: sb.archived,
-                                }
+                            full_branch_name(sb.name.as_str()).map(|ref_name| WorkspaceStackBranch {
+                                ref_name,
+                                archived: sb.archived,
                             })
                         })
                         .collect(),
@@ -874,25 +822,16 @@ impl VirtualBranchesTomlMetadata {
             .values()
             .sorted_by(order_then_name)
             .find_map(|stack| {
-                stack
-                    .heads
-                    .iter()
-                    .enumerate()
-                    .find_map(|(branch_idx, branch)| {
-                        full_branch_name(branch.name.as_str()).and_then(|full_name| {
-                            (full_name.as_ref() == ref_name).then_some((stack.id, branch_idx))
-                        })
-                    })
+                stack.heads.iter().enumerate().find_map(|(branch_idx, branch)| {
+                    full_branch_name(branch.name.as_str())
+                        .and_then(|full_name| (full_name.as_ref() == ref_name).then_some((stack.id, branch_idx)))
+                })
             })
         else {
             return Ok(None);
         };
 
-        let stack = self
-            .data_mut()
-            .branches
-            .get_mut(&stack_id)
-            .expect("still there");
+        let stack = self.data_mut().branches.get_mut(&stack_id).expect("still there");
         let removed = stack.heads.remove(branch_idx);
         if stack.heads.is_empty() {
             self.data_mut().branches.remove(&stack_id);
@@ -1029,9 +968,7 @@ mod fs {
         match tempfile.persist(to_path) {
             Ok(Some(_opened_file)) => Ok(()),
             Ok(None) => {
-                unreachable!(
-                    "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
-                )
+                unreachable!("BUG: a signal has caused the tempfile to be removed, but we didn't install a handler")
             }
             Err(err) => Err(err.error),
         }
@@ -1040,9 +977,7 @@ mod fs {
     /// Reads and parses the state file.
     ///
     /// If the file does not exist, it will be created.
-    pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(
-        path: &Path,
-    ) -> anyhow::Result<T> {
+    pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> anyhow::Result<T> {
         let mut file = match File::open(path) {
             Ok(f) => f,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
@@ -1050,8 +985,7 @@ mod fs {
         };
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        let value: T = toml::from_str(&contents)
-            .with_context(|| format!("Failed to parse {}", path.display()))?;
+        let value: T = toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
         Ok(value)
     }
 }

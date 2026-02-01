@@ -54,8 +54,6 @@ but-path.workspace = true
 but-db.workspace = true
 but-ctx.workspace = true
 but-rebase.workspace = true
-# NOTE: "legacy" is needed as long as virtual-branches.toml is around.
-but-meta = { workspace = true, features = ["legacy"] }
 # NOTE: close to mostly 'proper', but depends on `gitbutler-user`
 but-github.workspace = true
 # NOTE: close to mostly 'proper', but depends on `but-github` which depends on `gitbutler-user`

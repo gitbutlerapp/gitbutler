@@ -1,6 +1,5 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
-use crate::utils::{fixture_writable, standard_options};
 use anyhow::{Result, bail};
 use but_graph::Graph;
 use but_rebase::{
@@ -8,6 +7,8 @@ use but_rebase::{
     graph_rebase::{GraphExt as _, LookupStep, Step, mutate::InsertSide},
 };
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
+
+use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {
@@ -49,8 +50,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 }
 
 #[test]
-fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_error_is_raised()
--> Result<()> {
+fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_error_is_raised() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -89,8 +89,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 }
 
 #[test]
-fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_result_is_ok()
--> Result<()> {
+fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_result_is_ok() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"

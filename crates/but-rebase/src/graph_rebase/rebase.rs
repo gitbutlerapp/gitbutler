@@ -32,10 +32,7 @@ impl Editor {
         let mut ref_edits = vec![];
         let steps_to_pick = order_steps_picking(
             &self.graph,
-            &self
-                .graph
-                .externals(Direction::Incoming)
-                .collect::<Vec<_>>(),
+            &self.graph.externals(Direction::Incoming).collect::<Vec<_>>(),
         );
 
         // A 1 to 1 mapping between the incoming graph and the output graph
@@ -67,12 +64,9 @@ impl Editor {
                             .collect::<Result<Vec<_>>>()?,
                     };
 
-                    let outcome =
-                        cherry_pick(&self.repo, pick.id, &ontos, pick.sign_if_configured)?;
+                    let outcome = cherry_pick(&self.repo, pick.id, &ontos, pick.sign_if_configured)?;
 
-                    if matches!(outcome, CherryPickOutcome::ConflictedCommit(_))
-                        && !pick.conflictable
-                    {
+                    if matches!(outcome, CherryPickOutcome::ConflictedCommit(_)) && !pick.conflictable {
                         bail!(
                             "Commit {} was marked as not conflictable, but resulted in a conflicted state",
                             pick.id
@@ -134,9 +128,7 @@ impl Editor {
                                         name: refname.clone(),
                                         change: Change::Update {
                                             log: LogChange::default(),
-                                            expected: PreviousValue::MustExistAndMatch(
-                                                target.into(),
-                                            ),
+                                            expected: PreviousValue::MustExistAndMatch(target.into()),
                                             new: Target::Object(to_reference),
                                         },
                                         deref: false,
@@ -184,12 +176,8 @@ impl Editor {
 
         // Find deleted references
         for reference in self.initial_references.iter() {
-            if !ref_edits
-                .iter()
-                .any(|e| e.name.as_ref() == reference.as_ref())
-                && !unchanged_references
-                    .iter()
-                    .any(|e| e.as_ref() == reference.as_ref())
+            if !ref_edits.iter().any(|e| e.name.as_ref() == reference.as_ref())
+                && !unchanged_references.iter().any(|e| e.as_ref() == reference.as_ref())
             {
                 ref_edits.push(RefEdit {
                     name: reference.clone(),
@@ -313,8 +301,8 @@ fn order_steps_picking(graph: &StepGraph, heads: &[StepGraphIndex]) -> VecDeque<
             // We only want to queue nodes for traversing that have had all of their parents traversed.
             let s = edge.source();
             let mut outgoing_edges = graph.edges_directed(s, petgraph::Direction::Outgoing);
-            let all_parents_seen = outgoing_edges.clone().count() == 0
-                || outgoing_edges.all(|e| retraversed.contains(&e.target()));
+            let all_parents_seen =
+                outgoing_edges.clone().count() == 0 || outgoing_edges.all(|e| retraversed.contains(&e.target()));
             if all_parents_seen && seen.contains(&s) && retraversed.insert(s) {
                 bases.push_back(s);
                 ordered.push_back(s);
@@ -338,18 +326,11 @@ fn format_base_merge_error(
                 writeln!(
                     out,
                     "Encountered a conflict while merging the commit's {kind}: {}.",
-                    shas.iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                    shas.iter().map(|s| s.to_string()).collect::<Vec<_>>().join(", ")
                 )
                 .ok();
             } else {
-                writeln!(
-                    out,
-                    "Encountered a conflict while merging the commit's {kind}."
-                )
-                .ok();
+                writeln!(out, "Encountered a conflict while merging the commit's {kind}.").ok();
             }
         }
     }
@@ -378,9 +359,7 @@ mod test {
 
         use anyhow::Result;
 
-        use crate::graph_rebase::{
-            Edge, Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph,
-        };
+        use crate::graph_rebase::{Edge, Step, StepGraph, rebase::order_steps_picking, testing::render_ascii_graph};
 
         #[test]
         fn basic_scenario() -> Result<()> {

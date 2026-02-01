@@ -1,28 +1,14 @@
-use crate::table::in_memory_db;
 use but_db::HunkAssignment;
+
+use crate::table::in_memory_db;
 
 #[test]
 fn insert_and_read() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
-    let hunk1 = hunk_assignment(
-        "id1",
-        Some("@@ -1,3 +1,4 @@"),
-        "path/to/file.txt",
-        Some("stack1"),
-    );
-    let hunk2 = hunk_assignment(
-        "id2",
-        Some("@@ -10,5 +11,6 @@"),
-        "path/to/file.txt",
-        Some("stack1"),
-    );
-    let hunk3 = hunk_assignment(
-        "id3",
-        Some("@@ -20,2 +21,3 @@"),
-        "path/to/other.txt",
-        Some("stack2"),
-    );
+    let hunk1 = hunk_assignment("id1", Some("@@ -1,3 +1,4 @@"), "path/to/file.txt", Some("stack1"));
+    let hunk2 = hunk_assignment("id2", Some("@@ -10,5 +11,6 @@"), "path/to/file.txt", Some("stack1"));
+    let hunk3 = hunk_assignment("id3", Some("@@ -20,2 +21,3 @@"), "path/to/other.txt", Some("stack2"));
 
     db.hunk_assignments_mut()?
         .set_all(vec![hunk1.clone(), hunk2.clone(), hunk3.clone()])?;
@@ -40,27 +26,11 @@ fn insert_and_read() -> anyhow::Result<()> {
 fn set_all_replaces_existing() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
-    let hunk1 = hunk_assignment(
-        "id1",
-        Some("@@ -1,3 +1,4 @@"),
-        "path/to/file.txt",
-        Some("stack1"),
-    );
-    let hunk2 = hunk_assignment(
-        "id2",
-        Some("@@ -10,5 +11,6 @@"),
-        "path/to/file.txt",
-        Some("stack1"),
-    );
-    let hunk3 = hunk_assignment(
-        "id3",
-        Some("@@ -1,3 +1,4 @@"),
-        "different.txt",
-        Some("stack2"),
-    );
+    let hunk1 = hunk_assignment("id1", Some("@@ -1,3 +1,4 @@"), "path/to/file.txt", Some("stack1"));
+    let hunk2 = hunk_assignment("id2", Some("@@ -10,5 +11,6 @@"), "path/to/file.txt", Some("stack1"));
+    let hunk3 = hunk_assignment("id3", Some("@@ -1,3 +1,4 @@"), "different.txt", Some("stack2"));
 
-    db.hunk_assignments_mut()?
-        .set_all(vec![hunk1.clone(), hunk2.clone()])?;
+    db.hunk_assignments_mut()?.set_all(vec![hunk1.clone(), hunk2.clone()])?;
 
     let assignments = db.hunk_assignments().list_all()?;
     assert_eq!(assignments.len(), 2);
@@ -83,24 +53,9 @@ fn set_all_replaces_existing_with_outer_transaction_and_rollback() -> anyhow::Re
     let assignments = trans.hunk_assignments().list_all()?;
     assert!(assignments.is_empty(), "it starts out empty");
 
-    let hunk1 = hunk_assignment(
-        "id1",
-        Some("@@ -1,3 +1,4 @@"),
-        "path/to/file.txt",
-        Some("stack1"),
-    );
-    let hunk2 = hunk_assignment(
-        "id2",
-        Some("@@ -10,5 +11,6 @@"),
-        "path/to/file.txt",
-        Some("stack1"),
-    );
-    let hunk3 = hunk_assignment(
-        "id3",
-        Some("@@ -1,3 +1,4 @@"),
-        "different.txt",
-        Some("stack2"),
-    );
+    let hunk1 = hunk_assignment("id1", Some("@@ -1,3 +1,4 @@"), "path/to/file.txt", Some("stack1"));
+    let hunk2 = hunk_assignment("id2", Some("@@ -10,5 +11,6 @@"), "path/to/file.txt", Some("stack1"));
+    let hunk3 = hunk_assignment("id3", Some("@@ -1,3 +1,4 @@"), "different.txt", Some("stack2"));
 
     trans
         .hunk_assignments_mut()?
@@ -127,12 +82,7 @@ fn set_all_replaces_existing_with_outer_transaction_and_rollback() -> anyhow::Re
 fn set_empty_clears_the_table() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
-    let hunk1 = hunk_assignment(
-        "id1",
-        Some("@@ -1,3 +1,4 @@"),
-        "path/to/file.txt",
-        Some("stack1"),
-    );
+    let hunk1 = hunk_assignment("id1", Some("@@ -1,3 +1,4 @@"), "path/to/file.txt", Some("stack1"));
 
     db.hunk_assignments_mut()?.set_all(vec![hunk1])?;
 
@@ -175,11 +125,8 @@ fn optional_fields() -> anyhow::Result<()> {
         stack_id: Some("stack2".to_string()),
     };
 
-    db.hunk_assignments_mut()?.set_all(vec![
-        hunk_no_header.clone(),
-        hunk_no_stack.clone(),
-        hunk_no_id.clone(),
-    ])?;
+    db.hunk_assignments_mut()?
+        .set_all(vec![hunk_no_header.clone(), hunk_no_stack.clone(), hunk_no_id.clone()])?;
 
     let assignments = db.hunk_assignments().list_all()?;
     assert_eq!(assignments.len(), 3);
@@ -202,26 +149,17 @@ fn non_utf8_path_bytes() -> anyhow::Result<()> {
         stack_id: Some("stack1".to_string()),
     };
 
-    db.hunk_assignments_mut()?
-        .set_all(vec![hunk_with_non_utf8.clone()])?;
+    db.hunk_assignments_mut()?.set_all(vec![hunk_with_non_utf8.clone()])?;
 
     let assignments = db.hunk_assignments().list_all()?;
     assert_eq!(assignments.len(), 1);
     assert_eq!(assignments[0], hunk_with_non_utf8);
-    assert_eq!(
-        assignments[0].path_bytes,
-        vec![0xFF, 0xFE, 0xFD, 0x00, 0x80]
-    );
+    assert_eq!(assignments[0].path_bytes, vec![0xFF, 0xFE, 0xFD, 0x00, 0x80]);
 
     Ok(())
 }
 
-fn hunk_assignment(
-    id: &str,
-    hunk_header: Option<&str>,
-    path: &str,
-    stack_id: Option<&str>,
-) -> HunkAssignment {
+fn hunk_assignment(id: &str, hunk_header: Option<&str>, path: &str, stack_id: Option<&str>) -> HunkAssignment {
     HunkAssignment {
         id: Some(id.to_string()),
         hunk_header: hunk_header.map(String::from),

@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use anyhow::{Context as _, bail};
+use anyhow::{Context as _, bail, ensure};
 use bstr::ByteSlice;
 use but_core::{RefMetadata, extract_remote_name, ref_metadata};
 use gix::{
@@ -123,10 +123,7 @@ impl Options {
     }
 
     /// Keep track of commits at which the traversal limit should be reset to the [`limit`](Self::with_limit_hint()).
-    pub fn with_limit_extension_at(
-        mut self,
-        commits: impl IntoIterator<Item = gix::ObjectId>,
-    ) -> Self {
+    pub fn with_limit_extension_at(mut self, commits: impl IntoIterator<Item = gix::ObjectId>) -> Self {
         self.commits_limit_recharge_location.extend(commits);
         self
     }
@@ -143,11 +140,7 @@ impl Graph {
     /// Read the `HEAD` of `repo` and represent whatever is visible as a graph.
     ///
     /// See [`Self::from_commit_traversal()`] for details.
-    pub fn from_head(
-        repo: &gix::Repository,
-        meta: &impl RefMetadata,
-        options: Options,
-    ) -> anyhow::Result<Self> {
+    pub fn from_head(repo: &gix::Repository, meta: &impl RefMetadata, options: Options) -> anyhow::Result<Self> {
         let head = repo.head()?;
         let mut is_detached = false;
         let (tip, maybe_name) = match head.kind {
@@ -293,10 +286,8 @@ impl Graph {
         let commit_graph = repo.commit_graph_if_enabled()?;
         let mut buf = Vec::new();
 
-        let configured_remote_tracking_branches =
-            remotes::configured_remote_tracking_branches(repo)?;
-        let (workspaces, target_refs) =
-            obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
+        let configured_remote_tracking_branches = remotes::configured_remote_tracking_branches(repo)?;
+        let (workspaces, target_refs) = obtain_workspace_infos(repo, ref_name.as_ref().map(|rn| rn.as_ref()), meta)?;
         let refs_by_id = repo.collect_ref_mapping_by_prefix(
             [
                 "refs/heads/",
@@ -308,11 +299,7 @@ impl Graph {
                 "refs/remotes/",
             ]
             .into_iter()
-            .chain(if collect_tags {
-                Some("refs/tags/")
-            } else {
-                None
-            }),
+            .chain(if collect_tags { Some("refs/tags/") } else { None }),
             &workspaces
                 .iter()
                 .map(|(_, ref_name, _)| ref_name.as_ref())
@@ -321,10 +308,7 @@ impl Graph {
         let mut seen = gix::revwalk::graph::IdMap::<SegmentIndex>::default();
         let mut goals = Goals::default();
         // The tip transports itself.
-        let tip_flags = CommitFlags::NotInRemote
-            | goals
-                .flag_for(tip)
-                .expect("we more than one bitflags for this");
+        let tip_flags = CommitFlags::NotInRemote | goals.flag_for(tip).expect("we more than one bitflags for this");
 
         let symbolic_remote_names: Vec<_> = {
             let remote_names = repo.remote_names();
@@ -334,8 +318,7 @@ impl Graph {
                     data.target_ref
                         .as_ref()
                         .and_then(|target| {
-                            extract_remote_name(target.as_ref(), &remote_names)
-                                .map(|remote| (1, remote))
+                            extract_remote_name(target.as_ref(), &remote_names).map(|remote| (1, remote))
                         })
                         .into_iter()
                         .chain(data.push_remote.clone().map(|push_remote| (0, push_remote)))
@@ -343,8 +326,7 @@ impl Graph {
                 .chain(workspaces.iter().flat_map(|(_, _, data)| {
                     data.stacks.iter().flat_map(|s| {
                         s.branches.iter().flat_map(|b| {
-                            extract_remote_name(b.ref_name.as_ref(), &remote_names)
-                                .map(|remote| (1, remote))
+                            extract_remote_name(b.ref_name.as_ref(), &remote_names).map(|remote| (1, remote))
                         })
                     })
                 }))
@@ -355,11 +337,10 @@ impl Graph {
         };
 
         let mut next = Queue::new_with_limit(hard_limit);
-        let tip_is_not_workspace_commit = !workspaces
+        let tip_ref_matches_ws_ref = workspaces
             .iter()
-            .any(|(_, wsrn, _)| Some(wsrn) == ref_name.as_ref());
-        let worktree_by_branch =
-            repo.worktree_branches(graph.entrypoint_ref.as_ref().map(|r| r.as_ref()))?;
+            .find_map(|(ws_tip, ws_rn, _)| (Some(ws_rn) == ref_name.as_ref()).then_some(ws_tip));
+        let worktree_by_branch = repo.worktree_branches(graph.entrypoint_ref.as_ref().map(|r| r.as_ref()))?;
 
         let mut ctx = post::Context {
             repo,
@@ -371,25 +352,31 @@ impl Graph {
             dangerously_skip_postprocessing_for_debugging,
             worktree_by_branch,
         };
-        if tip_is_not_workspace_commit {
-            let current = graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
-                None,
-                meta,
-                Some((&ctx.refs_by_id, tip)),
-                &ctx.worktree_by_branch,
-            )?);
-            let tip_info = find(commit_graph.as_ref(), repo.for_find_only(), tip, &mut buf)?;
-            _ = next.push_back_exhausted((
-                tip_info,
-                tip_flags,
-                Instruction::CollectCommit { into: current },
-                max_limit,
-            ));
+        match tip_ref_matches_ws_ref {
+            None => {
+                let current = graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
+                    None,
+                    meta,
+                    Some((&ctx.refs_by_id, tip)),
+                    &ctx.worktree_by_branch,
+                )?);
+                let tip_info = find(commit_graph.as_ref(), repo.for_find_only(), tip, &mut buf)?;
+                _ = next.push_back_exhausted((
+                    tip_info,
+                    tip_flags,
+                    Instruction::CollectCommit { into: current },
+                    max_limit,
+                ));
+            }
+            Some(ws_tip) => {
+                ensure!(
+                    *ws_tip == tip,
+                    format!("BUG:: {ref_name:?} points to {ws_tip}, but the caller claimed it points to {tip}")
+                );
+            }
         }
 
-        let target_limit = max_limit
-            .with_indirect_goal(tip, &mut goals)
-            .without_allowance();
+        let target_limit = max_limit.with_indirect_goal(tip, &mut goals).without_allowance();
         let (mut ws_tips, mut ws_metas) = (Vec::new(), Vec::new());
         let mut additional_target_commits = Vec::new();
         for (ws_tip, ws_ref, ws_meta) in workspaces {
@@ -419,17 +406,10 @@ impl Graph {
             let (ws_extra_flags, ws_limit) = if Some(&ws_ref) == ref_name.as_ref() {
                 (tip_flags, max_limit)
             } else {
-                (
-                    CommitFlags::empty(),
-                    max_limit.with_indirect_goal(tip, &mut goals),
-                )
+                (CommitFlags::empty(), max_limit.with_indirect_goal(tip, &mut goals))
             };
-            let mut ws_segment = branch_segment_from_name_and_meta(
-                Some((ws_ref, None)),
-                meta,
-                None,
-                &ctx.worktree_by_branch,
-            )?;
+            let mut ws_segment =
+                branch_segment_from_name_and_meta(Some((ws_ref, None)), meta, None, &ctx.worktree_by_branch)?;
 
             additional_target_commits.extend(ws_meta.target_commit_id);
             // The limits for the target ref and the worktree ref are synced so they can always find each other,
@@ -447,12 +427,7 @@ impl Graph {
             }
             // As workspaces typically have integration branches which can help us to stop the traversal,
             // pick these up first.
-            let ws_tip_info = find(
-                commit_graph.as_ref(),
-                repo.for_find_only(),
-                ws_tip,
-                &mut buf,
-            )?;
+            let ws_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), ws_tip, &mut buf)?;
             _ = next.push_front_exhausted((
                 ws_tip_info,
                 CommitFlags::InWorkspace |
@@ -471,57 +446,43 @@ impl Graph {
                     None,
                     &ctx.worktree_by_branch,
                 )?);
-                let (local_sidx, local_goal) =
-                    if let Some((local_ref_name, target_local_tip)) = local_tip_info {
-                        let local_sidx =
-                            graph.insert_segment(branch_segment_from_name_and_meta_sibling(
-                                None,
-                                Some(target_segment),
-                                meta,
-                                Some((&ctx.refs_by_id, target_local_tip)),
-                                &ctx.worktree_by_branch,
-                            )?);
-                        // We use auto-naming based on ambiguity - if the name ends up something else,
-                        // remove the nodes sibling link.
-                        let has_sibling_link = {
-                            let s = &mut graph[local_sidx];
-                            if s.ref_name().is_none_or(|rn| rn != local_ref_name.as_ref()) {
-                                s.sibling_segment_id = None;
-                                false
-                            } else {
-                                true
-                            }
-                        };
-                        let goal = goals.flag_for(target_local_tip).unwrap_or_default();
-                        let local_tip_info = find(
-                            commit_graph.as_ref(),
-                            repo.for_find_only(),
-                            target_local_tip,
-                            &mut buf,
-                        )?;
-                        _ = next.push_front_exhausted((
-                            local_tip_info,
-                            CommitFlags::NotInRemote | goal,
-                            Instruction::CollectCommit { into: local_sidx },
-                            target_limit,
-                        ));
-                        next.add_goal_to(tip, goal);
-                        (has_sibling_link.then_some(local_sidx), goal)
-                    } else {
-                        (None, CommitFlags::empty())
+                let (local_sidx, local_goal) = if let Some((local_ref_name, target_local_tip)) = local_tip_info {
+                    let local_sidx = graph.insert_segment(branch_segment_from_name_and_meta_sibling(
+                        None,
+                        Some(target_segment),
+                        meta,
+                        Some((&ctx.refs_by_id, target_local_tip)),
+                        &ctx.worktree_by_branch,
+                    )?);
+                    // We use auto-naming based on ambiguity - if the name ends up something else,
+                    // remove the nodes sibling link.
+                    let has_sibling_link = {
+                        let s = &mut graph[local_sidx];
+                        if s.ref_name().is_none_or(|rn| rn != local_ref_name.as_ref()) {
+                            s.sibling_segment_id = None;
+                            false
+                        } else {
+                            true
+                        }
                     };
-                let target_ref_info = find(
-                    commit_graph.as_ref(),
-                    repo.for_find_only(),
-                    target_ref_id,
-                    &mut buf,
-                )?;
+                    let goal = goals.flag_for(target_local_tip).unwrap_or_default();
+                    let local_tip_info = find(commit_graph.as_ref(), repo.for_find_only(), target_local_tip, &mut buf)?;
+                    _ = next.push_front_exhausted((
+                        local_tip_info,
+                        CommitFlags::NotInRemote | goal,
+                        Instruction::CollectCommit { into: local_sidx },
+                        target_limit,
+                    ));
+                    next.add_goal_to(tip, goal);
+                    (has_sibling_link.then_some(local_sidx), goal)
+                } else {
+                    (None, CommitFlags::empty())
+                };
+                let target_ref_info = find(commit_graph.as_ref(), repo.for_find_only(), target_ref_id, &mut buf)?;
                 _ = next.push_front_exhausted((
                     target_ref_info,
                     CommitFlags::Integrated,
-                    Instruction::CollectCommit {
-                        into: target_segment,
-                    },
+                    Instruction::CollectCommit { into: target_segment },
                     // Once the goal was found, be done immediately,
                     // we are not interested in these.
                     target_limit.additional_goal(local_goal),
@@ -590,10 +551,7 @@ impl Graph {
                 // Avoid duplication before we create a new branch segment, these should not interfere,
                 // just integrate.
                 if next.iter().any(|t| t.0.id == segment_tip) {
-                    next.add_goal_to(
-                        segment_tip.detach(),
-                        goals.flag_for(tip).unwrap_or_default(),
-                    );
+                    next.add_goal_to(segment_tip.detach(), goals.flag_for(tip).unwrap_or_default());
                     continue;
                 };
                 // We always want these segments named, we know they are supposed to be in the workspace,
@@ -608,17 +566,10 @@ impl Graph {
 
                 // However, if this is a remote segment that is explicitly mentioned, and we couldn't name
                 // it, then just fix it up here as we really want that name.
-                let is_remote = segment_name
-                    .category()
-                    .is_some_and(|c| c == Category::RemoteBranch);
+                let is_remote = segment_name.category().is_some_and(|c| c == Category::RemoteBranch);
                 if segment.ref_info.is_none() && is_remote {
-                    segment.ref_info = Some(crate::RefInfo::from_ref(
-                        segment_name.clone(),
-                        &ctx.worktree_by_branch,
-                    ));
-                    segment.metadata = meta
-                        .branch_opt(segment_name.as_ref())?
-                        .map(SegmentMetadata::Branch);
+                    segment.ref_info = Some(crate::RefInfo::from_ref(segment_name.clone(), &ctx.worktree_by_branch));
+                    segment.metadata = meta.branch_opt(segment_name.as_ref())?.map(SegmentMetadata::Branch);
                 }
                 let segment = graph.insert_segment(segment);
                 let segment_tip_info = find(
@@ -646,8 +597,7 @@ impl Graph {
         let mut no_duplicate_parents = gix::hashtable::HashSet::default();
         let mut points_of_interest_to_traverse_first = next.iter().count();
         while let Some((info, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
-            points_of_interest_to_traverse_first =
-                points_of_interest_to_traverse_first.saturating_sub(1);
+            points_of_interest_to_traverse_first = points_of_interest_to_traverse_first.saturating_sub(1);
 
             let id = info.id;
             if max_commits_recharge_location.binary_search(&id).is_ok() {
@@ -713,13 +663,7 @@ impl Graph {
                             Some((&ctx.refs_by_id, id)),
                             &ctx.worktree_by_branch,
                         )?;
-                        let segment_below = graph.connect_new_segment(
-                            parent_above,
-                            at_commit,
-                            segment_below,
-                            0,
-                            id,
-                        );
+                        let segment_below = graph.connect_new_segment(parent_above, at_commit, segment_below, 0, id);
                         e.insert(segment_below);
                         segment_below
                     }
@@ -813,10 +757,7 @@ impl Graph {
         let (tip, ref_name) = match entrypoint {
             Some(t) => t,
             None => {
-                let tip_sidx = self
-                    .entrypoint
-                    .context("BUG: entrypoint must always be set")?
-                    .0;
+                let tip_sidx = self.entrypoint.context("BUG: entrypoint must always be set")?.0;
                 let tip = self
                     .tip_skip_empty(tip_sidx)
                     .context("BUG: entrypoint must eventually point to a commit")?
@@ -853,9 +794,10 @@ fn add_extra_target<T: RefMetadata>(
     objects: &impl gix::objs::Find,
     buf: &mut Vec<u8>,
 ) -> anyhow::Result<SegmentIndex> {
-    let sidx = if let Some(existing_segment) = next.iter().find_map(|(info, _, instruction, _)| {
-        (info.id == extra_target).then_some(instruction.segment_idx())
-    }) {
+    let sidx = if let Some(existing_segment) = next
+        .iter()
+        .find_map(|(info, _, instruction, _)| (info.id == extra_target).then_some(instruction.segment_idx()))
+    {
         // For now just assume the settings are good/similar enough so we don't
         // have to adjust the existing queue item.
         existing_segment

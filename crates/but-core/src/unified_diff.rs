@@ -116,11 +116,7 @@ impl UnifiedPatch {
         match diff_filter.set_resource(
             current_state.map_or(repo.object_hash().null(), |state| state.id),
             current_state.map_or_else(
-                || {
-                    previous_state
-                        .expect("BUG: at least one non-none state")
-                        .kind
-                },
+                || previous_state.expect("BUG: at least one non-none state").kind,
                 |state| state.kind,
             ),
             path.as_bstr(),
@@ -141,11 +137,7 @@ impl UnifiedPatch {
         match diff_filter.set_resource(
             previous_state.map_or(repo.object_hash().null(), |state| state.id),
             previous_state.map_or_else(
-                || {
-                    current_state
-                        .expect("BUG: at least one non-none state")
-                        .kind
-                },
+                || current_state.expect("BUG: at least one non-none state").kind,
                 |state| state.kind,
             ),
             actual_previous_path,
@@ -228,9 +220,7 @@ impl UnifiedPatch {
                     .expect("BUG: one of the resources must have been binary/too big");
                 let big_file_size = repo.big_file_threshold()?;
                 if size > big_file_size {
-                    UnifiedPatch::TooLarge {
-                        size_in_bytes: size,
-                    }
+                    UnifiedPatch::TooLarge { size_in_bytes: size }
                 } else {
                     UnifiedPatch::Binary
                 }

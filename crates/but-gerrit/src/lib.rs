@@ -217,11 +217,7 @@ fn mappings(
             .changes
             .iter()
             .find(|c| c.commit_title == title)
-            .and_then(|c| {
-                commit
-                    .change_id()
-                    .map(|change_id| (change_id, c.url.clone()))
-            });
+            .and_then(|c| commit.change_id().map(|change_id| (change_id, c.url.clone())));
 
         if let Some((change_id, review_url)) = change_id_review_url {
             mappings.push(ChangeIdMapping {
@@ -245,10 +241,7 @@ fn mappings(
 
 fn gerrit_host(repo: &gix::Repository) -> Option<String> {
     let name = repo.remote_default_name(gix::remote::Direction::Push);
-    let name = name
-        .as_ref()
-        .map(|n| n.as_ref())
-        .unwrap_or(b"origin".as_bstr());
+    let name = name.as_ref().map(|n| n.as_ref()).unwrap_or(b"origin".as_bstr());
     let remote = repo.find_remote(name).ok()?;
     let url = remote
         .url(gix::remote::Direction::Push)
@@ -302,10 +295,8 @@ mod tests {
         let change_id = GerritChangeId::from(&commit_change_id);
         let change_id_line = format!("Change-Id: {change_id}\n");
 
-        let msg_with_signed_off =
-            BString::from("Initial commit\n\nSigned-off-by: User <alice@example.com>\n");
-        let updated_msg =
-            with_change_id_trailer(msg_with_signed_off.clone(), commit_change_id.clone());
+        let msg_with_signed_off = BString::from("Initial commit\n\nSigned-off-by: User <alice@example.com>\n");
+        let updated_msg = with_change_id_trailer(msg_with_signed_off.clone(), commit_change_id.clone());
         let updated_msg_str = updated_msg.as_bstr();
         let change_id_index = updated_msg_str.find(&change_id_line).unwrap();
         let signed_off_index = updated_msg_str.find("Signed-off-by:").unwrap();
@@ -319,8 +310,7 @@ mod tests {
              \n\
              Pick-to: 6.10\n",
         );
-        let updated_msg =
-            with_change_id_trailer(msg_with_pick_to.clone(), commit_change_id.clone());
+        let updated_msg = with_change_id_trailer(msg_with_pick_to.clone(), commit_change_id.clone());
         let updated_msg_str = updated_msg.to_string();
 
         assert!(updated_msg_str.contains(&format!("Pick-to: 6.10\n{change_id_line}")));

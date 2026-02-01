@@ -41,7 +41,7 @@ impl From<but_workspace::ui::Author> for crate::author::Author {
 }
 
 pub fn update_stack(ctx: &Context, update: &BranchUpdateRequest) -> Result<Stack> {
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(update.id.context("BUG(opt-stack-id)")?)?;
 
     if let Some(order) = update.order {
@@ -81,8 +81,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         let remote_head = remote_branch.get().peel_to_commit()?;
         let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
 
-        let upstream_commits =
-            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_commits = git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| {
@@ -94,11 +93,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             })
             .sorted()
             .collect();
-        let upstream_commits = upstream_commits
-            .iter()
-            .map(|commit| commit.id())
-            .sorted()
-            .collect();
+        let upstream_commits = upstream_commits.iter().map(|commit| commit.id()).sorted().collect();
         Ok(Self {
             gix_repo,
             graph,
@@ -125,10 +120,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
         let gix_commit = self.gix_repo.find_commit(commit.id().to_gix())?;
 
         if let Some(change_id) = gix_commit.change_id()
-            && self
-                .upstream_change_ids
-                .binary_search(&change_id.to_string())
-                .is_ok()
+            && self.upstream_change_ids.binary_search(&change_id.to_string()).is_ok()
         {
             return Ok(true);
         }
@@ -189,9 +181,8 @@ pub(crate) fn update_commit_message(
     if message.is_empty() {
         bail!("commit message can not be empty");
     }
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     let default_target = vb_state.get_default_target()?;
-    let gix_repo = ctx.repo.get()?;
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = ctx.git2_repo.get()?.l(
@@ -204,7 +195,7 @@ pub(crate) fn update_commit_message(
         bail!("commit {commit_id} not in the branch");
     }
 
-    let mut steps = stack.as_rebase_steps(ctx, &gix_repo)?;
+    let mut steps = stack.as_rebase_steps(ctx)?;
     // Update the commit message
     for step in steps.iter_mut() {
         if let RebaseStep::Pick {
@@ -217,13 +208,16 @@ pub(crate) fn update_commit_message(
         }
     }
     let merge_base = stack.merge_base(ctx)?;
-    let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(merge_base), None)?;
-    rebase.rebase_noops(false);
-    rebase.steps(steps)?;
-    let output = rebase.rebase()?;
+    let output = {
+        let repo = ctx.repo.get()?;
+        let mut rebase = but_rebase::Rebase::new(&repo, Some(merge_base), None)?;
+        rebase.rebase_noops(false);
+        rebase.steps(steps)?;
+        rebase.rebase()?
+    };
 
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &gix_repo, new_head)?;
+    stack.set_stack_head(&vb_state, &*ctx.repo.get()?, new_head)?;
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)
@@ -233,7 +227,5 @@ pub(crate) fn update_commit_message(
         .commit_mapping
         .iter()
         .find_map(|(_base, old, new)| (*old == commit_id.to_gix()).then_some(new.to_git2()))
-        .ok_or(anyhow!(
-            "Failed to find the updated commit id after rebasing"
-        ))
+        .ok_or(anyhow!("Failed to find the updated commit id after rebasing"))
 }

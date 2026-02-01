@@ -7,7 +7,7 @@ use but_claude::{
     prompt_templates,
 };
 use but_core::ref_metadata::StackId;
-use but_ctx::Context;
+use but_ctx::{Context, ThreadSafeContext};
 use but_settings::AppSettings;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
@@ -40,41 +40,34 @@ pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetMessagesParams {
+    // TODO(ctx): make this `ProjectHandle`.
     pub project_id: ProjectId,
     pub stack_id: StackId,
 }
 
-pub fn claude_get_messages(
-    claude: &Claude,
-    params: GetMessagesParams,
-) -> Result<Vec<ClaudeMessage>> {
+pub fn claude_get_messages(claude: &Claude, params: GetMessagesParams) -> Result<Vec<ClaudeMessage>> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
-    let messages = claude
-        .instance_by_stack
-        .get_messages(&ctx, params.stack_id)?;
+    let messages = claude.instance_by_stack.get_messages(&ctx, params.stack_id)?;
     Ok(messages)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_get_session_details(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     session_id: String,
 ) -> Result<but_claude::ClaudeSessionDetails> {
-    let project = gitbutler_project::get(project_id)?;
     let (worktree_dir, session) = {
-        let ctx = Context::new_from_legacy_project(project.clone())?;
+        let ctx = ctx.into_thread_local();
         let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
-        let session = but_claude::db::get_session_by_id(&ctx, session_id)?
-            .context("Could not find session")?;
-        let worktree_dir = project.worktree_dir()?;
+        let session = but_claude::db::get_session_by_id(&ctx, session_id)?.context("Could not find session")?;
+        let worktree_dir = ctx.workdir_or_fail()?;
         (worktree_dir, session)
     };
-    let current_id = Transcript::current_valid_session_id(worktree_dir, &session).await?;
+    let current_id = Transcript::current_valid_session_id(&worktree_dir, &session).await?;
     if let Some(current_id) = current_id {
-        let transcript_path =
-            but_claude::Transcript::get_transcript_path(worktree_dir, current_id)?;
+        let transcript_path = but_claude::Transcript::get_transcript_path(&worktree_dir, current_id)?;
         let transcript = but_claude::Transcript::from_file(&transcript_path)?;
         Ok(but_claude::ClaudeSessionDetails {
             summary: transcript.summary(),
@@ -92,36 +85,25 @@ pub async fn claude_get_session_details(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_get_user_message(
-    project_id: ProjectId,
-    offset: Option<i64>,
-) -> Result<Option<ClaudeMessage>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    but_claude::db::get_user_message(&ctx, offset)
+pub fn claude_get_user_message(ctx: &but_ctx::Context, offset: Option<i64>) -> Result<Option<ClaudeMessage>> {
+    but_claude::db::get_user_message(ctx, offset)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_list_permission_requests(
-    project_id: ProjectId,
-) -> Result<Vec<but_claude::ClaudePermissionRequest>> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    but_claude::db::list_all_permission_requests(&ctx)
+pub fn claude_list_permission_requests(ctx: &but_ctx::Context) -> Result<Vec<but_claude::ClaudePermissionRequest>> {
+    but_claude::db::list_all_permission_requests(ctx)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn claude_update_permission_request(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     request_id: String,
     decision: but_claude::PermissionDecision,
     use_wildcard: bool,
 ) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
-    but_claude::db::update_permission_request(&mut ctx, &request_id, decision, use_wildcard)
+    but_claude::db::update_permission_request(ctx, &request_id, decision, use_wildcard)
 }
 
 #[derive(Deserialize)]
@@ -132,10 +114,7 @@ pub struct CancelSessionParams {
 }
 
 pub async fn claude_cancel_session(claude: &Claude, params: CancelSessionParams) -> Result<bool> {
-    let cancelled = claude
-        .instance_by_stack
-        .cancel_session(params.stack_id)
-        .await?;
+    let cancelled = claude.instance_by_stack.cancel_session(params.stack_id).await?;
     Ok(cancelled)
 }
 
@@ -155,16 +134,14 @@ pub struct IsStackActiveParams {
 }
 
 pub async fn claude_is_stack_active(claude: &Claude, params: IsStackActiveParams) -> Result<bool> {
-    let is_active = claude
-        .instance_by_stack
-        .is_stack_active(params.stack_id)
-        .await;
+    let is_active = claude.instance_by_stack.is_stack_active(params.stack_id).await;
     Ok(is_active)
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactHistoryParams {
+    // TODO(ctx): turn into `ProjectHandle`
     pub project_id: ProjectId,
     pub stack_id: StackId,
 }
@@ -181,60 +158,51 @@ pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParam
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_list_prompt_templates(
-    project_id: ProjectId,
-) -> Result<Vec<prompt_templates::PromptTemplate>> {
-    let project = gitbutler_project::get(project_id)?;
-    let templates = prompt_templates::list_templates(&project)?;
+pub fn claude_list_prompt_templates(ctx: &but_ctx::Context) -> Result<Vec<prompt_templates::PromptTemplate>> {
+    let templates = prompt_templates::list_templates(&ctx.project_data_dir())?;
     Ok(templates)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_get_prompt_dirs(project_id: ProjectId) -> Result<Vec<prompt_templates::PromptDir>> {
-    let project = gitbutler_project::get(project_id)?;
-    let dirs = prompt_templates::prompt_dirs(&project)?;
+pub fn claude_get_prompt_dirs(ctx: &but_ctx::Context) -> Result<Vec<prompt_templates::PromptDir>> {
+    let dirs = prompt_templates::prompt_dirs(&ctx.project_data_dir())?;
     Ok(dirs)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Result<()> {
-    let project = gitbutler_project::get(project_id)?;
-    prompt_templates::maybe_create_dir(&project, &path)?;
+pub fn claude_maybe_create_prompt_dir(ctx: &but_ctx::Context, path: String) -> Result<()> {
+    prompt_templates::maybe_create_dir(&ctx.workdir_or_fail()?, &path)?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig> {
-    let project = gitbutler_project::get(project_id)?;
-    let worktree_dir = project.worktree_dir()?;
-    let settings = ClaudeSettings::open(worktree_dir).await;
-    let mcp_config = ClaudeMcpConfig::open(&settings, worktree_dir).await;
+pub async fn claude_get_mcp_config(ctx: ThreadSafeContext) -> Result<McpConfig> {
+    let worktree_dir = ctx.into_thread_local().workdir_or_fail()?;
+    let settings = ClaudeSettings::open(&worktree_dir).await;
+    let mcp_config = ClaudeMcpConfig::open(&settings, &worktree_dir).await;
     Ok(mcp_config.mcp_servers())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_sub_agents(project_id: ProjectId) -> Result<Vec<but_claude::SubAgent>> {
-    let project = gitbutler_project::get(project_id)?;
-    let sub_agents =
-        but_claude::claude_sub_agents::read_claude_sub_agents(project.worktree_dir()?).await;
+pub async fn claude_get_sub_agents(ctx: ThreadSafeContext) -> Result<Vec<but_claude::SubAgent>> {
+    let workdir = ctx.into_thread_local().workdir_or_fail()?;
+    let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&workdir).await;
     Ok(sub_agents)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_verify_path(project_id: ProjectId, path: String) -> Result<bool> {
-    let project = gitbutler_project::get(project_id)?;
-
+pub async fn claude_verify_path(ctx: ThreadSafeContext, path: String) -> Result<bool> {
     // Check if it's an absolute path first
     let path = if std::path::Path::new(&path).is_absolute() {
         std::path::PathBuf::from(&path)
     } else {
         // If relative, make it relative to project path
-        project.worktree_dir()?.join(&path)
+        ctx.into_thread_local().workdir_or_fail()?.join(&path)
     };
 
     // Check if the path exists and is a directory

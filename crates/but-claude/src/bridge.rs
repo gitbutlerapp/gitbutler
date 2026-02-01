@@ -28,7 +28,10 @@ use std::{
 
 use anyhow::{Result, bail};
 use but_action::cli::get_cli_path;
-use but_core::ref_metadata::StackId;
+use but_core::{
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
@@ -43,8 +46,8 @@ use tokio::{
 };
 
 use crate::{
-    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
-    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
+    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode, PromptAttachment,
+    SystemMessage, ThinkingLevel, Transcript, UserInput,
     broadcaster::FrontendEvent,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
@@ -201,13 +204,9 @@ impl Claudes {
         // simplify this
         let (summary_to_resume, session_id, session) = {
             let mut ctx = sync_ctx.clone().into_thread_local();
+            let mut guard = ctx.exclusive_worktree_access();
 
             // Create repo and workspace once at the entry point
-            let guard = ctx.exclusive_worktree_access();
-            let repo = ctx.repo.get()?.clone();
-            let (_, workspace) =
-                ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
             let rule = {
                 list_claude_assignment_rules(&ctx)?
                     .into_iter()
@@ -216,15 +215,13 @@ impl Claudes {
 
             let session_id = rule.map(|r| r.session_id).unwrap_or(uuid::Uuid::new_v4());
 
-            let session = upsert_session(&mut ctx, &repo, &workspace, session_id, stack_id)?;
+            let session = upsert_session(&mut ctx, session_id, stack_id, guard.write_permission())?;
             let ctx = sync_ctx.clone().into_thread_local();
             let messages = list_messages_by_session(&ctx, session.id)?;
 
             let summary = if let Some(ClaudeMessage { payload, .. }) = messages.last() {
                 match payload {
-                    MessagePayload::System(SystemMessage::CompactFinished { summary }) => {
-                        Some(summary.clone())
-                    }
+                    MessagePayload::System(SystemMessage::CompactFinished { summary }) => Some(summary.clone()),
                     _ => None,
                 }
             } else {
@@ -248,17 +245,12 @@ impl Claudes {
         .await?;
 
         let (read_stdout, writer) = std::io::pipe()?;
-        let response_streamer = spawn_response_streaming(
-            sync_ctx.clone(),
-            broadcaster.clone(),
-            read_stdout,
-            session_id,
-            stack_id,
-        );
+        let response_streamer =
+            spawn_response_streaming(sync_ctx.clone(), broadcaster.clone(), read_stdout, session_id, stack_id);
 
         let (read_stderr, write_stderr) = std::io::pipe()?;
         // Clone so the reference to ctx can be immediately dropped
-        let project_workdir = sync_ctx.legacy_project.worktree_dir()?.to_owned();
+        let project_workdir = sync_ctx.clone().into_thread_local().workdir_or_fail()?.to_owned();
         let mut handle = spawn_command(
             writer,
             write_stderr,
@@ -404,8 +396,7 @@ async fn spawn_command(
     let cc_settings = ClaudeSettings::open(&project_path).await;
 
     // Determine what session ID Claude will use - needed for MCP server configuration
-    let transcript_current_id =
-        Transcript::current_valid_session_id(&project_path, &session).await?;
+    let transcript_current_id = Transcript::current_valid_session_id(&project_path, &session).await?;
     let claude_session_id = if summary_to_resume.is_some() {
         // If resuming after compaction, Claude will use a new random ID
         uuid::Uuid::new_v4()
@@ -427,10 +418,7 @@ async fn spawn_command(
     let mcp_config = &mcp_config
         .mcp_servers_with_security(claude_session_id)
         .exclude(&disabled_mcp_servers);
-    tracing::info!(
-        "spawn_command mcp_servers: {:?}",
-        mcp_config.mcp_servers.keys()
-    );
+    tracing::info!("spawn_command mcp_servers: {:?}", mcp_config.mcp_servers.keys());
     let mcp_config = serde_json::to_string(mcp_config)?;
     let mut command = Command::new(claude_executable);
 
@@ -464,18 +452,10 @@ async fn spawn_command(
 
     command.args(["--verbose"]);
 
-    if sync_ctx
-        .settings
-        .clone()
-        .claude
-        .dangerously_allow_all_permissions
-    {
+    if sync_ctx.settings.clone().claude.dangerously_allow_all_permissions {
         command.arg("--dangerously-skip-permissions");
     } else {
-        command.args([
-            "--permission-prompt-tool",
-            "mcp__but-security__approval_prompt",
-        ]);
+        command.args(["--permission-prompt-tool", "mcp__but-security__approval_prompt"]);
         // Set permission mode based on interaction mode
         match user_params.permission_mode {
             PermissionMode::Default => {
@@ -511,9 +491,7 @@ async fn spawn_command(
     let branch_info = {
         let mut ctx = sync_ctx.clone().into_thread_local();
         let guard = ctx.exclusive_worktree_access();
-        let repo = ctx.repo.get()?.clone();
-        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        format_branch_info(&mut ctx, &repo, &workspace, stack_id)
+        format_branch_info(&mut ctx, stack_id, guard.read_permission())
     };
     let system_prompt = format!("{}\n\n{}", system_prompt(), branch_info);
     command.args(["--append-system-prompt", &system_prompt]);
@@ -544,7 +522,7 @@ async fn spawn_command(
             command.arg(format_message(&message, user_params.thinking_level));
         }
     }
-    tracing::info!("spawn_command: {:?}", command);
+    tracing::debug!(?command, "claude::spawn_command");
     Ok(command.spawn()?)
 }
 
@@ -643,12 +621,7 @@ Uncommitted changes (assigned to this stack):
 }
 
 /// Formats branch information for the system prompt
-fn format_branch_info(
-    ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
-    stack_id: StackId,
-) -> String {
+fn format_branch_info(ctx: &mut Context, stack_id: StackId, perm: &RepoShared) -> String {
     let mut output = String::from(
         "<branch-info>\n\
         This repository uses GitButler for branch management. While git shows you are on\n\
@@ -666,7 +639,7 @@ fn format_branch_info(
 
     append_target_branch_info(&mut output, ctx);
     append_stack_branches_info(&mut output, stack_id, ctx);
-    append_assigned_files_info(&mut output, stack_id, ctx, repo, workspace).ok();
+    append_assigned_files_info(&mut output, stack_id, ctx, perm).ok();
 
     output.push_str("</branch-info>");
     output
@@ -690,7 +663,7 @@ fn append_target_branch_info(output: &mut String, ctx: &Context) {
 }
 
 /// Appends information about branches in the stack
-fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &mut Context) {
+fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &Context) {
     match but_workspace::legacy::stack_branches(stack_id, ctx) {
         Ok(branches) if !branches.is_empty() => {
             if let Some(first_branch) = branches.first() {
@@ -732,17 +705,18 @@ fn append_assigned_files_info(
     output: &mut String,
     stack_id: StackId,
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
+    perm: &RepoShared,
 ) -> anyhow::Result<()> {
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm)?;
     let assignments = match but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
-        repo,
-        workspace,
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
         false,
         None::<Vec<but_core::TreeChange>>,
         None,
-        ctx.settings.context_lines,
+        context_lines,
     ) {
         Ok((assignments, _error)) => assignments,
         Err(e) => {
@@ -777,47 +751,27 @@ fn group_assignments_by_file(
         .iter()
         .filter(|a| a.stack_id == Some(stack_id))
         .fold(HashMap::new(), |mut acc, assignment| {
-            acc.entry(assignment.path.as_str())
-                .or_default()
-                .push(assignment);
+            acc.entry(assignment.path.as_str()).or_default().push(assignment);
             acc
         })
 }
 
 /// Formats a file path with its associated line ranges
-fn format_file_with_line_ranges(
-    output: &mut String,
-    file_path: &str,
-    hunks: &[&but_hunk_assignment::HunkAssignment],
-) {
+fn format_file_with_line_ranges(output: &mut String, file_path: &str, hunks: &[&but_hunk_assignment::HunkAssignment]) {
     let line_ranges: Vec<String> = hunks
         .iter()
         .filter_map(|hunk| hunk.hunk_header.as_ref())
-        .map(|header| {
-            format!(
-                "{}-{}",
-                header.new_start,
-                header.new_start + header.new_lines
-            )
-        })
+        .map(|header| format!("{}-{}", header.new_start, header.new_start + header.new_lines))
         .collect();
 
     if line_ranges.is_empty() {
         output.push_str(&format!("- {}\n", file_path));
     } else {
-        output.push_str(&format!(
-            "- {} (lines: {})\n",
-            file_path,
-            line_ranges.join(", ")
-        ));
+        output.push_str(&format!("- {} (lines: {})\n", file_path, line_ranges.join(", ")));
     }
 }
 
-fn format_message_with_summary(
-    summary: &str,
-    message: &str,
-    thinking_level: ThinkingLevel,
-) -> String {
+fn format_message_with_summary(summary: &str, message: &str, thinking_level: ThinkingLevel) -> String {
     let message = format!(
         "<previous-conversation>
 This conversation is a continuation of a previous one.
@@ -855,17 +809,16 @@ fn format_message(message: &str, thinking_level: ThinkingLevel) -> String {
 /// and makes a corresponding rule
 fn upsert_session(
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     session_id: uuid::Uuid,
     stack_id: StackId,
+    perm: &mut RepoExclusive,
 ) -> Result<crate::ClaudeSession> {
     let session = if let Some(session) = db::get_session_by_id(ctx, session_id)? {
         db::set_session_in_gui(ctx, session_id, true)?;
         session
     } else {
         let session = db::save_new_session_with_gui_flag(ctx, session_id, true)?;
-        create_claude_assignment_rule(ctx, repo, workspace, session_id, stack_id)?;
+        create_claude_assignment_rule(ctx, session_id, stack_id, perm)?;
         session
     };
     Ok(session)
@@ -900,11 +853,7 @@ fn spawn_response_streaming(
             {
                 let mut ctx = sync_ctx.clone().into_thread_local();
                 if first {
-                    let current_session_id = parsed_event["session_id"]
-                        .as_str()
-                        .unwrap()
-                        .parse()
-                        .unwrap();
+                    let current_session_id = parsed_event["session_id"].as_str().unwrap().parse().unwrap();
                     let session = db::get_session_by_id(&ctx, session_id).unwrap();
                     if session.is_some() {
                         db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
@@ -1013,10 +962,7 @@ fn validate_commit_id(commit_id: &str) -> Result<()> {
 
     // Check that it only contains valid hex characters
     if !commit_id.chars().all(|c| c.is_ascii_hexdigit()) {
-        bail!(
-            "Commit ID contains non-hexadecimal characters: {}",
-            commit_id
-        );
+        bail!("Commit ID contains non-hexadecimal characters: {}", commit_id);
     }
 
     Ok(())
@@ -1024,10 +970,7 @@ fn validate_commit_id(commit_id: &str) -> Result<()> {
 
 /// Process file attachments by writing them to temporary files in the project directory
 /// and enhancing the message to reference these files
-async fn format_message_with_attachments(
-    original_message: &str,
-    attachments: &[PromptAttachment],
-) -> Result<String> {
+async fn format_message_with_attachments(original_message: &str, attachments: &[PromptAttachment]) -> Result<String> {
     if attachments.is_empty() {
         return Ok(original_message.to_string());
     }

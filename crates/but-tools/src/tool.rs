@@ -41,22 +41,13 @@ impl<'a> WorkspaceToolset<'a> {
         }
     }
 
-    fn call_tool_inner(
-        &mut self,
-        name: &str,
-        parameters: &str,
-    ) -> anyhow::Result<serde_json::Value> {
+    fn call_tool_inner(&mut self, name: &str, parameters: &str) -> anyhow::Result<serde_json::Value> {
         let tool = self
             .get(name)
             .ok_or_else(|| anyhow::anyhow!("Tool '{}' not found", name))?;
-        let params: serde_json::Value = serde_json::from_str(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
-        tool.call(
-            params,
-            self.ctx,
-            self.emitter.clone(),
-            &mut self.commit_mapping,
-        )
+        let params: serde_json::Value =
+            serde_json::from_str(parameters).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
+        tool.call(params, self.ctx, self.emitter.clone(), &mut self.commit_mapping)
     }
 }
 
@@ -117,10 +108,7 @@ pub fn error_to_json(error: &anyhow::Error, action_identifier: &str) -> serde_js
     })
 }
 
-pub fn string_result_to_json(
-    result: &Result<String, &anyhow::Error>,
-    action_identifier: &str,
-) -> serde_json::Value {
+pub fn string_result_to_json(result: &Result<String, &anyhow::Error>, action_identifier: &str) -> serde_json::Value {
     match result {
         Ok(value) => json!({ "result": value }),
         Err(e) => error_to_json(e, action_identifier),

@@ -4,12 +4,7 @@ pub struct Platform {
     #[clap(short = 'm', long = "message", conflicts_with = "file")]
     pub message: Option<String>,
     /// Read commit message from file
-    #[clap(
-        short = 'f',
-        long = "file",
-        value_name = "FILE",
-        conflicts_with = "message"
-    )]
+    #[clap(short = 'f', long = "file", value_name = "FILE", conflicts_with = "message")]
     pub file: Option<std::path::PathBuf>,
     /// Branch CLI ID or name to derive the stack to commit to
     pub branch: Option<String>,
@@ -25,12 +20,7 @@ pub struct Platform {
     #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
     pub no_hooks: bool,
     /// Generate commit message using AI with optional user summary
-    #[clap(
-        short = 'i',
-        long = "ai",
-        conflicts_with = "message",
-        conflicts_with = "file"
-    )]
+    #[clap(short = 'i', long = "ai", conflicts_with = "message", conflicts_with = "file")]
     pub ai: Option<Option<String>>,
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,

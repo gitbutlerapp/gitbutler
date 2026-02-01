@@ -1,20 +1,17 @@
-use colored::Colorize;
 use std::path::Path;
 
-use but_core::sync::WorkspaceWriteGuard;
+use but_core::sync::RepoExclusiveGuard;
 use but_ctx::Context;
 use but_hunk_assignment::{
-    AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
-    JsonFileAbsorption,
+    AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption, JsonFileAbsorption,
 };
+use colored::Colorize;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{
-    CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel,
-};
+use crate::{CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel};
 /// Amends changes into the appropriate commits where they belong.
 ///
 /// The semantic for finding "the appropriate commit" is as follows
@@ -35,19 +32,14 @@ pub(crate) fn handle(
     dry_run: bool,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
-    let source: Option<CliId> = source
-        .and_then(|s| parse_sources(ctx, &id_map, s).ok())
-        .and_then(|s| {
-            s.into_iter().find(|s| {
-                matches!(s, CliId::Uncommitted { .. }) || matches!(s, CliId::Branch { .. })
-            })
-        });
+    let source: Option<CliId> = source.and_then(|s| parse_sources(ctx, &id_map, s).ok()).and_then(|s| {
+        s.into_iter()
+            .find(|s| matches!(s, CliId::Uncommitted { .. }) || matches!(s, CliId::Branch { .. }))
+    });
 
     let target = if let Some(source) = source {
         match source {
-            CliId::Uncommitted(UncommittedCliId {
-                hunk_assignments, ..
-            }) => {
+            CliId::Uncommitted(UncommittedCliId { hunk_assignments, .. }) => {
                 // Absorb this particular file
                 AbsorptionTarget::HunkAssignments {
                     assignments: hunk_assignments.into(),
@@ -90,10 +82,7 @@ pub(crate) fn handle(
     // Create a snapshot before performing absorb operations
     // This allows the user to undo if needed
     let _snapshot = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::Absorb),
-            guard.write_permission(),
-        )
+        .create_snapshot(SnapshotDetails::new(OperationKind::Absorb), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
     absorb_assignments(absorption_plan, &mut guard, &repo, &data_dir, out)?;
 
@@ -103,13 +92,12 @@ pub(crate) fn handle(
 /// Absorb a single file into the appropriate commit
 fn absorb_assignments(
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut WorkspaceWriteGuard,
+    guard: &mut RepoExclusiveGuard,
     repo: &gix::Repository,
     data_dir: &Path,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let total_rejected =
-        but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?;
+    let total_rejected = but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?;
 
     // Display completion message
     if let Some(out) = out.for_human() {
@@ -123,11 +111,7 @@ fn absorb_assignments(
                 if total_rejected == 1 { "" } else { "s" }
             )?;
         }
-        writeln!(
-            out,
-            "{}: you can run `but undo` to undo these changes",
-            "Hint".cyan()
-        )?;
+        writeln!(out, "{}: you can run `but undo` to undo these changes", "Hint".cyan())?;
     }
 
     Ok(())
@@ -145,10 +129,7 @@ fn format_hunk_range(hunk_header: &but_core::HunkHeader) -> String {
         // Modified lines
         format!(
             "@{},{} +{},{}",
-            hunk_header.old_start,
-            hunk_header.old_lines,
-            hunk_header.new_start,
-            hunk_header.new_lines
+            hunk_header.old_start, hunk_header.old_lines, hunk_header.new_start, hunk_header.new_lines
         )
     }
 }
@@ -164,10 +145,7 @@ fn get_hunk_ranges(assignment: &HunkAssignment) -> Vec<String> {
 }
 
 /// Display the absorption plan to the user
-fn display_absorption_plan(
-    commit_absorptions: &[CommitAbsorption],
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+fn display_absorption_plan(commit_absorptions: &[CommitAbsorption], out: &mut OutputChannel) -> anyhow::Result<()> {
     // Count total files
     let total_files: usize = commit_absorptions.iter().map(|c| c.files.len()).sum();
 

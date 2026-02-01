@@ -54,10 +54,7 @@ pub fn update(project: UpdateRequest) -> anyhow::Result<Project> {
 }
 
 /// Testing purpose only.
-pub fn update_with_path<P: AsRef<Path>>(
-    app_data_dir: P,
-    project: UpdateRequest,
-) -> anyhow::Result<Project> {
+pub fn update_with_path<P: AsRef<Path>>(app_data_dir: P, project: UpdateRequest) -> anyhow::Result<Project> {
     let controller = Controller::from_path(app_data_dir.as_ref());
     controller.update(project)
 }
@@ -100,9 +97,7 @@ pub fn delete_with_path<P: AsRef<Path>>(app_data_dir: P, id: ProjectId) -> anyho
     controller.delete(id)
 }
 
-pub fn assure_app_can_startup_or_fix_it(
-    projects: anyhow::Result<Vec<Project>>,
-) -> anyhow::Result<Vec<Project>> {
+pub fn assure_app_can_startup_or_fix_it(projects: anyhow::Result<Vec<Project>>) -> anyhow::Result<Vec<Project>> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.assure_app_can_startup_or_fix_it(projects)
 }

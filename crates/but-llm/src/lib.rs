@@ -8,7 +8,6 @@ mod openai;
 use std::sync::Arc;
 
 pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent};
-
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 
@@ -82,10 +81,12 @@ impl LLMProvider {
     /// or `None` if initialization failed (e.g., missing required credentials).
     pub fn new(kind: LLMProviderConfig) -> Option<Self> {
         let client = match kind {
-            LLMProviderConfig::OpenAi(creds) => openai::OpenAiProvider::with(creds, None, None)
-                .map(|p| LLMClientType::OpenAi(Arc::new(p)))?,
-            LLMProviderConfig::Anthropic(creds) => anthropic::AnthropicProvider::with(creds, None)
-                .map(|p| LLMClientType::Anthropic(Arc::new(p)))?,
+            LLMProviderConfig::OpenAi(creds) => {
+                openai::OpenAiProvider::with(creds, None, None).map(|p| LLMClientType::OpenAi(Arc::new(p)))?
+            }
+            LLMProviderConfig::Anthropic(creds) => {
+                anthropic::AnthropicProvider::with(creds, None).map(|p| LLMClientType::Anthropic(Arc::new(p)))?
+            }
             LLMProviderConfig::Ollama(config) => {
                 let config = config.unwrap_or_default();
                 LLMClientType::Ollama(Arc::new(ollama::OllamaProvider::new(config, None)))
@@ -237,27 +238,15 @@ impl LLMProvider {
         on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> anyhow::Result<(String, Vec<ChatMessage>)> {
         match &self.client {
-            LLMClientType::OpenAi(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
-            LLMClientType::Anthropic(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
-            LLMClientType::Ollama(client) => client.tool_calling_loop_stream(
-                system_message,
-                chat_messages,
-                tool_set,
-                model,
-                on_token,
-            ),
+            LLMClientType::OpenAi(client) => {
+                client.tool_calling_loop_stream(system_message, chat_messages, tool_set, model, on_token)
+            }
+            LLMClientType::Anthropic(client) => {
+                client.tool_calling_loop_stream(system_message, chat_messages, tool_set, model, on_token)
+            }
+            LLMClientType::Ollama(client) => {
+                client.tool_calling_loop_stream(system_message, chat_messages, tool_set, model, on_token)
+            }
         }
     }
 
@@ -293,15 +282,11 @@ impl LLMProvider {
         model: &str,
     ) -> anyhow::Result<String> {
         match &self.client {
-            LLMClientType::OpenAi(client) => {
-                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
-            }
+            LLMClientType::OpenAi(client) => client.tool_calling_loop(system_message, chat_messages, tool_set, model),
             LLMClientType::Anthropic(client) => {
                 client.tool_calling_loop(system_message, chat_messages, tool_set, model)
             }
-            LLMClientType::Ollama(client) => {
-                client.tool_calling_loop(system_message, chat_messages, tool_set, model)
-            }
+            LLMClientType::Ollama(client) => client.tool_calling_loop(system_message, chat_messages, tool_set, model),
         }
     }
 
@@ -331,15 +316,9 @@ impl LLMProvider {
         on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> anyhow::Result<Option<String>> {
         match &self.client {
-            LLMClientType::OpenAi(client) => {
-                client.stream_response(system_message, chat_messages, model, on_token)
-            }
-            LLMClientType::Anthropic(client) => {
-                client.stream_response(system_message, chat_messages, model, on_token)
-            }
-            LLMClientType::Ollama(client) => {
-                client.stream_response(system_message, chat_messages, model, on_token)
-            }
+            LLMClientType::OpenAi(client) => client.stream_response(system_message, chat_messages, model, on_token),
+            LLMClientType::Anthropic(client) => client.stream_response(system_message, chat_messages, model, on_token),
+            LLMClientType::Ollama(client) => client.stream_response(system_message, chat_messages, model, on_token),
         }
     }
 
@@ -368,24 +347,16 @@ impl LLMProvider {
     /// Returns `Ok(Some(value))` containing the parsed structured response if successful,
     /// `Ok(None)` if the model produced no output, or `Err` if the request failed or
     /// the response didn't conform to the expected schema.
-    pub fn structured_output<
-        T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
-    >(
+    pub fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static>(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
         model: &str,
     ) -> anyhow::Result<Option<T>> {
         match &self.client {
-            LLMClientType::OpenAi(client) => {
-                client.structured_output::<T>(system_message, chat_messages, model)
-            }
-            LLMClientType::Anthropic(client) => {
-                client.structured_output::<T>(system_message, chat_messages, model)
-            }
-            LLMClientType::Ollama(client) => {
-                client.structured_output::<T>(system_message, chat_messages, model)
-            }
+            LLMClientType::OpenAi(client) => client.structured_output::<T>(system_message, chat_messages, model),
+            LLMClientType::Anthropic(client) => client.structured_output::<T>(system_message, chat_messages, model),
+            LLMClientType::Ollama(client) => client.structured_output::<T>(system_message, chat_messages, model),
         }
     }
 
@@ -414,9 +385,7 @@ impl LLMProvider {
     ) -> anyhow::Result<Option<String>> {
         match &self.client {
             LLMClientType::OpenAi(client) => client.response(system_message, chat_messages, model),
-            LLMClientType::Anthropic(client) => {
-                client.response(system_message, chat_messages, model)
-            }
+            LLMClientType::Anthropic(client) => client.response(system_message, chat_messages, model),
             LLMClientType::Ollama(client) => client.response(system_message, chat_messages, model),
         }
     }

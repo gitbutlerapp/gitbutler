@@ -127,8 +127,7 @@ pub fn create_commit(
 ) -> anyhow::Result<CreateCommitOutcome> {
     let parents = match &destination {
         Destination::NewCommit {
-            parent_commit_id: None,
-            ..
+            parent_commit_id: None, ..
         } => Vec::new(),
         Destination::NewCommit {
             parent_commit_id: Some(parent),
@@ -149,16 +148,14 @@ pub fn create_commit(
 
     let target_tree = match &destination {
         Destination::NewCommit {
-            parent_commit_id: None,
-            ..
+            parent_commit_id: None, ..
         } => gix::ObjectId::empty_tree(repo.object_hash()),
         Destination::NewCommit {
             parent_commit_id: Some(base_commit),
             ..
         }
         | Destination::AmendCommit {
-            commit_id: base_commit,
-            ..
+            commit_id: base_commit, ..
         } => but_core::Commit::from_id(base_commit.attach(repo))?
             .tree_id_or_auto_resolution()?
             .detach(),
@@ -177,15 +174,11 @@ pub fn create_commit(
                 stack_segment: _,
             } => {
                 let (author, committer) = repo.commit_signatures()?;
-                let new_commit = create_possibly_signed_commit(
-                    repo, author, committer, &message, new_tree, parents, None,
-                )?;
+                let new_commit =
+                    create_possibly_signed_commit(repo, author, committer, &message, new_tree, parents, None)?;
                 Some(new_commit)
             }
-            Destination::AmendCommit {
-                commit_id,
-                new_message,
-            } => {
+            Destination::AmendCommit { commit_id, new_message } => {
                 let mut commit = but_core::Commit::from_id(commit_id.attach(repo))?;
                 commit.tree = new_tree;
                 if let Some(message) = new_message {
@@ -229,9 +222,7 @@ fn create_possibly_signed_commit(
         committer,
         encoding: None,
         parents: parents.into_iter().map(Into::into).collect(),
-        extra_headers: (&commit_headers
-            .unwrap_or_else(|| Headers::from_config(&repo.config_snapshot())))
-            .into(),
+        extra_headers: (&commit_headers.unwrap_or_else(|| Headers::from_config(&repo.config_snapshot()))).into(),
     };
     but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep, true)
 }

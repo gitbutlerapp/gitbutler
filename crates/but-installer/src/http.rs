@@ -1,23 +1,19 @@
 //! HTTP client configuration
 
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use curl::easy::Easy;
-use std::time::Duration;
 
 const REQUEST_TIMEOUT_SECS: u64 = 30;
 const CONNECT_TIMEOUT_SECS: u64 = 10;
 const MAX_REDIRECTS: u32 = 5;
-const USER_AGENT: &str = concat!(
-    "GitButler-Installer/",
-    env!("CARGO_PKG_VERSION"),
-    " (Rust installer)"
-);
+const USER_AGENT: &str = concat!("GitButler-Installer/", env!("CARGO_PKG_VERSION"), " (Rust installer)");
 
 /// Create a configured curl Easy handle with appropriate timeouts and user agent
 pub(crate) fn create_client() -> Result<Easy> {
     let mut easy = Easy::new();
-    easy.useragent(USER_AGENT)
-        .context("Failed to set user agent")?;
+    easy.useragent(USER_AGENT).context("Failed to set user agent")?;
     easy.timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
         .context("Failed to set timeout")?;
     easy.connect_timeout(Duration::from_secs(CONNECT_TIMEOUT_SECS))

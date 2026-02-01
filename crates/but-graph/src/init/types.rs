@@ -1,8 +1,9 @@
-use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 use std::{
     collections::{BTreeSet, VecDeque},
     ops::Range,
 };
+
+use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 
 use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
 
@@ -53,9 +54,7 @@ impl Limit {
     /// so effectively we loose gas here.
     pub fn per_parent(&self, num_parents: usize) -> Self {
         Limit {
-            inner: self
-                .inner
-                .map(|l| if l == 0 { 0 } else { (l / num_parents).max(1) }),
+            inner: self.inner.map(|l| if l == 0 { 0 } else { (l / num_parents).max(1) }),
             goal: self.goal,
         }
     }
@@ -220,7 +219,7 @@ impl Queue {
             .inner
             .iter_mut()
             .find_map(|(info, _, _, limit)| (info.id == id).then_some(limit))
-            .expect("BUG: id is queued");
+            .unwrap_or_else(|| panic!("BUG: {id} is queued"));
         *limit = limit.additional_goal(goal);
     }
 }
@@ -260,9 +259,7 @@ impl Goals {
             tracing::warn!("Goals limit reached, cannot track {goal}");
             None
         } else {
-            Some(CommitFlags::from_bits_retain(
-                1 << (existing_flags + goal_index),
-            ))
+            Some(CommitFlags::from_bits_retain(1 << (existing_flags + goal_index)))
         }
     }
 }
@@ -353,11 +350,7 @@ pub struct TopoWalk {
 /// Lifecycle
 impl TopoWalk {
     /// Start a walk at `segment`, possibly only from `commit`.
-    pub fn start_from(
-        segment: SegmentIndex,
-        commit: Option<CommitIndex>,
-        direction: Direction,
-    ) -> Self {
+    pub fn start_from(segment: SegmentIndex, commit: Option<CommitIndex>, direction: Direction) -> Self {
         TopoWalk {
             next: {
                 let mut v = VecDeque::new();
@@ -387,10 +380,7 @@ impl TopoWalk {
     /// Obtain the next segment and unseen commit range in the topo-walk.
     /// Note that the returned range may yield an empty slice, or a sub-slice
     /// of all available commits.
-    pub fn next(
-        &mut self,
-        graph: &crate::init::PetGraph,
-    ) -> Option<(SegmentIndex, Range<CommitIndex>)> {
+    pub fn next(&mut self, graph: &crate::init::PetGraph) -> Option<(SegmentIndex, Range<CommitIndex>)> {
         while !self.next.is_empty() {
             let res = self.next_inner(graph);
             if res.is_some() {
@@ -403,10 +393,7 @@ impl TopoWalk {
         None
     }
 
-    fn next_inner(
-        &mut self,
-        graph: &crate::init::PetGraph,
-    ) -> Option<(SegmentIndex, Range<CommitIndex>)> {
+    fn next_inner(&mut self, graph: &crate::init::PetGraph) -> Option<(SegmentIndex, Range<CommitIndex>)> {
         let (segment, first_commit_index) = self.next.pop_front()?;
         let available_range = self.select_range(graph, segment, first_commit_index)?;
 

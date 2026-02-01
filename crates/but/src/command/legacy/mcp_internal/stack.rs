@@ -9,9 +9,8 @@ use serde::Serialize;
 ///
 /// This includes information about the branch itself and its commits
 pub fn branch_details(ref_name: &str, current_dir: &Path) -> anyhow::Result<BranchDetails> {
-    let project = super::project::project_from_path(current_dir)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
-    let meta = super::project::ref_metadata_toml(&ctx.legacy_project)?;
+    let ctx = Context::discover(current_dir)?;
+    let meta = ctx.legacy_meta()?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let ref_name = repo.find_reference(ref_name)?.name().to_owned();
 
@@ -24,29 +23,21 @@ pub fn create_stack_with_branch(
     name: &str,
     current_dir: &Path,
 ) -> anyhow::Result<but_workspace::legacy::ui::StackEntryNoOpt> {
-    let project = super::project::project_from_path(current_dir)?;
-    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let mut ctx = Context::discover(current_dir)?;
 
     let creation_request = gitbutler_branch::BranchCreateRequest {
         name: Some(name.to_string()),
         ..Default::default()
     };
 
-    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        &ctx,
-        &creation_request,
-        ctx.exclusive_worktree_access().write_permission(),
-    )?;
+    let mut guard = ctx.exclusive_worktree_access();
+    let perm = guard.write_permission();
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(&ctx, &creation_request, perm)?;
+    drop(guard);
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(stack_entry.id)?;
-    stack.update_branch(
-        &ctx,
-        name.to_string(),
-        &PatchReferenceUpdate {
-            ..Default::default()
-        },
-    )?;
+    stack.update_branch(&ctx, name.to_string(), &PatchReferenceUpdate { ..Default::default() })?;
 
     Ok(stack_entry)
 }
@@ -138,10 +129,7 @@ pub struct BranchDetails {
     /// The commits that are only at the remote.
     pub upstream_commits: Vec<UpstreamCommit>,
 }
-fn parse_branch_details(
-    repo: &gix::Repository,
-    details: but_workspace::ui::BranchDetails,
-) -> BranchDetails {
+fn parse_branch_details(repo: &gix::Repository, details: but_workspace::ui::BranchDetails) -> BranchDetails {
     let authors = details
         .authors
         .into_iter()
@@ -155,11 +143,7 @@ fn parse_branch_details(
         tip: details.tip,
         authors,
         commits: parse_commits(repo, details.commits, details.base_commit),
-        upstream_commits: details
-            .upstream_commits
-            .into_iter()
-            .map(UpstreamCommit::from)
-            .collect(),
+        upstream_commits: details.upstream_commits.into_iter().map(UpstreamCommit::from).collect(),
     }
 }
 
@@ -175,8 +159,7 @@ fn parse_commits(
             let id = commit.id;
             let message = commit.message;
             let author = format!("{} <{}>", commit.author.name, commit.author.email);
-            let changes =
-                but_core::diff::tree_changes(repo, Some(prev), commit.id).unwrap_or_default();
+            let changes = but_core::diff::tree_changes(repo, Some(prev), commit.id).unwrap_or_default();
 
             let files = changes
                 .into_iter()

@@ -1,18 +1,16 @@
-use but_api_macros::but_api;
-use but_ctx::Context;
-use but_graph::Graph;
-use but_hunk_assignment::{
-    AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment,
-};
-use gix::ObjectId;
 use std::{
     collections::{BTreeMap, HashMap},
     path::Path,
 };
-use tracing::instrument;
 
 use bstr::{BString, ByteSlice};
-use but_core::{DiffSpec, sync::WorkspaceWriteGuard};
+use but_api_macros::but_api;
+use but_core::{
+    DiffSpec,
+    sync::{RepoExclusive, RepoExclusiveGuard},
+};
+use but_ctx::Context;
+use but_hunk_assignment::{AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment};
 use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::ui::StackDetails;
@@ -21,7 +19,9 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_stack::StackId;
+use gix::ObjectId;
 use itertools::Itertools;
+use tracing::instrument;
 
 use crate::{
     commit::commit_insert_blank_only_impl,
@@ -38,10 +38,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
     // Create a snapshot before performing absorb operations
     // This allows the user to undo if needed
     let _snapshot = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::Absorb),
-            guard.write_permission(),
-        )
+        .create_snapshot(SnapshotDetails::new(OperationKind::Absorb), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
 
     absorb_impl(absorption_plan, &mut guard, &repo, &data_dir)
@@ -49,7 +46,7 @@ pub fn absorb(ctx: &mut Context, absorption_plan: Vec<CommitAbsorption>) -> anyh
 
 pub fn absorb_impl(
     absorption_plan: Vec<CommitAbsorption>,
-    guard: &mut WorkspaceWriteGuard,
+    guard: &mut RepoExclusiveGuard,
     repo: &gix::Repository,
     data_dir: &Path,
 ) -> anyhow::Result<usize> {
@@ -66,14 +63,8 @@ pub fn absorb_impl(
                 .collect::<Vec<_>>(),
         )?;
         let commit_id = commit_map.find_mapped_id(absorption.commit_id);
-        let outcome = amend_commit_and_count_failures(
-            absorption.stack_id,
-            commit_id,
-            diff_specs,
-            guard,
-            repo,
-            data_dir,
-        )?;
+        let outcome =
+            amend_commit_and_count_failures(absorption.stack_id, commit_id, diff_specs, guard, repo, data_dir)?;
         for mapping in &outcome.commit_mapping {
             commit_map.add_mapping(mapping.0, mapping.1);
         }
@@ -85,10 +76,7 @@ pub fn absorb_impl(
 /// Generate an absorption plan based on the provided target, based on hunk dependencies, assingments and other heuristics
 #[but_api]
 #[instrument(err(Debug))]
-pub fn absorption_plan(
-    ctx: &mut Context,
-    target: AbsorptionTarget,
-) -> anyhow::Result<Vec<CommitAbsorption>> {
+pub fn absorption_plan(ctx: &mut Context, target: AbsorptionTarget) -> anyhow::Result<Vec<CommitAbsorption>> {
     let assignments = match target {
         AbsorptionTarget::Branch { branch_name } => {
             // Get all worktree changes, assignments, and dependencies
@@ -136,18 +124,12 @@ pub fn absorption_plan(
             // Filter assignments to just this stack
             let stack_assignments: Vec<_> = all_assignments
                 .iter()
-                .filter(|a| {
-                    a.stack_id == assigned_stack_id
-                        && changes.iter().any(|c| c.path_bytes == a.path_bytes)
-                })
+                .filter(|a| a.stack_id == assigned_stack_id && changes.iter().any(|c| c.path_bytes == a.path_bytes))
                 .cloned()
                 .collect();
 
             if stack_assignments.is_empty() {
-                anyhow::bail!(
-                    "No uncommitted changes assigned to stack: {:?}",
-                    assigned_stack_id
-                );
+                anyhow::bail!("No uncommitted changes assigned to stack: {:?}", assigned_stack_id);
             }
 
             stack_assignments
@@ -162,12 +144,10 @@ pub fn absorption_plan(
         }
     };
 
-    let guard = ctx.exclusive_worktree_access();
-    let (_, graph) = ctx.graph_and_read_only_meta_from_head(guard.read_permission())?;
-    let repo = ctx.repo.get()?;
+    let mut guard = ctx.exclusive_worktree_access();
 
     // Group all changes by their target commit
-    let changes_by_commit = group_changes_by_target_commit(ctx, &graph, &repo, &assignments)?;
+    let changes_by_commit = group_changes_by_target_commit(ctx, &assignments, guard.write_permission())?;
 
     // Prepare commit absorptions for display
     let commit_absorptions = prepare_commit_absorptions(ctx, changes_by_commit)?;
@@ -177,10 +157,9 @@ pub fn absorption_plan(
 
 /// Group changes by their target commit based on dependencies and assignments
 fn group_changes_by_target_commit(
-    ctx: &Context,
-    graph: &Graph,
-    repo: &gix::Repository,
+    ctx: &mut Context,
     assignments: &[HunkAssignment],
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<GroupedChanges> {
     let mut changes_by_commit: GroupedChanges = BTreeMap::new();
 
@@ -189,8 +168,7 @@ fn group_changes_by_target_commit(
     // Process each assignment
     for assignment in assignments {
         // Determine the target commit for this assignment
-        let (stack_id, commit_id, reason) =
-            determine_target_commit(ctx, assignment, &mut stack_details_cache, graph, repo)?;
+        let (stack_id, commit_id, reason) = determine_target_commit(ctx, assignment, &mut stack_details_cache, perm)?;
 
         let entry = changes_by_commit
             .entry((stack_id, commit_id))
@@ -209,16 +187,12 @@ fn group_changes_by_target_commit(
 // Find the lock that is highest in the application order (child-most commit)
 fn find_top_most_lock<'a>(
     locks: &'a [HunkLock],
-    ctx: &Context,
+    ctx: &mut Context,
     stack_details_cache: &'a mut HashMap<StackId, StackDetails>,
 ) -> Option<&'a HunkLock> {
     // These are all the stack IDs that the hunk is dependent on.
     // If there are multiple, then the absorb will fail.
-    let all_stack_ids = locks
-        .iter()
-        .map(|lock| lock.target)
-        .unique()
-        .collect::<Vec<_>>();
+    let all_stack_ids = locks.iter().map(|lock| lock.target).unique().collect::<Vec<_>>();
     for stack_id in &all_stack_ids {
         if let HunkLockTarget::Stack(stack_id) = stack_id {
             let stack_details = if let Some(details) = stack_details_cache.get(stack_id) {
@@ -230,9 +204,10 @@ fn find_top_most_lock<'a>(
             };
             for branch in stack_details.branch_details.iter() {
                 for commit in branch.commits.iter() {
-                    if let Some(lock) = locks.iter().find(|l| {
-                        l.commit_id == commit.id && l.target == HunkLockTarget::Stack(*stack_id)
-                    }) {
+                    if let Some(lock) = locks
+                        .iter()
+                        .find(|l| l.commit_id == commit.id && l.target == HunkLockTarget::Stack(*stack_id))
+                    {
                         return Some(lock);
                     }
                 }
@@ -247,16 +222,11 @@ fn find_top_most_lock<'a>(
 
 /// Determine the target commit for an assignment based on dependencies and assignments
 fn determine_target_commit(
-    ctx: &Context,
+    ctx: &mut Context,
     assignment: &HunkAssignment,
     stack_details_cache: &mut HashMap<StackId, StackDetails>,
-    graph: &Graph,
-    repo: &gix::Repository,
-) -> anyhow::Result<(
-    but_core::ref_metadata::StackId,
-    gix::ObjectId,
-    AbsorptionReason,
-)> {
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<(but_core::ref_metadata::StackId, gix::ObjectId, AbsorptionReason)> {
     // Priority 1: Check if there's a dependency lock for this hunk
     if let Some(locks) = &assignment.hunk_locks {
         if let Some(lock) = find_top_most_lock(locks, ctx, stack_details_cache) {
@@ -289,10 +259,10 @@ fn determine_target_commit(
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
-            graph,
-            repo,
+            ctx,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
+            perm,
         )?;
 
         // Now fetch the stack details again to get the newly created commit
@@ -324,10 +294,10 @@ fn determine_target_commit(
             .first()
             .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
         commit_insert_blank_only_impl(
-            graph,
-            repo,
+            ctx,
             crate::commit::ui::RelativeTo::Reference(branch.reference.clone()),
             InsertSide::Below,
+            perm,
         )?;
 
         // Now fetch the stack details again to get the newly created commit
@@ -348,9 +318,7 @@ fn determine_target_commit(
 }
 
 /// Convert HunkAssignments to DiffSpecs
-fn convert_assignments_to_diff_specs(
-    assignments: &[HunkAssignment],
-) -> anyhow::Result<Vec<DiffSpec>> {
+fn convert_assignments_to_diff_specs(assignments: &[HunkAssignment]) -> anyhow::Result<Vec<DiffSpec>> {
     let mut specs_by_path: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
 
     // Group assignments by file path
@@ -448,9 +416,7 @@ struct CommitMap {
 
 impl CommitMap {
     fn new() -> Self {
-        Self {
-            map: HashMap::new(),
-        }
+        Self { map: HashMap::new() }
     }
 
     /// Find the final mapped commit ID by following the chain of mappings
@@ -469,7 +435,5 @@ impl CommitMap {
 }
 
 /// Type alias for grouped changes by commit
-type GroupedChanges = BTreeMap<
-    (but_core::ref_metadata::StackId, gix::ObjectId),
-    (Vec<HunkAssignment>, AbsorptionReason),
->;
+type GroupedChanges =
+    BTreeMap<(but_core::ref_metadata::StackId, gix::ObjectId), (Vec<HunkAssignment>, AbsorptionReason)>;

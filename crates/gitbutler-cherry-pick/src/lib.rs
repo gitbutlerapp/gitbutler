@@ -42,11 +42,7 @@ pub trait RepositoryExt {
     ///
     /// Unless you want to find a particular side, you likely want to pass Default::default()
     /// as the [`side`](ConflictedTreeKey) which will give the automatically resolved resolution
-    fn find_real_tree(
-        &self,
-        commit: &git2::Commit,
-        side: ConflictedTreeKey,
-    ) -> Result<git2::Tree<'_>>;
+    fn find_real_tree(&self, commit: &git2::Commit, side: ConflictedTreeKey) -> Result<git2::Tree<'_>>;
 }
 
 pub trait GixRepositoryExt {
@@ -55,33 +51,19 @@ pub trait GixRepositoryExt {
     ///
     /// Unless you want to find a particular side, you likely want to pass Default::default()
     /// as the [`side`](ConflictedTreeKey) which will give the automatically resolved resolution
-    fn find_real_tree<'repo>(
-        &'repo self,
-        commit_id: &gix::oid,
-        side: ConflictedTreeKey,
-    ) -> Result<gix::Id<'repo>>;
+    fn find_real_tree<'repo>(&'repo self, commit_id: &gix::oid, side: ConflictedTreeKey) -> Result<gix::Id<'repo>>;
 }
 
 impl RepositoryExt for git2::Repository {
-    fn find_real_tree(
-        &self,
-        commit: &git2::Commit,
-        side: ConflictedTreeKey,
-    ) -> Result<git2::Tree<'_>> {
+    fn find_real_tree(&self, commit: &git2::Commit, side: ConflictedTreeKey) -> Result<git2::Tree<'_>> {
         let gix_repo = self.to_gix_repo()?;
-        let tree_id = gix_repo
-            .find_real_tree(&commit.id().to_gix(), side)?
-            .to_git2();
+        let tree_id = gix_repo.find_real_tree(&commit.id().to_gix(), side)?.to_git2();
         Ok(self.find_tree(tree_id)?)
     }
 }
 
 impl GixRepositoryExt for gix::Repository {
-    fn find_real_tree<'repo>(
-        &'repo self,
-        commit_id: &gix::oid,
-        side: ConflictedTreeKey,
-    ) -> Result<gix::Id<'repo>> {
+    fn find_real_tree<'repo>(&'repo self, commit_id: &gix::oid, side: ConflictedTreeKey) -> Result<gix::Id<'repo>> {
         let commit = self.find_commit(commit_id)?;
         Ok(if commit.is_conflicted() {
             let tree = commit.tree()?;

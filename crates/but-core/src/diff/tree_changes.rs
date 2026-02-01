@@ -35,19 +35,12 @@ impl TreeChanges {
     ///
     /// Additionally, line-stats aggregated for all changes will be computed, which incurs a considerable fraction of the cost
     /// of asking for [UnifiedDiffs](TreeChange::unified_patch()).
-    pub fn from_trees(
-        repo: &gix::Repository,
-        lhs: Option<gix::ObjectId>,
-        rhs: gix::ObjectId,
-    ) -> anyhow::Result<Self> {
+    pub fn from_trees(repo: &gix::Repository, lhs: Option<gix::ObjectId>, rhs: gix::ObjectId) -> anyhow::Result<Self> {
         let lhs_tree = lhs.map(|id| id_to_tree(repo, id)).transpose()?;
         let rhs_tree = id_to_tree(repo, rhs)?;
 
         let changes = repo.diff_tree_to_tree(lhs_tree.as_ref(), &rhs_tree, None)?;
-        let mut out: Vec<_> = changes
-            .into_iter()
-            .filter(|c| !c.entry_mode().is_tree())
-            .collect();
+        let mut out: Vec<_> = changes.into_iter().filter(|c| !c.entry_mode().is_tree()).collect();
         out.sort_by(|a, b| a.location().cmp(b.location()));
         Ok(TreeChanges(out))
     }
@@ -58,10 +51,7 @@ impl TreeChanges {
     /// Compute diff statistics on all blobs in this instance, using `repo` for blob retrieval and diff setup.
     ///
     /// This is expensive.
-    pub fn compute_line_stats(
-        &self,
-        repo: &gix::Repository,
-    ) -> anyhow::Result<gix::object::tree::diff::Stats> {
+    pub fn compute_line_stats(&self, repo: &gix::Repository) -> anyhow::Result<gix::object::tree::diff::Stats> {
         let mut stats = gix::object::tree::diff::Stats::default();
         let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
         for change in self.0.iter() {

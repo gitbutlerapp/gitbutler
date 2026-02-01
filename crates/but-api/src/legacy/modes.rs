@@ -3,9 +3,9 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_ctx::Context;
+use but_oxidize::ObjectIdExt;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
-use gitbutler_project::ProjectId;
 use tracing::instrument;
 
 use crate::json::Error;
@@ -39,8 +39,7 @@ pub struct HeadSha {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn head_sha(project_id: ProjectId) -> Result<HeadSha, Error> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
+pub fn head_sha(ctx: &but_ctx::Context) -> Result<HeadSha, Error> {
     let git2_repo = ctx.git2_repo.get()?;
     let head_ref = git2_repo.head().context("failed to get head")?;
     let head_sha = head_ref
@@ -55,22 +54,17 @@ pub fn head_sha(project_id: ProjectId) -> Result<HeadSha, Error> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn enter_edit_mode(
-    project_id: ProjectId,
-    commit_id: String,
+    ctx: &mut but_ctx::Context,
+    commit_id: gix::ObjectId,
     stack_id: StackId,
 ) -> Result<EditModeMetadata> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    let commit = git2::Oid::from_str(&commit_id).context("Failed to parse commit oid")?;
-
-    gitbutler_edit_mode::commands::enter_edit_mode(&ctx, commit, stack_id)
+    gitbutler_edit_mode::commands::enter_edit_mode(ctx, commit_id.to_git2(), stack_id)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-
-    gitbutler_edit_mode::commands::abort_and_return_to_workspace(&ctx)?;
+pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
+    gitbutler_edit_mode::commands::abort_and_return_to_workspace(ctx)?;
 
     Ok(())
 }
@@ -78,36 +72,29 @@ pub fn abort_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
 // GUI-facing API that returns () for serialization compatibility
 #[but_api]
 #[instrument(err(Debug))]
-pub fn save_edit_and_return_to_workspace(project_id: ProjectId) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-
-    gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
+pub fn save_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx)?;
 
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn save_edit_and_return_to_workspace_with_output(project_id: ProjectId) -> Result<()> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-    gitbutler_edit_mode::commands::save_and_return_to_workspace(&ctx)?;
+pub fn save_edit_and_return_to_workspace_with_output(ctx: &mut but_ctx::Context) -> Result<()> {
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(ctx)?;
     Ok(())
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn edit_initial_index_state(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-
-    gitbutler_edit_mode::commands::starting_index_state(&ctx)
+    gitbutler_edit_mode::commands::starting_index_state(ctx)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn edit_changes_from_initial(project_id: ProjectId) -> Result<Vec<TreeChange>> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
-
-    gitbutler_edit_mode::commands::changes_from_initial(&ctx)
+pub fn edit_changes_from_initial(ctx: &mut but_ctx::Context) -> Result<Vec<TreeChange>> {
+    gitbutler_edit_mode::commands::changes_from_initial(ctx)
 }

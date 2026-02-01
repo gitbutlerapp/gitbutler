@@ -25,8 +25,7 @@ impl PathRanges {
             bail!("Commit ID already in stack: {}", commit_id)
         }
 
-        let mut existing_hunk_ranges_iter =
-            itertools::put_back(std::mem::take(&mut self.hunk_ranges));
+        let mut existing_hunk_ranges_iter = itertools::put_back(std::mem::take(&mut self.hunk_ranges));
         let mut line_shift: i32 = 0;
 
         for incoming_hunk in &incoming_hunks {
@@ -39,8 +38,7 @@ impl PathRanges {
                     above,
                     incoming_line_shift_change,
                     below,
-                } = existing_hunk_range
-                    .receive(incoming_hunk.old_start, incoming_hunk.old_lines)?;
+                } = existing_hunk_range.receive(incoming_hunk.old_start, incoming_hunk.old_lines)?;
                 if let Some(mut above) = above {
                     above.start = {
                         let Some(start) = above.start.checked_add_signed(line_shift) else {

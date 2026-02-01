@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::UNIX_EPOCH};
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::commit::Headers;
@@ -12,7 +12,6 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_stack::{Stack, StackId};
-use std::time::UNIX_EPOCH;
 
 use crate::askpass;
 #[allow(clippy::too_many_arguments)]
@@ -39,12 +38,7 @@ pub trait RepoActionsExt {
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()>;
     fn add_branch_reference(&self, stack: &Stack) -> Result<()>;
-    fn git_test_push(
-        &self,
-        remote_name: &str,
-        branch_name: &str,
-        askpass: Option<Option<StackId>>,
-    ) -> Result<()>;
+    fn git_test_push(&self, remote_name: &str, branch_name: &str, askpass: Option<Option<StackId>>) -> Result<()>;
 }
 
 /// Gets the number of milliseconds since the Unix epoch.
@@ -59,14 +53,8 @@ pub fn now_ms() -> u128 {
 }
 
 impl RepoActionsExt for Context {
-    fn git_test_push(
-        &self,
-        remote_name: &str,
-        branch_name: &str,
-        askpass: Option<Option<StackId>>,
-    ) -> Result<()> {
-        let target_branch_refname =
-            Refname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}"))?;
+    fn git_test_push(&self, remote_name: &str, branch_name: &str, askpass: Option<Option<StackId>>) -> Result<()> {
+        let target_branch_refname = Refname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}"))?;
         let git2_repo = self.git2_repo.get()?;
         let branch = git2_repo
             .maybe_find_branch_by_refname(&target_branch_refname)?
@@ -77,8 +65,7 @@ impl RepoActionsExt for Context {
         let now = now_ms();
         let branch_name = format!("test-push-{now}");
 
-        let refname =
-            RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
+        let refname = RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
         match self.push(commit_id, &refname, false, false, None, askpass, vec![]) {
             Ok(_) => Ok(()),
@@ -86,15 +73,7 @@ impl RepoActionsExt for Context {
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{branch_name}"));
-        match self.push(
-            commit_id,
-            &refname,
-            false,
-            false,
-            empty_refspec,
-            askpass,
-            vec![],
-        ) {
+        match self.push(commit_id, &refname, false, false, empty_refspec, askpass, vec![]) {
             Ok(_) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
@@ -130,15 +109,9 @@ impl RepoActionsExt for Context {
     }
 
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()> {
-        match self
-            .git2_repo
-            .get()?
-            .find_reference(&stack.refname()?.to_string())
-        {
+        match self.git2_repo.get()?.find_reference(&stack.refname()?.to_string()) {
             Ok(mut reference) => {
-                reference
-                    .delete()
-                    .context("failed to delete branch reference")?;
+                reference.delete().context("failed to delete branch reference")?;
                 Ok(())
             }
             Err(err) => match err.code() {
@@ -165,15 +138,7 @@ impl RepoActionsExt for Context {
         let git2_repo = self.git2_repo.get()?;
         let (author, committer) = git2_repo.signatures().context("failed to get signatures")?;
         git2_repo
-            .commit_with_signature(
-                None,
-                &author,
-                &committer,
-                message,
-                tree,
-                parents,
-                commit_headers,
-            )
+            .commit_with_signature(None, &author, &committer, message, tree, parents, commit_headers)
             .context("failed to commit")
     }
 
@@ -249,9 +214,7 @@ impl RepoActionsExt for Context {
                 for callback in callbacks {
                     let mut cbs: git2::RemoteCallbacks = callback.into();
                     if self.legacy_project.omit_certificate_check.unwrap_or(false) {
-                        cbs.certificate_check(|_, _| {
-                            Ok(git2::CertificateCheckStatus::CertificateOk)
-                        });
+                        cbs.certificate_check(|_, _| Ok(git2::CertificateCheckStatus::CertificateOk));
                     }
                     cbs.push_update_reference(|_reference: &str, status: Option<&str>| {
                         if let Some(status) = status {
@@ -314,16 +277,14 @@ impl RepoActionsExt for Context {
             let repo_path = self.workdir_or_gitdir()?;
             let remote = remote_name.to_string();
             return std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(gitbutler_git::fetch(
-                        repo_path,
-                        gitbutler_git::tokio::TokioExecutor,
-                        &remote,
-                        gitbutler_git::RefSpec::parse(refspec).unwrap(),
-                        handle_git_prompt_fetch,
-                        askpass,
-                    ))
+                tokio::runtime::Runtime::new().unwrap().block_on(gitbutler_git::fetch(
+                    repo_path,
+                    gitbutler_git::tokio::TokioExecutor,
+                    &remote,
+                    gitbutler_git::RefSpec::parse(refspec).unwrap(),
+                    handle_git_prompt_fetch,
+                    askpass,
+                ))
             })
             .join()
             .unwrap()
@@ -370,10 +331,7 @@ impl RepoActionsExt for Context {
     }
 }
 
-async fn handle_git_prompt_push(
-    prompt: String,
-    askpass: Option<Option<StackId>>,
-) -> Option<String> {
+async fn handle_git_prompt_push(prompt: String, askpass: Option<Option<StackId>>) -> Option<String> {
     if let Some(branch_id) = askpass {
         tracing::info!("received prompt for branch push {branch_id:?}: {prompt:?}");
         askpass::get_broker()

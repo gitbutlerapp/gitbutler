@@ -127,12 +127,7 @@ impl GitHubClient {
         Ok(pulls)
     }
 
-    pub async fn list_pulls_for_base(
-        &self,
-        owner: &str,
-        repo: &str,
-        base: &str,
-    ) -> Result<Vec<PullRequest>> {
+    pub async fn list_pulls_for_base(&self, owner: &str, repo: &str, base: &str) -> Result<Vec<PullRequest>> {
         // For now, list 100 PRs
         let pulls = self
             .github
@@ -157,10 +152,7 @@ impl GitHubClient {
         Ok(pulls)
     }
 
-    pub async fn create_pull_request(
-        &self,
-        params: &CreatePullRequestParams<'_>,
-    ) -> Result<PullRequest> {
+    pub async fn create_pull_request(&self, params: &CreatePullRequestParams<'_>) -> Result<PullRequest> {
         let pr = self
             .github
             .pulls()
@@ -184,12 +176,7 @@ impl GitHubClient {
         Ok(pr.into())
     }
 
-    pub async fn get_pull_request(
-        &self,
-        owner: &str,
-        repo: &str,
-        pr_number: i64,
-    ) -> Result<PullRequest> {
+    pub async fn get_pull_request(&self, owner: &str, repo: &str, pr_number: i64) -> Result<PullRequest> {
         let pr = self
             .github
             .pulls()

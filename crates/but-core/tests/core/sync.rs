@@ -47,8 +47,7 @@ fn different_lock_scopes_use_different_lock_files() -> anyhow::Result<()> {
     let _lock_all = try_exclusive_inter_process_access(tmp.path(), LockScope::AllOperations)?;
 
     // Should be able to acquire lock for background refresh operations (different lock file)
-    let _lock_bg =
-        try_exclusive_inter_process_access(tmp.path(), LockScope::BackgroundRefreshOperations)?;
+    let _lock_bg = try_exclusive_inter_process_access(tmp.path(), LockScope::BackgroundRefreshOperations)?;
 
     // Both locks should coexist
     assert!(
@@ -68,12 +67,10 @@ fn background_refresh_lock_prevents_second_background_refresh() -> anyhow::Resul
     let tmp = gix_testtools::tempfile::TempDir::new()?;
 
     // First process acquires background refresh lock
-    let _lock1 =
-        try_exclusive_inter_process_access(tmp.path(), LockScope::BackgroundRefreshOperations)?;
+    let _lock1 = try_exclusive_inter_process_access(tmp.path(), LockScope::BackgroundRefreshOperations)?;
 
     // Second process should fail to acquire the same background refresh lock
-    let result =
-        try_exclusive_inter_process_access(tmp.path(), LockScope::BackgroundRefreshOperations);
+    let result = try_exclusive_inter_process_access(tmp.path(), LockScope::BackgroundRefreshOperations);
     assert!(
         result.is_err(),
         "Second background refresh lock should fail when first is held"
@@ -94,10 +91,7 @@ fn lock_scope_converts_to_correct_path() {
     assert_eq!(all_ops_path, std::path::PathBuf::from("project.lock"));
 
     let bg_refresh_path: std::path::PathBuf = LockScope::BackgroundRefreshOperations.into();
-    assert_eq!(
-        bg_refresh_path,
-        std::path::PathBuf::from("background-refresh.lock")
-    );
+    assert_eq!(bg_refresh_path, std::path::PathBuf::from("background-refresh.lock"));
 }
 
 #[test]

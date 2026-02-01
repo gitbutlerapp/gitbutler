@@ -10,11 +10,11 @@ use tracing::instrument;
 
 /// Apply `existing_branch` to the workspace in the repository that `ctx` refers to, or create the workspace with default name.
 pub fn apply_only(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
-    let (_guard, mut meta, ws) = ctx.workspace_and_meta_from_head_for_editing()?;
-    let repo = ctx.repo.get()?;
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let out = but_workspace::branch::apply(
         existing_branch,
         &ws,
@@ -32,13 +32,15 @@ pub fn apply_only(
         },
     )?
     .into_owned();
+
+    *ws = out.workspace.clone().into_owned();
     Ok(out)
 }
 
 // TODO: generate this with an improved `api_cmd` macro.
 /// Just like [apply_only()], but will create an oplog entry as well on success.
 pub fn apply(
-    ctx: &but_ctx::Context,
+    ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<but_workspace::branch::apply::Outcome<'static>> {
     // NOTE: since this is optional by nature, the same would be true if snapshotting/undo would be disabled via `ctx` app settings, for instance.
@@ -53,7 +55,8 @@ pub fn apply(
 
     let res = apply_only(ctx, existing_branch);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
-        snapshot.commit(ctx).ok();
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
     }
     res
 }
@@ -62,8 +65,7 @@ pub fn apply(
 #[but_api(TreeChanges)]
 #[instrument(err(Debug))]
 pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
-    let guard = ctx.shared_worktree_access();
-    let (_, ws) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let (_guard, _, ws, _) = ctx.workspace_and_db()?;
     let repo = ctx.repo.get()?;
     let reference = repo.find_reference(&branch)?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, reference.name())

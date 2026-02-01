@@ -26,19 +26,9 @@ fn input_hunk_from_unified_diff(diff: &str) -> Result<InputDiffHunk, anyhow::Err
     let new_lines = new_lines - context_lines;
 
     Ok(InputDiffHunk {
-        old_start: old_start + head_context_lines
-            - if context_lines > 0 && old_lines == 0 {
-                1
-            } else {
-                0
-            },
+        old_start: old_start + head_context_lines - if context_lines > 0 && old_lines == 0 { 1 } else { 0 },
         old_lines,
-        new_start: new_start + head_context_lines
-            - if context_lines > 0 && new_lines == 0 {
-                1
-            } else {
-                0
-            },
+        new_start: new_start + head_context_lines - if context_lines > 0 && new_lines == 0 { 1 } else { 0 },
         new_lines,
     })
 }
@@ -59,10 +49,6 @@ fn parse_header(hunk_info: &str) -> (u32, u32) {
     let hunk_info = hunk_info.trim_start_matches(&['-', '+'][..]); // Remove the leading '-' or '+'
     let parts: Vec<&str> = hunk_info.split(',').collect();
     let start = parts[0].parse().unwrap();
-    let lines = if parts.len() > 1 {
-        parts[1].parse().unwrap()
-    } else {
-        1
-    };
+    let lines = if parts.len() > 1 { parts[1].parse().unwrap() } else { 1 };
     (start, lines)
 }

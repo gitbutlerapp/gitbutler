@@ -1,6 +1,7 @@
-use crate::cache::in_memory_cache;
 use but_db::cache::{CachedCheckResult, CheckUpdateStatus};
 use chrono::DateTime;
+
+use crate::cache::in_memory_cache;
 
 #[test]
 fn save_and_get() -> anyhow::Result<()> {
@@ -113,11 +114,7 @@ fn suppress_update_fails_if_missing() -> anyhow::Result<()> {
         err.to_string(),
         "No update check has been performed yet - cannot set suppression"
     );
-    assert_eq!(
-        cache.update_check().try_get()?,
-        None,
-        "Still nothing is there"
-    );
+    assert_eq!(cache.update_check().try_get()?, None, "Still nothing is there");
     Ok(())
 }
 

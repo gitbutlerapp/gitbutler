@@ -1,9 +1,10 @@
 mod compute_watch_plan {
-    use crate::watch_plan::compute_watch_plan_for_repo;
+    use std::path::{Component, Path, PathBuf};
+
     use gix::bstr::ByteSlice;
     use notify::RecursiveMode;
-    use std::path::PathBuf;
-    use std::path::{Component, Path};
+
+    use crate::watch_plan::compute_watch_plan_for_repo;
 
     type CanonicalWatch = (RecursiveMode, PathBuf);
 
@@ -145,10 +146,7 @@ mod compute_watch_plan {
         );
     }
 
-    fn canonicalize_plan(
-        plan: Vec<(PathBuf, RecursiveMode)>,
-        worktree: &Path,
-    ) -> Vec<CanonicalWatch> {
+    fn canonicalize_plan(plan: Vec<(PathBuf, RecursiveMode)>, worktree: &Path) -> Vec<CanonicalWatch> {
         plan.into_iter()
             .map(|(path, mode)| {
                 let relative = path

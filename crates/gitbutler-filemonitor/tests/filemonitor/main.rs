@@ -44,9 +44,7 @@ mod spawn {
         std::fs::create_dir(workdir.join("dir"))?;
         monitor.flush()?;
         expect_matching_event(&mut rx, generous_timeout_for_ci, |event| match event {
-            InternalEvent::ProjectFilesChange(id, paths) => {
-                *id == project_id && contains_path(paths, Path::new("dir"))
-            }
+            InternalEvent::ProjectFilesChange(id, paths) => *id == project_id && contains_path(paths, Path::new("dir")),
             _ => false,
         })
         .await?;

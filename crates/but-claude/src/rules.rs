@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rules::{CreateRuleRequest, UpdateRuleRequest};
 use serde::{Deserialize, Serialize};
@@ -47,9 +47,7 @@ impl TryFrom<but_rules::WorkspaceRule> for ClaudeSessionAssignmentRule {
 }
 
 /// Lists all Claude session assignment rules in the workspace.
-pub(crate) fn list_claude_assignment_rules(
-    ctx: &Context,
-) -> anyhow::Result<Vec<ClaudeSessionAssignmentRule>> {
+pub(crate) fn list_claude_assignment_rules(ctx: &Context) -> anyhow::Result<Vec<ClaudeSessionAssignmentRule>> {
     let rules = but_rules::list_rules(ctx)?
         .iter()
         .map(|rule| ClaudeSessionAssignmentRule::try_from(rule.clone()))
@@ -61,10 +59,9 @@ pub(crate) fn list_claude_assignment_rules(
 /// Updates the target stack ID of an existing Claude session assignment rule.
 pub(crate) fn update_claude_assignment_rule_target(
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     rule_id: String,
     stack_id: StackId,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {
     let mut req: UpdateRuleRequest = but_rules::get_rule(ctx, &rule_id)?.into();
     req.action = req.action.and_then(|a| match a {
@@ -75,7 +72,7 @@ pub(crate) fn update_claude_assignment_rule_target(
         }
         _ => None,
     });
-    let rule = but_rules::update_rule(ctx, repo, workspace, req)?;
+    let rule = but_rules::update_rule(ctx, req, perm)?;
     rule.try_into()
 }
 
@@ -84,10 +81,9 @@ pub(crate) fn update_claude_assignment_rule_target(
 /// Errors out if there is another rule referencing the same session ID in a filter.
 pub(crate) fn create_claude_assignment_rule(
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     session_id: Uuid,
     stack_id: StackId,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<ClaudeSessionAssignmentRule> {
     let existing_rules = list_claude_assignment_rules(ctx)?;
     if existing_rules.iter().any(|rule| rule.stack_id == stack_id) {
@@ -96,10 +92,7 @@ pub(crate) fn create_claude_assignment_rule(
             stack_id
         ));
     }
-    if existing_rules
-        .iter()
-        .any(|rule| rule.session_id == session_id)
-    {
+    if existing_rules.iter().any(|rule| rule.session_id == session_id) {
         return Err(anyhow::anyhow!(
             "These is an existing WorkspaceRule triggered on ClaudeCodeHook with filter on session_id: {}",
             session_id
@@ -108,13 +101,11 @@ pub(crate) fn create_claude_assignment_rule(
 
     let req = CreateRuleRequest {
         trigger: but_rules::Trigger::ClaudeCodeHook,
-        filters: vec![but_rules::Filter::ClaudeCodeSessionId(
-            session_id.to_string(),
-        )],
+        filters: vec![but_rules::Filter::ClaudeCodeSessionId(session_id.to_string())],
         action: but_rules::Action::Explicit(but_rules::Operation::Assign {
             target: but_rules::StackTarget::StackId(stack_id.to_string()),
         }),
     };
-    let rule = but_rules::create_rule(ctx, repo, workspace, req)?;
+    let rule = but_rules::create_rule(ctx, req, perm)?;
     ClaudeSessionAssignmentRule::try_from(rule)
 }

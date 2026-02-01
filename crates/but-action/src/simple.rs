@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::anyhow;
 use but_core::{DiffSpec, ref_metadata::StackId};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::OidExt;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
@@ -38,10 +38,7 @@ pub(crate) fn handle_changes(
     default_target_setting_if_none(ctx, vb_state)?; // Create a default target if none exists.
 
     let snapshot_before = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
-            perm,
-        )?
+        .create_snapshot(SnapshotDetails::new(OperationKind::AutoHandleChangesBefore), perm)?
         .to_gix();
 
     let response = handle_changes_simple_inner(
@@ -54,10 +51,7 @@ pub(crate) fn handle_changes(
     );
 
     let snapshot_after = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
-            perm,
-        )?
+        .create_snapshot(SnapshotDetails::new(OperationKind::AutoHandleChangesAfter), perm)?
         .to_gix();
 
     let action = crate::action::ButlerAction::new(
@@ -79,7 +73,7 @@ fn handle_changes_simple_inner(
     change_summary: &str,
     external_prompt: Option<String>,
     vb_state: &VirtualBranchesHandle,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<Outcome> {
     match gitbutler_operating_modes::operating_mode(ctx) {
@@ -98,16 +92,16 @@ fn handle_changes_simple_inner(
     }
 
     // Get any assignments that may have been made, which also includes any hunk locks. Assignments should be updated according to locks where applicable.
-    let repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(perm.read_permission())?;
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
     let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
+        db.hunk_assignments_mut()?,
         &repo,
-        &workspace,
+        &ws,
         true,
         None::<Vec<but_core::TreeChange>>,
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )
     .map_err(|err| serde_error::Error::new(&*err))?;
     if assignments.is_empty() {
@@ -117,23 +111,19 @@ fn handle_changes_simple_inner(
     }
 
     // Get the current stacks in the workspace, creating one if none exists.
-    let stacks = crate::stacks_creating_if_none(ctx, vb_state, &repo, perm)?;
+    drop((repo, ws, db));
+    let stacks = crate::stacks_creating_if_none(ctx, perm)?;
 
     // Put the assignments into buckets by stack ID.
-    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> = stacks
-        .iter()
-        .filter_map(|s| Some((s.id?, vec![])))
-        .collect();
+    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
+        stacks.iter().filter_map(|s| Some((s.id?, vec![]))).collect();
     let default_stack_id = stacks
         .first()
         .and_then(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("No stacks found in the workspace"))?;
     for assignment in assignments {
         if let Some(stack_id) = assignment.stack_id {
-            stack_assignments
-                .entry(stack_id)
-                .or_default()
-                .push(assignment.into());
+            stack_assignments.entry(stack_id).or_default().push(assignment.into());
         } else if exclusive_stack.is_none() {
             // If there is an exclusive stack. We don't want to do anything with
             // the unassigned changes.

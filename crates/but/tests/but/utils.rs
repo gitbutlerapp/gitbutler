@@ -35,11 +35,8 @@ impl Sandbox {
     }
 
     /// A utility to init a scenario if the legacy feature is set, or open a repo otherwise.
-    pub fn open_or_init_scenario_with_target_and_default_settings(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
-        let inner =
-            but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(name)?;
+    pub fn open_or_init_scenario_with_target_and_default_settings(name: &str) -> anyhow::Result<Sandbox> {
+        let inner = but_testsupport::Sandbox::open_or_init_scenario_with_target_and_default_settings(name)?;
         let this = Sandbox { inner };
         this.run_but_init_if_needed();
         Ok(this)
@@ -83,11 +80,8 @@ impl Sandbox {
 
     /// Like [`Self::init_scenario_with_target_and_default_settings`], Execute the script at `name` instead of
     /// copying it - necessary if Git places absolute paths.
-    pub fn init_scenario_with_target_and_default_settings_slow(
-        name: &str,
-    ) -> anyhow::Result<Sandbox> {
-        let inner =
-            but_testsupport::Sandbox::init_scenario_with_target_and_default_settings_slow(name)?;
+    pub fn init_scenario_with_target_and_default_settings_slow(name: &str) -> anyhow::Result<Sandbox> {
+        let inner = but_testsupport::Sandbox::init_scenario_with_target_and_default_settings_slow(name)?;
         let this = Sandbox { inner };
         this.run_but_init_if_needed();
         Ok(this)
@@ -111,8 +105,7 @@ impl Sandbox {
         let args = args.as_ref();
         let mut cmd = snapbox::cmd::Command::new(snapbox::cmd::cargo_bin!("but"));
         if !args.is_empty() {
-            cmd = cmd
-                .args(shell_words::split(args).expect("statically known args must split correctly"))
+            cmd = cmd.args(shell_words::split(args).expect("statically known args must split correctly"))
         }
         self.with_updated_env(cmd)
             .env("GITBUTLER_CHANGE_ID", "42")

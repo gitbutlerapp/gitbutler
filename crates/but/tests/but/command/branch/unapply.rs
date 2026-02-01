@@ -1,8 +1,7 @@
 use snapbox::str;
+use utils::create_local_branch_with_commit;
 
 use crate::utils::{CommandExt, Sandbox};
-
-use utils::create_local_branch_with_commit;
 
 #[test]
 fn single_branch() -> anyhow::Result<()> {
@@ -101,10 +100,7 @@ fn unapply_idempotent() -> anyhow::Result<()> {
     // Apply then unapply
     env.but("branch apply").arg(branch_name).assert().success();
 
-    env.but("branch unapply")
-        .arg(branch_name)
-        .assert()
-        .success();
+    env.but("branch unapply").arg(branch_name).assert().success();
 
     // Unapplying again should be idempotent (success, no-op)
     env.but("branch unapply")
@@ -219,9 +215,7 @@ fn unapply_remote_tracking_branch() -> anyhow::Result<()> {
     );
 
     // Apply the remote branch
-    env.but("branch apply origin/remote-feature")
-        .assert()
-        .success();
+    env.but("branch apply origin/remote-feature").assert().success();
 
     insta::assert_snapshot!(env.git_log()?, @r"
     *   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -262,11 +256,7 @@ mod utils {
         create_local_branch_with_commit_with_message(env, name, "Add feature")
     }
 
-    pub fn create_local_branch_with_commit_with_message(
-        env: &Sandbox,
-        name: &str,
-        commit_message: &str,
-    ) {
+    pub fn create_local_branch_with_commit_with_message(env: &Sandbox, name: &str, commit_message: &str) {
         env.invoke_bash(format!(
             r#"
     git checkout main -b {name};

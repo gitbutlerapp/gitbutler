@@ -1,6 +1,4 @@
 // TODO: all of these should go away.
-use std::path::PathBuf;
-
 use gix::prelude::ObjectIdExt;
 
 use crate::{
@@ -10,9 +8,8 @@ use crate::{
 };
 
 /// See [`super::worktree_changes()`].
-pub fn worktree_changes_by_worktree_dir(worktree_dir: PathBuf) -> anyhow::Result<WorktreeChanges> {
-    let repo = gix::open(worktree_dir)?;
-    Ok(super::worktree_changes(&repo)?.into())
+pub fn worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorktreeChanges> {
+    Ok(super::worktree_changes(repo)?.into())
 }
 
 /// See [`super::tree_changes_with_line_stats()`].
@@ -34,10 +31,7 @@ pub fn commit_changes_with_line_stats_by_worktree_dir(
 
 /// If the commit is conflicted, it will return the entries that are in fact
 /// conflicted.
-pub fn conflicted_changes(
-    repo: &gix::Repository,
-    commit_id: gix::ObjectId,
-) -> anyhow::Result<Option<ConflictEntries>> {
+pub fn conflicted_changes(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyhow::Result<Option<ConflictEntries>> {
     let commit = Commit::from_id(commit_id.attach(repo))?;
     commit.conflict_entries()
 }

@@ -4,10 +4,7 @@ use but_action::{ActionHandler, Source, reword::CommitEvent};
 use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_llm::LLMProvider;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_workspace::legacy::StacksFilter;
-use gitbutler_project::Project;
-use gitbutler_stack::VirtualBranchesHandle;
 use gix::diff::blob::{
     Algorithm, UnifiedDiff,
     unified_diff::{ConsumeBinaryHunk, ContextSize},
@@ -62,10 +59,8 @@ impl gix::diff::blob::unified_diff::ConsumeBinaryHunkDelegate for ProduceDiffHun
 
 impl Edit {
     fn generate_headers(&self) -> anyhow::Result<Vec<but_core::HunkHeader>> {
-        let interner = gix::diff::blob::intern::InternedInput::new(
-            self.old_string.as_bytes(),
-            self.new_string.as_bytes(),
-        );
+        let interner =
+            gix::diff::blob::intern::InternedInput::new(self.old_string.as_bytes(), self.new_string.as_bytes());
         let headers = gix::diff::blob::diff(
             Algorithm::Myers,
             &interner,
@@ -121,8 +116,8 @@ fn cursor_path_to_pathbuf(input: &str) -> PathBuf {
 }
 
 pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
-    let mut input: FileEditEvent = serde_json::from_reader(read)
-        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+    let mut input: FileEditEvent =
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let hook_headers = input
         .edits
         .last()
@@ -143,44 +138,26 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or(input.file_path);
 
-    let repo = gix::discover(&dir)?;
-    let project = Project::from_path(
-        repo.workdir()
-            .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
-    )?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
-    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
+    let mut ctx = Context::discover(&dir)?;
+    let meta = ctx.legacy_meta()?;
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
-    let gix_repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
+    let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stack_id =
+        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), &input.conversation_id, stacks)?;
 
-    let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
-    let stack_id = but_claude::hooks::get_or_create_session(
-        ctx,
-        guard.write_permission(),
-        &gix_repo,
-        &workspace,
-        &input.conversation_id,
-        stacks,
-        vb_state,
-    )?;
-
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
-            .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
-        &gix_repo,
-        &workspace,
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
         true,
         Some(changes.clone()),
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
 
     let assignment_reqs: Vec<HunkAssignmentRequest> = assignments
@@ -192,9 +169,7 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
                 a.path.to_lowercase() == input.file_path.to_lowercase()
             } else if a.path.to_lowercase() == input.file_path.to_lowercase() {
                 if let Some(a) = a.hunk_header {
-                    hook_headers
-                        .iter()
-                        .any(|h| h.new_range().intersects(a.new_range()))
+                    hook_headers.iter().any(|h| h.new_range().intersects(a.new_range()))
                 } else {
                     true // If no header is present, then the whole file is considered, in which case intersection is true
                 }
@@ -210,71 +185,47 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
         .collect();
 
     let _rejections = but_hunk_assignment::assign(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
-        &gix_repo,
-        &workspace,
+        db.hunk_assignments_mut()?,
+        &repo,
+        &ws,
         assignment_reqs,
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )?;
 
     Ok(CursorHookOutput::default())
 }
 
-pub async fn handle_stop(
-    nightly: bool,
-    read: impl std::io::Read,
-) -> anyhow::Result<CursorHookOutput> {
-    let input: StopEvent = serde_json::from_reader(read)
-        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+pub async fn handle_stop(nightly: bool, read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
+    let input: StopEvent =
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let dir = input
         .workspace_roots
         .first()
         .ok_or_else(|| anyhow::anyhow!("No workspace roots provided"))
         .map(|p| cursor_path_to_pathbuf(p))?;
-    let repo = gix::discover(&dir)?;
-    let project = Project::from_path(
-        repo.workdir()
-            .ok_or(anyhow::anyhow!("No worktree found for repo"))?,
-    )?;
+    let mut ctx = Context::discover(&dir)?;
 
-    let changes =
-        but_core::diff::ui::worktree_changes_by_worktree_dir(project.worktree_dir()?.into())?
-            .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
 
     if changes.is_empty() {
         return Ok(CursorHookOutput::default());
     }
 
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
-
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
-    let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
+    let meta = ctx.legacy_meta()?;
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
-    let gix_repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-
-    let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
-    let stack_id = but_claude::hooks::get_or_create_session(
-        ctx,
-        guard.write_permission(),
-        &gix_repo,
-        &workspace,
-        &input.conversation_id,
-        stacks,
-        vb_state,
-    )?;
+    let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stack_id =
+        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), &input.conversation_id, stacks)?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
     // lock so we need to drop this here to ensure we don't end up with a deadlock.
     drop(guard);
 
     let summary = "".to_string();
-    let prompt = crate::db::get_generations(&dir, nightly)
+    let prompt = get_generations(&dir, nightly)
         .map(|gens| {
             gens.iter()
                 .find(|g| g.generation_uuid == input.generation_id)
@@ -284,7 +235,7 @@ pub async fn handle_stop(
         .unwrap_or_default();
 
     let (id, outcome) = but_action::handle_changes(
-        ctx,
+        &mut ctx,
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,
@@ -292,7 +243,7 @@ pub async fn handle_stop(
         Some(stack_id),
     )?;
 
-    let stacks = but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::default(), None)?;
+    let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available
@@ -302,8 +253,7 @@ pub async fn handle_stop(
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
-            let eligibility =
-                but_claude::hooks::is_branch_eligible_for_rename(ctx, &stacks, branch)?;
+            let eligibility = but_claude::hooks::is_branch_eligible_for_rename(&ctx, &stacks, branch)?;
 
             for commit in &branch.new_commits {
                 if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
@@ -312,13 +262,10 @@ pub async fn handle_stop(
                         external_prompt: prompt.clone(),
                         branch_name: branch.branch_name.clone(),
                         commit_id,
-                        project: project.clone(),
-                        app_settings: ctx.settings.clone(),
+                        ctx: ctx.to_sync(),
                         trigger: id,
                     };
-                    let reword_result = but_action::reword::commit(&llm, commit_event)
-                        .ok()
-                        .unwrap_or_default();
+                    let reword_result = but_action::reword::commit(&llm, commit_event).ok().unwrap_or_default();
 
                     // Update the commit mapping with the new commit ID
                     if let Some(reword_result) = reword_result {
@@ -338,7 +285,7 @@ pub async fn handle_stop(
                             stack_id: branch.stack_id,
                             current_branch_name: branch.branch_name.clone(),
                         };
-                        but_action::rename_branch::rename_branch(ctx, &llm, params, id).ok();
+                        but_action::rename_branch::rename_branch(&mut ctx, &llm, params, id).ok();
                     }
                 }
                 but_claude::hooks::RenameEligibility::NotEligible => {

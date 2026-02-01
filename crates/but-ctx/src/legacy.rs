@@ -1,9 +1,10 @@
-use but_core::sync::{WorktreeReadPermission, WorktreeWritePermission};
+use but_core::sync::RepoExclusive;
 use but_settings::AppSettings;
+use tracing::instrument;
 
 use crate::{
-    Context, LegacyProjectId, ThreadSafeContext, app_settings, new_ondemand_app_cache,
-    new_ondemand_db, new_ondemand_git2_repo, new_ondemand_repo,
+    Context, LegacyProjectId, ThreadSafeContext, app_settings, new_ondemand_app_cache, new_ondemand_db,
+    new_ondemand_git2_repo, new_ondemand_repo,
 };
 
 pub(crate) mod types {
@@ -35,13 +36,12 @@ impl Context {
             db: new_ondemand_db(gitdir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
+            workspace: Default::default(),
         }
     }
 
     /// Open the repository identified by `legacy_project` and `settings`.
-    pub fn new_from_legacy_project(
-        legacy_project: gitbutler_project::Project,
-    ) -> anyhow::Result<Self> {
+    pub fn new_from_legacy_project(legacy_project: gitbutler_project::Project) -> anyhow::Result<Self> {
         let gitdir = legacy_project.git_dir().to_owned();
         let app_cache_dir = but_path::app_cache_dir().ok();
         Ok(Context {
@@ -53,6 +53,7 @@ impl Context {
             db: new_ondemand_db(gitdir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
+            workspace: Default::default(),
         })
     }
 
@@ -71,6 +72,7 @@ impl Context {
             db: new_ondemand_db(gitdir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
+            workspace: Default::default(),
         })
     }
 }
@@ -95,16 +97,31 @@ impl TryFrom<LegacyProjectId> for ThreadSafeContext {
 
 /// Legacy - none of this should be kept.
 impl Context {
+    /// Create a new workspace as seen from the current HEAD and return it,
+    /// along with read-only metadata.
+    ///
+    /// The write-permission is required to obtain an exclusive metadata instance, which is needed
+    /// to lock the workspace and its metadata for modification.
+    #[deprecated = "Prefer Context::workspace_from_head_for_editing()"]
+    #[instrument(
+        name = "DEPRECATED: Context::workspace_and_meta_from_head",
+        level = "debug",
+        skip_all,
+        err(Debug)
+    )]
+    pub fn workspace_and_meta_from_head(
+        &self,
+        _exclusive_access: &RepoExclusive,
+    ) -> anyhow::Result<(impl but_core::RefMetadata + 'static, but_graph::projection::Workspace)> {
+        let ws = self.workspace_from_head()?;
+        Ok((self.meta()?, ws))
+    }
+
     /// Return a wrapper for metadata that only supports read-only access when presented with the project wide permission
     /// to read data.
     /// This is helping to prevent races with mutable instances.
-    // TODO: remove _read_only as we don't need it anymore with a DB based implementation as long as the instances
-    //       starts a transaction to isolate reads.
-    //       For a correct implementation, this would also have to hold on to `_read_only`.
-    pub fn legacy_meta(
-        &self,
-        _read_only: &WorktreeReadPermission,
-    ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
+    // TODO: For a correct implementation, this would also have to hold on to `_read_only`.
+    pub fn legacy_meta(&self) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         self.meta_inner()
     }
 
@@ -116,7 +133,7 @@ impl Context {
     //       For a correct implementation, this would also have to hold on to `_exclusive`.
     pub fn legacy_meta_mut(
         &mut self,
-        _exclusive: &WorktreeWritePermission,
+        _exclusive: &RepoExclusive,
     ) -> anyhow::Result<but_meta::VirtualBranchesTomlMetadata> {
         self.meta_inner()
     }

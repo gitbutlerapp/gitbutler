@@ -13,14 +13,10 @@ pub fn assignments(db: HunkAssignmentsHandle) -> Result<Vec<HunkAssignment>> {
     Ok(assignments)
 }
 
-pub fn set_assignments(
-    db: HunkAssignmentsHandleMut,
-    assignments: Vec<HunkAssignment>,
-) -> Result<()> {
+pub fn set_assignments(db: HunkAssignmentsHandleMut, assignments: Vec<HunkAssignment>) -> Result<()> {
     let assignments: Vec<but_db::HunkAssignment> = assignments
         .into_iter()
         .map(|a| a.try_into())
-        .collect::<Result<Vec<but_db::HunkAssignment>>>(
-    )?;
+        .collect::<Result<Vec<but_db::HunkAssignment>>>()?;
     db.set_all(assignments).map_err(Into::into)
 }

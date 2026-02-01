@@ -8,44 +8,34 @@ use super::*;
 fn unapply_with_data() -> anyhow::Result<()> {
     let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 
-    let changes = but_core::diff::ui::worktree_changes_by_worktree_dir(
-        ctx.legacy_project.worktree_dir()?.to_owned(),
-    )
-    .unwrap()
-    .changes;
+    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?).unwrap().changes;
 
-    let gix_repo = ctx.repo.get()?.clone();
-    let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(
-        ctx.exclusive_worktree_access().read_permission(),
-    )?;
-
-    let mut db = ctx.db.get_mut()?;
+    let context_lines = ctx.settings.context_lines;
+    let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
-        &gix_repo,
-        &workspace,
+        &repo,
+        &ws,
         false,
         Some(changes.clone()),
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )
     .unwrap();
     let req = HunkAssignmentRequest {
@@ -53,23 +43,15 @@ fn unapply_with_data() -> anyhow::Result<()> {
         path_bytes: assignments[0].path_bytes.clone(),
         stack_id: Some(stacks[0].0),
     };
-    but_hunk_assignment::assign(
-        db.hunk_assignments_mut()?,
-        &gix_repo,
-        &workspace,
-        vec![req],
-        None,
-        ctx.settings.context_lines,
-    )
-    .unwrap();
+    but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, vec![req], None, context_lines).unwrap();
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
-        &gix_repo,
-        &workspace,
+        &repo,
+        &ws,
         false,
         Some(changes.clone()),
         None,
-        ctx.settings.context_lines,
+        context_lines,
     )
     .unwrap();
     let assigned_diffspec = but_workspace::flatten_diff_specs(
@@ -80,16 +62,10 @@ fn unapply_with_data() -> anyhow::Result<()> {
             .collect::<Vec<DiffSpec>>(),
     );
 
-    drop(db);
-    gitbutler_branch_actions::unapply_stack(
-        ctx,
-        ctx.exclusive_worktree_access().write_permission(),
-        stacks[0].0,
-        assigned_diffspec,
-    )
-    .unwrap();
+    drop((repo, ws, db));
+    gitbutler_branch_actions::unapply_stack(ctx, guard.write_permission(), stacks[0].0, assigned_diffspec).unwrap();
 
-    assert!(!repo.path().join("file.txt").exists());
+    assert!(!ctx.repo.get()?.path().join("file.txt").exists());
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 0);
@@ -99,32 +75,27 @@ fn unapply_with_data() -> anyhow::Result<()> {
 
 #[test]
 fn delete_if_empty() {
-    let Test { ctx, .. } = &Test::default();
+    let Test { ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
-    gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        ctx.exclusive_worktree_access().write_permission(),
-    )
-    .unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+        .unwrap();
+    drop(guard);
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
 
-    gitbutler_branch_actions::unapply_stack(
-        ctx,
-        ctx.exclusive_worktree_access().write_permission(),
-        stacks[0].0,
-        Vec::new(),
-    )
-    .unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::unapply_stack(ctx, guard.write_permission(), stacks[0].0, Vec::new()).unwrap();
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 0);

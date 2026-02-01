@@ -10,10 +10,7 @@ fn unborn_empty() -> anyhow::Result<()> {
     let (head_tree_id, state) = args_for_worktree_changes(&repo)?;
 
     let out = snapshot::create_tree(head_tree_id, state)?;
-    assert!(
-        out.is_empty(),
-        "There is nothing to pick up and no change at all."
-    );
+    assert!(out.is_empty(), "There is nothing to pick up and no change at all.");
     insta::assert_snapshot!(visualize_tree(out.snapshot_tree.attach(&repo)), @"4b825dc");
     insta::assert_debug_snapshot!(out, @r"
     Outcome {
@@ -34,14 +31,8 @@ fn unborn_empty() -> anyhow::Result<()> {
     )?;
     assert!(out.index.is_none());
     assert!(out.metadata.is_none());
-    assert!(
-        out.worktree_cherry_pick.is_none(),
-        "no worktree to cherry-pick"
-    );
-    assert!(
-        out.workspace_references.is_none(),
-        "didn't ask to store this"
-    );
+    assert!(out.worktree_cherry_pick.is_none(), "no worktree to cherry-pick");
+    assert!(out.workspace_references.is_none(), "didn't ask to store this");
 
     Ok(())
 }
@@ -81,9 +72,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
         out.head_tree,
         snapshot::resolve_tree::Options::default(),
     )?;
-    let mut cherry_pick = res_out
-        .worktree_cherry_pick
-        .expect("a worktree change was applied");
+    let mut cherry_pick = res_out.worktree_cherry_pick.expect("a worktree change was applied");
     assert_eq!(
         cherry_pick.tree.write()?,
         out.worktree.unwrap(),
@@ -92,10 +81,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
     );
     assert!(res_out.index.is_none());
     assert!(res_out.metadata.is_none());
-    assert!(
-        res_out.workspace_references.is_none(),
-        "didn't ask to store this"
-    );
+    assert!(res_out.workspace_references.is_none(), "didn't ask to store this");
 
     state.selection.clear();
     let out = snapshot::create_tree(head_tree_id, state)?;
@@ -142,9 +128,7 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
         out.head_tree,
         snapshot::resolve_tree::Options::default(),
     )?;
-    let mut cherry_pick = res_out
-        .worktree_cherry_pick
-        .expect("a worktree change was applied");
+    let mut cherry_pick = res_out.worktree_cherry_pick.expect("a worktree change was applied");
     assert_eq!(
         cherry_pick.tree.write()?,
         out.worktree.unwrap(),
@@ -153,10 +137,7 @@ fn worktree_all_filetypes() -> anyhow::Result<()> {
     );
     assert!(res_out.index.is_none());
     assert!(res_out.metadata.is_none());
-    assert!(
-        res_out.workspace_references.is_none(),
-        "didn't ask to store this"
-    );
+    assert!(res_out.workspace_references.is_none(), "didn't ask to store this");
 
     state.selection.clear();
     let out = snapshot::create_tree(head_tree_id, state)?;

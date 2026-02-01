@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Transaction;
-use crate::{DbHandle, M};
+use crate::{DbHandle, M, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[M::up(
     20260105095934,
@@ -121,9 +120,7 @@ impl CiChecksHandle<'_> {
     /// Lists all unique references that have CI checks in the database.
     // TODO: make this return `gix::refs::FullName`.
     pub fn list_all_references(&self) -> rusqlite::Result<Vec<String>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT DISTINCT reference FROM ci_checks")?;
+        let mut stmt = self.conn.prepare("SELECT DISTINCT reference FROM ci_checks")?;
 
         let results = stmt.query_map([], |row| row.get(0))?;
 
@@ -155,7 +152,7 @@ impl CiChecksHandleMut<'_> {
                                        started_at, status_type, status_conclusion, status_completed_at,
                                        head_sha, url, html_url, details_url, pull_requests,
                                        reference, last_sync_at, struct_version)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)"
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             )?;
 
             for check in checks {

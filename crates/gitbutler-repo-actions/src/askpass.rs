@@ -26,11 +26,7 @@ pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 
 /// Will panic if [`init`] was not called before this function.
 #[expect(static_mut_refs)]
 pub fn get_broker() -> &'static AskpassBroker {
-    unsafe {
-        GLOBAL_ASKPASS_BROKER
-            .as_ref()
-            .expect("askpass broker not initialized")
-    }
+    unsafe { GLOBAL_ASKPASS_BROKER.as_ref().expect("askpass broker not initialized") }
 }
 
 pub struct AskpassRequest {
@@ -76,11 +72,7 @@ impl AskpassBroker {
         let id = AskpassRequestId::generate();
         let request = AskpassRequest { sender };
         self.pending_requests.lock().await.insert(id, request);
-        (self.submit_prompt_event)(PromptEvent {
-            id,
-            prompt,
-            context,
-        });
+        (self.submit_prompt_event)(PromptEvent { id, prompt, context });
         receiver.await.unwrap()
     }
 

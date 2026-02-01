@@ -3,9 +3,7 @@ use std::collections::HashSet;
 use anyhow::Context as _;
 use but_core::RefMetadata;
 use but_oxidize::{ObjectIdExt as _, OidExt};
-use gix::{
-    date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction,
-};
+use gix::{date::parse::TimeBuf, prelude::ObjectIdExt as _, reference::Category, remote::Direction};
 use itertools::Itertools;
 
 use crate::{
@@ -52,10 +50,7 @@ pub fn branch_details(
         .branch_remote_tracking_ref_name(name, Direction::Fetch)
         .transpose()?
         .and_then(|remote_tracking_ref| repo.find_reference(remote_tracking_ref.as_ref()).ok());
-    let remote_tracking_branch_id = remote_tracking_branch
-        .as_mut()
-        .map(|r| r.peel_to_id())
-        .transpose()?;
+    let remote_tracking_branch_id = remote_tracking_branch.as_mut().map(|r| r.peel_to_id()).transpose()?;
 
     let meta = meta.branch(name)?;
     let meta: &but_core::ref_metadata::Branch = &meta;
@@ -63,11 +58,7 @@ pub fn branch_details(
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
     let base_commit = {
-        let merge_bases = repo.merge_bases_many_with_graph(
-            branch_id,
-            &[integration_branch_id.detach()],
-            &mut graph,
-        )?;
+        let merge_bases = repo.merge_bases_many_with_graph(branch_id, &[integration_branch_id.detach()], &mut graph)?;
         // TODO: have a test that shows why this must/should be last. Then maybe make it easy to do
         //       the right thing whenever the mergebase with the integration branch is needed.
         merge_bases.last().map(|id| id.detach()).unwrap_or_else(|| {
@@ -82,8 +73,7 @@ pub fn branch_details(
     let (mut commits, upstream_commits) = {
         let commits = local_commits_gix(branch_id, integration_branch_id.detach(), &mut authors)?;
 
-        let upstream_commits = if let Some(remote_tracking_branch) = remote_tracking_branch.as_mut()
-        {
+        let upstream_commits = if let Some(remote_tracking_branch) = remote_tracking_branch.as_mut() {
             let remote_id = remote_tracking_branch.peel_to_id()?;
             upstream_commits_gix(
                 remote_id,
@@ -101,11 +91,7 @@ pub fn branch_details(
     let push_status = match remote_tracking_branch_id {
         Some(remote_tracking_branch_id) => {
             let merge_base = repo
-                .merge_bases_many_with_graph(
-                    branch_id,
-                    &[remote_tracking_branch_id.detach()],
-                    &mut graph,
-                )?
+                .merge_bases_many_with_graph(branch_id, &[remote_tracking_branch_id.detach()], &mut graph)?
                 .first()
                 .copied();
             if merge_base == Some(remote_tracking_branch_id) {
@@ -142,10 +128,7 @@ pub fn branch_details(
             .into_iter()
             .sorted_by(|a, b| a.name.cmp(&b.name).then_with(|| a.email.cmp(&b.email)))
             .collect(),
-        is_conflicted: compute_is_conflicted(
-            repo,
-            commits.iter_mut().map(|c| (c.id, &mut c.has_conflicts)),
-        )?,
+        is_conflicted: compute_is_conflicted(repo, commits.iter_mut().map(|c| (c.id, &mut c.has_conflicts)))?,
         commits,
         upstream_commits,
         tip: branch_id.detach(),

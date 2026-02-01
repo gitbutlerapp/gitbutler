@@ -1,10 +1,13 @@
+use std::{
+    borrow::Cow,
+    collections::{BTreeSet, HashSet},
+    fs::FileType,
+    ops::ControlFlow,
+    path::{Path, PathBuf},
+};
+
 use gix::bstr::BStr;
 use notify::RecursiveMode;
-use std::borrow::Cow;
-use std::collections::{BTreeSet, HashSet};
-use std::fs::FileType;
-use std::ops::ControlFlow;
-use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests;
@@ -164,9 +167,7 @@ pub(crate) fn is_tracked_in_index(
         if is_dir {
             index.path_is_directory_icase(relative_path, true, icase_acc)
         } else {
-            index
-                .entry_by_path_icase(relative_path, true, icase_acc)
-                .is_some()
+            index.entry_by_path_icase(relative_path, true, icase_acc).is_some()
         }
     } else if is_dir {
         index.path_is_directory(relative_path)

@@ -1,5 +1,6 @@
-use crate::table::in_memory_db;
 use but_db::Workflow;
+
+use crate::table::in_memory_db;
 
 #[test]
 fn insert_and_list() -> anyhow::Result<()> {
@@ -110,9 +111,7 @@ fn transaction_rollback() -> anyhow::Result<()> {
 fn create_workflow(id: &str, kind: &str, triggered_by: &str) -> Workflow {
     Workflow {
         id: id.to_string(),
-        created_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        created_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         kind: kind.to_string(),
         triggered_by: triggered_by.to_string(),
         status: "completed".to_string(),

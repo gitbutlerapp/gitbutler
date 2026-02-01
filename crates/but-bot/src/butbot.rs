@@ -142,11 +142,9 @@ Take a look at the conversation, specifically, the last user request below, and 
             "
         ))];
 
-        let response = self.llm.structured_output::<ButButRouteResponse>(
-            routing_sys_prompt,
-            messages,
-            MODEL,
-        )?;
+        let response = self
+            .llm
+            .structured_output::<ButButRouteResponse>(routing_sys_prompt, messages, MODEL)?;
 
         match response {
             Some(route) => Ok(route.route),
@@ -266,11 +264,8 @@ Based on the conversation below and the project status, please update the status
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
-        let mut toolset = but_tools::workspace::workspace_toolset(
-            self.ctx,
-            self.emitter.clone(),
-            self.message_id.clone(),
-        );
+        let mut toolset =
+            but_tools::workspace::workspace_toolset(self.ctx, self.emitter.clone(), self.message_id.clone());
 
         let mut internal_chat_messages = self.chat_messages.clone();
 
@@ -281,35 +276,29 @@ Based on the conversation below and the project status, please update the status
             arguments: "{\"filterChanges\": null}".to_string(),
         }));
 
-        internal_chat_messages.push(but_llm::ChatMessage::ToolResponse(
-            but_llm::ToolResponseContent {
-                id: "project_status".to_string(),
-                result: serialized_status,
-            },
-        ));
+        internal_chat_messages.push(but_llm::ChatMessage::ToolResponse(but_llm::ToolResponseContent {
+            id: "project_status".to_string(),
+            result: serialized_status,
+        }));
 
         // Now we trigger the tool calling loop.
         let message_id_cloned = self.message_id.clone();
         let project_id_cloned = self.project_id;
 
-        let (response, _) = self.llm.tool_calling_loop_stream(
-            SYS_PROMPT,
-            internal_chat_messages,
-            &mut toolset,
-            MODEL,
-            {
-                let emitter = self.emitter.clone();
-                move |token: &str| {
-                    let token_update = but_tools::emit::TokenUpdate {
-                        token: token.to_string(),
-                        project_id: project_id_cloned,
-                        message_id: message_id_cloned.clone(),
-                    };
-                    let (name, payload) = token_update.emittable();
-                    (emitter)(&name, payload);
-                }
-            },
-        )?;
+        let (response, _) =
+            self.llm
+                .tool_calling_loop_stream(SYS_PROMPT, internal_chat_messages, &mut toolset, MODEL, {
+                    let emitter = self.emitter.clone();
+                    move |token: &str| {
+                        let token_update = but_tools::emit::TokenUpdate {
+                            token: token.to_string(),
+                            project_id: project_id_cloned,
+                            message_id: message_id_cloned.clone(),
+                        };
+                        let (name, payload) = token_update.emittable();
+                        (emitter)(&name, payload);
+                    }
+                })?;
 
         Ok(response)
     }
@@ -323,11 +312,8 @@ Based on the conversation below and the project status, please update the status
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
-        let mut toolset = but_tools::workspace::workspace_toolset(
-            self.ctx,
-            self.emitter.clone(),
-            self.message_id.clone(),
-        );
+        let mut toolset =
+            but_tools::workspace::workspace_toolset(self.ctx, self.emitter.clone(), self.message_id.clone());
 
         let mut internal_chat_messages = self.chat_messages.clone();
 
@@ -359,37 +345,31 @@ If you need to perform actions, do so, and be concise in the description of the 
             arguments: "{\"filterChanges\": null}".to_string(),
         }));
 
-        internal_chat_messages.push(but_llm::ChatMessage::ToolResponse(
-            but_llm::ToolResponseContent {
-                id: "project_status".to_string(),
-                result: serialized_status,
-            },
-        ));
+        internal_chat_messages.push(but_llm::ChatMessage::ToolResponse(but_llm::ToolResponseContent {
+            id: "project_status".to_string(),
+            result: serialized_status,
+        }));
 
         // Now we trigger the tool calling loop.
         let message_id_cloned = self.message_id.clone();
         let project_id_cloned = self.project_id;
 
-        let (response, _) = self.llm.tool_calling_loop_stream(
-            SYS_PROMPT,
-            internal_chat_messages,
-            &mut toolset,
-            MODEL,
-            {
-                let emitter = self.emitter.clone();
-                let message_id = message_id_cloned;
-                let project_id = project_id_cloned;
-                move |token: &str| {
-                    let token_update = but_tools::emit::TokenUpdate {
-                        token: token.to_string(),
-                        project_id,
-                        message_id: message_id.clone(),
-                    };
-                    let (name, payload) = token_update.emittable();
-                    (emitter)(&name, payload);
-                }
-            },
-        )?;
+        let (response, _) =
+            self.llm
+                .tool_calling_loop_stream(SYS_PROMPT, internal_chat_messages, &mut toolset, MODEL, {
+                    let emitter = self.emitter.clone();
+                    let message_id = message_id_cloned;
+                    let project_id = project_id_cloned;
+                    move |token: &str| {
+                        let token_update = but_tools::emit::TokenUpdate {
+                            token: token.to_string(),
+                            project_id,
+                            message_id: message_id.clone(),
+                        };
+                        let (name, payload) = token_update.emittable();
+                        (emitter)(&name, payload);
+                    }
+                })?;
 
         // Remove the injected project status tool calls and responses from the messages.
         internal_chat_messages = self.chat_messages.clone();

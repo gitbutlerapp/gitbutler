@@ -30,12 +30,7 @@ pub struct Command {
     )]
     pub topic: Option<String>,
     /// Use branch name as topic (Gerrit)
-    #[clap(
-        long = "tb",
-        alias = "topic-from-branch",
-        conflicts_with = "topic",
-        hide = true
-    )]
+    #[clap(long = "tb", alias = "topic-from-branch", conflicts_with = "topic", hide = true)]
     pub topic_from_branch: bool,
     /// Mark change as private (Gerrit)
     #[clap(long, short = 'p', hide = true)]

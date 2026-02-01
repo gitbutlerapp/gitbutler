@@ -23,9 +23,9 @@ use tempfile::TempDir;
 // - commit 1  (a-branch-1)
 #[test]
 fn squash_without_affecting_stack() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -63,9 +63,9 @@ fn squash_without_affecting_stack() -> Result<()> {
 // - commit 1  (a-branch-1)
 #[test]
 fn squash_below() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&ctx, test.stack.id, vec![test.commit_4], test.commit_2)?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_4], test.commit_2)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -109,9 +109,9 @@ fn squash_below() -> Result<()> {
 // - base     (a-branch-1)
 #[test]
 fn squash_above() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&ctx, test.stack.id, vec![test.commit_1], test.commit_3)?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_1], test.commit_3)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -153,9 +153,9 @@ fn squash_above() -> Result<()> {
 // - commit 1  (a-branch-1)
 #[test]
 fn squash_upwards_works() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&ctx, test.stack.id, vec![test.commit_2], test.commit_3)?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_2], test.commit_3)?;
 
     let branches = list_branches(&ctx)?;
     // branch 1
@@ -194,9 +194,9 @@ fn squash_upwards_works() -> Result<()> {
 // Commits 3 and 2 update the same file and line number
 #[test]
 fn squash_down_with_overlap_ok() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_3], test.commit_2)?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
@@ -233,9 +233,9 @@ fn squash_down_with_overlap_ok() -> Result<()> {
 // - commit 1+4 (a-branch-1)
 #[test]
 fn squash_below_into_stack_head() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
-    squash_commits(&ctx, test.stack.id, vec![test.commit_4], test.commit_1)?;
+    squash_commits(&mut ctx, test.stack.id, vec![test.commit_4], test.commit_1)?;
     let branches = list_branches(&ctx)?;
 
     // branch 1
@@ -276,10 +276,10 @@ fn squash_below_into_stack_head() -> Result<()> {
 // - commit 1+4+2 (a-branch-1)
 #[test]
 fn squash_multiple() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
     squash_commits(
-        &ctx,
+        &mut ctx,
         test.stack.id,
         vec![test.commit_4, test.commit_2],
         test.commit_1,
@@ -288,10 +288,7 @@ fn squash_multiple() -> Result<()> {
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(
-        branches.b1.patches[0].message,
-        "commit 1\ncommit 4\ncommit 2"
-    );
+    assert_eq!(branches.b1.patches[0].message, "commit 1\ncommit 4\ncommit 2");
     assert_eq!(
         blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file4")?,
         "change4\n"
@@ -330,10 +327,10 @@ fn squash_multiple() -> Result<()> {
 // - commit 1 (a-branch-1)
 #[test]
 fn squash_multiple_from_heads() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
     squash_commits(
-        &ctx,
+        &mut ctx,
         test.stack.id,
         vec![test.commit_5, test.commit_4],
         test.commit_2,
@@ -347,10 +344,7 @@ fn squash_multiple_from_heads() -> Result<()> {
     // branch 2
     assert_eq!(branches.b2.patches.len(), 2);
     assert_eq!(branches.b2.patches[0].message, "commit 3");
-    assert_eq!(
-        branches.b2.patches[1].message,
-        "commit 2\ncommit 5\ncommit 4"
-    );
+    assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 5\ncommit 4");
     assert_eq!(
         blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file5")?,
         "change5\n"
@@ -385,10 +379,10 @@ fn squash_multiple_from_heads() -> Result<()> {
 // - base     (a-branch-1)
 #[test]
 fn squash_multiple_above_and_below() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx()?;
+    let (mut ctx, _temp_dir) = command_ctx()?;
     let test = test_ctx(&ctx)?;
     squash_commits(
-        &ctx,
+        &mut ctx,
         test.stack.id,
         vec![test.commit_5, test.commit_1],
         test.commit_3,
@@ -401,10 +395,7 @@ fn squash_multiple_above_and_below() -> Result<()> {
     // branch 2
     assert_eq!(branches.b2.patches.len(), 3);
     assert_eq!(branches.b2.patches[0].message, "commit 4");
-    assert_eq!(
-        branches.b2.patches[1].message,
-        "commit 3\ncommit 5\ncommit 1"
-    );
+    assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 5\ncommit 1");
     assert_eq!(
         blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"

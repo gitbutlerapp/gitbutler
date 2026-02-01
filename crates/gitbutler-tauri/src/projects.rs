@@ -65,16 +65,12 @@ pub fn set_project_active(
                 err
             }
         })?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
+    let mut ctx = Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
 
     {
         let mut guard = ctx.exclusive_worktree_access();
-        but_api::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
-            ctx,
-            guard.write_permission(),
-        )
-        .ok();
+        but_api::legacy::meta::reconcile_in_workspace_state_of_vb_toml(&mut ctx, guard.write_permission()).ok();
     }
 
     let db_error = assure_database_valid(ctx.project_data_dir())?;
@@ -84,8 +80,7 @@ pub fn set_project_active(
             tracing::error!("{err}");
         }
     }
-    let mode =
-        window_state.set_project_to_window(window.label(), &project, &app_settings_sync, ctx)?;
+    let mode = window_state.set_project_to_window(window.label(), &app_settings_sync, &mut ctx)?;
     let is_exclusive = match mode {
         ProjectAccessMode::First => true,
         ProjectAccessMode::Shared => false,
@@ -119,8 +114,7 @@ fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
     use rusqlite::ErrorCode;
     if let Err(err) = but_db::DbHandle::new_in_directory(&data_dir) {
         let db_path = but_db::DbHandle::db_file_path(&data_dir);
-        if let Some(but_db::migration::Error::Permanent(sql_err)) =
-            err.downcast_ref::<but_db::migration::Error>()
+        if let Some(but_db::migration::Error::Permanent(sql_err)) = err.downcast_ref::<but_db::migration::Error>()
             && (!matches!(
                 sql_err.sqlite_error_code(),
                 Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
@@ -217,10 +211,7 @@ Ensure these aren't touched by GitButler or avoid using it in this repository.",
     msg.push_str("\n\n");
     msg.push_str(&files_with_filter[..files_with_filter.len().min(max_files)].join("\n"));
     if files_with_filter.len() > max_files {
-        msg.push_str(&format!(
-            "\n[and {} more]",
-            files_with_filter.len() - max_files
-        ));
+        msg.push_str(&format!("\n[and {} more]", files_with_filter.len() - max_files));
     }
     Ok(Some(msg))
 }

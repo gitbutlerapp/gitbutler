@@ -110,15 +110,11 @@ mod hex_hash {
         fn hex_hash() {
             let hex_str = "5c69907b1244089142905dba380371728e2e8160";
             let expected = gix::ObjectId::from_str(hex_str).expect("valid SHA1 hex-string");
-            let actual =
-                serde_json::from_str::<HexHash>(&format!("\"{hex_str}\"")).expect("input is valid");
+            let actual = serde_json::from_str::<HexHash>(&format!("\"{hex_str}\"")).expect("input is valid");
             assert_eq!(actual.0, expected);
 
             let actual = serde_json::to_string(&actual);
-            assert_eq!(
-                actual.unwrap(),
-                "\"5c69907b1244089142905dba380371728e2e8160\""
-            );
+            assert_eq!(actual.unwrap(), "\"5c69907b1244089142905dba380371728e2e8160\"");
         }
     }
 }
@@ -242,11 +238,7 @@ mod error {
         #[test]
         fn no_context_or_code_shows_root_error() {
             let err = anyhow!("err msg");
-            assert_eq!(
-                format!("{err:#}"),
-                "err msg",
-                "just one error on display here"
-            );
+            assert_eq!(format!("{err:#}"), "err msg", "just one error on display here");
             assert_eq!(
                 json(err),
                 "{\"code\":\"errors.unknown\",\"message\":\"err msg\"}",
@@ -329,9 +321,7 @@ mod error {
 
         #[test]
         fn find_nested_code() {
-            let err = anyhow!("bottom msg")
-                .context("top msg")
-                .context(Code::Validation);
+            let err = anyhow!("bottom msg").context("top msg").context(Code::Validation);
             assert_eq!(
                 format!("{err:#}"),
                 "errors.validation: top msg: bottom msg",

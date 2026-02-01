@@ -21,15 +21,9 @@ pub fn worktree_file_to_git_in_buf(
 ) -> anyhow::Result<()> {
     buf.clear();
     if md.is_symlink() {
-        buf.extend_from_slice(&gix::path::os_string_into_bstring(
-            std::fs::read_link(path)?.into(),
-        )?);
+        buf.extend_from_slice(&gix::path::os_string_into_bstring(std::fs::read_link(path)?.into())?);
     } else {
-        let to_git = pipeline.convert_to_git(
-            std::fs::File::open(path)?,
-            &gix::path::from_bstr(rela_path),
-            index,
-        )?;
+        let to_git = pipeline.convert_to_git(std::fs::File::open(path)?, &gix::path::from_bstr(rela_path), index)?;
         match to_git {
             ToGitOutcome::Unchanged(mut file) => {
                 file.read_to_end(buf)?;

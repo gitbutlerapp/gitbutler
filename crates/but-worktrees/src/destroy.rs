@@ -1,5 +1,5 @@
 use anyhow::Result;
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use serde::Serialize;
 
 use crate::{WorktreeId, git::git_worktree_remove, list::worktree_list};
@@ -14,7 +14,7 @@ pub struct DestroyWorktreeOutcome {
 /// Destroys a worktree by its ID.
 pub fn worktree_destroy_by_id(
     ctx: &mut Context,
-    _perm: &WorktreeWritePermission,
+    _perm: &RepoExclusive,
     id: &WorktreeId,
 ) -> Result<DestroyWorktreeOutcome> {
     // Remove the git worktree (force=true to handle uncommitted changes)
@@ -28,7 +28,7 @@ pub fn worktree_destroy_by_id(
 /// Destroys all worktrees created from a given reference.
 pub fn worktree_destroy_by_reference(
     ctx: &mut Context,
-    perm: &WorktreeWritePermission,
+    perm: &RepoExclusive,
     reference: &gix::refs::FullNameRef,
 ) -> Result<DestroyWorktreeOutcome> {
     // Use the existing list function to get all worktrees

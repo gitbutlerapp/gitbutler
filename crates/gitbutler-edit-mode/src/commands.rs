@@ -9,27 +9,19 @@ use gitbutler_oplog::{
 
 use crate::ConflictEntryPresence;
 
-pub fn enter_edit_mode(
-    ctx: &Context,
-    commit_oid: git2::Oid,
-    stack_id: StackId,
-) -> Result<EditModeMetadata> {
+pub fn enter_edit_mode(ctx: &mut Context, commit_oid: git2::Oid, stack_id: StackId) -> Result<EditModeMetadata> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    ensure_open_workspace_mode(ctx)
-        .context("Entering edit mode may only be done when the workspace is open")?;
+    ensure_open_workspace_mode(ctx).context("Entering edit mode may only be done when the workspace is open")?;
 
     let git2_repo = ctx.git2_repo.get()?;
-    let commit = git2_repo
-        .find_commit(commit_oid)
-        .context("Failed to find commit")?;
+    let commit = git2_repo.find_commit(commit_oid).context("Failed to find commit")?;
 
     let snapshot = ctx
         .prepare_snapshot(guard.read_permission())
         .context("Failed to prepare snapshot")?;
 
-    let edit_mode_metadata =
-        crate::enter_edit_mode(ctx, commit, stack_id, guard.write_permission())?;
+    let edit_mode_metadata = crate::enter_edit_mode(ctx, commit, stack_id, guard.write_permission())?;
 
     let _ = ctx.commit_snapshot(
         snapshot,
@@ -40,7 +32,7 @@ pub fn enter_edit_mode(
     Ok(edit_mode_metadata)
 }
 
-pub fn save_and_return_to_workspace(ctx: &Context) -> Result<()> {
+pub fn save_and_return_to_workspace(ctx: &mut Context) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx).context("Edit mode may only be left while in edit mode")?;
@@ -48,7 +40,7 @@ pub fn save_and_return_to_workspace(ctx: &Context) -> Result<()> {
     crate::save_and_return_to_workspace(ctx, guard.write_permission())
 }
 
-pub fn abort_and_return_to_workspace(ctx: &Context) -> Result<()> {
+pub fn abort_and_return_to_workspace(ctx: &mut Context) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx).context("Edit mode may only be left while in edit mode")?;
@@ -56,9 +48,7 @@ pub fn abort_and_return_to_workspace(ctx: &Context) -> Result<()> {
     crate::abort_and_return_to_workspace(ctx, guard.write_permission())
 }
 
-pub fn starting_index_state(
-    ctx: &Context,
-) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
+pub fn starting_index_state(ctx: &mut Context) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
     let guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx)?;
@@ -67,7 +57,7 @@ pub fn starting_index_state(
     Ok(state.into_iter().map(|(a, b)| (a.into(), b)).collect())
 }
 
-pub fn changes_from_initial(ctx: &Context) -> Result<Vec<TreeChange>> {
+pub fn changes_from_initial(ctx: &mut Context) -> Result<Vec<TreeChange>> {
     let guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx)?;

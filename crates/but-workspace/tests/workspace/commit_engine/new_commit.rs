@@ -5,9 +5,8 @@ use gix::prelude::ObjectIdExt;
 
 use crate::utils::{
     CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace, diff_spec,
-    read_only_in_memory_scenario, to_change_specs_all_hunks_with_context_lines,
-    to_change_specs_whole_file, visualize_tree, writable_scenario, writable_scenario_with_ssh_key,
-    write_sequence,
+    read_only_in_memory_scenario, to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file,
+    visualize_tree, writable_scenario, writable_scenario_with_ssh_key, write_sequence,
 };
 
 mod with_refs_update {}
@@ -54,10 +53,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     └── not-yet-tracked:100644:d95f3ad "content\n"
     "#);
 
-    std::fs::write(
-        repo.workdir_path("new-untracked").expect("non-bare"),
-        "new-content",
-    )?;
+    std::fs::write(repo.workdir_path("new-untracked").expect("non-bare"), "new-content")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
@@ -132,11 +128,7 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         }],
         CONTEXT_LINES,
     )?;
-    assert_eq!(
-        outcome.rejected_specs,
-        [],
-        "hunk-ranges can also be applied"
-    );
+    assert_eq!(outcome.rejected_specs, [], "hunk-ranges can also be applied");
 
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
@@ -160,11 +152,7 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         }],
         CONTEXT_LINES,
     )?;
-    assert_eq!(
-        outcome.rejected_specs,
-        [],
-        "hunk-ranges can also be applied"
-    );
+    assert_eq!(outcome.rejected_specs, [], "hunk-ranges can also be applied");
 
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
@@ -184,14 +172,9 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
         message: "the commit message".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_unborn.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_unborn.clone())?;
 
-    assert_eq!(
-        outcome.rejected_specs,
-        Vec::new(),
-        "everything was committed"
-    );
+    assert_eq!(outcome.rejected_specs, Vec::new(), "everything was committed");
     let new_commit_id = outcome.new_commit.expect("a new commit was created");
 
     let new_commit = new_commit_id.attach(&repo).object()?.peel_to_commit()?;
@@ -253,10 +236,9 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
         &repo,
         Destination::NewCommit {
             parent_commit_id: None,
-            message:
-                "submodules have to be given as whole files but can then be handled correctly \
+            message: "submodules have to be given as whole files but can then be handled correctly \
             (but without Git's special handling)"
-                    .into(),
+                .into(),
             stack_segment: None,
         },
         to_change_specs_whole_file(worktree_changes),
@@ -296,8 +278,7 @@ fn deletions() -> anyhow::Result<()> {
         message: "deletions maybe a bit special".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_deletions.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_deletions.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     c15318d
@@ -344,8 +325,7 @@ fn modifications() -> anyhow::Result<()> {
         message: "modifications of content and symlinks".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     db51146
@@ -385,8 +365,7 @@ fn renames() -> anyhow::Result<()> {
         message: "renames need special care to delete the source".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     e56fc9b
@@ -466,11 +445,7 @@ fn renames() -> anyhow::Result<()> {
         &repo,
         new_commit_from_rename,
         // Links are never considered renamed, so this is only the addition part.
-        vec![diff_spec(
-            None,
-            "link-renamed",
-            Some(hunk_header("-1,0", "+1,1")),
-        )],
+        vec![diff_spec(None, "link-renamed", Some(hunk_header("-1,0", "+1,1")))],
         CONTEXT_LINES,
     )?;
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
@@ -790,10 +765,9 @@ fn submodule_typechanges() -> anyhow::Result<()> {
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("HEAD")?.into()),
-            message:
-                "submodules have to be given as whole files but can then be handled correctly \
+            message: "submodules have to be given as whole files but can then be handled correctly \
             (but without Git's special handling)"
-                    .into(),
+                .into(),
             stack_segment: None,
         },
         to_change_specs_whole_file(worktree_changes),
@@ -845,8 +819,7 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
     for context_lines in [0, 3, 5] {
         let first_commit = Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
-            message: "When using context lines, we'd still think this works just like before"
-                .into(),
+            message: "When using context lines, we'd still think this works just like before".into(),
             stack_segment: None,
         };
 
@@ -988,8 +961,7 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
 }
 
 #[test]
-fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() -> anyhow::Result<()>
-{
+fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset-two-files");
 
     // rewrite all lines so changes cover both branches
@@ -1008,10 +980,7 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
                 stack_segment: None,
             },
         )?;
-        assert_ne!(
-            outcome.new_commit, None,
-            "Not everything fails, so there is a commit"
-        );
+        assert_ne!(outcome.new_commit, None, "Not everything fails, so there is a commit");
         // The hunks are never present, as they always match, further clarifying that the hunks aren't the problem.
         insta::allow_duplicates! {
         insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
@@ -1104,10 +1073,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     └── not-yet-tracked:100644:1191247 "1\n2\n"
     "#);
 
-    std::fs::write(
-        repo.workdir_path("new-untracked").expect("non-bare"),
-        "one\r\ntwo\r\n",
-    )?;
+    std::fs::write(repo.workdir_path("new-untracked").expect("non-bare"), "one\r\ntwo\r\n")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {

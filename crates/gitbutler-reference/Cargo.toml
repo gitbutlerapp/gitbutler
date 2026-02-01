@@ -10,6 +10,8 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
+but-core.workspace = true
+
 anyhow.workspace = true
 git2.workspace = true
 gix.workspace = true

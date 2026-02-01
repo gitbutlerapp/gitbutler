@@ -1,5 +1,6 @@
-use but_core::sync::LockScope;
 use std::fmt::Write;
+
+use but_core::sync::LockScope;
 
 pub fn handle(
     ctx: &mut but_ctx::Context,
@@ -23,16 +24,14 @@ pub fn handle(
 
     if fetch {
         out.write_str("\nFetching from remotes...")?;
-        let fetch_result =
-            but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()));
+        let fetch_result = but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()));
         if fetch_result.is_err() {
             out.write_str("Failed to fetch from the remote repository.")?;
         }
     }
     if prs {
         out.write_str("\nGetting PR data...")?;
-        let pr_result =
-            but_api::legacy::forge::list_reviews(ctx, Some(but_forge::CacheConfig::NoCache));
+        let pr_result = but_api::legacy::forge::list_reviews(ctx, Some(but_forge::CacheConfig::NoCache));
         if pr_result.is_err() {
             out.write_str("Failed to refresh pull request data.")?;
         }
@@ -48,8 +47,7 @@ pub fn handle(
         out.write_str("\nChecking for updates...")?;
 
         let mut cache = ctx.app_cache.get_cache_mut()?;
-        let update_result =
-            but_update::check_status(but_update::AppName::Cli, app_settings, &mut cache);
+        let update_result = but_update::check_status(but_update::AppName::Cli, app_settings, &mut cache);
 
         match update_result {
             Ok(None) => {

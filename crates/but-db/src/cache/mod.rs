@@ -1,3 +1,7 @@
+use std::path::Path;
+
+use rusqlite::ErrorCode;
+
 /// Storage for cache tables, along with their types.
 ///
 /// ### Usage
@@ -6,8 +10,6 @@
 /// They are made more usable by providing a mutable instance through a shared reference
 /// when obtaining it from the `but-ctx::Context`.
 use crate::M;
-use rusqlite::ErrorCode;
-use std::path::Path;
 
 mod handle;
 mod table;
@@ -47,15 +49,17 @@ fn open_with_migrations_infallible<'p, 'm>(
             if path == mem_url {
                 panic!("FATAL: Couldn't open in-memory URL: {path_err}")
             }
-            tracing::warn!("Failed to open cache database at '{path}' with {path_err}, will use memory DB instead", path = path.display());
+            tracing::warn!(
+                "Failed to open cache database at '{path}' with {path_err}, will use memory DB instead",
+                path = path.display()
+            );
             rusqlite::Connection::open(mem_url)
                 .map(|c| (c, mem_url))
                 .map_err(|memory_err| {
-                    anyhow::Error::from(memory_err)
-                        .context(path_err)
-                        .context(format!(
-                            "Couldn't open database either from {path} or in memory", path = path.display()
-                        ))
+                    anyhow::Error::from(memory_err).context(path_err).context(format!(
+                        "Couldn't open database either from {path} or in memory",
+                        path = path.display()
+                    ))
                 })
         })
         .expect("FATAL: didn't expect to not be able to open an in-memory database at least");
@@ -100,10 +104,8 @@ fn open_with_migrations_infallible<'p, 'm>(
             }
         }
         path = mem_url;
-        conn = rusqlite::Connection::open(path)
-            .expect("FATAL: failed to open memory database run migrations on");
-        run_migrations(&mut conn, migrations)
-            .expect("BUG: migrations on in-memory database should never fail");
+        conn = rusqlite::Connection::open(path).expect("FATAL: failed to open memory database run migrations on");
+        run_migrations(&mut conn, migrations).expect("BUG: migrations on in-memory database should never fail");
     }
 
     if path == mem_url {

@@ -5,8 +5,7 @@ use gix::refs::{Category, transaction::PreviousValue};
 
 use crate::{
     ref_info::with_workspace_commit::utils::{
-        StackState, add_stack_with_segments,
-        named_writable_scenario_with_args_and_description_and_graph,
+        StackState, add_stack_with_segments, named_writable_scenario_with_args_and_description_and_graph,
         named_writable_scenario_with_description_and_graph,
     },
     utils::r,
@@ -14,12 +13,11 @@ use crate::{
 
 #[test]
 fn no_errors_due_to_idempotency_in_empty_workspace() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc) =
-        named_writable_scenario_with_args_and_description_and_graph(
-            "single-branch-no-ws-commit-no-target",
-            ["A", "B"],
-            |_| {},
-        )?;
+    let (_tmp, graph, repo, mut meta, desc) = named_writable_scenario_with_args_and_description_and_graph(
+        "single-branch-no-ws-commit-no-target",
+        ["A", "B"],
+        |_| {},
+    )?;
     insta::assert_snapshot!(desc, @"Single commit, no main remote/target, no ws commit, but ws-reference");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, main, B, A) M1");
@@ -121,9 +119,8 @@ fn journey_single_branch_no_ws_commit_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc) = named_writable_scenario_with_description_and_graph(
-        "single-branch-4-commits-more-branches",
-        |meta| {
+    let (_tmp, graph, repo, mut meta, desc) =
+        named_writable_scenario_with_description_and_graph("single-branch-4-commits-more-branches", |meta| {
             add_stack_with_segments(
                 meta,
                 0,
@@ -131,8 +128,7 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
                 StackState::InWorkspace,
                 &["A2-3", "A2-2", "A2-1", "A1-1", "A1-2", "A1-3"],
             );
-        },
-    )?;
+        })?;
 
     insta::assert_snapshot!(desc, @"Two commits in main, target setup, ws commit, many more usable branches");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -228,15 +224,14 @@ fn journey_single_branch_ws_commit_no_target() -> anyhow::Result<()> {
 
 #[test]
 fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
-    let (_tmp, graph, repo, mut meta, desc) =
-        named_writable_scenario_with_args_and_description_and_graph(
-            "single-branch-no-ws-commit-no-target",
-            ["A", "B", "C", "D", "E"],
-            |meta| {
-                add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &["B", "C"]);
-                add_stack_with_segments(meta, 1, "D", StackState::InWorkspace, &["E"]);
-            },
-        )?;
+    let (_tmp, graph, repo, mut meta, desc) = named_writable_scenario_with_args_and_description_and_graph(
+        "single-branch-no-ws-commit-no-target",
+        ["A", "B", "C", "D", "E"],
+        |meta| {
+            add_stack_with_segments(meta, 0, "A", StackState::InWorkspace, &["B", "C"]);
+            add_stack_with_segments(meta, 1, "D", StackState::InWorkspace, &["E"]);
+        },
+    )?;
     insta::assert_snapshot!(desc, @"Single commit, no main remote/target, no ws commit, but ws-reference");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 3183e43 (HEAD -> gitbutler/workspace, main, E, D, C, B, A) M1");
 
@@ -295,14 +290,9 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
         └── 📙:4:C
     ");
 
-    let mut ws = but_workspace::branch::remove_reference(
-        ref_name,
-        &repo,
-        &ws,
-        &mut meta,
-        remove_reference::Options::default(),
-    )?
-    .expect("we deleted something");
+    let mut ws =
+        but_workspace::branch::remove_reference(ref_name, &repo, &ws, &mut meta, remove_reference::Options::default())?
+            .expect("we deleted something");
     repo.reference(
         ref_name,
         main_id,
@@ -359,11 +349,7 @@ fn journey_no_ws_commit_no_target() -> anyhow::Result<()> {
     // The workspace is completely empty.
     insta::assert_snapshot!(graph_workspace(&ws), @"📕🏘️⚠️:0:gitbutler/workspace[🌳] <> ✓! on 3183e43");
 
-    assert_eq!(
-        meta.iter().count(),
-        0,
-        "nothing is left in the metadata either"
-    );
+    assert_eq!(meta.iter().count(), 0, "nothing is left in the metadata either");
 
     Ok(())
 }

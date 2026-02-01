@@ -188,23 +188,18 @@ fn remove_single_line() -> anyhow::Result<()> {
 
 mod util {
     use but_core::ref_metadata::StackId;
-    use but_hunk_dependency::{
-        InputCommit, InputStack, tree_changes_to_input_files, ui::HunkLockTarget,
-    };
+    use but_hunk_dependency::{InputCommit, InputStack, tree_changes_to_input_files, ui::HunkLockTarget};
 
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
 
     pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
-        let worktree_dir =
-            but_testsupport::gix_testtools::scripted_fixture_read_only("branch-states.sh")
-                .map_err(anyhow::Error::from_boxed)?
-                .join(name);
+        let worktree_dir = but_testsupport::gix_testtools::scripted_fixture_read_only("branch-states.sh")
+            .map_err(anyhow::Error::from_boxed)?
+            .join(name);
         but_testsupport::open_repo(&worktree_dir)
     }
 
-    pub fn workspace_ranges_digest_for_worktree_changes(
-        repo: &gix::Repository,
-    ) -> anyhow::Result<WorkspaceDigest> {
+    pub fn workspace_ranges_digest_for_worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorkspaceDigest> {
         let input_stack = branch_input_stack(repo, "HEAD")?;
         let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stack)?;
         let worktree_changes = but_core::diff::worktree_changes(repo)?.changes;
@@ -222,11 +217,8 @@ mod util {
                 commit.parent_ids().count() < 2,
                 "For now we probably can't handle the non-linear case correctly"
             );
-            let commit_changes = but_core::diff::tree_changes(
-                repo,
-                commit.parent_ids.iter().next().copied(),
-                commit.id,
-            )?;
+            let commit_changes =
+                but_core::diff::tree_changes(repo, commit.parent_ids.iter().next().copied(), commit.id)?;
 
             let files = tree_changes_to_input_files(repo, commit_changes)?;
             let commit = InputCommit {

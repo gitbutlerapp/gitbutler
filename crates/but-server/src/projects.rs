@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use but_api::json::ToJsonError;
 use but_claude::{Claude, broadcaster::FrontendEvent};
 use but_ctx::Context;
 use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_project::{Project, ProjectId};
+use gitbutler_project::ProjectId;
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
 use serde_json::json;
@@ -39,11 +39,11 @@ impl ActiveProjects {
 
     pub fn set_active(
         &mut self,
-        project: &Project,
+        ctx: &mut Context,
         claude: &Claude,
         app_settings_sync: AppSettingsWithDiskSync,
     ) -> Result<()> {
-        if self.projects.contains_key(&project.id) {
+        if self.projects.contains_key(&ctx.legacy_project.id) {
             return Ok(());
         }
 
@@ -65,19 +65,13 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/git/head"),
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
                     },
-                    Change::GitActivity {
-                        project_id,
-                        head_sha,
-                    } => FrontendEvent {
+                    Change::GitActivity { project_id, head_sha } => FrontendEvent {
                         name: format!("project://{project_id}/git/activity"),
                         payload: serde_json::json!({
                             "headSha": head_sha,
                         }),
                     },
-                    Change::WorktreeChanges {
-                        project_id,
-                        changes,
-                    } => FrontendEvent {
+                    Change::WorktreeChanges { project_id, changes } => FrontendEvent {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                     },
@@ -88,25 +82,22 @@ impl ActiveProjects {
             }
         });
 
-        let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
-            &app_settings_sync.get()?.feature_flags.watch_mode,
-        );
+        let watch_mode =
+            gitbutler_watcher::WatchMode::from_env_or_settings(&app_settings_sync.get()?.feature_flags.watch_mode);
         let file_watcher = gitbutler_watcher::watch_in_background(
             handler,
-            project.worktree_dir()?,
-            project.id,
+            ctx.workdir_or_fail()?,
+            ctx.legacy_project.id,
             app_settings_sync.clone(),
             watch_mode,
         )?;
 
         // Set up database watcher for database changes
         let db_watcher = {
-            let settings = app_settings_sync.get()?.clone();
-            let mut ctx = Context::new_from_legacy_project_and_settings(project, settings);
             let db = &mut *ctx.db.get_mut()?;
             but_db::poll::watch_in_background(db, {
                 let broadcaster = claude.broadcaster.clone();
-                let project_id = project.id;
+                let project_id = ctx.legacy_project.id;
                 move |item| {
                     let event = FrontendEvent::from_db_item(project_id, item);
                     let broadcaster = broadcaster.clone();
@@ -119,7 +110,7 @@ impl ActiveProjects {
         };
 
         self.projects.insert(
-            project.id,
+            ctx.legacy_project.id,
             ProjectHandles {
                 _file_watcher: file_watcher,
                 _db_watcher: db_watcher,
@@ -148,19 +139,19 @@ pub async fn list_projects(extra: &Extra) -> anyhow::Result<serde_json::Value> {
 }
 
 pub async fn set_project_active(
-    ctx: &Claude,
+    claude: &Claude,
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
     params: serde_json::Value,
 ) -> Result<serde_json::Value> {
     let params: SetProjectActiveParams = serde_json::from_value(params).to_json_error()?;
-    let project = gitbutler_project::get_validated(params.id).context("project not found")?;
 
-    // TODO: Adding projects to a list of active projects requires some more
-    // knowledge around how many unique tabs are looking at it
+    // TODO(ctx): Adding projects to a list of active projects requires some more
+    //            knowledge around how many unique tabs are looking at it
 
     let mut active_projects = extra.active_projects.lock().await;
-    active_projects.set_active(&project, ctx, app_settings_sync)?;
+    let mut ctx = Context::new_from_legacy_project_id(params.id)?;
+    active_projects.set_active(&mut ctx, claude, app_settings_sync)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);
 

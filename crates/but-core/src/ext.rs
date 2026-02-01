@@ -9,8 +9,7 @@ pub trait ObjectStorageExt {
 impl ObjectStorageExt for gix::odb::memory::Storage {
     fn persist(&self, out: impl Write) -> anyhow::Result<()> {
         for (kind, data) in self.values() {
-            out.write_buf(*kind, data)
-                .map_err(anyhow::Error::from_boxed)?;
+            out.write_buf(*kind, data).map_err(anyhow::Error::from_boxed)?;
         }
         Ok(())
     }

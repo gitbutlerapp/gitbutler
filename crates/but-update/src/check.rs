@@ -1,5 +1,4 @@
-use std::env;
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use but_secret::secret;
 use but_settings::AppSettings;
@@ -257,8 +256,6 @@ impl Default for CheckUpdateStatus {
 fn install() -> Option<String> {
     Some(format!(
         "{:x}",
-        <sha2::Sha256 as sha2::Digest>::digest(
-            format!("{}{}", machine_uid::get().ok()?, "gitbutler").as_bytes()
-        )
+        <sha2::Sha256 as sha2::Digest>::digest(format!("{}{}", machine_uid::get().ok()?, "gitbutler").as_bytes())
     ))
 }

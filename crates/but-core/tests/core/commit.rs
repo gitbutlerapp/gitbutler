@@ -12,12 +12,8 @@ fn is_conflicted() -> anyhow::Result<()> {
 }
 
 pub fn conflict_repo(name: &str) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only("conflict-commits.sh")
-        .map_err(anyhow::Error::from_boxed)?;
-    Ok(gix::open_opts(
-        root.join(name),
-        gix::open::Options::isolated(),
-    )?)
+    let root = gix_testtools::scripted_fixture_read_only("conflict-commits.sh").map_err(anyhow::Error::from_boxed)?;
+    Ok(gix::open_opts(root.join(name), gix::open::Options::isolated())?)
 }
 
 mod headers {
@@ -33,10 +29,7 @@ mod headers {
 
         #[test]
         fn with_uuid_change_id() {
-            let commit = commit_with_header([(
-                "gitbutler-change-id",
-                "96420be4-a3ed-4bea-b534-ff2160cbb848",
-            )]);
+            let commit = commit_with_header([("gitbutler-change-id", "96420be4-a3ed-4bea-b534-ff2160cbb848")]);
             insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("old change ids parse for compatibility"), @r#"
             Headers {
                 change_id: Some(
@@ -93,8 +86,7 @@ mod headers {
 
         #[test]
         fn with_arbitrary_change_id_in_new_change_id_field() {
-            let commit =
-                commit_with_header([("change-id", "something-special-that-we-dont-produce")]);
+            let commit = commit_with_header([("change-id", "something-special-that-we-dont-produce")]);
             insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("the arbitrary change id is kept in the new field"), @r#"
             Headers {
                 change_id: Some(
@@ -107,10 +99,7 @@ mod headers {
 
         #[test]
         fn with_arbitrary_change_id_in_old_change_id_field() {
-            let commit = commit_with_header([(
-                "gitbutler-change-id",
-                "something-special-that-we-dont-produce",
-            )]);
+            let commit = commit_with_header([("gitbutler-change-id", "something-special-that-we-dont-produce")]);
             insta::assert_debug_snapshot!(Headers::try_from_commit(&commit).expect("the arbitrary change id is kept in the old field"), @r#"
             Headers {
                 change_id: Some(
@@ -140,9 +129,7 @@ mod headers {
             "#);
         }
 
-        fn commit_with_header(
-            headers: impl IntoIterator<Item = (&'static str, &'static str)>,
-        ) -> gix::objs::Commit {
+        fn commit_with_header(headers: impl IntoIterator<Item = (&'static str, &'static str)>) -> gix::objs::Commit {
             gix::objs::Commit {
                 tree: gix::ObjectId::empty_tree(gix::hash::Kind::Sha1),
                 parents: vec![].into(),
@@ -150,10 +137,7 @@ mod headers {
                 committer: Signature::default(),
                 encoding: None,
                 message: b"".into(),
-                extra_headers: headers
-                    .into_iter()
-                    .map(|(a, b)| (a.into(), b.into()))
-                    .collect(),
+                extra_headers: headers.into_iter().map(|(a, b)| (a.into(), b.into())).collect(),
             }
         }
     }

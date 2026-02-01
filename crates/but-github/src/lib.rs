@@ -150,12 +150,8 @@ async fn fetch_and_persist_pat_user_data(
         .get_authenticated()
         .await
         .context("Failed to get authenticated user")?;
-    token::persist_gh_access_token(
-        &token::GithubAccountIdentifier::pat(&user.login),
-        access_token,
-        storage,
-    )
-    .context("Failed to persist access token")?;
+    token::persist_gh_access_token(&token::GithubAccountIdentifier::pat(&user.login), access_token, storage)
+        .context("Failed to persist access token")?;
     Ok(user)
 }
 
@@ -181,8 +177,8 @@ async fn fetch_and_persist_enterprise_user_data(
     access_token: &Sensitive<String>,
     storage: &but_forge_storage::Controller,
 ) -> Result<client::AuthenticatedUser, anyhow::Error> {
-    let gh = client::GitHubClient::new_with_host_override(access_token, host)
-        .context("Failed to create GitHub client")?;
+    let gh =
+        client::GitHubClient::new_with_host_override(access_token, host).context("Failed to create GitHub client")?;
     let user = gh
         .get_authenticated()
         .await
@@ -225,16 +221,12 @@ pub async fn get_gh_user(
             Err(client_err) => {
                 // Check if this is a network error before converting to anyhow
                 if is_network_error(&client_err) {
-                    return Err(anyhow::Error::from(client_err).context(
-                        but_error::Context::new_static(
-                            but_error::Code::NetworkError,
-                            "Unable to connect to GitHub.",
-                        ),
-                    ));
+                    return Err(anyhow::Error::from(client_err).context(but_error::Context::new_static(
+                        but_error::Code::NetworkError,
+                        "Unable to connect to GitHub.",
+                    )));
                 }
-                return Err(
-                    anyhow::Error::from(client_err).context("Failed to get authenticated user")
-                );
+                return Err(anyhow::Error::from(client_err).context("Failed to get authenticated user"));
             }
         };
         Ok(Some(AuthenticatedUser {
@@ -285,8 +277,7 @@ pub async fn check_credentials(
 pub async fn list_known_github_accounts(
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<token::GithubAccountIdentifier>> {
-    let known_accounts = token::list_known_github_accounts(storage)
-        .context("Failed to list known GitHub usernames")?;
+    let known_accounts = token::list_known_github_accounts(storage).context("Failed to list known GitHub usernames")?;
     // Migrate the users from the previous storage method.
     #[cfg(feature = "legacy")]
     if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
@@ -296,8 +287,8 @@ pub async fn list_known_github_accounts(
             .await
             .ok();
 
-        let known_accounts = token::list_known_github_accounts(storage)
-            .context("Failed to list known GitHub usernames")?;
+        let known_accounts =
+            token::list_known_github_accounts(storage).context("Failed to list known GitHub usernames")?;
         return Ok(known_accounts);
     }
     Ok(known_accounts)
@@ -324,10 +315,7 @@ mod tests {
 
         if let Err(reqwest_err) = result {
             let client_err = octorust::ClientError::ReqwestError(reqwest_err);
-            assert!(
-                is_network_error(&client_err),
-                "Should detect timeout/connection errors"
-            );
+            assert!(is_network_error(&client_err), "Should detect timeout/connection errors");
         } else {
             panic!("Expected a network error but request succeeded");
         }

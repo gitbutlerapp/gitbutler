@@ -4,9 +4,7 @@ use but_rebase::{Rebase, RebaseStep};
 use but_testsupport::visualize_commit_graph;
 use gix::prelude::ObjectIdExt;
 
-use crate::utils::{
-    assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
-};
+use crate::utils::{assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree};
 
 mod error_handling;
 mod graph_rebase;
@@ -25,13 +23,8 @@ mod commit {
                 config.set_raw_value(&"user.name", "name")?;
                 config.set_raw_value(&"user.email", "email")?;
             }
-            let err = commit::save_author_if_unset_in_repo(
-                &repo,
-                gix::config::Source::Local,
-                "user",
-                "email",
-            )
-            .unwrap_err();
+            let err =
+                commit::save_author_if_unset_in_repo(&repo, gix::config::Source::Local, "user", "email").unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "Refusing to overwrite an existing user.name and user.email"
@@ -43,17 +36,9 @@ mod commit {
         fn keep_comments_and_customizations() -> anyhow::Result<()> {
             let (repo, _tmp, _meta) = fixture_writable("four-commits")?;
             let local_config_path = repo.path().join("config");
-            std::fs::write(
-                &local_config_path,
-                b"# a comment\n[special] \nvalue=foo #value comment",
-            )?;
+            std::fs::write(&local_config_path, b"# a comment\n[special] \nvalue=foo #value comment")?;
 
-            commit::save_author_if_unset_in_repo(
-                &repo,
-                gix::config::Source::Local,
-                "user",
-                "email",
-            )?;
+            commit::save_author_if_unset_in_repo(&repo, gix::config::Source::Local, "user", "email")?;
 
             // New values are written and everything else is still contained.
             insta::assert_snapshot!(std::fs::read_to_string(local_config_path)?, @r"
@@ -605,9 +590,7 @@ fn reversible_conflicts() -> anyhow::Result<()> {
     let out = builder
         .steps([
             RebaseStep::Pick {
-                commit_id: repo
-                    .rev_parse_single(format!("{conflict_tip}~2").as_str())?
-                    .into(),
+                commit_id: repo.rev_parse_single(format!("{conflict_tip}~2").as_str())?.into(),
                 new_message: Some("C~2 is first".into()),
             },
             RebaseStep::Pick {
@@ -686,16 +669,10 @@ pub mod utils {
     /// Returns a fixture that may not be written to, objects will never touch disk either.
     pub fn fixture(
         fixture_name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
         let repo = but_testsupport::read_only_in_memory_scenario(fixture_name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
         Ok((repo, std::mem::ManuallyDrop::new(meta)))
     }
 
@@ -709,11 +686,8 @@ pub mod utils {
     )> {
         // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
         let (repo, tmp) = but_testsupport::writable_scenario(fixture_name);
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
         Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
     }
 
@@ -726,11 +700,8 @@ pub mod utils {
         std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
     )> {
         let (repo, tmp) = but_testsupport::writable_scenario_with_ssh_key(fixture_name);
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
         Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
     }
 
@@ -809,11 +780,7 @@ pub mod utils {
     pub fn conflicted(repo: &gix::Repository, out: &RebaseOutput) -> Vec<bool> {
         out.commit_mapping
             .iter()
-            .map(|t| {
-                but_core::Commit::from_id(t.2.attach(repo))
-                    .unwrap()
-                    .is_conflicted()
-            })
+            .map(|t| but_core::Commit::from_id(t.2.attach(repo)).unwrap().is_conflicted())
             .collect()
     }
 

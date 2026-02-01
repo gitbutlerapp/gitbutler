@@ -16,7 +16,6 @@ doctest = false
 testing = ["dep:gitbutler-commit"]
 
 [dependencies]
-but-meta = { workspace = true, features = ["legacy"] }
 but-workspace.workspace = true
 but-core.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }

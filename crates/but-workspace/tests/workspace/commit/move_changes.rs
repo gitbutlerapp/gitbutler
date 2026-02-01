@@ -21,8 +21,7 @@ fn visualize_tree(id: gix::Id<'_>) -> String {
 
 #[test]
 fn move_changes_same_commit_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
@@ -33,8 +32,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
     let editor = graph.to_editor(&repo)?;
 
     // Moving changes from a commit to itself should be a no-op
-    let outcome =
-        move_changes_between_commits(editor, commit_id, commit_id, Vec::<DiffSpec>::new(), 0)?;
+    let outcome = move_changes_between_commits(editor, commit_id, commit_id, Vec::<DiffSpec>::new(), 0)?;
 
     // Materialize should succeed
     outcome.rebase.materialize()?;
@@ -51,8 +49,7 @@ fn move_changes_same_commit_is_noop() -> Result<()> {
 
 #[test]
 fn move_file_from_head_to_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
@@ -80,13 +77,7 @@ fn move_file_from_head_to_parent() -> Result<()> {
 
     // Move three.txt from commit three to commit two
     let editor = graph.to_editor(&repo)?;
-    let outcome = move_changes_between_commits(
-        editor,
-        three_id,
-        two_id,
-        vec![diff_spec_for_file("three.txt")],
-        0,
-    )?;
+    let outcome = move_changes_between_commits(editor, three_id, two_id, vec![diff_spec_for_file("three.txt")], 0)?;
 
     outcome.rebase.materialize()?;
 
@@ -126,8 +117,7 @@ fn move_file_from_head_to_parent() -> Result<()> {
 
 #[test]
 fn move_file_from_parent_to_head() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
@@ -139,13 +129,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
 
     // Move two.txt from commit two up to commit three
     let editor = graph.to_editor(&repo)?;
-    let outcome = move_changes_between_commits(
-        editor,
-        two_id,
-        three_id,
-        vec![diff_spec_for_file("two.txt")],
-        0,
-    )?;
+    let outcome = move_changes_between_commits(editor, two_id, three_id, vec![diff_spec_for_file("two.txt")], 0)?;
 
     outcome.rebase.materialize()?;
 
@@ -183,8 +167,7 @@ fn move_file_from_parent_to_head() -> Result<()> {
 
 #[test]
 fn move_file_between_non_adjacent_commits() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
@@ -196,13 +179,7 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
 
     // Move three.txt from commit three to commit one (skipping two)
     let editor = graph.to_editor(&repo)?;
-    let outcome = move_changes_between_commits(
-        editor,
-        three_id,
-        one_id,
-        vec![diff_spec_for_file("three.txt")],
-        0,
-    )?;
+    let outcome = move_changes_between_commits(editor, three_id, one_id, vec![diff_spec_for_file("three.txt")], 0)?;
 
     outcome.rebase.materialize()?;
 
@@ -251,27 +228,19 @@ fn move_file_between_non_adjacent_commits() -> Result<()> {
 
 #[test]
 fn error_when_changes_not_found_in_source() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
 
     let three_id = repo.rev_parse_single("three")?.detach();
     let two_id = repo.rev_parse_single("two")?.detach();
 
     // Try to move a file that doesn't exist in source commit
     let editor = graph.to_editor(&repo)?;
-    let result = move_changes_between_commits(
-        editor,
-        three_id,
-        two_id,
-        vec![diff_spec_for_file("nonexistent.txt")],
-        0,
-    );
+    let result = move_changes_between_commits(editor, three_id, two_id, vec![diff_spec_for_file("nonexistent.txt")], 0);
 
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(
-        err.to_string()
-            .contains("Failed to extract described changes"),
+        err.to_string().contains("Failed to extract described changes"),
         "Expected error about failed extraction, got: {}",
         err
     );

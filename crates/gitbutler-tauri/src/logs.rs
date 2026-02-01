@@ -145,11 +145,7 @@ fn prune_old_logs(
     // delete files, so that (n-1) files remain, because we will create another log file
     for (file, _) in files.iter().take(files.len() - (max_files - 1)) {
         if let Err(err) = fs::remove_file(file.path()) {
-            tracing::warn!(
-                "Failed to remove extra log file {}: {}",
-                file.path().display(),
-                err,
-            );
+            tracing::warn!("Failed to remove extra log file {}: {}", file.path().display(), err,);
         }
     }
 
@@ -177,11 +173,7 @@ fn remove_old_logs(log_directory: &Path) -> anyhow::Result<()> {
     });
     for file_path in old_log_files {
         if let Err(err) = fs::remove_file(&file_path) {
-            tracing::warn!(
-                "Failed to remove old log file {}: {}",
-                file_path.display(),
-                err,
-            );
+            tracing::warn!("Failed to remove old log file {}: {}", file_path.display(), err,);
         }
     }
 

@@ -23,12 +23,7 @@ pub fn safe_checkout_from_head(
     repo: &gix::Repository,
     opts: Options,
 ) -> anyhow::Result<Outcome> {
-    safe_checkout(
-        repo.head_tree_id_or_empty()?.detach(),
-        new_head_id,
-        repo,
-        opts,
-    )
+    safe_checkout(repo.head_tree_id_or_empty()?.detach(), new_head_id, repo, opts)
 }
 /// Given the `current_head_id^{tree}` for the tree that matches what `HEAD` points to, perform all file operations necessary
 /// to turn the *worktree* of `repo` into `new_head_id^{tree}`. Note that the current *worktree* is assumed to be at the state of
@@ -99,18 +94,14 @@ pub fn safe_checkout(
     //            and while doing it symlink-safe.
     if !changed_files.is_empty() {
         let git2_repo = git2::Repository::open(repo.git_dir())?;
-        let destination_tree = git2_repo
-            .find_tree(destination_tree.id.to_git2())?
-            .into_object();
+        let destination_tree = git2_repo.find_tree(destination_tree.id.to_git2())?.into_object();
         let mut dirs_we_tried_to_delete = BTreeSet::new();
         for (kind, path_to_alter) in &changed_files {
             if matches!(kind, ChangeKind::Deletion) {
                 // By now we can assume that the destination tree contains all files that should be
                 // in the worktree, along with the worktree changes we will touch.
                 // Thus, it's safe to delete the files that should be deleted, before possibly recreating them.
-                let path_to_delete = repo
-                    .workdir_path(path_to_alter)
-                    .context("non-bare repository")?;
+                let path_to_delete = repo.workdir_path(path_to_alter).context("non-bare repository")?;
                 if let Err(err) = std::fs::remove_file(&path_to_delete) {
                     if err.kind() == std::io::ErrorKind::NotFound
                         || err.kind() == std::io::ErrorKind::PermissionDenied
@@ -152,8 +143,7 @@ pub fn safe_checkout(
         {
             for (kind, path_to_alter) in &changed_files {
                 if matches!(kind, ChangeKind::Deletion)
-                    && let Some(entry) = index
-                        .entry_mut_by_path_and_stage(path_to_alter.as_bstr(), Stage::Unconflicted)
+                    && let Some(entry) = index.entry_mut_by_path_and_stage(path_to_alter.as_bstr(), Stage::Unconflicted)
                 {
                     entry.flags |= gix::index::entry::Flags::REMOVE;
                 }

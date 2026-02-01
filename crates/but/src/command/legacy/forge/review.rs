@@ -24,7 +24,7 @@ pub fn set_review_template(
 ) -> anyhow::Result<()> {
     if let Some(path) = template_path {
         let message = format!("Set review template path to: {}", &path);
-        but_api::legacy::forge::set_review_template(ctx.legacy_project.id, Some(path))?;
+        but_api::legacy::forge::set_review_template(ctx, Some(path))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
@@ -51,10 +51,7 @@ pub fn set_review_template(
             .display()
             .map_err(|_| anyhow::anyhow!("Could not determine selected review template"))?;
         let message = format!("Set review template path to: {}", &selected_template);
-        but_api::legacy::forge::set_review_template(
-            ctx.legacy_project.id,
-            Some(selected_template.clone()),
-        )?;
+        but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
             writeln!(out, "{}", message)?;
         }
@@ -76,10 +73,8 @@ pub async fn create_pr(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let review_map = get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?;
-    let applied_stacks = but_api::legacy::workspace::stacks(
-        ctx,
-        Some(but_workspace::legacy::StacksFilter::InWorkspace),
-    )?;
+    let applied_stacks =
+        but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
 
     // If branch is specified, resolve it
     let maybe_branch_names = if let Some(branch_id) = branch {
@@ -96,9 +91,9 @@ pub async fn create_pr(
         } else if branches_without_prs.len() == 1 {
             // If there's only one branch without a PR, ask for confirmation
             let branch_name = &branches_without_prs[0];
-            let mut inout = out.prepare_for_terminal_input().context(
-                "Terminal input not available. Please specify a branch using command line arguments.",
-            )?;
+            let mut inout = out
+                .prepare_for_terminal_input()
+                .context("Terminal input not available. Please specify a branch using command line arguments.")?;
             if inout.confirm(
                 format!("Do you want to open a new PR on branch '{branch_name}'?"),
                 ConfirmDefault::Yes,
@@ -138,10 +133,7 @@ fn get_branches_without_prs(
         for head in &stack_entry.heads {
             let branch_name = head.name.to_string();
             if !review_map.contains_key(&branch_name)
-                || review_map
-                    .get(&branch_name)
-                    .map(|v| v.is_empty())
-                    .unwrap_or(true)
+                || review_map.get(&branch_name).map(|v| v.is_empty()).unwrap_or(true)
             {
                 branches_without_prs.push(branch_name);
             }
@@ -194,10 +186,7 @@ pub async fn handle_multiple_branches_in_workspace(
 
     if selected_branches.is_empty() {
         if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "No branches selected for review publication. Aborting."
-            )?;
+            writeln!(out, "No branches selected for review publication. Aborting.")?;
         }
         return Ok(());
     }
@@ -225,9 +214,7 @@ pub async fn handle_multiple_branches_in_workspace(
         .await?;
 
         overall_outcome.published.extend(outcome.published);
-        overall_outcome
-            .already_existing
-            .extend(outcome.already_existing);
+        overall_outcome.already_existing.extend(outcome.already_existing);
     }
 
     if let Some(out) = out.for_json() {
@@ -366,9 +353,7 @@ async fn publish_reviews_for_branch_and_dependents(
 
     let result = but_api::legacy::stack::push_stack(
         ctx,
-        stack_entry
-            .id
-            .context("BUG: Stack entry is missing ID for push")?,
+        stack_entry.id.context("BUG: Stack entry is missing ID for push")?,
         with_force,
         skip_force_push_protection,
         branch_name.to_string(),
@@ -377,12 +362,7 @@ async fn publish_reviews_for_branch_and_dependents(
     )?;
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "  {} Pushed to {}",
-            "✓".green().bold(),
-            result.remote.cyan()
-        )?;
+        writeln!(out, "  {} Pushed to {}", "✓".green().bold(), result.remote.cyan())?;
     }
 
     let mut newly_published = Vec::new();
@@ -458,10 +438,7 @@ fn display_review_publication_summary(
 }
 
 /// Print information about a newly created PR
-fn print_new_pr_info(
-    review: &but_forge::ForgeReview,
-    out: &mut dyn std::fmt::Write,
-) -> std::fmt::Result {
+fn print_new_pr_info(review: &but_forge::ForgeReview, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     writeln!(
         out,
         "{} {} {}{}",
@@ -471,27 +448,14 @@ fn print_new_pr_info(
         review.number.to_string().cyan().bold()
     )?;
     writeln!(out, "  {} {}", "Title:".dimmed(), review.title.bold())?;
-    writeln!(
-        out,
-        "  {} {}",
-        "Branch:".dimmed(),
-        review.source_branch.green()
-    )?;
-    writeln!(
-        out,
-        "  {} {}",
-        "URL:".dimmed(),
-        review.html_url.underline().blue()
-    )?;
+    writeln!(out, "  {} {}", "Branch:".dimmed(), review.source_branch.green())?;
+    writeln!(out, "  {} {}", "URL:".dimmed(), review.html_url.underline().blue())?;
 
     Ok(())
 }
 
 /// Print information about an existing PR
-fn print_existing_pr_info(
-    review: &but_forge::ForgeReview,
-    out: &mut dyn std::fmt::Write,
-) -> std::fmt::Result {
+fn print_existing_pr_info(review: &but_forge::ForgeReview, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     writeln!(
         out,
         "{} {} {} {}{}",
@@ -501,12 +465,7 @@ fn print_existing_pr_info(
         review.unit_symbol.cyan(),
         review.number.to_string().cyan().bold()
     )?;
-    writeln!(
-        out,
-        "  {} {}",
-        "URL:".dimmed(),
-        review.html_url.underline().blue()
-    )?;
+    writeln!(out, "  {} {}", "URL:".dimmed(), review.html_url.underline().blue())?;
 
     Ok(())
 }
@@ -524,7 +483,7 @@ enum PublishReviewResult {
 }
 
 async fn publish_review_for_branch(
-    ctx: &Context,
+    ctx: &mut Context,
     stack_id: Option<StackId>,
     branch_name: &str,
     target_branch: &str,
@@ -568,13 +527,7 @@ async fn publish_review_for_branch(
     .map(|review| {
         if let Some(stack_id) = stack_id {
             let review_number = review.number.try_into().ok();
-            but_api::legacy::stack::update_branch_pr_number(
-                ctx,
-                stack_id,
-                branch_name.to_string(),
-                review_number,
-            )
-            .ok();
+            but_api::legacy::stack::update_branch_pr_number(ctx, stack_id, branch_name.to_string(), review_number).ok();
         }
         PublishReviewResult::Published(Box::new(review))
     })
@@ -695,10 +648,7 @@ fn get_pr_title_and_body_from_editor(
                         template.push_str(&format!("#      - {}\n", file));
                     }
                     if file_paths.len() > 10 {
-                        template.push_str(&format!(
-                            "#      ... and {} more files\n",
-                            file_paths.len() - 10
-                        ));
+                        template.push_str(&format!("#      ... and {} more files\n", file_paths.len() - 10));
                     }
                 }
             }
@@ -738,11 +688,7 @@ fn extract_commit_description(commit: Option<&Commit>) -> Option<Vec<&str>> {
             .skip_while(|l| l.trim().is_empty())
             .map(|l| l.to_str().ok())
             .collect::<Option<Vec<&str>>>()?;
-        if desc_lines.is_empty() {
-            None
-        } else {
-            Some(desc_lines)
-        }
+        if desc_lines.is_empty() { None } else { Some(desc_lines) }
     })
 }
 
@@ -759,22 +705,19 @@ pub fn get_review_map(
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config).unwrap_or_default();
 
-    let branch_review_map =
-        reviews
-            .into_iter()
-            .fold(std::collections::HashMap::new(), |mut acc, r| {
-                // TODO: Handle forks properly
-                let clean_branch_name = r
-                    .source_branch
-                    .split(':')
-                    .next_back()
-                    .unwrap_or(&r.source_branch)
-                    .to_string();
-                acc.entry(clean_branch_name)
-                    .or_insert_with(Vec::new)
-                    .push(r);
-                acc
-            });
+    let branch_review_map = reviews
+        .into_iter()
+        .fold(std::collections::HashMap::new(), |mut acc, r| {
+            // TODO: Handle forks properly
+            let clean_branch_name = r
+                .source_branch
+                .split(':')
+                .next_back()
+                .unwrap_or(&r.source_branch)
+                .to_string();
+            acc.entry(clean_branch_name).or_insert_with(Vec::new).push(r);
+            acc
+        });
 
     Ok(branch_review_map)
 }

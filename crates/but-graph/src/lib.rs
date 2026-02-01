@@ -292,10 +292,7 @@ impl Edge {
         self.src = idx;
 
         let commits = &graph[dst_sidx].commits;
-        let (id, idx) = commits
-            .first()
-            .map(|c| (Some(c.id), Some(0)))
-            .unwrap_or_default();
+        let (id, idx) = commits.first().map(|c| (Some(c.id), Some(0))).unwrap_or_default();
         self.dst_id = id;
         self.dst = idx;
 

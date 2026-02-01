@@ -48,33 +48,26 @@ impl<T> OnDemandCache<T> {
             let mut value = self.value.try_borrow_mut()?;
             *value = Some((self.init)());
         }
-        Ok(
-            cell::Ref::filter_map(self.value.borrow(), |opt| opt.as_ref())
-                .unwrap_or_else(|_| unreachable!("just set the value")),
-        )
+        Ok(cell::Ref::filter_map(self.value.borrow(), |opt| opt.as_ref())
+            .unwrap_or_else(|_| unreachable!("just set the value")))
     }
 
     /// Get an exclusive references to the cached value or fallibly initialise it.
     pub fn get_cache_mut(&self) -> Result<cell::RefMut<'_, T>, BorrowError> {
-        if let Ok(cached) =
-            cell::RefMut::filter_map(self.value.try_borrow_mut()?, |opt| opt.as_mut())
-        {
+        if let Ok(cached) = cell::RefMut::filter_map(self.value.try_borrow_mut()?, |opt| opt.as_mut()) {
             return Ok(cached);
         }
         {
             let mut value = self.value.try_borrow_mut()?;
             *value = Some((self.init)());
         }
-        Ok(
-            cell::RefMut::filter_map(self.value.borrow_mut(), |opt| opt.as_mut())
-                .unwrap_or_else(|_| unreachable!("just set the value")),
-        )
+        Ok(cell::RefMut::filter_map(self.value.borrow_mut(), |opt| opt.as_mut())
+            .unwrap_or_else(|_| unreachable!("just set the value")))
     }
 }
 
 mod error {
-    use std::cell;
-    use std::fmt::Formatter;
+    use std::{cell, fmt::Formatter};
 
     pub enum BorrowError {
         Shared(cell::BorrowError),

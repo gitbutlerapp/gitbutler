@@ -11,8 +11,8 @@ use schemars::{JsonSchema, schema_for};
 use serde::de::DeserializeOwned;
 
 use crate::{
-    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage,
-    client::LLMClient, key::CredentialsKeyOption,
+    StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent, chat::ChatMessage, client::LLMClient,
+    key::CredentialsKeyOption,
 };
 
 const ANTHROPIC_API_BASE: &str = "https://api.anthropic.com/v1";
@@ -57,19 +57,11 @@ impl AnthropicClient {
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
         headers.insert(
             "x-api-key",
-            credentials
-                .0
-                .parse()
-                .unwrap_or(HeaderValue::from_static("")),
+            credentials.0.parse().unwrap_or(HeaderValue::from_static("")),
         );
-        headers.insert(
-            "anthropic-version",
-            HeaderValue::from_static(ANTHROPIC_VERSION),
-        );
+        headers.insert("anthropic-version", HeaderValue::from_static(ANTHROPIC_VERSION));
 
-        let client = reqwest::Client::builder()
-            .default_headers(headers)
-            .build()?;
+        let client = reqwest::Client::builder().default_headers(headers).build()?;
 
         Ok(Self { kind, client })
     }
@@ -147,28 +139,23 @@ impl AnthropicProvider {
         self.credentials.0.clone()
     }
     fn gitbutler_proxied_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind)?
-            .ok_or(anyhow::anyhow!(
-                "No GitButler token available. Log-in to use the GitButler Anthropic provider"
-            ))?;
+        let creds = secret::retrieve("gitbutler_access_token", secret::Namespace::BuildKind)?.ok_or(
+            anyhow::anyhow!("No GitButler token available. Log-in to use the GitButler Anthropic provider"),
+        )?;
         Ok((CredentialsKind::GitButlerProxied, creds))
     }
 
     fn anthropic_own_key_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
-        let creds = secret::retrieve("aiAnthropicKey", secret::Namespace::Global)?.ok_or(
-            anyhow::anyhow!(
-                "No Anthropic own key configured. Add this through the GitButler settings"
-            ),
-        )?;
+        let creds = secret::retrieve("aiAnthropicKey", secret::Namespace::Global)?.ok_or(anyhow::anyhow!(
+            "No Anthropic own key configured. Add this through the GitButler settings"
+        ))?;
         Ok((CredentialsKind::OwnAnthropicKey, creds))
     }
 
     fn anthropic_env_var_creds() -> Result<(CredentialsKind, Sensitive<String>)> {
         let creds = Sensitive(
             std::env::var_os("ANTHROPIC_API_KEY")
-                .ok_or(anyhow::anyhow!(
-                    "Environment variable ANTHROPIC_API_KEY is not set"
-                ))?
+                .ok_or(anyhow::anyhow!("Environment variable ANTHROPIC_API_KEY is not set"))?
                 .into_string()
                 .map_err(|_| anyhow::anyhow!("Invalid UTF-8 in ANTHROPIC_API_KEY"))?,
         );
@@ -198,14 +185,7 @@ impl LLMClient for AnthropicProvider {
         model: &str,
         on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<(String, Vec<ChatMessage>)> {
-        let result = tool_calling_loop_stream(
-            self,
-            system_message,
-            chat_messages,
-            tool_set,
-            model,
-            on_token,
-        )?;
+        let result = tool_calling_loop_stream(self, system_message, chat_messages, tool_set, model, on_token)?;
         Ok((result.final_response, result.message_history))
     }
 
@@ -229,9 +209,7 @@ impl LLMClient for AnthropicProvider {
         stream_response_blocking(self, system_message, chat_messages, model, on_token)
     }
 
-    fn structured_output<
-        T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
-    >(
+    fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static>(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
@@ -240,12 +218,7 @@ impl LLMClient for AnthropicProvider {
         structured_output_blocking::<T>(self, system_message, chat_messages, model)
     }
 
-    fn response(
-        &self,
-        system_message: &str,
-        chat_messages: Vec<ChatMessage>,
-        model: &str,
-    ) -> Result<Option<String>> {
+    fn response(&self, system_message: &str, chat_messages: Vec<ChatMessage>, model: &str) -> Result<Option<String>> {
         response_blocking(self, system_message, chat_messages, model)
     }
 }
@@ -345,9 +318,7 @@ fn from_anthropic_messages(messages: Vec<AnthropicMessage>) -> Vec<ChatMessage> 
     for msg in messages {
         match msg.role.as_str() {
             "user" => {
-                if let Ok(blocks) =
-                    serde_json::from_value::<Vec<AnthropicContentBlock>>(msg.content)
-                {
+                if let Ok(blocks) = serde_json::from_value::<Vec<AnthropicContentBlock>>(msg.content) {
                     for block in blocks {
                         match block.block_type.as_str() {
                             "text" => {
@@ -358,9 +329,7 @@ fn from_anthropic_messages(messages: Vec<AnthropicMessage>) -> Vec<ChatMessage> 
                             "tool_result" => {
                                 if let (Some(id), Some(input)) = (block.id, block.input) {
                                     let result = input.as_str().unwrap_or("").to_string();
-                                    chat_messages.push(ChatMessage::ToolResponse(
-                                        ToolResponseContent { id, result },
-                                    ));
+                                    chat_messages.push(ChatMessage::ToolResponse(ToolResponseContent { id, result }));
                                 }
                             }
                             _ => {}
@@ -369,9 +338,7 @@ fn from_anthropic_messages(messages: Vec<AnthropicMessage>) -> Vec<ChatMessage> 
                 }
             }
             "assistant" => {
-                if let Ok(blocks) =
-                    serde_json::from_value::<Vec<AnthropicContentBlock>>(msg.content)
-                {
+                if let Ok(blocks) = serde_json::from_value::<Vec<AnthropicContentBlock>>(msg.content) {
                     for block in blocks {
                         match block.block_type.as_str() {
                             "text" => {
@@ -380,16 +347,9 @@ fn from_anthropic_messages(messages: Vec<AnthropicMessage>) -> Vec<ChatMessage> 
                                 }
                             }
                             "tool_use" => {
-                                if let (Some(id), Some(name), Some(input)) =
-                                    (block.id, block.name, block.input)
-                                {
-                                    let arguments =
-                                        serde_json::to_string(&input).unwrap_or_default();
-                                    chat_messages.push(ChatMessage::ToolCall(ToolCallContent {
-                                        id,
-                                        name,
-                                        arguments,
-                                    }));
+                                if let (Some(id), Some(name), Some(input)) = (block.id, block.name, block.input) {
+                                    let arguments = serde_json::to_string(&input).unwrap_or_default();
+                                    chat_messages.push(ChatMessage::ToolCall(ToolCallContent { id, name, arguments }));
                                 }
                             }
                             _ => {}
@@ -404,31 +364,24 @@ fn from_anthropic_messages(messages: Vec<AnthropicMessage>) -> Vec<ChatMessage> 
     chat_messages
 }
 
-pub fn structured_output_blocking<
-    T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
->(
+pub fn structured_output_blocking<T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static>(
     anthropic: &AnthropicProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
     model: &str,
 ) -> anyhow::Result<Option<T>> {
     let client = anthropic.client()?;
-    let messages: Vec<AnthropicMessage> = chat_messages
-        .into_iter()
-        .map(AnthropicMessage::from)
-        .collect();
+    let messages: Vec<AnthropicMessage> = chat_messages.into_iter().map(AnthropicMessage::from).collect();
     let model = model.to_string();
     let system_message = system_message.to_string();
 
     std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(structured_output::<T>(
-                &client,
-                messages,
-                model,
-                system_message,
-            ))
+        tokio::runtime::Runtime::new().unwrap().block_on(structured_output::<T>(
+            &client,
+            messages,
+            model,
+            system_message,
+        ))
     })
     .join()
     .unwrap()
@@ -495,22 +448,16 @@ fn response_blocking(
     chat_messages: Vec<ChatMessage>,
     model: &str,
 ) -> anyhow::Result<Option<String>> {
-    let messages: Vec<AnthropicMessage> = chat_messages
-        .into_iter()
-        .map(AnthropicMessage::from)
-        .collect();
+    let messages: Vec<AnthropicMessage> = chat_messages.into_iter().map(AnthropicMessage::from).collect();
 
     let client = client.client()?;
     let model = model.to_string();
     let system_message = system_message.to_string();
 
     std::thread::spawn(move || {
-        tokio::runtime::Runtime::new().unwrap().block_on(response(
-            &client,
-            messages,
-            model,
-            system_message,
-        ))
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(response(&client, messages, model, system_message))
     })
     .join()
     .unwrap()
@@ -551,25 +498,20 @@ pub fn stream_response_blocking(
     model: &str,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<Option<String>> {
-    let messages: Vec<AnthropicMessage> = chat_messages
-        .into_iter()
-        .map(AnthropicMessage::from)
-        .collect();
+    let messages: Vec<AnthropicMessage> = chat_messages.into_iter().map(AnthropicMessage::from).collect();
 
     let client = client.client()?;
     let model = model.to_string();
     let system_message = system_message.to_string();
 
     std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(stream_response(
-                &client,
-                messages,
-                model,
-                system_message,
-                on_token,
-            ))
+        tokio::runtime::Runtime::new().unwrap().block_on(stream_response(
+            &client,
+            messages,
+            model,
+            system_message,
+            on_token,
+        ))
     })
     .join()
     .unwrap()
@@ -653,13 +595,7 @@ fn tool_calling_blocking(
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(tool_calling(
-                &client,
-                messages,
-                tools,
-                model,
-                system_message,
-            ))
+            .block_on(tool_calling(&client, messages, tools, model, system_message))
     })
     .join()
     .unwrap()
@@ -698,16 +634,14 @@ fn tool_calling_stream_blocking(
     let system_message = system_message.to_string();
 
     std::thread::spawn(move || {
-        tokio::runtime::Runtime::new()
-            .unwrap()
-            .block_on(tool_calling_stream(
-                &client,
-                messages,
-                tools,
-                model,
-                system_message,
-                on_token,
-            ))
+        tokio::runtime::Runtime::new().unwrap().block_on(tool_calling_stream(
+            &client,
+            messages,
+            tools,
+            model,
+            system_message,
+            on_token,
+        ))
     })
     .join()
     .unwrap()
@@ -788,8 +722,7 @@ async fn tool_calling_stream(
                                 }
 
                                 // Handle tool input delta
-                                if let Some(partial_json) =
-                                    delta.get("partial_json").and_then(|t| t.as_str())
+                                if let Some(partial_json) = delta.get("partial_json").and_then(|t| t.as_str())
                                     && let Some(tool_id) = &current_tool_id
                                     && let Some(tool_call) = tool_calls.get_mut(tool_id)
                                 {
@@ -864,10 +797,7 @@ pub fn tool_calling_loop(
     tool_set: &mut impl Toolset,
     model: &str,
 ) -> Result<String> {
-    let mut messages: Vec<AnthropicMessage> = chat_messages
-        .into_iter()
-        .map(AnthropicMessage::from)
-        .collect();
+    let mut messages: Vec<AnthropicMessage> = chat_messages.into_iter().map(AnthropicMessage::from).collect();
 
     let anthropic_tools: Vec<serde_json::Value> = tool_set
         .list()
@@ -903,12 +833,11 @@ pub fn tool_calling_loop(
             if block.block_type == "tool_use"
                 && let (Some(id), Some(name), Some(input)) = (&block.id, &block.name, &block.input)
             {
-                let arguments =
-                    serde_json::to_string(input).context("Failed to serialize tool input")?;
+                let arguments = serde_json::to_string(input).context("Failed to serialize tool input")?;
 
                 let tool_response = tool_set.call_tool(name, &arguments);
-                let tool_response_str = serde_json::to_string(&tool_response)
-                    .context("Failed to serialize tool response")?;
+                let tool_response_str =
+                    serde_json::to_string(&tool_response).context("Failed to serialize tool response")?;
 
                 tool_call_blocks.push(serde_json::json!({
                     "type": "tool_use",
@@ -974,10 +903,7 @@ pub fn tool_calling_loop_stream(
     model: &str,
     on_token: impl Fn(&str) + Send + Sync + 'static,
 ) -> anyhow::Result<ConversationResult> {
-    let mut messages: Vec<AnthropicMessage> = chat_messages
-        .into_iter()
-        .map(AnthropicMessage::from)
-        .collect();
+    let mut messages: Vec<AnthropicMessage> = chat_messages.into_iter().map(AnthropicMessage::from).collect();
 
     let anthropic_tools: Vec<serde_json::Value> = tool_set
         .list()
@@ -1016,11 +942,10 @@ pub fn tool_calling_loop_stream(
             } = call;
 
             let tool_response = tool_set.call_tool(&function_name, &function_args);
-            let tool_response_str = serde_json::to_string(&tool_response)
-                .context("Failed to serialize tool response")?;
+            let tool_response_str =
+                serde_json::to_string(&tool_response).context("Failed to serialize tool response")?;
 
-            let input: serde_json::Value =
-                serde_json::from_str(&function_args).unwrap_or(serde_json::json!({}));
+            let input: serde_json::Value = serde_json::from_str(&function_args).unwrap_or(serde_json::json!({}));
 
             tool_call_blocks.push(serde_json::json!({
                 "type": "tool_use",

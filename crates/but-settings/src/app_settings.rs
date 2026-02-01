@@ -3,10 +3,7 @@ use ts_rs::TS;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct TelemetrySettings {
     /// Whether the anonymous metrics are enabled.
     pub app_metrics_enabled: bool,
@@ -25,18 +22,13 @@ pub struct TelemetrySettings {
 impl TelemetrySettings {
     /// Return the distinct ID if reporting is enabled, and if it is set.
     pub fn distinct_id_if_enabled(&self) -> Option<String> {
-        self.app_metrics_enabled
-            .then(|| self.app_distinct_id.clone())
-            .flatten()
+        self.app_metrics_enabled.then(|| self.app_distinct_id.clone()).flatten()
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct GitHubOAuthAppSettings {
     /// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
     pub oauth_client_id: String,
@@ -44,10 +36,7 @@ pub struct GitHubOAuthAppSettings {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct FeatureFlags {
     /// Turn on the set a v3 version of checkout
     pub cv3: bool,
@@ -82,10 +71,7 @@ pub struct FeatureFlags {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct ExtraCsp {
     /// Additional hosts that the application can connect to.
     pub hosts: Vec<String>,
@@ -95,10 +81,7 @@ pub struct ExtraCsp {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct Fetch {
     /// The frequency at which the app will automatically fetch. A negative value (e.g. -1) disables auto fetching.
     pub auto_fetch_interval_minutes: isize,
@@ -106,10 +89,7 @@ pub struct Fetch {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct Claude {
     /// Path to the Claude Code executable. Defaults to "claude" if not set.
     pub executable: String,
@@ -127,10 +107,7 @@ pub struct Claude {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct Reviews {
     /// Whether to auto-fill PR title and description from the first commit when a branch has only one commit.
     pub auto_fill_pr_description_from_commit: bool,
@@ -138,10 +115,7 @@ pub struct Reviews {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./settings/appSettings.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/appSettings.ts"))]
 pub struct UiSettings {
     /// Whether to use the native system title bar.
     pub use_native_title_bar: bool,

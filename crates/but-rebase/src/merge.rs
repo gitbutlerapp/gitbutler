@@ -27,21 +27,15 @@ use crate::commit::DateMode;
 pub fn octopus(
     repo: &gix::Repository,
     mut target_merge_commit: gix::objs::Commit,
-    graph: &mut gix::revwalk::Graph<
-        '_,
-        '_,
-        gix::revwalk::graph::Commit<gix::revision::plumbing::merge_base::Flags>,
-    >,
+    graph: &mut gix::revwalk::Graph<'_, '_, gix::revwalk::graph::Commit<gix::revision::plumbing::merge_base::Flags>>,
 ) -> Result<gix::ObjectId> {
     if target_merge_commit.parents.len() < 2 {
         bail!("An octopus merge commits must have at least two parents");
     }
     let parents_to_merge = target_merge_commit.parents.iter().copied();
-    let merge_base = but_core::Commit::from_id(
-        repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?,
-    )?
-    .tree_id_or_kind(TreeKind::Base)?
-    .detach();
+    let merge_base = but_core::Commit::from_id(repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?)?
+        .tree_id_or_kind(TreeKind::Base)?
+        .detach();
     let mut trees_to_merge = parents_to_merge
         .clone()
         .map(|commit_id| -> Result<_> {
@@ -82,11 +76,7 @@ pub fn octopus(
                 }
             )
             .context(ConflictErrorContext {
-                paths: merge
-                    .conflicts
-                    .iter()
-                    .map(|c| c.ours.location().to_owned())
-                    .collect(),
+                paths: merge.conflicts.iter().map(|c| c.ours.location().to_owned()).collect(),
             }));
         }
         successfully_merged.push(tree_to_merge);
@@ -94,20 +84,10 @@ pub fn octopus(
     }
     target_merge_commit.tree = ours;
     if but_core::commit::Headers::try_from_commit(&target_merge_commit).is_none() {
-        but_core::commit::Headers::from_config(&repo.config_snapshot())
-            .set_in_commit(&mut target_merge_commit);
+        but_core::commit::Headers::from_config(&repo.config_snapshot()).set_in_commit(&mut target_merge_commit);
     }
-    if target_merge_commit
-        .extra_headers()
-        .pgp_signature()
-        .is_some()
-    {
-        crate::commit::create(
-            repo,
-            target_merge_commit,
-            DateMode::CommitterUpdateAuthorKeep,
-            true,
-        )
+    if target_merge_commit.extra_headers().pgp_signature().is_some() {
+        crate::commit::create(repo, target_merge_commit, DateMode::CommitterUpdateAuthorKeep, true)
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;
         Ok(repo.write_object(target_merge_commit)?.detach())

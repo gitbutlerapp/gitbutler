@@ -30,10 +30,7 @@ pub fn add_project_best_effort(path: PathBuf) -> Result<projects::AddProjectOutc
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn get_project(
-    project_id: ProjectId,
-    no_validation: Option<bool>,
-) -> Result<projects::api::Project> {
+pub fn get_project(project_id: ProjectId, no_validation: Option<bool>) -> Result<projects::api::Project> {
     if no_validation.unwrap_or(false) {
         Ok(gitbutler_project::get_raw(project_id)?.migrated()?.into())
     } else {
@@ -75,10 +72,8 @@ pub fn delete_project(project_id: ProjectId) -> Result<()> {
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn is_gerrit(project_id: ProjectId) -> Result<bool> {
-    let project = gitbutler_project::get_raw(project_id)?;
-    let repo = project.open_repo()?;
-    gitbutler_project::gerrit::is_used_by_default_remote(&repo)
+pub fn is_gerrit(ctx: &but_ctx::Context) -> Result<bool> {
+    gitbutler_project::gerrit::is_used_by_default_remote(&*ctx.repo.get()?)
 }
 
 #[derive(serde::Serialize)]

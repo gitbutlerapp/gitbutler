@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::Transaction;
-use crate::{DbHandle, M};
+use crate::{DbHandle, M, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(
@@ -28,10 +27,7 @@ ALTER TABLE `butler_actions` ADD COLUMN `external_summary` TEXT NOT NULL;
 ALTER TABLE `butler_actions` ADD COLUMN `external_prompt` TEXT;
 ",
     ),
-    M::up(
-        20250616090656,
-        "ALTER TABLE `butler_actions` ADD COLUMN `source` TEXT;",
-    ),
+    M::up(20250616090656, "ALTER TABLE `butler_actions` ADD COLUMN `source` TEXT;"),
     M::up(
         20250619181700,
         "ALTER TABLE `butler_actions` DROP COLUMN `handler_prompt`;",

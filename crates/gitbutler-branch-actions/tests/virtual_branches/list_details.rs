@@ -4,10 +4,7 @@ use crate::virtual_branches::list;
 
 #[test]
 fn one_vbranch_in_workspace_empty_details() -> anyhow::Result<()> {
-    let list = branch_details(
-        &list::project_ctx("one-vbranch-in-workspace")?,
-        Some("virtual"),
-    )?;
+    let list = branch_details(&list::project_ctx("one-vbranch-in-workspace")?, Some("virtual"))?;
     assert_eq!(list.len(), 1);
     assert_eq!(
         list[0],

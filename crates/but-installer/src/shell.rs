@@ -1,10 +1,13 @@
 //! Shell and PATH configuration
 
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    io::Write as IoWrite,
+    path::{Path, PathBuf},
+};
+
 use anyhow::Result;
-use std::env;
-use std::fs::{self, OpenOptions};
-use std::io::Write as IoWrite;
-use std::path::{Path, PathBuf};
 
 use crate::ui::{self, info, success, warn};
 
@@ -78,9 +81,7 @@ pub(crate) fn setup_path(home_dir: &Path) -> Result<()> {
 
     if fish_config.exists() {
         setup_fish_config(&fish_config, &bin_dir, already_in_path)?;
-    } else if let Some((shell_config, shell_type)) =
-        detect_shell_config(&zshrc, &bash_profile, &bashrc)
-    {
+    } else if let Some((shell_config, shell_type)) = detect_shell_config(&zshrc, &bash_profile, &bashrc) {
         setup_posix_shell_config(&shell_config, shell_type, &bin_dir, already_in_path)?;
     } else {
         print_manual_setup_instructions(&bin_dir, already_in_path);
@@ -89,11 +90,7 @@ pub(crate) fn setup_path(home_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn detect_shell_config(
-    zshrc: &Path,
-    bash_profile: &Path,
-    bashrc: &Path,
-) -> Option<(PathBuf, ShellType)> {
+fn detect_shell_config(zshrc: &Path, bash_profile: &Path, bashrc: &Path) -> Option<(PathBuf, ShellType)> {
     if zshrc.exists() {
         Some((zshrc.to_path_buf(), ShellType::Zsh))
     } else if bash_profile.exists() {
@@ -186,10 +183,7 @@ fn setup_posix_shell_config(
             ));
         }
         if has_completions {
-            success(&format!(
-                "{} shell completions already configured",
-                shell_type.name()
-            ));
+            success(&format!("{} shell completions already configured", shell_type.name()));
         }
         return Ok(());
     }
@@ -239,11 +233,7 @@ fn setup_posix_shell_config(
                 _ => format!("{}", e),
             };
 
-            warn(&format!(
-                "Cannot write to {} ({})",
-                shell_config.display(),
-                error_msg
-            ));
+            warn(&format!("Cannot write to {} ({})", shell_config.display(), error_msg));
             info("Please add the following lines to your shell config file manually:");
 
             if needs_path_in_config {
@@ -276,23 +266,15 @@ fn print_manual_setup_instructions(bin_dir: &Path, already_in_path: bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Write;
+
+    use super::*;
 
     #[test]
     fn test_shell_type_completion_commands() {
-        assert_eq!(
-            ShellType::Zsh.completion_command(),
-            "eval \"$(but completions zsh)\""
-        );
-        assert_eq!(
-            ShellType::Bash.completion_command(),
-            "eval \"$(but completions bash)\""
-        );
-        assert_eq!(
-            ShellType::Fish.completion_command(),
-            "but completions fish | source"
-        );
+        assert_eq!(ShellType::Zsh.completion_command(), "eval \"$(but completions zsh)\"");
+        assert_eq!(ShellType::Bash.completion_command(), "eval \"$(but completions bash)\"");
+        assert_eq!(ShellType::Fish.completion_command(), "but completions fish | source");
     }
 
     #[test]
@@ -457,15 +439,8 @@ mod tests {
 
             // Verify no duplicate PATH line was added
             let content = std::fs::read_to_string(&zshrc).unwrap();
-            let path_count = content
-                .lines()
-                .filter(|l| l.contains("export PATH="))
-                .count();
-            assert_eq!(
-                path_count, 1,
-                "Variation {} should not add duplicate PATH entry",
-                i
-            );
+            let path_count = content.lines().filter(|l| l.contains("export PATH=")).count();
+            assert_eq!(path_count, 1, "Variation {} should not add duplicate PATH entry", i);
         }
     }
 

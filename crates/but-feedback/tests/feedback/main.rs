@@ -13,8 +13,7 @@ mod create_zip_file_from_dir {
         file.write_all(b"test")?;
 
         let out_dir = tempdir()?;
-        let zip_file_path =
-            create_zip_file_from_dir(tmp_dir.path(), out_dir.path().join("out.zip"))?;
+        let zip_file_path = create_zip_file_from_dir(tmp_dir.path(), out_dir.path().join("out.zip"))?;
         assert!(zip_file_path.exists());
         Ok(())
     }

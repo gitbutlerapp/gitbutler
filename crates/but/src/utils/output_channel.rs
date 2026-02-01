@@ -1,6 +1,8 @@
-use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
-use minus::ExitStrategy;
 use std::io::{IsTerminal, Write};
+
+use minus::ExitStrategy;
+
+use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
 /// Default value for a confirmation prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -109,8 +111,7 @@ impl OutputChannel {
     }
     /// Provide a write implementation for text output (human or shell), if the format setting permits.
     pub fn for_human_or_shell(&mut self) -> Option<&mut (dyn std::fmt::Write + 'static)> {
-        matches!(self.format, OutputFormat::Human | OutputFormat::Shell)
-            .then(|| self as &mut dyn std::fmt::Write)
+        matches!(self.format, OutputFormat::Human | OutputFormat::Shell).then(|| self as &mut dyn std::fmt::Write)
     }
     /// Provide a handle to receive a serde-serializable value to write to stdout.
     pub fn for_json(&mut self) -> Option<&mut Self> {
@@ -130,9 +131,7 @@ impl OutputChannel {
     ///
     /// Note that this is implied to be true if [Self::prepare_for_terminal_input()] returns `Some()`.
     pub fn can_prompt(&self) -> bool {
-        matches!(self.format, OutputFormat::Human)
-            && std::io::stdin().is_terminal()
-            && self.stdout.is_terminal()
+        matches!(self.format, OutputFormat::Human) && std::io::stdin().is_terminal() && self.stdout.is_terminal()
     }
 
     /// Before performing further output, obtain an input channel which always bypasses the pager when writing,
@@ -146,9 +145,7 @@ impl OutputChannel {
             return None;
         }
         if self.for_human().is_none() {
-            tracing::warn!(
-                "Stdin is a terminal, and output wasn't configured for human consumption"
-            );
+            tracing::warn!("Stdin is a terminal, and output wasn't configured for human consumption");
             return None;
         }
         Some(InputOutputChannel { out: self, stdin })
@@ -204,10 +201,7 @@ impl std::fmt::Write for InputOutputChannel<'_> {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         use std::io::Write;
         // bypass the pager, fail on broken pipes (we are prompting)
-        self.out
-            .stdout
-            .write_all(s.as_bytes())
-            .map_err(|_| std::fmt::Error)
+        self.out.stdout.write_all(s.as_bytes()).map_err(|_| std::fmt::Error)
     }
 }
 
@@ -250,11 +244,7 @@ impl InputOutputChannel<'_> {
     /// // Outputs:
     /// // Are you sure you want to do this? [Y/n]:
     /// ```
-    pub fn confirm(
-        &mut self,
-        prompt: impl AsRef<str>,
-        default: ConfirmDefault,
-    ) -> anyhow::Result<Confirm> {
+    pub fn confirm(&mut self, prompt: impl AsRef<str>, default: ConfirmDefault) -> anyhow::Result<Confirm> {
         use std::fmt::Write;
         let suffix = match default {
             ConfirmDefault::Yes => "[Y/n]",
@@ -290,10 +280,7 @@ impl InputOutputChannel<'_> {
     /// // Outputs:
     /// // Are you sure you want to do this? [y/n]:
     /// ```
-    pub fn confirm_no_default(
-        &mut self,
-        prompt: impl AsRef<str>,
-    ) -> anyhow::Result<ConfirmOrEmpty> {
+    pub fn confirm_no_default(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<ConfirmOrEmpty> {
         use std::fmt::Write;
         write!(self, "{} [y/n]: ", prompt.as_ref())?;
         std::io::Write::flush(&mut self.out.stdout)?;
@@ -332,10 +319,7 @@ impl OutputChannel {
         OutputChannel {
             format,
             stdout: std::io::stdout(),
-            pager: if !matches!(format, OutputFormat::Human)
-                || std::env::var_os("NOPAGER").is_some()
-                || !use_pager
-            {
+            pager: if !matches!(format, OutputFormat::Human) || std::env::var_os("NOPAGER").is_some() || !use_pager {
                 None
             } else {
                 let pager = minus::Pager::new();

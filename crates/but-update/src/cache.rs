@@ -63,9 +63,7 @@ pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option
     }
 
     // Check if suppression is active
-    if let (Some(suppressed_at), Some(duration_hours)) =
-        (cached.suppressed_at, cached.suppress_duration_hours)
-    {
+    if let (Some(suppressed_at), Some(duration_hours)) = (cached.suppressed_at, cached.suppress_duration_hours) {
         let now = Utc::now();
         let suppress_until = suppressed_at + chrono::Duration::hours(duration_hours as i64);
 
@@ -127,8 +125,5 @@ pub fn suppress_update(cache: &mut but_db::AppCacheHandle, hours: u32) -> anyhow
         );
     }
 
-    cache
-        .update_check_mut()?
-        .suppress(hours)
-        .map_err(Into::into)
+    cache.update_check_mut()?.suppress(hours).map_err(Into::into)
 }

@@ -73,9 +73,7 @@ pub(crate) mod function {
 
         let (source_tree_without_changes_id, dropped_diffs) = create_tree_without_diff(
             editor.repo(),
-            ChangesSource::Commit {
-                id: source_commit_id,
-            },
+            ChangesSource::Commit { id: source_commit_id },
             changes_to_move,
             context_lines,
         )?;
@@ -129,10 +127,7 @@ pub(crate) mod function {
 
         // Select the rebased destination commit (not the original ID) and replace
         let rebased_destination_selector = editor.select_commit(rebased_destination_id)?;
-        editor.replace(
-            rebased_destination_selector,
-            Step::new_pick(new_destination_commit_id),
-        )?;
+        editor.replace(rebased_destination_selector, Step::new_pick(new_destination_commit_id))?;
 
         let outcome = editor.rebase()?;
 

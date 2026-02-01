@@ -7,16 +7,18 @@ use but_core::{TreeStatus, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
-use but_workspace::ref_info::LocalCommitRelation;
-use but_workspace::ui::PushStatus;
+use but_workspace::{ref_info::LocalCommitRelation, ui::PushStatus};
 use colored::{ColoredString, Colorize};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
-use crate::id::{SegmentWithId, StackWithId, TreeChangeWithId};
-use crate::{CLI_DATE, utils::time::format_relative_time_verbose};
+use crate::{
+    CLI_DATE,
+    id::{SegmentWithId, StackWithId, TreeChangeWithId},
+    utils::time::format_relative_time_verbose,
+};
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
@@ -32,8 +34,7 @@ enum CommitClassification {
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::command::legacy::forge::review;
-use crate::{IdMap, utils::OutputChannel};
+use crate::{IdMap, command::legacy::forge::review, utils::OutputChannel};
 
 type StackDetail = (Option<StackWithId>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);
@@ -95,26 +96,22 @@ pub(crate) async fn worktree(
     }
 
     // Process rules with exclusive access to create repo and workspace
-    {
-        let guard = ctx.shared_worktree_access();
-        let repo = ctx.repo.get()?.clone();
-        let (_, workspace) = ctx.workspace_and_read_only_meta_from_head(guard.read_permission())?;
-        but_rules::process_rules(ctx, &repo, &workspace).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
-    }
+    let head_info = {
+        let mut guard = ctx.exclusive_worktree_access();
+        but_rules::process_rules(ctx, guard.write_permission()).ok(); // TODO: this is doing double work (hunk-dependencies can be reused)
 
-    let guard = ctx.shared_worktree_access();
-    let meta = ctx.meta(guard.read_permission())?;
-
-    // TODO: use this for JSON status information (regular status information
-    // already uses this)
-    let head_info = but_workspace::head_info(
-        &*ctx.repo.get()?,
-        &meta,
-        but_workspace::ref_info::Options {
-            expensive_commit_info: true,
-            ..Default::default()
-        },
-    )?;
+        // TODO: use this for JSON status information (regular status information
+        //       already uses this)
+        let meta = ctx.meta()?;
+        but_workspace::head_info(
+            &*ctx.repo.get()?,
+            &meta,
+            but_workspace::ref_info::Options {
+                expensive_commit_info: true,
+                ..Default::default()
+            },
+        )?
+    };
 
     let cache_config = if refresh_prs {
         but_forge::CacheConfig::NoCache
@@ -131,8 +128,7 @@ pub(crate) async fn worktree(
     // Store the count of stacks for hint logic later
     let has_branches = !stacks.is_empty();
 
-    let assignments_by_file: BTreeMap<BString, FileAssignment> =
-        FileAssignment::get_assignments_by_file(&id_map);
+    let assignments_by_file: BTreeMap<BString, FileAssignment> = FileAssignment::get_assignments_by_file(&id_map);
     let mut stack_details: Vec<StackEntry> = vec![];
 
     let unassigned = assignment::filter_by_stack_id(assignments_by_file.values(), &None);
@@ -160,10 +156,7 @@ pub(crate) async fn worktree(
             .chars()
             .take(50)
             .collect::<String>();
-        let formatted_date = base_commit_decoded
-            .committer()?
-            .time()?
-            .format_or_unix(DATE_ONLY);
+        let formatted_date = base_commit_decoded.committer()?.time()?.format_or_unix(DATE_ONLY);
         let author = base_commit_decoded.author()?;
         let common_merge_base_data = CommonMergeBase {
             target_name: target_name.clone(),
@@ -186,42 +179,33 @@ pub(crate) async fn worktree(
                     let state = if base_branch.behind > 0 {
                         // Get the latest commit on the upstream branch (current_sha is the tip of the remote branch)
                         let commit_id = base_branch.current_sha;
-                        repo.find_commit(commit_id.to_gix())
-                            .ok()
-                            .and_then(|commit_obj| {
-                                let commit = commit_obj.decode().ok()?;
-                                let commit_message = commit
-                                    .message
-                                    .to_string()
-                                    .replace('\n', " ")
-                                    .chars()
-                                    .take(30)
-                                    .collect::<String>();
+                        repo.find_commit(commit_id.to_gix()).ok().and_then(|commit_obj| {
+                            let commit = commit_obj.decode().ok()?;
+                            let commit_message = commit
+                                .message
+                                .to_string()
+                                .replace('\n', " ")
+                                .chars()
+                                .take(30)
+                                .collect::<String>();
 
-                                let formatted_date = commit
-                                    .committer()
-                                    .ok()?
-                                    .time()
-                                    .ok()?
-                                    .format_or_unix(DATE_ONLY);
+                            let formatted_date = commit.committer().ok()?.time().ok()?.format_or_unix(DATE_ONLY);
 
-                                let author = commit.author().ok()?;
+                            let author = commit.author().ok()?;
 
-                                Some(UpstreamState {
-                                    target_name: base_branch.branch_name.clone(),
-                                    behind_count: base_branch.behind,
-                                    latest_commit: commit_id.to_string()[..7].to_string(),
-                                    message: commit_message,
-                                    commit_date: formatted_date,
-                                    last_fetched_ms: last_fetched,
-                                    commit_id: commit_id.to_gix(),
-                                    created_at: commit.committer().ok()?.time().ok()?.seconds
-                                        as i128
-                                        * 1000,
-                                    author_name: author.name.to_string(),
-                                    author_email: author.email.to_string(),
-                                })
+                            Some(UpstreamState {
+                                target_name: base_branch.branch_name.clone(),
+                                behind_count: base_branch.behind,
+                                latest_commit: commit_id.to_string()[..7].to_string(),
+                                message: commit_message,
+                                commit_date: formatted_date,
+                                last_fetched_ms: last_fetched,
+                                commit_id: commit_id.to_gix(),
+                                created_at: commit.committer().ok()?.time().ok()?.seconds as i128 * 1000,
+                                author_name: author.name.to_string(),
+                                author_email: author.email.to_string(),
                             })
+                        })
                     } else {
                         None
                     };
@@ -230,20 +214,13 @@ pub(crate) async fn worktree(
                 .unwrap_or((None, None, None));
 
         // repo, base_commit, and base_commit_decoded are automatically dropped here at end of scope
-        (
-            common_merge_base_data,
-            upstream_state,
-            last_fetched_ms,
-            base_branch,
-        )
+        (common_merge_base_data, upstream_state, last_fetched_ms, base_branch)
     };
 
     // Compute upstream integration statuses if --upstream flag is set
     // We need to drop locks before computing merge statuses
     // because upstream_integration_statuses requires exclusive access
     let branch_merge_statuses: BTreeMap<String, UpstreamBranchStatus> = if show_upstream {
-        drop(guard);
-        drop(meta);
         compute_branch_merge_statuses(ctx).await?
     } else {
         BTreeMap::new()
@@ -364,11 +341,7 @@ pub(crate) async fn worktree(
                 }
                 let hidden_commits = base_branch.behind.saturating_sub(8);
                 if hidden_commits > 0 {
-                    writeln!(
-                        out,
-                        "┊    {}",
-                        format!("and {hidden_commits} more…").dimmed()
-                    )?;
+                    writeln!(out, "┊    {}", format!("and {hidden_commits} more…").dimmed())?;
                 }
             }
             writeln!(out, "┊┊")?;
@@ -387,11 +360,7 @@ pub(crate) async fn worktree(
     writeln!(
         out,
         "{} {} (common base) [{}] {} {}{}",
-        if upstream_state.is_some() {
-            "├╯"
-        } else {
-            "┴"
-        },
+        if upstream_state.is_some() { "├╯" } else { "┴" },
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
@@ -403,10 +372,7 @@ pub(crate) async fn worktree(
         }
     )?;
 
-    let not_on_workspace = matches!(
-        mode,
-        gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_)
-    );
+    let not_on_workspace = matches!(mode, gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_));
 
     if not_on_workspace {
         writeln!(
@@ -530,13 +496,7 @@ fn print_assignments(
             .map(|l| l.commit_id.to_string())
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
-            .map(|commit_id| {
-                format!(
-                    "{}{}",
-                    commit_id[..2].blue().underline(),
-                    commit_id[2..7].blue()
-                )
-            })
+            .map(|commit_id| format!("{}{}", commit_id[..2].blue().underline(), commit_id[2..7].blue()))
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -593,9 +553,7 @@ pub fn print_group(
 
             let review = segment
                 .branch_name()
-                .and_then(|branch_name| {
-                    review::from_branch_details(review_map, branch_name, segment.pr_number())
-                })
+                .and_then(|branch_name| review::from_branch_details(review_map, branch_name, segment.pr_number()))
                 .map(|r| format!(" {} ", r.display_cli(verbose)))
                 .unwrap_or_default();
 
@@ -660,8 +618,7 @@ pub fn print_group(
                 )?;
             }
             for commit in &segment.remote_commits {
-                let details =
-                    but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
+                let details = but_api::diff::commit_details(ctx, commit.commit_id(), ComputeLineStats::No)?;
                 print_commit(
                     commit.short_id.clone(),
                     &commit.inner,
@@ -678,11 +635,8 @@ pub fn print_group(
                 writeln!(out, "┊-")?;
             }
             for commit in segment.workspace_commits.iter() {
-                let marked = crate::command::legacy::mark::commit_marked(
-                    ctx,
-                    commit.commit_id().to_string(),
-                )
-                .unwrap_or_default();
+                let marked = crate::command::legacy::mark::commit_marked(ctx, commit.commit_id().to_string())
+                    .unwrap_or_default();
                 let classification = match commit.relation() {
                     LocalCommitRelation::LocalOnly => CommitClassification::LocalOnly,
                     LocalCommitRelation::LocalAndRemote(object_id) => {
@@ -925,10 +879,7 @@ fn display_cli_commit_details(
         )
     } else {
         let message = CommitMessage(commit.message.clone()).display_cli(verbose);
-        format!(
-            "{}{} {}{}{}",
-            start_id, end_id, message, no_changes, conflicted_str,
-        )
+        format!("{}{} {}{}{}", start_id, end_id, message, no_changes, conflicted_str,)
     }
 }
 
@@ -1045,11 +996,7 @@ impl CliDisplay for but_update::AvailableUpdate {
 
         if verbose {
             if let Some(url) = &self.url {
-                format!(
-                    "Update available: {} {}",
-                    version_info,
-                    url.underline().blue()
-                )
+                format!("Update available: {} {}", version_info, url.underline().blue())
             } else {
                 format!("Update available: {}", version_info)
             }
@@ -1063,15 +1010,11 @@ impl CliDisplay for but_update::AvailableUpdate {
     }
 }
 
-async fn compute_branch_merge_statuses(
-    ctx: &Context,
-) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
+async fn compute_branch_merge_statuses(ctx: &Context) -> anyhow::Result<BTreeMap<String, UpstreamBranchStatus>> {
     use gitbutler_branch_actions::upstream_integration::StackStatuses;
 
     // Get upstream integration statuses using the public API
-    let statuses =
-        but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None)
-            .await?;
+    let statuses = but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None).await?;
 
     let mut result = BTreeMap::new();
 

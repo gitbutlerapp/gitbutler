@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::{RepositoryExt, worktree::checkout::UncommitedWorktreeChanges};
-use but_ctx::access::WorktreeWritePermission;
+use but_ctx::access::RepoExclusive;
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use but_workspace::{
@@ -34,13 +34,7 @@ pub struct CreateBranchFromBranchOutcome {
 }
 
 impl From<(StackId, Vec<StackId>, Vec<String>)> for CreateBranchFromBranchOutcome {
-    fn from(
-        (stack_id, unapplied_stacks, unapplied_stacks_short_names): (
-            StackId,
-            Vec<StackId>,
-            Vec<String>,
-        ),
-    ) -> Self {
+    fn from((stack_id, unapplied_stacks, unapplied_stacks_short_names): (StackId, Vec<StackId>, Vec<String>)) -> Self {
         Self {
             stack_id,
             unapplied_stacks,
@@ -51,12 +45,8 @@ impl From<(StackId, Vec<StackId>, Vec<String>)> for CreateBranchFromBranchOutcom
 
 impl BranchManager<'_> {
     #[instrument(level = "debug", skip(self, perm), err(Debug))]
-    pub fn create_virtual_branch(
-        &self,
-        create: &BranchCreateRequest,
-        perm: &mut WorktreeWritePermission,
-    ) -> Result<Stack> {
-        let vb_state = self.ctx.legacy_project.virtual_branches();
+    pub fn create_virtual_branch(&self, create: &BranchCreateRequest, perm: &mut RepoExclusive) -> Result<Stack> {
+        let vb_state = self.ctx.virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut all_stacks = vb_state
@@ -65,10 +55,7 @@ impl BranchManager<'_> {
 
         let stack_names: Vec<String> = all_stacks.iter().map(|b| b.name()).collect();
         let stack_name_refs: Vec<&str> = stack_names.iter().map(|s| s.as_str()).collect();
-        let name = dedup(
-            &stack_name_refs,
-            create.name.as_ref().unwrap_or(&"Lane".to_string()),
-        );
+        let name = dedup(&stack_name_refs, create.name.as_ref().unwrap_or(&"Lane".to_string()));
 
         _ = self.ctx.snapshot_branch_creation(name.clone(), perm);
 
@@ -101,18 +88,15 @@ impl BranchManager<'_> {
         target: &Refname,
         upstream_branch: Option<RemoteRefname>,
         pr_number: Option<usize>,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
-        let branch_name = target
-            .branch()
-            .expect("always a branch reference")
-            .to_string();
+        let branch_name = target.branch().expect("always a branch reference").to_string();
         let _ = self.ctx.snapshot_branch_creation(branch_name.clone(), perm);
 
         // Assume that this is always about 'apply' and hijack the entire method.
         // That way we'd learn what's missing.
         if self.ctx.settings.feature_flags.apply3 {
-            #[allow(deprecated)] // should have no need for this in modern code anymore
+            #[expect(deprecated)] // should have no need for this in modern code anymore
             let (mut meta, ws) = self.ctx.workspace_and_meta_from_head(perm)?;
             let repo = self.ctx.repo.get()?;
 
@@ -125,8 +109,7 @@ impl BranchManager<'_> {
                 &mut meta,
                 but_workspace::branch::apply::Options {
                     workspace_merge: WorkspaceMerge::AlwaysMerge,
-                    on_workspace_conflict:
-                        OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
+                    on_workspace_conflict: OnWorkspaceMergeConflict::MaterializeAndReportConflictingStacks,
                     workspace_reference_naming: WorkspaceReferenceNaming::Default,
                     uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
                     order: None,
@@ -164,13 +147,7 @@ impl BranchManager<'_> {
             ));
         }
         let old_cwd = (!self.ctx.settings.feature_flags.cv3)
-            .then(|| {
-                self.ctx
-                    .git2_repo
-                    .get()?
-                    .create_wd_tree(0)
-                    .map(|tree| tree.id())
-            })
+            .then(|| self.ctx.git2_repo.get()?.create_wd_tree(0).map(|tree| tree.id()))
             .transpose()?;
         let old_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
         // only set upstream if it's not the default target
@@ -188,7 +165,7 @@ impl BranchManager<'_> {
             }
         };
 
-        let vb_state = self.ctx.legacy_project.virtual_branches();
+        let vb_state = self.ctx.virtual_branches();
 
         let default_target = vb_state.get_default_target()?;
 
@@ -199,17 +176,13 @@ impl BranchManager<'_> {
         }
 
         let repo = self.ctx.git2_repo.get()?;
-        let head_reference = repo
-            .find_reference(&target.to_string())
-            .map_err(|err| match err {
-                err if err.code() == git2::ErrorCode::NotFound => {
-                    anyhow!("branch {target} was not found")
-                }
-                err => err.into(),
-            })?;
-        let head_commit = head_reference
-            .peel_to_commit()
-            .context("failed to peel to commit")?;
+        let head_reference = repo.find_reference(&target.to_string()).map_err(|err| match err {
+            err if err.code() == git2::ErrorCode::NotFound => {
+                anyhow!("branch {target} was not found")
+            }
+            err => err.into(),
+        })?;
+        let head_commit = head_reference.peel_to_commit().context("failed to peel to commit")?;
 
         let order = vb_state.next_order_index()?;
 
@@ -262,13 +235,13 @@ impl BranchManager<'_> {
     fn apply_branch(
         &self,
         stack_id: StackId,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
         workspace_state: WorkspaceState,
         old_cwd: Option<git2::Oid>,
     ) -> Result<(String, Vec<StackId>)> {
         let repo = &*self.ctx.git2_repo.get()?;
 
-        let vb_state = self.ctx.legacy_project.virtual_branches();
+        let vb_state = self.ctx.virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
         let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
@@ -315,8 +288,7 @@ impl BranchManager<'_> {
                 {
                     unapplied_stacks.push(stack_to_unapply.id);
                     let safe_checkout = old_cwd.is_none();
-                    let res =
-                        self.unapply(stack_to_unapply.id, perm, false, Vec::new(), safe_checkout);
+                    let res = self.unapply(stack_to_unapply.id, perm, false, Vec::new(), safe_checkout);
                     if res.is_err() {
                         stack.in_workspace = false;
                         vb_state.set_stack(stack.clone())?;
@@ -328,14 +300,11 @@ impl BranchManager<'_> {
 
         // Do we need to rebase the branch on top of the default target?
         let gix_repo = self.ctx.repo.get()?;
-        let has_change_id = gix_repo
-            .find_commit(stack.head_oid(self.ctx)?)?
-            .change_id()
-            .is_some();
+        let has_change_id = gix_repo.find_commit(stack.head_oid(self.ctx)?)?.change_id().is_some();
         // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
         // This way stacking functionality which relies on change IDs will work as expected
         if merge_base != default_target.sha || !has_change_id {
-            let steps = stack.as_rebase_steps(self.ctx, &gix_repo)?;
+            let steps = stack.as_rebase_steps(self.ctx)?;
             let mut rebase = but_rebase::Rebase::new(&gix_repo, default_target.sha.to_gix(), None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(true);
@@ -352,14 +321,8 @@ impl BranchManager<'_> {
 
         // Permissions here might be wonky, just go with it though.
         let new_workspace = WorkspaceState::create(self.ctx, perm.read_permission())?;
-        let res = update_uncommitted_changes_with_tree(
-            self.ctx,
-            workspace_state,
-            new_workspace,
-            old_cwd,
-            Some(true),
-            perm,
-        );
+        let res =
+            update_uncommitted_changes_with_tree(self.ctx, workspace_state, new_workspace, old_cwd, Some(true), perm);
         if res.is_err() {
             stack.in_workspace = false;
             vb_state.set_stack(stack.clone())?;

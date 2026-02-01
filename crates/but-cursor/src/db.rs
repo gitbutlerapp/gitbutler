@@ -23,8 +23,8 @@ fn get_cursor_base_dir(nightly: bool) -> Result<std::path::PathBuf> {
 
     #[cfg(target_os = "windows")]
     {
-        let appdata = std::env::var("APPDATA")
-            .map_err(|_| anyhow::anyhow!("APPDATA environment variable not found"))?;
+        let appdata =
+            std::env::var("APPDATA").map_err(|_| anyhow::anyhow!("APPDATA environment variable not found"))?;
         Ok(std::path::PathBuf::from(appdata)
             .join(cursor_name)
             .join("User")
@@ -33,8 +33,7 @@ fn get_cursor_base_dir(nightly: bool) -> Result<std::path::PathBuf> {
 
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var("HOME")
-            .map_err(|_| anyhow::anyhow!("HOME environment variable not found"))?;
+        let home = std::env::var("HOME").map_err(|_| anyhow::anyhow!("HOME environment variable not found"))?;
         Ok(std::path::PathBuf::from(home)
             .join("Library")
             .join("Application Support")
@@ -51,10 +50,7 @@ fn get_cursor_base_dir(nightly: bool) -> Result<std::path::PathBuf> {
                 let home = std::env::var("HOME").unwrap_or_default();
                 std::path::PathBuf::from(home).join(".config")
             });
-        Ok(config_dir
-            .join(cursor_name)
-            .join("User")
-            .join("workspaceStorage"))
+        Ok(config_dir.join(cursor_name).join("User").join("workspaceStorage"))
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
@@ -73,8 +69,8 @@ fn get_cursor_db_path(repo_path: &Path, nightly: bool) -> Result<std::path::Path
 
 /// Parse the JSON value from the database into a Vec<Generation>
 fn parse_generations_json(json_str: &str) -> Result<Vec<Generation>> {
-    let generations: Vec<Generation> = serde_json::from_str(json_str)
-        .map_err(|e| anyhow::anyhow!("Failed to parse generations JSON: {}", e))?;
+    let generations: Vec<Generation> =
+        serde_json::from_str(json_str).map_err(|e| anyhow::anyhow!("Failed to parse generations JSON: {}", e))?;
     Ok(generations)
 }
 
@@ -97,13 +93,8 @@ pub fn get_generations(repo_path: &Path, nightly: bool) -> Result<Vec<Generation
         .query([&"aiService.generations"])
         .map_err(|e| anyhow::anyhow!("Database query failed: {}", e))?;
 
-    if let Some(row) = rows
-        .next()
-        .map_err(|e| anyhow::anyhow!("Failed to fetch row: {}", e))?
-    {
-        let value: String = row
-            .get(0)
-            .map_err(|e| anyhow::anyhow!("Failed to get value: {}", e))?;
+    if let Some(row) = rows.next().map_err(|e| anyhow::anyhow!("Failed to fetch row: {}", e))? {
+        let value: String = row.get(0).map_err(|e| anyhow::anyhow!("Failed to get value: {}", e))?;
         parse_generations_json(&value)
     } else {
         Ok(Vec::new()) // Key not found
@@ -121,19 +112,13 @@ mod tests {
         let path = result.unwrap();
 
         #[cfg(target_os = "macos")]
-        assert!(
-            path.to_string_lossy()
-                .contains("Library/Application Support/Cursor")
-        );
+        assert!(path.to_string_lossy().contains("Library/Application Support/Cursor"));
 
         #[cfg(target_os = "windows")]
         assert!(path.to_string_lossy().contains("\\Cursor\\"));
 
         #[cfg(target_os = "linux")]
-        assert!(
-            path.to_string_lossy().contains(".config/Cursor")
-                || path.to_string_lossy().contains("Cursor")
-        );
+        assert!(path.to_string_lossy().contains(".config/Cursor") || path.to_string_lossy().contains("Cursor"));
     }
 
     #[test]
@@ -163,10 +148,7 @@ mod tests {
         assert_eq!(generations.len(), 1);
 
         let generation = &generations[0];
-        assert_eq!(
-            generation.generation_uuid,
-            "ade2d936-9af0-457d-b16a-7293ec309f5f"
-        );
+        assert_eq!(generation.generation_uuid, "ade2d936-9af0-457d-b16a-7293ec309f5f");
         assert_eq!(generation.text_description, "Add Esteban 6");
         assert_eq!(generation.generation_type, "composer");
         assert_eq!(generation.unix_ms, 1758115352488);

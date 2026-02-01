@@ -5,8 +5,7 @@ use std::{
 
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_testsupport::{
-    gix_testtools::scripted_fixture_read_only, testing_repository::TestingRepository,
-    visualize_git2_tree,
+    gix_testtools::scripted_fixture_read_only, testing_repository::TestingRepository, visualize_git2_tree,
 };
 
 const MAX_SIZE: u64 = 20;
@@ -269,10 +268,7 @@ fn does_not_include_staged_but_deleted_files() -> anyhow::Result<()> {
 
 #[test]
 fn should_be_empty_after_checking_out_empty_tree() -> anyhow::Result<()> {
-    let test = TestingRepository::open_with_initial_commit(&[
-        ("file1.txt", "content1"),
-        ("file2.txt", "content2"),
-    ]);
+    let test = TestingRepository::open_with_initial_commit(&[("file1.txt", "content1"), ("file2.txt", "content2")]);
 
     // Checkout an empty tree
     {
@@ -298,10 +294,7 @@ fn should_be_empty_after_checking_out_empty_tree() -> anyhow::Result<()> {
 
 #[test]
 fn should_track_deleted_files() -> anyhow::Result<()> {
-    let test = TestingRepository::open_with_initial_commit(&[
-        ("file1.txt", "content1"),
-        ("file2.txt", "content2"),
-    ]);
+    let test = TestingRepository::open_with_initial_commit(&[("file1.txt", "content1"), ("file2.txt", "content2")]);
 
     // Make sure the index is empty, perhaps the user did this action
     let mut index: git2::Index = test.repository.index()?;
@@ -351,10 +344,8 @@ fn should_not_change_index() -> anyhow::Result<()> {
 
 #[test]
 fn tree_behavior() -> anyhow::Result<()> {
-    let test = TestingRepository::open_with_initial_commit(&[
-        ("dir1/file1.txt", "content1"),
-        ("dir2/file2.txt", "content2"),
-    ]);
+    let test =
+        TestingRepository::open_with_initial_commit(&[("dir1/file1.txt", "content1"), ("dir2/file2.txt", "content2")]);
 
     // Update a file in a directory
     std::fs::write(test.tempdir.path().join("dir1/file1.txt"), "new1")?;
@@ -417,10 +408,8 @@ fn links() -> anyhow::Result<()> {
 
 #[test]
 fn tracked_file_becomes_directory_in_worktree() -> anyhow::Result<()> {
-    let test = TestingRepository::open_with_initial_commit(&[(
-        "soon-directory",
-        "this tracked file becomes a directory",
-    )]);
+    let test =
+        TestingRepository::open_with_initial_commit(&[("soon-directory", "this tracked file becomes a directory")]);
     let worktree_path = test.tempdir.path().join("soon-directory");
     std::fs::remove_file(&worktree_path)?;
     std::fs::create_dir(&worktree_path)?;
@@ -459,12 +448,7 @@ fn non_files_are_ignored() -> anyhow::Result<()> {
     let test = TestingRepository::open_with_initial_commit(&[]);
 
     let fifo_path = test.tempdir.path().join("fifo");
-    assert!(
-        std::process::Command::new("mkfifo")
-            .arg(&fifo_path)
-            .status()?
-            .success()
-    );
+    assert!(std::process::Command::new("mkfifo").arg(&fifo_path).status()?.success());
 
     let tree: git2::Tree = test.repository.create_wd_tree(MAX_SIZE)?;
     assert_eq!(
@@ -482,12 +466,7 @@ fn tracked_file_swapped_with_non_file() -> anyhow::Result<()> {
 
     let fifo_path = test.tempdir.path().join("soon-fifo");
     std::fs::remove_file(&fifo_path)?;
-    assert!(
-        std::process::Command::new("mkfifo")
-            .arg(&fifo_path)
-            .status()?
-            .success()
-    );
+    assert!(std::process::Command::new("mkfifo").arg(&fifo_path).status()?.success());
 
     let tree: git2::Tree = test.repository.create_wd_tree(MAX_SIZE)?;
     assert_eq!(
@@ -500,10 +479,7 @@ fn tracked_file_swapped_with_non_file() -> anyhow::Result<()> {
 
 #[test]
 fn ignored_files() -> anyhow::Result<()> {
-    let test = TestingRepository::open_with_initial_commit(&[
-        ("tracked", "content"),
-        (".gitignore", "*.ignored"),
-    ]);
+    let test = TestingRepository::open_with_initial_commit(&[("tracked", "content"), (".gitignore", "*.ignored")]);
 
     let ignored_path = test.tempdir.path().join("I-am.ignored");
     std::fs::write(&ignored_path, "")?;
@@ -597,8 +573,7 @@ fn big_files_check_is_disabled_with_zero() -> anyhow::Result<()> {
 
 #[test]
 fn big_files_are_ignored_based_on_threshold_in_working_tree() -> anyhow::Result<()> {
-    let test =
-        TestingRepository::open_with_initial_commit(&[("soon-too-big", "still small enough")]);
+    let test = TestingRepository::open_with_initial_commit(&[("soon-too-big", "still small enough")]);
 
     let big_file_path = test.tempdir.path().join("soon-too-big");
     std::fs::write(&big_file_path, "a massive file above the threshold")?;
@@ -615,8 +590,7 @@ fn big_files_are_ignored_based_on_threshold_in_working_tree() -> anyhow::Result<
 
 #[test]
 fn big_files_are_fine_when_in_the_index() -> anyhow::Result<()> {
-    let test =
-        TestingRepository::open_with_initial_commit(&[("soon-too-big", "still small enough")]);
+    let test = TestingRepository::open_with_initial_commit(&[("soon-too-big", "still small enough")]);
 
     std::fs::write(
         test.tempdir.path().join("soon-too-big"),

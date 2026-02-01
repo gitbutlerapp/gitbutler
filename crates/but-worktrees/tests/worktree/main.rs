@@ -8,20 +8,16 @@ mod util {
         let (repo, tmpdir) = but_testsupport::writable_scenario(name);
         // TODO: all this should work without `Context` once it's switched to the new rebase engine,
         //       making this crate either obsolete or proper plumbing.
-        let ctx = Context::from_repo(repo)?;
+        let mut ctx = Context::from_repo(repo)?;
         // update the vb-toml metadata - trigger reconciliation and write the vb.toml according to what's there.
         {
-            let guard = ctx.shared_worktree_access();
-            let meta = ctx.legacy_meta(guard.read_permission())?;
+            let _guard = ctx.exclusive_worktree_access();
+            let meta = ctx.legacy_meta()?;
             meta.write_reconciled(&*ctx.repo.get()?)?;
         }
         let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
-        Ok(TestContext {
-            ctx,
-            handle,
-            tmpdir,
-        })
+        Ok(TestContext { ctx, handle, tmpdir })
     }
 
     #[allow(unused)]

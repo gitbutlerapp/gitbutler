@@ -5,7 +5,7 @@ use gitbutler_testsupport::stack_details;
 use super::*;
 #[test]
 fn no_conflicts() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     {
         // create a remote branch
@@ -17,12 +17,14 @@ fn no_conflicts() {
         repo.checkout(&"refs/heads/master".parse().unwrap());
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let stacks = stack_details(ctx);
     assert!(stacks.is_empty());
@@ -45,7 +47,7 @@ fn no_conflicts() {
 
 #[test]
 fn conflicts_with_uncommited() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     {
         // create a remote branch
@@ -57,21 +59,24 @@ fn conflicts_with_uncommited() {
         repo.checkout(&"refs/heads/master".parse().unwrap());
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // create a local branch that conflicts with remote
     {
         std::fs::write(repo.path().join("file.txt"), "conflict").unwrap();
 
+        let mut guard = ctx.exclusive_worktree_access();
         let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest::default(),
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
         let stacks = stack_details(ctx);
@@ -88,16 +93,13 @@ fn conflicts_with_uncommited() {
     )
     .map(|o| o.0)
     .unwrap();
-    let (_, b) = stack_details(ctx)
-        .into_iter()
-        .find(|d| d.0 == new_branch_id)
-        .unwrap();
+    let (_, b) = stack_details(ctx).into_iter().find(|d| d.0 == new_branch_id).unwrap();
     assert_eq!(b.branch_details[0].commits.len(), 1);
 }
 
 #[test]
 fn conflicts_with_commited() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     {
         // create a remote branch
@@ -109,23 +111,27 @@ fn conflicts_with_commited() {
         repo.checkout(&"refs/heads/master".parse().unwrap());
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // create a local branch that conflicts with remote
     {
         std::fs::write(repo.path().join("file.txt"), "conflict").unwrap();
 
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest::default(),
-            ctx.exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 1);
 
@@ -142,23 +148,22 @@ fn conflicts_with_commited() {
     )
     .map(|o| o.0)
     .unwrap();
-    let (_, b) = stack_details(ctx)
-        .into_iter()
-        .find(|d| d.0 == new_branch_id)
-        .unwrap();
+    let (_, b) = stack_details(ctx).into_iter().find(|d| d.0 == new_branch_id).unwrap();
     assert_eq!(b.branch_details[0].commits.len(), 1);
 }
 
 #[test]
 fn from_default_target() {
-    let Test { ctx, .. } = &Test::default();
+    let Test { ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // branch should be created unapplied, because of the conflict
 
@@ -177,14 +182,16 @@ fn from_default_target() {
 
 #[test]
 fn from_non_existent_branch() {
-    let Test { ctx, .. } = &Test::default();
+    let Test { ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // branch should be created unapplied, because of the conflict
 
@@ -203,7 +210,7 @@ fn from_non_existent_branch() {
 
 #[test]
 fn from_state_remote_branch() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     {
         // create a remote branch
@@ -220,12 +227,14 @@ fn from_state_remote_branch() {
         repo.push();
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let _ = gitbutler_branch_actions::create_virtual_branch_from_branch(
         ctx,
@@ -238,8 +247,5 @@ fn from_state_remote_branch() {
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
     assert_eq!(stacks[0].1.branch_details[0].commits.len(), 1);
-    assert_eq!(
-        stacks[0].1.branch_details[0].commits[0].message,
-        "branch commit"
-    );
+    assert_eq!(stacks[0].1.branch_details[0].commits[0].message, "branch commit");
 }

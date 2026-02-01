@@ -52,11 +52,7 @@ pub(crate) struct ReceiveResult {
 }
 
 impl HunkRange {
-    pub(crate) fn receive(
-        mut self,
-        incoming_start: u32,
-        incoming_lines: u32,
-    ) -> Result<ReceiveResult> {
+    pub(crate) fn receive(mut self, incoming_start: u32, incoming_lines: u32) -> Result<ReceiveResult> {
         let (incoming_top, incoming_bottom) = get_top_bottom(incoming_start, incoming_lines)?;
         let (self_top, self_bottom) = get_top_bottom(self.start, self.lines)?;
         let self_lines = self.lines;
@@ -97,9 +93,7 @@ impl HunkRange {
             // Calculate how many lines to deduct from self's line shift (and
             // add to incoming's line shift).
             fn get_lines(hunk_range_option: &Option<HunkRange>) -> u32 {
-                hunk_range_option
-                    .as_ref()
-                    .map_or(0, |hunk_range| hunk_range.lines)
+                hunk_range_option.as_ref().map_or(0, |hunk_range| hunk_range.lines)
             }
             let self_lines_after_trimming = get_lines(&above) + get_lines(&below);
             let Some(lines_to_deduct) = self_lines.checked_sub(self_lines_after_trimming) else {

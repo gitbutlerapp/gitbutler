@@ -8,8 +8,7 @@ pub fn commit_message(
     external_prompt: &str,
     diff: &str,
 ) -> anyhow::Result<String> {
-    let system_message =
-        "You are a version control assistant that helps with Git branch committing.".to_string();
+    let system_message = "You are a version control assistant that helps with Git branch committing.".to_string();
     let user_message = format!(
         r#"Extract the git commit data from the prompt, summary and diff output.
 Return the commit message. Determine from this AI prompt, summary and diff output what the git commit data should be.
@@ -50,8 +49,7 @@ pub fn branch_name(
     diffs: &[String],
     existing_branch_names: &[String],
 ) -> anyhow::Result<String> {
-    let system_message =
-        "You are a version control assistant that helps with Git branch naming.".to_string();
+    let system_message = "You are a version control assistant that helps with Git branch naming.".to_string();
     let user_message = format!(
         "Generate a concise and descriptive branch name based on the provided commit messages.
         Keep the branch name short, ideally under 50 characters. Only user lowercase letters, numbers, and hyphens.
@@ -84,11 +82,7 @@ pub fn branch_name(
 
     let chat_messages = vec![ChatMessage::User(user_message)];
     let response = llm
-        .structured_output::<GenerateBranchNameOutput>(
-            &system_message,
-            chat_messages,
-            "gpt-5-mini",
-        )?
+        .structured_output::<GenerateBranchNameOutput>(&system_message, chat_messages, "gpt-5-mini")?
         .context("Failed to generate structured content for commit message")?;
 
     Ok(response.branch_name)

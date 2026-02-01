@@ -469,10 +469,7 @@ pub enum OnWorkspaceMergeConflict {
 impl OnWorkspaceMergeConflict {
     /// Return `true` if we are supposed to abort on merge conflict.
     pub fn should_abort(&self) -> bool {
-        matches!(
-            self,
-            OnWorkspaceMergeConflict::AbortAndReportConflictingStacks
-        )
+        matches!(self, OnWorkspaceMergeConflict::AbortAndReportConflictingStacks)
     }
 }
 

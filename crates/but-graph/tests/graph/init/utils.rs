@@ -6,38 +6,24 @@ use but_meta::{
 
 pub fn read_only_in_memory_scenario(
     name: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-)> {
+) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
     named_read_only_in_memory_scenario("scenarios", name)
 }
 
 pub fn named_read_only_in_memory_scenario(
     script: &str,
     name: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-)> {
+) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        repo.path()
-            .join(".git")
-            .join("should-never-be-written.toml"),
-    )?;
+    let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
     Ok((repo, std::mem::ManuallyDrop::new(meta)))
 }
 
 /// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
-pub fn read_only_in_memory_scenario_named(
-    script_name: &str,
-    dirname: &str,
-) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only(format!("{script_name}.sh"))
-        .map_err(anyhow::Error::from_boxed)?;
-    let repo =
-        gix::open_opts(root.join(dirname), gix::open::Options::isolated())?.with_object_memory();
+pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> anyhow::Result<gix::Repository> {
+    let root =
+        gix_testtools::scripted_fixture_read_only(format!("{script_name}.sh")).map_err(anyhow::Error::from_boxed)?;
+    let repo = gix::open_opts(root.join(dirname), gix::open::Options::isolated())?.with_object_memory();
     Ok(repo)
 }
 
@@ -55,21 +41,14 @@ pub fn add_workspace(meta: &mut VirtualBranchesTomlMetadata) {
     );
 }
 
-pub fn add_workspace_with_target(
-    meta: &mut VirtualBranchesTomlMetadata,
-    target_commit: impl Into<gix::ObjectId>,
-) {
+pub fn add_workspace_with_target(meta: &mut VirtualBranchesTomlMetadata, target_commit: impl Into<gix::ObjectId>) {
     add_stack(
         meta,
         usize::MAX,
         "definitely-outside-of-the-workspace-just-to-have-it",
         StackState::Inactive,
     );
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("set in prior call")
-        .sha = target_commit.into();
+    meta.data_mut().default_target.as_mut().expect("set in prior call").sha = target_commit.into();
 }
 
 pub fn remove_target(meta: &mut VirtualBranchesTomlMetadata) {
@@ -110,9 +89,7 @@ pub fn add_stack_with_segments(
         segments
             .iter()
             .rev()
-            .map(|stack_name| {
-                StackBranch::new_with_zero_head((*stack_name).into(), None, None, false)
-            })
+            .map(|stack_name| StackBranch::new_with_zero_head((*stack_name).into(), None, None, false))
             .chain(std::iter::once(StackBranch::new_with_zero_head(
                 stack_name.into(),
                 None,
@@ -153,10 +130,7 @@ pub fn standard_options() -> but_graph::init::Options {
     }
 }
 
-pub fn standard_options_with_extra_target(
-    repo: &gix::Repository,
-    name: &str,
-) -> but_graph::init::Options {
+pub fn standard_options_with_extra_target(repo: &gix::Repository, name: &str) -> but_graph::init::Options {
     but_graph::init::Options {
         extra_target_commit_id: Some(repo.rev_parse_single(name).expect("present").detach()),
         ..standard_options()

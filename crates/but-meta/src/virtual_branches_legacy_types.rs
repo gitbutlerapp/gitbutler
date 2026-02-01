@@ -74,17 +74,11 @@ mod stack {
         #[serde(default = "default_null_object_id")]
         pub tree: gix::ObjectId,
         #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
-        #[serde(
-            serialize_with = "serialize_u128",
-            deserialize_with = "deserialize_u128"
-        )]
+        #[serde(serialize_with = "serialize_u128", deserialize_with = "deserialize_u128")]
         #[serde(default)]
         pub created_timestamp_ms: u128,
         #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
-        #[serde(
-            serialize_with = "serialize_u128",
-            deserialize_with = "deserialize_u128"
-        )]
+        #[serde(serialize_with = "serialize_u128", deserialize_with = "deserialize_u128")]
         #[serde(default)]
         pub updated_timestamp_ms: u128,
         #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
@@ -135,11 +129,7 @@ mod stack {
     }
 
     impl Stack {
-        pub fn new_with_just_heads(
-            heads: Vec<StackBranch>,
-            order: usize,
-            in_workspace: bool,
-        ) -> Self {
+        pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
             Stack {
                 id: StackId::generate(),
                 order,
@@ -154,23 +144,23 @@ mod stack {
                 // unclear, obsolete
 
                 // For serialization backwards compatibility
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 notes: String::new(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 ownership: BranchOwnershipClaims::default(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 allow_rebasing: true,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 post_commits: false,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 tree: gix::hash::Kind::Sha1.null(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 created_timestamp_ms: 0,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 updated_timestamp_ms: 0,
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 name: String::default(),
-                #[allow(deprecated)]
+                #[expect(deprecated)]
                 head: gix::hash::Kind::Sha1.null(),
             }
         }
@@ -222,8 +212,9 @@ mod stack {
     /// This deserializes the old enum format but stores it as a gix::ObjectId.
     /// If a ChangeId is encountered during deserialization, it returns a null ObjectId.
     mod commit_id_serde {
-        use serde::{Deserialize, Deserializer, Serialize, Serializer};
         use std::str::FromStr;
+
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
         #[derive(Deserialize)]
         enum CommitOrChangeIdHelper {
@@ -248,9 +239,7 @@ mod stack {
             D: Deserializer<'de>,
         {
             match CommitOrChangeIdHelper::deserialize(deserializer)? {
-                CommitOrChangeIdHelper::CommitId(id) => {
-                    gix::ObjectId::from_str(&id).map_err(serde::de::Error::custom)
-                }
+                CommitOrChangeIdHelper::CommitId(id) => gix::ObjectId::from_str(&id).map_err(serde::de::Error::custom),
                 CommitOrChangeIdHelper::ChangeId(_) => {
                     // To find the commit id from a change ID, it would require to scan all applicable commits.
                     // Change IDs are deprecated anyway, so we return null here. For the most part, the app will use the reference anyways.
@@ -327,11 +316,7 @@ mod stack {
             let mut file_path_parts = vec![];
             let mut ranges = vec![];
             for part in value.split(':').rev() {
-                match part
-                    .split(',')
-                    .map(str::parse)
-                    .collect::<anyhow::Result<Vec<Hunk>>>()
-                {
+                match part.split(',').map(str::parse).collect::<anyhow::Result<Vec<Hunk>>>() {
                     Ok(rr) => ranges.extend(rr),
                     Err(_) => {
                         file_path_parts.insert(0, part);
@@ -516,8 +501,7 @@ mod target {
                 sha: String,
             }
             let target_data: TargetData = serde::Deserialize::deserialize(d)?;
-            let sha = gix::ObjectId::from_str(&target_data.sha)
-                .map_err(|x| serde::de::Error::custom(x.to_string()))?;
+            let sha = gix::ObjectId::from_str(&target_data.sha).map_err(|x| serde::de::Error::custom(x.to_string()))?;
 
             let target = Target {
                 branch: RemoteRefname::new(&target_data.remote_name, &target_data.branch_name),

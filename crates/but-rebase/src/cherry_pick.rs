@@ -63,9 +63,7 @@ pub(crate) mod function {
         if commit_to_rebase.parents.len() > 1 {
             bail!("Cannot yet cherry-pick merge-commits - use rebasing for that")
         }
-        if matches!(pick_mode, PickMode::SkipIfNoop)
-            && commit_to_rebase.parents.contains(&base.id.detach())
-        {
+        if matches!(pick_mode, PickMode::SkipIfNoop) && commit_to_rebase.parents.contains(&base.id.detach()) {
             return Ok(commit_to_rebase.id);
         };
 
@@ -80,14 +78,9 @@ pub(crate) mod function {
         }
     }
 
-    fn set_parent(
-        to_rebase: &mut gix::objs::Commit,
-        new_parent: gix::ObjectId,
-    ) -> anyhow::Result<()> {
+    fn set_parent(to_rebase: &mut gix::objs::Commit, new_parent: gix::ObjectId) -> anyhow::Result<()> {
         if to_rebase.parents.len() > 1 {
-            bail!(
-                "Cherry picks can only be done for single-parent commits. Merge-commits need to be re-merged"
-            )
+            bail!("Cherry picks can only be done for single-parent commits. Merge-commits need to be re-merged")
         }
         to_rebase.parents.clear();
         to_rebase.parents.push(new_parent);
@@ -138,10 +131,7 @@ pub(crate) mod function {
         Ok((base, ours, theirs))
     }
 
-    fn find_real_tree<'repo>(
-        commit: &but_core::Commit<'repo>,
-        side: TreeKind,
-    ) -> anyhow::Result<gix::Id<'repo>> {
+    fn find_real_tree<'repo>(commit: &but_core::Commit<'repo>, side: TreeKind) -> anyhow::Result<gix::Id<'repo>> {
         Ok(if commit.is_conflicted() {
             let tree = commit.id.repo.find_tree(commit.tree)?;
             let conflicted_side = tree
@@ -161,9 +151,7 @@ pub(crate) mod function {
     ) -> anyhow::Result<gix::Id<'repo>> {
         let repo = head.id.repo;
         // Remove empty commits
-        if matches!(empty_commit, EmptyCommit::UsePrevious)
-            && resolved_tree_id == head.tree_id_or_auto_resolution()?
-        {
+        if matches!(empty_commit, EmptyCommit::UsePrevious) && resolved_tree_id == head.tree_id_or_auto_resolution()? {
             return Ok(head.id);
         }
 
@@ -174,10 +162,7 @@ pub(crate) mod function {
 
         // Assure the commit isn't thinking it's conflicted.
         if to_rebase_is_conflicted {
-            if let Some(pos) = new_commit
-                .extra_headers()
-                .find_pos(HEADERS_CONFLICTED_FIELD)
-            {
+            if let Some(pos) = new_commit.extra_headers().find_pos(HEADERS_CONFLICTED_FIELD) {
                 new_commit.extra_headers.remove(pos);
             }
         } else if headers.is_none() {
@@ -188,10 +173,7 @@ pub(crate) mod function {
                 )));
         }
         set_parent(&mut new_commit, head.id.detach())?;
-        Ok(
-            crate::commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?
-                .attach(repo),
-        )
+        Ok(crate::commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?.attach(repo))
     }
 
     fn commit_from_conflicted_tree<'repo>(
@@ -207,8 +189,7 @@ pub(crate) mod function {
             b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
         let readme_blob = repo.write_blob(readme_content)?;
 
-        let conflicted_files =
-            extract_conflicted_files(resolved_tree_id, cherry_pick, treat_as_unresolved)?;
+        let conflicted_files = extract_conflicted_files(resolved_tree_id, cherry_pick, treat_as_unresolved)?;
 
         // convert files into a string and save as a blob
         let conflicted_files_string = toml::to_string(&conflicted_files)?;
@@ -217,23 +198,10 @@ pub(crate) mod function {
         let mut tree = repo.empty_tree().edit()?;
 
         // save the state of the conflict, so we can recreate it later
-        let (base_tree_id, ours_tree_id, theirs_tree_id) =
-            find_cherry_pick_trees(&head, &to_rebase)?;
-        tree.upsert(
-            TreeKind::Ours.as_tree_entry_name(),
-            EntryKind::Tree,
-            ours_tree_id,
-        )?;
-        tree.upsert(
-            TreeKind::Theirs.as_tree_entry_name(),
-            EntryKind::Tree,
-            theirs_tree_id,
-        )?;
-        tree.upsert(
-            TreeKind::Base.as_tree_entry_name(),
-            EntryKind::Tree,
-            base_tree_id,
-        )?;
+        let (base_tree_id, ours_tree_id, theirs_tree_id) = find_cherry_pick_trees(&head, &to_rebase)?;
+        tree.upsert(TreeKind::Ours.as_tree_entry_name(), EntryKind::Tree, ours_tree_id)?;
+        tree.upsert(TreeKind::Theirs.as_tree_entry_name(), EntryKind::Tree, theirs_tree_id)?;
+        tree.upsert(TreeKind::Base.as_tree_entry_name(), EntryKind::Tree, base_tree_id)?;
         tree.upsert(
             TreeKind::AutoResolution.as_tree_entry_name(),
             EntryKind::Tree,
@@ -250,13 +218,7 @@ pub(crate) mod function {
         set_parent(&mut to_rebase, head.id.detach())?;
 
         to_rebase.set_headers(&headers);
-        Ok(crate::commit::create(
-            repo,
-            to_rebase.inner,
-            DateMode::CommitterUpdateAuthorKeep,
-            true,
-        )?
-        .attach(repo))
+        Ok(crate::commit::create(repo, to_rebase.inner, DateMode::CommitterUpdateAuthorKeep, true)?.attach(repo))
     }
 
     fn extract_conflicted_files(
@@ -272,8 +234,7 @@ pub(crate) mod function {
             treat_as_unresolved,
             gix::merge::tree::apply_index_entries::RemovalMode::Mark,
         );
-        let (mut ancestor_entries, mut our_entries, mut their_entries) =
-            (Vec::new(), Vec::new(), Vec::new());
+        let (mut ancestor_entries, mut our_entries, mut their_entries) = (Vec::new(), Vec::new(), Vec::new());
         for entry in index.entries() {
             let stage = entry.stage();
             let storage = match stage {
@@ -335,9 +296,7 @@ pub(crate) mod function {
 
     impl ConflictEntries {
         pub(crate) fn has_entries(&self) -> bool {
-            !self.ancestor_entries.is_empty()
-                || !self.our_entries.is_empty()
-                || !self.their_entries.is_empty()
+            !self.ancestor_entries.is_empty() || !self.our_entries.is_empty() || !self.their_entries.is_empty()
         }
 
         fn total_entries(&self) -> usize {

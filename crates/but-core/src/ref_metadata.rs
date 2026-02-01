@@ -59,10 +59,7 @@ impl std::fmt::Debug for Workspace {
         f.debug_struct("Workspace")
             .field("ref_info", ref_info)
             .field("stacks", stacks)
-            .field(
-                "target_ref",
-                &MaybeDebug(&target_ref.as_ref().map(|rn| rn.as_bstr())),
-            )
+            .field("target_ref", &MaybeDebug(&target_ref.as_ref().map(|rn| rn.as_bstr())))
             .field("target_commit_id", &MaybeDebug(target_commit_id))
             .field("push_remote", &MaybeDebug(push_remote))
             .finish()
@@ -75,8 +72,7 @@ impl Workspace {
     /// of that name.
     /// Returns `true` if it was removed or `false` if it wasn't found.
     pub fn remove_segment(&mut self, branch: &FullNameRef) -> bool {
-        let Some((stack_idx, segment_idx)) =
-            self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
+        let Some((stack_idx, segment_idx)) = self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
         else {
             return false;
         };
@@ -108,9 +104,7 @@ impl Workspace {
         relation: WorkspaceCommitRelation,
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
     ) -> (usize, usize) {
-        if let Some(owners) =
-            self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied)
-        {
+        if let Some(owners) = self.find_owner_indexes_by_name(branch, StackKind::AppliedAndUnapplied) {
             return owners;
         };
 
@@ -147,8 +141,7 @@ impl Workspace {
         if self.contains_ref(branch, StackKind::AppliedAndUnapplied) {
             return Some(false);
         };
-        let (stack_idx, segment_idx) =
-            self.find_owner_indexes_by_name(anchor, StackKind::AppliedAndUnapplied)?;
+        let (stack_idx, segment_idx) = self.find_owner_indexes_by_name(anchor, StackKind::AppliedAndUnapplied)?;
         self.stacks[stack_idx].branches.insert(
             segment_idx,
             WorkspaceStackBranch {
@@ -198,8 +191,7 @@ impl Workspace {
     /// Return the names of the tips of all stacks in the workspace.
     /// Use `kind` for filtering.
     pub fn stack_names(&self, kind: StackKind) -> impl Iterator<Item = &gix::refs::FullNameRef> {
-        self.stacks(kind)
-            .filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
+        self.stacks(kind).filter_map(|s| s.ref_name().map(|rn| rn.as_ref()))
     }
 
     /// Return `true` if the branch with `name` is the workspace target or the targets local tracking branch,
@@ -239,32 +231,20 @@ impl Workspace {
         name: &gix::refs::FullNameRef,
         kind: StackKind,
     ) -> Option<&mut WorkspaceStackBranch> {
-        self.stacks_mut(kind).find_map(|stack| {
-            stack
-                .branches
-                .iter_mut()
-                .find(|b| b.ref_name.as_ref() == name)
-        })
+        self.stacks_mut(kind)
+            .find_map(|stack| stack.branches.iter_mut().find(|b| b.ref_name.as_ref() == name))
     }
 
     /// Find a given `name` within our stack branches and return it.
     /// Use `kind` for filtering.
-    pub fn find_branch(
-        &self,
-        name: &gix::refs::FullNameRef,
-        kind: StackKind,
-    ) -> Option<&WorkspaceStackBranch> {
+    pub fn find_branch(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> Option<&WorkspaceStackBranch> {
         self.stacks(kind)
             .find_map(|stack| stack.branches.iter().find(|b| b.ref_name.as_ref() == name))
     }
 
     /// Find a given `name` within our stack branches and return the stack itself.
     /// Use `kind` for filtering.
-    pub fn find_stack_with_branch(
-        &self,
-        name: &gix::refs::FullNameRef,
-        kind: StackKind,
-    ) -> Option<&WorkspaceStack> {
+    pub fn find_stack_with_branch(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> Option<&WorkspaceStack> {
         self.stacks(kind).find_map(|stack| {
             stack
                 .branches
@@ -276,18 +256,14 @@ impl Workspace {
     /// Find the `(stack_idx, branch_idx)` of `name` within our applied stack branches and return it,
     /// for direct access like `ws.stacks[stack_idx].branches[branch_idx]`.
     /// Use `kind` for filtering.
-    pub fn find_owner_indexes_by_name(
-        &self,
-        name: &gix::refs::FullNameRef,
-        kind: StackKind,
-    ) -> Option<(usize, usize)> {
-        self.stacks(kind)
-            .enumerate()
-            .find_map(|(stack_idx, stack)| {
-                stack.branches.iter().enumerate().find_map(|(seg_idx, b)| {
-                    (b.ref_name.as_ref() == name).then_some((stack_idx, seg_idx))
-                })
-            })
+    pub fn find_owner_indexes_by_name(&self, name: &gix::refs::FullNameRef, kind: StackKind) -> Option<(usize, usize)> {
+        self.stacks(kind).enumerate().find_map(|(stack_idx, stack)| {
+            stack
+                .branches
+                .iter()
+                .enumerate()
+                .find_map(|(seg_idx, b)| (b.ref_name.as_ref() == name).then_some((stack_idx, seg_idx)))
+        })
     }
 }
 
@@ -295,10 +271,7 @@ impl Workspace {
 #[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/refMetadata/index.ts"))]
 pub struct Branch {
     /// Standard data we want to know about any ref.
     pub ref_info: RefInfo,
@@ -320,23 +293,13 @@ impl Branch {
 
 impl std::fmt::Debug for Branch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        const DEFAULT_IN_TESTSUITE: gix::date::Time = gix::date::Time {
-            seconds: 0,
-            offset: 0,
-        };
+        const DEFAULT_IN_TESTSUITE: gix::date::Time = gix::date::Time { seconds: 0, offset: 0 };
         let mut d = f.debug_struct("Branch");
-        if self
-            .ref_info
-            .created_at
-            .is_some_and(|t| t != DEFAULT_IN_TESTSUITE)
-            || self
-                .ref_info
-                .updated_at
-                .is_some_and(|t| t != DEFAULT_IN_TESTSUITE)
+        if self.ref_info.created_at.is_some_and(|t| t != DEFAULT_IN_TESTSUITE)
+            || self.ref_info.updated_at.is_some_and(|t| t != DEFAULT_IN_TESTSUITE)
             || self.review.pull_request.is_some()
         {
-            d.field("ref_info", &self.ref_info)
-                .field("review", &self.review);
+            d.field("ref_info", &self.ref_info).field("review", &self.review);
         }
         d.finish()
     }
@@ -361,10 +324,7 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 #[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/refMetadata/index.ts"))]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
     #[cfg_attr(feature = "export-ts", ts(type = "number | null"))]
@@ -526,10 +486,7 @@ impl WorkspaceStack {
 #[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./core/refMetadata/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/refMetadata/index.ts"))]
 pub struct Review {
     /// The number for the PR that was associated with this branch.
     pub pull_request: Option<usize>,

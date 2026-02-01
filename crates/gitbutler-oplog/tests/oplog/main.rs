@@ -79,10 +79,7 @@ mod operation_kind {
         assert_eq!(details.version, Version::default());
         assert_eq!(details.operation, OperationKind::Unknown);
         assert_eq!(details.title, "Create a new snapshot");
-        assert_eq!(
-            details.body,
-            Some("Body text 1\nBody text2\n\nBody text 3".to_string())
-        );
+        assert_eq!(details.body, Some("Body text 1\nBody text2\n\nBody text 3".to_string()));
         assert_eq!(
             details.trailers,
             vec![Trailer {
@@ -117,10 +114,7 @@ mod snapshot_details {
         assert_eq!(details.version, Version::default());
         assert_eq!(details.operation, OperationKind::CreateCommit);
         assert_eq!(details.title, "Create a new snapshot");
-        assert_eq!(
-            details.body,
-            Some("Body text 1\nBody text2\n\nBody text 3".to_string())
-        );
+        assert_eq!(details.body, Some("Body text 1\nBody text2\n\nBody text 3".to_string()));
         assert_eq!(
             details.trailers,
             vec![Trailer {
@@ -139,10 +133,7 @@ mod snapshot_details {
         });
         let serialized = snapshot_details.to_string();
         let deserialized = SnapshotDetails::from_str(&serialized).unwrap();
-        assert_eq!(
-            deserialized, snapshot_details,
-            "this works because newlines are quoted"
-        )
+        assert_eq!(deserialized, snapshot_details, "this works because newlines are quoted")
     }
 
     #[test]

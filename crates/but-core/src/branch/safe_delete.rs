@@ -1,23 +1,16 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::path::PathBuf;
 
-type WorktreePathByRef = BTreeMap<gix::refs::FullName, Vec<PathBuf>>;
-
-/// State for reuse when [safely deleting references](SafeDelete::delete_reference).
-#[derive(Debug)]
-pub struct SafeDelete {
-    /// A mapping of one or more worktree paths that are affected by changes to the keyed reference name.
-    worktrees_by_ref: WorktreePathByRef,
-}
+use crate::branch::SafeDelete;
 
 /// The outcome of [`SafeDelete::delete_reference()`]
 #[derive(Debug, Clone)]
-pub struct SafeDeleteOutcome<'parent> {
+pub struct Outcome<'parent> {
     /// The paths to the worktrees that have the to-be-deleted reference checked out,
     /// which is why the reference wasn't actually deleted.
     pub checked_out_in_worktree_dirs: Option<&'parent [PathBuf]>,
 }
 
-impl SafeDeleteOutcome<'_> {
+impl Outcome<'_> {
     /// Return `true` if the reference was deleted.
     pub fn was_deleted(&self) -> bool {
         self.checked_out_in_worktree_dirs.is_none()
@@ -37,7 +30,7 @@ impl SafeDelete {
 impl SafeDelete {
     /// Delete the reference `rn` if no `HEAD` in any worktree points to `rn` directly or indirectly.
     /// Return an outcome to indicate if it was deleted or not.
-    pub fn delete_reference(&self, rn: &gix::Reference) -> anyhow::Result<SafeDeleteOutcome<'_>> {
+    pub fn delete_reference(&self, rn: &gix::Reference) -> anyhow::Result<Outcome<'_>> {
         let out = if let Some(paths) = self.worktrees_by_ref.get(&rn.inner.name) {
             Some(paths.as_slice())
         } else {
@@ -45,7 +38,7 @@ impl SafeDelete {
             None
         };
 
-        Ok(SafeDeleteOutcome {
+        Ok(Outcome {
             checked_out_in_worktree_dirs: out,
         })
     }

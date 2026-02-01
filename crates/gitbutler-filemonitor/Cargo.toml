@@ -27,4 +27,3 @@ correctness = "deny"
 [dev-dependencies]
 but-testsupport.workspace = true
 insta = "1.46.0"
-is_ci = "1.2.0"

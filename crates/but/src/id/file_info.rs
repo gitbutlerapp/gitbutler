@@ -16,9 +16,7 @@ pub(crate) struct FileInfo {
 
 impl FileInfo {
     /// Extracts file information from tree changes.
-    pub(crate) fn from_tree_changes(
-        tree_changes: Vec<but_core::TreeChange>,
-    ) -> anyhow::Result<Self> {
+    pub(crate) fn from_tree_changes(tree_changes: Vec<but_core::TreeChange>) -> anyhow::Result<Self> {
         let mut changes: BTreeMap<BString, Vec<but_core::TreeChange>> = BTreeMap::new();
 
         for change in tree_changes {

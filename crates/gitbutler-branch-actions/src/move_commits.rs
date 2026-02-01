@@ -1,5 +1,5 @@
 use anyhow::{Context as _, Result, anyhow, bail};
-use but_ctx::{Context, access::WorktreeWritePermission};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
@@ -16,11 +16,11 @@ pub(crate) fn move_commit(
     ctx: &Context,
     target_stack_id: StackId,
     subject_commit_oid: git2::Oid,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     let repo = &*ctx.git2_repo.get()?;
 
     let applied_stacks = vb_state
@@ -78,7 +78,7 @@ fn take_commit_from_source_stack(
     let merge_base = source_stack.merge_base(ctx)?;
     let gix_repo = ctx.repo.get()?;
     let steps = source_stack
-        .as_rebase_steps(ctx, &gix_repo)?
+        .as_rebase_steps(ctx)?
         .into_iter()
         .filter(|s| match s {
             RebaseStep::Pick {
@@ -95,7 +95,7 @@ fn take_commit_from_source_stack(
     let new_source_head = output.top_commit.to_git2();
 
     source_stack.set_heads_from_rebase_output(ctx, output.references)?;
-    let vb_state = ctx.legacy_project.virtual_branches();
+    let vb_state = ctx.virtual_branches();
     source_stack.set_stack_head(&vb_state, &gix_repo, new_source_head)?;
     Ok(None)
 }
@@ -109,7 +109,7 @@ fn move_commit_to_destination_stack(
 ) -> Result<(), anyhow::Error> {
     let gix_repo = ctx.repo.get()?;
     let merge_base = destination_stack.merge_base(ctx)?;
-    let mut steps = destination_stack.as_rebase_steps(ctx, &gix_repo)?;
+    let mut steps = destination_stack.as_rebase_steps(ctx)?;
     // TODO: In the future we can make the API provide additional info for exactly where to place the commit on the destination stack
     steps.insert(
         steps.len() - 1,

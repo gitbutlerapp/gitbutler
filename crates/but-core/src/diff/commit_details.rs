@@ -30,11 +30,8 @@ impl CommitDetails {
         let commit = repo.find_commit(commit_id)?;
         let first_parent_commit_id = commit.parent_ids().map(|id| id.detach()).next();
 
-        let changes =
-            crate::diff::TreeChanges::from_trees(repo, first_parent_commit_id, commit_id.detach())?;
-        let line_stats = line_stats
-            .then(|| changes.compute_line_stats(repo))
-            .transpose()?;
+        let changes = crate::diff::TreeChanges::from_trees(repo, first_parent_commit_id, commit_id.detach())?;
+        let line_stats = line_stats.then(|| changes.compute_line_stats(repo)).transpose()?;
 
         let commit = crate::Commit::try_from(commit)?;
         let conflict_entries = commit.conflict_entries()?;

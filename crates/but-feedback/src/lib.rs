@@ -31,26 +31,24 @@ impl Archival {
     /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
     pub fn zip_anonymous_graph(&self, project_id: LegacyProjectId) -> Result<PathBuf> {
         let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
-        let guard = ctx.shared_worktree_access();
+        let _guard = ctx.shared_worktree_access();
         let repo = ctx.repo.get()?;
-        let meta = ctx.legacy_meta(guard.read_permission())?;
-        let mut graph =
-            but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
-                but_graph::Graph::from_head(
-                    &repo,
-                    &meta,
-                    but_graph::init::Options {
-                        // Assume it fails because of post-processing, try again without.
-                        dangerously_skip_postprocessing_for_debugging: true,
-                        ..Default::default()
-                    },
-                )
-            })?;
+        let meta = ctx.meta()?;
+        let mut graph = but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
+            but_graph::Graph::from_head(
+                &repo,
+                &meta,
+                but_graph::init::Options {
+                    // Assume it fails because of post-processing, try again without.
+                    dangerously_skip_postprocessing_for_debugging: true,
+                    ..Default::default()
+                },
+            )
+        })?;
         let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph();
-        let output_file = self.cache_dir.join(format!(
-            "commit-graph-anon-{date}.zip",
-            date = filesafe_date_time()
-        ));
+        let output_file = self
+            .cache_dir
+            .join(format!("commit-graph-anon-{date}.zip", date = filesafe_date_time()));
         create_zip_file_from_content(&dot_file_contents, "anon-graph.dot", output_file)
     }
 

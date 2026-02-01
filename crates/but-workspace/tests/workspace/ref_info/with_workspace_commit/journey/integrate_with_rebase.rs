@@ -3,8 +3,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::ref_info::{
-    utils::standard_options,
-    with_workspace_commit::utils::named_read_only_in_memory_scenario_with_description,
+    utils::standard_options, with_workspace_commit::utils::named_read_only_in_memory_scenario_with_description,
 };
 
 #[test]
@@ -272,8 +271,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
 
 #[test]
 fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> {
-    let (repo, meta, description) =
-        scenario("01-one-rewritten-one-local-after-push-author-date-change")?;
+    let (repo, meta, description) = scenario("01-one-rewritten-one-local-after-push-author-date-change")?;
     insta::assert_snapshot!(description, @r"
     two local commits pushed to a remote, then rebased onto target, but with the author date adjusted.
 

@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
+use but_core::RepositoryExt;
 use but_ctx::Context;
 use but_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use but_serde::BStringForFrontend;
@@ -35,12 +36,9 @@ pub fn list_branches(
     for reference in platform.all()?.filter_map(Result::ok) {
         // Loosely match on branch names
         if let Some(branch_names) = &filter_branch_names {
-            let has_matching_name = branch_names.iter().any(|branch_name| {
-                reference
-                    .name()
-                    .as_bstr()
-                    .ends_with_str(branch_name.as_bstr())
-            });
+            let has_matching_name = branch_names
+                .iter()
+                .any(|branch_name| reference.name().as_bstr().ends_with_str(branch_name.as_bstr()));
 
             if !has_matching_name {
                 continue;
@@ -59,13 +57,12 @@ pub fn list_branches(
         });
     }
 
-    let vb_handle = ctx.legacy_project.virtual_branches();
+    let vb_handle = ctx.virtual_branches();
     let remote_names = repo.remote_names();
     let stacks = {
         if let Some(workspace_ref) = repo.try_find_reference("refs/heads/gitbutler/workspace")? {
             // Let's get this here for convenience, and hope this isn't ever called by a writer (or there will be a deadlock).
-            let read_guard = ctx.shared_worktree_access();
-            let meta = ctx.meta(read_guard.read_permission())?;
+            let meta = ctx.meta()?;
             let info = but_workspace::ref_info(
                 workspace_ref,
                 &meta,
@@ -204,11 +201,7 @@ fn combine_branches(
             match res {
                 Ok(branch_entry) => branch_entry,
                 Err(err) => {
-                    tracing::warn!(
-                        "Failed to process branch group {:?} to branch entry: {}",
-                        identity,
-                        err
-                    );
+                    tracing::warn!("Failed to process branch group {:?} to branch entry: {}", identity, err);
                     None
                 }
             }
@@ -263,10 +256,7 @@ fn branch_group_to_branch(
             given_name: stack.name.clone(),
             id: stack.id,
             in_workspace: stack.in_workspace,
-            branches: unarchived_branches
-                .clone()
-                .map(|b| b.short_name())
-                .collect(),
+            branches: unarchived_branches.clone().map(|b| b.short_name()).collect(),
             pull_requests: unarchived_branches
                 .filter_map(|b| b.pr_or_mr.map(|pr| (b.short_name().to_owned(), pr)))
                 .collect(),
@@ -358,10 +348,7 @@ impl GitbutlerStackSegment {
 }
 
 impl GitButlerStack {
-    fn try_new(
-        stack: but_workspace::branch::Stack,
-        names: &gix::remote::Names,
-    ) -> anyhow::Result<Option<Self>> {
+    fn try_new(stack: but_workspace::branch::Stack, names: &gix::remote::Names) -> anyhow::Result<Option<Self>> {
         let Some(id) = stack.id else { return Ok(None) };
         let first_segment = stack.segments.first();
         Ok(Some(GitButlerStack {
@@ -376,12 +363,9 @@ impl GitButlerStack {
             source_refname: stack.ref_name().map(|rn| rn.to_owned()),
             upstream: first_segment
                 .and_then(|s| {
-                    s.remote_tracking_ref_name.as_ref().map(|rn| {
-                        but_workspace::ui::ref_info::RemoteTrackingReference::for_ui(
-                            rn.clone(),
-                            names,
-                        )
-                    })
+                    s.remote_tracking_ref_name
+                        .as_ref()
+                        .map(|rn| but_workspace::ui::ref_info::RemoteTrackingReference::for_ui(rn.clone(), names))
                 })
                 .transpose()?,
             updated_timestamp_ms: first_segment
@@ -395,10 +379,8 @@ impl GitButlerStack {
                 .iter()
                 .map(|s| GitbutlerStackSegment {
                     tip: s.ref_info.clone().map(|ri| ri.ref_name).unwrap_or_else(|| {
-                        gix::refs::FullName::try_from(
-                            "refs/heads/unnamed-ref-and-we-fake-a-name-fix-me",
-                        )
-                        .expect("known to be valid statically")
+                        gix::refs::FullName::try_from("refs/heads/unnamed-ref-and-we-fake-a-name-fix-me")
+                            .expect("known to be valid statically")
                     }),
                     pr_or_mr: s.metadata.as_ref().and_then(|md| md.review.pull_request),
                 })
@@ -429,12 +411,7 @@ impl fmt::Debug for GroupBranch<'_> {
                 .debug_struct("GroupBranch::Local/Remote")
                 .field(
                     "0",
-                    &format!(
-                        "id: {:?}, name: {}",
-                        branch.target(),
-                        branch.name().as_bstr()
-                    )
-                    .as_str(),
+                    &format!("id: {:?}, name: {}", branch.target(), branch.name().as_bstr()).as_str(),
                 )
                 .finish(),
             GroupBranch::Virtual(branch) => formatter
@@ -451,16 +428,11 @@ impl GroupBranch<'_> {
     /// `None` means an identity could not be obtained, which makes this branch odd enough to ignore.
     fn identity(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Option<BranchIdentity> {
         match self {
-            GroupBranch::Local(branch) | GroupBranch::Remote(branch) => {
-                branch.name().identity(remotes).ok()
-            }
+            GroupBranch::Local(branch) | GroupBranch::Remote(branch) => branch.name().identity(remotes).ok(),
             // The identity of a Virtual branch is derived from the source refname, upstream or the branch given name, in that order
             GroupBranch::Virtual(branch) => {
                 let name_from_source = branch.source_refname.as_ref().map(|n| n.shorten());
-                let name_from_upstream = branch
-                    .upstream
-                    .as_ref()
-                    .map(|n| n.display_name.as_str().into());
+                let name_from_upstream = branch.upstream.as_ref().map(|n| n.display_name.as_str().into());
 
                 // If we have a source refname or upstream, use those directly
                 if let Some(name) = name_from_source.or(name_from_upstream) {
@@ -561,9 +533,7 @@ impl From<git2::Signature<'_>> for Author {
         let email = value.email().map(str::to_string).map(Into::into);
 
         let gravatar_url = match value.email() {
-            Some(email) => gravatar_url_from_email(email)
-                .map(|url| url.as_ref().into())
-                .ok(),
+            Some(email) => gravatar_url_from_email(email).map(|url| url.as_ref().into()).ok(),
             None => None,
         };
 
@@ -619,12 +589,11 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let repo = ctx.clone_repo_for_merging()?;
+    let repo = ctx.repo.get()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
         let target = ctx
-            .legacy_project
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;
@@ -632,10 +601,7 @@ pub fn get_branch_listing_details(
         let target_branch_name = target_branch_name.as_str();
         let mut target_branch = repo.find_reference(target_branch_name)?;
 
-        (
-            gix_to_git2_oid(target_branch.peel_to_commit()?.id),
-            target.sha,
-        )
+        (gix_to_git2_oid(target_branch.peel_to_commit()?.id), target.sha)
     };
 
     let mut enriched_branches = Vec::new();
@@ -644,40 +610,35 @@ pub fn get_branch_listing_details(
             std::sync::mpsc::Receiver<gix::object::tree::diff::ChangeDetached>,
             std::sync::mpsc::Sender<(usize, usize, usize)>,
         )>();
-        let diffstats = std::thread::Builder::new()
-            .name("gitbutler-diff-stats".into())
-            .spawn({
-                let repo = repo.clone();
-                move || -> Result<()> {
-                    let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
-                    for (change_rx, res_tx) in start_rx {
-                        let (mut number_of_files, mut lines_added, mut lines_removed) = (0, 0, 0);
-                        for change in change_rx {
-                            if let Some(counts) = change
-                                .attach(&repo, &repo)
-                                .diff(&mut resource_cache)
-                                .ok()
-                                .and_then(|mut platform| platform.line_counts().ok())
-                                .flatten()
-                            {
-                                number_of_files += 1;
-                                lines_added += counts.insertions as usize;
-                                lines_removed += counts.removals as usize;
-                            }
-                            // Let's not attempt to reuse the cache as it's only useful if we know the diff repeats
-                            // over different objects, like when doing rename tracking.
-                            resource_cache.clear_resource_cache_keep_allocation();
-                        }
-                        if res_tx
-                            .send((number_of_files, lines_added, lines_removed))
-                            .is_err()
+        let diffstats = std::thread::Builder::new().name("gitbutler-diff-stats".into()).spawn({
+            let repo = repo.clone().for_tree_diffing()?;
+            move || -> Result<()> {
+                let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
+                for (change_rx, res_tx) in start_rx {
+                    let (mut number_of_files, mut lines_added, mut lines_removed) = (0, 0, 0);
+                    for change in change_rx {
+                        if let Some(counts) = change
+                            .attach(&repo, &repo)
+                            .diff(&mut resource_cache)
+                            .ok()
+                            .and_then(|mut platform| platform.line_counts().ok())
+                            .flatten()
                         {
-                            break;
+                            number_of_files += 1;
+                            lines_added += counts.insertions as usize;
+                            lines_removed += counts.removals as usize;
                         }
+                        // Let's not attempt to reuse the cache as it's only useful if we know the diff repeats
+                        // over different objects, like when doing rename tracking.
+                        resource_cache.clear_resource_cache_keep_allocation();
                     }
-                    Ok(())
+                    if res_tx.send((number_of_files, lines_added, lines_removed)).is_err() {
+                        break;
+                    }
                 }
-            })?;
+                Ok(())
+            }
+        })?;
 
         let all_other_branch_commit_ids: Vec<_> = branches
             .iter()
@@ -686,68 +647,56 @@ pub fn get_branch_listing_details(
                     branch
                         .stack
                         .as_ref()
-                        .and_then(|vb| {
-                            vb.in_workspace
-                                .then_some(default_target_seen_at_last_update)
-                        })
+                        .and_then(|vb| vb.in_workspace.then_some(default_target_seen_at_last_update))
                         .unwrap_or(default_target_current_upstream_commit_id),
                     branch.head,
                 )
             })
             .collect();
         let (merge_tx, merge_rx) = std::sync::mpsc::channel();
-        let merge_bases = std::thread::Builder::new()
-            .name("gitbutler-mergebases".into())
-            .spawn({
-                let repo = repo.clone().into_sync();
-                move || -> anyhow::Result<()> {
-                    let mut repo = repo.to_thread_local();
-                    repo.object_cache_size_if_unset(50 * 1024 * 1024);
-                    let cache = repo.commit_graph_if_enabled()?;
-                    let mut graph = repo.revision_graph(cache.as_ref());
-                    for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
-                        let branch_head = git2_to_gix_object_id(branch_head);
-                        let base = repo
-                            .merge_base_with_graph(
-                                git2_to_gix_object_id(other_branch_commit_id),
-                                branch_head,
-                                &mut graph,
-                            )
-                            .ok()
-                            .map(gix::Id::detach);
-                        let res = match base {
-                            Some(base) => {
-                                let mut num_commits = 0;
-                                let mut authors = HashSet::new();
-                                for attempt in 1..=2 {
-                                    let mut revwalk =
-                                        repo.rev_walk(Some(branch_head)).with_boundary(Some(base));
-                                    if attempt == 2 {
-                                        revwalk = revwalk
-                                            .sorting(gix::revision::walk::Sorting::BreadthFirst);
-                                    }
-                                    let revwalk = revwalk.all()?;
-                                    for commit_info in revwalk {
-                                        let commit_info = commit_info?;
-                                        let commit = repo.find_commit(commit_info.id)?;
-                                        authors.insert(commit.author()?.into());
-                                        num_commits += 1;
-                                    }
-                                    if num_commits > 0 {
-                                        break;
-                                    }
+        let merge_bases = std::thread::Builder::new().name("gitbutler-mergebases".into()).spawn({
+            let repo = repo.clone().into_sync();
+            move || -> anyhow::Result<()> {
+                let repo = repo.to_thread_local().for_tree_diffing()?;
+                let cache = repo.commit_graph_if_enabled()?;
+                let mut graph = repo.revision_graph(cache.as_ref());
+                for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
+                    let branch_head = git2_to_gix_object_id(branch_head);
+                    let base = repo
+                        .merge_base_with_graph(git2_to_gix_object_id(other_branch_commit_id), branch_head, &mut graph)
+                        .ok()
+                        .map(gix::Id::detach);
+                    let res = match base {
+                        Some(base) => {
+                            let mut num_commits = 0;
+                            let mut authors = HashSet::new();
+                            for attempt in 1..=2 {
+                                let mut revwalk = repo.rev_walk(Some(branch_head)).with_boundary(Some(base));
+                                if attempt == 2 {
+                                    revwalk = revwalk.sorting(gix::revision::walk::Sorting::BreadthFirst);
                                 }
-                                merge_tx.send(Some((base, authors, num_commits)))
+                                let revwalk = revwalk.all()?;
+                                for commit_info in revwalk {
+                                    let commit_info = commit_info?;
+                                    let commit = repo.find_commit(commit_info.id)?;
+                                    authors.insert(commit.author()?.into());
+                                    num_commits += 1;
+                                }
+                                if num_commits > 0 {
+                                    break;
+                                }
                             }
-                            None => merge_tx.send(None),
-                        };
-                        if res.is_err() {
-                            break;
+                            merge_tx.send(Some((base, authors, num_commits)))
                         }
+                        None => merge_tx.send(None),
+                    };
+                    if res.is_err() {
+                        break;
                     }
-                    Ok(())
                 }
-            })?;
+                Ok(())
+            }
+        })?;
 
         for branch in branches {
             let Some((base, authors, num_commits)) = merge_rx.recv()? else {
@@ -759,8 +708,7 @@ pub fn get_branch_listing_details(
             let base_tree = base_commit.tree()?;
             let head_tree = repo.find_object(branch_head)?.peel_to_tree()?;
 
-            let ((change_tx, change_rx), (res_tx, rex_rx)) =
-                (std::sync::mpsc::channel(), std::sync::mpsc::channel());
+            let ((change_tx, change_rx), (res_tx, rex_rx)) = (std::sync::mpsc::channel(), std::sync::mpsc::channel());
             if start.send((change_rx, res_tx)).is_err() {
                 bail!("diffing-thread crashed");
             };

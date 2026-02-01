@@ -29,19 +29,18 @@ use cfg_if::cfg_if;
 use clap::Parser;
 
 pub mod args;
-use crate::{
-    setup::{BackgroundSync, InitCtxOptions},
-    utils::{
-        OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
-    },
-};
 use args::{
-    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
-    metrics, update as update_args, worktree,
+    Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge, metrics,
+    update as update_args, worktree,
 };
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
+
+use crate::{
+    setup::{BackgroundSync, InitCtxOptions},
+    utils::{OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt},
+};
 
 mod id;
 pub use id::{CliId, IdMap};
@@ -80,18 +79,14 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // The `but push --help` output is different if gerrit mode is enabled, hence the special handling
     let args_vec: Vec<String> = std::env::args().collect();
     // TODO: handle this as part of clap, it can be told to not generate all help.
-    if args_vec.iter().any(|arg| arg == "push")
-        && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
-    {
+    if args_vec.iter().any(|arg| arg == "push") && args_vec.iter().any(|arg| arg == "--help" || arg == "-h") {
         let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
         command::push::help::print(&mut out)?;
         return Ok(());
     }
 
     // Handle `but help -h` and `but help --help` to show the grouped help output
-    if args_vec.iter().any(|arg| arg == "help")
-        && args_vec.iter().any(|arg| arg == "--help" || arg == "-h")
-    {
+    if args_vec.iter().any(|arg| arg == "help") && args_vec.iter().any(|arg| arg == "--help" || arg == "-h") {
         let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
         command::help::print_grouped(&mut out)?;
         return Ok(());
@@ -99,11 +94,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
 
     let mut args: Args = Args::parse_from(args);
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
-    let output_format = if args.json {
-        OutputFormat::Json
-    } else {
-        args.format
-    };
+    let output_format = if args.json { OutputFormat::Json } else { args.format };
     // Determine if pager should be used based on the command
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
@@ -197,10 +188,7 @@ async fn match_subcommand(
     let metrics_ctx = cmd.to_metrics_context(&app_settings);
 
     match cmd {
-        Subcommands::Metrics {
-            command_name,
-            props,
-        } => {
+        Subcommands::Metrics { command_name, props } => {
             let mut event = utils::metrics::Event::new(command_name.into());
             if let Ok(props) = utils::metrics::Props::from_json_string(&props) {
                 props.update_event(&mut event);
@@ -225,12 +213,9 @@ async fn match_subcommand(
                 Some(alias_args::Subcommands::List) | None => {
                     command::alias::list(&*ctx.repo.get()?, out).emit_metrics(metrics_ctx)
                 }
-                Some(alias_args::Subcommands::Add {
-                    name,
-                    value,
-                    global,
-                }) => command::alias::add(&mut ctx, out, &name, &value, global)
-                    .emit_metrics(metrics_ctx),
+                Some(alias_args::Subcommands::Add { name, value, global }) => {
+                    command::alias::add(&mut ctx, out, &name, &value, global).emit_metrics(metrics_ctx)
+                }
                 Some(alias_args::Subcommands::Remove { name, global }) => {
                     command::alias::remove(&mut ctx, out, &name, global).emit_metrics(metrics_ctx)
                 }
@@ -244,7 +229,8 @@ async fn match_subcommand(
                         .await
                         .emit_metrics(metrics_ctx)
                 } else {
-                    command::config::exec(&mut but_ctx::Context::discover(&args.current_dir)?, out, cmd)
+                    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    command::config::exec(&mut ctx, out, cmd)
                         .await
                         .emit_metrics(metrics_ctx)
                 }
@@ -254,16 +240,8 @@ async fn match_subcommand(
             // For global installs or absolute paths, we don't need to be in a git repository
             // For --infer without --global, we try to get repo context but don't require it
             let needs_repo = match &cmd {
-                args::skill::Subcommands::Install {
-                    global,
-                    path,
-                    infer,
-                } => {
-                    !global
-                        && !infer
-                        && path
-                            .as_ref()
-                            .is_none_or(|p| !std::path::Path::new(p).is_absolute())
+                args::skill::Subcommands::Install { global, path, infer } => {
+                    !global && !infer && path.as_ref().is_none_or(|p| !std::path::Path::new(p).is_absolute())
                 }
             };
 
@@ -302,10 +280,7 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Actions(actions::Platform { cmd }) => match cmd {
-            Some(actions::Subcommands::HandleChanges {
-                description,
-                handler,
-            }) => {
+            Some(actions::Subcommands::HandleChanges { description, handler }) => {
                 let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
                 command::legacy::actions::handle_changes(&mut ctx, out, handler, &description)
             }
@@ -318,21 +293,15 @@ async fn match_subcommand(
         Subcommands::Claude(claude::Platform { cmd }) => {
             use but_claude::hooks::OutputClaudeJson;
             match cmd {
-                claude::Subcommands::PreTool => {
-                    but_claude::hooks::handle_pre_tool_call(std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::PostTool => {
-                    but_claude::hooks::handle_post_tool_call(std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
-                claude::Subcommands::Stop => {
-                    but_claude::hooks::handle_stop(std::io::stdin().lock())
-                        .output_claude_json()
-                        .emit_metrics(metrics_ctx)
-                }
+                claude::Subcommands::PreTool => but_claude::hooks::handle_pre_tool_call(std::io::stdin().lock())
+                    .output_claude_json()
+                    .emit_metrics(metrics_ctx),
+                claude::Subcommands::PostTool => but_claude::hooks::handle_post_tool_call(std::io::stdin().lock())
+                    .output_claude_json()
+                    .emit_metrics(metrics_ctx),
+                claude::Subcommands::Stop => but_claude::hooks::handle_stop(std::io::stdin().lock())
+                    .output_claude_json()
+                    .emit_metrics(metrics_ctx),
                 claude::Subcommands::PermissionPromptMcp { session_id } => {
                     but_claude::mcp::start(&args.current_dir, &session_id).await
                 }
@@ -356,10 +325,7 @@ async fn match_subcommand(
                                 println!(
                                     "{} {}",
                                     "Timestamp:".bold(),
-                                    msg.created_at()
-                                        .format("%Y-%m-%d %H:%M:%S")
-                                        .to_string()
-                                        .cyan()
+                                    msg.created_at().format("%Y-%m-%d %H:%M:%S").to_string().cyan()
                                 );
                                 match msg.content() {
                                     but_claude::MessagePayload::User(input) => {
@@ -385,18 +351,14 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
-            cursor::Subcommands::AfterEdit => {
-                but_cursor::handle_after_edit(std::io::stdin().lock())
-                    .await
-                    .output_json(true)
-                    .emit_metrics(metrics_ctx)
-            }
-            cursor::Subcommands::Stop { nightly } => {
-                but_cursor::handle_stop(nightly, std::io::stdin().lock())
-                    .await
-                    .output_json(true)
-                    .emit_metrics(metrics_ctx)
-            }
+            cursor::Subcommands::AfterEdit => but_cursor::handle_after_edit(std::io::stdin().lock())
+                .await
+                .output_json(true)
+                .emit_metrics(metrics_ctx),
+            cursor::Subcommands::Stop { nightly } => but_cursor::handle_stop(nightly, std::io::stdin().lock())
+                .await
+                .output_json(true)
+                .emit_metrics(metrics_ctx),
         },
         #[cfg(feature = "legacy")]
         Subcommands::Pull { check } => {
@@ -413,8 +375,7 @@ async fn match_subcommand(
                 writeln!(
                     progress,
                     "{}",
-                    "Assuming you meant to check for upstream work, running `but pull --check`"
-                        .yellow()
+                    "Assuming you meant to check for upstream work, running `but pull --check`".yellow()
                 )?;
             }
             let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
@@ -424,8 +385,8 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Worktree(worktree::Platform { cmd }) => {
-            let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::worktree::handle(cmd, &ctx, out)
+            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
+            command::legacy::worktree::handle(cmd, &mut ctx, out)
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
@@ -445,11 +406,9 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::status::worktree(
-                &mut ctx, out, show_files, verbose, sync_prs, upstream, !no_hint,
-            )
-            .await
-            .emit_metrics(metrics_ctx)
+            command::legacy::status::worktree(&mut ctx, out, show_files, verbose, sync_prs, upstream, !no_hint)
+                .await
+                .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Rub { source, target } => {
@@ -596,19 +555,17 @@ async fn match_subcommand(
                         use but_api::legacy::workspace;
 
                         let stack_entries = workspace::stacks(&ctx, None)?;
-                        let stacks: Vec<(
-                            but_core::ref_metadata::StackId,
-                            but_workspace::ui::StackDetails,
-                        )> = stack_entries
-                            .iter()
-                            .filter_map(|s| {
-                                s.id.and_then(|id| {
-                                    workspace::stack_details(&ctx, Some(id))
-                                        .ok()
-                                        .map(|details| (id, details))
+                        let stacks: Vec<(but_core::ref_metadata::StackId, but_workspace::ui::StackDetails)> =
+                            stack_entries
+                                .iter()
+                                .filter_map(|s| {
+                                    s.id.and_then(|id| {
+                                        workspace::stack_details(&ctx, Some(id))
+                                            .ok()
+                                            .map(|details| (id, details))
+                                    })
                                 })
-                            })
-                            .collect();
+                                .collect();
 
                         // Find the first stack with branches and convert BString to String
                         let branch_name = stacks
@@ -630,26 +587,19 @@ async fn match_subcommand(
                         TargetSpec::Owned(s, side) => (s.as_str(), *side),
                     };
 
-                    command::legacy::commit::insert_blank_commit(
-                        &mut ctx,
-                        out,
-                        target_str,
-                        insert_side,
-                    )
-                    .emit_metrics(metrics_ctx)
+                    command::legacy::commit::insert_blank_commit(&mut ctx, out, target_str, insert_side)
+                        .emit_metrics(metrics_ctx)
                 }
                 None => {
                     // Handle the regular `but commit` command
                     // Read message from file if provided, otherwise use message option
-                    let commit_message = match &commit_args.file {
-                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
-                            format!(
-                                "Failed to read commit message from file: {}",
-                                path.display()
-                            )
-                        })?),
-                        None => commit_args.message.clone(),
-                    };
+                    let commit_message =
+                        match &commit_args.file {
+                            Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
+                                format!("Failed to read commit message from file: {}", path.display())
+                            })?),
+                            None => commit_args.message.clone(),
+                        };
                     command::legacy::commit::commit(
                         &mut ctx,
                         out,
@@ -683,14 +633,8 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::reword::reword_target(
-                &mut ctx,
-                out,
-                &target,
-                message.as_deref(),
-                format,
-            )
-            .emit_metrics(metrics_ctx)
+            command::legacy::reword::reword_target(&mut ctx, out, &target, message.as_deref(), format)
+                .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Oplog(args::oplog::Platform { cmd }) => {
@@ -706,21 +650,18 @@ async fn match_subcommand(
                         .emit_metrics(metrics_ctx)
                 }
                 Some(args::oplog::Subcommands::Snapshot { message }) => {
-                    command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref())
-                        .emit_metrics(metrics_ctx)
+                    command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref()).emit_metrics(metrics_ctx)
                 }
                 None => {
                     // Default to list when no subcommand is provided
-                    command::legacy::oplog::show_oplog(&mut ctx, out, None, None)
-                        .emit_metrics(metrics_ctx)
+                    command::legacy::oplog::show_oplog(&mut ctx, out, None, None).emit_metrics(metrics_ctx)
                 }
             }
         }
         #[cfg(feature = "legacy")]
         Subcommands::Restore { oplog_sha, force } => {
             let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force)
-                .emit_metrics(metrics_ctx)
+            command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Undo => {
@@ -737,8 +678,7 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run)
-                .emit_metrics(metrics_ctx)
+            command::legacy::absorb::handle(&mut ctx, out, source.as_deref(), dry_run).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Discard { id } => {
@@ -800,22 +740,16 @@ async fn match_subcommand(
                 .context("Failed to create PR for branch.")
                 .emit_metrics(metrics_ctx),
                 Some(forge::pr::Subcommands::Template { template_path }) => {
-                    command::legacy::forge::review::set_review_template(
-                        &mut ctx,
-                        template_path,
-                        out,
-                    )
-                    .context("Failed to set PR template.")
-                    .emit_metrics(metrics_ctx)
+                    command::legacy::forge::review::set_review_template(&mut ctx, template_path, out)
+                        .context("Failed to set PR template.")
+                        .emit_metrics(metrics_ctx)
                 }
                 None => {
                     // Default to `pr new` when no subcommand is provided
-                    command::legacy::forge::review::create_pr(
-                        &mut ctx, None, false, true, true, false, out,
-                    )
-                    .await
-                    .context("Failed to create PR for branch.")
-                    .emit_metrics(metrics_ctx)
+                    command::legacy::forge::review::create_pr(&mut ctx, None, false, true, true, false, out)
+                        .await
+                        .context("Failed to create PR for branch.")
+                        .emit_metrics(metrics_ctx)
                 }
             }
         }
@@ -876,10 +810,7 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Stage {
-            file_or_hunk,
-            branch,
-        } => {
+        Subcommands::Stage { file_or_hunk, branch } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -894,10 +825,7 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Unstage {
-            file_or_hunk,
-            branch,
-        } => {
+        Subcommands::Unstage { file_or_hunk, branch } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -926,17 +854,10 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::rub::squash::handle(
-                &mut ctx,
-                out,
-                &commits,
-                drop_message,
-                message.as_deref(),
-                ai.clone(),
-            )
-            .context("Failed to squash commits.")
-            .emit_metrics(metrics_ctx)
-            .show_root_cause_error_then_exit_without_destructors(output)
+            command::legacy::rub::squash::handle(&mut ctx, out, &commits, drop_message, message.as_deref(), ai.clone())
+                .context("Failed to squash commits.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Merge { branch } => {

@@ -34,10 +34,9 @@ pub struct AppSettings {
 impl Default for AppSettings {
     fn default() -> Self {
         // this is safe because we know the default settings are a static assets file that is always valid
-        let settings: serde_json::Value = serde_json_lenient::from_str(persistence::DEFAULTS)
-            .expect("BUG: default settings are always a valid JSON");
-        serde_json::from_value(settings)
-            .expect("BUG: default settings structure always matches the type")
+        let settings: serde_json::Value =
+            serde_json_lenient::from_str(persistence::DEFAULTS).expect("BUG: default settings are always a valid JSON");
+        serde_json::from_value(settings).expect("BUG: default settings structure always matches the type")
     }
 }
 
@@ -47,10 +46,7 @@ pub mod customization {
 
     use crate::json;
 
-    pub fn merge_two(
-        new: serde_json::Value,
-        previous: Option<serde_json::Value>,
-    ) -> serde_json::Value {
+    pub fn merge_two(new: serde_json::Value, previous: Option<serde_json::Value>) -> serde_json::Value {
         match previous {
             None => new,
             Some(mut previous) => {

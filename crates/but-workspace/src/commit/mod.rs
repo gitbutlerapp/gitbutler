@@ -131,8 +131,7 @@ pub mod merge {
                     }
                 }
             }
-            let mut tips: Vec<(Instruction, Tip)> =
-                tips.into_iter().map(|t| (I::Merge, t)).collect();
+            let mut tips: Vec<(Instruction, Tip)> = tips.into_iter().map(|t| (I::Merge, t)).collect();
 
             let mut ran_merge_trials_loop_safety = false;
             #[allow(clippy::indexing_slicing)]
@@ -173,9 +172,8 @@ pub mod merge {
                             labels_uninteresting_as_no_conflict_allowed,
                             merge_options.clone(),
                         )?;
-                        let is_hero = hero_stack.is_some_and(|hero| {
-                            Some(hero) == ref_name.as_ref().map(|rn| rn.as_ref())
-                        });
+                        let is_hero =
+                            hero_stack.is_some_and(|hero| Some(hero) == ref_name.as_ref().map(|rn| rn.as_ref()));
                         if merge.has_unresolved_conflicts(conflict_kind) {
                             if matches!(mode, I::MergeTrial { .. }) {
                                 bail!(
@@ -219,9 +217,7 @@ pub mod merge {
                                 match mode {
                                     I::Merge => continue,
                                     I::MergeTrial { .. } => {
-                                        bail!(
-                                            "BUG: found a merge-trial, even though trial should be concluded by now"
-                                        )
+                                        bail!("BUG: found a merge-trial, even though trial should be concluded by now")
                                     }
                                     I::CertainConflict => saw_first_certain_conflict = true,
                                     I::Skip => {
@@ -256,8 +252,7 @@ pub mod merge {
                         {
                             // This stack merged cleanly, and now we have to merge the hero into that result to see if it works.
                             // This tells us if this is stack merges cleanly or causes a real conflict in conjunction with hero.
-                            let base_tree_id =
-                                compute_merge_base(graph, repo, base_sidx, hero_sidx)?.0;
+                            let base_tree_id = compute_merge_base(graph, repo, base_sidx, hero_sidx)?.0;
                             let merge = repo.merge_trees(
                                 base_tree_id,
                                 merge.tree.write()?,
@@ -323,8 +318,7 @@ pub mod merge {
                     .context("having stacks means the loop ran once")?;
 
                 // Finally, create the merge-commit itself.
-                let mut ws_commit =
-                    Self::new_from_stacks(stacks.iter().cloned(), repo.object_hash());
+                let mut ws_commit = Self::new_from_stacks(stacks.iter().cloned(), repo.object_hash());
                 ws_commit.tree = merge_tree_id;
                 Self::fixup_times(&mut ws_commit, repo);
 
@@ -403,9 +397,10 @@ pub mod merge {
                 })
                 .collect();
             for (idx, anon_tip) in anon_stacks {
-                if tips.iter().any(|t| {
-                    t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx
-                }) {
+                if tips
+                    .iter()
+                    .any(|t| t.commit_id == anon_tip.commit_id || t.segment_idx == anon_tip.segment_idx)
+                {
                     // prevent duplication of tips, make calling this easier as well.
                     continue;
                 }
@@ -457,11 +452,7 @@ impl<'repo> WorkspaceCommit<'repo> {
 
     /// Decode the object at `commit_id` and keep its data for later query.
     pub fn from_id(commit_id: gix::Id<'repo>) -> anyhow::Result<Self> {
-        let commit = commit_id
-            .object()?
-            .try_into_commit()?
-            .decode()?
-            .try_into()?;
+        let commit = commit_id.object()?.try_into_commit()?.decode()?.try_into()?;
         Ok(WorkspaceCommit {
             id: commit_id,
             inner: commit,
@@ -500,10 +491,7 @@ impl<'repo> WorkspaceCommit<'repo> {
 
         Self::fixup_times(&mut ws_commit, repo);
         let id = repo.write_object(&ws_commit)?;
-        Ok(Self {
-            id,
-            inner: ws_commit,
-        })
+        Ok(Self { id, inner: ws_commit })
     }
 
     /// also rewrite the author and committer time, just to be sure we respect all settings. `new_from_stacks` doesn't have a repo.
@@ -536,20 +524,15 @@ impl<'repo> WorkspaceCommit<'repo> {
         let mut message = Self::GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
         message.push_str("\n\n");
         if !stacks.is_empty() {
-            message
-                .push_str("This is a merge commit of the virtual branches in your workspace.\n\n");
+            message.push_str("This is a merge commit of the virtual branches in your workspace.\n\n");
         } else {
             message
                 .push_str("This is placeholder commit and will be replaced by a merge of your virtual branches.\n\n");
         }
-        message.push_str(
-            "Due to GitButler managing multiple virtual branches, you cannot switch back and\n",
-        );
+        message.push_str("Due to GitButler managing multiple virtual branches, you cannot switch back and\n");
         message.push_str("forth between git branches and virtual branches easily. \n\n");
 
-        message.push_str(
-            "If you switch to another branch, GitButler will need to be reinitialized.\n",
-        );
+        message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
         message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
         if !stacks.is_empty() {
             message.push_str("Here are the branches that are currently applied:\n");
@@ -566,8 +549,7 @@ impl<'repo> WorkspaceCommit<'repo> {
             }
         }
         message.push_str("For more information about what we're doing here, check out our docs:\n");
-        message
-            .push_str("https://docs.gitbutler.com/features/branch-management/integration-branch\n");
+        message.push_str("https://docs.gitbutler.com/features/branch-management/integration-branch\n");
 
         let author = commit_signature(commit_time("GIT_COMMITTER_DATE"));
         gix::objs::Commit {

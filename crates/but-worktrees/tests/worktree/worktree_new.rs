@@ -11,32 +11,22 @@ fn can_create_worktree_from_feature_a() -> anyhow::Result<()> {
     let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
     let guard = test_ctx.ctx.exclusive_worktree_access();
-    let repo = test_ctx.ctx.clone_repo_for_merging()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        test_ctx
-            .ctx
-            .legacy_project
-            .gb_dir()
-            .join("virtual_branches.toml"),
-    )?;
-    let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+    let meta = VirtualBranchesTomlMetadata::from_path(test_ctx.ctx.project_data_dir().join("virtual_branches.toml"))?;
+    let stacks = stacks_v3(&*test_ctx.ctx.repo.get()?, &meta, StacksFilter::InWorkspace, None)?;
     let feature_a = stacks
         .into_iter()
         .flat_map(|s| s.heads)
         .find(|h| h.name == b"feature-a")
         .context("Expect to find feature-a")?;
 
-    let outcome = worktree_new(
-        &mut test_ctx.ctx,
-        guard.read_permission(),
-        feature_a_name.as_ref(),
-    )?;
+    let outcome = worktree_new(&mut test_ctx.ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
     assert_eq!(
         outcome.created.base,
         Some(feature_a.tip),
         "The base should the the same as the tip of feature-a"
     );
+    let repo = test_ctx.ctx.repo.get()?;
     let worktree = repo.worktrees()?[0].clone();
     let worktree_repo = worktree.clone().into_repo()?;
     assert_eq!(
@@ -59,32 +49,22 @@ fn can_create_worktree_from_feature_b() -> anyhow::Result<()> {
     let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
     let guard = test_ctx.ctx.exclusive_worktree_access();
-    let repo = test_ctx.ctx.clone_repo_for_merging()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        test_ctx
-            .ctx
-            .legacy_project
-            .gb_dir()
-            .join("virtual_branches.toml"),
-    )?;
-    let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+    let meta = VirtualBranchesTomlMetadata::from_path(test_ctx.ctx.project_data_dir().join("virtual_branches.toml"))?;
+    let stacks = stacks_v3(&*test_ctx.ctx.repo.get()?, &meta, StacksFilter::InWorkspace, None)?;
     let feature_b = stacks
         .into_iter()
         .flat_map(|s| s.heads)
         .find(|h| h.name == b"feature-b")
         .context("Expect to find feature-b")?;
 
-    let outcome = worktree_new(
-        &mut test_ctx.ctx,
-        guard.read_permission(),
-        feature_b_name.as_ref(),
-    )?;
+    let outcome = worktree_new(&mut test_ctx.ctx, guard.read_permission(), feature_b_name.as_ref())?;
 
     assert_eq!(
         outcome.created.base,
         Some(feature_b.tip),
         "The base should the the same as the tip of feature-b"
     );
+    let repo = test_ctx.ctx.repo.get()?;
     let worktree = repo.worktrees()?[0].clone();
     let worktree_repo = worktree.clone().into_repo()?;
     assert_eq!(
@@ -107,32 +87,22 @@ fn can_create_worktree_from_feature_c() -> anyhow::Result<()> {
     let mut test_ctx = test_ctx("stacked-and-parallel")?;
 
     let guard = test_ctx.ctx.exclusive_worktree_access();
-    let repo = test_ctx.ctx.clone_repo_for_merging()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        test_ctx
-            .ctx
-            .legacy_project
-            .gb_dir()
-            .join("virtual_branches.toml"),
-    )?;
-    let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
+    let meta = VirtualBranchesTomlMetadata::from_path(test_ctx.ctx.project_data_dir().join("virtual_branches.toml"))?;
+    let stacks = stacks_v3(&*test_ctx.ctx.repo.get()?, &meta, StacksFilter::InWorkspace, None)?;
     let feature_c = stacks
         .into_iter()
         .flat_map(|s| s.heads)
         .find(|h| h.name == b"feature-c")
         .context("Expect to find feature-c")?;
 
-    let outcome = worktree_new(
-        &mut test_ctx.ctx,
-        guard.read_permission(),
-        feature_c_name.as_ref(),
-    )?;
+    let outcome = worktree_new(&mut test_ctx.ctx, guard.read_permission(), feature_c_name.as_ref())?;
 
     assert_eq!(
         outcome.created.base,
         Some(feature_c.tip),
         "The base should the the same as the tip of feature-c"
     );
+    let repo = test_ctx.ctx.repo.get()?;
     let worktree = repo.worktrees()?[0].clone();
     let worktree_repo = worktree.clone().into_repo()?;
     assert_eq!(

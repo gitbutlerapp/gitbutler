@@ -30,18 +30,11 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
         let mut remote_callbacks = git2::RemoteCallbacks::new();
         match value {
             Credential::Noop => {}
-            Credential::Ssh(SshCredential::Keyfile {
-                key_path,
-                passphrase,
-            }) => {
+            Credential::Ssh(SshCredential::Keyfile { key_path, passphrase }) => {
                 remote_callbacks.credentials(move |url, username_from_url, _allowed_types| {
                     use resolve_path::PathResolveExt;
                     let key_path = key_path.resolve();
-                    tracing::info!(
-                        "authenticating with {} using key {}",
-                        url,
-                        key_path.display()
-                    );
+                    tracing::info!("authenticating with {} using key {}", url, key_path.display());
                     git2::Cred::ssh_key(
                         username_from_url.unwrap_or("git"),
                         None,
@@ -85,8 +78,7 @@ pub fn help<'a>(
     remote_name: &str,
 ) -> Result<Vec<(git2::Remote<'a>, Vec<Credential>)>, HelpError> {
     let remote = repo.find_remote(remote_name)?;
-    let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
-        .context("failed to parse remote url")?;
+    let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?).context("failed to parse remote url")?;
 
     // if file, no auth needed.
     if remote_url.scheme == Scheme::File {
@@ -124,18 +116,13 @@ pub fn help<'a>(
             Ok(vec![(https_remote, flow)])
         }
         AuthKey::SystemExecutable => {
-            tracing::error!(
-                "WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong."
-            );
+            tracing::error!("WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong.");
             Ok(vec![])
         }
     }
 }
 
-fn https_flow(
-    repo: &git2::Repository,
-    remote_url: &Url,
-) -> Result<Vec<HttpsCredential>, HelpError> {
+fn https_flow(repo: &git2::Repository, remote_url: &Url) -> Result<Vec<HttpsCredential>, HelpError> {
     let mut flow = vec![];
 
     let mut helper = git2::CredentialHelper::new(&remote_url.to_string());

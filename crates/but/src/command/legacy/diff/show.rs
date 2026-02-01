@@ -5,8 +5,10 @@ use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use gitbutler_stack::StackId;
 
-use super::display::{DiffDisplay, TreeChangeWithPatch};
-use super::{JsonChange, JsonDiff, JsonDiffOutput, JsonHunk};
+use super::{
+    JsonChange, JsonDiff, JsonDiffOutput, JsonHunk,
+    display::{DiffDisplay, TreeChangeWithPatch},
+};
 use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
 #[allow(clippy::large_enum_variant)]
@@ -16,11 +18,7 @@ pub(crate) enum Filter {
     Stack(StackId),
 }
 
-pub(crate) fn worktree(
-    id_map: IdMap,
-    out: &mut OutputChannel,
-    filter: Option<Filter>,
-) -> anyhow::Result<()> {
+pub(crate) fn worktree(id_map: IdMap, out: &mut OutputChannel, filter: Option<Filter>) -> anyhow::Result<()> {
     let mut short_id_assignment_pairs: Vec<(&str, &HunkAssignment)> = id_map
         .uncommitted_hunks
         .iter()
@@ -42,15 +40,12 @@ pub(crate) fn worktree(
         .map(|(short_id, uncommitted_hunk)| (short_id.as_str(), &uncommitted_hunk.hunk_assignment))
         .collect();
     short_id_assignment_pairs.sort_by(|(_, a_assignment), (_, b_assignment)| {
-        a_assignment
-            .stack_id
-            .cmp(&b_assignment.stack_id)
-            .then_with(|| {
-                a_assignment
-                    .path_bytes
-                    .cmp(&b_assignment.path_bytes)
-                    .then_with(|| a_assignment.hunk_header.cmp(&b_assignment.hunk_header))
-            })
+        a_assignment.stack_id.cmp(&b_assignment.stack_id).then_with(|| {
+            a_assignment
+                .path_bytes
+                .cmp(&b_assignment.path_bytes)
+                .then_with(|| a_assignment.hunk_header.cmp(&b_assignment.hunk_header))
+        })
     });
 
     if short_id_assignment_pairs.is_empty() {
@@ -113,11 +108,7 @@ pub(crate) fn commit(
     Ok(())
 }
 
-pub(crate) fn branch(
-    ctx: &Context,
-    out: &mut OutputChannel,
-    short_name: String,
-) -> anyhow::Result<()> {
+pub(crate) fn branch(ctx: &Context, out: &mut OutputChannel, short_name: String) -> anyhow::Result<()> {
     let result = but_api::branch::branch_diff(ctx, short_name)?;
 
     if let Some(json_out) = out.for_json() {
@@ -150,8 +141,7 @@ pub(crate) fn branch(
 // Helper functions for JSON conversion
 
 fn hunk_assignment_to_json(id: Option<&str>, assignment: &HunkAssignment) -> JsonChange {
-    let diff = if let (Some(diff_bytes), Some(header)) = (&assignment.diff, &assignment.hunk_header)
-    {
+    let diff = if let (Some(diff_bytes), Some(header)) = (&assignment.diff, &assignment.hunk_header) {
         JsonDiff::Patch {
             hunks: vec![hunk_to_json_hunk(&DiffHunk {
                 old_start: header.old_start,
@@ -179,11 +169,7 @@ fn hunk_assignment_to_json(id: Option<&str>, assignment: &HunkAssignment) -> Jso
     }
 }
 
-fn tree_change_to_json(
-    id: Option<&str>,
-    change: but_core::ui::TreeChange,
-    patch: Option<UnifiedPatch>,
-) -> JsonChange {
+fn tree_change_to_json(id: Option<&str>, change: but_core::ui::TreeChange, patch: Option<UnifiedPatch>) -> JsonChange {
     use but_core::ui::TreeStatus;
 
     let (status, old_path) = match &change.status {

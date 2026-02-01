@@ -1,4 +1,4 @@
-use but_core::ChangeId;
+use but_core::{ChangeId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use serde::{Deserialize, Serialize};
@@ -189,9 +189,8 @@ pub struct CreateRuleRequest {
 /// Creates a new workspace rule
 pub fn create_rule(
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     req: CreateRuleRequest,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
     let rule = WorkspaceRule {
         id: uuid::Uuid::new_v4().to_string(),
@@ -206,7 +205,7 @@ pub fn create_rule(
         .get_mut()?
         .workspace_rules_mut()
         .insert(rule.clone().try_into()?)?;
-    process_rules(ctx, repo, workspace).ok(); // Reevaluate rules after creating
+    process_rules(ctx, perm).ok(); // Reevaluate rules after creating
     Ok(rule)
 }
 
@@ -246,9 +245,8 @@ impl From<WorkspaceRule> for UpdateRuleRequest {
 /// Updates an existing workspace rule with the provided request data.
 pub fn update_rule(
     ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
     req: UpdateRuleRequest,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
     let mut rule: WorkspaceRule = {
         let db = ctx.db.get_mut()?;
@@ -275,7 +273,7 @@ pub fn update_rule(
         .get_mut()?
         .workspace_rules_mut()
         .update(&req.id, rule.clone().try_into()?)?;
-    process_rules(ctx, repo, workspace).ok(); // Reevaluate rules after updating
+    process_rules(ctx, perm).ok(); // Reevaluate rules after updating
     Ok(rule)
 }
 
@@ -304,30 +302,29 @@ pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
     Ok(rules)
 }
 
-pub fn process_rules(
-    ctx: &mut Context,
-    repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace,
-) -> anyhow::Result<()> {
-    let wt_changes = but_core::diff::worktree_changes(repo)?;
+/// NOTE: may create an empty branch!
+pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+    let (assignments, dependencies) = {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
-    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        repo,
-        workspace,
-        Some(wt_changes.changes.clone()),
-    )?;
+        let dependencies =
+            hunk_dependencies_for_workspace_changes_by_worktree_dir(&repo, &ws, Some(wt_changes.changes.clone()))?;
 
-    let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx.db.get_mut()?.hunk_assignments_mut()?,
-        repo,
-        workspace,
-        false,
-        Some(wt_changes.changes),
-        Some(&dependencies),
-        ctx.settings.context_lines,
-    )
-    .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
+        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            db.hunk_assignments_mut()?,
+            &repo,
+            &ws,
+            false,
+            Some(wt_changes.changes),
+            Some(&dependencies),
+            context_lines,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
+        (assignments, dependencies)
+    };
 
-    handler::process_workspace_rules(ctx, repo, workspace, &assignments, &Some(dependencies))?;
+    handler::process_workspace_rules(ctx, &assignments, &Some(dependencies), perm)?;
     Ok(())
 }

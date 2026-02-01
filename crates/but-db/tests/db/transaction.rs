@@ -31,9 +31,7 @@ fn deferred() -> anyhow::Result<()> {
         "the second transaction would block because the lock is taken"
     );
     assert_eq!(
-        t2.hunk_assignments()
-            .list_all()
-            .expect("readers see the original data"),
+        t2.hunk_assignments().list_all().expect("readers see the original data"),
         [],
         "However, thanks to WAL we can still read."
     );

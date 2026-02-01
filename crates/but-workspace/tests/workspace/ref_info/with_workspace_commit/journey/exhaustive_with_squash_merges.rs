@@ -6,10 +6,7 @@ use crate::ref_info::{
     utils::standard_options,
     with_workspace_commit::{
         journey::utils::standard_options_with_extra_target,
-        utils::{
-            StackState, add_stack_with_segments,
-            named_read_only_in_memory_scenario_with_description,
-        },
+        utils::{StackState, add_stack_with_segments, named_read_only_in_memory_scenario_with_description},
     },
 };
 
@@ -184,11 +181,7 @@ fn j03_main_pushed() -> anyhow::Result<()> {
     )
     "#);
 
-    let info = but_workspace::head_info(
-        &repo,
-        &*meta,
-        standard_options_with_extra_target(&repo, "origin/main"),
-    );
+    let info = but_workspace::head_info(&repo, &*meta, standard_options_with_extra_target(&repo, "origin/main"));
     // As we see this as base, there is no upstream commits to consider, nor is there local commits.
     insta::assert_debug_snapshot!(info, @r#"
     Ok(

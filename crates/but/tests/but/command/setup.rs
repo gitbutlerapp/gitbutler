@@ -4,10 +4,7 @@ use crate::utils::{CommandExt as _, Sandbox};
 fn not_a_git_repository() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
-    env.but("setup")
-        .assert()
-        .failure()
-        .stderr_eq(snapbox::str![[r#"
+    env.but("setup").assert().failure().stderr_eq(snapbox::str![[r#"
 Error: Failed to set up GitButler project.
 
 Caused by:
@@ -168,10 +165,7 @@ fn remote_exists_but_no_remote_head() -> anyhow::Result<()> {
     assert!(!output.status.success());
 
     // Run setup - should fail because there's no remote HEAD to discover
-    env.but("setup")
-        .assert()
-        .success()
-        .stdout_eq(snapbox::str![[r#"
+    env.but("setup").assert().success().stdout_eq(snapbox::str![[r#"
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
@@ -511,11 +505,7 @@ More info: https://docs.gitbutler.com/workspace-branch
         .output()?;
     assert!(output.status.success());
     let commit_count: u32 = String::from_utf8_lossy(&output.stdout).trim().parse()?;
-    assert!(
-        commit_count >= 1,
-        "Expected at least 1 commit, found {}",
-        commit_count
-    );
+    assert!(commit_count >= 1, "Expected at least 1 commit, found {}", commit_count);
 
     Ok(())
 }

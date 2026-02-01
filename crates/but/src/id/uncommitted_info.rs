@@ -16,11 +16,8 @@ pub(crate) struct UncommittedInfo {
 
 impl UncommittedInfo {
     /// Partitions hunk assignments by stack assignment and filename.
-    pub(crate) fn from_hunk_assignments(
-        hunk_assignments: Vec<HunkAssignment>,
-    ) -> anyhow::Result<Self> {
-        let mut uncommitted_hunks: BTreeMap<(Option<StackId>, BString), NonEmpty<HunkAssignment>> =
-            BTreeMap::new();
+    pub(crate) fn from_hunk_assignments(hunk_assignments: Vec<HunkAssignment>) -> anyhow::Result<Self> {
+        let mut uncommitted_hunks: BTreeMap<(Option<StackId>, BString), NonEmpty<HunkAssignment>> = BTreeMap::new();
         let mut uncommitted_short_filenames = HashSet::new();
         for assignment in hunk_assignments {
             if assignment.path_bytes.len() <= UintId::LENGTH_LIMIT

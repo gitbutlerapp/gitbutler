@@ -141,9 +141,7 @@ pub(super) mod function {
                 continue;
             }
             let rela_path = &record.filepath;
-            let rslash_pos = rela_path
-                .rfind("/")
-                .context("BUG: expecting <path>/<stage>")?;
+            let rslash_pos = rela_path.rfind("/").context("BUG: expecting <path>/<stage>")?;
             let stage: usize = rela_path[rslash_pos + 1..]
                 .to_str()?
                 .parse()
@@ -167,9 +165,8 @@ pub(super) mod function {
 
             to_remove.insert(rela_path);
         }
-        index.remove_entries(|_idx, path, entry| {
-            entry.flags.stage() == Stage::Unconflicted && to_remove.contains(path)
-        });
+        index
+            .remove_entries(|_idx, path, entry| entry.flags.stage() == Stage::Unconflicted && to_remove.contains(path));
 
         index.sort_entries();
         Ok(())

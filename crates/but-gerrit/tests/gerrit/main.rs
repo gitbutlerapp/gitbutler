@@ -3,8 +3,7 @@ use snapbox::str;
 
 #[test]
 fn record_push_metadata_fallback_url() -> anyhow::Result<()> {
-    let (repo, _tmp_writable_for_database) =
-        but_testsupport::writable_scenario("one-commit-with-gerrit-remote");
+    let (repo, _tmp_writable_for_database) = but_testsupport::writable_scenario("one-commit-with-gerrit-remote");
     snapbox::assert_data_eq!(
         but_testsupport::visualize_commit_graph_all(&repo)?,
         str![[r#"
@@ -33,9 +32,7 @@ fn record_push_metadata_fallback_url() -> anyhow::Result<()> {
 
     let db = ctx.db.get_mut()?;
     let db = db.gerrit_metadata();
-    let meta = db
-        .get(&change_id.to_string())?
-        .expect("Metadata should be recorded");
+    let meta = db.get(&change_id.to_string())?.expect("Metadata should be recorded");
 
     snapbox::assert_data_eq!(
         format!("{:#?}", meta),

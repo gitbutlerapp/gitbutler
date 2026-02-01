@@ -1,23 +1,26 @@
 //! Installation logic
 
+use std::{
+    fs::{self, File},
+    io,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
+
 use anyhow::{Context, Result, anyhow, bail};
 use flate2::read::GzDecoder;
-use std::fs::{self, File};
-use std::io;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use tar::Archive;
 
-use crate::config::Channel;
-use crate::ui::{info, success, warn};
+use crate::{
+    config::Channel,
+    ui::{info, success, warn},
+};
 
 pub(crate) fn extract_tarball(tarball: &Path, dest_dir: &Path) -> Result<PathBuf> {
     let file = File::open(tarball)?;
     let decoder = GzDecoder::new(file);
     let mut archive = Archive::new(decoder);
-    archive
-        .unpack(dest_dir)
-        .context("Failed to extract archive")?;
+    archive.unpack(dest_dir).context("Failed to extract archive")?;
 
     // Find the extracted .app bundle
     let mut app_dir = None;
@@ -36,16 +39,10 @@ pub(crate) fn extract_tarball(tarball: &Path, dest_dir: &Path) -> Result<PathBuf
 pub(crate) fn verify_app_structure(app_dir: &Path) -> Result<()> {
     let binaries_dir = app_dir.join("Contents/MacOS");
     if !binaries_dir.is_dir() {
-        bail!(
-            "Extracted app bundle does not contain expected directory structure (Contents/MacOS)"
-        );
+        bail!("Extracted app bundle does not contain expected directory structure (Contents/MacOS)");
     }
 
-    let required_binaries = [
-        "gitbutler-git-askpass",
-        "gitbutler-git-setsid",
-        "gitbutler-tauri",
-    ];
+    let required_binaries = ["gitbutler-git-askpass", "gitbutler-git-setsid", "gitbutler-tauri"];
 
     for binary in &required_binaries {
         let binary_path = binaries_dir.join(binary);
@@ -95,9 +92,7 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Channel) -> 
                 "Could not remove quarantine attribute: {} - macOS may show security warnings",
                 e
             ));
-            info(
-                "If macOS blocks the app, go to System Settings > Privacy & Security and allow it",
-            );
+            info("If macOS blocks the app, go to System Settings > Privacy & Security and allow it");
         }
     }
 
@@ -264,15 +259,9 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Channel) -> 
                 let _ = fs::remove_file(&but_symlink);
                 let _ = unix_fs::symlink(&restored_target, &but_symlink);
 
-                bail!(
-                    "Failed to create symlink: {}. Previous installation was restored.",
-                    e
-                );
+                bail!("Failed to create symlink: {}. Previous installation was restored.", e);
             } else {
-                bail!(
-                    "Failed to create symlink: {}. No backup available to restore.",
-                    e
-                );
+                bail!("Failed to create symlink: {}. No backup available to restore.", e);
             }
         }
 
@@ -304,9 +293,7 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Channel) -> 
                     success("Backup was restored successfully");
                     bail!("Installation failed but your previous installation was restored");
                 } else {
-                    bail!(
-                        "Installation failed and backup restoration also failed - 'but' command may not work"
-                    );
+                    bail!("Installation failed and backup restoration also failed - 'but' command may not work");
                 }
             } else {
                 bail!("Installation failed and no backup available to restore");
@@ -314,10 +301,7 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Channel) -> 
         }
     }
 
-    success(&format!(
-        "{} installed successfully",
-        app_basename.to_string_lossy()
-    ));
+    success(&format!("{} installed successfully", app_basename.to_string_lossy()));
     // Remove backup on success
     let _ = fs::remove_dir_all(&install_app_backup);
 

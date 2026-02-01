@@ -12,9 +12,7 @@ pub fn get_project_archive_path(
     archival: State<'_, but_feedback::Archival>,
     project_id: ProjectId,
 ) -> Result<PathBuf, Error> {
-    archival
-        .zip_entire_repository(project_id)
-        .map_err(Into::into)
+    archival.zip_entire_repository(project_id).map_err(Into::into)
 }
 
 #[tauri::command(async)]
@@ -28,8 +26,6 @@ pub fn get_anonymous_graph_path(
 
 #[tauri::command(async)]
 #[instrument(skip(archival), err(Debug))]
-pub fn get_logs_archive_path(
-    archival: State<'_, but_feedback::Archival>,
-) -> Result<PathBuf, Error> {
+pub fn get_logs_archive_path(archival: State<'_, but_feedback::Archival>) -> Result<PathBuf, Error> {
     archival.zip_logs().map_err(Into::into)
 }

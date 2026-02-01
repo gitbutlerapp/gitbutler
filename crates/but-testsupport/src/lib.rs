@@ -26,11 +26,7 @@ pub fn hunk_header_raw(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
         let hunk_info = hunk_info.trim_start_matches(['-', '+'].as_slice());
         let parts: Vec<_> = hunk_info.split(',').collect();
         let start = parts[0].parse().unwrap();
-        let lines = if parts.len() > 1 {
-            parts[1].parse().unwrap()
-        } else {
-            1
-        };
+        let lines = if parts.len() > 1 { parts[1].parse().unwrap() } else { 1 };
         (start, lines)
     }
     (parse_header(old), parse_header(new))
@@ -110,22 +106,15 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.
 /// This includes the author configuration in particular.
 pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
-    let config = gix::open::Options::isolated()
-        .lossy_config(false)
-        .config_overrides([
-            gix::config::tree::Author::NAME
-                .validated_assignment("Author (Memory Override)".into())?,
-            gix::config::tree::Author::EMAIL.validated_assignment("author@example.com".into())?,
-            gix::config::tree::Committer::NAME
-                .validated_assignment("Committer (Memory Override)".into())?,
-            gix::config::tree::Committer::EMAIL
-                .validated_assignment("committer@example.com".into())?,
-            gix::config::tree::gitoxide::Commit::AUTHOR_DATE
-                .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
-            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
-                .validated_assignment("2000-01-02 00:00:00 +0000".into())?,
-            "gitbutler.testing.changeId=1".to_owned().into(),
-        ]);
+    let config = gix::open::Options::isolated().lossy_config(false).config_overrides([
+        gix::config::tree::Author::NAME.validated_assignment("Author (Memory Override)".into())?,
+        gix::config::tree::Author::EMAIL.validated_assignment("author@example.com".into())?,
+        gix::config::tree::Committer::NAME.validated_assignment("Committer (Memory Override)".into())?,
+        gix::config::tree::Committer::EMAIL.validated_assignment("committer@example.com".into())?,
+        gix::config::tree::gitoxide::Commit::AUTHOR_DATE.validated_assignment("2000-01-01 00:00:00 +0000".into())?,
+        gix::config::tree::gitoxide::Commit::COMMITTER_DATE.validated_assignment("2000-01-02 00:00:00 +0000".into())?,
+        "gitbutler.testing.changeId=1".to_owned().into(),
+    ]);
     Ok(config)
 }
 
@@ -177,10 +166,7 @@ impl CommandExt for std::process::Command {
 }
 
 /// Produce a graph of all commits reachable from `refspec`.
-pub fn visualize_commit_graph(
-    repo: &gix::Repository,
-    refspec: impl ToString,
-) -> std::io::Result<String> {
+pub fn visualize_commit_graph(repo: &gix::Repository, refspec: impl ToString) -> std::io::Result<String> {
     let log = git(repo)
         .args(["log", "--oneline", "--graph", "--decorate"])
         .arg(refspec.to_string())
@@ -259,11 +245,7 @@ pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::
             "{mode:o}:{id} {path} {content:?}",
             id = &entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
-            content = repo
-                .find_blob(entry.id)
-                .expect("index only has blobs")
-                .data
-                .as_bstr()
+            content = repo.find_blob(entry.id).expect("index only has blobs").data.as_bstr()
         )
         .expect("enough memory")
     }
@@ -280,41 +262,34 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
             id.to_hex_with_len(7).to_string()
         }
         let repo = id.repo;
-        let entry_name =
-            |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
-                match name {
-                    None => short_id(id),
-                    Some((name, mode)) => {
-                        format!(
-                            "{name}:{mode}{} {}",
-                            short_id(id),
-                            match repo.find_blob(id) {
-                                Ok(blob) => format!("{:?}", blob.data.as_bstr()),
-                                Err(_) => "".into(),
-                            },
-                            mode = if mode.is_tree() {
-                                "".into()
-                            } else {
-                                format!("{:o}:", mode.value())
-                            }
-                        )
-                    }
+        let entry_name = |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
+            match name {
+                None => short_id(id),
+                Some((name, mode)) => {
+                    format!(
+                        "{name}:{mode}{} {}",
+                        short_id(id),
+                        match repo.find_blob(id) {
+                            Ok(blob) => format!("{:?}", blob.data.as_bstr()),
+                            Err(_) => "".into(),
+                        },
+                        mode = if mode.is_tree() {
+                            "".into()
+                        } else {
+                            format!("{:o}:", mode.value())
+                        }
+                    )
                 }
-            };
+            }
+        };
 
         let mut tree = termtree::Tree::new(entry_name(&id, name_and_mode));
         for entry in repo.find_tree(id)?.iter() {
             let entry = entry?;
             if entry.mode().is_tree() {
-                tree.push(visualize_tree(
-                    entry.id(),
-                    Some((entry.filename(), entry.mode())),
-                )?);
+                tree.push(visualize_tree(entry.id(), Some((entry.filename(), entry.mode())))?);
             } else {
-                tree.push(entry_name(
-                    entry.oid(),
-                    Some((entry.filename(), entry.mode())),
-                ));
+                tree.push(entry_name(entry.oid(), Some((entry.filename(), entry.mode()))));
             }
         }
         Ok(tree)
@@ -394,10 +369,7 @@ pub fn write_sequence(
             writeln!(&mut out, "{num}")?;
         }
     }
-    std::fs::write(
-        repo.workdir().expect("non-bare").join(filename),
-        out.as_bytes(),
-    )?;
+    std::fs::write(repo.workdir().expect("non-bare").join(filename), out.as_bytes())?;
     Ok(())
 }
 
@@ -413,8 +385,7 @@ pub fn writable_scenario_with_args(
     name: &str,
     args: impl IntoIterator<Item = impl Into<String>>,
 ) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly, args)
-        .expect("fixtures will yield valid repositories")
+    writable_scenario_inner(name, Creation::CopyFromReadOnly, args).expect("fixtures will yield valid repositories")
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is the result of the execution of the `tests/fixtures/scenario/$name.sh` script.
@@ -452,10 +423,7 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
     }
 
     repo.config_snapshot_mut()
-        .set_raw_value(
-            &"user.signingKey",
-            gix::path::into_bstr(signing_key_path).as_ref(),
-        )
+        .set_raw_value(&"user.signingKey", gix::path::into_bstr(signing_key_path).as_ref())
         .expect("in-memory values can always be set");
     (repo, tmp)
 }
@@ -466,10 +434,7 @@ pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repositor
 }
 
 /// Obtain an isolated `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects.
-pub fn read_only_in_memory_scenario_named(
-    script_name: &str,
-    dirname: &str,
-) -> anyhow::Result<gix::Repository> {
+pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
     let repo = open_repo(&root.join(dirname))?.with_object_memory();
@@ -481,12 +446,8 @@ fn writable_scenario_inner(
     creation: Creation,
     args: impl IntoIterator<Item = impl Into<String>>,
 ) -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
-    let tmp = gix_testtools::scripted_fixture_writable_with_args(
-        format!("scenario/{name}.sh"),
-        args,
-        creation,
-    )
-    .map_err(anyhow::Error::from_boxed)?;
+    let tmp = gix_testtools::scripted_fixture_writable_with_args(format!("scenario/{name}.sh"), args, creation)
+        .map_err(anyhow::Error::from_boxed)?;
     let repo = open_repo(tmp.path())?;
     Ok((repo, tmp))
 }
@@ -499,33 +460,23 @@ pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree
 
 /// Produce the id at the reference with `name` (short-name is fine), and also return the full name
 /// of the reference.
-pub fn id_at<'repo>(
-    repo: &'repo gix::Repository,
-    name: &str,
-) -> (gix::Id<'repo>, gix::refs::FullName) {
-    let mut rn = repo
-        .find_reference(name)
-        .expect("statically known reference exists");
+pub fn id_at<'repo>(repo: &'repo gix::Repository, name: &str) -> (gix::Id<'repo>, gix::refs::FullName) {
+    let mut rn = repo.find_reference(name).expect("statically known reference exists");
     let id = rn.peel_to_id().expect("must be valid reference");
     (id, rn.inner.name)
 }
 
 /// Return the commit by the given `revspec`.
 pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, revspec: &str) -> gix::Id<'repo> {
-    repo.rev_parse_single(revspec)
-        .expect("well-known revspec when testing")
+    repo.rev_parse_single(revspec).expect("well-known revspec when testing")
 }
 
 /// Find all UUIDs and unix timestamps in `input` and return a new string
 /// with these replaced by a sequential number, along with a mapping from the replaced string to the number
 /// in question.
-pub fn sanitize_uuids_and_timestamps_with_mapping(
-    input: String,
-) -> (String, HashMap<String, usize>) {
-    let uuid_regex = regex::Regex::new(
-        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
-    )
-    .unwrap();
+pub fn sanitize_uuids_and_timestamps_with_mapping(input: String) -> (String, HashMap<String, usize>) {
+    let uuid_regex =
+        regex::Regex::new(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}").unwrap();
     let timestamp_regex = regex::Regex::new(r#"("\d{13}")|( \d{13})"#).unwrap();
 
     let mut uuid_map: HashMap<String, usize> = HashMap::new();
