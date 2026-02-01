@@ -209,6 +209,13 @@ impl Claudes {
         // Capture the start time to filter messages created during this session
         let session_start_time = chrono::Utc::now().naive_utc();
 
+        // Clean up any stale pending requests from previous sessions
+        let expired_count = crate::pending_requests::pending_requests()
+            .cleanup_expired(crate::pending_requests::DEFAULT_REQUEST_TIMEOUT);
+        if expired_count > 0 {
+            tracing::debug!("Cleaned up {} expired pending requests", expired_count);
+        }
+
         let (send_kill, mut recv_kill) = unbounded_channel();
         self.requests
             .lock()
