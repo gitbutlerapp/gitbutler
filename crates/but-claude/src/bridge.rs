@@ -1,23 +1,14 @@
 //! Claude bridge.
 //!
-//! The goal of this module is to provide the frontend with a way of talking
-//! claude code.
+//! This module provides the integration between GitButler's frontend and Claude Code
+//! using the Claude Agent Rust SDK. It manages Claude sessions, handles tool permissions,
+//! and coordinates hooks for file tracking and commit creation.
 //!
-//! There have been three different methods for building this proposed:
-//!
-//! Streamed input & output
-//! - This might give us a little bit more control and have the ability to send
-//!   stop signals that are more graceful than just aborting the process.
-//! - This does require the management of long lived child processes.
-//! - **This is currently broken**
-//!
-//! Streamed output
-//! - It would be curious how this plays into features like queuing multiple
-//!   messages.
-//!
-//! Streamed output and managing tool call output
-//! - This might give us more flexabiity in the long run, but initially seems
-//!   more complex with more unknowns.
+//! Key components:
+//! - `Claudes`: Manages active Claude sessions, keyed by stack ID
+//! - `spawn_claude_inner`: Main entry point that connects to Claude SDK and streams responses
+//! - Permission handling via `can_use_tool` callback for tool approvals and AskUserQuestion
+//! - Hook callbacks (PreToolUse, PostToolUse, Stop) for file locking, hunk assignment, and commits
 
 use std::{collections::HashMap, sync::Arc};
 
