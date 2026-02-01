@@ -37,6 +37,7 @@
 		children?: Snippet;
 		icon?: keyof typeof iconsJson;
 		autofocus?: boolean;
+		closeOnSelect?: boolean;
 		onselect?: (value: T, modifiers?: Modifiers) => void;
 		ontoggle?: (isOpen: boolean) => void;
 	}
@@ -78,6 +79,7 @@
 		children,
 		icon,
 		autofocus,
+		closeOnSelect = true,
 		onselect,
 		ontoggle
 	}: Props = $props();
@@ -223,10 +225,11 @@
 				}
 			: undefined;
 		onselect?.(value, modifiers);
-
-		// Maintain focus if selection was made via keyboard
-		const isKeyboardSelection = event instanceof KeyboardEvent;
-		closeList(isKeyboardSelection);
+		if (closeOnSelect) {
+			// Maintain focus if selection was made via keyboard
+			const isKeyboardSelection = event instanceof KeyboardEvent;
+			closeList(isKeyboardSelection);
+		}
 	}
 
 	function handleEnter(event: KeyboardEvent) {

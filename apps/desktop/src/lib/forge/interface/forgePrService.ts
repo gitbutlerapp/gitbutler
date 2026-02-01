@@ -2,7 +2,8 @@ import type {
 	CreatePullRequestArgs,
 	DetailedPullRequest,
 	MergeMethod,
-	PullRequest
+	PullRequest,
+	Label
 } from '$lib/forge/interface/types';
 import type { ReactiveQuery } from '$lib/state/butlerModule';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
@@ -38,4 +39,5 @@ export interface ForgePrService {
 		prNumber: number,
 		details: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
 	): Promise<void>;
+	labels(options?: StartQueryActionCreatorOptions): ReactiveQuery<Label[]>;
 }

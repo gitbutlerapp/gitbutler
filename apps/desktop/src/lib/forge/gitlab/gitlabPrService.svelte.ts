@@ -10,7 +10,8 @@ import type {
 	CreatePullRequestArgs,
 	DetailedPullRequest,
 	MergeMethod,
-	PullRequest
+	PullRequest,
+	Label
 } from '$lib/forge/interface/types';
 import type { QueryOptions } from '$lib/state/butlerModule';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
@@ -33,7 +34,8 @@ export class GitLabPrService implements ForgePrService {
 		body,
 		draft,
 		baseBranchName,
-		upstreamName
+		upstreamName,
+		labels
 	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
 
@@ -43,7 +45,8 @@ export class GitLabPrService implements ForgePrService {
 				base: baseBranchName,
 				title,
 				body,
-				draft
+				draft,
+				labels
 			});
 		};
 
@@ -95,6 +98,10 @@ export class GitLabPrService implements ForgePrService {
 	) {
 		await this.api.endpoints.updatePr.mutate({ number, update });
 	}
+
+	labels(options?: StartQueryActionCreatorOptions) {
+		return this.api.endpoints.getLabels.useQuery(undefined, options);
+	}
 }
 
 function injectEndpoints(api: GitLabApi) {
@@ -123,9 +130,16 @@ function injectEndpoints(api: GitLabApi) {
 			}),
 			createPr: build.mutation<
 				PullRequest,
-				{ head: string; base: string; title: string; body: string; draft: boolean }
+				{
+					head: string;
+					base: string;
+					title: string;
+					body: string;
+					draft: boolean;
+					labels: string[];
+				}
 			>({
-				queryFn: async ({ head, base, title, body, draft }, query) => {
+				queryFn: async ({ head, base, title, body, draft, labels }, query) => {
 					try {
 						const { api, upstreamProjectId, forkProjectId } = gitlab(query.extra);
 						const upstreamProject = await api.Projects.show(upstreamProjectId);
@@ -136,7 +150,8 @@ function injectEndpoints(api: GitLabApi) {
 						const mr = await api.MergeRequests.create(forkProjectId, head, base, finalTitle, {
 							description: body,
 							targetProjectId: upstreamProject.id,
-							removeSourceBranch: true
+							removeSourceBranch: true,
+							labels: labels.join(',')
 						});
 						return { data: mrToInstance(mr) };
 					} catch (e: unknown) {
@@ -144,6 +159,24 @@ function injectEndpoints(api: GitLabApi) {
 					}
 				},
 				invalidatesTags: (result) => [invalidatesItem(ReduxTag.GitLabPullRequests, result?.number)]
+			}),
+			getLabels: build.query<Label[], void>({
+				queryFn: async (_args, query) => {
+					try {
+						const { api, upstreamProjectId } = gitlab(query.extra);
+						const labels = await api.ProjectLabels.all(upstreamProjectId);
+						return {
+							data: labels.map((l: any) => ({
+								name: l.name,
+								description: l.description || undefined,
+								color: l.color
+							}))
+						};
+					} catch (e: unknown) {
+						return { error: toSerializable(e) };
+					}
+				},
+				providesTags: [ReduxTag.GitLabPullRequests]
 			}),
 			mergePr: build.mutation<undefined, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number, method }, query) => {
