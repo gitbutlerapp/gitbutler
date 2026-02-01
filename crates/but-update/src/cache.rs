@@ -38,6 +38,14 @@ pub struct AvailableUpdate {
     pub url: Option<String>,
 }
 
+impl AvailableUpdate {
+    /// Checks if the available update is a no-op (i.e., the available version is the same as the current version).
+    /// This can happen if the update check cache is stale.
+    pub fn is_noop(&self) -> bool {
+        self.available_version == self.current_version
+    }
+}
+
 /// Returns information about an available application update, if one exists and is not suppressed.
 ///
 /// This function checks the cache for a previously performed update check and returns
@@ -45,11 +53,15 @@ pub struct AvailableUpdate {
 /// - A cached update check exists
 /// - The cached status indicates an update is available (`up_to_date == false`)
 /// - The update is not currently suppressed
+/// - The available version differs from the current version (not a no-op)
+///
+/// No-op updates (where the available version matches the current version) can occur when
+/// the cache becomes stale. This function automatically filters them out.
 ///
 /// # Returns
 ///
 /// * `Ok(Some(AvailableUpdate))` - An update is available and not suppressed
-/// * `Ok(None)` - No update is available, no cache exists, cache is invalid, or update is suppressed
+/// * `Ok(None)` - No update is available, no cache exists, cache is invalid, update is suppressed, or update is a no-op
 /// * `Err(_)` - Failed to access the cache
 pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option<AvailableUpdate>> {
     let cached = match cache.update_check().get() {
@@ -76,12 +88,19 @@ pub fn available_update(cache: &but_db::AppCacheHandle) -> anyhow::Result<Option
     // Update is available and not suppressed
     let current_version = option_env!("VERSION").unwrap_or("0.0.0").to_string();
 
-    Ok(Some(AvailableUpdate {
+    let update = AvailableUpdate {
         current_version,
         available_version: cached.status.latest_version,
         release_notes: cached.status.release_notes,
         url: cached.status.url,
-    }))
+    };
+
+    // Filter out no-op updates (stale cache entries where versions are identical)
+    if update.is_noop() {
+        return Ok(None);
+    }
+
+    Ok(Some(update))
 }
 
 /// Suppress an available update for a specified duration.
