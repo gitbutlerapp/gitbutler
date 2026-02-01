@@ -6,7 +6,10 @@ mod normalize;
 pub use normalize::normalize_short_name;
 
 mod generate;
-pub use generate::{canned_refname, find_unique_refname, unique_canned_refname};
+pub use generate::{
+    canned_refname, find_unique_refname, find_unique_refname_with_remote_check, unique_canned_refname,
+    unique_canned_refname_with_remote_check,
+};
 
 /// A way to safely delete branches, which is only the case it's checked out nowhere.
 pub mod safe_delete;

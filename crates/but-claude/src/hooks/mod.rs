@@ -493,7 +493,18 @@ pub fn get_or_create_session(
 }
 
 fn create_stack(ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<StackId> {
-    let branch_name = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+    let repo = ctx.repo.get()?;
+    let state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
+
+    // Try to get the push remote name to avoid conflicts with remote branches
+    let branch_name = match state.get_default_target() {
+        Ok(target) => {
+            let remote_name = target.push_remote_name();
+            but_core::branch::unique_canned_refname_with_remote_check(&repo, &remote_name)?
+        }
+        Err(_) => but_core::branch::unique_canned_refname(&repo)?,
+    };
+
     let create_req = BranchCreateRequest {
         name: Some(branch_name.shorten().to_string()),
         order: None,
