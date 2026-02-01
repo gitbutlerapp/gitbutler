@@ -1348,6 +1348,7 @@ dependencies = [
  "but-hunk-dependency",
  "but-workspace",
  "chrono",
+ "gitbutler-stack",
  "gix",
  "itertools",
  "regex",

@@ -110,7 +110,6 @@ impl ClaudeMcpConfig {
 
         out
     }
-
 }
 
 async fn read_claude_json() -> Option<ClaudeJson> {

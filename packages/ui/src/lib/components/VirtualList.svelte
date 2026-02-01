@@ -460,7 +460,6 @@
 						hasNewItemsAtBottom = count > previousCount && count > visibleRange.end;
 					}
 				}
-				await updateOffsets();
 			});
 		}
 		previousCount = items.length;
@@ -548,7 +547,11 @@
 					kind="outline"
 					icon="arrow-down"
 					tooltip="Scroll to bottom"
-					onclick={scrollToBottom}
+					onclick={() => {
+						if (items.length > 0) {
+							initializeAt(items.length - 1);
+						}
+					}}
 				/>
 			</div>
 		{/if}

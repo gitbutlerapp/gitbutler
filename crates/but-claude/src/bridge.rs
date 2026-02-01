@@ -577,6 +577,10 @@ impl Claudes {
                     }
                 }
                 _ = recv_kill.recv() => {
+                    // Immediately cancel any pending permission/question requests
+                    // so they don't block shutdown
+                    crate::pending_requests::pending_requests().cancel_session(session_id);
+
                     send_claude_message(
                         sync_ctx.clone(),
                         broadcaster.clone(),
@@ -1182,24 +1186,42 @@ fn create_can_use_tool_callback(
                 };
 
                 // Check existing permissions (runtime + session)
+                // Wrap in spawn_blocking since database access is blocking I/O
                 let check_result = {
-                    let ctx = sync_ctx.clone().into_thread_local();
-
-                    // Load session permissions
-                    let session_perms = match crate::db::get_session_by_id(&ctx, session_id) {
-                        Ok(Some(session)) => crate::permissions::Permissions::from_slices(
-                            session.approved_permissions(),
-                            session.denied_permissions(),
-                        ),
-                        _ => crate::permissions::Permissions::default(),
+                    let sync_ctx_clone = sync_ctx.clone();
+                    let permission_request_clone = permission_request.clone();
+                    let runtime_perms_snapshot = {
+                        let perms = runtime_permissions.lock().unwrap();
+                        perms.clone()
                     };
 
-                    // Merge runtime and session permissions
-                    let runtime_perms = runtime_permissions.lock().unwrap();
-                    let combined_perms = crate::permissions::Permissions::merge([&*runtime_perms, &session_perms]);
-                    drop(runtime_perms);
+                    let result = tokio::task::spawn_blocking(move || {
+                        let ctx = sync_ctx_clone.into_thread_local();
 
-                    combined_perms.check(&permission_request).unwrap_or_default()
+                        // Load session permissions
+                        let session_perms = match crate::db::get_session_by_id(&ctx, session_id) {
+                            Ok(Some(session)) => crate::permissions::Permissions::from_slices(
+                                session.approved_permissions(),
+                                session.denied_permissions(),
+                            ),
+                            _ => crate::permissions::Permissions::default(),
+                        };
+
+                        // Merge runtime and session permissions
+                        let combined_perms =
+                            crate::permissions::Permissions::merge([&runtime_perms_snapshot, &session_perms]);
+
+                        combined_perms.check(&permission_request_clone).unwrap_or_default()
+                    })
+                    .await;
+
+                    match result {
+                        Ok(check) => check,
+                        Err(e) => {
+                            tracing::warn!("Permission check spawn_blocking failed: {}", e);
+                            crate::permissions::PermissionCheck::Ask
+                        }
+                    }
                 };
 
                 match check_result {
@@ -1236,11 +1258,36 @@ fn create_can_use_tool_callback(
                         let approved = decision.is_allowed();
 
                         // Handle the decision (update runtime permissions, persist to settings)
+                        // Wrap in spawn_blocking since decision.handle involves blocking I/O
                         {
-                            let mut ctx = sync_ctx.clone().into_thread_local();
-                            let mut perms = runtime_permissions.lock().unwrap();
-                            if let Err(e) = decision.handle(&permission_request, &mut perms, &mut ctx, session_id) {
-                                tracing::warn!("Failed to handle permission decision: {}", e);
+                            let sync_ctx_clone = sync_ctx.clone();
+                            let permission_request_clone = permission_request.clone();
+                            let current_perms = {
+                                let perms = runtime_permissions.lock().unwrap();
+                                perms.clone()
+                            };
+
+                            let handle_result = tokio::task::spawn_blocking(move || {
+                                let mut ctx = sync_ctx_clone.into_thread_local();
+                                let mut perms = current_perms;
+                                let result =
+                                    decision.handle(&permission_request_clone, &mut perms, &mut ctx, session_id);
+                                (result, perms)
+                            })
+                            .await;
+
+                            match handle_result {
+                                Ok((Ok(()), updated_perms)) => {
+                                    // Update runtime permissions with the modified copy
+                                    let mut perms = runtime_permissions.lock().unwrap();
+                                    *perms = updated_perms;
+                                }
+                                Ok((Err(e), _)) => {
+                                    tracing::warn!("Failed to handle permission decision: {}", e);
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Permission decision spawn_blocking failed: {}", e);
+                                }
                             }
                         }
 
