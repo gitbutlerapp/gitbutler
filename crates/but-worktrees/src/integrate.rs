@@ -11,9 +11,7 @@ use but_status::create_wd_tree;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{
-    WorkspaceState, merge_workspace, move_tree, update_uncommitted_changes,
-};
+use gitbutler_workspace::branch_trees::{WorkspaceState, merge_workspace, move_tree, update_uncommitted_changes};
 use gix::prelude::ObjectIdExt as _;
 use serde::{Deserialize, Serialize};
 
@@ -156,11 +154,7 @@ fn worktree_integration_inner(
     let stacks = vb_handle.list_stacks_in_workspace()?;
     let stack = stacks
         .iter()
-        .find(|s| {
-            s.branches()
-                .iter()
-                .any(|b| b.name.as_bytes() == target.shorten())
-        })
+        .find(|s| s.branches().iter().any(|b| b.name.as_bytes() == target.shorten()))
         .context("Failed to find branch in vb state")?
         .clone();
 
@@ -169,9 +163,7 @@ fn worktree_integration_inner(
         if let RebaseStep::Reference(reference) = entry {
             let matches_target = match reference {
                 but_core::Reference::Git(reference) => reference.as_ref() == target,
-                but_core::Reference::Virtual(vref) => {
-                    target.shorten() == BString::from(vref.clone()).as_bstr()
-                }
+                but_core::Reference::Virtual(vref) => target.shorten() == BString::from(vref.clone()).as_bstr(),
             };
 
             if matches_target {
@@ -205,21 +197,13 @@ fn worktree_integration_inner(
         let merge_base = repo.merge_base(head_id, output.top_commit)?;
         let merge_base_tree = repo.find_commit(merge_base)?.tree_id()?;
 
-        if !repo.merges_cleanly(
-            merge_base_tree.detach(),
-            head_tree.detach(),
-            tip_tree.detach(),
-        )? {
+        if !repo.merges_cleanly(merge_base_tree.detach(), head_tree.detach(), tip_tree.detach())? {
             return Ok((WorktreeIntegrationStatus::CausesWorkspaceConflicts, None));
         }
     }
 
     let cherry_pick_conflicts = {
-        let Some(row) = output
-            .commit_mapping
-            .iter()
-            .find(|m| m.1 == commit_id.detach())
-        else {
+        let Some(row) = output.commit_mapping.iter().find(|m| m.1 == commit_id.detach()) else {
             bail!("Cherry-pick did not end up in rebase output");
         };
 
@@ -242,10 +226,7 @@ fn worktree_integration_inner(
     let wd_tree = create_wd_tree(&repo, 0)?;
 
     let working_dir_conflicts = {
-        let before_heads = stacks
-            .iter()
-            .map(|s| s.head_oid(ctx))
-            .collect::<Result<Vec<_>>>()?;
+        let before_heads = stacks.iter().map(|s| s.head_oid(ctx)).collect::<Result<Vec<_>>>()?;
         let before = WorkspaceState::create_from_heads(ctx, perm, &before_heads)?;
         let before = merge_workspace(&*ctx.git2_repo.get()?, before)?;
         let mut after_heads = stacks

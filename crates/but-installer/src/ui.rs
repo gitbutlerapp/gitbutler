@@ -34,18 +34,12 @@ pub fn warn(msg: &str) {
 
 /// Prints a success message to stdout in green.
 pub fn success(msg: &str) {
-    print_stdout(&format!(
-        "{}",
-        msg.if_supports_color(Stream::Stdout, |t| t.green())
-    ));
+    print_stdout(&format!("{}", msg.if_supports_color(Stream::Stdout, |t| t.green())));
 }
 
 /// Prints an informational message to stdout in blue.
 pub fn info(msg: &str) {
-    print_stdout(&format!(
-        "{}",
-        msg.if_supports_color(Stream::Stdout, |t| t.blue())
-    ));
+    print_stdout(&format!("{}", msg.if_supports_color(Stream::Stdout, |t| t.blue())));
 }
 
 /// Prints an error message to stderr in red.

@@ -1,7 +1,5 @@
 use but_core::sync::LockScope::AllOperations;
-pub use but_core::sync::{
-    LockFile, RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard,
-};
+pub use but_core::sync::{LockFile, RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard};
 
 use crate::Context;
 

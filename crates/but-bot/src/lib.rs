@@ -57,7 +57,8 @@ pub fn forge_branch_chat(
 <given_reviews>
 {reviews_text}
 </given_reviews>
-");
+"
+    );
 
     let message_id_cloned = message_id.clone();
     let project_id_cloned = project_id;

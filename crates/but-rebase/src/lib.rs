@@ -60,8 +60,7 @@ impl RebaseStep {
     /// Get the commit id associated with a given step
     pub fn commit_id(&self) -> Option<&gix::oid> {
         match self {
-            RebaseStep::Pick { commit_id, .. }
-            | RebaseStep::SquashIntoPreceding { commit_id, .. } => Some(commit_id),
+            RebaseStep::Pick { commit_id, .. } | RebaseStep::SquashIntoPreceding { commit_id, .. } => Some(commit_id),
             RebaseStep::Reference { .. } => None,
         }
     }
@@ -192,20 +191,14 @@ impl Rebase<'_> {
             }
             RebaseStep::Reference(name) => {
                 if matches!(name, but_core::Reference::Virtual(name) if name.is_empty()) {
-                    return Err(anyhow!(
-                        "Reference step must have a non-empty virtual branch name"
-                    ));
+                    return Err(anyhow!("Reference step must have a non-empty virtual branch name"));
                 }
             }
         }
         Ok(())
     }
 
-    fn assure_unique_step_and_existing_non_base(
-        &self,
-        commit_id: &gix::oid,
-        kind: &str,
-    ) -> Result<()> {
+    fn assure_unique_step_and_existing_non_base(&self, commit_id: &gix::oid, kind: &str) -> Result<()> {
         self.repo.find_commit(commit_id)?;
         if Some(commit_id) == self.base.as_deref() {
             bail!("{kind} commit cannot be the base commit");
@@ -234,10 +227,7 @@ fn rebase(
     let mut graph = repo.revision_graph(cache.as_ref());
     for step in steps {
         match step {
-            RebaseStep::Pick {
-                commit_id,
-                new_message,
-            } => {
+            RebaseStep::Pick { commit_id, new_message } => {
                 // This should be the source commit id
                 last_seen_commit = Some(commit_id);
 
@@ -250,33 +240,22 @@ fn rebase(
                     // Find any parent that we have seen during picking.
                     let parent_to_replace = match merge_commit.parents.iter_mut().find(|id| {
                         (Some(**id) == base_substitute)
-                            || commit_mapping.iter().any(|(mapping_base, old, _new)| {
-                                *mapping_base == base && (*id == old)
-                            })
+                            || commit_mapping
+                                .iter()
+                                .any(|(mapping_base, old, _new)| *mapping_base == base && (*id == old))
                     }) {
-                        None => merge_commit
-                            .parents
-                            .iter_mut()
-                            .next()
-                            .expect("more than one parents"),
+                        None => merge_commit.parents.iter_mut().next().expect("more than one parents"),
                         Some(parent) => parent,
                     };
                     *parent_to_replace = cursor.context("Expecting a base for any merge")?;
                     cursor = merge::octopus(repo, merge_commit, &mut graph)
-                        .context(
-                            "The rebase failed as a merge could not be repeated without conflicts",
-                        )?
+                        .context("The rebase failed as a merge could not be repeated without conflicts")?
                         .into();
                 } else {
                     match &mut cursor {
                         Some(cursor) => {
-                            let mut new_commit = cherry_pick_one(
-                                repo,
-                                *cursor,
-                                commit_id,
-                                pick_mode,
-                                EmptyCommit::Keep,
-                            )?;
+                            let mut new_commit =
+                                cherry_pick_one(repo, *cursor, commit_id, pick_mode, EmptyCommit::Keep)?;
                             if let Some(new_message) = new_message {
                                 new_commit = reword_commit(repo, new_commit, new_message.clone())?;
                             }
@@ -296,29 +275,19 @@ fn rebase(
                         }
                         None => {
                             // TODO: should this be supported? This would be as easy as forgetting its parents.
-                            bail!(
-                                "Cannot currently rebase a commit so that it becomes the first commit in the history"
-                            )
+                            bail!("Cannot currently rebase a commit so that it becomes the first commit in the history")
                         }
                     }
                 }
             }
-            RebaseStep::SquashIntoPreceding {
-                commit_id,
-                new_message,
-            } => {
+            RebaseStep::SquashIntoPreceding { commit_id, new_message } => {
                 let Some(cursor) = &mut cursor else {
                     bail!("Can't squash if previous commit is missing");
                 };
                 last_seen_commit = Some(commit_id);
                 let base_commit = repo.find_commit(*cursor)?;
-                let new_commit = cherry_pick_one(
-                    repo,
-                    *cursor,
-                    commit_id,
-                    PickMode::Unconditionally,
-                    EmptyCommit::Keep,
-                )?;
+                let new_commit =
+                    cherry_pick_one(repo, *cursor, commit_id, PickMode::Unconditionally, EmptyCommit::Keep)?;
 
                 // Now, lets pretend the base didn't exist by swapping parent with the parent of the base
                 let mut new_commit = repo.find_commit(new_commit)?.decode()?.to_owned()?;
@@ -326,16 +295,13 @@ fn rebase(
                 if let Some(new_message) = new_message {
                     new_commit.message = new_message;
                 }
-                *cursor =
-                    commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?;
+                *cursor = commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?;
             }
             RebaseStep::Reference(reference) => {
                 references.push(ReferenceSpec {
                     reference,
-                    commit_id: cursor
-                        .expect("Validation assures there is a rewritten commit prior"),
-                    previous_commit_id: last_seen_commit
-                        .expect("Validation assures there is a commit prior"),
+                    commit_id: cursor.expect("Validation assures there is a rewritten commit prior"),
+                    previous_commit_id: last_seen_commit.expect("Validation assures there is a commit prior"),
                 });
             }
         }
@@ -352,19 +318,10 @@ fn rebase(
 }
 
 fn to_commit(repo: &gix::Repository, commit_id: gix::ObjectId) -> Result<gix::objs::Commit> {
-    Ok(commit_id
-        .attach(repo)
-        .object()?
-        .into_commit()
-        .decode()?
-        .try_into()?)
+    Ok(commit_id.attach(repo).object()?.into_commit().decode()?.try_into()?)
 }
 
-fn reword_commit(
-    repo: &gix::Repository,
-    oid: gix::ObjectId,
-    new_message: BString,
-) -> Result<gix::ObjectId> {
+fn reword_commit(repo: &gix::Repository, oid: gix::ObjectId, new_message: BString) -> Result<gix::ObjectId> {
     let mut new_commit = repo.find_commit(oid)?.decode()?.to_owned()?;
     new_commit.message = new_message;
     Ok(commit::create(

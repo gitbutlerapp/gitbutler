@@ -29,10 +29,7 @@ pub struct Oplog {
     #[serde(with = "but_serde::oid_opt", default)]
     pub head_sha: Option<git2::Oid>,
     /// The time when the last snapshot was created. Seconds since Epoch
-    #[serde(
-        deserialize_with = "unfailing_system_time_deserialize",
-        default = "unix_epoch"
-    )]
+    #[serde(deserialize_with = "unfailing_system_time_deserialize", default = "unix_epoch")]
     pub modified_at: SystemTime,
 }
 

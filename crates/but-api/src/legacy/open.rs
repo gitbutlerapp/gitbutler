@@ -25,9 +25,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         bail!("Invalid path scheme: {}", target_url.scheme());
     }
 
-    fn clean_env_vars<'a, 'b>(
-        var_names: &'a [&'b str],
-    ) -> impl Iterator<Item = (&'b str, String)> + 'a {
+    fn clean_env_vars<'a, 'b>(var_names: &'a [&'b str]) -> impl Iterator<Item = (&'b str, String)> + 'a {
         var_names
             .iter()
             .filter_map(|name| env::var(name).map(|value| (*name, value)).ok())
@@ -36,9 +34,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
                     name,
                     value
                         .split(':')
-                        .filter(|path| {
-                            !path.contains("appimage-run") && !path.contains("/tmp/.mount")
-                        })
+                        .filter(|path| !path.contains("appimage-run") && !path.contains("/tmp/.mount"))
                         .collect::<Vec<_>>()
                         .join(":"),
                 )
@@ -121,18 +117,15 @@ pub fn show_in_finder(path: String) -> Result<()> {
     {
         // For directories, open the directory directly
         if std::path::Path::new(&path).is_dir() {
-            open_that(&path)
-                .with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
+            open_that(&path).with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
         } else {
             // For files, try to open the parent directory
             if let Some(parent) = std::path::Path::new(&path).parent() {
                 let parent_str = parent.to_string_lossy();
-                open_that(&parent_str).with_context(|| {
-                    format!("Failed to open parent directory of '{path}' in file manager",)
-                })?;
+                open_that(&parent_str)
+                    .with_context(|| format!("Failed to open parent directory of '{path}' in file manager",))?;
             } else {
-                open_that(&path)
-                    .with_context(|| format!("Failed to open '{path}' in file manager"))?;
+                open_that(&path).with_context(|| format!("Failed to open '{path}' in file manager"))?;
             }
         }
     }

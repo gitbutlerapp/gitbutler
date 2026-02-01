@@ -126,11 +126,7 @@ mod subtract_hunks {
         // 1 2 3 4 5
         // 1   3   5
         assert_eq!(
-            subtract_hunks(
-                hunk_header("-1,5", "+1,5"),
-                [Old(range(2, 1)), Old(range(4, 1))]
-            )
-            .unwrap(),
+            subtract_hunks(hunk_header("-1,5", "+1,5"), [Old(range(2, 1)), Old(range(4, 1))]).unwrap(),
             [
                 hunk_header("-1,1", "+1,1"),
                 hunk_header("-3,1", "+2,1"),
@@ -139,11 +135,7 @@ mod subtract_hunks {
             "new doesn't loose any content while exhausting its lines from the start"
         );
         assert_eq!(
-            subtract_hunks(
-                hunk_header("-1,5", "+1,5"),
-                [New(range(2, 1)), New(range(4, 1))]
-            )
-            .unwrap(),
+            subtract_hunks(hunk_header("-1,5", "+1,5"), [New(range(2, 1)), New(range(4, 1))]).unwrap(),
             [
                 hunk_header("-1,1", "+1,1"),
                 hunk_header("-2,1", "+3,1"),
@@ -158,12 +150,7 @@ mod subtract_hunks {
         assert_eq!(
             subtract_hunks(
                 hunk_header("-1,5", "+1,5"),
-                [
-                    Old(range(2, 1)),
-                    New(range(2, 1)),
-                    Old(range(4, 1)),
-                    New(range(4, 1))
-                ]
+                [Old(range(2, 1)), New(range(2, 1)), Old(range(4, 1)), New(range(4, 1))]
             )
             .unwrap(),
             [
@@ -178,20 +165,12 @@ mod subtract_hunks {
     #[test]
     fn multi_split_mixed_sort_dependent() {
         assert_eq!(
-            subtract_hunks(
-                hunk_header("-1,5", "+1,5"),
-                [Old(range(2, 1)), New(range(1, 5)),]
-            )
-            .unwrap(),
+            subtract_hunks(hunk_header("-1,5", "+1,5"), [Old(range(2, 1)), New(range(1, 5)),]).unwrap(),
             [hunk_header("-1,1", "+6,0"), hunk_header("-3,3", "+6,0")],
             "Splits are handled in order, and it's possible for these to not match up anymore"
         );
         assert_eq!(
-            subtract_hunks(
-                hunk_header("-1,5", "+1,5"),
-                [New(range(2, 1)), Old(range(1, 5)),]
-            )
-            .unwrap(),
+            subtract_hunks(hunk_header("-1,5", "+1,5"), [New(range(2, 1)), Old(range(1, 5)),]).unwrap(),
             [hunk_header("-6,0", "+1,1"), hunk_header("-6,0", "+3,3")]
         );
     }

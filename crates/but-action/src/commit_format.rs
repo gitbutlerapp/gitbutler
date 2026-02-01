@@ -129,13 +129,7 @@ mod tests {
         // Check that body lines don't exceed 72 characters
         for (i, line) in output.lines().enumerate() {
             if i > 1 && !line.is_empty() {
-                assert!(
-                    line.len() <= 72,
-                    "Line {} too long: '{}' ({})",
-                    i,
-                    line,
-                    line.len()
-                );
+                assert!(line.len() <= 72, "Line {} too long: '{}' ({})", i, line, line.len());
             }
         }
     }

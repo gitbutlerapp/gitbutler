@@ -19,11 +19,7 @@ fn with_existing_numerical_suffix() -> anyhow::Result<()> {
 
     let unique = find_unique_refname(&repo, branch_2.as_ref())?;
     assert_eq!(unique.category(), Some(Category::LocalBranch));
-    assert_eq!(
-        unique.shorten(),
-        "branch-3",
-        "it increments 2 till 3 as well"
-    );
+    assert_eq!(unique.shorten(), "branch-3", "it increments 2 till 3 as well");
 
     Ok(())
 }

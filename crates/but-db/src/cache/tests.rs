@@ -8,10 +8,7 @@ mod open_with_migrations_infallible {
         let tmp = tempfile::TempDir::new()?;
         let tmp_path = tmp.path().join("cache.sqlite");
         let (conn, url) = open_with_migrations_infallible(&tmp_path, migrations());
-        assert_eq!(
-            url, tmp_path,
-            "writable location means we get to write there"
-        );
+        assert_eq!(url, tmp_path, "writable location means we get to write there");
         assert!(table_exists(&conn, "foo")?);
         Ok(())
     }
@@ -19,14 +16,8 @@ mod open_with_migrations_infallible {
 
     #[test]
     fn destination_no_writable() {
-        let (conn, url) = open_with_migrations_infallible(
-            "/proc/cannot-be-created.sqlite".as_ref(),
-            migrations(),
-        );
-        assert_eq!(
-            url, ":memory:",
-            "Permanent failures to open fall back to memory"
-        );
+        let (conn, url) = open_with_migrations_infallible("/proc/cannot-be-created.sqlite".as_ref(), migrations());
+        assert_eq!(url, ":memory:", "Permanent failures to open fall back to memory");
         assert!(table_exists(&conn, "foo").unwrap());
     }
 

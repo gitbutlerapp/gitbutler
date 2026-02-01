@@ -101,10 +101,7 @@ pub fn create(
             update_author_time(repo, &mut commit)?;
         }
     }
-    if let Some(pos) = commit
-        .extra_headers()
-        .find_pos(gix::objs::commit::SIGNATURE_FIELD_NAME)
-    {
+    if let Some(pos) = commit.extra_headers().find_pos(gix::objs::commit::SIGNATURE_FIELD_NAME) {
         commit.extra_headers.remove(pos);
     }
     let settings = repo.git_settings()?;
@@ -125,17 +122,14 @@ pub fn create(
                 // but only if it's not already configured globally (which implies user intervention).
                 if repo
                     .config_snapshot()
-                    .boolean_filter("gitbutler.signCommits", |md| {
-                        md.source != gix::config::Source::Local
-                    })
+                    .boolean_filter("gitbutler.signCommits", |md| md.source != gix::config::Source::Local)
                     .is_none()
                 {
                     repo.set_git_settings(&GitConfigSettings {
                         gitbutler_sign_commits: Some(false),
                         ..GitConfigSettings::default()
                     })?;
-                    return Err(anyhow!("Failed to sign commit: {}", err)
-                        .context(Code::CommitSigningFailed));
+                    return Err(anyhow!("Failed to sign commit: {}", err).context(Code::CommitSigningFailed));
                 } else {
                     tracing::warn!(
                         "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
@@ -150,10 +144,7 @@ pub fn create(
 }
 
 /// Update the committer of `commit` to be the current one.
-pub(crate) fn update_committer(
-    repo: &gix::Repository,
-    commit: &mut gix::objs::Commit,
-) -> anyhow::Result<()> {
+pub(crate) fn update_committer(repo: &gix::Repository, commit: &mut gix::objs::Commit) -> anyhow::Result<()> {
     commit.committer = repo
         .committer()
         .transpose()?
@@ -163,10 +154,7 @@ pub(crate) fn update_committer(
 }
 
 /// Update only the author-time of `commit`.
-pub(crate) fn update_author_time(
-    repo: &gix::Repository,
-    commit: &mut gix::objs::Commit,
-) -> anyhow::Result<()> {
+pub(crate) fn update_author_time(repo: &gix::Repository, commit: &mut gix::objs::Commit) -> anyhow::Result<()> {
     let author = repo
         .author()
         .transpose()?
@@ -201,8 +189,8 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 |program| Cow::Owned(program.into_owned().into()),
             );
 
-        let mut signing_cmd = prepare_with_shell_on_windows(gpg_program.into_owned())
-            .args(["-Y", "sign", "-n", "git", "-f"]);
+        let mut signing_cmd =
+            prepare_with_shell_on_windows(gpg_program.into_owned()).args(["-Y", "sign", "-n", "git", "-f"]);
 
         // Write the key to a temp file. This is needs to be created in the
         // same scope where its used; IE: in the command, otherwise the
@@ -270,9 +258,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
                 .arg(gix::path::from_bstring(signing_key))
                 .arg("-"),
         );
-        cmd.stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::piped());
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).stdin(Stdio::piped());
 
         let mut child = match cmd.spawn() {
             Ok(child) => child,

@@ -19,9 +19,7 @@ pub fn list(ctx: &Context) -> Result<()> {
             active = if stack.in_workspace { "✔️" } else { "⛌" },
             id = stack.id,
             name = stack.name(),
-            upstream = stack
-                .upstream
-                .map_or_else(Default::default, |b| b.to_string()),
+            upstream = stack.upstream.map_or_else(Default::default, |b| b.to_string()),
             default = if stack.in_workspace { "🌟" } else { "" }
         );
     }
@@ -36,9 +34,7 @@ pub(crate) fn stacks(ctx: &Context) -> Result<Vec<(StackId, StackDetails)>> {
     }?;
     let mut details = vec![];
     for stack in stacks {
-        let stack_id = stack
-            .id
-            .context("BUG(opt-stack-id): CLI code shouldn't trigger this")?;
+        let stack_id = stack.id.context("BUG(opt-stack-id): CLI code shouldn't trigger this")?;
         details.push((stack_id, {
             let meta = ctx.legacy_meta()?;
             but_workspace::legacy::stack_details_v3(stack_id.into(), &repo, &meta)
@@ -73,9 +69,7 @@ fn apply_by_name(ctx: &mut Context, branch_name: String) -> Result<()> {
 fn apply_from_branch(ctx: &mut Context, branch_name: String) -> Result<()> {
     let refname = Refname::Local(LocalRefname::new(&branch_name, None));
     let target = if let Some(stack) = stack_by_refname(&ctx.project_data_dir(), &refname)? {
-        stack
-            .source_refname
-            .context("local reference name was missing")?
+        stack.source_refname.context("local reference name was missing")?
     } else {
         refname
     };
@@ -110,15 +104,11 @@ pub fn series(ctx: &Context, stack_name: String, new_series_name: String) -> Res
 
 pub fn commit(ctx: &mut Context, branch_name: String, message: String) -> Result<()> {
     let stack = stack_by_name(&ctx.project_data_dir(), &branch_name)?;
-    let (_, d) = stacks(ctx)?
-        .into_iter()
-        .find(|(i, _)| *i == stack.id)
-        .unwrap();
+    let (_, d) = stacks(ctx)?.into_iter().find(|(i, _)| *i == stack.id).unwrap();
 
     let worktree = but_core::diff::worktree_changes(&*ctx.repo.get()?)?;
     let mut guard = ctx.exclusive_worktree_access();
-    let file_changes: Vec<but_core::DiffSpec> =
-        worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
+    let file_changes: Vec<but_core::DiffSpec> = worktree.changes.iter().map(Into::into).collect::<Vec<_>>();
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
         ctx,

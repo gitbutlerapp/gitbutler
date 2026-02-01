@@ -65,19 +65,13 @@ impl ActiveProjects {
                         name: format!("project://{project_id}/git/head"),
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
                     },
-                    Change::GitActivity {
-                        project_id,
-                        head_sha,
-                    } => FrontendEvent {
+                    Change::GitActivity { project_id, head_sha } => FrontendEvent {
                         name: format!("project://{project_id}/git/activity"),
                         payload: serde_json::json!({
                             "headSha": head_sha,
                         }),
                     },
-                    Change::WorktreeChanges {
-                        project_id,
-                        changes,
-                    } => FrontendEvent {
+                    Change::WorktreeChanges { project_id, changes } => FrontendEvent {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                     },
@@ -88,9 +82,8 @@ impl ActiveProjects {
             }
         });
 
-        let watch_mode = gitbutler_watcher::WatchMode::from_env_or_settings(
-            &app_settings_sync.get()?.feature_flags.watch_mode,
-        );
+        let watch_mode =
+            gitbutler_watcher::WatchMode::from_env_or_settings(&app_settings_sync.get()?.feature_flags.watch_mode);
         let file_watcher = gitbutler_watcher::watch_in_background(
             handler,
             ctx.workdir_or_fail()?,

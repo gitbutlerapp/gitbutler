@@ -1,7 +1,4 @@
-#![cfg_attr(
-    all(windows, not(test), not(debug_assertions)),
-    windows_subsystem = "windows"
-)]
+#![cfg_attr(all(windows, not(test), not(debug_assertions)), windows_subsystem = "windows")]
 // FIXME(qix-): Stuff we want to fix but don't have a lot of time for.
 // FIXME(qix-): PRs welcome!
 #![allow(
@@ -18,8 +15,7 @@ use but_api::{commit, diff, github, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, logs, menu, projects,
-    settings, zip,
+    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, logs, menu, projects, settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -27,9 +23,7 @@ use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
 
 fn main() -> anyhow::Result<()> {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?;
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     #[cfg(feature = "builtin-but")]
     {
         let exe = std::env::current_exe()?;
@@ -46,8 +40,8 @@ fn main() -> anyhow::Result<()> {
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
-    let custom_settings = cfg!(feature = "packaged-but-distribution")
-        .then(but_settings::customization::packaged_but_binary);
+    let custom_settings =
+        cfg!(feature = "packaged-but-distribution").then(but_settings::customization::packaged_but_binary);
     // While it serves a function, this behavior is sub-optimal. The proper solution is to decouple:
     // - Checking for updates from
     // - Performing an update
@@ -61,20 +55,14 @@ fn main() -> anyhow::Result<()> {
     } else {
         custom_settings
     };
-    let mut app_settings =
-        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
-            .expect("failed to create app settings");
+    let mut app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), custom_settings)
+        .expect("failed to create app settings");
 
-    if let Ok(updated_csp) = csp_with_extras(
-        tauri_context.config().app.security.csp.as_ref().cloned(),
-        &app_settings,
-    ) {
+    if let Ok(updated_csp) = csp_with_extras(tauri_context.config().app.security.csp.as_ref().cloned(), &app_settings) {
         tauri_context.config_mut().app.security.csp = updated_csp;
     };
 
-    if let Some(project_to_open) =
-        std::env::var_os("GITBUTLER_PROJECT_DIR").map(std::path::PathBuf::from)
-    {
+    if let Some(project_to_open) = std::env::var_os("GITBUTLER_PROJECT_DIR").map(std::path::PathBuf::from) {
         bail!(
             "GUI says: how do we tell the frontend to open: {}? \
                We could figure out the project-ID while that's important, and pass it along somehow",
@@ -459,9 +447,7 @@ fn migrate_projects() -> anyhow::Result<()> {
 /// something vital to act more similar to Git, which is also launched from an interactive shell most of the time.
 fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
     if std::env::var_os("TERM").is_some() {
-        tracing::info!(
-            "TERM is set - assuming the app is run from a terminal with suitable environment variables"
-        );
+        tracing::info!("TERM is set - assuming the app is run from a terminal with suitable environment variables");
         return;
     }
 
@@ -476,9 +462,7 @@ fn inherit_interactive_login_shell_environment_if_not_launched_from_terminal() {
                 }
             }
         } else {
-            tracing::info!(
-                "SHELL variable isn't set - launching with default GUI application environment "
-            );
+            tracing::info!("SHELL variable isn't set - launching with default GUI application environment ");
         }
     }
     if cfg!(windows) {

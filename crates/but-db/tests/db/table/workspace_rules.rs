@@ -74,8 +74,7 @@ fn update_existing() -> anyhow::Result<()> {
         action: "notify_team".to_string(),
     };
 
-    db.workspace_rules_mut()
-        .update(&rule.id, updated_rule.clone())?;
+    db.workspace_rules_mut().update(&rule.id, updated_rule.clone())?;
 
     let retrieved = db.workspace_rules().get(&rule.id)?;
     assert_eq!(retrieved, Some(updated_rule));
@@ -158,18 +157,10 @@ fn transaction_rollback() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn workspace_rule(
-    id: &str,
-    enabled: bool,
-    trigger: &str,
-    filters: &str,
-    action: &str,
-) -> WorkspaceRule {
+fn workspace_rule(id: &str, enabled: bool, trigger: &str, filters: &str, action: &str) -> WorkspaceRule {
     WorkspaceRule {
         id: id.to_string(),
-        created_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        created_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         enabled,
         trigger: trigger.to_string(),
         filters: filters.to_string(),

@@ -82,9 +82,7 @@ impl WorkspaceRanges {
         let mut stacks = vec![];
         let mut errors = vec![];
         for input_stack in input_stacks {
-            let mut stack_ranges = StackRanges {
-                ..Default::default()
-            };
+            let mut stack_ranges = StackRanges { ..Default::default() };
             let InputStack {
                 target: stack_id,
                 commits_from_base_to_tip: commits,
@@ -93,13 +91,7 @@ impl WorkspaceRanges {
                 let InputCommit { commit_id, files } = commit;
                 for file in files {
                     if let Some(error) = stack_ranges
-                        .add(
-                            stack_id,
-                            commit_id,
-                            file.path.clone(),
-                            file.change_type,
-                            file.hunks,
-                        )
+                        .add(stack_id, commit_id, file.path.clone(), file.change_type, file.hunks)
                         .err()
                     {
                         errors.push(CalculationError {
@@ -113,11 +105,7 @@ impl WorkspaceRanges {
             }
             stacks.push(stack_ranges);
         }
-        let paths = stacks
-            .iter()
-            .flat_map(StackRanges::unique_paths)
-            .unique()
-            .collect_vec();
+        let paths = stacks.iter().flat_map(StackRanges::unique_paths).unique().collect_vec();
         Ok(WorkspaceRanges {
             paths: paths
                 .iter()
@@ -161,10 +149,7 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
     let mut result: Vec<HunkRange> = vec![];
 
     // Only process stacks that contain the path.
-    let filtered_paths = stacks
-        .iter()
-        .filter_map(|stack| stack.paths.get(path))
-        .collect_vec();
+    let filtered_paths = stacks.iter().filter_map(|stack| stack.paths.get(path)).collect_vec();
 
     // Tracks the cumulative lines added/removed.
     let mut line_shifts = vec![0i32; filtered_paths.len()];
@@ -185,9 +170,7 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
             .iter()
             .enumerate() // We want to filter out None values, but keep their index.
             .filter(|(_, start_line)| start_line.is_some())
-            .min_by_key(|&(index, &start_line)| {
-                start_line.unwrap() + start_lines[index].unwrap_or(0)
-            })
+            .min_by_key(|&(index, &start_line)| start_line.unwrap() + start_lines[index].unwrap_or(0))
             .map(|(index, _)| index);
 
         if next_index.is_none() {
@@ -202,9 +185,7 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
         let hunk_dep = &path_dep.hunk_ranges[hunk_index];
 
         result.push(HunkRange {
-            start: hunk_dep
-                .start
-                .saturating_add_signed(line_shifts[next_index]),
+            start: hunk_dep.start.saturating_add_signed(line_shifts[next_index]),
             ..*hunk_dep
         });
 

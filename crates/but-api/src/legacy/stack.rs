@@ -50,24 +50,19 @@ pub fn create_reference(
     let anchor = anchor
         .map(|anchor| -> Result<_> {
             Ok(match anchor {
-                create_reference::Anchor::AtCommit {
-                    commit_id,
-                    position,
-                } => but_workspace::branch::create_reference::Anchor::AtCommit {
-                    commit_id,
-                    position,
-                },
-                create_reference::Anchor::AtReference {
-                    short_name,
-                    position,
-                } => but_workspace::branch::create_reference::Anchor::AtSegment {
-                    ref_name: Cow::Owned(
-                        Category::LocalBranch
-                            .to_full_name(short_name.as_str())
-                            .map_err(anyhow::Error::from)?,
-                    ),
-                    position,
-                },
+                create_reference::Anchor::AtCommit { commit_id, position } => {
+                    but_workspace::branch::create_reference::Anchor::AtCommit { commit_id, position }
+                }
+                create_reference::Anchor::AtReference { short_name, position } => {
+                    but_workspace::branch::create_reference::Anchor::AtSegment {
+                        ref_name: Cow::Owned(
+                            Category::LocalBranch
+                                .to_full_name(short_name.as_str())
+                                .map_err(anyhow::Error::from)?,
+                        ),
+                        position,
+                    }
+                }
             })
         })
         .transpose()?;
@@ -94,11 +89,7 @@ pub fn create_reference(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn create_branch(
-    ctx: &mut Context,
-    stack_id: StackId,
-    request: CreateSeriesRequest,
-) -> Result<()> {
+pub fn create_branch(ctx: &mut Context, stack_id: StackId, request: CreateSeriesRequest) -> Result<()> {
     let normalized_name = branch::normalize_short_name(request.name.as_str())?.to_string();
     let new_ref = Category::LocalBranch
         .to_full_name(normalized_name.as_str())
@@ -124,12 +115,10 @@ pub fn create_branch(
             segment
                 .ref_info
                 .as_ref()
-                .map(
-                    |ri| but_workspace::branch::create_reference::Anchor::AtSegment {
-                        ref_name: Cow::Borrowed(ri.ref_name.as_ref()),
-                        position: Above,
-                    },
-                )
+                .map(|ri| but_workspace::branch::create_reference::Anchor::AtSegment {
+                    ref_name: Cow::Borrowed(ri.ref_name.as_ref()),
+                    position: Above,
+                })
                 .or_else(|| {
                     Some(but_workspace::branch::create_reference::Anchor::AtCommit {
                         commit_id: ws.graph.tip_skip_empty(segment.id)?.id,
@@ -187,12 +176,7 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: String) 
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn update_branch_name(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-    new_name: String,
-) -> Result<()> {
+pub fn update_branch_name(ctx: &mut Context, stack_id: StackId, branch_name: String, new_name: String) -> Result<()> {
     gitbutler_branch_actions::stack::update_branch_name(ctx, stack_id, branch_name, new_name)?;
     Ok(())
 }
@@ -205,12 +189,7 @@ pub fn update_branch_pr_number(
     branch_name: String,
     pr_number: Option<usize>,
 ) -> Result<()> {
-    gitbutler_branch_actions::stack::update_branch_pr_number(
-        ctx,
-        stack_id,
-        branch_name,
-        pr_number,
-    )?;
+    gitbutler_branch_actions::stack::update_branch_pr_number(ctx, stack_id, branch_name, pr_number)?;
     Ok(())
 }
 

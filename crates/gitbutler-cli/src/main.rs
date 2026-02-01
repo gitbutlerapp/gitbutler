@@ -23,18 +23,14 @@ fn main() -> Result<()> {
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let mut ctx = Context::discover(args.current_dir)?;
             match cmd {
-                Some(vbranch::SubCommands::Apply { name, branch }) => {
-                    command::vbranch::apply(&mut ctx, name, branch)
-                }
+                Some(vbranch::SubCommands::Apply { name, branch }) => command::vbranch::apply(&mut ctx, name, branch),
                 Some(vbranch::SubCommands::Commit { message, name }) => {
                     command::vbranch::commit(&mut ctx, name, message)
                 }
                 Some(vbranch::SubCommands::Series { name, series_name }) => {
                     command::vbranch::series(&ctx, name, series_name)
                 }
-                Some(vbranch::SubCommands::Create { name, .. }) => {
-                    command::vbranch::create(&mut ctx, name)
-                }
+                Some(vbranch::SubCommands::Create { name, .. }) => command::vbranch::create(&mut ctx, name),
                 None => command::vbranch::list(&ctx),
             }
         }
@@ -46,19 +42,12 @@ fn main() -> Result<()> {
             Some(project::SubCommands::Add {
                 switch_to_workspace,
                 path,
-            }) => command::project::add(
-                data_dir(app_suffix, app_data_dir)?,
-                path,
-                switch_to_workspace,
-            ),
+            }) => command::project::add(data_dir(app_suffix, app_data_dir)?, path, switch_to_workspace),
             None => command::project::list(),
         },
     }
 }
-pub fn data_dir(
-    app_suffix: Option<String>,
-    app_data_dir: Option<PathBuf>,
-) -> anyhow::Result<PathBuf> {
+pub fn data_dir(app_suffix: Option<String>, app_data_dir: Option<PathBuf>) -> anyhow::Result<PathBuf> {
     let path = if let Some(dir) = app_data_dir {
         std::fs::create_dir_all(&dir).context("Failed to assure the designated data-dir exists")?;
         dir

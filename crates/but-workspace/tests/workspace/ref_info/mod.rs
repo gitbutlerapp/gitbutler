@@ -282,11 +282,7 @@ fn single_branch() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits")?;
     let info = but_workspace::head_info(&repo, &*meta, standard_options())?;
 
-    assert_eq!(
-        info.stacks[0].segments.len(),
-        1,
-        "a single branch, a single segment"
-    );
+    assert_eq!(info.stacks[0].segments.len(), 1, "a single branch, a single segment");
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
         workspace_ref_info: Some(
@@ -696,40 +692,26 @@ mod utils {
 
     pub fn read_only_in_memory_scenario(
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
         named_read_only_in_memory_scenario(name, "")
     }
 
     pub fn named_read_only_in_memory_scenario(
         script: &str,
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
         let repo = crate::utils::read_only_in_memory_scenario_named(script, name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
         Ok((repo, std::mem::ManuallyDrop::new(meta)))
     }
 
     pub fn named_writable_scenario_with_args(
         name: &str,
         args: impl IntoIterator<Item = impl Into<String>>,
-    ) -> anyhow::Result<(
-        tempfile::TempDir,
-        gix::Repository,
-        VirtualBranchesTomlMetadata,
-    )> {
+    ) -> anyhow::Result<(tempfile::TempDir, gix::Repository, VirtualBranchesTomlMetadata)> {
         let (repo, tmp) = crate::utils::writable_scenario_with_args(name, args);
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
         Ok((tmp, repo, meta))
     }
 

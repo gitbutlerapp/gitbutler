@@ -21,9 +21,7 @@ pub fn commit(
     let repo = ctx.repo.get()?;
 
     let branch_full_name = normalize_stack_segment_ref(&branch_name)?;
-    let parent_commit_id = parent_id
-        .map(|id| resolve_parent_id(&repo, &id))
-        .transpose()?;
+    let parent_commit_id = parent_id.map(|id| resolve_parent_id(&repo, &id)).transpose()?;
 
     let stack_segment = gitbutler_stack::VirtualBranchesHandle::new(&project_data_dir)
         .list_stacks_in_workspace()?
@@ -38,9 +36,7 @@ pub fn commit(
     let parent_commit_id = match parent_commit_id {
         Some(id) => Some(id),
         None => {
-            let reference = repo
-                .try_find_reference(&branch_name)
-                .map_err(anyhow::Error::from)?;
+            let reference = repo.try_find_reference(&branch_name).map_err(anyhow::Error::from)?;
             if let Some(mut r) = reference {
                 Some(r.peel_to_commit().map_err(anyhow::Error::from)?.id)
             } else {
@@ -113,9 +109,7 @@ fn resolve_parent_id(repo: &gix::Repository, parent_id: &str) -> anyhow::Result<
         .map(|id| id.detach())
 }
 
-fn normalize_stack_segment_ref(
-    stack_segment_ref: &str,
-) -> Result<gix::refs::FullName, gix::refs::name::Error> {
+fn normalize_stack_segment_ref(stack_segment_ref: &str) -> Result<gix::refs::FullName, gix::refs::name::Error> {
     let full_name = if stack_segment_ref.starts_with("refs/heads/") {
         stack_segment_ref.to_string()
     } else {

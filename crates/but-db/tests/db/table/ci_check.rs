@@ -90,9 +90,7 @@ fn empty_list() -> anyhow::Result<()> {
     let db = in_memory_db();
 
     // Read from non-existent reference
-    let checks = db
-        .ci_checks()
-        .list_for_reference("refs/heads/nonexistent")?;
+    let checks = db.ci_checks().list_for_reference("refs/heads/nonexistent")?;
     assert!(checks.is_empty());
 
     Ok(())
@@ -105,12 +103,10 @@ fn set_empty() -> anyhow::Result<()> {
     let check1 = ci_check(1, "refs/heads/main");
 
     // Insert a check
-    db.ci_checks_mut()?
-        .set_for_reference("refs/heads/main", vec![check1])?;
+    db.ci_checks_mut()?.set_for_reference("refs/heads/main", vec![check1])?;
 
     // Clear it with empty vec
-    db.ci_checks_mut()?
-        .set_for_reference("refs/heads/main", vec![])?;
+    db.ci_checks_mut()?.set_for_reference("refs/heads/main", vec![])?;
 
     // Should be empty now
     let checks = db.ci_checks().list_for_reference("refs/heads/main")?;
@@ -130,8 +126,7 @@ fn list_all_references() -> anyhow::Result<()> {
     // Insert checks for different references
     {
         let mut tx = db.transaction()?;
-        tx.ci_checks_mut()?
-            .set_for_reference("refs/heads/main", vec![check1])?;
+        tx.ci_checks_mut()?.set_for_reference("refs/heads/main", vec![check1])?;
         tx.commit()?;
     }
     {
@@ -142,8 +137,7 @@ fn list_all_references() -> anyhow::Result<()> {
     }
     {
         let mut tx = db.transaction()?;
-        tx.ci_checks_mut()?
-            .set_for_reference("refs/heads/dev", vec![check3])?;
+        tx.ci_checks_mut()?.set_for_reference("refs/heads/dev", vec![check3])?;
         tx.commit()?;
     }
 
@@ -172,8 +166,7 @@ fn delete_for_reference() -> anyhow::Result<()> {
     // Insert checks
     {
         let mut tx = db.transaction()?;
-        tx.ci_checks_mut()?
-            .set_for_reference("refs/heads/main", vec![check1])?;
+        tx.ci_checks_mut()?.set_for_reference("refs/heads/main", vec![check1])?;
         tx.commit()?;
     }
     {
@@ -186,8 +179,7 @@ fn delete_for_reference() -> anyhow::Result<()> {
     // Delete main reference
     {
         let mut tx = db.transaction()?;
-        tx.ci_checks_mut()?
-            .delete_for_reference("refs/heads/main")?;
+        tx.ci_checks_mut()?.delete_for_reference("refs/heads/main")?;
         tx.commit()?;
     }
 
@@ -212,27 +204,17 @@ fn ci_check(id: i64, ref_name: &str) -> CiCheck {
         output_summary: "Summary".to_string(),
         output_text: "Output text".to_string(),
         output_title: "Title".to_string(),
-        started_at: Some(
-            chrono::DateTime::from_timestamp(1000000, 0)
-                .unwrap()
-                .naive_utc(),
-        ),
+        started_at: Some(chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc()),
         status_type: "completed".to_string(),
         status_conclusion: Some("success".to_string()),
-        status_completed_at: Some(
-            chrono::DateTime::from_timestamp(1000100, 0)
-                .unwrap()
-                .naive_utc(),
-        ),
+        status_completed_at: Some(chrono::DateTime::from_timestamp(1000100, 0).unwrap().naive_utc()),
         head_sha: "abc123".to_string(),
         url: "https://example.com/check".to_string(),
         html_url: "https://example.com/check/html".to_string(),
         details_url: "https://example.com/check/details".to_string(),
         pull_requests: "[]".to_string(),
         reference: ref_name.to_string(),
-        last_sync_at: chrono::DateTime::from_timestamp(1000200, 0)
-            .unwrap()
-            .naive_utc(),
+        last_sync_at: chrono::DateTime::from_timestamp(1000200, 0).unwrap().naive_utc(),
         struct_version: 1,
     }
 }

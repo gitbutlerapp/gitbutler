@@ -9,8 +9,7 @@ use super::MoveChangesResult;
 use crate::legacy::{
     stack_ext::StackExt,
     tree_manipulation::utils::{
-        ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides,
-        replace_pick_with_commit,
+        ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides, replace_pick_with_commit,
     },
 };
 
@@ -53,8 +52,7 @@ pub fn remove_changes_from_commit_in_stack(
         rebase.rebase_noops(false);
         rebase.rebase()?
     };
-    let commit_mapping =
-        rebase_mapping_with_overrides(&result, [(source_commit_id, rewritten_source_commit)]);
+    let commit_mapping = rebase_mapping_with_overrides(&result, [(source_commit_id, rewritten_source_commit)]);
 
     let mut source_stack = source_stack;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;
@@ -82,9 +80,7 @@ fn remove_changes_from_commit(
     let repo = ctx.repo.get()?;
     let (source_tree_without_changes, rejected_specs) = create_tree_without_diff(
         &repo,
-        ChangesSource::Commit {
-            id: source_commit_id,
-        },
+        ChangesSource::Commit { id: source_commit_id },
         changes,
         ctx.settings.context_lines,
     )?;
@@ -93,8 +89,7 @@ fn remove_changes_from_commit(
         bail!("Failed to remove certain changes");
     }
 
-    let rewritten_source_commit =
-        replace_commit_tree(&repo, source_commit_id, source_tree_without_changes)?;
+    let rewritten_source_commit = replace_commit_tree(&repo, source_commit_id, source_tree_without_changes)?;
     Ok(rewritten_source_commit)
 }
 
@@ -106,10 +101,8 @@ pub(crate) fn keep_only_file_changes_in_commit(
     skip_if_empty: bool,
     perm: &mut RepoExclusive,
 ) -> Result<Option<gix::ObjectId>> {
-    let commit_changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
-        &*ctx.repo.get()?,
-        source_commit_id,
-    )?;
+    let commit_changes =
+        but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(&*ctx.repo.get()?, source_commit_id)?;
     let changes_to_remove: Vec<TreeChange> = commit_changes
         .changes
         .clone()
@@ -122,10 +115,7 @@ pub(crate) fn keep_only_file_changes_in_commit(
         return Ok(None);
     }
 
-    let diff_specs: Vec<DiffSpec> = changes_to_remove
-        .into_iter()
-        .map(|change| change.into())
-        .collect();
+    let diff_specs: Vec<DiffSpec> = changes_to_remove.into_iter().map(|change| change.into()).collect();
 
     remove_changes_from_commit(ctx, source_commit_id, diff_specs, perm).map(Some)
 }
@@ -137,10 +127,8 @@ pub(crate) fn remove_file_changes_from_commit(
     skip_if_empty: bool,
     perm: &mut RepoExclusive,
 ) -> Result<Option<gix::ObjectId>> {
-    let commit_changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
-        &*ctx.repo.get()?,
-        source_commit_id,
-    )?;
+    let commit_changes =
+        but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(&*ctx.repo.get()?, source_commit_id)?;
     let changes_to_remove: Vec<TreeChange> = commit_changes
         .changes
         .clone()
@@ -152,10 +140,7 @@ pub(crate) fn remove_file_changes_from_commit(
         // If we are skipping if empty and all changes are to be removed, return None
         return Ok(None);
     }
-    let diff_specs: Vec<DiffSpec> = changes_to_remove
-        .into_iter()
-        .map(|change| change.into())
-        .collect();
+    let diff_specs: Vec<DiffSpec> = changes_to_remove.into_iter().map(|change| change.into()).collect();
 
     remove_changes_from_commit(ctx, source_commit_id, diff_specs, perm).map(Some)
 }

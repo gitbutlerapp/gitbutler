@@ -59,10 +59,8 @@ impl gix::diff::blob::unified_diff::ConsumeBinaryHunkDelegate for ProduceDiffHun
 
 impl Edit {
     fn generate_headers(&self) -> anyhow::Result<Vec<but_core::HunkHeader>> {
-        let interner = gix::diff::blob::intern::InternedInput::new(
-            self.old_string.as_bytes(),
-            self.new_string.as_bytes(),
-        );
+        let interner =
+            gix::diff::blob::intern::InternedInput::new(self.old_string.as_bytes(), self.new_string.as_bytes());
         let headers = gix::diff::blob::diff(
             Algorithm::Myers,
             &interner,
@@ -118,8 +116,8 @@ fn cursor_path_to_pathbuf(input: &str) -> PathBuf {
 }
 
 pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
-    let mut input: FileEditEvent = serde_json::from_reader(read)
-        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+    let mut input: FileEditEvent =
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let hook_headers = input
         .edits
         .last()
@@ -145,14 +143,9 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
-    let stacks =
-        but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
-    let stack_id = but_claude::hooks::get_or_create_session(
-        &mut ctx,
-        guard.write_permission(),
-        &input.conversation_id,
-        stacks,
-    )?;
+    let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stack_id =
+        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), &input.conversation_id, stacks)?;
 
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     let context_lines = ctx.settings.context_lines;
@@ -176,9 +169,7 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
                 a.path.to_lowercase() == input.file_path.to_lowercase()
             } else if a.path.to_lowercase() == input.file_path.to_lowercase() {
                 if let Some(a) = a.hunk_header {
-                    hook_headers
-                        .iter()
-                        .any(|h| h.new_range().intersects(a.new_range()))
+                    hook_headers.iter().any(|h| h.new_range().intersects(a.new_range()))
                 } else {
                     true // If no header is present, then the whole file is considered, in which case intersection is true
                 }
@@ -205,12 +196,9 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
     Ok(CursorHookOutput::default())
 }
 
-pub async fn handle_stop(
-    nightly: bool,
-    read: impl std::io::Read,
-) -> anyhow::Result<CursorHookOutput> {
-    let input: StopEvent = serde_json::from_reader(read)
-        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+pub async fn handle_stop(nightly: bool, read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
+    let input: StopEvent =
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
     let dir = input
         .workspace_roots
         .first()
@@ -228,14 +216,9 @@ pub async fn handle_stop(
 
     // Create repo and workspace once at the entry point
     let mut guard = ctx.exclusive_worktree_access();
-    let stacks =
-        but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
-    let stack_id = but_claude::hooks::get_or_create_session(
-        &mut ctx,
-        guard.write_permission(),
-        &input.conversation_id,
-        stacks,
-    )?;
+    let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stack_id =
+        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), &input.conversation_id, stacks)?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
     // lock so we need to drop this here to ensure we don't end up with a deadlock.
@@ -260,8 +243,7 @@ pub async fn handle_stop(
         Some(stack_id),
     )?;
 
-    let stacks =
-        but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
+    let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
 
     // Trigger commit message generation for newly created commits
     // TODO: Maybe this can be done in the main app process i.e. the GitButler GUI, if available
@@ -271,8 +253,7 @@ pub async fn handle_stop(
         for branch in &outcome.updated_branches {
             let mut commit_message_mapping = HashMap::new();
 
-            let eligibility =
-                but_claude::hooks::is_branch_eligible_for_rename(&ctx, &stacks, branch)?;
+            let eligibility = but_claude::hooks::is_branch_eligible_for_rename(&ctx, &stacks, branch)?;
 
             for commit in &branch.new_commits {
                 if let Ok(commit_id) = gix::ObjectId::from_str(commit) {
@@ -284,9 +265,7 @@ pub async fn handle_stop(
                         ctx: ctx.to_sync(),
                         trigger: id,
                     };
-                    let reword_result = but_action::reword::commit(&llm, commit_event)
-                        .ok()
-                        .unwrap_or_default();
+                    let reword_result = but_action::reword::commit(&llm, commit_event).ok().unwrap_or_default();
 
                     // Update the commit mapping with the new commit ID
                     if let Some(reword_result) = reword_result {

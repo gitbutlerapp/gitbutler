@@ -107,17 +107,9 @@ const SKILL_FORMATS: &[SkillFormat] = &[
 ];
 
 /// Handle skill subcommands
-pub fn handle(
-    ctx: Option<&mut Context>,
-    out: &mut OutputChannel,
-    cmd: skill::Subcommands,
-) -> Result<()> {
+pub fn handle(ctx: Option<&mut Context>, out: &mut OutputChannel, cmd: skill::Subcommands) -> Result<()> {
     match cmd {
-        skill::Subcommands::Install {
-            global,
-            path,
-            infer,
-        } => install_skill(ctx, out, global, path, infer),
+        skill::Subcommands::Install { global, path, infer } => install_skill(ctx, out, global, path, infer),
     }
 }
 
@@ -142,7 +134,9 @@ fn get_base_dir(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
         dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))
     } else {
         let ctx = ctx.ok_or_else(|| {
-            anyhow::anyhow!("Not in a git repository. Use --global to install globally, or run from within a repository.")
+            anyhow::anyhow!(
+                "Not in a git repository. Use --global to install globally, or run from within a repository."
+            )
         })?;
         let repo = ctx.repo.get()?;
         repo.workdir()
@@ -162,8 +156,7 @@ fn inject_version(content: &str, version: &str) -> String {
     if let Some(end_pos) = frontmatter_end {
         let frontmatter = &content[..end_pos];
         let rest = &content[end_pos..];
-        let updated_frontmatter =
-            frontmatter.replace("version: 0.0.0", &format!("version: {}", version));
+        let updated_frontmatter = frontmatter.replace("version: 0.0.0", &format!("version: {}", version));
         format!("{}{}", updated_frontmatter, rest)
     } else {
         // Fallback if frontmatter format is unexpected
@@ -194,9 +187,9 @@ fn is_gitbutler_skill(skill_md_path: &std::path::Path) -> bool {
         // Look for YAML frontmatter with "name: but" or the specific header
         let has_frontmatter_name = content.lines().any(|line| line.trim() == "name: but");
 
-        let has_gitbutler_header = content.lines().any(|line| {
-            line.contains("# GitButler CLI Skill") || line.contains("GitButler CLI (`but` command)")
-        });
+        let has_gitbutler_header = content
+            .lines()
+            .any(|line| line.contains("# GitButler CLI Skill") || line.contains("GitButler CLI (`but` command)"));
 
         has_frontmatter_name || has_gitbutler_header
     } else {
@@ -210,8 +203,7 @@ fn infer_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf
     let base_dirs: Vec<(PathBuf, &str)> = if global {
         // Only check global locations
         vec![(
-            dirs::home_dir()
-                .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?,
+            dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?,
             "global",
         )]
     } else if let Some(ctx) = ctx {
@@ -221,14 +213,12 @@ fn infer_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf
             .workdir()
             .ok_or_else(|| anyhow::anyhow!("Not in a Git repository"))?
             .to_path_buf();
-        let global_dir = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+        let global_dir = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
         vec![(local_dir, "local"), (global_dir, "global")]
     } else {
         // No repo context, only check global
         vec![(
-            dirs::home_dir()
-                .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?,
+            dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?,
             "global",
         )]
     };
@@ -259,9 +249,7 @@ fn infer_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf
                 // Multiple installations in the same scope - error
                 let installations_list = scope_installations
                     .iter()
-                    .map(|(path, format)| {
-                        format!("  • {} - {} ({})", format, path.display(), scope)
-                    })
+                    .map(|(path, format)| format!("  • {} - {} ({})", format, path.display(), scope))
                     .collect::<Vec<_>>()
                     .join("\n");
 
@@ -323,10 +311,7 @@ fn prompt_for_install_path(
         })
         .collect();
 
-    let prompt = cli_prompts::prompts::Selection::new(
-        "Which format would you like to use?",
-        options.into_iter(),
-    );
+    let prompt = cli_prompts::prompts::Selection::new("Which format would you like to use?", options.into_iter());
 
     let selection: String = match prompt.display() {
         Ok(s) => s,
@@ -384,9 +369,7 @@ fn install_skill(
 ) -> Result<()> {
     // Validate that embedded files are not empty (catches build issues)
     if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
-        anyhow::bail!(
-            "Skill files were not properly embedded at build time. Please report this as a bug."
-        );
+        anyhow::bail!("Skill files were not properly embedded at build time. Please report this as a bug.");
     }
 
     // Validate SKILL_FORMATS configuration (catches development errors)
@@ -395,9 +378,7 @@ fn install_skill(
         "SKILL_FORMATS must contain at least one format"
     );
     debug_assert!(
-        SKILL_FORMATS
-            .iter()
-            .all(|f| !f.name.is_empty() && !f.path.is_empty()),
+        SKILL_FORMATS.iter().all(|f| !f.name.is_empty() && !f.path.is_empty()),
         "SkillFormat name and path must not be empty"
     );
 
@@ -473,11 +454,7 @@ fn install_skill(
             "✓".green().bold()
         )?;
         writeln!(progress)?;
-        writeln!(
-            progress,
-            "  Location: {}",
-            install_path.display().to_string().cyan()
-        )?;
+        writeln!(progress, "  Location: {}", install_path.display().to_string().cyan())?;
         writeln!(progress)?;
         writeln!(progress, "  Files installed:")?;
         for file in SKILL_FILES {
@@ -604,15 +581,9 @@ mod tests {
 
         for format in SKILL_FORMATS {
             assert!(!format.name.is_empty(), "Format name cannot be empty");
-            assert!(
-                !format.description.is_empty(),
-                "Format description cannot be empty"
-            );
+            assert!(!format.description.is_empty(), "Format description cannot be empty");
             assert!(!format.path.is_empty(), "Format path cannot be empty");
-            assert!(
-                !format.path.starts_with('/'),
-                "Format path should be relative"
-            );
+            assert!(!format.path.starts_with('/'), "Format path should be relative");
         }
     }
 
@@ -679,12 +650,7 @@ mod tests {
     fn get_base_dir_local_without_context_fails() {
         let result = get_base_dir(None, false);
         assert!(result.is_err());
-        assert!(
-            result
-                .unwrap_err()
-                .to_string()
-                .contains("Not in a git repository")
-        );
+        assert!(result.unwrap_err().to_string().contains("Not in a git repository"));
     }
 
     // NOTE: infer_install_path is difficult to test in isolation because it depends on
@@ -702,11 +668,7 @@ mod tests {
         let skill_path = temp_dir.path().join("SKILL.md");
 
         // Test with valid GitButler skill content (frontmatter)
-        fs::write(
-            &skill_path,
-            "---\nname: but\nversion: 1.0.0\n---\n# Content",
-        )
-        .unwrap();
+        fs::write(&skill_path, "---\nname: but\nversion: 1.0.0\n---\n# Content").unwrap();
         assert!(
             is_gitbutler_skill(&skill_path),
             "Should recognize valid GitButler skill with frontmatter"
@@ -732,10 +694,7 @@ mod tests {
 
         // Test with random content
         fs::write(&skill_path, "Some random content").unwrap();
-        assert!(
-            !is_gitbutler_skill(&skill_path),
-            "Should reject non-GitButler content"
-        );
+        assert!(!is_gitbutler_skill(&skill_path), "Should reject non-GitButler content");
 
         // Test with nonexistent file
         let nonexistent = temp_dir.path().join("nonexistent.md");

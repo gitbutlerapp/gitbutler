@@ -21,9 +21,7 @@ impl RepositoryExtLite for git2::Repository {
         }
         use gix::bstr::ByteSlice;
         let repo = gix::open(self.path())?;
-        let worktree_dir = repo
-            .workdir()
-            .context("All repos are expected to have a worktree")?;
+        let worktree_dir = repo.workdir().context("All repos are expected to have a worktree")?;
         let files_to_exclude: Vec<_> = repo
             .dirwalk_iter(
                 repo.index_or_empty()?,

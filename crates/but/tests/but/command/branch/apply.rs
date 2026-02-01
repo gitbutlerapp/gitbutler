@@ -339,11 +339,7 @@ mod utils {
         create_local_branch_with_commit_with_message(env, name, "Add feature")
     }
 
-    pub fn create_local_branch_with_commit_with_message(
-        env: &Sandbox,
-        name: &str,
-        commit_message: &str,
-    ) {
+    pub fn create_local_branch_with_commit_with_message(env: &Sandbox, name: &str, commit_message: &str) {
         env.invoke_bash(format!(
             r#"
     git checkout main -b {name};

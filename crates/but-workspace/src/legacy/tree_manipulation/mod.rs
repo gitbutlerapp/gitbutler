@@ -17,8 +17,7 @@ impl MoveChangesResult {
         let mut new_replaced_commits = self.replaced_commits.clone();
 
         for (before, after) in other.replaced_commits {
-            let matching_commit_mapping =
-                new_replaced_commits.iter_mut().find(|(_, a)| *a == before);
+            let matching_commit_mapping = new_replaced_commits.iter_mut().find(|(_, a)| *a == before);
             if let Some(found_matching_mapping) = matching_commit_mapping {
                 // If we found a matching commit mapping, we update the "after" id
                 // to the new "after" id.

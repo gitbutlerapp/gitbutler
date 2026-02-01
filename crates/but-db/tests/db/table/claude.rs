@@ -49,8 +49,7 @@ fn session_update_current_id() -> anyhow::Result<()> {
     let session = claude_session("sess-1", "current-1");
     db.claude_mut().insert_session(session.clone())?;
 
-    db.claude_mut()
-        .update_session_current_id(&session.id, "new-current")?;
+    db.claude_mut().update_session_current_id(&session.id, "new-current")?;
 
     let retrieved = db.claude().get_session(&session.id)?;
     assert!(retrieved.is_some());
@@ -69,8 +68,7 @@ fn session_update_session_ids() -> anyhow::Result<()> {
     db.claude_mut().insert_session(session.clone())?;
 
     let new_session_ids = r#"["id1", "id2", "id3"]"#;
-    db.claude_mut()
-        .update_session_ids(&session.id, new_session_ids)?;
+    db.claude_mut().update_session_ids(&session.id, new_session_ids)?;
 
     let retrieved = db.claude().get_session(&session.id)?;
     assert!(retrieved.is_some());
@@ -226,9 +224,7 @@ fn message_get_message_of_type() -> anyhow::Result<()> {
     let most_recent_user = db.claude().get_message_of_type("user".to_string(), None)?;
     assert_eq!(most_recent_user, Some(message2));
 
-    let second_most_recent_user = db
-        .claude()
-        .get_message_of_type("user".to_string(), Some(1))?;
+    let second_most_recent_user = db.claude().get_message_of_type("user".to_string(), Some(1))?;
     assert_eq!(second_most_recent_user, Some(message1));
 
     Ok(())
@@ -320,10 +316,8 @@ fn permission_list() -> anyhow::Result<()> {
     let request1 = permission_request("req-1", "read_file", r#"{"path": "test.txt"}"#);
     let request2 = permission_request("req-2", "write_file", r#"{"path": "out.txt"}"#);
 
-    db.claude_mut()
-        .insert_permission_request(request1.clone())?;
-    db.claude_mut()
-        .insert_permission_request(request2.clone())?;
+    db.claude_mut().insert_permission_request(request1.clone())?;
+    db.claude_mut().insert_permission_request(request2.clone())?;
 
     let requests = db.claude().list_permission_requests()?;
     assert_eq!(requests.len(), 2);
@@ -359,12 +353,11 @@ fn permission_set_decision_and_wildcard() -> anyhow::Result<()> {
     let request = permission_request("req-1", "read_file", r#"{"path": "test.txt"}"#);
     db.claude_mut().insert_permission_request(request.clone())?;
 
-    db.claude_mut()
-        .set_permission_request_decision_and_wildcard(
-            &request.id,
-            Some("allowSession".to_string()),
-            true,
-        )?;
+    db.claude_mut().set_permission_request_decision_and_wildcard(
+        &request.id,
+        Some("allowSession".to_string()),
+        true,
+    )?;
 
     let retrieved = db.claude().get_permission_request(&request.id)?;
     assert!(retrieved.is_some());
@@ -400,9 +393,7 @@ fn permission_with_transaction() -> anyhow::Result<()> {
     let request = permission_request("req-1", "read_file", r#"{"path": "test.txt"}"#);
 
     let mut trans = db.transaction()?;
-    trans
-        .claude_mut()
-        .insert_permission_request(request.clone())?;
+    trans.claude_mut().insert_permission_request(request.clone())?;
 
     let retrieved_in_trans = trans.claude().get_permission_request(&request.id)?;
     assert_eq!(retrieved_in_trans, Some(request.clone()));
@@ -455,9 +446,7 @@ fn delete_session_and_messages_in_transaction_with_rollback() -> anyhow::Result<
     db.claude_mut().insert_message(message)?;
 
     let mut trans = db.transaction()?;
-    trans
-        .claude_mut()
-        .delete_session_and_messages(&session.id)?;
+    trans.claude_mut().delete_session_and_messages(&session.id)?;
     trans.rollback()?;
 
     let session_after = db.claude().get_session(&session.id)?;
@@ -476,12 +465,8 @@ fn claude_session(id: &str, current_id: &str) -> ClaudeSession {
         id: id.to_string(),
         current_id: current_id.to_string(),
         session_ids: "[]".to_string(),
-        created_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
-        updated_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        created_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
+        updated_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         in_gui: false,
         approved_permissions: "[]".to_string(),
         denied_permissions: "[]".to_string(),
@@ -492,9 +477,7 @@ fn claude_message(id: &str, session_id: &str, content_type: &str, content: &str)
     ClaudeMessage {
         id: id.to_string(),
         session_id: session_id.to_string(),
-        created_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        created_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         content_type: content_type.to_string(),
         content: content.to_string(),
     }
@@ -503,12 +486,8 @@ fn claude_message(id: &str, session_id: &str, content_type: &str, content: &str)
 fn permission_request(id: &str, tool_name: &str, input: &str) -> ClaudePermissionRequest {
     ClaudePermissionRequest {
         id: id.to_string(),
-        created_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
-        updated_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        created_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
+        updated_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         tool_name: tool_name.to_string(),
         input: input.to_string(),
         decision: None,

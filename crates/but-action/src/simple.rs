@@ -38,10 +38,7 @@ pub(crate) fn handle_changes(
     default_target_setting_if_none(ctx, vb_state)?; // Create a default target if none exists.
 
     let snapshot_before = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
-            perm,
-        )?
+        .create_snapshot(SnapshotDetails::new(OperationKind::AutoHandleChangesBefore), perm)?
         .to_gix();
 
     let response = handle_changes_simple_inner(
@@ -54,10 +51,7 @@ pub(crate) fn handle_changes(
     );
 
     let snapshot_after = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
-            perm,
-        )?
+        .create_snapshot(SnapshotDetails::new(OperationKind::AutoHandleChangesAfter), perm)?
         .to_gix();
 
     let action = crate::action::ButlerAction::new(
@@ -121,20 +115,15 @@ fn handle_changes_simple_inner(
     let stacks = crate::stacks_creating_if_none(ctx, perm)?;
 
     // Put the assignments into buckets by stack ID.
-    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> = stacks
-        .iter()
-        .filter_map(|s| Some((s.id?, vec![])))
-        .collect();
+    let mut stack_assignments: HashMap<StackId, Vec<DiffSpec>> =
+        stacks.iter().filter_map(|s| Some((s.id?, vec![]))).collect();
     let default_stack_id = stacks
         .first()
         .and_then(|s| s.id)
         .ok_or_else(|| anyhow::anyhow!("No stacks found in the workspace"))?;
     for assignment in assignments {
         if let Some(stack_id) = assignment.stack_id {
-            stack_assignments
-                .entry(stack_id)
-                .or_default()
-                .push(assignment.into());
+            stack_assignments.entry(stack_id).or_default().push(assignment.into());
         } else if exclusive_stack.is_none() {
             // If there is an exclusive stack. We don't want to do anything with
             // the unassigned changes.

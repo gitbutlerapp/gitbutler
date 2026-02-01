@@ -139,11 +139,7 @@ fn id(hex: &str) -> ObjectId {
     .unwrap()
 }
 
-fn commit(
-    id: ObjectId,
-    parent_ids: impl IntoIterator<Item = ObjectId>,
-    flags: CommitFlags,
-) -> Commit {
+fn commit(id: ObjectId, parent_ids: impl IntoIterator<Item = ObjectId>, flags: CommitFlags) -> Commit {
     Commit {
         id,
         parent_ids: parent_ids.into_iter().collect(),

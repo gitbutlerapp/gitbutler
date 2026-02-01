@@ -13,8 +13,7 @@ use crate::{http::create_client, ui::success};
 pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     let mut easy = create_client()?;
 
-    easy.url(url)
-        .with_context(|| format!("Failed to set URL: {}", url))?;
+    easy.url(url).with_context(|| format!("Failed to set URL: {}", url))?;
 
     // Enable libcurl's built-in progress reporting
     easy.progress(true)?;
@@ -80,9 +79,7 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     // Clear progress line
     crate::ui::println_empty();
 
-    let response_code = easy
-        .response_code()
-        .context("Failed to get response code")?;
+    let response_code = easy.response_code().context("Failed to get response code")?;
     if response_code != 200 {
         bail!("Download failed with HTTP status: {}", response_code);
     }
@@ -94,12 +91,8 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
         .context("Failed to get effective URL")?
         .ok_or_else(|| anyhow!("Effective URL is missing"))?;
 
-    crate::release::validate_download_url(effective_url).with_context(|| {
-        format!(
-            "Download was redirected to an untrusted URL: {}",
-            effective_url
-        )
-    })?;
+    crate::release::validate_download_url(effective_url)
+        .with_context(|| format!("Download was redirected to an untrusted URL: {}", effective_url))?;
 
     Ok(())
 }
@@ -143,8 +136,7 @@ pub(crate) fn verify_signature(tarball: &Path, signature_b64: &str, temp_dir: &P
     let pubkey_str = "RWTrOEI+im1XYA9RBwyxnzFN/evFzJhU1lbQ70LVayWH3WRo7xQnRLD2";
 
     // Parse the public key
-    let public_key = minisign_verify::PublicKey::from_base64(pubkey_str)
-        .context("Failed to parse public key")?;
+    let public_key = minisign_verify::PublicKey::from_base64(pubkey_str).context("Failed to parse public key")?;
 
     // Decode signature from base64 and write to file
     // The signature format from the API is base64-encoded minisign signature file content
@@ -158,12 +150,10 @@ pub(crate) fn verify_signature(tarball: &Path, signature_b64: &str, temp_dir: &P
     fs::write(&signature_file, &signature_bytes)?;
 
     // Read it back as a string (minisign signatures are text files)
-    let signature_str =
-        fs::read_to_string(&signature_file).context("Failed to read signature file as string")?;
+    let signature_str = fs::read_to_string(&signature_file).context("Failed to read signature file as string")?;
 
     // Parse the signature
-    let signature =
-        minisign_verify::Signature::decode(&signature_str).context("Failed to parse signature")?;
+    let signature = minisign_verify::Signature::decode(&signature_str).context("Failed to parse signature")?;
 
     // Use streaming verification to avoid loading entire file into memory
     let mut file = File::open(tarball).context("Failed to open tarball for verification")?;

@@ -19,20 +19,16 @@ fn should_unapply_diff() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let stacks = stack_details(ctx);
     let c = super::create_commit(ctx, stacks[0].0, "asdf");
     assert!(c.is_ok());
 
     let mut guard = ctx.exclusive_worktree_access();
-    gitbutler_branch_actions::unapply_stack(ctx, guard.write_permission(), stacks[0].0, Vec::new())
-        .unwrap();
+    gitbutler_branch_actions::unapply_stack(ctx, guard.write_permission(), stacks[0].0, Vec::new()).unwrap();
     drop(guard);
 
     let stacks = stack_details(ctx);

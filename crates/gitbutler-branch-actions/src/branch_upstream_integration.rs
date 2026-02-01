@@ -48,22 +48,14 @@ pub fn get_initial_integration_steps_for_branch(
     branch_name: String,
 ) -> Result<Vec<InteractiveIntegrationStep>> {
     let repo = ctx.repo.get()?;
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
+    let meta = VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))?;
     let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
 
     let branch_details = stack_details
         .branch_details
         .into_iter()
         .find(|b| b.name == branch_name)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Series '{}' not found in stack '{:?}'",
-                branch_name,
-                stack_id
-            )
-        })?;
+        .ok_or_else(|| anyhow::anyhow!("Series '{}' not found in stack '{:?}'", branch_name, stack_id))?;
 
     let mut initial_steps = vec![];
 
@@ -116,9 +108,7 @@ pub fn integrate_branch_with_steps(
 
     let branch_ref = repository
         .try_find_reference(&branch_name)?
-        .ok_or_else(|| {
-            anyhow::anyhow!("Source branch '{}' not found in repository", branch_name)
-        })?;
+        .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", branch_name))?;
     let branch_ref_name = branch_ref.name().to_owned();
 
     let mut inside_branch = false;
@@ -181,9 +171,7 @@ pub fn integrate_branch_with_steps(
 }
 
 /// Turn the integration steps into rebase steps.
-fn integration_steps_to_rebase_steps(
-    steps: &[InteractiveIntegrationStep],
-) -> Result<Vec<RebaseStep>> {
+fn integration_steps_to_rebase_steps(steps: &[InteractiveIntegrationStep]) -> Result<Vec<RebaseStep>> {
     let mut rebase_steps = vec![];
     for step in steps {
         match step {
@@ -205,13 +193,9 @@ fn integration_steps_to_rebase_steps(
             InteractiveIntegrationStep::Skip { .. } => {
                 // Skip steps are simply not added to the rebase steps
             }
-            InteractiveIntegrationStep::Squash {
-                commits, message, ..
-            } => {
+            InteractiveIntegrationStep::Squash { commits, message, .. } => {
                 if commits.len() < 2 {
-                    return Err(anyhow::anyhow!(
-                        "Squash step must have at least two commits"
-                    ));
+                    return Err(anyhow::anyhow!("Squash step must have at least two commits"));
                 }
 
                 if let Some((last_commit, all_but_last)) = commits.split_last() {
@@ -247,11 +231,7 @@ pub fn integrate_upstream_commits_for_series(
             bail!("Merge strategy is not supported yet. Please use Rebase strategy.");
         }
         IntegrationStrategy::Rebase => {
-            let steps = get_initial_integration_steps_for_branch(
-                ctx,
-                Some(stack_id),
-                series_name.to_owned(),
-            )?;
+            let steps = get_initial_integration_steps_for_branch(ctx, Some(stack_id), series_name.to_owned())?;
             integrate_branch_with_steps(ctx, stack_id, series_name, steps, perm)
         }
     }

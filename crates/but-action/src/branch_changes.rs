@@ -9,13 +9,10 @@ pub(crate) fn branch_changes(
     changes: Vec<but_core::TreeChange>,
     model: String,
 ) -> anyhow::Result<()> {
-    let paths = changes
-        .iter()
-        .map(|change| change.path.clone())
-        .collect::<Vec<_>>();
+    let paths = changes.iter().map(|change| change.path.clone()).collect::<Vec<_>>();
     let project_status = but_tools::workspace::get_project_status(ctx, Some(paths))?;
-    let serialized_status = serde_json::to_string_pretty(&project_status)
-        .context("Failed to serialize project status")?;
+    let serialized_status =
+        serde_json::to_string_pretty(&project_status).context("Failed to serialize project status")?;
 
     let mut toolset = commit_toolset(ctx, emitter.clone());
 

@@ -17,11 +17,7 @@ mod util {
         }
         let handle = VirtualBranchesHandle::new(ctx.project_data_dir());
 
-        Ok(TestContext {
-            ctx,
-            handle,
-            tmpdir,
-        })
+        Ok(TestContext { ctx, handle, tmpdir })
     }
 
     #[allow(unused)]

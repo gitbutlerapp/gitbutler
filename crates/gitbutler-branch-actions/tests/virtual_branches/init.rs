@@ -12,8 +12,7 @@ fn twice() {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .expect("failed to add project")
             .unwrap_project();
-        let mut ctx =
-            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let mut ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -32,8 +31,7 @@ fn twice() {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), test_project.path())
             .unwrap()
             .unwrap_project();
-        let mut ctx =
-            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+        let mut ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             &ctx,
@@ -97,10 +95,7 @@ fn dirty_target() {
     // Due to race conditions, this can either be "g-branch-1" or "a-branch-1".
     // This is a stop-gap measure since these tests are due to be nixed at some
     // point in the future.
-    assert!(matches!(
-        stacks[0].1.derived_name.as_ref(),
-        "g-branch-1" | "a-branch-1"
-    ));
+    assert!(matches!(stacks[0].1.derived_name.as_ref(), "g-branch-1" | "a-branch-1"));
     if let Some(old) = old {
         unsafe {
             std::env::set_var("GIT_AUTHOR_NAME", old);
@@ -180,10 +175,7 @@ fn commit_on_target() {
     // Due to race conditions, this can either be "g-branch-1" or "a-branch-1".
     // This is a stop-gap measure since these tests are due to be nixed at some
     // point in the future.
-    assert!(matches!(
-        stacks[0].1.derived_name.as_ref(),
-        "g-branch-1" | "a-branch-1"
-    ));
+    assert!(matches!(stacks[0].1.derived_name.as_ref(), "g-branch-1" | "a-branch-1"));
     assert_eq!(stacks[0].1.branch_details[0].clone().commits.len(), 1);
     if let Some(old) = old {
         unsafe {
@@ -197,8 +189,7 @@ fn submodule() {
     let Test { repo, ctx, .. } = &mut Test::default();
 
     let test_project = TestProject::default();
-    let submodule_url: gitbutler_url::Url =
-        test_project.path().display().to_string().parse().unwrap();
+    let submodule_url: gitbutler_url::Url = test_project.path().display().to_string().parse().unwrap();
     repo.add_submodule(&submodule_url, path::Path::new("submodule"));
 
     let mut guard = ctx.exclusive_worktree_access();

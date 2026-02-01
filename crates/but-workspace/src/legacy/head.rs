@@ -27,8 +27,7 @@ pub fn merge_worktree_with_workspace<'a>(
         .tree_id()?
         .detach();
 
-    let (merge_options_fail_fast, _conflict_kind) =
-        gix_repo.merge_options_no_rewrites_fail_fast()?;
+    let (merge_options_fail_fast, _conflict_kind) = gix_repo.merge_options_no_rewrites_fail_fast()?;
 
     let conflict_kind = TreatAsUnresolved::git();
     let outcome = gix_repo.merge_trees(
@@ -43,14 +42,9 @@ pub fn merge_worktree_with_workspace<'a>(
 
 /// Merge all currently stored stacks together into a new tree and return `(merged_tree, stacks, target_commit)` id accordingly.
 /// `gix_repo` should be optimised for merging.
-pub fn remerged_workspace_tree_v2(
-    ctx: &Context,
-    repo: &gix::Repository,
-) -> Result<(git2::Oid, Vec<Stack>, git2::Oid)> {
+pub fn remerged_workspace_tree_v2(ctx: &Context, repo: &gix::Repository) -> Result<(git2::Oid, Vec<Stack>, git2::Oid)> {
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target = vb_state
-        .get_default_target()
-        .context("failed to get target")?;
+    let target = vb_state.get_default_target().context("failed to get target")?;
     let git2_repo = &*ctx.git2_repo.get()?;
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 

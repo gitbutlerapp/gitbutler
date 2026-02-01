@@ -194,17 +194,12 @@ k0 a.txt│
 
 "#]]);
 
-    env.but("commit A -m 'partial change to a.txt 1'")
-        .assert()
-        .success();
+    env.but("commit A -m 'partial change to a.txt 1'").assert().success();
 
     let context_distance = (env.app_settings().context_lines * 2 + 1) as usize;
 
     // Change the file at the top & commit
-    env.file(
-        "a.txt",
-        format!("first\n{}lasta\n", "line\n".repeat(context_distance)),
-    );
+    env.file("a.txt", format!("first\n{}lasta\n", "line\n".repeat(context_distance)));
 
     // Verify the hunks
     env.but("diff a.txt")
@@ -223,15 +218,10 @@ j0 a.txt│
 
 "#]]);
 
-    env.but("commit A -m 'partial change to a.txt 2'")
-        .assert()
-        .success();
+    env.but("commit A -m 'partial change to a.txt 2'").assert().success();
 
     // Change the file at the bottom & commit
-    env.file(
-        "a.txt",
-        format!("first\n{}last\n", "line\n".repeat(context_distance)),
-    );
+    env.file("a.txt", format!("first\n{}last\n", "line\n".repeat(context_distance)));
 
     // Verify the hunks
     env.but("diff a.txt")
@@ -250,9 +240,7 @@ j0 a.txt│
 
 "#]]);
 
-    env.but("commit A -m 'partial change to a.txt 3'")
-        .assert()
-        .success();
+    env.but("commit A -m 'partial change to a.txt 3'").assert().success();
 
     // Change the file at the top & bottom & absorb
     env.file(

@@ -37,8 +37,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         let remote_head = remote_branch.get().peel_to_commit()?;
         let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
 
-        let upstream_commits =
-            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_commits = git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| {
@@ -83,27 +82,18 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         let gix_commit = self.repo.find_commit(commit.id().to_gix())?;
 
         if let Some(change_id) = gix_commit.change_id()
-            && self
-                .upstream_change_ids
-                .binary_search(&change_id.to_string())
-                .is_ok()
+            && self.upstream_change_ids.binary_search(&change_id.to_string()).is_ok()
         {
             return Ok(true);
         }
 
-        if self
-            .upstream_commits
-            .binary_search(&commit.id().to_gix())
-            .is_ok()
-        {
+        if self.upstream_commits.binary_search(&commit.id().to_gix()).is_ok() {
             return Ok(true);
         }
 
-        let merge_base_id = self.repo.merge_base_with_graph(
-            self.target_commit_id,
-            git2_to_gix_object_id(commit.id()),
-            self.graph,
-        )?;
+        let merge_base_id =
+            self.repo
+                .merge_base_with_graph(self.target_commit_id, git2_to_gix_object_id(commit.id()), self.graph)?;
         if gix_to_git2_oid(merge_base_id).eq(&commit.id()) {
             // if merge branch is the same as branch head and there are upstream commits
             // then it's integrated

@@ -19,8 +19,7 @@ pub fn commit_changes(
         .map(|revspec| repo.rev_parse_single(revspec))
         .transpose()?;
     let commit = repo.rev_parse_single(current_commit)?;
-    let changes =
-        but_core::diff::tree_changes(&repo, previous_commit.map(Into::into), commit.into())?;
+    let changes = but_core::diff::tree_changes(&repo, previous_commit.map(Into::into), commit.into())?;
 
     if unified_diff {
         debug_print(unified_diff_for_changes(&repo, changes, UI_CONTEXT_LINES)?)
@@ -29,12 +28,7 @@ pub fn commit_changes(
     }
 }
 
-pub fn status(
-    current_dir: &Path,
-    unified_diff: bool,
-    context_lines: u32,
-    use_json: bool,
-) -> anyhow::Result<()> {
+pub fn status(current_dir: &Path, unified_diff: bool, context_lines: u32, use_json: bool) -> anyhow::Result<()> {
     let repo = gix::discover(current_dir)?.for_tree_diffing()?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     if unified_diff {
@@ -83,11 +77,7 @@ pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result
     if simple {
         process_simple_dependencies(use_json, &repo, worktree_changes, ranges)
     } else {
-        debug_print(intersect_workspace_ranges(
-            &repo,
-            ranges,
-            worktree_changes.changes,
-        )?)
+        debug_print(intersect_workspace_ranges(&repo, ranges, worktree_changes.changes)?)
     }
 }
 
@@ -97,8 +87,7 @@ fn process_simple_dependencies(
     worktree_changes: but_core::WorktreeChanges,
     ranges: but_hunk_dependency::WorkspaceRanges,
 ) -> Result<(), anyhow::Error> {
-    let dependencies =
-        HunkDependencies::try_from_workspace_ranges(repo, ranges, worktree_changes.changes)?;
+    let dependencies = HunkDependencies::try_from_workspace_ranges(repo, ranges, worktree_changes.changes)?;
     if use_json {
         let json = serde_json::to_string_pretty(&dependencies)?;
         println!("{json}");
@@ -137,9 +126,7 @@ fn intersect_workspace_ranges(
         };
         let mut intersections = Vec::new();
         for hunk in hunks {
-            if let Some(hunk_ranges) =
-                ranges.intersection(&change.path, hunk.old_start, hunk.old_lines)
-            {
+            if let Some(hunk_ranges) = ranges.intersection(&change.path, hunk.old_start, hunk.old_lines) {
                 intersections.push(HunkIntersection {
                     hunk,
                     commit_intersections: hunk_ranges.into_iter().cloned().collect(),

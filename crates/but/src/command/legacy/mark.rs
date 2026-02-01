@@ -8,12 +8,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 
 use crate::{CliId, IdMap, command::legacy::rub::branch_name_to_stack_id, utils::OutputChannel};
 
-pub(crate) fn handle(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    target_str: &str,
-    delete: bool,
-) -> anyhow::Result<()> {
+pub(crate) fn handle(ctx: &mut Context, out: &mut OutputChannel, target_str: &str, delete: bool) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
     let target_result = id_map.parse_using_context(target_str, ctx)?;
     if target_result.len() != 1 {
@@ -34,12 +29,7 @@ pub(crate) fn handle(
     }
 }
 
-fn mark_commit(
-    ctx: &mut Context,
-    oid: gix::ObjectId,
-    delete: bool,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+fn mark_commit(ctx: &mut Context, oid: gix::ObjectId, delete: bool, out: &mut OutputChannel) -> anyhow::Result<()> {
     if delete {
         let repo = ctx.repo.get()?.clone();
         let commit = repo.find_commit(oid)?;
@@ -60,35 +50,24 @@ fn mark_commit(
     let req = {
         let repo = ctx.repo.get()?;
         let commit = repo.find_commit(oid)?;
-        let change_id = commit.change_id().ok_or_else(|| {
-            anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", oid)
-        })?;
+        let change_id = commit
+            .change_id()
+            .ok_or_else(|| anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", oid))?;
         let action = but_rules::Action::Explicit(Operation::Amend { change_id });
         but_rules::CreateRuleRequest {
             trigger: but_rules::Trigger::FileSytemChange,
-            filters: vec![but_rules::Filter::PathMatchesRegex(regex::Regex::new(
-                ".*",
-            )?)],
+            filters: vec![but_rules::Filter::PathMatchesRegex(regex::Regex::new(".*")?)],
             action,
         }
     };
     but_rules::create_rule(ctx, req, guard.write_permission())?;
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "Changes will be amended into commit → {}",
-            &oid.to_string()
-        )?;
+        writeln!(out, "Changes will be amended into commit → {}", &oid.to_string())?;
     }
     Ok(())
 }
 
-fn mark_branch(
-    ctx: &mut Context,
-    branch_name: String,
-    delete: bool,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+fn mark_branch(ctx: &mut Context, branch_name: String, delete: bool, out: &mut OutputChannel) -> anyhow::Result<()> {
     let stack_id = branch_name_to_stack_id(ctx, Some(&branch_name))?;
     if delete {
         let rules = but_rules::list_rules(ctx)?;
@@ -112,9 +91,7 @@ fn mark_branch(
     });
     let req = but_rules::CreateRuleRequest {
         trigger: but_rules::Trigger::FileSytemChange,
-        filters: vec![but_rules::Filter::PathMatchesRegex(regex::Regex::new(
-            ".*",
-        )?)],
+        filters: vec![but_rules::Filter::PathMatchesRegex(regex::Regex::new(".*")?)],
         action,
     };
     but_rules::create_rule(ctx, req, guard.write_permission())?;
@@ -135,12 +112,9 @@ pub(crate) fn commit_marked(ctx: &Context, commit_id: String) -> anyhow::Result<
     let change_id = {
         let repo = ctx.repo.get()?;
         let commit = repo.find_commit(gix::ObjectId::from_str(&commit_id)?)?;
-        commit.change_id().ok_or_else(|| {
-            anyhow::anyhow!(
-                "Commit {} does not have a Change-Id, cannot mark it",
-                commit_id
-            )
-        })?
+        commit
+            .change_id()
+            .ok_or_else(|| anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", commit_id))?
     };
     let rules = but_rules::list_rules(ctx)?
         .iter()

@@ -288,10 +288,7 @@ fn squash_multiple() -> Result<()> {
 
     // branch 1
     assert_eq!(branches.b1.patches.len(), 1);
-    assert_eq!(
-        branches.b1.patches[0].message,
-        "commit 1\ncommit 4\ncommit 2"
-    );
+    assert_eq!(branches.b1.patches[0].message, "commit 1\ncommit 4\ncommit 2");
     assert_eq!(
         blob_content(&*ctx.git2_repo.get()?, branches.b1.patches[0].id, "file4")?,
         "change4\n"
@@ -347,10 +344,7 @@ fn squash_multiple_from_heads() -> Result<()> {
     // branch 2
     assert_eq!(branches.b2.patches.len(), 2);
     assert_eq!(branches.b2.patches[0].message, "commit 3");
-    assert_eq!(
-        branches.b2.patches[1].message,
-        "commit 2\ncommit 5\ncommit 4"
-    );
+    assert_eq!(branches.b2.patches[1].message, "commit 2\ncommit 5\ncommit 4");
     assert_eq!(
         blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file5")?,
         "change5\n"
@@ -401,10 +395,7 @@ fn squash_multiple_above_and_below() -> Result<()> {
     // branch 2
     assert_eq!(branches.b2.patches.len(), 3);
     assert_eq!(branches.b2.patches[0].message, "commit 4");
-    assert_eq!(
-        branches.b2.patches[1].message,
-        "commit 3\ncommit 5\ncommit 1"
-    );
+    assert_eq!(branches.b2.patches[1].message, "commit 3\ncommit 5\ncommit 1");
     assert_eq!(
         blob_content(&*ctx.git2_repo.get()?, branches.b2.patches[1].id, "file2_3")?,
         "change3\n"

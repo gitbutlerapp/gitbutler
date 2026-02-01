@@ -3,9 +3,7 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::RepositoryExt;
 use but_ctx::{Context, ThreadSafeContext};
-use but_forge::{
-    ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
-};
+use but_forge::{ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions};
 use gitbutler_repo::RepoCommands;
 use tracing::instrument;
 
@@ -37,11 +35,7 @@ pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
 /// but uses the updated storage location.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn pr_template(
-    ctx: &but_ctx::Context,
-    relative_path: std::path::PathBuf,
-    forge: ForgeName,
-) -> Result<String> {
+pub fn pr_template(ctx: &but_ctx::Context, relative_path: std::path::PathBuf, forge: ForgeName) -> Result<String> {
     let ReviewTemplateFunctions {
         is_valid_review_template_path,
         ..

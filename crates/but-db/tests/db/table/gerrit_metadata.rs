@@ -16,11 +16,7 @@ fn get_nonexistent() -> anyhow::Result<()> {
 fn insert_and_get() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
-    let meta = gerrit_meta(
-        "I1234567890abcdef",
-        "commit123",
-        "https://gerrit.example.com/1",
-    );
+    let meta = gerrit_meta("I1234567890abcdef", "commit123", "https://gerrit.example.com/1");
 
     db.gerrit_metadata_mut().insert(meta.clone())?;
 
@@ -34,11 +30,7 @@ fn insert_and_get() -> anyhow::Result<()> {
 fn update_existing() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
-    let meta = gerrit_meta(
-        "I1234567890abcdef",
-        "commit123",
-        "https://gerrit.example.com/1",
-    );
+    let meta = gerrit_meta("I1234567890abcdef", "commit123", "https://gerrit.example.com/1");
 
     db.gerrit_metadata_mut().insert(meta.clone())?;
 
@@ -47,9 +39,7 @@ fn update_existing() -> anyhow::Result<()> {
         commit_id: "commit456".to_string(),
         review_url: "https://gerrit.example.com/2".to_string(),
         created_at: meta.created_at,
-        updated_at: chrono::DateTime::from_timestamp(2000000, 0)
-            .unwrap()
-            .naive_utc(),
+        updated_at: chrono::DateTime::from_timestamp(2000000, 0).unwrap().naive_utc(),
     };
 
     db.gerrit_metadata_mut().update(updated_meta.clone())?;
@@ -64,11 +54,7 @@ fn update_existing() -> anyhow::Result<()> {
 fn with_transaction() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
-    let meta = gerrit_meta(
-        "I1234567890abcdef",
-        "commit123",
-        "https://gerrit.example.com/1",
-    );
+    let meta = gerrit_meta("I1234567890abcdef", "commit123", "https://gerrit.example.com/1");
 
     let mut trans = db.transaction()?;
     trans.gerrit_metadata_mut().insert(meta.clone())?;
@@ -88,18 +74,10 @@ fn with_transaction() -> anyhow::Result<()> {
 fn transaction_rollback() -> anyhow::Result<()> {
     let mut db = in_memory_db();
 
-    let meta1 = gerrit_meta(
-        "I1234567890abcdef",
-        "commit123",
-        "https://gerrit.example.com/1",
-    );
+    let meta1 = gerrit_meta("I1234567890abcdef", "commit123", "https://gerrit.example.com/1");
     db.gerrit_metadata_mut().insert(meta1.clone())?;
 
-    let meta2 = gerrit_meta(
-        "I9999999999999999",
-        "commit999",
-        "https://gerrit.example.com/999",
-    );
+    let meta2 = gerrit_meta("I9999999999999999", "commit999", "https://gerrit.example.com/999");
     let mut trans = db.transaction()?;
     trans.gerrit_metadata_mut().insert(meta2.clone())?;
     trans.rollback()?;
@@ -118,11 +96,7 @@ fn gerrit_meta(change_id: &str, commit_id: &str, review_url: &str) -> GerritMeta
         change_id: change_id.to_string(),
         commit_id: commit_id.to_string(),
         review_url: review_url.to_string(),
-        created_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
-        updated_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        created_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
+        updated_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
     }
 }

@@ -13,10 +13,7 @@ use crate::{
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct BranchReference {
     /// The full ref name, like `refs/heads/feat`, for usage with the backend.
     #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
@@ -38,10 +35,7 @@ impl From<gix::refs::FullName> for BranchReference {
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct RemoteTrackingReference {
     /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
     #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
@@ -55,13 +49,10 @@ pub struct RemoteTrackingReference {
 impl RemoteTrackingReference {
     /// Create a new instance from `ref_name` and `remote_names`, essentially splitting the remote
     /// name off the short name.
-    pub fn for_ui(
-        ref_name: gix::refs::FullName,
-        remote_names: &gix::remote::Names,
-    ) -> anyhow::Result<Self> {
-        let (category, short_name) = ref_name.category_and_short_name().with_context(|| {
-            format!("Failed to categorize presume remote reference '{ref_name}'")
-        })?;
+    pub fn for_ui(ref_name: gix::refs::FullName, remote_names: &gix::remote::Names) -> anyhow::Result<Self> {
+        let (category, short_name) = ref_name
+            .category_and_short_name()
+            .with_context(|| format!("Failed to categorize presume remote reference '{ref_name}'"))?;
         if category != Category::RemoteBranch {
             bail!("Expected '{ref_name}' to be a remote tracking branch, but was {category:?}");
         }
@@ -69,23 +60,17 @@ impl RemoteTrackingReference {
             .iter()
             .rev()
             .find_map(|remote_name| {
-                short_name
-                    .strip_prefix(remote_name.as_bytes())
-                    .and_then(|stripped| {
-                        if stripped.first() == Some(&b'/') {
-                            #[allow(clippy::indexing_slicing)]
-                            Some((remote_name, stripped[1..].as_bstr()))
-                        } else {
-                            None
-                        }
-                    })
+                short_name.strip_prefix(remote_name.as_bytes()).and_then(|stripped| {
+                    if stripped.first() == Some(&b'/') {
+                        #[allow(clippy::indexing_slicing)]
+                        Some((remote_name, stripped[1..].as_bstr()))
+                    } else {
+                        None
+                    }
+                })
             })
-            .ok_or(anyhow::anyhow!(
-                "Failed to find remote branch's corresponding remote"
-            ))
-            .with_context(|| {
-                format!("Remote reference '{ref_name}' couldn't be matched with any known remote")
-            })?;
+            .ok_or(anyhow::anyhow!("Failed to find remote branch's corresponding remote"))
+            .with_context(|| format!("Remote reference '{ref_name}' couldn't be matched with any known remote"))?;
 
         Ok(RemoteTrackingReference {
             display_name: short_name.to_str_lossy().into_owned(),
@@ -99,10 +84,7 @@ impl RemoteTrackingReference {
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct Target {
     /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
     pub remote_tracking_ref: RemoteTrackingReference,
@@ -134,10 +116,7 @@ pub(crate) mod inner {
     #[derive(serde::Serialize, Debug, Clone)]
     #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
     #[serde(rename_all = "camelCase")]
-    #[cfg_attr(
-        feature = "export-ts",
-        ts(export, export_to = "./workspace/refInfo/index.ts")
-    )]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
     pub struct RefInfo {
         /// The name of the ref that points to a workspace commit,
         /// *or* the name of the first stack segment.
@@ -172,8 +151,7 @@ pub(crate) mod inner {
             if self.is_entrypoint {
                 return self;
             }
-            self.stacks
-                .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
+            self.stacks.retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
             if let Some(only_stack) = self.stacks.first_mut() {
                 let mut found_entrypoint = false;
                 only_stack.segments.retain(|s| {
@@ -211,9 +189,7 @@ impl inner::RefInfo {
         Ok(inner::RefInfo {
             workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
-            target: target_ref
-                .map(|t| Target::for_ui(t, &remote_names))
-                .transpose()?,
+            target: target_ref.map(|t| Target::for_ui(t, &remote_names)).transpose()?,
             is_managed_ref,
             is_managed_commit,
             is_entrypoint,
@@ -225,10 +201,7 @@ impl inner::RefInfo {
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct Stack {
     /// Otherwise, it is `None`.
     #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
@@ -262,10 +235,7 @@ impl Stack {
 #[derive(serde::Serialize, Debug, Clone)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/refInfo/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct Segment {
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to

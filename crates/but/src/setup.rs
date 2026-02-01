@@ -75,11 +75,7 @@ pub(crate) struct InitCtxOptions {
 ///
 /// When `background_sync` is `BackgroundSync::Disabled`, no background sync is performed
 /// regardless of the configured interval.
-pub fn init_ctx(
-    args: &Args,
-    options: InitCtxOptions,
-    out: &mut OutputChannel,
-) -> anyhow::Result<Context> {
+pub fn init_ctx(args: &Args, options: InitCtxOptions, out: &mut OutputChannel) -> anyhow::Result<Context> {
     // lets try to get the repo from the current directory
     let repo = match gix::discover(&args.current_dir) {
         Ok(repo) => repo,
@@ -116,10 +112,7 @@ pub fn init_ctx(
                             crate::command::legacy::setup::repo(&args.current_dir, out, false)?;
                             // Retry finding the project after setup
                             LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
-                                anyhow::anyhow!(
-                                    "Setup completed but project still not found at {}",
-                                    workdir.display()
-                                )
+                                anyhow::anyhow!("Setup completed but project still not found at {}", workdir.display())
                             })?
                         }
                         SetupPromptResult::Declined => {
@@ -138,13 +131,9 @@ pub fn init_ctx(
                         // Run setup to fix the project configuration
                         crate::command::legacy::setup::repo(&args.current_dir, out, false)?;
                         // Re-find and re-check the project after setup
-                        let _project =
-                            LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
-                                anyhow::anyhow!(
-                                    "Setup completed but project still not found at {}",
-                                    workdir.display()
-                                )
-                            })?;
+                        let _project = LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
+                            anyhow::anyhow!("Setup completed but project still not found at {}", workdir.display())
+                        })?;
                         check_project_setup(&ctx)?;
                     }
                     SetupPromptResult::Declined => {
@@ -182,8 +171,7 @@ pub fn init_ctx(
             }
 
             // Determine what needs to be synced based on intervals and lock availability
-            let sync_operations =
-                determine_sync_operations(&ctx, fetch_interval_minutes, last_fetch);
+            let sync_operations = determine_sync_operations(&ctx, fetch_interval_minutes, last_fetch);
 
             // Spawn background sync if there's anything to do
             if sync_operations.has_work() {
@@ -232,11 +220,7 @@ fn determine_sync_operations(
 
     // Try to acquire lock for remote data operations (fetch/pr/ci)
     let remote_data_lock = if should_sync_remote_data {
-        but_core::sync::try_exclusive_inter_process_access(
-            &ctx.gitdir,
-            LockScope::BackgroundRefreshOperations,
-        )
-        .ok()
+        but_core::sync::try_exclusive_inter_process_access(&ctx.gitdir, LockScope::BackgroundRefreshOperations).ok()
     } else {
         None
     };
@@ -290,9 +274,7 @@ fn spawn_background_sync(
 ) {
     let binary_path = std::env::current_exe().unwrap_or_default();
     let mut cmd = tokio::process::Command::new(binary_path);
-    cmd.arg("-C")
-        .arg(&args.current_dir)
-        .arg("refresh-remote-data");
+    cmd.arg("-C").arg(&args.current_dir).arg("refresh-remote-data");
 
     if operations.fetch {
         cmd.arg("--fetch");
@@ -318,33 +300,25 @@ fn spawn_background_sync(
         let msg = if operations.fetch {
             last_fetch
                 .and_then(|t| {
-                    std::time::SystemTime::now()
-                        .duration_since(t)
-                        .ok()
-                        .map(|elapsed| {
-                            let secs = elapsed.as_secs();
-                            if secs < 60 {
-                                format!("Last fetch was {}s ago. ", secs)
-                            } else if secs < 3600 {
-                                format!("Last fetch was {}m ago. ", secs / 60)
-                            } else if secs < 86400 {
-                                format!("Last fetch was {}h ago. ", secs / 3600)
-                            } else {
-                                format!("Last fetch was {}d ago. ", secs / 86400)
-                            }
-                        })
+                    std::time::SystemTime::now().duration_since(t).ok().map(|elapsed| {
+                        let secs = elapsed.as_secs();
+                        if secs < 60 {
+                            format!("Last fetch was {}s ago. ", secs)
+                        } else if secs < 3600 {
+                            format!("Last fetch was {}m ago. ", secs / 60)
+                        } else if secs < 86400 {
+                            format!("Last fetch was {}h ago. ", secs / 3600)
+                        } else {
+                            format!("Last fetch was {}d ago. ", secs / 86400)
+                        }
+                    })
                 })
                 .unwrap_or_default()
         } else {
             String::new()
         };
 
-        writeln!(
-            out,
-            "{}",
-            format!("{}Initiated a background sync...", msg).dimmed()
-        )
-        .ok();
+        writeln!(out, "{}", format!("{}Initiated a background sync...", msg).dimmed()).ok();
     }
 }
 
@@ -418,10 +392,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
 
 /// Check if we're on gitbutler/workspace with non-workspace commits on top.
 /// If so, inform the user and suggest running teardown to preserve their work.
-fn check_workspace_commits_before_init(
-    repo: &gix::Repository,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+fn check_workspace_commits_before_init(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow::Result<()> {
     let head = repo.head()?;
     let head_name = head
         .referent_name()
@@ -447,9 +418,7 @@ fn check_workspace_commits_before_init(
             writeln!(
                 writer,
                 "{}",
-                "⚠ Detected commits on top of gitbutler/workspace"
-                    .yellow()
-                    .bold()
+                "⚠ Detected commits on top of gitbutler/workspace".yellow().bold()
             )?;
             writeln!(writer)?;
             writeln!(
@@ -461,9 +430,7 @@ fn check_workspace_commits_before_init(
         }
 
         // After teardown, we should not continue with the original command
-        anyhow::bail!(
-            "GitButler mode exit required: please run `but teardown` to preserve your work."
-        );
+        anyhow::bail!("GitButler mode exit required: please run `but teardown` to preserve your work.");
     }
 
     Ok(())

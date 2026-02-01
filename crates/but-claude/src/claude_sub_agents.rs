@@ -81,9 +81,7 @@ async fn read_entry(entry: DirEntry) -> Option<SubAgent> {
             match key {
                 "name" => agent.name = value.into(),
                 "description" => agent.description = value.into(),
-                "tools" => {
-                    agent.tools = Some(value.split(", ").map(Into::into).collect::<Vec<_>>())
-                }
+                "tools" => agent.tools = Some(value.split(", ").map(Into::into).collect::<Vec<_>>()),
                 "model" => agent.model = Some(value.into()),
                 _ => {}
             }

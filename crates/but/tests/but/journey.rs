@@ -9,10 +9,7 @@ fn from_unborn() -> anyhow::Result<()> {
     let env = Sandbox::open_with_default_settings("unborn")?;
     insta::assert_snapshot!(env.git_log()?, @r"");
 
-    env.but("branch apply main")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
+    env.but("branch apply main").assert().failure().stderr_eq(str![[r#"
 Error: The reference 'main' did not exist
 
 "#]]);
@@ -45,10 +42,7 @@ Caused by:
     ]);
 
     // TODO: this should work, but we still have requirements and can't deal with any repo.
-    env.but("setup --init")
-        .assert()
-        .success()
-        .stdout_eq(str![[r#"
+    env.but("setup --init").assert().success().stdout_eq(str![[r#"
 No git repository found. Initializing new repository...
 ✓ Initialized repository with empty commit
 
@@ -157,9 +151,7 @@ fn from_workspace() -> anyhow::Result<()> {
         .with_color_for_svg()
         .assert()
         .success()
-        .stdout_eq(file![
-            "snapshots/from-workspace/status01-verbose.stdout.term.svg"
-        ]);
+        .stdout_eq(file!["snapshots/from-workspace/status01-verbose.stdout.term.svg"]);
 
     // List is the default
     env.but("branch")

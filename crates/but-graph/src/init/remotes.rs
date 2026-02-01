@@ -6,9 +6,7 @@ use crate::init::overlay::OverlayRepo;
 
 /// Returns the unique names of all remote tracking branches that are configured in the repository.
 /// Useful to avoid claiming them for deduction.
-pub fn configured_remote_tracking_branches(
-    repo: &OverlayRepo<'_>,
-) -> anyhow::Result<BTreeSet<gix::refs::FullName>> {
+pub fn configured_remote_tracking_branches(repo: &OverlayRepo<'_>) -> anyhow::Result<BTreeSet<gix::refs::FullName>> {
     let mut out = BTreeSet::default();
     for short_name in repo
         .config_snapshot()
@@ -43,9 +41,7 @@ pub fn lookup_remote_tracking_branch_or_deduce_it(
                 "refs/remotes/{symbolic_remote_name}/{short_name}",
                 short_name = ref_name.shorten()
             );
-            let Ok(remote_tracking_ref_name) =
-                gix::refs::FullName::try_from(remote_tracking_ref_name)
-            else {
+            let Ok(remote_tracking_ref_name) = gix::refs::FullName::try_from(remote_tracking_ref_name) else {
                 continue;
             };
             if configured_remote_tracking_branches.contains(&remote_tracking_ref_name) {

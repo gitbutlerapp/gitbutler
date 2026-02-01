@@ -3,8 +3,8 @@ use but_settings::AppSettings;
 use tracing::instrument;
 
 use crate::{
-    Context, LegacyProjectId, ThreadSafeContext, app_settings, new_ondemand_app_cache,
-    new_ondemand_db, new_ondemand_git2_repo, new_ondemand_repo,
+    Context, LegacyProjectId, ThreadSafeContext, app_settings, new_ondemand_app_cache, new_ondemand_db,
+    new_ondemand_git2_repo, new_ondemand_repo,
 };
 
 pub(crate) mod types {
@@ -41,9 +41,7 @@ impl Context {
     }
 
     /// Open the repository identified by `legacy_project` and `settings`.
-    pub fn new_from_legacy_project(
-        legacy_project: gitbutler_project::Project,
-    ) -> anyhow::Result<Self> {
+    pub fn new_from_legacy_project(legacy_project: gitbutler_project::Project) -> anyhow::Result<Self> {
         let gitdir = legacy_project.git_dir().to_owned();
         let app_cache_dir = but_path::app_cache_dir().ok();
         Ok(Context {
@@ -114,10 +112,7 @@ impl Context {
     pub fn workspace_and_meta_from_head(
         &self,
         _exclusive_access: &RepoExclusive,
-    ) -> anyhow::Result<(
-        impl but_core::RefMetadata + 'static,
-        but_graph::projection::Workspace,
-    )> {
+    ) -> anyhow::Result<(impl but_core::RefMetadata + 'static, but_graph::projection::Workspace)> {
         let ws = self.workspace_from_head()?;
         Ok((self.meta()?, ws))
     }

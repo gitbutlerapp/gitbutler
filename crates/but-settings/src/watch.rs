@@ -38,8 +38,7 @@ impl AppSettingsEnforceSaveToDisk<'_> {
     pub fn save(&mut self) -> Result<()> {
         // Mark as completed first so failure to save will not make us complain about not saving.
         self.saved = true;
-        self.snapshot
-            .save(self.config_path, self.customization.clone())?;
+        self.snapshot.save(self.config_path, self.customization.clone())?;
         Ok(())
     }
 }
@@ -60,10 +59,7 @@ impl DerefMut for AppSettingsEnforceSaveToDisk<'_> {
 
 impl Drop for AppSettingsEnforceSaveToDisk<'_> {
     fn drop(&mut self) {
-        assert!(
-            self.saved,
-            "BUG: every change must immediately be saved to disk."
-        );
+        assert!(self.saved, "BUG: every change must immediately be saved to disk.");
     }
 }
 
@@ -165,10 +161,7 @@ impl AppSettingsWithDiskSync {
                         }
                     }
                     Err(_) => {
-                        tracing::error!(
-                            "Error watching config file {:?} - watcher terminated",
-                            config_path
-                        );
+                        tracing::error!("Error watching config file {:?} - watcher terminated", config_path);
                         break;
                     }
 

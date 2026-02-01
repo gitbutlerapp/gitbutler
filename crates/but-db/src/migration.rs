@@ -13,10 +13,7 @@ pub(crate) const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_s
 ///
 /// Note that these will be ordered by [`run()`].
 pub fn ours() -> impl Iterator<Item = M<'static>> {
-    crate::MIGRATIONS
-        .iter()
-        .flat_map(|per_table| per_table.iter())
-        .copied()
+    crate::MIGRATIONS.iter().flat_map(|per_table| per_table.iter()).copied()
 }
 
 /// Run the given `migrations` on `conn`, returning the amount of migrations that ran.
@@ -25,16 +22,8 @@ pub fn ours() -> impl Iterator<Item = M<'static>> {
 /// for an intermediate failure related to databases.
 ///
 /// Currently, either all migrations succeed, or all fail.
-#[instrument(
-    name = "run_migration",
-    level = "trace",
-    skip(conn, migrations),
-    err(Debug)
-)]
-pub fn run<'m>(
-    conn: &mut rusqlite::Connection,
-    migrations: impl IntoIterator<Item = M<'m>>,
-) -> Result<usize, Error> {
+#[instrument(name = "run_migration", level = "trace", skip(conn, migrations), err(Debug))]
+pub fn run<'m>(conn: &mut rusqlite::Connection, migrations: impl IntoIterator<Item = M<'m>>) -> Result<usize, Error> {
     let trans = conn
         // Use deferred to allow ourselves to read first without running into locks.
         // That read can determine that nothing needs to be done, saving a lot of time.
@@ -67,9 +56,7 @@ pub fn run<'m>(
     let mut count = 0;
     // Run only new migrations (after all existing ones)
     for migration in migrations.iter().skip(num_applied_consecutive_versions) {
-        trans
-            .execute_batch(migration.up)
-            .map_err(transient_if_locked)?;
+        trans.execute_batch(migration.up).map_err(transient_if_locked)?;
 
         let version = migration.up_created_at.to_string();
         trans
@@ -111,7 +98,7 @@ fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result
                 actual = migrations.len(),
                 num_existing = existing_versions.len()
             )
-                .into()
+            .into()
         } else {
             let candidate_m = migrations[idx];
             (candidate_m.up_created_at != existing_version).then(|| {
@@ -123,9 +110,9 @@ fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result
             })
         };
         if let Some(err) = err {
-            return Err(backoff::Error::permanent(
-                rusqlite::Error::ToSqlConversionFailure(err.into()),
-            ));
+            return Err(backoff::Error::permanent(rusqlite::Error::ToSqlConversionFailure(
+                err.into(),
+            )));
         }
     }
 
@@ -154,8 +141,7 @@ impl<'a> M<'a> {
     }
 }
 
-const DIESEL_SCHEMA_MIGRATION_TABLE: &str =
-    "CREATE TABLE IF NOT EXISTS __diesel_schema_migrations (
+const DIESEL_SCHEMA_MIGRATION_TABLE: &str = "CREATE TABLE IF NOT EXISTS __diesel_schema_migrations (
        version VARCHAR(50) PRIMARY KEY NOT NULL,
        run_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 )";

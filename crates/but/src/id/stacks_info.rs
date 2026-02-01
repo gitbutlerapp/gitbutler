@@ -100,10 +100,7 @@ fn populate_branch_short_ids(
     }
 
     // Populate branch short IDs in `stacks`.
-    for segment in stacks
-        .iter_mut()
-        .flat_map(|stack| stack.segments.iter_mut())
-    {
+    for segment in stacks.iter_mut().flat_map(|stack| stack.segments.iter_mut()) {
         let Some(branch_name) = segment.branch_name() else {
             // The branch CliId is its name, so if this segment doesn't have a
             // name, it doesn't need an ID.
@@ -143,26 +140,25 @@ fn common_nybble_len(a: &[u8], b: &[u8]) -> usize {
 }
 
 fn populate_commit_short_ids(stacks: &mut [StackWithId]) {
-    let mut commit_id_and_short_id_pairs =
-        stacks
-            .iter_mut()
-            .flat_map(|stack| stack.segments.iter_mut())
-            .flat_map(|segment| {
-                let SegmentWithId {
-                    workspace_commits,
-                    remote_commits,
-                    ..
-                } = segment;
-                workspace_commits
-                    .iter_mut()
-                    .map(|workspace_commit| {
-                        (workspace_commit.commit_id(), &mut workspace_commit.short_id)
-                    })
-                    .chain(remote_commits.iter_mut().map(|remote_commit| {
-                        (remote_commit.commit_id(), &mut remote_commit.short_id)
-                    }))
-            })
-            .collect::<Vec<_>>();
+    let mut commit_id_and_short_id_pairs = stacks
+        .iter_mut()
+        .flat_map(|stack| stack.segments.iter_mut())
+        .flat_map(|segment| {
+            let SegmentWithId {
+                workspace_commits,
+                remote_commits,
+                ..
+            } = segment;
+            workspace_commits
+                .iter_mut()
+                .map(|workspace_commit| (workspace_commit.commit_id(), &mut workspace_commit.short_id))
+                .chain(
+                    remote_commits
+                        .iter_mut()
+                        .map(|remote_commit| (remote_commit.commit_id(), &mut remote_commit.short_id)),
+                )
+        })
+        .collect::<Vec<_>>();
     commit_id_and_short_id_pairs.sort();
 
     let mut common_with_previous_len = 0;
@@ -187,10 +183,7 @@ pub(crate) struct StacksInfo {
 }
 
 impl StacksInfo {
-    pub(crate) fn new(
-        stacks: Vec<Stack>,
-        uncommitted_short_filenames: &HashSet<BString>,
-    ) -> anyhow::Result<Self> {
+    pub(crate) fn new(stacks: Vec<Stack>, uncommitted_short_filenames: &HashSet<BString>) -> anyhow::Result<Self> {
         let mut stacks_info = stacks_info_without_short_ids(stacks);
         populate_branch_short_ids(
             &mut stacks_info.stacks,

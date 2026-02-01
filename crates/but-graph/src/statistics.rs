@@ -1,8 +1,6 @@
 use petgraph::Direction;
 
-use crate::{
-    CommitFlags, CommitIndex, Graph, SegmentIndex, SegmentMetadata, init::types::TopoWalk,
-};
+use crate::{CommitFlags, CommitIndex, Graph, SegmentIndex, SegmentMetadata, init::types::TopoWalk};
 
 impl Graph {
     /// Return the number segments whose commits are all exclusively in a remote.
@@ -55,14 +53,8 @@ impl Graph {
                 .commits
                 .first()
                 .map(|c| c.flags.contains(CommitFlags::InWorkspace));
-            *segment_entrypoint_incoming = self
-                .inner
-                .edges_directed(ep.segment_index, Direction::Incoming)
-                .count();
-            *segment_entrypoint_outgoing = self
-                .inner
-                .edges_directed(ep.segment_index, Direction::Outgoing)
-                .count();
+            *segment_entrypoint_incoming = self.inner.edges_directed(ep.segment_index, Direction::Incoming).count();
+            *segment_entrypoint_outgoing = self.inner.edges_directed(ep.segment_index, Direction::Outgoing).count();
             for (storage, direction, start_cidx) in [
                 (
                     segments_behind_of_entrypoint,
@@ -75,8 +67,7 @@ impl Graph {
                     ep.segment.commits.last().map(|_| ep.segment.commits.len()),
                 ),
             ] {
-                let mut walk = TopoWalk::start_from(ep.segment_index, start_cidx, direction)
-                    .skip_tip_segment();
+                let mut walk = TopoWalk::start_from(ep.segment_index, start_cidx, direction).skip_tip_segment();
                 while walk.next(&self.inner).is_some() {
                     *storage += 1;
                 }
@@ -110,9 +101,7 @@ impl Graph {
                     if c.flags.contains(CommitFlags::Integrated) {
                         *segments_integrated += 1
                     }
-                    if c.flags
-                        .contains(CommitFlags::InWorkspace | CommitFlags::Integrated)
-                    {
+                    if c.flags.contains(CommitFlags::InWorkspace | CommitFlags::Integrated) {
                         *segments_in_workspace_and_integrated += 1
                     }
                     if c.flags.is_remote() {
@@ -129,12 +118,7 @@ impl Graph {
 
         for sidx in self.inner.node_indices() {
             *commits_at_cutoff += usize::from(self[sidx].commits.last().is_some_and(|c| {
-                !c.parent_ids.is_empty()
-                    && self
-                        .inner
-                        .edges_directed(sidx, Direction::Outgoing)
-                        .next()
-                        .is_none()
+                !c.parent_ids.is_empty() && self.inner.edges_directed(sidx, Direction::Outgoing).next().is_none()
             }));
         }
         out
@@ -182,11 +166,7 @@ pub struct Statistics {
     /// The number of outgoing connections into the entrypoint segment.
     pub segment_entrypoint_outgoing: usize,
     /// Segments without incoming connections.
-    pub top_segments: Vec<(
-        Option<gix::refs::FullName>,
-        SegmentIndex,
-        Option<CommitFlags>,
-    )>,
+    pub top_segments: Vec<(Option<gix::refs::FullName>, SegmentIndex, Option<CommitFlags>)>,
     /// Segments without outgoing connections.
     pub segments_at_bottom: usize,
     /// Connections between segments.

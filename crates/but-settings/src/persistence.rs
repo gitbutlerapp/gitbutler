@@ -26,8 +26,7 @@ impl AppSettings {
         }
 
         // merge customizations from disk into the defaults to get a complete set of settings.
-        let customizations: serde_json::Value =
-            serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
+        let customizations: serde_json::Value = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
         let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
 
         merge_json_value(customizations, &mut settings);
@@ -72,8 +71,7 @@ impl AppSettings {
         }
 
         // Load the existing customizations only
-        let mut customizations =
-            serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
+        let mut customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
 
         // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file
@@ -93,21 +91,13 @@ mod tests {
 
     #[test]
     fn ensure_default_settings_covers_all_fields() {
-        let settings: serde_json::Value =
-            serde_json_lenient::from_str(crate::persistence::DEFAULTS).unwrap();
-        let app_settings: Result<super::AppSettings, serde_json::Error> =
-            serde_json::from_value(settings.clone());
+        let settings: serde_json::Value = serde_json_lenient::from_str(crate::persistence::DEFAULTS).unwrap();
+        let app_settings: Result<super::AppSettings, serde_json::Error> = serde_json::from_value(settings.clone());
         if app_settings.is_err() {
-            println!(
-                "\n==========================================================================================="
-            );
+            println!("\n===========================================================================================");
             println!("Not all AppSettings have default values.");
-            println!(
-                "Make sure to update the defaults file in 'crates/gitbutler-settings/assets/defaults.jsonc'."
-            );
-            println!(
-                "===========================================================================================\n"
-            );
+            println!("Make sure to update the defaults file in 'crates/gitbutler-settings/assets/defaults.jsonc'.");
+            println!("===========================================================================================\n");
         }
         assert!(app_settings.is_ok())
     }

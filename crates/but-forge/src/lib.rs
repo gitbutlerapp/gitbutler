@@ -9,8 +9,8 @@ mod review;
 pub use ci::{CiCheck, CiConclusion, CiOutput, CiStatus, ci_checks_for_ref_with_cache};
 pub use review::{
     CacheConfig, CreateForgeReviewParams, ForgeReview, ForgeReviewFilter, ReviewTemplateFunctions,
-    available_review_templates, create_forge_review, get_forge_review,
-    get_review_template_functions, list_forge_reviews_for_branch, list_forge_reviews_with_cache,
+    available_review_templates, create_forge_review, get_forge_review, get_review_template_functions,
+    list_forge_reviews_for_branch, list_forge_reviews_with_cache,
 };
 
 fn determine_forge_from_host(host: &str) -> Option<ForgeName> {

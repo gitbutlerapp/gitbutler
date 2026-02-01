@@ -13,16 +13,12 @@ fn rub_looks_good() -> anyhow::Result<()> {
         .with_color_for_svg()
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/help/rub-long-help.stdout.term.svg"
-        ]);
+        .stdout_eq(snapbox::file!["snapshots/help/rub-long-help.stdout.term.svg"]);
     env.but("rub -h")
         .with_color_for_svg()
         .assert()
         .success()
-        .stdout_eq(snapbox::file![
-            "snapshots/help/rub-short-help.stdout.term.svg"
-        ]);
+        .stdout_eq(snapbox::file!["snapshots/help/rub-short-help.stdout.term.svg"]);
     Ok(())
 }
 

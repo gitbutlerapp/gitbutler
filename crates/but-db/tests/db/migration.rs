@@ -7,10 +7,7 @@ mod run {
     fn all_or_nothing() -> anyhow::Result<()> {
         let mut db = rusqlite::Connection::open_in_memory()?;
 
-        let (good, bad) = (
-            M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );"),
-            M::up(1, "bad"),
-        );
+        let (good, bad) = (M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );"), M::up(1, "bad"));
         let err = migration::run(&mut db, [good, bad]).unwrap_err();
         assert!(matches!(err, backoff::Error::Permanent(_)));
 
@@ -120,8 +117,7 @@ mod run {
         assert!(matches!(err, backoff::Error::Permanent(_)));
 
         let newer_new = M::up(2, "ALTER TABLE `T1` ADD COLUMN `two` TEXT");
-        let err = migration::run(&mut db, [old, /* 'new' missing */ newer_new])
-            .expect_err("cannot skip a migration");
+        let err = migration::run(&mut db, [old, /* 'new' missing */ newer_new]).expect_err("cannot skip a migration");
         assert!(matches!(err, backoff::Error::Permanent(_)));
         Ok(())
     }
@@ -362,13 +358,10 @@ mod util {
     use std::fmt::Write;
     pub fn dump_data(conn: &rusqlite::Connection) -> anyhow::Result<String> {
         // Get all table names
-        let mut stmt = conn.prepare(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")?;
 
-        let tables: Vec<String> = stmt
-            .query_map([], |row| row.get(0))?
-            .collect::<Result<Vec<_>, _>>()?;
+        let tables: Vec<String> = stmt.query_map([], |row| row.get(0))?.collect::<Result<Vec<_>, _>>()?;
 
         let mut out = String::new();
         for table in tables {
@@ -408,11 +401,7 @@ mod util {
         Ok(out)
     }
 
-    fn dump_table(
-        conn: &rusqlite::Connection,
-        table_name: &str,
-        out: &mut String,
-    ) -> anyhow::Result<()> {
+    fn dump_table(conn: &rusqlite::Connection, table_name: &str, out: &mut String) -> anyhow::Result<()> {
         let query = if table_name == "__diesel_schema_migrations" {
             format!("SELECT version FROM {}", table_name)
         } else {

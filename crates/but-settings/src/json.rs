@@ -1,8 +1,5 @@
 // Given a current json value and an update json value, return a json value that represents the difference between the two.
-pub fn json_difference(
-    current: serde_json::Value,
-    update: &serde_json::Value,
-) -> serde_json::Value {
+pub fn json_difference(current: serde_json::Value, update: &serde_json::Value) -> serde_json::Value {
     use serde_json::Value;
     if let Value::Object(update_object) = &update {
         if let Value::Object(current_object) = current {
@@ -10,10 +7,7 @@ pub fn json_difference(
             for (key, update_value) in update_object {
                 if let Some(current_value) = current_object.get(key) {
                     if current_value != update_value {
-                        result.insert(
-                            key.clone(),
-                            json_difference(current_value.clone(), update_value),
-                        );
+                        result.insert(key.clone(), json_difference(current_value.clone(), update_value));
                     }
                 } else {
                     result.insert(key.clone(), update_value.clone());

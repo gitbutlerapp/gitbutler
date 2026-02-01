@@ -36,12 +36,7 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     let left = repo.find_reference("refs/heads/left")?.peel_to_commit()?;
     let right = repo.find_reference("refs/heads/right")?.peel_to_commit()?;
 
-    let mut merge = repo.merge_trees(
-        &init.tree()?,
-        &left.tree()?,
-        &right.tree()?,
-        Default::default(),
-    )?;
+    let mut merge = repo.merge_trees(&init.tree()?, &left.tree()?, &right.tree()?, Default::default())?;
 
     repo.checkout_index(
         Some(&mut merge),

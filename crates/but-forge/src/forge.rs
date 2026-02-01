@@ -40,21 +40,19 @@ impl ForgeUser {
 }
 
 // Custom deserializer for Option<ForgeUser> that accepts either a string or ForgeUser
-pub fn deserialize_preferred_forge_user_opt<'de, D>(
-    deserializer: D,
-) -> Result<Option<ForgeUser>, D::Error>
+pub fn deserialize_preferred_forge_user_opt<'de, D>(deserializer: D) -> Result<Option<ForgeUser>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     use serde::de::Error;
-    Ok(
-        match Option::<serde_json::Value>::deserialize(deserializer)? {
-            // Handle the deprecated string case
-            Some(serde_json::Value::String(s)) => Some(ForgeUser::GitHub(
-                but_github::GithubAccountIdentifier::OAuthUsername { username: s },
-            )),
-            Some(other) => Some(ForgeUser::deserialize(other).map_err(D::Error::custom)?),
-            None => None,
-        },
-    )
+    Ok(match Option::<serde_json::Value>::deserialize(deserializer)? {
+        // Handle the deprecated string case
+        Some(serde_json::Value::String(s)) => {
+            Some(ForgeUser::GitHub(but_github::GithubAccountIdentifier::OAuthUsername {
+                username: s,
+            }))
+        }
+        Some(other) => Some(ForgeUser::deserialize(other).map_err(D::Error::custom)?),
+        None => None,
+    })
 }

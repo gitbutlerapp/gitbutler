@@ -37,13 +37,14 @@ pub fn find_unique_refname(
 
     let short_name = template.shorten();
     // Extract base name and number if it already has a numerical suffix
-    let trailing_number = short_name
-        .rfind("-")
-        .map(|pos| (&short_name[pos + 1..], pos))
-        .and_then(|(maybe_num, pos)| {
-            let num = maybe_num.to_str().ok()?.parse::<usize>().ok()?;
-            Some((&short_name[..pos], num + 1))
-        });
+    let trailing_number =
+        short_name
+            .rfind("-")
+            .map(|pos| (&short_name[pos + 1..], pos))
+            .and_then(|(maybe_num, pos)| {
+                let num = maybe_num.to_str().ok()?.parse::<usize>().ok()?;
+                Some((&short_name[..pos], num + 1))
+            });
     let (base, start_num) = trailing_number.unwrap_or((short_name, 1));
 
     // Try incrementing numbers until we find one that doesn't exist
@@ -125,10 +126,7 @@ fn generate_short_name_from_signature(author: &gix::actor::Signature) -> anyhow:
         // For other scripts, use initials
         format!(
             "{}-branch-1",
-            prefix
-                .into_iter()
-                .map(|p| p.to_lowercase())
-                .collect::<String>()
+            prefix.into_iter().map(|p| p.to_lowercase()).collect::<String>()
         )
     };
 

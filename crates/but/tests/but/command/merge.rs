@@ -17,10 +17,7 @@ fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
         .arg("--abbrev-ref")
         .arg("HEAD")
         .output()?;
-    assert_eq!(
-        String::from_utf8_lossy(&output.stdout).trim(),
-        "gitbutler/workspace"
-    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "gitbutler/workspace");
 
     // Create first branch
     env.but("branch new first-branch").assert().success();
@@ -58,9 +55,7 @@ fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
         .arg("rev-parse")
         .arg("main")
         .output()?;
-    let main_before_hash = String::from_utf8_lossy(&main_before.stdout)
-        .trim()
-        .to_string();
+    let main_before_hash = String::from_utf8_lossy(&main_before.stdout).trim().to_string();
 
     // Merge the first branch
     env.but(format!("merge {}", first_branch))
@@ -95,9 +90,7 @@ To undo this operation:
         .arg("rev-parse")
         .arg("main")
         .output()?;
-    let main_after_hash = String::from_utf8_lossy(&main_after.stdout)
-        .trim()
-        .to_string();
+    let main_after_hash = String::from_utf8_lossy(&main_after.stdout).trim().to_string();
 
     // Main should have changed
     assert_ne!(
@@ -150,9 +143,7 @@ To undo this operation:
         .arg("main")
         .arg("second-branch")
         .output()?;
-    let second_branch_base_hash = String::from_utf8_lossy(&second_branch_base.stdout)
-        .trim()
-        .to_string();
+    let second_branch_base_hash = String::from_utf8_lossy(&second_branch_base.stdout).trim().to_string();
 
     // The merge base should be the new main (the second branch was rebased)
     assert_eq!(

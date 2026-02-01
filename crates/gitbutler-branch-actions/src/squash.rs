@@ -102,11 +102,7 @@ fn do_squash_commits(
 
         // Replace the destination commit with the ordered, consecutive list of source commits (including the destination commit)
         for branch in updated_order.series.iter_mut() {
-            if let Some(pos) = branch
-                .commit_ids
-                .iter()
-                .position(|&id| id == destination_id)
-            {
+            if let Some(pos) = branch.commit_ids.iter().position(|&id| id == destination_id) {
                 branch.commit_ids.splice(pos..=pos, source_ids.clone());
             }
         }
@@ -124,10 +120,7 @@ fn do_squash_commits(
             for (_, old, new) in mapping.iter() {
                 // if source_ids contains old, replace it with new
                 if source_ids.contains(&old.to_git2()) {
-                    let index = source_ids
-                        .iter()
-                        .position(|id| id == &old.to_git2())
-                        .unwrap();
+                    let index = source_ids.iter().position(|id| id == &old.to_git2()).unwrap();
                     source_ids[index] = new.to_git2();
                 }
 
@@ -142,11 +135,7 @@ fn do_squash_commits(
 
         // stack was updated by reorder_stack, therefore it is reloaded
         let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-        let branch_commit_oids = repo.l(
-            stack.head_oid(ctx)?.to_git2(),
-            LogUntil::Commit(merge_base),
-            false,
-        )?;
+        let branch_commit_oids = repo.l(stack.head_oid(ctx)?.to_git2(), LogUntil::Commit(merge_base), false)?;
 
         let branch_commits = branch_commit_oids
             .iter()
@@ -165,28 +154,19 @@ fn do_squash_commits(
             .filter_map(|id| repo.find_commit(*id).ok())
             .collect::<Vec<_>>();
 
-        validate(
-            &gix_repo,
-            &branch_commit_oids,
-            &source_commits,
-            destination_commit,
-        )?;
+        validate(&gix_repo, &branch_commit_oids, &source_commits, destination_commit)?;
 
         // Having all the source commits in in the right order, sitting directly on top of the destination commit
         // means that we just need to take the tree of the child most source commit (most recent change) and
         // use that for the new commit.
         // By definition, the tree of the top commit includes all changes from the previous commits.
-        let child_most_source_commit = source_commits
-            .first()
-            .context("No source commits provided")?;
+        let child_most_source_commit = source_commits.first().context("No source commits provided")?;
         let final_tree = child_most_source_commit
             .tree()
             .context("Failed to get tree of the child most source commit")?;
 
         // The parent most commit from the source commits is used as the squash target.
-        let parent_most_source_commit = source_commits
-            .last()
-            .context("No source commits provided")?;
+        let parent_most_source_commit = source_commits.last().context("No source commits provided")?;
 
         let source_commits_without_destination = source_commits
             .iter()

@@ -232,10 +232,7 @@ fn commit_empty_with_positional_target_defaults_to_before() -> anyhow::Result<()
     env.setup_metadata(&["A"])?;
 
     // Use positional argument without flag (should default to --before behavior)
-    env.but("commit empty 9477ae7")
-        .assert()
-        .success()
-        .stdout_eq(str![[r#"
+    env.but("commit empty 9477ae7").assert().success().stdout_eq(str![[r#"
 Created blank commit before commit 9477ae7
 
 "#]]);
@@ -261,10 +258,7 @@ fn commit_empty_with_after_flag() -> anyhow::Result<()> {
     env.setup_metadata(&["A"])?;
 
     // Insert empty commit after (at top of) branch A
-    env.but("commit empty --after A")
-        .assert()
-        .success()
-        .stdout_eq(str![[r#"
+    env.but("commit empty --after A").assert().success().stdout_eq(str![[r#"
 Created blank commit at the top of stack 'A'
 
 "#]]);
@@ -342,10 +336,7 @@ fn commit_empty_without_branches_fails() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("first-commit")?;
 
     // Try to run without any arguments when there are no branches
-    env.but("commit empty")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
+    env.but("commit empty").assert().failure().stderr_eq(str![[r#"
 Error: No branches found. Create a branch first or specify a target explicitly.
 
 "#]]);
@@ -524,10 +515,7 @@ fn commit_ai_conflicts_with_file() -> anyhow::Result<()> {
     env.file("msg.txt", "commit message");
 
     // Try to use both --ai and -f
-    env.but("commit --ai -f msg.txt")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
+    env.but("commit --ai -f msg.txt").assert().failure().stderr_eq(str![[r#"
 error: the argument '--ai [<AI>]' cannot be used with '--file <FILE>'
 
 Usage: but commit --ai [<AI>] [BRANCH]

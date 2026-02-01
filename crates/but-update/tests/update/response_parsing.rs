@@ -11,8 +11,7 @@ fn deserializes_update_available_response() {
         "signature": "abc123def456"
     });
 
-    let status: CheckUpdateStatus =
-        serde_json::from_value(json_response).expect("Failed to deserialize");
+    let status: CheckUpdateStatus = serde_json::from_value(json_response).expect("Failed to deserialize");
 
     assert!(!status.up_to_date);
     assert_eq!(status.latest_version, "0.19.0");
@@ -34,8 +33,7 @@ fn deserializes_up_to_date_response() {
         "latest_version": "0.18.3"
     });
 
-    let status: CheckUpdateStatus =
-        serde_json::from_value(json_response).expect("Failed to deserialize");
+    let status: CheckUpdateStatus = serde_json::from_value(json_response).expect("Failed to deserialize");
 
     assert!(status.up_to_date);
     assert_eq!(status.latest_version, "0.18.3");
@@ -60,10 +58,7 @@ fn rejects_missing_required_fields() {
     });
 
     let result = serde_json::from_value::<CheckUpdateStatus>(json_missing_version);
-    assert!(
-        result.is_err(),
-        "Should fail when latest_version is missing"
-    );
+    assert!(result.is_err(), "Should fail when latest_version is missing");
 }
 
 #[test]
@@ -75,10 +70,7 @@ fn rejects_wrong_types() {
     });
 
     let result = serde_json::from_value::<CheckUpdateStatus>(json_wrong_type);
-    assert!(
-        result.is_err(),
-        "Should fail when up_to_date is not a boolean"
-    );
+    assert!(result.is_err(), "Should fail when up_to_date is not a boolean");
 
     // latest_version should be string, not number
     let json_version_number = json!({
@@ -87,10 +79,7 @@ fn rejects_wrong_types() {
     });
 
     let result = serde_json::from_value::<CheckUpdateStatus>(json_version_number);
-    assert!(
-        result.is_err(),
-        "Should fail when latest_version is not a string"
-    );
+    assert!(result.is_err(), "Should fail when latest_version is not a string");
 }
 
 #[test]

@@ -26,9 +26,7 @@ pub enum RepositoryError<
     AskpassServer(Easkpass),
     #[error("i/o error communicating with askpass utility: {0}")]
     AskpassIo(Esocket),
-    #[error(
-        "git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
-    )]
+    #[error("git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}")]
     Failed {
         status: usize,
         args: Vec<String>,
@@ -123,10 +121,7 @@ where
                     )
                 })
                 .unwrap_or_default();
-            (
-                askpath_path.strip_prefix(&workdir).unwrap_or(&askpath_path),
-                prefix,
-            )
+            (askpath_path.strip_prefix(&workdir).unwrap_or(&askpath_path), prefix)
         } else {
             (askpath_path.as_path(), "".into())
         };
@@ -138,10 +133,7 @@ where
     let askpath_stat = res?;
 
     #[cfg(unix)]
-    let setsid_stat = executor
-        .stat(&setsid_path)
-        .await
-        .map_err(Error::<E>::Exec)?;
+    let setsid_stat = executor.stat(&setsid_path).await.map_err(Error::<E>::Exec)?;
 
     #[expect(unsafe_code)]
     let sock_server = unsafe { executor.create_askpass_server() }
@@ -162,10 +154,7 @@ where
 
     // DISPLAY is required by SSH to check SSH_ASKPASS.
     // Please don't ask us why, it's unclear.
-    if !std::env::var("DISPLAY")
-        .map(|v| !v.is_empty())
-        .unwrap_or(false)
-    {
+    if !std::env::var("DISPLAY").map(|v| !v.is_empty()).unwrap_or(false) {
         envs.insert("DISPLAY".into(), ":".into());
     }
 
@@ -330,15 +319,8 @@ where
     args.push(remote);
     args.push(&refspec);
 
-    let (status, stdout, stderr) = execute_with_auth_harness(
-        HarnessEnv::Repo(repo_path),
-        &executor,
-        &args,
-        None,
-        on_prompt,
-        extra,
-    )
-    .await?;
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         Ok(())
@@ -412,15 +394,8 @@ where
         args.push(opt.as_str());
     }
 
-    let (status, stdout, stderr) = execute_with_auth_harness(
-        HarnessEnv::Repo(repo_path),
-        &executor,
-        &args,
-        None,
-        on_prompt,
-        extra,
-    )
-    .await?;
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         return Ok(stderr);
@@ -501,15 +476,8 @@ where
     let target_dir_str = target_dir.to_string_lossy();
     let args = vec!["clone", "--", repository_url, &target_dir_str];
 
-    let (status, stdout, stderr) = execute_with_auth_harness(
-        HarnessEnv::Global(work_dir),
-        &executor,
-        &args,
-        None,
-        on_prompt,
-        extra,
-    )
-    .await?;
+    let (status, stdout, stderr) =
+        execute_with_auth_harness(HarnessEnv::Global(work_dir), &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         Ok(())

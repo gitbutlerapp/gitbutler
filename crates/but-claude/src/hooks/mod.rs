@@ -81,8 +81,8 @@ pub struct ClaudeStopInput {
 }
 
 pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
-    let input: ClaudeStopInput = serde_json::from_reader(read)
-        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+    let input: ClaudeStopInput =
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
 
     let transcript = Transcript::from_file(Path::new(&input.transcript_path))?;
     let cwd = transcript.dir()?;
@@ -136,12 +136,7 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let stack_id = get_or_create_session(
-        &mut defer.ctx,
-        guard.write_permission(),
-        &session_id,
-        stacks,
-    )?;
+    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), &session_id, stacks)?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
     // lock so we need to drop this here to ensure we don't end up with a deadlock.
@@ -178,9 +173,7 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
                         ctx: defer.ctx.to_sync(),
                         trigger: id,
                     };
-                    let reword_result = but_action::reword::commit(&llm, commit_event)
-                        .ok()
-                        .unwrap_or_default();
+                    let reword_result = but_action::reword::commit(&llm, commit_event).ok().unwrap_or_default();
 
                     // Update the commit mapping with the new commit ID
                     if let Some(reword_result) = reword_result {
@@ -229,13 +222,12 @@ pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput>
             // Write commit notification messages to the database
             // These will be broadcasted by the main process after Claude completes
             let session_uuid = uuid::Uuid::parse_str(&session_id)?;
-            let commit_message = crate::MessagePayload::GitButler(
-                crate::GitButlerUpdate::CommitCreated(crate::CommitCreatedDetails {
+            let commit_message =
+                crate::MessagePayload::GitButler(crate::GitButlerUpdate::CommitCreated(crate::CommitCreatedDetails {
                     stack_id: Some(branch.stack_id.to_string()),
                     branch_name: Some(final_branch_name),
                     commit_ids: Some(final_commit_ids),
-                }),
-            );
+                }));
 
             crate::db::save_new_message(&mut defer.ctx, session_uuid, commit_message)?;
         }
@@ -327,8 +319,8 @@ pub struct ClaudePreToolUseInput {
 }
 
 pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
-    let mut input: ClaudePreToolUseInput = serde_json::from_reader(read)
-        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+    let mut input: ClaudePreToolUseInput =
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
 
     let dir = std::path::Path::new(&input.tool_input.file_path)
         .parent()
@@ -361,8 +353,8 @@ pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHo
 }
 
 pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
-    let mut input: ClaudePostToolUseInput = serde_json::from_reader(read)
-        .map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+    let mut input: ClaudePostToolUseInput =
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
 
     let hook_headers = input
         .tool_response
@@ -402,18 +394,11 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
     let mut guard = defer.ctx.exclusive_worktree_access();
     let stacks = list_stacks(&defer.ctx)?;
 
-    let stack_id = get_or_create_session(
-        &mut defer.ctx,
-        guard.write_permission(),
-        &session_id,
-        stacks,
-    )?;
+    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), &session_id, stacks)?;
 
     let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
     let context_lines = defer.ctx.settings.context_lines;
-    let (repo, ws, mut db) = defer
-        .ctx
-        .workspace_and_db_mut_with_perm(guard.read_permission())?;
+    let (repo, ws, mut db) = defer.ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
     let (assignments, _assignments_error) = but_hunk_assignment::assignments_with_fallback(
         db.hunk_assignments_mut()?,
         &repo,
@@ -433,9 +418,7 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
                 a.path.to_lowercase() == relative_file_path.to_lowercase()
             } else if a.path.to_lowercase() == relative_file_path.to_lowercase() {
                 if let Some(a) = a.hunk_header {
-                    hook_headers
-                        .iter()
-                        .any(|h| h.new_range().intersects(a.new_range()))
+                    hook_headers.iter().any(|h| h.new_range().intersects(a.new_range()))
                 } else {
                     true // If no header is present, then the whole file is considered, in which case intersection is true
                 }
@@ -467,8 +450,7 @@ pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeH
 }
 
 fn original_session_id(ctx: &mut Context, current_id: String) -> Result<String> {
-    let original_session_id =
-        crate::db::get_session_by_current_id(ctx, Uuid::parse_str(&current_id)?)?;
+    let original_session_id = crate::db::get_session_by_current_id(ctx, Uuid::parse_str(&current_id)?)?;
     if let Some(session) = original_session_id {
         Ok(session.id.to_string())
     } else {
@@ -504,12 +486,7 @@ pub fn get_or_create_session(
         // If the session is not in the list of sessions, then create a new stack + session entry
         // Create a new stack
         let stack_id = create_stack(ctx, perm)?;
-        crate::rules::create_claude_assignment_rule(
-            ctx,
-            Uuid::parse_str(session_id)?,
-            stack_id,
-            perm,
-        )?;
+        crate::rules::create_claude_assignment_rule(ctx, Uuid::parse_str(session_id)?, stack_id, perm)?;
         stack_id
     };
     Ok(stack_id)
@@ -542,12 +519,7 @@ pub(crate) struct ClearLocksGuard {
 
 impl Drop for ClearLocksGuard {
     fn drop(&mut self) {
-        file_lock::clear(
-            &mut self.ctx,
-            self.session_id.clone(),
-            self.file_path.clone(),
-        )
-        .ok();
+        file_lock::clear(&mut self.ctx, self.session_id.clone(), self.file_path.clone()).ok();
     }
 }
 

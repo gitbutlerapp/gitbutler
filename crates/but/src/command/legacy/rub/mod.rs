@@ -117,10 +117,7 @@ impl<'a> RubOperation<'a> {
                 create_snapshot(ctx, OperationKind::UndoCommit);
                 undo::commit(ctx, oid, out)
             }
-            RubOperation::SquashCommits {
-                source,
-                destination,
-            } => {
+            RubOperation::SquashCommits { source, destination } => {
                 create_snapshot(ctx, OperationKind::SquashCommit);
                 squash::commits(ctx, source, destination, None, out)
             }
@@ -176,110 +173,62 @@ impl<'a> RubOperation<'a> {
 /// This function is the single source of truth for what operations are valid.
 /// Both `handle()` and disambiguation logic use this function.
 #[allow(private_interfaces)]
-pub(crate) fn route_operation<'a>(
-    source: &'a CliId,
-    target: &'a CliId,
-) -> Option<RubOperation<'a>> {
+pub(crate) fn route_operation<'a>(source: &'a CliId, target: &'a CliId) -> Option<RubOperation<'a>> {
     use CliId::*;
 
     match (source, target) {
         // Uncommitted -> *
-        (Uncommitted(uncommitted), Unassigned { .. }) => {
-            Some(RubOperation::UnassignUncommitted(uncommitted))
-        }
+        (Uncommitted(uncommitted), Unassigned { .. }) => Some(RubOperation::UnassignUncommitted(uncommitted)),
         (Uncommitted(uncommitted), Commit { commit_id, .. }) => {
             Some(RubOperation::UncommittedToCommit(uncommitted, commit_id))
         }
-        (Uncommitted(uncommitted), Branch { name, .. }) => {
-            Some(RubOperation::UncommittedToBranch(uncommitted, name))
-        }
+        (Uncommitted(uncommitted), Branch { name, .. }) => Some(RubOperation::UncommittedToBranch(uncommitted, name)),
         (Uncommitted(uncommitted), Stack { stack_id, .. }) => {
             Some(RubOperation::UncommittedToStack(uncommitted, *stack_id))
         }
         // Stack -> *
-        (Stack { stack_id, .. }, Unassigned { .. }) => {
-            Some(RubOperation::StackToUnassigned(*stack_id))
-        }
+        (Stack { stack_id, .. }, Unassigned { .. }) => Some(RubOperation::StackToUnassigned(*stack_id)),
         (Stack { stack_id: from, .. }, Stack { stack_id: to, .. }) => {
-            Some(RubOperation::StackToStack {
-                from: *from,
-                to: *to,
-            })
+            Some(RubOperation::StackToStack { from: *from, to: *to })
         }
         (Stack { stack_id: from, .. }, Branch { name: to, .. }) => {
             Some(RubOperation::StackToBranch { from: *from, to })
         }
         // Unassigned -> *
-        (Unassigned { .. }, Commit { commit_id, .. }) => {
-            Some(RubOperation::UnassignedToCommit(commit_id))
-        }
+        (Unassigned { .. }, Commit { commit_id, .. }) => Some(RubOperation::UnassignedToCommit(commit_id)),
         (Unassigned { .. }, Branch { name, .. }) => Some(RubOperation::UnassignedToBranch(name)),
-        (Unassigned { .. }, Stack { stack_id, .. }) => {
-            Some(RubOperation::UnassignedToStack(*stack_id))
-        }
+        (Unassigned { .. }, Stack { stack_id, .. }) => Some(RubOperation::UnassignedToStack(*stack_id)),
         // Commit -> *
         (Commit { commit_id, .. }, Unassigned { .. }) => Some(RubOperation::UndoCommit(commit_id)),
         (
+            Commit { commit_id: source, .. },
             Commit {
-                commit_id: source, ..
+                commit_id: destination, ..
             },
-            Commit {
-                commit_id: destination,
-                ..
-            },
-        ) => Some(RubOperation::SquashCommits {
-            source,
-            destination,
-        }),
-        (Commit { commit_id, .. }, Branch { name, .. }) => {
-            Some(RubOperation::MoveCommitToBranch(commit_id, name))
-        }
+        ) => Some(RubOperation::SquashCommits { source, destination }),
+        (Commit { commit_id, .. }, Branch { name, .. }) => Some(RubOperation::MoveCommitToBranch(commit_id, name)),
         // Branch -> *
         (Branch { name, .. }, Unassigned { .. }) => Some(RubOperation::BranchToUnassigned(name)),
-        (Branch { name: from, .. }, Stack { stack_id, .. }) => Some(RubOperation::BranchToStack {
-            from,
-            to: *stack_id,
-        }),
-        (Branch { name, .. }, Commit { commit_id, .. }) => {
-            Some(RubOperation::BranchToCommit(name, commit_id))
+        (Branch { name: from, .. }, Stack { stack_id, .. }) => {
+            Some(RubOperation::BranchToStack { from, to: *stack_id })
         }
-        (Branch { name: from, .. }, Branch { name: to, .. }) => {
-            Some(RubOperation::BranchToBranch { from, to })
-        }
+        (Branch { name, .. }, Commit { commit_id, .. }) => Some(RubOperation::BranchToCommit(name, commit_id)),
+        (Branch { name: from, .. }, Branch { name: to, .. }) => Some(RubOperation::BranchToBranch { from, to }),
         // CommittedFile -> *
-        (
-            CommittedFile {
-                path, commit_id, ..
-            },
-            Branch { name, .. },
-        ) => Some(RubOperation::CommittedFileToBranch(
-            path.as_ref(),
-            commit_id,
-            name,
-        )),
+        (CommittedFile { path, commit_id, .. }, Branch { name, .. }) => {
+            Some(RubOperation::CommittedFileToBranch(path.as_ref(), commit_id, name))
+        }
         (
             CommittedFile {
                 path,
                 commit_id: source,
                 ..
             },
-            Commit {
-                commit_id: target, ..
-            },
-        ) => Some(RubOperation::CommittedFileToCommit(
-            path.as_ref(),
-            source,
-            target,
-        )),
-        (
-            CommittedFile {
-                path, commit_id, ..
-            },
-            Unassigned { .. },
-        ) => Some(RubOperation::CommittedFileToUnassigned(
-            path.as_ref(),
-            commit_id,
-        )),
+            Commit { commit_id: target, .. },
+        ) => Some(RubOperation::CommittedFileToCommit(path.as_ref(), source, target)),
+        (CommittedFile { path, commit_id, .. }, Unassigned { .. }) => {
+            Some(RubOperation::CommittedFileToUnassigned(path.as_ref(), commit_id))
+        }
         // All other combinations are invalid
         _ => None,
     }
@@ -347,14 +296,7 @@ fn prompt_for_disambiguation(
         let options_str = matches
             .iter()
             .enumerate()
-            .map(|(i, id)| {
-                format!(
-                    "  {}. {} ({})",
-                    i + 1,
-                    id.to_short_string(),
-                    id.kind_for_humans()
-                )
-            })
+            .map(|(i, id)| format!("  {}. {} ({})", i + 1, id.to_short_string(), id.kind_for_humans()))
             .collect::<Vec<_>>()
             .join("\n");
 
@@ -376,19 +318,12 @@ fn prompt_for_disambiguation(
             // Add additional context based on the type
             match id {
                 CliId::Commit { commit_id, .. } => {
-                    format!(
-                        "{} - {} (commit {})",
-                        short_id,
-                        kind,
-                        &commit_id.to_string()[..7]
-                    )
+                    format!("{} - {} (commit {})", short_id, kind, &commit_id.to_string()[..7])
                 }
                 CliId::Branch { name, .. } => {
                     format!("{} - {} (branch '{}')", short_id, kind, name)
                 }
-                CliId::CommittedFile {
-                    path, commit_id, ..
-                } => {
+                CliId::CommittedFile { path, commit_id, .. } => {
                     format!(
                         "{} - {} (file '{}' in commit {})",
                         short_id,
@@ -426,17 +361,13 @@ fn prompt_for_disambiguation(
     let selection_index = options
         .iter()
         .position(|opt| opt == &selection_str)
-        .ok_or_else(|| {
-            anyhow::anyhow!("Internal error: selected option not found in options list")
-        })?;
+        .ok_or_else(|| anyhow::anyhow!("Internal error: selected option not found in options list"))?;
 
     // Use the index to get the corresponding CliId
-    matches.into_iter().nth(selection_index).ok_or_else(|| {
-        anyhow::anyhow!(
-            "Internal error: selection index {} out of bounds",
-            selection_index
-        )
-    })
+    matches
+        .into_iter()
+        .nth(selection_index)
+        .ok_or_else(|| anyhow::anyhow!("Internal error: selection index {} out of bounds", selection_index))
 }
 
 fn ids(
@@ -538,11 +469,7 @@ fn parse_sources_with_disambiguation(
     }
 }
 
-pub(crate) fn parse_sources(
-    ctx: &mut Context,
-    id_map: &IdMap,
-    source: &str,
-) -> anyhow::Result<Vec<CliId>> {
+pub(crate) fn parse_sources(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     // Check if it's a range (contains '-')
     if source.contains('-') {
         parse_range(ctx, id_map, source)
@@ -579,10 +506,7 @@ pub(crate) fn parse_sources(
 fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
-        return Err(anyhow::anyhow!(
-            "Range format should be 'start-end', got '{}'",
-            source
-        ));
+        return Err(anyhow::anyhow!("Range format should be 'start-end', got '{}'", source));
     }
 
     let start_str = parts[0];
@@ -652,14 +576,10 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
             ))
         })
         .collect();
-    positioned_files.sort_by(|(a_pos, a_path, _), (b_pos, b_path, _)| {
-        a_pos.cmp(b_pos).then_with(|| a_path.cmp(b_path))
-    });
+    positioned_files
+        .sort_by(|(a_pos, a_path, _), (b_pos, b_path, _)| a_pos.cmp(b_pos).then_with(|| a_path.cmp(b_path)));
 
-    Ok(positioned_files
-        .into_iter()
-        .map(|(_, _, cli_id)| cli_id)
-        .collect())
+    Ok(positioned_files.into_iter().map(|(_, _, cli_id)| cli_id).collect())
 }
 
 /// Internal helper for parsing comma-separated lists with disambiguation support.
@@ -692,18 +612,14 @@ fn parse_list_with_disambiguation(
             result.push(matches[0].clone());
         } else {
             // Ambiguous - prompt the user to disambiguate
-            let selected =
-                prompt_for_disambiguation(part, matches, &format!("item '{}' in list", part), out)?;
+            let selected = prompt_for_disambiguation(part, matches, &format!("item '{}' in list", part), out)?;
             result.push(selected);
         }
     }
 
     // If all parts were empty, return an error
     if result.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Source list '{}' contains no valid items",
-            source
-        ));
+        return Err(anyhow::anyhow!("Source list '{}' contains no valid items", source));
     }
 
     Ok(result)
@@ -740,10 +656,7 @@ fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result
 
     // If all parts were empty, return an error
     if result.is_empty() {
-        return Err(anyhow::anyhow!(
-            "Source list '{}' contains no valid items",
-            source
-        ));
+        return Err(anyhow::anyhow!("Source list '{}' contains no valid items", source));
     }
 
     Ok(result)
@@ -796,11 +709,7 @@ fn resolve_single_id(
 
 /// Handler for `but uncommit <source>` - runs `but rub <source> zz`
 /// Validates that source is a commit or file-in-commit.
-pub(crate) fn handle_uncommit(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    source_str: &str,
-) -> anyhow::Result<()> {
+pub(crate) fn handle_uncommit(ctx: &mut Context, out: &mut OutputChannel, source_str: &str) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
     let sources = parse_sources_with_disambiguation(ctx, &id_map, source_str, out)?;
 
@@ -1014,9 +923,7 @@ mod tests {
     }
 
     fn unassigned_id() -> CliId {
-        CliId::Unassigned {
-            id: "zz".to_string(),
-        }
+        CliId::Unassigned { id: "zz".to_string() }
     }
 
     fn stack_id() -> CliId {

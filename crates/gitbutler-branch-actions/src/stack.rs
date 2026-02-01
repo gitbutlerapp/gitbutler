@@ -79,12 +79,7 @@ pub fn remove_branch(ctx: &mut Context, stack_id: StackId, branch_name: &str) ->
 
 /// Updates the name an existing branch and resets the pr_number to None.
 /// Same invariants as `create_branch` apply.
-pub fn update_branch_name(
-    ctx: &mut Context,
-    stack_id: StackId,
-    branch_name: String,
-    new_name: String,
-) -> Result<()> {
+pub fn update_branch_name(ctx: &mut Context, stack_id: StackId, branch_name: String, new_name: String) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     let _ = ctx.snapshot_update_dependent_branch_name(&branch_name, guard.write_permission());
@@ -152,10 +147,7 @@ pub fn push_stack(
         .to_gix();
 
     // First fetch, because we dont want to push integrated series
-    ctx.fetch(
-        &default_target.push_remote_name(),
-        Some("push_stack".into()),
-    )?;
+    ctx.fetch(&default_target.push_remote_name(), Some("push_stack".into()))?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let stack_branches = stack.branches();
     let mut result = PushResult {
@@ -163,13 +155,9 @@ pub fn push_stack(
         branch_to_remote: vec![],
         branch_sha_updates: vec![],
     };
-    let gerrit_mode = gix_repo
-        .git_settings()?
-        .gitbutler_gerrit_mode
-        .unwrap_or(false);
+    let gerrit_mode = gix_repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
 
-    let force_push_protection =
-        !skip_force_push_protection && ctx.legacy_project.force_push_protection;
+    let force_push_protection = !skip_force_push_protection && ctx.legacy_project.force_push_protection;
 
     drop(git2_repo);
     for branch in stack_branches {
@@ -181,15 +169,11 @@ pub fn push_stack(
         }
         if branch.head_oid(&gix_repo)? == merge_base_id {
             // Nothing to push for this one
-            tracing::debug!(
-                branch = branch.name,
-                "nothing to push as head_oid == merge_base"
-            );
+            tracing::debug!(branch = branch.name, "nothing to push as head_oid == merge_base");
             continue;
         }
         let mut graph = gix_repo.revision_graph(cache.as_ref());
-        let mut check_commit =
-            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
+        let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
         if branch_integrated(&mut check_commit, &branch, &git2_repo, &gix_repo)? {
             // Already integrated, nothing to push
             tracing::debug!(branch = branch.name, "Skipping push for integrated branch");
@@ -221,10 +205,7 @@ pub fn push_stack(
             )? {
                 hooks::HookResult::Success | hooks::HookResult::NotConfigured => {}
                 hooks::HookResult::Failure(error_data) => {
-                    return Err(anyhow::anyhow!(
-                        "pre-push hook failed: {}",
-                        error_data.error
-                    ));
+                    return Err(anyhow::anyhow!("pre-push hook failed: {}", error_data.error));
                 }
             }
         }
@@ -258,25 +239,18 @@ pub fn push_stack(
         drop(git2_repo);
         if gerrit_mode {
             let push_output = but_gerrit::parse::push_output(&out)?;
-            let stacks = stack
-                .commits(ctx)?
-                .iter()
-                .map(|id| id.to_gix())
-                .collect_vec();
+            let stacks = stack.commits(ctx)?.iter().map(|id| id.to_gix()).collect_vec();
             but_gerrit::record_push_metadata(ctx, stacks, push_output)?;
         }
 
-        result.branch_to_remote.push((
-            branch.name().to_owned(),
-            push_details.remote_refname.to_owned().into(),
-        ));
+        result
+            .branch_to_remote
+            .push((branch.name().to_owned(), push_details.remote_refname.to_owned().into()));
 
         // Record the SHA update (before -> after)
-        result.branch_sha_updates.push((
-            branch.name().to_owned(),
-            before_sha.to_string(),
-            local_sha.to_string(),
-        ));
+        result
+            .branch_sha_updates
+            .push((branch.name().to_owned(), before_sha.to_string(), local_sha.to_string()));
 
         if branch.name().eq(&branch_limit) {
             break;

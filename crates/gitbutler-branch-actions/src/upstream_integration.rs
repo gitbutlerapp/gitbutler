@@ -118,24 +118,16 @@ impl StackStatus {
                 .iter()
                 .all(|branch_status| branch_status.status == BranchStatus::Integrated)
         {
-            return matches!(
-                approach,
-                ResolutionApproach::Unapply | ResolutionApproach::Delete
-            );
+            return matches!(approach, ResolutionApproach::Unapply | ResolutionApproach::Delete);
         }
 
         if self.is_single() {
             matches!(
                 approach,
-                ResolutionApproach::Merge
-                    | ResolutionApproach::Rebase
-                    | ResolutionApproach::Unapply
+                ResolutionApproach::Merge | ResolutionApproach::Rebase | ResolutionApproach::Unapply
             )
         } else {
-            matches!(
-                approach,
-                ResolutionApproach::Rebase | ResolutionApproach::Unapply
-            )
+            matches!(approach, ResolutionApproach::Rebase | ResolutionApproach::Unapply)
         }
     }
 
@@ -219,25 +211,12 @@ impl<'a> UpstreamIntegrationContext<'a> {
     }
 }
 
-fn stacks(
-    ctx: &Context,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project_data_dir().join("virtual_branches.toml"),
-    )?;
-    but_workspace::legacy::stacks_v3(
-        repo,
-        &meta,
-        but_workspace::legacy::StacksFilter::InWorkspace,
-        None,
-    )
+fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<but_workspace::legacy::ui::StackEntry>> {
+    let meta = VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))?;
+    but_workspace::legacy::stacks_v3(repo, &meta, but_workspace::legacy::StacksFilter::InWorkspace, None)
 }
 
-fn stack_details(
-    ctx: &Context,
-    stack_id: Option<StackId>,
-) -> anyhow::Result<but_workspace::ui::StackDetails> {
+fn stack_details(ctx: &Context, stack_id: Option<StackId>) -> anyhow::Result<but_workspace::ui::StackDetails> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
     let meta = ctx.legacy_meta()?;
     but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
@@ -278,10 +257,7 @@ fn get_stack_status(
         let is_integrated_via_review = review_map
             .get(&branch.name.to_string())
             .is_some_and(|review| review.is_merged_at_commit(&branch_head_string));
-        let is_integrated_via_commits = matches!(
-            branch_head.state,
-            but_workspace::ui::CommitState::Integrated
-        );
+        let is_integrated_via_commits = matches!(branch_head.state, but_workspace::ui::CommitState::Integrated);
 
         if is_integrated_via_commits || is_integrated_via_review {
             branch_statuses.push(NameAndStatus {
@@ -341,9 +317,7 @@ fn get_stack_status(
     StackStatus::create(TreeStatus::Empty, branch_statuses)
 }
 
-pub fn upstream_integration_statuses(
-    context: &UpstreamIntegrationContext,
-) -> Result<StackStatuses> {
+pub fn upstream_integration_statuses(context: &UpstreamIntegrationContext) -> Result<StackStatuses> {
     let UpstreamIntegrationContext {
         new_target,
         target,
@@ -371,11 +345,7 @@ pub fn upstream_integration_statuses(
         .collect::<Vec<_>>();
 
     // The merge base tree of all of the applied stacks plus the new target
-    let merge_base_tree = repo
-        .merge_base_octopus(heads)?
-        .object()?
-        .into_commit()
-        .tree_id()?;
+    let merge_base_tree = repo.merge_base_octopus(heads)?.object()?.into_commit().tree_id()?;
 
     // The working directory tree
     let workdir_tree = context
@@ -456,13 +426,7 @@ pub(crate) fn integrate_upstream(
         .unwrap_or((None, None));
 
     let gix_repo = ctx.repo.get()?;
-    let context = UpstreamIntegrationContext::open(
-        ctx,
-        target_commit_oid,
-        permission,
-        &gix_repo,
-        review_map,
-    )?;
+    let context = UpstreamIntegrationContext::open(ctx, target_commit_oid, permission, &gix_repo, review_map)?;
     let virtual_branches_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
@@ -485,10 +449,7 @@ pub(crate) fn integrate_upstream(
         }
 
         let all_resolutions_are_up_to_date = resolutions.iter().all(|resolution| {
-            let Some(status) = statuses
-                .iter()
-                .find(|status| status.0 == Some(resolution.stack_id))
-            else {
+            let Some(status) = statuses.iter().find(|status| status.0 == Some(resolution.stack_id)) else {
                 return false;
             };
 
@@ -500,8 +461,7 @@ pub(crate) fn integrate_upstream(
         }
     }
 
-    let integration_results =
-        compute_resolutions(&context, resolutions, base_branch_resolution_approach)?;
+    let integration_results = compute_resolutions(&context, resolutions, base_branch_resolution_approach)?;
 
     {
         // We perform the updates in stages. If deleting or unapplying fails, we
@@ -518,18 +478,12 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            let maybe_stack = context
-                .stacks_in_workspace
-                .iter()
-                .find(|s| s.id == Some(*stack_id));
+            let maybe_stack = context.stacks_in_workspace.iter().find(|s| s.id == Some(*stack_id));
 
             let Some(stack) = maybe_stack else {
                 // The integration results should match the stacks in the workspace,
                 // so this should never happen.
-                bail!(
-                    "Failed to find stack while integrating upstream: {:?}",
-                    stack_id
-                );
+                bail!("Failed to find stack while integrating upstream: {:?}", stack_id);
             };
 
             virtual_branches_state.delete_branch_entry(stack_id)?;
@@ -567,13 +521,8 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            ctx.branch_manager().unapply(
-                *stack_id,
-                permission,
-                false,
-                Vec::new(),
-                ctx.settings.feature_flags.cv3,
-            )?;
+            ctx.branch_manager()
+                .unapply(*stack_id, permission, false, Vec::new(), ctx.settings.feature_flags.cv3)?;
         }
 
         let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;
@@ -682,8 +631,7 @@ pub(crate) fn resolve_upstream_integration(
                     new_message: None,
                 })
                 .collect::<Vec<_>>();
-            let mut rebase =
-                but_rebase::Rebase::new(&gix_repo, Some(new_target_id.to_gix()), None)?;
+            let mut rebase = but_rebase::Rebase::new(&gix_repo, Some(new_target_id.to_gix()), None)?;
             rebase.steps(steps)?;
             rebase.rebase_noops(false);
             let outcome = rebase.rebase()?;
@@ -779,9 +727,9 @@ fn compute_resolutions(
                                 commit_id,
                                 new_message: _,
                             } => {
-                                let is_integrated = commit_map.get(&commit_id).is_some_and(|c| {
-                                    matches!(c.state, but_workspace::ui::CommitState::Integrated)
-                                });
+                                let is_integrated = commit_map
+                                    .get(&commit_id)
+                                    .is_some_and(|c| matches!(c.state, but_workspace::ui::CommitState::Integrated));
                                 if is_integrated { None } else { Some(s) }
                             }
                             _ => Some(s),
@@ -793,9 +741,8 @@ fn compute_resolutions(
                     // Branches that used to have commits but now don't are marked for archival
                     let mut for_archival = vec![];
                     for (ref_before, steps_before) in branches_before {
-                        if let Some((_, steps_after)) = branches_after
-                            .iter()
-                            .find(|(ref_after, _)| ref_after == &ref_before)
+                        if let Some((_, steps_after)) =
+                            branches_after.iter().find(|(ref_after, _)| ref_after == &ref_before)
                         {
                             // if there were steps before and now there are none, this should be marked for archival
                             if !steps_before.is_empty() && steps_after.is_empty() {
@@ -804,11 +751,7 @@ fn compute_resolutions(
                         }
                     }
 
-                    let mut rebase = but_rebase::Rebase::new(
-                        context.gix_repo,
-                        Some(lower_bound.to_gix()),
-                        None,
-                    )?;
+                    let mut rebase = but_rebase::Rebase::new(context.gix_repo, Some(lower_bound.to_gix()), None)?;
                     rebase.rebase_noops(false);
                     rebase.steps(steps)?;
                     let output = rebase.rebase()?;

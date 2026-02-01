@@ -50,8 +50,7 @@ pub mod virtual_branches {
             })
             .expect("failed to write target");
 
-        gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)
-            .expect("failed to update workspace");
+        gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false).expect("failed to update workspace");
 
         Ok(())
     }
@@ -77,10 +76,7 @@ pub mod writable {
 
     use crate::{BUT_DRIVER, DRIVER};
 
-    pub fn fixture(
-        script_name: &str,
-        project_directory: &str,
-    ) -> anyhow::Result<(Context, TempDir)> {
+    pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<(Context, TempDir)> {
         fixture_with_settings(script_name, project_directory, |_| {})
     }
     pub fn fixture_with_settings(
@@ -94,10 +90,7 @@ pub mod writable {
         let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
         Ok((ctx, tempdir))
     }
-    pub fn fixture_project(
-        script_name: &str,
-        project_directory: &str,
-    ) -> anyhow::Result<(Project, TempDir)> {
+    pub fn fixture_project(script_name: &str, project_directory: &str) -> anyhow::Result<(Project, TempDir)> {
         let root = gix_testtools::scripted_fixture_writable_with_args(
             script_name,
             Some(DRIVER.display().to_string()),
@@ -105,18 +98,13 @@ pub mod writable {
         )
         .expect("script execution always succeeds");
 
-        let project = Project::new_for_gitbutler_testsupport(
-            project_directory.to_owned(),
-            root.path().join(project_directory),
-        );
+        let project =
+            Project::new_for_gitbutler_testsupport(project_directory.to_owned(), root.path().join(project_directory));
         Ok((project, root))
     }
 
     /// Use the `but` CLI instead of `gitbutler-cli` for fixtures that need stacking support.
-    pub fn but_fixture(
-        script_name: &str,
-        project_directory: &str,
-    ) -> anyhow::Result<(Context, TempDir)> {
+    pub fn but_fixture(script_name: &str, project_directory: &str) -> anyhow::Result<(Context, TempDir)> {
         but_fixture_with_settings(script_name, project_directory, |_| {})
     }
 
@@ -134,10 +122,7 @@ pub mod writable {
     }
 
     /// Use the `but` CLI instead of `gitbutler-cli` for fixtures that need stacking support.
-    pub fn but_fixture_project(
-        script_name: &str,
-        project_directory: &str,
-    ) -> anyhow::Result<(Project, TempDir)> {
+    pub fn but_fixture_project(script_name: &str, project_directory: &str) -> anyhow::Result<(Project, TempDir)> {
         let root = gix_testtools::scripted_fixture_writable_with_args(
             script_name,
             Some(BUT_DRIVER.display().to_string()),
@@ -145,10 +130,8 @@ pub mod writable {
         )
         .expect("script execution always succeeds");
 
-        let project = Project::new_for_gitbutler_testsupport(
-            project_directory.to_owned(),
-            root.path().join(project_directory),
-        );
+        let project =
+            Project::new_for_gitbutler_testsupport(project_directory.to_owned(), root.path().join(project_directory));
         Ok((project, root))
     }
 }
@@ -162,41 +145,34 @@ pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
             id.to_hex_with_len(7).to_string()
         }
         let repo = id.repo;
-        let entry_name =
-            |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
-                match name {
-                    None => short_id(id),
-                    Some((name, mode)) => {
-                        format!(
-                            "{name}:{mode}{} {}",
-                            short_id(id),
-                            match repo.find_blob(id) {
-                                Ok(blob) => format!("{:?}", blob.data.as_bstr()),
-                                Err(_) => "".into(),
-                            },
-                            mode = if mode.is_tree() {
-                                "".into()
-                            } else {
-                                format!("{:o}:", mode.value())
-                            }
-                        )
-                    }
+        let entry_name = |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
+            match name {
+                None => short_id(id),
+                Some((name, mode)) => {
+                    format!(
+                        "{name}:{mode}{} {}",
+                        short_id(id),
+                        match repo.find_blob(id) {
+                            Ok(blob) => format!("{:?}", blob.data.as_bstr()),
+                            Err(_) => "".into(),
+                        },
+                        mode = if mode.is_tree() {
+                            "".into()
+                        } else {
+                            format!("{:o}:", mode.value())
+                        }
+                    )
                 }
-            };
+            }
+        };
 
         let mut tree = termtree::Tree::new(entry_name(&id, name_and_mode));
         for entry in repo.find_tree(id)?.iter() {
             let entry = entry?;
             if entry.mode().is_tree() {
-                tree.push(visualize_tree(
-                    entry.id(),
-                    Some((entry.filename(), entry.mode())),
-                )?);
+                tree.push(visualize_tree(entry.id(), Some((entry.filename(), entry.mode())))?);
             } else {
-                tree.push(entry_name(
-                    entry.oid(),
-                    Some((entry.filename(), entry.mode())),
-                ));
+                tree.push(entry_name(entry.oid(), Some((entry.filename(), entry.mode()))));
             }
         }
         Ok(tree)
@@ -219,9 +195,7 @@ pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
     .unwrap();
     let mut details = vec![];
     for stack in stacks {
-        let stack_id = stack
-            .id
-            .expect("BUG(opt-stack-id): test code shouldn't trigger this");
+        let stack_id = stack.id.expect("BUG(opt-stack-id): test code shouldn't trigger this");
         details.push((
             stack_id,
             {
@@ -278,30 +252,21 @@ pub mod read_only {
 
     /// Like [`fixture()`], but will return only the `Project` at `project_directory` after executing `script_name`.
     pub fn fixture_project(script_name: &str, project_directory: &str) -> anyhow::Result<Project> {
-        static IS_VALID_PROJECT: Lazy<Mutex<BTreeSet<(String, String)>>> =
-            Lazy::new(|| Mutex::new(Default::default()));
+        static IS_VALID_PROJECT: Lazy<Mutex<BTreeSet<(String, String)>>> = Lazy::new(|| Mutex::new(Default::default()));
 
-        let root = gix_testtools::scripted_fixture_read_only_with_args(
-            script_name,
-            Some(DRIVER.display().to_string()),
-        )
-        .expect("script execution always succeeds");
+        let root = gix_testtools::scripted_fixture_read_only_with_args(script_name, Some(DRIVER.display().to_string()))
+            .expect("script execution always succeeds");
 
         let mut is_valid_guard = IS_VALID_PROJECT.lock();
-        let was_inserted =
-            is_valid_guard.insert((script_name.to_owned(), project_directory.to_owned()));
+        let was_inserted = is_valid_guard.insert((script_name.to_owned(), project_directory.to_owned()));
         let project_worktree_dir = root.join(project_directory);
         // Assure the project is valid the first time.
         let project = if was_inserted {
             let tmp = tempfile::TempDir::new()?;
-            let outcome =
-                gitbutler_project::add_at_app_data_dir(tmp.path(), project_worktree_dir.as_path())?;
+            let outcome = gitbutler_project::add_at_app_data_dir(tmp.path(), project_worktree_dir.as_path())?;
             outcome.try_project()?
         } else {
-            Project::new_for_gitbutler_testsupport(
-                project_directory.to_owned(),
-                project_worktree_dir,
-            )
+            Project::new_for_gitbutler_testsupport(project_directory.to_owned(), project_worktree_dir)
         };
         Ok(project)
     }
@@ -322,13 +287,11 @@ pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
         .expect("cargo should run fine");
     assert!(res.success(), "cargo invocation should be successful");
 
-    let path = Path::new("../../target")
-        .join("debug")
-        .join(if cfg!(windows) {
-            "gitbutler-cli.exe"
-        } else {
-            "gitbutler-cli"
-        });
+    let path = Path::new("../../target").join("debug").join(if cfg!(windows) {
+        "gitbutler-cli.exe"
+    } else {
+        "gitbutler-cli"
+    });
     assert!(
         path.is_file(),
         "Expecting driver to be located at {path:?} - we also assume a certain crate location"
@@ -339,10 +302,7 @@ pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
 
 pub(crate) static BUT_DRIVER: Lazy<PathBuf> = Lazy::new(|| {
     let mut cargo = std::process::Command::new(env!("CARGO"));
-    let res = cargo
-        .args(["build", "-p=but"])
-        .status()
-        .expect("cargo should run fine");
+    let res = cargo.args(["build", "-p=but"]).status().expect("cargo should run fine");
     assert!(res.success(), "cargo invocation should be successful");
 
     let path = Path::new("../../target")

@@ -58,9 +58,7 @@ impl Graph {
 
                     let short_name = short_name
                         .strip_prefix(b"/")
-                        .with_context(|| {
-                            format!("Couldn't *unambiguously* determine remote name in {rn}")
-                        })?
+                        .with_context(|| format!("Couldn't *unambiguously* determine remote name in {rn}"))?
                         .as_bstr();
 
                     let mut new_name: BString = "refs/remotes/".into();
@@ -136,11 +134,7 @@ impl Graph {
             } else {
                 ""
             },
-            kind = if commit.flags.is_remote() {
-                "🟣"
-            } else {
-                "·"
-            },
+            kind = if commit.flags.is_remote() { "🟣" } else { "·" },
             flags = if !commit.flags.is_empty() {
                 format!(" ({})", commit.flags.debug_string(max_goals))
             } else {
@@ -166,10 +160,7 @@ impl Graph {
     }
 
     /// Shorten the given `name` so it's still clear if it is a special ref (like tag) or not.
-    pub fn ref_debug_string(
-        ref_name: &gix::refs::FullNameRef,
-        worktree: Option<&crate::Worktree>,
-    ) -> String {
+    pub fn ref_debug_string(ref_name: &gix::refs::FullNameRef, worktree: Option<&crate::Worktree>) -> String {
         let (cat, sn) = ref_name.category_and_short_name().expect("valid refs");
         // Only shorten those that look good and are unambiguous enough.
         format!(
@@ -183,9 +174,7 @@ impl Graph {
                     .map(|n| n.as_bstr())
                     .unwrap_or(ref_name.as_bstr())
             },
-            ws = worktree
-                .map(|ws| ws.debug_string(ref_name))
-                .unwrap_or_default()
+            ws = worktree.map(|ws| ws.debug_string(ref_name)).unwrap_or_default()
         )
     }
 
@@ -210,18 +199,14 @@ impl Graph {
                 ))
                 .unwrap_or_else(|| format!(
                     "anon:{maybe_id}",
-                    maybe_id = sibling_id
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
+                    maybe_id = sibling_id.map(|id| format!(" →:{}:", id.index())).unwrap_or_default()
                 )),
             remote = remote_ref_name
                 .as_ref()
                 .map(|remote_ref_name| format!(
                     " <> {remote_name}{maybe_id}",
                     remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
-                    maybe_id = sibling_id
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
+                    maybe_id = sibling_id.map(|id| format!(" →:{}:", id.index())).unwrap_or_default()
                 ))
                 .unwrap_or_default()
         )
@@ -276,18 +261,10 @@ impl Graph {
             .stderr(Stdio::piped())
             .spawn()
             .expect("'dot' (graphviz) must be installed on the system");
-        dot.stdin
-            .as_mut()
-            .unwrap()
-            .write_all(self.dot_graph().as_bytes())
-            .ok();
+        dot.stdin.as_mut().unwrap().write_all(self.dot_graph().as_bytes()).ok();
         let mut out = dot.wait_with_output().unwrap();
         out.stdout.extend(out.stderr);
-        assert!(
-            out.status.success(),
-            "dot failed: {out}",
-            out = out.stdout.as_bstr()
-        );
+        assert!(out.status.success(), "dot failed: {out}", out = out.stdout.as_bstr());
 
         assert!(
             std::process::Command::new("open")
@@ -326,8 +303,8 @@ impl Graph {
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
             );
             // Reduce noise by preferring ref-based entry-points.
-            let show_segment_entrypoint = s.ref_info.is_some()
-                && entrypoint.is_some_and(|(s, cidx)| s == sidx && matches!(cidx, None | Some(0)));
+            let show_segment_entrypoint =
+                s.ref_info.is_some() && entrypoint.is_some_and(|(s, cidx)| s == sidx && matches!(cidx, None | Some(0)));
             let mut commits = s
                 .commits
                 .iter()

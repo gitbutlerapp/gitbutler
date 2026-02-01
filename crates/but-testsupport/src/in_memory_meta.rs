@@ -67,10 +67,7 @@ impl but_core::RefMetadata for InMemoryRefMetadata {
             )
     }
 
-    fn workspace(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Self::Handle<Workspace>> {
+    fn workspace(&self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<Self::Handle<Workspace>> {
         Ok(self
             .workspaces
             .iter()
@@ -110,8 +107,7 @@ impl but_core::RefMetadata for InMemoryRefMetadata {
         let ref_name = &value.ref_name;
         match self.workspaces.iter_mut().find(|w| w.0 == *ref_name) {
             None => {
-                self.workspaces
-                    .push((ref_name.clone(), value.value.clone()));
+                self.workspaces.push((ref_name.clone(), value.value.clone()));
             }
             Some(existing) => existing.1 = value.value.clone(),
         };
@@ -130,14 +126,8 @@ impl but_core::RefMetadata for InMemoryRefMetadata {
     }
 
     fn remove(&mut self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<bool> {
-        let branch_pos = self
-            .branches
-            .iter()
-            .position(|(rn, _v)| rn.as_ref() == ref_name);
-        let ws_pos = self
-            .workspaces
-            .iter()
-            .position(|(rn, _v)| rn.as_ref() == ref_name);
+        let branch_pos = self.branches.iter().position(|(rn, _v)| rn.as_ref() == ref_name);
+        let ws_pos = self.workspaces.iter().position(|(rn, _v)| rn.as_ref() == ref_name);
         let res = match (branch_pos, ws_pos) {
             (Some(b), Some(w)) => {
                 self.branches.remove(b);
@@ -231,9 +221,7 @@ fn stack_segment_from_partial_name(name: impl TryInto<PartialName>) -> Workspace
         ref_name: if name.as_ref().as_bstr().starts_with(b"refs/") {
             name.as_ref().as_bstr().to_owned().try_into().unwrap()
         } else {
-            Category::LocalBranch
-                .to_full_name(name.as_ref().as_bstr())
-                .unwrap()
+            Category::LocalBranch.to_full_name(name.as_ref().as_bstr()).unwrap()
         },
         archived: false,
     }

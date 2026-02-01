@@ -27,12 +27,7 @@ pub fn commited_file_to_another_commit(
             .collect::<Vec<DiffSpec>>()
     };
 
-    but_api::commit::commit_move_changes_between_only(
-        ctx,
-        source_id.into(),
-        target_id.into(),
-        relevant_changes,
-    )?;
+    but_api::commit::commit_move_changes_between_only(ctx, source_id.into(), target_id.into(), relevant_changes)?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;
@@ -71,12 +66,7 @@ pub fn uncommit_file(
             .collect::<Vec<DiffSpec>>()
     };
 
-    but_api::commit::commit_uncommit_changes_only(
-        ctx,
-        source_id.into(),
-        relevant_changes,
-        assign_to,
-    )?;
+    but_api::commit::commit_uncommit_changes_only(ctx, source_id.into(), relevant_changes, assign_to)?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     update_workspace_commit(&vb_state, ctx, false)?;

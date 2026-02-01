@@ -107,19 +107,13 @@ fn reorder_between_series() -> Result<()> {
             test_ctx.bottom_commits["commit 2"], // from the bottom series
             test_ctx.top_commits["commit 4"],
         ],
-        vec![
-            test_ctx.bottom_commits["commit 3"],
-            test_ctx.bottom_commits["commit 1"],
-        ],
+        vec![test_ctx.bottom_commits["commit 3"], test_ctx.bottom_commits["commit 1"]],
     ]);
     reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
-    assert_eq!(
-        commits[0].msgs(),
-        vec!["commit 6", "commit 5", "commit 2", "commit 4"]
-    );
+    assert_eq!(commits[0].msgs(), vec!["commit 6", "commit 5", "commit 2", "commit 4"]);
     for i in 0..3 {
         assert_ne!(commits[0].ids()[i], order.series[0].commit_ids[i]); // all in the top series are rebased
     }
@@ -142,19 +136,13 @@ fn reorder_series_head_to_another_series() -> Result<()> {
             test_ctx.bottom_commits["commit 3"],
             test_ctx.top_commits["commit 4"],
         ],
-        vec![
-            test_ctx.bottom_commits["commit 2"],
-            test_ctx.bottom_commits["commit 1"],
-        ],
+        vec![test_ctx.bottom_commits["commit 2"], test_ctx.bottom_commits["commit 1"]],
     ]);
     reorder_stack(&mut ctx, test_ctx.stack.id, order.clone())?;
     let commits = vb_commits(&ctx);
 
     // Verify the commit messages and ids in the second (top) series - top-series
-    assert_eq!(
-        commits[0].msgs(),
-        vec!["commit 6", "commit 5", "commit 3", "commit 4"]
-    );
+    assert_eq!(commits[0].msgs(), vec!["commit 6", "commit 5", "commit 3", "commit 4"]);
     for i in 0..3 {
         assert_ne!(commits[0].ids()[i], order.series[0].commit_ids[i]); // all in the top series are rebased
     }
@@ -171,10 +159,7 @@ fn reorder_stack_head_to_another_series() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
-        vec![
-            test_ctx.top_commits["commit 5"],
-            test_ctx.top_commits["commit 4"],
-        ],
+        vec![test_ctx.top_commits["commit 5"], test_ctx.top_commits["commit 4"]],
         vec![
             test_ctx.top_commits["commit 6"], // from the top series
             test_ctx.bottom_commits["commit 3"],
@@ -192,10 +177,7 @@ fn reorder_stack_head_to_another_series() -> Result<()> {
     }
 
     // Verify the commit messages and ids in the first (bottom) series
-    assert_eq!(
-        commits[1].msgs(),
-        vec!["commit 6", "commit 3", "commit 2", "commit 1"]
-    );
+    assert_eq!(commits[1].msgs(), vec!["commit 6", "commit 3", "commit 2", "commit 1"]);
     assert_ne!(commits[1].ids()[0], order.series[1].commit_ids[0]);
     assert_eq!(commits[1].ids()[1], order.series[1].commit_ids[1]);
     assert_eq!(commits[1].ids()[2], order.series[1].commit_ids[2]);
@@ -208,10 +190,7 @@ fn reorder_shift_last_in_series_to_previous() -> Result<()> {
     let (mut ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let order = order(vec![
-        vec![
-            test_ctx.top_commits["commit 6"],
-            test_ctx.top_commits["commit 5"],
-        ],
+        vec![test_ctx.top_commits["commit 6"], test_ctx.top_commits["commit 5"]],
         vec![
             test_ctx.top_commits["commit 4"], // from the top series
             test_ctx.bottom_commits["commit 3"],
@@ -227,10 +206,7 @@ fn reorder_shift_last_in_series_to_previous() -> Result<()> {
     assert_eq!(commits[0].ids(), order.series[0].commit_ids); // nothing was rebased
 
     // Verify the commit messages and ids in the first (bottom) series
-    assert_eq!(
-        commits[1].msgs(),
-        vec!["commit 4", "commit 3", "commit 2", "commit 1"]
-    );
+    assert_eq!(commits[1].msgs(), vec!["commit 4", "commit 3", "commit 2", "commit 1"]);
     assert_eq!(commits[1].ids(), order.series[1].commit_ids); // nothing was rebased
     Ok(())
 }
@@ -365,10 +341,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // Reordered the commits back to the original order
     let new_order = order(vec![
         vec![],
-        vec![
-            test.bottom_commits["commit 2"],
-            test.bottom_commits["commit 1"],
-        ],
+        vec![test.bottom_commits["commit 2"], test.bottom_commits["commit 1"]],
     ]);
 
     reorder_stack(&mut ctx, test.stack.id, new_order.clone())?;
@@ -423,9 +396,7 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
         self.iter().map(|(id, _, _, _)| *id).collect_vec()
     }
     fn conflicted(&self) -> Vec<bool> {
-        self.iter()
-            .map(|(_, _, conflicted, _)| *conflicted)
-            .collect_vec()
+        self.iter().map(|(_, _, conflicted, _)| *conflicted).collect_vec()
     }
     fn timestamps(&self) -> Vec<u128> {
         self.iter().map(|(_, _, _, ts)| *ts).collect_vec()

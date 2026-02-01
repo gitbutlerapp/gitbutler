@@ -21,12 +21,9 @@ fn no_diffs() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
 
     let details = stack_details(ctx);
@@ -37,16 +34,12 @@ fn no_diffs() {
     let commit_oid = super::create_commit(ctx, source_branch_id, "commit").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let target_stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
 
-    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
-        .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id).unwrap();
 
     let destination = stack_details(ctx)
         .into_iter()
@@ -78,12 +71,9 @@ fn multiple_commits() {
     std::fs::write(repo.path().join("a.txt"), "This is a").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);
@@ -106,9 +96,7 @@ fn multiple_commits() {
     let mut guard = ctx.exclusive_worktree_access();
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
-        &BranchCreateRequest {
-            ..Default::default()
-        },
+        &BranchCreateRequest { ..Default::default() },
         guard.write_permission(),
     )
     .unwrap();
@@ -120,8 +108,7 @@ fn multiple_commits() {
     super::create_commit(ctx, target_stack_entry.id, "Add d").unwrap();
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
-        .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id).unwrap();
 
     let destination = stack_details(ctx)
         .into_iter()
@@ -171,12 +158,9 @@ fn multiple_commits_with_diffs() {
     std::fs::write(repo.path().join("a.txt"), "This is a").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);
@@ -204,9 +188,7 @@ fn multiple_commits_with_diffs() {
     let mut guard = ctx.exclusive_worktree_access();
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
-        &BranchCreateRequest {
-            ..Default::default()
-        },
+        &BranchCreateRequest { ..Default::default() },
         guard.write_permission(),
     )
     .unwrap();
@@ -229,8 +211,7 @@ fn multiple_commits_with_diffs() {
     assert_eq!(destination.1.branch_details[0].clone().commits.len(), 1);
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
-        .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id).unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -279,12 +260,9 @@ fn diffs_on_source_branch() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);
@@ -295,16 +273,12 @@ fn diffs_on_source_branch() {
     std::fs::write(repo.path().join("another file.txt"), "another content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let target_stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
 
-    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
-        .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id).unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -335,12 +309,9 @@ fn diffs_on_target_branch() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);
@@ -351,9 +322,7 @@ fn diffs_on_target_branch() {
     let mut guard = ctx.exclusive_worktree_access();
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
-        &BranchCreateRequest {
-            ..Default::default()
-        },
+        &BranchCreateRequest { ..Default::default() },
         guard.write_permission(),
     )
     .unwrap();
@@ -361,8 +330,7 @@ fn diffs_on_target_branch() {
 
     std::fs::write(repo.path().join("another file.txt"), "another content").unwrap();
 
-    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
-        .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id).unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -392,12 +360,9 @@ fn diffs_on_both_branches() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);
@@ -419,20 +384,14 @@ fn diffs_on_both_branches() {
     let mut guard = ctx.exclusive_worktree_access();
     let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
         ctx,
-        &BranchCreateRequest {
-            ..Default::default()
-        },
+        &BranchCreateRequest { ..Default::default() },
         guard.write_permission(),
     )
     .unwrap();
     drop(guard);
 
     // Uncommitted changes on the destination branch
-    std::fs::write(
-        repo.path().join("yet another file.txt"),
-        "yet another content",
-    )
-    .unwrap();
+    std::fs::write(repo.path().join("yet another file.txt"), "yet another content").unwrap();
 
     let destination = stack_details(ctx)
         .into_iter()
@@ -442,8 +401,7 @@ fn diffs_on_both_branches() {
     // State of the destination branch before the commit is moved
     assert_eq!(destination.1.branch_details[0].clone().commits.len(), 0);
 
-    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id)
-        .unwrap();
+    gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id).unwrap();
 
     let source = stack_details(ctx)
         .into_iter()
@@ -475,12 +433,9 @@ fn locked_hunks_on_source_branch() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);
@@ -491,24 +446,13 @@ fn locked_hunks_on_source_branch() {
     std::fs::write(repo.path().join("file.txt"), "locked content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let target_stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
 
     // This should be OK in the new assignments system because when the assignments are reevaluated, the uncommitted changes will be in the right place
-    assert!(
-        gitbutler_branch_actions::move_commit(
-            ctx,
-            target_stack_entry.id,
-            commit_oid,
-            source_branch_id
-        )
-        .is_ok()
-    );
+    assert!(gitbutler_branch_actions::move_commit(ctx, target_stack_entry.id, commit_oid, source_branch_id).is_ok());
 }
 
 #[test]
@@ -527,12 +471,9 @@ fn no_commit() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);
@@ -541,12 +482,9 @@ fn no_commit() {
     super::create_commit(ctx, source_branch_id, "commit").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let target_stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let target_stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
 
     let commit_id_hex = "a99c95cca7a60f1a2180c2f86fb18af97333c192";
@@ -579,12 +517,9 @@ fn no_branch() {
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
     let details = stack_details(ctx);
     assert_eq!(details.len(), 1);

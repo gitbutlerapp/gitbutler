@@ -34,23 +34,21 @@ impl Archival {
         let _guard = ctx.shared_worktree_access();
         let repo = ctx.repo.get()?;
         let meta = ctx.meta()?;
-        let mut graph =
-            but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
-                but_graph::Graph::from_head(
-                    &repo,
-                    &meta,
-                    but_graph::init::Options {
-                        // Assume it fails because of post-processing, try again without.
-                        dangerously_skip_postprocessing_for_debugging: true,
-                        ..Default::default()
-                    },
-                )
-            })?;
+        let mut graph = but_graph::Graph::from_head(&repo, &meta, Default::default()).or_else(|_| {
+            but_graph::Graph::from_head(
+                &repo,
+                &meta,
+                but_graph::init::Options {
+                    // Assume it fails because of post-processing, try again without.
+                    dangerously_skip_postprocessing_for_debugging: true,
+                    ..Default::default()
+                },
+            )
+        })?;
         let dot_file_contents = graph.anonymize(&repo.remote_names())?.dot_graph();
-        let output_file = self.cache_dir.join(format!(
-            "commit-graph-anon-{date}.zip",
-            date = filesafe_date_time()
-        ));
+        let output_file = self
+            .cache_dir
+            .join(format!("commit-graph-anon-{date}.zip", date = filesafe_date_time()));
         create_zip_file_from_content(&dot_file_contents, "anon-graph.dot", output_file)
     }
 

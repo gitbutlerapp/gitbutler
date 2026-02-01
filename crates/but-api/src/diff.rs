@@ -64,9 +64,6 @@ pub fn commit_details(
 /// This function just exists for the frontend to work without the need for line-stats to be enabled explicitly.
 #[but_api(json::CommitDetails)]
 #[instrument(err(Debug))]
-pub fn commit_details_with_line_stats(
-    ctx: &Context,
-    commit_id: gix::ObjectId,
-) -> anyhow::Result<CommitDetails> {
+pub fn commit_details_with_line_stats(ctx: &Context, commit_id: gix::ObjectId) -> anyhow::Result<CommitDetails> {
     commit_details(ctx, commit_id, ComputeLineStats::Yes)
 }

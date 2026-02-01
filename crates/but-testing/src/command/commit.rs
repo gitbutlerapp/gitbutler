@@ -6,8 +6,7 @@ use but_workspace::legacy::commit_engine::{ReferenceFrame, create_commit_and_upd
 use gitbutler_stack::VirtualBranchesState;
 
 use crate::command::{
-    debug_print, discard_change::IndicesOrHeaders, indices_or_headers_to_hunk_headers,
-    path_to_rela_path,
+    debug_print, discard_change::IndicesOrHeaders, indices_or_headers_to_hunk_headers, path_to_rela_path,
 };
 
 #[expect(clippy::too_many_arguments)]
@@ -30,13 +29,7 @@ pub fn commit(
 
     let parent_id = resolve_parent_id(&repo, parent_revspec)?;
 
-    let changes = resolve_changes(
-        &repo,
-        current_rela_path,
-        previous_rela_path,
-        headers,
-        diff_spec,
-    )?;
+    let changes = resolve_changes(&repo, current_rela_path, previous_rela_path, headers, diff_spec)?;
 
     commit_without_project(
         &repo,
@@ -51,10 +44,7 @@ pub fn commit(
 }
 
 /// Determines the parent commit ID based on the provided `parent_revspec`.
-fn resolve_parent_id(
-    repo: &gix::Repository,
-    parent_revspec: Option<&str>,
-) -> anyhow::Result<Option<gix::ObjectId>> {
+fn resolve_parent_id(repo: &gix::Repository, parent_revspec: Option<&str>) -> anyhow::Result<Option<gix::ObjectId>> {
     parent_revspec
         .map(|revspec| repo.rev_parse_single(revspec).map_err(anyhow::Error::from))
         .map(|id| id.map(|id| id.detach()))
@@ -69,31 +59,27 @@ fn resolve_changes(
     headers: Option<&[u32]>,
     diff_spec: Option<Vec<DiffSpec>>,
 ) -> anyhow::Result<Vec<DiffSpec>> {
-    Ok(
-        match (current_rela_path, previous_rela_path, headers, diff_spec) {
-            (None, None, None, Some(diff_spec)) => diff_spec,
-            (None, None, None, None) => {
-                to_whole_file_diffspec(but_core::diff::worktree_changes(repo)?.changes)
-            }
-            (Some(current_path), previous_path, Some(headers), None) => {
-                let path_bytes = path_to_rela_path(current_path)?;
-                let previous_path_bytes = previous_path.map(path_to_rela_path).transpose()?;
-                let hunk_headers = indices_or_headers_to_hunk_headers(
-                    repo,
-                    Some(IndicesOrHeaders::Headers(headers)),
-                    &path_bytes,
-                    previous_path_bytes.as_ref(),
-                )?;
+    Ok(match (current_rela_path, previous_rela_path, headers, diff_spec) {
+        (None, None, None, Some(diff_spec)) => diff_spec,
+        (None, None, None, None) => to_whole_file_diffspec(but_core::diff::worktree_changes(repo)?.changes),
+        (Some(current_path), previous_path, Some(headers), None) => {
+            let path_bytes = path_to_rela_path(current_path)?;
+            let previous_path_bytes = previous_path.map(path_to_rela_path).transpose()?;
+            let hunk_headers = indices_or_headers_to_hunk_headers(
+                repo,
+                Some(IndicesOrHeaders::Headers(headers)),
+                &path_bytes,
+                previous_path_bytes.as_ref(),
+            )?;
 
-                vec![DiffSpec {
-                    previous_path: previous_path_bytes,
-                    path: path_bytes,
-                    hunk_headers,
-                }]
-            }
-            _ => unreachable!("BUG: specifying this shouldn't be possible"),
-        },
-    )
+            vec![DiffSpec {
+                previous_path: previous_path_bytes,
+                path: path_bytes,
+                hunk_headers,
+            }]
+        }
+        _ => unreachable!("BUG: specifying this shouldn't be possible"),
+    })
 }
 
 #[expect(clippy::too_many_arguments)]

@@ -32,10 +32,7 @@ pub mod help {
         writeln!(out, "Usage: but push [OPTIONS] [BRANCH_ID]")?;
         writeln!(out,)?;
         writeln!(out, "Arguments:")?;
-        writeln!(
-            out,
-            "  [BRANCH_ID]  Branch name or CLI ID to push. If not specified:"
-        )?;
+        writeln!(out, "  [BRANCH_ID]  Branch name or CLI ID to push. If not specified:")?;
         writeln!(
             out,
             "               - In interactive mode: lists branches and prompts for selection"
@@ -58,10 +55,7 @@ pub mod help {
             out,
             "  -s, --skip-force-push-protection  Skip force push protection checks"
         )?;
-        writeln!(
-            out,
-            "  -r, --run-hooks                   Run pre-push hooks"
-        )?;
+        writeln!(out, "  -r, --run-hooks                   Run pre-push hooks")?;
 
         // Check if gerrit mode is enabled and show gerrit options
         if is_gerrit_enabled() {
@@ -79,18 +73,9 @@ pub mod help {
                 out,
                 "  -a, --hashtag, --tag <TAG>        Add hashtag to change (can be used multiple times)"
             )?;
-            writeln!(
-                out,
-                "  -t, --topic <TOPIC>               Add custom topic to change"
-            )?;
-            writeln!(
-                out,
-                "      --tb, --topic-from-branch     Use branch name as topic"
-            )?;
-            writeln!(
-                out,
-                "  -p, --private                     Mark change as private"
-            )?;
+            writeln!(out, "  -t, --topic <TOPIC>               Add custom topic to change")?;
+            writeln!(out, "      --tb, --topic-from-branch     Use branch name as topic")?;
+            writeln!(out, "  -p, --private                     Mark change as private")?;
             writeln!(out,)?;
             writeln!(out, "Notes:")?;
             writeln!(

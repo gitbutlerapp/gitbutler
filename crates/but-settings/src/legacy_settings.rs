@@ -29,22 +29,10 @@ fn parse_legacy_settings_to_overrides(legacy_json: &serde_json::Value) -> serde_
     let mut overrides = json!({});
     let mut telemetry = json!({});
 
-    set_bool_if_exists(
-        "appAnalyticsConfirmed",
-        &mut overrides,
-        "onboardingComplete",
-    );
+    set_bool_if_exists("appAnalyticsConfirmed", &mut overrides, "onboardingComplete");
     set_bool_if_exists("appMetricsEnabled", &mut telemetry, "appMetricsEnabled");
-    set_bool_if_exists(
-        "appNonAnonMetricsEnabled",
-        &mut telemetry,
-        "appNonAnonMetricsEnabled",
-    );
-    set_bool_if_exists(
-        "appErrorReportingEnabled",
-        &mut telemetry,
-        "appErrorReportingEnabled",
-    );
+    set_bool_if_exists("appNonAnonMetricsEnabled", &mut telemetry, "appNonAnonMetricsEnabled");
+    set_bool_if_exists("appErrorReportingEnabled", &mut telemetry, "appErrorReportingEnabled");
 
     if let Some(telemetry_obj) = telemetry.as_object()
         && !telemetry_obj.is_empty()
@@ -54,10 +42,7 @@ fn parse_legacy_settings_to_overrides(legacy_json: &serde_json::Value) -> serde_
 
     // Always mark that migration has been completed, even if no fields were migrated
     // This ensures the migration only runs once per legacy file
-    merge_json_value(
-        json!({"telemetry": {"migratedFromLegacy": true}}),
-        &mut overrides,
-    );
+    merge_json_value(json!({"telemetry": {"migratedFromLegacy": true}}), &mut overrides);
 
     // Always return overrides with at least the migration flag
     // Even if the legacy file had no mappable fields, we need to persist the flag
@@ -157,10 +142,7 @@ mod parse_legacy_settings_to_overrides {
         assert_eq!(result["onboardingComplete"], json!(true));
         assert_eq!(result["telemetry"]["appMetricsEnabled"], json!(false));
         assert_eq!(result["telemetry"]["appNonAnonMetricsEnabled"], json!(true));
-        assert_eq!(
-            result["telemetry"]["appErrorReportingEnabled"],
-            json!(false)
-        );
+        assert_eq!(result["telemetry"]["appErrorReportingEnabled"], json!(false));
         Ok(())
     }
 
@@ -189,10 +171,7 @@ mod parse_legacy_settings_to_overrides {
 
         assert!(result.get("onboardingComplete").is_none());
         assert_eq!(result["telemetry"]["appMetricsEnabled"], json!(false));
-        assert_eq!(
-            result["telemetry"]["appErrorReportingEnabled"],
-            json!(false)
-        );
+        assert_eq!(result["telemetry"]["appErrorReportingEnabled"], json!(false));
         Ok(())
     }
 
@@ -292,11 +271,7 @@ mod parse_legacy_settings_to_overrides {
         assert_eq!(result["telemetry"]["appMetricsEnabled"], json!(true));
         assert_eq!(result["telemetry"]["appErrorReportingEnabled"], json!(true));
         // appNonAnonMetricsEnabled should not be in the result
-        assert!(
-            result["telemetry"]
-                .get("appNonAnonMetricsEnabled")
-                .is_none()
-        );
+        assert!(result["telemetry"].get("appNonAnonMetricsEnabled").is_none());
         Ok(())
     }
 }
@@ -428,10 +403,7 @@ mod maybe_persist_overrides {
         // Verify both telemetry fields are present (deep merge)
         let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
-        assert_eq!(
-            content["telemetry"]["appErrorReportingEnabled"],
-            json!(false)
-        );
+        assert_eq!(content["telemetry"]["appErrorReportingEnabled"], json!(false));
         Ok(())
     }
 
@@ -454,27 +426,20 @@ mod maybe_persist_overrides {
             "appAnalyticsConfirmed": true,
             "appErrorReportingEnabled": false
         });
-        std::fs::write(
-            &legacy_path,
-            serde_json::to_string_pretty(&legacy_settings)?,
-        )?;
+        std::fs::write(&legacy_path, serde_json::to_string_pretty(&legacy_settings)?)?;
 
         // Read legacy overrides and persist them
         let legacy_overrides = read_legacy_overrides(&legacy_path).unwrap();
         maybe_persist_overrides(&config_path, legacy_overrides)?;
 
         // Verify config file now contains both original and migrated settings
-        let final_config: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(&config_path)?)?;
+        let final_config: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&config_path)?)?;
 
         // Original setting preserved
         assert_eq!(final_config["telemetry"]["appMetricsEnabled"], json!(true));
         // Migrated settings added
         assert_eq!(final_config["onboardingComplete"], json!(true));
-        assert_eq!(
-            final_config["telemetry"]["appErrorReportingEnabled"],
-            json!(false)
-        );
+        assert_eq!(final_config["telemetry"]["appErrorReportingEnabled"], json!(false));
         Ok(())
     }
 
@@ -506,10 +471,7 @@ mod maybe_persist_overrides {
         // Verify true values overwrote false values
         let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
-        assert_eq!(
-            content["telemetry"]["appErrorReportingEnabled"],
-            json!(true)
-        );
+        assert_eq!(content["telemetry"]["appErrorReportingEnabled"], json!(true));
         Ok(())
     }
 
@@ -539,14 +501,8 @@ mod maybe_persist_overrides {
         let content: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
         assert_eq!(content["onboardingComplete"], json!(true));
         assert_eq!(content["telemetry"]["appMetricsEnabled"], json!(true));
-        assert_eq!(
-            content["telemetry"]["appErrorReportingEnabled"],
-            json!(true)
-        );
-        assert_eq!(
-            content["telemetry"]["appNonAnonMetricsEnabled"],
-            json!(true)
-        );
+        assert_eq!(content["telemetry"]["appErrorReportingEnabled"], json!(true));
+        assert_eq!(content["telemetry"]["appNonAnonMetricsEnabled"], json!(true));
         Ok(())
     }
     #[test]
@@ -655,10 +611,7 @@ mod maybe_persist_overrides {
             json!(true),
             "should preserve field not in overrides"
         );
-        assert_eq!(
-            content["telemetry"]["appNonAnonMetricsEnabled"],
-            json!(true)
-        );
+        assert_eq!(content["telemetry"]["appNonAnonMetricsEnabled"], json!(true));
         Ok(())
     }
 

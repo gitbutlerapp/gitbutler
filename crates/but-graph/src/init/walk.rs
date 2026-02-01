@@ -11,8 +11,7 @@ use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Eit
 use petgraph::{Direction, prelude::EdgeRef};
 
 use crate::{
-    Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
-    Worktree,
+    Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata, Worktree,
     init::{
         Goals, PetGraph,
         overlay::{OverlayMetadata, OverlayRepo},
@@ -33,11 +32,7 @@ pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs:
 pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
     graph: &mut Graph,
     next: &mut Queue,
-    (ws_tips, repo, meta): (
-        Vec<gix::ObjectId>,
-        &OverlayRepo<'_>,
-        &OverlayMetadata<'_, T>,
-    ),
+    (ws_tips, repo, meta): (Vec<gix::ObjectId>, &OverlayRepo<'_>, &OverlayMetadata<'_, T>),
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Vec<SegmentIndex>> {
     next.inner
@@ -69,19 +64,14 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
 
     let mut out = Vec::new();
     'next_ws_tip: for ws_tip in ws_tips {
-        if crate::projection::commit::is_managed_workspace_by_message(
-            repo.find_commit(ws_tip)?.message_raw()?,
-        ) {
+        if crate::projection::commit::is_managed_workspace_by_message(repo.find_commit(ws_tip)?.message_raw()?) {
             if next.iter().filter(|(info, ..)| info.id == ws_tip).count() <= 1 {
                 // Assume it's the workspace tip, and it's uniquely assigned to a workspace segment.
                 continue 'next_ws_tip;
             }
-            let mut segments_with_ws_tip =
-                next.iter()
-                    .enumerate()
-                    .filter_map(|(idx, (info, _, instruction, _))| {
-                        (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
-                    });
+            let mut segments_with_ws_tip = next.iter().enumerate().filter_map(|(idx, (info, _, instruction, _))| {
+                (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
+            });
             let (first, second) = (
                 segments_with_ws_tip.next().expect("at least two"),
                 segments_with_ws_tip.next().expect("at least two"),
@@ -94,12 +84,9 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
             next.inner.swap(first.0, second.0);
         } else if next.iter().filter(|(info, ..)| info.id == ws_tip).count() >= 2 {
             // There are multiple tips pointing to the unmanaged workspace commit.
-            let mut segments_with_ws_tip =
-                next.iter()
-                    .enumerate()
-                    .filter_map(|(idx, (info, _, instruction, _))| {
-                        (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
-                    });
+            let mut segments_with_ws_tip = next.iter().enumerate().filter_map(|(idx, (info, _, instruction, _))| {
+                (info.id == ws_tip).then_some((idx, instruction.segment_idx()))
+            });
             let (first, second) = (
                 segments_with_ws_tip.next().expect("at least two"),
                 segments_with_ws_tip.next().expect("at least two"),
@@ -120,16 +107,17 @@ pub fn prioritize_initial_tips_and_assure_ws_commit_ownership<T: RefMetadata>(
                 .find(|t| t.0.id == ws_tip)
                 .cloned()
                 .expect("each ws-tip has one entry on queue");
-            let new_anon_segment = graph.insert_segment_set_entrypoint(
-                branch_segment_from_name_and_meta(None, meta, None, worktree_by_branch)?,
-            );
+            let new_anon_segment = graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
+                None,
+                meta,
+                None,
+                worktree_by_branch,
+            )?);
             // This segment acts as stand-in - always process it even if the queue says it's done.
             _ = next.push_front_exhausted((
                 info,
                 flags,
-                Instruction::CollectCommit {
-                    into: new_anon_segment,
-                },
+                Instruction::CollectCommit { into: new_anon_segment },
                 limit,
             ));
             out.push(new_anon_segment);
@@ -164,9 +152,7 @@ pub fn split_commit_into_segment(
     let top_commit_index = graph[sidx].last_commit_index();
     let bottom_commit_id = bottom_segment.commits[0].id;
     let bottom_segment = match standin {
-        None => {
-            graph.connect_new_segment(sidx, top_commit_index, bottom_segment, 0, bottom_commit_id)
-        }
+        None => graph.connect_new_segment(sidx, top_commit_index, bottom_segment, 0, bottom_commit_id),
         Some(standin_sidx) => {
             let outgoing_edges: Vec<_> = graph
                 .edges_directed(standin_sidx, Direction::Outgoing)
@@ -191,11 +177,7 @@ pub fn split_commit_into_segment(
                 && let Some(ref_info) = s.ref_info.take()
             {
                 let first = &mut s.commits[0];
-                if let Some(pos) = first
-                    .refs
-                    .iter()
-                    .position(|ri| ri.ref_name == ref_info.ref_name)
-                {
+                if let Some(pos) = first.refs.iter().position(|ri| ri.ref_name == ref_info.ref_name) {
                     // The standin segment name is already mentioned there (as duplicate),
                     // So remove it.
                     first.refs.remove(pos);
@@ -226,16 +208,10 @@ pub fn split_commit_into_segment(
 
 /// Assumes that `dst.commits == `src[src_commit..]` and will move connections down, updating their
 /// indices accordingly.
-fn split_connections(
-    graph: &mut PetGraph,
-    from: (SegmentIndex, CommitIndex),
-    dst: SegmentIndex,
-) -> anyhow::Result<()> {
+fn split_connections(graph: &mut PetGraph, from: (SegmentIndex, CommitIndex), dst: SegmentIndex) -> anyhow::Result<()> {
     let (sidx, cidx) = from;
     if !collect_edges_from_commit(graph, from, Direction::Incoming).is_empty() {
-        bail!(
-            "Segment {sidx:?} had incoming connections from commit {cidx}, even though these should cause splits"
-        );
+        bail!("Segment {sidx:?} had incoming connections from commit {cidx}, even though these should cause splits");
     }
     let edges = collect_edges_from_commit(graph, from, Direction::Outgoing);
     for edge in &edges {
@@ -260,11 +236,7 @@ fn split_connections(
             // assume that the commit is now contained in the destination edge, so connect that instead.
             dst
         };
-        let edge_dst_sidx = if edge_src_sidx == sidx {
-            dst
-        } else {
-            edge.target
-        };
+        let edge_dst_sidx = if edge_src_sidx == sidx { dst } else { edge.target };
         graph.add_edge(
             edge_src_sidx,
             edge_dst_sidx,
@@ -350,10 +322,9 @@ fn local_branches_by_id(
     refs_by_id: &RefsById,
     id: gix::ObjectId,
 ) -> Option<impl Iterator<Item = &gix::refs::FullName> + '_> {
-    refs_by_id.get(&id).map(|refs| {
-        refs.iter()
-            .filter(|rn| rn.category() == Some(Category::LocalBranch))
-    })
+    refs_by_id
+        .get(&id)
+        .map(|refs| refs.iter().filter(|rn| rn.category() == Some(Category::LocalBranch)))
 }
 
 /// Split `src_sidx` into a new segment (to receive the commit at `info`) and connect it with the new segment
@@ -375,22 +346,17 @@ pub fn try_split_non_empty_segment_at_branch<T: RefMetadata>(
     }
     let maybe_segment_name_from_unambiguous_refs =
         disambiguate_refs_by_branch_metadata_with_lookup((refs_by_id, info.id), meta);
-    let Some(maybe_segment_name) =
-        maybe_segment_name_from_unambiguous_refs
-            .map(Some)
-            .or_else(|| {
-                let want_segment_without_name = Some(None);
-                if info.parent_ids.len() < 2 {
-                    return None;
-                }
-                want_segment_without_name
-            })
-    else {
+    let Some(maybe_segment_name) = maybe_segment_name_from_unambiguous_refs.map(Some).or_else(|| {
+        let want_segment_without_name = Some(None);
+        if info.parent_ids.len() < 2 {
+            return None;
+        }
+        want_segment_without_name
+    }) else {
         return Ok(None);
     };
 
-    let segment_below =
-        branch_segment_from_name_and_meta(maybe_segment_name, meta, None, worktree_by_branch)?;
+    let segment_below = branch_segment_from_name_and_meta(maybe_segment_name, meta, None, worktree_by_branch)?;
     let segment_below = graph.connect_new_segment(
         src_sidx,
         src_segment
@@ -445,12 +411,7 @@ pub fn queue_parents(
         }
     } else if !parent_ids.is_empty() {
         let info = find(commit_graph, objects, parent_ids[0], buf)?;
-        if next.push_back_exhausted((
-            info,
-            flags,
-            Instruction::CollectCommit { into: current_sidx },
-            limit,
-        )) {
+        if next.push_back_exhausted((info, flags, Instruction::CollectCommit { into: current_sidx }, limit)) {
             return Ok(true);
         }
     }
@@ -469,13 +430,7 @@ pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
-    branch_segment_from_name_and_meta_sibling(
-        ref_name,
-        None,
-        meta,
-        refs_by_id_lookup,
-        worktree_by_branch,
-    )
+    branch_segment_from_name_and_meta_sibling(ref_name, None, meta, refs_by_id_lookup, worktree_by_branch)
 }
 
 /// Like `branch_segment_from_name_and_meta`, but allows to set `sibling_sidx` as well to link
@@ -487,8 +442,7 @@ pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
     refs_by_id_lookup: Option<(&RefsById, gix::ObjectId)>,
     worktree_by_branch: &WorktreeByBranch,
 ) -> anyhow::Result<Segment> {
-    let (ref_name, metadata) =
-        unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
+    let (ref_name, metadata) = unambiguous_local_branch_and_segment_data(ref_name, meta, refs_by_id_lookup)?;
     Ok(Segment {
         metadata,
         ref_info: ref_name.map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch)),
@@ -535,14 +489,7 @@ pub fn disambiguate_refs_by_branch_metadata<'a, T: RefMetadata>(
     meta: &OverlayMetadata<'_, T>,
 ) -> Option<(gix::refs::FullName, Option<SegmentMetadata>)> {
     let branches = branches
-        .map(|rn| {
-            (
-                rn,
-                extract_local_branch_metadata(rn.as_ref(), meta)
-                    .ok()
-                    .flatten(),
-            )
-        })
+        .map(|rn| (rn, extract_local_branch_metadata(rn.as_ref(), meta).ok().flatten()))
         .collect::<Vec<_>>();
     let mut branches_with_metadata = branches
         .iter()
@@ -637,11 +584,7 @@ impl TraverseInfo {
             .map(|rn| crate::RefInfo::from_ref(rn, worktree_by_branch))
             .collect();
         Ok(match self.commit {
-            Some(commit) => Commit {
-                refs,
-                flags,
-                ..commit
-            },
+            Some(commit) => Commit { refs, flags, ..commit },
             None => Commit {
                 id: self.inner.id,
                 parent_ids: self.inner.parent_ids.into_iter().collect(),
@@ -701,12 +644,7 @@ pub fn find(
                     }
                     Ok(Token::Author { .. }) => continue,
                     Ok(Token::Committer { signature }) => {
-                        committer_time = Some(
-                            signature
-                                .time()
-                                .map(|t| t.seconds as u64)
-                                .unwrap_or_default(),
-                        )
+                        committer_time = Some(signature.time().map(|t| t.seconds as u64).unwrap_or_default())
                     }
                     Ok(_other_tokens) => break,
                     Err(err) => return Err(err.into()),
@@ -769,9 +707,7 @@ pub fn obtain_workspace_infos<T: RefMetadata>(
     let (mut out, mut target_refs) = (Vec::new(), Vec::new());
     for (rn, data) in workspaces {
         if rn.category() != Some(Category::LocalBranch) {
-            tracing::warn!(
-                "Skipped workspace at ref {rn} as workspaces can only ever be on normal branches",
-            );
+            tracing::warn!("Skipped workspace at ref {rn} as workspaces can only ever be on normal branches",);
             continue;
         }
         if target_refs.contains(&rn) {
@@ -961,13 +897,12 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         }) {
             continue;
         };
-        let remote_segment =
-            graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
-                Some((remote_tracking_branch.clone(), None)),
-                meta,
-                None,
-                worktree_by_branch,
-            )?);
+        let remote_segment = graph.insert_segment_set_entrypoint(branch_segment_from_name_and_meta(
+            Some((remote_tracking_branch.clone(), None)),
+            meta,
+            None,
+            worktree_by_branch,
+        )?);
 
         let remote_limit = limit.with_indirect_goal(id, goals);
         let self_flags = goals.flag_for(remote_tip).unwrap_or_default();
@@ -981,9 +916,7 @@ pub fn try_queue_remote_tracking_branches<T: RefMetadata>(
         queue.push((
             remote_tip_info,
             self_flags,
-            Instruction::CollectCommit {
-                into: remote_segment,
-            },
+            Instruction::CollectCommit { into: remote_segment },
             remote_limit,
         ));
     }
@@ -1055,18 +988,11 @@ pub fn possibly_split_occupied_segment(
             (top_sidx == src_sidx
                 && s.commits.is_empty()
                 && s.ref_info.is_some()
-                && graph
-                    .neighbors_directed(src_sidx, Direction::Incoming)
-                    .next()
-                    .is_none()
-                && graph[bottom_sidx]
-                    .commits
-                    .first()
-                    .is_some_and(|c| c.flags.is_remote()))
+                && graph.neighbors_directed(src_sidx, Direction::Incoming).next().is_none()
+                && graph[bottom_sidx].commits.first().is_some_and(|c| c.flags.is_remote()))
             .then_some(src_sidx)
         };
-        let new_bottom_sidx =
-            split_commit_into_segment(graph, next, seen, bottom_sidx, bottom_cidx, standin)?;
+        let new_bottom_sidx = split_commit_into_segment(graph, next, seen, bottom_sidx, bottom_cidx, standin)?;
         bottom_sidx = new_bottom_sidx;
         bottom_cidx = 0;
     }
@@ -1091,13 +1017,7 @@ pub fn possibly_split_occupied_segment(
                 .iter()
                 .any(|(_, _, _, tip_limit)| !tip_limit.goal_flags().contains(limit.goal_flags())))
     {
-        propagate_flags_downward(
-            &mut graph.inner,
-            new_flags,
-            bottom_sidx,
-            Some(bottom_cidx),
-            needs_leafs,
-        )
+        propagate_flags_downward(&mut graph.inner, new_flags, bottom_sidx, Some(bottom_cidx), needs_leafs)
     } else {
         None
     };
@@ -1118,12 +1038,10 @@ pub fn possibly_split_occupied_segment(
                 .flags,
         )
         .goal_flags();
-    for queued_tip_limit in next.iter_mut().filter_map(|(_, _, _, limit)| {
-        limit
-            .goal_flags()
-            .intersects(bottom_commit_goals)
-            .then_some(limit)
-    }) {
+    for queued_tip_limit in next
+        .iter_mut()
+        .filter_map(|(_, _, _, limit)| limit.goal_flags().intersects(bottom_commit_goals).then_some(limit))
+    {
         queued_tip_limit.adjust_limit_if_bigger(limit);
     }
     Ok(())
@@ -1131,11 +1049,7 @@ pub fn possibly_split_occupied_segment(
 
 // Find all tips that are scheduled to be put into one of the `reachable_segments`
 // (reachable from the commit we just ran into)
-fn propagate_goals_of_reachable_tips(
-    next: &mut Queue,
-    reachable_segments: Vec<SegmentIndex>,
-    goal_flags: CommitFlags,
-) {
+fn propagate_goals_of_reachable_tips(next: &mut Queue, reachable_segments: Vec<SegmentIndex>, goal_flags: CommitFlags) {
     for (_, _, instruction, limit) in next.iter_mut() {
         if reachable_segments.contains(&instruction.segment_idx()) {
             *limit = limit.additional_goal(goal_flags);
@@ -1163,25 +1077,21 @@ pub fn prune_integrated_tips(graph: &mut Graph, next: &mut Queue) -> anyhow::Res
         return Ok(());
     }
 
-    next.inner
-        .retain_mut(|(_id, _flags, instruction, _tip_limit)| {
-            let sidx = instruction.segment_idx();
-            let s = &graph[sidx];
-            if s.commits.is_empty() {
-                graph.inner.remove_node(sidx);
-            }
-            false
-        });
+    next.inner.retain_mut(|(_id, _flags, instruction, _tip_limit)| {
+        let sidx = instruction.segment_idx();
+        let s = &graph[sidx];
+        if s.commits.is_empty() {
+            graph.inner.remove_node(sidx);
+        }
+        false
+    });
     Ok(())
 }
 
 pub(crate) type WorktreeByBranch = BTreeMap<gix::refs::FullName, Vec<Worktree>>;
 
 impl crate::RefInfo {
-    pub(crate) fn from_ref(
-        ref_name: gix::refs::FullName,
-        worktree_by_branch: &WorktreeByBranch,
-    ) -> Self {
+    pub(crate) fn from_ref(ref_name: gix::refs::FullName, worktree_by_branch: &WorktreeByBranch) -> Self {
         let worktree = worktree_by_branch
             .get(&ref_name)
             .and_then(|worktrees| worktrees.first().cloned());

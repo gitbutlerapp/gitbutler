@@ -23,8 +23,7 @@ fn extract_conflicted_files(
         treat_as_unresolved,
         gix::merge::tree::apply_index_entries::RemovalMode::Mark,
     );
-    let (mut ancestor_entries, mut our_entries, mut their_entries) =
-        (Vec::new(), Vec::new(), Vec::new());
+    let (mut ancestor_entries, mut our_entries, mut their_entries) = (Vec::new(), Vec::new(), Vec::new());
     for entry in index.entries() {
         let stage = entry.stage();
         let storage = match stage {
@@ -114,8 +113,7 @@ pub fn merge_commits(
     let tree_oid;
     let forced_resolution = gix::merge::tree::TreatAsUnresolved::forced_resolution();
     let commit_headers = if merge_result.has_unresolved_conflicts(forced_resolution) {
-        let conflicted_files =
-            extract_conflicted_files(merged_tree_id, merge_result, forced_resolution)?;
+        let conflicted_files = extract_conflicted_files(merged_tree_id, merge_result, forced_resolution)?;
 
         // convert files into a string and save as a blob
         let conflicted_files_string = toml::to_string(&conflicted_files)?;
@@ -128,16 +126,8 @@ pub fn merge_commits(
         tree_writer.insert(&*ConflictedTreeKey::Ours, incoming_tree.id(), 0o040000)?;
         tree_writer.insert(&*ConflictedTreeKey::Theirs, target_tree.id(), 0o040000)?;
         tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
-        tree_writer.insert(
-            &*ConflictedTreeKey::AutoResolution,
-            merged_tree_id.to_git2(),
-            0o040000,
-        )?;
-        tree_writer.insert(
-            &*ConflictedTreeKey::ConflictFiles,
-            conflicted_files_blob,
-            0o100644,
-        )?;
+        tree_writer.insert(&*ConflictedTreeKey::AutoResolution, merged_tree_id.to_git2(), 0o040000)?;
+        tree_writer.insert(&*ConflictedTreeKey::ConflictFiles, conflicted_files_blob, 0o100644)?;
 
         // in case someone checks this out with vanilla Git, we should warn why it looks like this
         let readme_content =

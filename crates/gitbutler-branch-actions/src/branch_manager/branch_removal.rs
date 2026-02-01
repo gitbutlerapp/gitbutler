@@ -103,8 +103,7 @@ impl BranchManager<'_> {
                 repo.default_merge_labels(),
                 merge_options,
             )?;
-            let new_workspace_tree_with_worktree_changes =
-                git2_repo.find_tree(merge.tree.write()?.to_git2())?;
+            let new_workspace_tree_with_worktree_changes = git2_repo.find_tree(merge.tree.write()?.to_git2())?;
 
             git2_repo
                 .checkout_tree_builder(&new_workspace_tree_with_worktree_changes)

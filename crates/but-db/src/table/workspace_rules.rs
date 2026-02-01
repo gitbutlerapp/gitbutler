@@ -80,9 +80,9 @@ impl WorkspaceRulesHandle<'_> {
 
     /// List all workspace rules
     pub fn list(&self) -> rusqlite::Result<Vec<WorkspaceRule>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, created_at, enabled, trigger, filters, action FROM workspace_rules",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, created_at, enabled, trigger, filters, action FROM workspace_rules")?;
 
         let results = stmt.query_map([], |row| {
             Ok(WorkspaceRule {
@@ -134,8 +134,7 @@ impl WorkspaceRulesHandleMut<'_> {
 
     /// Delete a WorkspaceRule by id
     pub fn delete(&mut self, id: &str) -> rusqlite::Result<()> {
-        self.conn
-            .execute("DELETE FROM workspace_rules WHERE id = ?1", [id])?;
+        self.conn.execute("DELETE FROM workspace_rules WHERE id = ?1", [id])?;
         Ok(())
     }
 }

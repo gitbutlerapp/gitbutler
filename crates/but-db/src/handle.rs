@@ -30,12 +30,7 @@ impl DbHandle {
     }
 
     /// A new instance connecting to the project database at the given `path`.
-    #[instrument(
-        name = "DbHandle::new_at_path",
-        level = "debug",
-        skip(path),
-        err(Debug)
-    )]
+    #[instrument(name = "DbHandle::new_at_path", level = "debug", skip(path), err(Debug))]
     pub fn new_at_path(path: impl Into<PathBuf>) -> anyhow::Result<Self> {
         let path = path.into();
         let mut conn = rusqlite::Connection::open(&path)?;

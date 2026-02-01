@@ -36,11 +36,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
             if let Some(out) = out.for_json() {
                 out.write_value(output)?;
             } else if let Some(out) = out.for_human() {
-                writeln!(
-                    out,
-                    "Created worktree at: {}",
-                    output.created.path.display()
-                )?;
+                writeln!(out, "Created worktree at: {}", output.created.path.display())?;
                 if let Some(reference) = output.created.created_from_ref {
                     writeln!(out, "Reference: {}", reference)?;
                 }
@@ -91,18 +87,16 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     .find(|e| e.id == id)
                     .context("Worktree not found - ID does not match any known worktree")?;
 
-                worktree_entry.created_from_ref.clone().context(
-                    "Worktree does not have a created_from_ref - please specify --target",
-                )?
+                worktree_entry
+                    .created_from_ref
+                    .clone()
+                    .context("Worktree does not have a created_from_ref - please specify --target")?
             };
 
             if dry {
                 // Dry run - check integration status
-                let status = but_api::legacy::worktree::worktree_integration_status(
-                    ctx,
-                    id.clone(),
-                    target_ref.clone(),
-                )?;
+                let status =
+                    but_api::legacy::worktree::worktree_integration_status(ctx, id.clone(), target_ref.clone())?;
 
                 if let Some(out) = out.for_json() {
                     out.write_value(status)?;
@@ -117,10 +111,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                             writeln!(out, "Status: Cannot integrate - worktree is bare")?;
                         }
                         IntegrationStatus::CausesWorkspaceConflicts => {
-                            writeln!(
-                                out,
-                                "Status: Cannot integrate - would cause workspace conflicts"
-                            )?;
+                            writeln!(out, "Status: Cannot integrate - would cause workspace conflicts")?;
                         }
                         IntegrationStatus::Integratable {
                             cherry_pick_conflicts,
@@ -137,10 +128,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                             if working_dir_conflicts {
                                 writeln!(out, "  Warning: Working directory will have conflicts")?;
                             }
-                            if !cherry_pick_conflicts
-                                && !commits_above_conflict
-                                && !working_dir_conflicts
-                            {
+                            if !cherry_pick_conflicts && !commits_above_conflict && !working_dir_conflicts {
                                 writeln!(out, "  No conflicts expected")?;
                             }
                         }
@@ -170,10 +158,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     gix::refs::FullName::try_from(format!("refs/heads/{}", target))?
                 };
 
-                let output = but_api::legacy::worktree::worktree_destroy_by_reference(
-                    ctx,
-                    reference.clone(),
-                )?;
+                let output = but_api::legacy::worktree::worktree_destroy_by_reference(ctx, reference.clone())?;
 
                 if let Some(out) = out.for_json() {
                     out.write_value(output)?;

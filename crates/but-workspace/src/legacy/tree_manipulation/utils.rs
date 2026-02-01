@@ -76,8 +76,7 @@ pub fn replace_pick_with_multiple_commits(
     replacement_commit_ids: &[(gix::ObjectId, Option<String>)],
 ) -> anyhow::Result<()> {
     let mut found = false;
-    let mut new_steps =
-        Vec::with_capacity(steps.len() + replacement_commit_ids.len().saturating_sub(1));
+    let mut new_steps = Vec::with_capacity(steps.len() + replacement_commit_ids.len().saturating_sub(1));
     for step in steps.drain(..) {
         if step.commit_id() == Some(&target_commit_id) {
             let RebaseStep::Pick { .. } = step else {

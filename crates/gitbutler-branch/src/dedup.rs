@@ -19,10 +19,7 @@ pub fn dedup_fmt(existing: &[&str], new: &str, separator: &str) -> String {
                 })
         })
         .max()
-        .map_or_else(
-            || new.to_string(),
-            |x| format!("{new}{separator}{}", x + 1_i32),
-        )
+        .map_or_else(|| new.to_string(), |x| format!("{new}{separator}{}", x + 1_i32))
 }
 
 #[cfg(test)]

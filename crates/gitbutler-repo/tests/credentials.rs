@@ -58,10 +58,7 @@ mod not_github {
             };
             let flow = test_case.run();
             assert_eq!(flow.len(), 1);
-            assert_eq!(
-                flow[0].0,
-                "git@gitlab.com:test-gitbutler/test.git".to_string(),
-            );
+            assert_eq!(flow[0].0, "git@gitlab.com:test-gitbutler/test.git".to_string(),);
             assert_eq!(
                 flow[0].1,
                 vec![Credential::Ssh(SshCredential::Keyfile {
@@ -82,10 +79,7 @@ mod not_github {
             };
             let flow = test_case.run();
             assert_eq!(flow.len(), 1);
-            assert_eq!(
-                flow[0].0,
-                "git@gitlab.com:test-gitbutler/test.git".to_string(),
-            );
+            assert_eq!(flow[0].0, "git@gitlab.com:test-gitbutler/test.git".to_string(),);
             assert_eq!(
                 flow[0].1,
                 vec![Credential::Ssh(SshCredential::Keyfile {
@@ -117,10 +111,7 @@ mod github {
                 };
                 let flow = test_case.run();
                 assert_eq!(flow.len(), 1);
-                assert_eq!(
-                    flow[0].0,
-                    "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
-                );
+                assert_eq!(flow[0].0, "git@github.com:gitbutlerapp/gitbutler.git".to_string(),);
                 assert_eq!(
                     flow[0].1,
                     vec![Credential::Ssh(SshCredential::Keyfile {
@@ -141,10 +132,7 @@ mod github {
                 };
                 let flow = test_case.run();
                 assert_eq!(flow.len(), 1);
-                assert_eq!(
-                    flow[0].0,
-                    "git@github.com:gitbutlerapp/gitbutler.git".to_string(),
-                );
+                assert_eq!(flow[0].0, "git@github.com:gitbutlerapp/gitbutler.git".to_string(),);
                 assert_eq!(
                     flow[0].1,
                     vec![Credential::Ssh(SshCredential::Keyfile {

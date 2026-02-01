@@ -8,10 +8,7 @@ use serde::Serialize;
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/legacy/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/legacy/index.ts"))]
 pub struct StackHeadInfo {
     /// The name of the branch.
     #[serde(with = "but_serde::bstring_lossy")]
@@ -43,10 +40,7 @@ impl StackHeadInfo {
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(
-    feature = "export-ts",
-    ts(export, export_to = "./workspace/legacy/index.ts")
-)]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/legacy/index.ts"))]
 pub struct StackEntry {
     /// The ID of the stack.
     #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]

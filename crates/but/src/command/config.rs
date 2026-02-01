@@ -18,11 +18,7 @@ use crate::{
 };
 
 /// Main entry point for config command
-pub async fn exec(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    cmd: Option<Subcommands>,
-) -> Result<()> {
+pub async fn exec(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<Subcommands>) -> Result<()> {
     match cmd {
         Some(Subcommands::User { cmd }) => user_config(ctx, out, cmd).await,
         Some(Subcommands::Target { branch }) => target_config(ctx, out, branch).await,
@@ -202,11 +198,7 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
 }
 
 /// Handle user config subcommand
-async fn user_config(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    cmd: Option<UserSubcommand>,
-) -> Result<()> {
+async fn user_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UserSubcommand>) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
 
     match cmd {
@@ -220,17 +212,11 @@ async fn user_config(
                 writeln!(out)?;
                 write_user_config_human(out, &user_info)?;
                 writeln!(out, "{}:", "To set values".dimmed())?;
+                writeln!(out, "  {}", "but config user set name \"Your Name\"".blue().dimmed())?;
                 writeln!(
                     out,
                     "  {}",
-                    "but config user set name \"Your Name\"".blue().dimmed()
-                )?;
-                writeln!(
-                    out,
-                    "  {}",
-                    "but config user set --global email your@email.com"
-                        .blue()
-                        .dimmed()
+                    "but config user set --global email your@email.com".blue().dimmed()
                 )?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!(user_info))?;
@@ -329,14 +315,10 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
 
             let mut some_accounts_invalid = false;
             for account in &known_accounts {
-                let account_status = but_api::github::check_github_credentials(account.clone())
-                    .await
-                    .ok();
+                let account_status = but_api::github::check_github_credentials(account.clone()).await.ok();
 
                 let message = match account_status {
-                    Some(but_github::CredentialCheckResult::Valid) => {
-                        "(valid credentials)".green().bold()
-                    }
+                    Some(but_github::CredentialCheckResult::Valid) => "(valid credentials)".green().bold(),
                     Some(but_github::CredentialCheckResult::Invalid) => {
                         some_accounts_invalid = true;
                         "(invalid credentials)".bold().yellow()
@@ -353,16 +335,8 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
             writeln!(out)?;
 
             if some_accounts_invalid {
-                writeln!(
-                    out,
-                    "{}",
-                    "Some accounts have invalid or missing credentials.".yellow()
-                )?;
-                writeln!(
-                    out,
-                    "Re-authenticate using: {}",
-                    "but config forge auth".cyan()
-                )?;
+                writeln!(out, "{}", "Some accounts have invalid or missing credentials.".yellow())?;
+                writeln!(out, "Re-authenticate using: {}", "but config forge auth".cyan())?;
                 writeln!(out)?;
             }
 
@@ -400,10 +374,9 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
                     but_github::GithubAccountIdentifier::PatUsername { username } => {
                         (username.clone(), "Personal Access Token".to_string())
                     }
-                    but_github::GithubAccountIdentifier::Enterprise { username, host } => (
-                        format!("{}@{}", username, host),
-                        "GitHub Enterprise".to_string(),
-                    ),
+                    but_github::GithubAccountIdentifier::Enterprise { username, host } => {
+                        (format!("{}@{}", username, host), "GitHub Enterprise".to_string())
+                    }
                 };
                 ForgeAccount {
                     provider: "GitHub".to_string(),
@@ -445,12 +418,7 @@ async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
         .context("Human input required - run this in a terminal")?;
     let auth_method_prompt = cli_prompts::prompts::Selection::new(
         "Select an authentication method",
-        vec![
-            AuthMethod::DeviceFlow,
-            AuthMethod::Pat,
-            AuthMethod::Enterprise,
-        ]
-        .into_iter(),
+        vec![AuthMethod::DeviceFlow, AuthMethod::Pat, AuthMethod::Enterprise].into_iter(),
     );
 
     let selected_method = auth_method_prompt
@@ -490,15 +458,12 @@ async fn github_enterprise(mut inout: InputOutputChannel<'_>) -> Result<()> {
     let base_url = inout.prompt("Please enter your GitHub Enterprise API base URL (e.g., https://github.mycompany.com/api/v3) and hit enter:")?.context("No host provided. Aborting authentication.")?;
 
     let input = inout
-        .prompt(
-            "Now, please enter your GitHub Enterprise Personal Access Token (PAT) and hit enter:",
-        )?
+        .prompt("Now, please enter your GitHub Enterprise Personal Access Token (PAT) and hit enter:")?
         .context("No PAT provided. Aborting authentication.")?;
     let pat = Sensitive(input);
-    let AuthStatusResponse { login, .. } =
-        but_api::github::store_github_enterprise_pat(pat, base_url)
-            .await
-            .map_err(|err| err.context("Authentication failed"))?;
+    let AuthStatusResponse { login, .. } = but_api::github::store_github_enterprise_pat(pat, base_url)
+        .await
+        .map_err(|err| err.context("Authentication failed"))?;
 
     writeln!(inout, "Authentication successful! Welcome, {}.", login)?;
     Ok(())
@@ -513,9 +478,8 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
         code.user_code
     )?;
 
-    if inout.confirm_no_default(
-        "After completing authorization in your browser, press 'y' to continue.",
-    )? != ConfirmOrEmpty::Yes
+    if inout.confirm_no_default("After completing authorization in your browser, press 'y' to continue.")?
+        != ConfirmOrEmpty::Yes
     {
         anyhow::bail!("Authorization process aborted by user.")
     }
@@ -524,11 +488,7 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
         .await
         .map_err(|err| err.context("Authentication failed"))?;
 
-    writeln!(
-        inout,
-        "Authentication successful! Welcome, {}.",
-        status.login
-    )?;
+    writeln!(inout, "Authentication successful! Welcome, {}.", status.login)?;
 
     Ok(())
 }
@@ -540,14 +500,10 @@ async fn forge_list_users(out: &mut OutputChannel) -> Result<()> {
         writeln!(out, "Known GitHub usernames:")?;
         let mut some_accounts_invalid = false;
         for account in known_accounts {
-            let account_status = but_api::github::check_github_credentials(account.clone())
-                .await
-                .ok();
+            let account_status = but_api::github::check_github_credentials(account.clone()).await.ok();
 
             let message = match account_status {
-                Some(but_github::CredentialCheckResult::Valid) => {
-                    "(valid credentials)".green().bold()
-                }
+                Some(but_github::CredentialCheckResult::Valid) => "(valid credentials)".green().bold(),
                 Some(but_github::CredentialCheckResult::Invalid) => {
                     some_accounts_invalid = true;
                     "(invalid credentials)".bold().yellow()
@@ -640,11 +596,7 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
 }
 
 /// Handle target config subcommand
-async fn target_config(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    branch: Option<String>,
-) -> Result<()> {
+async fn target_config(ctx: &mut Context, out: &mut OutputChannel, branch: Option<String>) -> Result<()> {
     match branch {
         None => {
             #[cfg(feature = "legacy")]
@@ -660,11 +612,7 @@ async fn target_config(
                         writeln!(out, "  {}: {}", "Remote".dimmed(), target_branch.remote_url)?;
                         writeln!(out, "  {}:    {}", "SHA".dimmed(), target_branch.base_sha)?;
                         writeln!(out, "\n{}:", "To change target branch".dimmed())?;
-                        writeln!(
-                            out,
-                            "  {}",
-                            "but config target <branch_name>".blue().dimmed()
-                        )?;
+                        writeln!(out, "  {}", "but config target <branch_name>".blue().dimmed())?;
                     } else if let Some(out) = out.for_json() {
                         out.write_value(serde_json::json!({
                             "branch": target_branch.branch_name.to_string(),
@@ -681,11 +629,7 @@ async fn target_config(
             if !ws.stacks.is_empty() {
                 // list the applied branches
                 if let Some(out) = out.for_human() {
-                    writeln!(
-                        out,
-                        "{}",
-                        "\nThe following branches are currently applied:\n".bold()
-                    )?;
+                    writeln!(out, "{}", "\nThe following branches are currently applied:\n".bold())?;
                     ws.stacks.iter().for_each(|stack| {
                         {
                             writeln!(
@@ -694,10 +638,7 @@ async fn target_config(
                                 "•".dimmed(),
                                 stack
                                     .ref_name()
-                                    .map_or_else(
-                                        || "ANONYMOUS".to_string(),
-                                        |rn| rn.shorten().to_string()
-                                    )
+                                    .map_or_else(|| "ANONYMOUS".to_string(), |rn| rn.shorten().to_string())
                                     .cyan()
                             )
                             .ok();

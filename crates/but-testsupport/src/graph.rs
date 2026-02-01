@@ -1,9 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use but_core::ref_metadata::StackId;
-use but_graph::{
-    EntryPoint, Graph, SegmentIndex, SegmentMetadata, projection::StackCommitDebugFlags,
-};
+use but_graph::{EntryPoint, Graph, SegmentIndex, SegmentMetadata, projection::StackCommitDebugFlags};
 use termtree::Tree;
 
 type StringTree = Tree<String>;
@@ -14,9 +12,7 @@ pub fn graph_workspace(workspace: &but_graph::projection::Workspace) -> StringTr
 }
 
 /// Visualize `graph` as a tree, and remap random stack ids to something deterministic.
-pub fn graph_workspace_determinisitcally(
-    workspace: &but_graph::projection::Workspace,
-) -> StringTree {
+pub fn graph_workspace_determinisitcally(workspace: &but_graph::projection::Workspace) -> StringTree {
     graph_workspace_inner(workspace, Some(Default::default()))
 }
 
@@ -41,12 +37,10 @@ fn tree_for_stack(
     commit_flags: StackCommitDebugFlags,
     stack_id_map: Option<&mut BTreeMap<StackId, StackId>>,
 ) -> StringTree {
-    let mut root = Tree::new(
-        stack.debug_string(stack.id.zip(stack_id_map).map(|(id, map)| {
-            let next_id = StackId::from_number_for_testing((map.len() + 1) as u128);
-            *map.entry(id).or_insert(next_id)
-        })),
-    );
+    let mut root = Tree::new(stack.debug_string(stack.id.zip(stack_id_map).map(|(id, map)| {
+        let next_id = StackId::from_number_for_testing((map.len() + 1) as u128);
+        *map.entry(id).or_insert(next_id)
+    })));
     for segment in &stack.segments {
         root.push(tree_for_stack_segment(segment, commit_flags));
     }
@@ -82,9 +76,7 @@ pub fn graph_tree(graph: &Graph) -> StringTree {
     }
     let missing = graph.num_segments() - seen.len();
     if missing > 0 {
-        let mut missing = Tree::new(format!(
-            "ERROR: disconnected {missing} nodes unreachable through base"
-        ));
+        let mut missing = Tree::new(format!("ERROR: disconnected {missing} nodes unreachable through base"));
         let mut newly_seen = Default::default();
         for sidx in graph.segments().filter(|sidx| !seen.contains(sidx)) {
             missing.push(recurse_segment(graph, sidx, &mut newly_seen, max_goals));
@@ -114,14 +106,7 @@ fn tree_for_commit(
     hard_limit_hit: bool,
     max_goals: Option<usize>,
 ) -> StringTree {
-    Graph::commit_debug_string(
-        commit,
-        is_entrypoint,
-        is_early_end,
-        hard_limit_hit,
-        max_goals,
-    )
-    .into()
+    Graph::commit_debug_string(commit, is_entrypoint, is_early_end, hard_limit_hit, max_goals).into()
 }
 fn recurse_segment(
     graph: &but_graph::Graph,

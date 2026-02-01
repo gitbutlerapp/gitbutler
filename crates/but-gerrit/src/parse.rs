@@ -290,14 +290,8 @@ remote:"#;
 
     #[test]
     fn test_extract_number_after() {
-        assert_eq!(
-            extract_number_after("refs: 5, updated: 3", "refs:"),
-            Some(5)
-        );
-        assert_eq!(
-            extract_number_after("refs: 5, updated: 3", "updated:"),
-            Some(3)
-        );
+        assert_eq!(extract_number_after("refs: 5, updated: 3", "refs:"), Some(5));
+        assert_eq!(extract_number_after("refs: 5, updated: 3", "updated:"), Some(3));
         assert_eq!(extract_number_after("no number here", "refs:"), None);
     }
 
@@ -384,8 +378,7 @@ remote:"#;
         assert_eq!(result, Some(expected));
 
         // URL with multi-word title and NEW tag
-        let result =
-            parse_change_info("http://gerrit.local/c/project/+/41 fix: update dependencies [NEW]");
+        let result = parse_change_info("http://gerrit.local/c/project/+/41 fix: update dependencies [NEW]");
         let expected = ChangeInfo {
             url: "http://gerrit.local/c/project/+/41".to_string(),
             commit_title: "fix: update dependencies".to_string(),
@@ -421,8 +414,7 @@ remote:"#;
         assert_eq!(result, Some(expected));
 
         // Test NEW and WIP in different order
-        let result =
-            parse_change_info("http://gerrit.local/c/project/+/48 multi word title [NEW] [WIP]");
+        let result = parse_change_info("http://gerrit.local/c/project/+/48 multi word title [NEW] [WIP]");
         let expected = ChangeInfo {
             url: "http://gerrit.local/c/project/+/48".to_string(),
             commit_title: "multi word title".to_string(),
@@ -481,10 +473,7 @@ remote:"#;
 
         let change = &result.changes[0];
         assert_eq!(change.url, "http://gerrithost/#/c/RecipeBook/+/702");
-        assert_eq!(
-            change.commit_title,
-            "Change to a proper, yeast based pizza dough."
-        );
+        assert_eq!(change.commit_title, "Change to a proper, yeast based pizza dough.");
         assert!(change.is_new);
 
         assert!(result.processing_info.is_some());
@@ -510,10 +499,7 @@ remote:"#;
 
         let change = &result.changes[0];
         assert_eq!(change.url, "http://gerrithost/#/c/RecipeBook/+/702");
-        assert_eq!(
-            change.commit_title,
-            "Change to a proper, yeast based pizza dough."
-        );
+        assert_eq!(change.commit_title, "Change to a proper, yeast based pizza dough.");
         assert!(!change.is_new); // Should be false for updated changes
 
         assert!(result.processing_info.is_some());
@@ -596,10 +582,7 @@ remote:"#;
         assert_eq!(result.changes.len(), 1);
 
         let change = &result.changes[0];
-        assert_eq!(
-            change.url,
-            "https://codereview.qt-project.org/c/qt/qtbase/+/687666"
-        );
+        assert_eq!(change.url, "https://codereview.qt-project.org/c/qt/qtbase/+/687666");
         assert_eq!(change.commit_title, "Test manual push");
         assert!(change.is_new);
         assert!(change.is_private);
@@ -615,8 +598,7 @@ remote:"#;
     #[test]
     fn test_parse_private_tag_only() {
         // Test PRIVATE tag without NEW
-        let result =
-            parse_change_info("http://gerrit.local/c/project/+/50 private change [PRIVATE]");
+        let result = parse_change_info("http://gerrit.local/c/project/+/50 private change [PRIVATE]");
         let expected = ChangeInfo {
             url: "http://gerrit.local/c/project/+/50".to_string(),
             commit_title: "private change".to_string(),
@@ -630,8 +612,7 @@ remote:"#;
     #[test]
     fn test_parse_all_tags_combined() {
         // Test all three tags together
-        let result =
-            parse_change_info("http://gerrit.local/c/project/+/51 all tags [WIP] [PRIVATE] [NEW]");
+        let result = parse_change_info("http://gerrit.local/c/project/+/51 all tags [WIP] [PRIVATE] [NEW]");
         let expected = ChangeInfo {
             url: "http://gerrit.local/c/project/+/51".to_string(),
             commit_title: "all tags".to_string(),

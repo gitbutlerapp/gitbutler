@@ -28,10 +28,7 @@ use crate::{
 
 /// Get a stable `StackId` for the given `name`. It's fetched from `meta`, assuming it's backed by a toml file
 /// and assuming that `name` is stored there as applied or unapplied branch.
-fn id_from_name_v2_to_v3(
-    name: &gix::refs::FullNameRef,
-    meta: &VirtualBranchesTomlMetadata,
-) -> anyhow::Result<StackId> {
+fn id_from_name_v2_to_v3(name: &gix::refs::FullNameRef, meta: &VirtualBranchesTomlMetadata) -> anyhow::Result<StackId> {
     id_from_name_v2_to_v3_opt(name, meta)?.with_context(|| {
         format!(
             "{name:?} didn't have a stack-id even though \
@@ -56,10 +53,7 @@ fn id_from_name_v2_to_v3_opt(
 }
 
 /// Returns the list of branch information for the branches in a stack.
-pub fn stack_heads_info(
-    stack: &Stack,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<StackHeadInfo>> {
+pub fn stack_heads_info(stack: &Stack, repo: &gix::Repository) -> anyhow::Result<Vec<StackHeadInfo>> {
     let branches = stack
         .branches()
         .into_iter()
@@ -108,10 +102,7 @@ fn try_from_stack_v3(
         .collect::<anyhow::Result<_>>()?;
     Ok(StackEntry {
         id: id_from_name_v2_to_v3_opt(name.as_ref(), meta)?,
-        tip: heads
-            .first()
-            .map(|h| h.tip)
-            .unwrap_or(repo.object_hash().null()),
+        tip: heads.first().map(|h| h.tip).unwrap_or(repo.object_hash().null()),
         is_checked_out: heads.iter().any(|h| h.is_checked_out),
         heads,
         order: None,
@@ -146,12 +137,10 @@ pub fn stacks_v3(
                 continue;
             };
             let is_applied = applied_stacks.iter().any(|stack| {
-                stack.segments.iter().any(|segment| {
-                    segment
-                        .ref_info
-                        .as_ref()
-                        .is_some_and(|ri| ri.ref_name == ref_name)
-                })
+                stack
+                    .segments
+                    .iter()
+                    .any(|segment| segment.ref_info.as_ref().is_some_and(|ri| ri.ref_name == ref_name))
             });
             if is_applied {
                 continue;
@@ -310,10 +299,8 @@ pub fn stack_details_v3(
                 .with_context(|| {
                     format!("Couldn't find {stack_id} even when looking at virtual_branches.toml directly")
                 })?;
-            let full_name = gix::refs::FullName::try_from(format!(
-                "refs/heads/{shortname}",
-                shortname = vb_stack.derived_name()?
-            ))?;
+            let full_name =
+                gix::refs::FullName::try_from(format!("refs/heads/{shortname}", shortname = vb_stack.derived_name()?))?;
             let existing_ref = repo.find_reference(&full_name)?;
             let ref_info = ref_info(existing_ref, meta, ref_info_options)?;
             stack_by_id(ref_info, stack_id, alt_stack_id, meta)?
@@ -324,10 +311,10 @@ pub fn stack_details_v3(
     // This is more of a badly tested hack to quickly filter parts of a stack that aren't checked out.
     // Better to switch over to the new data-structured for proper handling of detached heads, and anonymous segments.
     if let Some(head_ref) = repo.head_ref()? {
-        let needs_filtering_to_hide_segments_not_checked_out =
-            stack.segments.iter().position(|s| {
-                s.ref_info.as_ref().map(|ri| ri.ref_name.as_ref()) == Some(head_ref.name())
-            });
+        let needs_filtering_to_hide_segments_not_checked_out = stack
+            .segments
+            .iter()
+            .position(|s| s.ref_info.as_ref().map(|ri| ri.ref_name.as_ref()) == Some(head_ref.name()));
         if let Some(stack_pos) = needs_filtering_to_hide_segments_not_checked_out {
             stack.segments.drain(..stack_pos);
         }
@@ -355,9 +342,7 @@ pub fn stack_details_v3(
         .map(ui::BranchDetails::from_segment)
         .collect::<Result<Vec<_>, _>>()?;
 
-    let topmost_branch = branch_details
-        .first()
-        .context("Stacks should never be empty")?;
+    let topmost_branch = branch_details.first().context("Stacks should never be empty")?;
     Ok(StackDetails {
         derived_name: topmost_branch.name.to_string(),
         push_status: topmost_branch.push_status,
@@ -517,9 +502,7 @@ pub fn local_and_remote_commits(
     stack: &Stack,
 ) -> anyhow::Result<Vec<ui::Commit>> {
     let state = state_handle(&ctx.project_data_dir());
-    let default_target = state
-        .get_default_target()
-        .context("failed to get default target")?;
+    let default_target = state.get_default_target().context("failed to get default target")?;
     let cache = repo.commit_graph_if_enabled()?;
     let mut graph = repo.revision_graph(cache.as_ref());
     let git2_repo = ctx.git2_repo.get()?;

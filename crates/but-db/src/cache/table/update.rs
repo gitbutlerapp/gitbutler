@@ -134,8 +134,7 @@ impl UpdateCheckHandle<'_> {
                 let checked_at = DateTime::from_naive_utc_and_offset(checked_at_naive, Utc);
 
                 let suppressed_at_naive: Option<chrono::NaiveDateTime> = row.get(6)?;
-                let suppressed_at = suppressed_at_naive
-                    .map(|naive| DateTime::from_naive_utc_and_offset(naive, Utc));
+                let suppressed_at = suppressed_at_naive.map(|naive| DateTime::from_naive_utc_and_offset(naive, Utc));
 
                 Ok(Some(CachedCheckResult {
                     checked_at,
@@ -204,11 +203,9 @@ impl UpdateCheckHandleMut<'_> {
         let sp = self.sp;
 
         // Check if a record exists
-        let exists: bool = sp.query_row(
-            "SELECT EXISTS(SELECT 1 FROM `update-check` WHERE id = 1)",
-            [],
-            |row| row.get(0),
-        )?;
+        let exists: bool = sp.query_row("SELECT EXISTS(SELECT 1 FROM `update-check` WHERE id = 1)", [], |row| {
+            row.get(0)
+        })?;
 
         if !exists {
             return Err(rusqlite::Error::ToSqlConversionFailure(Box::<

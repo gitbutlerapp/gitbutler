@@ -255,8 +255,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-rebased-with-remotes")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-rebased-with-remotes")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 3ba6995 (B-on-A) change in B
@@ -354,9 +353,8 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-dependent-branches-rebased-explicit-remote-in-extra-segment",
-    )?;
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-rebased-explicit-remote-in-extra-segment")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 3ba6995 (B-on-A) change in B
@@ -469,8 +467,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
 
 #[test]
 fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-first-merge-no-ff")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-first-merge-no-ff")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   a455fe7 (origin/main) Merge branch 'A' into new-origin-main
     |\  
@@ -570,9 +567,8 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
 #[test]
 fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_branch_integration_caught_up()
 -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-remote",
-    )?;
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-remote")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   059cc4f (origin/A) Merge branch 'B-on-A' into new-origin-A
     |\  
@@ -661,11 +657,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
     "#);
 
     // If we set a reasonably old extra target, then the A segment, despite integrated, is shown.
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("target setup")
-        .sha = repo.rev_parse_single("fafd9d0")?.detach();
+    meta.data_mut().default_target.as_mut().expect("target setup").sha = repo.rev_parse_single("fafd9d0")?.detach();
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -751,8 +743,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
 
 #[test]
 fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Result<()> {
-    let (mut repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-first-rebased-and-merged")?;
+    let (mut repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-first-rebased-and-merged")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 0b6b861 (origin/main, origin/A) A
     | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -1020,8 +1011,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-branches-one-advanced-one-parent-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-one-parent-ws-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   7f3248e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -1031,10 +1021,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main, lane) init
     ");
 
-    for (idx, name) in ["lane", "advanced-lane-2", "advanced-lane"]
-        .into_iter()
-        .enumerate()
-    {
+    for (idx, name) in ["lane", "advanced-lane-2", "advanced-lane"].into_iter().enumerate() {
         add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
     }
 
@@ -1153,8 +1140,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("multiple-dependent-branches-per-stack-without-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("multiple-dependent-branches-per-stack-without-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * cbc6713 (HEAD -> gitbutler/workspace, lane) change
     * fafd9d0 (origin/main, main, lane-segment-02, lane-segment-01, lane-2-segment-02, lane-2-segment-01, lane-2) init
@@ -1463,8 +1449,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
 
 #[test]
 fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -1569,9 +1554,8 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed",
-    )?;
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -1662,13 +1646,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
     * fafd9d0 (origin/main, main, lane) init
     ");
 
-    add_stack_with_segments(
-        &mut meta,
-        0,
-        "dependent",
-        StackState::InWorkspace,
-        &["advanced-lane"],
-    );
+    add_stack_with_segments(&mut meta, 0, "dependent", StackState::InWorkspace, &["advanced-lane"]);
 
     let opts = standard_options();
     let info = head_info(&repo, &meta, opts.clone())?;
@@ -1749,13 +1727,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
     "#);
 
     // Put it below - this is fine, new commits will the placed onto `base`.
-    add_stack_with_segments(
-        &mut meta,
-        0,
-        "advanced-lane",
-        StackState::InWorkspace,
-        &["dependent"],
-    );
+    add_stack_with_segments(&mut meta, 0, "advanced-lane", StackState::InWorkspace, &["dependent"]);
 
     // Even though we *could* special-case this to keep the commit in the branch that has a remote,
     // we just keep it below at all times. The frontend currently only creates them on top, for good reason.
@@ -1840,9 +1812,8 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> 
 
 #[test]
 fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
-    )?;
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
@@ -2047,8 +2018,7 @@ fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
 
 #[test]
 fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-with-one-commit-with-remotes")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-with-one-commit-with-remotes")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 9b3cfd4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 788ad06 (origin/on-top-of-lane, on-top-of-lane) change on top
@@ -2056,13 +2026,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    add_stack_with_segments(
-        &mut meta,
-        0,
-        "on-top-of-lane",
-        StackState::InWorkspace,
-        &["lane"],
-    );
+    add_stack_with_segments(&mut meta, 0, "on-top-of-lane", StackState::InWorkspace, &["lane"]);
 
     let opts = standard_options();
     let info = head_info(&repo, &meta, opts)?;
@@ -2148,8 +2112,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
 
 #[test]
 fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-with-interesting-remote-setup")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-with-interesting-remote-setup")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * a221221 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * aadad9d (A) shared by name
@@ -2251,8 +2214,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * cbc6713 (HEAD -> gitbutler/workspace, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
@@ -2442,11 +2404,8 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
 }
 
 #[test]
-fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branch()
--> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
-    )?;
+fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branch() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit-diverged-ttb")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   873d056 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -3702,22 +3661,15 @@ pub(crate) mod utils {
 
     pub fn read_only_in_memory_scenario(
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
         named_read_only_in_memory_scenario("with-remotes-and-workspace", name)
     }
 
     pub fn named_read_only_in_memory_scenario(
         script: &str,
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
-        let (repo, mut meta) =
-            crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)?;
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
+        let (repo, mut meta) = crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)?;
         let vb = meta.data_mut();
         vb.default_target = Some(Target {
             // For simplicity, we stick to the defaults.
@@ -3737,12 +3689,7 @@ pub(crate) mod utils {
 
     pub fn named_writable_scenario_with_description(
         name: &str,
-    ) -> anyhow::Result<(
-        TempDir,
-        gix::Repository,
-        VirtualBranchesTomlMetadata,
-        String,
-    )> {
+    ) -> anyhow::Result<(TempDir, gix::Repository, VirtualBranchesTomlMetadata, String)> {
         named_writable_scenario_with_args_and_description(name, None::<String>)
     }
 
@@ -3762,14 +3709,8 @@ pub(crate) mod utils {
     pub fn named_writable_scenario_with_args_and_description(
         name: &str,
         args: impl IntoIterator<Item = impl Into<String>>,
-    ) -> anyhow::Result<(
-        TempDir,
-        gix::Repository,
-        VirtualBranchesTomlMetadata,
-        String,
-    )> {
-        let (tmp, repo, mut meta) =
-            crate::ref_info::utils::named_writable_scenario_with_args(name, args)?;
+    ) -> anyhow::Result<(TempDir, gix::Repository, VirtualBranchesTomlMetadata, String)> {
+        let (tmp, repo, mut meta) = crate::ref_info::utils::named_writable_scenario_with_args(name, args)?;
         let vb = meta.data_mut();
         vb.default_target = Some(Target {
             // For simplicity, we stick to the defaults.
@@ -3800,8 +3741,7 @@ pub(crate) mod utils {
         VirtualBranchesTomlMetadata,
         String,
     )> {
-        let (tmp, repo, mut meta, desc) =
-            named_writable_scenario_with_args_and_description(name, args)?;
+        let (tmp, repo, mut meta, desc) = named_writable_scenario_with_args_and_description(name, args)?;
 
         init_meta(&mut meta);
         let graph = but_graph::Graph::from_head(
@@ -3870,9 +3810,7 @@ pub(crate) mod utils {
             segments
                 .iter()
                 .rev()
-                .map(|stack_name| {
-                    StackBranch::new_with_zero_head((*stack_name).into(), None, None, false)
-                })
+                .map(|stack_name| StackBranch::new_with_zero_head((*stack_name).into(), None, None, false))
                 .chain(std::iter::once(StackBranch::new_with_zero_head(
                     stack_name.into(),
                     None,

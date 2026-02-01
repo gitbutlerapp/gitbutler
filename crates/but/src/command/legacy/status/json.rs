@@ -346,9 +346,7 @@ impl Commit {
                 commit
                     .tree_changes_using_repo(repo)?
                     .into_iter()
-                    .map(|tree_change| {
-                        FileChange::from_tree_change(tree_change.short_id, tree_change.inner.into())
-                    })
+                    .map(|tree_change| FileChange::from_tree_change(tree_change.short_id, tree_change.inner.into()))
                     .collect(),
             )
         } else {
@@ -370,11 +368,7 @@ impl Commit {
             changes,
         })
     }
-    pub fn from_remote_commit(
-        cli_id: String,
-        commit: RemoteCommitWithId,
-        changes: Option<Vec<FileChange>>,
-    ) -> Self {
+    pub fn from_remote_commit(cli_id: String, commit: RemoteCommitWithId, changes: Option<Vec<FileChange>>) -> Self {
         let commit = &commit.inner;
         Commit {
             cli_id,
@@ -390,10 +384,7 @@ impl Commit {
     }
     /// A commit not obtained from a stack. `IdMap` does not know
     /// about this commit, so it will not have a CLI ID.
-    pub fn from_upstream_commit(
-        commit: but_workspace::ui::UpstreamCommit,
-        changes: Option<Vec<FileChange>>,
-    ) -> Self {
+    pub fn from_upstream_commit(commit: but_workspace::ui::UpstreamCommit, changes: Option<Vec<FileChange>>) -> Self {
         Commit {
             cli_id: String::new(),
             commit_id: commit.id.to_string(),
@@ -413,9 +404,7 @@ impl From<but_workspace::ui::PushStatus> for BranchStatus {
         match status {
             but_workspace::ui::PushStatus::NothingToPush => BranchStatus::NothingToPush,
             but_workspace::ui::PushStatus::UnpushedCommits => BranchStatus::UnpushedCommits,
-            but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => {
-                BranchStatus::UnpushedCommitsRequiringForce
-            }
+            but_workspace::ui::PushStatus::UnpushedCommitsRequiringForce => BranchStatus::UnpushedCommitsRequiringForce,
             but_workspace::ui::PushStatus::CompletelyUnpushed => BranchStatus::CompletelyUnpushed,
             but_workspace::ui::PushStatus::Integrated => BranchStatus::Integrated,
         }
@@ -472,10 +461,7 @@ fn convert_branch_to_json(
     show_files: bool,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
-    branch_merge_statuses: &BTreeMap<
-        String,
-        gitbutler_branch_actions::upstream_integration::BranchStatus,
-    >,
+    branch_merge_statuses: &BTreeMap<String, gitbutler_branch_actions::upstream_integration::BranchStatus>,
 ) -> anyhow::Result<Branch> {
     let cli_id = segment.short_id.clone();
 
@@ -495,35 +481,17 @@ fn convert_branch_to_json(
         .and_then(|name| ci_map.get(&name.to_string()).cloned());
 
     let merge_status = segment.branch_name().and_then(|name| {
-        branch_merge_statuses
-            .get(&name.to_string())
-            .map(|status| match status {
-                gitbutler_branch_actions::upstream_integration::BranchStatus::SaflyUpdatable => {
-                    MergeStatus::Clean
-                }
-                gitbutler_branch_actions::upstream_integration::BranchStatus::Integrated => {
-                    MergeStatus::Integrated
-                }
-                gitbutler_branch_actions::upstream_integration::BranchStatus::Conflicted {
-                    rebasable,
-                } => MergeStatus::Conflicted {
-                    rebasable: *rebasable,
-                },
-                gitbutler_branch_actions::upstream_integration::BranchStatus::Empty => {
-                    MergeStatus::Empty
-                }
-            })
+        branch_merge_statuses.get(&name.to_string()).map(|status| match status {
+            gitbutler_branch_actions::upstream_integration::BranchStatus::SaflyUpdatable => MergeStatus::Clean,
+            gitbutler_branch_actions::upstream_integration::BranchStatus::Integrated => MergeStatus::Integrated,
+            gitbutler_branch_actions::upstream_integration::BranchStatus::Conflicted { rebasable } => {
+                MergeStatus::Conflicted { rebasable: *rebasable }
+            }
+            gitbutler_branch_actions::upstream_integration::BranchStatus::Empty => MergeStatus::Empty,
+        })
     });
 
-    Branch::from_branch_details(
-        repo,
-        cli_id,
-        segment.clone(),
-        review_id,
-        show_files,
-        ci,
-        merge_status,
-    )
+    Branch::from_branch_details(repo, cli_id, segment.clone(), review_id, show_files, ci, merge_status)
 }
 
 /// Build the complete WorkspaceStatus JSON structure
@@ -536,10 +504,7 @@ pub(super) fn build_workspace_status_json(
     last_fetched_ms: Option<u128>,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     ci_map: &BTreeMap<String, Vec<but_forge::CiCheck>>,
-    branch_merge_statuses: &BTreeMap<
-        String,
-        gitbutler_branch_actions::upstream_integration::BranchStatus,
-    >,
+    branch_merge_statuses: &BTreeMap<String, gitbutler_branch_actions::upstream_integration::BranchStatus>,
     show_files: bool,
     repo: &gix::Repository,
     id_map: &crate::IdMap,
@@ -564,14 +529,7 @@ pub(super) fn build_workspace_status_json(
                 .segments
                 .iter()
                 .map(|segment| {
-                    convert_branch_to_json(
-                        repo,
-                        segment,
-                        show_files,
-                        review_map,
-                        ci_map,
-                        branch_merge_statuses,
-                    )
+                    convert_branch_to_json(repo, segment, show_files, review_map, ci_map, branch_merge_statuses)
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
 

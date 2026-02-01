@@ -46,8 +46,7 @@ pub fn freestyle(
     let serialized_status = serde_json::to_string_pretty(&project_status)
         .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
-    let mut toolset =
-        but_tools::workspace::workspace_toolset(ctx, emitter.clone(), message_id.clone());
+    let mut toolset = but_tools::workspace::workspace_toolset(ctx, emitter.clone(), message_id.clone());
 
     let system_message ="
     You are a GitButler agent that can perform various actions on a Git project.
@@ -105,12 +104,8 @@ pub fn freestyle(
 
     // Now we trigger the tool calling loop.
 
-    let (response, _) = llm.tool_calling_loop_stream(
-        system_message,
-        internal_chat_messages,
-        &mut toolset,
-        &model,
-        {
+    let (response, _) =
+        llm.tool_calling_loop_stream(system_message, internal_chat_messages, &mut toolset, &model, {
             let emitter = emitter.clone();
             move |token: &str| {
                 let token_update = TokenUpdate {
@@ -121,8 +116,7 @@ pub fn freestyle(
                 let (name, payload) = token_update.emittable();
                 (emitter)(&name, payload);
             }
-        },
-    )?;
+        })?;
 
     Ok(response)
 }
@@ -156,20 +150,13 @@ pub fn handle_changes(
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<(Uuid, Outcome)> {
     match handler {
-        ActionHandler::HandleChangesSimple => simple::handle_changes(
-            ctx,
-            change_summary,
-            external_prompt,
-            source,
-            exclusive_stack,
-        ),
+        ActionHandler::HandleChangesSimple => {
+            simple::handle_changes(ctx, change_summary, external_prompt, source, exclusive_stack)
+        }
     }
 }
 
-fn default_target_setting_if_none(
-    ctx: &Context,
-    vb_state: &VirtualBranchesHandle,
-) -> anyhow::Result<Target> {
+fn default_target_setting_if_none(ctx: &Context, vb_state: &VirtualBranchesHandle) -> anyhow::Result<Target> {
     if let Ok(default_target) = vb_state.get_default_target() {
         return Ok(default_target);
     }
@@ -187,8 +174,7 @@ fn default_target_setting_if_none(
 
     let head_commit = head_ref.peel_to_commit()?;
 
-    let remote_refname =
-        gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
+    let remote_refname = gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
 
     let target = Target {
         branch: remote_refname,
@@ -203,19 +189,11 @@ fn default_target_setting_if_none(
 
 fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
     let meta = ctx.legacy_meta()?;
-    but_workspace::legacy::stacks_v3(
-        repo,
-        &meta,
-        but_workspace::legacy::StacksFilter::InWorkspace,
-        None,
-    )
+    but_workspace::legacy::stacks_v3(repo, &meta, but_workspace::legacy::StacksFilter::InWorkspace, None)
 }
 
 /// Returns the currently applied stacks, creating one if none exists.
-fn stacks_creating_if_none(
-    ctx: &Context,
-    perm: &mut RepoExclusive,
-) -> anyhow::Result<Vec<StackEntry>> {
+fn stacks_creating_if_none(ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<Vec<StackEntry>> {
     let repo = &*ctx.repo.get()?;
     let stacks = stacks(ctx, repo)?;
     if stacks.is_empty() {

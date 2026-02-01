@@ -135,9 +135,7 @@ impl Table {
             if !flexible_indices.is_empty() {
                 let fixed_width: usize = self.headers.iter().filter_map(|h| h.width).sum();
 
-                let available_for_flexible = self
-                    .terminal_width
-                    .saturating_sub(fixed_width + separator_width);
+                let available_for_flexible = self.terminal_width.saturating_sub(fixed_width + separator_width);
                 let per_flexible = available_for_flexible / flexible_indices.len();
 
                 for &idx in &flexible_indices {

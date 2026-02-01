@@ -13,8 +13,8 @@ use petgraph::{
 };
 
 use crate::{
-    Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentFlags, SegmentIndex,
-    init::PetGraph, projection::commit::is_managed_workspace_by_message,
+    Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentFlags, SegmentIndex, init::PetGraph,
+    projection::commit::is_managed_workspace_by_message,
 };
 
 /// Mutation
@@ -60,14 +60,7 @@ impl Graph {
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
         self.inner[dst].id = dst;
-        self.connect_segments_with_ids(
-            src,
-            src_commit,
-            None,
-            dst,
-            dst_commit,
-            dst_commit_id.into(),
-        );
+        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, dst_commit_id.into());
         dst
     }
 }
@@ -124,36 +117,29 @@ impl Graph {
         let mut out = Vec::new();
 
         // Continue while there are non-stale segments in the queue
-        while queue.iter().any(|(_, sidx)| {
-            !flags
-                .get(sidx)
-                .is_some_and(|f| f.contains(SegmentFlags::STALE))
-        }) {
+        while queue
+            .iter()
+            .any(|(_, sidx)| !flags.get(sidx).is_some_and(|f| f.contains(SegmentFlags::STALE)))
+        {
             let Some((Reverse(generation), segment_id)) = queue.pop() else {
                 break;
             };
 
             let segment_flags = *flags.get(&segment_id).unwrap_or(&SegmentFlags::empty());
-            let mut flags_without_result = segment_flags
-                & (SegmentFlags::SEGMENT1 | SegmentFlags::SEGMENT2 | SegmentFlags::STALE);
+            let mut flags_without_result =
+                segment_flags & (SegmentFlags::SEGMENT1 | SegmentFlags::SEGMENT2 | SegmentFlags::STALE);
 
             // If reachable from both sides, it's a merge-base candidate
             if flags_without_result == (SegmentFlags::SEGMENT1 | SegmentFlags::SEGMENT2) {
                 if !segment_flags.contains(SegmentFlags::RESULT) {
-                    flags
-                        .entry(segment_id)
-                        .or_default()
-                        .insert(SegmentFlags::RESULT);
+                    flags.entry(segment_id).or_default().insert(SegmentFlags::RESULT);
                     out.push((segment_id, generation));
                 }
                 flags_without_result |= SegmentFlags::STALE;
             }
 
             // Propagate flags to parents (outgoing direction = towards history)
-            for parent_id in self
-                .inner
-                .neighbors_directed(segment_id, Direction::Outgoing)
-            {
+            for parent_id in self.inner.neighbors_directed(segment_id, Direction::Outgoing) {
                 let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
                 if (*parent_flags & flags_without_result) != flags_without_result {
                     *parent_flags |= flags_without_result;
@@ -223,10 +209,7 @@ impl Graph {
             }
 
             stack.clear();
-            flags
-                .entry(segment_id)
-                .or_default()
-                .insert(SegmentFlags::STALE);
+            flags.entry(segment_id).or_default().insert(SegmentFlags::STALE);
             stack.push((segment_id, segment_gen));
 
             while let Some((current_id, current_gen)) = stack.last().copied() {
@@ -263,10 +246,7 @@ impl Graph {
 
                 let previous_len = stack.len();
 
-                for parent_id in self
-                    .inner
-                    .neighbors_directed(current_id, Direction::Outgoing)
-                {
+                for parent_id in self.inner.neighbors_directed(current_id, Direction::Outgoing) {
                     let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
                     if !parent_flags.contains(SegmentFlags::STALE) {
                         parent_flags.insert(SegmentFlags::STALE);
@@ -306,20 +286,14 @@ impl Graph {
     /// ### Performance
     ///
     /// This is a brute-force search through all nodes and all data in the graph - beware of hot-loop usage.
-    pub fn segment_and_commit_by_ref_name(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> Option<(&Segment, &Commit)> {
+    pub fn segment_and_commit_by_ref_name(&self, name: &gix::refs::FullNameRef) -> Option<(&Segment, &Commit)> {
         self.inner.node_weights().find_map(|s| {
             if s.ref_name().is_some_and(|rn| rn == name) {
                 self.tip_skip_empty(s.id).map(|c| (s, c))
             } else {
-                s.commits.iter().find_map(|c| {
-                    c.refs
-                        .iter()
-                        .any(|ri| ri.ref_name.as_ref() == name)
-                        .then_some((s, c))
-                })
+                s.commits
+                    .iter()
+                    .find_map(|c| c.refs.iter().any(|ri| ri.ref_name.as_ref() == name).then_some((s, c)))
             }
         })
     }
@@ -371,10 +345,7 @@ impl Graph {
     /// The entry-point commit is obtained via [`Self::entrypoint_commit()`].
     /// Note that managed workspace commits are owned by GitButler.
     /// The `repo` is used to look up the entrypoint commit and to obtain its message.
-    pub fn managed_entrypoint_commit(
-        &self,
-        repo: &gix::Repository,
-    ) -> anyhow::Result<Option<&Commit>> {
+    pub fn managed_entrypoint_commit(&self, repo: &gix::Repository) -> anyhow::Result<Option<&Commit>> {
         let Some(ec) = self.entrypoint_commit() else {
             return Ok(None);
         };
@@ -402,10 +373,7 @@ impl Graph {
                 break;
             }
             if seen.insert(next.id) {
-                edge = self
-                    .inner
-                    .edges_directed(next.id, Direction::Outgoing)
-                    .last();
+                edge = self.inner.edges_directed(next.id, Direction::Outgoing).last();
             }
         }
     }
@@ -436,12 +404,11 @@ impl Graph {
     ///
     /// Note that this method only fails if the entrypoint wasn't set correctly due to a bug.
     pub fn lookup_entrypoint(&self) -> anyhow::Result<EntryPoint<'_>> {
-        let (segment_index, commit_index) = self
-            .entrypoint
-            .context("BUG: must always set the entrypoint")?;
-        let segment = &self.inner.node_weight(segment_index).with_context(|| {
-            format!("BUG: entrypoint segment at {segment_index:?} wasn't present")
-        })?;
+        let (segment_index, commit_index) = self.entrypoint.context("BUG: must always set the entrypoint")?;
+        let segment = &self
+            .inner
+            .node_weight(segment_index)
+            .with_context(|| format!("BUG: entrypoint segment at {segment_index:?} wasn't present"))?;
         Ok(EntryPoint {
             segment_index,
             commit_index,
@@ -474,18 +441,11 @@ impl Graph {
     /// isn't fully defined as traversal stopped due to some abort condition.
     /// Valid partial segments always have at least one commit.
     fn is_partial_segment(&self, sidx: SegmentIndex) -> bool {
-        let has_outgoing = self
-            .inner
-            .edges_directed(sidx, Direction::Outgoing)
-            .next()
-            .is_some();
+        let has_outgoing = self.inner.edges_directed(sidx, Direction::Outgoing).next().is_some();
         if has_outgoing {
             return false;
         }
-        self[sidx]
-            .commits
-            .last()
-            .is_none_or(|c| !c.parent_ids.is_empty())
+        self[sidx].commits.last().is_none_or(|c| !c.parent_ids.is_empty())
     }
 
     /// Return all segments that sit on top of the `sidx` segment as `(source_commit_index(of sidx), destination_segment_index)`,
@@ -526,18 +486,10 @@ impl Graph {
     /// Return `true` if commit `sidx` is 'cut off', i.e. the traversal finished at
     /// its last commit due to an abort condition.
     pub fn is_early_end_of_traversal(&self, sidx: SegmentIndex) -> bool {
-        if self
-            .inner
-            .edges_directed(sidx, Direction::Outgoing)
-            .next()
-            .is_some()
-        {
+        if self.inner.edges_directed(sidx, Direction::Outgoing).next().is_some() {
             return false;
         }
-        self[sidx]
-            .commits
-            .last()
-            .is_some_and(|c| !c.parent_ids.is_empty())
+        self[sidx].commits.last().is_some_and(|c| !c.parent_ids.is_empty())
     }
 
     /// Return the number of segments stored within the graph.
@@ -552,10 +504,7 @@ impl Graph {
 
     /// Return the number of commits in all segments.
     pub fn num_commits(&self) -> usize {
-        self.inner
-            .node_indices()
-            .map(|n| self[n].commits.len())
-            .sum::<usize>()
+        self.inner.node_indices().map(|n| self[n].commits.len()).sum::<usize>()
     }
 
     /// Return an iterator over all indices of segments in the graph.
@@ -642,11 +591,7 @@ impl Graph {
     }
 
     /// Fail with an error if the `edge` isn't consistent.
-    pub(crate) fn check_edge(
-        graph: &PetGraph,
-        edge: EdgeReference<'_, Edge>,
-        weight_only: bool,
-    ) -> anyhow::Result<()> {
+    pub(crate) fn check_edge(graph: &PetGraph, edge: EdgeReference<'_, Edge>, weight_only: bool) -> anyhow::Result<()> {
         let e = edge;
         let src = &graph[e.source()];
         let dst = &graph[e.target()];
@@ -669,15 +614,11 @@ impl Graph {
 
         let seg_cidx = src.commit_id_by_index(w.src);
         if w.src_id != seg_cidx {
-            bail!(
-                "{display:?}: the desired source index didn't match the one in the segment {seg_cidx:?}"
-            );
+            bail!("{display:?}: the desired source index didn't match the one in the segment {seg_cidx:?}");
         }
         let seg_cidx = dst.commit_id_by_index(w.dst);
         if w.dst_id != seg_cidx {
-            bail!(
-                "{display:?}: the desired destination index didn't match the one in the segment {seg_cidx:?}"
-            );
+            bail!("{display:?}: the desired destination index didn't match the one in the segment {seg_cidx:?}");
         }
         Ok(())
     }

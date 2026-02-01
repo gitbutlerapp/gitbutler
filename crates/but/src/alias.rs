@@ -24,11 +24,7 @@ use std::ffi::OsString;
 use anyhow::Result;
 
 /// Default aliases that ship with `but` and can be overridden by git config.
-const DEFAULT_ALIASES: &[(&str, &str)] = &[
-    ("default", "status"),
-    ("st", "status"),
-    ("stf", "status --files"),
-];
+const DEFAULT_ALIASES: &[(&str, &str)] = &[("default", "status"), ("st", "status"), ("stf", "status --files")];
 
 /// Expands command aliases before argument parsing.
 ///
@@ -99,9 +95,9 @@ pub fn is_known_subcommand(cmd: &str) -> bool {
     use clap::CommandFactory;
 
     let command = crate::args::Args::command();
-    command.get_subcommands().any(|subcmd| {
-        subcmd.get_name() == cmd || subcmd.get_all_aliases().any(|alias| alias == cmd)
-    })
+    command
+        .get_subcommands()
+        .any(|subcmd| subcmd.get_name() == cmd || subcmd.get_all_aliases().any(|alias| alias == cmd))
 }
 
 /// Gets all default aliases as a vector of (name, value) tuples.

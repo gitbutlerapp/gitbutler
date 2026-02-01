@@ -11,8 +11,8 @@ use rmcp::{
     handler::server::{tool::ToolRouter, wrapper::Parameters},
     model::{
         CallToolResult, GetPromptRequestParam, GetPromptResult, Implementation, ListPromptsResult,
-        PaginatedRequestParam, Prompt, PromptMessage, PromptMessageContent, PromptMessageRole,
-        ProtocolVersion, ServerCapabilities, ServerInfo,
+        PaginatedRequestParam, Prompt, PromptMessage, PromptMessageContent, PromptMessageRole, ProtocolVersion,
+        ServerCapabilities, ServerInfo,
     },
     schemars,
     service::RequestContext,
@@ -35,9 +35,7 @@ pub(crate) async fn start(app_settings: AppSettings) -> Result<()> {
 
     let client_info = Arc::new(Mutex::new(None));
     let transport = (tokio::io::stdin(), tokio::io::stdout());
-    let service = Mcp::new(app_settings, client_info.clone())
-        .serve(transport)
-        .await?;
+    let service = Mcp::new(app_settings, client_info.clone()).serve(transport).await?;
     let info = service.peer_info();
     if let Ok(mut guard) = client_info.lock() {
         *guard = info.map(|i| i.client_info.clone());
@@ -66,10 +64,7 @@ impl Mcp {
 
     #[tool(description = "Get the status of a project.
         This contains information about the branches applied, uncommitted file changes and any uncommitted changes assigned to the branches .")]
-    pub fn project_status(
-        &self,
-        params: Parameters<ProjectStatusParams>,
-    ) -> Result<CallToolResult, rmcp::ErrorData> {
+    pub fn project_status(&self, params: Parameters<ProjectStatusParams>) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
@@ -78,8 +73,7 @@ impl Mcp {
 
         let start_time = std::time::Instant::now();
         let project_path = std::path::PathBuf::from(&params.0.current_working_directory);
-        let status = project_status(&project_path)
-            .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
+        let status = project_status(&project_path).map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let mut event: metrics::Event = metrics::EventKind::McpInternal.into();
         event.insert_prop("endpoint", "project_status");
@@ -88,17 +82,12 @@ impl Mcp {
         event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
         self.metrics.capture(event);
 
-        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
-            status,
-        )?]))
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(status)?]))
     }
 
     #[tool(description = "Commit changes to the repository.
         Applies the given diff spec and creates a commit with the provided message.")]
-    pub fn commit(
-        &self,
-        params: Parameters<CommitParams>,
-    ) -> Result<CallToolResult, rmcp::ErrorData> {
+    pub fn commit(&self, params: Parameters<CommitParams>) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
@@ -124,17 +113,12 @@ impl Mcp {
         event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
         self.metrics.capture(event);
 
-        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
-            outcome,
-        )?]))
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(outcome)?]))
     }
 
     #[tool(description = "Amend an existing commit in the repository.
         Updates the commit message and file changes for the specified commit.")]
-    pub fn amend(
-        &self,
-        params: Parameters<AmendParams>,
-    ) -> Result<CallToolResult, rmcp::ErrorData> {
+    pub fn amend(&self, params: Parameters<AmendParams>) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
@@ -160,16 +144,11 @@ impl Mcp {
         event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
         self.metrics.capture(event);
 
-        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
-            outcome,
-        )?]))
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(outcome)?]))
     }
 
     #[tool(description = "Get details for a specific branch in the repository.")]
-    pub fn branch_details(
-        &self,
-        params: Parameters<BranchDetailsParams>,
-    ) -> Result<CallToolResult, rmcp::ErrorData> {
+    pub fn branch_details(&self, params: Parameters<BranchDetailsParams>) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
@@ -189,17 +168,12 @@ impl Mcp {
         event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
         self.metrics.capture(event);
 
-        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
-            details,
-        )?]))
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(details)?]))
     }
 
     #[tool(description = "Create a new branch in the repository.
         This will create a new stack containing only a branch with the given name and description.")]
-    pub fn create_branch(
-        &self,
-        params: Parameters<CreateBranchParams>,
-    ) -> Result<CallToolResult, rmcp::ErrorData> {
+    pub fn create_branch(&self, params: Parameters<CreateBranchParams>) -> Result<CallToolResult, rmcp::ErrorData> {
         let client_info = self
             .client_info
             .lock()
@@ -219,18 +193,14 @@ impl Mcp {
         event.insert_prop("clientVersion", client_info.clone().map(|i| i.version));
         self.metrics.capture(event);
 
-        Ok(CallToolResult::success(vec![rmcp::model::Content::json(
-            stack_entry,
-        )?]))
+        Ok(CallToolResult::success(vec![rmcp::model::Content::json(stack_entry)?]))
     }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectStatusParams {
-    #[schemars(
-        description = "The full root path of the Git project the agent is actively working in"
-    )]
+    #[schemars(description = "The full root path of the Git project the agent is actively working in")]
     pub current_working_directory: String,
 }
 

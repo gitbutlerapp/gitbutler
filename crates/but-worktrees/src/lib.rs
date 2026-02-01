@@ -35,9 +35,7 @@ impl WorktreeId {
     ///
     /// Takes the basename of the path as the worktree name.
     pub fn from_path(path: &Path) -> Result<Self> {
-        let basename = path
-            .file_name()
-            .context("Invalid worktree path - no filename")?;
+        let basename = path.file_name().context("Invalid worktree path - no filename")?;
 
         Ok(Self(gix::path::os_str_into_bstr(basename)?.to_owned()))
     }

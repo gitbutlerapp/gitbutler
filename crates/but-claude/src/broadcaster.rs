@@ -82,11 +82,7 @@ impl Broadcaster {
         }
     }
 
-    pub fn register_sender(
-        &mut self,
-        id: &uuid::Uuid,
-        sender: tokio::sync::mpsc::UnboundedSender<FrontendEvent>,
-    ) {
+    pub fn register_sender(&mut self, id: &uuid::Uuid, sender: tokio::sync::mpsc::UnboundedSender<FrontendEvent>) {
         self.senders.insert(*id, sender);
     }
 

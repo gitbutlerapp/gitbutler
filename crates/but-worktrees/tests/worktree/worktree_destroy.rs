@@ -22,8 +22,7 @@ fn can_destroy_worktree_by_id() -> anyhow::Result<()> {
     assert_eq!(list_before.entries[0].path, outcome.created.path);
 
     // Destroy it
-    let destroy_outcome =
-        worktree_destroy_by_id(&mut ctx, guard.write_permission(), &outcome.created.id)?;
+    let destroy_outcome = worktree_destroy_by_id(&mut ctx, guard.write_permission(), &outcome.created.id)?;
 
     assert_eq!(destroy_outcome.destroyed_ids.len(), 1);
     assert_eq!(destroy_outcome.destroyed_ids[0], outcome.created.id);
@@ -57,8 +56,7 @@ fn can_destroy_worktrees_by_reference() -> anyhow::Result<()> {
     assert_eq!(list_before.entries.len(), 5);
 
     // Destroy all feature-a worktrees
-    let destroy_outcome =
-        worktree_destroy_by_reference(&mut ctx, guard.write_permission(), feature_a_name.as_ref())?;
+    let destroy_outcome = worktree_destroy_by_reference(&mut ctx, guard.write_permission(), feature_a_name.as_ref())?;
 
     assert_eq!(destroy_outcome.destroyed_ids.len(), 3);
 
@@ -89,8 +87,7 @@ fn destroy_by_reference_returns_empty_when_no_matches() -> anyhow::Result<()> {
     worktree_new(&mut ctx, guard.read_permission(), feature_a_name.as_ref())?;
 
     // Try to destroy worktrees from feature-b (which don't exist)
-    let destroy_outcome =
-        worktree_destroy_by_reference(&mut ctx, guard.write_permission(), feature_b_name.as_ref())?;
+    let destroy_outcome = worktree_destroy_by_reference(&mut ctx, guard.write_permission(), feature_b_name.as_ref())?;
 
     assert_eq!(destroy_outcome.destroyed_ids.len(), 0);
 

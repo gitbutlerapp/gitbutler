@@ -14,10 +14,7 @@ pub(crate) struct Controller {
 
 impl Controller {
     /// Assure we can list projects, and if not possibly existing projects files will be renamed, and an error is produced early.
-    pub(crate) fn assure_app_can_startup_or_fix_it(
-        &self,
-        projects: Result<Vec<Project>>,
-    ) -> Result<Vec<Project>> {
+    pub(crate) fn assure_app_can_startup_or_fix_it(&self, projects: Result<Vec<Project>>) -> Result<Vec<Project>> {
         match projects {
             Ok(works) => Ok(works),
             Err(probably_file_load_err) => {
@@ -60,10 +57,7 @@ impl Controller {
         }
     }
 
-    pub(crate) fn add_with_best_effort<P: AsRef<Path>>(
-        &self,
-        worktree_dir: P,
-    ) -> Result<AddProjectOutcome> {
+    pub(crate) fn add_with_best_effort<P: AsRef<Path>>(&self, worktree_dir: P) -> Result<AddProjectOutcome> {
         let worktree_dir = worktree_dir.as_ref();
 
         let all_projects = self
@@ -76,9 +70,7 @@ impl Controller {
             .iter()
             .find(|project| worktree_dir.starts_with(project.worktree_dir_but_should_use_git_dir()))
         {
-            return Ok(AddProjectOutcome::AlreadyExists(
-                existing_project.to_owned(),
-            ));
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project.to_owned()));
         }
 
         self.add(worktree_dir)
@@ -94,9 +86,7 @@ impl Controller {
             .iter()
             .find(|project| project.worktree_dir_but_should_use_git_dir() == worktree_dir)
         {
-            return Ok(AddProjectOutcome::AlreadyExists(
-                existing_project.to_owned(),
-            ));
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project.to_owned()));
         }
         if !worktree_dir.exists() {
             return Ok(AddProjectOutcome::PathNotFound);
@@ -145,10 +135,9 @@ impl Controller {
             worktree_dir
         };
 
-        let title = path_for_title.file_name().map_or_else(
-            || id.to_string(),
-            |name| name.to_string_lossy().into_owned(),
-        );
+        let title = path_for_title
+            .file_name()
+            .map_or_else(|| id.to_string(), |name| name.to_string_lossy().into_owned());
 
         let project = Project {
             title,
@@ -174,25 +163,16 @@ impl Controller {
     #[cfg_attr(not(windows), allow(unused_mut))]
     pub(crate) fn update(&self, mut project: UpdateRequest) -> Result<Project> {
         #[cfg(not(windows))]
-        if let Some(AuthKey::Local {
-            private_key_path, ..
-        }) = &project.preferred_key
-        {
+        if let Some(AuthKey::Local { private_key_path, .. }) = &project.preferred_key {
             use resolve_path::PathResolveExt;
             let private_key_path = private_key_path.resolve();
 
             if !private_key_path.exists() {
-                bail!(
-                    "private key at \"{}\" not found",
-                    private_key_path.display()
-                );
+                bail!("private key at \"{}\" not found", private_key_path.display());
             }
 
             if !private_key_path.is_file() {
-                bail!(
-                    "private key at \"{}\" is not a file",
-                    private_key_path.display()
-                );
+                bail!("private key at \"{}\" is not a file", private_key_path.display());
             }
         }
 

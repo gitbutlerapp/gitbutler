@@ -39,22 +39,10 @@ pub trait SnapshotExt {
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
 
-    fn snapshot_stash_into_branch(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
+    fn snapshot_stash_into_branch(&self, branch_name: String, perm: &mut RepoExclusive) -> anyhow::Result<()>;
 
-    fn snapshot_branch_creation(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
-    fn snapshot_branch_deletion(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
+    fn snapshot_branch_creation(&self, branch_name: String, perm: &mut RepoExclusive) -> anyhow::Result<()>;
+    fn snapshot_branch_deletion(&self, branch_name: String, perm: &mut RepoExclusive) -> anyhow::Result<()>;
     fn snapshot_branch_update(
         &self,
         snapshot_tree: git2::Oid,
@@ -63,16 +51,8 @@ pub trait SnapshotExt {
         error: Option<&anyhow::Error>,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()>;
-    fn snapshot_create_dependent_branch(
-        &self,
-        branch_name: &str,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
-    fn snapshot_remove_dependent_branch(
-        &self,
-        branch_name: &str,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()>;
+    fn snapshot_create_dependent_branch(&self, branch_name: &str, perm: &mut RepoExclusive) -> anyhow::Result<()>;
+    fn snapshot_remove_dependent_branch(&self, branch_name: &str, perm: &mut RepoExclusive) -> anyhow::Result<()>;
     fn snapshot_update_dependent_branch_name(
         &self,
         new_branch_name: &str,
@@ -102,8 +82,8 @@ impl SnapshotExt for but_ctx::Context {
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
         let result = result.map(|_| Some(commit_sha.to_string()));
-        let details = SnapshotDetails::new(OperationKind::UndoCommit)
-            .with_trailers(result_trailer(result, "sha".to_string()));
+        let details =
+            SnapshotDetails::new(OperationKind::UndoCommit).with_trailers(result_trailer(result, "sha".to_string()));
         self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
@@ -135,43 +115,28 @@ impl SnapshotExt for but_ctx::Context {
         Ok(())
     }
 
-    fn snapshot_stash_into_branch(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::StashIntoBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name,
-            }]);
+    fn snapshot_stash_into_branch(&self, branch_name: String, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+        let details = SnapshotDetails::new(OperationKind::StashIntoBranch).with_trailers(vec![Trailer {
+            key: "name".to_string(),
+            value: branch_name,
+        }]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
 
-    fn snapshot_branch_creation(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name,
-            }]);
+    fn snapshot_branch_creation(&self, branch_name: String, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+        let details = SnapshotDetails::new(OperationKind::CreateBranch).with_trailers(vec![Trailer {
+            key: "name".to_string(),
+            value: branch_name,
+        }]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
-    fn snapshot_branch_deletion(
-        &self,
-        branch_name: String,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
-                key: "name".to_string(),
-                value: branch_name.to_string(),
-            }]);
+    fn snapshot_branch_deletion(&self, branch_name: String, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+        let details = SnapshotDetails::new(OperationKind::DeleteBranch).with_trailers(vec![Trailer {
+            key: "name".to_string(),
+            value: branch_name.to_string(),
+        }]);
 
         self.create_snapshot(details, perm)?;
         Ok(())
@@ -207,33 +172,19 @@ impl SnapshotExt for but_ctx::Context {
         self.commit_snapshot(snapshot_tree, details, perm)?;
         Ok(())
     }
-    fn snapshot_create_dependent_branch(
-        &self,
-        branch_name: &str,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::CreateDependentBranch).with_trailers(vec![
-                Trailer {
-                    key: "name".to_string(),
-                    value: branch_name.to_string(),
-                },
-            ]);
+    fn snapshot_create_dependent_branch(&self, branch_name: &str, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+        let details = SnapshotDetails::new(OperationKind::CreateDependentBranch).with_trailers(vec![Trailer {
+            key: "name".to_string(),
+            value: branch_name.to_string(),
+        }]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
-    fn snapshot_remove_dependent_branch(
-        &self,
-        branch_name: &str,
-        perm: &mut RepoExclusive,
-    ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::RemoveDependentBranch).with_trailers(vec![
-                Trailer {
-                    key: "name".to_string(),
-                    value: branch_name.to_string(),
-                },
-            ]);
+    fn snapshot_remove_dependent_branch(&self, branch_name: &str, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+        let details = SnapshotDetails::new(OperationKind::RemoveDependentBranch).with_trailers(vec![Trailer {
+            key: "name".to_string(),
+            value: branch_name.to_string(),
+        }]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
@@ -242,13 +193,10 @@ impl SnapshotExt for but_ctx::Context {
         new_branch_name: &str,
         perm: &mut RepoExclusive,
     ) -> anyhow::Result<()> {
-        let details =
-            SnapshotDetails::new(OperationKind::UpdateDependentBranchName).with_trailers(vec![
-                Trailer {
-                    key: "name".to_string(),
-                    value: new_branch_name.to_string(),
-                },
-            ]);
+        let details = SnapshotDetails::new(OperationKind::UpdateDependentBranchName).with_trailers(vec![Trailer {
+            key: "name".to_string(),
+            value: new_branch_name.to_string(),
+        }]);
         self.create_snapshot(details, perm)?;
         Ok(())
     }
@@ -258,10 +206,7 @@ fn result_trailer(result: Result<Option<String>, &anyhow::Error>, key: String) -
     match result {
         Ok(v) => {
             if let Some(v) = v {
-                vec![Trailer {
-                    key,
-                    value: v.clone(),
-                }]
+                vec![Trailer { key, value: v.clone() }]
             } else {
                 vec![]
             }

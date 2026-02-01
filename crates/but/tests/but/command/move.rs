@@ -71,13 +71,10 @@ fn move_commit_after_another_commit() -> anyhow::Result<()> {
     let third_commit_id = commits[0]["cliId"].as_str().unwrap();
 
     // Move "first commit" after "third commit" (making it the newest)
-    env.but(format!(
-        "move {} {} --after",
-        first_commit_id, third_commit_id
-    ))
-    .assert()
-    .success()
-    .stdout_eq(str![[r#"
+    env.but(format!("move {} {} --after", first_commit_id, third_commit_id))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
 Moved [..] after [..]
 
 "#]]);

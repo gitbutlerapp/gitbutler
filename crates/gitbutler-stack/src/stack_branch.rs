@@ -104,19 +104,13 @@ impl StackBranch {
     }
 
     pub fn full_name(&self) -> Result<gix::refs::FullName> {
-        qualified_reference_name(&self.name)
-            .try_into()
-            .map_err(Into::into)
+        qualified_reference_name(&self.name).try_into().map_err(Into::into)
     }
 
     /// This will update the commit that real git reference points to, so it points to `target`,
     /// as well as the cached data in this instance.
     /// Returns the full reference name like `refs/heads/name`.
-    pub fn set_head(
-        &mut self,
-        target: gix::ObjectId,
-        repo: &gix::Repository,
-    ) -> Result<Option<BString>> {
+    pub fn set_head(&mut self, target: gix::ObjectId, repo: &gix::Repository) -> Result<Option<BString>> {
         let refname = self.set_real_reference(repo, &target)?;
         self.head = target;
         Ok(refname)
@@ -200,11 +194,7 @@ impl StackBranch {
     /// Creates or updates a real git reference using the head information (target commit, name)
     /// NB: If the operation is an update of an existing reference, the operation will only succeed if the old reference matches the expected value.
     ///     Therefore this should be invoked before `self.head` has been updated.
-    fn set_real_reference(
-        &self,
-        repo: &gix::Repository,
-        new_head: &gix::ObjectId,
-    ) -> Result<Option<BString>> {
+    fn set_real_reference(&self, repo: &gix::Repository, new_head: &gix::ObjectId) -> Result<Option<BString>> {
         let reference = repo.reference(
             qualified_reference_name(self.name()),
             *new_head,
@@ -258,12 +248,7 @@ impl StackBranch {
     }
 
     /// Returns the commits that are part of the branch.
-    pub fn commits<'a>(
-        &self,
-        repo: &'a git2::Repository,
-        ctx: &Context,
-        stack: &Stack,
-    ) -> Result<BranchCommits<'a>> {
+    pub fn commits<'a>(&self, repo: &'a git2::Repository, ctx: &Context, stack: &Stack) -> Result<BranchCommits<'a>> {
         let merge_base = stack.merge_base_plumbing(ctx)?.to_git2();
 
         let gix_repo = repo.to_gix_repo()?;
@@ -290,11 +275,7 @@ impl StackBranch {
             });
 
         let local_patches = repo
-            .log(
-                head_commit.to_git2(),
-                LogUntil::Commit(previous_head),
-                false,
-            )?
+            .log(head_commit.to_git2(), LogUntil::Commit(previous_head), false)?
             .into_iter()
             .rev()
             .collect_vec();
@@ -328,8 +309,7 @@ impl StackBranch {
             let mut revwalk = repo.revwalk()?;
             revwalk.push(upstream_head.id())?;
             if let Some(pred) = stack.branch_predacessor(self)
-                && let core::result::Result::Ok(head_ref) =
-                    repo.find_reference(pred.remote_reference(&remote).as_str())
+                && let core::result::Result::Ok(head_ref) = repo.find_reference(pred.remote_reference(&remote).as_str())
             {
                 revwalk.hide(head_ref.peel_to_commit()?.id())?;
             }

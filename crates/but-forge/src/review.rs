@@ -37,8 +37,7 @@ pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName
             }
             SupportedTemplateDirectory::Custom(custom_dir) => {
                 let custom_path = root_path.join(custom_dir);
-                list_files(custom_path.as_path(), &[root_path], true, Some(root_path))
-                    .unwrap_or_default()
+                list_files(custom_path.as_path(), &[root_path], true, Some(root_path)).unwrap_or_default()
             }
         })
         .filter_map(|entry| {
@@ -116,14 +115,10 @@ fn is_review_template_github(path_str: &str) -> bool {
     let normalized_path = path_str.replace('\\', "/");
     normalized_path == "PULL_REQUEST_TEMPLATE.md"
         || normalized_path == "pull_request_template.md"
-        || normalized_path.contains(".github/PULL_REQUEST_TEMPLATE")
-            && normalized_path.ends_with(".md")
-        || normalized_path.contains(".github/pull_request_template")
-            && normalized_path.ends_with(".md")
-        || normalized_path.contains("docs/PULL_REQUEST_TEMPLATE")
-            && normalized_path.ends_with(".md")
-        || normalized_path.contains("docs/pull_request_template")
-            && normalized_path.ends_with(".md")
+        || normalized_path.contains(".github/PULL_REQUEST_TEMPLATE") && normalized_path.ends_with(".md")
+        || normalized_path.contains(".github/pull_request_template") && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/PULL_REQUEST_TEMPLATE") && normalized_path.ends_with(".md")
+        || normalized_path.contains("docs/pull_request_template") && normalized_path.ends_with(".md")
 }
 
 fn is_valid_review_template_path_github(path: &path::Path) -> bool {
@@ -351,11 +346,7 @@ impl From<but_github::PullRequest> for ForgeReview {
             repository_ssh_url: pr.repository_ssh_url,
             repository_https_url: pr.repository_https_url,
             repo_owner: pr.repo_owner,
-            reviewers: pr
-                .requested_reviewers
-                .into_iter()
-                .map(ForgeUser::from)
-                .collect(),
+            reviewers: pr.requested_reviewers.into_iter().map(ForgeUser::from).collect(),
             unit_symbol: "#".to_string(),
             last_sync_at: chrono::Local::now().naive_local(),
         }
@@ -410,14 +401,10 @@ fn list_forge_reviews(
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<ForgeReview>> {
-    let crate::forge::ForgeRepoInfo {
-        forge, owner, repo, ..
-    } = forge_repo_info;
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
     let reviews = match forge {
         ForgeName::GitHub => {
-            let preferred_account = preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.github().cloned());
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github().cloned());
 
             // Clone owned data for thread
             let owner = owner.clone();
@@ -425,22 +412,17 @@ fn list_forge_reviews(
             let storage = storage.clone();
 
             let pulls = std::thread::spawn(move || {
-                tokio::runtime::Runtime::new()
-                    .unwrap()
-                    .block_on(but_github::pr::list(
-                        preferred_account.as_ref(),
-                        &owner,
-                        &repo,
-                        &storage,
-                    ))
+                tokio::runtime::Runtime::new().unwrap().block_on(but_github::pr::list(
+                    preferred_account.as_ref(),
+                    &owner,
+                    &repo,
+                    &storage,
+                ))
             })
             .join()
             .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
 
-            pulls
-                .into_iter()
-                .map(ForgeReview::from)
-                .collect::<Vec<ForgeReview>>()
+            pulls.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
         }
         _ => {
             return Err(Error::msg(format!(
@@ -470,22 +452,12 @@ pub async fn list_forge_reviews_for_branch(
     filter: Option<ForgeReviewFilter>,
 ) -> Result<Vec<ForgeReview>> {
     let filter = filter.unwrap_or_default();
-    let crate::forge::ForgeRepoInfo {
-        forge, owner, repo, ..
-    } = forge_repo_info;
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
-            let preferred_account = preferred_forge_user
-                .as_ref()
-                .and_then(|user| user.github().cloned());
-            let prs = but_github::pr::list_all_for_branch(
-                preferred_account.as_ref(),
-                owner,
-                repo,
-                branch,
-                storage,
-            )
-            .await?;
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github().cloned());
+            let prs =
+                but_github::pr::list_all_for_branch(preferred_account.as_ref(), owner, repo, branch, storage).await?;
 
             let prs = filter_prs(prs, &filter);
 
@@ -498,10 +470,7 @@ pub async fn list_forge_reviews_for_branch(
     }
 }
 
-fn filter_prs(
-    prs: Vec<but_github::PullRequest>,
-    filter: &ForgeReviewFilter,
-) -> Vec<but_github::PullRequest> {
+fn filter_prs(prs: Vec<but_github::PullRequest>, filter: &ForgeReviewFilter) -> Vec<but_github::PullRequest> {
     let now = chrono::Utc::now();
     prs.into_iter()
         .filter(|pr| {
@@ -521,8 +490,7 @@ fn filter_prs(
                     if let Some(merged_at_str) = &pr.merged_at
                         && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
                     {
-                        let week_start = now
-                            - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+                        let week_start = now - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
                         return merged_at.date_naive() >= week_start.date_naive();
                     }
                     false
@@ -548,14 +516,11 @@ pub async fn get_forge_review(
     pr_number: usize,
     storage: &but_forge_storage::Controller,
 ) -> Result<ForgeReview> {
-    let crate::forge::ForgeRepoInfo {
-        forge, owner, repo, ..
-    } = forge_repo_info;
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
-            let pr =
-                but_github::pr::get(preferred_account, owner, repo, pr_number, storage).await?;
+            let pr = but_github::pr::get(preferred_account, owner, repo, pr_number, storage).await?;
             Ok(ForgeReview::from(pr))
         }
         _ => Err(Error::msg(format!(
@@ -582,9 +547,7 @@ pub async fn create_forge_review(
     params: &CreateForgeReviewParams,
     storage: &but_forge_storage::Controller,
 ) -> Result<ForgeReview> {
-    let crate::forge::ForgeRepoInfo {
-        forge, owner, repo, ..
-    } = forge_repo_info;
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
             // TODO: handle forks better
@@ -633,9 +596,7 @@ mod tests {
         assert!(is_valid_review_template_path_github(p(
             ".docs/PULL_REQUEST_TEMPLATE.md"
         )));
-        assert!(is_valid_review_template_path_github(p(
-            "PULL_REQUEST_TEMPLATE.md"
-        )));
+        assert!(is_valid_review_template_path_github(p("PULL_REQUEST_TEMPLATE.md")));
         assert!(!is_valid_review_template_path_github(p("README.md"),));
     }
 
@@ -653,9 +614,7 @@ mod tests {
         assert!(is_valid_review_template_path_github(p(
             ".docs\\PULL_REQUEST_TEMPLATE.md"
         ),));
-        assert!(is_valid_review_template_path_github(p(
-            "PULL_REQUEST_TEMPLATE.md"
-        ),));
+        assert!(is_valid_review_template_path_github(p("PULL_REQUEST_TEMPLATE.md"),));
         assert!(!is_valid_review_template_path_github(p("README.md"),));
     }
 
@@ -709,9 +668,7 @@ mod tests {
     #[test]
     fn test_is_review_template_gitlab() {
         // Valid GitLab merge request templates
-        assert!(is_review_template_gitlab(
-            ".gitlab/merge_request_templates/Default.md"
-        ));
+        assert!(is_review_template_gitlab(".gitlab/merge_request_templates/Default.md"));
         assert!(is_review_template_gitlab(
             ".gitlab/merge_request_templates/Documentation.md"
         ));
@@ -725,9 +682,7 @@ mod tests {
         assert!(!is_review_template_gitlab(
             ".gitlab/merge_request_templates/Default.txt"
         ));
-        assert!(!is_review_template_gitlab(
-            "merge_request_templates/Default.md"
-        ));
+        assert!(!is_review_template_gitlab("merge_request_templates/Default.md"));
 
         // Windows path separators should work
         assert!(is_review_template_gitlab(

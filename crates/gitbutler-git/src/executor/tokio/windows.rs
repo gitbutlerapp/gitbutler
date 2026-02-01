@@ -83,10 +83,7 @@ impl AskpassServer for TokioAskpassServer {
         // Windows is weird. The server becomes the peer connection,
         // and before we use the new connection, we first create
         // a new server to listen for the next connection.
-        let client = std::mem::replace(
-            &mut *server,
-            ServerOptions::new().create(&self.connection_string)?,
-        );
+        let client = std::mem::replace(&mut *server, ServerOptions::new().create(&self.connection_string)?);
 
         Ok(tokio::io::BufStream::new(client))
     }
@@ -110,8 +107,7 @@ pub async fn stat<P: AsRef<Path>>(path: P) -> Result<FileStat, std::io::Error> {
     use file_id::FileId;
     let path = path.as_ref().to_owned();
     let metadata = tokio::fs::symlink_metadata(&path).await?;
-    let file_id =
-        tokio::task::spawn_blocking(move || file_id::get_low_res_file_id_no_follow(path)).await??;
+    let file_id = tokio::task::spawn_blocking(move || file_id::get_low_res_file_id_no_follow(path)).await??;
 
     // NOTE(qix-): We can safely unwrap here since the docs say:
     // NOTE(qix-):

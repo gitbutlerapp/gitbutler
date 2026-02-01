@@ -7,9 +7,7 @@ use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use but_settings::{AppSettings, AppSettingsWithDiskSync};
-use gitbutler_filemonitor::{
-    FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
-};
+use gitbutler_filemonitor::{FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR};
 use gitbutler_operating_modes::operating_mode;
 use gitbutler_project::ProjectId;
 use tracing::instrument;
@@ -40,11 +38,7 @@ impl Handler {
 
     /// Handle the events that come in from the filesystem, or the public API.
     #[instrument(skip(self, app_settings), fields(event = %event), err(Debug))]
-    pub(super) fn handle(
-        &self,
-        event: InternalEvent,
-        app_settings: AppSettingsWithDiskSync,
-    ) -> Result<()> {
+    pub(super) fn handle(&self, event: InternalEvent, app_settings: AppSettingsWithDiskSync) -> Result<()> {
         match event {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
                 let mut ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
@@ -65,25 +59,13 @@ impl Handler {
         (self.send_event)(event).context("failed to send event")
     }
 
-    fn open_command_context(
-        &self,
-        project_id: ProjectId,
-        app_settings: AppSettings,
-    ) -> Result<Context> {
+    fn open_command_context(&self, project_id: ProjectId, app_settings: AppSettings) -> Result<Context> {
         let project = gitbutler_project::get(project_id).context("failed to get project")?;
-        Ok(Context::new_from_legacy_project_and_settings(
-            &project,
-            app_settings,
-        ))
+        Ok(Context::new_from_legacy_project_and_settings(&project, app_settings))
     }
 
     #[instrument(skip_all, fields(paths = paths.len()))]
-    fn project_files_change(
-        &self,
-        paths: Vec<PathBuf>,
-        ctx: &mut Context,
-        perm: &mut RepoExclusive,
-    ) -> Result<()> {
+    fn project_files_change(&self, paths: Vec<PathBuf>, ctx: &mut Context, perm: &mut RepoExclusive) -> Result<()> {
         _ = self.emit_worktree_changes(ctx, perm);
         Ok(())
     }
@@ -94,11 +76,8 @@ impl Handler {
 
         let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
-        let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-            &repo,
-            &ws,
-            Some(wt_changes.changes.clone()),
-        );
+        let dependencies =
+            hunk_dependencies_for_workspace_changes_by_worktree_dir(&repo, &ws, Some(wt_changes.changes.clone()));
 
         let (assignments, assignments_error) = assignments_and_errors(
             db.hunk_assignments_mut()?,
@@ -114,18 +93,12 @@ impl Handler {
             assignments: assignments.clone(),
             assignments_error: assignments_error.clone(),
             dependencies: dependencies.as_ref().ok().cloned(),
-            dependencies_error: dependencies
-                .as_ref()
-                .err()
-                .map(|err| serde_error::Error::new(&**err)),
+            dependencies_error: dependencies.as_ref().err().map(|err| serde_error::Error::new(&**err)),
         };
         drop((repo, ws, db));
-        if let Ok(update_count) = but_rules::handler::process_workspace_rules(
-            ctx,
-            &assignments,
-            &dependencies.as_ref().ok().cloned(),
-            perm,
-        ) && update_count > 0
+        if let Ok(update_count) =
+            but_rules::handler::process_workspace_rules(ctx, &assignments, &dependencies.as_ref().ok().cloned(), perm)
+            && update_count > 0
         {
             let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
             // Getting these again since they were updated
@@ -142,10 +115,7 @@ impl Handler {
                 assignments,
                 assignments_error: assignments_error.clone(),
                 dependencies: dependencies.as_ref().ok().cloned(),
-                dependencies_error: dependencies
-                    .as_ref()
-                    .err()
-                    .map(|err| serde_error::Error::new(&**err)),
+                dependencies_error: dependencies.as_ref().err().map(|err| serde_error::Error::new(&**err)),
             };
         }
         let _ = self.emit_app_event(Change::WorktreeChanges {
@@ -155,12 +125,7 @@ impl Handler {
         Ok(())
     }
 
-    pub fn git_files_change(
-        &self,
-        paths: Vec<PathBuf>,
-        ctx: &mut Context,
-        perm: &mut RepoExclusive,
-    ) -> Result<()> {
+    pub fn git_files_change(&self, paths: Vec<PathBuf>, ctx: &mut Context, perm: &mut RepoExclusive) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
 
         for path in paths {
@@ -235,13 +200,7 @@ fn assignments_and_errors(
             Some(dependencies),
             context_lines,
         )?,
-        Err(e) => (
-            vec![],
-            Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e)),
-        ),
+        Err(e) => (vec![], Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e))),
     };
-    Ok((
-        assignments,
-        assignments_error.map(|err| serde_error::Error::new(&*err)),
-    ))
+    Ok((assignments, assignments_error.map(|err| serde_error::Error::new(&*err))))
 }

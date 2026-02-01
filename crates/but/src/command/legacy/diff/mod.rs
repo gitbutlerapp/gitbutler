@@ -9,11 +9,7 @@ mod show;
 // Note: To use the DiffDisplay trait in other modules,
 // import it with: use crate::command::diff::display::DiffDisplay;
 
-pub fn handle(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    target_str: Option<&str>,
-) -> anyhow::Result<()> {
+pub fn handle(ctx: &mut Context, out: &mut OutputChannel, target_str: Option<&str>) -> anyhow::Result<()> {
     let wt_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
     let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
 
@@ -27,14 +23,10 @@ pub fn handle(
         match id {
             CliId::Uncommitted(id) => show::worktree(id_map, out, Some(Filter::Uncommitted(id))),
             CliId::Unassigned { .. } => show::worktree(id_map, out, Some(Filter::Unassigned)),
-            CliId::CommittedFile {
-                commit_id, path, ..
-            } => show::commit(ctx, out, commit_id, Some(path)),
+            CliId::CommittedFile { commit_id, path, .. } => show::commit(ctx, out, commit_id, Some(path)),
             CliId::Branch { name, .. } => show::branch(ctx, out, name),
             CliId::Commit { commit_id: id, .. } => show::commit(ctx, out, id, None),
-            CliId::Stack { id: _, stack_id } => {
-                show::worktree(id_map, out, Some(Filter::Stack(stack_id)))
-            }
+            CliId::Stack { id: _, stack_id } => show::worktree(id_map, out, Some(Filter::Stack(stack_id))),
         }
     } else {
         show::worktree(id_map, out, None)

@@ -74,11 +74,7 @@ fn rhs_indexes_from_tree_changes(
                 .ok_or_else(|| anyhow::format_err!("commit has more than 2**64 changes"))?;
             index_to_use
         };
-        tree_changes.extend(
-            changes
-                .into_iter()
-                .map(move |change| (index_to_use, change)),
-        );
+        tree_changes.extend(changes.into_iter().map(move |change| (index_to_use, change)));
     }
 
     Ok(tree_changes)
@@ -118,17 +114,12 @@ impl WorkspaceCommitWithId {
 /// Methods to calculate the short IDs of committed files.
 impl WorkspaceCommitWithId {
     /// Calculate the short IDs of all changes in this commit.
-    pub fn tree_changes<F>(
-        &self,
-        mut changes_in_commit_fn: F,
-    ) -> anyhow::Result<Vec<TreeChangeWithId>>
+    pub fn tree_changes<F>(&self, mut changes_in_commit_fn: F) -> anyhow::Result<Vec<TreeChangeWithId>>
     where
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
     {
-        let rhs_indexes = rhs_indexes_from_tree_changes(changes_in_commit_fn(
-            self.commit_id(),
-            self.first_parent_id(),
-        )?)?;
+        let rhs_indexes =
+            rhs_indexes_from_tree_changes(changes_in_commit_fn(self.commit_id(), self.first_parent_id())?)?;
         Ok(rhs_indexes
             .into_iter()
             .map(|(index, tree_change)| TreeChangeWithId {
@@ -139,13 +130,8 @@ impl WorkspaceCommitWithId {
     }
     /// Convenience for [WorkspaceCommitWithId::tree_changes] if a
     /// [gix::Repository] is available.
-    pub fn tree_changes_using_repo(
-        &self,
-        repo: &gix::Repository,
-    ) -> anyhow::Result<Vec<TreeChangeWithId>> {
-        self.tree_changes(|commit_id, parent_id| {
-            but_core::diff::tree_changes(repo, parent_id, commit_id)
-        })
+    pub fn tree_changes_using_repo(&self, repo: &gix::Repository) -> anyhow::Result<Vec<TreeChangeWithId>> {
+        self.tree_changes(|commit_id, parent_id| but_core::diff::tree_changes(repo, parent_id, commit_id))
     }
 }
 
@@ -183,10 +169,7 @@ pub struct SegmentWithId {
 impl SegmentWithId {
     /// Returns the branch name.
     pub fn branch_name(&self) -> Option<&BStr> {
-        self.inner
-            .ref_info
-            .as_ref()
-            .map(|ref_info| ref_info.ref_name.shorten())
+        self.inner.ref_info.as_ref().map(|ref_info| ref_info.ref_name.shorten())
     }
     /// Returns the linked worktree ID.
     pub fn linked_worktree_id(&self) -> Option<&BStr> {
@@ -259,10 +242,7 @@ impl IdMap {
             partitioned_hunks,
             uncommitted_short_filenames,
         } = UncommittedInfo::from_hunk_assignments(hunk_assignments)?;
-        let StacksInfo {
-            stacks,
-            mut id_usage,
-        } = StacksInfo::new(stacks, &uncommitted_short_filenames)?;
+        let StacksInfo { stacks, mut id_usage } = StacksInfo::new(stacks, &uncommitted_short_filenames)?;
 
         let mut branch_name_to_cli_id = BTreeMap::new();
         let mut branch_auto_id_to_cli_id = HashMap::new();
@@ -350,10 +330,7 @@ impl IdMap {
     ///
     /// # NOTE: claims a read-only workspace lock!
     /// TODO(ctx|ai): make it use perm so the caller keeps the state exclusive/shared over greater periods.
-    pub fn new_from_context(
-        ctx: &mut Context,
-        assignments: Option<Vec<HunkAssignment>>,
-    ) -> anyhow::Result<Self> {
+    pub fn new_from_context(ctx: &mut Context, assignments: Option<Vec<HunkAssignment>>) -> anyhow::Result<Self> {
         let meta = ctx.meta()?;
         let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
@@ -439,15 +416,10 @@ impl IdMap {
         }
 
         // First, try partial branch name match
-        matches.extend(
-            self.find_branches_by_substring_match(entity.into())
-                .map(Clone::clone),
-        );
+        matches.extend(self.find_branches_by_substring_match(entity.into()).map(Clone::clone));
 
         // Only try SHA matching if the input looks like a hex string
-        if entity
-            .chars()
-            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        if entity.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
             && let Ok(prefix) = gix::hash::Prefix::from_hex_nonempty(entity)
         {
             for oid in self
@@ -480,20 +452,14 @@ impl IdMap {
         matches
     }
     /// Parses filenames of uncommitted files.
-    fn parse_uncommitted_filename_rhs(
-        &self,
-        stack_id: Option<StackId>,
-        entity: &str,
-    ) -> Vec<CliId> {
+    fn parse_uncommitted_filename_rhs(&self, stack_id: Option<StackId>, entity: &str) -> Vec<CliId> {
         let mut matches = Vec::<CliId>::new();
         for uncommitted_file in self.uncommitted_files.values() {
             let hunk_assignment = uncommitted_file.hunk_assignments.first();
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            if hunk_assignment.stack_id == stack_id
-                && hunk_assignment.path_bytes == entity.as_bytes()
-            {
+            if hunk_assignment.stack_id == stack_id && hunk_assignment.path_bytes == entity.as_bytes() {
                 matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
             }
         }
@@ -511,8 +477,7 @@ impl IdMap {
     where
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
     {
-        let rhs_indexes =
-            rhs_indexes_from_tree_changes(changes_in_commit_fn(commit_id, first_parent_id)?)?;
+        let rhs_indexes = rhs_indexes_from_tree_changes(changes_in_commit_fn(commit_id, first_parent_id)?)?;
         let rhs_u64 = rhs.parse::<u64>().ok();
         for (index, tree_change) in rhs_indexes {
             let is_match = if let Some(rhs_u64) = rhs_u64 {
@@ -558,15 +523,11 @@ impl IdMap {
                         matches.append(&mut self.parse_uncommitted_filename_rhs(None, rhs));
                     }
                     CliId::Stack { stack_id, .. } => {
-                        matches
-                            .append(&mut self.parse_uncommitted_filename_rhs(Some(stack_id), rhs));
+                        matches.append(&mut self.parse_uncommitted_filename_rhs(Some(stack_id), rhs));
                     }
                     CliId::Commit { commit_id, .. } => {
-                        if let Some(workspace_commit) = self
-                            .indexed_stacks
-                            .borrow_dependent()
-                            .workspace_commits
-                            .get(&commit_id)
+                        if let Some(workspace_commit) =
+                            self.indexed_stacks.borrow_dependent().workspace_commits.get(&commit_id)
                         {
                             matches.extend(self.parse_committed_filename_rhs(
                                 workspace_commit.commit_id(),
@@ -596,9 +557,7 @@ impl IdMap {
         }
 
         if entity.len() < 2 {
-            return Err(anyhow::anyhow!(
-                "Id needs to be at least 2 characters long: '{entity}'"
-            ));
+            return Err(anyhow::anyhow!("Id needs to be at least 2 characters long: '{entity}'"));
         }
 
         matches = self.parse_regular_lhs(entity);
@@ -617,22 +576,14 @@ impl IdMap {
     }
 
     /// Convenience for [IdMap::parse] if a [gix::Repository] is available.
-    pub fn parse_using_repo(
-        &self,
-        entity: &str,
-        repo: &gix::Repository,
-    ) -> anyhow::Result<Vec<CliId>> {
+    pub fn parse_using_repo(&self, entity: &str, repo: &gix::Repository) -> anyhow::Result<Vec<CliId>> {
         self.parse(entity, |commit_id, parent_id| {
             but_core::diff::tree_changes(repo, parent_id, commit_id)
         })
     }
 
     /// Convenience for [IdMap::parse] if a [Context] is available.
-    pub fn parse_using_context(
-        &self,
-        entity: &str,
-        ctx: &mut Context,
-    ) -> anyhow::Result<Vec<CliId>> {
+    pub fn parse_using_context(&self, entity: &str, ctx: &mut Context) -> anyhow::Result<Vec<CliId>> {
         let repo = &*ctx.repo.get()?;
         self.parse_using_repo(entity, repo)
     }
@@ -661,15 +612,10 @@ impl IdMap {
     /// Finds all branches whose names contain the given `substring`.
     ///
     /// A vector of [`CliId::Branch`] instances for all matching branches.
-    fn find_branches_by_substring_match<'a, 's: 'a>(
-        &'s self,
-        substring: &'a BStr,
-    ) -> impl Iterator<Item = &'s CliId> {
+    fn find_branches_by_substring_match<'a, 's: 'a>(&'s self, substring: &'a BStr) -> impl Iterator<Item = &'s CliId> {
         self.branch_name_to_cli_id
             .iter()
-            .filter_map(move |(branch_name, cli_id)| {
-                branch_name.contains_str(substring).then_some(cli_id)
-            })
+            .filter_map(move |(branch_name, cli_id)| branch_name.contains_str(substring).then_some(cli_id))
     }
 
     /// Returns an iterator over all commit IDs (workspace and remote) known to
@@ -777,9 +723,7 @@ impl PartialEq for CliId {
                 Self::Uncommitted(UncommittedCliId { id: l_id, .. }),
                 Self::Uncommitted(UncommittedCliId { id: r_id, .. }),
             ) => l_id == r_id,
-            (Self::CommittedFile { id: l_id, .. }, Self::CommittedFile { id: r_id, .. }) => {
-                l_id == r_id
-            }
+            (Self::CommittedFile { id: l_id, .. }, Self::CommittedFile { id: r_id, .. }) => l_id == r_id,
             (Self::Branch { id: l_id, .. }, Self::Branch { id: r_id, .. }) => l_id == r_id,
             (Self::Commit { id: l_id, .. }, Self::Commit { id: r_id, .. }) => l_id == r_id,
             (Self::Unassigned { .. }, Self::Unassigned { .. }) => true,

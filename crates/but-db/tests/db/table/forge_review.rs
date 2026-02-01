@@ -137,9 +137,7 @@ fn handles_optional_fields() -> anyhow::Result<()> {
         repo_owner: None,
         reviewers: "[]".to_string(),
         unit_symbol: "test".to_string(),
-        last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        last_sync_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         struct_version: 1,
     };
 
@@ -164,16 +162,8 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         source_branch: source_branch.to_string(),
         target_branch: "main".to_string(),
         sha: "abc123def456".to_string(),
-        created_at: Some(
-            chrono::DateTime::from_timestamp(1000000, 0)
-                .unwrap()
-                .naive_utc(),
-        ),
-        modified_at: Some(
-            chrono::DateTime::from_timestamp(1000100, 0)
-                .unwrap()
-                .naive_utc(),
-        ),
+        created_at: Some(chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc()),
+        modified_at: Some(chrono::DateTime::from_timestamp(1000100, 0).unwrap().naive_utc()),
         merged_at: None,
         closed_at: None,
         repository_ssh_url: Some("git@github.com:owner/repo.git".to_string()),
@@ -181,9 +171,7 @@ fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
         repo_owner: Some("owner".to_string()),
         reviewers: "[]".to_string(),
         unit_symbol: "test".to_string(),
-        last_sync_at: chrono::DateTime::from_timestamp(1000000, 0)
-            .unwrap()
-            .naive_utc(),
+        last_sync_at: chrono::DateTime::from_timestamp(1000000, 0).unwrap().naive_utc(),
         struct_version: 1,
     }
 }

@@ -46,11 +46,7 @@ impl Headers {
             change_id: Some(
                 config
                     .integer("gitbutler.testing.changeId")
-                    .and_then(|id| {
-                        u128::try_from(id)
-                            .ok()
-                            .map(ChangeId::from_number_for_testing)
-                    })
+                    .and_then(|id| u128::try_from(id).ok().map(ChangeId::from_number_for_testing))
                     .unwrap_or_else(ChangeId::generate),
             ),
             conflicted: None,
@@ -74,10 +70,7 @@ impl Headers {
             return None;
         }
 
-        Some(Headers {
-            change_id,
-            conflicted,
-        })
+        Some(Headers { change_id, conflicted })
     }
 
     /// Remove all header fields from `commit`.
@@ -98,9 +91,7 @@ impl Headers {
     /// that might have been there before.
     pub fn set_in_commit(&self, commit: &mut gix::objs::Commit) {
         Self::remove_in_commit(commit);
-        commit
-            .extra_headers
-            .extend(Vec::<(BString, BString)>::from(self));
+        commit.extra_headers.extend(Vec::<(BString, BString)>::from(self));
     }
 }
 
@@ -113,20 +104,14 @@ const HEADERS_VERSION: &str = "2";
 
 impl From<&Headers> for Vec<(BString, BString)> {
     fn from(hdr: &Headers) -> Self {
-        let mut out = vec![(
-            BString::from(HEADERS_VERSION_FIELD),
-            BString::from(HEADERS_VERSION),
-        )];
+        let mut out = vec![(BString::from(HEADERS_VERSION_FIELD), BString::from(HEADERS_VERSION))];
 
         if let Some(change_id) = &hdr.change_id {
             out.push((HEADERS_NEW_CHANGE_ID_FIELD.into(), (**change_id).clone()));
         }
 
         if let Some(conflicted) = hdr.conflicted {
-            out.push((
-                HEADERS_CONFLICTED_FIELD.into(),
-                conflicted.to_string().into(),
-            ));
+            out.push((HEADERS_CONFLICTED_FIELD.into(), conflicted.to_string().into()));
         }
         out
     }
@@ -183,10 +168,7 @@ impl<'repo> TryFrom<gix::Commit<'repo>> for Commit<'repo> {
 
 impl From<Commit<'_>> for CommitOwned {
     fn from(Commit { id, inner }: Commit<'_>) -> Self {
-        CommitOwned {
-            id: id.detach(),
-            inner,
-        }
+        CommitOwned { id: id.detach(), inner }
     }
 }
 
@@ -288,12 +270,8 @@ impl Commit<'_> {
         }
 
         let tree = repo.find_tree(self.tree)?;
-        let Some(conflicted_entries_blob) =
-            tree.find_entry(TreeKind::ConflictFiles.as_tree_entry_name())
-        else {
-            bail!(
-                "There has been a malformed conflicted commit, unable to find the conflicted files"
-            );
+        let Some(conflicted_entries_blob) = tree.find_entry(TreeKind::ConflictFiles.as_tree_entry_name()) else {
+            bail!("There has been a malformed conflicted commit, unable to find the conflicted files");
         };
         let conflicted_entries_blob = conflicted_entries_blob.object()?.into_blob();
         let conflicted_entries: ConflictEntries =
@@ -318,9 +296,7 @@ pub struct ConflictEntries {
 impl ConflictEntries {
     /// If there are any conflict entries
     pub fn has_entries(&self) -> bool {
-        !self.ancestor_entries.is_empty()
-            || !self.our_entries.is_empty()
-            || !self.their_entries.is_empty()
+        !self.ancestor_entries.is_empty() || !self.our_entries.is_empty() || !self.their_entries.is_empty()
     }
 
     /// The total count of conflicted entries

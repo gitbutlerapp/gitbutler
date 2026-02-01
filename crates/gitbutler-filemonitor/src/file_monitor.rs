@@ -229,9 +229,7 @@ fn setup_legacy_watch(
             .watch(worktree_path, notify::RecursiveMode::Recursive)
             .and_then(|()| {
                 if let Some(git_dir) = extra_git_dir_to_watch {
-                    debouncer
-                        .watcher()
-                        .watch(git_dir, notify::RecursiveMode::Recursive)
+                    debouncer.watcher().watch(git_dir, notify::RecursiveMode::Recursive)
                 } else {
                     Ok(())
                 }
@@ -266,13 +264,8 @@ pub fn spawn(
 ) -> Result<FileMonitorHandle> {
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
-    let mut debouncer = new_debouncer(
-        DEBOUNCE_TIMEOUT,
-        Some(TICK_RATE),
-        Some(FLUSH_AFTER_EMPTY),
-        notify_tx,
-    )
-    .context("failed to create debouncer")?;
+    let mut debouncer = new_debouncer(DEBOUNCE_TIMEOUT, Some(TICK_RATE), Some(FLUSH_AFTER_EMPTY), notify_tx)
+        .context("failed to create debouncer")?;
 
     let worktree_path = gix::path::realpath(worktree_path)?;
     let repo = gix::open_opts(&worktree_path, gix::open::Options::isolated()).context(format!(
@@ -292,8 +285,7 @@ pub fn spawn(
         }
         WatchMode::Auto => {
             if is_wsl() {
-                match setup_watch_plan(&mut debouncer, project_id, &repo, &worktree_path, &git_dir)
-                {
+                match setup_watch_plan(&mut debouncer, project_id, &repo, &worktree_path, &git_dir) {
                     Ok(()) => {
                         effective_watch_mode = WatchMode::Modern;
                     }
@@ -391,8 +383,7 @@ pub fn spawn(
                             if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
                                 let is_dir = file_path.is_dir();
                                 let is_excluded = excludes
-                                    .at_path(relative_path, is_dir
-                                        .then_some(gix::index::entry::Mode::DIR))
+                                    .at_path(relative_path, is_dir.then_some(gix::index::entry::Mode::DIR))
                                     .map(|platform| platform.is_excluded())
                                     .unwrap_or(false);
                                 let repo_relative_path = to_repo_relative_path(relative_path);
@@ -408,37 +399,33 @@ pub fn spawn(
                         AddWatch,
                         RemoveWatch,
                     }
-                    let directories_to_watch_or_unwatch =
-                        if dynamic_watch_enabled && ignore_filtering_ran {
-                            classified_file_paths
-                                .iter()
-                                .filter_map(|(path, kind)| {
-                                    if *kind != FileKind::Project {
-                                        return None;
-                                    };
-                                    let mode = match path.symlink_metadata() {
-                                        Ok(md) => (is_watchable_directory(md.file_type())
-                                            && !dynamically_watched_dirs.contains(path))
-                                        .then_some(Mode::AddWatch)?,
-                                        Err(err) => (err.kind() == std::io::ErrorKind::NotFound)
-                                            // We don't care if was dynamically watched, it might be watched during initial computation.
-                                            .then_some(Mode::RemoveWatch)?,
-                                    };
-                                    Some((mode, path.clone()))
-                                })
-                                .collect()
-                        } else {
-                            BTreeSet::new()
-                        };
-                    let (mut stripped_git_paths, mut worktree_relative_paths) =
-                        (HashSet::new(), HashSet::new());
+                    let directories_to_watch_or_unwatch = if dynamic_watch_enabled && ignore_filtering_ran {
+                        classified_file_paths
+                            .iter()
+                            .filter_map(|(path, kind)| {
+                                if *kind != FileKind::Project {
+                                    return None;
+                                };
+                                let mode = match path.symlink_metadata() {
+                                    Ok(md) => (is_watchable_directory(md.file_type())
+                                        && !dynamically_watched_dirs.contains(path))
+                                    .then_some(Mode::AddWatch)?,
+                                    Err(err) => (err.kind() == std::io::ErrorKind::NotFound)
+                                        // We don't care if was dynamically watched, it might be watched during initial computation.
+                                        .then_some(Mode::RemoveWatch)?,
+                                };
+                                Some((mode, path.clone()))
+                            })
+                            .collect()
+                    } else {
+                        BTreeSet::new()
+                    };
+                    let (mut stripped_git_paths, mut worktree_relative_paths) = (HashSet::new(), HashSet::new());
                     for (file_path, kind) in classified_file_paths {
                         match kind {
                             FileKind::ProjectIgnored => ignored += 1,
                             FileKind::GitUninteresting => git_noop += 1,
-                            FileKind::Project | FileKind::Git => match file_path
-                                .strip_prefix(&worktree_path)
-                            {
+                            FileKind::Project | FileKind::Git => match file_path.strip_prefix(&worktree_path) {
                                 Ok(relative_file_path) => {
                                     if relative_file_path.as_os_str().is_empty() {
                                         continue;
@@ -446,8 +433,7 @@ pub fn spawn(
                                     if let Ok(stripped) = relative_file_path.strip_prefix(".git") {
                                         stripped_git_paths.insert(stripped.to_owned());
                                     } else {
-                                        worktree_relative_paths
-                                            .insert(relative_file_path.to_owned());
+                                        worktree_relative_paths.insert(relative_file_path.to_owned());
                                     };
                                 }
                                 Err(_) => {
@@ -470,14 +456,8 @@ pub fn spawn(
                         tracing::trace!(%project_id, ?directories_to_watch_or_unwatch, "adding or removing dynamic watches");
                         for (mode, path) in directories_to_watch_or_unwatch {
                             let res = match mode {
-                                Mode::AddWatch => {
-                                    debouncer
-                                        .watcher()
-                                        .watch(&path, notify::RecursiveMode::NonRecursive)
-                                }
-                                Mode::RemoveWatch => {
-                                    debouncer.watcher().unwatch(&path)
-                                }
+                                Mode::AddWatch => debouncer.watcher().watch(&path, notify::RecursiveMode::NonRecursive),
+                                Mode::RemoveWatch => debouncer.watcher().unwatch(&path),
                             }
                             .inspect_err(|err| {
                                 tracing::warn!(
@@ -556,9 +536,9 @@ fn into_backoff_err(
     path: &Path,
 ) -> backoff::Error<Box<dyn std::error::Error + Send + Sync + 'static>> {
     match err.kind {
-        notify::ErrorKind::PathNotFound => backoff::Error::permanent(
-            anyhow!("{} not found", path.display()).into_boxed_dyn_error(),
-        ),
+        notify::ErrorKind::PathNotFound => {
+            backoff::Error::permanent(anyhow!("{} not found", path.display()).into_boxed_dyn_error())
+        }
         notify::ErrorKind::Io(_) | notify::ErrorKind::InvalidConfig(_) => {
             backoff::Error::permanent(anyhow::Error::from(err).into_boxed_dyn_error())
         }
@@ -566,9 +546,7 @@ fn into_backoff_err(
     }
 }
 
-fn backoff_err_to_anyhow(
-    err: backoff::Error<Box<dyn std::error::Error + Send + Sync + 'static>>,
-) -> anyhow::Error {
+fn backoff_err_to_anyhow(err: backoff::Error<Box<dyn std::error::Error + Send + Sync + 'static>>) -> anyhow::Error {
     anyhow::Error::from_boxed(Box::from(err.to_string()))
 }
 

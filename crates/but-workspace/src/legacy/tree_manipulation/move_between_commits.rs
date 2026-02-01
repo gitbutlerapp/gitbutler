@@ -6,10 +6,7 @@ use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
 use super::{
     MoveChangesResult,
-    utils::{
-        ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides,
-        replace_pick_with_commit,
-    },
+    utils::{ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides, replace_pick_with_commit},
 };
 use crate::legacy::stack_ext::StackExt;
 
@@ -76,9 +73,7 @@ pub fn move_changes_between_commits(
 
     let (source_tree_without_changes_id, dropped_diffs) = create_tree_without_diff(
         &repo,
-        ChangesSource::Commit {
-            id: source_commit_id,
-        },
+        ChangesSource::Commit { id: source_commit_id },
         changes_to_remove_from_source,
         ctx.settings.context_lines,
     )?;
@@ -89,23 +84,16 @@ pub fn move_changes_between_commits(
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
     let mut source_stack_steps = source_stack.as_rebase_steps(ctx)?;
 
-    let rewritten_source_commit =
-        replace_commit_tree(&repo, source_commit_id, source_tree_without_changes_id)?;
-    replace_pick_with_commit(
-        &mut source_stack_steps,
-        source_commit_id,
-        rewritten_source_commit,
-    )?;
+    let rewritten_source_commit = replace_commit_tree(&repo, source_commit_id, source_tree_without_changes_id)?;
+    replace_pick_with_commit(&mut source_stack_steps, source_commit_id, rewritten_source_commit)?;
 
     let mut rebase = Rebase::new(&repo, source_stack.merge_base(ctx)?, None)?;
     rebase.steps(source_stack_steps.clone())?;
     rebase.rebase_noops(false);
     let source_stack_result = rebase.rebase()?;
 
-    let source_stack_mapping = rebase_mapping_with_overrides(
-        &source_stack_result,
-        [(source_commit_id, rewritten_source_commit)],
-    );
+    let source_stack_mapping =
+        rebase_mapping_with_overrides(&source_stack_result, [(source_commit_id, rewritten_source_commit)]);
 
     let destination_commit_id: gix::ObjectId = if source_stack_id == destination_stack_id {
         *source_stack_mapping
@@ -135,11 +123,8 @@ pub fn move_changes_between_commits(
         // We need to rebase the source stack a second time. This loop both
         // updates the steps to consider the first rebase, and also injects the
         // new destination commit's tree.
-        let rewritten_destination_commit = replace_commit_tree(
-            &repo,
-            destination_commit_id,
-            final_destination_tree.detach(),
-        )?;
+        let rewritten_destination_commit =
+            replace_commit_tree(&repo, destination_commit_id, final_destination_tree.detach())?;
         for step in &mut source_stack_steps {
             let RebaseStep::Pick { commit_id, .. } = step else {
                 continue;
@@ -159,10 +144,8 @@ pub fn move_changes_between_commits(
 
         // Create the output mapping
         let mut output_commit_mapping = source_stack_mapping.clone();
-        let mut after_destination_commit_mapping = rebase_mapping_with_overrides(
-            &result,
-            [(destination_commit_id, rewritten_destination_commit)],
-        );
+        let mut after_destination_commit_mapping =
+            rebase_mapping_with_overrides(&result, [(destination_commit_id, rewritten_destination_commit)]);
         for (before, after) in source_stack_mapping {
             if let Some(value) = after_destination_commit_mapping.get(&after) {
                 output_commit_mapping.insert(before, *value);
@@ -183,11 +166,8 @@ pub fn move_changes_between_commits(
         let destination_stack = vb_state.get_stack_in_workspace(destination_stack_id)?;
         let mut destination_stack_steps = destination_stack.as_rebase_steps(ctx)?;
 
-        let rewritten_destination_commit = replace_commit_tree(
-            &repo,
-            destination_commit_id,
-            final_destination_tree.detach(),
-        )?;
+        let rewritten_destination_commit =
+            replace_commit_tree(&repo, destination_commit_id, final_destination_tree.detach())?;
         replace_pick_with_commit(
             &mut destination_stack_steps,
             destination_commit_id,

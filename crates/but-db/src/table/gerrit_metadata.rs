@@ -108,12 +108,7 @@ impl GerritMetadataHandleMut<'_> {
         self.conn.execute(
             "UPDATE gerrit_metadata SET commit_id = ?1, review_url = ?2, updated_at = ?3 \
              WHERE change_id = ?4",
-            rusqlite::params![
-                meta.commit_id,
-                meta.review_url,
-                meta.updated_at,
-                meta.change_id,
-            ],
+            rusqlite::params![meta.commit_id, meta.review_url, meta.updated_at, meta.change_id,],
         )?;
         Ok(())
     }

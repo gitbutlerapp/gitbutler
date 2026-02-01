@@ -18,12 +18,9 @@ fn undo_commit_simple() -> anyhow::Result<()> {
     drop(guard);
 
     let mut guard = ctx.exclusive_worktree_access();
-    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
 
     // create commit
@@ -44,10 +41,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
     // should be two uncommitted files now (file2.txt and file3.txt)
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     assert_eq!(changes.len(), 2);
-    let (_, b) = stack_details(ctx)
-        .into_iter()
-        .find(|d| d.0 == stack_entry.id)
-        .unwrap();
+    let (_, b) = stack_details(ctx).into_iter().find(|d| d.0 == stack_entry.id).unwrap();
     assert_eq!(b.branch_details[0].clone().commits.len(), 2);
     assert_eq!(
         list_commit_files(ctx, b.branch_details[0].clone().commits[0].id.to_git2())?.len(),
@@ -83,12 +77,9 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     drop(guard);
 
     let mut guard = ctx.exclusive_worktree_access();
-    let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        guard.write_permission(),
-    )
-    .unwrap();
+    let stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
     drop(guard);
 
     // create commit
@@ -123,10 +114,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     assert_eq!(changes.len(), 2);
 
-    let (_, b) = stack_details(ctx)
-        .into_iter()
-        .find(|d| d.0 == stack_entry.id)
-        .unwrap();
+    let (_, b) = stack_details(ctx).into_iter().find(|d| d.0 == stack_entry.id).unwrap();
 
     assert_eq!(b.branch_details[0].clone().commits.len(), 2);
     assert_eq!(

@@ -40,17 +40,12 @@ impl TestingRepository {
             Ok(mut local) => {
                 local.set_str("commit.gpgsign", "false").unwrap();
                 local.set_str("user.name", "gitbutler-test").unwrap();
-                local
-                    .set_str("user.email", "gitbutler-test@example.com")
-                    .unwrap();
+                local.set_str("user.email", "gitbutler-test@example.com").unwrap();
             }
             Err(err) => panic!("{}", err),
         }
 
-        Self {
-            tempdir,
-            repository,
-        }
+        Self { tempdir, repository }
     }
 
     pub fn gix_repository(&self) -> gix::Repository {
@@ -66,23 +61,15 @@ impl TestingRepository {
             Ok(mut local) => {
                 local.set_str("commit.gpgsign", "false").unwrap();
                 local.set_str("user.name", "gitbutler-test").unwrap();
-                local
-                    .set_str("user.email", "gitbutler-test@example.com")
-                    .unwrap();
+                local.set_str("user.email", "gitbutler-test@example.com").unwrap();
             }
             Err(err) => panic!("{}", err),
         }
 
-        let repository = Self {
-            tempdir,
-            repository,
-        };
+        let repository = Self { tempdir, repository };
         {
             let commit = repository.commit_tree(None, files);
-            repository
-                .repository
-                .branch("master", &commit, true)
-                .unwrap();
+            repository.repository.branch("master", &commit, true).unwrap();
         }
         repository
     }
@@ -96,11 +83,7 @@ impl TestingRepository {
         self.commit_tree_inner(parent, &Uuid::new_v4().to_string(), files, Some(change_id))
     }
 
-    pub fn commit_tree<'a>(
-        &'a self,
-        parent: Option<&git2::Commit<'_>>,
-        files: &[(&str, &str)],
-    ) -> git2::Commit<'a> {
+    pub fn commit_tree<'a>(&'a self, parent: Option<&git2::Commit<'_>>, files: &[(&str, &str)]) -> git2::Commit<'a> {
         self.commit_tree_inner(parent, &Uuid::new_v4().to_string(), files, None)
     }
 
@@ -148,17 +131,14 @@ impl TestingRepository {
         let mut index = self.repository.index().unwrap();
         // Make sure we're not having weird cached state
         index.read(true).unwrap();
-        index
-            .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
-            .unwrap();
+        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None).unwrap();
         index.write().unwrap();
 
         let signature = git2::Signature::now("Caleb", "caleb@gitbutler.com").unwrap();
-        let commit_headers =
-            change_id.map_or(Headers::new_with_random_change_id(), |change_id| Headers {
-                change_id: Some(ChangeId::from(change_id.as_bytes().as_bstr())),
-                conflicted: None,
-            });
+        let commit_headers = change_id.map_or(Headers::new_with_random_change_id(), |change_id| Headers {
+            change_id: Some(ChangeId::from(change_id.as_bytes().as_bstr())),
+            conflicted: None,
+        });
 
         let commit = self
             .repository
@@ -167,10 +147,7 @@ impl TestingRepository {
                 &signature,
                 &signature,
                 message,
-                &self
-                    .repository
-                    .find_tree(index.write_tree().unwrap())
-                    .unwrap(),
+                &self.repository.find_tree(index.write_tree().unwrap()).unwrap(),
                 parent.map(|c| vec![c]).unwrap_or_default().as_slice(),
                 Some(commit_headers),
             )
@@ -194,11 +171,7 @@ pub fn assert_commit_tree_matches<'a>(
     assert_tree_matches(repository, &commit.tree().unwrap(), files);
 }
 
-pub fn assert_tree_matches<'a>(
-    repository: &'a git2::Repository,
-    tree: &git2::Tree<'a>,
-    files: &[(&str, &[u8])],
-) {
+pub fn assert_tree_matches<'a>(repository: &'a git2::Repository, tree: &git2::Tree<'a>, files: &[(&str, &[u8])]) {
     assert_tree_matches_with_mode(
         repository,
         tree.id(),
@@ -225,9 +198,7 @@ pub fn assert_tree_matches_with_mode(
 ) {
     let gix_repository = gix::open(repository.path()).unwrap();
 
-    let tree = gix_repository
-        .find_tree(git2_to_gix_object_id(tree))
-        .unwrap();
+    let tree = gix_repository.find_tree(git2_to_gix_object_id(tree)).unwrap();
 
     for (path, content, entry_attributes) in files {
         let tree_entry = tree.lookup_entry_by_path(path).unwrap().unwrap();

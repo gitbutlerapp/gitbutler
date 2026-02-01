@@ -215,15 +215,9 @@ fn matches_pattern_rule(permissions: &[Permission], tool_name: &str, term: &str)
     for perm in permissions {
         let matches = match perm {
             Permission::Bash(Some(pattern)) => tool_name == "Bash" && pattern.matches(term),
-            Permission::Edit(Some(pattern)) => {
-                tool_name == "Edit" && pattern.matches(std::path::Path::new(term))
-            }
-            Permission::Write(Some(pattern)) => {
-                tool_name == "Write" && pattern.matches(std::path::Path::new(term))
-            }
-            Permission::WebFetch(Some(pattern)) => {
-                tool_name == "WebFetch" && pattern.matches(term).unwrap_or(false)
-            }
+            Permission::Edit(Some(pattern)) => tool_name == "Edit" && pattern.matches(std::path::Path::new(term)),
+            Permission::Write(Some(pattern)) => tool_name == "Write" && pattern.matches(std::path::Path::new(term)),
+            Permission::WebFetch(Some(pattern)) => tool_name == "WebFetch" && pattern.matches(term).unwrap_or(false),
             _ => false,
         };
 
@@ -348,17 +342,11 @@ mod test {
 
         #[test]
         fn absolute_path() {
-            let pattern = PathPattern::new(
-                PathBuf::from("/home/testuser/file.txt"),
-                PathPatternKind::Absolute,
-            );
+            let pattern = PathPattern::new(PathBuf::from("/home/testuser/file.txt"), PathPatternKind::Absolute);
             let perm = Permission::Write(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Write(//home/testuser/file.txt)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Write(//home/testuser/file.txt)");
         }
 
         #[test]
@@ -406,10 +394,7 @@ mod test {
             let perm = Permission::Write(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Write(projects/myproject/README.md)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Write(projects/myproject/README.md)");
         }
 
         #[test]
@@ -438,8 +423,7 @@ mod test {
 
         #[test]
         fn absolute_path() {
-            let pattern =
-                PathPattern::new(PathBuf::from("/etc/config.conf"), PathPatternKind::Absolute);
+            let pattern = PathPattern::new(PathBuf::from("/etc/config.conf"), PathPatternKind::Absolute);
             let perm = Permission::Edit(Some(pattern));
             let ctx = create_test_context(false);
 
@@ -455,10 +439,7 @@ mod test {
             let perm = Permission::Edit(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Edit(~/.config/app/settings.json)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Edit(~/.config/app/settings.json)");
         }
 
         #[test]
@@ -470,10 +451,7 @@ mod test {
             let perm = Permission::Edit(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Edit(/.agents/memories/index.md)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Edit(/.agents/memories/index.md)");
         }
     }
 
@@ -494,10 +472,7 @@ mod test {
             let perm = Permission::WebFetch(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "WebFetch(domain:example.com)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "WebFetch(domain:example.com)");
         }
     }
 
@@ -519,10 +494,7 @@ mod test {
             let perm = Permission::Mcp(pattern);
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "mcp__but-security__approval_prompt"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__but-security__approval_prompt");
         }
     }
 

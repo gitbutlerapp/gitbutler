@@ -134,11 +134,8 @@ impl AppSettingsWithDiskSync {
 
     pub fn update_reviews(&self, update: ReviewsUpdate) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
-        if let Some(auto_fill_pr_description_from_commit) =
-            update.auto_fill_pr_description_from_commit
-        {
-            settings.reviews.auto_fill_pr_description_from_commit =
-                auto_fill_pr_description_from_commit;
+        if let Some(auto_fill_pr_description_from_commit) = update.auto_fill_pr_description_from_commit {
+            settings.reviews.auto_fill_pr_description_from_commit = auto_fill_pr_description_from_commit;
         }
         settings.save()
     }

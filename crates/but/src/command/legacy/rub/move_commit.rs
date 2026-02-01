@@ -15,9 +15,8 @@ pub(crate) fn to_branch(
     branch_name: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
-    let target_stack_id = branch_name_to_stack_id(ctx, Some(branch_name))?.ok_or(
-        anyhow::anyhow!("Could not find stack for branch {}", branch_name),
-    )?;
+    let target_stack_id = branch_name_to_stack_id(ctx, Some(branch_name))?
+        .ok_or(anyhow::anyhow!("Could not find stack for branch {}", branch_name))?;
     let source_stack_id = stack_id_by_commit_id(ctx, oid)?;
     if source_stack_id == target_stack_id {
         let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -27,11 +26,7 @@ pub(crate) fn to_branch(
         stack_order.series.iter_mut().for_each(|series| {
             series.commit_ids.retain(|commit_id| commit_id != &git2_oid);
         });
-        if let Some(series) = stack_order
-            .series
-            .iter_mut()
-            .find(|s| s.name == branch_name)
-        {
+        if let Some(series) = stack_order.series.iter_mut().find(|s| s.name == branch_name) {
             series.commit_ids.insert(0, git2_oid);
         }
         gitbutler_branch_actions::reorder_stack(ctx, source_stack_id, stack_order)?;

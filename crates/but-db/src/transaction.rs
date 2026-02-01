@@ -14,15 +14,11 @@ impl<'conn> From<rusqlite::Transaction<'conn>> for Transaction<'conn> {
 /// Helpers
 impl<'conn> Transaction<'conn> {
     pub(crate) fn inner(&self) -> &rusqlite::Transaction<'conn> {
-        self.inner
-            .as_ref()
-            .expect("BUG: transaction is always set while alive")
+        self.inner.as_ref().expect("BUG: transaction is always set while alive")
     }
 
     pub(crate) fn inner_mut(&mut self) -> &mut rusqlite::Transaction<'conn> {
-        self.inner
-            .as_mut()
-            .expect("BUG: transaction is always set while alive")
+        self.inner.as_mut().expect("BUG: transaction is always set while alive")
     }
 }
 
@@ -77,9 +73,7 @@ impl DbHandle {
     /// # IMPORTANT: run `commit()`
     /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
-    pub fn immediate_transaction_nonblocking(
-        &mut self,
-    ) -> rusqlite::Result<Option<Transaction<'_>>> {
+    pub fn immediate_transaction_nonblocking(&mut self) -> rusqlite::Result<Option<Transaction<'_>>> {
         immediate_optional_transaction(&mut self.conn)
     }
 }
@@ -113,16 +107,12 @@ impl AppCacheHandle {
     /// # IMPORTANT: run `commit()`
     /// Don't forget to call [commit()](Transaction::commit()) to actually persist the result.
     /// On drop, no changes will be persisted and the transaction is implicitly rolled back.
-    pub fn immediate_transaction_nonblocking(
-        &mut self,
-    ) -> rusqlite::Result<Option<Transaction<'_>>> {
+    pub fn immediate_transaction_nonblocking(&mut self) -> rusqlite::Result<Option<Transaction<'_>>> {
         immediate_optional_transaction(&mut self.conn)
     }
 }
 
-fn immediate_optional_transaction(
-    conn: &mut rusqlite::Connection,
-) -> rusqlite::Result<Option<Transaction<'_>>> {
+fn immediate_optional_transaction(conn: &mut rusqlite::Connection) -> rusqlite::Result<Option<Transaction<'_>>> {
     set_connection_to_nonblocking(conn)?;
 
     // TODO(borrowchk): remove this once Rust can handle this case.
@@ -147,9 +137,10 @@ fn immediate_optional_transaction(
                 reset_connection_to_blocking(&*conn_ptr)?;
             }
 
-            if err.sqlite_error_code().is_some_and(|code| {
-                matches!(code, ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked)
-            }) {
+            if err
+                .sqlite_error_code()
+                .is_some_and(|code| matches!(code, ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked))
+            {
                 Ok(None)
             } else {
                 Err(err)
@@ -174,29 +165,17 @@ impl Transaction<'_> {
     /// Consume the transaction and commit it, without recovery.
     pub fn commit(mut self) -> Result<(), rusqlite::Error> {
         let res = self.reset_connection_to_blocking_if_needed();
-        self.inner
-            .take()
-            .expect("BUG: always set")
-            .commit()
-            .and(res)
+        self.inner.take().expect("BUG: always set").commit().and(res)
     }
 
     /// Roll all changes so far back, making this instance unusable.
     pub fn rollback(mut self) -> Result<(), rusqlite::Error> {
         let res = self.reset_connection_to_blocking_if_needed();
-        self.inner
-            .take()
-            .expect("BUG: always set")
-            .rollback()
-            .and(res)
+        self.inner.take().expect("BUG: always set").rollback().and(res)
     }
 
     fn reset_connection_to_blocking_if_needed(&mut self) -> rusqlite::Result<()> {
-        if let Some(trans) = self
-            .inner
-            .as_ref()
-            .filter(|_| self.reset_to_blocking_on_drop)
-        {
+        if let Some(trans) = self.inner.as_ref().filter(|_| self.reset_to_blocking_on_drop) {
             reset_connection_to_blocking(trans)
         } else {
             Ok(())

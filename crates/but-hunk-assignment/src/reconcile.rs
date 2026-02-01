@@ -90,9 +90,7 @@ pub(crate) fn assignments(
 
                 // If requested, reset stack_id to none on multiple overlapping
                 let unique_stack_ids = intersecting.iter().filter_map(|a| a.stack_id).unique();
-                if multiple_overlapping_resolution == MultipleOverlapping::SetNone
-                    && unique_stack_ids.count() > 1
-                {
+                if multiple_overlapping_resolution == MultipleOverlapping::SetNone && unique_stack_ids.count() > 1 {
                     new_assignment.stack_id = None;
                 }
             }

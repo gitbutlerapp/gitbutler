@@ -47,9 +47,7 @@ pub fn try_exclusive_inter_process_access(
 ) -> anyhow::Result<LockFile> {
     let project_data = project_data.as_ref();
     let mut lock = LockFile::open(project_data.join::<PathBuf>(scope.into()).as_os_str())?;
-    let got_lock = lock
-        .try_lock()
-        .context("Failed to check if lock is taken")?;
+    let got_lock = lock.try_lock().context("Failed to check if lock is taken")?;
     if !got_lock {
         let error_message = match scope {
             LockScope::AllOperations => {

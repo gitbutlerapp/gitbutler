@@ -14,11 +14,7 @@ mod json;
 mod list;
 mod show;
 
-pub fn handle(
-    cmd: Option<Subcommands>,
-    ctx: &mut but_ctx::Context,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     match cmd {
         None => handle(
             Some(Subcommands::List {
@@ -57,10 +53,7 @@ pub fn handle(
             show::show(ctx, &branch_id, out, review, files, ai, check)?;
             Ok(())
         }
-        Some(Subcommands::New {
-            branch_name,
-            anchor,
-        }) => {
+        Some(Subcommands::New { branch_name, anchor }) => {
             let id_map = IdMap::new_from_context(ctx, None)?;
             // Get branch name or use canned name
             let branch_name = branch_name
@@ -95,12 +88,10 @@ pub fn handle(
                             position: but_workspace::branch::create_reference::Position::Above,
                         })
                     }
-                    CliId::Branch { name, .. } => Some(
-                        but_api::legacy::stack::create_reference::Anchor::AtReference {
-                            short_name: name.clone(),
-                            position: but_workspace::branch::create_reference::Position::Above,
-                        },
-                    ),
+                    CliId::Branch { name, .. } => Some(but_api::legacy::stack::create_reference::Anchor::AtReference {
+                        short_name: name.clone(),
+                        position: but_workspace::branch::create_reference::Position::Above,
+                    }),
                     _ => {
                         return Err(anyhow::anyhow!(
                             "Invalid anchor type: {}, expected commit or branch",
@@ -134,10 +125,8 @@ pub fn handle(
             Ok(())
         }
         Some(Subcommands::Delete { branch_name, force }) => {
-            let stacks = but_api::legacy::workspace::stacks(
-                ctx,
-                Some(but_workspace::legacy::StacksFilter::InWorkspace),
-            )?;
+            let stacks =
+                but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
 
             // Find which stack this branch belongs to
             for stack_entry in &stacks {
@@ -158,10 +147,8 @@ pub fn handle(
         }
         Some(Subcommands::Apply { branch_name }) => apply::apply(ctx, &branch_name, out),
         Some(Subcommands::Unapply { branch_name, force }) => {
-            let stacks = but_api::legacy::workspace::stacks(
-                ctx,
-                Some(but_workspace::legacy::StacksFilter::InWorkspace),
-            )?;
+            let stacks =
+                but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
 
             // Find which stack this branch belongs to
             for stack_entry in &stacks {
@@ -210,11 +197,7 @@ fn confirm_unapply_stack(
     but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "Unapplied stack with branches '{}' from workspace",
-            branches
-        )?;
+        writeln!(out, "Unapplied stack with branches '{}' from workspace", branches)?;
     }
     Ok(())
 }

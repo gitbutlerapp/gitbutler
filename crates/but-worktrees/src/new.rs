@@ -31,15 +31,9 @@ pub fn worktree_new(
     let id = WorktreeId::generate();
 
     let path = worktree_workdir(&ctx.project_data_dir(), &id);
-    let branch_name =
-        gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id.as_bstr()))?;
+    let branch_name = gix::refs::PartialName::try_from(format!("gitbutler/worktree/{}", id.as_bstr()))?;
 
-    git_worktree_add(
-        repo.common_dir(),
-        &path,
-        branch_name.as_ref(),
-        to_checkout.detach(),
-    )?;
+    git_worktree_add(repo.common_dir(), &path, branch_name.as_ref(), to_checkout.detach())?;
 
     let path = path.canonicalize()?;
 

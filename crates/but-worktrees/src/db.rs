@@ -17,10 +17,7 @@ const BASE_FILE: &str = "gitbutler-base";
 
 /// Get the possibly non-existing `.git/worktrees/<id>/` directory for a given worktree ID.
 fn worktree_gitdir(main_repo: &gix::Repository, id: &WorktreeId) -> PathBuf {
-    main_repo
-        .common_dir()
-        .join("worktrees")
-        .join(id.to_os_str())
+    main_repo.common_dir().join("worktrees").join(id.to_os_str())
 }
 
 /// Save worktree metadata to files in `.git/worktrees/<id>/`.
@@ -37,11 +34,8 @@ pub fn save_worktree_meta(main_repo: &gix::Repository, worktree: WorktreeMeta) -
     }
 
     // Write base commit (as bytes to match read operations)
-    std::fs::write(
-        git_dir.join(BASE_FILE),
-        worktree.base.to_hex().to_string().as_bytes(),
-    )
-    .context("Failed to write gitbutler-base file")?;
+    std::fs::write(git_dir.join(BASE_FILE), worktree.base.to_hex().to_string().as_bytes())
+        .context("Failed to write gitbutler-base file")?;
 
     Ok(())
 }
@@ -63,8 +57,7 @@ pub fn get_worktree_meta(repo: &gix::Repository, id: &WorktreeId) -> Result<Opti
     // Read created_from_ref if present
     let created_from_file = git_dir.join(CREATED_FROM_FILE);
     let created_from_ref = if created_from_file.exists() {
-        let ref_bytes = std::fs::read(&created_from_file)
-            .context("Failed to read gitbutler-created-from file")?;
+        let ref_bytes = std::fs::read(&created_from_file).context("Failed to read gitbutler-created-from file")?;
         let ref_bstr = bstr::BString::from(ref_bytes.trim());
         Some(gix::refs::FullName::try_from(ref_bstr)?)
     } else {

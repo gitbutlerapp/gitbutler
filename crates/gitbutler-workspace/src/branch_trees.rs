@@ -44,11 +44,7 @@ impl WorkspaceState {
         })
     }
 
-    pub fn create_from_heads(
-        ctx: &Context,
-        perm: &RepoShared,
-        heads: &[gix::ObjectId],
-    ) -> Result<Self> {
+    pub fn create_from_heads(ctx: &Context, perm: &RepoShared, heads: &[gix::ObjectId]) -> Result<Self> {
         let repo = &*ctx.git2_repo.get()?;
 
         let base = workspace_base_from_heads(ctx, perm, heads)?;
@@ -98,8 +94,7 @@ pub fn update_uncommitted_changes_with_tree(
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
     if let Some(worktree_id) = old_uncommitted_changes {
-        let mut new_uncommitted_changes =
-            move_tree_between_workspaces(repo, worktree_id, old, new)?;
+        let mut new_uncommitted_changes = move_tree_between_workspaces(repo, worktree_id, old, new)?;
 
         // If the new tree and old tree are the same, then we don't need to do anything
         if !new_uncommitted_changes.has_conflicts() && !always_checkout.unwrap_or(false) {

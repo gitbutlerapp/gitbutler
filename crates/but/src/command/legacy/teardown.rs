@@ -29,11 +29,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
             writeln!(
                 out,
                 "{}",
-                format!(
-                    "Not currently on gitbutler/workspace branch (on: {}).",
-                    head_name
-                )
-                .red()
+                format!("Not currently on gitbutler/workspace branch (on: {}).", head_name).red()
             )?;
             writeln!(out)?;
             writeln!(
@@ -55,10 +51,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(out, "{}", "→ Creating snapshot...".dimmed())?;
     }
 
-    let snapshot = but_api::legacy::oplog::create_snapshot(
-        ctx,
-        Some("Teardown: exiting GitButler mode".to_string()),
-    )?;
+    let snapshot = but_api::legacy::oplog::create_snapshot(ctx, Some("Teardown: exiting GitButler mode".to_string()))?;
 
     let snapshot_id = snapshot.to_string();
 
@@ -73,16 +66,11 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
 
     // Find the first active branch (leftmost/lowest order)
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{}",
-            "→ Finding active branch to check out...".dimmed()
-        )?;
+        writeln!(out, "{}", "→ Finding active branch to check out...".dimmed())?;
     }
 
     // Get stacks filtered to only those in workspace, sorted by order to find the leftmost
-    let mut stacks = match but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace))
-    {
+    let mut stacks = match but_api::legacy::workspace::stacks(ctx, Some(StacksFilter::InWorkspace)) {
         Ok(stacks) => stacks,
         Err(_e) => {
             try_stack_fixes(ctx, out)?;
@@ -106,11 +94,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "  {}",
-            format!("✓ Will check out: {}", target_branch_name).green()
-        )?;
+        writeln!(out, "  {}", format!("✓ Will check out: {}", target_branch_name).green())?;
         writeln!(out)?;
     }
 
@@ -128,11 +112,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
 
     // Check out the target branch using Git directly
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{}",
-            format!("→ Checking out {}...", target_branch_name).dimmed()
-        )?;
+        writeln!(out, "{}", format!("→ Checking out {}...", target_branch_name).dimmed())?;
     }
 
     // Use git checkout via command
@@ -163,31 +143,19 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         std::process::Command::new("git")
             .arg("-C")
             .arg(workdir)
-            .args([
-                "symbolic-ref",
-                "HEAD",
-                &format!("refs/heads/{}", target_branch_name),
-            ])
+            .args(["symbolic-ref", "HEAD", &format!("refs/heads/{}", target_branch_name)])
             .output()
             .context("Failed to set symbolic ref")?;
     }
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "  {}",
-            format!("✓ Checked out: {}", target_branch_name).green()
-        )?;
+        writeln!(out, "  {}", format!("✓ Checked out: {}", target_branch_name).green())?;
         writeln!(out)?;
     }
 
     // Final success message
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{}",
-            "✓ Successfully exited GitButler mode!".green().bold()
-        )?;
+        writeln!(out, "{}", "✓ Successfully exited GitButler mode!".green().bold())?;
         writeln!(out)?;
         writeln!(
             out,
@@ -215,11 +183,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
 // of gitbutler/workspace. Try to fix that.
 fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "\n{}",
-            "Attempting to fix workspace stacks...".yellow()
-        )?;
+        writeln!(out, "\n{}", "Attempting to fix workspace stacks...".yellow())?;
     }
 
     // check if gitbutler/workspace is pointing at a commit that does not start with "GitButler Workspace Commit"
@@ -269,11 +233,7 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
             writeln!(
                 out,
                 "{}",
-                format!(
-                    "→ Resetting gitbutler/workspace to {}",
-                    &target_commit.to_string()[..7]
-                )
-                .dimmed()
+                format!("→ Resetting gitbutler/workspace to {}", &target_commit.to_string()[..7]).dimmed()
             )?;
         }
         repo.reference(
@@ -286,11 +246,7 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
             writeln!(
                 out,
                 "  {}",
-                format!(
-                    "✓ gitbutler/workspace reset to {}",
-                    &target_commit.to_string()[..7]
-                )
-                .green()
+                format!("✓ gitbutler/workspace reset to {}", &target_commit.to_string()[..7]).green()
             )?;
         }
 

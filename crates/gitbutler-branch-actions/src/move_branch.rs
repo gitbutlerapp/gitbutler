@@ -131,13 +131,12 @@ pub(crate) fn tear_off_branch(
         .context("failed to update gitbutler workspace")?;
 
     let branch_manager = ctx.branch_manager();
-    let (_, unapplied_stacks, _unapplied_stack_shortnames) = branch_manager
-        .create_virtual_branch_from_branch(
-            &Refname::Local(LocalRefname::new(subject_branch_name, None)),
-            None,
-            None,
-            perm,
-        )?;
+    let (_, unapplied_stacks, _unapplied_stack_shortnames) = branch_manager.create_virtual_branch_from_branch(
+        &Refname::Local(LocalRefname::new(subject_branch_name, None)),
+        None,
+        None,
+        perm,
+    )?;
 
     Ok(MoveBranchResult {
         deleted_stacks,
@@ -158,13 +157,8 @@ fn inject_branch_steps_into_destination(
     subject_branch_steps: Vec<RebaseStep>,
     subject_branch_pr_number: Option<usize>,
 ) -> Result<(), anyhow::Error> {
-    let new_destination_steps = inject_branch_steps(
-        ctx,
-        repo,
-        &destination_stack,
-        target_branch_name,
-        subject_branch_steps,
-    )?;
+    let new_destination_steps =
+        inject_branch_steps(ctx, repo, &destination_stack, target_branch_name, subject_branch_steps)?;
 
     let mut destination_stack_rebase = Rebase::new(repo, destination_merge_base, None)?;
     destination_stack_rebase.steps(new_destination_steps)?;
@@ -190,8 +184,7 @@ fn inject_branch_steps_into_destination(
 
     destination_stack.set_stack_head(vb_state, repo, new_destination_head.id().to_git2())?;
 
-    destination_stack
-        .set_heads_from_rebase_output(ctx, destination_rebase_result.clone().references)?;
+    destination_stack.set_heads_from_rebase_output(ctx, destination_rebase_result.clone().references)?;
     Ok(())
 }
 
@@ -243,12 +236,7 @@ fn extract_branch_steps(
     let mut inside_branch = false;
     let branch_ref = repository
         .try_find_reference(subject_branch_name)?
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Source branch '{}' not found in repository",
-                subject_branch_name
-            )
-        })?;
+        .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", subject_branch_name))?;
     let branch_ref_name = branch_ref.name().to_owned();
 
     for step in source_steps {
@@ -295,14 +283,12 @@ fn inject_branch_steps(
     branch_steps.reverse();
 
     let mut new_destination_steps = Vec::new();
-    let branch_ref = repository
-        .try_find_reference(destination_branch_name)?
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Destination branch '{}' not found in repository",
-                destination_branch_name
-            )
-        })?;
+    let branch_ref = repository.try_find_reference(destination_branch_name)?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "Destination branch '{}' not found in repository",
+            destination_branch_name
+        )
+    })?;
     let branch_ref_name = branch_ref.name().to_owned();
 
     for step in destination_steps {

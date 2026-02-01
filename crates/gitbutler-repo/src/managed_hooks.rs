@@ -195,8 +195,7 @@ fn set_hook_executable(path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o755))
-            .context("Failed to set hook as executable")?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).context("Failed to set hook as executable")?;
     }
     Ok(())
 }
@@ -242,10 +241,7 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
             fs::remove_file(&hook_path).context("Failed to remove managed hook")?;
         } else {
             // Not our hook, don't touch it
-            tracing::debug!(
-                "{} is not GitButler-managed, skipping",
-                hook_type.hook_name()
-            );
+            tracing::debug!("{} is not GitButler-managed, skipping", hook_type.hook_name());
             return Ok(HookInstallationResult::AlreadyConfigured);
         }
     }
@@ -279,11 +275,7 @@ pub fn install_managed_hooks(repo: &git2::Repository) -> Result<HookInstallation
                 warnings.extend(w);
             }
             Err(e) => {
-                warnings.push(format!(
-                    "Failed to install {}: {}",
-                    hook_type.hook_name(),
-                    e
-                ));
+                warnings.push(format!("Failed to install {}: {}", hook_type.hook_name(), e));
             }
         }
     }
@@ -315,11 +307,7 @@ pub fn uninstall_managed_hooks(repo: &git2::Repository) -> Result<HookInstallati
                 warnings.extend(w);
             }
             Err(e) => {
-                warnings.push(format!(
-                    "Failed to uninstall {}: {}",
-                    hook_type.hook_name(),
-                    e
-                ));
+                warnings.push(format!("Failed to uninstall {}: {}", hook_type.hook_name(), e));
             }
         }
     }

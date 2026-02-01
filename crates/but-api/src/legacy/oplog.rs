@@ -48,8 +48,7 @@ pub fn list_snapshots(
 ) -> Result<Vec<Snapshot>> {
     let snapshots = ctx.list_snapshots(
         limit,
-        sha.map(|hex| hex.parse().map_err(anyhow::Error::from))
-            .transpose()?,
+        sha.map(|hex| hex.parse().map_err(anyhow::Error::from)).transpose()?,
         exclude_kind.unwrap_or_default(),
         include_kind,
     )?;
@@ -83,10 +82,7 @@ pub fn get_snapshot(ctx: &but_ctx::Context, sha: gix::ObjectId) -> Result<Snapsh
 /// Returns an error if the project cannot be found or if there is an issue creating the snapshot.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn create_snapshot(
-    ctx: &mut but_ctx::Context,
-    message: Option<String>,
-) -> Result<gix::ObjectId> {
+pub fn create_snapshot(ctx: &mut but_ctx::Context, message: Option<String>) -> Result<gix::ObjectId> {
     let mut guard = ctx.exclusive_worktree_access();
     let mut details = SnapshotDetails::new(OperationKind::OnDemandSnapshot);
     details.body = message;
@@ -127,10 +123,7 @@ pub fn restore_snapshot(ctx: &mut but_ctx::Context, sha: gix::ObjectId) -> Resul
 /// Returns an error if the project cannot be found, if the snapshot SHA is invalid, or if there is an issue computing the diff.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn snapshot_diff(
-    ctx: &but_ctx::Context,
-    sha: gix::ObjectId,
-) -> Result<Vec<but_core::ui::TreeChange>> {
+pub fn snapshot_diff(ctx: &but_ctx::Context, sha: gix::ObjectId) -> Result<Vec<but_core::ui::TreeChange>> {
     let diff = ctx.snapshot_diff(sha.to_git2())?;
     let diff: Vec<but_core::ui::TreeChange> = diff.into_iter().map(Into::into).collect();
     Ok(diff)

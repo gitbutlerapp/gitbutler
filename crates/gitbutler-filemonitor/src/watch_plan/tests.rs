@@ -146,10 +146,7 @@ mod compute_watch_plan {
         );
     }
 
-    fn canonicalize_plan(
-        plan: Vec<(PathBuf, RecursiveMode)>,
-        worktree: &Path,
-    ) -> Vec<CanonicalWatch> {
+    fn canonicalize_plan(plan: Vec<(PathBuf, RecursiveMode)>, worktree: &Path) -> Vec<CanonicalWatch> {
         plan.into_iter()
             .map(|(path, mode)| {
                 let relative = path

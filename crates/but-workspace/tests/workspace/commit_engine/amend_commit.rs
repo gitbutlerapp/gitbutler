@@ -3,9 +3,8 @@ use but_testsupport::read_only_in_memory_scenario;
 use but_workspace::commit_engine::Destination;
 
 use crate::utils::{
-    CONTEXT_LINES, cat_commit, commit_from_outcome,
-    commit_whole_files_and_all_hunks_from_workspace, visualize_commit, visualize_tree,
-    writable_scenario, writable_scenario_with_ssh_key, write_sequence,
+    CONTEXT_LINES, cat_commit, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace, visualize_commit,
+    visualize_tree, writable_scenario, writable_scenario_with_ssh_key, write_sequence,
 };
 
 #[test]
@@ -14,14 +13,8 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     // Change the committer and author dates to be able to tell what it changes.
     {
         let mut config = repo.config_snapshot_mut();
-        config.set_value(
-            &gix::config::tree::gitoxide::Commit::COMMITTER_DATE,
-            "946771266 +0600",
-        )?;
-        config.set_value(
-            &gix::config::tree::gitoxide::Commit::AUTHOR_DATE,
-            "946684866 +0600",
-        )?;
+        config.set_value(&gix::config::tree::gitoxide::Commit::COMMITTER_DATE, "946771266 +0600")?;
+        config.set_value(&gix::config::tree::gitoxide::Commit::AUTHOR_DATE, "946684866 +0600")?;
     }
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"

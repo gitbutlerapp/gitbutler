@@ -23,8 +23,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
     let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the ID to get file information
-    let resolved_ids = parse_sources(ctx, &id_map, id)
-        .with_context(|| format!("Could not resolve ID '{}'", id))?;
+    let resolved_ids = parse_sources(ctx, &id_map, id).with_context(|| format!("Could not resolve ID '{}'", id))?;
 
     if resolved_ids.is_empty() {
         bail!("No entity found for the given ID");
@@ -53,8 +52,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                         .map(|status| {
                             matches!(
                                 status,
-                                but_core::ui::TreeStatus::Addition { .. }
-                                    | but_core::ui::TreeStatus::Deletion { .. }
+                                but_core::ui::TreeStatus::Addition { .. } | but_core::ui::TreeStatus::Deletion { .. }
                             )
                         })
                         .unwrap_or(false);
@@ -83,8 +81,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                         .map(|status| {
                             matches!(
                                 status,
-                                but_core::ui::TreeStatus::Addition { .. }
-                                    | but_core::ui::TreeStatus::Deletion { .. }
+                                but_core::ui::TreeStatus::Addition { .. } | but_core::ui::TreeStatus::Deletion { .. }
                             )
                         })
                         .unwrap_or(false);
@@ -108,9 +105,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                 bail!("Cannot discard a commit. Use a file or hunk ID instead.");
             }
             CliId::CommittedFile { .. } => {
-                bail!(
-                    "Cannot discard a committed file. Use an uncommitted file or hunk ID instead."
-                );
+                bail!("Cannot discard a committed file. Use an uncommitted file or hunk ID instead.");
             }
             CliId::Stack { .. } => {
                 bail!("Cannot discard a stack. Use a file or hunk ID instead.");
@@ -165,11 +160,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
                 out,
                 "Successfully discarded changes to {} {}",
                 discarded_count,
-                if discarded_count == 1 {
-                    "item"
-                } else {
-                    "items"
-                }
+                if discarded_count == 1 { "item" } else { "items" }
             )?;
         }
         if let Some(out) = out.for_json() {

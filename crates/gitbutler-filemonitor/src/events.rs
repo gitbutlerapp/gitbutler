@@ -14,20 +14,10 @@ impl Display for InternalEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InternalEvent::GitFilesChange(project_id, paths) => {
-                write!(
-                    f,
-                    "GitFileChange({}, {})",
-                    project_id,
-                    comma_separated_paths(paths)
-                )
+                write!(f, "GitFileChange({}, {})", project_id, comma_separated_paths(paths))
             }
             InternalEvent::ProjectFilesChange(project_id, paths) => {
-                write!(
-                    f,
-                    "ProjectFileChange({}, {})",
-                    project_id,
-                    comma_separated_paths(paths)
-                )
+                write!(f, "ProjectFileChange({}, {})", project_id, comma_separated_paths(paths))
             }
         }
     }

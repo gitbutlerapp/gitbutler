@@ -46,8 +46,8 @@ use tokio::{
 };
 
 use crate::{
-    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
-    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
+    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode, PromptAttachment,
+    SystemMessage, ThinkingLevel, Transcript, UserInput,
     broadcaster::FrontendEvent,
     claude_config::fmt_claude_settings,
     claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
@@ -221,9 +221,7 @@ impl Claudes {
 
             let summary = if let Some(ClaudeMessage { payload, .. }) = messages.last() {
                 match payload {
-                    MessagePayload::System(SystemMessage::CompactFinished { summary }) => {
-                        Some(summary.clone())
-                    }
+                    MessagePayload::System(SystemMessage::CompactFinished { summary }) => Some(summary.clone()),
                     _ => None,
                 }
             } else {
@@ -247,21 +245,12 @@ impl Claudes {
         .await?;
 
         let (read_stdout, writer) = std::io::pipe()?;
-        let response_streamer = spawn_response_streaming(
-            sync_ctx.clone(),
-            broadcaster.clone(),
-            read_stdout,
-            session_id,
-            stack_id,
-        );
+        let response_streamer =
+            spawn_response_streaming(sync_ctx.clone(), broadcaster.clone(), read_stdout, session_id, stack_id);
 
         let (read_stderr, write_stderr) = std::io::pipe()?;
         // Clone so the reference to ctx can be immediately dropped
-        let project_workdir = sync_ctx
-            .clone()
-            .into_thread_local()
-            .workdir_or_fail()?
-            .to_owned();
+        let project_workdir = sync_ctx.clone().into_thread_local().workdir_or_fail()?.to_owned();
         let mut handle = spawn_command(
             writer,
             write_stderr,
@@ -407,8 +396,7 @@ async fn spawn_command(
     let cc_settings = ClaudeSettings::open(&project_path).await;
 
     // Determine what session ID Claude will use - needed for MCP server configuration
-    let transcript_current_id =
-        Transcript::current_valid_session_id(&project_path, &session).await?;
+    let transcript_current_id = Transcript::current_valid_session_id(&project_path, &session).await?;
     let claude_session_id = if summary_to_resume.is_some() {
         // If resuming after compaction, Claude will use a new random ID
         uuid::Uuid::new_v4()
@@ -430,10 +418,7 @@ async fn spawn_command(
     let mcp_config = &mcp_config
         .mcp_servers_with_security(claude_session_id)
         .exclude(&disabled_mcp_servers);
-    tracing::info!(
-        "spawn_command mcp_servers: {:?}",
-        mcp_config.mcp_servers.keys()
-    );
+    tracing::info!("spawn_command mcp_servers: {:?}", mcp_config.mcp_servers.keys());
     let mcp_config = serde_json::to_string(mcp_config)?;
     let mut command = Command::new(claude_executable);
 
@@ -467,18 +452,10 @@ async fn spawn_command(
 
     command.args(["--verbose"]);
 
-    if sync_ctx
-        .settings
-        .clone()
-        .claude
-        .dangerously_allow_all_permissions
-    {
+    if sync_ctx.settings.clone().claude.dangerously_allow_all_permissions {
         command.arg("--dangerously-skip-permissions");
     } else {
-        command.args([
-            "--permission-prompt-tool",
-            "mcp__but-security__approval_prompt",
-        ]);
+        command.args(["--permission-prompt-tool", "mcp__but-security__approval_prompt"]);
         // Set permission mode based on interaction mode
         match user_params.permission_mode {
             PermissionMode::Default => {
@@ -774,47 +751,27 @@ fn group_assignments_by_file(
         .iter()
         .filter(|a| a.stack_id == Some(stack_id))
         .fold(HashMap::new(), |mut acc, assignment| {
-            acc.entry(assignment.path.as_str())
-                .or_default()
-                .push(assignment);
+            acc.entry(assignment.path.as_str()).or_default().push(assignment);
             acc
         })
 }
 
 /// Formats a file path with its associated line ranges
-fn format_file_with_line_ranges(
-    output: &mut String,
-    file_path: &str,
-    hunks: &[&but_hunk_assignment::HunkAssignment],
-) {
+fn format_file_with_line_ranges(output: &mut String, file_path: &str, hunks: &[&but_hunk_assignment::HunkAssignment]) {
     let line_ranges: Vec<String> = hunks
         .iter()
         .filter_map(|hunk| hunk.hunk_header.as_ref())
-        .map(|header| {
-            format!(
-                "{}-{}",
-                header.new_start,
-                header.new_start + header.new_lines
-            )
-        })
+        .map(|header| format!("{}-{}", header.new_start, header.new_start + header.new_lines))
         .collect();
 
     if line_ranges.is_empty() {
         output.push_str(&format!("- {}\n", file_path));
     } else {
-        output.push_str(&format!(
-            "- {} (lines: {})\n",
-            file_path,
-            line_ranges.join(", ")
-        ));
+        output.push_str(&format!("- {} (lines: {})\n", file_path, line_ranges.join(", ")));
     }
 }
 
-fn format_message_with_summary(
-    summary: &str,
-    message: &str,
-    thinking_level: ThinkingLevel,
-) -> String {
+fn format_message_with_summary(summary: &str, message: &str, thinking_level: ThinkingLevel) -> String {
     let message = format!(
         "<previous-conversation>
 This conversation is a continuation of a previous one.
@@ -896,11 +853,7 @@ fn spawn_response_streaming(
             {
                 let mut ctx = sync_ctx.clone().into_thread_local();
                 if first {
-                    let current_session_id = parsed_event["session_id"]
-                        .as_str()
-                        .unwrap()
-                        .parse()
-                        .unwrap();
+                    let current_session_id = parsed_event["session_id"].as_str().unwrap().parse().unwrap();
                     let session = db::get_session_by_id(&ctx, session_id).unwrap();
                     if session.is_some() {
                         db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
@@ -1009,10 +962,7 @@ fn validate_commit_id(commit_id: &str) -> Result<()> {
 
     // Check that it only contains valid hex characters
     if !commit_id.chars().all(|c| c.is_ascii_hexdigit()) {
-        bail!(
-            "Commit ID contains non-hexadecimal characters: {}",
-            commit_id
-        );
+        bail!("Commit ID contains non-hexadecimal characters: {}", commit_id);
     }
 
     Ok(())
@@ -1020,10 +970,7 @@ fn validate_commit_id(commit_id: &str) -> Result<()> {
 
 /// Process file attachments by writing them to temporary files in the project directory
 /// and enhancing the message to reference these files
-async fn format_message_with_attachments(
-    original_message: &str,
-    attachments: &[PromptAttachment],
-) -> Result<String> {
+async fn format_message_with_attachments(original_message: &str, attachments: &[PromptAttachment]) -> Result<String> {
     if attachments.is_empty() {
         return Ok(original_message.to_string());
     }

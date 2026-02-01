@@ -64,9 +64,7 @@ impl RepoExt for &git2::Repository {
     }
 }
 
-pub fn git2_signature_to_gix_signature<'a>(
-    input: impl Borrow<git2::Signature<'a>>,
-) -> gix::actor::Signature {
+pub fn git2_signature_to_gix_signature<'a>(input: impl Borrow<git2::Signature<'a>>) -> gix::actor::Signature {
     let input = input.borrow();
     gix::actor::Signature {
         name: input.name_bytes().into(),
@@ -80,9 +78,7 @@ pub fn git2_signature_to_gix_signature<'a>(
 
 /// Convert `actor` to a `git2` representation or fail if that's not possible.
 /// Note that the current time as provided by `gix` is also used as it.
-pub fn gix_to_git2_signature(
-    actor: gix::actor::SignatureRef<'_>,
-) -> anyhow::Result<git2::Signature<'static>> {
+pub fn gix_to_git2_signature(actor: gix::actor::SignatureRef<'_>) -> anyhow::Result<git2::Signature<'static>> {
     let time = actor.time()?;
     let offset_in_minutes = time.offset / 60;
     let time = git2::Time::new(time.seconds, offset_in_minutes);

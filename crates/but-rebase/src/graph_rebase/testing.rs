@@ -123,10 +123,7 @@ enum LayoutEvent {
         active: Vec<bool>,
     },
     /// Multiple branches merging into one
-    Merge {
-        from_cols: Vec<usize>,
-        active: Vec<bool>,
-    },
+    Merge { from_cols: Vec<usize>, active: Vec<bool> },
     /// A branch terminates (root node - no parents)
     Terminate { col: usize, active: Vec<bool> },
 }
@@ -158,13 +155,10 @@ impl LayoutState {
 
     /// Find first empty rail, or create a new one
     fn find_or_create_empty_rail(&mut self) -> usize {
-        self.rails
-            .iter()
-            .position(|r| r.is_none())
-            .unwrap_or_else(|| {
-                self.rails.push(None);
-                self.rails.len() - 1
-            })
+        self.rails.iter().position(|r| r.is_none()).unwrap_or_else(|| {
+            self.rails.push(None);
+            self.rails.len() - 1
+        })
     }
 
     /// Find first empty rail at or after `start`, or create one
@@ -221,18 +215,12 @@ fn find_heads(graph: &StepGraph) -> Vec<StepGraphIndex> {
     for edge in graph.edge_references() {
         has_incoming.insert(edge.target());
     }
-    graph
-        .node_indices()
-        .filter(|idx| !has_incoming.contains(idx))
-        .collect()
+    graph.node_indices().filter(|idx| !has_incoming.contains(idx)).collect()
 }
 
 /// Get parents sorted by edge order
 fn get_sorted_parents(graph: &StepGraph, node: StepGraphIndex) -> Vec<StepGraphIndex> {
-    let mut parents: Vec<_> = graph
-        .edges(node)
-        .map(|e| (e.weight().order, e.target()))
-        .collect();
+    let mut parents: Vec<_> = graph.edges(node).map(|e| (e.weight().order, e.target())).collect();
     parents.sort_by_key(|(order, _)| *order);
     parents.into_iter().map(|(_, p)| p).collect()
 }

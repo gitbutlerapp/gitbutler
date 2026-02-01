@@ -75,11 +75,7 @@ pub mod assignment {
         }
     }
 
-    pub fn assign_hunk(
-        current_dir: &Path,
-        use_json: bool,
-        assignment: HunkAssignmentRequest,
-    ) -> anyhow::Result<()> {
+    pub fn assign_hunk(current_dir: &Path, use_json: bool, assignment: HunkAssignmentRequest) -> anyhow::Result<()> {
         let mut ctx = Context::discover(current_dir)?;
         let context_lines = ctx.settings.context_lines;
         let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
@@ -167,11 +163,7 @@ pub mod stacks {
     }
 
     /// Create a new stack containing only a branch with the given name.
-    fn create_stack_with_branch(
-        ctx: &mut Context,
-        name: &str,
-        remote: bool,
-    ) -> anyhow::Result<ui::StackEntry> {
+    fn create_stack_with_branch(ctx: &mut Context, name: &str, remote: bool) -> anyhow::Result<ui::StackEntry> {
         if remote {
             let repo = ctx.repo.get()?;
             let remotes = repo.remote_names();
@@ -192,17 +184,13 @@ pub mod stacks {
             )?;
 
             let repo = ctx.repo.get()?;
-            let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-                ctx.project_data_dir().join("virtual_branches.toml"),
-            )?;
-            let stack_entries =
-                but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
+            let meta =
+                but_meta::VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))?;
+            let stack_entries = but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
             let stack_entry = stack_entries
                 .into_iter()
                 .find(|entry| entry.id == Some(stack_id))
-                .ok_or_else(|| {
-                    anyhow::anyhow!("Failed to find newly created stack with ID: {stack_id}")
-                })?;
+                .ok_or_else(|| anyhow::anyhow!("Failed to find newly created stack with ID: {stack_id}"))?;
             return Ok(stack_entry);
         };
 
@@ -211,21 +199,14 @@ pub mod stacks {
             ..Default::default()
         };
         let mut guard = ctx.exclusive_worktree_access();
-        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
-            ctx,
-            &creation_request,
-            guard.write_permission(),
-        )?;
+        let stack_entry =
+            gitbutler_branch_actions::create_virtual_branch(ctx, &creation_request, guard.write_permission())?;
 
         Ok(stack_entry.into())
     }
 
     /// Add a branch to an existing stack.
-    fn add_branch_to_stack(
-        ctx: &mut Context,
-        stack_id: StackId,
-        name: &str,
-    ) -> anyhow::Result<ui::StackEntry> {
+    fn add_branch_to_stack(ctx: &mut Context, stack_id: StackId, name: &str) -> anyhow::Result<ui::StackEntry> {
         let creation_request = gitbutler_branch_actions::stack::CreateSeriesRequest {
             name: name.to_string(),
             target_patch: None,
@@ -234,11 +215,9 @@ pub mod stacks {
 
         gitbutler_branch_actions::stack::create_branch(ctx, stack_id, creation_request)?;
         let repo = ctx.repo.get()?;
-        let meta = but_meta::VirtualBranchesTomlMetadata::from_path(
-            ctx.project_data_dir().join("virtual_branches.toml"),
-        )?;
-        let stack_entries =
-            but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
+        let meta =
+            but_meta::VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))?;
+        let stack_entries = but_workspace::legacy::stacks_v3(&repo, &meta, Default::default(), None)?;
 
         let stack_entry = stack_entries
             .into_iter()
@@ -249,35 +228,24 @@ pub mod stacks {
     }
 
     /// Add a branch to an existing stack by looking up the stack by name.
-    pub fn move_branch(
-        subject_branch: &str,
-        destination_branch: &str,
-        current_dir: &Path,
-    ) -> anyhow::Result<()> {
+    pub fn move_branch(subject_branch: &str, destination_branch: &str, current_dir: &Path) -> anyhow::Result<()> {
         let mut ctx = Context::discover(current_dir)?;
         let meta = ctx.legacy_meta()?;
-        let stacks =
-            but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
+        let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, Default::default(), None)?;
         let subject_stack = stacks
             .clone()
             .into_iter()
             .find(|s| s.heads.iter().any(|h| h.name == subject_branch))
-            .context(format!(
-                "No stack branch found with name '{subject_branch}'"
-            ))?;
+            .context(format!("No stack branch found with name '{subject_branch}'"))?;
 
         let destination_stack = stacks
             .into_iter()
             .find(|s| s.heads.iter().any(|h| h.name == destination_branch))
-            .context(format!(
-                "No stack branch found with name '{destination_branch}'"
-            ))?;
+            .context(format!("No stack branch found with name '{destination_branch}'"))?;
 
         let outcome = gitbutler_branch_actions::move_branch(
             &mut ctx,
-            destination_stack
-                .id
-                .context("BUG(opt-destination-stack-id)")?,
+            destination_stack.id.context("BUG(opt-destination-stack-id)")?,
             destination_branch,
             subject_stack.id.context("BUG(opt-subject-stack-id)")?,
             subject_branch,
@@ -329,12 +297,7 @@ pub(crate) fn discard_change(
 
     let previous_path = previous_rela_path.map(path_to_rela_path).transpose()?;
     let path = path_to_rela_path(current_rela_path)?;
-    let hunk_headers = indices_or_headers_to_hunk_headers(
-        &repo,
-        indices_or_headers,
-        &path,
-        previous_path.as_ref(),
-    )?;
+    let hunk_headers = indices_or_headers_to_hunk_headers(&repo, indices_or_headers, &path, previous_path.as_ref())?;
     let spec = but_core::DiffSpec {
         previous_path,
         path,
@@ -417,8 +380,7 @@ pub fn remove_reference(
     let mut meta = ctx.meta()?;
     let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let ref_name = Category::LocalBranch.to_full_name(short_name)?;
-    let deleted =
-        but_workspace::branch::remove_reference(ref_name.as_ref(), &repo, &ws, &mut meta, opts)?;
+    let deleted = but_workspace::branch::remove_reference(ref_name.as_ref(), &repo, &ws, &mut meta, opts)?;
     if let Some(new_ws) = deleted {
         *ws = new_ws;
         eprintln!("Deleted");
@@ -526,8 +488,7 @@ fn indices_or_headers_to_hunk_headers(
                 .with_context(|| {
                     format!("Couldn't find worktree change for file at '{path}' (previous-path: {previous_path:?}")
                 })?;
-            let Some(UnifiedPatch::Patch { hunks, .. }) =
-                worktree_changes.unified_patch(repo, UI_CONTEXT_LINES)?
+            let Some(UnifiedPatch::Patch { hunks, .. }) = worktree_changes.unified_patch(repo, UI_CONTEXT_LINES)?
             else {
                 bail!("No hunks available for given '{path}'")
             };
@@ -555,8 +516,7 @@ fn path_to_rela_path(path: &Path) -> anyhow::Result<BString> {
         );
     }
     let rela_path =
-        gix::path::to_unix_separators_on_windows(gix::path::os_str_into_bstr(path.as_os_str())?)
-            .into_owned();
+        gix::path::to_unix_separators_on_windows(gix::path::os_str_into_bstr(path.as_os_str())?).into_owned();
     Ok(rela_path)
 }
 

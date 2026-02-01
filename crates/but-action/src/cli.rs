@@ -27,12 +27,10 @@ pub fn do_install_cli(mode: InstallMode) -> anyhow::Result<()> {
     match std::fs::symlink_metadata(UNIX_LINK_PATH) {
         Ok(md) => {
             if !md.is_symlink() {
-                bail!(
-                    "Refusing to install symlink onto existing non-symlink at '{UNIX_LINK_PATH}'"
-                );
+                bail!("Refusing to install symlink onto existing non-symlink at '{UNIX_LINK_PATH}'");
             }
-            let current_link = std::fs::read_link(UNIX_LINK_PATH)
-                .context(format!("error reading existing link: {UNIX_LINK_PATH}"))?;
+            let current_link =
+                std::fs::read_link(UNIX_LINK_PATH).context(format!("error reading existing link: {UNIX_LINK_PATH}"))?;
             if current_link == cli_path {
                 return Ok(());
             }

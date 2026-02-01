@@ -172,9 +172,7 @@ pub fn new_stacks_to_input_stacks(
                 .collect::<anyhow::Result<Vec<_>>>()?;
 
             Ok(InputStack {
-                target: stack
-                    .id
-                    .map_or(HunkLockTarget::Unidentified, HunkLockTarget::Stack),
+                target: stack.id.map_or(HunkLockTarget::Unidentified, HunkLockTarget::Stack),
                 commits_from_base_to_tip: commits,
             })
         })
@@ -182,10 +180,7 @@ pub fn new_stacks_to_input_stacks(
 }
 
 /// Turn `changes` with [`TreeChange`] instances into [`InputFile`], one for each input.
-pub fn tree_changes_to_input_files(
-    repo: &gix::Repository,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<Vec<InputFile>> {
+pub fn tree_changes_to_input_files(repo: &gix::Repository, changes: Vec<TreeChange>) -> anyhow::Result<Vec<InputFile>> {
     let mut files = Vec::new();
     for change in changes {
         let diff = change.unified_patch(repo, 0)?;

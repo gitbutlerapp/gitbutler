@@ -6,11 +6,7 @@ use colored::Colorize;
 
 use crate::{CliId, IdMap, utils::OutputChannel};
 
-pub async fn handle(
-    ctx: &mut Context,
-    out: &mut OutputChannel,
-    branch_id: &str,
-) -> anyhow::Result<()> {
+pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
 
     let id_map = IdMap::new_from_context(ctx, None)?;
@@ -91,10 +87,7 @@ pub async fn handle(
             gix::merge::commit::Options::default(),
         )?;
 
-        if merge_result
-            .tree_merge
-            .has_unresolved_conflicts(Default::default())
-        {
+        if merge_result.tree_merge.has_unresolved_conflicts(Default::default()) {
             bail!(
                 "Merge resulted in conflicts, please run `but pull` to update {}",
                 local_branch_name
@@ -114,8 +107,7 @@ pub async fn handle(
         }
 
         // update the local branch
-        let branch_ref_name: gix::refs::FullName =
-            format!("refs/heads/{local_branch_name}").try_into()?;
+        let branch_ref_name: gix::refs::FullName = format!("refs/heads/{local_branch_name}").try_into()?;
         repo.reference(
             branch_ref_name.clone(),
             merge_commit.id(),
@@ -126,11 +118,7 @@ pub async fn handle(
         crate::command::legacy::pull::handle(ctx, out, false).await?;
 
         if out.for_human().is_some() {
-            writeln!(
-                progress,
-                "\n{}",
-                "Merge and update complete!".green().bold()
-            )?;
+            writeln!(progress, "\n{}", "Merge and update complete!".green().bold())?;
         }
     } else {
         bail!(

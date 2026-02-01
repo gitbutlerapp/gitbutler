@@ -32,19 +32,12 @@ pub fn create_stack_with_branch(
 
     let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
-    let stack_entry =
-        gitbutler_branch_actions::create_virtual_branch(&ctx, &creation_request, perm)?;
+    let stack_entry = gitbutler_branch_actions::create_virtual_branch(&ctx, &creation_request, perm)?;
     drop(guard);
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(stack_entry.id)?;
-    stack.update_branch(
-        &ctx,
-        name.to_string(),
-        &PatchReferenceUpdate {
-            ..Default::default()
-        },
-    )?;
+    stack.update_branch(&ctx, name.to_string(), &PatchReferenceUpdate { ..Default::default() })?;
 
     Ok(stack_entry)
 }
@@ -136,10 +129,7 @@ pub struct BranchDetails {
     /// The commits that are only at the remote.
     pub upstream_commits: Vec<UpstreamCommit>,
 }
-fn parse_branch_details(
-    repo: &gix::Repository,
-    details: but_workspace::ui::BranchDetails,
-) -> BranchDetails {
+fn parse_branch_details(repo: &gix::Repository, details: but_workspace::ui::BranchDetails) -> BranchDetails {
     let authors = details
         .authors
         .into_iter()
@@ -153,11 +143,7 @@ fn parse_branch_details(
         tip: details.tip,
         authors,
         commits: parse_commits(repo, details.commits, details.base_commit),
-        upstream_commits: details
-            .upstream_commits
-            .into_iter()
-            .map(UpstreamCommit::from)
-            .collect(),
+        upstream_commits: details.upstream_commits.into_iter().map(UpstreamCommit::from).collect(),
     }
 }
 
@@ -173,8 +159,7 @@ fn parse_commits(
             let id = commit.id;
             let message = commit.message;
             let author = format!("{} <{}>", commit.author.name, commit.author.email);
-            let changes =
-                but_core::diff::tree_changes(repo, Some(prev), commit.id).unwrap_or_default();
+            let changes = but_core::diff::tree_changes(repo, Some(prev), commit.id).unwrap_or_default();
 
             let files = changes
                 .into_iter()

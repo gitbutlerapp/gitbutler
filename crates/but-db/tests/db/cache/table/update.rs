@@ -114,11 +114,7 @@ fn suppress_update_fails_if_missing() -> anyhow::Result<()> {
         err.to_string(),
         "No update check has been performed yet - cannot set suppression"
     );
-    assert_eq!(
-        cache.update_check().try_get()?,
-        None,
-        "Still nothing is there"
-    );
+    assert_eq!(cache.update_check().try_get()?, None, "Still nothing is there");
     Ok(())
 }
 

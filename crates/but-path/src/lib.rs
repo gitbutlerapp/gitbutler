@@ -194,9 +194,7 @@ impl AppChannel {
     }
 }
 
-fn clean_env_vars<'a, 'b>(
-    var_names: &'a [&'b str],
-) -> impl Iterator<Item = (&'b str, String)> + 'a {
+fn clean_env_vars<'a, 'b>(var_names: &'a [&'b str]) -> impl Iterator<Item = (&'b str, String)> + 'a {
     var_names
         .iter()
         .filter_map(|name| env::var(name).map(|value| (*name, value)).ok())

@@ -23,8 +23,7 @@ pub fn commit_reword_only(
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let editor = ws.graph.to_editor(&repo)?;
 
-    let (outcome, edited_commit_selector) =
-        but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
+    let (outcome, edited_commit_selector) = but_workspace::commit::reword(editor, commit_id, message.as_bstr())?;
 
     let outcome = outcome.materialize()?;
     let id = outcome.lookup_pick(edited_commit_selector)?;
@@ -76,12 +75,8 @@ pub mod ui {
     impl From<but_workspace::commit::insert_blank_commit::RelativeTo<'_>> for RelativeTo {
         fn from(value: but_workspace::commit::insert_blank_commit::RelativeTo) -> Self {
             match value {
-                but_workspace::commit::insert_blank_commit::RelativeTo::Commit(c) => {
-                    Self::Commit(c)
-                }
-                but_workspace::commit::insert_blank_commit::RelativeTo::Reference(r) => {
-                    Self::Reference(r.into())
-                }
+                but_workspace::commit::insert_blank_commit::RelativeTo::Commit(c) => Self::Commit(c),
+                but_workspace::commit::insert_blank_commit::RelativeTo::Reference(r) => Self::Reference(r.into()),
             }
         }
     }
@@ -125,8 +120,7 @@ pub(crate) fn commit_insert_blank_only_impl(
 
     let relative_to = (&relative_to).into();
 
-    let (outcome, blank_commit_selector) =
-        but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
+    let (outcome, blank_commit_selector) = but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
 
     let outcome = outcome.materialize()?;
     let id = outcome.lookup_pick(blank_commit_selector)?;
@@ -213,18 +207,11 @@ pub fn commit_move_changes_between(
     destination_commit_id: json::HexHash,
     changes: Vec<but_core::DiffSpec>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
-        ctx,
-        SnapshotDetails::new(OperationKind::MoveCommitFile),
-    )
-    .ok();
+    let maybe_oplog_entry =
+        but_oplog::UnmaterializedOplogSnapshot::from_details(ctx, SnapshotDetails::new(OperationKind::MoveCommitFile))
+            .ok();
 
-    let res = self::commit_move_changes_between_only(
-        ctx,
-        source_commit_id,
-        destination_commit_id,
-        changes,
-    );
+    let res = self::commit_move_changes_between_only(ctx, source_commit_id, destination_commit_id, changes);
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         let mut guard = ctx.exclusive_worktree_access();
         snapshot.commit(ctx, guard.write_permission()).ok();
@@ -268,8 +255,7 @@ pub fn commit_uncommit_changes_only(
     };
 
     let editor = ws.graph.to_editor(&repo)?;
-    let outcome =
-        but_workspace::commit::uncommit_changes(editor, commit_id.into(), changes, context_lines)?;
+    let outcome = but_workspace::commit::uncommit_changes(editor, commit_id.into(), changes, context_lines)?;
 
     let materialized = outcome.rebase.materialize_without_checkout()?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;
@@ -286,10 +272,7 @@ pub fn commit_uncommit_changes_only(
             context_lines,
         )?;
 
-        let before_ids: HashSet<_> = before_assignments
-            .into_iter()
-            .filter_map(|a| a.id)
-            .collect();
+        let before_ids: HashSet<_> = before_assignments.into_iter().filter_map(|a| a.id).collect();
 
         let to_assign: Vec<_> = after_assignments
             .into_iter()
@@ -301,14 +284,7 @@ pub fn commit_uncommit_changes_only(
             })
             .collect();
 
-        but_hunk_assignment::assign(
-            db.hunk_assignments_mut()?,
-            &repo,
-            &ws,
-            to_assign,
-            None,
-            context_lines,
-        )?;
+        but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, to_assign, None, context_lines)?;
     }
 
     Ok(json::UIMoveChangesResult {
@@ -328,11 +304,9 @@ pub fn commit_uncommit_changes(
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<but_core::ref_metadata::StackId>,
 ) -> anyhow::Result<json::UIMoveChangesResult> {
-    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
-        ctx,
-        SnapshotDetails::new(OperationKind::DiscardChanges),
-    )
-    .ok();
+    let maybe_oplog_entry =
+        but_oplog::UnmaterializedOplogSnapshot::from_details(ctx, SnapshotDetails::new(OperationKind::DiscardChanges))
+            .ok();
 
     let res = commit_uncommit_changes_only(ctx, commit_id, changes, assign_to);
 

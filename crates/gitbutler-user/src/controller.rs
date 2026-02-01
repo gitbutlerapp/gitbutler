@@ -78,8 +78,7 @@ fn write_without_secrets_if_secrets_present(storage: &Storage, user: User) -> Re
         needs_write |= secret::persist(User::ACCESS_TOKEN_HANDLE, &gb_token, namespace).is_ok();
     }
     if let Some(gh_token) = user.github_access_token.borrow_mut().take() {
-        needs_write |=
-            secret::persist(User::GITHUB_ACCESS_TOKEN_HANDLE, &gh_token, namespace).is_ok();
+        needs_write |= secret::persist(User::GITHUB_ACCESS_TOKEN_HANDLE, &gh_token, namespace).is_ok();
     }
     if needs_write {
         storage.set(&user)?;

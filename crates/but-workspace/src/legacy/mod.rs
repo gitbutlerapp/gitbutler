@@ -9,15 +9,11 @@ pub mod commit_engine;
 pub mod head;
 mod integrated;
 mod stacks;
-pub use head::{
-    merge_worktree_with_workspace, remerged_workspace_commit_v2, remerged_workspace_tree_v2,
-};
+pub use head::{merge_worktree_with_workspace, remerged_workspace_commit_v2, remerged_workspace_tree_v2};
 
 pub mod tree_manipulation;
 // TODO: _v3 versions are specifically for the UI, so import them into `ui` instead.
-pub use stacks::{
-    local_and_remote_commits, stack_branches, stack_details_v3, stack_heads_info, stacks_v3,
-};
+pub use stacks::{local_and_remote_commits, stack_branches, stack_details_v3, stack_heads_info, stacks_v3};
 pub use tree_manipulation::{
     MoveChangesResult,
     move_between_commits::move_changes_between_commits,
@@ -35,10 +31,7 @@ pub mod stack_ext;
 /// Returns the last-seen fork-point that the workspace has with the target branch with which it wants to integrate.
 // TODO: at some point this should be optional, integration branch doesn't have to be defined.
 pub fn common_merge_base_with_target_branch(gb_dir: &Path) -> anyhow::Result<gix::ObjectId> {
-    Ok(VirtualBranchesHandle::new(gb_dir)
-        .get_default_target()?
-        .sha
-        .to_gix())
+    Ok(VirtualBranchesHandle::new(gb_dir).get_default_target()?.sha.to_gix())
 }
 
 /// Return a list of commits on the target branch

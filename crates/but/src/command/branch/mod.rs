@@ -4,11 +4,7 @@ use but_ctx::Context;
 
 use crate::{args::branch::Subcommands, utils::OutputChannel};
 
-pub fn handle(
-    cmd: Option<Subcommands>,
-    ctx: Context,
-    out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+pub fn handle(cmd: Option<Subcommands>, ctx: Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     match cmd {
         None => {
             todo!("implement list and call recursively")

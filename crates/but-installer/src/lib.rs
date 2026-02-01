@@ -37,10 +37,7 @@ use ui::{info, success};
 ///
 /// Returns an error if any step fails. The function will attempt to rollback
 /// changes on installation failure.
-pub fn run_installation_with_version(
-    version_request: VersionRequest,
-    print_usage: bool,
-) -> Result<()> {
+pub fn run_installation_with_version(version_request: VersionRequest, print_usage: bool) -> Result<()> {
     let config = InstallerConfig::new_with_version(version_request)?;
     run_installation_impl(config, print_usage)
 }
@@ -73,10 +70,7 @@ fn run_installation_impl(config: InstallerConfig, print_usage: bool) -> Result<(
     // Display version information
     match &config.version_request {
         VersionRequest::Nightly => {
-            info(&format!(
-                "Installing latest nightly version: {}",
-                release.version
-            ));
+            info(&format!("Installing latest nightly version: {}", release.version));
         }
         VersionRequest::Specific(version) => {
             info(&format!("Installing version: {}", version));
@@ -97,9 +91,7 @@ fn run_installation_impl(config: InstallerConfig, print_usage: bool) -> Result<(
     info(&format!("Download URL: {}", platform_info.url));
 
     // Create temporary directory
-    let temp_dir = tempfile::Builder::new()
-        .prefix("gitbutler-install.")
-        .tempdir()?;
+    let temp_dir = tempfile::Builder::new().prefix("gitbutler-install.").tempdir()?;
 
     // Download the tarball
     let filename = platform_info

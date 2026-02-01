@@ -31,16 +31,12 @@ pub fn rename_branch(
         .iter()
         .flat_map(|s| s.heads.iter().map(|h| h.name.clone().to_string()))
         .collect::<Vec<_>>();
-    let changes =
-        but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(repo, commit_id)?;
-    let diff = changes
-        .try_to_unidiff(repo, ctx.settings.context_lines)?
-        .to_string();
+    let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(repo, commit_id)?;
+    let diff = changes.try_to_unidiff(repo, ctx.settings.context_lines)?.to_string();
     let diffs = vec![diff];
 
     let commit_messages = vec![commit_message];
-    let branch_name =
-        crate::generate::branch_name(llm, &commit_messages, &diffs, &existing_branch_names)?;
+    let branch_name = crate::generate::branch_name(llm, &commit_messages, &diffs, &existing_branch_names)?;
     let normalized_branch_name = branch::normalize_short_name(branch_name.as_str())?.to_string();
 
     let update = gitbutler_branch_actions::stack::update_branch_name(

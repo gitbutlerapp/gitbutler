@@ -259,16 +259,13 @@ impl PermissionDecision {
         ctx: &mut but_ctx::Context,
         session_id: uuid::Uuid,
     ) -> anyhow::Result<()> {
-        use crate::permissions::{
-            Permission, SerializationContext, SettingsKind, add_permission_to_settings,
-        };
+        use crate::permissions::{Permission, SerializationContext, SettingsKind, add_permission_to_settings};
 
         // Extract permissions from the request (may be multiple for bash with && or ||)
         let permissions = Permission::from_request(request)?;
 
         // Build serialization context
-        let home_path = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+        let home_path = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
         let global_claude_dir = home_path.join(".claude");
         let worktree_dir = ctx.workdir_or_fail()?;
         let settings_path = worktree_dir.join(".claude/settings.local.json");
@@ -293,8 +290,7 @@ impl PermissionDecision {
                 Ok(())
             }
             PermissionDecision::AllowProject => {
-                let claude_ctx =
-                    SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
+                let claude_ctx = SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
                 let settings_path = worktree_dir.join(".claude/settings.local.json");
 
                 // Ensure .claude directory exists
@@ -303,19 +299,13 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Allow,
-                        &permission,
-                        &claude_ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Allow, &permission, &claude_ctx, &settings_path)?;
                     runtime_permissions.add_approved(permission);
                 }
                 Ok(())
             }
             PermissionDecision::AllowAlways => {
-                let ctx =
-                    SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
+                let ctx = SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
                 let settings_path = home_path.join(".claude/settings.json");
 
                 // Ensure .claude directory exists
@@ -324,12 +314,7 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Allow,
-                        &permission,
-                        &ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Allow, &permission, &ctx, &settings_path)?;
                     runtime_permissions.add_approved(permission);
                 }
                 Ok(())
@@ -354,8 +339,7 @@ impl PermissionDecision {
                 Ok(())
             }
             PermissionDecision::DenyProject => {
-                let ctx =
-                    SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
+                let ctx = SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
 
                 // Ensure .claude directory exists
                 if let Some(parent) = settings_path.parent() {
@@ -363,19 +347,13 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Deny,
-                        &permission,
-                        &ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Deny, &permission, &ctx, &settings_path)?;
                     runtime_permissions.add_denied(permission);
                 }
                 Ok(())
             }
             PermissionDecision::DenyAlways => {
-                let ctx =
-                    SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
+                let ctx = SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
                 let settings_path = home_path.join(".claude/settings.json");
 
                 // Ensure .claude directory exists
@@ -384,12 +362,7 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Deny,
-                        &permission,
-                        &ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Deny, &permission, &ctx, &settings_path)?;
                     runtime_permissions.add_denied(permission);
                 }
                 Ok(())

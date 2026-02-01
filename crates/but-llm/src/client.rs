@@ -39,16 +39,9 @@ pub trait LLMClient: Debug + Clone {
         on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<Option<String>>;
 
-    fn response(
-        &self,
-        system_message: &str,
-        chat_messages: Vec<ChatMessage>,
-        model: &str,
-    ) -> Result<Option<String>>;
+    fn response(&self, system_message: &str, chat_messages: Vec<ChatMessage>, model: &str) -> Result<Option<String>>;
 
-    fn structured_output<
-        T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
-    >(
+    fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static>(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,

@@ -64,16 +64,10 @@ pub fn get_editor_command() -> Result<String> {
 }
 
 /// Internal implementation that can be tested with the controlled environment `env`.
-fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
-    env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>,
-) -> Result<String> {
+fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>) -> Result<String> {
     // Run git var with the controlled environment
     let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-    let res = cmd
-        .args(["var", "GIT_EDITOR"])
-        .env_clear()
-        .envs(env)
-        .output();
+    let res = cmd.args(["var", "GIT_EDITOR"]).env_clear().envs(env).output();
     if res.is_err() {
         // Avoid logging explicit env vars
         cmd.env_clear();

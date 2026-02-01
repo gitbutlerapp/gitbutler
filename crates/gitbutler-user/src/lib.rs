@@ -30,10 +30,7 @@ pub fn forget_github_login_for_user() -> anyhow::Result<Option<but_secret::Sensi
 }
 
 /// Testing purpose only.
-pub fn set_user_with_path<P: AsRef<std::path::Path>>(
-    data_dir: P,
-    user: &User,
-) -> anyhow::Result<()> {
+pub fn set_user_with_path<P: AsRef<std::path::Path>>(data_dir: P, user: &User) -> anyhow::Result<()> {
     let controller = Controller::from_path(data_dir.as_ref());
     controller.set_user(user)
 }

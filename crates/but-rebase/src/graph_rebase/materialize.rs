@@ -8,9 +8,7 @@ use but_core::{
     },
 };
 
-use crate::graph_rebase::{
-    Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::collect_ordered_parents,
-};
+use crate::graph_rebase::{Checkout, MaterializeOutcome, Pick, Step, SuccessfulRebase, util::collect_ordered_parents};
 
 impl SuccessfulRebase {
     /// Materializes a history rewrite
@@ -31,8 +29,7 @@ impl SuccessfulRebase {
                         Step::Pick(Pick { id, .. }) => id,
                         Step::Reference { .. } => {
                             let parents = collect_ordered_parents(&self.graph, selector.id);
-                            let parent_step_id =
-                                parents.first().context("No first parent to reference")?;
+                            let parent_step_id = parents.first().context("No first parent to reference")?;
                             let Step::Pick(Pick { id, .. }) = self.graph[*parent_step_id] else {
                                 bail!("collect_ordered_parents should always return a commit pick");
                             };

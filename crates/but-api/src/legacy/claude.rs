@@ -45,15 +45,10 @@ pub struct GetMessagesParams {
     pub stack_id: StackId,
 }
 
-pub fn claude_get_messages(
-    claude: &Claude,
-    params: GetMessagesParams,
-) -> Result<Vec<ClaudeMessage>> {
+pub fn claude_get_messages(claude: &Claude, params: GetMessagesParams) -> Result<Vec<ClaudeMessage>> {
     let project = gitbutler_project::get(params.project_id)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
-    let messages = claude
-        .instance_by_stack
-        .get_messages(&ctx, params.stack_id)?;
+    let messages = claude.instance_by_stack.get_messages(&ctx, params.stack_id)?;
     Ok(messages)
 }
 
@@ -66,15 +61,13 @@ pub async fn claude_get_session_details(
     let (worktree_dir, session) = {
         let ctx = ctx.into_thread_local();
         let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
-        let session = but_claude::db::get_session_by_id(&ctx, session_id)?
-            .context("Could not find session")?;
+        let session = but_claude::db::get_session_by_id(&ctx, session_id)?.context("Could not find session")?;
         let worktree_dir = ctx.workdir_or_fail()?;
         (worktree_dir, session)
     };
     let current_id = Transcript::current_valid_session_id(&worktree_dir, &session).await?;
     if let Some(current_id) = current_id {
-        let transcript_path =
-            but_claude::Transcript::get_transcript_path(&worktree_dir, current_id)?;
+        let transcript_path = but_claude::Transcript::get_transcript_path(&worktree_dir, current_id)?;
         let transcript = but_claude::Transcript::from_file(&transcript_path)?;
         Ok(but_claude::ClaudeSessionDetails {
             summary: transcript.summary(),
@@ -92,18 +85,13 @@ pub async fn claude_get_session_details(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_get_user_message(
-    ctx: &but_ctx::Context,
-    offset: Option<i64>,
-) -> Result<Option<ClaudeMessage>> {
+pub fn claude_get_user_message(ctx: &but_ctx::Context, offset: Option<i64>) -> Result<Option<ClaudeMessage>> {
     but_claude::db::get_user_message(ctx, offset)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_list_permission_requests(
-    ctx: &but_ctx::Context,
-) -> Result<Vec<but_claude::ClaudePermissionRequest>> {
+pub fn claude_list_permission_requests(ctx: &but_ctx::Context) -> Result<Vec<but_claude::ClaudePermissionRequest>> {
     but_claude::db::list_all_permission_requests(ctx)
 }
 
@@ -126,10 +114,7 @@ pub struct CancelSessionParams {
 }
 
 pub async fn claude_cancel_session(claude: &Claude, params: CancelSessionParams) -> Result<bool> {
-    let cancelled = claude
-        .instance_by_stack
-        .cancel_session(params.stack_id)
-        .await?;
+    let cancelled = claude.instance_by_stack.cancel_session(params.stack_id).await?;
     Ok(cancelled)
 }
 
@@ -149,10 +134,7 @@ pub struct IsStackActiveParams {
 }
 
 pub async fn claude_is_stack_active(claude: &Claude, params: IsStackActiveParams) -> Result<bool> {
-    let is_active = claude
-        .instance_by_stack
-        .is_stack_active(params.stack_id)
-        .await;
+    let is_active = claude.instance_by_stack.is_stack_active(params.stack_id).await;
     Ok(is_active)
 }
 
@@ -176,9 +158,7 @@ pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParam
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn claude_list_prompt_templates(
-    ctx: &but_ctx::Context,
-) -> Result<Vec<prompt_templates::PromptTemplate>> {
+pub fn claude_list_prompt_templates(ctx: &but_ctx::Context) -> Result<Vec<prompt_templates::PromptTemplate>> {
     let templates = prompt_templates::list_templates(&ctx.project_data_dir())?;
     Ok(templates)
 }

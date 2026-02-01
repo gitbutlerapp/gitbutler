@@ -10,16 +10,14 @@ use gix::{prelude::ObjectIdExt, refs::transaction::PreviousValue};
 use crate::{
     commit_engine::{
         refs_update::utils::{
-            graph_commit_outcome, has_signature, stack_with_branches, write_vrbranches_to_refs,
-            write_worktree_file,
+            graph_commit_outcome, has_signature, stack_with_branches, write_vrbranches_to_refs, write_worktree_file,
         },
         utils::assure_no_worktree_changes,
     },
     utils::{
-        CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks,
-        to_change_specs_whole_file, visualize_index, visualize_index_with_content, visualize_tree,
-        worktree_changes_with_diffs, writable_scenario, writable_scenario_with_ssh_key,
-        write_sequence,
+        CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks, to_change_specs_whole_file,
+        visualize_index, visualize_index_with_content, visualize_tree, worktree_changes_with_diffs, writable_scenario,
+        writable_scenario_with_ssh_key, write_sequence,
     },
 };
 
@@ -89,11 +87,7 @@ fn new_commits_to_tip_from_unborn_head() -> anyhow::Result<()> {
         PreviousValue::Any,
         "the log message",
     )?;
-    repo.tag_reference(
-        "tag-that-should-not-move",
-        new_commit_id,
-        PreviousValue::Any,
-    )?;
+    repo.tag_reference("tag-that-should-not-move", new_commit_id, PreviousValue::Any)?;
 
     write_worktree_file(&repo, "new-file", "change")?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs(
@@ -271,12 +265,7 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
     * d15b5ae (tag: first-commit) init
     ");
 
-    let stack = stack_with_branches(
-        "s1",
-        workspace_commit_id,
-        [("s1/top", initial_stack_id)],
-        &repo,
-    );
+    let stack = stack_with_branches("s1", workspace_commit_id, [("s1/top", initial_stack_id)], &repo);
     vb.branches.insert(stack.id, stack);
     let stack = stack_with_branches(
         "s2",
@@ -570,12 +559,7 @@ fn insert_commit_into_single_stack_with_signatures() -> anyhow::Result<()> {
     * ecd6722 (tag: first-commit, first-commit) init
     ");
 
-    let stack = stack_with_branches(
-        "s1",
-        head_commit_id,
-        [("s1-b/init", initial_commit_id)],
-        &repo,
-    );
+    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", initial_commit_id)], &repo);
     vb.branches.insert(stack.id, stack);
     // Add 10 lines to the end.
     write_sequence(&repo, "file", [(30, None)])?;
@@ -722,12 +706,7 @@ fn branch_tip_below_non_merge_workspace_commit() -> anyhow::Result<()> {
     * 4342edf (tag: first-commit) init
     ");
 
-    let stack = stack_with_branches(
-        "s1",
-        head_commit_id,
-        [("s1-b/init", initial_commit_id)],
-        &repo,
-    );
+    let stack = stack_with_branches("s1", head_commit_id, [("s1-b/init", initial_commit_id)], &repo);
     vb.branches.insert(stack.id, stack);
 
     write_sequence(&repo, "file", [(110, None)])?;
@@ -1138,11 +1117,7 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
     ├── .gitignore:100644:ccc87a0 "*.key*\n"
     └── file:100644:c8ebab8 "5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30\n"
     "#);
-    assert_eq!(
-        outcome.rejected_specs,
-        vec![],
-        "no patch gets rejected here"
-    );
+    assert_eq!(outcome.rejected_specs, vec![], "no patch gets rejected here");
 
     let index = outcome.index.take().unwrap();
     insta::assert_snapshot!(visualize_index(&index), @r"
@@ -1155,8 +1130,7 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
 }
 
 #[test]
-fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() -> anyhow::Result<()>
-{
+fn two_commits_three_buckets_disambiguate_insertion_position_to_one_below_top() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("two-commits-three-buckets");
     // duplicate the existing branches into VB
     let branch_b = repo.rev_parse_single("B")?.detach();
@@ -1673,10 +1647,7 @@ mod utils {
     }
 
     /// Turn all heads from `vbranches` into an aptly named standard reference.
-    pub fn write_vrbranches_to_refs(
-        vbranches: &VirtualBranchesState,
-        repo: &gix::Repository,
-    ) -> anyhow::Result<()> {
+    pub fn write_vrbranches_to_refs(vbranches: &VirtualBranchesState, repo: &gix::Repository) -> anyhow::Result<()> {
         for stack in vbranches.branches.values() {
             for branch in &stack.heads {
                 let commit_id = branch.head_oid(repo)?;
@@ -1702,11 +1673,7 @@ mod utils {
     }
 
     /// Write a file at `rela_path` with `content` directly into the worktree of `repo`.
-    pub fn write_worktree_file(
-        repo: &gix::Repository,
-        rela_path: &str,
-        content: &str,
-    ) -> std::io::Result<()> {
+    pub fn write_worktree_file(repo: &gix::Repository, rela_path: &str, content: &str) -> std::io::Result<()> {
         let work_path = repo.workdir_path(rela_path).expect("non-bare");
         std::fs::write(work_path, content)
     }

@@ -9,9 +9,7 @@ use but_db::poll::ItemKind;
 use rmcp::{
     ServerHandler, ServiceExt,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
-    model::{
-        CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo,
-    },
+    model::{CallToolResult, Content, Implementation, ProtocolVersion, ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router,
 };
 
@@ -63,27 +61,17 @@ pub struct Mcp {
 
 #[tool_router(vis = "pub")]
 impl Mcp {
-    #[tool(
-        name = "approval_prompt",
-        description = "Permission check for tool calls"
-    )]
+    #[tool(name = "approval_prompt", description = "Permission check for tool calls")]
     pub fn approval_prompt(
         &self,
         request: Parameters<McpPermissionRequest>,
     ) -> Result<CallToolResult, rmcp::ErrorData> {
         let approved = self
-            .approval_inner(
-                request.0.clone().into(),
-                std::time::Duration::from_secs(60 * 60 * 24),
-            )
+            .approval_inner(request.0.clone().into(), std::time::Duration::from_secs(60 * 60 * 24))
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
 
         let result = Ok(McpPermissionResponse {
-            behavior: if approved {
-                Behavior::Allow
-            } else {
-                Behavior::Deny
-            },
+            behavior: if approved { Behavior::Allow } else { Behavior::Deny },
             updated_input: Some(request.0.input.clone()),
             message: if approved {
                 None
@@ -107,8 +95,7 @@ impl Mcp {
 
         // Merge runtime and session permissions
         let runtime_perms = self.runtime_permissions.lock().unwrap();
-        let session_perms =
-            Permissions::from_slices(session.approved_permissions(), session.denied_permissions());
+        let session_perms = Permissions::from_slices(session.approved_permissions(), session.denied_permissions());
         let combined_perms = Permissions::merge([&*runtime_perms, &session_perms]);
         drop(runtime_perms); // Release the lock
 
@@ -121,9 +108,7 @@ impl Mcp {
         }
 
         // Send notification for permission request
-        if let Err(e) =
-            crate::notifications::notify_permission_request(&ctx.settings, &req.tool_name)
-        {
+        if let Err(e) = crate::notifications::notify_permission_request(&ctx.settings, &req.tool_name) {
             tracing::warn!("Failed to send permission request notification: {}", e);
         }
 
@@ -154,18 +139,14 @@ impl Mcp {
                     let updated = ctx.db.get()?.claude().get_permission_request(&req.id)?;
                     if let Some(updated) = updated {
                         if let Some(decision_str) = updated.decision.clone() {
-                            let decision: crate::PermissionDecision =
-                                serde_json::from_str(&decision_str)?;
+                            let decision: crate::PermissionDecision = serde_json::from_str(&decision_str)?;
                             approved_state = decision.is_allowed();
 
                             // Handle the decision - persist to settings/session/database and update runtime permissions
                             let mut runtime_perms = self.runtime_permissions.lock().unwrap();
-                            if let Err(e) = decision.handle(
-                                &updated.try_into()?,
-                                &mut runtime_perms,
-                                &mut ctx,
-                                self.session_id,
-                            ) {
+                            if let Err(e) =
+                                decision.handle(&updated.try_into()?, &mut runtime_perms, &mut ctx, self.session_id)
+                            {
                                 tracing::warn!("Failed to handle permission decision: {}", e);
                             }
 

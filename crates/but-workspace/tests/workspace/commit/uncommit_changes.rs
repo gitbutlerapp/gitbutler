@@ -17,8 +17,7 @@ fn diff_spec_for_file(path: &str) -> DiffSpec {
 
 #[test]
 fn uncommit_file_from_head() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
@@ -63,8 +62,7 @@ fn uncommit_file_from_head() -> Result<()> {
 
 #[test]
 fn uncommit_file_from_parent() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
@@ -118,8 +116,7 @@ fn uncommit_file_from_parent() -> Result<()> {
 
 #[test]
 fn uncommit_file_from_root_commit() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two
@@ -162,25 +159,18 @@ fn uncommit_file_from_root_commit() -> Result<()> {
 
 #[test]
 fn error_when_changes_not_found() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
 
     let three_id = repo.rev_parse_single("three")?.detach();
 
     // Try to uncommit a file that doesn't exist in source commit
     let editor = graph.to_editor(&repo)?;
-    let result = uncommit_changes(
-        editor,
-        three_id,
-        vec![diff_spec_for_file("nonexistent.txt")],
-        0,
-    );
+    let result = uncommit_changes(editor, three_id, vec![diff_spec_for_file("nonexistent.txt")], 0);
 
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert!(
-        err.to_string()
-            .contains("Failed to remove specified changes"),
+        err.to_string().contains("Failed to remove specified changes"),
         "Expected error about failed removal, got: {}",
         err
     );
@@ -190,8 +180,7 @@ fn error_when_changes_not_found() -> Result<()> {
 
 #[test]
 fn uncommit_empty_changes_is_noop() -> Result<()> {
-    let (_tmp, graph, repo, mut _meta, _description) =
-        writable_scenario("reword-three-commits", |_| {})?;
+    let (_tmp, graph, repo, mut _meta, _description) = writable_scenario("reword-three-commits", |_| {})?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * c9f444c (HEAD -> three) commit three
     * 16fd221 (origin/two, two) commit two

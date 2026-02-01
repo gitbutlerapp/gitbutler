@@ -5,20 +5,10 @@ mod load {
 
     #[test]
     fn without_customizations() {
-        let settings = AppSettings::load(
-            "tests/fixtures/modify_default_true_to_false.json".as_ref(),
-            None,
-        )
-        .unwrap();
+        let settings = AppSettings::load("tests/fixtures/modify_default_true_to_false.json".as_ref(), None).unwrap();
         assert_eq!(settings.telemetry.app_metrics_enabled, false, "modified");
-        assert_eq!(
-            settings.telemetry.app_error_reporting_enabled, true,
-            "default"
-        );
-        assert_eq!(
-            settings.telemetry.app_non_anon_metrics_enabled, false,
-            "default"
-        );
+        assert_eq!(settings.telemetry.app_error_reporting_enabled, true, "default");
+        assert_eq!(settings.telemetry.app_non_anon_metrics_enabled, false, "default");
         assert_eq!(settings.telemetry.app_distinct_id, None, "default");
         assert_eq!(settings.onboarding_complete, false, "default");
         assert_eq!(
@@ -42,24 +32,12 @@ mod load {
             })),
         )
         .unwrap();
-        assert_eq!(
-            settings.telemetry.app_metrics_enabled, true,
-            "custom override"
-        );
-        assert_eq!(
-            settings.telemetry.app_error_reporting_enabled, false,
-            "custom override"
-        );
-        assert_eq!(
-            settings.telemetry.app_non_anon_metrics_enabled, false,
-            "default"
-        );
+        assert_eq!(settings.telemetry.app_metrics_enabled, true, "custom override");
+        assert_eq!(settings.telemetry.app_error_reporting_enabled, false, "custom override");
+        assert_eq!(settings.telemetry.app_non_anon_metrics_enabled, false, "default");
         assert_eq!(settings.telemetry.app_distinct_id, None, "default");
         assert_eq!(settings.onboarding_complete, false, "default");
-        assert_eq!(
-            settings.github_oauth_app.oauth_client_id, "other",
-            "custom override"
-        );
+        assert_eq!(settings.github_oauth_app.oauth_client_id, "other", "custom override");
     }
 
     mod customization {
@@ -103,11 +81,7 @@ mod load {
             let actual = but_settings::customization::merge_two(first.clone(), None);
             assert_eq!(actual, first, "second side with `None` has no effect");
             let actual = but_settings::customization::merge_two(first, Some(json!({"b": 2})));
-            assert_eq!(
-                actual,
-                json!({"a": 1, "b": 2}),
-                "if second is Some, it's merged"
-            );
+            assert_eq!(actual, json!({"a": 1, "b": 2}), "if second is Some, it's merged");
         }
     }
 }

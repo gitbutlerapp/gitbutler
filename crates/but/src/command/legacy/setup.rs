@@ -58,11 +58,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
                 let repo = gix::init(repo_path)?;
                 create_empty_initial_commit(&repo)?;
                 if let Some(out) = out.for_human() {
-                    writeln!(
-                        out,
-                        "{}",
-                        "✓ Initialized repository with empty commit".green()
-                    )?;
+                    writeln!(out, "{}", "✓ Initialized repository with empty commit".green())?;
                     writeln!(out)?;
                 }
                 repo
@@ -73,11 +69,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
                     Ok(repo) => repo,
                     Err(e) => {
                         if let Some(out) = out.for_human() {
-                            writeln!(
-                                out,
-                                "{}",
-                                format!("Failed to initialize repository: {}", e).red()
-                            )?;
+                            writeln!(out, "{}", format!("Failed to initialize repository: {}", e).red())?;
                         }
                         anyhow::bail!(
                             "No git repository found - run `but setup --init` to initialize a new repository."
@@ -104,23 +96,19 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         writeln!(
             out,
             "{}",
-            "→ Adding repository to GitButler project registry"
-                .to_string()
-                .dimmed()
+            "→ Adding repository to GitButler project registry".to_string().dimmed()
         )?;
     }
     let outcome = but_api::legacy::projects::add_project(repo_path.to_path_buf())?;
     match outcome.clone() {
         gitbutler_project::AddProjectOutcome::Added(project) => Ok(project),
         gitbutler_project::AddProjectOutcome::AlreadyExists(project) => Ok(project),
-        gitbutler_project::AddProjectOutcome::PathNotFound => Err(anyhow::anyhow!(
-            "The path {} does not exist",
-            repo_path.display()
-        )),
-        gitbutler_project::AddProjectOutcome::NotADirectory => Err(anyhow::anyhow!(
-            "The path {} is not a directory",
-            repo_path.display()
-        )),
+        gitbutler_project::AddProjectOutcome::PathNotFound => {
+            Err(anyhow::anyhow!("The path {} does not exist", repo_path.display()))
+        }
+        gitbutler_project::AddProjectOutcome::NotADirectory => {
+            Err(anyhow::anyhow!("The path {} is not a directory", repo_path.display()))
+        }
         gitbutler_project::AddProjectOutcome::BareRepository => Err(anyhow::anyhow!(
             "The repository at {} is bare. GitButler requires a non-bare repository.",
             repo_path.display()
@@ -153,18 +141,10 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
     if let Some(out) = out.for_human() {
         match &outcome {
             gitbutler_project::AddProjectOutcome::Added(_) => {
-                writeln!(
-                    out,
-                    "  {}",
-                    "✓ Repository added to project registry".green()
-                )?;
+                writeln!(out, "  {}", "✓ Repository added to project registry".green())?;
             }
             gitbutler_project::AddProjectOutcome::AlreadyExists(_) => {
-                writeln!(
-                    out,
-                    "  {}",
-                    "✓ Repository already in project registry".green()
-                )?;
+                writeln!(out, "  {}", "✓ Repository already in project registry".green())?;
             }
             _ => {}
         }
@@ -176,10 +156,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
 
     // If new or already exists but target is not set, set the target to be the remote's HEAD
     if (matches!(outcome, gitbutler_project::AddProjectOutcome::Added(_))
-        || matches!(
-            outcome,
-            gitbutler_project::AddProjectOutcome::AlreadyExists(_)
-        ))
+        || matches!(outcome, gitbutler_project::AddProjectOutcome::AlreadyExists(_)))
         && target.is_none()
     {
         // Step 2: Determine remote
@@ -192,11 +169,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         let remote_name = match repo.remote_default_name(gix::remote::Direction::Push) {
             Some(name) => {
                 if let Some(out) = out.for_human() {
-                    writeln!(
-                        out,
-                        "  {}",
-                        format!("✓ Using existing push remote: {}", name).green()
-                    )?;
+                    writeln!(out, "  {}", format!("✓ Using existing push remote: {}", name).green())?;
                 }
                 name.to_string()
             }
@@ -204,9 +177,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         };
 
         // Try to find the remote HEAD, or fall back to detecting main/master
-        let name = if let Ok(mut head_ref) =
-            repo.find_reference(&format!("refs/remotes/{remote_name}/HEAD"))
-        {
+        let name = if let Ok(mut head_ref) = repo.find_reference(&format!("refs/remotes/{remote_name}/HEAD")) {
             head_ref.peel_to_commit().ok(); // Need this in order to "open" HEAD
             head_ref.name().shorten().to_string()
         } else {
@@ -221,8 +192,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
                         writeln!(
                             out,
                             "  {}",
-                            format!("✓ No remote HEAD found, using {}/{}", remote_name, branch)
-                                .yellow()
+                            format!("✓ No remote HEAD found, using {}/{}", remote_name, branch).yellow()
                         )?;
                     }
                     format!("{remote_name}/{branch}")
@@ -234,11 +204,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         };
 
         drop(repo);
-        but_api::legacy::virtual_branches::set_base_branch(
-            &mut ctx,
-            name.clone(),
-            Some(remote_name.clone()),
-        )?;
+        but_api::legacy::virtual_branches::set_base_branch(&mut ctx, name.clone(), Some(remote_name.clone()))?;
 
         // Track target info for JSON output
         target_info = Some(TargetInfo {
@@ -248,17 +214,9 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         });
 
         if let Some(out) = out.for_human() {
-            writeln!(
-                out,
-                "  {}",
-                format!("✓ Set default target to: {}", name).green()
-            )?;
+            writeln!(out, "  {}", format!("✓ Set default target to: {}", name).green())?;
             writeln!(out)?;
-            writeln!(
-                out,
-                "{}",
-                "GitButler project setup complete!".green().bold()
-            )?;
+            writeln!(out, "{}", "GitButler project setup complete!".green().bold())?;
             writeln!(out, "{}", format!("Target branch: {}", name).dimmed())?;
             writeln!(out, "{}", format!("Remote: {}", remote_name).dimmed())?;
             writeln!(out)?;
@@ -275,17 +233,9 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
 
         if let Some(out) = out.for_human() {
             writeln!(out)?;
-            writeln!(
-                out,
-                "{}",
-                "GitButler project is already set up!".green().bold()
-            )?;
+            writeln!(out, "{}", "GitButler project is already set up!".green().bold())?;
             if let Some(target) = target {
-                writeln!(
-                    out,
-                    "{}",
-                    format!("Target branch: {}", target.branch_name).dimmed()
-                )?;
+                writeln!(out, "{}", format!("Target branch: {}", target.branch_name).dimmed())?;
             }
             writeln!(out)?;
         }
@@ -401,11 +351,7 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
         .ok_or_else(|| anyhow::anyhow!("Repository path is not valid UTF-8"))?;
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "  {}",
-            "No push remote found, creating gb-local remote...".blue()
-        )?;
+        writeln!(out, "  {}", "No push remote found, creating gb-local remote...".blue())?;
     }
 
     let mut config = repo.local_common_config_for_editing()?;
@@ -429,8 +375,7 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
         .unwrap_or_else(|| "main".to_string());
 
     // Create refs/remotes/gb-local/{branch_name} pointing to the HEAD commit
-    let branch_ref_name: gix::refs::FullName =
-        format!("refs/remotes/gb-local/{default_branch_name}").try_into()?;
+    let branch_ref_name: gix::refs::FullName = format!("refs/remotes/gb-local/{default_branch_name}").try_into()?;
     repo.reference(
         branch_ref_name.clone(),
         head_commit.id(),

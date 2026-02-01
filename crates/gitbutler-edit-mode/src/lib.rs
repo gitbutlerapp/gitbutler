@@ -14,8 +14,8 @@ use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use gitbutler_operating_modes::{
-    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode,
-    read_edit_mode_metadata, write_edit_mode_metadata,
+    EDIT_BRANCH_REF, EditModeMetadata, OperatingMode, WORKSPACE_BRANCH_REF, operating_mode, read_edit_mode_metadata,
+    write_edit_mode_metadata,
 };
 use gitbutler_repo::{RepositoryExt as _, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
@@ -142,10 +142,7 @@ fn commit_uncommited_changes(ctx: &Context) -> Result<()> {
 
 fn get_uncommited_changes(ctx: &Context) -> Result<git2::Oid> {
     let repository = &*ctx.git2_repo.get()?;
-    let uncommited_changes = repository
-        .find_reference(UNCOMMITTED_CHANGES_REF)?
-        .peel_to_tree()?
-        .id();
+    let uncommited_changes = repository.find_reference(UNCOMMITTED_CHANGES_REF)?.peel_to_tree()?.id();
     Ok(uncommited_changes)
 }
 
@@ -196,10 +193,7 @@ pub(crate) fn enter_edit_mode(
     Ok(edit_mode_metadata)
 }
 
-pub(crate) fn abort_and_return_to_workspace(
-    ctx: &Context,
-    _perm: &mut RepoExclusive,
-) -> Result<()> {
+pub(crate) fn abort_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclusive) -> Result<()> {
     let repository = &*ctx.git2_repo.get()?;
 
     // Checkout gitbutler workspace branch
@@ -390,10 +384,7 @@ pub(crate) fn changes_from_initial(ctx: &Context, _perm: &RepoShared) -> Result<
 
     let repository = &*ctx.git2_repo.get()?;
     let commit = repository.find_commit(metadata.commit_oid)?;
-    let base = repository
-        .find_real_tree(&commit, Default::default())?
-        .id()
-        .to_gix();
+    let base = repository.find_real_tree(&commit, Default::default())?.id().to_gix();
     let head = repository.create_wd_tree(0)?.id().to_gix();
 
     let gix_repo = ctx.repo.get()?;

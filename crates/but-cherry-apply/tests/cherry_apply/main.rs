@@ -32,10 +32,7 @@ mod util {
     }
 
     impl TestContext {
-        pub fn get_status(
-            &mut self,
-            commit_id: gix::ObjectId,
-        ) -> anyhow::Result<CherryApplyStatus> {
+        pub fn get_status(&mut self, commit_id: gix::ObjectId) -> anyhow::Result<CherryApplyStatus> {
             let guard = self.ctx.exclusive_worktree_access();
             cherry_apply_status(&self.ctx, guard.read_permission(), commit_id)
         }
@@ -68,9 +65,7 @@ mod no_stacks {
         let mut test_ctx = test_ctx("no-stacks")?;
 
         let repo = test_ctx.ctx.repo.get()?;
-        let commit_id = repo
-            .rev_parse_single("refs/gitbutler/no-stacks-commit")?
-            .detach();
+        let commit_id = repo.rev_parse_single("refs/gitbutler/no-stacks-commit")?.detach();
 
         drop(repo);
         let status = test_ctx.get_status(commit_id)?;

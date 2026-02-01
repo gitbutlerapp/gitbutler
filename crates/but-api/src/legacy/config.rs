@@ -21,11 +21,7 @@ pub fn set_gb_config(ctx: &but_ctx::Context, config: GitConfigSettings) -> Resul
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn store_author_globally_if_unset(
-    ctx: &but_ctx::Context,
-    name: String,
-    email: String,
-) -> Result<()> {
+pub fn store_author_globally_if_unset(ctx: &but_ctx::Context, name: String, email: String) -> Result<()> {
     but_rebase::commit::save_author_if_unset_in_repo(
         &*ctx.repo.get()?,
         gix::config::Source::User,

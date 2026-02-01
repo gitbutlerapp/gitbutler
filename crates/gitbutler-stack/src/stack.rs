@@ -132,10 +132,7 @@ impl Stack {
     /// The name of the stack, defined as the name of the first head (branch) in the stack.
     /// The usage of this is discouraged
     pub fn name(&self) -> String {
-        self.heads
-            .first()
-            .map(|head| head.name.clone())
-            .unwrap_or_default()
+        self.heads.first().map(|head| head.name.clone()).unwrap_or_default()
     }
 
     pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
@@ -305,11 +302,7 @@ impl Stack {
 
     /// Creates a new StackBranch pointing to the given head commit with the given name.
     /// This also creates a git reference in the repository.
-    fn create_stack_branch(
-        repo: &gix::Repository,
-        head: gix::ObjectId,
-        name: String,
-    ) -> Result<StackBranch> {
+    fn create_stack_branch(repo: &gix::Repository, head: gix::ObjectId, name: String) -> Result<StackBranch> {
         let commit = repo.find_commit(head)?;
         let reference = StackBranch::new(commit.id, name, repo)?;
         Ok(reference)
@@ -381,13 +374,7 @@ impl Stack {
             self.head_oid(ctx)?.to_git2(),
             &state,
         )?;
-        let updated_heads = add_head(
-            self.heads.clone(),
-            new_head,
-            preceding_head,
-            patches,
-            &gix_repo,
-        )?;
+        let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches, &gix_repo)?;
         self.heads = updated_heads;
         state.set_stack(self.clone())
     }
@@ -395,9 +382,10 @@ impl Stack {
     /// A convenience method just like `add_series`, but adds a new branch on top of the stack.
     pub fn add_series_top_of_stack(&mut self, ctx: &Context, name: String) -> Result<()> {
         self.ensure_initialized()?;
-        let current_top_head = self.heads.last().ok_or(anyhow!(
-            "Stack is in an invalid state - heads list is empty"
-        ))?;
+        let current_top_head = self
+            .heads
+            .last()
+            .ok_or(anyhow!("Stack is in an invalid state - heads list is empty"))?;
         let repo = ctx.repo.get()?;
         let new_head = StackBranch::new(current_top_head.head_oid(&repo)?, name, &repo)?;
         self.add_series(ctx, new_head, Some(current_top_head.name().clone()))
@@ -421,12 +409,7 @@ impl Stack {
     /// If the branch name is updated, the pr_number will be reset to None.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    pub fn update_branch(
-        &mut self,
-        ctx: &Context,
-        branch_name: String,
-        update: &PatchReferenceUpdate,
-    ) -> Result<()> {
+    pub fn update_branch(&mut self, ctx: &Context, branch_name: String, update: &PatchReferenceUpdate) -> Result<()> {
         self.ensure_initialized()?;
         if update == &PatchReferenceUpdate::default() {
             return Ok(()); // noop
@@ -550,8 +533,7 @@ impl Stack {
                 head.pr_number = None;
             }
 
-            let new_name =
-                Stack::new_name(repo, &state, self.upstream.clone(), self.name(), false)?;
+            let new_name = Stack::new_name(repo, &state, self.upstream.clone(), self.name(), false)?;
             let new_branch = Stack::create_stack_branch(repo, self.head_oid(ctx)?, new_name)?;
             self.heads.push(new_branch);
         }
@@ -570,8 +552,7 @@ impl Stack {
         let git2_repo = ctx.git2_repo.get()?;
         let commit = git2_repo.find_commit(oid)?;
         let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
-        let upstream_refname =
-            RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
+        let upstream_refname = RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
         Ok(PushDetails {
             head: commit.id(),
             remote_refname: upstream_refname,
@@ -641,23 +622,14 @@ impl Stack {
     /// # Errors
     /// If the series does not exist, this method will return an error.
     /// If the stack has not been initialized, this method will return an error.
-    pub fn set_pr_number(
-        &mut self,
-        ctx: &Context,
-        branch_name: &str,
-        new_pr_number: Option<usize>,
-    ) -> Result<()> {
+    pub fn set_pr_number(&mut self, ctx: &Context, branch_name: &str, new_pr_number: Option<usize>) -> Result<()> {
         self.ensure_initialized()?;
         match self.heads.iter_mut().find(|r| r.name() == branch_name) {
             Some(head) => {
                 head.pr_number = new_pr_number;
                 branch_state(ctx).set_stack(self.clone())
             }
-            None => bail!(
-                "Series {} does not exist on stack {}",
-                branch_name,
-                self.name()
-            ),
+            None => bail!("Series {} does not exist on stack {}", branch_name, self.name()),
         }
     }
 
@@ -691,8 +663,7 @@ impl Stack {
         } else {
             self.commits(ctx)?
         };
-        let patches: Vec<gix::ObjectId> =
-            commits.into_iter().rev().map(|oid| oid.to_gix()).collect();
+        let patches: Vec<gix::ObjectId> = commits.into_iter().rev().map(|oid| oid.to_gix()).collect();
         Ok(patches)
     }
 }
@@ -795,14 +766,7 @@ fn local_reference_exists(repo: &gix::Repository, name: &str) -> Result<bool> {
     Ok(repo.find_reference(name_partial(name.into())?).is_ok())
 }
 
-fn remote_reference_exists(
-    repo: &gix::Repository,
-    state: &VirtualBranchesHandle,
-    name: &String,
-) -> Result<bool> {
-    let remote_ref = remote_reference(
-        name,
-        state.get_default_target()?.push_remote_name().as_str(),
-    );
+fn remote_reference_exists(repo: &gix::Repository, state: &VirtualBranchesHandle, name: &String) -> Result<bool> {
+    let remote_ref = remote_reference(name, state.get_default_target()?.push_remote_name().as_str());
     local_reference_exists(repo, &remote_ref)
 }

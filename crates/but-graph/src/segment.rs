@@ -165,10 +165,7 @@ impl CommitFlags {
                 .replace("Integrated", "✓")
                 .replace(" ", "");
             if extra != 0 {
-                out.push_str(&format!(
-                    "|{extra:>0width$b}",
-                    width = max_goals.unwrap_or(0)
-                ));
+                out.push_str(&format!("|{extra:>0width$b}", width = max_goals.unwrap_or(0)));
             }
             out
         }
@@ -327,10 +324,8 @@ impl std::fmt::Debug for Segment {
                 )
                 .finish()
         } else {
-            f.debug_struct(
-                "StackSegment(empty for 'dot' program to not get past 2^16 max label size)",
-            )
-            .finish()
+            f.debug_struct("StackSegment(empty for 'dot' program to not get past 2^16 max label size)")
+                .finish()
         }
     }
 }

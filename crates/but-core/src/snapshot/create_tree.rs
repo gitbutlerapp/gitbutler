@@ -141,10 +141,7 @@ pub(super) mod function {
             0, /* context lines don't matter */
         )?;
 
-        let rejected = changes_to_apply
-            .into_iter()
-            .filter_map(Result::err)
-            .collect::<Vec<_>>();
+        let rejected = changes_to_apply.into_iter().filter_map(Result::err).collect::<Vec<_>>();
         if !rejected.is_empty() {
             bail!(
                 "It should be impossible to fail to apply changes that are in the tree that was provided as HEAD^{{tree}} - {rejected:?}"

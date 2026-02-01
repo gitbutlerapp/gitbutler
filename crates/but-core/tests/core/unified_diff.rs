@@ -41,10 +41,7 @@ fn binary_text_failure() -> anyhow::Result<()> {
         3,
     )?;
 
-    assert!(
-        actual.is_none(),
-        "any kind of filter failure is ignored for resiliency"
-    );
+    assert!(actual.is_none(), "any kind of filter failure is ignored for resiliency");
     Ok(())
 }
 

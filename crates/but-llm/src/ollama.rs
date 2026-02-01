@@ -40,10 +40,7 @@ impl From<String> for OllamaHostConfig {
     fn from(endpoint: String) -> Self {
         let parts: Vec<&str> = endpoint.split(':').collect();
         let host = parts.first().cloned().unwrap_or("localhost").to_string();
-        let port = parts
-            .get(1)
-            .and_then(|p| p.parse::<u16>().ok())
-            .unwrap_or(11434);
+        let port = parts.get(1).and_then(|p| p.parse::<u16>().ok()).unwrap_or(11434);
         OllamaHostConfig { host, port }
     }
 }
@@ -86,9 +83,7 @@ impl LLMClient for OllamaProvider {
             .map(|v| v.to_string())
             .map(OllamaHostConfig::from);
         let model = config.string(OLLAMA_MODEL_NAME).map(|v| v.to_string());
-        let ollama_config = OllamaConfig {
-            host_config: endpoint,
-        };
+        let ollama_config = OllamaConfig { host_config: endpoint };
         Some(OllamaProvider::new(ollama_config, model))
     }
 
@@ -104,14 +99,7 @@ impl LLMClient for OllamaProvider {
         model: &str,
         on_token: impl Fn(&str) + Send + Sync + 'static,
     ) -> Result<(String, Vec<ChatMessage>)> {
-        tool_calling_loop_stream(
-            self,
-            system_message,
-            chat_messages,
-            tool_set,
-            model,
-            on_token,
-        )
+        tool_calling_loop_stream(self, system_message, chat_messages, tool_set, model, on_token)
     }
 
     fn tool_calling_loop(
@@ -134,9 +122,7 @@ impl LLMClient for OllamaProvider {
         stream_response_blocking(self, system_message, chat_messages, model, on_token)
     }
 
-    fn structured_output<
-        T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
-    >(
+    fn structured_output<T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static>(
         &self,
         system_message: &str,
         chat_messages: Vec<ChatMessage>,
@@ -145,12 +131,7 @@ impl LLMClient for OllamaProvider {
         structured_output_blocking(self, system_message, chat_messages, model)
     }
 
-    fn response(
-        &self,
-        system_message: &str,
-        chat_messages: Vec<ChatMessage>,
-        model: &str,
-    ) -> Result<Option<String>> {
+    fn response(&self, system_message: &str, chat_messages: Vec<ChatMessage>, model: &str) -> Result<Option<String>> {
         response_blocking(self, system_message, chat_messages, model)
     }
 }
@@ -183,16 +164,10 @@ pub fn tool_calling_loop_stream(
     // Needs to be Arc to be cloned into async closures
     let on_token = Arc::new(on_token);
 
-    let mut response = tool_calling_stream_blocking(
-        provider,
-        messages.clone(),
-        ollama_tool_infos.clone(),
-        model,
-        {
-            let on_token = Arc::clone(&on_token);
-            move |s: &str| on_token(s)
-        },
-    )?;
+    let mut response = tool_calling_stream_blocking(provider, messages.clone(), ollama_tool_infos.clone(), model, {
+        let on_token = Arc::clone(&on_token);
+        move |s: &str| on_token(s)
+    })?;
 
     let mut text_response_buffer = vec![];
     if let Some(text_response) = &response.1 {
@@ -208,8 +183,8 @@ pub fn tool_calling_loop_stream(
             } = call;
 
             let tool_response = tool_set.call_tool(&function_name, &function_args);
-            let tool_response_str = serde_json::to_string(&tool_response)
-                .context("Failed to serialize tool response")?;
+            let tool_response_str =
+                serde_json::to_string(&tool_response).context("Failed to serialize tool response")?;
 
             messages.push(ollama_rs::generation::chat::ChatMessage {
                 role: ollama_rs::generation::chat::MessageRole::Assistant,
@@ -224,21 +199,13 @@ pub fn tool_calling_loop_stream(
                 thinking: None,
             });
 
-            messages.push(ollama_rs::generation::chat::ChatMessage::tool(
-                tool_response_str,
-            ));
+            messages.push(ollama_rs::generation::chat::ChatMessage::tool(tool_response_str));
         }
 
-        response = tool_calling_stream_blocking(
-            provider,
-            messages.clone(),
-            ollama_tool_infos.clone(),
-            model,
-            {
-                let on_token = Arc::clone(&on_token);
-                move |s: &str| on_token(s)
-            },
-        )?;
+        response = tool_calling_stream_blocking(provider, messages.clone(), ollama_tool_infos.clone(), model, {
+            let on_token = Arc::clone(&on_token);
+            move |s: &str| on_token(s)
+        })?;
 
         if let Some(text_response) = &response.1 {
             handle_text_response(&mut messages, &mut text_response_buffer, text_response);
@@ -280,9 +247,7 @@ fn tool_calling_stream_blocking(
     std::thread::spawn(move || {
         tokio::runtime::Runtime::new()
             .unwrap()
-            .block_on(tool_calling_stream(
-                &provider, messages, tool_infos, model, on_token,
-            ))
+            .block_on(tool_calling_stream(&provider, messages, tool_infos, model, on_token))
     })
     .join()
     .unwrap()
@@ -300,9 +265,7 @@ async fn tool_calling_stream(
     let ollama = provider.client();
     let request = ChatMessageRequest::new(model, messages).tools(tool_infos);
 
-    let mut resp = ollama
-        .send_chat_messages_with_history_stream(history, request)
-        .await?;
+    let mut resp = ollama.send_chat_messages_with_history_stream(history, request).await?;
 
     let mut response_text: Option<String> = None;
     let mut tool_call_results: Option<Vec<ToolCall>> = None;
@@ -493,9 +456,7 @@ async fn response(
     }
 }
 
-fn structured_output_blocking<
-    T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static,
->(
+fn structured_output_blocking<T: serde::Serialize + DeserializeOwned + JsonSchema + std::marker::Send + 'static>(
     provider: &OllamaProvider,
     system_message: &str,
     chat_messages: Vec<ChatMessage>,
@@ -569,16 +530,13 @@ fn tool_calling_loop(
         .map(|t| t.deref().try_into())
         .collect::<Result<Vec<ollama_rs::generation::tools::ToolInfo>, _>>()?;
 
-    let mut response =
-        tool_calling_blocking(provider, messages.clone(), ollama_tool_infos.clone(), model)?;
+    let mut response = tool_calling_blocking(provider, messages.clone(), ollama_tool_infos.clone(), model)?;
 
     let mut text_response_buffer = vec![];
     if !response.message.content.is_empty() {
         let text_response = response.message.content.clone();
         text_response_buffer.push(text_response.clone());
-        messages.push(ollama_rs::generation::chat::ChatMessage::assistant(
-            text_response,
-        ));
+        messages.push(ollama_rs::generation::chat::ChatMessage::assistant(text_response));
     }
 
     while !response.message.tool_calls.is_empty() {
@@ -586,8 +544,8 @@ fn tool_calling_loop(
             let function_name = call.function.name;
             let function_args = call.function.arguments.to_string();
             let tool_response = tool_set.call_tool(&function_name, &function_args);
-            let tool_response_str = serde_json::to_string(&tool_response)
-                .context("Failed to serialize tool response")?;
+            let tool_response_str =
+                serde_json::to_string(&tool_response).context("Failed to serialize tool response")?;
 
             messages.push(ollama_rs::generation::chat::ChatMessage {
                 role: ollama_rs::generation::chat::MessageRole::Assistant,
@@ -602,20 +560,15 @@ fn tool_calling_loop(
                 thinking: None,
             });
 
-            messages.push(ollama_rs::generation::chat::ChatMessage::tool(
-                tool_response_str,
-            ));
+            messages.push(ollama_rs::generation::chat::ChatMessage::tool(tool_response_str));
         }
 
-        response =
-            tool_calling_blocking(provider, messages.clone(), ollama_tool_infos.clone(), model)?;
+        response = tool_calling_blocking(provider, messages.clone(), ollama_tool_infos.clone(), model)?;
 
         if !response.message.content.is_empty() {
             let text_response = response.message.content.clone();
             text_response_buffer.push(text_response.clone());
-            messages.push(ollama_rs::generation::chat::ChatMessage::assistant(
-                text_response,
-            ));
+            messages.push(ollama_rs::generation::chat::ChatMessage::assistant(text_response));
         }
     }
 
@@ -669,17 +622,14 @@ impl From<ChatMessage> for ollama_rs::generation::chat::ChatMessage {
     fn from(msg: ChatMessage) -> Self {
         match msg {
             ChatMessage::User(content) => ollama_rs::generation::chat::ChatMessage::user(content),
-            ChatMessage::Assistant(content) => {
-                ollama_rs::generation::chat::ChatMessage::assistant(content)
-            }
+            ChatMessage::Assistant(content) => ollama_rs::generation::chat::ChatMessage::assistant(content),
             ChatMessage::ToolCall(tool_call) => ollama_rs::generation::chat::ChatMessage {
                 role: ollama_rs::generation::chat::MessageRole::Tool,
                 content: "".to_string(),
                 tool_calls: vec![ollama_rs::generation::tools::ToolCall {
                     function: ollama_rs::generation::tools::ToolCallFunction {
                         name: tool_call.name,
-                        arguments: serde_json::from_str(&tool_call.arguments)
-                            .unwrap_or(Value::Null),
+                        arguments: serde_json::from_str(&tool_call.arguments).unwrap_or(Value::Null),
                     },
                 }],
                 images: None,
@@ -695,16 +645,12 @@ impl From<ChatMessage> for ollama_rs::generation::chat::ChatMessage {
 /// Converts Ollama chat messages to our ChatMessage format, including tool calls.
 ///
 /// TODO: The tool call IDs are meaningless UUIDs here. We might want to improve this later.
-fn from_ollama_chat_messages(
-    messages: Vec<ollama_rs::generation::chat::ChatMessage>,
-) -> Vec<ChatMessage> {
+fn from_ollama_chat_messages(messages: Vec<ollama_rs::generation::chat::ChatMessage>) -> Vec<ChatMessage> {
     let mut chat_messages = vec![];
     for msg in messages.into_iter() {
         match msg.role {
             ollama_rs::generation::chat::MessageRole::System => continue,
-            ollama_rs::generation::chat::MessageRole::User => {
-                chat_messages.push(ChatMessage::User(msg.content))
-            }
+            ollama_rs::generation::chat::MessageRole::User => chat_messages.push(ChatMessage::User(msg.content)),
             ollama_rs::generation::chat::MessageRole::Assistant => {
                 chat_messages.push(ChatMessage::Assistant(msg.content));
                 if !msg.tool_calls.is_empty() {

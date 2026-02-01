@@ -20,25 +20,17 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
             .remote_ref_name(gix::remote::Direction::Push)
             .transpose()?
             .as_deref()
-            .and_then(|ref_name| {
-                gitbutler_reference::RemoteRefname::from_str(&ref_name.to_string()).ok()
-            });
+            .and_then(|ref_name| gitbutler_reference::RemoteRefname::from_str(&ref_name.to_string()).ok());
 
         let r = r.detach();
         drop(repo);
-        but_api::legacy::virtual_branches::create_virtual_branch_from_branch(
-            ctx,
-            ref_name,
-            remote_ref_name,
-            None,
-        )?;
+        but_api::legacy::virtual_branches::create_virtual_branch_from_branch(ctx, ref_name, remote_ref_name, None)?;
         r
     } else if let Some((remote_ref, r)) = find_remote_reference(&repo, branch_name)? {
         let remote = remote_ref.remote();
         let name = remote_ref.branch();
         // Look for the branch in the remote references
-        let ref_name =
-            gitbutler_reference::Refname::from_str(&format!("refs/remotes/{remote}/{name}"))?;
+        let ref_name = gitbutler_reference::Refname::from_str(&format!("refs/remotes/{remote}/{name}"))?;
         let r = r.detach();
         drop(repo);
         but_api::legacy::virtual_branches::create_virtual_branch_from_branch(
@@ -56,10 +48,7 @@ pub fn apply(ctx: &mut Context, branch_name: &str, out: &mut OutputChannel) -> a
 
     if let Some(out) = out.for_human() {
         let short_name = reference.name.shorten();
-        let is_remote_reference = reference
-            .name
-            .category()
-            .is_some_and(|c| c == Category::RemoteBranch);
+        let is_remote_reference = reference.name.category().is_some_and(|c| c == Category::RemoteBranch);
         if is_remote_reference {
             writeln!(out, "Applied remote branch '{short_name}' to workspace")
         } else {

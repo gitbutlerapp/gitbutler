@@ -43,28 +43,22 @@ impl<T> OnDemand<T> {
             let mut value = self.value.try_borrow_mut()?;
             *value = Some((self.init)()?);
         }
-        Ok(
-            cell::Ref::filter_map(self.value.borrow(), |opt| opt.as_ref())
-                .unwrap_or_else(|_| unreachable!("just set the value")),
-        )
+        Ok(cell::Ref::filter_map(self.value.borrow(), |opt| opt.as_ref())
+            .unwrap_or_else(|_| unreachable!("just set the value")))
     }
 
     /// Get an exclusive references to the cached value or fallibly initialize it.
     /// This can only happen if there are no other shared or mutable references.
     pub fn get_mut(&mut self) -> anyhow::Result<cell::RefMut<'_, T>> {
-        if let Ok(cached) =
-            cell::RefMut::filter_map(self.value.try_borrow_mut()?, |opt| opt.as_mut())
-        {
+        if let Ok(cached) = cell::RefMut::filter_map(self.value.try_borrow_mut()?, |opt| opt.as_mut()) {
             return Ok(cached);
         }
         {
             let mut value = self.value.try_borrow_mut()?;
             *value = Some((self.init)()?);
         }
-        Ok(
-            cell::RefMut::filter_map(self.value.borrow_mut(), |opt| opt.as_mut())
-                .unwrap_or_else(|_| unreachable!("just set the value")),
-        )
+        Ok(cell::RefMut::filter_map(self.value.borrow_mut(), |opt| opt.as_mut())
+            .unwrap_or_else(|_| unreachable!("just set the value")))
     }
 
     /// Return the existing value if there is one, without automatically initializing it.

@@ -27,8 +27,8 @@ use crate::{
     move_commits::{self, MoveCommitIllegalAction},
     reorder::{self, StackOrder},
     upstream_integration::{
-        self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution,
-        StackStatuses, UpstreamIntegrationContext,
+        self, BaseBranchResolution, BaseBranchResolutionApproach, IntegrationOutcome, Resolution, StackStatuses,
+        UpstreamIntegrationContext,
     },
 };
 
@@ -70,9 +70,7 @@ pub fn delete_local_branch(ctx: &mut Context, refname: &Refname, given_name: Str
     if let Some(mut stack) = stack {
         // Disallow deletion of branches that are applied in workspace
         if stack.in_workspace {
-            return Err(anyhow::anyhow!(
-                "Cannot delete a branch that is applied in workspace"
-            ));
+            return Err(anyhow::anyhow!("Cannot delete a branch that is applied in workspace"));
         }
         // Delete the branch head or if it is the only one, delete the entire stack
         if stack.heads.len() > 1 {
@@ -89,11 +87,7 @@ pub fn delete_local_branch(ctx: &mut Context, refname: &Refname, given_name: Str
     Ok(())
 }
 
-pub fn set_base_branch(
-    ctx: &Context,
-    target_branch: &RemoteRefname,
-    perm: &mut RepoExclusive,
-) -> Result<BaseBranch> {
+pub fn set_base_branch(ctx: &Context, target_branch: &RemoteRefname, perm: &mut RepoExclusive) -> Result<BaseBranch> {
     let _ = ctx.create_snapshot(SnapshotDetails::new(OperationKind::SetBaseBranch), perm);
     base::set_base_branch(ctx, target_branch)
 }
@@ -114,8 +108,7 @@ pub fn integrate_upstream_commits(
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
-        .context("Integrating upstream commits requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Integrating upstream commits requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
@@ -134,13 +127,8 @@ pub fn get_initial_integration_steps_for_branch(
     stack_id: Option<StackId>,
     branch_name: String,
 ) -> Result<Vec<branch_upstream_integration::InteractiveIntegrationStep>> {
-    ensure_open_workspace_mode(ctx)
-        .context("Getting initial integration steps requires open workspace mode")?;
-    branch_upstream_integration::get_initial_integration_steps_for_branch(
-        ctx,
-        stack_id,
-        branch_name,
-    )
+    ensure_open_workspace_mode(ctx).context("Getting initial integration steps requires open workspace mode")?;
+    branch_upstream_integration::get_initial_integration_steps_for_branch(ctx, stack_id, branch_name)
 }
 
 pub fn integrate_branch_with_steps(
@@ -151,8 +139,7 @@ pub fn integrate_branch_with_steps(
 ) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
-        .context("Integrating a branch with steps requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Integrating a branch with steps requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
@@ -169,8 +156,7 @@ pub fn integrate_branch_with_steps(
 pub fn update_stack_order(ctx: &mut Context, updates: Vec<BranchUpdateRequest>) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
-        .context("Updating branch order requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Updating branch order requires open workspace mode")?;
     for stack_update in updates {
         let stack = ctx
             .virtual_branches()
@@ -190,17 +176,11 @@ pub fn unapply_stack(
     assigned_diffspec: Vec<DiffSpec>,
 ) -> Result<String> {
     ctx.verify(perm)?;
-    ensure_open_workspace_mode(ctx)
-        .context("Deleting a branch order requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Deleting a branch order requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     // NB: unapply_without_saving is also called from save_and_unapply
-    let branch_name = branch_manager.unapply(
-        stack_id,
-        perm,
-        false,
-        assigned_diffspec,
-        ctx.settings.feature_flags.cv3,
-    )?;
+    let branch_name =
+        branch_manager.unapply(stack_id, perm, false, assigned_diffspec, ctx.settings.feature_flags.cv3)?;
     let meta = ctx.meta()?;
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     ws.refresh_from_head(&repo, &meta)?;
@@ -262,15 +242,9 @@ pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: git2::Oid) 
     ensure_open_workspace_mode(ctx).context("Undoing a commit requires open workspace mode")?;
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
     let result: Result<()> =
-        crate::undo_commit::undo_commit(ctx, stack_id, commit_oid, guard.write_permission())
-            .map(|_| ());
+        crate::undo_commit::undo_commit(ctx, stack_id, commit_oid, guard.write_permission()).map(|_| ());
     let _ = snapshot_tree.and_then(|snapshot_tree| {
-        ctx.snapshot_commit_undo(
-            snapshot_tree,
-            result.as_ref(),
-            commit_oid,
-            guard.write_permission(),
-        )
+        ctx.snapshot_commit_undo(snapshot_tree, result.as_ref(), commit_oid, guard.write_permission())
     });
     result
 }
@@ -296,13 +270,7 @@ pub fn squash_commits(
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx).context("Squashing a commit requires open workspace mode")?;
-    crate::squash::squash_commits(
-        ctx,
-        stack_id,
-        source_ids,
-        destination_id,
-        guard.write_permission(),
-    )
+    crate::squash::squash_commits(ctx, stack_id, source_ids, destination_id, guard.write_permission())
 }
 
 pub fn update_commit_message(
@@ -313,8 +281,7 @@ pub fn update_commit_message(
 ) -> Result<git2::Oid> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
-        .context("Updating a commit message requires open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Updating a commit message requires open workspace mode")?;
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::UpdateCommitMessage),
         guard.write_permission(),
@@ -326,11 +293,7 @@ pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<Fetc
     let remotes = ctx.git2_repo.get()?.remotes_as_string()?;
     let fetch_errors: Vec<_> = remotes
         .iter()
-        .filter_map(|remote| {
-            ctx.fetch(remote, askpass.clone())
-                .err()
-                .map(|err| err.to_string())
-        })
+        .filter_map(|remote| ctx.fetch(remote, askpass.clone()).err().map(|err| err.to_string()))
         .collect();
 
     let timestamp = std::time::SystemTime::now();
@@ -407,12 +370,7 @@ pub fn tear_off_branch(
         SnapshotDetails::new(OperationKind::TearOffBranch),
         guard.write_permission(),
     );
-    crate::move_branch::tear_off_branch(
-        ctx,
-        source_stack_id,
-        subject_branch_name,
-        guard.write_permission(),
-    )
+    crate::move_branch::tear_off_branch(ctx, source_stack_id, subject_branch_name, guard.write_permission())
 }
 
 #[instrument(level = "debug", skip(ctx), err(Debug))]
@@ -424,15 +382,9 @@ pub fn create_virtual_branch_from_branch(
 ) -> Result<(StackId, Vec<StackId>, Vec<String>)> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
-    ensure_open_workspace_mode(ctx)
-        .context("Creating a virtual branch from a branch open workspace mode")?;
+    ensure_open_workspace_mode(ctx).context("Creating a virtual branch from a branch open workspace mode")?;
     let branch_manager = ctx.branch_manager();
-    branch_manager.create_virtual_branch_from_branch(
-        branch,
-        remote,
-        pr_number,
-        guard.write_permission(),
-    )
+    branch_manager.create_virtual_branch_from_branch(branch, remote, pr_number, guard.write_permission())
 }
 
 pub fn upstream_integration_statuses(
@@ -443,13 +395,8 @@ pub fn upstream_integration_statuses(
     let mut guard = ctx.exclusive_worktree_access();
 
     let gix_repo = ctx.repo.get()?;
-    let context = UpstreamIntegrationContext::open(
-        ctx,
-        target_commit_oid,
-        guard.write_permission(),
-        &gix_repo,
-        review_map,
-    )?;
+    let context =
+        UpstreamIntegrationContext::open(ctx, target_commit_oid, guard.write_permission(), &gix_repo, review_map)?;
 
     upstream_integration::upstream_integration_statuses(&context)
 }
@@ -483,12 +430,7 @@ pub fn resolve_upstream_integration(
 ) -> Result<git2::Oid> {
     let mut guard = ctx.exclusive_worktree_access();
 
-    upstream_integration::resolve_upstream_integration(
-        ctx,
-        resolution_approach,
-        review_map,
-        guard.write_permission(),
-    )
+    upstream_integration::resolve_upstream_integration(ctx, resolution_approach, review_map, guard.write_permission())
 }
 
 pub(crate) trait Verify {

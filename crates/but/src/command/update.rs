@@ -7,11 +7,7 @@ use colored::Colorize;
 
 use crate::{args::update, utils::OutputChannel};
 
-pub fn handle(
-    cmd: update::Subcommands,
-    out: &mut OutputChannel,
-    app_settings: &AppSettings,
-) -> Result<()> {
+pub fn handle(cmd: update::Subcommands, out: &mut OutputChannel, app_settings: &AppSettings) -> Result<()> {
     match cmd {
         update::Subcommands::Check => check_for_updates(out, app_settings),
         update::Subcommands::Suppress { days } => suppress_updates(out, days),

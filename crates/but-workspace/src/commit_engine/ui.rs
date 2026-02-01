@@ -30,11 +30,7 @@ impl From<super::CreateCommitOutcome> for CreateCommitOutcome {
         }: super::CreateCommitOutcome,
     ) -> Self {
         let commit_mapping = if let Some(rebase_output) = rebase_output {
-            rebase_output
-                .commit_mapping
-                .iter()
-                .map(|(_, a, b)| (*a, *b))
-                .collect()
+            rebase_output.commit_mapping.iter().map(|(_, a, b)| (*a, *b)).collect()
         } else {
             Vec::new()
         };

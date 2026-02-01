@@ -76,12 +76,7 @@ pub fn watch_in_background(
     let (events_out, mut events_in) = unbounded_channel();
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
-    let monitor = gitbutler_filemonitor::spawn(
-        project_id,
-        worktree_path.as_ref(),
-        events_out.clone(),
-        watch_mode,
-    )?;
+    let monitor = gitbutler_filemonitor::spawn(project_id, worktree_path.as_ref(), events_out.clone(), watch_mode)?;
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
@@ -89,18 +84,17 @@ pub fn watch_in_background(
         signal_flush: flush_tx,
         cancellation_token: cancellation_token.clone(),
     };
-    let handle_event =
-        move |event: InternalEvent, app_settings: AppSettingsWithDiskSync| -> Result<()> {
-            let handler = handler.clone();
-            // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
-            //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
-            //       across await points. Further, there is a fair share of `sync` IO happening
-            //       as well, so nothing can really be done here.
-            task::spawn_blocking(move || {
-                handler.handle(event, app_settings).ok();
-            });
-            Ok(())
-        };
+    let handle_event = move |event: InternalEvent, app_settings: AppSettingsWithDiskSync| -> Result<()> {
+        let handler = handler.clone();
+        // NOTE: Traditional parallelization (blocking) is required as `tokio::spawn()` on
+        //       the `handler.handle()` future isn't `Send` as it keeps non-Send things
+        //       across await points. Further, there is a fair share of `sync` IO happening
+        //       as well, so nothing can really be done here.
+        task::spawn_blocking(move || {
+            handler.handle(event, app_settings).ok();
+        });
+        Ok(())
+    };
 
     tokio::spawn(async move {
         loop {

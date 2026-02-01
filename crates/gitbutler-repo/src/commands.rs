@@ -76,9 +76,9 @@ impl FileInfo {
         };
 
         let kind = infer::get(content);
-        if let Some(mime_type) = kind.and_then(|kind| {
-            (kind.matcher_type() == MatcherType::Image).then_some(kind.mime_type())
-        }) {
+        if let Some(mime_type) =
+            kind.and_then(|kind| (kind.matcher_type() == MatcherType::Image).then_some(kind.mime_type()))
+        {
             let base64_content = base64::engine::general_purpose::STANDARD.encode(content);
             file_info.content = Some(base64_content);
             file_info.mime_type = Some(mime_type.to_owned())
@@ -87,10 +87,7 @@ impl FileInfo {
     }
 
     fn file_name_str(path: &Path) -> String {
-        path.file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned()
+        path.file_name().unwrap_or_default().to_string_lossy().into_owned()
     }
 
     fn is_binary(content: &[u8]) -> bool {
@@ -110,21 +107,13 @@ impl FileInfo {
 /// - Bonus for filename prefix matches (case-insensitive)
 /// - Bonus for matches in the filename itself
 /// - Penalty for deeply nested files
-fn compute_match_score(
-    matcher: &SkimMatcherV2,
-    path_str: &str,
-    relative_path: &Path,
-    pattern: &str,
-) -> Option<i64> {
+fn compute_match_score(matcher: &SkimMatcherV2, path_str: &str, relative_path: &Path, pattern: &str) -> Option<i64> {
     if pattern.is_empty() {
         return Some(0);
     }
 
     let base_score = matcher.fuzzy_match(path_str, pattern)?;
-    let filename = relative_path
-        .file_name()
-        .and_then(|f| f.to_str())
-        .unwrap_or("");
+    let filename = relative_path.file_name().and_then(|f| f.to_str()).unwrap_or("");
 
     let filename_bonus = calculate_filename_bonus(matcher, filename, pattern);
     let depth_penalty = (relative_path.components().count() as i64) * 50;
@@ -246,9 +235,9 @@ impl RepoCommands for Context {
 
     fn read_file_from_workspace(&self, probably_relative_path: &Path) -> Result<FileInfo> {
         let repo = self.git2_repo.get()?;
-        let workdir = repo.workdir().context(
-            "BUG: can't yet handle bare repos and we shouldn't run into this until we do",
-        )?;
+        let workdir = repo
+            .workdir()
+            .context("BUG: can't yet handle bare repos and we shouldn't run into this until we do")?;
         let (path_in_worktree, relative_path) = if probably_relative_path.is_relative() {
             (
                 gix::path::realpath(workdir.join(probably_relative_path))?,
@@ -290,10 +279,7 @@ impl RepoCommands for Context {
                     }
                     // Read file that has been deleted and staged for commit. Note that file not
                     // found returns FileInfo::default() rather than an error.
-                    None => self.read_file_from_commit(
-                        repo.head()?.peel_to_commit()?.id(),
-                        &relative_path,
-                    )?,
+                    None => self.read_file_from_commit(repo.head()?.peel_to_commit()?.id(), &relative_path)?,
                 }
             }
             Err(err) => return Err(err.into()),

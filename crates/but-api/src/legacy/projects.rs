@@ -30,10 +30,7 @@ pub fn add_project_best_effort(path: PathBuf) -> Result<projects::AddProjectOutc
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn get_project(
-    project_id: ProjectId,
-    no_validation: Option<bool>,
-) -> Result<projects::api::Project> {
+pub fn get_project(project_id: ProjectId, no_validation: Option<bool>) -> Result<projects::api::Project> {
     if no_validation.unwrap_or(false) {
         Ok(gitbutler_project::get_raw(project_id)?.migrated()?.into())
     } else {

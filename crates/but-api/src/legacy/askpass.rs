@@ -10,8 +10,6 @@ pub struct SubmitPromptResponseParams {
 }
 
 pub async fn submit_prompt_response(params: SubmitPromptResponseParams) -> anyhow::Result<()> {
-    askpass::get_broker()
-        .handle_response(params.id, params.response)
-        .await;
+    askpass::get_broker().handle_response(params.id, params.response).await;
     Ok(())
 }

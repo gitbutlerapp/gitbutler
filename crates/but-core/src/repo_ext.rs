@@ -66,17 +66,12 @@ pub trait RepositoryExt: Sized {
     /// It also returns the conflict kind to use when checking for unresolved conflicts.
     fn merge_options_fail_fast(
         &self,
-    ) -> anyhow::Result<(
-        gix::merge::tree::Options,
-        gix::merge::tree::TreatAsUnresolved,
-    )>;
+    ) -> anyhow::Result<(gix::merge::tree::Options, gix::merge::tree::TreatAsUnresolved)>;
 
     /// Just like [`Self::merge_options_fail_fast()`], but additionally don't perform rename tracking.
     /// This is useful if the merge result isn't going to be used, and we are only interested in knowing
     /// if a merge would succeed.
-    fn merge_options_no_rewrites_fail_fast(
-        &self,
-    ) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)>;
+    fn merge_options_no_rewrites_fail_fast(&self) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)>;
 }
 
 impl RepositoryExt for gix::Repository {
@@ -102,8 +97,7 @@ impl RepositoryExt for gix::Repository {
         } else {
             to_rebase_commit.tree_id_or_kind(TreeKind::Base)?.detach()
         };
-        let ours = crate::Commit::from_id(new_base_commit_id.attach(self))?
-            .tree_id_or_auto_resolution()?;
+        let ours = crate::Commit::from_id(new_base_commit_id.attach(self))?.tree_id_or_auto_resolution()?;
         let theirs = to_rebase_commit.tree_id_or_kind(TreeKind::Theirs)?;
 
         self.merge_trees(
@@ -149,10 +143,7 @@ impl RepositoryExt for gix::Repository {
 
     fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>> {
         let local_config_path = self.common_dir().join("config");
-        let config = gix::config::File::from_path_no_includes(
-            local_config_path.clone(),
-            gix::config::Source::Local,
-        )?;
+        let config = gix::config::File::from_path_no_includes(local_config_path.clone(), gix::config::Source::Local)?;
         Ok(config)
     }
 
@@ -192,13 +183,7 @@ impl RepositoryExt for gix::Repository {
     ) -> anyhow::Result<bool> {
         let (options, conflict_kind) = self.merge_options_no_rewrites_fail_fast()?;
         let merge_outcome = self
-            .merge_trees(
-                ancestor_tree,
-                our_tree,
-                their_tree,
-                Default::default(),
-                options,
-            )
+            .merge_trees(ancestor_tree, our_tree, their_tree, Default::default(), options)
             .context("failed to merge trees")?;
         Ok(!merge_outcome.has_unresolved_conflicts(conflict_kind))
     }
@@ -210,19 +195,13 @@ impl RepositoryExt for gix::Repository {
             .with_file_favor(Some(gix::merge::tree::FileFavor::Ours)))
     }
 
-    fn merge_options_fail_fast(
-        &self,
-    ) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)> {
+    fn merge_options_fail_fast(&self) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)> {
         let conflict_kind = TreatAsUnresolved::forced_resolution();
-        let options = self
-            .tree_merge_options()?
-            .with_fail_on_conflict(Some(conflict_kind));
+        let options = self.tree_merge_options()?.with_fail_on_conflict(Some(conflict_kind));
         Ok((options, conflict_kind))
     }
 
-    fn merge_options_no_rewrites_fail_fast(
-        &self,
-    ) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)> {
+    fn merge_options_no_rewrites_fail_fast(&self) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)> {
         let (options, conflict_kind) = self.merge_options_fail_fast()?;
         Ok((options.with_rewrites(None), conflict_kind))
     }

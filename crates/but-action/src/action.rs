@@ -64,10 +64,7 @@ impl TryFrom<but_db::ButlerAction> for ButlerAction {
     type Error = anyhow::Error;
 
     fn try_from(value: but_db::ButlerAction) -> Result<Self, Self::Error> {
-        let response = value
-            .response
-            .as_ref()
-            .and_then(|o| serde_json::from_str(o).ok());
+        let response = value.response.as_ref().and_then(|o| serde_json::from_str(o).ok());
         let source = value
             .source
             .as_deref()
@@ -95,10 +92,7 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
     type Error = anyhow::Error;
 
     fn try_from(value: ButlerAction) -> Result<Self, Self::Error> {
-        let response = value
-            .response
-            .as_ref()
-            .and_then(|o| serde_json::to_string(o).ok());
+        let response = value.response.as_ref().and_then(|o| serde_json::to_string(o).ok());
         let source = serde_json::to_string(&value.source).ok();
         Ok(Self {
             id: value.id.to_string(),
