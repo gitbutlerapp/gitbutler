@@ -244,7 +244,8 @@ async fn match_subcommand(
                         .await
                         .emit_metrics(metrics_ctx)
                 } else {
-                    command::config::exec(&mut but_ctx::Context::discover(&args.current_dir)?, out, cmd)
+                    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+                    command::config::exec(&mut ctx, out, cmd)
                         .await
                         .emit_metrics(metrics_ctx)
                 }

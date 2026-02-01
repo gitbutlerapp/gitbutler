@@ -13,7 +13,7 @@ pub fn bot(
     chat_messages: Vec<but_llm::ChatMessage>,
 ) -> anyhow::Result<String, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut Context::new_from_legacy_project(project.clone())?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
@@ -26,8 +26,15 @@ pub fn bot(
 
     let llm = but_llm::LLMProvider::from_git_config(&git_config);
     match llm {
-        Some(llm) => but_bot::bot(project_id, message_id, emitter, ctx, &llm, chat_messages)
-            .map_err(|e| Error::from(anyhow::anyhow!(e))),
+        Some(llm) => but_bot::bot(
+            project_id,
+            message_id,
+            emitter,
+            &mut ctx,
+            &llm,
+            chat_messages,
+        )
+        .map_err(|e| Error::from(anyhow::anyhow!(e))),
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
         ))),

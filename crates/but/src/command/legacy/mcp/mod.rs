@@ -127,10 +127,10 @@ impl Mcp {
         let project = Project::from_path(&repo_path).expect("Failed to create project from path");
         let settings = AppSettings::load_from_default_path_creating_without_customization()
             .map_err(|e| rmcp::ErrorData::internal_error(e.to_string(), None))?;
-        let ctx = &mut Context::new_from_legacy_project_and_settings(&project, settings);
+        let mut ctx = Context::new_from_legacy_project_and_settings(&project, settings);
 
         let (id, outcome) = but_action::handle_changes(
-            ctx,
+            &mut ctx,
             &request.changes_summary,
             Some(request.full_prompt.clone()),
             ActionHandler::HandleChangesSimple,
