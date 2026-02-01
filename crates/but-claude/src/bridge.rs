@@ -522,8 +522,18 @@ async fn spawn_command(
             command.arg(format_message(&message, user_params.thinking_level));
         }
     }
-    tracing::debug!(?command, "claude::spawn_command");
-    Ok(command.spawn()?)
+    let child = command.spawn()?;
+
+    // MUST NOT LOG plain `command` as it can contain secrets, like `ANTHROPIC_AUTH_TOKEN`.
+    // This happens as the command env is passed through by reading its configuration files,
+    // which may also contain secrects.
+    command.env_clear();
+    tracing::debug!(
+        ?command,
+        env_keys = ?cc_settings.env().keys().collect::<Vec<_>>(),
+        "claude code command spawned successfully"
+    );
+    Ok(child)
 }
 
 fn system_prompt() -> String {
