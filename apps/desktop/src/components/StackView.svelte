@@ -792,7 +792,9 @@
 			& .assigned-changes-empty {
 				padding: 20px 8px 20px;
 				background-color: var(--clr-bg-1);
-				will-change: padding;
+				transition:
+					background-color var(--transition-fast),
+					padding var(--transition-fast);
 			}
 
 			& .assigned-changes-empty__text {
