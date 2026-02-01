@@ -602,6 +602,10 @@ fn setup_after_teardown_and_new_commit() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     env.setup_metadata(&["A", "B"])?;
 
+    // Add a snapshot so that we can verify later that it is preserved across
+    // teardown/setup
+    env.but("but oplog snapshot -m foo").assert().success();
+
     // Run teardown
     env.but("teardown").assert().success();
 
@@ -675,6 +679,57 @@ More info: https://docs.gitbutler.com/workspace-branch
 ┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
 
 Hint: run `but help` for all commands
+
+"#]]);
+
+    // The snapshot that we added at the beginning is preserved
+    env.but("oplog list")
+        .with_assert(env.assert_with_oplog_redactions())
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Operations History
+──────────────────────────────────────────────────
+[HASH] 2000-01-02 00:00:00 [OTHER] SetBaseBranch
+[HASH] 2000-01-02 00:00:00 [SNAPSHOT] Teardown: exiting GitButler mode
+[HASH] 2000-01-02 00:00:00 [SNAPSHOT] foo
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn setup_after_teardown_recovers_from_gc() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    env.but("but oplog snapshot -m foo").assert().success();
+
+    // Run teardown
+    env.but("teardown").assert().success();
+
+    but_testsupport::git(&env.open_repo()?)
+        .arg("gc")
+        .arg("--aggressive")
+        .arg("--prune=now")
+        .output()?;
+
+    // Run setup
+    env.but("setup").assert().success();
+
+    // Shorter oplog (no mention of "foo" or "Teardown" because they were GC-ed
+    // away, but at least the oplog works)
+    env.but("oplog list")
+        .with_assert(env.assert_with_oplog_redactions())
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Operations History
+──────────────────────────────────────────────────
+[HASH] 2000-01-02 00:00:00 [OTHER] SetBaseBranch
 
 "#]]);
 
