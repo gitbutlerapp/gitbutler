@@ -3,9 +3,10 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result, bail};
 
 mod args;
-use crate::args::{project, vbranch};
 use args::Args;
 use but_ctx::Context;
+
+use crate::args::{project, vbranch};
 
 mod command;
 

@@ -1,7 +1,8 @@
-use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::{
+    path::Path,
+    sync::{Arc, Mutex},
+};
 
-use crate::utils::{BackgroundMetrics, metrics};
 use anyhow::Result;
 use but_ctx::Context;
 use but_settings::AppSettings;
@@ -17,6 +18,8 @@ use rmcp::{
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
+
+use crate::utils::{BackgroundMetrics, metrics};
 
 pub mod commit;
 pub mod stack;

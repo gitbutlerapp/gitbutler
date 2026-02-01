@@ -1,5 +1,4 @@
-use but_core::ChangeId;
-use but_core::sync::RepoExclusive;
+use but_core::{ChangeId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
 use serde::{Deserialize, Serialize};

@@ -222,8 +222,9 @@ mod stack {
     /// This deserializes the old enum format but stores it as a gix::ObjectId.
     /// If a ChangeId is encountered during deserialization, it returns a null ObjectId.
     mod commit_id_serde {
-        use serde::{Deserialize, Deserializer, Serialize, Serializer};
         use std::str::FromStr;
+
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
         #[derive(Deserialize)]
         enum CommitOrChangeIdHelper {

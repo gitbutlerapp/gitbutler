@@ -3,8 +3,9 @@
 //! Provides colored output functions for the installer. All functions ignore I/O errors
 //! to ensure the installation can continue even if output fails (e.g., broken pipe).
 
-use owo_colors::{OwoColorize, Stream};
 use std::io::{self, Write};
+
+use owo_colors::{OwoColorize, Stream};
 
 /// Print a line to stdout, ignoring all I/O errors
 ///

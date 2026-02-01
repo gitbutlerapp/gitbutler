@@ -1,5 +1,6 @@
-use crate::diff::worktree_changes::repo_in;
 use but_testsupport::gix_testtools;
+
+use crate::diff::worktree_changes::repo_in;
 
 #[test]
 fn worktree_changes() -> anyhow::Result<()> {

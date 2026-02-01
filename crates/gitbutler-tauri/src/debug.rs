@@ -1,7 +1,8 @@
+use std::path::Path;
+
 use anyhow::{Context as _, anyhow};
 use but_api::json::Error;
 use but_path::AppChannel;
-use std::path::Path;
 use tracing::instrument;
 
 /// Opens the logs folder in the system file manager

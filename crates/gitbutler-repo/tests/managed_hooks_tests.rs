@@ -6,7 +6,6 @@
 //! - Protection of non-GitButler hooks from being overwritten or removed
 
 use std::fs;
-
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 

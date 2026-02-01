@@ -8,7 +8,6 @@ mod openai;
 use std::sync::Arc;
 
 pub use chat::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, ToolResponseContent};
-
 use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 

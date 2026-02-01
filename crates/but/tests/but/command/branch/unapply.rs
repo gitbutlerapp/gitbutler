@@ -1,8 +1,7 @@
 use snapbox::str;
+use utils::create_local_branch_with_commit;
 
 use crate::utils::{CommandExt, Sandbox};
-
-use utils::create_local_branch_with_commit;
 
 #[test]
 fn single_branch() -> anyhow::Result<()> {

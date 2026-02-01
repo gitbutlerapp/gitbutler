@@ -1,5 +1,6 @@
-use but_core::sync::LockScope;
 use std::fmt::Write;
+
+use but_core::sync::LockScope;
 
 pub fn handle(
     ctx: &mut but_ctx::Context,

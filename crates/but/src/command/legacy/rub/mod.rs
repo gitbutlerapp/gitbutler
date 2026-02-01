@@ -966,9 +966,10 @@ pub(crate) fn handle_unstage(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bstr::BString;
     use nonempty::NonEmpty;
+
+    use super::*;
 
     // Helper to create test CliIds
     fn uncommitted_id() -> CliId {

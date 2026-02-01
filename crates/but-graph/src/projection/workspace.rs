@@ -1,3 +1,9 @@
+use std::{
+    cell::RefCell,
+    collections::{BTreeSet, VecDeque},
+    fmt::Formatter,
+};
+
 use anyhow::Context as _;
 use bstr::{BStr, ByteSlice};
 use but_core::{
@@ -10,11 +16,6 @@ use but_core::{
 use gix::reference::Category;
 use itertools::Itertools;
 use petgraph::{Direction, prelude::EdgeRef, visit::NodeRef};
-use std::{
-    cell::RefCell,
-    collections::{BTreeSet, VecDeque},
-    fmt::Formatter,
-};
 use tracing::instrument;
 
 use crate::{

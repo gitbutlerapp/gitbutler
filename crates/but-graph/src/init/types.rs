@@ -1,8 +1,9 @@
-use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 use std::{
     collections::{BTreeSet, VecDeque},
     ops::Range,
 };
+
+use petgraph::{Direction, prelude::EdgeRef, stable_graph::EdgeReference};
 
 use crate::{CommitFlags, CommitIndex, Edge, SegmentIndex};
 

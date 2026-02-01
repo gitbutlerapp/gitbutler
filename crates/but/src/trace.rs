@@ -1,7 +1,6 @@
 use tracing::Level;
-use tracing_subscriber::filter::DynFilterFn;
 use tracing_subscriber::{
-    Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
+    Layer, filter::DynFilterFn, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
 };
 
 pub fn init(level: u8) -> anyhow::Result<()> {

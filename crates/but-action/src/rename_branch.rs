@@ -1,7 +1,7 @@
-use but_core::branch;
-use but_core::ref_metadata::StackId;
-use but_ctx::Context;
 use std::vec;
+
+use but_core::{branch, ref_metadata::StackId};
+use but_ctx::Context;
 
 use crate::workflow::{self, Workflow};
 

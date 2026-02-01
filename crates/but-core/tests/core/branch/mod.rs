@@ -4,8 +4,7 @@ mod normalize_short_name;
 
 mod safe_delete {
     use but_core::branch;
-    use but_testsupport::gix_testtools;
-    use but_testsupport::gix_testtools::Creation;
+    use but_testsupport::{gix_testtools, gix_testtools::Creation};
 
     #[test]
     fn delete_reference_journey() -> anyhow::Result<()> {

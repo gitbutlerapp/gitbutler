@@ -1,10 +1,11 @@
 //! Exercises the step option for whether a step's parents must all be references.
 
-use crate::utils::{fixture_writable, standard_options};
 use anyhow::{Result, bail};
 use but_graph::Graph;
 use but_rebase::graph_rebase::{GraphExt as _, LookupStep, Step};
 use but_testsupport::visualize_commit_graph_all;
+
+use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_parents_can_be_picks() -> Result<()> {

@@ -1,8 +1,8 @@
 //! Configuration and platform detection
 
+use std::{env, path::PathBuf};
+
 use anyhow::{Result, anyhow, bail};
-use std::env;
-use std::path::PathBuf;
 
 /// Channel type for the installation
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

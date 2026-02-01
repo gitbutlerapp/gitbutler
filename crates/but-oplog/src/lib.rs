@@ -75,8 +75,7 @@ pub mod legacy {
 
 #[cfg(feature = "legacy")]
 mod oplog_snapshot {
-    use but_ctx::Context;
-    use but_ctx::access::RepoExclusive;
+    use but_ctx::{Context, access::RepoExclusive};
     use but_oxidize::{ObjectIdExt, OidExt};
     use gitbutler_oplog::OplogExt;
 

@@ -1,6 +1,6 @@
-use crate::migration::BUSY_TIMEOUT;
-use crate::{AppCacheHandle, DbHandle, Transaction};
 use rusqlite::{ErrorCode, TransactionBehavior};
+
+use crate::{AppCacheHandle, DbHandle, Transaction, migration::BUSY_TIMEOUT};
 
 impl<'conn> From<rusqlite::Transaction<'conn>> for Transaction<'conn> {
     fn from(trans: rusqlite::Transaction<'conn>) -> Self {

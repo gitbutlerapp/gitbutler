@@ -29,12 +29,6 @@ use cfg_if::cfg_if;
 use clap::Parser;
 
 pub mod args;
-use crate::{
-    setup::{BackgroundSync, InitCtxOptions},
-    utils::{
-        OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
-    },
-};
 use args::{
     Args, OutputFormat, Subcommands, actions, alias as alias_args, branch, claude, cursor, forge,
     metrics, update as update_args, worktree,
@@ -42,6 +36,13 @@ use args::{
 use but_settings::AppSettings;
 use colored::Colorize;
 use gix::date::time::CustomFormat;
+
+use crate::{
+    setup::{BackgroundSync, InitCtxOptions},
+    utils::{
+        OneshotMetricsContext, OutputChannel, ResultErrorExt, ResultJsonExt, ResultMetricsExt,
+    },
+};
 
 mod id;
 pub use id::{CliId, IdMap};

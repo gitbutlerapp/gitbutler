@@ -1,10 +1,11 @@
 use std::path::{self, Path};
 
-use crate::utils::OutputChannel;
 use but_core::RepositoryExt;
 use but_ctx::Context;
 use colored::Colorize;
 use serde::Serialize;
+
+use crate::utils::OutputChannel;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

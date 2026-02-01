@@ -1,8 +1,9 @@
 //! HTTP client configuration
 
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use curl::easy::Easy;
-use std::time::Duration;
 
 const REQUEST_TIMEOUT_SECS: u64 = 30;
 const CONNECT_TIMEOUT_SECS: u64 = 10;

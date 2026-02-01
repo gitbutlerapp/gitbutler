@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::{json::Error, legacy::workspace::canned_branch_name};
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
 use but_core::DiffSpec;
@@ -22,6 +21,8 @@ use gitbutler_reference::{Refname, RemoteRefname, normalize_branch_name as norma
 use gitbutler_stack::StackId;
 use gix::reference::Category;
 use tracing::instrument;
+
+use crate::{json::Error, legacy::workspace::canned_branch_name};
 // Parameter structs for all functions
 
 #[but_api]

@@ -1,12 +1,10 @@
-use std::future::Future;
-use std::sync::Arc;
+use std::{future::Future, net::SocketAddr, sync::Arc};
 
-use axum::extract::{Path, State};
 use axum::{
     Json, Router,
     body::Body,
     extract::{
-        ConnectInfo, WebSocketUpgrade,
+        ConnectInfo, Path, State, WebSocketUpgrade,
         ws::{Message, WebSocket},
     },
     http::StatusCode,
@@ -22,7 +20,6 @@ use futures_util::{SinkExt, StreamExt as _};
 use gitbutler_project::ProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::net::SocketAddr;
 use tokio::sync::Mutex;
 use tower_http::cors::{self, CorsLayer};
 

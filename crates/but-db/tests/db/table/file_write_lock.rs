@@ -1,5 +1,6 @@
-use crate::table::in_memory_db;
 use but_db::FileWriteLock;
+
+use crate::table::in_memory_db;
 
 #[test]
 fn insert_and_read() -> anyhow::Result<()> {

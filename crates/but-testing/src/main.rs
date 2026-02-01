@@ -6,10 +6,11 @@ use command::parse_diff_spec;
 use gix::bstr::BString;
 
 mod args;
-use crate::{args::Subcommands, command::graph::Dot};
 use args::Args;
 use but_core::HunkHeader;
 use but_ctx::Context;
+
+use crate::{args::Subcommands, command::graph::Dot};
 
 mod command;
 

@@ -1,11 +1,10 @@
 use snapbox::str;
 
-use crate::utils::CommandExt;
 use crate::{
     command::util::{
         commit_file_with_worktree_changes_as_two_hunks, commit_two_files_as_two_hunks_each,
     },
-    utils::Sandbox,
+    utils::{CommandExt, Sandbox},
 };
 
 #[test]

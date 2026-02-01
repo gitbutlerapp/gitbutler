@@ -1,6 +1,7 @@
-use crate::M;
 use rusqlite::ErrorCode;
 use tracing::instrument;
+
+use crate::M;
 
 /// The error produced when running migrations.
 pub type Error = backoff::Error<rusqlite::Error>;

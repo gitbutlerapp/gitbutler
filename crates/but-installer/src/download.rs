@@ -1,12 +1,14 @@
 //! Download and verification logic
 
-use anyhow::{Context, Result, anyhow, bail};
-use std::fs::{self, File};
-use std::io::{Read, Write};
-use std::path::Path;
+use std::{
+    fs::{self, File},
+    io::{Read, Write},
+    path::Path,
+};
 
-use crate::http::create_client;
-use crate::ui::success;
+use anyhow::{Context, Result, anyhow, bail};
+
+use crate::{http::create_client, ui::success};
 
 pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     let mut easy = create_client()?;
@@ -193,8 +195,9 @@ pub(crate) fn verify_signature(tarball: &Path, signature_b64: &str, temp_dir: &P
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Write;
+
+    use super::*;
 
     #[test]
     fn test_is_gzip_file_with_valid_gzip() {

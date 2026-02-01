@@ -1,6 +1,7 @@
-use crate::cache::in_memory_cache;
 use but_db::cache::{CachedCheckResult, CheckUpdateStatus};
 use chrono::DateTime;
+
+use crate::cache::in_memory_cache;
 
 #[test]
 fn save_and_get() -> anyhow::Result<()> {

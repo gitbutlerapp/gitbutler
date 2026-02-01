@@ -5,8 +5,10 @@ use but_ctx::Context;
 use but_hunk_assignment::HunkAssignment;
 use gitbutler_stack::StackId;
 
-use super::display::{DiffDisplay, TreeChangeWithPatch};
-use super::{JsonChange, JsonDiff, JsonDiffOutput, JsonHunk};
+use super::{
+    JsonChange, JsonDiff, JsonDiffOutput, JsonHunk,
+    display::{DiffDisplay, TreeChangeWithPatch},
+};
 use crate::{IdMap, id::UncommittedCliId, utils::OutputChannel};
 
 #[allow(clippy::large_enum_variant)]

@@ -73,8 +73,7 @@ impl<T> OnDemandCache<T> {
 }
 
 mod error {
-    use std::cell;
-    use std::fmt::Formatter;
+    use std::{cell, fmt::Formatter};
 
     pub enum BorrowError {
         Shared(cell::BorrowError),

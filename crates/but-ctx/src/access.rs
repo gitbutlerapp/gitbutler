@@ -1,8 +1,9 @@
-use crate::Context;
 use but_core::sync::LockScope::AllOperations;
 pub use but_core::sync::{
     LockFile, RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard,
 };
+
+use crate::Context;
 
 /// Locking utilities to protect against concurrency on the same repo.
 impl Context {

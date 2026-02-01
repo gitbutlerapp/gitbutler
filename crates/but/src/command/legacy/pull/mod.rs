@@ -1,5 +1,7 @@
 mod json;
 
+use std::{collections::HashMap, fmt::Write};
+
 use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_branch_actions::upstream_integration::{
@@ -10,8 +12,6 @@ use gitbutler_branch_actions::upstream_integration::{
 };
 use json::{BaseBranchInfo, BranchStatusInfo, PullCheckOutput, UpstreamCommit, UpstreamInfo};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::Write;
 
 use crate::utils::OutputChannel;
 

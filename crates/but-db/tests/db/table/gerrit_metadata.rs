@@ -1,5 +1,6 @@
-use crate::table::in_memory_db;
 use but_db::GerritMeta;
+
+use crate::table::in_memory_db;
 
 #[test]
 fn get_nonexistent() -> anyhow::Result<()> {

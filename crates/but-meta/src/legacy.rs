@@ -1,3 +1,13 @@
+use std::{
+    any::Any,
+    cell::RefCell,
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet, HashSet},
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+    time::Instant,
+};
+
 use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{
@@ -14,15 +24,6 @@ use gix::{
     refs::{FullName, FullNameRef},
 };
 use itertools::Itertools;
-use std::cmp::Ordering;
-use std::{
-    any::Any,
-    cell::RefCell,
-    collections::{BTreeMap, BTreeSet, HashSet},
-    ops::{Deref, DerefMut},
-    path::{Path, PathBuf},
-    time::Instant,
-};
 use tracing::instrument;
 
 use crate::virtual_branches_legacy_types::{Stack, StackBranch, VirtualBranches};

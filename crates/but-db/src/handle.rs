@@ -1,7 +1,8 @@
-use crate::migration::improve_concurrency;
-use crate::{DbHandle, migration};
 use std::path::{Path, PathBuf};
+
 use tracing::instrument;
+
+use crate::{DbHandle, migration, migration::improve_concurrency};
 
 const FILE_NAME: &str = "but.sqlite";
 

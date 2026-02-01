@@ -1,10 +1,9 @@
-use super::list_commit_files;
 use but_core::{DiffSpec, HunkHeader};
 use but_oxidize::ObjectIdExt;
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_testsupport::stack_details;
 
-use super::*;
+use super::{list_commit_files, *};
 
 #[test]
 fn forcepush_allowed() -> anyhow::Result<()> {

@@ -1,20 +1,25 @@
-use but_tools::tool::Toolset;
-use ollama_rs::generation::parameters::{FormatType, JsonStructure};
-use schemars::JsonSchema;
-use serde::de::DeserializeOwned;
-use std::ops::Deref;
-use std::sync::{Arc, Mutex};
-use std::vec;
-use uuid::Uuid;
+use std::{
+    ops::Deref,
+    sync::{Arc, Mutex},
+    vec,
+};
 
 use anyhow::{Context, Result, bail};
+use but_tools::tool::Toolset;
 use futures::StreamExt;
-use ollama_rs::Ollama;
-use ollama_rs::generation::chat::request::ChatMessageRequest;
+use ollama_rs::{
+    Ollama,
+    generation::{
+        chat::request::ChatMessageRequest,
+        parameters::{FormatType, JsonStructure},
+    },
+};
+use schemars::JsonSchema;
+use serde::de::DeserializeOwned;
 use serde_json::Value;
+use uuid::Uuid;
 
-use crate::client::LLMClient;
-use crate::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent};
+use crate::{ChatMessage, StreamToolCallResult, ToolCall, ToolCallContent, client::LLMClient};
 
 const OLLAMA_ENDPOINT: &str = "gitbutler.aiOllamaEndpoint";
 const OLLAMA_MODEL_NAME: &str = "gitbutler.aiOllamaModelName";

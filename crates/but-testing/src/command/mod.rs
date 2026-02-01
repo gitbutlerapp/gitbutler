@@ -104,13 +104,14 @@ pub mod assignment {
 pub mod stacks {
     use std::{path::Path, str::FromStr};
 
-    use crate::command::debug_print;
     use anyhow::Context as _;
     use but_ctx::Context;
     use but_workspace::legacy::{StacksFilter, stack_branches, ui};
     use gitbutler_reference::{Refname, RemoteRefname};
     use gitbutler_stack::StackId;
     use gix::bstr::ByteSlice;
+
+    use crate::command::debug_print;
 
     pub fn list(current_dir: &Path, use_json: bool, in_workspace: bool) -> anyhow::Result<()> {
         let ctx = Context::discover(current_dir)?;

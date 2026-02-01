@@ -1,11 +1,11 @@
 //! Release fetching and validation
 
-use anyhow::{Context, Result, anyhow, bail};
-use serde::Deserialize;
 use std::collections::HashMap;
 
-use crate::config::InstallerConfig;
-use crate::http::create_client;
+use anyhow::{Context, Result, anyhow, bail};
+use serde::Deserialize;
+
+use crate::{config::InstallerConfig, http::create_client};
 
 /// Release information from the GitButler API
 #[derive(Debug, Deserialize)]

@@ -85,9 +85,11 @@ impl AppSettings {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn ensure_default_settings_covers_all_fields() {

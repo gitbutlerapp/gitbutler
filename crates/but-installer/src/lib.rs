@@ -13,9 +13,7 @@ mod shell;
 pub mod ui;
 
 use anyhow::Result;
-
 use config::{Channel, InstallerConfig};
-
 // Re-export types for public API consumers
 pub use config::{Version, VersionRequest};
 use download::{download_file, validate_tarball, verify_signature};

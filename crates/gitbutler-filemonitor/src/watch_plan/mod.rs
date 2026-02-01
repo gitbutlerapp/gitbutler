@@ -1,10 +1,13 @@
+use std::{
+    borrow::Cow,
+    collections::{BTreeSet, HashSet},
+    fs::FileType,
+    ops::ControlFlow,
+    path::{Path, PathBuf},
+};
+
 use gix::bstr::BStr;
 use notify::RecursiveMode;
-use std::borrow::Cow;
-use std::collections::{BTreeSet, HashSet};
-use std::fs::FileType;
-use std::ops::ControlFlow;
-use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests;

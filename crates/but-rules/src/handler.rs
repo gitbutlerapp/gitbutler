@@ -1,15 +1,15 @@
-use crate::{Filter, StackTarget};
+use std::{path::Path, str::FromStr};
+
 use anyhow::ensure;
-use but_core::sync::RepoExclusive;
-use but_core::{ChangeId, DiffSpec, ref_metadata::StackId};
+use but_core::{ChangeId, DiffSpec, ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
 use but_workspace::legacy::commit_engine;
 use itertools::Itertools;
-use std::path::Path;
-use std::str::FromStr;
+
+use crate::{Filter, StackTarget};
 
 pub fn process_workspace_rules(
     ctx: &mut Context,

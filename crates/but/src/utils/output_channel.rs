@@ -1,6 +1,8 @@
-use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
-use minus::ExitStrategy;
 use std::io::{IsTerminal, Write};
+
+use minus::ExitStrategy;
+
+use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
 /// Default value for a confirmation prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use but_ctx::Context;
 use but_oxidize::OidExt;
@@ -563,8 +562,9 @@ fn print_applied_branches_table(
     id_map: &HashMap<String, String>,
     out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
-    use crate::tui::{Table, table::Cell};
     use but_oxidize::gix_to_git2_oid;
+
+    use crate::tui::{Table, table::Cell};
 
     if applied_stacks.is_empty() {
         return Ok(());

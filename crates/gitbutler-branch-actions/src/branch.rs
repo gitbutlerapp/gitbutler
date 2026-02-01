@@ -7,7 +7,6 @@ use std::{
     vec,
 };
 
-use crate::{VirtualBranchesExt, gravatar::gravatar_url_from_email};
 use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
 use but_core::RepositoryExt;
@@ -19,6 +18,8 @@ use gitbutler_reference::{RemoteRefname, normalize_branch_name};
 use gitbutler_stack::{StackId, Target};
 use gix::{object::tree::diff::Action, prelude::TreeDiffChangeExt, reference::Category};
 use serde::{Deserialize, Serialize};
+
+use crate::{VirtualBranchesExt, gravatar::gravatar_url_from_email};
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(

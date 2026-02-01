@@ -1,7 +1,9 @@
 use snapbox::str;
 
-use crate::command::util::commit_two_files_as_two_hunks_each;
-use crate::utils::{CommandExt, Sandbox};
+use crate::{
+    command::util::commit_two_files_as_two_hunks_each,
+    utils::{CommandExt, Sandbox},
+};
 
 #[test]
 fn move_commit_before_another_commit() -> anyhow::Result<()> {

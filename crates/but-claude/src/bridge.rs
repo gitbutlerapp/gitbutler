@@ -26,21 +26,12 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
-    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
-    broadcaster::FrontendEvent,
-    claude_config::fmt_claude_settings,
-    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
-    claude_settings::ClaudeSettings,
-    db::{self, list_messages_by_session},
-    rules::{create_claude_assignment_rule, list_claude_assignment_rules},
-    send_claude_message,
-};
 use anyhow::{Result, bail};
 use but_action::cli::get_cli_path;
-use but_core::ref_metadata::StackId;
-use but_core::sync::{RepoExclusive, RepoShared};
+use but_core::{
+    ref_metadata::StackId,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
@@ -52,6 +43,18 @@ use tokio::{
         Mutex,
         mpsc::{UnboundedSender, unbounded_channel},
     },
+};
+
+use crate::{
+    Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode,
+    PromptAttachment, SystemMessage, ThinkingLevel, Transcript, UserInput,
+    broadcaster::FrontendEvent,
+    claude_config::fmt_claude_settings,
+    claude_mcp::{BUT_SECURITY_MCP, ClaudeMcpConfig},
+    claude_settings::ClaudeSettings,
+    db::{self, list_messages_by_session},
+    rules::{create_claude_assignment_rule, list_claude_assignment_rules},
+    send_claude_message,
 };
 
 /// Holds the CC instances. Currently keyed by stackId, since our current model

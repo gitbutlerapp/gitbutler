@@ -1,3 +1,7 @@
+use std::path::Path;
+
+use rusqlite::ErrorCode;
+
 /// Storage for cache tables, along with their types.
 ///
 /// ### Usage
@@ -6,8 +10,6 @@
 /// They are made more usable by providing a mutable instance through a shared reference
 /// when obtaining it from the `but-ctx::Context`.
 use crate::M;
-use rusqlite::ErrorCode;
-use std::path::Path;
 
 mod handle;
 mod table;

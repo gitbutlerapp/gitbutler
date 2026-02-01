@@ -139,8 +139,9 @@ pub(crate) fn maybe_migrate_legacy_settings(
 
 #[cfg(test)]
 mod parse_legacy_settings_to_overrides {
-    use crate::legacy_settings::parse_legacy_settings_to_overrides;
     use serde_json::json;
+
+    use crate::legacy_settings::parse_legacy_settings_to_overrides;
 
     #[test]
     fn parse_all_legacy_fields() -> anyhow::Result<()> {
@@ -302,9 +303,10 @@ mod parse_legacy_settings_to_overrides {
 
 #[cfg(test)]
 mod read_legacy_overrides {
-    use crate::legacy_settings::read_legacy_overrides;
     use serde_json::json;
     use tempfile::TempDir;
+
+    use crate::legacy_settings::read_legacy_overrides;
 
     #[test]
     fn read_from_nonexistent_path() -> anyhow::Result<()> {
@@ -341,8 +343,9 @@ mod read_legacy_overrides {
 
 #[cfg(test)]
 mod maybe_persist_overrides {
-    use crate::legacy_settings::{maybe_persist_overrides, read_legacy_overrides};
     use serde_json::json;
+
+    use crate::legacy_settings::{maybe_persist_overrides, read_legacy_overrides};
 
     #[test]
     fn maybe_persist_writes_when_different() -> anyhow::Result<()> {

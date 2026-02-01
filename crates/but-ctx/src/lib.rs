@@ -2,13 +2,18 @@
 #![deny(missing_docs)]
 #![forbid(unsafe_code)]
 
+use std::{
+    cell,
+    cell::RefCell,
+    path::{Path, PathBuf},
+};
+
 use anyhow::anyhow;
-use but_core::sync::{RepoExclusive, RepoExclusiveGuard, RepoSharedGuard};
-use but_core::{RepositoryExt, sync::RepoShared};
+use but_core::{
+    RepositoryExt,
+    sync::{RepoExclusive, RepoExclusiveGuard, RepoShared, RepoSharedGuard},
+};
 use but_settings::AppSettings;
-use std::cell;
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
 use tracing::instrument;
 
 /// Legacy types that shouldn't be used.

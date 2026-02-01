@@ -1,15 +1,20 @@
 //! Installation logic
 
+use std::{
+    fs::{self, File},
+    io,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+};
+
 use anyhow::{Context, Result, anyhow, bail};
 use flate2::read::GzDecoder;
-use std::fs::{self, File};
-use std::io;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use tar::Archive;
 
-use crate::config::Channel;
-use crate::ui::{info, success, warn};
+use crate::{
+    config::Channel,
+    ui::{info, success, warn},
+};
 
 pub(crate) fn extract_tarball(tarball: &Path, dest_dir: &Path) -> Result<PathBuf> {
     let file = File::open(tarball)?;

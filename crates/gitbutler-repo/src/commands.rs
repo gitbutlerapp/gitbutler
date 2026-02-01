@@ -1,6 +1,5 @@
 use std::{path::Path, sync::Mutex};
 
-use crate::{RepositoryExt, remote::GitRemote};
 use anyhow::{Context as _, Result, bail};
 use base64::engine::Engine as _;
 use but_ctx::Context;
@@ -11,6 +10,8 @@ use infer::MatcherType;
 use itertools::Itertools;
 use serde::Serialize;
 use tracing::warn;
+
+use crate::{RepositoryExt, remote::GitRemote};
 
 #[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

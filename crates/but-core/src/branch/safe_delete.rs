@@ -1,5 +1,6 @@
-use crate::branch::SafeDelete;
 use std::path::PathBuf;
+
+use crate::branch::SafeDelete;
 
 /// The outcome of [`SafeDelete::delete_reference()`]
 #[derive(Debug, Clone)]

@@ -4,9 +4,12 @@
 //! accidental `git commit` usage on the `gitbutler/workspace` branch and
 //! provide auto-cleanup when users checkout away from GitButler mode.
 
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
 use anyhow::{Context, Result};
-use std::fs;
-use std::path::{Path, PathBuf};
 
 /// Marker comment to identify GitButler-managed hooks
 const GITBUTLER_HOOK_SIGNATURE: &str = "# GITBUTLER_MANAGED_HOOK_V1";

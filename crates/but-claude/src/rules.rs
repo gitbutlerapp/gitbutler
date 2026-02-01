@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
-use but_core::ref_metadata::StackId;
-use but_core::sync::RepoExclusive;
+use but_core::{ref_metadata::StackId, sync::RepoExclusive};
 use but_ctx::Context;
 use but_rules::{CreateRuleRequest, UpdateRuleRequest};
 use serde::{Deserialize, Serialize};

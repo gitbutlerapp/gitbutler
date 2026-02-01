@@ -1,8 +1,10 @@
 use bstr::ByteSlice;
 use snapbox::str;
 
-use crate::utils::CommandExt;
-use crate::{command::util::commit_file_with_worktree_changes_as_two_hunks, utils::Sandbox};
+use crate::{
+    command::util::commit_file_with_worktree_changes_as_two_hunks,
+    utils::{CommandExt, Sandbox},
+};
 
 #[test]
 fn uncommitted_file() -> anyhow::Result<()> {

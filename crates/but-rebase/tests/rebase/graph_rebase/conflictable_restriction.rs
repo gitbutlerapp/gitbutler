@@ -1,6 +1,5 @@
 //! Exercises the step option for whether a step should be allowed to enter a conflicted state.
 
-use crate::utils::{fixture_writable, standard_options};
 use anyhow::{Result, bail};
 use but_graph::Graph;
 use but_rebase::{
@@ -8,6 +7,8 @@ use but_rebase::{
     graph_rebase::{GraphExt as _, LookupStep, Step, mutate::InsertSide},
 };
 use but_testsupport::{cat_commit, visualize_commit_graph_all};
+
+use crate::utils::{fixture_writable, standard_options};
 
 #[test]
 fn by_default_conflicts_are_allowed() -> Result<()> {

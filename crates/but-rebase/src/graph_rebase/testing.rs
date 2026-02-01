@@ -527,8 +527,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::str::FromStr;
+
+    use super::*;
 
     fn make_pick(hex: &str) -> Step {
         Step::Pick(Pick::new_pick(gix::ObjectId::from_str(hex).unwrap()))

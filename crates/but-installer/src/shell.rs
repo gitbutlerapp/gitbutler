@@ -1,10 +1,13 @@
 //! Shell and PATH configuration
 
+use std::{
+    env,
+    fs::{self, OpenOptions},
+    io::Write as IoWrite,
+    path::{Path, PathBuf},
+};
+
 use anyhow::Result;
-use std::env;
-use std::fs::{self, OpenOptions};
-use std::io::Write as IoWrite;
-use std::path::{Path, PathBuf};
 
 use crate::ui::{self, info, success, warn};
 
@@ -276,8 +279,9 @@ fn print_manual_setup_instructions(bin_dir: &Path, already_in_path: bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Write;
+
+    use super::*;
 
     #[test]
     fn test_shell_type_completion_commands() {

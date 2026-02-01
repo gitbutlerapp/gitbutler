@@ -1,5 +1,6 @@
-use crate::table::in_memory_db;
 use but_db::ForgeReview;
+
+use crate::table::in_memory_db;
 
 #[test]
 fn list_all_empty() -> anyhow::Result<()> {

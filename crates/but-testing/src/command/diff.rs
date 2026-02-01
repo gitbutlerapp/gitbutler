@@ -1,11 +1,12 @@
 use std::path::Path;
 
-use crate::command::{UI_CONTEXT_LINES, debug_print};
 use but_core::RepositoryExt;
 use but_ctx::Context;
 use but_hunk_dependency::ui::HunkDependencies;
 use gix::bstr::BString;
 use itertools::Itertools;
+
+use crate::command::{UI_CONTEXT_LINES, debug_print};
 
 pub fn commit_changes(
     current_dir: &Path,

@@ -1,6 +1,5 @@
 use anyhow::Result;
-use but_core::Reference;
-use but_core::sync::RepoExclusive;
+use but_core::{Reference, sync::RepoExclusive};
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};

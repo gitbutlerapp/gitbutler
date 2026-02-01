@@ -130,8 +130,9 @@ Hint: run `but branch new` to create a new branch to work on
 #[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() -> anyhow::Result<()> {
-    use crate::utils::CommandExt;
     use snapbox::file;
+
+    use crate::utils::CommandExt;
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit

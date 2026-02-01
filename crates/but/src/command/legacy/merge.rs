@@ -1,7 +1,8 @@
+use std::fmt::Write;
+
 use anyhow::bail;
 use but_ctx::Context;
 use colored::Colorize;
-use std::fmt::Write;
 
 use crate::{CliId, IdMap, utils::OutputChannel};
 

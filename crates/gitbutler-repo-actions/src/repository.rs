@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{str::FromStr, time::UNIX_EPOCH};
 
 use anyhow::{Context as _, Result, anyhow, bail};
 use but_core::commit::Headers;
@@ -12,7 +12,6 @@ use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_stack::{Stack, StackId};
-use std::time::UNIX_EPOCH;
 
 use crate::askpass;
 #[allow(clippy::too_many_arguments)]

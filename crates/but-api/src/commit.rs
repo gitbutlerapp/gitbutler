@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 
-use crate::json;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
 use but_core::sync::RepoExclusive;
@@ -8,6 +7,8 @@ use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
 use tracing::instrument;
+
+use crate::json;
 
 /// Rewords a commit
 ///

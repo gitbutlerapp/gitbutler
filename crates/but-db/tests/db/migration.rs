@@ -1,6 +1,7 @@
 mod run {
-    use crate::migration::util::{dump_data, dump_schema};
     use but_db::{M, migration};
+
+    use crate::migration::util::{dump_data, dump_schema};
 
     #[test]
     fn all_or_nothing() -> anyhow::Result<()> {

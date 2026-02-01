@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::fmt::Write as _;
+use std::{collections::BTreeMap, fmt::Write as _};
 
 use anyhow::{Context, Result, bail};
 use bstr::{BString, ByteSlice};
@@ -13,9 +12,11 @@ use but_rebase::graph_rebase::mutate::InsertSide;
 use colored::Colorize;
 use gitbutler_repo::hooks;
 
-use crate::utils::InputOutputChannel;
 use crate::{
-    CliId, IdMap, command::legacy::status::assignment::FileAssignment, tui, utils::OutputChannel,
+    CliId, IdMap,
+    command::legacy::status::assignment::FileAssignment,
+    tui,
+    utils::{InputOutputChannel, OutputChannel},
 };
 
 pub(crate) fn insert_blank_commit(

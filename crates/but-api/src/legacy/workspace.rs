@@ -1,6 +1,5 @@
 use std::{collections::HashSet, str::FromStr};
 
-use crate::json::HexHash;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
@@ -17,6 +16,8 @@ use gitbutler_oplog::{
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use tracing::instrument;
+
+use crate::json::HexHash;
 
 #[but_api]
 #[instrument(err(Debug))]

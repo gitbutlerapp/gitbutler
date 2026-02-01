@@ -1,22 +1,18 @@
-use but_api_macros::but_api;
-use but_ctx::Context;
-use but_hunk_assignment::{
-    AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment,
-};
-use gix::ObjectId;
 use std::{
     collections::{BTreeMap, HashMap},
     path::Path,
 };
-use tracing::instrument;
 
-use crate::{
-    commit::commit_insert_blank_only_impl,
-    legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
-};
 use bstr::{BString, ByteSlice};
-use but_core::sync::RepoExclusive;
-use but_core::{DiffSpec, sync::RepoExclusiveGuard};
+use but_api_macros::but_api;
+use but_core::{
+    DiffSpec,
+    sync::{RepoExclusive, RepoExclusiveGuard},
+};
+use but_ctx::Context;
+use but_hunk_assignment::{
+    AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment,
+};
 use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::ui::StackDetails;
@@ -25,7 +21,14 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_stack::StackId;
+use gix::ObjectId;
 use itertools::Itertools;
+use tracing::instrument;
+
+use crate::{
+    commit::commit_insert_blank_only_impl,
+    legacy::{diff::changes_in_worktree, workspace::amend_commit_and_count_failures},
+};
 
 /// Absorb multiple changes into their target commits as per the provided absorption plan
 #[but_api]

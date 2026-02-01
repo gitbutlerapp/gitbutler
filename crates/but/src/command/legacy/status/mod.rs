@@ -7,16 +7,18 @@ use but_core::{TreeStatus, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
-use but_workspace::ref_info::LocalCommitRelation;
-use but_workspace::ui::PushStatus;
+use but_workspace::{ref_info::LocalCommitRelation, ui::PushStatus};
 use colored::{ColoredString, Colorize};
 use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBranchStatus;
 use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 
-use crate::id::{SegmentWithId, StackWithId, TreeChangeWithId};
-use crate::{CLI_DATE, utils::time::format_relative_time_verbose};
+use crate::{
+    CLI_DATE,
+    id::{SegmentWithId, StackWithId, TreeChangeWithId},
+    utils::time::format_relative_time_verbose,
+};
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
 
@@ -32,8 +34,7 @@ enum CommitClassification {
 pub(crate) mod assignment;
 pub(crate) mod json;
 
-use crate::command::legacy::forge::review;
-use crate::{IdMap, utils::OutputChannel};
+use crate::{IdMap, command::legacy::forge::review, utils::OutputChannel};
 
 type StackDetail = (Option<StackWithId>, Vec<FileAssignment>);
 type StackEntry = (Option<gitbutler_stack::StackId>, StackDetail);

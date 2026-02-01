@@ -1,5 +1,4 @@
 //! In place of commands.rs
-use crate::json::Error;
 use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, ui::TreeChange};
@@ -8,6 +7,8 @@ use but_oxidize::ObjectIdExt;
 use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::{EditModeMetadata, OperatingMode};
 use tracing::instrument;
+
+use crate::json::Error;
 
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,5 +1,4 @@
-use std::env;
-use std::time::Duration;
+use std::{env, time::Duration};
 
 use but_secret::secret;
 use but_settings::AppSettings;

@@ -1,17 +1,24 @@
-use crate::events::InternalEvent;
-use crate::watch_plan::{
-    build_index_icase_accelerator_if_needed, compute_watch_plan_for_repo, is_tracked_in_index,
-    is_watchable_directory, to_repo_relative_path,
+use std::{
+    collections::{BTreeSet, HashSet},
+    path::Path,
+    time::Duration,
 };
+
 use anyhow::{Context as _, Result, anyhow};
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
 use gitbutler_project::ProjectId;
 use gix::bstr::BStr;
 use notify::{RecommendedWatcher, Watcher};
-use std::collections::BTreeSet;
-use std::{collections::HashSet, path::Path, time::Duration};
 use tokio::task;
 use tracing::Level;
+
+use crate::{
+    events::InternalEvent,
+    watch_plan::{
+        build_index_icase_accelerator_if_needed, compute_watch_plan_for_repo, is_tracked_in_index,
+        is_watchable_directory, to_repo_relative_path,
+    },
+};
 
 /// We will collect notifications for up to this amount of time at a very
 /// maximum before releasing them. This duration will be hit if e.g. a build

@@ -1,5 +1,6 @@
-use crate::table::in_memory_db;
 use but_db::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession};
+
+use crate::table::in_memory_db;
 
 // ====== Claude Sessions Tests ======
 

@@ -1,15 +1,15 @@
+use std::{
+    cmp::Reverse,
+    collections::{BTreeSet, BinaryHeap, HashMap, VecDeque},
+    ops::{Deref, Index, IndexMut},
+};
+
 use anyhow::{Context as _, bail};
 use petgraph::{
     Direction,
     prelude::EdgeRef,
     stable_graph::EdgeReference,
     visit::{IntoEdgeReferences, Visitable},
-};
-use std::collections::HashMap;
-use std::{
-    cmp::Reverse,
-    collections::{BTreeSet, BinaryHeap, VecDeque},
-    ops::{Deref, Index, IndexMut},
 };
 
 use crate::{

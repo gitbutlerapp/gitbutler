@@ -1,8 +1,7 @@
 use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 
-use crate::Transaction;
-use crate::{DbHandle, M};
+use crate::{DbHandle, M, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(

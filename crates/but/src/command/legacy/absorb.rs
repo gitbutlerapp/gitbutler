@@ -1,4 +1,3 @@
-use colored::Colorize;
 use std::path::Path;
 
 use but_core::sync::RepoExclusiveGuard;
@@ -7,6 +6,7 @@ use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
     JsonFileAbsorption,
 };
+use colored::Colorize;
 use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},

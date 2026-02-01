@@ -1,5 +1,7 @@
-use but_db::AppCacheHandle;
-use but_db::cache::{CachedCheckResult, CheckUpdateStatus};
+use but_db::{
+    AppCacheHandle,
+    cache::{CachedCheckResult, CheckUpdateStatus},
+};
 use chrono::DateTime;
 
 #[test]

@@ -3,15 +3,19 @@
 //! Provides subcommands to view and modify configuration settings including
 //! user information, AI provider, forge accounts, and target branch.
 
-use crate::args::config::{ForgeSubcommand, Subcommands, UserSubcommand};
-use crate::tui;
-use crate::utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel};
+use std::fmt::Write;
+
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
 use cfg_if::cfg_if;
 use colored::Colorize;
 use serde::Serialize;
-use std::fmt::Write;
+
+use crate::{
+    args::config::{ForgeSubcommand, Subcommands, UserSubcommand},
+    tui,
+    utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel},
+};
 
 /// Main entry point for config command
 pub async fn exec(

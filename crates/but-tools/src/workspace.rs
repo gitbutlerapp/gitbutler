@@ -4,10 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    emit::{Emittable, Emitter, StackUpdate},
-    tool::{Tool, ToolResult, Toolset, WorkspaceToolset, error_to_json, result_to_json},
-};
 use anyhow::Context as _;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
@@ -22,6 +18,11 @@ use gitbutler_oplog::{
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{PatchReferenceUpdate, VirtualBranchesHandle};
 use schemars::{JsonSchema, schema_for};
+
+use crate::{
+    emit::{Emittable, Emitter, StackUpdate},
+    tool::{Tool, ToolResult, Toolset, WorkspaceToolset, error_to_json, result_to_json},
+};
 
 /// Creates a toolset for any kind of workspace operations.
 pub fn workspace_toolset(

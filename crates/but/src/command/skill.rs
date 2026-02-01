@@ -1,9 +1,11 @@
-use crate::{args::skill, utils::OutputChannel};
+use std::{fmt::Write as _, path::PathBuf};
+
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
-use std::{fmt::Write as _, path::PathBuf};
+
+use crate::{args::skill, utils::OutputChannel};
 
 /// Error type for user-initiated cancellation
 #[derive(Debug, Clone, Copy)]
@@ -693,6 +695,7 @@ mod tests {
     #[test]
     fn is_gitbutler_skill_validates_correct_skill() {
         use std::fs;
+
         use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();

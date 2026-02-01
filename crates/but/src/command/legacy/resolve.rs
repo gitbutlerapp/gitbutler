@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashSet},
+    fmt::Write,
+};
 
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
@@ -11,7 +14,6 @@ use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::OperatingMode;
-use std::fmt::Write;
 
 use crate::{
     IdMap,

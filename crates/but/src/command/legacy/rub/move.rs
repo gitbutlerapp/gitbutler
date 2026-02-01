@@ -477,8 +477,9 @@ fn get_topmost_branch_name(ctx: &Context, stack_id: StackId) -> anyhow::Result<S
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use bstr::BString;
+
+    use super::*;
 
     // Helper to create test CliIds
     fn commit_id(id: &str) -> CliId {

@@ -1,3 +1,10 @@
+use anyhow::{Result, bail};
+use but_core::{DiffSpec, TreeChange, sync::RepoExclusive};
+use but_ctx::Context;
+use but_rebase::{Rebase, replace_commit_tree};
+use gitbutler_stack::{StackId, VirtualBranchesHandle};
+use gix::ObjectId;
+
 use super::MoveChangesResult;
 use crate::legacy::{
     stack_ext::StackExt,
@@ -6,13 +13,6 @@ use crate::legacy::{
         replace_pick_with_commit,
     },
 };
-use anyhow::{Result, bail};
-use but_core::sync::RepoExclusive;
-use but_core::{DiffSpec, TreeChange};
-use but_ctx::Context;
-use but_rebase::{Rebase, replace_commit_tree};
-use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use gix::ObjectId;
 
 /// Removes the specified changes from a given commit.
 ///

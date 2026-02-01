@@ -1,9 +1,9 @@
-use crate::RepositoryExt;
-use crate::branch::normalize_short_name;
 use anyhow::Context;
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::refs;
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::{RepositoryExt, branch::normalize_short_name};
 
 /// Produce a branch named after the author configured in `repo`, or default it to a generic name
 pub fn canned_refname(repo: &gix::Repository) -> anyhow::Result<gix::refs::FullName> {

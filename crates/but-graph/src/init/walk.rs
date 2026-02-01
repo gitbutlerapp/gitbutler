@@ -1,4 +1,15 @@
 //! Utilities for graph-walking specifically.
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+    ops::Deref,
+};
+
+use anyhow::{Context as _, bail};
+use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
+use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
+use petgraph::{Direction, prelude::EdgeRef};
+
 use crate::{
     Commit, CommitFlags, CommitIndex, Edge, Graph, Segment, SegmentIndex, SegmentMetadata,
     Worktree,
@@ -8,16 +19,6 @@ use crate::{
         remotes,
         types::{EdgeOwned, Instruction, Limit, Queue, QueueItem},
     },
-};
-use anyhow::{Context as _, bail};
-use but_core::{RefMetadata, is_workspace_ref_name, ref_metadata};
-use gix::{hashtable::hash_map::Entry, reference::Category, traverse::commit::Either};
-use petgraph::Direction;
-use petgraph::prelude::EdgeRef;
-use std::cmp::Ordering;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Deref,
 };
 
 pub(crate) type RefsById = gix::hashtable::HashMap<gix::ObjectId, Vec<gix::refs::FullName>>;
