@@ -459,7 +459,7 @@ but oplog
 # s1: pull from remote
 
 # Restore to before squash
-but restore s4
+but oplog restore s4
 ```
 
 ### Discard Uncommitted Changes
