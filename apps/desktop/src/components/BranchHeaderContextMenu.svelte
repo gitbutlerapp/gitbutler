@@ -236,11 +236,6 @@
 								close();
 							}}
 							disabled={isReadOnly || isConflicted}
-							tooltip={isReadOnly
-								? 'Read-only mode'
-								: isConflicted
-									? 'This branch has conflicts'
-									: undefined}
 						/>
 					{/if}
 				</ContextMenuSection>
