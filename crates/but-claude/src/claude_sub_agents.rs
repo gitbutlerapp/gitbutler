@@ -1,7 +1,6 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use serde::{Deserialize, Serialize};
-use tokio::fs::{self, DirEntry};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -12,18 +11,18 @@ pub struct SubAgent {
     model: Option<String>,
 }
 
-pub async fn read_claude_sub_agents(project_path: &Path) -> Vec<SubAgent> {
+pub fn read_claude_sub_agents(project_path: &Path) -> Vec<SubAgent> {
     let mut out = vec![];
 
     if let Some(home_dir) = dirs::home_dir().map(|p| p.join(".claude/agents"))
-        && let Some(agents) = read_agents(&home_dir).await
+        && let Some(agents) = read_agents(&home_dir)
     {
         for agent in agents {
             out.push(agent);
         }
     }
 
-    if let Some(agents) = read_agents(&project_path.join(".claude/agents")).await {
+    if let Some(agents) = read_agents(&project_path.join(".claude/agents")) {
         for agent in agents {
             out.push(agent);
         }
@@ -32,42 +31,36 @@ pub async fn read_claude_sub_agents(project_path: &Path) -> Vec<SubAgent> {
     out
 }
 
-async fn read_agents(path: &Path) -> Option<Vec<SubAgent>> {
-    if !fs::try_exists(path).await.unwrap_or(false) {
+fn read_agents(path: &Path) -> Option<Vec<SubAgent>> {
+    if !path.try_exists().unwrap_or(false) {
         return None;
     }
 
     let mut out = vec![];
 
-    let mut entries = fs::read_dir(path).await.ok()?;
-    loop {
-        match entries.next_entry().await {
-            Ok(Some(entry)) => {
-                if let Some(agent) = read_entry(entry).await {
-                    out.push(agent)
-                }
-            }
-            Ok(None) => break,
-            Err(_) => continue,
+    let entries = fs::read_dir(path).ok()?;
+    for entry in entries.flatten() {
+        if let Some(agent) = read_entry(&entry) {
+            out.push(agent)
         }
     }
 
     Some(out)
 }
 
-async fn read_entry(entry: DirEntry) -> Option<SubAgent> {
-    let entry_type = entry.file_type().await.ok()?;
+fn read_entry(entry: &fs::DirEntry) -> Option<SubAgent> {
+    let entry_type = entry.file_type().ok()?;
     if !entry_type.is_file() {
         return None;
     };
-    let string = fs::read_to_string(entry.path()).await.ok()?;
-    let mut in_frontmatter = false;
+    let string = fs::read_to_string(entry.path()).ok()?;
     let mut agent = SubAgent {
         name: "".into(),
         description: "".into(),
         tools: None,
         model: None,
     };
+    let mut in_frontmatter = false;
     for line in string.lines() {
         if !in_frontmatter && line == "---" {
             in_frontmatter = true;

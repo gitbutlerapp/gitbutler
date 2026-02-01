@@ -1,11 +1,10 @@
 #![deny(unsafe_code)]
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
 use but_ctx::ThreadSafeContext;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tokio::sync::Mutex;
 use uuid::Uuid;
 pub mod bridge;
 pub use bridge::ClaudeCheckResult;
@@ -449,7 +448,7 @@ pub struct ClaudeUserParams {
     pub attachments: Option<Vec<PromptAttachment>>,
 }
 
-pub async fn send_claude_message(
+pub fn send_claude_message(
     sync_ctx: ThreadSafeContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
     session_id: uuid::Uuid,
@@ -464,10 +463,13 @@ pub async fn send_claude_message(
         )
     };
 
-    broadcaster.lock().await.send(FrontendEvent {
-        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-        payload: json!(message),
-    });
+    broadcaster
+        .lock()
+        .expect("lock poisoned")
+        .send(FrontendEvent {
+            name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+            payload: json!(message),
+        });
     Ok(())
 }
 

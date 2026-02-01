@@ -1,11 +1,11 @@
 use std::{
     collections::HashMap,
+    fs,
     path::{Path, PathBuf},
 };
 
 use but_action::cli::get_cli_path;
 use serde::{Deserialize, Serialize};
-use tokio::fs;
 
 use crate::claude_settings::ClaudeSettings;
 
@@ -63,10 +63,10 @@ pub struct ClaudeMcpConfig {
 pub const BUT_SECURITY_MCP: &str = "but-security";
 
 impl ClaudeMcpConfig {
-    pub async fn open(settings: &ClaudeSettings, project_path: &Path) -> Self {
+    pub fn open(settings: &ClaudeSettings, project_path: &Path) -> Self {
         Self {
-            claude_json: read_claude_json().await,
-            mcp_json: read_mcp_json(project_path).await,
+            claude_json: read_claude_json(),
+            mcp_json: read_mcp_json(project_path),
             project_path: project_path.to_owned(),
             settings: settings.clone(),
         }
@@ -139,17 +139,17 @@ impl ClaudeMcpConfig {
     }
 }
 
-async fn read_claude_json() -> Option<ClaudeJson> {
+fn read_claude_json() -> Option<ClaudeJson> {
     let home = dirs::home_dir()?;
     let path = home.join(".claude.json");
-    let string = fs::read_to_string(&path).await.ok()?;
+    let string = fs::read_to_string(&path).ok()?;
     let out = serde_json_lenient::from_str(&string).ok()?;
     Some(out)
 }
 
-async fn read_mcp_json(project_path: &Path) -> Option<McpConfig> {
+fn read_mcp_json(project_path: &Path) -> Option<McpConfig> {
     let path = project_path.join(".mcp.json");
-    let string = fs::read_to_string(&path).await.ok()?;
+    let string = fs::read_to_string(&path).ok()?;
     let out = serde_json_lenient::from_str(&string).ok()?;
     Some(out)
 }

@@ -1,12 +1,12 @@
 use std::{
     collections::HashMap,
+    fs,
     io::BufRead,
     path::{Path, PathBuf},
 };
 
 use anyhow::{Context as _, Result};
 use serde::{Deserialize, Serialize};
-use tokio::fs;
 
 use crate::ClaudeSession;
 
@@ -87,7 +87,7 @@ pub struct Transcript {
 }
 
 impl Transcript {
-    pub async fn current_valid_session_id(path: &Path, session: &ClaudeSession) -> Result<Option<uuid::Uuid>> {
+    pub fn current_valid_session_id(path: &Path, session: &ClaudeSession) -> Result<Option<uuid::Uuid>> {
         let mut session_ids = session.session_ids.clone();
         let mut current_id = None;
 
@@ -98,7 +98,7 @@ impl Transcript {
 
             let next_id = session_ids.pop();
             if let Some(next_id) = next_id
-                && Self::transcript_exists_and_likely_valid(path, next_id).await?
+                && Self::transcript_exists_and_likely_valid(path, next_id)?
             {
                 current_id = Some(next_id);
                 break;
@@ -194,10 +194,10 @@ impl Transcript {
         None
     }
 
-    async fn transcript_exists_and_likely_valid(project_path: &Path, session_id: uuid::Uuid) -> Result<bool> {
+    fn transcript_exists_and_likely_valid(project_path: &Path, session_id: uuid::Uuid) -> Result<bool> {
         let path = Self::get_transcript_path(project_path, session_id)?;
-        if fs::try_exists(&path).await? {
-            let file = fs::read_to_string(&path).await?;
+        if path.try_exists()? {
+            let file = fs::read_to_string(&path)?;
             // Sometimes a transcript gets written out that only as a summary and is
             // only 1 line long. These can be considered invalid sessions
             if file.lines().count() > 1 {

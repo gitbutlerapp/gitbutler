@@ -21,9 +21,11 @@
 
 use std::{
     collections::HashMap,
+    fs,
     io::{BufRead, BufReader, PipeReader, Read as _},
-    process::ExitStatus,
-    sync::Arc,
+    process::{Child, Command, ExitStatus},
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
 };
 
 use anyhow::{Result, bail};
@@ -36,14 +38,6 @@ use but_ctx::{Context, ThreadSafeContext};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
 use serde::Serialize;
-use tokio::{
-    fs,
-    process::{Child, Command},
-    sync::{
-        Mutex,
-        mpsc::{UnboundedSender, unbounded_channel},
-    },
-};
 
 use crate::{
     Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode, PromptAttachment,
@@ -65,7 +59,7 @@ pub struct Claudes {
 }
 
 pub struct Claude {
-    pub(crate) kill: UnboundedSender<()>,
+    pub(crate) kill: flume::Sender<()>,
 }
 
 impl Claudes {
@@ -75,38 +69,37 @@ impl Claudes {
         }
     }
 
-    pub async fn send_message(
+    pub fn send_message(
         &self,
         ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
     ) -> Result<()> {
-        if self.requests.lock().await.contains_key(&stack_id) {
+        if self.requests.lock().expect("lock poisoned").contains_key(&stack_id) {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             );
         } else {
-            self.spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params)
-                .await;
-            let _ = self.maybe_compact_context(ctx, broadcaster, stack_id).await;
+            self.spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params);
+            let _ = self.maybe_compact_context(ctx, broadcaster, stack_id);
         };
 
         Ok(())
     }
 
-    pub async fn compact_history(
+    pub fn compact_history(
         &self,
         ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
     ) -> Result<()> {
-        if self.requests.lock().await.contains_key(&stack_id) {
+        if self.requests.lock().expect("lock poisoned").contains_key(&stack_id) {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             )
         } else {
-            self.compact(ctx, broadcaster, stack_id).await
+            self.compact(ctx, broadcaster, stack_id);
         };
 
         Ok(())
@@ -125,8 +118,8 @@ impl Claudes {
     }
 
     /// Cancel a running Claude session for the given stack
-    pub async fn cancel_session(&self, stack_id: StackId) -> Result<bool> {
-        let requests = self.requests.lock().await;
+    pub fn cancel_session(&self, stack_id: StackId) -> Result<bool> {
+        let requests = self.requests.lock().expect("lock poisoned");
         if let Some(claude) = requests.get(&stack_id) {
             // Send the kill signal
             claude
@@ -140,23 +133,21 @@ impl Claudes {
     }
 
     /// Check if there is an active Claude session for the given stack ID
-    pub async fn is_stack_active(&self, stack_id: StackId) -> bool {
-        let requests = self.requests.lock().await;
+    pub fn is_stack_active(&self, stack_id: StackId) -> bool {
+        let requests = self.requests.lock().expect("lock poisoned");
         requests.contains_key(&stack_id)
     }
 
-    async fn spawn_claude(
+    fn spawn_claude(
         &self,
         sync_ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
         user_params: ClaudeUserParams,
-    ) -> () {
-        let res = self
-            .spawn_claude_inner(sync_ctx.clone(), broadcaster.clone(), stack_id, user_params)
-            .await;
+    ) {
+        let res = self.spawn_claude_inner(sync_ctx.clone(), broadcaster.clone(), stack_id, user_params);
         if let Err(res) = res {
-            self.requests.lock().await.remove(&stack_id);
+            self.requests.lock().expect("lock poisoned").remove(&stack_id);
 
             let rule = {
                 let ctx = sync_ctx.clone().into_thread_local();
@@ -174,13 +165,12 @@ impl Claudes {
                     MessagePayload::System(crate::SystemMessage::UnhandledException {
                         message: format!("{res}"),
                     }),
-                )
-                .await;
+                );
             }
         };
     }
 
-    async fn spawn_claude_inner(
+    fn spawn_claude_inner(
         &self,
         sync_ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
@@ -190,10 +180,10 @@ impl Claudes {
         // Capture the start time to filter messages created during this session
         let session_start_time = chrono::Utc::now().naive_utc();
 
-        let (send_kill, mut recv_kill) = unbounded_channel();
+        let (send_kill, recv_kill) = flume::unbounded();
         self.requests
             .lock()
-            .await
+            .expect("lock poisoned")
             .insert(stack_id, Arc::new(Claude { kill: send_kill }));
 
         // We're also making the bold assumption that if we can find the
@@ -241,8 +231,7 @@ impl Claudes {
                 message: user_params.message.clone(), // Original user message for display
                 attachments: user_params.attachments.clone(),
             }),
-        )
-        .await?;
+        )?;
 
         let (read_stdout, writer) = std::io::pipe()?;
         let response_streamer =
@@ -260,16 +249,34 @@ impl Claudes {
             user_params,
             summary_to_resume,
             stack_id,
-        )
-        .await?;
-        let cmd_exit = tokio::select! {
-            status = handle.wait() => Exit::WithStatus(status),
-            _ = recv_kill.recv() => Exit::ByUser
-        };
-        // My understanding is that it is not great to abort things like this,
-        // but it's "good enough" for now.
-        response_streamer.abort();
-        self.requests.lock().await.remove(&stack_id);
+        )?;
+
+        // Use flume's Selector to wait on either process completion or kill signal
+        let (wait_tx, wait_rx) = flume::unbounded();
+        let child_id = handle.id();
+        // Spawn a thread to wait for the child process to complete
+        std::thread::Builder::new()
+            .name("claude-process-waiter".to_string())
+            .spawn(move || {
+                let result = handle.wait();
+                let _ = wait_tx.send(result);
+            })
+            .ok();
+
+        let cmd_exit = flume::Selector::new()
+            .recv(&wait_rx, |result| match result {
+                Ok(status) => Exit::WithStatus(status),
+                Err(_) => Exit::WithStatus(Err(std::io::Error::other(
+                    "Process wait channel closed unexpectedly",
+                ))),
+            })
+            .recv(&recv_kill, |_| Exit::ByUser)
+            .wait();
+
+        // The response streamer thread will terminate naturally when the pipe is closed
+        // (which happens when the Claude process exits). We drop the handle here to detach it.
+        drop(response_streamer);
+        self.requests.lock().expect("lock poisoned").remove(&stack_id);
 
         handle_exit(
             sync_ctx.clone(),
@@ -277,10 +284,9 @@ impl Claudes {
             stack_id,
             session_id,
             read_stderr,
-            handle,
+            Some(child_id),
             cmd_exit,
-        )
-        .await?;
+        )?;
 
         // Broadcast system any messages created during this Claude session
         // (e.g., commit created notification from the Stop hook)
@@ -298,7 +304,7 @@ impl Claudes {
 
             // Broadcast each new message
             for message in new_messages {
-                broadcaster.lock().await.send(FrontendEvent {
+                broadcaster.lock().expect("lock poisoned").send(FrontendEvent {
                     name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
                     payload: serde_json::json!(message),
                 });
@@ -314,13 +320,13 @@ impl Claudes {
     }
 }
 
-async fn handle_exit(
+fn handle_exit(
     ctx: ThreadSafeContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
     stack_id: StackId,
     session_id: uuid::Uuid,
     mut read_stderr: PipeReader,
-    mut handle: Child,
+    child_id: Option<u32>,
     cmd_exit: Exit,
 ) -> Result<(), anyhow::Error> {
     match cmd_exit {
@@ -337,8 +343,7 @@ async fn handle_exit(
                     code: exit_status.code().unwrap_or(0),
                     message: buf.clone(),
                 }),
-            )
-            .await?;
+            )?;
         }
         Exit::ByUser => {
             // On *nix try to kill claude more gently.
@@ -348,16 +353,16 @@ async fn handle_exit(
                     sys::signal::{self, Signal},
                     unistd::Pid,
                 };
-                if let Some(pid) = handle.id() {
-                    signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT)?;
-                    handle.wait().await?;
-                } else {
-                    handle.kill().await?;
+                if let Some(pid) = child_id {
+                    let _ = signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT);
+                    // Give the process a moment to exit gracefully
+                    std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
             #[cfg(not(unix))]
             {
-                handle.kill().await?;
+                // On non-Unix, we can't send SIGINT, process was already waited on in the selector
+                let _ = child_id;
             }
             send_claude_message(
                 ctx,
@@ -365,8 +370,7 @@ async fn handle_exit(
                 session_id,
                 stack_id,
                 MessagePayload::System(crate::SystemMessage::UserAbort),
-            )
-            .await?;
+            )?;
         }
     }
     Ok(())
@@ -379,7 +383,7 @@ enum Exit {
 
 /// Spawns the actual claude code command
 #[allow(clippy::too_many_arguments)]
-async fn spawn_command(
+fn spawn_command(
     writer: std::io::PipeWriter,
     write_stderr: std::io::PipeWriter,
     session: crate::ClaudeSession,
@@ -393,10 +397,10 @@ async fn spawn_command(
     let settings = fmt_claude_settings()?;
 
     let claude_executable = sync_ctx.settings.claude.executable.clone();
-    let cc_settings = ClaudeSettings::open(&project_path).await;
+    let cc_settings = ClaudeSettings::open(&project_path);
 
     // Determine what session ID Claude will use - needed for MCP server configuration
-    let transcript_current_id = Transcript::current_valid_session_id(&project_path, &session).await?;
+    let transcript_current_id = Transcript::current_valid_session_id(&project_path, &session)?;
     let claude_session_id = if summary_to_resume.is_some() {
         // If resuming after compaction, Claude will use a new random ID
         uuid::Uuid::new_v4()
@@ -408,7 +412,7 @@ async fn spawn_command(
         session.id
     };
 
-    let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path).await;
+    let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path);
     let disabled_mcp_servers = user_params
         .disabled_mcp_servers
         .iter()
@@ -481,8 +485,8 @@ async fn spawn_command(
     } else {
         // Start new session - ensure there isn't an existing invalid transcript
         let path = Transcript::get_transcript_path(&project_path, session.id)?;
-        if fs::try_exists(&path).await? {
-            fs::remove_file(&path).await?;
+        if path.try_exists()? {
+            fs::remove_file(&path)?;
         }
         command.args(["--session-id", &format!("{}", claude_session_id)]);
     }
@@ -507,7 +511,7 @@ async fn spawn_command(
         command.arg(&user_params.message);
     } else {
         let message = if let Some(attachments) = &user_params.attachments {
-            format_message_with_attachments(&user_params.message, attachments).await?
+            format_message_with_attachments(&user_params.message, attachments)?
         } else {
             user_params.message
         };
@@ -842,31 +846,27 @@ fn spawn_response_streaming(
     read_stdout: PipeReader,
     session_id: uuid::Uuid,
     stack_id: StackId,
-) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
-
-        // Spawn a blocking task to read lines from the pipe
-        std::thread::spawn(move || {
-            let reader = BufReader::new(read_stdout);
-            for line in reader.lines().map_while(Result::ok) {
-                if tx.send(line).is_err() {
-                    break;
-                }
-            }
-        });
-
+) -> JoinHandle<()> {
+    std::thread::spawn(move || {
+        let reader = BufReader::new(read_stdout);
         let mut first = true;
-        while let Some(line) = rx.recv().await {
-            let parsed_event: serde_json::Value = serde_json::from_str(&line).unwrap();
+
+        for line in reader.lines().map_while(Result::ok) {
+            let parsed_event: serde_json::Value = match serde_json::from_str(&line) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
 
             {
                 let mut ctx = sync_ctx.clone().into_thread_local();
                 if first {
-                    let current_session_id = parsed_event["session_id"].as_str().unwrap().parse().unwrap();
-                    let session = db::get_session_by_id(&ctx, session_id).unwrap();
-                    if session.is_some() {
-                        db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
+                    if let Some(sid) = parsed_event["session_id"].as_str()
+                        && let Ok(current_session_id) = sid.parse()
+                    {
+                        let session = db::get_session_by_id(&ctx, session_id).ok().flatten();
+                        if session.is_some() {
+                            let _ = db::add_session_id(&mut ctx, session_id, current_session_id);
+                        }
                     }
                     first = false;
                 }
@@ -875,15 +875,13 @@ fn spawn_response_streaming(
             let message_content = MessagePayload::Claude(ClaudeOutput {
                 data: parsed_event.clone(),
             });
-            send_claude_message(
+            let _ = send_claude_message(
                 sync_ctx.clone(),
                 broadcaster.clone(),
                 session_id,
                 stack_id,
                 message_content,
-            )
-            .await
-            .unwrap();
+            );
         }
     })
 }
@@ -980,7 +978,7 @@ fn validate_commit_id(commit_id: &str) -> Result<()> {
 
 /// Process file attachments by writing them to temporary files in the project directory
 /// and enhancing the message to reference these files
-async fn format_message_with_attachments(original_message: &str, attachments: &[PromptAttachment]) -> Result<String> {
+fn format_message_with_attachments(original_message: &str, attachments: &[PromptAttachment]) -> Result<String> {
     if attachments.is_empty() {
         return Ok(original_message.to_string());
     }
@@ -1016,18 +1014,19 @@ or commits, is unspecified.
 
 /// Check if Claude Code is available by running the version command.
 /// Returns ClaudeCheckResult indicating availability and version if available.
-pub async fn check_claude_available(claude_executable: &str) -> ClaudeCheckResult {
+pub fn check_claude_available(claude_executable: &str) -> ClaudeCheckResult {
     let mut command = Command::new(claude_executable);
     command.arg("--version");
 
     // Don't create a terminal window on windows.
     #[cfg(windows)]
     {
+        use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         command.creation_flags(CREATE_NO_WINDOW);
     }
 
-    match command.output().await {
+    match command.output() {
         Ok(output) if output.status.success() => {
             let version = str::from_utf8(&output.stdout).unwrap_or("").trim().into();
             ClaudeCheckResult::Available { version }

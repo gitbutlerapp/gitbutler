@@ -972,6 +972,7 @@ dependencies = [
  "but-workspace",
  "chrono",
  "dirs 6.0.0",
+ "flume",
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-project",

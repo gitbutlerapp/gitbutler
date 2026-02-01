@@ -1,10 +1,10 @@
 use std::{
     collections::{HashMap, HashSet},
+    fs,
     path::PathBuf,
 };
 
 use serde::Deserialize;
-use tokio::fs;
 
 /// Represents the merged CC settings
 ///
@@ -39,20 +39,19 @@ const ENTERPRISE_PATH: &str = "C:\\ProgramData\\ClaudeCode\\managed-settings.jso
 
 impl ClaudeSettings {
     /// Opens the claude settings
-    pub async fn open(project_path: &std::path::Path) -> Self {
+    pub fn open(project_path: &std::path::Path) -> Self {
         let mut settings = vec![];
 
         // We try to open paths as a best effort, we don't hard fail if one
         // settings file is formatted invalidly
-        let potential_paths = paths(project_path).await;
+        let potential_paths = paths(project_path);
         for path in potential_paths {
-            if let Ok(true) = fs::try_exists(&path).await {
-                let string = fs::read_to_string(&path).await;
-                if let Ok(string) = string {
-                    let setting = serde_json_lenient::from_str(&string);
-                    if let Ok(setting) = setting {
-                        settings.push(setting);
-                    }
+            if path.try_exists().unwrap_or(false)
+                && let Ok(string) = fs::read_to_string(&path)
+            {
+                let setting = serde_json_lenient::from_str(&string);
+                if let Ok(setting) = setting {
+                    settings.push(setting);
                 }
             }
         }
@@ -102,7 +101,7 @@ impl ClaudeSettings {
 }
 
 /// The potential settings paths ordered from lowest priority to highest priority
-async fn paths(project_path: &std::path::Path) -> Vec<PathBuf> {
+fn paths(project_path: &std::path::Path) -> Vec<PathBuf> {
     let mut paths = vec![];
 
     if let Some(home) = dirs::home_dir() {

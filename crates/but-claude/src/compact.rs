@@ -12,17 +12,16 @@
 //! of the conversation so far and then start a new session where the first
 //! message contains the summary
 
-use std::sync::Arc;
+use std::{
+    process::Command,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
 use but_ctx::ThreadSafeContext;
 use gix::bstr::ByteSlice;
 use serde::Deserialize;
-use tokio::{
-    process::Command,
-    sync::{Mutex, mpsc::unbounded_channel},
-};
 
 use crate::{
     Broadcaster, ClaudeSession, MessagePayload, SystemMessage, Transcript,
@@ -74,16 +73,14 @@ const MODELS: &[Model<'static>] = &[
 ];
 
 impl Claudes {
-    pub(crate) async fn compact(
+    pub(crate) fn compact(
         &self,
         sync_ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
-    ) -> () {
-        let res = self
-            .compact_inner(sync_ctx.clone(), broadcaster.clone(), stack_id)
-            .await;
-        self.requests.lock().await.remove(&stack_id);
+    ) {
+        let res = self.compact_inner(sync_ctx.clone(), broadcaster.clone(), stack_id);
+        self.requests.lock().expect("lock poisoned").remove(&stack_id);
         if let Err(res) = res {
             let rule = {
                 let ctx = sync_ctx.clone().into_thread_local();
@@ -101,22 +98,21 @@ impl Claudes {
                     MessagePayload::System(crate::SystemMessage::UnhandledException {
                         message: format!("{res}"),
                     }),
-                )
-                .await;
+                );
             }
         };
     }
 
-    pub async fn compact_inner(
+    pub fn compact_inner(
         &self,
         sync_ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
     ) -> Result<()> {
-        let (send_kill, mut _recv_kill) = unbounded_channel();
+        let (send_kill, _recv_kill) = flume::unbounded();
         self.requests
             .lock()
-            .await
+            .expect("lock poisoned")
             .insert(stack_id, Arc::new(Claude { kill: send_kill }));
 
         let (rule, session) = {
@@ -140,23 +136,21 @@ impl Claudes {
             rule.session_id,
             stack_id,
             MessagePayload::System(SystemMessage::CompactStart),
-        )
-        .await?;
+        )?;
 
-        let summary = generate_summary(sync_ctx.clone(), &session).await?;
+        let summary = generate_summary(sync_ctx.clone(), &session)?;
         send_claude_message(
             sync_ctx,
             broadcaster.clone(),
             rule.session_id,
             stack_id,
             MessagePayload::System(SystemMessage::CompactFinished { summary }),
-        )
-        .await?;
+        )?;
 
         Ok(())
     }
 
-    pub(crate) async fn maybe_compact_context(
+    pub(crate) fn maybe_compact_context(
         &self,
         sync_ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
@@ -202,7 +196,7 @@ impl Claudes {
                 + usage.input_tokens
                 + usage.output_tokens;
             if total > (model.context - COMPACTION_BUFFER) {
-                self.compact(sync_ctx.clone(), broadcaster.clone(), stack_id).await;
+                self.compact(sync_ctx.clone(), broadcaster.clone(), stack_id);
             }
         };
 
@@ -216,11 +210,10 @@ fn find_model(name: String) -> Option<&'static Model<'static>> {
         .find(|&m| name.contains(m.name) && m.subtype.map(|s| name.contains(s)).unwrap_or(true))
 }
 
-pub async fn generate_summary(sync_ctx: ThreadSafeContext, session: &ClaudeSession) -> Result<String> {
+pub fn generate_summary(sync_ctx: ThreadSafeContext, session: &ClaudeSession) -> Result<String> {
     let mut command = {
         let worktree_dir = sync_ctx.clone().into_thread_local().workdir_or_fail()?;
-        let session_id = Transcript::current_valid_session_id(&worktree_dir, session)
-            .await?
+        let session_id = Transcript::current_valid_session_id(&worktree_dir, session)?
             .context("Cannot find current session id")?;
         let app_settings = sync_ctx.settings.clone();
         let claude_executable = app_settings.claude.executable.clone();
@@ -230,6 +223,7 @@ pub async fn generate_summary(sync_ctx: ThreadSafeContext, session: &ClaudeSessi
         // Don't create a terminal window on windows.
         #[cfg(windows)]
         {
+            use std::os::windows::process::CommandExt;
             const CREATE_NO_WINDOW: u32 = 0x08000000;
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
@@ -241,7 +235,7 @@ pub async fn generate_summary(sync_ctx: ThreadSafeContext, session: &ClaudeSessi
         cmd
     };
 
-    let output = command.output().await?.stdout.to_str_lossy().into_owned();
+    let output = command.output()?.stdout.to_str_lossy().into_owned();
     Ok(output)
 }
 

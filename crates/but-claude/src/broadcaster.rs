@@ -66,7 +66,7 @@ pub(super) mod types {
 
     #[derive(Default)]
     pub struct Broadcaster {
-        pub(super) senders: HashMap<uuid::Uuid, tokio::sync::mpsc::UnboundedSender<FrontendEvent>>,
+        pub(super) senders: HashMap<uuid::Uuid, flume::Sender<FrontendEvent>>,
     }
 }
 use types::Broadcaster;
@@ -82,7 +82,7 @@ impl Broadcaster {
         }
     }
 
-    pub fn register_sender(&mut self, id: &uuid::Uuid, sender: tokio::sync::mpsc::UnboundedSender<FrontendEvent>) {
+    pub fn register_sender(&mut self, id: &uuid::Uuid, sender: flume::Sender<FrontendEvent>) {
         self.senders.insert(*id, sender);
     }
 
