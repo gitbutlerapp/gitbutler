@@ -25,6 +25,12 @@ enum MoveOperation<'a> {
         source: &'a ObjectId,
         target_branch: &'a str,
     },
+    /// Move a committed file to another commit (delegates to rub)
+    CommittedFileToCommit {
+        path: &'a bstr::BStr,
+        source_commit: &'a ObjectId,
+        target_commit: &'a ObjectId,
+    },
 }
 
 impl<'a> MoveOperation<'a> {
@@ -38,6 +44,11 @@ impl<'a> MoveOperation<'a> {
                 after,
             } => move_to_commit(ctx, out, source, target, target_str, after),
             MoveOperation::CommitToBranch { source, target_branch } => move_to_branch(ctx, out, source, target_branch),
+            MoveOperation::CommittedFileToCommit {
+                path,
+                source_commit,
+                target_commit,
+            } => super::commits::commited_file_to_another_commit(ctx, path, *source_commit, *target_commit, out),
         }
     }
 }
@@ -64,6 +75,22 @@ fn route_move_operation<'a>(
         (Commit { commit_id: source, .. }, Branch { name, .. }) => Some(MoveOperation::CommitToBranch {
             source,
             target_branch: name,
+        }),
+        // CommittedFile -> Commit: move a file from one commit to another
+        (
+            CommittedFile {
+                path,
+                commit_id: source_commit,
+                ..
+            },
+            Commit {
+                commit_id: target_commit,
+                ..
+            },
+        ) => Some(MoveOperation::CommittedFileToCommit {
+            path: path.as_ref(),
+            source_commit,
+            target_commit,
         }),
         // All other combinations are invalid for move
         _ => None,
@@ -125,11 +152,19 @@ pub(crate) fn handle(
 
     // Validate --after flag usage
     if after {
-        // Check if target is a branch (--after only makes sense for commit targets)
+        // Check if target is a branch (--after only makes sense for commit-to-commit moves)
         if matches!(target_id, CliId::Branch { .. }) {
             bail!(
-                "The {} flag only makes sense when the target is a commit, not a branch.\n\
+                "The {} flag only makes sense when moving a commit to another commit.\n\
                 When moving to a branch, the commit is placed at the top of the stack by default.",
+                "--after"
+            );
+        }
+        // Check if source is a committed file (--after doesn't make sense for file moves)
+        if matches!(source_id, CliId::CommittedFile { .. }) {
+            bail!(
+                "The {} flag only makes sense when moving a commit to another commit.\n\
+                When moving a file from one commit to another, the changes are simply transferred.",
                 "--after"
             );
         }
@@ -139,7 +174,7 @@ pub(crate) fn handle(
     let Some(operation) = route_move_operation(source_id, target_id, target_str, after) else {
         bail!(
             "Cannot move {} ({}) to {} ({}).\n\
-            Valid moves: commit→commit or commit→branch",
+            Valid moves: commit→commit, commit→branch, or committed-file→commit",
             source_id.to_short_string().blue().underline(),
             source_id.kind_for_humans().yellow(),
             target_id.to_short_string().blue().underline(),
@@ -479,6 +514,14 @@ mod tests {
         })
     }
 
+    fn committed_file_id(path: &str) -> CliId {
+        CliId::CommittedFile {
+            commit_id: gix::ObjectId::empty_tree(gix::hash::Kind::Sha1),
+            path: BString::from(path),
+            id: "cf".to_string(),
+        }
+    }
+
     #[test]
     fn test_route_move_operation_valid_combinations() {
         // Commit -> Commit: should route to CommitToCommit
@@ -501,6 +544,12 @@ mod tests {
         let target = branch_id("main");
         let result = route_move_operation(&source, &target, "main", false);
         assert!(matches!(result, Some(MoveOperation::CommitToBranch { .. })));
+
+        // CommittedFile -> Commit: should route to CommittedFileToCommit
+        let source = committed_file_id("file.txt");
+        let target = commit_id("b");
+        let result = route_move_operation(&source, &target, "b", false);
+        assert!(matches!(result, Some(MoveOperation::CommittedFileToCommit { .. })));
     }
 
     #[test]
@@ -521,6 +570,18 @@ mod tests {
         let source = branch_id("main");
         let target = commit_id("a");
         let result = route_move_operation(&source, &target, "a", false);
+        assert!(result.is_none());
+
+        // CommittedFile -> Branch: not supported by move (use rub for this)
+        let source = committed_file_id("file.txt");
+        let target = branch_id("main");
+        let result = route_move_operation(&source, &target, "main", false);
+        assert!(result.is_none());
+
+        // CommittedFile -> Uncommitted: not supported by move
+        let source = committed_file_id("file.txt");
+        let target = uncommitted_id();
+        let result = route_move_operation(&source, &target, "uc", false);
         assert!(result.is_none());
     }
 
