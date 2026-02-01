@@ -18,7 +18,6 @@ but-ctx.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-git.workspace = true
 gitbutler-project.workspace = true
-gitbutler-commit.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-repo.workspace = true
 

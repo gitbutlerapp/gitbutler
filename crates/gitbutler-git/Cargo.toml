@@ -38,7 +38,6 @@ tokio = { workspace = true, optional = true, features = [
     "net",
     "fs",
 ] }
-uuid = { workspace = true, features = ["fast-rng"] }
 rand.workspace = true
 futures.workspace = true
 sysinfo = { workspace = true, features = ["system"] }

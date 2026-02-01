@@ -10,7 +10,6 @@ rust-version.workspace = true
 doctest = false
 
 [dependencies]
-but-core.workspace = true
 but-oxidize.workspace = true
 
 gitbutler-commit.workspace = true

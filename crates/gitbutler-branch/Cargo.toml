@@ -11,8 +11,6 @@ autotests = false
 doctest = false
 
 [dependencies]
-but-meta.workspace = true
-
 gitbutler-reference.workspace = true
 gitbutler-stack.workspace = true
 

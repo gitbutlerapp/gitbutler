@@ -61,7 +61,7 @@ members = [
     "crates/but-llm",               # 📄TBD
     # 👉lacks top-level docs and docs, purpose somewhat unclear. Uses legacy crate.
     "crates/but-github",            # 📄Retrieve information using the GitHub API.
-    # 👉No tests, lacks top-level docs, purpose somewhat unclear. Uses legacy crates.
+    # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-cursor",            # 📄Integration with Cursor
     # 👉Kind of no docs, no tests, and unclear purpose.
     "crates/but-forge",             # 📄A generalised interface to communicate with forges.

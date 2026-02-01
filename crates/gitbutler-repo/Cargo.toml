@@ -34,7 +34,6 @@ tempfile.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 resolve-path = "0.1.0"
-uuid.workspace = true
 itertools.workspace = true
 toml.workspace = true
 base64 = "0.22.1"
