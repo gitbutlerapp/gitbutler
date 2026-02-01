@@ -266,7 +266,7 @@ impl Claudes {
             }
         };
 
-        // Determine the session ID to use, matching the binary implementation logic:
+        // Determine the session ID to use:
         // - If resuming after compaction (summary_to_resume.is_some()), use a new random ID
         // - If resuming an existing session (transcript_current_id), use that ID
         // - If starting new, use the stable session.id
@@ -278,7 +278,7 @@ impl Claudes {
             current_id
         } else {
             // If starting new, ensure there isn't an existing invalid transcript
-            // (matching binary implementation)
+            // Ensure there isn't an existing invalid transcript
             let path = Transcript::get_transcript_path(&project_workdir, session.id)?;
             if fs::try_exists(&path).await? {
                 fs::remove_file(&path).await?;
@@ -294,25 +294,25 @@ impl Claudes {
         {
             let mut ctx = sync_ctx.clone().into_thread_local();
             if let Err(e) = db::add_session_id(&mut ctx, session_id, claude_session_id) {
-                tracing::warn!(
-                    "Failed to persist claude_session_id {} to session {}: {}",
-                    claude_session_id,
-                    session_id,
-                    e
+                tracing::error!(
+                    session_id = %session_id,
+                    claude_session_id = %claude_session_id,
+                    error = %e,
+                    "Failed to persist claude_session_id to database - MCP server may fail to find session"
                 );
             }
         }
 
-        // Build MCP server configuration using the same logic as the binary implementation
+        // Build MCP server configuration
         let cc_settings = ClaudeSettings::open(&project_workdir).await;
         let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_workdir).await;
 
-        // NOTE: In SDK path, we do NOT include the but-security MCP server because
-        // we handle permissions via the can_use_tool callback with --permission-prompt-tool stdio.
-        // Including but-security would cause the CLI to try to use the MCP server for permissions
-        // instead of sending control requests to the SDK.
+        // NOTE: We do NOT include the but-security MCP server because we handle permissions
+        // via the can_use_tool callback with --permission-prompt-tool stdio. Including
+        // but-security would cause the CLI to use the MCP server for permissions instead
+        // of sending control requests to the SDK.
 
-        // Filter out disabled servers (but-security is already excluded in SDK path)
+        // Filter out user-disabled servers
         let disabled_mcp_servers = user_params
             .disabled_mcp_servers
             .iter()
@@ -323,7 +323,7 @@ impl Claudes {
         // Convert McpConfig to SDK's McpServers format
         let mcp_servers = convert_mcp_config_to_sdk(&mcp_config);
 
-        // Build system prompt with branch info (same as binary implementation)
+        // Build system prompt with branch info
         let system_prompt_append = {
             let mut ctx = sync_ctx.clone().into_thread_local();
             let guard = ctx.exclusive_worktree_access();
@@ -336,14 +336,14 @@ impl Claudes {
         ));
 
         // Build options
-        // Only set model if useConfiguredModel is false (same as binary implementation)
+        // Only set model if useConfiguredModel is false
         let model = if sync_ctx.settings.claude.use_configured_model {
             None
         } else {
             Some(user_params.model.to_cli_string().to_string())
         };
 
-        // Determine resume behavior (matching binary implementation):
+        // Determine resume behavior:
         // - summary_to_resume.is_some(): Don't resume, start fresh with summary context (use --session-id)
         // - transcript_current_id.is_some() && summary_to_resume.is_none(): Resume existing session (use --resume)
         // - Otherwise: Start new session (use --session-id)
@@ -369,7 +369,7 @@ impl Claudes {
             dangerously_skip_permissions,
             claude_session_id,
         );
-        // Keep a PreToolUse hook as well for the dummy hook requirement (keeps stream open)
+        // PreToolUse hook for file locking and keeping stream open for can_use_tool
         let pretool_hook = create_pretool_use_hook(sync_ctx.clone(), stack_id);
         // Add PostToolUse hook to assign hunks to the session's stack (critical for commit creation)
         let posttool_hook = create_post_tool_use_hook();
@@ -422,9 +422,15 @@ impl Claudes {
         // Create client and connect
         let mut client = ClaudeClient::new(options);
         if let Err(e) = client.connect().await {
+            tracing::error!(
+                stack_id = ?stack_id,
+                session_id = %session_id,
+                error = %e,
+                "Failed to connect to Claude SDK client"
+            );
             self.requests.lock().await.remove(&stack_id);
             crate::pending_requests::pending_requests().cancel_session(session_id);
-            send_claude_message(
+            if let Err(send_err) = send_claude_message(
                 sync_ctx.clone(),
                 broadcaster.clone(),
                 session_id,
@@ -433,14 +439,18 @@ impl Claudes {
                     message: format!("Failed to connect to Claude SDK: {}", e),
                 }),
             )
-            .await?;
+            .await
+            {
+                tracing::error!(error = %send_err, "Failed to send connection error message to frontend");
+            }
             return Err(e.into());
         }
+        tracing::debug!(stack_id = ?stack_id, session_id = %session_id, "Claude SDK client connected");
 
         // Note: Session ID was already persisted earlier (before MCP config was built)
         // to ensure the MCP server can find the session when it starts.
 
-        // Prepare and send the message (matching binary implementation)
+        // Prepare and send the message
         let message = if let Some(attachments) = &user_params.attachments {
             format_message_with_attachments(&user_params.message, attachments).await?
         } else {
@@ -479,6 +489,11 @@ impl Claudes {
                 message_result = stream.next() => {
                     match message_result {
                         Some(Ok(sdk_message)) => {
+                            tracing::trace!(
+                                stack_id = ?stack_id,
+                                message_type = ?std::mem::discriminant(&sdk_message),
+                                "Received SDK message"
+                            );
                             match sdk_message {
                                 SdkMessage::Assistant(assistant_msg) => {
                                     // Convert SDK message to ClaudeOutput format
@@ -523,8 +538,8 @@ impl Claudes {
                                         data
                                     };
 
-                                    // Note: AskUserQuestion answers are now injected via PostToolUse hook's
-                                    // additional_context, not by modifying the tool result here.
+                                    // Note: AskUserQuestion answers are injected via the can_use_tool callback's
+                                    // updated_input field, not by modifying the tool result here.
 
                                     send_claude_message(
                                         sync_ctx.clone(),
@@ -550,7 +565,12 @@ impl Claudes {
                                     break;
                                 }
                                 // System and StreamEvent messages are informational
-                                _ => {}
+                                _ => {
+                                    tracing::trace!(
+                                        stack_id = ?stack_id,
+                                        "Received informational SDK message (System/StreamEvent)"
+                                    );
+                                }
                             }
                         }
                         Some(Err(e)) => {
@@ -584,18 +604,27 @@ impl Claudes {
                     }
                 }
                 _ = recv_kill.recv() => {
+                    tracing::warn!(
+                        stack_id = ?stack_id,
+                        session_id = %session_id,
+                        "Kill signal received - cancelling Claude session"
+                    );
+
                     // Immediately cancel any pending permission/question requests
                     // so they don't block shutdown
                     crate::pending_requests::pending_requests().cancel_session(session_id);
 
-                    send_claude_message(
+                    if let Err(e) = send_claude_message(
                         sync_ctx.clone(),
                         broadcaster.clone(),
                         session_id,
                         stack_id,
                         MessagePayload::System(SystemMessage::UserAbort),
                     )
-                    .await?;
+                    .await
+                    {
+                        tracing::warn!(error = %e, "Failed to send UserAbort message during cancellation");
+                    }
                     break;
                 }
             }
@@ -605,9 +634,25 @@ impl Claudes {
         drop(stream);
         self.requests.lock().await.remove(&stack_id);
         crate::pending_requests::pending_requests().cancel_session(session_id);
-        client.disconnect().await?;
 
-        broadcast_gitbutler_messages(&sync_ctx, &broadcaster, session_id, stack_id, session_start_time).await;
+        if let Err(e) = client.disconnect().await {
+            tracing::warn!(
+                stack_id = ?stack_id,
+                session_id = %session_id,
+                error = %e,
+                "Failed to cleanly disconnect Claude SDK client"
+            );
+        }
+
+        if let Err(e) =
+            broadcast_gitbutler_messages(&sync_ctx, &broadcaster, session_id, stack_id, session_start_time).await
+        {
+            tracing::warn!(
+                session_id = %session_id,
+                error = %e,
+                "Failed to broadcast GitButler messages created during session"
+            );
+        }
         send_completion_notification(&sync_ctx);
 
         Ok(())
@@ -674,26 +719,27 @@ async fn broadcast_gitbutler_messages(
     session_id: uuid::Uuid,
     stack_id: StackId,
     session_start_time: chrono::NaiveDateTime,
-) {
+) -> Result<()> {
     let project_id = sync_ctx.legacy_project.id;
     let all_messages = {
         let ctx = sync_ctx.clone().into_thread_local();
-        db::list_messages_by_session(&ctx, session_id)
+        db::list_messages_by_session(&ctx, session_id)?
     };
-    if let Ok(all_messages) = all_messages {
-        let new_messages: Vec<_> = all_messages
-            .into_iter()
-            .filter(|msg| matches!(msg.payload, MessagePayload::GitButler(_)))
-            .filter(|msg| msg.created_at > session_start_time)
-            .collect();
 
-        for message in new_messages {
-            broadcaster.lock().await.send(FrontendEvent {
-                name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
-                payload: serde_json::json!(message),
-            });
-        }
+    let new_messages: Vec<_> = all_messages
+        .into_iter()
+        .filter(|msg| matches!(msg.payload, MessagePayload::GitButler(_)))
+        .filter(|msg| msg.created_at > session_start_time)
+        .collect();
+
+    for message in new_messages {
+        broadcaster.lock().await.send(FrontendEvent {
+            name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+            payload: serde_json::json!(message),
+        });
     }
+
+    Ok(())
 }
 
 /// Sends completion notification if configured.
@@ -1127,18 +1173,18 @@ or commits, is unspecified.
     Ok(message)
 }
 
-/// Creates a can_use_tool callback that handles AskUserQuestion specially.
+/// Creates a can_use_tool callback that handles tool permissions and AskUserQuestion.
 ///
-/// This is the proper SDK mechanism for handling user questions. When the callback
-/// returns PermissionResultAllow with updated_input containing the answers, the CLI
-/// uses those answers directly instead of executing the built-in AskUserQuestion tool.
+/// This callback is invoked by the SDK for every tool call and handles:
 ///
-/// For all other tools:
-/// - If `auto_approve_tools` is true (user has bypass enabled), auto-approve everything
-/// - Otherwise, auto-approve as well (we use Default mode to get can_use_tool callbacks)
+/// 1. **AskUserQuestion**: Waits for user answers via in-memory channel, then returns
+///    `PermissionResultAllow` with `updated_input` containing the answers. The CLI uses
+///    these answers directly instead of executing the built-in AskUserQuestion tool.
 ///
-/// Note: We always use Default permission mode to ensure can_use_tool is invoked,
-/// but we auto-approve non-AskUserQuestion tools to maintain the expected behavior.
+/// 2. **Other tools**: Checks permissions against runtime and session permissions.
+///    - If `auto_approve_tools` is true (bypass mode), auto-approve everything.
+///    - Otherwise, check stored permissions; if no match, prompt the user and wait
+///      for their decision via in-memory channel.
 fn create_can_use_tool_callback(
     sync_ctx: ThreadSafeContext,
     stack_id: gitbutler_stack::StackId,
@@ -1223,9 +1269,20 @@ fn create_can_use_tool_callback(
                     .await;
 
                     match result {
-                        Ok(check) => check,
+                        Ok(check) => {
+                            tracing::debug!(
+                                tool = %tool_name,
+                                result = ?check,
+                                "Permission check completed"
+                            );
+                            check
+                        }
                         Err(e) => {
-                            tracing::warn!("Permission check spawn_blocking failed: {}", e);
+                            tracing::error!(
+                                tool = %tool_name,
+                                error = %e,
+                                "Permission check spawn_blocking failed - possible thread pool exhaustion, defaulting to Ask"
+                            );
                             crate::permissions::PermissionCheck::Ask
                         }
                     }
@@ -1288,12 +1345,24 @@ fn create_can_use_tool_callback(
                                     // Update runtime permissions with the modified copy
                                     let mut perms = runtime_permissions.lock().unwrap();
                                     *perms = updated_perms;
+                                    tracing::debug!(
+                                        tool = %tool_name,
+                                        "Permission decision handled and runtime permissions updated"
+                                    );
                                 }
                                 Ok((Err(e), _)) => {
-                                    tracing::warn!("Failed to handle permission decision: {}", e);
+                                    tracing::warn!(
+                                        tool = %tool_name,
+                                        error = %e,
+                                        "Failed to handle permission decision - permission may not be persisted"
+                                    );
                                 }
                                 Err(e) => {
-                                    tracing::warn!("Permission decision spawn_blocking failed: {}", e);
+                                    tracing::error!(
+                                        tool = %tool_name,
+                                        error = %e,
+                                        "Permission decision spawn_blocking failed - possible thread pool exhaustion"
+                                    );
                                 }
                             }
                         }
@@ -1425,12 +1494,11 @@ async fn handle_ask_user_question(
 
 /// Creates a PreToolUse hook that performs file locking and keeps the stream open.
 ///
-/// This hook is required for two reasons:
-/// 1. The Python SDK docs state: "can_use_tool requires streaming mode
-///    and a PreToolUse hook that returns {"continue_": True} to keep the stream open.
-///    Without this hook, the stream closes before the permission callback can be invoked."
-/// 2. It performs file locking to track which files are being edited during the session,
-///    matching the behavior of the binary path.
+/// This hook serves two purposes:
+/// 1. Returns `continue_: true` to keep the stream open, which is required for the
+///    `can_use_tool` callback to work correctly with the SDK's streaming mode.
+/// 2. Performs file locking to track which files are being edited during the session,
+///    preventing conflicts when Claude modifies files.
 #[allow(unused_variables)]
 fn create_pretool_use_hook(
     sync_ctx: ThreadSafeContext,
@@ -1458,20 +1526,28 @@ fn create_pretool_use_hook(
                         // Perform file locking using the SDK variant
                         // Use spawn_blocking to avoid blocking the async runtime with file I/O
                         let session_id = pre_tool_input.session_id.clone();
-                        let file_path = file_path.to_string();
+                        let file_path_owned = file_path.to_string();
+                        let file_path_for_log = file_path_owned.clone();
                         let result = tokio::task::spawn_blocking(move || {
-                            crate::hooks::handle_pre_tool_call_for_sdk(&session_id, &file_path)
+                            crate::hooks::handle_pre_tool_call_for_sdk(&session_id, &file_path_owned)
                         })
                         .await;
 
                         match result {
                             Ok(Ok(_)) => {}
                             Ok(Err(e)) => {
-                                tracing::warn!("PreToolUse file locking failed: {}", e);
-                                // Continue even if locking fails - don't block the tool execution
+                                tracing::warn!(
+                                    file_path = %file_path_for_log,
+                                    error = %e,
+                                    "PreToolUse file locking failed - continuing without lock"
+                                );
                             }
                             Err(e) => {
-                                tracing::warn!("PreToolUse spawn_blocking failed: {}", e);
+                                tracing::error!(
+                                    file_path = %file_path_for_log,
+                                    error = %e,
+                                    "PreToolUse spawn_blocking failed - possible thread pool exhaustion"
+                                );
                             }
                         }
                     }
@@ -1549,11 +1625,12 @@ fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
                     // Use the _for_sdk variant which skips the GUI check (SDK hooks always run in GUI context)
                     // Use spawn_blocking to avoid blocking the async runtime with file I/O
                     let session_id = post_tool_input.session_id.clone();
-                    let file_path = file_path.to_string();
+                    let file_path_owned = file_path.to_string();
+                    let file_path_for_log = file_path_owned.clone();
                     let result = tokio::task::spawn_blocking(move || {
                         crate::hooks::handle_post_tool_call_from_input_for_sdk(
                             &session_id,
-                            &file_path,
+                            &file_path_owned,
                             &structured_patch,
                         )
                     })
@@ -1562,8 +1639,9 @@ fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
                     match result {
                         Ok(Ok(output)) => {
                             tracing::info!(
-                                "PostToolUse hook: handler succeeded, should_continue={}",
-                                output.should_continue()
+                                file_path = %file_path_for_log,
+                                should_continue = output.should_continue(),
+                                "PostToolUse hook succeeded"
                             );
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(output.should_continue()),
@@ -1571,14 +1649,22 @@ fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
                             })
                         }
                         Ok(Err(e)) => {
-                            tracing::warn!("PostToolUse hook failed: {}", e);
+                            tracing::warn!(
+                                file_path = %file_path_for_log,
+                                error = %e,
+                                "PostToolUse hook handler failed - hunk assignment may not be updated"
+                            );
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(true),
                                 ..Default::default()
                             })
                         }
                         Err(e) => {
-                            tracing::warn!("PostToolUse spawn_blocking failed: {}", e);
+                            tracing::error!(
+                                file_path = %file_path_for_log,
+                                error = %e,
+                                "PostToolUse spawn_blocking failed - possible thread pool exhaustion, hunk assignment skipped"
+                            );
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(true),
                                 ..Default::default()
@@ -1619,6 +1705,8 @@ fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
                     // Wrap in spawn_blocking since handle_stop_from_input_for_sdk performs blocking I/O
                     let session_id = stop_input.session_id.clone();
                     let transcript_path = stop_input.transcript_path.clone();
+                    let session_id_for_log = session_id.clone();
+                    let transcript_path_for_log = transcript_path.clone();
                     let result = tokio::task::spawn_blocking(move || {
                         crate::hooks::handle_stop_from_input_for_sdk(&session_id, &transcript_path)
                     })
@@ -1627,8 +1715,9 @@ fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
                     match result {
                         Ok(Ok(output)) => {
                             tracing::info!(
-                                "Stop hook: handler succeeded, should_continue={}",
-                                output.should_continue()
+                                session_id = %session_id_for_log,
+                                should_continue = output.should_continue(),
+                                "Stop hook succeeded"
                             );
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(output.should_continue()),
@@ -1636,14 +1725,24 @@ fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
                             })
                         }
                         Ok(Err(e)) => {
-                            tracing::warn!("Stop hook failed: {}", e);
+                            tracing::warn!(
+                                session_id = %session_id_for_log,
+                                transcript_path = %transcript_path_for_log,
+                                error = %e,
+                                "Stop hook handler failed - commit creation may have failed"
+                            );
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(true),
                                 ..Default::default()
                             })
                         }
                         Err(e) => {
-                            tracing::warn!("Stop hook spawn_blocking failed: {}", e);
+                            tracing::error!(
+                                session_id = %session_id_for_log,
+                                transcript_path = %transcript_path_for_log,
+                                error = %e,
+                                "Stop hook spawn_blocking failed - possible thread pool exhaustion, commit creation skipped"
+                            );
                             HookJsonOutput::Sync(SyncHookJsonOutput {
                                 continue_: Some(true),
                                 ..Default::default()
