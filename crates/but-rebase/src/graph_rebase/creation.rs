@@ -166,7 +166,11 @@ impl GraphExt for Graph {
                     {
                         // The commit has preserved parents, so the parent
                         // connections don't really matter.
-                    } else {
+                        // Further, the but graph does some _fancy_ stuff with
+                        // the workspace commit so we can ignore divergance.
+                        // It will result in the workspace commit getting
+                        // rewritten, but that is _fine_.
+                    } else if Some(c.id) != workspace_commit_id {
                         bail!(
                             "BUG: Parents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
                             c.id,
