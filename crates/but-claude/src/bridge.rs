@@ -19,12 +19,7 @@
 //! - This might give us more flexabiity in the long run, but initially seems
 //!   more complex with more unknowns.
 
-use std::{
-    collections::HashMap,
-    io::{BufRead, BufReader, PipeReader, Read as _},
-    process::ExitStatus,
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Result, bail};
 use but_action::cli::get_cli_path;
@@ -38,7 +33,7 @@ use gix::bstr::ByteSlice;
 use serde::Serialize;
 use tokio::{
     fs,
-    process::{Child, Command},
+    process::Command,
     sync::{
         Mutex,
         mpsc::{UnboundedSender, unbounded_channel},
@@ -75,7 +70,7 @@ impl Claudes {
     }
 
     pub async fn send_message(
-        &self,
+        self: &Arc<Self>,
         ctx: ThreadSafeContext,
         broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
@@ -85,11 +80,17 @@ impl Claudes {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             );
-        } else {
-            self.spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params)
+        }
+
+        // Spawn the Claude session as a background task to avoid blocking the caller.
+        // The session streams results via the broadcaster, so the frontend gets updates in real-time.
+        let claudes = Arc::clone(self);
+        tokio::spawn(async move {
+            claudes
+                .spawn_claude(ctx.clone(), broadcaster.clone(), stack_id, user_params)
                 .await;
-            let _ = self.maybe_compact_context(ctx, broadcaster, stack_id).await;
-        };
+            let _ = claudes.maybe_compact_context(ctx, broadcaster, stack_id).await;
+        });
 
         Ok(())
     }
@@ -675,228 +676,6 @@ fn send_completion_notification(sync_ctx: &ThreadSafeContext) {
     }
 }
 
-async fn handle_exit(
-    ctx: ThreadSafeContext,
-    broadcaster: Arc<Mutex<Broadcaster>>,
-    stack_id: StackId,
-    session_id: uuid::Uuid,
-    mut read_stderr: PipeReader,
-    mut handle: Child,
-    cmd_exit: Exit,
-) -> Result<(), anyhow::Error> {
-    match cmd_exit {
-        Exit::WithStatus(exit_status) => {
-            let exit_status = exit_status?;
-            let mut buf = String::new();
-            read_stderr.read_to_string(&mut buf)?;
-            send_claude_message(
-                ctx,
-                broadcaster.clone(),
-                session_id,
-                stack_id,
-                MessagePayload::System(crate::SystemMessage::ClaudeExit {
-                    code: exit_status.code().unwrap_or(0),
-                    message: buf.clone(),
-                }),
-            )
-            .await?;
-        }
-        Exit::ByUser => {
-            // On *nix try to kill claude more gently.
-            #[cfg(unix)]
-            {
-                use nix::{
-                    sys::signal::{self, Signal},
-                    unistd::Pid,
-                };
-                if let Some(pid) = handle.id() {
-                    signal::kill(Pid::from_raw(pid as i32), Signal::SIGINT)?;
-                    handle.wait().await?;
-                } else {
-                    handle.kill().await?;
-                }
-            }
-            #[cfg(not(unix))]
-            {
-                handle.kill().await?;
-            }
-            send_claude_message(
-                ctx,
-                broadcaster.clone(),
-                session_id,
-                stack_id,
-                MessagePayload::System(crate::SystemMessage::UserAbort),
-            )
-            .await?;
-        }
-    }
-    Ok(())
-}
-
-enum Exit {
-    WithStatus(std::io::Result<ExitStatus>),
-    ByUser,
-}
-
-/// Spawns the actual claude code command
-#[allow(clippy::too_many_arguments)]
-async fn spawn_command(
-    writer: std::io::PipeWriter,
-    write_stderr: std::io::PipeWriter,
-    session: crate::ClaudeSession,
-    project_path: std::path::PathBuf,
-    sync_ctx: ThreadSafeContext,
-    user_params: ClaudeUserParams,
-    summary_to_resume: Option<String>,
-    stack_id: StackId,
-) -> Result<Child> {
-    // Write and obtain our own claude hooks path.
-    let settings = fmt_claude_settings()?;
-
-    let claude_executable = sync_ctx.settings.claude.executable.clone();
-    let cc_settings = ClaudeSettings::open(&project_path).await;
-
-    // Determine what session ID Claude will use - needed for MCP server configuration
-    let transcript_current_id = Transcript::current_valid_session_id(&project_path, &session).await?;
-    let claude_session_id = if summary_to_resume.is_some() {
-        // If resuming after compaction, Claude will use a new random ID
-        uuid::Uuid::new_v4()
-    } else if let Some(current_id) = transcript_current_id {
-        // If resuming, Claude will use the existing current_id
-        current_id
-    } else {
-        // If starting new, Claude will use the stable session.id
-        session.id
-    };
-
-    let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_path).await;
-    let disabled_mcp_servers = user_params
-        .disabled_mcp_servers
-        .iter()
-        .filter(|f| *f != BUT_SECURITY_MCP)
-        .map(String::as_str)
-        .collect::<Vec<&str>>();
-    let mcp_config = &mcp_config
-        .mcp_servers_with_security(claude_session_id)
-        .exclude(&disabled_mcp_servers);
-    tracing::info!("spawn_command mcp_servers: {:?}", mcp_config.mcp_servers.keys());
-    let mcp_config = serde_json::to_string(mcp_config)?;
-    let mut command = Command::new(claude_executable);
-
-    // Don't create a terminal window on windows.
-    #[cfg(windows)]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-
-    command.stdout(writer);
-    command.stderr(write_stderr);
-    command.current_dir(&project_path);
-
-    command.envs(cc_settings.env());
-
-    command.args(["--settings", &settings]);
-
-    // Mcp configuration. We now use --strict-mcp-config because we collect the
-    // set of MCP configurations ourselves so we can then filter out ones that
-    // we don't want in a given call.
-    command.args(["--mcp-config", &mcp_config]);
-    command.args(["--strict-mcp-config"]);
-
-    command.args(["--output-format", "stream-json"]);
-
-    // Only add --model if useConfiguredModel is false
-    if !sync_ctx.settings.clone().claude.use_configured_model {
-        command.args(["--model", user_params.model.to_cli_string()]);
-    }
-
-    command.args(["--verbose"]);
-
-    if sync_ctx.settings.clone().claude.dangerously_allow_all_permissions {
-        command.arg("--dangerously-skip-permissions");
-    } else {
-        command.args(["--permission-prompt-tool", "mcp__but-security__approval_prompt"]);
-        // Set permission mode based on interaction mode
-        match user_params.permission_mode {
-            PermissionMode::Default => {
-                command.args(["--permission-mode", "default"]);
-            }
-            PermissionMode::Plan => {
-                command.args(["--permission-mode", "plan"]);
-            }
-            PermissionMode::AcceptEdits => {
-                command.args(["--permission-mode", "acceptEdits"]);
-            }
-        };
-    }
-
-    // Pass the session ID to Claude Code
-    // We've already determined claude_session_id earlier based on whether we're resuming or starting new
-    if summary_to_resume.is_some() {
-        // After compaction, start with a new session ID
-        command.args(["--session-id", &format!("{}", claude_session_id)]);
-    } else if transcript_current_id.is_some() {
-        // Resume existing session
-        command.args(["--resume", &format!("{}", claude_session_id)]);
-    } else {
-        // Start new session - ensure there isn't an existing invalid transcript
-        let path = Transcript::get_transcript_path(&project_path, session.id)?;
-        if fs::try_exists(&path).await? {
-            fs::remove_file(&path).await?;
-        }
-        command.args(["--session-id", &format!("{}", claude_session_id)]);
-    }
-
-    // Format branch information for the system prompt
-    let branch_info = {
-        let mut ctx = sync_ctx.clone().into_thread_local();
-        let guard = ctx.exclusive_worktree_access();
-        format_branch_info(&mut ctx, stack_id, guard.read_permission())
-    };
-    let system_prompt = format!("{}\n\n{}", system_prompt(), branch_info);
-    command.args(["--append-system-prompt", &system_prompt]);
-
-    if !user_params.add_dirs.is_empty() {
-        command.arg("--add-dir");
-        command.args(user_params.add_dirs);
-    }
-
-    command.arg("-p");
-
-    if user_params.message.starts_with("/") {
-        command.arg(&user_params.message);
-    } else {
-        let message = if let Some(attachments) = &user_params.attachments {
-            format_message_with_attachments(&user_params.message, attachments).await?
-        } else {
-            user_params.message
-        };
-
-        if let Some(summary_to_resume) = summary_to_resume {
-            command.arg(format_message_with_summary(
-                &summary_to_resume,
-                &message,
-                user_params.thinking_level,
-            ));
-        } else {
-            command.arg(format_message(&message, user_params.thinking_level));
-        }
-    }
-    let child = command.spawn()?;
-
-    // MUST NOT LOG plain `command` as it can contain secrets, like `ANTHROPIC_AUTH_TOKEN`.
-    // This happens as the command env is passed through by reading its configuration files,
-    // which may also contain secrects.
-    command.env_clear();
-    tracing::debug!(
-        ?command,
-        env_keys = ?cc_settings.env().keys().collect::<Vec<_>>(),
-        "claude code command spawned successfully"
-    );
-    Ok(child)
-}
-
 fn system_prompt() -> String {
     let but_path = get_cli_path()
         .map(|p| p.to_string_lossy().into_owned())
@@ -1195,60 +974,6 @@ fn upsert_session(
     Ok(session)
 }
 
-/// Spawns the thread that manages reading the CC stdout and saves the events to
-/// the db and streams them to the client.
-fn spawn_response_streaming(
-    sync_ctx: ThreadSafeContext,
-    broadcaster: Arc<Mutex<Broadcaster>>,
-    read_stdout: PipeReader,
-    session_id: uuid::Uuid,
-    stack_id: StackId,
-) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<String>();
-
-        // Spawn a blocking task to read lines from the pipe
-        std::thread::spawn(move || {
-            let reader = BufReader::new(read_stdout);
-            for line in reader.lines().map_while(Result::ok) {
-                if tx.send(line).is_err() {
-                    break;
-                }
-            }
-        });
-
-        let mut first = true;
-        while let Some(line) = rx.recv().await {
-            let parsed_event: serde_json::Value = serde_json::from_str(&line).unwrap();
-
-            {
-                let mut ctx = sync_ctx.clone().into_thread_local();
-                if first {
-                    let current_session_id = parsed_event["session_id"].as_str().unwrap().parse().unwrap();
-                    let session = db::get_session_by_id(&ctx, session_id).unwrap();
-                    if session.is_some() {
-                        db::add_session_id(&mut ctx, session_id, current_session_id).unwrap();
-                    }
-                    first = false;
-                }
-            }
-
-            let message_content = MessagePayload::Claude(ClaudeOutput {
-                data: parsed_event.clone(),
-            });
-            send_claude_message(
-                sync_ctx.clone(),
-                broadcaster.clone(),
-                session_id,
-                stack_id,
-                message_content,
-            )
-            .await
-            .unwrap();
-        }
-    })
-}
-
 impl Default for Claudes {
     fn default() -> Self {
         Self::new()
@@ -1498,12 +1223,7 @@ fn create_can_use_tool_callback(
                         {
                             let mut ctx = sync_ctx.clone().into_thread_local();
                             let mut perms = runtime_permissions.lock().unwrap();
-                            if let Err(e) = decision.handle(
-                                &permission_request,
-                                &mut perms,
-                                &mut ctx,
-                                session_id,
-                            ) {
+                            if let Err(e) = decision.handle(&permission_request, &mut perms, &mut ctx, session_id) {
                                 tracing::warn!("Failed to handle permission decision: {}", e);
                             }
                         }
@@ -1591,8 +1311,7 @@ async fn handle_ask_user_question(
     let session_id_for_tracking = uuid::Uuid::new_v4();
 
     // Store in-memory and get receiver for response
-    let receiver = crate::pending_requests::pending_requests()
-        .insert_question(request, session_id_for_tracking);
+    let receiver = crate::pending_requests::pending_requests().insert_question(request, session_id_for_tracking);
 
     // Send notification
     if let Err(e) = crate::notifications::notify_permission_request(&sync_ctx.settings, "AskUserQuestion") {

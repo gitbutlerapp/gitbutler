@@ -81,7 +81,7 @@ export class InlineCodeNode extends TextNode {
 	}
 
 	canInsertTextAfter(): boolean {
-		return false;
+		return true;
 	}
 
 	isTextEntity(): boolean {

@@ -11,7 +11,6 @@ pub mod bridge;
 pub use bridge::ClaudeCheckResult;
 use but_core::ref_metadata::StackId;
 
-pub(crate) mod claude_config;
 pub mod claude_mcp;
 pub mod claude_settings;
 pub mod claude_sub_agents;

@@ -14,7 +14,6 @@
 	let dangerouslyAllowAllPermissions = $state(false);
 	let autoCommitAfterCompletion = $state(true);
 	let useConfiguredModel = $state(false);
-	let useRustSdk = $state(false);
 
 	// Initialize Claude settings from store
 	$effect(() => {
@@ -24,7 +23,6 @@
 			dangerouslyAllowAllPermissions = $settingsStore.claude.dangerouslyAllowAllPermissions;
 			autoCommitAfterCompletion = $settingsStore.claude.autoCommitAfterCompletion;
 			useConfiguredModel = $settingsStore.claude.useConfiguredModel;
-			useRustSdk = $settingsStore.claude.useRustSdk;
 		}
 	});
 
@@ -51,11 +49,6 @@
 	async function updateUseConfiguredModel(value: boolean) {
 		useConfiguredModel = value;
 		await settingsService.updateClaude({ useConfiguredModel: value });
-	}
-
-	async function updateUseRustSdk(value: boolean) {
-		useRustSdk = value;
-		await settingsService.updateClaude({ useRustSdk: value });
 	}
 </script>
 
@@ -95,18 +88,6 @@
 			checked={useConfiguredModel}
 			onchange={updateUseConfiguredModel}
 		/>
-	{/snippet}
-</CardGroup.Item>
-
-<CardGroup.Item standalone labelFor="useRustSdk">
-	{#snippet title()}
-		Use Claude Rust SDK
-	{/snippet}
-	{#snippet caption()}
-		Use the Rust SDK instead of spawning the Claude binary. (Experimental)
-	{/snippet}
-	{#snippet actions()}
-		<Toggle id="useRustSdk" checked={useRustSdk} onchange={updateUseRustSdk} />
 	{/snippet}
 </CardGroup.Item>
 

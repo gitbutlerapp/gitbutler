@@ -24,11 +24,7 @@ autoCommitAfterCompletion: boolean,
 /**
  * Whether to use the configured model in .claude/settings.json instead of passing --model.
  */
-useConfiguredModel: boolean, 
-/**
- * Whether to use the Rust SDK instead of spawning the Claude binary.
- */
-useRustSdk: boolean, };
+useConfiguredModel: boolean, };
 
 export type ExtraCsp = { 
 /**
