@@ -50,7 +50,7 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
             status.latest_version.bold()
         )?;
     } else {
-        let current_version = option_env!("VERSION").unwrap_or("0.0.0").to_string();
+        let current_version = option_env!("VERSION").unwrap_or("0.0.0");
         writeln!(
             writer,
             "{} A new version is available: {} {} {}. Install it with 'but update install'",
