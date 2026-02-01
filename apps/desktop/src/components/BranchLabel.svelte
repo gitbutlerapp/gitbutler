@@ -190,5 +190,6 @@
 
 	.branch-name-input[readonly] {
 		cursor: default;
+		pointer-events: none;
 	}
 </style>
