@@ -174,7 +174,7 @@
 				/>
 			{/snippet}
 
-			{#snippet actions(header)}
+			{#snippet actions()}
 				{#if canEdit()}
 					<Button
 						testId={TestId.CommitDrawerActionEditMessage}
@@ -198,7 +198,7 @@
 						}
 					: undefined}
 				{#if data}
-					<CommitContextMenu {projectId} rightClickTrigger={header} contextData={data} />
+					<CommitContextMenu {projectId} contextData={data} />
 				{/if}
 			{/snippet}
 
