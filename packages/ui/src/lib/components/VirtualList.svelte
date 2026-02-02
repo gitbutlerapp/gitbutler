@@ -97,6 +97,11 @@
 		 * Defaults to false.
 		 */
 		showBottomButton?: boolean;
+		/**
+		 * Whether to use smooth scrolling behavior for scrollToBottom.
+		 * Defaults to true.
+		 */
+		smoothScroll?: boolean;
 	};
 
 	const SCROLL_DOWN_THRESHOLD = 600;
@@ -117,7 +122,8 @@
 		stickToBottom,
 		startIndex,
 		renderDistance = 0,
-		showBottomButton = false
+		showBottomButton = false,
+		smoothScroll = true
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -140,7 +146,7 @@
 	let lastScrollTop: number | undefined = undefined;
 	let lastScrollDirection: 'up' | 'down' | undefined;
 	let lastJumpToIndex: number | undefined;
-	let ignoreScroll = false;
+	let skipNextScrollEvent = false;
 
 	const debouncedLoadMore = $derived(debounce(() => onloadmore?.(), DEBOUNCE_DELAY));
 
@@ -179,9 +185,9 @@
 				) {
 					const newScrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
 					viewport.scrollTop = newScrollTop;
-					ignoreScroll = true;
+					skipNextScrollEvent = true;
 				} else if (stickToBottom && previousDistance < STICKY_DISTANCE) {
-					ignoreScroll = true;
+					skipNextScrollEvent = true;
 					scrollToBottom();
 				}
 			}
@@ -299,6 +305,8 @@
 
 	async function initializeAt(startingAt: number): Promise<void> {
 		if (!viewport) return;
+		// Save viewport height, it might be unset after `tick()`.
+		const viewportHeight = viewport.clientHeight;
 
 		// Initialize from start position downwards
 		visibleRange.start = startingAt;
@@ -313,10 +321,7 @@
 				throw new Error('Expected to find element');
 			}
 			heightMap[i] = element.clientHeight;
-			if (
-				calculateHeightSum(startingAt, visibleRange.end) >
-				viewport.clientHeight + renderDistance
-			) {
+			if (calculateHeightSum(startingAt, visibleRange.end) > viewportHeight + renderDistance) {
 				break;
 			}
 		}
@@ -393,7 +398,10 @@
 
 	export function scrollToBottom(): void {
 		if (!viewport) return;
-		viewport.scrollTop = viewport.scrollHeight - viewport.clientHeight;
+		viewport.scrollTo({
+			top: viewport.scrollHeight - viewport.clientHeight,
+			behavior: smoothScroll ? 'smooth' : 'instant'
+		});
 	}
 
 	export async function jumpToIndex(index: number) {
@@ -401,6 +409,7 @@
 			return;
 		}
 		lastScrollDirection = undefined;
+		skipNextScrollEvent = true;
 		lastJumpToIndex = index;
 		lockRowHeight(index);
 		initializeAt(index);
@@ -425,9 +434,9 @@
 	});
 
 	$effect(() => {
-		if (viewportHeight && previousViewportHeight !== viewportHeight) {
+		if (viewportHeight && viewportHeight < previousViewportHeight) {
+			const nearBottom = previousDistance < STICKY_DISTANCE;
 			untrack(async () => {
-				const nearBottom = previousDistance < STICKY_DISTANCE;
 				await recalculateVisibleRange();
 				if (stickToBottom && nearBottom) {
 					scrollToBottom();
@@ -460,7 +469,7 @@
 						hasNewItemsAtBottom = count > previousCount && count > visibleRange.end;
 					}
 				}
-				await updateOffsets();
+				updateOffsets();
 			});
 		}
 		previousCount = items.length;
@@ -479,8 +488,8 @@
 	zIndex="3"
 	onscroll={() => {
 		if (!viewport) return;
-		if (ignoreScroll) {
-			ignoreScroll = false;
+		if (skipNextScrollEvent) {
+			skipNextScrollEvent = false;
 			return;
 		}
 		const scrollTop = viewport?.scrollTop;
@@ -548,7 +557,11 @@
 					kind="outline"
 					icon="arrow-down"
 					tooltip="Scroll to bottom"
-					onclick={scrollToBottom}
+					onclick={() => {
+						if (items.length > 0) {
+							initializeAt(items.length - 1);
+						}
+					}}
 				/>
 			</div>
 		{/if}
