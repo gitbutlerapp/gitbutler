@@ -546,6 +546,28 @@ Error: --ai cannot be used with 'commit empty'.
 }
 
 #[test]
+fn commit_files_conflicts_with_only() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+    env.file("file.txt", "content");
+
+    // Try to use both --files and --only
+    env.but("commit -m 'test' --files ab --only")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--files <FILES>...' cannot be used with '--only'
+
+Usage: but commit --message <MESSAGE> --files <FILES>... [BRANCH]
+
+For more information, try '--help'.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn commit_empty_rejects_files_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
@@ -772,6 +794,57 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
         .unwrap_or_default();
 
     assert_eq!(remaining, vec!["file3.txt"], "Only file3 should remain uncommitted");
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_short_files_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create two files
+    env.file("file1.txt", "content 1");
+    env.file("file2.txt", "content 2");
+
+    // Get file ID from status
+    let status_output = env.but("status --json").assert().success();
+    let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
+    let status: serde_json::Value = serde_json::from_str(stdout)?;
+
+    let file1_id = status["unassignedChanges"]
+        .as_array()
+        .and_then(|changes| {
+            changes.iter().find_map(|c| {
+                if c["filePath"].as_str() == Some("file1.txt") {
+                    c["cliId"].as_str().map(|s| s.to_string())
+                } else {
+                    None
+                }
+            })
+        })
+        .expect("file1.txt should have a CLI ID");
+
+    // Use short flag -F instead of --files
+    env.but(format!("commit -m 'Using short flag' -F {}", file1_id))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Created commit [..] on branch A
+
+"#]]);
+
+    // Verify file2 is still uncommitted
+    let status_after = env.but("status --json").assert().success();
+    let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
+    let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
+
+    let remaining: Vec<&str> = status_after["unassignedChanges"]
+        .as_array()
+        .map(|changes| changes.iter().filter_map(|c| c["filePath"].as_str()).collect())
+        .unwrap_or_default();
+
+    assert_eq!(remaining, vec!["file2.txt"], "file2.txt should still be uncommitted");
 
     Ok(())
 }
