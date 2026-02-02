@@ -1,5 +1,5 @@
 <script lang="ts">
-	import featuresJson from '../fetures.json';
+	import featuresJson from '../features.json';
 	import Features from '$home/components/Features.svelte';
 	import SectionHeader from '$home/components/SectionHeader.svelte';
 </script>
