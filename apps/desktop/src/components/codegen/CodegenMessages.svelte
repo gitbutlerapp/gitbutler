@@ -457,6 +457,7 @@
 						showBottomButton
 						items={formattedMessages}
 						visibility={$userSettings.scrollbarVisibilityState}
+						smoothScroll={$userSettings.smoothScroll}
 						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
 						defaultHeight={65}
 					>
