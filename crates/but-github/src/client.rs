@@ -16,10 +16,9 @@ impl GitHubClient {
         headers.insert(USER_AGENT, HeaderValue::from_static("gb-github-integration"));
         headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github+json"));
         headers.insert("X-GitHub-Api-Version", HeaderValue::from_static("2022-11-28"));
-        let access_token: String = access_token.0.parse()?;
         headers.insert(
             AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", access_token))?,
+            HeaderValue::from_str(&format!("Bearer {}", access_token.0))?,
         );
 
         let client = reqwest::Client::builder().default_headers(headers).build()?;
@@ -50,10 +49,9 @@ impl GitHubClient {
         headers.insert(USER_AGENT, HeaderValue::from_static("gb-github-integration"));
         headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github+json"));
         headers.insert("X-GitHub-Api-Version", HeaderValue::from_static("2022-11-28"));
-        let access_token: String = access_token.0.parse()?;
         headers.insert(
             AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", access_token))?,
+            HeaderValue::from_str(&format!("Bearer {}", access_token.0))?,
         );
 
         let client = reqwest::Client::builder().default_headers(headers).build()?;
