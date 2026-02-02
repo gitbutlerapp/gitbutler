@@ -379,6 +379,11 @@ function setupDragHandlers(
 	}
 
 	function handleMouseUp(e: MouseEvent) {
+		if (opts) {
+			Array.from(opts.dropzoneRegistry.values()).forEach((dropzone) => {
+				dropzone.deactivate();
+			});
+		}
 		e.preventDefault();
 		e.stopPropagation();
 
@@ -450,8 +455,6 @@ function setupDragHandlers(
 	}
 
 	function cleanup() {
-		isDragging = false;
-
 		// Send final dragleave to any hovered dropzone
 		if (currentHoveredDropzone && opts) {
 			const dropzone = opts.dropzoneRegistry.get(currentHoveredDropzone);
@@ -467,6 +470,8 @@ function setupDragHandlers(
 		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
 		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
 
+		isDragging = false;
+
 		// Stop observer (also stops auto-scroll since it's in the same RAF loop)
 		stopObserver();
 
@@ -476,12 +481,6 @@ function setupDragHandlers(
 		if (clone) {
 			clone.remove();
 			clone = undefined;
-		}
-
-		if (opts) {
-			Array.from(opts.dropzoneRegistry.values()).forEach((dropzone) => {
-				dropzone.deactivate();
-			});
 		}
 
 		// End drag state tracking
@@ -517,10 +516,6 @@ function setupDragHandlers(
 
 	return {
 		update(newOpts: DraggableConfig) {
-			// Don't clean up if a drag is in progress - let it complete first
-			if (!isDragging) {
-				clean();
-			}
 			setup(newOpts);
 		},
 		destroy() {
