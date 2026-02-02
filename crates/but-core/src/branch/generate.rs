@@ -74,6 +74,71 @@ pub fn unique_canned_refname(repo: &gix::Repository) -> anyhow::Result<gix::refs
     find_unique_refname(repo, name.as_ref())
 }
 
+/// Like [`find_unique_refname`], but also checks that the name doesn't exist as a remote tracking branch.
+///
+/// The `remote_name` should be the name of the remote to check against (e.g., "origin").
+/// This checks both local refs (`refs/heads/<name>`) and remote tracking refs (`refs/remotes/<remote>/<name>`).
+pub fn find_unique_refname_with_remote_check(
+    repo: &gix::Repository,
+    template: &gix::refs::FullNameRef,
+    remote_name: &str,
+) -> anyhow::Result<gix::refs::FullName> {
+    let short_name = template.shorten();
+    let category = template
+        .category()
+        .with_context(|| format!("Input branch {template} could not be categorized"))?;
+
+    let ref_exists = |name: &bstr::BStr| -> anyhow::Result<bool> {
+        let local_ref = category.to_full_name(name)?;
+        if repo.try_find_reference(&local_ref)?.is_some() {
+            return Ok(true);
+        }
+        let remote_ref = format!("refs/remotes/{remote_name}/{}", name.to_str_lossy());
+        Ok(repo.try_find_reference(remote_ref.as_str())?.is_some())
+    };
+
+    // Check if the original name is available
+    if !ref_exists(short_name)? {
+        return Ok(template.to_owned());
+    }
+
+    // Extract base name and number if it already has a numerical suffix
+    let trailing_number =
+        short_name
+            .rfind("-")
+            .map(|pos| (&short_name[pos + 1..], pos))
+            .and_then(|(maybe_num, pos)| {
+                let num = maybe_num.to_str().ok()?.parse::<usize>().ok()?;
+                Some((&short_name[..pos], num + 1))
+            });
+    let (base, start_num) = trailing_number.unwrap_or((short_name, 1));
+
+    // Try incrementing numbers until we find one that doesn't exist
+    let mut candidate_short = BString::default();
+    for num in start_num.. {
+        candidate_short.clear();
+        candidate_short.push_str(base);
+        candidate_short.push(b'-');
+        candidate_short.push_str(num.to_string());
+
+        if !ref_exists(candidate_short.as_ref())? {
+            return Ok(category.to_full_name(candidate_short.as_bstr())?);
+        }
+    }
+    unreachable!("infinite loop should find a unique name")
+}
+
+/// Like [`unique_canned_refname`], but also checks remote tracking branches.
+///
+/// See [`find_unique_refname_with_remote_check`] for details.
+pub fn unique_canned_refname_with_remote_check(
+    repo: &gix::Repository,
+    remote_name: &str,
+) -> anyhow::Result<gix::refs::FullName> {
+    let name = canned_refname(repo)?;
+    find_unique_refname_with_remote_check(repo, name.as_ref(), remote_name)
+}
+
 fn generate_short_name_from_signature(author: &gix::actor::Signature) -> anyhow::Result<BString> {
     let name = author.name.to_str_lossy();
     // Split by whitespace to get words

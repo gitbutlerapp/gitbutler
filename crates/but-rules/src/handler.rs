@@ -48,7 +48,7 @@ pub fn process_workspace_rules(
         match rule.action {
             super::Action::Explicit(super::Operation::Assign { target }) => {
                 if let Some((stack_id, maybe_new_ws)) =
-                    get_or_create_stack_id(&repo, &ws, &mut meta, target, &stack_ids, perm)
+                    get_or_create_stack_id(&repo, &ws, &mut meta, target, &stack_ids, perm, &project_data_dir)
                 {
                     if let Some(ws) = maybe_new_ws {
                         ensure!(
@@ -145,6 +145,7 @@ fn get_or_create_stack_id(
     target: StackTarget,
     stack_ids_in_ws: &[StackId],
     perm: &mut RepoExclusive,
+    project_data_dir: &Path,
 ) -> Option<(StackId, Option<but_graph::projection::Workspace>)> {
     match target {
         StackTarget::StackId(stack_id) => {
@@ -160,14 +161,18 @@ fn get_or_create_stack_id(
         }
         StackTarget::Leftmost => {
             if stack_ids_in_ws.is_empty() {
-                create_stack(repo, ws, meta, perm).ok().map(|(id, ws)| (id, Some(ws)))
+                create_stack(repo, ws, meta, perm, project_data_dir)
+                    .ok()
+                    .map(|(id, ws)| (id, Some(ws)))
             } else {
                 stack_ids_in_ws.first().copied().map(|id| (id, None))
             }
         }
         StackTarget::Rightmost => {
             if stack_ids_in_ws.is_empty() {
-                create_stack(repo, ws, meta, perm).ok().map(|(id, ws)| (id, Some(ws)))
+                create_stack(repo, ws, meta, perm, project_data_dir)
+                    .ok()
+                    .map(|(id, ws)| (id, Some(ws)))
             } else {
                 stack_ids_in_ws.last().copied().map(|id| (id, None))
             }
@@ -180,9 +185,21 @@ fn create_stack(
     ws: &but_graph::projection::Workspace,
     meta: &mut impl but_core::RefMetadata,
     _perm: &mut RepoExclusive,
+    project_data_dir: &Path,
 ) -> anyhow::Result<(StackId, but_graph::projection::Workspace)> {
     use anyhow::Context;
-    let branch_name = but_core::branch::unique_canned_refname(repo)?;
+    use gitbutler_stack::VirtualBranchesHandle;
+
+    // Try to get the push remote name to avoid conflicts with remote branches
+    let state = VirtualBranchesHandle::new(project_data_dir);
+    let branch_name = match state.get_default_target() {
+        Ok(target) => {
+            let remote_name = target.push_remote_name();
+            but_core::branch::unique_canned_refname_with_remote_check(repo, &remote_name)?
+        }
+        Err(_) => but_core::branch::unique_canned_refname(repo)?,
+    };
+
     let new_ws = but_workspace::branch::create_reference(
         branch_name.as_ref(),
         None,

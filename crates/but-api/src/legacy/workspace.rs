@@ -593,10 +593,22 @@ pub fn stash_into_branch(
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
+/// This checks both local branches and remote tracking branches to avoid conflicts with branches
+/// that exist on the remote but haven't been checked out locally.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn canned_branch_name(ctx: &Context) -> Result<String> {
-    let rn = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+    let repo = ctx.repo.get()?;
+    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
+
+    // Try to get the push remote name from the default target, fall back to just checking local refs
+    let rn = match state.get_default_target() {
+        Ok(target) => {
+            let remote_name = target.push_remote_name();
+            but_core::branch::unique_canned_refname_with_remote_check(&repo, &remote_name)?
+        }
+        Err(_) => but_core::branch::unique_canned_refname(&repo)?,
+    };
     Ok(rn.shorten().to_string())
 }
 
