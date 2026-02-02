@@ -118,18 +118,18 @@ pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 /// Utilities
 impl Workspace {
-    /// Return the `(merge-base, target-commi-id)` of the merge-base between the `commit_to_merge`
+    /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
     /// and either the [target-branch](Self::target_ref), the [extra-target](Self::extra_target)
     /// or the [target-commit](Self::target_commit), depending on which is set and encountered
     /// in this order.
     /// Return `None` when none of these is set, or if there was no merge-base.
     ///
-    /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target.
+    /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target,
+    /// whose commit is also returned as `target-commit-id`.
     pub fn merge_base_with_target_branch(
         &self,
         commit_to_merge: impl Into<gix::ObjectId>,
     ) -> Option<(gix::ObjectId, gix::ObjectId)> {
-        // Find the segment containing the commit_to_merge
         let commit_to_merge = commit_to_merge.into();
         let commit_segment_index = self.graph.node_weights().find_map(|s| {
             s.commits
@@ -138,7 +138,6 @@ impl Workspace {
                 .then_some(s.id)
         })?;
 
-        // Get the target segment in order of precedence: target_ref, extra_target, target_commit
         let target_segment_index = self
             .target_ref
             .as_ref()
@@ -146,12 +145,10 @@ impl Workspace {
             .or(self.target_commit.as_ref().map(|t| t.segment_index))
             .or(self.extra_target)?;
 
-        // Find the merge-base segment between them
         let merge_base_segment_index = self
             .graph
             .find_git_merge_base(commit_segment_index, target_segment_index)?;
 
-        // Get the first commit from the merge-base segment
         self.graph
             .tip_skip_empty(merge_base_segment_index)
             .map(|c| c.id)

@@ -459,9 +459,16 @@ fn get_branch_commits(
     let branch_commit = repo.find_commit(branch_oid)?;
 
     // Find merge base
-    let merge_base = ws
+    let Some(merge_base) = ws
         .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map_or(branch_commit.id(), |t| t.0.to_git2());
+        .map(|t| t.0.to_git2())
+    else {
+        tracing::warn!(
+            branch_name,
+            "Could not find merge base with target branch, which is unexpected"
+        );
+        return Ok((Vec::new(), None));
+    };
 
     // Walk from branch head to merge base, collecting commits
     let mut revwalk = repo.revwalk()?;
@@ -748,9 +755,16 @@ fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     // Find the branch OID
     let branch_oid = find_branch_oid(ctx, branch_name)?;
     let branch_commit = repo.find_commit(branch_oid)?;
-    let merge_base = ws
+    let Some(merge_base) = ws
         .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map_or(branch_commit.id(), |t| t.0.to_git2());
+        .map(|t| t.0.to_git2())
+    else {
+        tracing::warn!(
+            branch_name,
+            "Could not find merge base with target branch, which is unexpected"
+        );
+        return Ok(0);
+    };
 
     // Count commits
     let mut revwalk = repo.revwalk()?;
