@@ -42,7 +42,7 @@
 	async function handleDeleteRule() {
 		await deleteRule({
 			projectId,
-			id: rule.id
+			ruleId: rule.id
 		});
 	}
 

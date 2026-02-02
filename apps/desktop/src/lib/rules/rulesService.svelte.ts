@@ -100,7 +100,7 @@ function injectEndpoints(api: BackendApi) {
 					invalidatesList(ReduxTag.Stacks) // Probably this is still needed??
 				]
 			}),
-			deleteWorkspaceRule: build.mutation<void, { projectId: string; id: WorkspaceRuleId }>({
+			deleteWorkspaceRule: build.mutation<void, { projectId: string; ruleId: WorkspaceRuleId }>({
 				extraOptions: { command: 'delete_workspace_rule' },
 				query: (args) => args,
 				// Note: We don't invalidate WorkspaceRules here - the backend listener handles it
