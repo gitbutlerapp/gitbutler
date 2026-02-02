@@ -13,7 +13,6 @@
 		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
 		scrollRoot?: HTMLElement | null;
-		highlighted?: boolean;
 		onclose?: () => void;
 		/**
 		 * Called when the header is double-clicked.
@@ -31,7 +30,6 @@
 		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
 		scrollRoot,
-		highlighted,
 		onclose,
 		ondblclick
 	}: Props = $props();
@@ -39,9 +37,6 @@
 	let headerDiv = $state<HTMLDivElement>();
 	let sentinelDiv = $state<HTMLDivElement>();
 	let isStuck = $state(false);
-
-	// Derived variable only emits when value changes.
-	const stableHighlighted = $derived(highlighted);
 
 	onMount(() => {
 		if (!reserveSpaceOnStuck || !sentinelDiv) return;
@@ -76,16 +71,11 @@
 	class="drawer-header"
 	class:sticky
 	class:stuck={isStuck}
-	class:highlighted={stableHighlighted}
 	bind:clientHeight={headerHeight}
 	use:focusable
 	{ondblclick}
 	style:background={transparent ? 'transparent' : undefined}
 >
-	{#if highlighted}
-		<div class="active-page-indicator"></div>
-	{/if}
-
 	<div class="drawer-header__title">
 		{@render content()}
 	</div>
