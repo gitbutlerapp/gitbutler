@@ -77,7 +77,8 @@ type GlobalModalType =
 	| 'author-missing'
 	| 'general-settings'
 	| 'project-settings'
-	| 'login-confirmation';
+	| 'login-confirmation'
+	| 'auto-commit';
 type BaseGlobalModalState = {
 	type: GlobalModalType;
 };
@@ -113,12 +114,18 @@ export type LoginConfirmationModalState = BaseGlobalModalState & {
 	type: 'login-confirmation';
 };
 
+export type AutoCommitModalState = BaseGlobalModalState & {
+	type: 'auto-commit';
+	projectId: string;
+};
+
 export type GlobalModalState =
 	| CommitFailedModalState
 	| AuthorMissingModalState
 	| GeneralSettingsModalState
 	| ProjectSettingsModalState
-	| LoginConfirmationModalState;
+	| LoginConfirmationModalState
+	| AutoCommitModalState;
 
 export type GlobalUiState = {
 	drawerHeight: number;

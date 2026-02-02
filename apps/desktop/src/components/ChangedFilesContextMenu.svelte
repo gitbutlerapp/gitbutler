@@ -224,19 +224,22 @@
 	}
 
 	async function triggerAutoCommit(changes: TreeChange[]) {
-		if (!canUseGBAI) {
-			chipToasts.error('GitButler AI is not configured or enabled for this project.');
-			return;
-		}
-
 		try {
-			await chipToasts.promise(autoCommit({ projectId, changes, model: DEFAULT_MODEL }), {
-				loading: 'Started auto commit',
-				success: 'Auto commit succeeded',
-				error: 'Auto commit failed'
+			uiState.global.modal.set({
+				type: 'auto-commit',
+				projectId
+			});
+			await autoCommit({
+				projectId,
+				target: {
+					type: 'treeChanges',
+					subject: { changes, assigned_stack_id: stackId ?? null }
+				},
+				useAi: $aiGenEnabled
 			});
 		} catch (error) {
 			console.error('Auto commit failed:', error);
+			uiState.global.modal.set(undefined);
 		}
 	}
 
@@ -410,6 +413,14 @@
 							}}
 							disabled={absorbingChanges.current.isLoading}
 						/>
+						<ContextMenuItem
+							label="Auto commit"
+							onclick={async () => {
+								contextMenu.close();
+								triggerAutoCommit(changes);
+							}}
+							disabled={autoCommitting.current.isLoading}
+						/>
 					{/if}
 					{#if selectionId.type === 'commit' && stackId && !editMode}
 						{@const commitId = selectionId.commitId}
@@ -540,15 +551,6 @@
 					<ContextMenuItemSubmenu label="Experimental AI" icon="lab">
 						{#snippet submenu({ close: closeSubmenu })}
 							<ContextMenuSection>
-								<ContextMenuItem
-									label="Auto commit"
-									onclick={async () => {
-										closeSubmenu();
-										contextMenu.close();
-										triggerAutoCommit(item.changes);
-									}}
-									disabled={autoCommitting.current.isLoading}
-								/>
 								<ContextMenuItem
 									label="Branch changes"
 									onclick={() => {
