@@ -85,7 +85,13 @@ where
     Extra: Send + Clone,
 {
     let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
-    current_exe = current_exe.canonicalize().unwrap_or(current_exe);
+    // On Windows, canonicalize() converts paths to UNC format with \\?\ prefix,
+    // which SSH cannot execute. Skip canonicalization on Windows.
+    // See: https://github.com/gitbutlerapp/gitbutler/issues/12124
+    #[cfg(not(windows))]
+    {
+        current_exe = current_exe.canonicalize().unwrap_or(current_exe);
+    }
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
     // This is a bit of a hack. Under a test environment, Cargo is running a
