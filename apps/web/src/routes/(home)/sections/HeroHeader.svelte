@@ -106,6 +106,7 @@
 			class="toggle-background"
 			class:visible={hasValidMeasurements}
 			class:enable-transitions={enableTransitions}
+			class:dimmed={hoveredOption !== null && hoveredOption !== currentPage}
 			style:width="{activeOption === 'cli' ? cliButtonWidth : clientButtonWidth}px"
 			style:transform={activeOption === 'cli'
 				? `translateX(${clientButtonWidth + TOGGLE_GAP}px)`
@@ -183,13 +184,27 @@
 
 		&.enable-transitions {
 			transition:
-				transform 0.3s ease,
+				transform 0.4s cubic-bezier(0.34, 1.2, 0.6, 1),
 				width 0.3s ease,
-				opacity 0.15s ease;
+				opacity 0.15s ease,
+				background-color 0.2s ease;
 		}
 
 		&.visible {
 			opacity: 1;
+		}
+
+		&.dimmed {
+			background-color: var(--clr-core-pop-70);
+			opacity: 0.6;
+		}
+	}
+
+	/* dark mode */
+	:global(.dark) .toggle-background {
+		&.dimmed {
+			background-color: var(--clr-core-pop-40);
+			opacity: 0.4;
 		}
 	}
 
@@ -203,13 +218,13 @@
 		cursor: pointer;
 		transition: color 0.2s ease;
 
-		&.active,
-		&.hovered {
+		&.active {
 			color: var(--clr-bg-1);
+			pointer-events: none;
 		}
 
 		&.dimmed {
-			color: var(--clr-text-3);
+			color: var(--clr-text-2);
 		}
 	}
 
