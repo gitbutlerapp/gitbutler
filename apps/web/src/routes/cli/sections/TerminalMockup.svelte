@@ -20,7 +20,20 @@
 		onProgress
 	}: Props = $props();
 
-	let currentOs = $state('macOS');
+	// Detect OS from user agent
+	function detectOS(): 'macOS' | 'Windows' | 'Linux' {
+		const userAgent = navigator.userAgent.toLowerCase();
+		if (userAgent.includes('mac')) {
+			return 'macOS';
+		} else if (userAgent.includes('win')) {
+			return 'Windows';
+		} else {
+			return 'Linux';
+		}
+	}
+
+	const os = detectOS();
+
 	let displayedLines = $state<Array<{ text: string; type: 'input' | 'output' }>>([]);
 	let currentStepIndex = 0;
 	let currentLineIndex = 0;
@@ -200,17 +213,30 @@
 
 <div
 	class="terminal-mockup"
-	class:macos={currentOs === 'macOS'}
-	class:windows={currentOs === 'Windows'}
-	class:linux={currentOs === 'Linux'}
+	class:macos={os === 'macOS'}
+	class:windows={os === 'Windows'}
+	class:linux={os === 'Linux'}
 	style="height: {height};"
 >
 	<div class="terminal-mockup__header">
-		<div class="terminal-mockup__window-controls">
-			<img src="/images/cli/mac-window-controls.svg" alt="Window controls" />
-		</div>
-		<div class="terminal-mockup__title">GitButler CLI</div>
+		{#if os === 'macOS'}
+			<div class="terminal-mockup__window-controls">
+				<img src="/images/cli/mac-window-controls.svg" alt="Window controls" />
+			</div>
+			<div class="terminal-mockup__title">GitButler CLI</div>
+		{:else if os === 'Windows'}
+			<div class="terminal-mockup__title">GitButler CLI</div>
+			<div class="terminal-mockup__window-controls">
+				<img src="/images/cli/windows-window-controls.svg" alt="Window controls" />
+			</div>
+		{:else if os === 'Linux'}
+			<div class="terminal-mockup__title">GitButler CLI</div>
+			<div class="terminal-mockup__window-controls">
+				<img src="/images/cli/linux-window-controls.svg" alt="Window controls" />
+			</div>
+		{/if}
 	</div>
+
 	<div
 		class="terminal-mockup__body"
 		bind:this={terminalBodyElement}
@@ -259,6 +285,58 @@
 			left: 50%;
 			transform: translateX(-50%);
 			color: #3c3c4399;
+			font-weight: 600;
+			font-size: 14px;
+			line-height: 1;
+			user-select: none;
+		}
+	}
+
+	.terminal-mockup.windows {
+		border-radius: 8px;
+
+		& .terminal-mockup__header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			background: #4b4b46;
+		}
+
+		& .terminal-mockup__title {
+			margin-top: 8px;
+			margin-left: 8px;
+			padding: 12px 14px;
+			border-top-right-radius: 8px;
+			border-top-left-radius: 8px;
+			background-color: var(--clr-core-gray-20);
+			color: #cccccc;
+			font-weight: 400;
+			font-size: 14px;
+			line-height: 1;
+			user-select: none;
+		}
+
+		& .terminal-mockup__window-controls {
+			margin-right: 18px;
+		}
+	}
+
+	.terminal-mockup.linux {
+		border-radius: 8px;
+
+		& .terminal-mockup__header {
+			display: flex;
+			align-items: center;
+			justify-content: flex-end;
+			padding: 8px 12px;
+			background: linear-gradient(to bottom, #454545, #2b2b2b);
+		}
+
+		& .terminal-mockup__title {
+			position: absolute;
+			left: 50%;
+			transform: translateX(-50%);
+			color: #bababf;
 			font-weight: 600;
 			font-size: 14px;
 			line-height: 1;
