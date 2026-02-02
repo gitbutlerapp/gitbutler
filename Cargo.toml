@@ -313,3 +313,6 @@ gix-merge = { opt-level = 3, debug-assertions = false }
 [profile.release.package.but-installer]
 opt-level = "z" # Optimize for size instead of speed
 strip = true    # Strip symbols from binary
+
+[patch.crates-io]
+minus = { git = "https://github.com/Byron/minus.git" }
