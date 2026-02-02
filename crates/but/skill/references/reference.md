@@ -368,12 +368,12 @@ but oplog --json
 
 Shows all operations with snapshot IDs.
 
-### `but restore <snapshot>`
+### `but oplog restore <snapshot>`
 
 Restore to a specific oplog snapshot.
 
 ```bash
-but restore <snapshot-id>
+but oplog restore <snapshot-id>
 ```
 
 ## Setup & Configuration

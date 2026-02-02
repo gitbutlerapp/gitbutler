@@ -105,9 +105,8 @@ impl Subcommands {
                 None => OplogList,
                 Some(crate::args::oplog::Subcommands::List { .. }) => OplogList,
                 Some(crate::args::oplog::Subcommands::Snapshot { .. }) => OplogSnapshot,
+                Some(crate::args::oplog::Subcommands::Restore { .. }) => Restore,
             },
-            #[cfg(feature = "legacy")]
-            Subcommands::Restore { .. } => Restore,
             #[cfg(feature = "legacy")]
             Subcommands::Undo => Undo,
             #[cfg(feature = "legacy")]
