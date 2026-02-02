@@ -267,8 +267,6 @@ fn find_segment_edge_commits(graph: &but_graph::Graph, sidx: SegmentIndex) -> Ve
         })
         .collect::<Vec<_>>();
 
-    let mut seen = potential_parents.iter().map(|e| e.sidx).collect::<HashSet<_>>();
-
     let mut parents = vec![];
 
     while let Some(candidate) = potential_parents.pop() {
@@ -282,12 +280,10 @@ fn find_segment_edge_commits(graph: &but_graph::Graph, sidx: SegmentIndex) -> Ve
         };
 
         for edge in graph.edges_directed(candidate.sidx, Direction::Outgoing) {
-            if seen.insert(edge.target()) {
-                potential_parents.push(SegmentViaReference {
-                    sidx: edge.target(),
-                    via_reference: candidate.via_reference || graph[edge.target()].ref_name().is_some(),
-                });
-            }
+            potential_parents.push(SegmentViaReference {
+                sidx: edge.target(),
+                via_reference: candidate.via_reference || graph[edge.target()].ref_name().is_some(),
+            });
         }
     }
 

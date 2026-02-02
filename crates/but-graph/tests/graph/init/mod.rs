@@ -850,6 +850,32 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[test]
+fn commit_with_two_parents() -> anyhow::Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable("single-commit")?;
+
+    let base = repo.rev_parse_single("HEAD")?;
+    let base = base.object()?.into_commit();
+    repo.commit("HEAD", "a", base.tree_id()?, vec![base.id(), base.id()])?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * d70d863 (HEAD -> main) a
+    |\
+    * 35b8235 base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·d70d863 (⌂|1)
+            ├── ►:1[1]:anon:
+            │   └── ·35b8235 (⌂|1)
+            └── →:1:
+    ");
+    Ok(())
+}
+
 mod with_workspace;
 
 mod utils;
@@ -858,4 +884,4 @@ pub use utils::{
     standard_options,
 };
 
-use crate::init::utils::standard_options_with_extra_target;
+use crate::init::utils::{fixture_writable, standard_options_with_extra_target};

@@ -27,6 +27,20 @@ pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> a
     Ok(repo)
 }
 
+/// Returns a fixture that may be written to.
+pub fn fixture_writable(
+    fixture_name: &str,
+) -> anyhow::Result<(
+    gix::Repository,
+    tempfile::TempDir,
+    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+)> {
+    // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
+    let (repo, tmp) = but_testsupport::writable_scenario(fixture_name);
+    let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
+    Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
+}
+
 pub enum StackState {
     InWorkspace,
     Inactive,
