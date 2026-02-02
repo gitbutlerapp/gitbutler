@@ -91,20 +91,6 @@
 		padding-top: 52px;
 	}
 
-	.title-caption {
-		display: inline-flex;
-		transform: translateY(14px);
-		color: var(--clr-text-2);
-		font-size: 63%;
-	}
-
-	.description {
-		max-width: 520px;
-		color: var(--clr-text-2);
-		font-size: 16px;
-		line-height: 1.5;
-	}
-
 	.cta {
 		display: flex;
 		margin-top: 40px;
@@ -147,10 +133,6 @@
 	}
 
 	@media (--mobile-viewport) {
-		.title {
-			margin-bottom: 16px;
-			font-size: 62px;
-		}
 		.cta {
 			flex-direction: column;
 			align-items: flex-start;
@@ -159,14 +141,6 @@
 		.video-preview {
 			aspect-ratio: 16 / 9;
 			width: 100%;
-		}
-		.title-caption {
-			display: block;
-			width: 100%;
-			margin-top: 14px;
-			transform: none;
-			font-size: 70%;
-			text-align: right;
 		}
 	}
 </style>
