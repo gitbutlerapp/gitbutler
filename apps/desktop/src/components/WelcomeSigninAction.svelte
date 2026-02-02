@@ -11,7 +11,6 @@
 </script>
 
 {#if !$user}
-	<!-- <CardGroup> -->
 	<CardGroup.Item standalone>
 		<div class="token-content">
 			<div class="token-svg">
@@ -51,13 +50,13 @@
 						type="password"
 						value={accessToken}
 						placeholder="•••••••••••••••••••••••••"
-						oninput={(value) => (accessToken = value)}
+						oninput={(value: string) => (accessToken = value)}
 					/>
 					<Button
 						style="pop"
 						disabled={accessToken.trim().length === 0}
 						onclick={async () => {
-							await userService.setUserAccessToken(accessToken.trim());
+							await userService.setUserAccessToken(accessToken.trim(), true);
 							accessToken = '';
 						}}>Authorize access token</Button
 					>

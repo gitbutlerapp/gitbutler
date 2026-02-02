@@ -2,13 +2,17 @@
 	import AuthorMissingModalContent from '$components/AuthorMissingModalContent.svelte';
 	import CommitFailedModalContent from '$components/CommitFailedModalContent.svelte';
 	import GeneralSettingsModalContent from '$components/GeneralSettingsModalContent.svelte';
+	import LoginConfirmationModalContent from '$components/LoginConfirmationModalContent.svelte';
 	import ProjectSettingsModalContent from '$components/ProjectSettingsModalContent.svelte';
 	import { type GlobalModalState, UI_STATE } from '$lib/state/uiState.svelte';
+	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { Modal, TestId } from '@gitbutler/ui';
 	import type { ModalProps } from '@gitbutler/ui';
 
 	const uiState = inject(UI_STATE);
+	const userService = inject(USER_SERVICE);
+	const incomingUserLogin = $derived(userService.incomingUserLogin);
 
 	type ModalData = {
 		state: GlobalModalState;
@@ -63,6 +67,18 @@
 					}
 				};
 			}
+			case 'login-confirmation': {
+				return {
+					state: modalState,
+					props: {
+						testId: TestId.LoginConfirmationModal,
+						closeButton: false,
+						width: 360,
+						noPadding: true,
+						preventCloseOnClickOutside: true
+					}
+				};
+			}
 		}
 	}
 
@@ -84,13 +100,25 @@
 	function closeModal() {
 		modal?.close();
 	}
+
+	function handleModalClose() {
+		// If the login confirmation modal is closed without explicit user action (e.g., via ESC),
+		// we should reject the incoming user to maintain state consistency.
+		// We check if there's still an incoming user to avoid calling reject after accept/reject buttons.
+		if (modalProps?.state.type === 'login-confirmation') {
+			if ($incomingUserLogin) {
+				userService.rejectIncomingUser();
+			}
+		}
+		uiState.global.modal.set(undefined);
+	}
 </script>
 
 {#if modalProps}
 	<Modal
 		bind:this={modal}
 		{...modalProps.props}
-		onClose={() => uiState.global.modal.set(undefined)}
+		onClose={handleModalClose}
 		onSubmit={(close) => close()}
 	>
 		{#if modalProps.state.type === 'commit-failed'}
@@ -101,6 +129,8 @@
 			<GeneralSettingsModalContent data={modalProps.state} />
 		{:else if modalProps.state.type === 'project-settings'}
 			<ProjectSettingsModalContent data={modalProps.state} />
+		{:else if modalProps.state.type === 'login-confirmation'}
+			<LoginConfirmationModalContent data={modalProps.state} close={closeModal} />
 		{/if}
 	</Modal>
 {/if}

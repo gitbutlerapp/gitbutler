@@ -1,5 +1,6 @@
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { showError } from '$lib/notifications/toasts';
+import { type UiState } from '$lib/state/uiState.svelte';
 import { InjectionToken } from '@gitbutler/core/context';
 import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { chipToasts } from '@gitbutler/ui';
@@ -37,6 +38,7 @@ export class UserService {
 		}
 	);
 	readonly error = writable();
+	readonly incomingUserLogin = writable<User | undefined>(undefined);
 
 	async refresh() {
 		const user = await this.backend.invoke<User | undefined>('get_user');
@@ -57,7 +59,8 @@ export class UserService {
 		private backend: IBackend,
 		private httpClient: HttpClient,
 		private tokenMemoryService: TokenMemoryService,
-		private posthog: PostHogWrapper
+		private posthog: PostHogWrapper,
+		private uiState: UiState
 	) {}
 
 	async setUser(user: User | undefined) {
@@ -80,18 +83,41 @@ export class UserService {
 		setSentryUser(user);
 	}
 
-	async setUserAccessToken(token: string) {
+	async setUserAccessToken(token: string, bypassConfirmationToast = false) {
 		try {
 			const user = await this.httpClient.get<User>('login/whoami', {
 				headers: {
 					'X-Auth-Token': token
 				}
 			});
-			await this.setUser(user);
+
+			if (bypassConfirmationToast) {
+				// In the case that the token is e.g. pasted directly, we don't need a confirmation toast.
+				await this.setUser(user);
+				return;
+			}
+
+			this.incomingUserLogin.set(user);
+			// Display a login confirmation modal
+			this.uiState.global.modal.set({
+				type: 'login-confirmation'
+			});
 		} catch (error) {
 			console.error('Error setting user access token', error);
 			showError('Error occurred while logging in', error);
 		}
+	}
+
+	async acceptIncomingUser(incomingUser: User) {
+		if (!incomingUser) {
+			throw new Error('No incoming user to accept');
+		}
+		await this.setUser(incomingUser);
+		this.incomingUserLogin.set(undefined);
+	}
+
+	async rejectIncomingUser() {
+		this.incomingUserLogin.set(undefined);
 	}
 
 	async forgetUserCredentials() {
