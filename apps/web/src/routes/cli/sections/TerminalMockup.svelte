@@ -20,6 +20,11 @@
 		onProgress
 	}: Props = $props();
 
+	// Timing constants for consistent animation
+	const LINE_DELAY_MS = 100; // Delay between lines in input
+	const INPUT_PAUSE_MS = 400; // Pause after completing input step
+	const OUTPUT_PAUSE_MS = 1000; // Pause after output to let users read
+
 	// Detect OS from user agent
 	function detectOS(): 'macOS' | 'Windows' | 'Linux' {
 		const userAgent = navigator.userAgent.toLowerCase();
@@ -78,11 +83,11 @@
 			if (step.type === 'input') {
 				step.lines.forEach((line) => {
 					total += line.length * avgTypingDelay; // Time to type characters
-					total += 100; // Delay between lines
+					total += LINE_DELAY_MS; // Delay between lines
 				});
-				total += 500; // Pause after input step
+				total += INPUT_PAUSE_MS; // Pause after input step
 			} else {
-				total += 400; // Pause after output step
+				total += OUTPUT_PAUSE_MS; // Pause after output step
 			}
 		});
 
@@ -159,7 +164,7 @@
 				displayedLines = [...displayedLines, { text: line, type: 'output' }];
 			});
 			currentStepIndex++;
-			timeoutId = setTimeout(() => playNextStep(), 1000); // Pause after output to let users read
+			timeoutId = setTimeout(() => playNextStep(), OUTPUT_PAUSE_MS); // Pause after output to let users read
 		} else {
 			// Input: type character by character
 			typeNextCharacter();
@@ -177,7 +182,7 @@
 			currentStepIndex++;
 			currentLineIndex = 0;
 			currentCharIndex = 0;
-			timeoutId = setTimeout(() => playNextStep(), 400); // Pause after completing input
+			timeoutId = setTimeout(() => playNextStep(), INPUT_PAUSE_MS); // Pause after completing input
 			return;
 		}
 
@@ -207,7 +212,7 @@
 			// Finished this line, move to next
 			currentLineIndex++;
 			currentCharIndex = 0;
-			timeoutId = setTimeout(() => typeNextCharacter(), 100); // Brief pause between lines
+			timeoutId = setTimeout(() => typeNextCharacter(), LINE_DELAY_MS); // Brief pause between lines
 		}
 	}
 </script>
