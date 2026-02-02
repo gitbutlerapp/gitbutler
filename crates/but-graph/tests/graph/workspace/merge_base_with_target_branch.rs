@@ -36,9 +36,10 @@ fn with_target_ref() -> anyhow::Result<()> {
 
     let main_id = repo.rev_parse_single("main")?.detach();
 
-    let merge_base = ws.merge_base_with_target_branch(main_id);
-    let expected = repo.rev_parse_single(":/M2")?;
-    assert_eq!(merge_base, Some(expected.detach()));
+    let res = ws.merge_base_with_target_branch(main_id);
+    let expected_merge_base = repo.rev_parse_single(":/M2")?.detach();
+    let expected_target_id = repo.rev_parse_single("origin/main")?.detach();
+    assert_eq!(res, Some((expected_merge_base, expected_target_id)));
 
     Ok(())
 }
@@ -74,8 +75,9 @@ fn with_extra_target_when_no_target_ref() -> anyhow::Result<()> {
     let a_id = repo.rev_parse_single("A")?.detach();
 
     let merge_base = ws.merge_base_with_target_branch(a_id);
-    let expected = repo.rev_parse_single(":/M2")?;
-    assert_eq!(merge_base, Some(expected.detach()));
+    let expected_merge_base = repo.rev_parse_single(":/M2")?.detach();
+    let expected_target_id = repo.rev_parse_single("main")?.detach();
+    assert_eq!(merge_base, Some((expected_merge_base, expected_target_id)));
 
     Ok(())
 }
@@ -93,8 +95,8 @@ fn returns_none_when_no_target_is_set() -> anyhow::Result<()> {
     assert!(ws.target_commit.is_none(), "should not have target_commit");
 
     let a2_id = repo.rev_parse_single("A")?.detach();
-    let merge_base = ws.merge_base_with_target_branch(a2_id);
-    assert!(merge_base.is_none(), "can't compute merge-base without the other side");
+    let res = ws.merge_base_with_target_branch(a2_id);
+    assert!(res.is_none(), "can't compute merge-base without the other side");
 
     Ok(())
 }
@@ -108,8 +110,8 @@ fn returns_none_when_commit_not_in_graph() -> anyhow::Result<()> {
         .validated()?
         .into_workspace()?;
 
-    let merge_base = ws.merge_base_with_target_branch(repo.object_hash().null());
-    assert!(merge_base.is_none(), "should return None when commit is not in graph");
+    let res = ws.merge_base_with_target_branch(repo.object_hash().null());
+    assert!(res.is_none(), "should return None when commit is not in graph");
 
     Ok(())
 }

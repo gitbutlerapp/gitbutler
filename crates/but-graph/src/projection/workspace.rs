@@ -118,14 +118,19 @@ pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 /// Utilities
 impl Workspace {
-    /// Return the commit-id of the merge-base between the `commit_to_merge` and either the [target-branch](Self::target_ref),
-    /// the [extra-target](Self::extra_target) or the [target-commit](Self::target_commit), depending on which is set and encountered
+    /// Return the `(merge-base, target-commi-id)` of the merge-base between the `commit_to_merge`
+    /// and either the [target-branch](Self::target_ref), the [extra-target](Self::extra_target)
+    /// or the [target-commit](Self::target_commit), depending on which is set and encountered
     /// in this order.
     /// Return `None` when none of these is set, or if there was no merge-base.
     ///
     /// Use this to get the merge-base for test-merges between `commit_to_merge` and the target.
-    pub fn merge_base_with_target_branch(&self, commit_to_merge: gix::ObjectId) -> Option<gix::ObjectId> {
+    pub fn merge_base_with_target_branch(
+        &self,
+        commit_to_merge: impl Into<gix::ObjectId>,
+    ) -> Option<(gix::ObjectId, gix::ObjectId)> {
         // Find the segment containing the commit_to_merge
+        let commit_to_merge = commit_to_merge.into();
         let commit_segment_index = self.graph.node_weights().find_map(|s| {
             s.commits
                 .first()
@@ -147,7 +152,10 @@ impl Workspace {
             .find_git_merge_base(commit_segment_index, target_segment_index)?;
 
         // Get the first commit from the merge-base segment
-        self.graph.tip_skip_empty(merge_base_segment_index).map(|c| c.id)
+        self.graph
+            .tip_skip_empty(merge_base_segment_index)
+            .map(|c| c.id)
+            .zip(self.graph.tip_skip_empty(target_segment_index).map(|c| c.id))
     }
 
     /// Return `true` if the workspace itself is where `HEAD` is pointing to.

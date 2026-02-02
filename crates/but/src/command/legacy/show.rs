@@ -1,6 +1,7 @@
 use anyhow::{Result, bail};
 use bstr::ByteSlice;
 use but_ctx::Context;
+use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
 
 use crate::{
@@ -450,30 +451,17 @@ fn get_branch_commits(
 ) -> Result<(Vec<BranchCommitInfo>, Option<BranchCommitInfo>)> {
     let repo = &*ctx.git2_repo.get()?;
 
-    // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target = stack.get_default_target()?;
-
-    // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
-    let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
-    let gix_repo = ctx.repo.get()?;
-    let target_commit = match gix_repo.find_reference(&target_ref_name) {
-        Ok(reference) => {
-            let target_oid = reference.id();
-            repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
-        }
-        Err(_) => {
-            // Fallback to the stored SHA if remote branch doesn't exist
-            repo.find_commit(target.sha)?
-        }
-    };
-
+    // Get the target from workspace
+    let guard = ctx.shared_worktree_access();
+    let (_, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
     // Find the branch by name
     let branch_oid = find_branch_oid(ctx, branch_name)?;
     let branch_commit = repo.find_commit(branch_oid)?;
 
     // Find merge base
-    let merge_base = repo.merge_base(target_commit.id(), branch_commit.id())?;
+    let merge_base = ws
+        .merge_base_with_target_branch(branch_commit.id().to_gix())
+        .map_or(branch_commit.id(), |t| t.0.to_git2());
 
     // Walk from branch head to merge base, collecting commits
     let mut revwalk = repo.revwalk()?;
@@ -753,25 +741,16 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
 fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     let repo = &*ctx.git2_repo.get()?;
 
-    // Get the target (remote tracking branch like origin/master)
-    let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
-    let target = stack.get_default_target()?;
-
-    // Try to find the remote tracking branch
-    let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
-    let gix_repo = ctx.repo.get()?;
-    let target_commit = match gix_repo.find_reference(&target_ref_name) {
-        Ok(reference) => {
-            let target_oid = reference.id();
-            repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
-        }
-        Err(_) => repo.find_commit(target.sha)?,
-    };
+    // Get the target from workspace
+    let guard = ctx.shared_worktree_access();
+    let (_, ws, _) = ctx.workspace_and_db_with_perm(guard.read_permission())?;
 
     // Find the branch OID
     let branch_oid = find_branch_oid(ctx, branch_name)?;
     let branch_commit = repo.find_commit(branch_oid)?;
-    let merge_base = repo.merge_base(target_commit.id(), branch_commit.id())?;
+    let merge_base = ws
+        .merge_base_with_target_branch(branch_commit.id().to_gix())
+        .map_or(branch_commit.id(), |t| t.0.to_git2());
 
     // Count commits
     let mut revwalk = repo.revwalk()?;
