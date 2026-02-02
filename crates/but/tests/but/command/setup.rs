@@ -712,3 +712,77 @@ Learn more at https://docs.gitbutler.com/cli-overview
 
     Ok(())
 }
+
+#[test]
+fn setup_after_teardown_and_branch_rearrangement() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    // Run teardown
+    env.but("teardown").assert().success();
+
+    // Move B and create a new commit, and verify that the commit graph is what
+    // we expect
+    but_testsupport::git(&env.open_repo()?)
+        .arg("checkout")
+        .arg("-B")
+        .arg("B")
+        .output()?;
+    but_testsupport::git(&env.open_repo()?)
+        .env("GIT_AUTHOR_DATE", "1675176957 +0100")
+        .env("GIT_COMMITTER_DATE", "1675176957 +0100")
+        .arg("commit")
+        .arg("--allow-empty")
+        .arg("-m")
+        .arg("New commit on branch B")
+        .output()?;
+    insta::assert_snapshot!(env.git_log()?, @r"
+    * f600f85 (HEAD -> B) New commit on branch B
+    | *   c128bce (gitbutler/workspace) GitButler Workspace Commit
+    | |\  
+    | |/  
+    |/|   
+    * | 9477ae7 (A) add A
+    | * d3e2ba3 add B
+    |/  
+    * 0dc3733 (origin/main, origin/HEAD, main, gitbutler/target) add M
+    ");
+
+    // Run setup
+    env.but("setup").assert().success();
+
+    env.but("status")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes] 
+┊     no changes
+┊
+┊╭┄g0 [A] (no commits) 
+┊│
+┊├┄h0 [A]  
+┊●   9477ae721ab521d9d0174f70e804ce3ff9f6fb56 add A  
+├╯
+┊
+┊╭┄i0 [B]  
+┊●   f600f85 New commit on branch B (no changes)  
+┊│
+┊├┄j0 [A]  
+┊●   9477ae721ab521d9d0174f70e804ce3ff9f6fb56 add A  
+├╯
+┊
+┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // let output = std::process::Command::new("bash")
+    //     .arg("-c")
+    //     .arg(format!("cp -r '{}' /tmp/a", env.projects_root().to_string_lossy()))
+    //     .output()?;
+    // assert!(output.status.success());
+
+    Ok(())
+}
