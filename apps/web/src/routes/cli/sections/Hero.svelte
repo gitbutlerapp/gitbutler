@@ -17,7 +17,7 @@
 	const { currentPage = 'home', descriptionContent }: Props = $props();
 
 	const scriptKeys = Object.keys(scriptsData);
-	let selectedScript = $state('parallel-branches');
+	let selectedScript = $state('stacked-branches');
 	let scriptProgress = $state(0);
 
 	function handleScriptChange(scriptId: string) {

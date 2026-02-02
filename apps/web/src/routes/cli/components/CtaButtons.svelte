@@ -24,7 +24,7 @@
 		class:copied
 		onclick={handleCopy}
 	>
-		<h3>Get But CLI</h3>
+		<h3>Get the But CLI</h3>
 		<code>curl -fsSL https://gitbutler.com/install.sh | sh</code>
 
 		<svg

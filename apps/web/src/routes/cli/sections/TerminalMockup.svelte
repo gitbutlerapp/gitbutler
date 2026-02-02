@@ -28,6 +28,7 @@
 	let progressIntervalId: ReturnType<typeof setInterval> | null = null;
 	let startTime = 0;
 	let estimatedDuration = 0;
+	let terminalBodyElement: HTMLDivElement | null = $state(null);
 
 	// Reset and play script whenever it changes
 	$effect(() => {
@@ -40,6 +41,17 @@
 				resetAndPlay();
 			}
 		});
+	});
+
+	// Auto-scroll to bottom when content changes
+	$effect(() => {
+		// Track displayedLines changes to trigger the effect
+		const _currentDisplayedlines = displayedLines;
+
+		// Scroll to bottom
+		if (terminalBodyElement) {
+			terminalBodyElement.scrollTop = terminalBodyElement.scrollHeight;
+		}
 	});
 
 	function calculateDuration(script: ScriptStep[]): number {
@@ -197,7 +209,7 @@
 		</div>
 		<div class="terminal-mockup__title">GitButler CLI</div>
 	</div>
-	<div class="terminal-mockup__body">
+	<div class="terminal-mockup__body" bind:this={terminalBodyElement}>
 		<code class="terminal-mockup__code">
 			{#each displayedLines as line, index}
 				{#if line.type === 'input'}
@@ -249,7 +261,7 @@
 
 	.terminal-mockup__body {
 		flex: 1;
-		padding: 24px;
+		padding: 24px 24px 80px 24px;
 		overflow-y: auto;
 		background: var(--clr-core-gray-10);
 		box-shadow: inset 0px 4px 100px var(--clr-core-gray-20);
@@ -261,6 +273,7 @@
 
 	.terminal-mockup__code {
 		display: block;
+		white-space: pre-wrap;
 	}
 
 	.terminal-mockup__line {
@@ -272,7 +285,7 @@
 	}
 
 	.terminal-mockup__output {
-		color: #4ec9b0;
+		color: #d4d4d4;
 	}
 
 	.terminal-mockup__cursor {
@@ -288,6 +301,22 @@
 	:global(.terminal-mockup__code .t-highlight) {
 		color: #ffd700;
 		font-weight: 600;
+	}
+
+	:global(.terminal-mockup__code .t-teal) {
+		color: #4ec9b0;
+	}
+
+	:global(.terminal-mockup__code .t-blue) {
+		color: #569cd6;
+	}
+
+	:global(.terminal-mockup__code .t-green) {
+		color: #57a64a;
+	}
+
+	:global(.terminal-mockup__code .t-yellow) {
+		color: #dcdcaa;
 	}
 
 	:global(.terminal-mockup__code .t-success) {

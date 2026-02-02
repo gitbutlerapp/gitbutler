@@ -13,8 +13,9 @@
 
 <Hero currentPage="cli">
 	{#snippet descriptionContent()}
-		A more intuitive Git experience. Stacked branches, unlimited undo, and parallel worktrees work
-		exactly how you'd expect. Perfect for solo developers and AI-assisted coding.
+		A more intuitive Git terminal experience. Stacked branches, unlimited undo, and parallel
+		branches work exactly how you'd expect. Perfect for teams, solo developers or AI-assisted
+		coding.
 		<br /><br />
 		Works with any Git repo. Seamlessly fits your workflow.
 	{/snippet}

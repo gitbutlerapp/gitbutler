@@ -1,55 +1,4 @@
 {
-	"parallel-branches": {
-		"id": "parallel-branches",
-		"title": "Parallel Branches",
-		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 23 20\"><path fill=\"currentColor\" d=\"M19.076 2.5a3 3 0 0 1 3 3v9l-.004.154a3 3 0 0 1-2.996 2.846H3.72a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h15.357ZM8.964 16h5.072V4H8.964v12Zm6.572 0h3.54a1.5 1.5 0 0 0 1.5-1.5v-9a1.5 1.5 0 0 0-1.5-1.5h-3.54v12ZM3.72 4a1.5 1.5 0 0 0-1.5 1.5v9a1.5 1.5 0 0 0 1.5 1.5h3.745V4H3.719Z\"/></svg>",
-		"script": [
-			{
-				"type": "input",
-				"lines": ["$ but branch create feature/api-base"]
-			},
-			{
-				"type": "output",
-				"lines": [
-					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>feature/api-base</span> from <span class='t-dim'>main</span>",
-					""
-				]
-			},
-			{
-				"type": "input",
-				"lines": ["$ but commit -m 'Add API foundation'"]
-			},
-			{
-				"type": "output",
-				"lines": [
-					"<span class='t-success'>✓</span> Committed <span class='t-accent'>abc123d</span>",
-					""
-				]
-			},
-			{
-				"type": "input",
-				"lines": ["$ but branch create feature/api-auth --stack"]
-			},
-			{
-				"type": "output",
-				"lines": [
-					"<span class='t-success'>✓</span> Created stacked branch <span class='t-highlight'>feature/api-auth</span> on <span class='t-dim'>feature/api-base</span>",
-					""
-				]
-			},
-			{
-				"type": "input",
-				"lines": ["$ but stack push"]
-			},
-			{
-				"type": "output",
-				"lines": [
-					"<span class='t-success'>✓</span> Pushed <span class='t-highlight'>2</span> stacked branches:",
-					"<span class='t-cyan'>feature/api-base</span> → <span class='t-cyan'>feature/api-auth</span>"
-				]
-			}
-		]
-	},
 	"stacked-branches": {
 		"id": "stacked-branches",
 		"title": "Stacked Branches",
@@ -62,7 +11,7 @@
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>user-bookmarks</span>",
+					"<span class='t-success'>✓</span> <span class='t-teal'>Created branch</span> <span class='t-highlight'>user-bookmarks</span>",
 					""
 				]
 			},
@@ -73,7 +22,7 @@
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>e677a2e</span> on branch <span class='t-highlight'>user-bookmarks</span>",
+					"<span class='t-success'>✓</span> <span class='t-teal'>Created commit</span> <span class='t-accent'>e677a2e</span> on branch <span class='t-highlight'>user-bookmarks</span>",
 					""
 				]
 			},
@@ -84,7 +33,7 @@
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>liked-tweets</span> stacked on <span class='t-dim'>user-bookmarks</span>",
+					"<span class='t-success'>✓</span> <span class='t-teal'>Created branch</span> <span class='t-highlight'>liked-tweets</span> stacked on <span class='t-dim'>user-bookmarks</span>",
 					""
 				]
 			},
@@ -95,7 +44,82 @@
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>71f4fe2</span> on branch <span class='t-highlight'>liked-tweets</span>"
+					"<span class='t-success'>✓</span> <span class='t-teal'>Created commit</span> <span class='t-accent'>71f4fe2</span> on branch <span class='t-highlight'>liked-tweets</span>",
+					""
+				]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but status"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"╭┄<span class='t-blue'>zz</span> [<span class='t-green'>unstaged changes</span>]</span>",
+					"┊     <span class='t-dim'>no changes</span>",
+					"┊",
+					"┊╭┄<span class='t-blue'>li</span> [<span class='t-green'>liked-tweets</span>]",
+					"┊●   <span class='t-blue'>e8</span><span class='t-dim'>a47da</span> Add liked tweets feature",
+					"┊│",
+					"┊├┄<span class='t-blue'>us</span> [<span class='t-green'>user-bookmarks</span>]",
+					"┊●   <span class='t-blue'>d4</span><span class='t-dim'>c5a30</span> Add user bookmarks feature",
+					"├╯",
+					"┊",
+					"┴ <span class='t-dim'>96ccca9</span> (common base) [<span class='t-green'>origin/main</span>] <span class='t-dim'>2026-01-26</span> Point release",
+					" "
+				]
+			}
+		]
+	},
+	"parallel-branches": {
+		"id": "parallel-branches",
+		"title": "Parallel Branches",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 23 20\"><path fill=\"currentColor\" d=\"M19.076 2.5a3 3 0 0 1 3 3v9l-.004.154a3 3 0 0 1-2.996 2.846H3.72a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h15.357ZM8.964 16h5.072V4H8.964v12Zm6.572 0h3.54a1.5 1.5 0 0 0 1.5-1.5v-9a1.5 1.5 0 0 0-1.5-1.5h-3.54v12ZM3.72 4a1.5 1.5 0 0 0-1.5 1.5v9a1.5 1.5 0 0 0 1.5 1.5h3.745V4H3.719Z\"/></svg>",
+		"script": [
+			{
+				"type": "input",
+				"lines": ["$ but branch new feature/api-base"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"<span class='t-success'>✓</span> <span class='t-teal'>Created branch</span> <span class='t-highlight'>feature/api-base</span> from <span class='t-dim'>main</span>",
+					""
+				]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but commit -m 'Add API foundation'"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"<span class='t-success'>✓</span> <span class='t-teal'>Committed</span> <span class='t-accent'>abc123d</span> on branch <span class='t-highlight'>feature/api-base</span>",
+					""
+				]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but branch new feature/api-auth"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"<span class='t-success'>✓</span> <span class='t-teal'>Created branch</span> <span class='t-highlight'>feature/api-auth</span> from <span class='t-dim'>main</span>",
+					""
+				]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but push"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"<span class='t-success'>✓</span> <span class='t-teal'>Pushed</span> <span class='t-highlight'>2</span> branches:",
+					"→ <span class='t-cyan'>feature/api-base</span>",
+					"→ <span class='t-cyan'>feature/api-auth</span>",
+					""
 				]
 			}
 		]
@@ -112,7 +136,7 @@
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>3a1658b</span> on branch <span class='t-highlight'>feature-branch</span>",
+					"<span class='t-success'>✓</span> <span class='t-teal'>Created commit</span> <span class='t-accent'>3a1658b</span> on branch <span class='t-highlight'>feature-branch</span>",
 					""
 				]
 			},
@@ -124,7 +148,7 @@
 				"type": "output",
 				"lines": [
 					"<span class='t-dim'>Reverting to:</span> <span class='t-warning'>CreateCommit</span> <span class='t-dim'>(2026-01-29 14:32:15)</span>",
-					"<span class='t-success'>✓</span> Undo completed successfully!",
+					"<span class='t-success'>✓</span> <span class='t-teal'>Undo completed successfully!</span>",
 					""
 				]
 			},
@@ -146,12 +170,29 @@
 	},
 	"simple-rebasing": {
 		"id": "simple-rebasing",
-		"title": "Simple Rebasing",
+		"title": "Simple Editing",
 		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 20 20\"><path fill=\"currentColor\" d=\"M10.562 1.915c1.368-1.171 3.4.24 2.78 1.932l-1.43 3.903 4.39.002c1.587 0 2.355 1.943 1.197 3.027l-7.504 7.028c-1.33 1.245-3.44-.118-2.852-1.843l1.505-4.411h-4.61c-1.625 0-2.372-2.023-1.138-3.08l7.662-6.558Zm1.128 1.074a.234.234 0 0 0-.153.066L3.876 9.612a.25.25 0 0 0 .162.44h6.708l-.339.993-1.845 5.403a.236.236 0 0 0-.004.168.268.268 0 0 0 .105.123c.054.035.11.049.156.046a.235.235 0 0 0 .15-.073l7.505-7.028a.25.25 0 0 0-.171-.432l-5.465-.002-1.073-.001.369-1.008 1.8-4.91a.234.234 0 0 0 .008-.166.268.268 0 0 0-.1-.126.266.266 0 0 0-.152-.05Z\"/></svg>",
 		"script": [
 			{
 				"type": "input",
-				"lines": ["$ but rub app/models/user.rb da42d06"]
+				"lines": ["$ but absorb"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"Found 2 changed files to absorb:",
+					"",
+					"Absorbed to commit: <span class='t-green'>da6cf61</span> add liking feature",
+					"",
+					"  (<span class='t-dim'>last commit in the primary lane</span>)",
+					"    bookmarks.ts <span class='t-dim'>+1,1</span>",
+					"    config.ru <span class='t-dim'>@4,3 +4,4</span>",
+					""
+				]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but amend app/models/user.rb da42d06"]
 			},
 			{
 				"type": "output",
@@ -162,7 +203,7 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but rub da42d06 fdbd753"]
+				"lines": ["$ but squash da42d06 fdbd753"]
 			},
 			{
 				"type": "output",
@@ -173,12 +214,12 @@
 			},
 			{
 				"type": "input",
-				"lines": ["$ but rub 21 feature-branch"]
+				"lines": ["$ but move 21 feature-branch"]
 			},
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Moved commit <span class='t-accent'>21</span> → <span class='t-highlight'>[feature-branch]</span>"
+					"<span class='t-success'>✓</span> Moved commit <span class='t-accent'>21de2f</span> → <span class='t-highlight'>[feature-branch]</span>"
 				]
 			}
 		]
@@ -190,38 +231,54 @@
 		"script": [
 			{
 				"type": "input",
-				"lines": ["# AI can automate branching workflows"]
+				"lines": ["# Everything takes --json"]
 			},
 			{
 				"type": "input",
-				"lines": ["$ but branch new feature/ai-integration"]
+				"lines": ["$ but --json branch new feature/ai-integration | jq ."]
 			},
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Created branch <span class='t-highlight'>feature/ai-integration</span>",
+					"<span class='t-dim'>{</span>",
+					"  <span class='t-blue'>\"branch\"</span><span class='t-dim'>:</span> <span class='t-green'>\"feature/ai-integration\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"status\"</span><span class='t-dim'>:</span> <span class='t-green'>\"created\"</span>",
+					"<span class='t-dim'>}</span>"
+				]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but show -j 90fe | jq ."]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"<span class='t-dim'>{</span>",
+					"  <span class='t-blue'>\"commit\"</span><span class='t-dim'>:</span> <span class='t-green'>\"906bd416a95a9e4d3d300102e1e9b55bb75eff55\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"author\"</span><span class='t-dim'>:</span> <span class='t-dim'>{</span> <span class='t-blue'>\"name\"</span><span class='t-dim'>:</span> <span class='t-green'>\"Scott Chacon\"</span> <span class='t-dim'>},</span>",
+					"  <span class='t-blue'>\"date\"</span><span class='t-dim'>:</span> <span class='t-green'>\"2026-02-02 08:14:08 +0100\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"message\"</span><span class='t-dim'>:</span> <span class='t-green'>\"Add bookmarks feature\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"files\"</span><span class='t-dim'>:</span> <span class='t-dim'>[</span> <span class='t-green'>\"bookmarks.ts\"</span><span class='t-dim'>,</span> <span class='t-green'>\"config.ru\"</span> <span class='t-dim'>],</span>",
+					"  <span class='t-blue'>\"changeId\"</span><span class='t-dim'>:</span> <span class='t-green'>\"nzuztprpkzypsummxstzpsqxmtqkmrnw\"</span>",
+					"<span class='t-dim'>}</span>",
 					""
 				]
 			},
 			{
 				"type": "input",
-				"lines": ["$ but commit -m 'feat: Add AI-powered suggestions'"]
+				"lines": ["$ but --json status | jq '.stacks[].branches[].commits[]'"]
 			},
 			{
 				"type": "output",
 				"lines": [
-					"<span class='t-success'>✓</span> Created commit <span class='t-accent'>abc123d</span>",
-					""
-				]
-			},
-			{
-				"type": "input",
-				"lines": ["$ but status --format=json | jq ."]
-			},
-			{
-				"type": "output",
-				"lines": [
-					"<span class='t-dim'>{</span><span class='t-cyan'>\"branches\"</span><span class='t-dim'>:</span> <span class='t-dim'>[{</span><span class='t-cyan'>\"name\"</span><span class='t-dim'>:</span> <span class='t-highlight'>\"feature/ai-integration\"</span><span class='t-dim'>,</span> <span class='t-cyan'>\"commits\"</span><span class='t-dim'>:</span> <span class='t-accent'>1</span><span class='t-dim'>}]}</span>"
+					"<span class='t-dim'>{</span>",
+					"  <span class='t-blue'>\"cliId\"</span><span class='t-dim'>:</span> <span class='t-green'>\"90\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"commitId\"</span><span class='t-dim'>:</span> <span class='t-green'>\"906bd416a95a9e4d3d300102e1e9b55bb75eff55\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"createdAt\"</span><span class='t-dim'>:</span> <span class='t-green'>\"2026-02-02T07:14:08+00:00\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"message\"</span><span class='t-dim'>:</span> <span class='t-green'>\"test\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"authorName\"</span><span class='t-dim'>:</span> <span class='t-green'>\"Scott Chacon\"</span><span class='t-dim'>,</span>",
+					"  <span class='t-blue'>\"conflicted\"</span><span class='t-dim'>:</span> <span class='t-accent'>false</span>",
+					"<span class='t-dim'>}</span>"
 				]
 			}
 		]

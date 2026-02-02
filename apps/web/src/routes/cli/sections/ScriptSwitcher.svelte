@@ -9,7 +9,7 @@
 	const {
 		scriptsData,
 		onScriptChange,
-		selectedScript = 'parallel-branches',
+		selectedScript = 'stacked-branches',
 		scriptProgress = 0
 	}: Props = $props();
 
