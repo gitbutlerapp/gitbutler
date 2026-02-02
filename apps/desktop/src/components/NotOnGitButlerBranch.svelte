@@ -83,9 +83,7 @@
 				<p class="switchrepo__message text-13 text-body">
 					Due to GitButler managing multiple virtual branches, you cannot switch back and forth
 					between git branches and virtual branches easily.
-					<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch">
-						Learn more
-					</Link>
+					<Link href="https://docs.gitbutler.com/workspace-branch">Learn more</Link>
 				</p>
 
 				{#if uncommittedChanges.length > 0}

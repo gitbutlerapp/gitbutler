@@ -529,11 +529,11 @@ impl<'repo> WorkspaceCommit<'repo> {
             message
                 .push_str("This is placeholder commit and will be replaced by a merge of your virtual branches.\n\n");
         }
-        message.push_str("Due to GitButler managing multiple virtual branches, you cannot switch back and\n");
-        message.push_str("forth between git branches and virtual branches easily. \n\n");
 
-        message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
-        message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
+        message.push_str("For GitButler to manage multiple parallel branches, we maintain this commit\n");
+        message.push_str("automatically so other tooling works properly.\n\n");
+
+        message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n\n");
         if !stacks.is_empty() {
             message.push_str("Here are the branches that are currently applied:\n");
             for branch in &stacks {
@@ -548,8 +548,8 @@ impl<'repo> WorkspaceCommit<'repo> {
                 message.push('\n');
             }
         }
-        message.push_str("For more information about what we're doing here, check out our docs:\n");
-        message.push_str("https://docs.gitbutler.com/features/branch-management/integration-branch\n");
+        message.push_str("\nFor more information about what we're doing here, check out our docs:\n");
+        message.push_str("https://docs.gitbutler.com/workspace-branch\n");
 
         let author = commit_signature(commit_time("GIT_COMMITTER_DATE"));
         gix::objs::Commit {

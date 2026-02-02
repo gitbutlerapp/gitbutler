@@ -45,21 +45,21 @@ mod from_new_merge_with_metadata {
 
         This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+        For GitButler to manage multiple parallel branches, we maintain this commit
+        automatically so other tooling works properly.
 
         If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
 
         Here are the branches that are currently applied:
          - add-A
            branch head: d3cce74a69ee3b0e1cbea65b53908d602d6bda26
+
         For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
+        https://docs.gitbutler.com/workspace-branch
         ");
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(31f3d99d4b12a57c1c21053ab3ae5da160247044),
+            workspace_commit_id: Sha1(8f0d04add2efa2f20fe0b7b63a836c4e377d7116),
             stacks: [
                 Stack { tip: d3cce74, name: "add-A" },
             ],
@@ -85,7 +85,7 @@ mod from_new_merge_with_metadata {
         // It retains order.
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(391a453230c141ac5f81d7203ac90c7e66ea9acf),
+            workspace_commit_id: Sha1(ce26844c9477149218f6ecd2e2a81ccaeea1cdf2),
             stacks: [
                 Stack { tip: 27ab782, name: "add-D" },
                 Stack { tip: d3cce74, name: "add-A" },
@@ -112,11 +112,10 @@ mod from_new_merge_with_metadata {
 
         This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+        For GitButler to manage multiple parallel branches, we maintain this commit
+        automatically so other tooling works properly.
 
         If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
 
         Here are the branches that are currently applied:
          - add-D
@@ -127,8 +126,9 @@ mod from_new_merge_with_metadata {
            branch head: 34c4591eac5ade7cdf094c4fc48dea798ab73bbb
          - add-B
            branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+
         For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
+        https://docs.gitbutler.com/workspace-branch
         ");
         // Order isn't visible in the merged tree.
         insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
@@ -181,7 +181,7 @@ mod from_new_merge_with_metadata {
         )?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(b8ba7bd37ac1a1f9a0e7f29ddf83acc249d7b866),
+            workspace_commit_id: Sha1(4772c5b3286bc7b7365becfd007a309b5d53aaec),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: 115e41b, name: "clean-B" },
@@ -220,7 +220,7 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(&to_stacks(stacks), None, &graph, &repo, None)?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(e444bfa38570217271f5df56c3fe26ed57a7e023),
+            workspace_commit_id: Sha1(d72f0053dd8b22ffee806578496920f10134ce58),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: bf09eae, name: "conflict-F1" },
@@ -288,7 +288,7 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(&to_stacks(stacks), None, &graph, &repo, None)?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(e25b36b3a4192701e5e91a00d1c2fe07b9888338),
+            workspace_commit_id: Sha1(fc3c368e69b7fdaa7b8f310e4a27ce1202eec83c),
             stacks: [
                 Stack { tip: 8450331, name: "tip-conflicted" },
                 Stack { tip: 8ab1c4d, name: "unrelated" },
@@ -332,7 +332,7 @@ mod from_new_merge_with_metadata {
         let out = WorkspaceCommit::from_new_merge_with_metadata(&to_stacks(stacks), None, &graph, &repo, None)?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(4aede0de89327f3afde3db1ed9f83f368f67d501),
+            workspace_commit_id: Sha1(2a1810b129025491563f7bff43e249766ffd54e2),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: 6777bd8, name: "conflict-C1" },
@@ -364,11 +364,10 @@ mod from_new_merge_with_metadata {
 
         This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+        For GitButler to manage multiple parallel branches, we maintain this commit
+        automatically so other tooling works properly.
 
         If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
 
         Here are the branches that are currently applied:
          - clean-A
@@ -377,8 +376,9 @@ mod from_new_merge_with_metadata {
            branch head: 6777bd8aff28a87a07739e2f309d3699d93685f9
          - clean-B
            branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
+
         For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
+        https://docs.gitbutler.com/workspace-branch
         ");
         insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
         fc2bf71
@@ -397,7 +397,7 @@ mod from_new_merge_with_metadata {
         // TODO: make clean-B show up!
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(fd9723d257cd09656a2f8bb24d3dd2138f88b343),
+            workspace_commit_id: Sha1(344e784aa31edbfcd7a356c081247141b97cf60a),
             stacks: [
                 Stack { tip: d3cce74, name: "clean-A" },
                 Stack { tip: 115e41b, name: "clean-B" },
@@ -428,11 +428,10 @@ mod from_new_merge_with_metadata {
 
         This is a merge commit of the virtual branches in your workspace.
 
-        Due to GitButler managing multiple virtual branches, you cannot switch back and
-        forth between git branches and virtual branches easily. 
+        For GitButler to manage multiple parallel branches, we maintain this commit
+        automatically so other tooling works properly.
 
         If you switch to another branch, GitButler will need to be reinitialized.
-        If you commit on this branch, GitButler will throw it away.
 
         Here are the branches that are currently applied:
          - clean-A
@@ -441,8 +440,9 @@ mod from_new_merge_with_metadata {
            branch head: 115e41b0ffb7fcb56f91a9fb64cf4a7b786c1bea
          - conflict-C2
            branch head: f8392d239500de94b23f42c8ab5508dae1b3b657
+
         For more information about what we're doing here, check out our docs:
-        https://docs.gitbutler.com/features/branch-management/integration-branch
+        https://docs.gitbutler.com/workspace-branch
         ");
         insta::assert_snapshot!(visualize_tree(commit.peel_to_tree()?.id()), @r#"
         39ba522
@@ -460,7 +460,7 @@ mod from_new_merge_with_metadata {
         )?;
         insta::assert_debug_snapshot!(out, @r#"
         Outcome {
-            workspace_commit_id: Sha1(e297aee321879eb991bb5360859cbddb5891a316),
+            workspace_commit_id: Sha1(6f3992eec39eb29e413eab59bb30fe3f78f16bc7),
             stacks: [
                 Stack { tip: 6777bd8, name: "conflict-C1" },
                 Stack { tip: d3cce74, name: "clean-A" },

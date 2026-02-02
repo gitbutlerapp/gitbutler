@@ -163,7 +163,7 @@ fn main_with_advanced_remote_tracking_branch() -> anyhow::Result<()> {
 
     // the new local tracking ref actually exists, and is in the right spot.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   e00cf08 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   3b41190 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * 6b40b15 (origin/feature, feature) without-local-tracking
     |/  
@@ -403,7 +403,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
     )?;
     // A workspace commit was created, even though it does nothing.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 6277161 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * d65d226 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * e5d0542 (origin/main, main, B, A) A
     ");
 
@@ -428,7 +428,7 @@ fn no_ws_ref_no_ws_commit_two_stacks_on_same_commit_ad_hoc_workspace_without_tar
 
     // It's idempotent, but has to update the workspace commit nonetheless for the comment, which depends on the stacks.
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 452772e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 0bb6993 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\
     * e5d0542 (origin/main, main, B, A) A
     ");
@@ -610,7 +610,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   d87b903 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   fa6fb28 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * bf53300 (A) add A
     * | b1540e5 (main) M
@@ -644,7 +644,7 @@ fn apply_multiple_without_target_or_metadata_or_base() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *-.   7bcf528 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *-.   633f384 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \  
     | | * 0e391b2 (origin/B, B) add B
     | * | bf53300 (A) add A
@@ -690,7 +690,7 @@ fn apply_multiple_segments_of_stack_in_order_merge_if_needed() -> anyhow::Result
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f1889e7 (A2) add A2
     * 7de99e1 (A1) add A1
-    | * 6848743 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 82aeec3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | * 53ad0c2 (unrelated) add U1
     |/  
     * 3183e43 (origin/main, main) M1
@@ -855,7 +855,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     "#);
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 49d4b34 (A) A1
-    | *   fdec130 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | *   5922bde (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     | |\  
     | | * f57c528 (B) B1
     | |/  
@@ -910,7 +910,7 @@ fn detached_head_journey() -> anyhow::Result<()> {
     ");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *-.   951ff29 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *-.   5447673 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\ \  
     | | * f57c528 (B) B1
     | * | aaa195b (C) C1
@@ -975,7 +975,7 @@ fn apply_two_ambiguous_stacks_with_target_with_dependent_branch() -> anyhow::Res
     ");
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    *   78f3659 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    *   f1b9a85 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
     | * f084d61 (C, B, A) A2
     |/  
@@ -1053,7 +1053,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
             └── ·7076dee (🏘️) ►D, ►E
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * 773e030 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 1c948ed (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
     * 85efbe4 (origin/main, main) M
@@ -1080,7 +1080,7 @@ fn apply_two_ambiguous_stacks_with_target() -> anyhow::Result<()> {
             └── ·7076dee (🏘️) ►D, ►E
     ");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * b390237 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * 094bf37 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f084d61 (C, B, A) A2
     * 7076dee (E, D) A1
     * 85efbe4 (origin/main, main) M
@@ -1157,7 +1157,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 4bbb93c (conflict-hero) add conflicting-F2
     * 98519e9 add conflicting-F1
-    | *-----.   e13e11a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | *-----.   a62be91 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |/|\ \ \ \  
     | | | | | * 34c4591 (clean-C) add C
     | |_|_|_|/  
@@ -1267,7 +1267,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     * bf09eae (conflict-F1) add F1
     | * f2ce66d (conflict-F2) add F2
     |/  
-    | *---.   c51f37c (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | *---.   2603d89 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |/|\ \ \  
     | | | | * 4bbb93c (conflict-hero) add conflicting-F2
     | | | | * 98519e9 add conflicting-F1
