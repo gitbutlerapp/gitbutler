@@ -592,6 +592,18 @@ async fn match_subcommand(
                 }
                 None => {
                     // Handle the regular `but commit` command
+
+                    // In JSON mode, require either -m or -f to be specified
+                    if args.json
+                        && commit_args.message.is_none()
+                        && commit_args.file.is_none()
+                        && commit_args.ai.is_none()
+                    {
+                        anyhow::bail!(
+                            "In JSON mode, either --message (-m), --file (-f), or --ai (-i) must be specified"
+                        );
+                    }
+
                     // Read message from file if provided, otherwise use message option
                     let commit_message =
                         match &commit_args.file {

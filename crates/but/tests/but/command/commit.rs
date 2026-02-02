@@ -544,3 +544,112 @@ Error: --ai cannot be used with 'commit empty'.
 
     Ok(())
 }
+
+#[test]
+fn commit_json_mode_requires_message_or_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create a change in the worktree
+    env.file("new-file.txt", "test content");
+
+    // Try to commit in JSON mode without -m or -f
+    env.but("commit --json").assert().failure().stderr_eq(str![[r#"
+Error: In JSON mode, either --message (-m), --file (-f), or --ai (-i) must be specified
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_json_mode_with_message_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create a change in the worktree
+    env.file("new-file.txt", "test content");
+
+    // Commit in JSON mode with -m
+    let output = env.but("commit --json -m 'Test commit'").assert().success();
+
+    // Parse JSON output
+    let stdout = std::str::from_utf8(&output.get_output().stdout)?;
+    let json: serde_json::Value = serde_json::from_str(stdout)?;
+
+    // Verify JSON structure
+    assert!(json["commit_id"].is_string(), "commit_id should be a string");
+    assert!(json["branch"].is_string(), "branch should be a string");
+    assert_eq!(json["branch"].as_str().unwrap(), "A");
+
+    Ok(())
+}
+
+#[test]
+fn commit_json_mode_with_file_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create a change in the worktree
+    env.file("new-file.txt", "test content");
+
+    // Create a file with the commit message
+    env.file("commit-msg.txt", "Test commit from file");
+
+    // Commit in JSON mode with -f
+    let output = env.but("commit --json -f commit-msg.txt").assert().success();
+
+    // Parse JSON output
+    let stdout = std::str::from_utf8(&output.get_output().stdout)?;
+    let json: serde_json::Value = serde_json::from_str(stdout)?;
+
+    // Verify JSON structure
+    assert!(json["commit_id"].is_string(), "commit_id should be a string");
+    assert!(json["branch"].is_string(), "branch should be a string");
+    assert_eq!(json["branch"].as_str().unwrap(), "A");
+
+    Ok(())
+}
+
+#[test]
+fn commit_json_mode_multiple_branches_requires_branch() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    // Create a change
+    env.file("new-file.txt", "test content");
+
+    // Try to commit in JSON mode without specifying a branch
+    env.but("commit --json -m 'Test commit'")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Multiple branches found. Specify a branch to commit to using the branch argument
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_json_mode_multiple_branches_with_branch_succeeds() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    // Create a change
+    env.file("new-file.txt", "test content");
+
+    // Commit in JSON mode with branch specified
+    let output = env.but("commit --json -m 'Test commit' B").assert().success();
+
+    // Parse JSON output
+    let stdout = std::str::from_utf8(&output.get_output().stdout)?;
+    let json: serde_json::Value = serde_json::from_str(stdout)?;
+
+    // Verify JSON structure
+    assert!(json["commit_id"].is_string(), "commit_id should be a string");
+    assert!(json["branch"].is_string(), "branch should be a string");
+    assert_eq!(json["branch"].as_str().unwrap(), "B");
+
+    Ok(())
+}
