@@ -90,17 +90,18 @@ For detailed command syntax and all available options, see [references/reference
 
 **Making changes:**
 
-- `but commit <branch> -m "msg" --files <id>,<id>` - Commit specific files or hunks by CLI ID (recommended)
+- `but commit <branch> -m "msg" --files <id>,<id>` - Commit specific files or hunks (recommended)
+- `but commit <branch> -m "msg" -F <id>,<id>` - Same as above, using short flag
 - `but commit <branch> -m "msg"` - Commit ALL uncommitted changes to branch
-- `but commit <branch> --only -m "msg"` - Commit only pre-staged changes
+- `but commit <branch> --only -m "msg"` - Commit only pre-staged changes (cannot combine with --files)
 - `but amend <file-id> <commit-id>` - Amend file into specific commit (explicit control)
 - `but absorb <file-id>` - Absorb file into auto-detected commit (smart matching)
 - `but absorb <branch-id>` - Absorb all changes staged to a branch
 - `but absorb` - Absorb ALL uncommitted changes (use with caution)
 
 **Getting IDs for --files:**
-- File IDs: `but status --json` - shows file-level IDs
-- Hunk IDs: `but diff --json` - shows hunk-level IDs for fine-grained commits
+- **File IDs**: `but status --json` - commit entire files
+- **Hunk IDs**: `but diff --json` - commit individual hunks (for fine-grained control when a file has multiple changes)
 
 **Editing history:**
 
@@ -150,6 +151,14 @@ but branch new ui-update
 but status --json  # Get file CLI IDs
 but commit api-endpoint -m "Add endpoint" --files <api-file-id>
 but commit ui-update -m "Update UI" --files <ui-file-id>
+```
+
+**Committing specific hunks (fine-grained control):**
+
+```bash
+but diff --json             # See hunk IDs when file has multiple changes
+but commit <branch> -m "Fix first issue" --files <hunk-id-1>
+but commit <branch> -m "Fix second issue" --files <hunk-id-2>
 ```
 
 **Cleaning up commits:**
