@@ -3,16 +3,18 @@
 	import type { ScriptStep } from './terminal-types';
 
 	interface Props {
-		height?: string;
+		height: string;
 		script?: ScriptStep[];
+		bottomPadding?: string;
 		typingSpeed?: number; // Average delay per character in milliseconds
 		onComplete?: () => void; // Called when script finishes playing
 		onProgress?: (progress: number) => void; // Called with progress 0-1
 	}
 
 	const {
-		height = '400px',
+		height,
 		script = [],
+		bottomPadding = '24px',
 		typingSpeed = 55,
 		onComplete,
 		onProgress
@@ -70,8 +72,8 @@
 			}
 		});
 
-		// Add 2 second delay before switching to next script
-		total += 2000;
+		// Add 4 second delay before switching to next script
+		total += 4000;
 
 		return total;
 	}
@@ -122,7 +124,7 @@
 
 	function playNextStep() {
 		if (!isPlaying || currentStepIndex >= script.length) {
-			// Keep progress tracking running for the 2 second delay
+			// Keep progress tracking running for the 4 second delay to let users focus
 			timeoutId = setTimeout(() => {
 				isPlaying = false;
 				if (progressIntervalId) {
@@ -131,7 +133,7 @@
 				}
 				onProgress?.(1);
 				onComplete?.();
-			}, 2000);
+			}, 6000);
 			return;
 		}
 
@@ -143,7 +145,7 @@
 				displayedLines = [...displayedLines, { text: line, type: 'output' }];
 			});
 			currentStepIndex++;
-			timeoutId = setTimeout(() => playNextStep(), 400); // Brief pause before next step
+			timeoutId = setTimeout(() => playNextStep(), 1000); // Pause after output to let users read
 		} else {
 			// Input: type character by character
 			typeNextCharacter();
@@ -161,7 +163,7 @@
 			currentStepIndex++;
 			currentLineIndex = 0;
 			currentCharIndex = 0;
-			timeoutId = setTimeout(() => playNextStep(), 500); // Pause after completing input
+			timeoutId = setTimeout(() => playNextStep(), 400); // Pause after completing input
 			return;
 		}
 
@@ -209,7 +211,11 @@
 		</div>
 		<div class="terminal-mockup__title">GitButler CLI</div>
 	</div>
-	<div class="terminal-mockup__body" bind:this={terminalBodyElement}>
+	<div
+		class="terminal-mockup__body"
+		bind:this={terminalBodyElement}
+		style:--desktop-padding-bottom={bottomPadding}
+	>
 		<code class="terminal-mockup__code">
 			{#each displayedLines as line, index}
 				{#if line.type === 'input'}
@@ -235,6 +241,7 @@
 		box-shadow:
 			0px 1px 6px rgba(0, 0, 0, 0.1),
 			0px 24px 44px 3px rgba(0, 0, 0, 0.2);
+		--desktop-padding-bottom: 24px;
 	}
 
 	.terminal-mockup.macos {
@@ -261,7 +268,8 @@
 
 	.terminal-mockup__body {
 		flex: 1;
-		padding: 24px 24px 80px 24px;
+		padding: 24px;
+		padding-bottom: var(--desktop-padding-bottom);
 		overflow-y: auto;
 		background: var(--clr-core-gray-10);
 		box-shadow: inset 0px 4px 100px var(--clr-core-gray-20);
@@ -342,5 +350,11 @@
 
 	:global(.terminal-mockup__code .t-cyan) {
 		color: #8be9fd;
+	}
+
+	@media (--mobile-viewport) {
+		.terminal-mockup__body {
+			padding-bottom: 24px;
+		}
 	}
 </style>

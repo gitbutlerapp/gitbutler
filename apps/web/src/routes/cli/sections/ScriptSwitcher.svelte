@@ -79,10 +79,11 @@
 			transform 0.1s ease;
 
 		&.active {
+			z-index: 2;
 			transform: translateY(-4px) scale(1.05);
-
 			border-radius: var(--radius-xl);
 			background: var(--clr-bg-1);
+			pointer-events: none;
 		}
 
 		&:first-child {

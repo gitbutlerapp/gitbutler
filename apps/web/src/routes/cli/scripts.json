@@ -54,6 +54,7 @@
 			},
 			{
 				"type": "output",
+				"delay": 1500,
 				"lines": [
 					"╭┄<span class='t-blue'>zz</span> [<span class='t-green'>unstaged changes</span>]</span>",
 					"┊     <span class='t-dim'>no changes</span>",
@@ -65,8 +66,7 @@
 					"┊●   <span class='t-blue'>d4</span><span class='t-dim'>c5a30</span> Add user bookmarks feature",
 					"├╯",
 					"┊",
-					"┴ <span class='t-dim'>96ccca9</span> (common base) [<span class='t-green'>origin/main</span>] <span class='t-dim'>2026-01-26</span> Point release",
-					" "
+					"┴ <span class='t-dim'>96ccca9</span> (common base) [<span class='t-green'>origin/main</span>] <span class='t-dim'>2026-01-26</span> Point release"
 				]
 			}
 		]
@@ -118,8 +118,7 @@
 				"lines": [
 					"<span class='t-success'>✓</span> <span class='t-teal'>Pushed</span> <span class='t-highlight'>2</span> branches:",
 					"→ <span class='t-cyan'>feature/api-base</span>",
-					"→ <span class='t-cyan'>feature/api-auth</span>",
-					""
+					"→ <span class='t-cyan'>feature/api-auth</span>"
 				]
 			}
 		]

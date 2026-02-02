@@ -54,9 +54,11 @@
 
 		<div class="terminal-with-switcher">
 			<TerminalMockup
+				height="400px"
 				script={getScript()}
 				onComplete={handleScriptComplete}
 				onProgress={handleProgress}
+				bottomPadding="64px"
 			/>
 			<div class="script-switcher">
 				<ScriptSwitcher
