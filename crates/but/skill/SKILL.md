@@ -121,10 +121,6 @@ For deeper understanding of the workspace model, dependency tracking, and philos
 
 **CLI IDs**: Every object gets a short ID (e.g., `c5` for commit, `bu` for branch). Use these as arguments.
 
-**Direct commit with file/hunk IDs**: Use `--files` to commit specific files or hunks directly:
-- File IDs from `but status --json` - commit entire files
-- Hunk IDs from `but diff --json` - commit individual hunks for fine-grained control
-
 **Parallel vs Stacked branches**:
 
 - Parallel: Independent work that doesn't depend on each other

@@ -2,6 +2,20 @@
 
 Comprehensive reference for all `but` commands.
 
+## Contents
+
+- [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`
+- [Branching](#branching) - `branch new`, `branch apply/unapply`, `branch delete`
+- [Staging](#staging-multiple-staging-areas) - `stage`, `rub`
+- [Committing](#committing) - `commit`, `absorb`
+- [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
+- [Conflict Resolution](#conflict-resolution) - `resolve`
+- [Remote Operations](#remote-operations) - `push`, `pull`, `pr`, `merge`
+- [Automation](#automation) - `mark`, `unmark`
+- [History & Undo](#history--undo) - `undo`, `oplog`
+- [Setup & Configuration](#setup--configuration) - `setup`, `teardown`, `config`, `gui`, `update`, `alias`
+- [Global Options](#global-options)
+
 ## Inspection (Understanding State)
 
 ### `but status`
@@ -42,6 +56,7 @@ but diff <file-id>      # Diff for specific file
 but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
 but diff                # Diff for entire workspace
+but diff --json         # JSON output with hunk IDs for `but commit --files`
 ```
 
 ## Branching
