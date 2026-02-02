@@ -138,7 +138,7 @@
 
 	function playNextStep() {
 		if (!isPlaying || currentStepIndex >= script.length) {
-			// Keep progress tracking running for the 4 second delay to let users focus
+			// Keep progress tracking running during the post-script delay to let users focus
 			timeoutId = setTimeout(() => {
 				isPlaying = false;
 				if (progressIntervalId) {
