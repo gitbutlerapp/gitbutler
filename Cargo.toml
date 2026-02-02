@@ -251,7 +251,6 @@ async-openai = { version = "0.31.1", default-features = false, features = [
     "rustls",
     "chat-completion",
 ] }
-octorust = { version = "0.10.0", default-features = false }
 open = "5.3.2"
 regex = { version = "1.11.3", default-features = false, features = [
     "std",
@@ -293,6 +292,7 @@ incremental = false
 [profile.dev.package]
 foldhash = { opt-level = 3 }
 imara-diff = { opt-level = 3 }
+but-graph = { opt-level = 3 }
 gix = { opt-level = 3 }
 gix-diff = { opt-level = 3 }
 gix-object = { opt-level = 3 }

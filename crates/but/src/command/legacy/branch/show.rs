@@ -115,6 +115,8 @@ struct CommitRef {
     timestamp: i64,
 }
 
+// TODO(perf): re-write this to use a graph that includes all branches from the listing, needs a listing that uses
+//             the graph.
 fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck, anyhow::Error> {
     use but_core::RepositoryExt;
 

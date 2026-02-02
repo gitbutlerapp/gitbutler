@@ -172,32 +172,38 @@ fn tree_from_merging_commits(
     preference: TreeKind,
 ) -> Result<MergeOutcome> {
     let mut to_merge = commits.to_vec();
-    let Some(sum) = to_merge.pop() else {
+    to_merge.reverse();
+    let Some(first) = to_merge.pop() else {
         // Handle the case where no commits are given.
         return Ok(MergeOutcome::NoCommit);
     };
-    let mut sum = find_real_tree(&but_core::Commit::from_id(sum.attach(repo))?, preference)?;
+    let mut sum = find_real_tree(&but_core::Commit::from_id(first.attach(repo))?, preference)?;
 
-    let base_tree = match repo.merge_base_octopus(commits.to_owned()) {
-        Ok(oid) => {
-            let commit = but_core::Commit::from_id(oid)?;
-            find_real_tree(&commit, TreeKind::AutoResolution)?.detach()
-        }
-        // It's very possible we'll see scenarios where there are two parents
-        // that have no common ancestor. We should handle that well by using the
-        // empty tree as the base.
-        Err(gix::repository::merge_base_octopus::Error::MergeBaseOctopus(
-            gix::repository::merge_base_octopus_with_graph::Error::NoMergeBase,
-        )) => gix::ObjectId::empty_tree(gix::hash::Kind::Sha1),
-        Err(e) => bail!(e),
-    };
+    let mut base: Option<Option<gix::ObjectId>> = None;
 
     while let Some(commit) = to_merge.pop() {
+        if let Some(base_commit) = base {
+            if let Some(base_commit) = base_commit {
+                base = Some(merge_base(repo, base_commit, commit)?);
+            }
+        } else {
+            base = Some(merge_base(repo, first, commit)?);
+        }
+        let Some(base) = base else {
+            bail!("BUG: Base is None, this should never happen");
+        };
+
         let commit = but_core::Commit::from_id(commit.attach(repo))?;
         let tree = find_real_tree(&commit, preference)?;
         let (options, conflicts) = repo.merge_options_fail_fast()?;
 
-        let mut output = repo.merge_trees(base_tree, sum, tree, repo.default_merge_labels(), options)?;
+        let mut output = repo.merge_trees(
+            peel_to_tree_or_empty(repo, base)?,
+            sum,
+            tree,
+            repo.default_merge_labels(),
+            options,
+        )?;
 
         if output.has_unresolved_conflicts(conflicts) {
             return Ok(MergeOutcome::Conflict {
@@ -209,6 +215,24 @@ fn tree_from_merging_commits(
     }
 
     Ok(MergeOutcome::Success(sum.detach()))
+}
+
+fn merge_base(repo: &gix::Repository, first: gix::ObjectId, second: gix::ObjectId) -> Result<Option<gix::ObjectId>> {
+    match repo.merge_base(first, second) {
+        Ok(oid) => Ok(Some(oid.detach())),
+        // It's very possible we'll see scenarios where there are two parents
+        // that have no common ancestor. We should handle that well by using the
+        // empty tree as the base.
+        Err(gix::repository::merge_base::Error::FindMergeBase(_)) => Ok(None),
+        Err(e) => bail!(e),
+    }
+}
+
+fn peel_to_tree_or_empty(repo: &'_ gix::Repository, id: Option<gix::ObjectId>) -> Result<gix::Id<'_>> {
+    Ok(match id {
+        Some(id) => find_real_tree(&but_core::Commit::from_id(id.attach(repo))?, TreeKind::AutoResolution)?,
+        None => gix::ObjectId::empty_tree(gix::hash::Kind::Sha1).attach(repo),
+    })
 }
 
 fn find_real_tree<'repo>(commit: &but_core::Commit<'repo>, side: TreeKind) -> anyhow::Result<gix::Id<'repo>> {

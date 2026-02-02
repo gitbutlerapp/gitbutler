@@ -852,7 +852,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
 mod with_workspace;
 
-mod utils;
+pub(crate) mod utils;
 pub use utils::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev, read_only_in_memory_scenario,
     standard_options,

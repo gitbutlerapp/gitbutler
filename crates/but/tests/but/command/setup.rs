@@ -58,7 +58,25 @@ To undo these changes and return to normal Git mode, either:
     - Directly checkout a branch (`git checkout main`)
     - Run `but teardown`
 
-More info: https://docs.gitbutler.com/workspace-branch                    
+More info: https://docs.gitbutler.com/workspace-branch
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
@@ -122,7 +140,25 @@ To undo these changes and return to normal Git mode, either:
     - Directly checkout a branch (`git checkout development`)
     - Run `but teardown`
 
-More info: https://docs.gitbutler.com/workspace-branch                    
+More info: https://docs.gitbutler.com/workspace-branch
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
@@ -191,7 +227,25 @@ To undo these changes and return to normal Git mode, either:
     - Directly checkout a branch (`git checkout main`)
     - Run `but teardown`
 
-More info: https://docs.gitbutler.com/workspace-branch                    
+More info: https://docs.gitbutler.com/workspace-branch
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
@@ -249,7 +303,25 @@ To undo these changes and return to normal Git mode, either:
     - Directly checkout a branch (`git checkout main`)
     - Run `but teardown`
 
-More info: https://docs.gitbutler.com/workspace-branch                    
+More info: https://docs.gitbutler.com/workspace-branch
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
@@ -279,6 +351,24 @@ Setting up GitButler project...
 
 GitButler project is already set up!
 Target branch: origin/main
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
@@ -481,7 +571,25 @@ To undo these changes and return to normal Git mode, either:
     - Directly checkout a branch (`git checkout main`)
     - Run `but teardown`
 
-More info: https://docs.gitbutler.com/workspace-branch                    
+More info: https://docs.gitbutler.com/workspace-branch
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);
@@ -579,7 +687,25 @@ To undo these changes and return to normal Git mode, either:
     - Directly checkout a branch (`git checkout main`)
     - Run `but teardown`
 
-More info: https://docs.gitbutler.com/workspace-branch                    
+More info: https://docs.gitbutler.com/workspace-branch
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
 
 
 "#]]);

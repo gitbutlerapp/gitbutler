@@ -1,24 +1,32 @@
 use anyhow::{Result, bail};
 use but_secret::Sensitive;
-use octorust::{
-    Client,
-    auth::Credentials,
-    types::{ActionsListJobsWorkflowRunFilter, JobStatus, UsersGetByUsernameResponseOneOf},
-};
-use serde::Serialize;
+use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT};
+use serde::{Deserialize, Serialize};
+
+const GITHUB_API_BASE_URL: &str = "https://api.github.com";
 
 pub struct GitHubClient {
-    github: Client,
+    client: reqwest::Client,
+    base_url: String,
 }
 
 impl GitHubClient {
     pub fn new(access_token: &Sensitive<String>) -> Result<Self> {
-        let github = Client::new(
-            String::from("gb-github-integration"),
-            Credentials::Token(access_token.to_string()),
-        )?;
+        let mut headers = HeaderMap::new();
+        headers.insert(USER_AGENT, HeaderValue::from_static("gb-github-integration"));
+        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github+json"));
+        headers.insert("X-GitHub-Api-Version", HeaderValue::from_static("2022-11-28"));
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", access_token.0))?,
+        );
 
-        Ok(Self { github })
+        let client = reqwest::Client::builder().default_headers(headers).build()?;
+
+        Ok(Self {
+            client,
+            base_url: GITHUB_API_BASE_URL.to_string(),
+        })
     }
 
     pub fn from_storage(
@@ -27,7 +35,7 @@ impl GitHubClient {
     ) -> anyhow::Result<Self> {
         let account_id = resolve_account(preferred_account, storage)?;
         if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
-            Ok(GitHubClient::new(&access_token)?)
+            account_id.client(&access_token)
         } else {
             Err(anyhow::anyhow!(
                 "No GitHub access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
@@ -37,154 +45,152 @@ impl GitHubClient {
     }
 
     pub fn new_with_host_override(access_token: &Sensitive<String>, host: &str) -> Result<Self> {
-        let github = Client::new(
-            String::from("gb-github-integration"),
-            Credentials::Token(access_token.to_string()),
-        )?
-        .with_host_override(host)
-        .to_owned();
+        let mut headers = HeaderMap::new();
+        headers.insert(USER_AGENT, HeaderValue::from_static("gb-github-integration"));
+        headers.insert(ACCEPT, HeaderValue::from_static("application/vnd.github+json"));
+        headers.insert("X-GitHub-Api-Version", HeaderValue::from_static("2022-11-28"));
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", access_token.0))?,
+        );
 
-        Ok(Self { github })
+        let client = reqwest::Client::builder().default_headers(headers).build()?;
+
+        Ok(Self {
+            client,
+            base_url: host.to_string(),
+        })
     }
 
-    pub async fn get_authenticated(&self) -> Result<AuthenticatedUser, octorust::ClientError> {
-        self.github
-            .users()
-            .get_authenticated()
-            .await
-            .map(|response| match response.body {
-                UsersGetByUsernameResponseOneOf::PrivateUser(user) => {
-                    let name = (!user.name.is_empty()).then(|| user.name.clone());
-                    let email = (!user.email.is_empty()).then(|| user.email.clone());
-                    let avatar_url = (!user.avatar_url.is_empty()).then(|| user.avatar_url.clone());
-                    AuthenticatedUser {
-                        login: user.login,
-                        avatar_url,
-                        name,
-                        email,
-                    }
-                }
-                UsersGetByUsernameResponseOneOf::PublicUser(user) => {
-                    let name = (!user.name.is_empty()).then(|| user.name.clone());
-                    let email = (!user.email.is_empty()).then(|| user.email.clone());
-                    let avatar_url = (!user.avatar_url.is_empty()).then(|| user.avatar_url.clone());
-                    AuthenticatedUser {
-                        login: user.login,
-                        avatar_url,
-                        name,
-                        email,
-                    }
-                }
-            })
+    pub async fn get_authenticated(&self) -> Result<AuthenticatedUser> {
+        #[derive(Deserialize)]
+        struct User {
+            login: String,
+            name: Option<String>,
+            email: Option<String>,
+            avatar_url: Option<String>,
+        }
+
+        let url = format!("{}/user", self.base_url);
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to get authenticated user: {}", response.status());
+        }
+
+        let user: User = response.json().await?;
+
+        Ok(AuthenticatedUser {
+            login: user.login,
+            avatar_url: user.avatar_url,
+            name: user.name,
+            email: user.email,
+        })
     }
 
-    pub async fn list_checks_for_ref(
-        &self,
-        owner: &str,
-        repo: &str,
-        reference: &str,
-    ) -> Result<Vec<octorust::types::CheckRun>> {
-        let no_name_filter = "";
-        let resp = self
-            .github
-            .checks()
-            .list_for_ref(
-                owner,
-                repo,
-                reference,
-                no_name_filter,
-                JobStatus::Noop, // Retrieve all statuses
-                ActionsListJobsWorkflowRunFilter::Latest,
-                0, // use default
-                0, // use default
-                0, // use default
-            )
-            .await
-            .map(|response| response.body);
-        resp.map_err(|e| anyhow::anyhow!("Failed to list checks for ref: {:?}", e))
-            .map(|r| r.check_runs)
+    pub async fn list_checks_for_ref(&self, owner: &str, repo: &str, reference: &str) -> Result<Vec<CheckRun>> {
+        #[derive(Deserialize)]
+        struct CheckRunsResponse {
+            check_runs: Vec<CheckRun>,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/commits/{}/check-runs",
+            self.base_url, owner, repo, reference
+        );
+
+        let response = self.client.get(&url).query(&[("filter", "latest")]).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to list checks for ref: {}", response.status());
+        }
+
+        let result: CheckRunsResponse = response.json().await?;
+        Ok(result.check_runs)
     }
 
     pub async fn list_open_pulls(&self, owner: &str, repo: &str) -> Result<Vec<PullRequest>> {
-        let pulls = self
-            .github
-            .pulls()
-            .list_all(
-                owner,
-                repo,
-                octorust::types::IssuesListState::Open,
-                "",
-                "",
-                octorust::types::PullsListSort::Created,
-                octorust::types::Order::default(),
-            )
-            .await
-            .map(|response| response.body)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let url = format!("{}/repos/{}/{}/pulls", self.base_url, owner, repo);
 
-        Ok(pulls)
+        let response = self
+            .client
+            .get(&url)
+            .query(&[("state", "open"), ("sort", "created")])
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to list open pulls: {}", response.status());
+        }
+
+        let pulls: Vec<GitHubPullRequest> = response.json().await?;
+        Ok(pulls.into_iter().map(Into::into).collect())
     }
 
     pub async fn list_pulls_for_base(&self, owner: &str, repo: &str, base: &str) -> Result<Vec<PullRequest>> {
-        // For now, list 100 PRs
-        let pulls = self
-            .github
-            .pulls()
-            .list(
-                owner,
-                repo,
-                octorust::types::IssuesListState::All,
-                "",
-                base,
-                octorust::types::PullsListSort::Updated,
-                octorust::types::Order::Desc,
-                100,
-                1,
-            )
-            .await
-            .map(|response| response.body)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let url = format!("{}/repos/{}/{}/pulls", self.base_url, owner, repo);
 
-        Ok(pulls)
+        let response = self
+            .client
+            .get(&url)
+            .query(&[
+                ("state", "all"),
+                ("base", base),
+                ("sort", "updated"),
+                ("direction", "desc"),
+                ("per_page", "100"),
+            ])
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to list pulls for base: {}", response.status());
+        }
+
+        let pulls: Vec<GitHubPullRequest> = response.json().await?;
+        Ok(pulls.into_iter().map(Into::into).collect())
     }
 
     pub async fn create_pull_request(&self, params: &CreatePullRequestParams<'_>) -> Result<PullRequest> {
-        let pr = self
-            .github
-            .pulls()
-            .create(
-                params.owner,
-                params.repo,
-                &octorust::types::PullsCreateRequest {
-                    title: params.title.to_string(),
-                    body: params.body.to_string(),
-                    head: params.head.to_string(),
-                    base: params.base.to_string(),
-                    draft: Some(params.draft),
-                    issue: 0,
-                    maintainer_can_modify: None,
-                },
-            )
-            .await
-            .map(|response| response.body)
-            .map_err(anyhow::Error::from)?;
+        #[derive(Serialize)]
+        struct CreatePullRequestBody<'a> {
+            title: &'a str,
+            body: &'a str,
+            head: &'a str,
+            base: &'a str,
+            draft: bool,
+        }
 
+        let url = format!("{}/repos/{}/{}/pulls", self.base_url, params.owner, params.repo);
+
+        let body = CreatePullRequestBody {
+            title: params.title,
+            body: params.body,
+            head: params.head,
+            base: params.base,
+            draft: params.draft,
+        };
+
+        let response = self.client.post(&url).json(&body).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to create pull request: {}", response.status());
+        }
+
+        let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
     }
 
     pub async fn get_pull_request(&self, owner: &str, repo: &str, pr_number: i64) -> Result<PullRequest> {
-        let pr = self
-            .github
-            .pulls()
-            .get(owner, repo, pr_number)
-            .await
-            .map(|response| response.body)
-            .map_err(anyhow::Error::from)?;
+        let url = format!("{}/repos/{}/{}/pulls/{}", self.base_url, owner, repo, pr_number);
 
+        let response = self.client.get(&url).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to get pull request: {}", response.status());
+        }
+
+        let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
     }
 }
@@ -207,6 +213,27 @@ pub struct AuthenticatedUser {
     pub email: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckRun {
+    pub id: i64,
+    pub name: String,
+    pub status: String,
+    #[serde(default)]
+    pub conclusion: Option<String>,
+    #[serde(default)]
+    pub html_url: Option<String>,
+    #[serde(default)]
+    pub head_sha: Option<String>,
+    #[serde(default)]
+    pub started_at: Option<String>,
+    #[serde(default)]
+    pub completed_at: Option<String>,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub details_url: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct GitHubUser {
     pub id: i64,
@@ -217,15 +244,26 @@ pub struct GitHubUser {
     pub is_bot: bool,
 }
 
-impl From<octorust::types::SimpleUser> for GitHubUser {
-    fn from(user: octorust::types::SimpleUser) -> Self {
+#[derive(Debug, Deserialize)]
+struct GitHubApiUser {
+    id: i64,
+    login: String,
+    name: Option<String>,
+    email: Option<String>,
+    avatar_url: Option<String>,
+    #[serde(rename = "type")]
+    user_type: Option<String>,
+}
+
+impl From<GitHubApiUser> for GitHubUser {
+    fn from(user: GitHubApiUser) -> Self {
         GitHubUser {
             id: user.id,
             login: user.login,
-            name: (!user.name.is_empty()).then_some(user.name),
-            email: (!user.email.is_empty()).then_some(user.email),
-            avatar_url: (!user.avatar_url.is_empty()).then_some(user.avatar_url),
-            is_bot: user.type_.to_lowercase() == "bot",
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: user.user_type.map(|user_type| user_type == "bot").unwrap_or(false),
         }
     }
 }
@@ -260,56 +298,49 @@ pub struct PullRequest {
     pub requested_reviewers: Vec<GitHubUser>,
 }
 
-impl From<octorust::types::PullRequestSimple> for PullRequest {
-    fn from(pr: octorust::types::PullRequestSimple) -> Self {
-        let author = pr.user.map(Into::into);
-
-        let labels = pr
-            .labels
-            .into_iter()
-            .map(|label| GitHubPrLabel {
-                id: label.id,
-                name: label.name,
-                description: (!label.description.is_empty()).then_some(label.description),
-                color: label.color,
-            })
-            .collect();
-
-        let requested_reviewers = pr.requested_reviewers.into_iter().map(Into::into).collect();
-
-        PullRequest {
-            html_url: pr.html_url,
-            number: pr.number,
-            title: pr.title,
-            body: (!pr.body.is_empty()).then_some(pr.body),
-            author,
-            labels,
-            draft: pr.draft,
-            source_branch: pr.head.ref_,
-            target_branch: pr.base.ref_,
-            sha: pr.head.sha,
-            created_at: pr.created_at.map(|d| d.to_rfc3339()),
-            modified_at: pr.updated_at.map(|d| d.to_rfc3339()),
-            merged_at: pr.merged_at.map(|d| d.to_rfc3339()),
-            closed_at: pr.closed_at.map(|d| d.to_rfc3339()),
-            repository_ssh_url: pr
-                .base
-                .repo
-                .as_ref()
-                .and_then(|r| (!r.ssh_url.is_empty()).then(|| r.ssh_url.to_owned())),
-            repository_https_url: pr
-                .head
-                .repo
-                .as_ref()
-                .and_then(|r| (!r.clone_url.is_empty()).then(|| r.clone_url.to_owned())),
-            repo_owner: pr.head.repo.and_then(|r| r.owner.map(|o| o.login)),
-            requested_reviewers,
-        }
-    }
+#[derive(Debug, Deserialize)]
+struct GitHubPrLabelApi {
+    id: i64,
+    name: String,
+    description: Option<String>,
+    color: String,
 }
 
-impl From<octorust::types::PullRequestData> for PullRequest {
-    fn from(pr: octorust::types::PullRequestData) -> Self {
+#[derive(Debug, Deserialize)]
+struct GitHubBranch {
+    #[serde(rename = "ref")]
+    ref_: String,
+    sha: String,
+    repo: Option<GitHubRepo>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubRepo {
+    ssh_url: Option<String>,
+    clone_url: Option<String>,
+    owner: Option<GitHubApiUser>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GitHubPullRequest {
+    html_url: String,
+    number: i64,
+    title: String,
+    body: Option<String>,
+    user: Option<GitHubApiUser>,
+    labels: Vec<GitHubPrLabelApi>,
+    draft: bool,
+    head: GitHubBranch,
+    base: GitHubBranch,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+    merged_at: Option<String>,
+    closed_at: Option<String>,
+    requested_reviewers: Vec<GitHubApiUser>,
+}
+
+impl From<GitHubPullRequest> for PullRequest {
+    fn from(pr: GitHubPullRequest) -> Self {
         let author = pr.user.map(Into::into);
 
         let labels = pr
@@ -318,7 +349,7 @@ impl From<octorust::types::PullRequestData> for PullRequest {
             .map(|label| GitHubPrLabel {
                 id: label.id,
                 name: label.name,
-                description: (!label.description.is_empty()).then_some(label.description),
+                description: label.description,
                 color: label.color,
             })
             .collect();
@@ -329,28 +360,20 @@ impl From<octorust::types::PullRequestData> for PullRequest {
             html_url: pr.html_url,
             number: pr.number,
             title: pr.title,
-            body: (!pr.body.is_empty()).then_some(pr.body),
+            body: pr.body,
             author,
             labels,
             draft: pr.draft,
             source_branch: pr.head.ref_,
             target_branch: pr.base.ref_,
             sha: pr.head.sha,
-            created_at: pr.created_at.map(|d| d.to_rfc3339()),
-            modified_at: pr.updated_at.map(|d| d.to_rfc3339()),
-            merged_at: pr.merged_at.map(|d| d.to_rfc3339()),
-            closed_at: pr.closed_at.map(|d| d.to_rfc3339()),
-            repository_ssh_url: pr
-                .base
-                .repo
-                .as_ref()
-                .and_then(|r| (!r.ssh_url.is_empty()).then(|| r.ssh_url.to_owned())),
-            repository_https_url: pr
-                .head
-                .repo
-                .as_ref()
-                .and_then(|r| (!r.clone_url.is_empty()).then(|| r.clone_url.to_owned())),
-            repo_owner: pr.head.repo.map(|r| r.owner.login),
+            created_at: pr.created_at,
+            modified_at: pr.updated_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: pr.base.repo.as_ref().and_then(|r| r.ssh_url.clone()),
+            repository_https_url: pr.head.repo.as_ref().and_then(|r| r.clone_url.clone()),
+            repo_owner: pr.head.repo.and_then(|r| r.owner.map(|o| o.login)),
             requested_reviewers,
         }
     }

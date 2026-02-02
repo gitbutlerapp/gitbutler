@@ -1,3 +1,5 @@
+import { generateHunkId } from '@gitbutler/ui/utils/hunk';
+
 type HunkLineSelector =
 	| `#hunk-line-${string}\\:R${number} [data-testid="hunk-count-column"]`
 	| `#hunk-line-${string}\\:L${number} [data-testid="hunk-count-column"]`;
@@ -21,4 +23,13 @@ export function getHunkLineSelector(
 		case 'right':
 			return `#hunk-line-${escapedFileName}\\:R${lineNumber} [data-testid="hunk-count-column"]`;
 	}
+}
+
+/**
+ * Get the selector for a hunk header.
+ */
+export function getHunkHeaderSelector(fileName: string, hunkIndex: number): string {
+	const escapedFileName = escapeFileName(fileName);
+	const id = generateHunkId(escapedFileName, hunkIndex);
+	return `#header-${id}`;
 }

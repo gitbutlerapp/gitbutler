@@ -85,7 +85,11 @@ where
     Extra: Send + Clone,
 {
     let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
-    current_exe = current_exe.canonicalize().unwrap_or(current_exe);
+    // On Windows, we get these \\? prefix that have issues. Let's do nothing there for now,
+    // and otherwise switch to `gix::path::realpath()` everywhere.
+    if cfg!(unix) {
+        current_exe = current_exe.canonicalize().unwrap_or(current_exe);
+    }
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
     // This is a bit of a hack. Under a test environment, Cargo is running a

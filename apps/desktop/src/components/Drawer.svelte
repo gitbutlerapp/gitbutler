@@ -114,6 +114,7 @@
 	class:collapsed={isCollapsed}
 	class:bottom-border={bottomBorder && !isCollapsed}
 	class:top-border={topBorder}
+	class:highlighted
 	class:grow
 	class:noshrink
 	class:rounded
@@ -126,7 +127,6 @@
 		sticky={stickyHeader}
 		{reserveSpaceOnStuck}
 		{scrollRoot}
-		{highlighted}
 		{onclose}
 		ondblclick={toggleCollapsed}
 		{closeButtonPlaceholder}
@@ -209,6 +209,21 @@
 		}
 		&.collapsed {
 			max-height: none;
+		}
+
+		&.highlighted {
+			&::after {
+				z-index: 1;
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				border: 2px solid var(--clr-theme-pop-element);
+				border-radius: var(--radius-ml);
+				content: '';
+				pointer-events: none;
+			}
 		}
 	}
 

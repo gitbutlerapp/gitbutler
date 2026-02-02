@@ -2,6 +2,7 @@ use anyhow::bail;
 use branch::Subcommands;
 use but_core::ref_metadata::StackId;
 use but_workspace::legacy::ui::StackEntry;
+use colored::Colorize;
 
 use crate::{
     CliId, IdMap,
@@ -103,6 +104,14 @@ pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut Ou
                 // Create an independent branch
                 None
             };
+
+            let anchor_display = anchor.as_ref().map(|anchor_ref| match anchor_ref {
+                but_api::legacy::stack::create_reference::Anchor::AtReference { short_name, .. } => short_name.clone(),
+                but_api::legacy::stack::create_reference::Anchor::AtCommit { commit_id, .. } => {
+                    commit_id.to_string()[..7].to_string()
+                }
+            });
+
             but_api::legacy::stack::create_reference(
                 ctx,
                 but_api::legacy::stack::create_reference::Request {
@@ -112,7 +121,17 @@ pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut Ou
             )?;
 
             if let Some(out) = out.for_human() {
-                writeln!(out, "Created branch {branch_name}")?;
+                if let Some(anchor_name) = anchor_display {
+                    writeln!(
+                        out,
+                        "{} {} stacked on {}",
+                        "✓ Created branch".green(),
+                        branch_name.yellow(),
+                        anchor_name.dimmed()
+                    )?;
+                } else {
+                    writeln!(out, "{} {}", "✓ Created branch".green(), branch_name.yellow())?;
+                }
             } else if let Some(out) = out.for_shell() {
                 writeln!(out, "{branch_name}")?;
             } else if let Some(out) = out.for_json() {

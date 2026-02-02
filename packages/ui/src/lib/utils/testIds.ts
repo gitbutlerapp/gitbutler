@@ -158,9 +158,13 @@ export enum TestId {
 	CreateSnapshotModal = 'create-snapshot-modal',
 	CreateSnapshotModal_ActionButton = 'create-snapshot-modal-action-button',
 	FileListItemContextMenu_Absorb = 'file-list-item-context-menu__absorb',
+	FileListItemContextMenu_DiscardChanges = 'file-list-item-context-menu__discard-changes',
 	AbsobModal = 'absorb-modal',
 	AbsorbModal_ActionButton = 'absorb-modal-action-button',
-	AbsorbModal_CommitAbsorption = 'absorb-modal-commit-absorption'
+	AbsorbModal_CommitAbsorption = 'absorb-modal-commit-absorption',
+	DiscardFileChangesConfirmationModal = 'discard-file-changes-confirmation-modal',
+	DiscardFileChangesConfirmationModal_Cancel = 'discard-file-changes-confirmation-modal-cancel',
+	DiscardFileChangesConfirmationModal_Discard = 'discard-file-changes-confirmation-modal-discard'
 }
 
 export enum ElementId {

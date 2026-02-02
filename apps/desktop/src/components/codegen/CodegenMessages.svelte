@@ -256,7 +256,7 @@
 		for (const rule of toDelete) {
 			await rulesService.deleteWorkspaceRuleMutate({
 				projectId,
-				id: rule.id
+				ruleId: rule.id
 			});
 		}
 	}

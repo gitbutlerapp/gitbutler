@@ -675,7 +675,7 @@
 								bind:this={multiDiffView}
 								projectId={stableProjectId}
 								draggable={true}
-								selectable={false}
+								selectable={isCommitting}
 								onclose={onclosePreview}
 								startIndex={$activeLastAdded.index}
 							/>
