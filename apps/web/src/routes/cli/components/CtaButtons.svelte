@@ -16,14 +16,8 @@
 	}
 </script>
 
-<section class="cta-wrap">
-	<button
-		type="button"
-		class="copy-button"
-		class:dark-mode={darkMode}
-		class:copied
-		onclick={handleCopy}
-	>
+<section class="cta-wrap" class:dark-mode={darkMode}>
+	<button type="button" class="copy-button" class:copied onclick={handleCopy}>
 		<h3>Get the But CLI</h3>
 		<code>curl -fsSL https://gitbutler.com/install.sh | sh</code>
 
@@ -51,7 +45,7 @@
 		>
 			<path
 				d="M26.2529 1.1084C28.895 1.24209 30.9961 3.42628 30.9961 6.10156V23.1016L30.9893 23.3584C30.8599 25.9154 28.8099 27.9653 26.2529 28.0947L25.9961 28.1016H5.99609L5.73926 28.0947C3.18227 27.9653 1.13232 25.9154 1.00293 23.3584L0.996094 23.1016V6.10156C0.996094 3.34014 3.23467 1.10156 5.99609 1.10156H25.9961L26.2529 1.1084ZM5.99609 2.60156C4.0631 2.60156 2.49609 4.16857 2.49609 6.10156V23.1016C2.49609 25.0346 4.0631 26.6016 5.99609 26.6016H25.9961C27.9291 26.6016 29.4961 25.0346 29.4961 23.1016V6.10156C29.4961 4.16857 27.9291 2.60156 25.9961 2.60156H5.99609ZM24 21.75H16V20.25H24V21.75ZM16.4727 13.918L17.1895 14.5L16.4727 15.082L8.47266 21.582L7.52734 20.418L14.8105 14.5L7.52734 8.58203L8.47266 7.41797L16.4727 13.918Z"
-				fill="var(--copy-button-icon-fill)"
+				fill="var(--copy-icon-fill)"
 			/>
 		</svg>
 
@@ -65,17 +59,12 @@
 		>
 			<path
 				d="M26 1.25C28.6234 1.25 30.75 3.37665 30.75 6V17C30.75 19.6234 28.6234 21.75 26 21.75H22.75V23C22.75 25.6234 20.6234 27.75 18 27.75H6C3.37665 27.75 1.25 25.6234 1.25 23V12C1.25 9.37665 3.37665 7.25 6 7.25H9.25V6C9.25 3.37665 11.3766 1.25 14 1.25H26ZM6 8.75C4.20507 8.75 2.75 10.2051 2.75 12V23C2.75 24.7949 4.20507 26.25 6 26.25H18C19.7949 26.25 21.25 24.7949 21.25 23V12C21.25 10.2051 19.7949 8.75 18 8.75H6ZM14 2.75C12.2051 2.75 10.75 4.20507 10.75 6V7.25H18C20.6234 7.25 22.75 9.37665 22.75 12V20.25H26C27.7949 20.25 29.25 18.7949 29.25 17V6C29.25 4.20507 27.7949 2.75 26 2.75H14Z"
-				fill="var(--copy-button-icon-fill)"
+				fill="var(--copy-icon-fill)"
 			/>
 		</svg>
 	</button>
 
-	<a
-		class="docs-button"
-		class:dark-mode={darkMode}
-		href="https://docs.gitbutler.com/cli-overview"
-		target="_blank"
-	>
+	<a class="docs-button" href="https://docs.gitbutler.com/cli-overview" target="_blank">
 		<svg
 			class="docs-button__book"
 			width="38"
@@ -113,6 +102,29 @@
 		display: flex;
 		margin-top: 40px;
 		gap: 12px;
+
+		/* Light mode defaults */
+		--copy-bg: var(--clr-core-gray-20);
+		--copy-shadow: inset 0px -36px 54px rgba(0, 0, 0, 0.2);
+		--copy-text: white;
+		--copy-code: var(--clr-core-pop-70);
+		--copy-icon-fill: white;
+		--copy-icon-opacity: 0.4;
+		--docs-border: var(--clr-border-2);
+		--docs-text: var(--clr-text-2);
+		--docs-hover-bg: color-mix(in srgb, var(--clr-bg-1) 60%, transparent);
+
+		&.dark-mode {
+			--copy-bg: var(--clr-theme-pop-on-element);
+			--copy-shadow: none;
+			--copy-text: var(--clr-core-pop-40);
+			--copy-code: var(--clr-core-pop-40);
+			--copy-icon-fill: var(--clr-core-pop-40);
+			--copy-icon-opacity: 0.5;
+			--docs-border: var(--clr-core-pop-70);
+			--docs-text: var(--clr-theme-pop-on-element);
+			--docs-hover-bg: color-mix(in srgb, var(--clr-theme-pop-on-element) 10%, transparent);
+		}
 	}
 
 	.copy-button {
@@ -123,22 +135,20 @@
 		padding: 24px 40px 24px 24px;
 		gap: 6px;
 		border-radius: var(--radius-xl);
-		background: var(--clr-core-gray-20);
-		box-shadow: inset 0px -36px 54px rgba(0, 0, 0, 0.2);
+		background: var(--copy-bg);
+		box-shadow: var(--copy-shadow);
 		cursor: pointer;
 		transition: background 0.2s;
-		--copy-button-icon-fill: white;
 
 		& h3 {
-			color: var(--clr-text-1);
-			color: white;
+			color: var(--copy-text);
 			font-size: 48px;
 			line-height: 1;
 			font-family: var(--font-accent);
 		}
 
 		& code {
-			color: var(--clr-core-pop-70);
+			color: var(--copy-code);
 			font-size: 14px;
 			opacity: 0.7;
 		}
@@ -154,21 +164,6 @@
 				opacity: 0.6;
 			}
 		}
-
-		&.dark-mode {
-			background: var(--clr-theme-pop-on-element);
-			box-shadow: none;
-
-			h3,
-			code {
-				color: var(--clr-core-pop-40);
-			}
-
-			& .copy-button__term-icon,
-			.copy-button__copy-icon {
-				--copy-button-icon-fill: var(--clr-core-pop-40);
-			}
-		}
 	}
 
 	.copy-button__term-icon,
@@ -177,7 +172,8 @@
 		position: absolute;
 		top: 20px;
 		right: 24px;
-		opacity: 0.4;
+		fill: var(--copy-icon-fill);
+		opacity: var(--copy-icon-opacity);
 		pointer-events: none;
 		transition:
 			opacity 0.1s,
@@ -213,43 +209,27 @@
 		justify-content: space-between;
 		min-width: 180px;
 		padding: 20px;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--docs-border);
 		border-radius: var(--radius-xl);
 		background: none;
 		transition: background 0.2s;
 
+		& span {
+			color: var(--docs-text);
+		}
+
 		&:hover {
-			background: color-mix(in srgb, var(--clr-bg-1) 60%, transparent);
+			background: var(--docs-hover-bg);
 		}
 
 		&:hover .docs-button__arrow {
 			transform: translateX(4px);
 			opacity: 0.8;
 		}
-
-		&.dark-mode {
-			border-color: var(--clr-core-pop-70);
-
-			& span {
-				color: var(--clr-theme-pop-on-element);
-			}
-
-			&:hover {
-				background: color-mix(in srgb, var(--clr-theme-pop-on-element) 10%, transparent);
-			}
-
-			& .docs-button__arrow {
-				stroke: var(--clr-theme-pop-on-element);
-			}
-
-			& .docs-button__book {
-				fill: var(--clr-theme-pop-on-element);
-			}
-		}
 	}
 
 	.docs-button__arrow {
-		stroke: var(--clr-text-2);
+		stroke: var(--docs-text);
 		opacity: 0.5;
 		transition:
 			transform 0.2s,
@@ -258,7 +238,7 @@
 
 	.docs-button__book {
 		margin-bottom: 8px;
-		fill: var(--clr-text-2);
+		fill: var(--docs-text);
 	}
 
 	@media (--tablet-viewport) {

@@ -42,7 +42,7 @@
 		padding: 8px 12px;
 		border-radius: 100px;
 		background: var(--clr-theme-pop-on-element);
-		color: var(--clr-theme-pop-element);
+		color: var(--clr-core-pop-40);
 	}
 
 	.cta-section__header {
