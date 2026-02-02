@@ -264,8 +264,7 @@ Based on the conversation below and the project status, please update the status
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
-        let mut toolset =
-            but_tools::workspace::workspace_toolset(self.ctx, self.emitter.clone(), self.message_id.clone());
+        let mut toolset = but_tools::workspace::workspace_toolset(self.ctx);
 
         let mut internal_chat_messages = self.chat_messages.clone();
 
@@ -312,8 +311,7 @@ Based on the conversation below and the project status, please update the status
         let serialized_status = serde_json::to_string_pretty(&project_status)
             .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
 
-        let mut toolset =
-            but_tools::workspace::workspace_toolset(self.ctx, self.emitter.clone(), self.message_id.clone());
+        let mut toolset = but_tools::workspace::workspace_toolset(self.ctx);
 
         let mut internal_chat_messages = self.chat_messages.clone();
 

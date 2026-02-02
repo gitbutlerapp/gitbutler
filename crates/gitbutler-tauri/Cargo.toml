@@ -33,6 +33,7 @@ but-claude.workspace = true
 but-ctx.workspace = true
 but-forge.workspace = true
 but-llm.workspace = true
+but-hunk-assignment.workspace = true
 
 gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true
@@ -60,7 +61,7 @@ rusqlite.workspace = true
 
 backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.5.0"
-gix = { workspace = true, features = ["max-performance", "worktree-mutation" ] }
+gix = { workspace = true, features = ["max-performance", "worktree-mutation"] }
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 
@@ -114,4 +115,3 @@ custom-protocol = ["tauri/custom-protocol"]
 
 ## Add support for backtraces on any error.
 error-context = ["dep:backtrace"]
-

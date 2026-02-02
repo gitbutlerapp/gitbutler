@@ -3,14 +3,14 @@ use std::{
     path::Path,
 };
 
-use bstr::{BString, ByteSlice};
+use bstr::ByteSlice;
 use but_api_macros::but_api;
-use but_core::{
-    DiffSpec,
-    sync::{RepoExclusive, RepoExclusiveGuard},
-};
+use but_core::sync::{RepoExclusive, RepoExclusiveGuard};
 use but_ctx::Context;
-use but_hunk_assignment::{AbsorptionReason, AbsorptionTarget, CommitAbsorption, FileAbsorption, HunkAssignment};
+use but_hunk_assignment::{
+    AbsorptionReason, AbsorptionTarget, CommitAbsorption, CommitMap, FileAbsorption, GroupedChanges, HunkAssignment,
+    convert_assignments_to_diff_specs,
+};
 use but_hunk_dependency::ui::{HunkLock, HunkLockTarget};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use but_workspace::ui::StackDetails;
@@ -19,7 +19,6 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_stack::StackId;
-use gix::ObjectId;
 use itertools::Itertools;
 use tracing::instrument;
 
@@ -52,7 +51,7 @@ pub fn absorb_impl(
 ) -> anyhow::Result<usize> {
     // Apply each group to its target commit and track failures
     let mut total_rejected = 0;
-    let mut commit_map = CommitMap::new();
+    let mut commit_map = CommitMap::default();
 
     for absorption in absorption_plan {
         let diff_specs = convert_assignments_to_diff_specs(
@@ -317,38 +316,6 @@ fn determine_target_commit(
     );
 }
 
-/// Convert HunkAssignments to DiffSpecs
-fn convert_assignments_to_diff_specs(assignments: &[HunkAssignment]) -> anyhow::Result<Vec<DiffSpec>> {
-    let mut specs_by_path: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
-
-    // Group assignments by file path
-    for assignment in assignments {
-        specs_by_path
-            .entry(assignment.path_bytes.clone())
-            .or_default()
-            .push(assignment.clone());
-    }
-
-    // Convert to DiffSpecs
-    let mut diff_specs = Vec::new();
-    for (path, hunks) in specs_by_path {
-        let mut hunk_headers = Vec::new();
-        for hunk in hunks {
-            if let Some(header) = hunk.hunk_header {
-                hunk_headers.push(header);
-            }
-        }
-
-        diff_specs.push(DiffSpec {
-            previous_path: None, // TODO: Handle renames
-            path: path.clone(),
-            hunk_headers,
-        });
-    }
-
-    Ok(diff_specs)
-}
-
 /// Prepare commit absorptions with commit summaries
 ///
 /// This returns a vector of absorption information, sorted and ready for processing.
@@ -408,32 +375,3 @@ fn get_commit_summary(repo: &gix::Repository, commit_id: gix::ObjectId) -> anyho
     let message = commit.message()?.title.to_string();
     Ok(message)
 }
-
-/// Tracks mappings between old and new commit IDs during rebase operations
-struct CommitMap {
-    map: HashMap<ObjectId, ObjectId>,
-}
-
-impl CommitMap {
-    fn new() -> Self {
-        Self { map: HashMap::new() }
-    }
-
-    /// Find the final mapped commit ID by following the chain of mappings
-    fn find_mapped_id(&self, commit_id: ObjectId) -> ObjectId {
-        let mut current_id = commit_id;
-        while let Some(mapped_id) = self.map.get(&current_id) {
-            current_id = *mapped_id;
-        }
-        current_id
-    }
-
-    /// Add a mapping from old commit ID to new commit ID
-    fn add_mapping(&mut self, old_commit_id: ObjectId, new_commit_id: ObjectId) {
-        self.map.insert(old_commit_id, new_commit_id);
-    }
-}
-
-/// Type alias for grouped changes by commit
-type GroupedChanges =
-    BTreeMap<(but_core::ref_metadata::StackId, gix::ObjectId), (Vec<HunkAssignment>, AbsorptionReason)>;
