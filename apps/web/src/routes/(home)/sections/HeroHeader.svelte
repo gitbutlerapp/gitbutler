@@ -85,7 +85,7 @@
 			onmouseleave={() => (hoveredOption = null)}
 			aria-pressed={currentPage === 'home'}
 		>
-			Client
+			Desktop
 		</button>
 		<button
 			bind:this={cliButton}
