@@ -8,12 +8,14 @@
 	@component
 -->
 <script lang="ts">
+	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import Drawer from '$components/Drawer.svelte';
 	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
 	import { isExecutableStatus, type TreeChange } from '$lib/hunks/change';
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
+	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { type SelectionId } from '$lib/selection/key';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
@@ -46,10 +48,15 @@
 	}: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
+	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let highlightedIndex = $state<number | null>(startIndex ?? null);
+	let contextMenus = $state<Record<string, ReturnType<typeof ChangedFilesContextMenu>>>({});
+	let headerTriggers = $state<Record<string, HTMLElement>>({});
+	let buttonElements = $state<Record<string, HTMLElement>>({});
+	let menuOpenStates = $state<Record<string, boolean>>({});
 
 	export function jumpToIndex(index: number) {
 		virtualList?.jumpToIndex(index);
@@ -93,17 +100,51 @@
 					highlighted={highlightedIndex === index}
 				>
 					{#snippet header()}
-						<FileViewHeader
-							filePath={change.path}
-							fileStatus={computeChangeStatus(change)}
-							linesAdded={patchData?.linesAdded}
-							linesRemoved={patchData?.linesRemoved}
-							executable={isExecutable}
-						/>
+						<div bind:this={headerTriggers[change.path]}>
+							<FileViewHeader
+								filePath={change.path}
+								fileStatus={computeChangeStatus(change)}
+								linesAdded={patchData?.linesAdded}
+								linesRemoved={patchData?.linesRemoved}
+								executable={isExecutable}
+							/>
+						</div>
 					{/snippet}
 
 					{#snippet actions()}
-						<Button kind="ghost" icon="kebab" size="tag" />
+						<ChangedFilesContextMenu
+							bind:this={contextMenus[change.path]}
+							{projectId}
+							{stackId}
+							{selectionId}
+							leftClickTrigger={buttonElements[change.path]}
+							trigger={headerTriggers[change.path]}
+							onopen={() => {
+								menuOpenStates[change.path] = true;
+							}}
+							onclose={() => {
+								menuOpenStates[change.path] = false;
+							}}
+						/>
+						<Button
+							bind:el={buttonElements[change.path]}
+							kind="ghost"
+							icon="kebab"
+							size="tag"
+							activated={menuOpenStates[change.path]}
+							onclick={async () => {
+								const contextMenu = contextMenus[change.path];
+								const buttonEl = buttonElements[change.path];
+								if (!contextMenu || !buttonEl) return;
+
+								const changes = await idSelection.treeChanges(projectId, selectionId);
+								if (idSelection.has(change.path, selectionId) && changes.length > 0) {
+									contextMenu.open(buttonEl, { changes });
+								} else {
+									contextMenu.open(buttonEl, { changes: [change] });
+								}
+							}}
+						/>
 					{/snippet}
 
 					<ReduxResult {projectId} hideLoading result={diffQuery.result}>

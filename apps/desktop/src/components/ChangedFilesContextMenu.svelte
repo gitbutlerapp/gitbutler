@@ -47,7 +47,10 @@
 		stackId: string | undefined;
 		selectionId: SelectionId;
 		trigger?: HTMLElement;
+		leftClickTrigger?: HTMLElement;
 		editMode?: boolean;
+		onopen?: () => void;
+		onclose?: () => void;
 	};
 
 	type ChangedFilesItem = {
@@ -72,7 +75,16 @@
 		return 'path' in item && typeof item.path === 'string';
 	}
 
-	const { trigger, selectionId, stackId, projectId, editMode = false }: Props = $props();
+	const {
+		trigger,
+		leftClickTrigger,
+		selectionId,
+		stackId,
+		projectId,
+		editMode = false,
+		onopen,
+		onclose
+	}: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -182,7 +194,7 @@
 		stashConfirmationModal?.close();
 	}
 
-	export function open(e: MouseEvent, item: ChangedFilesItem) {
+	export function open(e: MouseEvent | HTMLElement, item: ChangedFilesItem) {
 		contextMenu.open(e, item);
 		aiService.validateGitButlerAPIConfiguration().then((value) => {
 			aiConfigurationValid = value;
@@ -351,7 +363,13 @@
 	let isAbsorbModalScrollVisible = $state(true);
 </script>
 
-<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
+<ContextMenu
+	bind:this={contextMenu}
+	{leftClickTrigger}
+	rightClickTrigger={trigger}
+	{onopen}
+	{onclose}
+>
 	{#snippet children(item: unknown)}
 		{#if isChangedFilesItem(item)}
 			{@const deletion = isDeleted(item)}

@@ -122,19 +122,13 @@
 				</div>
 			{/snippet}
 
-			{#snippet actions(header)}
+			{#snippet actions()}
 				{@const data = {
 					branch,
 					prNumber: branch.prNumber || undefined,
 					stackLength: branches.length
 				}}
-				<BranchHeaderContextMenu
-					{projectId}
-					{stackId}
-					{laneId}
-					rightClickTrigger={header}
-					contextData={data}
-				/>
+				<BranchHeaderContextMenu {projectId} {stackId} {laneId} contextData={data} />
 			{/snippet}
 
 			{#if hasCommits}
