@@ -1,4 +1,5 @@
-import { expect } from '@playwright/test';
+import { clickByTestId, getByTestId, waitForTestId } from './util.ts';
+import { expect, Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -31,4 +32,25 @@ export function writeFiles(files: Record<string, string>): void {
 export async function assertFileContent(filePath: string, expectedContent: string): Promise<void> {
 	const actualContent = fs.readFileSync(filePath, 'utf-8');
 	await expect.poll(() => actualContent).toBe(expectedContent);
+}
+
+/**
+ * Discard a file from the uncommitted changes list via context menu.
+ */
+export async function discardFile(fileName: string, page: Page): Promise<void> {
+	let fileItem = getByTestId(page, 'uncommitted-changes-file-list')
+		.getByTestId('file-list-item')
+		.filter({ hasText: fileName });
+	await expect(fileItem).toBeVisible();
+
+	await fileItem.click({ button: 'right' });
+	await clickByTestId(page, 'file-list-item-context-menu__discard-changes');
+
+	await waitForTestId(page, 'discard-file-changes-confirmation-modal');
+	await clickByTestId(page, 'discard-file-changes-confirmation-modal-discard');
+
+	fileItem = getByTestId(page, 'uncommitted-changes-file-list')
+		.getByTestId('file-list-item')
+		.filter({ hasText: fileName });
+	await expect(fileItem).not.toBeVisible();
 }

@@ -1,8 +1,4 @@
 <script lang="ts" module>
-	export function getHunkLineId(rowEncodedId: DiffFileLineId): string {
-		return `hunk-line-${rowEncodedId}`;
-	}
-
 	export type ContextMenuParams = {
 		event?: MouseEvent;
 		target?: HTMLElement;
@@ -20,9 +16,9 @@
 		isDeltaLine,
 		SectionType,
 		type DependencyLock,
-		type DiffFileLineId,
 		type Row
 	} from '$lib/utils/diffParsing';
+	import { getHunkLineId } from '$lib/utils/hunk';
 	import type LineSelection from '$components/hunkDiff/lineSelection.svelte';
 	import type { Snippet } from 'svelte';
 
