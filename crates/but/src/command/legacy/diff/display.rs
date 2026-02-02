@@ -180,9 +180,9 @@ impl DiffDisplay for HunkAssignment {
         // ────────╯
         output.push_str(&format!("{}╮\n", "─".repeat(content_width).dimmed()));
         if let Some(id) = &short_id {
-            output.push_str(&format!("{} {}│\n", id.blue().underline(), self.path.bright_white()));
+            output.push_str(&format!("{} {}│\n", id.blue().underline(), self.path.bold()));
         } else {
-            output.push_str(&format!("{}│\n", self.path.bright_white()));
+            output.push_str(&format!("{}│\n", self.path.bold()));
         }
         output.push_str(&format!("{}╯\n", "─".repeat(content_width).dimmed()));
 
