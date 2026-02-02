@@ -335,6 +335,8 @@ fn get_reviews_json(
     }
 }
 
+// TODO(perf): re-write this to use a graph that includes all branches from the listing, needs a listing that uses
+//             the graph.
 fn check_branches_merge_cleanly(
     ctx: &Context,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
