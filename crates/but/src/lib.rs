@@ -531,6 +531,8 @@ async fn match_subcommand(
                     if commit_args.ai.is_some() {
                         anyhow::bail!("--ai cannot be used with 'commit empty'.");
                     }
+                    // Note: --files with commit empty is rejected by clap at parse time
+                    // because --files is not a flag on the empty subcommand
 
                     // Handle the `but commit empty` subcommand
                     // Determine target and insert side based on which argument was provided
@@ -618,6 +620,7 @@ async fn match_subcommand(
                         out,
                         commit_message.as_deref(),
                         commit_args.branch.as_deref(),
+                        &commit_args.files,
                         commit_args.only,
                         commit_args.create,
                         commit_args.no_hooks,

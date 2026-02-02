@@ -14,7 +14,7 @@ use gitbutler_repo::hooks;
 
 use crate::{
     CliId, IdMap,
-    command::legacy::status::assignment::FileAssignment,
+    command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     tui,
     utils::{InputOutputChannel, OutputChannel},
 };
@@ -148,12 +148,108 @@ fn generate_unified_diff(
     Ok(diff_output)
 }
 
+/// Resolves file CliIDs to their corresponding FileAssignments.
+/// Returns an error if any ID is invalid, ambiguous, or assigned to a different stack.
+/// Deduplicates by file path to handle cases where the same file is passed multiple times.
+fn resolve_file_ids(
+    id_map: &IdMap,
+    ctx: &mut but_ctx::Context,
+    file_ids: &[String],
+    target_stack_id: Option<but_core::ref_metadata::StackId>,
+) -> anyhow::Result<Vec<FileAssignment>> {
+    let mut resolved_files: BTreeMap<BString, FileAssignment> = BTreeMap::new();
+    let mut errors = Vec::new();
+
+    for file_id in file_ids {
+        let cli_ids = match id_map.parse_using_context(file_id, ctx) {
+            Ok(ids) => ids,
+            Err(e) => {
+                errors.push(format!("'{}': {}", file_id, e));
+                continue;
+            }
+        };
+
+        if cli_ids.is_empty() {
+            errors.push(format!(
+                "'{}' not found. Run 'but status' to see available file IDs.",
+                file_id
+            ));
+            continue;
+        }
+
+        if cli_ids.len() > 1 {
+            errors.push(format!(
+                "'{}' is ambiguous - matches {} entities. Use more characters to disambiguate.",
+                file_id,
+                cli_ids.len()
+            ));
+            continue;
+        }
+
+        match &cli_ids[0] {
+            CliId::Uncommitted(uncommitted) => {
+                // Validate stack assignment for ALL hunks - each must be unassigned OR assigned to target stack
+                for hunk in &uncommitted.hunk_assignments {
+                    if hunk.stack_id.is_some() && hunk.stack_id != target_stack_id {
+                        errors.push(format!(
+                            "'{}' is assigned to a different stack. Use 'but rub {} zz' to unassign it first.",
+                            file_id, file_id
+                        ));
+                        break;
+                    }
+                }
+                if errors.iter().any(|e| e.starts_with(&format!("'{}'", file_id))) {
+                    continue;
+                }
+
+                // Convert UncommittedCliId to FileAssignment and merge with existing entry if present
+                let path = uncommitted.hunk_assignments.first().path_bytes.clone();
+                let new_assignments: Vec<CLIHunkAssignment> = uncommitted
+                    .hunk_assignments
+                    .iter()
+                    .map(|ha| CLIHunkAssignment {
+                        inner: ha.clone(),
+                        cli_id: file_id.to_owned(),
+                    })
+                    .collect();
+
+                // Merge with existing entry for same path, or insert new
+                if let Some(existing) = resolved_files.get_mut(&path) {
+                    existing.assignments.extend(new_assignments);
+                } else {
+                    resolved_files.insert(
+                        path.clone(),
+                        FileAssignment {
+                            path,
+                            assignments: new_assignments,
+                        },
+                    );
+                }
+            }
+            other => {
+                errors.push(format!(
+                    "'{}' is {} but must be an uncommitted file or hunk",
+                    file_id,
+                    other.kind_for_humans()
+                ));
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        bail!("Invalid file ID(s):\n  {}", errors.join("\n  "));
+    }
+
+    Ok(resolved_files.into_values().collect())
+}
+
 #[expect(clippy::too_many_arguments)]
 pub(crate) fn commit(
     ctx: &mut but_ctx::Context,
     out: &mut OutputChannel,
     message: Option<&str>,
     branch_hint: Option<&str>,
+    file_ids: &[String],
     only: bool,
     create_branch: bool,
     no_hooks: bool,
@@ -185,24 +281,32 @@ pub(crate) fn commit(
     let worktree_changes = diff::changes_in_worktree(ctx)?;
     let changes = worktree_changes.worktree_changes.changes;
 
-    let assignments_by_file: BTreeMap<BString, FileAssignment> = FileAssignment::get_assignments_by_file(&id_map);
+    // Get files to commit - either specific files by ID or all eligible files
+    let files_to_commit = if !file_ids.is_empty() {
+        // User specified specific file IDs - resolve them
+        resolve_file_ids(&id_map, ctx, file_ids, Some(target_stack_id))?
+    } else {
+        // Default behavior: unassigned files + files assigned to target stack
+        let assignments_by_file: BTreeMap<BString, FileAssignment> = FileAssignment::get_assignments_by_file(&id_map);
 
-    // Get files to commit: unassigned files + files assigned to target stack
-    let mut files_to_commit = Vec::new();
+        let mut files = Vec::new();
 
-    if !only {
-        // Add unassigned files (unless --only flag is used)
-        let unassigned =
-            crate::command::legacy::status::assignment::filter_by_stack_id(assignments_by_file.values(), &None);
-        files_to_commit.extend(unassigned);
-    }
+        if !only {
+            // Add unassigned files (unless --only flag is used)
+            let unassigned =
+                crate::command::legacy::status::assignment::filter_by_stack_id(assignments_by_file.values(), &None);
+            files.extend(unassigned);
+        }
 
-    // Add files assigned to target stack
-    let stack_assigned = crate::command::legacy::status::assignment::filter_by_stack_id(
-        assignments_by_file.values(),
-        &Some(target_stack_id),
-    );
-    files_to_commit.extend(stack_assigned);
+        // Add files assigned to target stack
+        let stack_assigned = crate::command::legacy::status::assignment::filter_by_stack_id(
+            assignments_by_file.values(),
+            &Some(target_stack_id),
+        );
+        files.extend(stack_assigned);
+
+        files
+    };
 
     if files_to_commit.is_empty() {
         bail!("No changes to commit.")
