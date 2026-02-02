@@ -329,7 +329,14 @@ pub(crate) fn commit(
             Some(id) => id.to_hex_with_len(7).to_string(),
             None => "unknown".to_string(),
         };
-        writeln!(out, "Created commit {} on branch {}", commit_short, target_branch.name)?;
+        writeln!(
+            out,
+            "{} {} {} {}",
+            "✓ Created commit".green(),
+            commit_short.magenta(),
+            "on branch".green(),
+            target_branch.name.to_str_lossy().yellow()
+        )?;
     }
 
     // Run post-commit hook unless --no-hooks was specified

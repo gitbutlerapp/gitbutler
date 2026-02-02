@@ -27,7 +27,7 @@ fn commit_with_message_from_file() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created commit [..] on branch A
+✓ Created commit [..] on branch A
 
 "#]]);
 
@@ -81,7 +81,7 @@ fn commit_with_message_flag() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created commit [..] on branch A
+✓ Created commit [..] on branch A
 
 "#]]);
 
@@ -114,7 +114,7 @@ fn commit_with_branch_hint() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(str![[r#"
-Created commit [..] on branch B
+✓ Created commit [..] on branch B
 
 "#]]);
 
@@ -173,7 +173,7 @@ fn commit_with_create_flag_creates_new_branch() -> anyhow::Result<()> {
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
 Created new independent branch 'feature-x'
-Created commit [..] on branch feature-x
+✓ Created commit [..] on branch feature-x
 
 "#]]);
 
