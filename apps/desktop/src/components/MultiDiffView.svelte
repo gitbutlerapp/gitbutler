@@ -138,6 +138,11 @@
 								if (!contextMenu || !buttonEl) return;
 
 								const changes = await idSelection.treeChanges(projectId, selectionId);
+
+								// Re-check elements exist after async operation completes
+								// (component may have unmounted or scrolled out of view)
+								if (!contextMenus[change.path] || !buttonElements[change.path]) return;
+
 								if (idSelection.has(change.path, selectionId) && changes.length > 0) {
 									contextMenu.open(buttonEl, { changes });
 								} else {
