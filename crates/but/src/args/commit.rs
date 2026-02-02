@@ -22,6 +22,11 @@ pub struct Platform {
     /// Generate commit message using AI with optional user summary
     #[clap(short = 'i', long = "ai", conflicts_with = "message", conflicts_with = "file")]
     pub ai: Option<Option<String>>,
+    /// Uncommitted file or hunk CLI IDs to include in the commit.
+    /// Can be specified multiple times or as comma-separated values.
+    /// If not specified, all uncommitted changes (or changes staged to the target branch) are committed.
+    #[clap(long = "files", short = 'F', value_delimiter = ',', num_args = 1..)]
+    pub files: Vec<String>,
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
 }

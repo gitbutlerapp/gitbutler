@@ -1,7 +1,7 @@
 ---
 name: but
 version: 0.0.0
-description: Manage GitButler CLI workspace with multiple parallel branches. ALWAYS invoke immediately after Write/Edit tools to stage changes. Use when checking version control state, starting new work (create branch/stack first), after ANY file modifications (stage to branches), committing work, editing history, or any git operation. Uses 'but' commands not 'git' for writes.
+description: Manage GitButler CLI workspace with multiple parallel branches. Use when checking version control state, starting new work (create branch first), committing work, editing history, or any git operation. Uses 'but' commands not 'git' for writes.
 author: GitButler Team
 ---
 
@@ -16,21 +16,17 @@ Help users work with GitButler CLI (`but` command) in workspace mode.
 1. **Check state** → `but status --json` (always use `--json` for structured output)
 2. **Start work** → `but branch new <task-name>` (create stack for this work theme)
 3. **Make changes** → Edit files as needed
-4. **Stage changes IMMEDIATELY** → `but stage <file> <branch>` (after EVERY Write/Edit tool use)
-5. **Commit work** → `but commit <branch> --only -m "message"` (commit only staged changes)
-6. **Refine** → Use `but absorb` or `but squash` to clean up history
-
-**Step 4 is required immediately after any file modification** - do not skip or delay staging.
+4. **Commit work** → `but commit <branch> -m "message" --files <id>,<id>` (commit specific files by CLI ID)
+5. **Refine** → Use `but absorb` or `but squash` to clean up history
 
 ## After Using Write/Edit Tools
 
-**ALWAYS do this immediately:**
+When ready to commit:
 
-1. Run `but status --json` to see the new changes (use `--json` for structured output)
-2. Stage the modified files: `but stage <file-id> <branch-id>`
-3. Verify with `but status --json` again
+1. Run `but status --json` to see uncommitted changes and get their CLI IDs
+2. Commit the relevant files directly: `but commit <branch> -m "message" --files <id>,<id>`
 
-Do not proceed to other tasks until changes are staged.
+You can batch multiple file edits before committing - no need to commit after every single change.
 
 ## Critical Concept: Workspace Model
 
@@ -64,9 +60,9 @@ but skill install --path <path>    # Install/update skill (agents use --path wit
 ```bash
 but status --json       # Always start here - shows workspace state (JSON for agents)
 but branch new feature  # Create new stack for work
-but stage <file> <id>   # Stage changes to branch
-but commit <id> --only -m "…"  # Commit only staged changes
-but push <id>           # Push to remote
+# Make changes...
+but commit <branch> -m "…" --files <id>,<id>  # Commit specific files by CLI ID
+but push <branch>       # Push to remote
 ```
 
 ## Essential Commands
@@ -90,12 +86,13 @@ For detailed command syntax and all available options, see [references/reference
 
 - `but branch new <name>` - Independent branch
 - `but branch new <name> -a <anchor>` - Stacked branch (dependent)
-- `but stage <file> <branch>` - Assign file to branch
+- `but stage <file> <branch>` - Pre-assign file to branch (optional, for organizing before commit)
 
 **Making changes:**
 
-- `but commit <branch> --only -m "msg"` - Commit only staged changes
+- `but commit <branch> -m "msg" --files <id>,<id>` - Commit specific files by CLI ID (recommended)
 - `but commit <branch> -m "msg"` - Commit ALL uncommitted changes to branch
+- `but commit <branch> --only -m "msg"` - Commit only pre-staged changes
 - `but amend <file-id> <commit-id>` - Amend file into specific commit (explicit control)
 - `but absorb <file-id>` - Absorb file into auto-detected commit (smart matching)
 - `but absorb <branch-id>` - Absorb all changes staged to a branch
@@ -119,7 +116,7 @@ For deeper understanding of the workspace model, dependency tracking, and philos
 
 **CLI IDs**: Every object gets a short ID (e.g., `c5` for commit, `bu` for branch). Use these as arguments.
 
-**Multiple staging areas**: Each stack has its own staging area. Stage files with `but stage <file> <branch>`.
+**Direct commit with file IDs**: Use `--files` to commit specific files directly without staging: `but commit <branch> -m "msg" --files <id>,<id>`
 
 **Parallel vs Stacked branches**:
 
@@ -143,10 +140,10 @@ For complete step-by-step workflows and real-world scenarios, see [references/ex
 but status --json
 but branch new api-endpoint
 but branch new ui-update
-# Make changes, then stage to appropriate branches
-but stage <api-file> <api-branch>
-but status --json  # Verify staging
-but commit <api-branch> --only -m "Add endpoint"
+# Make changes, then commit specific files to appropriate branches
+but status --json  # Get file CLI IDs
+but commit api-endpoint -m "Add endpoint" --files <api-file-id>
+but commit ui-update -m "Update UI" --files <ui-file-id>
 ```
 
 **Cleaning up commits:**
@@ -169,7 +166,7 @@ but resolve finish      # Complete resolution
 
 1. Always start with `but status --json` to understand current state (agents should always use `--json`)
 2. Create a new stack for each independent work theme
-3. Stage changes after making edits (especially after formatters/linters)
+3. Use `--files` to commit specific files directly - no need to stage first
 4. Commit at logical units of work
 5. **Use `--json` flag for ALL commands** when running as an agent - this provides structured, parseable output instead of human-readable text
 6. Use `--dry-run` flags (push, absorb) when unsure

@@ -546,6 +546,25 @@ Error: --ai cannot be used with 'commit empty'.
 }
 
 #[test]
+fn commit_empty_rejects_files_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Try to use --files with empty subcommand
+    // --files is not a valid flag for the empty subcommand, so clap rejects it
+    let output = env.but("commit empty --before A --files ab").assert().failure();
+
+    let stderr = std::str::from_utf8(&output.get_output().stderr)?;
+    assert!(
+        stderr.contains("unexpected argument"),
+        "Expected clap to reject --files with empty subcommand, got: {}",
+        stderr
+    );
+
+    Ok(())
+}
+
+#[test]
 fn commit_json_mode_requires_message_or_file() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
@@ -650,6 +669,299 @@ fn commit_json_mode_multiple_branches_with_branch_succeeds() -> anyhow::Result<(
     assert!(json["commit_id"].is_string(), "commit_id should be a string");
     assert!(json["branch"].is_string(), "branch should be a string");
     assert_eq!(json["branch"].as_str().unwrap(), "B");
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_specific_file_ids() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create two files
+    env.file("file1.txt", "content 1");
+    env.file("file2.txt", "content 2");
+
+    // Get file IDs from status
+    let status_output = env.but("status --json").assert().success();
+    let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
+    let status: serde_json::Value = serde_json::from_str(stdout)?;
+
+    // Find the CLI ID for file1.txt from unassignedChanges
+    let file1_id = status["unassignedChanges"]
+        .as_array()
+        .and_then(|changes| {
+            changes.iter().find_map(|c| {
+                if c["filePath"].as_str() == Some("file1.txt") {
+                    c["cliId"].as_str().map(|s| s.to_string())
+                } else {
+                    None
+                }
+            })
+        })
+        .expect("file1.txt should have a CLI ID");
+
+    // Commit only file1.txt using its CLI ID
+    env.but(format!("commit -m 'Add file1 only' --files {}", file1_id))
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Created commit [..] on branch A
+
+"#]]);
+
+    // Verify file1 was committed
+    let log = env.git_log()?;
+    assert!(log.contains("Add file1 only"));
+
+    // Verify file2 is still uncommitted
+    let status_after = env.but("status --json").assert().success();
+    let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
+    let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
+
+    let has_file2 = status_after["unassignedChanges"]
+        .as_array()
+        .map(|changes| changes.iter().any(|c| c["filePath"].as_str() == Some("file2.txt")))
+        .unwrap_or(false);
+    assert!(has_file2, "file2.txt should still be uncommitted");
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create three files
+    env.file("file1.txt", "content 1");
+    env.file("file2.txt", "content 2");
+    env.file("file3.txt", "content 3");
+
+    // Get file IDs from status
+    let status_output = env.but("status --json").assert().success();
+    let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
+    let status: serde_json::Value = serde_json::from_str(stdout)?;
+
+    // Find CLI IDs for file1 and file2
+    let changes = status["unassignedChanges"].as_array().expect("should have changes");
+    let file1_id = changes
+        .iter()
+        .find(|c| c["filePath"].as_str() == Some("file1.txt"))
+        .and_then(|c| c["cliId"].as_str())
+        .expect("file1 should have ID");
+    let file2_id = changes
+        .iter()
+        .find(|c| c["filePath"].as_str() == Some("file2.txt"))
+        .and_then(|c| c["cliId"].as_str())
+        .expect("file2 should have ID");
+
+    // Commit file1 and file2, leaving file3 uncommitted
+    env.but(format!("commit -m 'Add two files' --files {},{}", file1_id, file2_id))
+        .assert()
+        .success();
+
+    // Verify file3 is still uncommitted
+    let status_after = env.but("status --json").assert().success();
+    let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
+    let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
+
+    let remaining: Vec<&str> = status_after["unassignedChanges"]
+        .as_array()
+        .map(|changes| changes.iter().filter_map(|c| c["filePath"].as_str()).collect())
+        .unwrap_or_default();
+
+    assert_eq!(remaining, vec!["file3.txt"], "Only file3 should remain uncommitted");
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_invalid_file_id_fails() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create a file so we have something to potentially commit
+    env.file("file.txt", "content");
+
+    // Try to commit with a nonexistent file ID
+    env.but("commit -m 'test' --files zq")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Invalid file ID(s):
+  'zq' not found. Run 'but status' to see available file IDs.
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_wrong_entity_type_fails() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create a file
+    env.file("file.txt", "content");
+
+    // Try to commit using a branch ID instead of file ID
+    // "A" is a branch name which should fail
+    env.but("commit -m 'test' --files A")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+Error: Invalid file ID(s):
+  'A' is a branch but must be an uncommitted file or hunk
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_file_assigned_to_different_stack_fails() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+
+    // Create a file
+    env.file("file.txt", "content");
+
+    // Get file ID from status
+    let status_output = env.but("status --json").assert().success();
+    let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
+    let status: serde_json::Value = serde_json::from_str(stdout)?;
+
+    let file_id = status["unassignedChanges"]
+        .as_array()
+        .and_then(|changes| {
+            changes.iter().find_map(|c| {
+                if c["filePath"].as_str() == Some("file.txt") {
+                    c["cliId"].as_str().map(|s| s.to_string())
+                } else {
+                    None
+                }
+            })
+        })
+        .expect("file.txt should have a CLI ID");
+
+    // Stage the file to branch A
+    env.but(format!("stage {} A", file_id)).assert().success();
+
+    // Try to commit the file to branch B (should fail because it's staged to A)
+    let output = env
+        .but(format!("commit -m 'test' B --files {}", file_id))
+        .assert()
+        .failure();
+
+    // Verify error message contains the expected text
+    let stderr = std::str::from_utf8(&output.get_output().stderr)?;
+    assert!(
+        stderr.contains("is assigned to a different stack"),
+        "Expected error about different stack assignment, got: {}",
+        stderr
+    );
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_empty_file_list_uses_all_files() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create two files
+    env.file("file1.txt", "content 1");
+    env.file("file2.txt", "content 2");
+
+    // Commit without specifying files (should include both)
+    env.but("commit -m 'Add both files'")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Created commit [..] on branch A
+
+"#]]);
+
+    // Verify both files were committed (no uncommitted files left)
+    let status_after = env.but("status --json").assert().success();
+    let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
+    let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
+
+    let unassigned = status_after["unassignedChanges"].as_array();
+    assert!(
+        unassigned.map(|f| f.is_empty()).unwrap_or(true),
+        "All files should be committed"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create a file with content that will result in multiple hunks when modified
+    env.file(
+        "multi-hunk.txt",
+        "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n",
+    );
+
+    // Commit initial file
+    env.but("commit -m 'Initial file'").assert().success();
+
+    // Modify the file in two non-adjacent places to create two hunks
+    env.file(
+        "multi-hunk.txt",
+        "MODIFIED1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nMODIFIED10\n",
+    );
+
+    // Get hunk IDs from status
+    let status_output = env.but("status --json -f").assert().success();
+    let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
+    let status: serde_json::Value = serde_json::from_str(stdout)?;
+
+    // Find all hunk IDs for multi-hunk.txt
+    let hunk_ids: Vec<String> = status["unassignedChanges"]
+        .as_array()
+        .map(|changes| {
+            changes
+                .iter()
+                .filter(|c| c["filePath"].as_str() == Some("multi-hunk.txt"))
+                .filter_map(|c| c["cliId"].as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // If we have multiple hunks, test that specifying both works
+    if hunk_ids.len() >= 2 {
+        let ids_arg = hunk_ids.join(",");
+        env.but(format!("commit -m 'Both hunks' --files {}", ids_arg))
+            .assert()
+            .success();
+
+        // Verify no uncommitted changes left
+        let status_after = env.but("status --json").assert().success();
+        let stdout_after = std::str::from_utf8(&status_after.get_output().stdout)?;
+        let status_after: serde_json::Value = serde_json::from_str(stdout_after)?;
+
+        let remaining: Vec<&str> = status_after["unassignedChanges"]
+            .as_array()
+            .map(|changes| changes.iter().filter_map(|c| c["filePath"].as_str()).collect())
+            .unwrap_or_default();
+
+        assert!(
+            !remaining.contains(&"multi-hunk.txt"),
+            "All hunks from multi-hunk.txt should be committed"
+        );
+    } else {
+        // If only one hunk was created (due to context lines merging them),
+        // just verify commit works with that single ID
+        env.but(format!("commit -m 'Single hunk' --files {}", hunk_ids[0]))
+            .assert()
+            .success();
+    }
 
     Ok(())
 }
