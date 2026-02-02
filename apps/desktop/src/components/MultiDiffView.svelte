@@ -141,7 +141,13 @@
 
 								// Re-check elements exist after async operation completes
 								// (component may have unmounted or scrolled out of view)
-								if (!contextMenus[change.path] || !buttonElements[change.path]) return;
+								if (
+									!contextMenus[change.path] ||
+									!buttonElements[change.path] ||
+									contextMenus[change.path] !== contextMenu ||
+									buttonElements[change.path] !== buttonEl
+								)
+									return;
 
 								if (idSelection.has(change.path, selectionId) && changes.length > 0) {
 									contextMenu.open(buttonEl, { changes });
