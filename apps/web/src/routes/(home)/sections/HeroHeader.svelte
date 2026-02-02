@@ -62,11 +62,7 @@
 			fill="none"
 			xmlns="http://www.w3.org/2000/svg"
 		>
-			<path
-				d="M10.307 38.7735C32.1083 27.5371 80.2447 17.3196 129.361 25.3953"
-				stroke="var(--clr-theme-pop-soft)"
-				stroke-width="45"
-			/>
+			<path d="M10.307 38.7735C32.1083 27.5371 80.2447 17.3196 129.361 25.3953" stroke-width="45" />
 		</svg>
 	</i> Better
 </h1>
@@ -146,6 +142,16 @@
 		width: 120%;
 		height: auto;
 		pointer-events: none;
+
+		path {
+			stroke: var(--clr-core-pop-70);
+			opacity: 0.7;
+		}
+	}
+
+	:global(.dark) .but-text__underline path {
+		stroke: var(--clr-core-pop-30);
+		opacity: 0.8;
 	}
 
 	.description-wrapper {
