@@ -9,6 +9,7 @@
 	import { createWorktreeSelection } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { TestId } from '@gitbutler/ui';
 
@@ -23,6 +24,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
+	const uiState = inject(UI_STATE);
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 	const worktreeSelection = $derived(idSelection.getById(selectionId));
@@ -33,6 +35,9 @@
 
 	// Transform unassigned changes to SelectedFile[] format
 	const unassignedChanges = $derived(uncommittedService.getChangesByStackId(null));
+	const projectState = $derived(uiState.project(projectId));
+	const exclusiveAction = $derived(projectState.exclusiveAction.current);
+	const isCommitting = $derived(exclusiveAction?.type === 'commit');
 
 	let multiDiffView = $state<MultiDiffView>();
 	let startIndex = $state(0);
@@ -47,7 +52,7 @@
 		changes={unassignedChanges}
 		bind:this={multiDiffView}
 		draggable={true}
-		selectable={false}
+		selectable={isCommitting}
 		showBorder={false}
 		showRoundedEdges={false}
 		onclose={() => {
