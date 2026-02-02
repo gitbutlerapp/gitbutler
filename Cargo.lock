@@ -819,6 +819,7 @@ name = "but-action"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
  "but-core",
  "but-ctx",
  "but-db",
@@ -845,6 +846,7 @@ dependencies = [
  "serde_json",
  "strum",
  "tracing",
+ "ts-rs",
  "uuid",
 ]
 
@@ -3879,6 +3881,7 @@ dependencies = [
  "but-error",
  "but-feedback",
  "but-forge",
+ "but-hunk-assignment",
  "but-llm",
  "but-path",
  "but-secret",

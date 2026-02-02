@@ -339,7 +339,6 @@ impl Tool for AddTodos {
         self: std::sync::Arc<Self>,
         _: serde_json::Value,
         _: &mut Context,
-        _: std::sync::Arc<but_tools::emit::Emitter>,
         _: &mut std::collections::HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         Err(anyhow::anyhow!("The tool AddTodos doesn't support contextual calls."))
@@ -378,7 +377,6 @@ impl Tool for UpdateTodoStatus {
         self: std::sync::Arc<Self>,
         _: serde_json::Value,
         _: &mut Context,
-        _: std::sync::Arc<but_tools::emit::Emitter>,
         _: &mut std::collections::HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         Err(anyhow::anyhow!(
