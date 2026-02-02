@@ -380,6 +380,7 @@
 					{#if isUncommitted}
 						<ContextMenuItem
 							label="Discard changes…"
+							testId={TestId.FileListItemContextMenu_DiscardChanges}
 							icon="bin"
 							onclick={() => {
 								confirmationModal?.show(item);
@@ -574,6 +575,7 @@
 	width="small"
 	type="warning"
 	title="Discard changes"
+	testId={TestId.DiscardFileChangesConfirmationModal}
 	bind:this={confirmationModal}
 	onSubmit={(_, item) => isChangedFilesItem(item) && confirmDiscard(item)}
 >
@@ -613,8 +615,17 @@
 		{/if}
 	{/snippet}
 	{#snippet controls(close, item)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<AsyncButton style="danger" type="submit" action={async () => await confirmDiscard(item)}>
+		<Button
+			testId={TestId.DiscardFileChangesConfirmationModal_Cancel}
+			kind="outline"
+			onclick={close}>Cancel</Button
+		>
+		<AsyncButton
+			testId={TestId.DiscardFileChangesConfirmationModal_Discard}
+			style="danger"
+			type="submit"
+			action={async () => await confirmDiscard(item)}
+		>
 			Confirm
 		</AsyncButton>
 	{/snippet}
