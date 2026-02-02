@@ -125,7 +125,7 @@ Commit changes to a branch.
 ```bash
 but commit <branch> --only -m "message"  # Commit ONLY staged changes (recommended)
 but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
-but commit <branch> -m "message" --files <id>,<id>  # Commit specific files by CLI ID
+but commit <branch> -m "message" --files <id>,<id>  # Commit specific files or hunks by CLI ID
 but commit <branch> -i                   # AI-generated commit message
 but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
@@ -133,7 +133,13 @@ but commit empty --after <target>        # Insert empty commit after target
 
 **Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
 
-**Committing specific files:** Use `--files` (or `-F`) with comma-separated CLI IDs to commit only those files. Get file IDs from `but status`. Example: `but commit my-branch -m "Fix bug" --files ab,cd` commits only files `ab` and `cd`.
+**Committing specific files or hunks:** Use `--files` (or `-F`) with comma-separated CLI IDs to commit only those files or hunks:
+- **File IDs** from `but status`: commits entire files
+- **Hunk IDs** from `but diff --json`: commits individual hunks
+
+Example: `but commit my-branch -m "Fix bug" --files ab,cd` commits files/hunks `ab` and `cd`.
+
+To commit specific hunks from a file with multiple changes, use `but diff --json` to see hunk IDs, then specify them individually.
 
 If only one branch is applied, you can omit the branch ID.
 

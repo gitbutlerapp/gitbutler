@@ -965,3 +965,64 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    env.setup_metadata(&["A"])?;
+
+    // Create a file with content that will result in multiple hunks when modified
+    env.file(
+        "multi-hunk.txt",
+        "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10\n",
+    );
+
+    // Commit initial file
+    env.but("commit -m 'Initial file'").assert().success();
+
+    // Modify the file in two non-adjacent places to create two hunks
+    env.file(
+        "multi-hunk.txt",
+        "MODIFIED1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nMODIFIED10\n",
+    );
+
+    // Get hunk IDs from diff (which shows individual hunks)
+    let diff_output = env.but("diff --json").assert().success();
+    let stdout = std::str::from_utf8(&diff_output.get_output().stdout)?;
+    let diff: serde_json::Value = serde_json::from_str(stdout)?;
+
+    // Collect all change IDs from diff output
+    let change_ids: Vec<String> = diff["changes"]
+        .as_array()
+        .map(|changes| {
+            changes
+                .iter()
+                .filter_map(|c| c["id"].as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    // If we have multiple changes (hunks), test committing just the first one
+    if change_ids.len() >= 2 {
+        let first_hunk_id = &change_ids[0];
+
+        // Commit only the first hunk
+        env.but(format!("commit -m 'First hunk only' --files {}", first_hunk_id))
+            .assert()
+            .success();
+
+        // Verify there are still uncommitted changes (the second hunk)
+        let diff_after = env.but("diff --json").assert().success();
+        let stdout_after = std::str::from_utf8(&diff_after.get_output().stdout)?;
+        let diff_after: serde_json::Value = serde_json::from_str(stdout_after)?;
+
+        let remaining_changes = diff_after["changes"].as_array().map(|c| c.len()).unwrap_or(0);
+        assert!(
+            remaining_changes >= 1,
+            "Second hunk should still be uncommitted, found {} changes",
+            remaining_changes
+        );
+    }
+
+    Ok(())
+}

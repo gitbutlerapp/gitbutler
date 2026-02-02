@@ -90,13 +90,17 @@ For detailed command syntax and all available options, see [references/reference
 
 **Making changes:**
 
-- `but commit <branch> -m "msg" --files <id>,<id>` - Commit specific files by CLI ID (recommended)
+- `but commit <branch> -m "msg" --files <id>,<id>` - Commit specific files or hunks by CLI ID (recommended)
 - `but commit <branch> -m "msg"` - Commit ALL uncommitted changes to branch
 - `but commit <branch> --only -m "msg"` - Commit only pre-staged changes
 - `but amend <file-id> <commit-id>` - Amend file into specific commit (explicit control)
 - `but absorb <file-id>` - Absorb file into auto-detected commit (smart matching)
 - `but absorb <branch-id>` - Absorb all changes staged to a branch
 - `but absorb` - Absorb ALL uncommitted changes (use with caution)
+
+**Getting IDs for --files:**
+- File IDs: `but status --json` - shows file-level IDs
+- Hunk IDs: `but diff --json` - shows hunk-level IDs for fine-grained commits
 
 **Editing history:**
 
@@ -116,7 +120,9 @@ For deeper understanding of the workspace model, dependency tracking, and philos
 
 **CLI IDs**: Every object gets a short ID (e.g., `c5` for commit, `bu` for branch). Use these as arguments.
 
-**Direct commit with file IDs**: Use `--files` to commit specific files directly without staging: `but commit <branch> -m "msg" --files <id>,<id>`
+**Direct commit with file/hunk IDs**: Use `--files` to commit specific files or hunks directly:
+- File IDs from `but status --json` - commit entire files
+- Hunk IDs from `but diff --json` - commit individual hunks for fine-grained control
 
 **Parallel vs Stacked branches**:
 
