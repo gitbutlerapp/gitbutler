@@ -100,6 +100,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         #[cfg(feature = "legacy")]
         Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
         Some(Subcommands::Help) => false,
+        Some(Subcommands::Setup { .. }) => false,
         _ => true,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -530,6 +531,8 @@ async fn match_subcommand(
                     if commit_args.ai.is_some() {
                         anyhow::bail!("--ai cannot be used with 'commit empty'.");
                     }
+                    // Note: --files with commit empty is rejected by clap at parse time
+                    // because --files is not a flag on the empty subcommand
 
                     // Handle the `but commit empty` subcommand
                     // Determine target and insert side based on which argument was provided
@@ -592,6 +595,18 @@ async fn match_subcommand(
                 }
                 None => {
                     // Handle the regular `but commit` command
+
+                    // In JSON mode, require either -m or -f to be specified
+                    if args.json
+                        && commit_args.message.is_none()
+                        && commit_args.file.is_none()
+                        && commit_args.ai.is_none()
+                    {
+                        anyhow::bail!(
+                            "In JSON mode, either --message (-m), --file (-f), or --ai (-i) must be specified"
+                        );
+                    }
+
                     // Read message from file if provided, otherwise use message option
                     let commit_message =
                         match &commit_args.file {
@@ -605,6 +620,7 @@ async fn match_subcommand(
                         out,
                         commit_message.as_deref(),
                         commit_args.branch.as_deref(),
+                        &commit_args.files,
                         commit_args.only,
                         commit_args.create,
                         commit_args.no_hooks,
@@ -652,16 +668,14 @@ async fn match_subcommand(
                 Some(args::oplog::Subcommands::Snapshot { message }) => {
                     command::legacy::oplog::create_snapshot(&mut ctx, out, message.as_deref()).emit_metrics(metrics_ctx)
                 }
+                Some(args::oplog::Subcommands::Restore { oplog_sha, force }) => {
+                    command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force).emit_metrics(metrics_ctx)
+                }
                 None => {
                     // Default to list when no subcommand is provided
                     command::legacy::oplog::show_oplog(&mut ctx, out, None, None).emit_metrics(metrics_ctx)
                 }
             }
-        }
-        #[cfg(feature = "legacy")]
-        Subcommands::Restore { oplog_sha, force } => {
-            let mut ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
-            command::legacy::oplog::restore_to_oplog(&mut ctx, out, &oplog_sha, force).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Undo => {

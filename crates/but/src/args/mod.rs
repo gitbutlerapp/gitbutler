@@ -417,29 +417,12 @@ pub enum Subcommands {
     /// This allows you to restore to any previous point in the history of the
     /// project. All state is preserved in operations, including uncommitted changes.
     ///
-    /// You can use `but restore <oplog-sha>` to restore to a specific state.
+    /// You can use `but oplog restore <oplog-sha>` to restore to a specific state.
     ///
     /// By default, shows the last 20 oplog entries (same as `but oplog list`).
     ///
     #[cfg(feature = "legacy")]
     Oplog(oplog::Platform),
-
-    /// Restore to a specific oplog snapshot.
-    ///
-    /// This command allows you to revert the repository to a previous state
-    /// captured in an oplog snapshot.
-    ///
-    /// You need to provide the SHA of the oplog entry you want to restore to,
-    /// which you can find by running `but oplog`.
-    ///
-    #[cfg(feature = "legacy")]
-    Restore {
-        /// Oplog SHA to restore to
-        oplog_sha: String,
-        /// Skip confirmation prompt
-        #[clap(short = 'f', long = "force")]
-        force: bool,
-    },
 
     /// Undo the last operation by reverting to the previous snapshot.
     ///

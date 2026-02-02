@@ -13,7 +13,6 @@ but-secret.workspace = true
 but-tools.workspace = true
 
 async-openai.workspace = true
-ollama-rs = {version = "0.3.3", features = ["stream"]}
 
 serde.workspace = true
 futures = "0.3.31"

@@ -253,12 +253,12 @@ Every operation in GitButler is recorded in the oplog (operation log).
 ```bash
 but oplog                      # View history
 but undo                       # Undo last operation
-but restore <snapshot-id>      # Restore to specific point
+but oplog restore <snapshot-id>  # Restore to specific point
 ```
 
 Think of it as "git reflog" but for all GitButler operations, not just branch movements.
 
-**Safety net:** Made a mistake? `but undo` it. Experimented and want to go back? `but restore` to earlier snapshot.
+**Safety net:** Made a mistake? `but undo` it. Experimented and want to go back? `but oplog restore` to earlier snapshot.
 
 ## Applied vs Unapplied Branches
 

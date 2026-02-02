@@ -1100,7 +1100,6 @@ dependencies = [
  "but-github",
  "chrono",
  "git-url-parse",
- "octorust",
  "serde",
  "serde_json",
  "tokio",
@@ -1156,7 +1155,6 @@ dependencies = [
  "but-settings",
  "gitbutler-user",
  "http 1.4.0",
- "octorust",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -1248,7 +1246,6 @@ dependencies = [
  "but-tools",
  "futures",
  "gix",
- "ollama-rs",
  "reqwest 0.12.28",
  "schemars 1.2.0",
  "serde",
@@ -6282,21 +6279,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "jsonwebtoken"
-version = "9.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a87cc7a48537badeae96744432de36f4be2b4a34a05a5ef32e9dd8a1c169dde"
-dependencies = [
- "base64 0.22.1",
- "js-sys",
- "pem",
- "ring",
- "serde",
- "serde_json",
- "simple_asn1",
-]
-
-[[package]]
 name = "keyboard-types"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6548,7 +6530,6 @@ version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 dependencies = [
- "serde_core",
  "value-bag",
 ]
 
@@ -7443,33 +7424,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "octorust"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c488b641cf652f023d371f6d472191bf3b3fd8075a11f274e95d4fe6e5e3878"
-dependencies = [
- "async-recursion",
- "async-trait",
- "bytes",
- "chrono",
- "http 1.4.0",
- "jsonwebtoken",
- "log",
- "mime",
- "parse_link_header",
- "percent-encoding",
- "reqwest 0.12.28",
- "schemars 0.8.22",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "thiserror 1.0.69",
- "tokio",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "ollama-rs"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7483,8 +7437,6 @@ dependencies = [
  "serde_json",
  "static_assertions",
  "thiserror 2.0.17",
- "tokio",
- "tokio-stream",
  "url",
 ]
 
@@ -7713,17 +7665,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse_link_header"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3687fe9debbbf2a019f381a8bc6b42049b22647449b39af54b3013985c0cf6de"
-dependencies = [
- "http 0.2.12",
- "lazy_static",
- "regex",
-]
-
-[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7734,16 +7675,6 @@ name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
-
-[[package]]
-name = "pem"
-version = "3.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d30c53c26bc5b31a98cd02d20f25a7c8567146caf63ed593a9d87b2775291be"
-dependencies = [
- "base64 0.22.1",
- "serde_core",
-]
 
 [[package]]
 name = "percent-encoding"
@@ -9099,8 +9030,6 @@ version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fbf2ae1b8bc8e02df939598064d22402220cd5bbcca1c76f7d6a310974d5615"
 dependencies = [
- "bytes",
- "chrono",
  "dyn-clone",
  "indexmap 1.9.3",
  "schemars_derive 0.8.22",
@@ -9673,18 +9602,6 @@ name = "similar"
 version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbbb5d9659141646ae647b42fe094daf6c6192d1620870b449d9557f748b2daa"
-
-[[package]]
-name = "simple_asn1"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "297f631f50729c8c99b84667867963997ec0b50f32b2a7dbcab828ef0541e8bb"
-dependencies = [
- "num-bigint",
- "num-traits",
- "thiserror 2.0.17",
- "time",
-]
 
 [[package]]
 name = "siphasher"

@@ -147,7 +147,7 @@
 				}
 				onProgress?.(1);
 				onComplete?.();
-			}, 6000);
+			}, 4000);
 			return;
 		}
 

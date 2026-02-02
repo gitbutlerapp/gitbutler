@@ -2,8 +2,10 @@ mod anthropic;
 mod chat;
 mod client;
 mod key;
+mod lmstudio;
 mod ollama;
 mod openai;
+mod openai_utils;
 
 use std::sync::Arc;
 
@@ -41,6 +43,7 @@ pub enum LLMProviderConfig {
     OpenAi(Option<openai::CredentialsKind>),
     Anthropic(Option<anthropic::CredentialsKind>),
     Ollama(Option<ollama::OllamaConfig>),
+    LMStudio(Option<lmstudio::LMStudioConfig>),
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +51,7 @@ pub enum LLMClientType {
     OpenAi(Arc<openai::OpenAiProvider>),
     Anthropic(Arc<anthropic::AnthropicProvider>),
     Ollama(Arc<ollama::OllamaProvider>),
+    LMStudio(Arc<lmstudio::LMStudioProvider>),
 }
 
 #[derive(Debug, Clone)]
@@ -91,6 +95,9 @@ impl LLMProvider {
                 let config = config.unwrap_or_default();
                 LLMClientType::Ollama(Arc::new(ollama::OllamaProvider::new(config, None)))
             }
+            LLMProviderConfig::LMStudio(config) => {
+                lmstudio::LMStudioProvider::with(config, None).map(|p| LLMClientType::LMStudio(Arc::new(p)))?
+            }
         };
         Some(Self { client })
     }
@@ -117,7 +124,7 @@ impl LLMProvider {
     /// Returns `Some(LLMProvider)` if a valid provider is configured and successfully
     /// initialized, or `None` if:
     /// - The `gitbutler.aiModelProvider` setting is not present
-    /// - The configured provider is not supported (e.g., LMStudio)
+    /// - The configured provider is not supported
     /// - Provider-specific initialization fails (e.g., missing credentials)
     pub fn from_git_config(config: &gix::config::File<'static>) -> Option<Self> {
         let provider_str = config.string(MODEL_PROVIDER).map(|v| v.to_string())?;
@@ -141,7 +148,12 @@ impl LLMProvider {
                     client: LLMClientType::Ollama(Arc::new(client)),
                 })
             }
-            Some(LLMProviderKind::LMStudio) => None,
+            Some(LLMProviderKind::LMStudio) => {
+                let client = lmstudio::LMStudioProvider::from_git_config(config)?;
+                Some(Self {
+                    client: LLMClientType::LMStudio(Arc::new(client)),
+                })
+            }
             None => None,
         }
     }
@@ -165,6 +177,7 @@ impl LLMProvider {
             LLMClientType::OpenAi(client) => client.model(),
             LLMClientType::Anthropic(client) => client.model(),
             LLMClientType::Ollama(client) => client.model(),
+            LLMClientType::LMStudio(client) => client.model(),
         }
     }
 
@@ -198,6 +211,21 @@ impl LLMProvider {
     /// missing or initialization failed.
     pub fn default_anthropic() -> Option<Self> {
         Self::new(LLMProviderConfig::Anthropic(None))
+    }
+
+    /// Creates a default LM Studio LLM provider using environment-based configuration.
+    ///
+    /// This is a convenience method that attempts to create an LM Studio provider
+    /// by reading configuration from environment variables (LM_STUDIO_API_BASE and LM_API_TOKEN).
+    /// It's the recommended way to create an LM Studio provider when you want to use
+    /// the default configuration without explicitly passing settings.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(LLMProvider)` if the provider was successfully initialized,
+    /// or `None` if initialization failed.
+    pub fn default_lmstudio() -> Option<Self> {
+        Self::new(LLMProviderConfig::LMStudio(None))
     }
 
     /// Executes an interactive tool-calling loop with streaming output.
@@ -247,6 +275,9 @@ impl LLMProvider {
             LLMClientType::Ollama(client) => {
                 client.tool_calling_loop_stream(system_message, chat_messages, tool_set, model, on_token)
             }
+            LLMClientType::LMStudio(client) => {
+                client.tool_calling_loop_stream(system_message, chat_messages, tool_set, model, on_token)
+            }
         }
     }
 
@@ -287,6 +318,7 @@ impl LLMProvider {
                 client.tool_calling_loop(system_message, chat_messages, tool_set, model)
             }
             LLMClientType::Ollama(client) => client.tool_calling_loop(system_message, chat_messages, tool_set, model),
+            LLMClientType::LMStudio(client) => client.tool_calling_loop(system_message, chat_messages, tool_set, model),
         }
     }
 
@@ -319,6 +351,7 @@ impl LLMProvider {
             LLMClientType::OpenAi(client) => client.stream_response(system_message, chat_messages, model, on_token),
             LLMClientType::Anthropic(client) => client.stream_response(system_message, chat_messages, model, on_token),
             LLMClientType::Ollama(client) => client.stream_response(system_message, chat_messages, model, on_token),
+            LLMClientType::LMStudio(client) => client.stream_response(system_message, chat_messages, model, on_token),
         }
     }
 
@@ -357,6 +390,7 @@ impl LLMProvider {
             LLMClientType::OpenAi(client) => client.structured_output::<T>(system_message, chat_messages, model),
             LLMClientType::Anthropic(client) => client.structured_output::<T>(system_message, chat_messages, model),
             LLMClientType::Ollama(client) => client.structured_output::<T>(system_message, chat_messages, model),
+            LLMClientType::LMStudio(client) => client.structured_output::<T>(system_message, chat_messages, model),
         }
     }
 
@@ -387,6 +421,7 @@ impl LLMProvider {
             LLMClientType::OpenAi(client) => client.response(system_message, chat_messages, model),
             LLMClientType::Anthropic(client) => client.response(system_message, chat_messages, model),
             LLMClientType::Ollama(client) => client.response(system_message, chat_messages, model),
+            LLMClientType::LMStudio(client) => client.response(system_message, chat_messages, model),
         }
     }
 }

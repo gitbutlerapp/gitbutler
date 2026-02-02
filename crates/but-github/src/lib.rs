@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 mod client;
 pub mod pr;
-pub use client::{CreatePullRequestParams, GitHubClient, GitHubPrLabel, GitHubUser, PullRequest};
+pub use client::{CheckRun, CreatePullRequestParams, GitHubClient, GitHubPrLabel, GitHubUser, PullRequest};
 mod token;
 pub use token::GithubAccountIdentifier;
 
@@ -219,14 +219,16 @@ pub async fn get_gh_user(
         let user = match gh.get_authenticated().await {
             Ok(user) => user,
             Err(client_err) => {
-                // Check if this is a network error before converting to anyhow
-                if is_network_error(&client_err) {
-                    return Err(anyhow::Error::from(client_err).context(but_error::Context::new_static(
+                // Check if this is a network error
+                if let Some(reqwest_err) = client_err.downcast_ref::<reqwest::Error>()
+                    && is_network_error(reqwest_err)
+                {
+                    return Err(client_err.context(but_error::Context::new_static(
                         but_error::Code::NetworkError,
                         "Unable to connect to GitHub.",
                     )));
                 }
-                return Err(anyhow::Error::from(client_err).context("Failed to get authenticated user"));
+                return Err(client_err.context("Failed to get authenticated user"));
             }
         };
         Ok(Some(AuthenticatedUser {
@@ -244,9 +246,8 @@ pub async fn get_gh_user(
 /// Check if an error is a network connectivity error.
 ///
 /// This includes DNS resolution failures, connection timeouts, connection refused, etc.
-fn is_network_error(err: &octorust::ClientError) -> bool {
-    matches!(err, octorust::ClientError::ReqwestError(reqwest_err)
-        if reqwest_err.is_timeout() || reqwest_err.is_connect() || reqwest_err.is_request())
+fn is_network_error(err: &reqwest::Error) -> bool {
+    err.is_timeout() || err.is_connect() || err.is_request()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -314,8 +315,10 @@ mod tests {
         let result = client.get("http://192.0.2.1:80").send();
 
         if let Err(reqwest_err) = result {
-            let client_err = octorust::ClientError::ReqwestError(reqwest_err);
-            assert!(is_network_error(&client_err), "Should detect timeout/connection errors");
+            assert!(
+                is_network_error(&reqwest_err),
+                "Should detect timeout/connection errors"
+            );
         } else {
             panic!("Expected a network error but request succeeded");
         }
@@ -323,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_is_network_error_with_connection_error() {
-        // Create a reqwest error and wrap it in ClientError
+        // Create a reqwest error
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_millis(1))
             .build()
@@ -332,37 +335,9 @@ mod tests {
         let result = client.get("http://192.0.2.1:80").send();
 
         if let Err(reqwest_err) = result {
-            let client_err = octorust::ClientError::ReqwestError(reqwest_err);
-            assert!(
-                is_network_error(&client_err),
-                "Should detect ClientError wrapping reqwest network errors"
-            );
+            assert!(is_network_error(&reqwest_err), "Should detect reqwest network errors");
         } else {
             panic!("Expected a network error but request succeeded");
         }
-    }
-
-    #[test]
-    fn test_is_not_network_error_http_error() {
-        // HTTP errors (like 401) are not network errors
-        let client_err = octorust::ClientError::HttpError {
-            status: http::StatusCode::UNAUTHORIZED,
-            headers: reqwest::header::HeaderMap::new(),
-            error: "Unauthorized".to_string(),
-        };
-        assert!(
-            !is_network_error(&client_err),
-            "Should not detect HTTP status errors as network errors"
-        );
-    }
-
-    #[test]
-    fn test_is_not_network_error_rate_limit() {
-        // Rate limit errors are not network errors
-        let client_err = octorust::ClientError::RateLimited { duration: 60 };
-        assert!(
-            !is_network_error(&client_err),
-            "Should not detect rate limit errors as network errors"
-        );
     }
 }

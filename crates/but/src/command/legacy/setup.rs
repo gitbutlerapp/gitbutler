@@ -38,6 +38,68 @@ struct TargetInfo {
     newly_set: bool,
 }
 
+/// Display a colorful splash screen with GitButler branding and helpful commands
+fn display_splash_screen(out: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
+    writeln!(out)?;
+    writeln!(
+        out,
+        "{}",
+        r#"
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+"#
+        .cyan()
+        .bold()
+    )?;
+
+    writeln!(out, "{}", "The command-line interface for GitButler".dimmed())?;
+    writeln!(out)?;
+
+    writeln!(
+        out,
+        "{:<45} {}",
+        "$ but branch new <name>".bright_blue(),
+        "Create a new branch".dimmed()
+    )?;
+    writeln!(
+        out,
+        "{:<45} {}",
+        "$ but status".bright_blue(),
+        "View workspace status".dimmed()
+    )?;
+    writeln!(
+        out,
+        "{:<45} {}",
+        "$ but commit -m <message>".bright_blue(),
+        "Commit changes to current branch".dimmed()
+    )?;
+    writeln!(
+        out,
+        "{:<45} {}",
+        "$ but push".bright_blue(),
+        "Push all branches".dimmed()
+    )?;
+    writeln!(
+        out,
+        "{:<45} {}",
+        "$ but teardown".bright_blue(),
+        "Return to normal Git mode".dimmed()
+    )?;
+    writeln!(out)?;
+
+    writeln!(
+        out,
+        "{}",
+        "Learn more at https://docs.gitbutler.com/cli-overview".dimmed()
+    )?;
+    writeln!(out)?;
+
+    Ok(())
+}
+
 // setup a gitbutler project for the repository at `repo_path`
 pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> anyhow::Result<()> {
     let mut target_info: Option<TargetInfo> = None;
@@ -286,12 +348,17 @@ To undo these changes and return to normal Git mode, either:
     - Directly checkout a branch (`git checkout {}`)
     - Run `but teardown`
 
-More info: https://docs.gitbutler.com/workspace-branch                    
+More info: https://docs.gitbutler.com/workspace-branch
 "#,
                 pre_head_name
             )
             .yellow()
         )?;
+    }
+
+    // Display splash screen for human output
+    if let Some(out) = out.for_human() {
+        display_splash_screen(out)?;
     }
 
     // Output JSON if requested

@@ -1,6 +1,6 @@
 use anyhow::{Result, bail};
 use but_rebase::graph_rebase::cherry_pick::{CherryPickOutcome, cherry_pick};
-use but_testsupport::visualize_tree;
+use but_testsupport::{visualize_commit_graph_all, visualize_tree};
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::fixture_writable;
@@ -639,6 +639,51 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
     ├── clean-2-f:100644:13e9394 "clean 2\n"
     ├── clean-f:100644:8312630 "clean\n"
     └── target-f:100644:9b1719f "conflict\n"
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn cherry_pick_recursive_merge() -> Result<()> {
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-recursive-merge")?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * aae265d (first-parent) first-parent
+    | * 7d9539e (second-parent) second-parent
+    |/  
+    * 486af94 (b) b
+    | * 7ae309b (third-parent) third-parent
+    |/  
+    | * bdbf7b1 (HEAD -> to-pick) to-pick
+    |/  
+    * 3ba97d6 (a) a
+    * dd35aa7 (base) base
+    ");
+
+    let target = repo.rev_parse_single("to-pick")?;
+    let onto = repo.rev_parse_single("first-parent")?.detach();
+    let onto2 = repo.rev_parse_single("second-parent")?.detach();
+    let onto3 = repo.rev_parse_single("third-parent")?.detach();
+
+    let result = cherry_pick(&repo, target.detach(), &[onto, onto2, onto3], true)?;
+
+    insta::assert_debug_snapshot!(result, @r"
+    Commit(
+        Sha1(cd1d00c1d637d5567f7a0739d1aa9ca3e65b990e),
+    )
+    ");
+
+    let CherryPickOutcome::Commit(id) = result else {
+        bail!("impossible");
+    };
+
+    assert_eq!(&get_parents(&id.attach(&repo))?, &[onto, onto2, onto3]);
+
+    insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
+    4f825d9
+    ├── base-f:100644:718e7e9 "a\nx\nc\nd\n"
+    └── foo-f:100644:2d07937 "1\nx\n2\n"
     "#);
 
     Ok(())

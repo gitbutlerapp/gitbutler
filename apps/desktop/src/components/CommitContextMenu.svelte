@@ -129,7 +129,7 @@
 	}
 </script>
 
-{#if rightClickTrigger && contextData}
+{#if contextData}
 	<KebabButton
 		{showOnHover}
 		contextElement={rightClickTrigger}

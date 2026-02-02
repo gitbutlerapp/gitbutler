@@ -303,7 +303,7 @@ pub(crate) fn create_snapshot(
 
         writeln!(
             out,
-            "\n{} Use 'but restore {}' to restore to this snapshot later.",
+            "\n{} Use 'but oplog restore {}' to restore to this snapshot later.",
             "💡".bright_blue(),
             &snapshot_id.to_string()[..7]
         )?;

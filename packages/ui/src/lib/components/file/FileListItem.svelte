@@ -257,14 +257,17 @@
 		}
 
 		&.active.selected {
-			border-bottom: 1px solid
-				color-mix(in srgb, var(--clr-selected-in-focus-bg) 90%, var(--clr-text-1));
 			background-color: var(--clr-selected-in-focus-bg);
+
+			&.list-mode {
+				border-bottom: 1px solid
+					color-mix(in srgb, var(--clr-selected-in-focus-bg) 90%, var(--clr-text-1));
+			}
 
 			&:hover {
 				background-color: color-mix(
 					in srgb,
-					var(--clr-selected-in-focus-bg) 93%,
+					var(--clr-selected-in-focus-bg) 95%,
 					var(--clr-theme-pop-element)
 				);
 			}

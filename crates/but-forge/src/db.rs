@@ -121,7 +121,7 @@ impl TryFrom<CiCheck> for but_db::CiCheck {
                 (
                     "Complete".to_string(),
                     Some(conclusion_str.to_string()),
-                    Some(completed_at.naive_local()),
+                    completed_at.map(|dt| dt.naive_local()),
                 )
             }
             super::CiStatus::InProgress => ("InProgress".to_string(), None, None),
@@ -179,10 +179,10 @@ impl TryFrom<but_db::CiCheck> for CiCheck {
                 };
                 let completed_at = value
                     .status_completed_at
-                    .ok_or_else(|| anyhow::Error::msg("Complete status missing completed_at"))?;
+                    .map(|dt| chrono::DateTime::from_naive_utc_and_offset(dt, chrono::Utc));
                 super::CiStatus::Complete {
                     conclusion,
-                    completed_at: chrono::DateTime::from_naive_utc_and_offset(completed_at, chrono::Utc),
+                    completed_at,
                 }
             }
             "InProgress" => super::CiStatus::InProgress,
