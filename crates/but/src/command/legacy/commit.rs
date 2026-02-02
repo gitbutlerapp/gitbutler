@@ -174,6 +174,11 @@ pub(crate) fn commit(
         })
         .collect();
 
+    // In JSON mode with multiple branches, require branch specification
+    if out.for_json().is_some() && stacks.len() > 1 && branch_hint.is_none() {
+        bail!("Multiple branches found. Specify a branch to commit to using the branch argument");
+    }
+
     let (target_stack_id, target_stack) = select_stack(&id_map, ctx, &stacks, branch_hint, create_branch, out)?;
 
     // Get changes and assignments using but-api
@@ -247,6 +252,11 @@ pub(crate) fn commit(
     } else if let Some(msg) = message {
         msg.to_string()
     } else {
+        // In JSON mode, we should have already validated that a message was provided
+        // This is a safeguard in case the validation was missed
+        if out.for_json().is_some() {
+            bail!("In JSON mode, a commit message must be provided via --message (-m) or --file (-f)");
+        }
         get_commit_message_from_editor(&files_to_commit, &changes)?
     };
 
@@ -329,7 +339,21 @@ pub(crate) fn commit(
             Some(id) => id.to_hex_with_len(7).to_string(),
             None => "unknown".to_string(),
         };
-        writeln!(out, "Created commit {} on branch {}", commit_short, target_branch.name)?;
+        writeln!(
+            out,
+            "{} {} {} {}",
+            "✓ Created commit".green(),
+            commit_short.magenta(),
+            "on branch".green(),
+            target_branch.name.to_str_lossy().yellow()
+        )?;
+    } else if let Some(json_out) = out.for_json() {
+        let commit_data = serde_json::json!({
+            "commit_id": outcome.new_commit.map(|id| id.to_string()),
+            "branch": target_branch.name.to_str_lossy(),
+            "branch_tip": outcome.new_commit.map(|id| id.to_string()),
+        });
+        json_out.write_value(commit_data)?;
     }
 
     // Run post-commit hook unless --no-hooks was specified

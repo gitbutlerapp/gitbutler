@@ -18,7 +18,7 @@ fn outputs_branch_name() -> anyhow::Result<()> {
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Created branch my-feature
+✓ Created branch my-feature
 
 "#]]);
 
@@ -27,7 +27,7 @@ Created branch my-feature
         .success()
         .stderr_eq(str![])
         .stdout_eq(str![[r#"
-Created branch my-anchored-feature
+✓ Created branch my-anchored-feature stacked on [..]
 
 "#]]);
     Ok(())
