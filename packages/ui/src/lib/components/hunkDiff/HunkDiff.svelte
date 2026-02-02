@@ -21,6 +21,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		id?: string;
 		filePath: string;
 		hunkStr: string;
 		tabSize?: number;
@@ -47,6 +48,7 @@
 	}
 
 	const {
+		id,
 		filePath,
 		hunkStr,
 		tabSize = 4,
@@ -106,6 +108,7 @@
 </script>
 
 <div
+	{id}
 	use:focusable={{
 		onKeydown: (e) => {
 			if (e.key === 'Control') {
@@ -129,6 +132,7 @@
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr>
 					<th
+						id={id ? `header-${id}` : undefined}
 						bind:clientWidth={numberHeaderWidth}
 						class="table__checkbox-container"
 						style="--border-width: {BORDER_WIDTH}px;"
