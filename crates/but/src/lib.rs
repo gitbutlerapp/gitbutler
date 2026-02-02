@@ -100,6 +100,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
         #[cfg(feature = "legacy")]
         Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
         Some(Subcommands::Help) => false,
+        Some(Subcommands::Setup { .. }) => false,
         _ => true,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
