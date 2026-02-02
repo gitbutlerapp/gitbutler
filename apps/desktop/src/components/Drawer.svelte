@@ -220,7 +220,7 @@
 				width: 100%;
 				height: 100%;
 				border: 2px solid var(--clr-theme-pop-element);
-				border-radius: var(--radius-ml);
+				border-radius: calc(var(--radius-m) + 2px);
 				content: '';
 				pointer-events: none;
 			}
