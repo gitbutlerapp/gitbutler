@@ -23,6 +23,7 @@
 	// Detect OS from user agent
 	function detectOS(): 'macOS' | 'Windows' | 'Linux' {
 		const userAgent = navigator.userAgent.toLowerCase();
+
 		if (userAgent.includes('mac')) {
 			return 'macOS';
 		} else if (userAgent.includes('win')) {

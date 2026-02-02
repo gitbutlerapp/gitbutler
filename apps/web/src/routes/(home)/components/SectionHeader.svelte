@@ -36,6 +36,7 @@
 		font-size: 60px;
 		line-height: 1;
 		font-family: var(--font-accent);
+		text-wrap: balance;
 	}
 
 	.section-header__buttons {
