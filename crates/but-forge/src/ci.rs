@@ -102,7 +102,7 @@ impl CiCheck {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CiOutput {
     pub summary: String,
@@ -110,22 +110,12 @@ pub struct CiOutput {
     pub title: String,
 }
 
-impl From<octorust::types::Output> for CiOutput {
-    fn from(value: octorust::types::Output) -> Self {
-        CiOutput {
-            summary: value.summary,
-            text: value.text,
-            title: value.title,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CiStatus {
     Complete {
         conclusion: CiConclusion,
-        completed_at: chrono::DateTime<chrono::Utc>,
+        completed_at: Option<chrono::DateTime<chrono::Utc>>,
     },
     InProgress,
     Queued,
@@ -157,65 +147,55 @@ pub struct PullRequestMinimal {
     pub head_repo_url: Option<String>,
 }
 
-impl From<octorust::types::PullRequestMinimal> for PullRequestMinimal {
-    fn from(value: octorust::types::PullRequestMinimal) -> Self {
-        PullRequestMinimal {
-            id: value.id,
-            number: value.number,
-            url: value.url,
-            base_ref: value.base.ref_,
-            base_repo_url: value.base.repo.map(|repo| repo.url),
-            head_ref: value.head.ref_,
-            head_repo_url: value.head.repo.map(|repo| repo.url),
-        }
-    }
-}
+impl From<but_github::CheckRun> for CiCheck {
+    fn from(value: but_github::CheckRun) -> Self {
+        let completed_at = value
+            .completed_at
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc));
 
-impl From<octorust::types::Conclusion> for CiConclusion {
-    fn from(value: octorust::types::Conclusion) -> Self {
-        match value {
-            octorust::types::Conclusion::ActionRequired => CiConclusion::ActionRequired,
-            octorust::types::Conclusion::Cancelled => CiConclusion::Cancelled,
-            octorust::types::Conclusion::Failure => CiConclusion::Failure,
-            octorust::types::Conclusion::Neutral => CiConclusion::Neutral,
-            octorust::types::Conclusion::Skipped => CiConclusion::Skipped,
-            octorust::types::Conclusion::Success => CiConclusion::Success,
-            octorust::types::Conclusion::TimedOut => CiConclusion::TimedOut,
-            octorust::types::Conclusion::Noop => CiConclusion::Unknown,
-            octorust::types::Conclusion::FallthroughString => CiConclusion::Unknown,
-        }
-    }
-}
-
-impl From<octorust::types::CheckRun> for CiCheck {
-    fn from(value: octorust::types::CheckRun) -> Self {
-        let status = match value.status {
-            octorust::types::JobStatus::Completed => {
-                if let (Some(conclusion), Some(completed_at)) = (value.conclusion, value.completed_at) {
-                    CiStatus::Complete {
-                        conclusion: conclusion.into(),
-                        completed_at,
-                    }
-                } else {
-                    CiStatus::Unknown
+        let status = if value.status == "completed" {
+            if let Some(conclusion) = value.conclusion {
+                CiStatus::Complete {
+                    conclusion: match conclusion.as_str() {
+                        "action_required" => CiConclusion::ActionRequired,
+                        "cancelled" => CiConclusion::Cancelled,
+                        "failure" => CiConclusion::Failure,
+                        "neutral" => CiConclusion::Neutral,
+                        "skipped" => CiConclusion::Skipped,
+                        "success" => CiConclusion::Success,
+                        "timed_out" => CiConclusion::TimedOut,
+                        _ => CiConclusion::Unknown,
+                    },
+                    completed_at,
                 }
+            } else {
+                CiStatus::Unknown
             }
-            octorust::types::JobStatus::InProgress => CiStatus::InProgress,
-            octorust::types::JobStatus::Queued => CiStatus::Queued,
-            octorust::types::JobStatus::Noop => CiStatus::Unknown,
-            octorust::types::JobStatus::FallthroughString => CiStatus::Unknown,
+        } else if value.status == "in_progress" {
+            CiStatus::InProgress
+        } else if value.status == "queued" {
+            CiStatus::Queued
+        } else {
+            CiStatus::Unknown
         };
+
+        let started_at = value
+            .started_at
+            .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+            .map(|dt| dt.with_timezone(&chrono::Utc));
+
         CiCheck {
             id: value.id,
             name: value.name,
-            output: value.output.into(),
-            started_at: value.started_at,
+            output: CiOutput::default(),
+            started_at,
             status,
-            head_sha: value.head_sha,
-            url: value.url,
-            html_url: value.html_url,
-            details_url: value.details_url,
-            pull_requests: value.pull_requests.into_iter().map(|pr| pr.into()).collect(),
+            head_sha: value.head_sha.unwrap_or_default(),
+            url: value.url.or_else(|| value.html_url.clone()).unwrap_or_default(),
+            html_url: value.html_url.clone().unwrap_or_default(),
+            details_url: value.details_url.or(value.html_url).unwrap_or_default(),
+            pull_requests: Vec::new(),
             reference: String::new(), // Will be set by the caller
             last_sync_at: chrono::Local::now().naive_local(),
         }
