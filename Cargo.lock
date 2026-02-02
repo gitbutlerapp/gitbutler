@@ -1248,7 +1248,6 @@ dependencies = [
  "but-tools",
  "futures",
  "gix",
- "ollama-rs",
  "reqwest 0.12.28",
  "schemars 1.2.0",
  "serde",
@@ -7483,8 +7482,6 @@ dependencies = [
  "serde_json",
  "static_assertions",
  "thiserror 2.0.17",
- "tokio",
- "tokio-stream",
  "url",
 ]
 

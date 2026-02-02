@@ -81,3 +81,8 @@ fn clamp_result_content(result: &ToolResponseContent) -> String {
         result.result.to_owned()
     }
 }
+/// Result of a tool calling loop with streaming
+pub struct ConversationResult {
+    pub final_response: String,
+    pub message_history: Vec<ChatMessage>,
+}
