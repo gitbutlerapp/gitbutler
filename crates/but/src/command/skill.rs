@@ -352,26 +352,6 @@ pub fn check_skill_status(
     })
 }
 
-/// Notify user if there are outdated skills installed.
-/// This is a lightweight check that only checks global installations.
-pub fn notify_if_outdated_skills(out: &mut OutputChannel) -> Result<()> {
-    let result = check_skill_status(None, true, false)?;
-
-    if result.outdated_count > 0
-        && let Some(writer) = out.for_human()
-    {
-        writeln!(writer)?;
-        writeln!(
-            writer,
-            "{} {} installed skill(s) are now outdated. Update with: but skill install --detect",
-            "→".yellow().bold(),
-            result.outdated_count
-        )?;
-    }
-
-    Ok(())
-}
-
 /// Check if installed skills are up to date
 fn check_skills(
     mut ctx: Option<&mut Context>,
@@ -396,15 +376,37 @@ fn check_skills(
         );
     }
 
-    let result = check_skill_status(ctx, check_global, check_local)?;
+    // First check to find outdated skills (reborrow ctx so we can use it again later)
+    let initial_result = check_skill_status(ctx.as_deref_mut(), check_global, check_local)?;
 
-    // Collect paths of outdated skills before outputting (needed for auto-update)
-    let outdated_paths: Vec<String> = result
+    // Collect paths of outdated skills (needed for auto-update)
+    let outdated_paths: Vec<String> = initial_result
         .skills
         .iter()
         .filter(|s| !s.up_to_date)
         .map(|s| s.path.display().to_string())
         .collect();
+
+    // Auto-update if requested (do this before displaying results)
+    if auto_update && !outdated_paths.is_empty() {
+        if out.for_human().is_some() {
+            let mut progress = out.progress_channel();
+            writeln!(progress, "{}", "Updating outdated skills...".bold())?;
+            writeln!(progress)?;
+        }
+
+        for path_str in &outdated_paths {
+            // Pass None for ctx since the paths are already absolute and don't require repo context
+            install_skill(None, out, false, Some(path_str.clone()), false)?;
+        }
+    }
+
+    // Re-check status after updates (or use initial result if no updates)
+    let result = if auto_update && !outdated_paths.is_empty() {
+        check_skill_status(ctx, check_global, check_local)?
+    } else {
+        initial_result
+    };
 
     // Output based on format
     if let Some(writer) = out.for_human() {
@@ -421,21 +423,9 @@ fn check_skills(
     } else if let Some(json_out) = out.for_json() {
         json_out.write_value(&result)?;
     } else if let Some(writer) = out.for_shell() {
-        // Shell output: space-separated list of outdated paths
-        writeln!(writer, "{}", outdated_paths.join(" "))?;
-    }
-
-    // Auto-update if requested
-    if auto_update && !outdated_paths.is_empty() {
-        if out.for_human().is_some() {
-            let mut progress = out.progress_channel();
-            writeln!(progress)?;
-            writeln!(progress, "{}", "Updating outdated skills...".bold())?;
-        }
-
-        for path_str in outdated_paths {
-            // Re-install to this path (ctx is already consumed, so we use None and rely on absolute paths)
-            install_skill(None, out, false, Some(path_str), false)?;
+        // Shell output: one path per line (handles paths with spaces)
+        for skill in result.skills.iter().filter(|s| !s.up_to_date) {
+            writeln!(writer, "{}", skill.path.display())?;
         }
     }
 
