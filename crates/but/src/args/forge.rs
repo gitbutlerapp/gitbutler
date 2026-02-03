@@ -13,6 +13,12 @@ pub mod pr {
             /// The branch to create a PR for.
             #[clap(value_name = "BRANCH")]
             branch: Option<String>,
+            /// PR title and description. The first line is the title, the rest is the description.
+            #[clap(short = 'm', long = "message", conflicts_with_all = &["file", "default"])]
+            message: Option<String>,
+            /// Read PR title and description from file. The first line is the title, the rest is the description.
+            #[clap(short = 'F', long = "file", value_name = "FILE", conflicts_with_all = &["message", "default"])]
+            file: Option<std::path::PathBuf>,
             /// Force push even if it's not fast-forward (defaults to true).
             #[clap(long, short = 'f', default_value_t = true)]
             with_force: bool,

@@ -116,6 +116,9 @@ For detailed command syntax and all available options, see [references/reference
 - `but pull` - Update with upstream
 - `but push [branch]` - Push to remote
 - `but pr new <branch>` - Push and create pull request (auto-pushes, no need to push first)
+- `but pr new <branch> -m "Title..."` - Inline PR message (first line is title, rest is description)
+- `but pr new <branch> -F pr_message.txt` - PR message from file (first line is title, rest is description)
+- For stacked branches, the custom message (`-m` or `-F`) only applies to the selected branch; dependent branches use defaults
 
 ## Key Concepts
 
