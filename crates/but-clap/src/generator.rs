@@ -30,10 +30,7 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
     output.push_str(&format!("**Usage:** `{}`\n\n", usage));
 
     // Add subcommands section if there are any
-    let subcommands: Vec<_> = cmd
-        .get_subcommands()
-        .filter(|sub| !sub.is_hide_set())
-        .collect();
+    let subcommands: Vec<_> = cmd.get_subcommands().filter(|sub| !sub.is_hide_set()).collect();
 
     if !subcommands.is_empty() {
         output.push_str("## Subcommands\n\n");
@@ -54,10 +51,7 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
             output.push_str(&format!("**Usage:** `{}`\n\n", sub_usage));
 
             // Add subcommand arguments
-            let args: Vec<_> = subcmd
-                .get_positionals()
-                .filter(|arg| !arg.is_hide_set())
-                .collect();
+            let args: Vec<_> = subcmd.get_positionals().filter(|arg| !arg.is_hide_set()).collect();
             if !args.is_empty() {
                 output.push_str("**Arguments:**\n\n");
                 for arg in args {
@@ -79,10 +73,7 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
     }
 
     // Add arguments for the main command (if it has no subcommands or also accepts args)
-    let args: Vec<_> = cmd
-        .get_positionals()
-        .filter(|arg| !arg.is_hide_set())
-        .collect();
+    let args: Vec<_> = cmd.get_positionals().filter(|arg| !arg.is_hide_set()).collect();
     if !args.is_empty() && subcommands.is_empty() {
         output.push_str("## Arguments\n\n");
         for arg in args {
