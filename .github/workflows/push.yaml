@@ -324,12 +324,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Download x86_64 installer
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: 'but-installer-darwin-x86_64-${{ github.run_number }}'
           path: installer-artifacts/darwin-x86_64
       - name: Download aarch64 installer
-        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: 'but-installer-darwin-aarch64-${{ github.run_number }}'
           path: installer-artifacts/darwin-aarch64
