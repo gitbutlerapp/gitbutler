@@ -96,10 +96,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let output_format = if args.json { OutputFormat::Json } else { args.format };
     // Determine if pager should be used based on the command
-    let use_pager = match args.cmd {
-        Some(Subcommands::Setup { .. }) => false,
-        _ => true,
-    };
+    let use_pager = !matches!(args.cmd, Some(Subcommands::Setup { .. }));
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
 
     if args.trace > 0 {

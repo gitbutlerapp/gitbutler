@@ -31,10 +31,13 @@ pub enum ConfirmOrEmpty {
 struct PagerInfo {
     /// The pager used for output instead of `stdout`.
     pager: minus::Pager,
-    /// Terminal height at the time the pager was created, used to determine how many lines to reprint.
-    terminal_rows: Option<u16>,
     /// Buffer to capture pager content so we can reprint it to stdout when the pager exits.
-    /// This ensures content remains visible after quitting the pager.
+    /// This ensures content remains visible after quitting the pager, but it also means that
+    /// all pager output is accumulated into a single `String`.
+    /// For commands that produce very large outputs (for example, logs with many thousands of entries),
+    /// this can /// consume a significant amount of memory.
+    /// This tradeoff is accepted here to keep the full content visible after leaving the pager.
+    ///
     /// Only set if stdout is connected to a terminal.
     pager_content: Option<String>,
 }
@@ -343,12 +346,8 @@ impl OutputChannel {
             pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
             pager.set_prompt("GitButler").expect(msg);
 
-            // Capture terminal height to know how many lines to reprint on exit
-            let rows = terminal_size::terminal_size().map(|(_, terminal_size::Height(h))| h);
-
             Some(PagerInfo {
                 pager,
-                terminal_rows: rows,
                 pager_content: stdout.is_terminal().then(String::new),
             })
         };
@@ -373,8 +372,11 @@ impl Drop for OutputChannel {
             if let Some(buf) = info.pager_content.take() {
                 use std::io::Write;
 
+                // Capture terminal height to know how many lines to reprint on exit
+                let rows = terminal_size::terminal_size().map(|(_, terminal_size::Height(h))| h);
+
                 // Get the exit position (line number where user quit)
-                let screen_height = info.terminal_rows.unwrap_or(24).saturating_sub(1) as usize;
+                let screen_height = rows.unwrap_or(24).saturating_sub(1) as usize;
                 let lines_to_print = pager_for_query
                     .exit_position()
                     .map_or(screen_height, |exit_line| exit_line + screen_height);
