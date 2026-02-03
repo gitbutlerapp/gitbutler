@@ -113,7 +113,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
-  ✓ Repository added to project registry
+  ✓ Repository already in project registry
 
 GitButler project is already set up!
 Target branch: gb-local/main
