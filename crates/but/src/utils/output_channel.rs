@@ -331,7 +331,7 @@ impl OutputChannel {
         }
     }
 
-    /// Like [`Self::new_with_pager`], but will never create a pager or write JSON.
+    /// Like [`Self::new_with_optional_pager`], but will never create a pager or write JSON.
     /// Use this if a second instance of a channel is needed, and the first one could have a pager.
     pub fn new_without_pager_non_json(format: OutputFormat) -> Self {
         OutputChannel {
