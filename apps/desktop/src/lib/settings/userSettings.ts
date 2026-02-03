@@ -33,7 +33,6 @@ export interface Settings {
 	defaultCodeEditor: CodeEditorSettings;
 	defaultFileListMode: 'tree' | 'list';
 	pathFirst: boolean;
-	smoothScroll: boolean;
 }
 
 const defaults: Settings = {
@@ -57,8 +56,7 @@ const defaults: Settings = {
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
 	defaultFileListMode: 'list',
-	pathFirst: true,
-	smoothScroll: true
+	pathFirst: true
 };
 
 export function loadUserSettings(): Writable<Settings> {

@@ -96,7 +96,6 @@
 		{startIndex}
 		onloadmore={onloadmore ? handleLoadMore : undefined}
 		visibility="hover"
-		smoothScroll={false}
 	>
 		{#snippet template(item)}
 			<div class="test-item">
