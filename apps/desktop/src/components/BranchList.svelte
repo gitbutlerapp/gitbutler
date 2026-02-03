@@ -13,6 +13,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { StartCommitDzHandler } from '$lib/branches/dropHandler';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { focusClaudeInput } from '$lib/codegen/focusClaudeInput';
 	import { currentStatus } from '$lib/codegen/messages';
@@ -22,6 +23,7 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { createBranchSelection } from '$lib/selection/key';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
@@ -53,6 +55,7 @@
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
@@ -159,7 +162,10 @@
 				commitQuery.result
 			)}
 		>
-			{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
+			{#snippet children(
+				[localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit],
+				{ projectId, stackId }
+			)}
 				{@const firstBranch = i === 0}
 				{@const lastBranch = i === branches.length - 1}
 				{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
@@ -190,6 +196,13 @@
 				{@const codegenQuery = stackId
 					? claudeCodeService.messages({ projectId, stackId })
 					: undefined}
+				{@const startCommittingDz = new StartCommitDzHandler(
+					uiState,
+					uncommittedService,
+					projectId,
+					stackId,
+					branchName
+				)}
 				{#if stackId}
 					<BranchInsertion
 						{projectId}
@@ -228,7 +241,7 @@
 					numberOfUpstreamCommits={upstreamOnlyCommits.length}
 					numberOfBranchesInStack={branches.length}
 					baseCommit={branchDetails.baseCommit}
-					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
+					dropzones={[stackingReorderDropzoneManager.top(branchName), startCommittingDz]}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}
 					onclick={() => {
