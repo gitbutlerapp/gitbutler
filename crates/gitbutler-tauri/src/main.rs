@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{commit, diff, github, legacy, platform};
+use but_api::{commit, diff, github, gitlab, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -216,6 +216,12 @@ fn main() -> anyhow::Result<()> {
                 github::tauri_forget_github_account::forget_github_account,
                 github::tauri_list_known_github_accounts::list_known_github_accounts,
                 github::tauri_clear_all_github_tokens::clear_all_github_tokens,
+                gitlab::tauri_store_gitlab_pat::store_gitlab_pat,
+                gitlab::tauri_store_gitlab_selfhosted_pat::store_gitlab_selfhosted_pat,
+                gitlab::tauri_get_gl_user::get_gl_user,
+                gitlab::tauri_forget_gitlab_account::forget_gitlab_account,
+                gitlab::tauri_list_known_gitlab_accounts::list_known_gitlab_accounts,
+                gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
                 but_api::branch::tauri_branch_diff::branch_diff,
