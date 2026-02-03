@@ -12,11 +12,14 @@
 mod reconcile;
 mod state;
 
+use std::collections::{BTreeMap, HashMap};
+
 use anyhow::Result;
 use bstr::{BString, ByteSlice};
-use but_core::{HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
+use but_core::{DiffSpec, HunkHeader, TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_db::{HunkAssignmentsHandle, HunkAssignmentsHandleMut};
 use but_hunk_dependency::ui::{HunkDependencies, HunkLock, hunk_dependencies_for_workspace_changes_by_worktree_dir};
+use gix::ObjectId;
 use itertools::Itertools;
 use reconcile::MultipleOverlapping;
 use serde::{Deserialize, Serialize};
@@ -714,6 +717,64 @@ pub fn assignments_to_requests(assignments: Vec<HunkAssignment>) -> Vec<HunkAssi
         })
         .collect()
 }
+
+/// Convert HunkAssignments to DiffSpecs
+pub fn convert_assignments_to_diff_specs(assignments: &[HunkAssignment]) -> anyhow::Result<Vec<DiffSpec>> {
+    let mut specs_by_path: BTreeMap<BString, Vec<HunkAssignment>> = BTreeMap::new();
+
+    // Group assignments by file path
+    for assignment in assignments {
+        specs_by_path
+            .entry(assignment.path_bytes.clone())
+            .or_default()
+            .push(assignment.clone());
+    }
+
+    // Convert to DiffSpecs
+    let mut diff_specs = Vec::new();
+    for (path, hunks) in specs_by_path {
+        let mut hunk_headers = Vec::new();
+        for hunk in hunks {
+            if let Some(header) = hunk.hunk_header {
+                hunk_headers.push(header);
+            }
+        }
+
+        diff_specs.push(DiffSpec {
+            previous_path: None, // TODO: Handle renames
+            path: path.clone(),
+            hunk_headers,
+        });
+    }
+
+    Ok(diff_specs)
+}
+
+/// Tracks mappings between old and new commit IDs during rebase operations
+#[derive(Debug, Clone, Default)]
+pub struct CommitMap {
+    map: HashMap<ObjectId, ObjectId>,
+}
+
+impl CommitMap {
+    /// Find the final mapped commit ID by following the chain of mappings
+    pub fn find_mapped_id(&self, commit_id: ObjectId) -> ObjectId {
+        let mut current_id = commit_id;
+        while let Some(mapped_id) = self.map.get(&current_id) {
+            current_id = *mapped_id;
+        }
+        current_id
+    }
+
+    /// Add a mapping from old commit ID to new commit ID
+    pub fn add_mapping(&mut self, old_commit_id: ObjectId, new_commit_id: ObjectId) {
+        self.map.insert(old_commit_id, new_commit_id);
+    }
+}
+
+/// Type alias for grouped changes by commit
+pub type GroupedChanges =
+    BTreeMap<(but_core::ref_metadata::StackId, gix::ObjectId), (Vec<HunkAssignment>, AbsorptionReason)>;
 
 #[cfg(test)]
 mod tests {

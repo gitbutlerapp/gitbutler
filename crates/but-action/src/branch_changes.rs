@@ -1,9 +1,8 @@
 use anyhow::Context as _;
 use but_ctx::Context;
-use but_tools::{emit::Emitter, workspace::commit_toolset};
+use but_tools::workspace::commit_toolset;
 
 pub(crate) fn branch_changes(
-    emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
     llm: &but_llm::LLMProvider,
     changes: Vec<but_core::TreeChange>,
@@ -14,7 +13,7 @@ pub(crate) fn branch_changes(
     let serialized_status =
         serde_json::to_string_pretty(&project_status).context("Failed to serialize project status")?;
 
-    let mut toolset = commit_toolset(ctx, emitter.clone());
+    let mut toolset = commit_toolset(ctx);
 
     let system_message ="
         You are an expert in grouping and committing file changes into logical units for version control.

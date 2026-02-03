@@ -13,6 +13,7 @@ test = false
 [features]
 ## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
 builtin-but = []
+export-ts = ["dep:ts-rs", "but-core/export-ts"]
 
 [dependencies]
 but-serde.workspace = true
@@ -45,3 +46,5 @@ strum = { version = "0.27", features = ["derive"] }
 gix.workspace = true
 rmcp.workspace = true
 tracing.workspace = true
+bstr = { workspace = true }
+ts-rs = { workspace = true, optional = true }
