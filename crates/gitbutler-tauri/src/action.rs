@@ -91,7 +91,8 @@ pub fn auto_commit(
         absorption_plan,
         &mut guard,
     )
-    .map_err(|e| Error::from(anyhow::anyhow!(e)))
+    .map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    Ok(())
 }
 
 #[tauri::command(async)]

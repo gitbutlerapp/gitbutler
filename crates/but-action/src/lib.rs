@@ -51,7 +51,7 @@ pub fn auto_commit(
     emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
     absorption_plan: Vec<CommitAbsorption>,
     guard: &mut RepoExclusiveGuard,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<usize> {
     auto_commit::auto_commit(
         project_id,
         repo,
@@ -62,6 +62,17 @@ pub fn auto_commit(
         absorption_plan,
         guard,
     )
+}
+
+pub fn auto_commit_simple(
+    repo: &gix::Repository,
+    project_data_dir: &Path,
+    context_lines: u32,
+    llm: Option<&but_llm::LLMProvider>,
+    absorption_plan: Vec<CommitAbsorption>,
+    guard: &mut RepoExclusiveGuard,
+) -> anyhow::Result<usize> {
+    auto_commit::auto_commit_simple(repo, project_data_dir, context_lines, llm, absorption_plan, guard)
 }
 
 pub fn handle_changes(

@@ -7,6 +7,8 @@ use but_workspace::commit_engine;
 use gitbutler_project::ProjectId;
 use serde::Serialize;
 
+type AutoCommitEmitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;
+
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -63,10 +65,10 @@ pub(crate) fn auto_commit(
     emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
     absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
     guard: &mut RepoExclusiveGuard,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<usize> {
     let commit_map = CommitMap::default();
 
-    let emitter = std::sync::Arc::new(emitter);
+    let emitter: std::sync::Arc<AutoCommitEmitter> = std::sync::Arc::new(emitter);
 
     // Emit the started event
     let event = AutoCommitEvent::Started {
@@ -76,7 +78,7 @@ pub(crate) fn auto_commit(
     emitter(&event_name, event.emit_payload());
 
     match apply_commit_changes(
-        project_id,
+        Some(project_id),
         repo,
         project_data_dir,
         context_lines,
@@ -84,7 +86,7 @@ pub(crate) fn auto_commit(
         absorption_plan,
         guard,
         commit_map,
-        emitter.clone(),
+        Some(emitter.clone()),
     ) {
         Err(e) => {
             tracing::error!("Auto-commit failed: {}", e);
@@ -96,19 +98,42 @@ pub(crate) fn auto_commit(
             emitter(&event_name, event.emit_payload());
             Err(e)
         }
-        Ok(_) => {
+        Ok(number_of_rejections) => {
             let event = AutoCommitEvent::Completed;
             let event_name = event.event_name(project_id);
             let emitter = emitter.clone();
             emitter(&event_name, event.emit_payload());
-            Ok(())
+            Ok(number_of_rejections)
         }
     }
 }
 
+pub(crate) fn auto_commit_simple(
+    repo: &gix::Repository,
+    project_data_dir: &Path,
+    context_lines: u32,
+    llm: Option<&but_llm::LLMProvider>,
+    absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
+    guard: &mut RepoExclusiveGuard,
+) -> anyhow::Result<usize> {
+    let commit_map = CommitMap::default();
+
+    apply_commit_changes(
+        None,
+        repo,
+        project_data_dir,
+        context_lines,
+        llm,
+        absorption_plan,
+        guard,
+        commit_map,
+        None,
+    )
+}
+
 #[allow(clippy::too_many_arguments)]
 fn apply_commit_changes(
-    project_id: ProjectId,
+    project_id: Option<ProjectId>,
     repo: &gix::Repository,
     project_data_dir: &Path,
     context_lines: u32,
@@ -116,8 +141,9 @@ fn apply_commit_changes(
     absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
     guard: &mut RepoExclusiveGuard,
     mut commit_map: CommitMap,
-    emitter: std::sync::Arc<impl Fn(&str, serde_json::Value) + Send + Sync + 'static>,
-) -> anyhow::Result<()> {
+    emitter: Option<std::sync::Arc<AutoCommitEmitter>>,
+) -> anyhow::Result<usize> {
+    let mut total_rejected = 0;
     for absorption in absorption_plan {
         let diff_specs = convert_assignments_to_diff_specs(
             &absorption
@@ -129,7 +155,7 @@ fn apply_commit_changes(
         let diff_infos = absorption_files_to_diff_infos(&absorption.files);
         let commit_id = commit_map.find_mapped_id(absorption.commit_id);
         let stack_id = absorption.stack_id;
-        let commit_message = commit_message_generation(project_id, commit_id, llm, &emitter, &diff_infos)?;
+        let commit_message = commit_message_generation(project_id, commit_id, llm, emitter.as_ref(), &diff_infos)?;
         let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
             repo,
             project_data_dir,
@@ -144,7 +170,10 @@ fn apply_commit_changes(
             guard.write_permission(),
         )?;
 
-        if let Some(new_commit_id) = outcome.new_commit {
+        if let Some(new_commit_id) = outcome.new_commit
+            && let Some(project_id) = project_id
+            && let Some(emitter) = &emitter
+        {
             let event = AutoCommitEvent::CommitSuccess {
                 commit_id: new_commit_id,
             };
@@ -157,9 +186,11 @@ fn apply_commit_changes(
                 commit_map.add_mapping(mapping.1, mapping.2);
             }
         }
+
+        total_rejected += outcome.rejected_specs.len();
     }
 
-    Ok(())
+    Ok(total_rejected)
 }
 
 #[derive(Debug, Clone)]
@@ -188,11 +219,14 @@ fn absorption_files_to_diff_infos(absorption_files: &[but_hunk_assignment::FileA
         .collect()
 }
 
+/// Generate a commit message using the LLM provider, if available.
+///
+/// If no project and no emitter are provided, the function will not stream tokens.
 fn commit_message_generation(
-    project_id: ProjectId,
+    project_id: Option<ProjectId>,
     parent_commit_id: gix::ObjectId,
     llm: Option<&but_llm::LLMProvider>,
-    emitter: &std::sync::Arc<impl Fn(&str, serde_json::Value) + Send + Sync + 'static>,
+    emitter: Option<&std::sync::Arc<AutoCommitEmitter>>,
     hunk_diffs: &[DiffInfo],
 ) -> anyhow::Result<String> {
     if let Some(llm) = llm
@@ -227,17 +261,21 @@ fn commit_message_generation(
             changes.join("\n")
         );
 
-        let commit_message = llm.stream_response(system_message, vec![prompt.into()], &model, {
-            let emitter = std::sync::Arc::clone(emitter);
-            move |token| {
-                let event = AutoCommitEvent::CommitGeneration {
-                    parent_commit_id,
-                    token: token.to_string(),
-                };
-                let event_name = event.event_name(project_id);
-                emitter(&event_name, event.emit_payload());
-            }
-        })?;
+        let commit_message = match (project_id, emitter) {
+            (Some(project_id), Some(emitter)) => llm.stream_response(system_message, vec![prompt.into()], &model, {
+                let emitter = std::sync::Arc::clone(emitter);
+                move |token| {
+                    let event = AutoCommitEvent::CommitGeneration {
+                        parent_commit_id,
+                        token: token.to_string(),
+                    };
+                    let event_name = event.event_name(project_id);
+                    emitter(&event_name, event.emit_payload());
+                }
+            })?,
+            _ => llm.response(system_message, vec![prompt.into()], &model)?,
+        };
+
         if let Some(message) = commit_message {
             return Ok(message);
         }
