@@ -11,6 +11,7 @@
 #[cfg(feature = "legacy")]
 pub mod legacy;
 
+/// Functions for GitHub authentication.
 pub mod github;
 
 /// Functions that take a branch as input.

@@ -815,15 +815,15 @@ async fn handle_command(
             }
         }
         // GitHub commands (async, not yet migrated)
-        "init_device_oauth" => {
-            let result = github::init_device_oauth().await;
+        "init_github_device_oauth" => {
+            let result = github::init_github_device_oauth().await;
             result.map(|r| json!(r))
         }
-        "check_auth_status" => {
+        "check_github_auth_status" => {
             let params = deserialize_json(request.params);
             match params {
                 Ok(params) => {
-                    let result = github::check_auth_status_cmd(params).await;
+                    let result = github::check_github_auth_status_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

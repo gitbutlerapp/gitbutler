@@ -17,7 +17,7 @@ pub struct Verification {
     pub device_code: String,
 }
 
-pub async fn init_device_oauth() -> Result<Verification> {
+pub async fn init_github_device_oauth() -> Result<Verification> {
     let mut req_body = HashMap::new();
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
@@ -56,7 +56,7 @@ pub struct AuthStatusResponse {
     pub host: Option<String>,
 }
 
-pub async fn check_auth_status(
+pub async fn check_github_auth_status(
     device_code: String,
     storage: &but_forge_storage::Controller,
 ) -> Result<AuthStatusResponse> {

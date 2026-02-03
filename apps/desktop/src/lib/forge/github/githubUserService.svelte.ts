@@ -211,14 +211,14 @@ function injectBackendEndpoints(api: BackendApi) {
 			}),
 			initDeviceOauth: build.mutation<Verification, void>({
 				extraOptions: {
-					command: 'init_device_oauth',
+					command: 'init_github_device_oauth',
 					actionName: 'Init GitHub Device OAuth'
 				},
 				query: () => ({})
 			}),
 			checkAuthStatus: build.mutation<AuthStatusResponse, { deviceCode: string }>({
 				extraOptions: {
-					command: 'check_auth_status',
+					command: 'check_github_auth_status',
 					actionName: 'Check GitHub Auth Status'
 				},
 				query: (args) => args,

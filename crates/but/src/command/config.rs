@@ -549,7 +549,7 @@ async fn github_enterprise(mut inout: InputOutputChannel<'_>) -> Result<()> {
 
 /// Authenticate with GitHub using the device OAuth flow
 async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
-    let code = but_api::github::init_device_oauth().await?;
+    let code = but_api::github::init_github_device_oauth().await?;
     writeln!(
         inout,
         "Device authorization initiated. Please visit the following URL and enter the code:\n\nhttps://github.com/login/device\n\nCode: {}\n\n",
@@ -562,7 +562,7 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
         anyhow::bail!("Authorization process aborted by user.")
     }
 
-    let status = but_api::github::check_auth_status(code.device_code)
+    let status = but_api::github::check_github_auth_status(code.device_code)
         .await
         .map_err(|err| err.context("Authentication failed"))?;
 
