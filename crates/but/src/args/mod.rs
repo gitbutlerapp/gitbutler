@@ -652,6 +652,12 @@ pub enum Subcommands {
     /// but config target
     /// ```
     ///
+    /// View/set metrics:
+    ///
+    /// ```text
+    /// but config metrics
+    /// ```
+    ///
     Config(config::Platform),
 
     /// Resolve conflicts in a commit.
