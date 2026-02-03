@@ -23,8 +23,9 @@ tracing.workspace = true
 itertools.workspace = true
 
 [dev-dependencies]
-but-meta = { workspace = true, features = ["legacy"]}
+but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
+tempfile.workspace = true
 
 gitbutler-reference.workspace = true
 

@@ -594,7 +594,6 @@ impl Graph {
             &ctx.worktree_by_branch,
         )?;
         max_commits_recharge_location.sort();
-        let mut no_duplicate_parents = gix::hashtable::HashSet::default();
         let mut points_of_interest_to_traverse_first = next.iter().count();
         while let Some((info, mut propagated_flags, instruction, mut limit)) = next.pop_front() {
             points_of_interest_to_traverse_first = points_of_interest_to_traverse_first.saturating_sub(1);
@@ -698,7 +697,6 @@ impl Graph {
             let propagated_flags = propagated_flags | maybe_make_id_a_goal_so_remote_can_find_local;
             let hard_limit_hit = queue_parents(
                 &mut next,
-                &mut no_duplicate_parents,
                 &info.parent_ids,
                 propagated_flags,
                 segment_idx_for_id,

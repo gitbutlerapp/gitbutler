@@ -327,3 +327,41 @@ fn workspace_with_empty_stack() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn commit_with_two_parents() -> Result<()> {
+    let (repo, _tmpdir, meta) = fixture_writable("single-commit")?;
+
+    let base = repo.rev_parse_single("HEAD")?;
+    let base = base.object()?.into_commit();
+    repo.commit("HEAD", "a", base.tree_id()?, vec![base.id(), base.id()])?;
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    * d70d863 (HEAD -> main) a
+    |\
+    * 35b8235 base
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    └── 👉►:0[0]:main[🌳]
+        └── ·d70d863 (⌂|1)
+            ├── ►:1[1]:anon:
+            │   └── ·35b8235 (⌂|1)
+            └── →:1:
+    ");
+
+    let editor = graph.to_editor(&repo)?;
+
+    insta::assert_snapshot!(editor.steps_ascii(), @"
+    ◎ refs/heads/main
+    ● d70d863 a
+    ├─
+    ● 35b8235 base
+    ╵
+    ");
+
+    Ok(())
+}

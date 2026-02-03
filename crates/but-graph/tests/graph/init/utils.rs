@@ -15,8 +15,15 @@ pub fn named_read_only_in_memory_scenario(
     name: &str,
 ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
-    let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
-    Ok((repo, std::mem::ManuallyDrop::new(meta)))
+    let meta = in_memory_meta(repo.path().join(".git"))?;
+    Ok((repo, meta))
+}
+
+pub fn in_memory_meta(
+    dir: impl AsRef<std::path::Path>,
+) -> anyhow::Result<std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>> {
+    let meta = VirtualBranchesTomlMetadata::from_path(dir.as_ref().join("should-never-be-written.toml"))?;
+    Ok(std::mem::ManuallyDrop::new(meta))
 }
 
 /// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
