@@ -1,11 +1,35 @@
 //! Tests for the gix-traverse hide commits functionality.
 //!
-//! This module tests a known bug in gix-traverse where commits can be returned
-//! by the traversal before the hidden tips have had a chance to mark them as hidden.
+//! This module tests the `hide()` functionality in gix-traverse which allows
+//! hiding commits and their ancestry during traversal.
 //!
-//! The bug occurs because the implementation doesn't use proper "graph painting"
-//! via gix-revwalk - hidden commits are added to the traversal queue, but the
-//! traversal can return commits before they've been painted as hidden.
+//! ## Background
+//!
+//! There was a concern that the implementation of `hide()` in gix-traverse wasn't
+//! based on proper "graph painting" via gix-revwalk, which could potentially cause
+//! commits to be returned before hidden tips have marked them as hidden.
+//!
+//! ## Implementation Analysis
+//!
+//! The current implementation handles this by:
+//! 1. Adding hidden tips to the FRONT of the traversal queue (for BreadthFirst)
+//!    or with appropriate priority (for time-based sorting)
+//! 2. Using a `candidates` buffer that holds interesting commits that might later
+//!    be discovered to be hidden
+//! 3. When a commit is discovered via both an interesting and hidden path,
+//!    it's removed from the candidates buffer
+//! 4. Only returning candidates after the main traversal is complete
+//!
+//! ## These Tests
+//!
+//! These tests serve as regression tests to ensure the hiding functionality
+//! continues to work correctly. They test various graph topologies with:
+//! - Multiple interesting tips converging on a common ancestor
+//! - Hidden tips that share ancestry with interesting tips
+//! - Different sorting modes (BreadthFirst, ByCommitTime)
+//!
+//! All tests currently pass, indicating the implementation handles these
+//! scenarios correctly.
 
 use gix::traverse::commit::{simple::Sorting, Parents, Simple};
 use std::collections::HashSet;
@@ -75,7 +99,11 @@ fn git_graph(repo_dir: &std::path::Path) -> Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).to_string())
 }
 
-/// Test that demonstrates the bug in gix-traverse hide functionality.
+/// Regression test for gix-traverse hide functionality with multiple tips.
+///
+/// This test verifies that when traversing from multiple interesting tips
+/// while hiding another tip, commits that are ancestors of the hidden tip
+/// are correctly excluded from the results.
 ///
 /// Graph structure:
 /// ```text
@@ -91,10 +119,9 @@ fn git_graph(repo_dir: &std::path::Path) -> Result<String> {
 /// When traversing from [i3, i4] while hiding h3:
 /// - fork and base are the common ancestors
 /// - fork and base should be hidden because they're reachable from h3
-/// - But with multiple interesting tips, the traversal might return fork
-///   before h3's traversal has a chance to mark it as hidden
+/// - The test verifies that only i3, i1, i4, i2 are returned
 #[test]
-fn hide_commits_shared_ancestry_bug() -> Result<()> {
+fn hide_commits_shared_ancestry() -> Result<()> {
     let repo_path = setup_repo()?;
     let store = gix::odb::at(repo_path.join(".git").join("objects"))?;
 
@@ -124,7 +151,7 @@ fn hide_commits_shared_ancestry_bug() -> Result<()> {
     eprintln!("  h2: {}", h2);
     eprintln!("  h3: {}", h3);
 
-    // Test with BreadthFirst sorting with MULTIPLE tips - this is where the bug manifests
+    // Test with BreadthFirst sorting with MULTIPLE tips
     let result: Vec<gix::ObjectId> = Simple::new([*i3, *i4], &store)
         .sorting(Sorting::BreadthFirst)?
         .parents(Parents::All)
@@ -145,14 +172,13 @@ fn hide_commits_shared_ancestry_bug() -> Result<()> {
     // The expected behavior: Only i3, i1, i4, i2 should be returned (both branches).
     // fork and base should NOT be returned because they're ancestors of h3.
     //
-    // However, due to the bug with multiple tips, the traversal might:
-    // 1. Process i3 and i4 (the tips)
-    // 2. Add i1 and i2 to queue (parents)
-    // 3. Process i1, add fork to queue
-    // 4. Process i2, fork is already seen (interesting)
-    // 5. Process fork, add base to queue
-    // 6. Meanwhile h3's traversal is processing h2, h1, then reaches fork
-    // 7. If fork or base is returned before being marked hidden -> BUG!
+    // The traversal works as follows:
+    // 1. h3 is added to front of queue (via hide())
+    // 2. i3 and i4 are at back of queue (via new())
+    // 3. h3 is processed first, h2 is added as hidden
+    // 4. Eventually fork is reached via h1 and marked hidden
+    // 5. When fork is reached via i1 or i2, it's already marked hidden
+    // 6. Hidden commits are never returned
 
     let result_set: HashSet<_> = result.iter().collect();
 
@@ -162,14 +188,13 @@ fn hide_commits_shared_ancestry_bug() -> Result<()> {
     if result_set == expected_set {
         eprintln!("\n✓ Test passed: Only i3, i1, i4, i2 were returned (correct behavior)");
     } else {
-        // Document what the bug looks like
+        // Document what would be wrong
         if result_set.contains(&fork) {
-            eprintln!("\n✗ BUG DETECTED: fork was incorrectly returned!");
+            eprintln!("\n✗ FAILURE: fork was incorrectly returned!");
             eprintln!("  fork is an ancestor of the hidden tip h3, so it should be hidden.");
-            eprintln!("  This demonstrates the graph painting bug in gix-traverse.");
         }
         if result_set.contains(&base) {
-            eprintln!("\n✗ BUG DETECTED: base was incorrectly returned!");
+            eprintln!("\n✗ FAILURE: base was incorrectly returned!");
         }
     }
 

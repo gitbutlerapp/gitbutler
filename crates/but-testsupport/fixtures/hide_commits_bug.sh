@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
-# Creates a repository to demonstrate the hide commits bug in gix-traverse.
+# Creates a repository for testing the hide commits functionality in gix-traverse.
 #
-# The bug: When hiding commits and their ancestry, the implementation
-# doesn't use proper "graph painting" via gix-revwalk. This can cause
-# commits to be returned by the traversal before the hidden tips have
-# had a chance to mark them as hidden.
-#
-# This scenario uses MULTIPLE interesting tips to increase the chance of the bug:
+# This script creates a graph structure with multiple interesting tips and a
+# hidden tip to test that commits reachable from the hidden tip are correctly
+# excluded from traversal results.
 #
 # Graph structure:
 #
@@ -19,10 +16,9 @@
 #              h3 (hidden tip)
 #
 # When traversing from [i3, i4] while hiding h3:
-# - fork and base are the common ancestors
+# - fork and base are common ancestors of both interesting and hidden tips
 # - fork and base should be hidden because they're reachable from h3
-# - But with multiple interesting tips, the traversal might return fork
-#   before h3's traversal has a chance to mark it as hidden
+# - The test verifies that only i3, i1, i4, i2 are returned
 
 set -eu -o pipefail
 
