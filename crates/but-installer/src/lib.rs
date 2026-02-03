@@ -17,7 +17,7 @@ use config::{Channel, InstallerConfig};
 // Re-export types for public API consumers
 pub use config::{Version, VersionRequest};
 use download::{download_file, validate_tarball, verify_signature};
-use install::{extract_tarball, install_app, verify_app_structure};
+use install::{but_binary_path, extract_tarball, install_app, verify_app_structure};
 use release::{fetch_release, validate_download_url};
 use shell::setup_path;
 use ui::{info, success};
@@ -32,20 +32,25 @@ use ui::{info, success};
 ///
 /// # Arguments
 /// * `version_request` - Version to install (Release, Nightly, or Specific version).
-/// * `print_usage` - Whether to print usage instructions after installation.
-///   Set to `false` when called from CLI tools where usage is already known.
+/// * `interactive` - Whether this is an interactive installation (e.g., from the install script).
+///   When `true`, runs `but onboarding` and prints usage instructions after installation.
+///   Set to `false` when called from CLI tools (like `but update`) where the user
+///   is already familiar with the CLI.
 ///
 /// Returns an error if any step fails. The function will attempt to rollback
 /// changes on installation failure.
-pub fn run_installation_with_version(version_request: VersionRequest, print_usage: bool) -> Result<()> {
+pub fn run_installation_with_version(version_request: VersionRequest, interactive: bool) -> Result<()> {
     let config = InstallerConfig::new_with_version(version_request)?;
-    run_installation_impl(config, print_usage)
+    run_installation_impl(config, interactive)
 }
 
 /// Runs the complete GitButler installation process.
 ///
 /// Reads version from command-line arguments or GITBUTLER_VERSION environment variable.
 /// If neither is provided, installs the latest release.
+///
+/// This is the entry point for the standalone installer binary, so it runs in
+/// interactive mode (runs onboarding and prints usage instructions).
 ///
 /// Returns an error if any step fails. The function will attempt to rollback
 /// changes on installation failure.
@@ -54,7 +59,7 @@ pub fn run_installation() -> Result<()> {
     run_installation_impl(config, true)
 }
 
-fn run_installation_impl(config: InstallerConfig, print_usage: bool) -> Result<()> {
+fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<()> {
     info(&format!("Detected platform: {}", config.platform));
 
     // Fetch release information
@@ -147,7 +152,15 @@ fn run_installation_impl(config: InstallerConfig, print_usage: bool) -> Result<(
     ));
     ui::println_empty();
 
-    if print_usage {
+    if interactive {
+        // Run onboarding to show metrics info message (if first run).
+        // Suppress stderr - older CLI versions don't have this command and would print an error.
+        let but_path = but_binary_path(&config.home_dir);
+        let _ = std::process::Command::new(&but_path)
+            .arg("onboarding")
+            .stderr(std::process::Stdio::null())
+            .status();
+
         info("Usage:");
         ui::println("  but --help           Show available commands");
         ui::println("  but status           Show branch status");

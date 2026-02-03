@@ -206,7 +206,7 @@ pub(crate) async fn metrics_config(out: &mut OutputChannel, status: Option<Metri
     Ok(())
 }
 
-fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
+pub(crate) fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
     let config_dir = but_path::app_config_dir()?;
     std::fs::create_dir_all(&config_dir)?;
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)

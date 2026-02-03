@@ -208,6 +208,7 @@ async fn match_subcommand(
             command::help::print_grouped(out)?;
             Ok(())
         }
+        Subcommands::Onboarding => command::onboarding::handle(out),
         Subcommands::Alias(alias_args::Platform { cmd }) => {
             let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
             match cmd {
