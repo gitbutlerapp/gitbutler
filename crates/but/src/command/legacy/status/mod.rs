@@ -298,13 +298,18 @@ pub(crate) async fn worktree(
             &id_map,
         )?;
     }
-    // Format the last fetched time as relative time
-    let last_checked_text = last_fetched_ms
-        .map(|ms| {
-            let relative_time = format_relative_time_verbose(std::time::SystemTime::now(), ms);
-            format!("(checked {})", relative_time)
-        })
-        .unwrap_or_default();
+
+    // Format the last fetched time as relative time, unless NO_BG_TASKS is set
+    let last_checked_text = if std::env::var("NO_BG_TASKS").is_ok() {
+        String::new()
+    } else {
+        last_fetched_ms
+            .map(|ms| {
+                let relative_time = format_relative_time_verbose(std::time::SystemTime::now(), ms);
+                format!("(checked {})", relative_time)
+            })
+            .unwrap_or_default()
+    };
 
     // Display upstream state if there are new commits
     if let Some(upstream) = &upstream_state {
