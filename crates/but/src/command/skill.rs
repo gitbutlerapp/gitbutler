@@ -91,6 +91,11 @@ const SKILL_FORMATS: &[SkillFormat] = &[
         path: ".opencode/skills/gitbutler",
     },
     SkillFormat {
+        name: "Codex",
+        description: "Codex skill format",
+        path: ".codex/skills/gitbutler",
+    },
+    SkillFormat {
         name: "GitHub Copilot",
         description: "GitHub Copilot skill format",
         path: ".github/copilot/skills/gitbutler",

@@ -10,7 +10,7 @@ Install this skill using the GitButler CLI:
 but skill install    # Prompts for installation location
 ```
 
-The command will prompt you to select a skill format (Claude Code, OpenCode, GitHub Copilot, Cursor, or Windsurf) and install to the appropriate location.
+The command will prompt you to select a skill format (Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf) and install to the appropriate location.
 
 **Options:**
 - `--path <path>` - Install to a custom path
@@ -19,7 +19,7 @@ The command will prompt you to select a skill format (Claude Code, OpenCode, Git
 
 **Requirements:**
 - **GitButler CLI** installed: `curl -sSL https://gitbutler.com/install.sh | sh`
-- **Claude Code, OpenCode, GitHub Copilot, Cursor, or Windsurf**
+- **Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf**
 - Repository initialized with GitButler: `but setup`
 
 **Updating:**
