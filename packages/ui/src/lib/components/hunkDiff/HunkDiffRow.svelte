@@ -319,7 +319,6 @@
 		top: calc(var(--height) - var(--overflow-menu-height) - 6px);
 		left: 0;
 		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-s);
 		opacity: 0;
@@ -372,10 +371,6 @@
 			background-color: var(--clr-diff-deletion-count-bg);
 			color: var(--clr-diff-deletion-count-text);
 			--checkmark-color: var(--clr-diff-deletion-count-checkmark);
-		}
-
-		&.is-before.is-last {
-			border-bottom-left-radius: var(--radius-s);
 		}
 
 		&.clickable {
