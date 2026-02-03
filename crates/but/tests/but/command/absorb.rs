@@ -376,6 +376,311 @@ Hint: run `but help` for all commands
 }
 
 #[test]
+fn uncommitted_file_new() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    env.but("--json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+"#]]);
+
+    env.but("absorb i0 --new")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Found 2 changed files to absorb:
+
+Created on top of commit: f4ea7f8 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+    a.txt @6,4 +6,4
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // The new commit (at A) should have the changes
+    let repo = env.open_repo()?;
+    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @r"
+    firsta
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    lasta
+    ");
+
+    // The original commit (A~1) should remain unchanged
+    let original_blob = repo.rev_parse_single(b"A~1:a.txt")?.object()?;
+    insta::assert_snapshot!(original_blob.data.as_bstr(), @r"
+    first
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    last
+    ");
+
+    env.but("st")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes] 
+┊     no changes
+┊
+┊╭┄g0 [A]  
+┊●   27686df [AUTO-COMMIT] Generated commit message  
+┊●   f4ea7f8 a.txt  
+┊●   9477ae7 add A  
+├╯
+┊
+┊╭┄h0 [B]  
+┊●   d3e2ba3 add B  
+├╯
+┊
+┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
+
+Hint: run `but help` for all commands
+
+"#]]);
+
+    // Status is clean
+    env.but("--json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn uncommitted_hunk_new() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Verify that the first hunk is j0, and absorb it with --new
+    env.but("diff a.txt")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+────────╮
+j0 a.txt│
+────────╯
+   1  │-first
+     1│+firsta
+   2 2│ line
+   3 3│ line
+   4 4│ line
+────────╮
+k0 a.txt│
+────────╯
+    6  6│ line
+    7  7│ line
+    8  8│ line
+    9   │-last
+       9│+lasta
+
+"#]]);
+    env.but("absorb j0 --new")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Found 1 changed file to absorb:
+
+Created on top of commit: f4ea7f8 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+
+
+Hint: you can run `but undo` to undo these changes
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // The new commit (at A) should have the partial change
+    let repo = env.open_repo()?;
+    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @r"
+    firsta
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    last
+    ");
+
+    // The original commit (A~1) should remain unchanged
+    let original_blob = repo.rev_parse_single(b"A~1:a.txt")?.object()?;
+    insta::assert_snapshot!(original_blob.data.as_bstr(), @r"
+    first
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    last
+    ");
+
+    env.but("st")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+╭┄zz [unstaged changes] 
+┊   i0 M a.txt 🔒 f4ea7f8
+┊
+┊╭┄g0 [A]  
+┊●   5a72bff [AUTO-COMMIT] Generated commit message  
+┊●   f4ea7f8 a.txt  
+┊●   9477ae7 add A  
+├╯
+┊
+┊╭┄h0 [B]  
+┊●   d3e2ba3 add B  
+├╯
+┊
+┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
+
+Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage them to a branch
+
+"#]]);
+
+    // Status should still have uncommitted changes (the second hunk)
+    env.but("--json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+fn dry_run_new_shows_plan_without_changes() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
+
+    // Get initial status
+    let initial_status = env.but("--json status -f").allow_json().output()?.stdout;
+
+    // Run absorb with --new and --dry-run flags
+    env.but("absorb i0 --new --dry-run")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Found 2 changed files to absorb:
+
+Created on top of commit: f4ea7f8 a.txt
+  (files locked to commit due to hunk range overlap)
+    a.txt @1,4 +1,4
+    a.txt @6,4 +6,4
+
+Dry run complete. No changes were made.
+
+"#]])
+        .stderr_eq(str![""]);
+
+    // Verify that no changes were actually made - status should be unchanged
+    let post_dry_run_status = env.but("--json status -f").allow_json().output()?.stdout;
+    assert_eq!(
+        initial_status, post_dry_run_status,
+        "Status should be unchanged after dry-run"
+    );
+
+    // Verify the file content wasn't actually changed
+    let repo = env.open_repo()?;
+    let blob = repo.rev_parse_single(b"A:a.txt")?.object()?;
+    insta::assert_snapshot!(blob.data.as_bstr(), @r"
+    first
+    line
+    line
+    line
+    line
+    line
+    line
+    line
+    last
+    ");
+
+    // Verify there are still uncommitted changes
+    env.but("--json status -f")
+        .allow_json()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+{
+  "unassignedChanges": [
+    {
+      "cliId": "i0",
+      "filePath": "a.txt",
+      "changeType": "modified"
+    }
+  ],
+...
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
 fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
