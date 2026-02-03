@@ -8,7 +8,7 @@
 	import CreateReviewBox from '$components/CreateReviewBox.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
-	import { BranchDropData } from '$lib/branches/dropHandler';
+	import { BranchDropData, StartCommitDzHandler } from '$lib/branches/dropHandler';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -150,6 +150,13 @@
 			});
 		}
 	}
+
+	function getCardOverlayLabel(handler: DropzoneHandler | undefined): string {
+		if (handler instanceof MoveCommitDzHandler) return 'Move here';
+		if (handler instanceof ReorderCommitDzHandler) return 'Reorder here';
+		if (handler instanceof StartCommitDzHandler) return 'Start commit';
+		return 'Drop here';
+	}
 </script>
 
 <div
@@ -171,12 +178,7 @@
 			handlers={args.first ? [moveHandler, ...args.dropzones].filter(isDefined) : args.dropzones}
 		>
 			{#snippet overlay({ hovered, activated, handler })}
-				{@const label =
-					handler instanceof MoveCommitDzHandler
-						? 'Move here'
-						: handler instanceof ReorderCommitDzHandler
-							? 'Reorder here'
-							: 'Start commit'}
+				{@const label = getCardOverlayLabel(handler)}
 				<CardOverlay {hovered} {activated} {label} />
 			{/snippet}
 
