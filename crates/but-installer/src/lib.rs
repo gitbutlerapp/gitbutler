@@ -85,24 +85,31 @@ fn run_installation_impl(config: InstallerConfig, print_usage: bool) -> Result<(
         .get(&config.platform)
         .ok_or_else(|| anyhow::anyhow!("Platform {} not found in release", config.platform))?;
 
-    // Validate download URL
-    validate_download_url(&platform_info.url)?;
+    let download_url = platform_info.url.as_deref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "No download URL for platform {} in release {}",
+            config.platform,
+            release.version
+        )
+    })?;
 
-    info(&format!("Download URL: {}", platform_info.url));
+    // Validate download URL
+    validate_download_url(download_url)?;
+
+    info(&format!("Download URL: {}", download_url));
 
     // Create temporary directory
     let temp_dir = tempfile::Builder::new().prefix("gitbutler-install.").tempdir()?;
 
     // Download the tarball
-    let filename = platform_info
-        .url
+    let filename = download_url
         .split('/')
         .next_back()
         .ok_or_else(|| anyhow::anyhow!("Failed to extract filename from download URL"))?;
     let tarball_path = temp_dir.path().join(filename);
 
     info(&format!("Downloading GitButler {}...", release.version));
-    download_file(&platform_info.url, &tarball_path)?;
+    download_file(download_url, &tarball_path)?;
 
     // Validate download
     validate_tarball(&tarball_path)?;
