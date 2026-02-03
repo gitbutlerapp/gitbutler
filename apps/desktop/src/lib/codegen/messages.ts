@@ -165,6 +165,7 @@ export function formatMessages(
 					} else if (contentBlock.type === 'tool_use') {
 						const content = contentBlock;
 
+						// Handle AskUserQuestion tool calls specially - render as a question UI
 						if (content.name === 'AskUserQuestion') {
 							const input = content.input as { questions: AskUserQuestion[] };
 							const askMessage: Message = {

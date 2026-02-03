@@ -165,7 +165,19 @@ export enum TestId {
 	AbsorbModal_CommitAbsorption = 'absorb-modal-commit-absorption',
 	DiscardFileChangesConfirmationModal = 'discard-file-changes-confirmation-modal',
 	DiscardFileChangesConfirmationModal_Cancel = 'discard-file-changes-confirmation-modal-cancel',
-	DiscardFileChangesConfirmationModal_Discard = 'discard-file-changes-confirmation-modal-discard'
+	DiscardFileChangesConfirmationModal_Discard = 'discard-file-changes-confirmation-modal-discard',
+	// Codegen / Claude
+	CodegenSidebar = 'codegen-sidebar',
+	CodegenInput = 'codegen-input',
+	CodegenInputSendButton = 'codegen-input-send-button',
+	CodegenMessages = 'codegen-messages',
+	CodegenPermissionApproval = 'codegen-permission-approval',
+	CodegenPermissionApproval_AllowButton = 'codegen-permission-approval-allow-button',
+	CodegenPermissionApproval_DenyButton = 'codegen-permission-approval-deny-button',
+	CodegenPermissionApproval_WildcardButton = 'codegen-permission-approval-wildcard-button',
+	CodegenAskUserQuestion = 'codegen-ask-user-question',
+	CodegenAskUserQuestion_Option = 'codegen-ask-user-question-option',
+	CodegenAskUserQuestion_SubmitButton = 'codegen-ask-user-question-submit-button'
 }
 
 export enum ElementId {

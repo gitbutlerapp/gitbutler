@@ -405,8 +405,39 @@ impl Claudes {
         };
 
         // Create client and connect
+        // In testing mode with CLAUDE_MOCK_SCENARIO, use mock transport instead of real CLI
+        #[cfg(feature = "testing")]
+        let mut client = {
+            if let Some(scenario_path) = crate::mock_scenario::get_mock_scenario_path() {
+                tracing::info!(
+                    scenario_path = %scenario_path,
+                    "Mock mode enabled - loading scenario from file"
+                );
+                let transport = crate::mock_scenario::create_mock_transport_from_file(&scenario_path)
+                    .map_err(|e| anyhow::anyhow!("Failed to load mock scenario from {}: {}", scenario_path, e))?;
+                ClaudeClient::with_transport(Arc::new(transport), options)
+            } else {
+                ClaudeClient::new(options)
+            }
+        };
+
+        #[cfg(not(feature = "testing"))]
         let mut client = ClaudeClient::new(options);
-        if let Err(e) = client.connect().await {
+
+        // Connect: use connect_with_transport() for mock mode, connect() for real mode
+        #[cfg(feature = "testing")]
+        let connect_result = {
+            if crate::mock_scenario::is_mock_mode_enabled() {
+                client.connect_with_transport().await
+            } else {
+                client.connect().await
+            }
+        };
+
+        #[cfg(not(feature = "testing"))]
+        let connect_result = client.connect().await;
+
+        if let Err(e) = connect_result {
             tracing::error!(
                 stack_id = ?stack_id,
                 original_session_id = %original_session_id,
@@ -500,6 +531,10 @@ impl Claudes {
                                         stack_id,
                                         MessagePayload::Claude(ClaudeOutput { data }),
                                     ).await?;
+                                    tracing::info!(
+                                        stack_id = ?stack_id,
+                                        "Assistant message stored and broadcasted"
+                                    );
                                 }
                                 SdkMessage::User(user_msg) => {
                                     // The CLI outputs: {"type": "user", "message": {"content": [...]}}
@@ -1201,6 +1236,12 @@ fn create_can_use_tool_callback(
             let runtime_permissions = Arc::clone(&runtime_permissions);
 
             async move {
+                tracing::info!(
+                    tool_name = %tool_name,
+                    session_id = %session_id,
+                    "can_use_tool callback invoked"
+                );
+
                 // Handle AskUserQuestion specially - poll for user answers
                 if tool_name == "AskUserQuestion" {
                     return handle_ask_user_question(sync_ctx, stack_id, session_id, tool_input).await;
@@ -1301,6 +1342,11 @@ fn create_can_use_tool_callback(
                 }
 
                 // Store in-memory and get receiver for response
+                tracing::info!(
+                    tool_name = %tool_name,
+                    request_id = %permission_request.id,
+                    "Inserting permission request, waiting for user decision"
+                );
                 let receiver = crate::pending_requests::pending_requests()
                     .insert_permission(permission_request.clone(), session_id);
 

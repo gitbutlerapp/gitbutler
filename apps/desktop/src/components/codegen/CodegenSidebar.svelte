@@ -2,6 +2,7 @@
 	// import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import { TestId } from '@gitbutler/ui/utils/testIds';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -13,7 +14,12 @@
 	let sidebarViewportRef = $state<HTMLDivElement>();
 </script>
 
-<div class="sidebar" bind:this={sidebarViewportRef} use:focusable={{ vertical: true }}>
+<div
+	class="sidebar"
+	data-testid={TestId.CodegenSidebar}
+	bind:this={sidebarViewportRef}
+	use:focusable={{ vertical: true }}
+>
 	<div class="sidebar-header" use:focusable>
 		<p class="text-14 text-semibold">Current sessions</p>
 		<div class="sidebar-header-actions">
