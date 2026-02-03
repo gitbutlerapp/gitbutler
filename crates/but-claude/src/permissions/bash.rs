@@ -156,6 +156,14 @@ pub(super) fn split_bash_commands(command: &str) -> Vec<String> {
                             }
                         }
                     }
+                    '>' => {
+                        current_command.push(ch);
+                        // Handle `2>&1` style syntax which should be considered
+                        // part of the one command.
+                        if chars.peek() == Some(&'&') {
+                            current_command.push(chars.next().unwrap());
+                        }
+                    }
                     // Check for two-character operators
                     '&' => {
                         if chars.peek() == Some(&'&') {
@@ -501,5 +509,11 @@ AStartEndIndicator"#,
         // Multiple heredocs in sequence
         let result = split_bash_commands("cat <<A\nfirst\nA && cat <<B\nsecond\nB");
         assert_eq!(result, vec!["cat <<A\nfirst\nA", "cat <<B\nsecond\nB"]);
+    }
+
+    #[test]
+    fn stderr_redirection() {
+        let result = split_bash_commands("pnpm check 2>&1");
+        assert_eq!(result, vec!["pnpm check 2>&1"]);
     }
 }
