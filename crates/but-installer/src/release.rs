@@ -16,7 +16,7 @@ pub struct Release {
 
 #[derive(Debug, Deserialize)]
 pub struct PlatformInfo {
-    pub url: String,
+    pub url: Option<String>,
     pub signature: String,
 }
 
@@ -181,5 +181,33 @@ mod tests {
 
         // Invalid - untrusted domains
         assert!(validate_download_url("https://evil.com/file.tar.gz").is_err());
+    }
+
+    #[test]
+    fn test_release_parsing_allows_null_platform_url() {
+        let json = r#"{
+            "version": "0.5.1",
+            "platforms": {
+                "darwin-aarch64": {
+                    "url": "https://releases.gitbutler.com/file.tar.gz",
+                    "signature": "sig-darwin"
+                },
+                "windows-x86_64": {
+                    "url": null,
+                    "signature": "sig-windows"
+                }
+            }
+        }"#;
+
+        let release: Release = serde_json::from_str(json).unwrap();
+
+        let darwin = release.platforms.get("darwin-aarch64").unwrap();
+        let windows = release.platforms.get("windows-x86_64").unwrap();
+
+        assert_eq!(
+            darwin.url.as_deref(),
+            Some("https://releases.gitbutler.com/file.tar.gz")
+        );
+        assert!(windows.url.is_none());
     }
 }
