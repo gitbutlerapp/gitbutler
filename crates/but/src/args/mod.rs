@@ -439,10 +439,10 @@ pub enum Subcommands {
     ///
     /// The semantic for finding "the appropriate commit" is as follows:
     ///
-    /// - Changes are amended into the topmost commit of the leftmost (first) lane (branch)
+    /// - If a change has a dependency to a particular commit, it will be amended into that particular commit
     /// - If a change is staged to a particular lane (branch), it will be amended into a commit there
     /// - If there are no commits in this branch, a new commit is created
-    /// - If a change has a dependency to a particular commit, it will be amended into that particular commit
+    /// - Changes are amended into the topmost commit of the leftmost (first) lane (branch)
     ///
     /// Optionally an identifier to an Uncommitted File or a Branch (stack) may be provided.
     ///
@@ -453,6 +453,8 @@ pub enum Subcommands {
     /// If `--dry-run` is specified, no changes will be made; instead, the absorption plan
     /// (what changes would be absorbed by which commits) will be shown.
     ///
+    /// If `--new` is specified, new commits will be created for absorbed changes
+    /// instead of amending existing commits.
     #[cfg(feature = "legacy")]
     Absorb {
         /// If the Source is an uncommitted change - the change will be absorbed.
@@ -462,6 +464,10 @@ pub enum Subcommands {
         /// Show the absorption plan without making any changes.
         #[clap(long = "dry-run")]
         dry_run: bool,
+        /// Create new commits, instead of amending existing ones.
+        /// This is useful when you want to preserve existing commits and add new ones for the absorbed changes.
+        #[clap(long, short = 'n')]
+        new: bool,
     },
 
     /// Discard uncommitted changes from the worktree.

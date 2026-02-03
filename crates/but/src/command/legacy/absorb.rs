@@ -30,6 +30,7 @@ pub(crate) fn handle(
     out: &mut OutputChannel,
     source: Option<&str>,
     dry_run: bool,
+    new: bool,
 ) -> anyhow::Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
     let source: Option<CliId> = source.and_then(|s| parse_sources(ctx, &id_map, s).ok()).and_then(|s| {
@@ -65,7 +66,7 @@ pub(crate) fn handle(
     let absorption_plan = but_api::legacy::absorb::absorption_plan(ctx, target)?;
 
     // Display the plan
-    display_absorption_plan(&absorption_plan, out)?;
+    display_absorption_plan(&absorption_plan, out, new)?;
 
     if dry_run {
         // Nothing more to do
@@ -79,12 +80,13 @@ pub(crate) fn handle(
     let mut guard = ctx.exclusive_worktree_access();
     let repo = ctx.repo.get()?;
     let data_dir = ctx.project_data_dir();
+    let context_lines = ctx.settings.context_lines;
     // Create a snapshot before performing absorb operations
     // This allows the user to undo if needed
     let _snapshot = ctx
         .create_snapshot(SnapshotDetails::new(OperationKind::Absorb), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
-    absorb_assignments(absorption_plan, &mut guard, &repo, &data_dir, out)?;
+    absorb_assignments(absorption_plan, &mut guard, &repo, &data_dir, out, context_lines, new)?;
 
     Ok(())
 }
@@ -96,8 +98,14 @@ fn absorb_assignments(
     repo: &gix::Repository,
     data_dir: &Path,
     out: &mut OutputChannel,
+    context_lines: u32,
+    new: bool,
 ) -> anyhow::Result<()> {
-    let total_rejected = but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?;
+    let total_rejected = if new {
+        but_action::auto_commit_simple(repo, data_dir, context_lines, None, absorption_plan, guard)?
+    } else {
+        but_api::legacy::absorb::absorb_impl(absorption_plan, guard, repo, data_dir)?
+    };
 
     // Display completion message
     if let Some(out) = out.for_human() {
@@ -145,7 +153,11 @@ fn get_hunk_ranges(assignment: &HunkAssignment) -> Vec<String> {
 }
 
 /// Display the absorption plan to the user
-fn display_absorption_plan(commit_absorptions: &[CommitAbsorption], out: &mut OutputChannel) -> anyhow::Result<()> {
+fn display_absorption_plan(
+    commit_absorptions: &[CommitAbsorption],
+    out: &mut OutputChannel,
+    new: bool,
+) -> anyhow::Result<()> {
     // Count total files
     let total_files: usize = commit_absorptions.iter().map(|c| c.files.len()).sum();
 
@@ -207,13 +219,13 @@ fn display_absorption_plan(commit_absorptions: &[CommitAbsorption], out: &mut Ou
 
         for absorption in commit_absorptions {
             let short_hash = &absorption.commit_id.to_hex().to_string()[..7];
+            let verb = if new {
+                "Created on top of commit"
+            } else {
+                "Absorbed to commit"
+            };
 
-            writeln!(
-                out,
-                "Absorbed to commit: {} {}",
-                short_hash.cyan(),
-                absorption.commit_summary
-            )?;
+            writeln!(out, "{}: {} {}", verb, short_hash.cyan(), absorption.commit_summary)?;
             writeln!(out, "  ({})", absorption.reason.description().dimmed())?;
 
             for file in &absorption.files {
