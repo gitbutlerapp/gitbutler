@@ -97,11 +97,6 @@
 		 * Defaults to false.
 		 */
 		showBottomButton?: boolean;
-		/**
-		 * Whether to use smooth scrolling behavior for scrollToBottom.
-		 * Defaults to true.
-		 */
-		smoothScroll?: boolean;
 	};
 
 	const SCROLL_DOWN_THRESHOLD = 600;
@@ -122,8 +117,7 @@
 		stickToBottom,
 		startIndex,
 		renderDistance = 0,
-		showBottomButton = false,
-		smoothScroll = true
+		showBottomButton = false
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -400,7 +394,7 @@
 		if (!viewport) return;
 		viewport.scrollTo({
 			top: viewport.scrollHeight - viewport.clientHeight,
-			behavior: smoothScroll ? 'smooth' : 'instant'
+			behavior: 'instant'
 		});
 	}
 

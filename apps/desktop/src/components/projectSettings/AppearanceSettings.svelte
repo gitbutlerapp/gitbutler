@@ -99,27 +99,6 @@
 	{/snippet}
 </CardGroup.Item>
 
-<CardGroup.Item labelFor="smoothScroll" standalone>
-	{#snippet title()}
-		Smooth scroll
-	{/snippet}
-	{#snippet caption()}
-		Use smooth scrolling where possible.
-	{/snippet}
-	{#snippet actions()}
-		<Toggle
-			id="smoothScroll"
-			checked={$userSettings.smoothScroll}
-			onclick={() => {
-				userSettings.update((s) => ({
-					...s,
-					smoothScroll: !s.smoothScroll
-				}));
-			}}
-		/>
-	{/snippet}
-</CardGroup.Item>
-
 <CardGroup>
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
