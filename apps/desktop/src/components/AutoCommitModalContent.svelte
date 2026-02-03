@@ -1,15 +1,15 @@
 <script lang="ts">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import {
-		Button,
-		ModalFooter,
 		ModalHeader,
 		ScrollableContainer,
-		SimpleCommitRow
+		SimpleCommitRow,
+		SimpleCommitRowSkeleton
 	} from '@gitbutler/ui';
 	import { untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -30,7 +30,7 @@
 	let events = $state<Action.AutoCommitEvent[]>([]);
 	const commitMessageMap = new SvelteMap<string, string>();
 
-	// Listen for auto-commit events and update commit messages accordingly
+	// Listen for auto-commit events and update commit messages
 	$effect(() => {
 		const unlisten = actionService.listenForAutoCommit(data.projectId, (event) => {
 			untrack(() => {
@@ -38,93 +38,127 @@
 			});
 
 			if (event.type === 'commitGeneration') {
-				// Accumulate the tokens into a commit message for the corresponding parent commit ID
 				const untrackedMap = untrack(() => commitMessageMap);
-				const existingMessage = untrackedMap.get(event.parent_commit_id) || '';
-				untrackedMap.set(event.parent_commit_id, existingMessage + event.token);
+				const currentMessage = untrackedMap.get(event.parent_commit_id) || '';
+				untrackedMap.set(event.parent_commit_id, currentMessage + event.token);
 			}
 		});
 
-		return () => {
-			unlisten();
-		};
+		return unlisten;
 	});
 
-	function findTheLastCommitGeneration(events: Action.AutoCommitEvent[]): string | undefined {
+	// Check if generation is complete for a parent commit
+	function isGenerationComplete(
+		parentCommitId: string | undefined,
+		events: Action.AutoCommitEvent[]
+	): boolean {
+		if (!parentCommitId) return false;
+
 		for (let i = events.length - 1; i >= 0; i--) {
 			const event = events[i];
 			if (!event) continue;
-			if (event.type === 'commitGeneration') {
-				return event.parent_commit_id;
+
+			if (event.type === 'commitGeneration' && event.parent_commit_id === parentCommitId) {
+				// Found the generation, now check if there's a success after it
+				for (let j = i + 1; j < events.length; j++) {
+					const nextEvent = events[j];
+					if (nextEvent?.type === 'commitSuccess') {
+						return true;
+					}
+				}
+				return false;
 			}
 		}
-		return undefined;
+		return false;
 	}
 
 	const totalSteps = $derived(events.find((e) => e.type === 'started')?.steps_length);
 	const commitsCreated = $derived(
 		events.filter((e) => e.type === 'commitSuccess').map((e) => e.commit_id)
 	);
-	const parentOfCommitBeingGenerated = $derived(findTheLastCommitGeneration(events));
+	const parentOfCommitBeingGenerated = $derived(
+		events
+			.slice()
+			.reverse()
+			.find((e) => e.type === 'commitGeneration')?.parent_commit_id
+	);
+	const isCurrentGenerationComplete = $derived(
+		isGenerationComplete(parentOfCommitBeingGenerated, events)
+	);
 	const isDone = $derived(events.some((e) => e.type === 'completed'));
+
+	let isScrollTopVisible = $state(true);
 </script>
 
-<ModalHeader type="info">Auto Commit Changes</ModalHeader>
-<div class="auto-commit-modal__modal-content">
-	{#if parentOfCommitBeingGenerated && !isDone}
-		{@const currentCommitMessage = commitMessageMap.get(parentOfCommitBeingGenerated)}
-		<p class="text-13 text-body auto-commit-modal__message-generation">{currentCommitMessage}</p>
-	{/if}
-	<!-- List of created commits -->
-	{#if commitsCreated.length > 0}
-		<div class="auto-commit-modal__scroll-wrap">
-			<ScrollableContainer maxHeight="16.5rem">
-				{#each commitsCreated as commitId (commitId)}
-					{@const commit = stackService.commitDetails(data.projectId, commitId)}
-					<ReduxResult projectId={data.projectId} result={commit.result}>
-						{#snippet children(commit)}
-							{@const commitTitle = commit.message.split('\n')[0] ?? 'No commit message'}
-							{@const date = new Date(Number(commit.createdAt))}
+<div class="auto-commit-modal__wrapper">
+	<ModalHeader sticky={!isScrollTopVisible} closeButton={isDone} oncloseclick={close}
+		>Auto commit changes</ModalHeader
+	>
 
-							<SimpleCommitRow
-								title={commitTitle}
-								sha={commit.id}
-								{date}
-								author={commit.author.name}
-								onCopy={() => clipboardService.write(commit.id, { message: 'Commit hash copied' })}
-							/>
-						{/snippet}
-					</ReduxResult>
-				{/each}
-			</ScrollableContainer>
-		</div>
-	{/if}
-	<!-- Progress bar -->
-	{#if totalSteps !== undefined && totalSteps > 1}
-		<div class="auto-commit-modal__progress-container">
-			<div
-				class="auto-commit-modal__progress-bar"
-				style:width="{(commitsCreated.length / totalSteps) * 100}%"
-			></div>
-		</div>
-		<p class="auto-commit-modal__progress-text">
-			{#if isDone}
-				Done!
+	<ConfigurableScrollableContainer
+		onscrollTop={(visible) => {
+			isScrollTopVisible = visible;
+		}}
+	>
+		<div class="auto-commit-modal__modal-content">
+			{#if commitsCreated.length === 0 && !parentOfCommitBeingGenerated}
+				<div class="auto-commit-modal__scroll-wrap">
+					<SimpleCommitRowSkeleton />
+				</div>
 			{:else}
-				Processing {commitsCreated.length} of {totalSteps} steps
+				<div class="auto-commit-modal__scroll-wrap">
+					<ScrollableContainer>
+						{#each commitsCreated as commitId (commitId)}
+							{@const commit = stackService.commitDetails(data.projectId, commitId)}
+							<ReduxResult projectId={data.projectId} result={commit.result}>
+								{#snippet children(commit)}
+									{@const commitTitle = commit.message.split('\n')[0] ?? 'No commit message'}
+									{@const date = new Date(Number(commit.createdAt))}
+
+									<SimpleCommitRow
+										title={commitTitle}
+										sha={commit.id}
+										isDone
+										{date}
+										author={commit.author.name}
+										onCopy={() =>
+											clipboardService.write(commit.id, { message: 'Commit hash copied' })}
+									/>
+								{/snippet}
+
+								{#snippet loading()}
+									<SimpleCommitRowSkeleton />
+								{/snippet}
+							</ReduxResult>
+						{/each}
+
+						{#if parentOfCommitBeingGenerated && !isDone && !isCurrentGenerationComplete}
+							{@const currentMessage = commitMessageMap.get(parentOfCommitBeingGenerated)}
+							{@const title = currentMessage?.split('\n')[0] ?? 'Generating commit message...'}
+							<SimpleCommitRow {title} sha="..." date={new Date()} aiMessage={currentMessage} />
+						{/if}
+
+						{#if totalSteps && totalSteps > 1}
+							{@const showingGenerating =
+								parentOfCommitBeingGenerated && !isDone && !isCurrentGenerationComplete}
+							{@const skeletonCount =
+								totalSteps - commitsCreated.length - (showingGenerating ? 1 : 0)}
+							{#each Array(skeletonCount) as _}
+								<SimpleCommitRowSkeleton />
+							{/each}
+						{/if}
+					</ScrollableContainer>
+				</div>
 			{/if}
-		</p>
-	{/if}
+		</div>
+	</ConfigurableScrollableContainer>
 </div>
-<ModalFooter>
-	<Button style={isDone ? 'pop' : undefined} kind={isDone ? 'solid' : 'outline'} onclick={close}>
-		{isDone ? 'Done' : 'Close'}
-	</Button>
-</ModalFooter>
 
 <style>
-	.auto-commit-modal__message-generation {
-		white-space: pre-wrap;
+	.auto-commit-modal__wrapper {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
 	}
 
 	.auto-commit-modal__modal-content {
@@ -132,27 +166,6 @@
 		flex-direction: column;
 		padding: 0 16px 16px 16px;
 		gap: 1rem;
-	}
-
-	.auto-commit-modal__progress-container {
-		width: 100%;
-		height: 8px;
-		overflow: hidden;
-		border-radius: 4px;
-		background-color: var(--clr-bg-2);
-	}
-
-	.auto-commit-modal__progress-bar {
-		height: 100%;
-		border-radius: 4px;
-		background-color: var(--clr-theme-pop-element);
-		transition: width 0.3s ease;
-	}
-
-	.auto-commit-modal__progress-text {
-		color: var(--clr-text-2);
-		font-size: 12px;
-		text-align: center;
 	}
 
 	.auto-commit-modal__scroll-wrap {

@@ -47,6 +47,7 @@ export { CardGroup } from '$components/cardGroup';
 export { default as SeriesIcon } from '$components/SeriesIcon.svelte';
 export { default as SeriesLabelsRow } from '$components/SeriesLabelsRow.svelte';
 export { default as SimpleCommitRow } from '$components/SimpleCommitRow.svelte';
+export { default as SimpleCommitRowSkeleton } from '$components/SimpleCommitRowSkeleton.svelte';
 export { default as SkeletonBone } from '$components/SkeletonBone.svelte';
 export { default as Spacer } from '$components/Spacer.svelte';
 export { default as TagInput, type Tag } from '$components/TagInput.svelte';

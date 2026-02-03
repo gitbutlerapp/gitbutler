@@ -85,8 +85,7 @@
 					state: modalState,
 					props: {
 						testId: TestId.AutoCommitModal,
-						closeButton: false,
-						width: 500,
+						width: 440,
 						noPadding: true,
 						preventCloseOnClickOutside: true
 					}

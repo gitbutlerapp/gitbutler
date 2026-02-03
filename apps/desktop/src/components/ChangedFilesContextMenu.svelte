@@ -415,6 +415,7 @@
 						/>
 						<ContextMenuItem
 							label="Auto commit"
+							icon="auto-commit"
 							onclick={async () => {
 								contextMenu.close();
 								triggerAutoCommit(changes);
