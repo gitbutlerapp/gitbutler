@@ -20,9 +20,11 @@ const PRE_COMMIT_HOOK_SCRIPT: &str = r#"#!/bin/sh
 # This hook is managed by GitButler to prevent accidental commits on the workspace branch.
 # Your original pre-commit hook has been preserved as 'pre-commit-user'.
 
+HOOKS_DIR=$(dirname "$0")
+
 # Run user's hook first if it exists - if it fails, stop here
-if [ -x "$(dirname "$0")/pre-commit-user" ]; then
-    "$(dirname "$0")/pre-commit-user" "$@" || exit $?
+if [ -x "$HOOKS_DIR/pre-commit-user" ]; then
+    "$HOOKS_DIR/pre-commit-user" "$@" || exit $?
 fi
 
 # Get the current branch name
@@ -41,17 +43,17 @@ if [ "$BRANCH" = "gitbutler/workspace" ]; then
     echo "  - Or directly checkout another branch: git checkout <branch>"
     echo ""
     echo "If you no longer have the GitButler CLI installed, you can simply remove this hook and checkout another branch:"
-    echo "  rm \"$(dirname \"$0\")/pre-commit\""
+    printf '  rm "%s/pre-commit"\n' "$HOOKS_DIR"
     echo ""
     exit 1
 fi
 
 # Not on workspace branch - run user's original hook if it exists
-if [ -x "$(dirname "$0")/pre-commit-user" ]; then
+if [ -x "$HOOKS_DIR/pre-commit-user" ]; then
     echo ""
     echo "WARNING: GitButler's pre-commit hook is still installed but you're not on gitbutler/workspace."
     echo "If you're no longer using GitButler, you can restore your original hook:"
-    echo "  mv \"$(dirname \"$0\")/pre-commit-user\" \"$(dirname \"$0\")/pre-commit\""
+    printf '  mv "%s/pre-commit-user" "%s/pre-commit"\n' "$HOOKS_DIR" "$HOOKS_DIR"
     echo ""
 fi
 
