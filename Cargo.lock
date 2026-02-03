@@ -958,6 +958,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-clap"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "but",
+ "clap",
+]
+
+[[package]]
 name = "but-claude"
 version = "0.0.0"
 dependencies = [
