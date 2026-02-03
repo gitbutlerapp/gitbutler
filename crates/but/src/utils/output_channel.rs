@@ -323,24 +323,12 @@ impl OutputChannel {
                 None
             } else {
                 let pager = minus::Pager::new();
+                pager.set_alternate_screen(true).unwrap();
                 let msg = "can talk to newly created pager";
                 pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
                 pager.set_prompt("GitButler").expect(msg);
                 Some(pager)
             },
-        }
-    }
-
-    /// Like [`Self::new_with_pager`], but will never create a pager or write JSON.
-    /// Use this if a second instance of a channel is needed, and the first one could have a pager.
-    pub fn new_without_pager_non_json(format: OutputFormat) -> Self {
-        OutputChannel {
-            format: match format {
-                OutputFormat::Human | OutputFormat::Shell | OutputFormat::None => format,
-                OutputFormat::Json => OutputFormat::None,
-            },
-            stdout: std::io::stdout(),
-            pager: None,
         }
     }
 }
