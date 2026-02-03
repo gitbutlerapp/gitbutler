@@ -29,12 +29,20 @@ impl PartialEq for ForgeRepoInfo {
 #[serde(tag = "provider", rename_all = "lowercase", content = "details")]
 pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
+    GitLab(but_gitlab::GitlabAccountIdentifier),
 }
 
 impl ForgeUser {
     pub fn github(&self) -> Option<&but_github::GithubAccountIdentifier> {
         match self {
             ForgeUser::GitHub(id) => Some(id),
+            _ => None,
+        }
+    }
+    pub fn gitlab(&self) -> Option<&but_gitlab::GitlabAccountIdentifier> {
+        match self {
+            ForgeUser::GitLab(id) => Some(id),
+            _ => None,
         }
     }
 }
