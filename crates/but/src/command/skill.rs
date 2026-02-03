@@ -234,16 +234,22 @@ fn is_gitbutler_skill(skill_md_path: &std::path::Path) -> bool {
 /// Returns None if the file doesn't exist, isn't readable, or has no valid version.
 fn extract_installed_version(skill_md_path: &std::path::Path) -> Option<String> {
     let content = std::fs::read_to_string(skill_md_path).ok()?;
+    extract_installed_version_from_content(&content)
+}
+
+/// Extract the version from YAML frontmatter content.
+/// Returns None if the content has no frontmatter or no version entry.
+fn extract_installed_version_from_content(content: &str) -> Option<String> {
+    let mut lines = content.lines();
 
     // Parse YAML frontmatter (between --- markers)
-    let lines: Vec<&str> = content.lines().collect();
-    if lines.first()? != &"---" {
+    if lines.next()? != "---" {
         return None;
     }
 
     // Find the version line in frontmatter
-    for line in lines.iter().skip(1) {
-        if *line == "---" {
+    for line in lines {
+        if line == "---" {
             break;
         }
         if let Some(value) = line.strip_prefix("version:") {
@@ -997,66 +1003,27 @@ mod tests {
 
     #[test]
     fn extract_installed_version_parses_frontmatter() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
-        fs::write(&skill_path, "---\nname: but\nversion: 1.2.3\n---\n# Content").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("---\nname: but\nversion: 1.2.3\n---\n# Content");
         assert_eq!(version, Some("1.2.3".to_string()));
     }
 
     #[test]
     fn extract_installed_version_handles_different_order() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
         // version is not the first field
-        fs::write(
-            &skill_path,
-            "---\nname: but\nauthor: Test\nversion: 2.0.0\n---\n# Content",
-        )
-        .unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version =
+            extract_installed_version_from_content("---\nname: but\nauthor: Test\nversion: 2.0.0\n---\n# Content");
         assert_eq!(version, Some("2.0.0".to_string()));
     }
 
     #[test]
     fn extract_installed_version_returns_none_for_missing_version() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
-        fs::write(&skill_path, "---\nname: but\n---\n# Content").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("---\nname: but\n---\n# Content");
         assert_eq!(version, None);
     }
 
     #[test]
     fn extract_installed_version_returns_none_for_no_frontmatter() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
-        fs::write(&skill_path, "# Just a regular markdown file").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("# Just a regular markdown file");
         assert_eq!(version, None);
     }
 
@@ -1106,33 +1073,15 @@ mod tests {
 
     #[test]
     fn extract_installed_version_trims_whitespace() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
         // Version with extra whitespace
-        fs::write(&skill_path, "---\nversion:   1.0.0   \n---\n# Content").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("---\nversion:   1.0.0   \n---\n# Content");
         assert_eq!(version, Some("1.0.0".to_string()));
     }
 
     #[test]
     fn extract_installed_version_handles_empty_version() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
         // Empty version value
-        fs::write(&skill_path, "---\nversion:\n---\n# Content").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("---\nversion:\n---\n# Content");
         assert_eq!(version, Some("".to_string()));
     }
 
@@ -1147,20 +1096,14 @@ mod tests {
         // Create a Claude Code skill installation
         let claude_skill_dir = temp_dir.path().join(".claude/skills/gitbutler");
         fs::create_dir_all(&claude_skill_dir).unwrap();
-        fs::write(
-            claude_skill_dir.join("SKILL.md"),
-            "---\nname: but\nversion: 1.0.0\n---\n# GitButler CLI Skill",
-        )
-        .unwrap();
+        let claude_skill_content = "---\nname: but\nversion: 1.0.0\n---\n# GitButler CLI Skill";
+        fs::write(claude_skill_dir.join("SKILL.md"), claude_skill_content).unwrap();
 
         // Create a Cursor skill installation
         let cursor_skill_dir = temp_dir.path().join(".cursor/skills/gitbutler");
         fs::create_dir_all(&cursor_skill_dir).unwrap();
-        fs::write(
-            cursor_skill_dir.join("SKILL.md"),
-            "---\nname: but\nversion: 0.9.0\n---\n# GitButler CLI Skill",
-        )
-        .unwrap();
+        let cursor_skill_content = "---\nname: but\nversion: 0.9.0\n---\n# GitButler CLI Skill";
+        fs::write(cursor_skill_dir.join("SKILL.md"), cursor_skill_content).unwrap();
 
         // Create a non-GitButler skill (should be ignored)
         let other_skill_dir = temp_dir.path().join(".opencode/skills/gitbutler");
@@ -1175,13 +1118,13 @@ mod tests {
         assert!(is_gitbutler_skill(&cursor_skill_dir.join("SKILL.md")));
         assert!(!is_gitbutler_skill(&other_skill_dir.join("SKILL.md")));
 
-        // Verify extract_installed_version works on our test files
+        // Verify extract_installed_version parsing works on our test content
         assert_eq!(
-            extract_installed_version(&claude_skill_dir.join("SKILL.md")),
+            extract_installed_version_from_content(claude_skill_content),
             Some("1.0.0".to_string())
         );
         assert_eq!(
-            extract_installed_version(&cursor_skill_dir.join("SKILL.md")),
+            extract_installed_version_from_content(cursor_skill_content),
             Some("0.9.0".to_string())
         );
     }
@@ -1283,17 +1226,8 @@ mod tests {
 
     #[test]
     fn extract_installed_version_stops_at_frontmatter_end() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
         // Version appears both in frontmatter and body - should only get frontmatter version
-        fs::write(&skill_path, "---\nversion: 1.0.0\n---\n\nversion: 2.0.0 in the body").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("---\nversion: 1.0.0\n---\n\nversion: 2.0.0 in the body");
         assert_eq!(version, Some("1.0.0".to_string()));
     }
 
@@ -1329,31 +1263,13 @@ mod tests {
 
     #[test]
     fn extract_installed_version_handles_quoted_version() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
-        fs::write(&skill_path, "---\nversion: \"1.2.3\"\n---\n# Content").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("---\nversion: \"1.2.3\"\n---\n# Content");
         assert_eq!(version, Some("1.2.3".to_string()));
     }
 
     #[test]
     fn extract_installed_version_handles_version_with_comment() {
-        use std::fs;
-
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-        let skill_path = temp_dir.path().join("SKILL.md");
-
-        fs::write(&skill_path, "---\nversion: 1.2.3 # installed version\n---\n# Content").unwrap();
-
-        let version = extract_installed_version(&skill_path);
+        let version = extract_installed_version_from_content("---\nversion: 1.2.3 # installed version\n---\n# Content");
         assert_eq!(version, Some("1.2.3".to_string()));
     }
 }
