@@ -68,7 +68,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let has_help_flag = args.iter().any(|arg| arg == "--help" || arg == "-h");
     let has_subcommand = args.len() > 2 && args[1] != "--help" && args[1] != "-h";
     if has_help_flag && !has_subcommand {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new_with_optional_pager(OutputFormat::Human, true);
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
@@ -80,14 +80,14 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let args_vec: Vec<String> = std::env::args().collect();
     // TODO: handle this as part of clap, it can be told to not generate all help.
     if args_vec.iter().any(|arg| arg == "push") && args_vec.iter().any(|arg| arg == "--help" || arg == "-h") {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new_with_optional_pager(OutputFormat::Human, true);
         command::push::help::print(&mut out)?;
         return Ok(());
     }
 
     // Handle `but help -h` and `but help --help` to show the grouped help output
     if args_vec.iter().any(|arg| arg == "help") && args_vec.iter().any(|arg| arg == "--help" || arg == "-h") {
-        let mut out = OutputChannel::new_without_pager_non_json(OutputFormat::Human);
+        let mut out = OutputChannel::new_with_optional_pager(OutputFormat::Human, true);
         command::help::print_grouped(&mut out)?;
         return Ok(());
     }
@@ -96,13 +96,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let output_format = if args.json { OutputFormat::Json } else { args.format };
     // Determine if pager should be used based on the command
-    let use_pager = match args.cmd {
-        #[cfg(feature = "legacy")]
-        Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
-        Some(Subcommands::Help) => false,
-        Some(Subcommands::Setup { .. }) => false,
-        _ => true,
-    };
+    let use_pager = !matches!(args.cmd, Some(Subcommands::Setup { .. }));
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
 
     if args.trace > 0 {
