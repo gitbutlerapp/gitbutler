@@ -223,10 +223,10 @@
 			}
 		]
 	},
-	"ai-friendly": {
-		"id": "ai-friendly",
-		"title": "AI Agent Friendly",
-		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 20 20\"><g clip-path=\"url(#a)\"><path fill=\"currentColor\" d=\"M9.684 3.832c.364-1.094 1.911-1.094 2.276 0l.493 1.481a4.502 4.502 0 0 0 2.599 2.755l.248.091 1.481.494c1.094.365 1.095 1.912.001 2.277l-1.481.494-.25.09a4.501 4.501 0 0 0-2.597 2.757l-.493 1.48c-.353 1.06-1.818 1.093-2.24.1l-.037-.1-.495-1.48a4.5 4.5 0 0 0-.567-1.135L2.48 19.28l-1.061-1.06 6.157-6.158a4.498 4.498 0 0 0-1.232-.638l-1.48-.494-.1-.037c-.994-.423-.96-1.886.1-2.24l1.48-.494A4.5 4.5 0 0 0 9.1 5.562l.091-.249.494-1.481Zm.928 1.956a6 6 0 0 1-3.794 3.795l-.629.208.63.21a6 6 0 0 1 3.793 3.795l.21.628.21-.628A6 6 0 0 1 14.824 10l.63-.21-.63-.208a6.001 6.001 0 0 1-3.794-3.795l-.209-.629-.21.63ZM17.51 1.25a2.083 2.083 0 1 1 0 4.166 2.083 2.083 0 0 1 0-4.166Z\"/></g><defs><clipPath id=\"a\"><path fill=\"#fff\" d=\"M0 0h20v20H0z\"/></clipPath></defs></svg>",
+	"scripting-ready": {
+		"id": "scripting-ready",
+		"title": "Scripting ready",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" fill=\"none\"><g clip-path=\"url(#a)\"><path fill=\"currentColor\" d=\"M17.168 1.25A2.75 2.75 0 0 1 19.918 4v4.25h-3.5V16a2.75 2.75 0 0 1-2.75 2.75H2.808A2.75 2.75 0 0 1 .059 16v-3.75h1.86V4a2.75 2.75 0 0 1 2.75-2.75h12.5ZM1.558 16c0 .69.56 1.25 1.25 1.25h8.25v-3.5h-9.5V16Zm3.11-13.25c-.69 0-1.25.56-1.25 1.25v8.25h9.14v5h1.11c.69 0 1.25-.56 1.25-1.25V2.75H4.668Zm7.832 7h-7v-1.5h7v1.5Zm0-3h-7v-1.5h7v1.5Zm3.918 0h2V4c0-.69-.56-1.25-1.25-1.25h-.75v4Z\"/></g><defs><clipPath id=\"a\"><path fill=\"#fff\" d=\"M0 0h20v20H0z\"/></clipPath></defs></svg>",
 		"script": [
 			{
 				"type": "input",
@@ -278,6 +278,50 @@
 					"  <span class='t-blue'>\"authorName\"</span><span class='t-dim'>:</span> <span class='t-green'>\"Scott Chacon\"</span><span class='t-dim'>,</span>",
 					"  <span class='t-blue'>\"conflicted\"</span><span class='t-dim'>:</span> <span class='t-accent'>false</span>",
 					"<span class='t-dim'>}</span>"
+				]
+			}
+		]
+	},
+	"skill-install": {
+		"id": "skill-install",
+		"title": "Agent Skills",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 20 20\"><path fill=\"currentColor\" d=\"M9.684 3.832c.364-1.094 1.911-1.094 2.276 0l.493 1.481a4.502 4.502 0 0 0 2.599 2.755l.248.091 1.481.494c1.094.365 1.095 1.912.001 2.277l-1.481.494-.25.09a4.501 4.501 0 0 0-2.597 2.757l-.493 1.48c-.353 1.06-1.818 1.093-2.24.1l-.037-.1-.495-1.48a4.5 4.5 0 0 0-.567-1.135L2.48 19.28l-1.061-1.06 6.157-6.158a4.498 4.498 0 0 0-1.232-.638l-1.48-.494-.1-.037c-.994-.423-.96-1.886.1-2.24l1.48-.494A4.5 4.5 0 0 0 9.1 5.562l.091-.249.494-1.481Zm.928 1.956a6 6 0 0 1-3.794 3.795l-.629.208.63.21a6 6 0 0 1 3.793 3.795l.21.628.21-.628A6 6 0 0 1 14.824 10l.63-.21-.63-.208a6.001 6.001 0 0 1-3.794-3.795l-.209-.629-.21.63ZM17.51 1.25a2.083 2.083 0 1 1 0 4.166 2.083 2.083 0 0 1 0-4.166Z\"/></svg>",
+		"script": [
+			{
+				"type": "input",
+				"lines": ["# Ask your agent to move, absorb, squash, amend or simply commit changes"]
+			},
+			{
+				"type": "input",
+				"lines": ["$ but skill install --global"]
+			},
+			{
+				"type": "output",
+				"lines": [
+					"<span class='t-dim'>Select a skill folder format:</span>",
+					"",
+					"<span class='t-blue'>?</span> Which format would you like to use?:",
+					"<span class='t-highlight'>> Claude Code</span> <span class='t-dim'>- Claude Code CLI skill format</span>",
+					"  OpenCode <span class='t-dim'>- OpenCode AI skill format</span>",
+					"  Codex <span class='t-dim'>- Codex skill format</span>",
+					"  GitHub Copilot <span class='t-dim'>- GitHub Copilot skill format</span>",
+					"  Cursor <span class='t-dim'>- Cursor AI skill format</span>",
+					""
+				]
+			},
+			{
+				"type": "output",
+				"delay": 1500,
+				"lines": [
+					"<span class='t-success'>✓</span> <span class='t-teal'>GitButler skill installed successfully!</span>",
+					"",
+					"  <span class='t-dim'>Location:</span> <span class='t-highlight'>/Users/kiril/.codex/skills/gitbutler</span>",
+					"",
+					"  <span class='t-dim'>Files installed:</span>",
+					"    • SKILL.md",
+					"    • references/concepts.md",
+					"    • references/examples.md",
+					"    • references/reference.md"
 				]
 			}
 		]

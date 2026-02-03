@@ -58,17 +58,17 @@
 				script={getScript()}
 				onComplete={handleScriptComplete}
 				onProgress={handleProgress}
-				bottomPadding="64px"
 			/>
-			<div class="script-switcher">
-				<ScriptSwitcher
-					{scriptsData}
-					onScriptChange={handleScriptChange}
-					{selectedScript}
-					{scriptProgress}
-				/>
-			</div>
 		</div>
+	</div>
+
+	<div class="script-switcher">
+		<ScriptSwitcher
+			{scriptsData}
+			onScriptChange={handleScriptChange}
+			{selectedScript}
+			{scriptProgress}
+		/>
 	</div>
 </section>
 
@@ -84,9 +84,9 @@
 
 	.hero-content {
 		display: flex;
-		grid-column: narrow-start / off-center;
+		grid-column: narrow-start / narrow-end;
 		flex-direction: column;
-		max-width: 800px;
+		/* max-width: 800px; */
 		padding-top: 52px;
 	}
 
@@ -99,12 +99,10 @@
 
 	.script-switcher {
 		display: flex;
-		position: absolute;
-		bottom: 0;
-		left: 50%;
+		grid-column: full-start / full-end;
+		align-items: center;
 		justify-content: center;
-		width: calc(100% - 30px);
-		transform: translateY(60%) translateX(-50%);
+		margin-top: 16px;
 	}
 
 	@media (max-width: 700px) {
