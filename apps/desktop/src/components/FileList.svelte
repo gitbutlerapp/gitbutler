@@ -110,7 +110,7 @@
 
 	const aiGenEnabled = $derived(projectAiGenEnabled(projectId));
 
-	const canUseGBAI = $derived(aiGenEnabled && aiConfigurationValid);
+	const canUseGBAI = $derived($aiGenEnabled && aiConfigurationValid);
 	const selectedFileIds = $derived(idSelection.values(selectionId));
 
 	$effect(() => {
@@ -157,13 +157,7 @@
 
 	async function autoCommitSelection() {
 		const selectedFiles = idSelection.values(selectionId);
-		if (selectionId.type !== 'worktree' || selectedFiles.length === 0 || !canUseGBAI) return;
-
-		showToast({
-			style: 'info',
-			title: 'Figuring out where to commit the changes',
-			message: 'This may take a few seconds.'
-		});
+		if (selectionId.type !== 'worktree' || selectedFiles.length === 0) return;
 
 		const treeChanges = changes.filter((change) =>
 			selectedFiles.some((file) => file.path === change.path)
@@ -171,14 +165,14 @@
 
 		await autoCommit({
 			projectId,
-			changes: treeChanges,
-			model: DEFAULT_MODEL
-		});
-
-		showToast({
-			style: 'success',
-			title: 'And... done!',
-			message: `Now, you're free to continue`
+			target: {
+				type: 'treeChanges',
+				subject: {
+					changes: treeChanges,
+					assigned_stack_id: stackId ?? null
+				}
+			},
+			useAi: $aiGenEnabled
 		});
 	}
 

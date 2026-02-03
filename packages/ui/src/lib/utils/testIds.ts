@@ -115,6 +115,7 @@ export enum TestId {
 	GlobalModal_AuthorMissing_ActionButton = 'global-modal-author-missing-action-button',
 	GlobalModalActionButton = 'global-modal-action-button',
 	LoginConfirmationModal = 'login-confirmation-modal',
+	AutoCommitModal = 'auto-commit-modal',
 	PRBranchDrawer = 'pr-branch-view',
 	CreateStackButton = 'create-stack-button',
 	CommitToNewBranchButton = 'commit-to-new-branch-button',

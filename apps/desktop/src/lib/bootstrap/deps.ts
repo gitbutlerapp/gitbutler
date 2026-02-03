@@ -257,7 +257,7 @@ export function initDependencies(args: {
 	// ACTIONS & WORKFLOWS
 	// ============================================================================
 
-	const actionService = new ActionService(clientState['backendApi']);
+	const actionService = new ActionService(clientState['backendApi'], backend);
 	const upstreamIntegrationService = new UpstreamIntegrationService(clientState, stackService);
 
 	// ============================================================================
