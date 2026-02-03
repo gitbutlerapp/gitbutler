@@ -173,6 +173,10 @@ pub(super) fn split_bash_commands(command: &str) -> Vec<String> {
                                 commands.push(trimmed);
                             }
                             current_command.clear();
+                        } else if chars.peek() == Some(&'>') {
+                            // Handle &> style pipe redirection syntax
+                            current_command.push(ch);
+                            current_command.push(chars.next().unwrap());
                         } else {
                             // Single & is also a separator (background process)
                             let trimmed = current_command.trim().to_string();
@@ -515,5 +519,15 @@ AStartEndIndicator"#,
     fn stderr_redirection() {
         let result = split_bash_commands("pnpm check 2>&1");
         assert_eq!(result, vec!["pnpm check 2>&1"]);
+        let result = split_bash_commands("pnpm check >&");
+        assert_eq!(result, vec!["pnpm check >&"]);
+    }
+
+    #[test]
+    fn stderr_redirection2() {
+        let result = split_bash_commands("pnpm check 2&>1");
+        assert_eq!(result, vec!["pnpm check 2&>1"]);
+        let result = split_bash_commands("pnpm check &>");
+        assert_eq!(result, vec!["pnpm check &>"]);
     }
 }
