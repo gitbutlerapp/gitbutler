@@ -39,7 +39,7 @@ pub enum Subcommands {
     /// Auto-detect installation location (update existing installation):
     ///
     /// ```text
-    /// but skill install --infer
+    /// but skill install --detect
     /// ```
     Install {
         /// Install the skill globally instead of in the current repository
@@ -48,9 +48,9 @@ pub enum Subcommands {
         /// Custom path where to install the skill (relative to repository root or absolute)
         #[clap(long, short = 'p')]
         path: Option<String>,
-        /// Automatically infer where to install by detecting existing installation
-        #[clap(long, short = 'i')]
-        infer: bool,
+        /// Automatically detect where to install by finding existing installation
+        #[clap(long, short = 'd')]
+        detect: bool,
     },
     /// Check if installed GitButler skills are up to date with the CLI version
     ///

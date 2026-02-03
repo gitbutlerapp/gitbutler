@@ -136,7 +136,7 @@ pub struct SkillCheckResult {
 /// Handle skill subcommands
 pub fn handle(ctx: Option<&mut Context>, out: &mut OutputChannel, cmd: skill::Subcommands) -> Result<()> {
     match cmd {
-        skill::Subcommands::Install { global, path, infer } => install_skill(ctx, out, global, path, infer),
+        skill::Subcommands::Install { global, path, detect } => install_skill(ctx, out, global, path, detect),
         skill::Subcommands::Check { global, local, update } => check_skills(ctx, out, global, local, update),
     }
 }
@@ -363,7 +363,7 @@ pub fn notify_if_outdated_skills(out: &mut OutputChannel) -> Result<()> {
         writeln!(writer)?;
         writeln!(
             writer,
-            "{} {} installed skill(s) are now outdated. Update with: but skill install --infer",
+            "{} {} installed skill(s) are now outdated. Update with: but skill install --detect",
             "→".yellow().bold(),
             result.outdated_count
         )?;
@@ -493,8 +493,8 @@ fn print_human_check_output(writer: &mut dyn std::fmt::Write, result: &SkillChec
     Ok(())
 }
 
-/// Infer installation path by detecting existing skill installation
-fn infer_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
+/// Detect installation path by finding existing skill installation
+fn detect_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
     // Determine which base directories to check
     let base_dirs: Vec<(PathBuf, &str)> = if global {
         // Only check global locations
@@ -570,7 +570,7 @@ fn infer_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf
         .join("\n");
 
     anyhow::bail!(
-        "Could not infer installation location. No existing skill found in:\n{}",
+        "Could not detect installation location. No existing skill found in:\n{}",
         checked_locations
     )
 }
@@ -661,7 +661,7 @@ fn install_skill(
     out: &mut OutputChannel,
     global: bool,
     custom_path: Option<String>,
-    infer: bool,
+    detect: bool,
 ) -> Result<()> {
     // Validate that embedded files are not empty (catches build issues)
     if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
@@ -681,15 +681,15 @@ fn install_skill(
     let mut progress = out.progress_channel();
 
     // Validate flags
-    if infer && custom_path.is_some() {
-        anyhow::bail!("Cannot use both --infer and --path options together");
+    if detect && custom_path.is_some() {
+        anyhow::bail!("Cannot use both --detect and --path options together");
     }
 
     // Determine installation path
     let install_path = if let Some(custom) = custom_path {
         resolve_custom_path(&custom, ctx, global)?
-    } else if infer {
-        infer_install_path(ctx, global)?
+    } else if detect {
+        detect_install_path(ctx, global)?
     } else {
         prompt_for_install_path(ctx, global, out, &mut progress)?
     };
@@ -949,7 +949,7 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("Not in a git repository"));
     }
 
-    // NOTE: infer_install_path is difficult to test in isolation because it depends on
+    // NOTE: detect_install_path is difficult to test in isolation because it depends on
     // dirs::home_dir() and git repository context. It's tested indirectly through
     // integration tests and manual testing. The core logic (is_gitbutler_skill validation
     // and scope prioritization) is tested separately.

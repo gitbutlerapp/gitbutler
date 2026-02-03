@@ -15,7 +15,7 @@ The command will prompt you to select a skill format (Claude Code, OpenCode, Git
 **Options:**
 - `--path <path>` - Install to a custom path
 - `--global` - Install globally (in home directory) instead of current repository
-- `--infer` - Auto-detect installation location from existing installation (useful for updates)
+- `--detect` - Auto-detect installation location from existing installation (useful for updates)
 
 **Requirements:**
 - **GitButler CLI** installed: `curl -sSL https://gitbutler.com/install.sh | sh`
@@ -24,10 +24,10 @@ The command will prompt you to select a skill format (Claude Code, OpenCode, Git
 
 **Updating:**
 
-To update the skill to the latest version, use the `--infer` flag to automatically detect and update your existing installation:
+To update the skill to the latest version, use the `--detect` flag to automatically detect and update your existing installation:
 
 ```bash
-but skill install --infer
+but skill install --detect
 ```
 
 Alternatively, re-run the install command and select the same location:
