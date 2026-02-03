@@ -137,7 +137,8 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
     Ok(())
 }
 
-async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) -> Result<()> {
+/// Handle metrics config subcommand (doesn't require repo context)
+pub(crate) async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) -> Result<()> {
     let app_settings_sync = load_app_settings_sync()?;
 
     match status {
@@ -363,8 +364,8 @@ async fn user_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<Use
     Ok(())
 }
 
-/// Handle forge config subcommand
-async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubcommand>) -> Result<()> {
+/// Handle forge config subcommand (doesn't require repo context)
+pub(crate) async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubcommand>) -> Result<()> {
     match cmd {
         Some(ForgeSubcommand::Auth) => forge_auth(out).await,
         Some(ForgeSubcommand::ListUsers) => forge_list_users(out).await,

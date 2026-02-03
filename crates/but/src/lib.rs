@@ -223,17 +223,31 @@ async fn match_subcommand(
             }
         }
         Subcommands::Config(args::config::Platform { cmd }) => {
-            cfg_if! {
-                if #[cfg(feature = "legacy")] {
-                    let mut ctx = setup::init_ctx(&args, InitCtxOptions { background_sync: BackgroundSync::Disabled, ..Default::default() }, out)?;
-                    command::config::exec(&mut ctx, out, cmd)
+            // Handle subcommands that don't require a repo context
+            match &cmd {
+                Some(args::config::Subcommands::Metrics { status }) => command::config::metrics_config(out, *status)
+                    .await
+                    .emit_metrics(metrics_ctx),
+                Some(args::config::Subcommands::Forge { cmd: forge_cmd }) => {
+                    command::config::forge_config(out, forge_cmd.clone())
                         .await
                         .emit_metrics(metrics_ctx)
-                } else {
-                    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::config::exec(&mut ctx, out, cmd)
-                        .await
-                        .emit_metrics(metrics_ctx)
+                }
+                _ => {
+                    // Other subcommands need a repo context
+                    cfg_if! {
+                        if #[cfg(feature = "legacy")] {
+                            let mut ctx = setup::init_ctx(&args, InitCtxOptions { background_sync: BackgroundSync::Disabled, ..Default::default() }, out)?;
+                            command::config::exec(&mut ctx, out, cmd)
+                                .await
+                                .emit_metrics(metrics_ctx)
+                        } else {
+                            let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+                            command::config::exec(&mut ctx, out, cmd)
+                                .await
+                                .emit_metrics(metrics_ctx)
+                        }
+                    }
                 }
             }
         }

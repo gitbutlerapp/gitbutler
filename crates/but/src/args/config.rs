@@ -208,7 +208,7 @@ impl UserConfigKey {
 }
 
 /// Subcommands for `but config forge`
-#[derive(Debug, clap::Subcommand)]
+#[derive(Debug, Clone, clap::Subcommand)]
 pub enum ForgeSubcommand {
     /// Authenticate with your forge provider (currently only GitHub is supported).
     ///
