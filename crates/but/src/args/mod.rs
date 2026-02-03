@@ -279,6 +279,7 @@ pub enum Subcommands {
     /// merged into the target branch before running the update.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Pull {
         /// Only check the status without updating (equivalent to the old `but base check`)
         #[clap(long, short = 'c')]
@@ -368,6 +369,7 @@ pub enum Subcommands {
     /// commit that you can amend changes into later using `but mark`, `but rub` or `but absorb`.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Commit(commit::Platform),
 
     /// Push changes in a branch to remote.
@@ -398,6 +400,7 @@ pub enum Subcommands {
     /// You can also use `but reword <branch-id>` to rename the branch.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Reword {
         /// Commit ID to edit the message for, or branch ID to rename
         target: String,
@@ -422,6 +425,7 @@ pub enum Subcommands {
     /// By default, shows the last 20 oplog entries (same as `but oplog list`).
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Oplog(oplog::Platform),
 
     /// Undo the last operation by reverting to the previous snapshot.
@@ -660,6 +664,7 @@ pub enum Subcommands {
     /// When in resolution mode, `but status` will also show that you're resolving conflicts.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Resolve {
         /// Subcommand to run (defaults to entering resolution mode)
         #[clap(subcommand)]
@@ -683,6 +688,7 @@ pub enum Subcommands {
     /// 3. Using a branch name: `but squash <branch>`
     ///    - Squashes all commits in the branch into the bottom-most commit
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Squash {
         /// Commit identifiers, a range (commit1..commit2), or a branch name
         commits: Vec<String>,
@@ -701,6 +707,7 @@ pub enum Subcommands {
     ///
     /// Wrapper for `but rub <source> zz`.
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Uncommit {
         /// Commit ID or file-in-commit ID to uncommit
         source: String,
@@ -710,6 +717,7 @@ pub enum Subcommands {
     ///
     /// Wrapper for `but rub <file> <commit>`.
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Amend {
         /// File ID to amend
         file: String,
@@ -738,6 +746,7 @@ pub enum Subcommands {
     /// but merge my-feature-branch
     /// ```
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Merge {
         /// Branch ID or name to merge
         branch: String,
@@ -784,6 +793,7 @@ pub enum Subcommands {
     ///
     /// Wrapper for `but rub <file-or-hunk> <branch>`.
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Stage {
         /// File or hunk ID to stage
         file_or_hunk: String,
@@ -795,6 +805,7 @@ pub enum Subcommands {
     ///
     /// Wrapper for `but rub <file-or-hunk> zz`.
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     #[clap(hide = true)]
     Unstage {
         /// File or hunk ID to unstage
@@ -825,6 +836,7 @@ pub enum Subcommands {
     /// ```text
     /// but skill install --global
     /// ```
+    #[clap(verbatim_doc_comment)]
     Skill(skill::Platform),
 
     /// Show help information grouped by category.
@@ -834,6 +846,7 @@ pub enum Subcommands {
     ///
     /// This is equivalent to running `but -h` to see the command overview.
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Help,
 }
 

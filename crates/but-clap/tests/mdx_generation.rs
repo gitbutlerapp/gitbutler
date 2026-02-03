@@ -4,12 +4,7 @@ use clap::{Arg, ArgAction, Command};
 fn create_simple_command() -> Command {
     Command::new("test")
         .about("A test command")
-        .arg(
-            Arg::new("input")
-                .help("Input file to process")
-                .required(true)
-                .index(1),
-        )
+        .arg(Arg::new("input").help("Input file to process").required(true).index(1))
         .arg(
             Arg::new("verbose")
                 .short('v')
@@ -177,9 +172,7 @@ fn test_command_with_subcommands_mdx_generation() {
 
     // Check frontmatter
     assert!(mdx.contains("title: \"`but git`\""));
-    assert!(mdx.contains(
-        "description: \"Git is a free and open source distributed version control system\""
-    ));
+    assert!(mdx.contains("description: \"Git is a free and open source distributed version control system\""));
 
     // Check long description
     assert!(mdx.contains("Git is a free and open source distributed version control system"));
@@ -308,8 +301,7 @@ fn test_command_with_long_help() {
 
 #[test]
 fn test_frontmatter_only_first_line() {
-    let cmd = Command::new("multiline")
-        .long_about("First line of description\nSecond line of description\nThird line");
+    let cmd = Command::new("multiline").long_about("First line of description\nSecond line of description\nThird line");
 
     let mdx = but_clap::generator::generate_command_mdx(&cmd);
 

@@ -107,6 +107,8 @@ members = [
     "crates/but-testing",
     # GitButler installation binary
     "crates/but-installer",
+    # Documentation binary
+    "crates/but-clap",
 
     ##
     ### Legacy

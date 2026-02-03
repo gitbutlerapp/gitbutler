@@ -23,12 +23,8 @@ fn main() -> Result<()> {
         let file_path = docs_dir.join(format!("but-{}.mdx", subcommand_name));
 
         let mdx_content = generator::generate_command_mdx(subcommand);
-        fs::write(&file_path, mdx_content).with_context(|| {
-            format!(
-                "Failed to write subcommand documentation to {:?}",
-                file_path
-            )
-        })?;
+        fs::write(&file_path, mdx_content)
+            .with_context(|| format!("Failed to write subcommand documentation to {:?}", file_path))?;
         println!("Generated: {:?}", file_path);
     }
 
