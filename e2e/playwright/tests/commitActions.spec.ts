@@ -1,14 +1,12 @@
 import {
 	openCommitDrawer,
-	stageFirstFile,
 	startEditingCommitMessage,
-	unstageAllFiles,
 	updateCommitMessage,
 	verifyCommitDrawerContent,
 	verifyCommitMessageEditor,
 	verifyCommitPlaceholderPosition
 } from '../src/commit.ts';
-import { writeFiles } from '../src/file.ts';
+import { stageFirstFile, unstageAllFiles, writeFiles } from '../src/file.ts';
 import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
 import {
 	clickByTestId,
@@ -41,31 +39,11 @@ test('should be able to amend a file to a commit', async ({ page, context }, tes
 	const filePath = gitbutler.pathInWorkdir('local-clone/b_file');
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
 
 	await page.goto('/');
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
-
-	// Should navigate to the branches page when clicking the branches button
-	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'branch-header');
-
-	await expect(header).toContainText('origin/master');
-
-	const branchListCards = getByTestId(page, 'branch-list-card');
-	await expect(branchListCards).toHaveCount(3);
-
-	const firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
-	await expect(firstBranchCard).toBeVisible();
-	await firstBranchCard.click();
-
-	// The delete branch should be visible
-	await waitForTestId(page, 'branches-view-delete-local-branch-button');
-
-	// Apply the branch
-	await clickByTestId(page, 'branches-view-apply-branch-button');
-	// Should be redirected to the workspace
 	await waitForTestId(page, 'workspace-view');
 
 	// There should be only one stack
