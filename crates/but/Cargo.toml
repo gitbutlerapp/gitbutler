@@ -122,9 +122,7 @@ tracing-subscriber = { workspace = true, features = [
 tracing-forest.workspace = true
 cli-prompts = "0.1.0"
 dirs.workspace = true
-# TODO: replace with a `minus` release that supports https://github.com/AMythicDev/minus/pull/155
-#       or something similar. 
-minus = { git = "https://github.com/schacon/minus", default-features = false, features = [
+minus = { version = "5.6.1", default-features = false, features = [
     "static_output",
     "search",
 ] }
