@@ -54,3 +54,71 @@ export async function discardFile(fileName: string, page: Page): Promise<void> {
 		.filter({ hasText: fileName });
 	await expect(fileItem).not.toBeVisible();
 }
+
+/**
+ * Verify that there are no uncommitted changes.
+ */
+export async function assertNoUncommittedChanges(page: Page): Promise<void> {
+	const uncommittedChangesList = getByTestId(page, 'uncommitted-changes-file-list');
+	await expect(uncommittedChangesList).toBeVisible();
+	const fileItems = uncommittedChangesList.getByTestId('file-list-item');
+	await expect(fileItems).toHaveCount(0);
+}
+
+/**
+ * Stage the first file in the uncommitted changes list.
+ */
+export async function stageFirstFile(page: Page) {
+	const fileItemCheckbox = getByTestId(page, 'uncommitted-changes-file-list')
+		.getByTestId('file-list-item')
+		.first()
+		.locator('input[type="checkbox"]');
+	await expect(fileItemCheckbox).toBeVisible();
+	await fileItemCheckbox.click();
+}
+
+/**
+ * Verify that a file is staged for a commit.
+ */
+export async function assertFileIsStaged(page: Page, fileName: string) {
+	const fileItemCheckbox = getByTestId(page, 'uncommitted-changes-file-list')
+		.getByTestId('file-list-item')
+		.filter({ hasText: fileName })
+		.locator('input[type="checkbox"]');
+	await expect(fileItemCheckbox).toBeVisible();
+	await expect(fileItemCheckbox).toBeChecked();
+}
+
+/**
+ * Verify that a file is unstaged for a commit.
+ */
+export async function assertFileIsUnstaged(page: Page, fileName: string) {
+	const fileItemCheckbox = getByTestId(page, 'uncommitted-changes-file-list')
+		.getByTestId('file-list-item')
+		.filter({ hasText: fileName })
+		.locator('input[type="checkbox"]');
+	await expect(fileItemCheckbox).toBeVisible();
+	await expect(fileItemCheckbox).not.toBeChecked();
+}
+
+/**
+ * Unstage all files in the uncommitted changes list.
+ */
+export async function unstageAllFiles(page: Page) {
+	const uncommittedFilesCheckbox = page
+		.getByTestId('uncommitted-changes-header')
+		.locator('input[type="checkbox"]');
+	await expect(uncommittedFilesCheckbox).toBeVisible();
+	await expect(uncommittedFilesCheckbox).toBeChecked();
+	await uncommittedFilesCheckbox.click();
+}
+
+/**
+ * Verify that a file is present in the uncommitted changes list.
+ */
+export async function assertFileIsUncommitted(page: Page, fileName: string) {
+	const fileItem = getByTestId(page, 'uncommitted-changes-file-list')
+		.getByTestId('file-list-item')
+		.filter({ hasText: fileName });
+	await expect(fileItem).toBeVisible();
+}
