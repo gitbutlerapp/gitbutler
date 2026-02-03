@@ -323,22 +323,20 @@ impl OutputChannel {
     /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
     /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
     pub fn new_with_optional_pager(format: OutputFormat, use_pager: bool) -> Self {
-        let (pager, terminal_rows) = if !matches!(format, OutputFormat::Human)
-            || std::env::var_os("NOPAGER").is_some()
-            || !use_pager
-        {
-            (None, None)
-        } else {
-            let pager = minus::Pager::new();
-            let msg = "can talk to newly created pager";
-            pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
-            pager.set_prompt("GitButler").expect(msg);
+        let (pager, terminal_rows) =
+            if !matches!(format, OutputFormat::Human) || std::env::var_os("NOPAGER").is_some() || !use_pager {
+                (None, None)
+            } else {
+                let pager = minus::Pager::new();
+                let msg = "can talk to newly created pager";
+                pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
+                pager.set_prompt("GitButler").expect(msg);
 
-            // Capture terminal height to know how many lines to reprint on exit
-            let rows = terminal_size::terminal_size().map(|(_, terminal_size::Height(h))| h);
+                // Capture terminal height to know how many lines to reprint on exit
+                let rows = terminal_size::terminal_size().map(|(_, terminal_size::Height(h))| h);
 
-            (Some(pager), rows)
-        };
+                (Some(pager), rows)
+            };
 
         OutputChannel {
             format,
@@ -346,21 +344,6 @@ impl OutputChannel {
             pager,
             pager_content_buffer: String::new(),
             terminal_rows,
-        }
-    }
-
-    /// Like [`Self::new_with_pager`], but will never create a pager or write JSON.
-    /// Use this if a second instance of a channel is needed, and the first one could have a pager.
-    pub fn new_without_pager_non_json(format: OutputFormat) -> Self {
-        OutputChannel {
-            format: match format {
-                OutputFormat::Human | OutputFormat::Shell | OutputFormat::None => format,
-                OutputFormat::Json => OutputFormat::None,
-            },
-            stdout: std::io::stdout(),
-            pager: None,
-            pager_content_buffer: String::new(),
-            terminal_rows: None,
         }
     }
 }
