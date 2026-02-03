@@ -250,7 +250,7 @@ fn is_network_error(err: &reqwest::Error) -> bool {
     err.is_timeout() || err.is_connect() || err.is_request()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum CredentialCheckResult {
     Valid,
     Invalid,

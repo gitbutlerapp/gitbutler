@@ -255,6 +255,7 @@ pub async fn list_known_github_accounts() -> Result<Vec<but_github::GithubAccoun
 ///
 /// * `Ok(CredentialCheckResult)` - Result indicating if credentials are valid or not
 /// * `Err(_)` - If the validation request fails
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn check_github_credentials(
     account: but_github::GithubAccountIdentifier,
