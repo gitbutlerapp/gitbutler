@@ -62,6 +62,9 @@ pub(crate) struct InitCtxOptions {
 ///
 /// # Background sync behavior
 ///
+/// Background sync is skipped entirely when the `NO_BG_TASKS` environment variable is set,
+/// regardless of any other conditions.
+///
 /// When `background_sync` is `BackgroundSync::Enabled`, a background sync is initiated if:
 /// - The fetch interval is positive (negative or zero disables background sync)
 /// - The output format is for human consumption (not JSON or shell)
@@ -165,6 +168,11 @@ pub fn init_ctx(args: &Args, options: InitCtxOptions, out: &mut OutputChannel) -
             return Ok(ctx);
         }
         BackgroundSync::Enabled => {
+            // Check if background tasks are disabled via environment variable
+            if std::env::var("NO_BG_TASKS").is_ok() {
+                return Ok(ctx);
+            }
+
             // Background sync only done for human output
             if !matches!(out.format(), crate::args::OutputFormat::Human) {
                 return Ok(ctx);
