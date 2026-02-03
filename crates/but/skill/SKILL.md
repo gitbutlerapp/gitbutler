@@ -1,7 +1,7 @@
 ---
 name: but
 version: 0.0.0
-description: Manage GitButler CLI workspace with multiple parallel branches. Use when checking version control state, starting new work (create branch first), committing work, editing history, or any git operation. Uses 'but' commands not 'git' for writes.
+description: Commit, push, branch, and manage version control. Use for git commit, git status, git push, git diff, creating branches, staging files, editing history, pull requests, or any git/version control operation. Replaces git write commands with 'but' - always use this instead of raw git.
 author: GitButler Team
 ---
 
