@@ -64,7 +64,13 @@ impl Editor {
                             .collect::<Result<Vec<_>>>()?,
                     };
 
-                    let outcome = cherry_pick(&self.repo, pick.id, &ontos, pick.sign_if_configured)?;
+                    let outcome = cherry_pick(
+                        &self.repo,
+                        pick.id,
+                        &ontos,
+                        pick.sign_if_configured,
+                        pick.auto_resolve_bases,
+                    )?;
 
                     if matches!(outcome, CherryPickOutcome::ConflictedCommit(_)) && !pick.conflictable {
                         bail!(
