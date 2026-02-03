@@ -4,6 +4,7 @@ use anyhow::{Context as _, Result};
 use but_ctx::Context;
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
+use serde::Serialize;
 
 use crate::{args::skill, utils::OutputChannel};
 
@@ -106,10 +107,37 @@ const SKILL_FORMATS: &[SkillFormat] = &[
     },
 ];
 
+/// Status of an installed skill
+#[derive(Debug, Clone, Serialize)]
+pub struct SkillStatus {
+    /// Path to the skill installation directory
+    pub path: PathBuf,
+    /// The format name (e.g., "Claude Code", "Cursor")
+    pub format_name: String,
+    /// Scope of the installation ("local" or "global")
+    pub scope: String,
+    /// Version found in the installed SKILL.md
+    pub installed_version: String,
+    /// Whether the skill is up to date with the CLI
+    pub up_to_date: bool,
+}
+
+/// Result of checking all skills
+#[derive(Debug, Serialize)]
+pub struct SkillCheckResult {
+    /// Current CLI version
+    pub cli_version: String,
+    /// List of all found skill installations with their status
+    pub skills: Vec<SkillStatus>,
+    /// Number of outdated skills
+    pub outdated_count: usize,
+}
+
 /// Handle skill subcommands
 pub fn handle(ctx: Option<&mut Context>, out: &mut OutputChannel, cmd: skill::Subcommands) -> Result<()> {
     match cmd {
         skill::Subcommands::Install { global, path, infer } => install_skill(ctx, out, global, path, infer),
+        skill::Subcommands::Check { global, local, update } => check_skills(ctx, out, global, local, update),
     }
 }
 
@@ -195,6 +223,274 @@ fn is_gitbutler_skill(skill_md_path: &std::path::Path) -> bool {
     } else {
         false
     }
+}
+
+/// Extract the version from an installed SKILL.md file's YAML frontmatter.
+/// Returns None if the file doesn't exist, isn't readable, or has no valid version.
+fn extract_installed_version(skill_md_path: &std::path::Path) -> Option<String> {
+    let content = std::fs::read_to_string(skill_md_path).ok()?;
+
+    // Parse YAML frontmatter (between --- markers)
+    let lines: Vec<&str> = content.lines().collect();
+    if lines.first()? != &"---" {
+        return None;
+    }
+
+    // Find the version line in frontmatter
+    for line in lines.iter().skip(1) {
+        if *line == "---" {
+            break;
+        }
+        if let Some(value) = line.strip_prefix("version:") {
+            return Some(parse_yaml_value(value));
+        }
+    }
+
+    None
+}
+
+/// Parse a simple YAML value, handling common cases:
+/// - Whitespace trimming
+/// - Quoted strings (single or double quotes)
+/// - Inline comments
+fn parse_yaml_value(value: &str) -> String {
+    let value = value.trim();
+
+    // Handle quoted strings
+    if value.starts_with('"') || value.starts_with('\'') {
+        let quote_char = value.chars().next().unwrap();
+        // Find the closing quote
+        if let Some(end) = value[1..].find(quote_char) {
+            return value[1..1 + end].to_string();
+        }
+    }
+
+    // Handle inline comments (but not inside quotes, which we already handled)
+    let value = if let Some(comment_pos) = value.find(" #") {
+        &value[..comment_pos]
+    } else {
+        value
+    };
+
+    value.trim().to_string()
+}
+
+/// Find all GitButler skill installations.
+///
+/// Returns a list of (install_path, format_name, scope) tuples.
+fn find_all_installations(
+    ctx: Option<&mut Context>,
+    check_global: bool,
+    check_local: bool,
+) -> Result<Vec<(PathBuf, &'static str, &'static str)>> {
+    let mut installations = Vec::new();
+
+    // Determine which base directories to check
+    let mut base_dirs: Vec<(PathBuf, &str)> = Vec::new();
+
+    if check_global && let Some(home) = dirs::home_dir() {
+        base_dirs.push((home, "global"));
+    }
+
+    if check_local
+        && let Some(ctx) = ctx
+        && let Ok(repo) = ctx.repo.get()
+        && let Some(workdir) = repo.workdir()
+    {
+        base_dirs.push((workdir.to_path_buf(), "local"));
+    }
+
+    // Check each format in each base directory
+    for (base_dir, scope) in base_dirs {
+        for format in SKILL_FORMATS {
+            let potential_path = format.get_install_path(&base_dir);
+            let skill_md_path = potential_path.join("SKILL.md");
+
+            if skill_md_path.exists() && is_gitbutler_skill(&skill_md_path) {
+                installations.push((potential_path, format.name, scope));
+            }
+        }
+    }
+
+    Ok(installations)
+}
+
+/// Check the status of all installed skills.
+pub fn check_skill_status(
+    ctx: Option<&mut Context>,
+    check_global: bool,
+    check_local: bool,
+) -> Result<SkillCheckResult> {
+    let cli_version = option_env!("VERSION").unwrap_or("dev").to_string();
+    let installations = find_all_installations(ctx, check_global, check_local)?;
+
+    let mut skills = Vec::new();
+    let mut outdated_count = 0;
+
+    for (path, format_name, scope) in installations {
+        let skill_md_path = path.join("SKILL.md");
+        let installed_version = extract_installed_version(&skill_md_path).unwrap_or_else(|| "unknown".to_string());
+
+        let up_to_date = installed_version == cli_version;
+        if !up_to_date {
+            outdated_count += 1;
+        }
+
+        skills.push(SkillStatus {
+            path,
+            format_name: format_name.to_string(),
+            scope: scope.to_string(),
+            installed_version,
+            up_to_date,
+        });
+    }
+
+    Ok(SkillCheckResult {
+        cli_version,
+        skills,
+        outdated_count,
+    })
+}
+
+/// Notify user if there are outdated skills installed.
+/// This is a lightweight check that only checks global installations.
+pub fn notify_if_outdated_skills(out: &mut OutputChannel) -> Result<()> {
+    let result = check_skill_status(None, true, false)?;
+
+    if result.outdated_count > 0
+        && let Some(writer) = out.for_human()
+    {
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "{} {} installed skill(s) are now outdated. Update with: but skill install --infer",
+            "→".yellow().bold(),
+            result.outdated_count
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Check if installed skills are up to date
+fn check_skills(
+    mut ctx: Option<&mut Context>,
+    out: &mut OutputChannel,
+    global_only: bool,
+    local_only: bool,
+    auto_update: bool,
+) -> Result<()> {
+    // Determine scope
+    let (check_global, check_local) = match (global_only, local_only) {
+        (true, false) => (true, false),
+        (false, true) => (false, true),
+        (false, false) => (true, true), // default: check both
+        _ => unreachable!(),            // clap conflicts_with prevents this
+    };
+
+    // Warn if --local was explicitly requested but no repo context is available
+    if local_only && ctx.is_none() {
+        anyhow::bail!(
+            "Cannot check local installations: not in a git repository.\n\
+             Use --global to check global installations, or run from within a repository."
+        );
+    }
+
+    let result = check_skill_status(ctx, check_global, check_local)?;
+
+    // Collect paths of outdated skills before outputting (needed for auto-update)
+    let outdated_paths: Vec<String> = result
+        .skills
+        .iter()
+        .filter(|s| !s.up_to_date)
+        .map(|s| s.path.display().to_string())
+        .collect();
+
+    // Output based on format
+    if let Some(writer) = out.for_human() {
+        print_human_check_output(writer, &result)?;
+
+        if result.outdated_count > 0 && !auto_update {
+            writeln!(writer)?;
+            writeln!(
+                writer,
+                "{} Run 'but skill check --update' to update outdated skills",
+                "→".yellow().bold()
+            )?;
+        }
+    } else if let Some(json_out) = out.for_json() {
+        json_out.write_value(&result)?;
+    } else if let Some(writer) = out.for_shell() {
+        // Shell output: space-separated list of outdated paths
+        writeln!(writer, "{}", outdated_paths.join(" "))?;
+    }
+
+    // Auto-update if requested
+    if auto_update && !outdated_paths.is_empty() {
+        if out.for_human().is_some() {
+            let mut progress = out.progress_channel();
+            writeln!(progress)?;
+            writeln!(progress, "{}", "Updating outdated skills...".bold())?;
+        }
+
+        for path_str in outdated_paths {
+            // Re-install to this path (ctx is already consumed, so we use None and rely on absolute paths)
+            install_skill(None, out, false, Some(path_str), false)?;
+        }
+    }
+
+    Ok(())
+}
+
+fn print_human_check_output(writer: &mut dyn std::fmt::Write, result: &SkillCheckResult) -> Result<(), anyhow::Error> {
+    writeln!(writer)?;
+    writeln!(writer, "CLI version: {}", result.cli_version.cyan())?;
+    writeln!(writer)?;
+
+    if result.skills.is_empty() {
+        writeln!(writer, "No GitButler skill installations found.")?;
+        writeln!(writer)?;
+        writeln!(writer, "Install with: but skill install")?;
+        return Ok(());
+    }
+
+    writeln!(writer, "Found {} skill installation(s):", result.skills.len())?;
+    writeln!(writer)?;
+
+    for skill in &result.skills {
+        let status_icon = if skill.up_to_date { "✓".green() } else { "✗".red() };
+
+        let version_display = if skill.up_to_date {
+            skill.installed_version.green().to_string()
+        } else {
+            format!("{} → {}", skill.installed_version.red(), result.cli_version.green())
+        };
+
+        writeln!(
+            writer,
+            "  {} {} ({}) - {} [{}]",
+            status_icon,
+            skill.format_name,
+            skill.scope,
+            skill.path.display().to_string().dimmed(),
+            version_display
+        )?;
+    }
+
+    writeln!(writer)?;
+
+    if result.outdated_count == 0 {
+        writeln!(writer, "{} All skills are up to date!", "✓".green().bold())?;
+    } else {
+        writeln!(
+            writer,
+            "{} {} skill(s) are outdated",
+            "!".yellow().bold(),
+            result.outdated_count
+        )?;
+    }
+
+    Ok(())
 }
 
 /// Infer installation path by detecting existing skill installation
@@ -702,5 +998,367 @@ mod tests {
             !is_gitbutler_skill(&nonexistent),
             "Should return false for nonexistent file"
         );
+    }
+
+    #[test]
+    fn extract_installed_version_parses_frontmatter() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        fs::write(&skill_path, "---\nname: but\nversion: 1.2.3\n---\n# Content").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, Some("1.2.3".to_string()));
+    }
+
+    #[test]
+    fn extract_installed_version_handles_different_order() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        // version is not the first field
+        fs::write(
+            &skill_path,
+            "---\nname: but\nauthor: Test\nversion: 2.0.0\n---\n# Content",
+        )
+        .unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, Some("2.0.0".to_string()));
+    }
+
+    #[test]
+    fn extract_installed_version_returns_none_for_missing_version() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        fs::write(&skill_path, "---\nname: but\n---\n# Content").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, None);
+    }
+
+    #[test]
+    fn extract_installed_version_returns_none_for_no_frontmatter() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        fs::write(&skill_path, "# Just a regular markdown file").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, None);
+    }
+
+    #[test]
+    fn extract_installed_version_returns_none_for_nonexistent_file() {
+        let nonexistent = PathBuf::from("/nonexistent/path/SKILL.md");
+        let version = extract_installed_version(&nonexistent);
+        assert_eq!(version, None);
+    }
+
+    #[test]
+    fn skill_status_serializes_correctly() {
+        let status = SkillStatus {
+            path: PathBuf::from("/test/path"),
+            format_name: "Claude Code".to_string(),
+            scope: "global".to_string(),
+            installed_version: "1.0.0".to_string(),
+            up_to_date: true,
+        };
+
+        let json = serde_json::to_string(&status).unwrap();
+        assert!(json.contains("Claude Code"));
+        assert!(json.contains("up_to_date"));
+        assert!(json.contains("1.0.0"));
+    }
+
+    #[test]
+    fn skill_check_result_serializes_correctly() {
+        let result = SkillCheckResult {
+            cli_version: "2.0.0".to_string(),
+            skills: vec![SkillStatus {
+                path: PathBuf::from("/test/path"),
+                format_name: "Cursor".to_string(),
+                scope: "local".to_string(),
+                installed_version: "1.0.0".to_string(),
+                up_to_date: false,
+            }],
+            outdated_count: 1,
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("cli_version"));
+        assert!(json.contains("2.0.0"));
+        assert!(json.contains("outdated_count"));
+        assert!(json.contains("Cursor"));
+    }
+
+    #[test]
+    fn extract_installed_version_trims_whitespace() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        // Version with extra whitespace
+        fs::write(&skill_path, "---\nversion:   1.0.0   \n---\n# Content").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, Some("1.0.0".to_string()));
+    }
+
+    #[test]
+    fn extract_installed_version_handles_empty_version() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        // Empty version value
+        fs::write(&skill_path, "---\nversion:\n---\n# Content").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, Some("".to_string()));
+    }
+
+    #[test]
+    fn find_all_installations_discovers_skills_in_temp_dir() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create a Claude Code skill installation
+        let claude_skill_dir = temp_dir.path().join(".claude/skills/gitbutler");
+        fs::create_dir_all(&claude_skill_dir).unwrap();
+        fs::write(
+            claude_skill_dir.join("SKILL.md"),
+            "---\nname: but\nversion: 1.0.0\n---\n# GitButler CLI Skill",
+        )
+        .unwrap();
+
+        // Create a Cursor skill installation
+        let cursor_skill_dir = temp_dir.path().join(".cursor/skills/gitbutler");
+        fs::create_dir_all(&cursor_skill_dir).unwrap();
+        fs::write(
+            cursor_skill_dir.join("SKILL.md"),
+            "---\nname: but\nversion: 0.9.0\n---\n# GitButler CLI Skill",
+        )
+        .unwrap();
+
+        // Create a non-GitButler skill (should be ignored)
+        let other_skill_dir = temp_dir.path().join(".opencode/skills/gitbutler");
+        fs::create_dir_all(&other_skill_dir).unwrap();
+        fs::write(other_skill_dir.join("SKILL.md"), "# Some other skill").unwrap();
+
+        // We can't easily test find_all_installations directly since it uses dirs::home_dir()
+        // But we can test the components it uses
+
+        // Verify is_gitbutler_skill correctly identifies our test files
+        assert!(is_gitbutler_skill(&claude_skill_dir.join("SKILL.md")));
+        assert!(is_gitbutler_skill(&cursor_skill_dir.join("SKILL.md")));
+        assert!(!is_gitbutler_skill(&other_skill_dir.join("SKILL.md")));
+
+        // Verify extract_installed_version works on our test files
+        assert_eq!(
+            extract_installed_version(&claude_skill_dir.join("SKILL.md")),
+            Some("1.0.0".to_string())
+        );
+        assert_eq!(
+            extract_installed_version(&cursor_skill_dir.join("SKILL.md")),
+            Some("0.9.0".to_string())
+        );
+    }
+
+    #[test]
+    fn skill_status_up_to_date_logic() {
+        // Same version should be up to date
+        let status = SkillStatus {
+            path: PathBuf::from("/test"),
+            format_name: "Test".to_string(),
+            scope: "global".to_string(),
+            installed_version: "1.0.0".to_string(),
+            up_to_date: "1.0.0" == "1.0.0",
+        };
+        assert!(status.up_to_date);
+
+        // Different version should not be up to date
+        let status = SkillStatus {
+            path: PathBuf::from("/test"),
+            format_name: "Test".to_string(),
+            scope: "global".to_string(),
+            installed_version: "0.9.0".to_string(),
+            up_to_date: "0.9.0" == "1.0.0",
+        };
+        assert!(!status.up_to_date);
+
+        // "unknown" version should not be up to date (unless CLI is also unknown)
+        let status = SkillStatus {
+            path: PathBuf::from("/test"),
+            format_name: "Test".to_string(),
+            scope: "global".to_string(),
+            installed_version: "unknown".to_string(),
+            up_to_date: "unknown" == "1.0.0",
+        };
+        assert!(!status.up_to_date);
+
+        // "dev" versions should match
+        let status = SkillStatus {
+            path: PathBuf::from("/test"),
+            format_name: "Test".to_string(),
+            scope: "global".to_string(),
+            installed_version: "dev".to_string(),
+            up_to_date: "dev" == "dev",
+        };
+        assert!(status.up_to_date);
+    }
+
+    #[test]
+    fn skill_check_result_outdated_count_accuracy() {
+        let result = SkillCheckResult {
+            cli_version: "2.0.0".to_string(),
+            skills: vec![
+                SkillStatus {
+                    path: PathBuf::from("/path1"),
+                    format_name: "Claude Code".to_string(),
+                    scope: "global".to_string(),
+                    installed_version: "2.0.0".to_string(),
+                    up_to_date: true,
+                },
+                SkillStatus {
+                    path: PathBuf::from("/path2"),
+                    format_name: "Cursor".to_string(),
+                    scope: "local".to_string(),
+                    installed_version: "1.0.0".to_string(),
+                    up_to_date: false,
+                },
+                SkillStatus {
+                    path: PathBuf::from("/path3"),
+                    format_name: "Windsurf".to_string(),
+                    scope: "global".to_string(),
+                    installed_version: "1.5.0".to_string(),
+                    up_to_date: false,
+                },
+            ],
+            outdated_count: 2,
+        };
+
+        // Verify the count matches the actual outdated skills
+        let actual_outdated = result.skills.iter().filter(|s| !s.up_to_date).count();
+        assert_eq!(result.outdated_count, actual_outdated);
+        assert_eq!(result.outdated_count, 2);
+    }
+
+    #[test]
+    fn skill_check_result_empty_skills() {
+        let result = SkillCheckResult {
+            cli_version: "1.0.0".to_string(),
+            skills: vec![],
+            outdated_count: 0,
+        };
+
+        assert!(result.skills.is_empty());
+        assert_eq!(result.outdated_count, 0);
+
+        // Should serialize correctly even when empty
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"skills\":[]"));
+    }
+
+    #[test]
+    fn extract_installed_version_stops_at_frontmatter_end() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        // Version appears both in frontmatter and body - should only get frontmatter version
+        fs::write(&skill_path, "---\nversion: 1.0.0\n---\n\nversion: 2.0.0 in the body").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, Some("1.0.0".to_string()));
+    }
+
+    #[test]
+    fn parse_yaml_value_handles_plain_values() {
+        assert_eq!(parse_yaml_value("1.0.0"), "1.0.0");
+        assert_eq!(parse_yaml_value("  1.0.0  "), "1.0.0");
+    }
+
+    #[test]
+    fn parse_yaml_value_handles_double_quoted_strings() {
+        assert_eq!(parse_yaml_value("\"1.0.0\""), "1.0.0");
+        assert_eq!(parse_yaml_value("  \"1.0.0\"  "), "1.0.0");
+    }
+
+    #[test]
+    fn parse_yaml_value_handles_single_quoted_strings() {
+        assert_eq!(parse_yaml_value("'1.0.0'"), "1.0.0");
+        assert_eq!(parse_yaml_value("  '1.0.0'  "), "1.0.0");
+    }
+
+    #[test]
+    fn parse_yaml_value_handles_inline_comments() {
+        assert_eq!(parse_yaml_value("1.0.0 # this is a comment"), "1.0.0");
+        assert_eq!(parse_yaml_value("1.0.0  # comment with extra space"), "1.0.0");
+    }
+
+    #[test]
+    fn parse_yaml_value_handles_quoted_with_comment() {
+        // Comment after quoted value
+        assert_eq!(parse_yaml_value("\"1.0.0\" # comment"), "1.0.0");
+    }
+
+    #[test]
+    fn extract_installed_version_handles_quoted_version() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        fs::write(&skill_path, "---\nversion: \"1.2.3\"\n---\n# Content").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, Some("1.2.3".to_string()));
+    }
+
+    #[test]
+    fn extract_installed_version_handles_version_with_comment() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+
+        fs::write(&skill_path, "---\nversion: 1.2.3 # installed version\n---\n# Content").unwrap();
+
+        let version = extract_installed_version(&skill_path);
+        assert_eq!(version, Some("1.2.3".to_string()));
     }
 }

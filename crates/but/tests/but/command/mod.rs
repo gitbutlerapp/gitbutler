@@ -23,6 +23,7 @@ mod reword;
 mod rub;
 #[cfg(feature = "legacy")]
 mod setup;
+mod skill;
 #[cfg(feature = "legacy")]
 mod squash;
 #[cfg(feature = "legacy")]

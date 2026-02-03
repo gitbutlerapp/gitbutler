@@ -175,6 +175,7 @@ impl Subcommands {
             Subcommands::Move { .. } => Rub,
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {
                 skill::Subcommands::Install { .. } => SkillInstall,
+                skill::Subcommands::Check { .. } => SkillCheck,
             },
         }
     }

@@ -244,6 +244,8 @@ async fn match_subcommand(
                 args::skill::Subcommands::Install { global, path, infer } => {
                     !global && !infer && path.as_ref().is_none_or(|p| !std::path::Path::new(p).is_absolute())
                 }
+                // Check uses context if available (for local installs), but doesn't require it
+                args::skill::Subcommands::Check { .. } => false,
             };
 
             let ctx = but_ctx::Context::discover(&args.current_dir);

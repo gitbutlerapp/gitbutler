@@ -52,4 +52,39 @@ pub enum Subcommands {
         #[clap(long, short = 'i')]
         infer: bool,
     },
+    /// Check if installed GitButler skills are up to date with the CLI version
+    ///
+    /// Scans for installed skill files and compares their version with the current
+    /// CLI version. By default, checks both local (repository) and global installations.
+    ///
+    /// ## Examples
+    ///
+    /// Check all installed skills:
+    ///
+    /// ```text
+    /// but skill check
+    /// ```
+    ///
+    /// Check and automatically update outdated skills:
+    ///
+    /// ```text
+    /// but skill check --update
+    /// ```
+    ///
+    /// Check only global installations:
+    ///
+    /// ```text
+    /// but skill check --global
+    /// ```
+    Check {
+        /// Only check global installations (in home directory)
+        #[clap(long, short = 'g', conflicts_with = "local")]
+        global: bool,
+        /// Only check local installations (in current repository)
+        #[clap(long, short = 'l', conflicts_with = "global")]
+        local: bool,
+        /// Automatically update any outdated skills found
+        #[clap(long, short = 'u')]
+        update: bool,
+    },
 }
