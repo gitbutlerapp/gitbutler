@@ -15,8 +15,15 @@ pub fn named_read_only_in_memory_scenario(
     name: &str,
 ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
     let repo = read_only_in_memory_scenario_named(script, name)?;
-    let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
-    Ok((repo, std::mem::ManuallyDrop::new(meta)))
+    let meta = in_memory_meta(repo.path().join(".git"))?;
+    Ok((repo, meta))
+}
+
+pub fn in_memory_meta(
+    dir: impl AsRef<std::path::Path>,
+) -> anyhow::Result<std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>> {
+    let meta = VirtualBranchesTomlMetadata::from_path(dir.as_ref().join("should-never-be-written.toml"))?;
+    Ok(std::mem::ManuallyDrop::new(meta))
 }
 
 /// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
@@ -25,20 +32,6 @@ pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> a
         gix_testtools::scripted_fixture_read_only(format!("{script_name}.sh")).map_err(anyhow::Error::from_boxed)?;
     let repo = gix::open_opts(root.join(dirname), gix::open::Options::isolated())?.with_object_memory();
     Ok(repo)
-}
-
-/// Returns a fixture that may be written to.
-pub fn fixture_writable(
-    fixture_name: &str,
-) -> anyhow::Result<(
-    gix::Repository,
-    tempfile::TempDir,
-    std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-)> {
-    // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
-    let (repo, tmp) = but_testsupport::writable_scenario(fixture_name);
-    let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
-    Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
 }
 
 pub enum StackState {

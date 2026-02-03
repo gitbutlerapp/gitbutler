@@ -852,25 +852,39 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
 #[test]
 fn commit_with_two_parents() -> anyhow::Result<()> {
-    let (repo, _tmpdir, meta) = fixture_writable("single-commit")?;
+    let tmp = tempfile::TempDir::new()?;
+    let repo = gix::ThreadSafeRepository::init_opts(
+        tmp.path(),
+        gix::create::Kind::WithWorktree,
+        gix::create::Options::default(),
+        but_testsupport::open_repo_config()?,
+    )?
+    .to_thread_local();
 
-    let base = repo.rev_parse_single("HEAD")?;
-    let base = base.object()?.into_commit();
-    repo.commit("HEAD", "a", base.tree_id()?, vec![base.id(), base.id()])?;
+    let first_commit = repo.commit("HEAD", "base", repo.object_hash().empty_tree(), None::<gix::ObjectId>)?;
+    let same_parent_twice = [first_commit.detach(), first_commit.into()];
+    repo.commit(
+        "HEAD",
+        "commit with the same parent ('base') duplicated",
+        repo.object_hash().empty_tree(),
+        same_parent_twice,
+    )?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * d70d863 (HEAD -> main) a
+    * 06470d7 (HEAD -> main) commit with the same parent ('base') duplicated
     |\
-    * 35b8235 base
+    * 86719d5 base
     ");
 
+    let meta = in_memory_meta(tmp.path())?;
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    // Duplicate parent commits are kept verbatim.
     insta::assert_snapshot!(graph_tree(&graph), @"
 
     └── 👉►:0[0]:main[🌳]
-        └── ·d70d863 (⌂|1)
+        └── ·06470d7 (⌂|1)
             ├── ►:1[1]:anon:
-            │   └── ·35b8235 (⌂|1)
+            │   └── ·86719d5 (⌂|1)
             └── →:1:
     ");
     Ok(())
@@ -884,4 +898,4 @@ pub use utils::{
     standard_options,
 };
 
-use crate::init::utils::{fixture_writable, standard_options_with_extra_target};
+use crate::init::utils::{in_memory_meta, standard_options_with_extra_target};
