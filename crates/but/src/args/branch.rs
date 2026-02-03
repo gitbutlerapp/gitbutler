@@ -16,6 +16,7 @@ pub enum Subcommands {
     /// the new branch from. This allows you to create stacked branches.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     New {
         /// Name of the new branch
         branch_name: Option<String>,
@@ -32,6 +33,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(short_flag = 'd')]
+    #[clap(verbatim_doc_comment)]
     Delete {
         /// Name of the branch to delete
         branch_name: String,
@@ -63,6 +65,7 @@ pub enum Subcommands {
     /// make the command faster.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     List {
         /// Filter branches by name (case-insensitive substring match)
         filter: Option<String>,
@@ -116,11 +119,12 @@ pub enum Subcommands {
     /// Apply a branch to the workspace
     ///
     /// If you want to apply an unapplied branch to your workspace so you
-    /// can work on it, you can run `but branch apply <branch-name>`.`
+    /// can work on it, you can run `but branch apply <branch-name>`.
     ///
     /// This will apply the changes in that branch into your working directory
     /// as a parallel applied branch.
     ///
+    #[clap(verbatim_doc_comment)]
     Apply {
         /// Name of the branch to apply
         branch_name: String,
@@ -137,6 +141,7 @@ pub enum Subcommands {
     /// see the branch as unapplied in `but branch list`.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Unapply {
         /// Name of the branch to unapply
         branch_name: String,
