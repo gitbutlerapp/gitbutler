@@ -103,7 +103,7 @@ pub enum Subcommands {
 
     /// View or set metrics collection.
     ///
-    /// Metrics help us understand which features are useful and to how many people.
+    /// GitButler uses metrics to help us know what is useful and improve it.
     /// Privacy policy: <https://gitbutler.com/privacy>
     ///
     /// Without arguments, displays the current setting.

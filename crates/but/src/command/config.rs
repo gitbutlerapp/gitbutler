@@ -149,7 +149,7 @@ async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) 
                 writeln!(
                     out,
                     "  {}",
-                    "Metrics help us understand which features are useful and to how many people.".dimmed()
+                    "GitButler uses metrics to help us know what is useful and improve it.".dimmed()
                 )?;
                 writeln!(
                     out,
