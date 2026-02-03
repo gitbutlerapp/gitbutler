@@ -361,6 +361,28 @@
 		font-size: 14px;
 		line-height: 1.5;
 		font-family: 'Source Code Pro', monospace;
+		scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+
+		/* Custom scrollbar for Firefox */
+		scrollbar-width: thin;
+
+		/* Custom scrollbar for Webkit browsers */
+		&::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		&::-webkit-scrollbar-thumb {
+			border-radius: 4px;
+			background: rgba(255, 255, 255, 0.2);
+		}
+
+		&::-webkit-scrollbar-thumb:hover {
+			background: rgba(255, 255, 255, 0.3);
+		}
 	}
 
 	.terminal-mockup__code {
