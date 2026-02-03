@@ -100,6 +100,38 @@ pub enum Subcommands {
         /// New target branch to set (e.g., "origin/main")
         branch: Option<String>,
     },
+
+    /// View or set metrics collection.
+    ///
+    /// Metrics help us understand which features are useful and to how many people.
+    /// Privacy policy: <https://gitbutler.com/privacy>
+    ///
+    /// Without arguments, displays the current setting.
+    ///
+    /// ## Examples
+    ///
+    /// View metrics configuration:
+    ///
+    /// ```text
+    /// but config metrics
+    /// ```
+    ///
+    /// Enable metrics:
+    ///
+    /// ```text
+    /// but config metrics enable
+    /// ```
+    ///
+    /// Disable metrics:
+    ///
+    /// ```text
+    /// but config metrics disable
+    /// ```
+    Metrics {
+        /// Whether metrics are enabled.
+        #[clap(value_enum)]
+        status: Option<MetricsStatus>,
+    },
 }
 
 /// Subcommands for `but config user`
@@ -149,6 +181,19 @@ pub enum UserConfigKey {
     Email,
     /// Git editor (core.editor)
     Editor,
+}
+
+/// Values for `but config metrics`
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum MetricsStatus {
+    Enable,
+    Disable,
+}
+
+impl MetricsStatus {
+    pub fn enabled(self) -> bool {
+        matches!(self, MetricsStatus::Enable)
+    }
 }
 
 impl UserConfigKey {

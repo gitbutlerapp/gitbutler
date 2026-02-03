@@ -7,12 +7,13 @@ use std::fmt::Write;
 
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
+use but_settings::{AppSettingsWithDiskSync, api::TelemetryUpdate};
 use cfg_if::cfg_if;
 use colored::Colorize;
 use serde::Serialize;
 
 use crate::{
-    args::config::{ForgeSubcommand, Subcommands, UserSubcommand},
+    args::config::{ForgeSubcommand, MetricsStatus, Subcommands, UserSubcommand},
     tui,
     utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel},
 };
@@ -23,6 +24,7 @@ pub async fn exec(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<Subcom
         Some(Subcommands::User { cmd }) => user_config(ctx, out, cmd).await,
         Some(Subcommands::Target { branch }) => target_config(ctx, out, branch).await,
         Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
+        Some(Subcommands::Metrics { status }) => metrics_config(out, status).await,
         None => show_overview(ctx, out).await,
     }
 }
@@ -121,6 +123,7 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
             "  {} - Target branch settings",
             "but config target".blue().dimmed()
         )?;
+        writeln!(out, "  {} - Metrics settings", "but config metrics".blue().dimmed())?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!(ConfigOverview {
             name: user_info.name,
@@ -132,6 +135,80 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
     }
 
     Ok(())
+}
+
+async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) -> Result<()> {
+    let app_settings_sync = load_app_settings_sync()?;
+
+    match status {
+        None => {
+            let enabled = app_settings_sync.get()?.telemetry.app_metrics_enabled;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "\n{}:", "Metrics Configuration".bold())?;
+                writeln!(out)?;
+                writeln!(
+                    out,
+                    "  {}",
+                    "Metrics help us understand which features are useful and to how many people.".dimmed()
+                )?;
+                writeln!(
+                    out,
+                    "  {} {}",
+                    "Privacy policy:".dimmed(),
+                    "https://gitbutler.com/privacy".dimmed()
+                )?;
+                writeln!(out)?;
+                writeln!(
+                    out,
+                    "  {}: {}",
+                    "Metrics".dimmed(),
+                    if enabled { "enabled".green() } else { "disabled".red() }
+                )?;
+                writeln!(out)?;
+                writeln!(out, "{}:", "To change metrics".dimmed())?;
+                writeln!(out, "  {}", "but config metrics enable".blue().dimmed())?;
+                writeln!(out, "  {}", "but config metrics disable".blue().dimmed())?;
+            } else if let Some(out) = out.for_shell() {
+                writeln!(out, "{}", enabled)?;
+            } else if let Some(out) = out.for_json() {
+                out.write_value(serde_json::json!({ "app_metrics_enabled": enabled }))?;
+            }
+        }
+        Some(status) => {
+            let enabled = status.enabled();
+            let update = TelemetryUpdate {
+                app_metrics_enabled: Some(enabled),
+                app_error_reporting_enabled: None,
+                app_non_anon_metrics_enabled: None,
+            };
+
+            but_api::legacy::settings::update_telemetry(
+                &app_settings_sync,
+                but_api::legacy::settings::UpdateTelemetryParams { update },
+            )?;
+
+            if let Some(out) = out.for_human() {
+                writeln!(
+                    out,
+                    "{} Metrics are now {}",
+                    "✓".green(),
+                    if enabled { "enabled".green() } else { "disabled".red() }
+                )?;
+            } else if let Some(out) = out.for_shell() {
+                writeln!(out, "{}", enabled)?;
+            } else if let Some(out) = out.for_json() {
+                out.write_value(serde_json::json!({ "app_metrics_enabled": enabled }))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
+    let config_dir = but_path::app_config_dir()?;
+    std::fs::create_dir_all(&config_dir)?;
+    AppSettingsWithDiskSync::new_with_customization(config_dir, None)
 }
 
 /// User configuration information
