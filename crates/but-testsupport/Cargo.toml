@@ -7,8 +7,6 @@ publish = false
 rust-version.workspace = true
 
 [lib]
-# Unit-tests are disabled as there are none right now.
-test = false
 doctest = false
 
 [features]
