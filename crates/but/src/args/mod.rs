@@ -860,6 +860,13 @@ pub enum Subcommands {
     #[clap(hide = true)]
     #[clap(verbatim_doc_comment)]
     Help,
+
+    /// INTERNAL: First-run onboarding that shows metrics info and marks onboarding complete.
+    ///
+    /// This command is silent if onboarding has already been completed.
+    /// It is designed to be called by the installer after installation.
+    #[clap(hide = true)]
+    Onboarding,
 }
 
 pub mod alias;

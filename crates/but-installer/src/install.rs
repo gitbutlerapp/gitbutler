@@ -54,6 +54,11 @@ pub(crate) fn verify_app_structure(app_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Returns the path to the `but` CLI binary for the given home directory.
+pub(crate) fn but_binary_path(home_dir: &Path) -> PathBuf {
+    home_dir.join(".local/bin/but")
+}
+
 pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Channel) -> Result<()> {
     let app_basename = app_dir
         .file_name()

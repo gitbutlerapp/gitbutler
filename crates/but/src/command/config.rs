@@ -137,7 +137,8 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
     Ok(())
 }
 
-async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) -> Result<()> {
+/// Handle metrics config subcommand (doesn't require repo context)
+pub(crate) async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) -> Result<()> {
     let app_settings_sync = load_app_settings_sync()?;
 
     match status {
@@ -149,7 +150,7 @@ async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) 
                 writeln!(
                     out,
                     "  {}",
-                    "Metrics help us understand which features are useful and to how many people.".dimmed()
+                    "GitButler uses metrics to help us know what is useful and improve it.".dimmed()
                 )?;
                 writeln!(
                     out,
@@ -205,7 +206,7 @@ async fn metrics_config(out: &mut OutputChannel, status: Option<MetricsStatus>) 
     Ok(())
 }
 
-fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
+pub(crate) fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
     let config_dir = but_path::app_config_dir()?;
     std::fs::create_dir_all(&config_dir)?;
     AppSettingsWithDiskSync::new_with_customization(config_dir, None)
@@ -363,8 +364,8 @@ async fn user_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<Use
     Ok(())
 }
 
-/// Handle forge config subcommand
-async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubcommand>) -> Result<()> {
+/// Handle forge config subcommand (doesn't require repo context)
+pub(crate) async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubcommand>) -> Result<()> {
     match cmd {
         Some(ForgeSubcommand::Auth) => forge_auth(out).await,
         Some(ForgeSubcommand::ListUsers) => forge_list_users(out).await,

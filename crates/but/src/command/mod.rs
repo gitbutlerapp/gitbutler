@@ -9,6 +9,7 @@ pub mod completions;
 pub mod config;
 pub mod gui;
 pub mod help;
+pub mod onboarding;
 pub mod push;
 pub mod skill;
 pub mod update;

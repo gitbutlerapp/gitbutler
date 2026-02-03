@@ -163,6 +163,11 @@ pub fn init_ctx(args: &Args, options: InitCtxOptions, out: &mut OutputChannel) -
         }
     };
 
+    // If this is the first time running GitButler, show a metrics info message and update onboarding status
+    if !ctx.settings.onboarding_complete && out.for_human().is_some() {
+        crate::command::onboarding::handle(out)?;
+    }
+
     match options.background_sync {
         BackgroundSync::Disabled => {
             return Ok(ctx);
