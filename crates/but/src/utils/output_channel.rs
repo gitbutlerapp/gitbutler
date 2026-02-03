@@ -1,5 +1,6 @@
 use std::io::{IsTerminal, Write};
 
+use bstr::ByteSlice;
 use minus::ExitStrategy;
 
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
@@ -26,19 +27,27 @@ pub enum ConfirmOrEmpty {
     NoInput,
 }
 
+/// Information related to the pager used by the `OutputChannel`.
+struct PagerInfo {
+    /// The pager used for output instead of `stdout`.
+    pager: minus::Pager,
+    /// Terminal height at the time the pager was created, used to determine how many lines to reprint.
+    terminal_rows: Option<u16>,
+    /// Buffer to capture pager content so we can reprint it to stdout when the pager exits.
+    /// This ensures content remains visible after quitting the pager.
+    /// Only set if stdout is connected to a terminal.
+    pager_content: Option<String>,
+}
+
 /// A utility `std::io::Write` implementation that can always be used to generate output for humans or for scripts.
 pub struct OutputChannel {
     /// How to print the output, one should match on it. Match on this if you prefer this style.
     format: OutputFormat,
     /// The output to use if there is no pager.
     stdout: std::io::Stdout,
-    /// Possibly a pager we are using. If `Some`, the pager itself is used for output instead of `stdout`.
-    pager: Option<minus::Pager>,
-    /// Buffer to capture pager content so we can reprint it to stdout when the pager exits.
-    /// This ensures content remains visible after quitting the pager.
-    pager_content_buffer: String,
-    /// Terminal height at the time the pager was created, used to determine how many lines to reprint.
-    terminal_rows: Option<u16>,
+    /// Possibly pager-related informationwe are using.
+    /// If `Some`, the pager itself is used for output instead of `stdout`.
+    pager: Option<PagerInfo>,
 }
 
 /// A channel that implements [`std::io::Write`], to make unbuffered writes to [`std::io::stderr`]
@@ -172,10 +181,12 @@ impl std::fmt::Write for OutputChannel {
         use std::io::Write;
         match self.format {
             OutputFormat::Human | OutputFormat::Shell => {
-                if let Some(out) = self.pager.as_mut() {
+                if let Some(info) = self.pager.as_mut() {
                     // Capture content in the buffer so we can reprint it when the pager exits
-                    self.pager_content_buffer.push_str(s);
-                    out.write_str(s)
+                    if let Some(buf) = info.pager_content.as_mut() {
+                        buf.push_str(s);
+                    }
+                    info.pager.write_str(s)
                 } else {
                     self.stdout.write_all(s.as_bytes()).or_else(|err| {
                         if err.kind() == std::io::ErrorKind::BrokenPipe {
@@ -323,65 +334,54 @@ impl OutputChannel {
     /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
     /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
     pub fn new_with_optional_pager(format: OutputFormat, use_pager: bool) -> Self {
-        let (pager, terminal_rows) =
-            if !matches!(format, OutputFormat::Human) || std::env::var_os("NOPAGER").is_some() || !use_pager {
-                (None, None)
-            } else {
-                let pager = minus::Pager::new();
-                let msg = "can talk to newly created pager";
-                pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
-                pager.set_prompt("GitButler").expect(msg);
+        let stdout = std::io::stdout();
+        let pager = if !matches!(format, OutputFormat::Human) || std::env::var_os("NOPAGER").is_some() || !use_pager {
+            None
+        } else {
+            let pager = minus::Pager::new();
+            let msg = "can talk to newly created pager";
+            pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
+            pager.set_prompt("GitButler").expect(msg);
 
-                // Capture terminal height to know how many lines to reprint on exit
-                let rows = terminal_size::terminal_size().map(|(_, terminal_size::Height(h))| h);
+            // Capture terminal height to know how many lines to reprint on exit
+            let rows = terminal_size::terminal_size().map(|(_, terminal_size::Height(h))| h);
 
-                (Some(pager), rows)
-            };
+            Some(PagerInfo {
+                pager,
+                terminal_rows: rows,
+                pager_content: stdout.is_terminal().then(String::new),
+            })
+        };
 
-        OutputChannel {
-            format,
-            stdout: std::io::stdout(),
-            pager,
-            pager_content_buffer: String::new(),
-            terminal_rows,
-        }
+        OutputChannel { format, stdout, pager }
     }
 }
 
 impl Drop for OutputChannel {
     fn drop(&mut self) {
-        if let Some(pager) = self.pager.take() {
+        if let Some(mut info) = self.pager.take() {
             // Clone the pager before passing it to page_all, so we can query it afterward
-            let pager_for_query = pager.clone();
+            let pager_for_query = info.pager.clone();
 
             // Run the pager to display the content
-            minus::page_all(pager).ok();
+            minus::page_all(info.pager).ok();
 
             // After the pager exits, reprint content up to where the user scrolled.
             // This preserves the content on the terminal after the user quits the pager.
             // Only do this if stdout is a terminal - otherwise the minus pager already
             // printed directly to stdout (when it detected non-TTY output).
-            if !self.pager_content_buffer.is_empty() && self.stdout.is_terminal() {
+            if let Some(buf) = info.pager_content.take() {
                 use std::io::Write;
 
                 // Get the exit position (line number where user quit)
-                let lines_to_print = if let Some(exit_line) = pager_for_query.exit_position() {
-                    // User scrolled to this line, print up to here plus the screen height
-                    let screen_height = self.terminal_rows.unwrap_or(24).saturating_sub(1) as usize;
-                    exit_line + screen_height
-                } else {
-                    // Fallback: print one screen worth of content
-                    self.terminal_rows.unwrap_or(24).saturating_sub(1) as usize
-                };
-
-                // Split content into lines and take only up to the exit position
-                let lines: Vec<&str> = self.pager_content_buffer.lines().collect();
-                let visible_lines = lines.iter().take(lines_to_print);
-
+                let screen_height = info.terminal_rows.unwrap_or(24).saturating_sub(1) as usize;
+                let lines_to_print = pager_for_query
+                    .exit_position()
+                    .map_or(screen_height, |exit_line| exit_line + screen_height);
+                let visible_lines = buf.as_bytes().lines_with_terminator().take(lines_to_print);
                 // Print the visible portion
                 for line in visible_lines {
-                    let _ = self.stdout.write_all(line.as_bytes());
-                    let _ = self.stdout.write_all(b"\n");
+                    self.stdout.write_all(line.as_bytes()).ok();
                 }
                 let _ = self.stdout.flush();
             }
