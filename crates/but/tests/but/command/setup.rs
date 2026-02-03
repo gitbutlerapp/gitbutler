@@ -347,7 +347,7 @@ fn already_setup() -> anyhow::Result<()> {
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
-  ✓ Repository added to project registry
+  ✓ Repository already in project registry
 
 GitButler project is already set up!
 Target branch: origin/main
@@ -417,7 +417,7 @@ fn json_output_already_setup() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 {
   "repositoryPath": "[..]",
-  "projectStatus": "added",
+  "projectStatus": "alreadyexists",
   "target": {
     "branchName": "origin/main",
     "remoteName": "origin",

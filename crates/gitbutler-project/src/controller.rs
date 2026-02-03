@@ -65,10 +65,11 @@ impl Controller {
             .list()
             .context("failed to list projects from storage")?;
 
+        let resolved_path = gix::path::realpath(worktree_dir)?;
         // Check if any existing project contains the given path
         if let Some(existing_project) = all_projects
             .iter()
-            .find(|project| worktree_dir.starts_with(project.worktree_dir_but_should_use_git_dir()))
+            .find(|project| resolved_path.starts_with(project.worktree_dir_but_should_use_git_dir()))
         {
             return Ok(AddProjectOutcome::AlreadyExists(existing_project.to_owned()));
         }
@@ -78,23 +79,23 @@ impl Controller {
 
     pub(crate) fn add(&self, worktree_dir: impl AsRef<Path>) -> Result<AddProjectOutcome> {
         let worktree_dir = worktree_dir.as_ref();
+        let resolved_path = gix::path::realpath(worktree_dir)?;
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
         if let Some(existing_project) = all_projects
             .iter()
-            .find(|project| project.worktree_dir_but_should_use_git_dir() == worktree_dir)
+            .find(|project| project.worktree_dir_but_should_use_git_dir() == resolved_path)
         {
             return Ok(AddProjectOutcome::AlreadyExists(existing_project.to_owned()));
         }
-        if !worktree_dir.exists() {
+        if !resolved_path.exists() {
             return Ok(AddProjectOutcome::PathNotFound);
         }
-        if !worktree_dir.is_dir() {
+        if !resolved_path.is_dir() {
             return Ok(AddProjectOutcome::NotADirectory);
         }
-        let resolved_path = gix::path::realpath(worktree_dir)?;
         // Make sure the repo is opened from the resolved path - it must be absolute for persistence.
         let repo = match gix::open_opts(&resolved_path, gix::open::Options::isolated()) {
             Ok(repo) if repo.is_bare() => {
