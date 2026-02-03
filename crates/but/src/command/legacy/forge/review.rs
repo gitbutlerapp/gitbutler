@@ -63,6 +63,7 @@ pub fn set_review_template(
 /// Create a new PR for a branch.
 /// If no branch is specified, prompts the user to select one.
 /// If there is only one branch without a PR, asks for confirmation.
+#[allow(clippy::too_many_arguments)]
 pub async fn create_pr(
     ctx: &mut Context,
     branch: Option<String>,
@@ -70,6 +71,7 @@ pub async fn create_pr(
     with_force: bool,
     run_hooks: bool,
     default: bool,
+    message: Option<PrMessage>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let review_map = get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?;
@@ -117,6 +119,7 @@ pub async fn create_pr(
         with_force,
         run_hooks,
         default,
+        message.as_ref(),
         out,
         maybe_branch_names,
     )
@@ -170,6 +173,7 @@ pub async fn handle_multiple_branches_in_workspace(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
+    message: Option<&PrMessage>,
     out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
@@ -209,6 +213,7 @@ pub async fn handle_multiple_branches_in_workspace(
             with_force,
             run_hooks,
             default_message,
+            message,
             out,
         )
         .await?;
@@ -327,6 +332,7 @@ async fn publish_reviews_for_branch_and_dependents(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
+    message: Option<&PrMessage>,
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
@@ -380,6 +386,7 @@ async fn publish_reviews_for_branch_and_dependents(
             )?;
         }
 
+        let message_for_head = if head.name == branch_name { message } else { None };
         let published_review = publish_review_for_branch(
             ctx,
             stack_entry.id,
@@ -387,6 +394,7 @@ async fn publish_reviews_for_branch_and_dependents(
             current_target_branch,
             review_map,
             default_message,
+            message_for_head,
         )
         .await?;
         match published_review {
@@ -482,6 +490,31 @@ enum PublishReviewResult {
     AlreadyExists(Vec<but_forge::ForgeReview>),
 }
 
+#[derive(Clone, Debug)]
+pub struct PrMessage {
+    pub title: String,
+    pub body: String,
+}
+
+pub fn parse_pr_message(content: &str) -> anyhow::Result<PrMessage> {
+    let mut lines = content.lines();
+    let title = lines.next().unwrap_or("").trim().to_string();
+
+    if title.is_empty() {
+        anyhow::bail!("Aborting due to empty PR title");
+    }
+
+    // Skip any leading blank lines after the title, then collect the rest as description
+    let body = lines
+        .skip_while(|l| l.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .trim()
+        .to_string();
+
+    Ok(PrMessage { title, body })
+}
+
 async fn publish_review_for_branch(
     ctx: &mut Context,
     stack_id: Option<StackId>,
@@ -489,6 +522,7 @@ async fn publish_review_for_branch(
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     default_message: bool,
+    message: Option<&PrMessage>,
 ) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
     // If it does, skip publishing a new review.
@@ -500,7 +534,9 @@ async fn publish_review_for_branch(
     }
 
     let commit = default_commit(ctx, stack_id, branch_name)?;
-    let (title, body) = if default_message {
+    let (title, body) = if let Some(message) = message {
+        (message.title.clone(), message.body.clone())
+    } else if default_message {
         let title = extract_commit_title(commit.as_ref())
             .map(|t| t.to_string())
             .unwrap_or(branch_name.to_string());
@@ -658,24 +694,8 @@ fn get_pr_title_and_body_from_editor(
     template.push_str("#\n");
 
     let content = get_text::from_editor_no_comments("pr_message", &template)?.to_string();
-
-    // Split into title (first line) and body (rest)
-    let mut lines = content.lines();
-    let title = lines.next().unwrap_or("").trim().to_string();
-
-    if title.is_empty() {
-        anyhow::bail!("Aborting due to empty PR title");
-    }
-
-    // Skip any leading blank lines after the title, then collect the rest as description
-    let body: String = lines
-        .skip_while(|l| l.trim().is_empty())
-        .collect::<Vec<_>>()
-        .join("\n")
-        .trim()
-        .to_string();
-
-    Ok((title, body))
+    let message = parse_pr_message(&content)?;
+    Ok((message.title, message.body))
 }
 
 /// Extract the commit description (body) from the commit message, skipping the first line (title).
@@ -754,5 +774,66 @@ pub fn get_review_numbers(
         format!(" (#{})", pr_number).blue()
     } else {
         "".to_string().normal()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_pr_message_title_only() {
+        let msg = parse_pr_message("My PR Title").unwrap();
+        assert_eq!(msg.title, "My PR Title");
+        assert_eq!(msg.body, "");
+    }
+
+    #[test]
+    fn parse_pr_message_title_and_body() {
+        let msg = parse_pr_message("My PR Title\n\nThis is the body.").unwrap();
+        assert_eq!(msg.title, "My PR Title");
+        assert_eq!(msg.body, "This is the body.");
+    }
+
+    #[test]
+    fn parse_pr_message_multiline_body() {
+        let msg = parse_pr_message("Title\n\nLine 1\nLine 2\nLine 3").unwrap();
+        assert_eq!(msg.title, "Title");
+        assert_eq!(msg.body, "Line 1\nLine 2\nLine 3");
+    }
+
+    #[test]
+    fn parse_pr_message_skips_blank_lines_between_title_and_body() {
+        let msg = parse_pr_message("Title\n\n\n\nBody starts here").unwrap();
+        assert_eq!(msg.title, "Title");
+        assert_eq!(msg.body, "Body starts here");
+    }
+
+    #[test]
+    fn parse_pr_message_trims_whitespace() {
+        let msg = parse_pr_message("  Title with spaces  \n\n  Body with spaces  ").unwrap();
+        assert_eq!(msg.title, "Title with spaces");
+        assert_eq!(msg.body, "Body with spaces");
+    }
+
+    #[test]
+    fn parse_pr_message_empty_string_fails() {
+        let result = parse_pr_message("");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty PR title"));
+    }
+
+    #[test]
+    fn parse_pr_message_whitespace_only_fails() {
+        let result = parse_pr_message("   \n\n   ");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty PR title"));
+    }
+
+    #[test]
+    fn parse_pr_message_blank_first_line_fails() {
+        let result = parse_pr_message("\nActual title on second line");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("empty PR title"));
     }
 }

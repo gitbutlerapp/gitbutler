@@ -330,12 +330,17 @@ Create and manage pull requests.
 
 ```bash
 but pr new <branch-id>        # Push branch and create PR (recommended)
-but pr new <branch-id> -m "Title" -m "Body"  # With title and description
+but pr new <branch-id> -F pr_message.txt    # Use file: first line is title, rest is description
+but pr new <branch-id> -m "Title..."        # Inline message: first line is title, rest is description
 but pr                        # Create PR (prompts for branch)
 but pr template               # Configure PR description template
 ```
 
 **Key behavior:** `but pr new` automatically pushes the branch to remote before creating the PR. No need to run `but push` first.
+
+In non-interactive environments, use `--message (-m)`, `--file (-F)`, or `--default (-t)` to avoid editor prompts.
+
+**Note:** For stacked branches, the custom message (`-m` or `-F`) only applies to the selected branch. Dependent branches in the stack will use default messages (commit title/description).
 
 Requires forge integration to be configured via `but config forge auth`.
 
