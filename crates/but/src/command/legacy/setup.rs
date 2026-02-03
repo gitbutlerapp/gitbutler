@@ -100,13 +100,10 @@ fn display_splash_screen(out: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
     Ok(())
 }
 
-// setup a gitbutler project for the repository at `repo_path`
-pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> anyhow::Result<()> {
-    let mut target_info: Option<TargetInfo> = None;
-
-    // find or initialize the git repository
-    let repo = match gix::open(repo_path) {
-        Ok(repo) => repo,
+/// Finds an existing git repository at `repo_path`, or initializes a new one if `init` is true.
+fn find_or_initialize_repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> anyhow::Result<gix::Repository> {
+    match gix::open(repo_path) {
+        Ok(repo) => Ok(repo),
         Err(_) => {
             // If --init flag is passed, initialize a new repo non-interactively
             if init {
@@ -123,12 +120,12 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
                     writeln!(out, "{}", "✓ Initialized repository with empty commit".green())?;
                     writeln!(out)?;
                 }
-                repo
+                Ok(repo)
             }
             // If for humans, try to set up a new repo interactively
             else if out.for_human().is_some() {
                 match setup_new_repo(repo_path, out) {
-                    Ok(repo) => repo,
+                    Ok(repo) => Ok(repo),
                     Err(e) => {
                         if let Some(out) = out.for_human() {
                             writeln!(out, "{}", format!("Failed to initialize repository: {}", e).red())?;
@@ -142,6 +139,17 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
                 anyhow::bail!("No git repository found.");
             }
         }
+    }
+}
+
+// setup a gitbutler project for the repository at `repo_path`
+pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> anyhow::Result<()> {
+    let mut target_info: Option<TargetInfo> = None;
+
+    let repo = match but_api::legacy::projects::add_project_best_effort(repo_path.to_path_buf())? {
+        gitbutler_project::AddProjectOutcome::Added(project)
+        | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => gix::open(project.git_dir())?,
+        _ => find_or_initialize_repo(repo_path, out, init)?,
     };
 
     // what branch is head() pointing to?
@@ -161,10 +169,23 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
             "→ Adding repository to GitButler project registry".to_string().dimmed()
         )?;
     }
-    let outcome = but_api::legacy::projects::add_project(repo_path.to_path_buf())?;
-    match outcome.clone() {
-        gitbutler_project::AddProjectOutcome::Added(project) => Ok(project),
-        gitbutler_project::AddProjectOutcome::AlreadyExists(project) => Ok(project),
+
+    let outcome = but_api::legacy::projects::add_project_best_effort(repo_path.to_path_buf())?;
+
+    // Track project status for JSON output
+    let project_status = match outcome {
+        gitbutler_project::AddProjectOutcome::Added(_) => {
+            if let Some(out) = out.for_human() {
+                writeln!(out, "  {}", "✓ Repository added to project registry".green())?;
+            }
+            Ok(ProjectStatus::Added)
+        }
+        gitbutler_project::AddProjectOutcome::AlreadyExists(_) => {
+            if let Some(out) = out.for_human() {
+                writeln!(out, "  {}", "✓ Repository already in project registry".green())?;
+            }
+            Ok(ProjectStatus::AlreadyExists)
+        }
         gitbutler_project::AddProjectOutcome::PathNotFound => {
             Err(anyhow::anyhow!("The path {} does not exist", repo_path.display()))
         }
@@ -192,25 +213,6 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
             repo_path.display()
         )),
     }?;
-
-    // Track project status for JSON output
-    let project_status = match &outcome {
-        gitbutler_project::AddProjectOutcome::Added(_) => ProjectStatus::Added,
-        gitbutler_project::AddProjectOutcome::AlreadyExists(_) => ProjectStatus::AlreadyExists,
-        _ => unreachable!("Already handled error cases above"),
-    };
-
-    if let Some(out) = out.for_human() {
-        match &outcome {
-            gitbutler_project::AddProjectOutcome::Added(_) => {
-                writeln!(out, "  {}", "✓ Repository added to project registry".green())?;
-            }
-            gitbutler_project::AddProjectOutcome::AlreadyExists(_) => {
-                writeln!(out, "  {}", "✓ Repository already in project registry".green())?;
-            }
-            _ => {}
-        }
-    }
 
     // Check if target branch is set
     let mut ctx = but_ctx::Context::from_repo(repo)?;

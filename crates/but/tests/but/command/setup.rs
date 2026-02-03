@@ -36,7 +36,7 @@ fn no_remote_creates_gb_local() -> anyhow::Result<()> {
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
-  ✓ Repository added to project registry
+  ✓ Repository already in project registry
 
 → Configuring default target branch
   No push remote found, creating gb-local remote...
@@ -118,7 +118,7 @@ fn no_remote_with_non_standard_branch() -> anyhow::Result<()> {
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
-  ✓ Repository added to project registry
+  ✓ Repository already in project registry
 
 → Configuring default target branch
   No push remote found, creating gb-local remote...
@@ -205,7 +205,7 @@ fn remote_exists_but_no_remote_head() -> anyhow::Result<()> {
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
-  ✓ Repository added to project registry
+  ✓ Repository already in project registry
 
 → Configuring default target branch
   ✓ Using existing push remote: origin
@@ -282,7 +282,7 @@ fn remote_exists_with_head() -> anyhow::Result<()> {
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
-  ✓ Repository added to project registry
+  ✓ Repository already in project registry
 
 → Configuring default target branch
   ✓ Using existing push remote: origin
@@ -388,7 +388,7 @@ fn json_output_new_setup() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 {
   "repositoryPath": "[..]",
-  "projectStatus": "added",
+  "projectStatus": "alreadyexists",
   "target": {
     "branchName": "origin/main",
     "remoteName": "origin",
@@ -442,7 +442,7 @@ fn json_output_gb_local() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 {
   "repositoryPath": "[..]",
-  "projectStatus": "added",
+  "projectStatus": "alreadyexists",
   "target": {
     "branchName": "gb-local/main",
     "remoteName": "gb-local",
@@ -467,7 +467,7 @@ fn json_output_non_standard_branch() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 {
   "repositoryPath": "[..]",
-  "projectStatus": "added",
+  "projectStatus": "alreadyexists",
   "target": {
     "branchName": "gb-local/development",
     "remoteName": "gb-local",
@@ -492,7 +492,7 @@ fn json_output_remote_no_head_fallback() -> anyhow::Result<()> {
         .stdout_eq(snapbox::str![[r#"
 {
   "repositoryPath": "[..]",
-  "projectStatus": "added",
+  "projectStatus": "alreadyexists",
   "target": {
     "branchName": "origin/main",
     "remoteName": "origin",
@@ -665,7 +665,7 @@ fn init_flag_with_existing_repo() -> anyhow::Result<()> {
 Setting up GitButler project...
 
 → Adding repository to GitButler project registry
-  ✓ Repository added to project registry
+  ✓ Repository already in project registry
 
 → Configuring default target branch
   No push remote found, creating gb-local remote...
