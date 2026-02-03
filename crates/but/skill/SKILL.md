@@ -54,7 +54,7 @@ but skill install --path <path>    # Install/update skill (agents use --path wit
 ```
 
 **Note for AI agents:**
-- When installing or updating this skill programmatically, always use `--path` to specify the exact installation directory. The `--infer` flag requires user interaction if multiple installations exist.
+- When installing or updating this skill programmatically, always use `--path` to specify the exact installation directory. The `--detect` flag requires user interaction if multiple installations exist.
 - **Use `--json` flag for all commands** to get structured, parseable output. This is especially important for `but status --json` to reliably parse workspace state.
 
 **Core workflow:**

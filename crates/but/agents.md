@@ -31,4 +31,4 @@ Usable output goes to `out: &mut OutputChannel`
 ### CLI Skills
 
 * After changing CLI commands or workflows, update the skill files in `crates/but/skill/` so AI agents stay current
-* Users update their skills with `but skill install --infer` (auto-detects installation location)
+* Users update their skills with `but skill install --detect` (auto-detects installation location)
