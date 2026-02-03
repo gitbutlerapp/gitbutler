@@ -65,9 +65,9 @@ but-forge.workspace = true
 but-forge-storage.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
+but-github.workspace = true
+but-gitlab.workspace = true
 
-# needs `gitbutler_user::User`, which can probably be ported over.
-but-github = { workspace = true, features = ["legacy"] }
 # 'legacy' is needed while we only have `virtual-branches.toml`
 but-meta = { workspace = true, features = ["legacy"] }
 # 'legacy' is needed while this is only a sketch of what the oplog could be.

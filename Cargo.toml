@@ -59,8 +59,10 @@ members = [
     "crates/but-tools",             # 📄TBD
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-llm",               # 📄TBD
-    # 👉lacks top-level docs and docs, purpose somewhat unclear. Uses legacy crate.
-    "crates/but-github",            # 📄Retrieve information using the GitHub API.
+    # 👉lacks top-level docs and docs.
+    "crates/but-github",            # 📄A thin wrapper of the GitHub API, for authentication and resource access.
+    # 👉lacks top-level docs and docs.
+    "crates/but-gitlab",            # 📄A thin wrapper of the GitLab API, for authentication and resource access.
     # 👉No tests, lacks top-level docs, purpose somewhat unclear.
     "crates/but-cursor",            # 📄Integration with Cursor
     # 👉Kind of no docs, no tests, and unclear purpose.
@@ -151,6 +153,7 @@ but-cursor = { path = "crates/but-cursor" }
 but-gerrit = { path = "crates/but-gerrit" }
 but-cherry-apply = { path = "crates/but-cherry-apply" }
 but-github = { path = "crates/but-github" }
+but-gitlab = { path = "crates/but-gitlab" }
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }
 but-update = { path = "crates/but-update" }
