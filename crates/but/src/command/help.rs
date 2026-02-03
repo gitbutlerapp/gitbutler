@@ -44,7 +44,7 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
         ),
         (
             "Editing Commits".yellow(),
-            vec!["rub", "absorb", "reword", "uncommit", "amend", "squash"],
+            vec!["rub", "absorb", "reword", "uncommit", "amend", "squash", "move"],
         ),
         ("Operation History".yellow(), vec!["oplog", "undo", "restore"]),
     ];
