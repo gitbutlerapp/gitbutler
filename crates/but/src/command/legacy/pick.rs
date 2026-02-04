@@ -6,10 +6,12 @@ use but_api::legacy::{cherry_apply, virtual_branches, workspace};
 use but_cherry_apply::CherryApplyStatus;
 use but_core::ref_metadata::StackId;
 use but_ctx::Context;
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
+use gix::{revision::walk::Sorting, traverse::commit::simple::CommitTimeOrder};
 
 use crate::{CliId, IdMap, utils::OutputChannel};
 
@@ -130,40 +132,53 @@ fn select_commit_from_branch(
     branch_head: git2::Oid,
     branch_name: &str,
 ) -> Result<gix::ObjectId> {
+    use gix::prelude::ObjectIdExt as _;
+
     let git2_repo = ctx.git2_repo.get()?;
+    let gix_repo = ctx.repo.get()?;
 
     // Get the target branch to find merge base
     let vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;
-    let target_commit = git2_repo.find_commit(default_target.sha)?;
+
+    let branch_head_gix = branch_head.to_gix();
+    let target_oid_gix = default_target.sha.to_gix();
 
     // Find merge base
-    let merge_base = git2_repo
-        .merge_base(branch_head, target_commit.id())
+    let merge_base = gix_repo
+        .merge_base(branch_head_gix, target_oid_gix)
         .context("Failed to find merge base")?;
 
     // Non-interactive mode: use the branch head directly (most recent commit)
     if !out.can_prompt() {
         // Verify branch_head is not the merge base itself (i.e., there are commits to pick)
-        if branch_head == merge_base {
+        if branch_head_gix == merge_base {
             bail!(
                 "No commits found on branch '{}' that aren't already in target.",
                 branch_name
             );
         }
-        return gix::ObjectId::try_from(branch_head.as_bytes()).context("Invalid commit OID");
+        return Ok(branch_head_gix);
     }
 
     // Interactive mode: walk commits from branch head to merge base
-    let mut revwalk = git2_repo.revwalk()?;
-    revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::TIME)?;
-    revwalk.push(branch_head)?;
-    revwalk.hide(merge_base)?;
+    let traversal = branch_head_gix
+        .attach(&gix_repo)
+        .ancestors()
+        .sorting(Sorting::ByCommitTime(CommitTimeOrder::NewestFirst))
+        .with_hidden(Some(merge_base))
+        .all()?;
 
-    let commits: Vec<_> = revwalk
-        .filter_map(|oid| oid.ok())
-        .filter_map(|oid| git2_repo.find_commit(oid).ok())
+    // Collect commit OIDs and then look up git2 commits for message display
+    let commit_oids: Vec<gix::ObjectId> = traversal
+        .filter_map(Result::ok)
+        .map(|info| info.id)
         .take(50) // Limit to reasonable number
+        .collect();
+
+    let commits: Vec<_> = commit_oids
+        .iter()
+        .filter_map(|oid| git2_repo.find_commit(oid.to_git2()).ok())
         .collect();
 
     if commits.is_empty() {
@@ -175,7 +190,7 @@ fn select_commit_from_branch(
 
     // If only one commit, use it directly
     if commits.len() == 1 {
-        return gix::ObjectId::try_from(commits[0].id().as_bytes()).context("Invalid commit OID");
+        return Ok(commit_oids[0]);
     }
 
     // Interactive selection - use index to avoid SHA collision issues
@@ -210,8 +225,7 @@ fn select_commit_from_branch(
         .position(|opt| opt == &selection)
         .context("Selected commit not found")?;
 
-    let selected_commit = &commits[selected_index];
-    gix::ObjectId::try_from(selected_commit.id().as_bytes()).context("Invalid commit OID")
+    Ok(commit_oids[selected_index])
 }
 
 /// Resolve the target stack based on user input and cherry-apply status.

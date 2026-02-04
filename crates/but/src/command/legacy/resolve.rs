@@ -10,7 +10,6 @@ use but_api::legacy::modes::{
     save_edit_and_return_to_workspace_with_output,
 };
 use but_ctx::Context;
-use but_oxidize::OidExt;
 use colored::Colorize;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
 use gitbutler_operating_modes::OperatingMode;
@@ -52,6 +51,9 @@ pub(crate) fn handle(
 }
 
 fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &str) -> Result<()> {
+    use gix::prelude::ObjectIdExt as _;
+    use gix::revision::walk::Sorting;
+
     // Create an IdMap to resolve commit IDs (supports both CLI IDs and partial SHAs)
     let id_map = IdMap::new_from_context(ctx, None)?;
 
@@ -73,62 +75,60 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     }
 
     // Extract the commit OID from the matched CliId
-    let commit_oid = match &matches[0] {
-        CliId::Commit { commit_id, .. } => git2::Oid::from_bytes(commit_id.as_slice())?,
+    let commit_gix_oid = match &matches[0] {
+        CliId::Commit { commit_id, .. } => *commit_id,
         _ => bail!("'{}' does not refer to a commit", commit_id_str),
     };
 
     // Get the commit and check if it's conflicted
-    let git2_repo = ctx.git2_repo.get()?;
-    let repo = ctx.repo.get()?;
-    let commit = repo.find_commit(commit_oid.to_gix()).context("Failed to find commit")?;
+    let gix_repo = ctx.repo.get()?;
+    let commit = gix_repo.find_commit(commit_gix_oid).context("Failed to find commit")?;
 
     if !commit.is_conflicted() {
         bail!(
             "Commit {} is not in a conflicted state. Only conflicted commits can be resolved.",
-            &commit_oid.to_string()[..7]
+            &commit_gix_oid.to_string()[..7]
         );
     }
 
     // Find which stack this commit belongs to
     let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
     let mut found_stack_id = None;
-    for stack in &stacks {
+    'outer: for stack in &stacks {
         // Check if this commit is in any of the stack's heads
+        // TODO(ctx): use `ws` for that.
+        // TODO(perf): This is likely to walk the whole graph.
         for head in &stack.heads {
-            let head_oid = git2::Oid::from_bytes(head.tip.as_slice())?;
             // Walk the commit history to see if our commit is in this stack
-            let mut revwalk = git2_repo.revwalk()?;
-            revwalk.push(head_oid)?;
-            revwalk.set_sorting(git2::Sort::TOPOLOGICAL)?;
+            let traversal = head
+                .tip
+                .attach(&gix_repo)
+                .ancestors()
+                .sorting(Sorting::BreadthFirst)
+                .all()?;
 
-            for oid in revwalk {
-                if oid? == commit_oid {
+            for info in traversal {
+                let info = info?;
+                if info.id == commit_gix_oid {
                     found_stack_id = stack.id;
-                    break;
+                    break 'outer;
                 }
             }
-            if found_stack_id.is_some() {
-                break;
-            }
-        }
-        if found_stack_id.is_some() {
-            break;
         }
     }
 
     let stack_id = found_stack_id.ok_or_else(|| {
         anyhow::anyhow!(
             "Could not find stack containing commit {}",
-            &commit_oid.to_string()[..7]
+            &commit_gix_oid.to_string()[..7]
         )
     })?;
 
-    drop((commit, git2_repo));
-    drop(repo);
+    drop(commit);
+    drop(gix_repo);
 
     // Enter edit mode
-    enter_edit_mode(ctx, commit_oid.to_gix(), stack_id).context("Failed to enter edit mode")?;
+    enter_edit_mode(ctx, commit_gix_oid, stack_id).context("Failed to enter edit mode")?;
 
     // Show checkout message
     if let Some(out) = out.for_human() {
@@ -136,7 +136,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
             out,
             "{} {}",
             "Checking out conflicted commit".bold(),
-            commit_oid.to_string()[..7].cyan()
+            commit_gix_oid.to_string()[..7].cyan()
         )?;
     }
 
@@ -343,7 +343,7 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
 /// Structure to hold information about a conflicted commit
 #[derive(Debug)]
 struct ConflictedCommit {
-    commit_oid: git2::Oid,
+    commit_oid: gix::ObjectId,
     commit_short_id: String,
     commit_message: String,
 }
@@ -429,25 +429,32 @@ fn check_for_new_conflicts_after_rebase(
 
 /// Find all conflicted commits across all stacks, grouped by branch
 fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<ConflictedCommit>>> {
+    use gix::prelude::ObjectIdExt as _;
+    use gix::revision::walk::Sorting;
+
     let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
-    let git2_repo = ctx.git2_repo.get()?;
-    let repo = ctx.repo.get()?;
+    let gix_repo = ctx.repo.get()?;
     let mut conflicts_by_branch: BTreeMap<String, Vec<ConflictedCommit>> = BTreeMap::new();
 
     for stack in &stacks {
         // Check commits in each head of the stack
         for head in &stack.heads {
             let branch_name = head.name.to_str_lossy().to_string();
-            let head_oid = git2::Oid::from_bytes(head.tip.as_slice())?;
 
             // Walk the commit history to find conflicted commits
-            let mut revwalk = git2_repo.revwalk()?;
-            revwalk.push(head_oid)?;
-            revwalk.set_sorting(git2::Sort::TOPOLOGICAL | git2::Sort::REVERSE)?;
+            // We use BreadthFirst (topological) and then reverse the results
+            let traversal = head
+                .tip
+                .attach(&gix_repo)
+                .ancestors()
+                .sorting(Sorting::BreadthFirst)
+                .all()?;
 
-            for oid_result in revwalk {
-                let oid = oid_result?;
-                let commit = repo.find_commit(oid.to_gix())?;
+            // Collect commits first, then reverse for REVERSE sorting behavior
+            let commit_ids: Vec<gix::ObjectId> = traversal.filter_map(Result::ok).map(|info| info.id).collect();
+
+            for oid in commit_ids.into_iter().rev() {
+                let commit = gix_repo.find_commit(oid)?;
 
                 if commit.is_conflicted() {
                     let message = commit
