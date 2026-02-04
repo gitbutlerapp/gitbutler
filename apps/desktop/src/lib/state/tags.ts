@@ -15,6 +15,7 @@ export enum ReduxTag {
 	BranchChanges = 'BranchChanges',
 	ForgeUser = 'ForgeUser',
 	GitHubUserList = 'GitHubUserList',
+	GitLabUserList = 'GitLabUserList',
 	PullRequests = 'PullRequests',
 	GitLabPullRequests = 'GitLabPullRequests',
 	Checks = 'Checks',

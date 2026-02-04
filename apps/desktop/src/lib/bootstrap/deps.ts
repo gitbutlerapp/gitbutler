@@ -29,6 +29,7 @@ import { GITHUB_CLIENT, GitHubClient } from '$lib/forge/github/githubClient';
 import { GitHubUserService, GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 import { GITLAB_CLIENT, GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import { GITLAB_STATE, GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
+import { GITLAB_USER_SERVICE, GitLabUserService } from '$lib/forge/gitlab/gitlabUserService.svelte';
 import { GitService, GIT_SERVICE } from '$lib/git/gitService';
 import { HISTORY_SERVICE, HistoryService } from '$lib/history/history';
 import { OplogService, OPLOG_SERVICE } from '$lib/history/oplogService.svelte';
@@ -141,11 +142,8 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const clientState = new ClientState(backend, gitHubClient, gitLabClient, ircClient, posthog);
-	const githubUserService = new GitHubUserService(
-		backend,
-		clientState.backendApi,
-		clientState['githubApi']
-	);
+	const githubUserService = new GitHubUserService(clientState.backendApi);
+	const gitlabUserService = new GitLabUserService(clientState.backendApi);
 
 	const uiState = new UiState(
 		reactive(() => clientState.uiState ?? uiStateSlice.getInitialState()),
@@ -342,6 +340,7 @@ export function initDependencies(args: {
 		[FOCUS_MANAGER, focusManager],
 		[GITHUB_CLIENT, gitHubClient],
 		[GITHUB_USER_SERVICE, githubUserService],
+		[GITLAB_USER_SERVICE, gitlabUserService],
 		[GITLAB_CLIENT, gitLabClient],
 		[GITLAB_STATE, gitLabState],
 		[GIT_CONFIG_SERVICE, gitConfig],
