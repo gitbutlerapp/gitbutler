@@ -5,24 +5,15 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
 
     // Generate frontmatter
     let title = format!("`but {}`", cmd.get_name());
-    let description = get_description(cmd);
+    let (description, remaining_body) = get_description_and_body(cmd);
     output.push_str("---\n");
     output.push_str(&format!("title: \"{}\"\n", title));
     output.push_str(&format!("description: \"{}\"\n", description));
     output.push_str("---\n\n");
 
-    // Add main heading with description
-    output.push_str(&format!("# {}\n\n", description));
-
-    // Add long description if available (full version, not just first line)
-    if let Some(long_about) = cmd.get_long_about() {
-        output.push_str(&format!("{}\n\n", long_about));
-    } else if let Some(about) = cmd.get_about() {
-        // If no long_about but we have about, and it's different from description
-        let about_str = about.to_string();
-        if about_str != description {
-            output.push_str(&format!("{}\n\n", about_str));
-        }
+    // Add remaining long description if available (without the first line used as description)
+    if let Some(body) = remaining_body {
+        output.push_str(&format!("{}\n\n", body));
     }
 
     // Add usage
@@ -95,19 +86,26 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
     output
 }
 
-fn get_description(cmd: &Command) -> String {
-    // For frontmatter description, use the first line of long_about or about
-    cmd.get_long_about()
-        .or_else(|| cmd.get_about())
-        .map(|s| {
-            // Take only the first line for short description
-            s.to_string()
-                .lines()
-                .next()
-                .unwrap_or("Command-line documentation")
-                .to_string()
-        })
-        .unwrap_or_else(|| "Command-line documentation".to_string())
+/// Returns (description, remaining_body) where description is the first line
+/// and remaining_body is the rest of the long_about (if any) with the first line removed.
+fn get_description_and_body(cmd: &Command) -> (String, Option<String>) {
+    if let Some(long_about) = cmd.get_long_about() {
+        let text = long_about.to_string();
+        let mut lines = text.lines();
+        let first_line = lines.next().unwrap_or("Command-line documentation").to_string();
+        let remaining: String = lines.collect::<Vec<_>>().join("\n");
+        let remaining_trimmed = remaining.trim();
+        let body = if remaining_trimmed.is_empty() {
+            None
+        } else {
+            Some(remaining_trimmed.to_string())
+        };
+        (first_line, body)
+    } else if let Some(about) = cmd.get_about() {
+        (about.to_string(), None)
+    } else {
+        ("Command-line documentation".to_string(), None)
+    }
 }
 
 fn generate_usage(cmd: &Command) -> String {
