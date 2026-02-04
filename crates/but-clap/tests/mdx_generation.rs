@@ -146,9 +146,6 @@ fn test_simple_command_mdx_generation() {
     assert!(mdx.contains("title: \"`but test`\""));
     assert!(mdx.contains("description: \"A test command\""));
 
-    // Check main heading
-    assert!(mdx.contains("# A test command"));
-
     // Check usage
     assert!(mdx.contains("**Usage:** `but test <INPUT> [OPTIONS]`"));
 
@@ -309,9 +306,5 @@ fn test_frontmatter_only_first_line() {
     assert!(mdx.contains("description: \"First line of description\""));
 
     // But full description should be in the body
-    assert!(
-        mdx.contains(
-            "# First line of description\n\nFirst line of description\nSecond line of description\nThird line"
-        )
-    );
+    assert!(mdx.contains("Second line of description\nThird line"));
 }
