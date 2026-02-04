@@ -58,6 +58,7 @@ export { default as TimeAgo } from '$components/TimeAgo.svelte';
 export { default as Timestamp } from '$components/Timestamp.svelte';
 export { default as Toggle } from '$components/Toggle.svelte';
 export { default as Tooltip } from '$components/Tooltip.svelte';
+export { default as ForgeUserCard } from '$components/ForgeUserCard.svelte';
 
 // ChipToast Components
 export { default as ChipToast } from '$components/chipToast/ChipToast.svelte';

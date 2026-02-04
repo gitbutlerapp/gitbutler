@@ -1,31 +1,35 @@
 <script lang="ts">
-	import GitHubAccountBadge from '$components/GitHubAccountBadge.svelte';
+	import GitLabAccountBadge from '$components/GitLabAccountBadge.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
+	import { GITLAB_USER_SERVICE } from '$lib/forge/gitlab/gitlabUserService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { ForgeUserCard } from '@gitbutler/ui';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
-	import type { ButGitHubToken } from '@gitbutler/core/api';
+	import type { ButGitLabToken } from '@gitbutler/core/api';
 
 	type Props = {
-		account: ButGitHubToken.GithubAccountIdentifier;
+		account: ButGitLabToken.GitlabAccountIdentifier;
 	};
 
 	const { account }: Props = $props();
 
-	const githubUserService = inject(GITHUB_USER_SERVICE);
+	const gitlabUserService = inject(GITLAB_USER_SERVICE);
 
-	const [forget, forgetting] = githubUserService.forgetGitHubUsername;
-	const ghUser = $derived(githubUserService.authenticatedUser(account));
+	const [forget, forgetting] = gitlabUserService.forgetGitLabAccount;
+	const glUser = $derived(gitlabUserService.authenticatedUser(account));
 
-	const isError = $derived(ghUser.result?.status === QueryStatus.rejected);
-	const isLoading = $derived(ghUser.result?.status === QueryStatus.pending);
+	const isError = $derived(glUser.result?.status === QueryStatus.rejected);
+	const isLoading = $derived(glUser.result?.status === QueryStatus.pending);
+
+	const username = $derived(
+		account.type === 'patUsername' ? account.info.username : account.info.username
+	);
 </script>
 
-<ReduxResult result={ghUser.result}>
+<ReduxResult result={glUser.result}>
 	{#snippet loading()}
 		<ForgeUserCard
-			username={account.info.username}
+			{username}
 			avatarUrl={null}
 			isError={false}
 			isLoading={true}
@@ -33,13 +37,13 @@
 			isForgetLoading={forgetting.current.isLoading}
 		>
 			{#snippet badge()}
-				<GitHubAccountBadge {account} />
+				<GitLabAccountBadge {account} />
 			{/snippet}
 		</ForgeUserCard>
 	{/snippet}
 	{#snippet error()}
 		<ForgeUserCard
-			username={account.info.username}
+			{username}
 			avatarUrl={null}
 			isError={true}
 			isLoading={false}
@@ -47,13 +51,13 @@
 			isForgetLoading={forgetting.current.isLoading}
 		>
 			{#snippet badge()}
-				<GitHubAccountBadge {account} />
+				<GitLabAccountBadge {account} />
 			{/snippet}
 		</ForgeUserCard>
 	{/snippet}
 	{#snippet children(user)}
 		<ForgeUserCard
-			username={account.info.username}
+			{username}
 			avatarUrl={user?.avatarUrl ?? null}
 			email={user?.email}
 			{isError}
@@ -62,7 +66,7 @@
 			isForgetLoading={forgetting.current.isLoading}
 		>
 			{#snippet badge()}
-				<GitHubAccountBadge {account} />
+				<GitLabAccountBadge {account} />
 			{/snippet}
 		</ForgeUserCard>
 	{/snippet}

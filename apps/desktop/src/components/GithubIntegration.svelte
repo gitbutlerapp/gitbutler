@@ -353,10 +353,6 @@
 	{/if}
 </div>
 
-<p class="text-12 text-body github-integration-settings__text">
-	🔒 Credentials are persisted locally in your OS Keychain / Credential Manager.
-</p>
-
 {#snippet addProfileButton(noAccounts: boolean)}
 	{@const buttonStyle = noAccounts ? 'pop' : 'gray'}
 	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
@@ -491,9 +487,5 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
-	}
-
-	.github-integration-settings__text {
-		color: var(--clr-text-2);
 	}
 </style>
