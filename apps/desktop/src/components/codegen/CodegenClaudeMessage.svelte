@@ -3,7 +3,7 @@
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
 	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
-	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
+	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
 	import { type Message } from '$lib/codegen/messages';
 	import { Icon, Markdown } from '@gitbutler/ui';
@@ -37,23 +37,33 @@
 			{/snippet}
 		</CodegenServiceMessage>
 	{:else}
-		<CodegenAssistantMessage content={message.message} />
-		<CodegenToolCalls
-			{projectId}
-			toolCalls={message.toolCalls}
-			messageId={message.createdAt}
-			{toolCallExpandedState}
-		/>
-		{#if message.toolCallsPendingApproval.length > 0}
-			{#each message.toolCallsPendingApproval as toolCall}
+		{#each message.contentBlocks as block, index}
+			{@const prevBlock = message.contentBlocks[index - 1]}
+			{@const nextBlock = message.contentBlocks[index + 1]}
+			{@const firstInGroup = block.type === 'toolCall' && prevBlock?.type !== 'toolCall'}
+			{@const lastInGroup = block.type === 'toolCall' && nextBlock?.type !== 'toolCall'}
+			{#if block.type === 'text'}
+				<CodegenAssistantMessage content={block.text} />
+			{:else if block.type === 'toolCall'}
+				{#if block.toolCall.name !== 'TodoWrite'}
+					<CodegenToolCall
+						{projectId}
+						toolCall={block.toolCall}
+						toolCallKey="{message.createdAt}-{index}"
+						{toolCallExpandedState}
+						{firstInGroup}
+						{lastInGroup}
+					/>
+				{/if}
+			{:else if block.type === 'toolCallPendingApproval'}
 				<CodegenApprovalToolCall
 					{projectId}
-					{toolCall}
+					toolCall={block.toolCall}
 					onPermissionDecision={async (id, decision, useWildcard) =>
 						await onPermissionDecision?.(id, decision, useWildcard)}
 				/>
-			{/each}
-		{/if}
+			{/if}
+		{/each}
 	{/if}
 {:else if message.source === 'gitButler'}
 	<CodegenGitButlerMessage {projectId} {message} />

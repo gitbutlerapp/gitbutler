@@ -34,6 +34,9 @@ export function getToolIcon(toolName: string): IconName {
 	if (name.includes('exit')) {
 		return 'signout';
 	}
+	if (name.includes('task')) {
+		return 'spinner';
+	}
 
 	// Default icon for unknown tool types
 	return 'settings';
@@ -47,9 +50,16 @@ const KNOWN_TOOLS = [
 	'Grep',
 	'Glob',
 	'Task',
+	'TaskOutput',
+	'TaskStop',
 	'TodoWrite',
 	'WebFetch',
-	'WebSearch'
+	'WebSearch',
+	'AskUserQuestion',
+	'Skill',
+	'NotebookEdit',
+	'EnterPlanMode',
+	'ExitPlanMode'
 ] as const;
 
 export function formatToolCall(toolCall: ToolCall): string {
@@ -89,6 +99,27 @@ export function formatToolCall(toolCall: ToolCall): string {
 
 		case 'WebSearch':
 			return `"${truncate(input['query'], 50)}"`;
+
+		case 'TaskOutput':
+			return `Task output ${input['task_id'] || 'unknown'}`;
+
+		case 'TaskStop':
+			return `Stop task ${input['task_id'] || 'unknown'}`;
+
+		case 'AskUserQuestion':
+			return 'Asking user question';
+
+		case 'Skill':
+			return input['skill'] || 'Running skill';
+
+		case 'NotebookEdit':
+			return input['notebook_path'] || 'Editing notebook';
+
+		case 'EnterPlanMode':
+			return 'Entering plan mode';
+
+		case 'ExitPlanMode':
+			return 'Exiting plan mode';
 
 		default: {
 			// Log unknown tool types for debugging
