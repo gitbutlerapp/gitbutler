@@ -99,7 +99,7 @@ fn default_target_setting_if_none(ctx: &Context, vb_state: &VirtualBranchesHandl
     let repo = ctx.repo.get()?;
     let remote_name = repo
         .remote_default_name(gix::remote::Direction::Push)
-        .ok_or_else(|| anyhow::anyhow!("No push remote set"))?
+        .ok_or_else(|| anyhow::anyhow!("No push remote set or more than one remote"))?
         .to_string();
 
     let mut head_ref = repo

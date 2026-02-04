@@ -239,6 +239,11 @@ pub struct Graph {
     /// possibly changed. This can also be used to simulate changes by injecting would-be information.
     /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
     pub options: init::Options,
+    /// All remote names that aren't URLs and that were retrieved during the traversal.
+    ///
+    /// They are useful to extract remote names from remote tracking refs like `refs/remotes/origin/master`,
+    /// which may have slashes in them.
+    pub symbolic_remote_names: Vec<String>,
 }
 
 /// A resolved entry point into the graph for easy access to the segment, commit,

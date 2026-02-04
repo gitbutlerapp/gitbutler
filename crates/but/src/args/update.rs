@@ -28,7 +28,7 @@ pub enum Subcommands {
     /// the latest version for that channel.
     ///
     /// Note: Currently only supported on macOS. For other platforms, download from
-    /// https://gitbutler.com/downloads
+    /// <https://gitbutler.com/downloads>
     #[cfg(target_os = "macos")]
     Install {
         /// What to install: "nightly", "release", or a version like "0.18.7"

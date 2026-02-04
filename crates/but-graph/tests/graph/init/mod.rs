@@ -48,6 +48,7 @@ fn unborn() -> anyhow::Result<()> {
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
         },
+        symbolic_remote_names: [],
     }
     "#);
 
@@ -151,6 +152,7 @@ fn detached() -> anyhow::Result<()> {
             extra_target_commit_id: None,
             dangerously_skip_postprocessing_for_debugging: false,
         },
+        symbolic_remote_names: [],
     }
     "#);
 
