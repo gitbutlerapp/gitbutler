@@ -98,7 +98,7 @@ const SKILL_FORMATS: &[SkillFormat] = &[
     SkillFormat {
         name: "GitHub Copilot",
         description: "GitHub Copilot skill format",
-        path: ".github/copilot/skills/gitbutler",
+        path: ".github/skills/gitbutler",
     },
     SkillFormat {
         name: "Cursor",
