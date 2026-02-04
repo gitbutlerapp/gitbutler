@@ -78,12 +78,12 @@ impl Subcommands {
                 Some(branch::Subcommands::New { .. }) => BranchNew,
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Delete { .. }) => BranchDelete,
-                #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
                 Some(branch::Subcommands::Apply { .. }) => BranchApply,
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
             },
+            #[cfg(feature = "legacy")]
+            Subcommands::Unapply { .. } => BranchUnapply,
             #[cfg(feature = "legacy")]
             Subcommands::Worktree(worktree::Platform { cmd: _ }) => Worktree,
             #[cfg(feature = "legacy")]

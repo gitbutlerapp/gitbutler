@@ -1,7 +1,6 @@
 use anyhow::bail;
 use branch::Subcommands;
 use but_core::ref_metadata::StackId;
-use but_workspace::legacy::ui::StackEntry;
 use colored::Colorize;
 
 use crate::{
@@ -165,60 +164,7 @@ pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut Ou
             Ok(())
         }
         Some(Subcommands::Apply { branch_name }) => apply::apply(ctx, &branch_name, out),
-        Some(Subcommands::Unapply { branch_name, force }) => {
-            let stacks =
-                but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
-
-            // Find which stack this branch belongs to
-            for stack_entry in &stacks {
-                if stack_entry.heads.iter().all(|b| b.name != *branch_name) {
-                    // Not found in this stack,
-                    continue;
-                }
-
-                if let Some(sid) = stack_entry.id {
-                    return confirm_unapply_stack(ctx, sid, stack_entry, force, out);
-                }
-            }
-
-            if let Some(out) = out.for_human() {
-                writeln!(out, "Branch '{}' not found in any stack", branch_name)?;
-            }
-            Ok(())
-        }
     }
-}
-
-fn confirm_unapply_stack(
-    ctx: &mut but_ctx::Context,
-    sid: StackId,
-    stack_entry: &StackEntry,
-    force: bool,
-    out: &mut OutputChannel,
-) -> Result<(), anyhow::Error> {
-    let branches = stack_entry
-        .heads
-        .iter()
-        .map(|head| head.name.to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    if !force
-        && let Some(mut inout) = out.prepare_for_terminal_input()
-        && inout.confirm(
-            format!("Are you sure you want to unapply stack with branches '{branches}'?"),
-            ConfirmDefault::No,
-        )? == Confirm::No
-    {
-        bail!("Aborted unapply operation.");
-    }
-
-    but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
-
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Unapplied stack with branches '{}' from workspace", branches)?;
-    }
-    Ok(())
 }
 
 fn confirm_branch_deletion(

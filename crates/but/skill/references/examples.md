@@ -323,8 +323,8 @@ but status --json
 
 # 2. Conflicts between feature-b and feature-c
 # Unapply them temporarily
-but branch unapply bv
-but branch unapply bw
+but unapply bv
+but unapply bw
 
 # 3. Focus on feature-a
 # (make changes, stage, commit)
