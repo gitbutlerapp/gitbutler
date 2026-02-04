@@ -1,6 +1,7 @@
 //! Cherry-pick commits from unapplied branches into applied virtual branches.
 
 use anyhow::{Context as _, Result, bail};
+use bstr::ByteSlice;
 use but_api::legacy::{cherry_apply, virtual_branches, workspace};
 use but_cherry_apply::CherryApplyStatus;
 use but_core::ref_metadata::StackId;
@@ -289,7 +290,7 @@ fn handle_locked_to_stack(
         let target_matches = locked_stack
             .heads
             .iter()
-            .any(|h| h.name == target || h.name.to_string().to_lowercase() == target_lower);
+            .any(|h| h.name.to_str_lossy() == target || h.name.to_string().to_lowercase() == target_lower);
 
         if !target_matches && let Some(out) = out.for_human() {
             writeln!(
@@ -329,7 +330,7 @@ fn find_stack_by_target(ctx: &mut Context, stacks: &[StackEntry], target: &str) 
     let target_lower = target.to_lowercase();
     for stack in stacks {
         for head in &stack.heads {
-            if head.name == target || head.name.to_string().to_lowercase() == target_lower {
+            if head.name.to_str_lossy() == target || head.name.to_string().to_lowercase() == target_lower {
                 return get_stack_info(stack);
             }
         }
@@ -383,7 +384,7 @@ fn select_target_interactively(stacks: &[StackEntry]) -> Result<(StackId, String
     // Find the selected stack
     for stack in stacks {
         for head in &stack.heads {
-            if head.name == selection.as_str() {
+            if head.name.to_str_lossy() == selection {
                 let stack_id = stack.id.context("Stack has no ID")?;
                 return Ok((stack_id, head.name.to_string()));
             }
