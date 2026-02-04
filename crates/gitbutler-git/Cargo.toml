@@ -25,6 +25,7 @@ serde = ["dep:serde"]
 tokio = ["dep:tokio"]
 ## a flag to indicate benchmarks are run
 benches = []
+askpass = []
 
 [dependencies]
 tracing.workspace = true

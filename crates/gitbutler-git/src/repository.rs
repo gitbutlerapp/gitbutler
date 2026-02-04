@@ -1,12 +1,18 @@
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{collections::HashMap, path::Path};
 
-use futures::{FutureExt, select};
 use gix::bstr::ByteSlice;
-use rand::{Rng, SeedableRng};
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
 use crate::RefSpec;
 
+#[cfg(feature = "askpass")]
+use futures::{FutureExt, select};
+#[cfg(feature = "askpass")]
+use rand::{Rng, SeedableRng};
+#[cfg(feature = "askpass")]
+use std::time::Duration;
+
+#[cfg(feature = "askpass")]
 /// The number of characters in the secret used for checking
 /// askpass invocations by ssh/git when connecting to our process.
 const ASKPASS_SECRET_LENGTH: usize = 24;
@@ -70,6 +76,31 @@ enum HarnessEnv<P: AsRef<Path>> {
 
 #[cold]
 async fn execute_with_auth_harness<P, F, Fut, E, Extra>(
+    harness_env: HarnessEnv<P>,
+    executor: &E,
+    args: &[&str],
+    envs: Option<HashMap<String, String>>,
+    // below arguments only used if askpass is enabled
+    mut _on_prompt: F,
+    _extra: Extra,
+) -> Result<(usize, String, String), Error<E>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+    F: FnMut(String, Extra) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+    Extra: Send + Clone,
+{
+    #[cfg(feature = "askpass")]
+    return execute_with_indirect_askpass(harness_env, executor, args, envs, _on_prompt, _extra).await;
+    #[cfg(not(feature = "askpass"))]
+    return execute_direct(harness_env, executor, args, envs).await;
+}
+
+#[cfg(feature = "askpass")]
+/// Askpass-aware execution of Git commands, allowing the GUI to communicate with the askpass
+/// process over a pipe.
+async fn execute_with_indirect_askpass<P, F, Fut, E, Extra>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
@@ -162,48 +193,19 @@ where
         envs.insert("DISPLAY".into(), ":".into());
     }
 
-    let base_ssh_command = match envs
-        .get("GIT_SSH_COMMAND")
-        .cloned()
-        .or_else(|| envs.get("GIT_SSH").cloned())
-        .or_else(|| std::env::var("GIT_SSH_COMMAND").ok())
-        .or_else(|| std::env::var("GIT_SSH").ok())
-    {
-        Some(v) => v,
-        None => get_core_sshcommand(&harness_env)
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "ssh".into()),
+    let git_ssh_command = resolve_git_ssh_command(&harness_env, &envs);
+    let setsid_prefix = {
+        #[cfg(unix)]
+        {
+            format!("'{setsid_path}' ", setsid_path = setsid_path.display())
+        }
+        #[cfg(windows)]
+        {
+            ""
+        }
     };
 
-    envs.insert(
-        "GIT_SSH_COMMAND".into(),
-        format!(
-            "{}{base_ssh_command} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{}",
-            {
-                #[cfg(unix)]
-                {
-                    format!("'{setsid_path}' ", setsid_path = setsid_path.display())
-                }
-                #[cfg(windows)]
-                {
-                    ""
-                }
-            },
-            {
-                // In test environments, we don't want to pollute the user's known hosts file.
-                // So, we just use /dev/null instead.
-                #[cfg(test)]
-                {
-                    " -o UserKnownHostsFile=/dev/null"
-                }
-                #[cfg(not(test))]
-                {
-                    ""
-                }
-            }
-        ),
-    );
+    envs.insert("GIT_SSH_COMMAND".into(), format!("{setsid_prefix}{git_ssh_command}"));
 
     let cwd = match harness_env {
         HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
@@ -293,6 +295,84 @@ where
                 }
             }
         }
+    }
+}
+
+#[cfg(not(feature = "askpass"))]
+/// Directly execute the Git command without invoking the askpass pipe machinery. This is useful
+/// for the CLI, as the child process simply inherits stdin from the parent process and therefore
+/// doesn't need the askpass mechanism.
+///
+/// It's doubly useful in the sense that the CLI then does not need the askpass and setsid
+/// binaries.
+async fn execute_direct<P, E>(
+    harness_env: HarnessEnv<P>,
+    executor: &E,
+    args: &[&str],
+    envs: Option<HashMap<String, String>>,
+) -> Result<(usize, String, String), Error<E>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+{
+    let mut envs = envs.unwrap_or_default();
+    envs.insert("GIT_SSH_COMMAND".into(), resolve_git_ssh_command(&harness_env, &envs));
+
+    let cwd = match harness_env {
+        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
+    };
+
+    executor.execute(args, cwd, Some(envs)).await.map_err(Error::<E>::Exec)
+}
+
+fn resolve_git_ssh_command<P>(harness_env: &HarnessEnv<P>, envs: &HashMap<String, String>) -> String
+where
+    P: AsRef<Path>,
+{
+    let base_ssh_command = match envs
+        .get("GIT_SSH_COMMAND")
+        .cloned()
+        .or_else(|| envs.get("GIT_SSH").cloned())
+        .or_else(|| std::env::var("GIT_SSH_COMMAND").ok())
+        .or_else(|| std::env::var("GIT_SSH").ok())
+    {
+        Some(v) => v,
+        None => get_core_sshcommand(harness_env)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "ssh".into()),
+    };
+
+    let additional_options = {
+        // In test environments, we don't want to pollute the user's known hosts file.
+        // So, we just use /dev/null instead.
+        #[cfg(test)]
+        {
+            " -o UserKnownHostsFile=/dev/null"
+        }
+        #[cfg(not(test))]
+        {
+            ""
+        }
+    };
+
+    format!(
+        "{base_ssh_command} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{additional_options}"
+    )
+}
+
+fn get_core_sshcommand<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
+where
+    P: AsRef<Path>,
+{
+    match harness_env {
+        HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
+            .config_snapshot()
+            .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
+            .map(|program| program.to_string_lossy().into_owned())),
+        HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
+            .string(gix::config::tree::Core::SSH_COMMAND)
+            .map(|program| program.to_str_lossy().into_owned())),
     }
 }
 
@@ -434,21 +514,6 @@ where
     }
 
     Err(base_error.into())
-}
-
-fn get_core_sshcommand<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
-where
-    P: AsRef<Path>,
-{
-    match harness_env {
-        HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
-            .config_snapshot()
-            .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
-            .map(|program| program.to_string_lossy().into_owned())),
-        HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
-            .string(gix::config::tree::Core::SSH_COMMAND)
-            .map(|program| program.to_str_lossy().into_owned())),
-    }
 }
 
 /// Clones the given repository URL to the target directory.
