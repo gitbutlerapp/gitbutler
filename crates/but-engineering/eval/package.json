@@ -1,0 +1,50 @@
+{
+  "name": "but-engineering-tier4-eval",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tier 4 integration evaluation harness for but-engineering coordination behavior",
+  "packageManager": "pnpm@10.20.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "eval": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.yaml",
+    "eval:fast": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && BUT_EVAL_MAX_TURNS=12 BUT_EVAL_RUNNER_RETRIES=0 PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.yaml",
+    "eval:repeat": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.yaml --repeat 3",
+    "eval:natural": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.natural.yaml",
+    "eval:natural:fast": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && BUT_EVAL_MAX_TURNS=12 BUT_EVAL_RUNNER_RETRIES=0 PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.natural.yaml",
+    "eval:natural:repeat": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && mkdir -p output && PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.natural.yaml --repeat 10 -o output/natural-repeat.json",
+    "eval:natural:metrics": "sh -c 'pnpm run eval:natural:repeat || true; node dist/scripts/natural-metrics.js output/natural-repeat.json --threshold 0.7'",
+    "eval:natural:failures": "node dist/scripts/natural-failures.js output/natural-repeat.json",
+    "eval:natural:diagnose": "sh -c 'pnpm run eval:natural:repeat || true; node dist/scripts/natural-metrics.js output/natural-repeat.json --threshold 0.7; node dist/scripts/natural-failures.js output/natural-repeat.json'",
+    "eval:natural:codex": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && BUT_EVAL_AGENT=codex BUT_EVAL_RUNNER=providers/codex-local.sh BUT_EVAL_RUNNER_BIN=codex BUT_EVAL_MODEL=${BUT_EVAL_MODEL:-gpt-5-codex} PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.natural.yaml",
+    "eval:natural:codex:repeat": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && mkdir -p output && BUT_EVAL_AGENT=codex BUT_EVAL_RUNNER=providers/codex-local.sh BUT_EVAL_RUNNER_BIN=codex BUT_EVAL_MODEL=${BUT_EVAL_MODEL:-gpt-5-codex} PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.natural.yaml --repeat 10 -o output/natural-codex-repeat.json",
+    "eval:composite": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.composite.yaml",
+    "eval:composite:fast": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && BUT_EVAL_MAX_TURNS=12 BUT_EVAL_RUNNER_RETRIES=0 PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.composite.yaml",
+    "eval:composite:repeat": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && mkdir -p output && PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.composite.yaml --repeat 10 -o output/composite-repeat.json",
+    "eval:composite:metrics": "sh -c 'pnpm run eval:composite:repeat || true; node dist/scripts/natural-metrics.js output/composite-repeat.json --threshold 0.6'",
+    "eval:composite:diagnose": "sh -c 'pnpm run eval:composite:repeat || true; node dist/scripts/natural-metrics.js output/composite-repeat.json --threshold 0.6; node dist/scripts/natural-failures.js output/composite-repeat.json --scenario composite'",
+    "eval:codex": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && BUT_EVAL_AGENT=codex BUT_EVAL_RUNNER=providers/codex-local.sh BUT_EVAL_RUNNER_BIN=codex BUT_EVAL_MODEL=${BUT_EVAL_MODEL:-gpt-5-codex} PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.yaml",
+    "eval:codex:repeat": "pnpm run build && cargo build -p but-engineering --manifest-path ../../../Cargo.toml && BUT_EVAL_AGENT=codex BUT_EVAL_RUNNER=providers/codex-local.sh BUT_EVAL_RUNNER_BIN=codex BUT_EVAL_MODEL=${BUT_EVAL_MODEL:-gpt-5-codex} PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo eval -c promptfooconfig.yaml --repeat 3",
+    "view": "PROMPTFOO_DISABLE_TELEMETRY=1 PROMPTFOO_DISABLE_UPDATE=1 promptfoo view"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.27",
+    "promptfoo": "^0.120.23"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@playwright/browser-chromium",
+      "@swc/core",
+      "better-sqlite3",
+      "esbuild",
+      "onnxruntime-node",
+      "promptfoo",
+      "protobufjs",
+      "sharp"
+    ]
+  }
+}

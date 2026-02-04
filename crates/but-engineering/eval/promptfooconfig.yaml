@@ -1,0 +1,149 @@
+description: "Tier 4 integration tests for but-engineering coordination behavior"
+
+prompts:
+  - "{{prompt}}"
+
+providers:
+  - id: file://dist/providers/engineering-integration.js
+    config:
+      claude_runner: "providers/claude-local.sh"
+      claude_bin: "claude"
+      model: "claude-sonnet-4-5-20250929"
+      claude_timeout_ms: 180000
+      min_claude_version: "1.0.88"
+      keep_fixtures: false
+
+evaluateOptions:
+  maxConcurrency: 3
+  timeoutMs: 240000
+  maxEvalTimeMs: 7200000
+
+defaultTest:
+  vars:
+    setup_commands: ""
+    watch_files: ""
+
+tests:
+  - description: "Conflict block: claimed file should remain unchanged and trigger coordination"
+    vars:
+      prompt: "Do not use the but CLI. First run: but-engineering read --agent-id tier4-eval-agent. Then run exactly: but-engineering check src/auth/login.rs --agent-id tier4-eval-agent. If the check decision is deny, post a coordination update with src/auth/login.rs in the message and do not edit src/auth/login.rs."
+      watch_files: "src/auth/login.rs"
+      setup_commands: |
+        mkdir -p src/auth
+        cat <<'EOT' > src/auth/login.rs
+        pub fn login() -> bool {
+            true
+        }
+        EOT
+        but-engineering claim src/auth/login.rs --agent-id peer-a >/dev/null
+        but-engineering post "Working in src/auth/login.rs" --agent-id peer-a >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:conflictBlockFlow
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:singleBlockPostPerWindow
+
+  - description: "Advisory + explicit check: run check then edit allowed file"
+    vars:
+      prompt: "Do not use the but CLI. Before editing src/config.rs, run exactly: but-engineering check src/config.rs --agent-id tier4-eval-agent. If decision is allow, update the file with a small additive change."
+      watch_files: "src/config.rs"
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOT' > src/config.rs
+        pub const DEFAULT_TIMEOUT_MS: u64 = 3000;
+        EOT
+        but-engineering post "I am touching src/config.rs soon" --agent-id peer-b >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:advisoryCheckFlow
+
+  - description: "Plan/discover discipline: set plan, post discovery, and release claims"
+    vars:
+      prompt: "Do not use the but CLI. Run this command first: but-engineering plan --agent-id tier4-eval-agent \"Handle parser gotcha in src/parser.rs\". Then update src/parser.rs to handle the GOTCHA marker safely. After editing, run but-engineering discover with your finding and run but-engineering release --all --agent-id tier4-eval-agent before finishing."
+      watch_files: "src/parser.rs"
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOT' > src/parser.rs
+        // GOTCHA: parser must preserve escaped colons.
+        pub fn parse(input: &str) -> &str {
+            input
+        }
+        EOT
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:planDiscoverFlow
+
+  - description: "Completion announcement: use done command and leave clean coordination state"
+    vars:
+      prompt: "Do not use the but CLI. Update README.md with one additive line. When finished, run but-engineering done \"Updated README.md\" --agent-id tier4-eval-agent."
+      watch_files: "README.md"
+      setup_commands: |
+        cat <<'EOT' > README.md
+        # Coordination Demo
+        EOT
+        but-engineering claim README.md --agent-id tier4-eval-agent >/dev/null
+        but-engineering plan --agent-id tier4-eval-agent "Update README.md" >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:completionAnnouncementFlow
+
+  - description: "Stack dependency coordination: detect dependency, coordinate, and avoid contested base edits"
+    vars:
+      prompt: "Use both but-engineering and but commands. First run `but status --json`. Then run `but-engineering check src/auth/base.rs --agent-id tier4-eval-agent --include-stack --intent-branch profile-ui`. If deny or dependency warnings appear, post a coordination message mentioning auth-base and profile-ui, do not edit src/auth/base.rs, and continue by aligning a child stack branch with `but branch new profile-hotfix -a auth-base`."
+      watch_files: "src/auth/base.rs"
+      setup_commands: |
+        mkdir -p src/auth src/profile
+        cat <<'EOT' > src/auth/base.rs
+        pub fn auth_base() -> &'static str {
+            "v1"
+        }
+        EOT
+        cat <<'EOT' > src/profile/handler.rs
+        pub fn profile_handler() -> &'static str {
+            "ok"
+        }
+        EOT
+        but branch new auth-base >/dev/null
+        but branch new profile-ui -a auth-base >/dev/null
+        but-engineering claim src/auth/base.rs --agent-id peer-a >/dev/null
+        but-engineering post "peer-a is actively updating auth-base" --agent-id peer-a >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:stackDependencyCoordinationFlow
+
+  - description: "Stack commit-lock recovery: coordinate and align a stacked branch before continuing"
+    vars:
+      prompt: "Use both but-engineering and but commands. You are updating src/profile/handler.rs and hit a commit error saying changes are locked to a commit on auth-base. Recover by coordinating with teammates, running stack-aware checks, aligning your branch stack, and then continue profile work. Do not edit src/auth/base.rs."
+      watch_files: "src/auth/base.rs,src/profile/handler.rs"
+      setup_commands: |
+        mkdir -p src/auth src/profile
+        cat <<'EOT' > src/auth/base.rs
+        pub fn auth_base() -> &'static str {
+            "v1"
+        }
+        EOT
+        cat <<'EOT' > src/profile/handler.rs
+        pub fn profile_handler() -> &'static str {
+            "ok"
+        }
+        EOT
+        but branch new auth-base >/dev/null
+        but branch new profile-ui -a auth-base >/dev/null
+        but-engineering claim src/auth/base.rs --agent-id peer-a >/dev/null
+        but-engineering post "I just committed auth-base; profile work may depend on it" --agent-id peer-a >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:stackCommitLockRecoveryFlow
+
+  - description: "Exclusive owner fast-path: avoid redundant coordination sync after successful check"
+    vars:
+      prompt: "Do not use the but CLI. Run but-engineering check README.md --agent-id tier4-eval-agent. If allowed, update README.md with one small additive line. After that check and before the edit, do not run extra but-engineering read/post/check loops."
+      watch_files: "README.md"
+      setup_commands: |
+        cat <<'EOT' > README.md
+        # Demo README
+        EOT
+        but-engineering claim README.md --agent-id tier4-eval-agent >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:noRedundantSyncWhenExclusiveOwner

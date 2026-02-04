@@ -101,6 +101,8 @@ members = [
     ##
     # Strive for testing main functionality and journeys where applicable.
     "crates/but",
+    # Agent coordination for coding agents working in the same repository.
+    "crates/but-engineering",
     # Should be functionally equivalent to `gitbutler-tauri`
     "crates/but-server",
     # Should be reviewed to mostly use `but-api`, to be renamed to `but-tauri` or something.

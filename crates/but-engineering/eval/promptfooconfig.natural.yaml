@@ -1,0 +1,113 @@
+description: "Natural-behavior Tier 4 integration tests for but-engineering coordination"
+
+prompts:
+  - "{{prompt}}"
+
+providers:
+  - id: file://dist/providers/engineering-integration.js
+    config:
+      claude_runner: "providers/claude-local.sh"
+      claude_bin: "claude"
+      model: "claude-sonnet-4-5-20250929"
+      claude_timeout_ms: 180000
+      min_claude_version: "1.0.88"
+      keep_fixtures: false
+
+evaluateOptions:
+  maxConcurrency: 3
+  timeoutMs: 240000
+  maxEvalTimeMs: 7200000
+
+defaultTest:
+  vars:
+    setup_commands: ""
+    watch_files: ""
+
+tests:
+  - description: "Natural conflict handling: contested file should not be overwritten"
+    vars:
+      prompt: "Fix the login bug quickly in src/auth/login.rs while coordinating with teammates already active in this repository."
+      watch_files: "src/auth/login.rs"
+      setup_commands: |
+        mkdir -p src/auth
+        cat <<'EOT' > src/auth/login.rs
+        pub fn login(user: &str) -> bool {
+            !user.is_empty()
+        }
+        EOT
+        but-engineering claim src/auth/login.rs --agent-id peer-a >/dev/null
+        but-engineering post "I am actively editing src/auth/login.rs" --agent-id peer-a >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:naturalConflictAutonomyFlow
+
+  - description: "Natural plan/discover discipline around gotcha work"
+    vars:
+      prompt: "Improve parser behavior in src/parser.rs so escaped colons remain intact. Coordinate like a good teammate: announce intent before editing, share the gotcha you find with others, and clean up your ownership state when done."
+      watch_files: "src/parser.rs"
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOT' > src/parser.rs
+        // GOTCHA: parser must preserve escaped colons.
+        pub fn parse(input: &str) -> &str {
+            input
+        }
+        EOT
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:naturalPlanDiscoverDisciplineFlow
+
+  - description: "Natural advisory handling: check autonomously before safe edit"
+    vars:
+      prompt: "Make a small safe update to src/config.rs and coordinate with active teammates to avoid stepping on current work."
+      watch_files: "src/config.rs"
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOT' > src/config.rs
+        pub const DEFAULT_TIMEOUT_MS: u64 = 3000;
+        EOT
+        but-engineering post "I may touch src/config.rs soon" --agent-id peer-b >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:naturalAdvisoryAutonomyFlow
+
+  - description: "Natural simple edit discipline: announce + listen before README change"
+    vars:
+      prompt: "Add Caleb to README.md."
+      watch_files: "README.md"
+      setup_commands: |
+        cat <<'EOT' > README.md
+        # Project
+
+        ## Team
+        - Alice
+        - Bob
+        EOT
+        but-engineering post "I may touch README.md soon" --agent-id peer-b >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:naturalAnnounceListenBeforeEditFlow
+
+  - description: "Natural stack dependency handling: coordinate branch dependency before profile edit"
+    vars:
+      prompt: "Improve src/profile/handler.rs while teammates are active on related auth stack work. Coordinate naturally so your branch work does not conflict with upstream dependencies."
+      watch_files: "src/profile/handler.rs"
+      setup_commands: |
+        mkdir -p src/auth src/profile
+        cat <<'EOT' > src/auth/base.rs
+        pub fn auth_base() -> &'static str {
+            "v1"
+        }
+        EOT
+        cat <<'EOT' > src/profile/handler.rs
+        pub fn profile_handler() -> &'static str {
+            "ok"
+        }
+        EOT
+        but branch new auth-base >/dev/null
+        but branch new profile-ui -a auth-base >/dev/null
+        but-engineering claim src/auth/base.rs --agent-id peer-a >/dev/null
+        but-engineering post "Working in auth-base stack now" --agent-id peer-a >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:naturalStackDependencyAutonomyFlow

@@ -91,6 +91,33 @@ Do not run `git push`, even if `but push` reports nothing to push.
 5. This two-step sequence is the safe default for reorder requests.
 6. Never use `git rebase` for this.
 
+### Cross-Agent Stacked Dependency Flow
+
+When your change depends on another agent's branch or stack layer:
+
+1. Run `but status --json` first to confirm stack order and active branch context.
+2. If you need a dependent branch, align it explicitly with:
+   `but branch new <child-branch> -a <base-branch>`.
+3. Make follow-up mutations with `--json --status-after`:
+   `but commit <branch> -m "<message>" --json --status-after`.
+4. Do not use raw git to create or maintain branch stacking.
+5. If blocked on a dependency/base branch, continue independent branch-safe work and avoid redundant `but status --json` loops while waiting.
+
+### Commit-Lock Recovery (File Locked To Commit)
+
+If `but commit` fails because a file is locked/owned by an upstream commit or branch
+(for example wording like "locked to commit", "assigned to another branch", or similar):
+
+1. Treat it as a stack dependency signal, not a generic retry case.
+2. Re-check stack context: `but status --json`.
+3. Coordinate immediately in channel:
+   `but-engineering post "Commit lock on <file>; coordinating dependency on <base-branch>" --agent-id <id>`.
+4. Align work onto a child branch anchored to the dependency:
+   `but branch new <child-branch> -a <base-branch>`.
+5. Continue with normal mutation flow on the aligned branch:
+   `but commit <branch> -m "<message>" --json --status-after`.
+6. Do not force raw git workarounds to bypass stack ownership.
+
 ## Git-to-But Map
 
 - `git status` -> `but status --json`

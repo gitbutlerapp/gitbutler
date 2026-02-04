@@ -1,0 +1,55 @@
+description: "Composite natural-behavior Tier 4 eval for but-engineering coordination demo"
+
+prompts:
+  - "{{prompt}}"
+
+providers:
+  - id: file://dist/providers/engineering-integration.js
+    config:
+      claude_runner: "providers/claude-local.sh"
+      claude_bin: "claude"
+      model: "claude-sonnet-4-5-20250929"
+      claude_timeout_ms: 180000
+      min_claude_version: "1.0.88"
+      keep_fixtures: false
+
+evaluateOptions:
+  maxConcurrency: 3
+  timeoutMs: 240000
+  maxEvalTimeMs: 7200000
+
+defaultTest:
+  vars:
+    setup_commands: ""
+    watch_files: ""
+
+tests:
+  - description: "Composite coordination: independent delivery + stack dependency + gotcha discipline"
+    vars:
+      prompt: "Ship two independent improvements: update src/profile/handler.rs and fix the GOTCHA in src/parser.rs. Teammates are active on related auth stack work. Coordinate naturally, avoid stepping on active work, and leave coordination state clean."
+      watch_files: "src/auth/base.rs,src/profile/handler.rs,src/parser.rs"
+      setup_commands: |
+        mkdir -p src/auth src/profile src
+        cat <<'EOT' > src/auth/base.rs
+        pub fn auth_base() -> &'static str {
+            "v1"
+        }
+        EOT
+        cat <<'EOT' > src/profile/handler.rs
+        pub fn profile_handler() -> &'static str {
+            "ok"
+        }
+        EOT
+        cat <<'EOT' > src/parser.rs
+        // GOTCHA: parser must preserve escaped colons.
+        pub fn parse(input: &str) -> &str {
+            input
+        }
+        EOT
+        but branch new auth-base >/dev/null
+        but branch new profile-ui -a auth-base >/dev/null
+        but-engineering claim src/auth/base.rs --agent-id peer-a >/dev/null
+        but-engineering post "Working in auth-base stack now" --agent-id peer-a >/dev/null
+    assert:
+      - type: javascript
+        value: file://assertions/engineering-assertions.ts:naturalCompositeCooperationFlow
