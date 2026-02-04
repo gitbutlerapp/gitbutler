@@ -402,7 +402,7 @@ export class UncommittedService {
 	}
 
 	changesByStackId(stackId: string | null): Reactive<TreeChange[]> {
-		const changes = $derived(sortLikeFileTree(this.getChangesByStackId(stackId)));
+		const changes = $derived(this.getChangesByStackId(stackId));
 		return reactive(() => changes);
 	}
 
