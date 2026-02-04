@@ -56,7 +56,7 @@ but diff <file-id>      # Diff for specific file
 but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
 but diff                # Diff for entire workspace
-but diff --json         # JSON output with hunk IDs for `but commit --files`
+but diff --json         # JSON output with hunk IDs for `but commit --paths`
 ```
 
 ## Branching
@@ -166,13 +166,13 @@ but commit empty --after <target>        # Insert empty commit after target
 
 **Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
 
-**Committing specific files or hunks:** Use `--files` (or `-F`) with comma-separated CLI IDs to commit only those files or hunks:
+**Committing specific files or hunks:** Use `--paths` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
 - **File IDs** from `but status --json`: commits entire files
 - **Hunk IDs** from `but diff --json`: commits individual hunks
 
-**Note:** `--files` and `--only` are mutually exclusive.
+**Note:** `--paths` and `--only` are mutually exclusive.
 
-Example: `but commit my-branch -m "Fix bug" --files ab,cd` commits files/hunks `ab` and `cd`.
+Example: `but commit my-branch -m "Fix bug" --paths ab,cd` commits files/hunks `ab` and `cd`.
 
 To commit specific hunks from a file with multiple changes, use `but diff --json` to see hunk IDs, then specify them individually.
 
