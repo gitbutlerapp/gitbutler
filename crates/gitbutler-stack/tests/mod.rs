@@ -5,7 +5,8 @@ use but_oxidize::{ObjectIdExt, OidExt};
 use git2::Commit;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{PatchReferenceUpdate, StackBranch, VirtualBranchesHandle};
+use gitbutler_stack::{PatchReferenceUpdate, Stack, StackBranch, VirtualBranchesHandle};
+use gix::refs::transaction::PreviousValue;
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -742,4 +743,27 @@ impl BakedCommit {
     pub fn parent(&self, index: usize) -> anyhow::Result<git2::Oid> {
         Ok(self.parents[index])
     }
+}
+
+#[test]
+fn next_available_name_avoids_remote_tracking_branches() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let repo = ctx.repo.get()?;
+
+    // Create a remote tracking branch (simulating a branch that exists on the remote)
+    // The fixture already has origin as a remote
+    let id = repo.object_hash().null();
+    let remote_branch = "refs/remotes/origin/my-test-branch";
+    repo.reference(remote_branch, id, PreviousValue::Any, "test")?;
+
+    // Request a unique name starting from my-test-branch
+    let unique = Stack::next_available_name(&repo, &test_ctx.handle, "my-test-branch".to_string(), false)?;
+
+    assert_eq!(
+        unique, "my-test-branch-1",
+        "it should skip my-test-branch because it exists as a remote tracking branch"
+    );
+
+    Ok(())
 }
