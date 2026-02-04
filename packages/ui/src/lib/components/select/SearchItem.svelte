@@ -33,9 +33,6 @@
 			// but don't stop propagation so parent can handle navigation
 			return;
 		}
-
-		// Stop other keys from bubbling up to prevent interference
-		event.stopPropagation();
 	}
 </script>
 

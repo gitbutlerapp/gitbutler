@@ -6,7 +6,6 @@
  */
 import { type SelectedFile, type SelectionId } from '$lib/selection/key';
 import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
-import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import { get } from 'svelte/store';
 import type { TreeChange } from '$lib/hunks/change';
 import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
@@ -133,7 +132,7 @@ export function updateSelection({
 			}
 			break;
 		case 'k':
-		case KeyName.Up:
+		case 'ArrowUp':
 			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
@@ -158,7 +157,7 @@ export function updateSelection({
 			break;
 
 		case 'j':
-		case KeyName.Down:
+		case 'ArrowDown':
 			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
@@ -182,7 +181,7 @@ export function updateSelection({
 				}
 			}
 			break;
-		case KeyName.Escape:
+		case 'Escape':
 			preventDefault();
 			fileIdSelection.clearPreview(selectionId);
 			targetElement.blur();
