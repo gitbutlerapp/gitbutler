@@ -4,7 +4,7 @@ pub struct Platform {
     #[clap(short = 'm', long = "message", conflicts_with = "file")]
     pub message: Option<String>,
     /// Read commit message from file
-    #[clap(short = 'f', long = "file", value_name = "FILE", conflicts_with = "message")]
+    #[clap(short = 'f', long = "message-file", value_name = "FILE", conflicts_with = "message")]
     pub file: Option<std::path::PathBuf>,
     /// Branch CLI ID or name to derive the stack to commit to
     pub branch: Option<String>,
@@ -25,7 +25,7 @@ pub struct Platform {
     /// Uncommitted file or hunk CLI IDs to include in the commit.
     /// Can be specified multiple times or as comma-separated values.
     /// If not specified, all uncommitted changes (or changes staged to the target branch) are committed.
-    #[clap(long = "files", short = 'F', value_delimiter = ',', num_args = 1.., conflicts_with = "only")]
+    #[clap(long = "paths", short = 'p', value_delimiter = ',', num_args = 1.., conflicts_with = "only")]
     pub files: Vec<String>,
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
