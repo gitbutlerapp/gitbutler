@@ -1,6 +1,6 @@
 use std::path::{self, Path};
 
-use but_core::RepositoryExt;
+use but_core::{RepositoryExt, sync::RepoShared};
 use but_ctx::Context;
 use colored::Colorize;
 use serde::Serialize;
@@ -385,17 +385,16 @@ More info: https://docs.gitbutler.com/workspace-branch
 /// - if there is a remote
 /// - if there is a default target branch set
 /// - if we're on gitbutler/workspace
-pub fn check_project_setup(ctx: &Context) -> anyhow::Result<bool> {
-    let target = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?;
-    if target.is_none() {
+pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
+    let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+    // TODO(legacy): it's fine to have no target.
+    if ws.target_ref.is_none() {
         anyhow::bail!("No default target branch set.");
     }
 
-    let repo = ctx.repo.get()?;
     // check if there is a remote
-    let _remote_name = match repo.remote_default_name(gix::remote::Direction::Push) {
-        Some(name) => name.to_string(),
-        None => anyhow::bail!("No push remote found."),
+    if ws.remote_name().is_none() || repo.remote_default_name(gix::remote::Direction::Push).is_none() {
+        anyhow::bail!("No push remote found in workspace or unambiguously in the Git repository configuration.")
     };
 
     // check if we're on gitbutler/workspace
