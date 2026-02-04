@@ -33,7 +33,7 @@ pub struct Platform {
     /// Uncommitted file or hunk CLI IDs to include in the commit.
     /// Can be specified multiple times or as comma-separated values.
     /// If not specified, all uncommitted changes (or changes staged to the target branch) are committed.
-    #[clap(long = "changes", short = 'p', value_delimiter = ',', num_args = 1.., conflicts_with = "only")]
+    #[clap(long = "changes", short = 'p', value_delimiter = ',', conflicts_with = "only")]
     pub changes: Vec<String>,
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
