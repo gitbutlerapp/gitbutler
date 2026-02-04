@@ -1,10 +1,10 @@
 [package]
-name = "but-github"
+name = "but-gitlab"
 version = "0.0.0"
 edition.workspace = true
 repository.workspace = true
 license-file = "../../LICENSE.md"
-description = "The GitButler GitHub integration"
+description = "The GitButler GitLab integration"
 authors.workspace = true
 readme = "../../README.md"
 publish = false
@@ -23,6 +23,7 @@ serde.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 reqwest = { workspace = true, features = ["json"] }
+urlencoding = "2.1"
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["blocking"] }

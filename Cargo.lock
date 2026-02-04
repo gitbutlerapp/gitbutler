@@ -870,6 +870,7 @@ dependencies = [
  "but-forge-storage",
  "but-gerrit",
  "but-github",
+ "but-gitlab",
  "but-graph",
  "but-hunk-assignment",
  "but-hunk-dependency",
@@ -1165,11 +1166,26 @@ dependencies = [
  "but-forge-storage",
  "but-secret",
  "but-settings",
- "gitbutler-user",
  "http 1.4.0",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "but-gitlab"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-error",
+ "but-forge-storage",
+ "but-secret",
+ "but-settings",
+ "http 1.4.0",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "urlencoding",
 ]
 
 [[package]]
@@ -11304,6 +11320,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "urlpattern"

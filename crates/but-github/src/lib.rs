@@ -17,7 +17,7 @@ pub struct Verification {
     pub device_code: String,
 }
 
-pub async fn init_device_oauth() -> Result<Verification> {
+pub async fn init_github_device_oauth() -> Result<Verification> {
     let mut req_body = HashMap::new();
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
@@ -56,7 +56,7 @@ pub struct AuthStatusResponse {
     pub host: Option<String>,
 }
 
-pub async fn check_auth_status(
+pub async fn check_github_auth_status(
     device_code: String,
     storage: &but_forge_storage::Controller,
 ) -> Result<AuthStatusResponse> {
@@ -278,21 +278,7 @@ pub async fn check_credentials(
 pub async fn list_known_github_accounts(
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<token::GithubAccountIdentifier>> {
-    let known_accounts = token::list_known_github_accounts(storage).context("Failed to list known GitHub usernames")?;
-    // Migrate the users from the previous storage method.
-    #[cfg(feature = "legacy")]
-    if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
-        && known_accounts.is_empty()
-    {
-        fetch_and_persist_oauth_user_data(&stored_gh_access_token, storage)
-            .await
-            .ok();
-
-        let known_accounts =
-            token::list_known_github_accounts(storage).context("Failed to list known GitHub usernames")?;
-        return Ok(known_accounts);
-    }
-    Ok(known_accounts)
+    token::list_known_github_accounts(storage).context("Failed to list known GitHub usernames")
 }
 
 pub fn clear_all_github_tokens(storage: &but_forge_storage::Controller) -> Result<()> {

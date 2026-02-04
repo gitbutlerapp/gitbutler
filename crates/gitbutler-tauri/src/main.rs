@@ -208,8 +208,8 @@ fn main() -> anyhow::Result<()> {
             .plugin(tauri_plugin_store::Builder::default().build())
             .plugin(log.build())
             .invoke_handler(tauri::generate_handler![
-                github::tauri_init_device_oauth::init_device_oauth,
-                github::tauri_check_auth_status::check_auth_status,
+                github::tauri_init_github_device_oauth::init_github_device_oauth,
+                github::tauri_check_github_auth_status::check_github_auth_status,
                 github::tauri_store_github_pat::store_github_pat,
                 github::tauri_store_github_enterprise_pat::store_github_enterprise_pat,
                 github::tauri_get_gh_user::get_gh_user,

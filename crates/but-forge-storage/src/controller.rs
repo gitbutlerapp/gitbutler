@@ -58,6 +58,49 @@ impl Controller {
         self.save_settings(&settings)
     }
 
+    /// Get all known GitLab accounts.
+    pub fn gitlab_accounts(&self) -> anyhow::Result<Vec<crate::settings::GitLabAccount>> {
+        let settings = self.read_settings()?;
+        Ok(settings.gitlab.known_accounts)
+    }
+
+    /// Add a GitLab account if it does not already exist.
+    pub fn add_gitlab_account(&self, account: &crate::settings::GitLabAccount) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+
+        if settings.gitlab.known_accounts.iter().any(|a| a == account) {
+            return Ok(());
+        }
+
+        settings.gitlab.known_accounts.push(account.to_owned());
+        self.save_settings(&settings)
+    }
+
+    /// Clear all GitLab accounts.
+    /// Returns the list of access token keys that should be deleted.
+    pub fn clear_all_gitlab_accounts(&self) -> anyhow::Result<Vec<String>> {
+        let mut settings = self.read_settings()?;
+        let access_tokens_to_delete = settings
+            .gitlab
+            .known_accounts
+            .iter()
+            .map(|account| account.access_token_key().to_string())
+            .collect::<Vec<String>>();
+        settings.gitlab.known_accounts.clear();
+        self.save_settings(&settings)?;
+
+        Ok(access_tokens_to_delete)
+    }
+
+    /// Remove a GitLab account.
+    pub fn remove_gitlab_account(&self, account: &crate::settings::GitLabAccount) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+
+        settings.gitlab.known_accounts.retain(|a| a != account);
+
+        self.save_settings(&settings)
+    }
+
     fn read_settings(&self) -> anyhow::Result<crate::settings::ForgeSettings> {
         self.settings_storage.read()
     }
