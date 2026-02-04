@@ -747,8 +747,9 @@ pub enum Subcommands {
         /// Provide a new commit message for the resulting commit
         #[clap(long, short = 'm', group = "message_opts")]
         message: Option<String>,
-        /// Generate commit message using AI with optional user summary or instructions
-        #[clap(long, short = 'i', group = "message_opts")]
+        /// Generate commit message using AI with optional user summary or instructions.
+        /// Use --ai by itself or --ai="your instructions" (equals sign required for value)
+        #[clap(long, short = 'i', group = "message_opts", num_args = 0..=1, require_equals = true)]
         ai: Option<Option<String>>,
     },
 
