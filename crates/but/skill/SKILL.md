@@ -16,7 +16,7 @@ Help users work with GitButler CLI (`but` command) in workspace mode.
 1. **Check state** → `but status --json` (always use `--json` for structured output)
 2. **Start work** → `but branch new <task-name>` (create stack for this work theme)
 3. **Make changes** → Edit files as needed
-4. **Commit work** → `but commit <branch> -m "message" --files <id>,<id>` (commit specific files by CLI ID)
+4. **Commit work** → `but commit <branch> -m "message" --changes <id>,<id>` (commit specific files by CLI ID)
 5. **Refine** → Use `but absorb` or `but squash` to clean up history
 
 **Commit early, commit often.** Don't hesitate to create commits - GitButler makes editing history trivial. You can always `squash`, `reword`, or `absorb` changes into existing commits later. Small atomic commits are better than large uncommitted changes.
@@ -26,7 +26,7 @@ Help users work with GitButler CLI (`but` command) in workspace mode.
 When ready to commit:
 
 1. Run `but status --json` to see uncommitted changes and get their CLI IDs
-2. Commit the relevant files directly: `but commit <branch> -m "message" --files <id>,<id>`
+2. Commit the relevant files directly: `but commit <branch> -m "message" --changes <id>,<id>`
 
 You can batch multiple file edits before committing - no need to commit after every single change.
 
@@ -63,7 +63,7 @@ but skill install --path <path>    # Install/update skill (agents use --path wit
 but status --json       # Always start here - shows workspace state (JSON for agents)
 but branch new feature  # Create new stack for work
 # Make changes...
-but commit <branch> -m "…" --files <id>,<id>  # Commit specific files by CLI ID
+but commit <branch> -m "…" --changes <id>,<id>  # Commit specific files by CLI ID
 but push <branch>       # Push to remote
 ```
 
@@ -92,16 +92,16 @@ For detailed command syntax and all available options, see [references/reference
 
 **Making changes:**
 
-- `but commit <branch> -m "msg" --files <id>,<id>` - Commit specific files or hunks (recommended)
-- `but commit <branch> -m "msg" -F <id>,<id>` - Same as above, using short flag
+- `but commit <branch> -m "msg" --changes <id>,<id>` - Commit specific files or hunks (recommended)
+- `but commit <branch> -m "msg" -p <id>,<id>` - Same as above, using short flag
 - `but commit <branch> -m "msg"` - Commit ALL uncommitted changes to branch
-- `but commit <branch> --only -m "msg"` - Commit only pre-staged changes (cannot combine with --files)
+- `but commit <branch> --only -m "msg"` - Commit only pre-staged changes (cannot combine with --changes)
 - `but amend <file-id> <commit-id>` - Amend file into specific commit (explicit control)
 - `but absorb <file-id>` - Absorb file into auto-detected commit (smart matching)
 - `but absorb <branch-id>` - Absorb all changes staged to a branch
 - `but absorb` - Absorb ALL uncommitted changes (use with caution)
 
-**Getting IDs for --files:**
+**Getting IDs for --changes:**
 - **File IDs**: `but status --json` - commit entire files
 - **Hunk IDs**: `but diff --json` - commit individual hunks (for fine-grained control when a file has multiple changes)
 
@@ -150,16 +150,16 @@ but branch new api-endpoint
 but branch new ui-update
 # Make changes, then commit specific files to appropriate branches
 but status --json  # Get file CLI IDs
-but commit api-endpoint -m "Add endpoint" --files <api-file-id>
-but commit ui-update -m "Update UI" --files <ui-file-id>
+but commit api-endpoint -m "Add endpoint" --changes <api-file-id>
+but commit ui-update -m "Update UI" --changes <ui-file-id>
 ```
 
 **Committing specific hunks (fine-grained control):**
 
 ```bash
 but diff --json             # See hunk IDs when a file has multiple changes
-but commit <branch> -m "Fix first issue" --files <hunk-id-1>
-but commit <branch> -m "Fix second issue" --files <hunk-id-2>
+but commit <branch> -m "Fix first issue" --changes <hunk-id-1>
+but commit <branch> -m "Fix second issue" --changes <hunk-id-2>
 ```
 
 **Cleaning up commits:**
@@ -182,7 +182,7 @@ but resolve finish      # Complete resolution
 
 1. Always start with `but status --json` to understand current state (agents should always use `--json`)
 2. Create a new stack for each independent work theme
-3. Use `--files` to commit specific files directly - no need to stage first
+3. Use `--changes` to commit specific files directly - no need to stage first
 4. **Commit early and often** - don't wait for perfection. Unlike traditional git, GitButler makes editing history trivial with `absorb`, `squash`, and `reword`. It's better to have small, atomic commits that you refine later than to accumulate large uncommitted changes.
 5. **Use `--json` flag for ALL commands** when running as an agent - this provides structured, parseable output instead of human-readable text
 6. Use `--dry-run` flags (push, absorb) when unsure

@@ -22,8 +22,8 @@ fn commit_with_message_from_file() -> anyhow::Result<()> {
         "Add new file from message file\n\nThis is the body of the commit message.",
     );
 
-    // Commit with file flag
-    env.but("commit -f commit-msg.txt")
+    // Commit with message-file flag
+    env.but("commit --message-file commit-msg.txt")
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -48,7 +48,7 @@ fn commit_with_message_file_not_found() -> anyhow::Result<()> {
     env.file("new-file.txt", "test content");
 
     // Try to commit with a non-existent file
-    env.but("commit -f nonexistent-file.txt")
+    env.but("commit --message-file nonexistent-file.txt")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -405,12 +405,12 @@ fn commit_empty_rejects_file_flag() -> anyhow::Result<()> {
     env.setup_metadata(&["A"])?;
     env.file("msg.txt", "test message");
 
-    // Try to use --file with empty subcommand
-    env.but("commit -f msg.txt empty --before A")
+    // Try to use --message-file with empty subcommand
+    env.but("commit --message-file msg.txt empty --before A")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: --file cannot be used with 'commit empty'. Empty commits have no message by default.
+Error: --message-file cannot be used with 'commit empty'. Empty commits have no message by default.
 
 "#]]);
 
@@ -508,15 +508,18 @@ For more information, try '--help'.
 }
 
 #[test]
-fn commit_ai_conflicts_with_file() -> anyhow::Result<()> {
+fn commit_ai_conflicts_with_message_file() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
     env.file("new-file.txt", "test content");
     env.file("msg.txt", "commit message");
 
-    // Try to use both --ai and -f
-    env.but("commit --ai -f msg.txt").assert().failure().stderr_eq(str![[r#"
-error: the argument '--ai [<AI>]' cannot be used with '--file <FILE>'
+    // Try to use both --ai and --message-file
+    env.but("commit --ai --message-file msg.txt")
+        .assert()
+        .failure()
+        .stderr_eq(str![[r#"
+error: the argument '--ai [<AI>]' cannot be used with '--message-file <FILE>'
 
 Usage: but commit --ai [<AI>] [BRANCH]
 
@@ -546,19 +549,19 @@ Error: --ai cannot be used with 'commit empty'.
 }
 
 #[test]
-fn commit_files_conflicts_with_only() -> anyhow::Result<()> {
+fn commit_changes_conflicts_with_only() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
     env.file("file.txt", "content");
 
-    // Try to use both --files and --only
-    env.but("commit -m 'test' --files ab --only")
+    // Try to use both --changes and --only
+    env.but("commit -m 'test' --changes ab --only")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: the argument '--files <FILES>...' cannot be used with '--only'
+error: the argument '--changes <CHANGES>...' cannot be used with '--only'
 
-Usage: but commit --message <MESSAGE> --files <FILES>... [BRANCH]
+Usage: but commit --message <MESSAGE> --changes <CHANGES>... [BRANCH]
 
 For more information, try '--help'.
 
@@ -568,18 +571,18 @@ For more information, try '--help'.
 }
 
 #[test]
-fn commit_empty_rejects_files_flag() -> anyhow::Result<()> {
+fn commit_empty_rejects_changes_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
 
-    // Try to use --files with empty subcommand
-    // --files is not a valid flag for the empty subcommand, so clap rejects it
-    let output = env.but("commit empty --before A --files ab").assert().failure();
+    // Try to use --changes with empty subcommand
+    // --changes is not a valid flag for the empty subcommand, so clap rejects it
+    let output = env.but("commit empty --before A --changes ab").assert().failure();
 
     let stderr = std::str::from_utf8(&output.get_output().stderr)?;
     assert!(
         stderr.contains("unexpected argument"),
-        "Expected clap to reject --files with empty subcommand, got: {}",
+        "Expected clap to reject --changes with empty subcommand, got: {}",
         stderr
     );
 
@@ -594,9 +597,9 @@ fn commit_json_mode_requires_message_or_file() -> anyhow::Result<()> {
     // Create a change in the worktree
     env.file("new-file.txt", "test content");
 
-    // Try to commit in JSON mode without -m or -f
+    // Try to commit in JSON mode without -m or --message-file
     env.but("commit --json").assert().failure().stderr_eq(str![[r#"
-Error: In JSON mode, either --message (-m), --file (-f), or --ai (-i) must be specified
+Error: In JSON mode, either --message (-m), --message-file, or --ai (-i) must be specified
 
 "#]]);
 
@@ -637,8 +640,11 @@ fn commit_json_mode_with_file_succeeds() -> anyhow::Result<()> {
     // Create a file with the commit message
     env.file("commit-msg.txt", "Test commit from file");
 
-    // Commit in JSON mode with -f
-    let output = env.but("commit --json -f commit-msg.txt").assert().success();
+    // Commit in JSON mode with --message-file
+    let output = env
+        .but("commit --json --message-file commit-msg.txt")
+        .assert()
+        .success();
 
     // Parse JSON output
     let stdout = std::str::from_utf8(&output.get_output().stdout)?;
@@ -724,7 +730,7 @@ fn commit_with_specific_file_ids() -> anyhow::Result<()> {
         .expect("file1.txt should have a CLI ID");
 
     // Commit only file1.txt using its CLI ID
-    env.but(format!("commit -m 'Add file1 only' --files {}", file1_id))
+    env.but(format!("commit -m 'Add file1 only' --changes {}", file1_id))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -779,7 +785,7 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
         .expect("file2 should have ID");
 
     // Commit file1 and file2, leaving file3 uncommitted
-    env.but(format!("commit -m 'Add two files' --files {},{}", file1_id, file2_id))
+    env.but(format!("commit -m 'Add two files' --changes {},{}", file1_id, file2_id))
         .assert()
         .success();
 
@@ -799,7 +805,7 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
 }
 
 #[test]
-fn commit_with_short_files_flag() -> anyhow::Result<()> {
+fn commit_with_short_changes_flag() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     env.setup_metadata(&["A"])?;
 
@@ -825,8 +831,8 @@ fn commit_with_short_files_flag() -> anyhow::Result<()> {
         })
         .expect("file1.txt should have a CLI ID");
 
-    // Use short flag -F instead of --files
-    env.but(format!("commit -m 'Using short flag' -F {}", file1_id))
+    // Use short flag -p instead of --changes
+    env.but(format!("commit -m 'Using short flag' -p {}", file1_id))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -858,7 +864,7 @@ fn commit_with_invalid_file_id_fails() -> anyhow::Result<()> {
     env.file("file.txt", "content");
 
     // Try to commit with a nonexistent file ID
-    env.but("commit -m 'test' --files zq")
+    env.but("commit -m 'test' --changes zq")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -880,7 +886,7 @@ fn commit_with_wrong_entity_type_fails() -> anyhow::Result<()> {
 
     // Try to commit using a branch ID instead of file ID
     // "A" is a branch name which should fail
-    env.but("commit -m 'test' --files A")
+    env.but("commit -m 'test' --changes A")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -923,7 +929,7 @@ fn commit_with_file_assigned_to_different_stack_fails() -> anyhow::Result<()> {
 
     // Try to commit the file to branch B (should fail because it's staged to A)
     let output = env
-        .but(format!("commit -m 'test' B --files {}", file_id))
+        .but(format!("commit -m 'test' B --changes {}", file_id))
         .assert()
         .failure();
 
@@ -1010,7 +1016,7 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
     // If we have multiple hunks, test that specifying both works
     if hunk_ids.len() >= 2 {
         let ids_arg = hunk_ids.join(",");
-        env.but(format!("commit -m 'Both hunks' --files {}", ids_arg))
+        env.but(format!("commit -m 'Both hunks' --changes {}", ids_arg))
             .assert()
             .success();
 
@@ -1031,7 +1037,7 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
     } else {
         // If only one hunk was created (due to context lines merging them),
         // just verify commit works with that single ID
-        env.but(format!("commit -m 'Single hunk' --files {}", hunk_ids[0]))
+        env.but(format!("commit -m 'Single hunk' --changes {}", hunk_ids[0]))
             .assert()
             .success();
     }
@@ -1080,7 +1086,7 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
         let first_hunk_id = &change_ids[0];
 
         // Commit only the first hunk
-        env.but(format!("commit -m 'First hunk only' --files {}", first_hunk_id))
+        env.but(format!("commit -m 'First hunk only' --changes {}", first_hunk_id))
             .assert()
             .success();
 

@@ -56,7 +56,7 @@ but diff <file-id>      # Diff for specific file
 but diff <branch-id>    # Diff for all changes in branch
 but diff <commit-id>    # Diff for specific commit
 but diff                # Diff for entire workspace
-but diff --json         # JSON output with hunk IDs for `but commit --files`
+but diff --json         # JSON output with hunk IDs for `but commit --changes`
 ```
 
 ## Branching
@@ -158,7 +158,7 @@ Commit changes to a branch.
 ```bash
 but commit <branch> --only -m "message"  # Commit ONLY staged changes (recommended)
 but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
-but commit <branch> -m "message" --files <id>,<id>  # Commit specific files or hunks by CLI ID
+but commit <branch> -m "message" --changes <id>,<id>  # Commit specific files or hunks by CLI ID
 but commit <branch> -i                   # AI-generated commit message
 but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
@@ -166,13 +166,13 @@ but commit empty --after <target>        # Insert empty commit after target
 
 **Important:** Without `--only`, ALL uncommitted changes are committed to the branch, not just staged files. Use `--only` when you've staged specific files and want to commit only those.
 
-**Committing specific files or hunks:** Use `--files` (or `-F`) with comma-separated CLI IDs to commit only those files or hunks:
+**Committing specific files or hunks:** Use `--changes` (or `-p`) with comma-separated CLI IDs to commit only those files or hunks:
 - **File IDs** from `but status --json`: commits entire files
 - **Hunk IDs** from `but diff --json`: commits individual hunks
 
-**Note:** `--files` and `--only` are mutually exclusive.
+**Note:** `--changes` and `--only` are mutually exclusive.
 
-Example: `but commit my-branch -m "Fix bug" --files ab,cd` commits files/hunks `ab` and `cd`.
+Example: `but commit my-branch -m "Fix bug" --changes ab,cd` commits files/hunks `ab` and `cd`.
 
 To commit specific hunks from a file with multiple changes, use `but diff --json` to see hunk IDs, then specify them individually.
 

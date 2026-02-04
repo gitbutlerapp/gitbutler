@@ -526,9 +526,9 @@ async fn match_subcommand(
                             "--message cannot be used with 'commit empty'. Empty commits have no message by default."
                         );
                     }
-                    if commit_args.file.is_some() {
+                    if commit_args.message_file.is_some() {
                         anyhow::bail!(
-                            "--file cannot be used with 'commit empty'. Empty commits have no message by default."
+                            "--message-file cannot be used with 'commit empty'. Empty commits have no message by default."
                         );
                     }
                     if commit_args.branch.is_some() {
@@ -548,8 +548,8 @@ async fn match_subcommand(
                     if commit_args.ai.is_some() {
                         anyhow::bail!("--ai cannot be used with 'commit empty'.");
                     }
-                    // Note: --files with commit empty is rejected by clap at parse time
-                    // because --files is not a flag on the empty subcommand
+                    // Note: --paths with commit empty is rejected by clap at parse time
+                    // because --paths is not a flag on the empty subcommand
 
                     // Handle the `but commit empty` subcommand
                     // Determine target and insert side based on which argument was provided
@@ -613,20 +613,20 @@ async fn match_subcommand(
                 None => {
                     // Handle the regular `but commit` command
 
-                    // In JSON mode, require either -m or -f to be specified
+                    // In JSON mode, require either -m, --message-file, or --ai to be specified
                     if args.json
                         && commit_args.message.is_none()
-                        && commit_args.file.is_none()
+                        && commit_args.message_file.is_none()
                         && commit_args.ai.is_none()
                     {
                         anyhow::bail!(
-                            "In JSON mode, either --message (-m), --file (-f), or --ai (-i) must be specified"
+                            "In JSON mode, either --message (-m), --message-file, or --ai (-i) must be specified"
                         );
                     }
 
                     // Read message from file if provided, otherwise use message option
                     let commit_message =
-                        match &commit_args.file {
+                        match &commit_args.message_file {
                             Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
                                 format!("Failed to read commit message from file: {}", path.display())
                             })?),
@@ -637,7 +637,7 @@ async fn match_subcommand(
                         out,
                         commit_message.as_deref(),
                         commit_args.branch.as_deref(),
-                        &commit_args.files,
+                        &commit_args.changes,
                         commit_args.only,
                         commit_args.create,
                         commit_args.no_hooks,

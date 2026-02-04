@@ -359,7 +359,7 @@ pub(crate) fn commit(
         // In JSON mode, we should have already validated that a message was provided
         // This is a safeguard in case the validation was missed
         if out.for_json().is_some() {
-            bail!("In JSON mode, a commit message must be provided via --message (-m) or --file (-f)");
+            bail!("In JSON mode, a commit message must be provided via --message (-m), --message-file, or --ai (-i)");
         }
         get_commit_message_from_editor(&files_to_commit, &changes)?
     };
