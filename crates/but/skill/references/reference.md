@@ -5,7 +5,7 @@ Comprehensive reference for all `but` commands.
 ## Contents
 
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`
-- [Branching](#branching) - `branch new`, `branch apply/unapply`, `branch delete`, `pick`
+- [Branching](#branching) - `branch new`, `apply`, `unapply`, `branch delete`, `pick`
 - [Staging](#staging-multiple-staging-areas) - `stage`, `rub`
 - [Committing](#committing) - `commit`, `absorb`
 - [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
@@ -81,12 +81,12 @@ but branch new feature -a <anchor>  # Stacked branch (dependent work)
 
 Use parallel branches for independent tasks. Use stacked branches when work depends on another branch.
 
-### `but branch apply <id>`
+### `but apply <id>`
 
 Activate a branch in the workspace.
 
 ```bash
-but branch apply <id>    # Activate branch in workspace
+but apply <id>           # Activate branch in workspace
 ```
 
 Applied branches are merged into `gitbutler/workspace` and visible in working directory.

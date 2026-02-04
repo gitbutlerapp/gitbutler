@@ -9,7 +9,7 @@ use crate::{
     utils::{Confirm, ConfirmDefault, OutputChannel},
 };
 
-mod apply;
+pub mod apply;
 mod json;
 mod list;
 mod show;
@@ -163,7 +163,6 @@ pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut Ou
             }
             Ok(())
         }
-        Some(Subcommands::Apply { branch_name }) => apply::apply(ctx, &branch_name, out),
     }
 }
 
