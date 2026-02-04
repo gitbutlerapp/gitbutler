@@ -75,7 +75,7 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
 
     // Add options/flags for the main command
     let opts: Vec<_> = cmd.get_opts().filter(|arg| !arg.is_hide_set()).collect();
-    if !opts.is_empty() && subcommands.is_empty() {
+    if !opts.is_empty() {
         output.push_str("## Options\n\n");
         for opt in opts {
             output.push_str(&generate_option_doc(opt));
