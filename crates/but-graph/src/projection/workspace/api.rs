@@ -15,7 +15,7 @@ use crate::{
     segment,
 };
 
-/// A utility type to represent`(stack_idx, segment_idx, commit_idx)`.
+/// A utility type to represent `(stack_idx, segment_idx, commit_idx)`.
 pub type CommitOwnerIndexes = (usize, usize, CommitIndex);
 
 /// Lifecycle
