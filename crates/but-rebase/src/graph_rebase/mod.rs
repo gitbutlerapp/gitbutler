@@ -197,6 +197,18 @@ fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector)
     Ok(graph[normalized.id].clone())
 }
 
+/// Describes where the blank commit should be inserted relative to.
+///
+/// This is not consumed directly by the rebase engine, but is a common idiom in
+/// interfaces that make use of the rebase engine.
+#[derive(Debug, Clone)]
+pub enum RelativeTo<'a> {
+    /// Relative to a commit
+    Commit(gix::ObjectId),
+    /// Relative to a reference
+    Reference(&'a gix::refs::FullNameRef),
+}
+
 #[derive(Debug, Clone, Default)]
 pub(crate) struct RevisionHistory {
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,

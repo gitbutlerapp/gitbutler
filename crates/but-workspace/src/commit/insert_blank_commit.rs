@@ -1,22 +1,11 @@
 //! Insertion of a blank commit
 
-/// Describes where the blank commit should be inserted relative to.
-#[derive(Debug, Clone)]
-pub enum RelativeTo<'a> {
-    /// Relative to a commit
-    Commit(gix::ObjectId),
-    /// Relative to a reference
-    Reference(&'a gix::refs::FullNameRef),
-}
-
 pub(crate) mod function {
     use anyhow::Result;
     use but_rebase::{
         commit::DateMode,
-        graph_rebase::{Editor, Selector, Step, SuccessfulRebase, mutate::InsertSide},
+        graph_rebase::{Editor, RelativeTo, Selector, Step, SuccessfulRebase, mutate::InsertSide},
     };
-
-    use crate::commit::insert_blank_commit::RelativeTo;
 
     /// Inserts a blank commit relative to either a reference or a commit
     pub fn insert_blank_commit(
