@@ -1,4 +1,4 @@
-<svg width="860px" height="902px" xmlns="http://www.w3.org/2000/svg">
+<svg width="860px" height="1082px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -36,85 +36,105 @@
 </tspan>
     <tspan x="10px" y="172px">
 </tspan>
-    <tspan x="10px" y="190px"><tspan>Non-exhaustive list of operations:</tspan>
+    <tspan x="10px" y="190px"><tspan class="underline bold">Operations Matrix</tspan>
 </tspan>
     <tspan x="10px" y="208px">
 </tspan>
-    <tspan x="10px" y="226px"><tspan>  </tspan><tspan class="bold">      │Source     │Target</tspan>
+    <tspan x="10px" y="226px"><tspan>Each cell shows what happens when you rub SOURCE → TARGET:</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>  </tspan><tspan class="bold">──────┼───────────┼──────</tspan>
+    <tspan x="10px" y="244px">
 </tspan>
-    <tspan x="10px" y="262px"><tspan>  </tspan><tspan class="bold">Amend │File,Branch│Commit</tspan>
+    <tspan x="10px" y="262px"><tspan>  </tspan><tspan class="bold">SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack</tspan>
 </tspan>
-    <tspan x="10px" y="280px"><tspan>  </tspan><tspan class="bold">Squash│Commit     │Commit</tspan>
+    <tspan x="10px" y="280px"><tspan>  </tspan><tspan class="bold">─────────────────────┼─────────────────┼────────────┼─────────────┼────────────</tspan>
 </tspan>
-    <tspan x="10px" y="298px"><tspan>  </tspan><tspan class="bold">Stage │File,Branch│Branch</tspan>
+    <tspan x="10px" y="298px"><tspan>  </tspan><tspan class="bold">File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage</tspan>
 </tspan>
-    <tspan x="10px" y="316px"><tspan>  </tspan><tspan class="bold">Move  │Commit     │Branch</tspan>
+    <tspan x="10px" y="316px"><tspan>  </tspan><tspan class="bold">Commit               │ Undo            │ Squash     │ Move        │ -</tspan>
 </tspan>
-    <tspan x="10px" y="334px">
+    <tspan x="10px" y="334px"><tspan>  </tspan><tspan class="bold">Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign</tspan>
 </tspan>
-    <tspan x="10px" y="352px"><tspan class="underline bold">Examples</tspan>
+    <tspan x="10px" y="352px"><tspan>  </tspan><tspan class="bold">Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign</tspan>
 </tspan>
-    <tspan x="10px" y="370px">
+    <tspan x="10px" y="370px"><tspan>  </tspan><tspan class="bold">Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all</tspan>
 </tspan>
-    <tspan x="10px" y="388px"><tspan>Squashing two commits into one (combining the commit messages):</tspan>
+    <tspan x="10px" y="388px"><tspan>  </tspan><tspan class="bold">File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -</tspan>
 </tspan>
     <tspan x="10px" y="406px">
 </tspan>
-    <tspan x="10px" y="424px"><tspan>  </tspan><tspan class="bold">but rub 3868155 abe3f53f</tspan>
+    <tspan x="10px" y="424px"><tspan>Legend:</tspan>
 </tspan>
     <tspan x="10px" y="442px">
 </tspan>
-    <tspan x="10px" y="460px"><tspan>Amending a commit with the contents of a modified file:</tspan>
+    <tspan x="10px" y="460px"><tspan>- </tspan><tspan class="bold">zz</tspan><tspan> is a special target meaning "unassigned" (no branch)</tspan>
 </tspan>
-    <tspan x="10px" y="478px">
+    <tspan x="10px" y="478px"><tspan>- </tspan><tspan class="bold">-</tspan><tspan> means the operation is not supported</tspan>
 </tspan>
-    <tspan x="10px" y="496px"><tspan>  </tspan><tspan class="bold">but rub README.md abe3f53f</tspan>
+    <tspan x="10px" y="496px"><tspan>- "all changes" / "all" refers to all uncommitted changes from that source</tspan>
 </tspan>
     <tspan x="10px" y="514px">
 </tspan>
-    <tspan x="10px" y="532px"><tspan>Moving a commit from one branch to another:</tspan>
+    <tspan x="10px" y="532px"><tspan class="underline bold">Examples</tspan>
 </tspan>
     <tspan x="10px" y="550px">
 </tspan>
-    <tspan x="10px" y="568px"><tspan>  </tspan><tspan class="bold">but rub 3868155 feature-branch</tspan>
+    <tspan x="10px" y="568px"><tspan>Squashing two commits into one (combining the commit messages):</tspan>
 </tspan>
     <tspan x="10px" y="586px">
 </tspan>
-    <tspan x="10px" y="604px">
+    <tspan x="10px" y="604px"><tspan>  </tspan><tspan class="bold">but rub 3868155 abe3f53f</tspan>
 </tspan>
-    <tspan x="10px" y="622px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> [OPTIONS] &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
+    <tspan x="10px" y="622px">
 </tspan>
-    <tspan x="10px" y="640px">
+    <tspan x="10px" y="640px"><tspan>Amending a commit with the contents of a modified file:</tspan>
 </tspan>
-    <tspan x="10px" y="658px"><tspan class="underline bold">Arguments:</tspan>
+    <tspan x="10px" y="658px">
 </tspan>
-    <tspan x="10px" y="676px"><tspan>  &lt;SOURCE&gt;</tspan>
+    <tspan x="10px" y="676px"><tspan>  </tspan><tspan class="bold">but rub README.md abe3f53f</tspan>
 </tspan>
-    <tspan x="10px" y="694px"><tspan>          The source entity to combine</tspan>
+    <tspan x="10px" y="694px">
 </tspan>
-    <tspan x="10px" y="712px">
+    <tspan x="10px" y="712px"><tspan>Moving a commit from one branch to another:</tspan>
 </tspan>
-    <tspan x="10px" y="730px"><tspan>  &lt;TARGET&gt;</tspan>
+    <tspan x="10px" y="730px">
 </tspan>
-    <tspan x="10px" y="748px"><tspan>          The target entity to combine with the source</tspan>
+    <tspan x="10px" y="748px"><tspan>  </tspan><tspan class="bold">but rub 3868155 feature-branch</tspan>
 </tspan>
     <tspan x="10px" y="766px">
 </tspan>
-    <tspan x="10px" y="784px"><tspan class="underline bold">Options:</tspan>
+    <tspan x="10px" y="784px">
 </tspan>
-    <tspan x="10px" y="802px"><tspan>  </tspan><tspan class="bold">-j</tspan><tspan>, </tspan><tspan class="bold">--json</tspan>
+    <tspan x="10px" y="802px"><tspan class="underline bold">Usage:</tspan><tspan> </tspan><tspan class="bold">but rub</tspan><tspan> [OPTIONS] &lt;SOURCE&gt; &lt;TARGET&gt;</tspan>
 </tspan>
-    <tspan x="10px" y="820px"><tspan>          Whether to use JSON output format</tspan>
+    <tspan x="10px" y="820px">
 </tspan>
-    <tspan x="10px" y="838px">
+    <tspan x="10px" y="838px"><tspan class="underline bold">Arguments:</tspan>
 </tspan>
-    <tspan x="10px" y="856px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+    <tspan x="10px" y="856px"><tspan>  &lt;SOURCE&gt;</tspan>
 </tspan>
-    <tspan x="10px" y="874px"><tspan>          Print help (see a summary with '-h')</tspan>
+    <tspan x="10px" y="874px"><tspan>          The source entity to combine</tspan>
 </tspan>
     <tspan x="10px" y="892px">
+</tspan>
+    <tspan x="10px" y="910px"><tspan>  &lt;TARGET&gt;</tspan>
+</tspan>
+    <tspan x="10px" y="928px"><tspan>          The target entity to combine with the source</tspan>
+</tspan>
+    <tspan x="10px" y="946px">
+</tspan>
+    <tspan x="10px" y="964px"><tspan class="underline bold">Options:</tspan>
+</tspan>
+    <tspan x="10px" y="982px"><tspan>  </tspan><tspan class="bold">-j</tspan><tspan>, </tspan><tspan class="bold">--json</tspan>
+</tspan>
+    <tspan x="10px" y="1000px"><tspan>          Whether to use JSON output format</tspan>
+</tspan>
+    <tspan x="10px" y="1018px">
+</tspan>
+    <tspan x="10px" y="1036px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+</tspan>
+    <tspan x="10px" y="1054px"><tspan>          Print help (see a summary with '-h')</tspan>
+</tspan>
+    <tspan x="10px" y="1072px">
 </tspan>
   </text>
 

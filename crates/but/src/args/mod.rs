@@ -115,16 +115,25 @@ pub enum Subcommands {
     /// them together. You can rub a commit onto a branch to move that commit.
     /// You can rub a file from one commit to another.
     ///
-    /// Non-exhaustive list of operations:
+    /// ## Operations Matrix
+    ///
+    /// Each cell shows what happens when you rub SOURCE → TARGET:
     ///
     /// ```text
-    ///       │Source     │Target
-    /// ──────┼───────────┼──────
-    /// Amend │File,Branch│Commit
-    /// Squash│Commit     │Commit
-    /// Stage │File,Branch│Branch
-    /// Move  │Commit     │Branch
+    /// SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
+    /// ─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
+    /// File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
+    /// Commit               │ Undo            │ Squash     │ Move        │ -
+    /// Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
+    /// Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
+    /// Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
+    /// File-in-Commit       │ Uncommit        │ Move       │ Uncommit to │ -
     /// ```
+    ///
+    /// Legend:
+    /// - `zz` is a special target meaning "unassigned" (no branch)
+    /// - `-` means the operation is not supported
+    /// - "all changes" / "all" refers to all uncommitted changes from that source
     ///
     /// ## Examples
     ///
