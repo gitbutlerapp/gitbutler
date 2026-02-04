@@ -97,8 +97,13 @@ const SKILL_FORMATS: &[SkillFormat] = &[
     },
     SkillFormat {
         name: "GitHub Copilot",
-        description: "GitHub Copilot skill format",
+        description: "GitHub Copilot local (repo) skill format",
         path: ".github/skills/gitbutler",
+    },
+    SkillFormat {
+        name: "GitHub Copilot",
+        description: "GitHub Copilot global skill format",
+        path: ".copilot/skills/gitbutler",
     },
     SkillFormat {
         name: "Cursor",
