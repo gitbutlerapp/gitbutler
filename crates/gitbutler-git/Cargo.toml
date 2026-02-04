@@ -25,6 +25,8 @@ serde = ["dep:serde"]
 tokio = ["dep:tokio"]
 ## a flag to indicate benchmarks are run
 benches = []
+## a flag to turn on the askpass machinery for Git commands (should be enabled for GUI, disabled for CLI)
+askpass = []
 
 [dependencies]
 tracing.workspace = true
