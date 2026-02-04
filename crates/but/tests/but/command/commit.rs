@@ -496,9 +496,9 @@ fn commit_ai_conflicts_with_message() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: the argument '--ai [<AI>]' cannot be used with '--message <MESSAGE>'
+error: the argument '--ai[=<AI>]' cannot be used with '--message <MESSAGE>'
 
-Usage: but commit --ai [<AI>] [BRANCH]
+Usage: but commit --ai[=<AI>] [BRANCH]
 
 For more information, try '--help'.
 
@@ -519,9 +519,9 @@ fn commit_ai_conflicts_with_message_file() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: the argument '--ai [<AI>]' cannot be used with '--message-file <FILE>'
+error: the argument '--ai[=<AI>]' cannot be used with '--message-file <FILE>'
 
-Usage: but commit --ai [<AI>] [BRANCH]
+Usage: but commit --ai[=<AI>] [BRANCH]
 
 For more information, try '--help'.
 

@@ -19,12 +19,15 @@ pub struct Platform {
     /// Bypass pre-commit hooks
     #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
     pub no_hooks: bool,
-    /// Generate commit message using AI with optional user summary
+    /// Generate commit message using AI with optional user summary.
+    /// Use --ai by itself or --ai="your instructions" (equals sign required for value)
     #[clap(
         short = 'i',
         long = "ai",
         conflicts_with = "message",
-        conflicts_with = "message_file"
+        conflicts_with = "message_file",
+        num_args = 0..=1,
+        require_equals = true
     )]
     pub ai: Option<Option<String>>,
     /// Uncommitted file or hunk CLI IDs to include in the commit.

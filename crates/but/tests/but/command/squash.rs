@@ -193,9 +193,9 @@ fn squash_ai_conflicts_with_message() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: the argument '--ai [<AI>]' cannot be used with '--message <MESSAGE>'
+error: the argument '--ai[=<AI>]' cannot be used with '--message <MESSAGE>'
 
-Usage: but squash --ai [<AI>] <COMMITS>...
+Usage: but squash --ai[=<AI>] <COMMITS>...
 
 For more information, try '--help'.
 
@@ -216,9 +216,9 @@ fn squash_ai_conflicts_with_drop_message() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: the argument '--ai [<AI>]' cannot be used with '--drop-message'
+error: the argument '--ai[=<AI>]' cannot be used with '--drop-message'
 
-Usage: but squash --ai [<AI>] <COMMITS>...
+Usage: but squash --ai[=<AI>] <COMMITS>...
 
 For more information, try '--help'.
 
