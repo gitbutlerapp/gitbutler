@@ -6,4 +6,4 @@ When working on the `but` CLI (Rust command-line tool in `crates/but`), please r
 
 ## Skills
 
-If you have access to it, load the `gitbutler` skill for any and all version control tasks.
+If you have access to it, load the `but` (gitbutler) skill for any and all version control tasks.
