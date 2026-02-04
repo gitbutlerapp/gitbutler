@@ -52,6 +52,7 @@ pub enum CommandName {
     Merge,
     SkillInstall,
     SkillCheck,
+    Pick,
     #[default]
     Unknown,
 }

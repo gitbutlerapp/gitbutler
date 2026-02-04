@@ -5,7 +5,7 @@ Comprehensive reference for all `but` commands.
 ## Contents
 
 - [Inspection](#inspection-understanding-state) - `status`, `show`, `diff`
-- [Branching](#branching) - `branch new`, `branch apply/unapply`, `branch delete`
+- [Branching](#branching) - `branch new`, `branch apply/unapply`, `branch delete`, `pick`
 - [Staging](#staging-multiple-staging-areas) - `stage`, `rub`
 - [Committing](#committing) - `commit`, `absorb`
 - [Editing History](#editing-history) - `rub`, `squash`, `amend`, `move`, `uncommit`, `reword`, `discard`
@@ -108,6 +108,24 @@ Show commits ahead of base for a branch.
 ```bash
 but branch show <id>
 ```
+
+### `but pick <source> [target]`
+
+Cherry-pick commits from unapplied branches into applied branches.
+
+```bash
+but pick <commit-sha> <branch>       # Pick specific commit into branch
+but pick <cli-id> <branch>           # Pick using CLI ID (e.g., "c5")
+but pick <unapplied-branch>          # Interactive commit selection from branch
+but pick <commit-sha>                # Auto-select target if only one branch
+```
+
+The source can be:
+- A commit SHA (full or short)
+- A CLI ID from `but status`
+- An unapplied branch name (shows interactive commit picker)
+
+If no target is specified and multiple branches exist, prompts for selection interactively.
 
 ## Staging (Multiple Staging Areas)
 

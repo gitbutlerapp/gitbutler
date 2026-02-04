@@ -801,6 +801,51 @@ pub enum Subcommands {
         after: bool,
     },
 
+    /// Cherry-pick a commit from an unapplied branch into an applied virtual branch.
+    ///
+    /// This command allows you to pick individual commits from unapplied branches
+    /// and apply them to your current workspace branches.
+    ///
+    /// The source can be:
+    /// - A commit SHA (full or short)
+    /// - A CLI ID (e.g., "c5" from `but status`)
+    /// - An unapplied branch name (shows interactive commit selection)
+    ///
+    /// If no target branch is specified:
+    /// - In interactive mode: prompts you to select a target branch
+    /// - If only one branch exists: automatically uses that branch
+    /// - In non-interactive mode: fails with an error
+    ///
+    /// ## Examples
+    ///
+    /// Pick a specific commit into a branch:
+    ///
+    /// ```text
+    /// but pick abc1234 my-feature
+    /// ```
+    ///
+    /// Pick using a CLI ID:
+    ///
+    /// ```text
+    /// but pick c5 my-feature
+    /// ```
+    ///
+    /// Interactively select commits from an unapplied branch:
+    ///
+    /// ```text
+    /// but pick feature-branch
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Pick {
+        /// The commit SHA, CLI ID, or unapplied branch name to cherry-pick from
+        source: String,
+        /// The target virtual branch to apply the commit(s) to
+        #[clap(value_name = "TARGET_BRANCH")]
+        target_branch: Option<String>,
+    },
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Wrapper for `but rub <file-or-hunk> <branch>`.

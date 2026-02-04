@@ -19,6 +19,8 @@ mod merge;
 mod r#move;
 mod onboarding;
 #[cfg(feature = "legacy")]
+mod pick;
+#[cfg(feature = "legacy")]
 mod reword;
 #[cfg(feature = "legacy")]
 mod rub;

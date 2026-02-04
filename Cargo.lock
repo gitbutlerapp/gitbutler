@@ -744,6 +744,7 @@ dependencies = [
  "bstr",
  "but-action",
  "but-api",
+ "but-cherry-apply",
  "but-claude",
  "but-core",
  "but-ctx",
