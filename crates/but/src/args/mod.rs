@@ -885,6 +885,47 @@ pub enum Subcommands {
         target_branch: Option<String>,
     },
 
+    /// Unapply a branch from the workspace.
+    ///
+    /// If you want to unapply an applied branch from your workspace
+    /// (effectively stashing it) so you can work on other branches,
+    /// you can run `but unapply <branch-name>`.
+    ///
+    /// This will remove the changes in that branch from your working
+    /// directory and you can re-apply it later when needed. You will then
+    /// see the branch as unapplied in `but branch list`.
+    ///
+    /// The identifier can be:
+    /// - A CLI ID pointing to a stack or branch (e.g., "bu" from `but status`)
+    /// - A branch name
+    ///
+    /// If a branch name (or an identifier pointing to a branch) is provided,
+    /// the entire stack containing that branch will be unapplied.
+    ///
+    /// ## Examples
+    ///
+    /// Unapply by branch name:
+    ///
+    /// ```text
+    /// but unapply my-feature-branch
+    /// ```
+    ///
+    /// Unapply by CLI ID:
+    ///
+    /// ```text
+    /// but unapply bu
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Unapply {
+        /// CLI ID or name of the branch/stack to unapply
+        identifier: String,
+        /// Force unapply without confirmation
+        #[clap(long, short = 'f')]
+        force: bool,
+    },
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Wrapper for `but rub <file-or-hunk> <branch>`.

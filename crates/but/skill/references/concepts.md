@@ -282,7 +282,7 @@ Branches can be in two states:
 
 ```bash
 but branch apply <id>      # Make branch active
-but branch unapply <id>    # Make branch inactive
+but unapply <id>           # Make branch inactive
 ```
 
 **Use cases:**

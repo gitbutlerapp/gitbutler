@@ -129,24 +129,4 @@ pub enum Subcommands {
         /// Name of the branch to apply
         branch_name: String,
     },
-
-    /// Unapply a branch from the workspace
-    ///
-    /// If you want to unapply an applied branch from your workspace
-    /// (effectively stashing it) so you can work on other branches,
-    /// you can run `but branch unapply <branch-name>`.
-    ///
-    /// This will remove the changes in that branch from your working
-    /// directory and you can re-apply it later when needed. You will then
-    /// see the branch as unapplied in `but branch list`.
-    ///
-    #[cfg(feature = "legacy")]
-    #[clap(verbatim_doc_comment)]
-    Unapply {
-        /// Name of the branch to unapply
-        branch_name: String,
-        /// Force unapply without confirmation
-        #[clap(long, short = 'f')]
-        force: bool,
-    },
 }
