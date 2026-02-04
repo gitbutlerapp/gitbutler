@@ -335,8 +335,8 @@ but commit bu --only -m "Complete feature-a"
 but pr new bu
 
 # 5. Reapply other branches
-but branch apply bv
-but branch apply bw
+but apply bv
+but apply bw
 
 # 6. Deal with their conflicts now
 but resolve ...

@@ -18,7 +18,7 @@ fn single_branch() -> anyhow::Result<()> {
     create_local_branch_with_commit(&env, branch_name);
 
     // First apply the branch
-    env.but("branch apply").arg(branch_name).assert().success();
+    env.but("apply").arg(branch_name).assert().success();
 
     insta::assert_snapshot!(env.git_log()?, @r"
     *   9d5d9e5 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -67,7 +67,7 @@ fn unapply_with_json_output() -> anyhow::Result<()> {
     create_local_branch_with_commit(&env, branch_name);
 
     // Apply the branch first
-    env.but("branch apply").arg(branch_name).assert().success();
+    env.but("apply").arg(branch_name).assert().success();
 
     // Unapply with JSON output using the new `but unapply` command
     env.but("--json unapply")
@@ -97,7 +97,7 @@ fn unapply_idempotent() -> anyhow::Result<()> {
     create_local_branch_with_commit(&env, branch_name);
 
     // Apply then unapply
-    env.but("branch apply").arg(branch_name).assert().success();
+    env.but("apply").arg(branch_name).assert().success();
 
     env.but("unapply").arg(branch_name).assert().success();
 
@@ -124,7 +124,7 @@ fn unapply_shell_format() -> anyhow::Result<()> {
     create_local_branch_with_commit(&env, branch_name);
 
     // Apply the branch
-    env.but("branch apply").arg(branch_name).assert().success();
+    env.but("apply").arg(branch_name).assert().success();
 
     // Unapply with shell format using the new `but unapply` command
     // Shell format outputs one branch name per line
@@ -216,7 +216,7 @@ fn unapply_remote_tracking_branch() -> anyhow::Result<()> {
     );
 
     // Apply the remote branch
-    env.but("branch apply origin/remote-feature").assert().success();
+    env.but("apply origin/remote-feature").assert().success();
 
     insta::assert_snapshot!(env.git_log()?, @r"
     *   1bb7daf (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -258,7 +258,7 @@ fn unapply_using_cli_branch_id() -> anyhow::Result<()> {
     utils::create_local_branch_with_commit(&env, branch_name);
 
     // Apply the branch
-    env.but("branch apply").arg(branch_name).assert().success();
+    env.but("apply").arg(branch_name).assert().success();
 
     // Get the CLI ID from status --json
     let status_output = env.but("status --json").allow_json().output()?;
@@ -320,7 +320,7 @@ fn unapply_using_cli_stack_id() -> anyhow::Result<()> {
     utils::create_local_branch_with_commit(&env, branch_name);
 
     // Apply the branch
-    env.but("branch apply").arg(branch_name).assert().success();
+    env.but("apply").arg(branch_name).assert().success();
 
     // Get the stack CLI ID from status --json
     let status_output = env.but("status --json").allow_json().output()?;
@@ -364,7 +364,7 @@ fn unapply_json_output_validation() -> anyhow::Result<()> {
     utils::create_local_branch_with_commit(&env, branch_name);
 
     // Apply the branch
-    env.but("branch apply").arg(branch_name).assert().success();
+    env.but("apply").arg(branch_name).assert().success();
 
     // Unapply with JSON output and validate structure
     let output = env.but("--json unapply").arg(branch_name).allow_json().output()?;

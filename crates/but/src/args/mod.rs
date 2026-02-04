@@ -304,10 +304,11 @@ pub enum Subcommands {
 
     /// Commands for managing branches.
     ///
-    /// This includes creating, deleting, listing, showing details about, and
-    /// applying and unapplying branches.
+    /// This includes creating, deleting, listing, and showing details about branches.
     ///
     /// By default without a subcommand, it will list the branches.
+    ///
+    /// To apply or unapply branches, use `but apply` and `but unapply`.
     ///
     #[clap(verbatim_doc_comment)]
     Branch(branch::Platform),
@@ -924,6 +925,29 @@ pub enum Subcommands {
         /// Force unapply without confirmation
         #[clap(long, short = 'f')]
         force: bool,
+    },
+
+    /// Apply a branch to the workspace.
+    ///
+    /// If you want to apply an unapplied branch to your workspace so you
+    /// can work on it, you can run `but apply <branch-name>`.
+    ///
+    /// This will apply the changes in that branch into your working directory
+    /// as a parallel applied branch.
+    ///
+    /// ## Examples
+    ///
+    /// Apply by branch name:
+    ///
+    /// ```text
+    /// but apply my-feature-branch
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Apply {
+        /// Name of the branch to apply
+        branch_name: String,
     },
 
     /// Stages a file or hunk to a specific branch.

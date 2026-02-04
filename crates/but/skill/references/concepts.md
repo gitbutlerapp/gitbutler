@@ -39,7 +39,7 @@ workspace (gitbutler/workspace)
 4. **Applied vs Unapplied**: Control which branches are active:
    - Applied branches: In your working directory
    - Unapplied branches: Exist but not active
-   - Use `but branch apply/unapply` to control
+   - Use `but apply`/`but unapply` to control
 
 ## CLI IDs: Short Identifiers
 
@@ -281,7 +281,7 @@ Branches can be in two states:
 ### Controlling State
 
 ```bash
-but branch apply <id>      # Make branch active
+but apply <id>             # Make branch active
 but unapply <id>           # Make branch inactive
 ```
 

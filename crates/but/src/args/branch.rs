@@ -116,7 +116,7 @@ pub enum Subcommands {
         #[clap(long)]
         check: bool,
     },
-    /// Apply a branch to the workspace
+    /// Apply a branch to the workspace (non-legacy path)
     ///
     /// If you want to apply an unapplied branch to your workspace so you
     /// can work on it, you can run `but branch apply <branch-name>`.
@@ -124,6 +124,7 @@ pub enum Subcommands {
     /// This will apply the changes in that branch into your working directory
     /// as a parallel applied branch.
     ///
+    #[cfg(not(feature = "legacy"))]
     #[clap(verbatim_doc_comment)]
     Apply {
         /// Name of the branch to apply

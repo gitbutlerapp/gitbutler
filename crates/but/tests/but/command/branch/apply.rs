@@ -15,7 +15,7 @@ fn single_branch() -> anyhow::Result<()> {
     * e31e6ca (origin/main, origin/HEAD) add init
     ");
 
-    env.but("branch apply A")
+    env.but("apply A")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -46,7 +46,7 @@ Applied branch 'A' to workspace
     * e31e6ca (origin/main, origin/HEAD) add init
     ");
 
-    env.but("branch apply origin/B")
+    env.but("apply origin/B")
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -100,7 +100,7 @@ fn local_branch() -> anyhow::Result<()> {
     create_local_branch_with_commit(&env, branch_name);
 
     // Apply the local branch
-    env.but("branch apply")
+    env.but("apply")
         .arg(branch_name)
         .assert()
         .success()
@@ -110,7 +110,7 @@ Applied branch 'feature-branch' to workspace
 
 "#]]);
     // It's idempotent and can produce a shell value.
-    env.but("-f shell branch apply feature-branch")
+    env.but("-f shell apply feature-branch")
         .allow_json()
         .assert()
         .success()
@@ -147,7 +147,7 @@ fn local_branch_with_json_output() -> anyhow::Result<()> {
     create_local_branch_with_commit(&env, "feature-branch");
 
     // Apply with JSON output
-    env.but("--json branch apply feature-branch")
+    env.but("--json apply feature-branch")
         .allow_json()
         .assert()
         .success()
@@ -224,7 +224,7 @@ fn remote_branch_creates_local_tracking_branch_automatically() -> anyhow::Result
     );
 
     // Apply the remote branch, by its shortest name only.
-    env.but("branch apply origin/remote-feature")
+    env.but("apply origin/remote-feature")
         .assert()
         .success()
         .stderr_eq(str![])
@@ -251,11 +251,11 @@ fn nonexistent_branch() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
 
     // Try to apply a branch that doesn't exist
-    env.but("branch apply nonexistent-branch")
+    env.but("apply nonexistent-branch")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: The reference 'nonexistent-branch' did not exist
+Failed to apply branch. The reference 'nonexistent-branch' did not exist
 
 "#]])
         .stdout_eq(str![""]);
@@ -268,12 +268,12 @@ fn nonexistent_branch_with_json() -> anyhow::Result<()> {
     let env = Sandbox::open_or_init_scenario_with_target_and_default_settings("one-stack")?;
 
     // Try to apply a branch that doesn't exist with JSON output
-    env.but("--json branch apply nonexistent-branch")
+    env.but("--json apply nonexistent-branch")
         .allow_json()
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Error: The reference 'nonexistent-branch' did not exist
+Failed to apply branch. The reference 'nonexistent-branch' did not exist
 
 "#]]);
     // Note: Currently the apply function doesn't output anything with JSON when branch not found
@@ -299,7 +299,7 @@ fn multiple_branches_sequentially() -> anyhow::Result<()> {
     create_local_branch_with_commit_with_message(&env, f2, "Add feature 2");
 
     // Apply both branches
-    env.but("branch apply")
+    env.but("apply")
         .arg(f1)
         .assert()
         .success()
@@ -309,7 +309,7 @@ Applied branch 'feature-1' to workspace
 "#]])
         .stderr_eq(str![]);
 
-    env.but("branch apply")
+    env.but("apply")
         .arg(f2)
         .assert()
         .success()
