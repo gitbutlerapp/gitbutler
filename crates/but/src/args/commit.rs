@@ -1,11 +1,11 @@
 #[derive(Debug, clap::Parser)]
 pub struct Platform {
     /// Commit message
-    #[clap(short = 'm', long = "message", conflicts_with = "file")]
+    #[clap(short = 'm', long = "message", conflicts_with = "message_file")]
     pub message: Option<String>,
     /// Read commit message from file
-    #[clap(short = 'f', long = "file", value_name = "FILE", conflicts_with = "message")]
-    pub file: Option<std::path::PathBuf>,
+    #[clap(long = "message-file", value_name = "FILE", conflicts_with = "message")]
+    pub message_file: Option<std::path::PathBuf>,
     /// Branch CLI ID or name to derive the stack to commit to
     pub branch: Option<String>,
     /// Whether to create a new branch for this commit.
@@ -20,13 +20,18 @@ pub struct Platform {
     #[clap(short = 'n', long = "no-hooks", alias = "no-verify")]
     pub no_hooks: bool,
     /// Generate commit message using AI with optional user summary
-    #[clap(short = 'i', long = "ai", conflicts_with = "message", conflicts_with = "file")]
+    #[clap(
+        short = 'i',
+        long = "ai",
+        conflicts_with = "message",
+        conflicts_with = "message_file"
+    )]
     pub ai: Option<Option<String>>,
     /// Uncommitted file or hunk CLI IDs to include in the commit.
     /// Can be specified multiple times or as comma-separated values.
     /// If not specified, all uncommitted changes (or changes staged to the target branch) are committed.
-    #[clap(long = "files", short = 'F', value_delimiter = ',', num_args = 1.., conflicts_with = "only")]
-    pub files: Vec<String>,
+    #[clap(long = "changes", short = 'p', value_delimiter = ',', num_args = 1.., conflicts_with = "only")]
+    pub changes: Vec<String>,
     #[clap(subcommand)]
     pub cmd: Option<Subcommands>,
 }
