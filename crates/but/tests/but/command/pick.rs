@@ -1,6 +1,6 @@
 use snapbox::str;
 
-use crate::utils::Sandbox;
+use crate::utils::{CommandExt, Sandbox};
 
 /// Get commit SHA from a git reference
 fn get_commit_sha(env: &Sandbox, git_ref: &str) -> String {
@@ -118,11 +118,12 @@ fn pick_json_output() -> anyhow::Result<()> {
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
     let result = env
-        .but(format!("pick {} applied-branch --json", sha))
-        .assert()
-        .success();
+        .but(format!("--json pick {} applied-branch", sha))
+        .allow_json()
+        .output()?;
 
-    let stdout = String::from_utf8_lossy(&result.get_output().stdout);
+    assert!(result.status.success());
+    let stdout = String::from_utf8_lossy(&result.stdout);
     let json: serde_json::Value = serde_json::from_str(stdout.trim())?;
 
     assert_eq!(json["picked_commit"], sha);
