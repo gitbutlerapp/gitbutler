@@ -71,7 +71,7 @@ pub fn branch_details(
 
     let mut authors = HashSet::new();
     let (mut commits, upstream_commits) = {
-        let commits = local_commits_gix(branch_id, integration_branch_id.detach(), &mut authors)?;
+        let commits = local_commits_gix(branch_id, integration_branch_id.detach(), remote_tracking_branch_id.map(|id| id.detach()), &mut authors)?;
 
         let upstream_commits = if let Some(remote_tracking_branch) = remote_tracking_branch.as_mut() {
             let remote_id = remote_tracking_branch.peel_to_id()?;
@@ -189,6 +189,7 @@ fn upstream_commits_gix(
 fn local_commits_gix(
     branch_id: gix::Id<'_>,
     integration_branch_id: gix::ObjectId,
+    remote_tracking_branch_id: Option<gix::ObjectId>,
     authors: &mut HashSet<ui::Author>,
 ) -> anyhow::Result<Vec<ui::Commit>> {
     // TODO(gix): make this work in `gix` or use the Graph traversal for this.
@@ -198,9 +199,21 @@ fn local_commits_gix(
     revwalk.hide(integration_branch_id.to_git2())?;
     revwalk.simplify_first_parent()?;
 
+    // Build a set of commit IDs that are reachable from the remote tracking branch
+    let remote_commits = if let Some(remote_id) = remote_tracking_branch_id {
+        let mut remote_revwalk = git2_repo.revwalk()?;
+        remote_revwalk.push(remote_id.to_git2())?;
+        remote_revwalk.hide(integration_branch_id.to_git2())?;
+        remote_revwalk.simplify_first_parent()?;
+        remote_revwalk.collect::<Result<HashSet<_>, _>>()?
+    } else {
+        HashSet::new()
+    };
+
     let mut out = Vec::new();
     for id in revwalk {
-        let id = id?.to_gix().attach(branch_id.repo);
+        let git2_id = id?;
+        let id = git2_id.to_gix().attach(branch_id.repo);
         let commit = but_core::Commit::from_id(id)?;
 
         let mut buf = TimeBuf::default();
@@ -208,12 +221,20 @@ fn local_commits_gix(
         let committer: ui::Author = commit.committer.to_ref(&mut buf).into();
         authors.insert(author.clone());
         authors.insert(committer);
+
+        // Determine commit state based on whether it's in the remote tracking branch
+        let state = if remote_commits.contains(&git2_id) {
+            CommitState::LocalAndRemote(id.detach())
+        } else {
+            CommitState::LocalOnly
+        };
+
         out.push(ui::Commit {
             id: id.detach(),
             parent_ids: commit.parents.iter().cloned().collect(),
             message: commit.message.clone(),
             has_conflicts: commit.is_conflicted(),
-            state: CommitState::LocalAndRemote(id.detach()),
+            state,
             created_at: i128::from(commit.committer.time.seconds) * 1000,
             author,
             gerrit_review_url: None,
@@ -228,5 +249,5 @@ pub fn local_commits_for_branch(
     integration_branch_id: gix::ObjectId,
 ) -> anyhow::Result<Vec<ui::Commit>> {
     let mut authors = HashSet::new();
-    local_commits_gix(branch_id, integration_branch_id, &mut authors)
+    local_commits_gix(branch_id, integration_branch_id, None, &mut authors)
 }
