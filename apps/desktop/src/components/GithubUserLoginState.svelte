@@ -1,17 +1,14 @@
 <script lang="ts">
 	import GitHubAccountBadge from '$components/GitHubAccountBadge.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
-	import {
-		GITHUB_USER_SERVICE,
-		type AuthenticatedUser,
-		type GitHubAccountIdentifier
-	} from '$lib/forge/github/githubUserService.svelte';
+	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { Avatar, Button, CardGroup } from '@gitbutler/ui';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
+	import type { ButGitHub, ButGitHubToken } from '@gitbutler/core/api';
 
 	type Props = {
-		account: GitHubAccountIdentifier;
+		account: ButGitHubToken.GithubAccountIdentifier;
 	};
 
 	const { account }: Props = $props();
@@ -52,7 +49,7 @@
 	</CardGroup.Item>
 {/snippet}
 
-{#snippet row(user: AuthenticatedUser | null)}
+{#snippet row(user: ButGitHub.AuthenticatedUserSensitive | null)}
 	<CardGroup.Item>
 		{#snippet iconSide()}
 			<div class="avatar">

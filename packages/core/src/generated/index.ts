@@ -6,3 +6,7 @@ export * as Workspace from './workspace/index';
 export * as HunkAssignment from './hunkAssignment';
 export * as Settings from './settings';
 export * as Action from './action/autoCommit';
+export * as ButGitHub from './github/index';
+export * as ButGitHubToken from './github/token';
+export * as ButGitLab from './gitlab/index';
+export * as ButGitLabToken from './gitlab/token';
