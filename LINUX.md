@@ -65,8 +65,11 @@ Known errors include:
 
 There are a few workarounds to try:
 
+- Disable Explicit Sync with `__NV_DISABLE_EXPLICIT_SYNC=1`
+  - If this works for you, it's the best known solution as it still allows the app to utilize your GPU
 - Disabling hardware acceleration with `WEBKIT_DISABLE_COMPOSITING_MODE=1`
-  - This is our recommended solution
+  - Typically the most stable solution
+  - The app will _not_ run on your GPU which may cause performance degradation
 - Using the Nouveau driver instead of the proprietary NVIDIA driver
 - Using [PRIME offloading](https://wiki.archlinux.org/title/PRIME) so GitButler runs on your iGPU instead
   - You may still want to disable hardware acceleration due to performance issues
