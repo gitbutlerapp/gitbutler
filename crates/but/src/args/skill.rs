@@ -41,6 +41,7 @@ pub enum Subcommands {
     /// ```text
     /// but skill install --detect
     /// ```
+    #[clap(verbatim_doc_comment)]
     Install {
         /// Install the skill globally instead of in the current repository
         #[clap(long, short = 'g')]
@@ -76,6 +77,7 @@ pub enum Subcommands {
     /// ```text
     /// but skill check --global
     /// ```
+    #[clap(verbatim_doc_comment)]
     Check {
         /// Only check global installations (in home directory)
         #[clap(long, short = 'g', conflicts_with = "local")]

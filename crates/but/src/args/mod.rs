@@ -90,6 +90,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Status {
         /// Determines whether the committed files should be shown as well.
         #[clap(short = 'f', alias = "files", default_value_t = false)]
@@ -150,6 +151,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Rub {
         /// The source entity to combine
         source: String,
@@ -167,6 +169,7 @@ pub enum Subcommands {
     /// - a commit
     /// - a file change within a commit
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Diff {
         /// The CLI ID of the entity to show the diff for
         target: Option<String>,
@@ -207,6 +210,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Show {
         /// The commit ID (short or full SHA), branch name, or CLI ID to show details for
         commit: String,
@@ -236,12 +240,14 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Setup {
         /// Initialize a new git repository with an empty commit if one doesn't exist.
         ///
         /// This is useful when running in non-interactive environments (like CI/CD)
         /// where you want to ensure a git repository exists before setting up GitButler.
         #[clap(long)]
+        #[clap(verbatim_doc_comment)]
         init: bool,
     },
 
@@ -265,6 +271,7 @@ pub enum Subcommands {
     /// ```
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Teardown,
 
     /// Updates all applied branches to be up to date with the target branch.
@@ -293,6 +300,7 @@ pub enum Subcommands {
     ///
     /// By default without a subcommand, it will list the branches.
     ///
+    #[clap(verbatim_doc_comment)]
     Branch(branch::Platform),
 
     /// Commands for managing worktrees.
@@ -306,6 +314,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Worktree(worktree::Platform),
 
     /// Mark a commit or branch for auto-stage or auto-commit.
@@ -320,6 +329,7 @@ pub enum Subcommands {
     /// amended into the marked commit.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Mark {
         /// The target entity that will be marked
         target: String,
@@ -333,6 +343,7 @@ pub enum Subcommands {
     /// This will unmark anything that has been marked by the `but mark` command.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Unmark,
 
     /// Open the GitButler GUI for the current project.
@@ -346,6 +357,7 @@ pub enum Subcommands {
     /// You can also just run `but .` as a shorthand to open the GUI.
     ///
     #[clap(visible_alias = ".")]
+    #[clap(verbatim_doc_comment)]
     Gui,
 
     /// Commit changes to a stack.
@@ -386,6 +398,7 @@ pub enum Subcommands {
     /// - `but push feature-branch` - push the branch named "feature-branch"
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Push(push::Command),
 
     /// Edit the commit message of the specified commit.
@@ -434,7 +447,9 @@ pub enum Subcommands {
     /// current one. It allows you to quickly undo the most recent operation.
     ///
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Undo,
+
     /// Amends changes into the appropriate commits where they belong.
     ///
     /// The semantic for finding "the appropriate commit" is as follows:
@@ -456,6 +471,7 @@ pub enum Subcommands {
     /// If `--new` is specified, new commits will be created for absorbed changes
     /// instead of amending existing commits.
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Absorb {
         /// If the Source is an uncommitted change - the change will be absorbed.
         /// If the Source is a stack - anything staged to the stack will be absorbed accordingly.
@@ -486,6 +502,7 @@ pub enum Subcommands {
     /// but discard a1
     /// ```
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Discard {
         /// The ID of the file or hunk to discard (as shown in `but status`)
         id: String,
@@ -509,6 +526,7 @@ pub enum Subcommands {
     /// This is a hidden command primarily used for background sync operations.
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     RefreshRemoteData {
         /// Whether to also refresh git fetch from the remote.
         #[clap(long, default_value_t = false)]
@@ -538,6 +556,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Mcp {
         /// Starts the internal MCP server which has more granular tools.
         #[clap(long, short = 'i', hide = true)]
@@ -552,6 +571,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Claude(claude::Platform),
 
     /// AI: Cursor hooks
@@ -562,15 +582,18 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Cursor(cursor::Platform),
 
     /// INTERNAL: GitButler Actions are automated tasks (like macros) that can be performed on a repository.
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Actions(actions::Platform),
 
     /// INTERNAL: If metrics are permitted, this subcommand handles posthog event creation.
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Metrics {
         #[clap(long, value_enum)]
         command_name: metrics::CommandName,
@@ -580,6 +603,7 @@ pub enum Subcommands {
 
     /// UTILITY: Generate shell completion scripts for the specified or inferred shell.
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Completions {
         /// The shell to generate completions for, or the one extracted from the `SHELL` environment variable.
         #[clap(value_enum)]
@@ -589,6 +613,7 @@ pub enum Subcommands {
     /// Manage GitButler CLI and app updates.
     ///
     /// Check for new versions, install updates, or suppress update notifications.
+    #[clap(verbatim_doc_comment)]
     Update(update::Platform),
 
     /// Manage command aliases.
@@ -617,6 +642,7 @@ pub enum Subcommands {
     /// but alias remove st
     /// ```
     ///
+    #[clap(verbatim_doc_comment)]
     Alias(alias::Platform),
 
     /// View and manage GitButler configuration.
@@ -658,6 +684,7 @@ pub enum Subcommands {
     /// but config metrics
     /// ```
     ///
+    #[clap(verbatim_doc_comment)]
     Config(config::Platform),
 
     /// Resolve conflicts in a commit.
@@ -688,6 +715,7 @@ pub enum Subcommands {
     /// Hidden command that redirects to `but pull --check`
     #[cfg(feature = "legacy")]
     #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
     Fetch,
 
     /// Squash commits together.
@@ -791,6 +819,7 @@ pub enum Subcommands {
     /// but move abc123 my-feature-branch
     /// ```
     #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
     Move {
         /// Commit ID to move
         source_commit: String,
