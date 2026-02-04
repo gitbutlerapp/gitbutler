@@ -12,7 +12,7 @@ pub(crate) use init::Downgrade;
 pub struct Workspace {
     /// The underlying graph for providing simplified access to data.
     pub graph: Graph,
-    /// An ID which uniquely identifies the [graph segment](Segment) that represents the tip of the workspace.
+    /// An ID which uniquely identifies the [graph segment](crate::Segment) that represents the tip of the workspace.
     pub id: SegmentIndex,
     /// Specify what kind of workspace this is.
     pub kind: WorkspaceKind,
@@ -122,7 +122,7 @@ pub enum WorkspaceKind {
     ///
     /// It can be inside or outside a workspace.
     /// If the respective segment is [not named](Workspace::ref_name), this means the `HEAD` id detached.
-    /// The commit that the working tree is at is always implied to be the first commit of the [`StackSegment`]
+    /// The commit that the working tree is at is always implied to be the first commit of the [`crate::projection::StackSegment`]
     /// at [`Workspace::id`].
     AdHoc,
 }

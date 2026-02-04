@@ -1,6 +1,8 @@
+use std::borrow::Cow;
+
 use anyhow::Context;
 use bstr::BStr;
-use but_core::{RefMetadata, ref_metadata::StackId};
+use but_core::{RefMetadata, extract_remote_name, ref_metadata::StackId};
 use petgraph::Direction;
 use tracing::instrument;
 
@@ -56,6 +58,30 @@ impl Workspace {
 
 /// Utilities
 impl Workspace {
+    /// Return the name of the remote most closely associated with this workspace.
+    /// In order, we try:
+    /// - The remote name of the [Self::target_ref].
+    /// - The remote name configured in [workspace metadata](Self::metadata).
+    ///
+    /// The caller *may* consider falling back to [`gix::Repository::remote_default_name()`],
+    /// but beware that one should handle ambiguity if there are more than one remotes.
+    pub fn remote_name(&self) -> Option<String> {
+        if let Some(tr) = self.target_ref.as_ref() {
+            // TODO: should we rather get remote configuration from the repository?
+            let remote_names = self
+                .graph
+                .symbolic_remote_names
+                .iter()
+                .map(|name| Cow::Borrowed(name.as_str().into()))
+                .collect();
+            extract_remote_name(tr.ref_name.as_ref(), &remote_names)
+        } else if let Some(md) = self.metadata.as_ref() {
+            md.push_remote.clone()
+        } else {
+            None
+        }
+    }
+
     /// Return the `(merge-base, target-commit-id)` of the merge-base between the `commit_to_merge`
     /// and either the [target-branch](Self::target_ref), the [extra-target](Self::extra_target)
     /// or the [target-commit](Self::target_commit), depending on which is set and encountered
