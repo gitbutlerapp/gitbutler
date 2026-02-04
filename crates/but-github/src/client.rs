@@ -115,7 +115,12 @@ impl GitHubClient {
         let response = self
             .client
             .get(&url)
-            .query(&[("state", "open"), ("sort", "created")])
+            .query(&[
+                ("state", "open"),
+                ("sort", "updated"),
+                ("direction", "desc"),
+                ("per_page", "20"),
+            ])
             .send()
             .await?;
 
