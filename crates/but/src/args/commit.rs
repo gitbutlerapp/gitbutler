@@ -4,7 +4,7 @@ pub struct Platform {
     #[clap(short = 'm', long = "message", conflicts_with = "message_file")]
     pub message: Option<String>,
     /// Read commit message from file
-    #[clap(long = "message-file", value_name = "FILE", conflicts_with = "message")]
+    #[clap(short = 'f', long = "message-file", value_name = "FILE", conflicts_with = "message")]
     pub message_file: Option<std::path::PathBuf>,
     /// Branch CLI ID or name to derive the stack to commit to
     pub branch: Option<String>,

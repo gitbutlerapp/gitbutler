@@ -39,6 +39,34 @@ fn commit_with_message_from_file() -> anyhow::Result<()> {
 }
 
 #[test]
+fn commit_with_message_from_file_short_flag() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+
+    env.setup_metadata(&["A"])?;
+
+    // Create a change in the worktree
+    env.file("new-file.txt", "test content");
+
+    // Create a file with the commit message
+    env.file("commit-msg.txt", "Commit using short flag -f");
+
+    // Commit with -f short flag for --message-file
+    env.but("commit -f commit-msg.txt")
+        .assert()
+        .success()
+        .stdout_eq(str![[r#"
+✓ Created commit [..] on branch A
+
+"#]]);
+
+    // Verify the commit was created with the correct message
+    let log = env.git_log()?;
+    assert!(log.contains("Commit using short flag -f"));
+
+    Ok(())
+}
+
+#[test]
 fn commit_with_message_file_not_found() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
 
