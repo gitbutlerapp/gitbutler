@@ -947,6 +947,21 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
+        #[cfg(feature = "legacy")]
+        Subcommands::Pick { source, target_branch } => {
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled,
+                    ..Default::default()
+                },
+                out,
+            )?;
+            command::legacy::pick::handle(&mut ctx, out, &source, target_branch.as_deref())
+                .context("Failed to pick commit.")
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
     }
 }
 

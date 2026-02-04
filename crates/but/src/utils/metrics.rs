@@ -173,6 +173,8 @@ impl Subcommands {
             Subcommands::Merge { .. } => Merge,
             #[cfg(feature = "legacy")]
             Subcommands::Move { .. } => Rub,
+            #[cfg(feature = "legacy")]
+            Subcommands::Pick { .. } => Pick,
             Subcommands::Skill(skill::Platform { cmd }) => match cmd {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,

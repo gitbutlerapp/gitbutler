@@ -14,6 +14,7 @@ pub mod mcp;
 pub mod mcp_internal;
 pub mod merge;
 pub mod oplog;
+pub mod pick;
 pub mod pull;
 pub mod push;
 pub mod refresh;

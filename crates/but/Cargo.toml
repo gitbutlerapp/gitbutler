@@ -29,7 +29,7 @@ legacy = [
     "dep:but-rules",
     "dep:but-gerrit",
     "dep:but-worktrees",
-    "dep:but-worktrees",
+    "dep:but-cherry-apply",
     "dep:gitbutler-project",
     "dep:gitbutler-commit",
     "dep:gitbutler-stack",
@@ -75,6 +75,7 @@ but-tools = { workspace = true, optional = true }
 but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
+but-cherry-apply = { workspace = true, optional = true }
 
 gitbutler-project = { workspace = true, optional = true }
 gitbutler-commit = { workspace = true, optional = true }
