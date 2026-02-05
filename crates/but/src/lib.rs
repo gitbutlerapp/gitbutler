@@ -98,10 +98,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // Determine if pager should be used based on the command
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
-        Some(Subcommands::Status { .. }) | Some(Subcommands::Oplog(..)) => false,
-        Some(Subcommands::Help) => false,
-        Some(Subcommands::Setup { .. }) => false,
-        _ => true,
+        Some(Subcommands::Diff { .. }) => true,
+        _ => false,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
 
