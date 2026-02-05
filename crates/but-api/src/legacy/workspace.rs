@@ -14,7 +14,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 use gitbutler_reference::{LocalRefname, Refname};
-use gitbutler_stack::{Stack, StackId, VirtualBranchesHandle};
+use gitbutler_stack::{StackId, VirtualBranchesHandle};
 use tracing::instrument;
 
 use crate::json::HexHash;
@@ -593,17 +593,17 @@ pub fn stash_into_branch(
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
-/// This checks local branches, remote tracking branches, and GitButler patch references.
+/// This checks local branches and the short-names of remote tracking branches. The reason for
+/// the latter is that the but-graph traversal, for now, associates local branches
+/// with remote tracking branches by name, not only by configuration, to support older GitButler setups.
+///
+// TODO(apply): once the new apply is used by default, we can start thinking about phasing this out
+//              as it will setup normal Git tracking branch associations via `.git/config`.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn canned_branch_name(ctx: &Context) -> Result<String> {
-    // TODO: should be this:
-    // let rn = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
-    // Ok(rn.shorten().to_string())
-    let repo = ctx.repo.get()?;
-    let base_name = but_core::branch::canned_refname(&repo)?.shorten().to_string();
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    Stack::next_available_name(&repo, &vb_state, base_name, false)
+    let rn = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+    Ok(rn.shorten().to_string())
 }
 
 #[but_api]
