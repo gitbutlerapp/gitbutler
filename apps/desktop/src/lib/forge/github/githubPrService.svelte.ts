@@ -20,6 +20,7 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { QueryOptions } from '$lib/state/butlerModule';
 import type { GitHubApi } from '$lib/state/clientState.svelte';
+import type { ForgeReview } from '@gitbutler/core/api';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 
 export class GitHubPrService implements ForgePrService {
@@ -101,6 +102,13 @@ export class GitHubPrService implements ForgePrService {
 		update: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
 	) {
 		await this.api.endpoints.updatePr.mutate({ number, update });
+	}
+
+	async updateReviewFooters(
+		projectId: string,
+		reviews: ForgeReview.ForgeReviewDescriptionUpdate[]
+	) {
+		await this.api.endpoints.updateGitHubPrFooter.mutate({ projectId, reviews });
 	}
 }
 
@@ -240,6 +248,19 @@ function injectEndpoints(api: GitHubApi) {
 					return { data: undefined };
 				},
 				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
+			}),
+			updateGitHubPrFooter: build.mutation<
+				void,
+				{ projectId: string; reviews: ForgeReview.ForgeReviewDescriptionUpdate[] }
+			>({
+				extraOptions: {
+					command: 'update_review_footers'
+				},
+				query: (args) => args,
+				invalidatesTags: (_result, _error, args) => {
+					const prNumbers = args.reviews.map((r) => Number(r.number));
+					return prNumbers.map((num) => invalidatesItem(ReduxTag.PullRequests, num));
+				}
 			})
 		})
 	});
