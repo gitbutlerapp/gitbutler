@@ -354,11 +354,10 @@
 </div>
 
 {#snippet addProfileButton(noAccounts: boolean)}
-	{@const buttonStyle = noAccounts ? 'pop' : 'gray'}
 	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
 	<Button
 		bind:el={addProfileButtonRef}
-		style={buttonStyle}
+		kind="outline"
 		onclick={() => addAccountContextMenu?.toggle()}
 		disabled={showingFlow !== undefined}
 		loading={storePatResult.current.isLoading || storeGhePatResult.current.isLoading}
