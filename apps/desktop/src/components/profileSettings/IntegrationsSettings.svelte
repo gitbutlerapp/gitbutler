@@ -24,8 +24,7 @@
 			Auto-fill PR/MR descriptions from commit
 		{/snippet}
 		{#snippet caption()}
-			When creating a pull request or merge request for a branch with just one commit, automatically
-			use that commit's message as the PR/MR title and description.
+			Set the title and description from the commit for single-commit branches.
 		{/snippet}
 		{#snippet actions()}
 			<Toggle
