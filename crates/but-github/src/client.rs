@@ -198,6 +198,41 @@ impl GitHubClient {
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
     }
+
+    pub async fn update_pull_request(&self, params: &UpdatePullRequestParams<'_>) -> Result<PullRequest> {
+        #[derive(Serialize)]
+        struct UpdatePullRequestBody<'a> {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            title: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            body: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            base: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            state: Option<&'a str>,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}",
+            self.base_url, params.owner, params.repo, params.pr_number
+        );
+
+        let body = UpdatePullRequestBody {
+            title: params.title,
+            body: params.body,
+            base: params.base,
+            state: params.state,
+        };
+
+        let response = self.client.patch(&url).json(&body).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to update pull request: {}", response.status());
+        }
+
+        let pr: GitHubPullRequest = response.json().await?;
+        Ok(pr.into())
+    }
 }
 
 pub struct CreatePullRequestParams<'a> {
@@ -208,6 +243,16 @@ pub struct CreatePullRequestParams<'a> {
     pub draft: bool,
     pub owner: &'a str,
     pub repo: &'a str,
+}
+
+pub struct UpdatePullRequestParams<'a> {
+    pub owner: &'a str,
+    pub repo: &'a str,
+    pub pr_number: i64,
+    pub title: Option<&'a str>,
+    pub body: Option<&'a str>,
+    pub base: Option<&'a str>,
+    pub state: Option<&'a str>,
 }
 
 #[derive(Debug, Serialize)]
