@@ -23,6 +23,8 @@ mod git {
             gitbutler_sign_commits: Some(true),
             gitbutler_gerrit_mode: Some(false),
             gitbutler_forge_review_template_path: None,
+            gitbutler_gitlab_project_id: None,
+            gitbutler_gitlab_upstream_project_id: None,
             signing_key: Some("signing key".into()),
             signing_format: Some("signing format".into()),
             gpg_program: Some("gpg program".into()),

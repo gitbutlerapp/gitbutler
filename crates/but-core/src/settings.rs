@@ -9,6 +9,8 @@ pub mod git {
     const GITBUTLER_SIGN_COMMITS: &str = "gitbutler.signCommits";
     const GITBUTLER_GERRIT_MODE: &str = "gitbutler.gerritMode";
     const GITBUTLER_FORGE_TEMPLATE_PATH: &str = "gitbutler.forgeReviewTemplatePath";
+    const GITBUTLER_GITLAB_PROJECT_ID: &str = "gitbutler.gitlabProjectId";
+    const GITBUTLER_GITLAB_UPSTREAM_PROJECT_ID: &str = "gitbutler.gitlabUpstreamProjectId";
     const SIGNING_KEY: &str = "user.signingKey";
     const SIGNING_FORMAT: &str = "gpg.format";
     const GPG_PROGRAM: &str = "gpg.program";
@@ -20,16 +22,27 @@ pub mod git {
 
         /// See [`GitConfigSettings`](crate::GitConfigSettings) for the docs.
         #[derive(Debug, PartialEq, Clone, Default, serde::Serialize, serde::Deserialize)]
+        #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
         #[serde(rename_all = "camelCase")]
+        #[cfg_attr(feature = "export-ts", ts(export, export_to = "./settings/gitConfigSettings.ts"))]
         #[expect(missing_docs)]
         pub struct GitConfigSettings {
             #[serde(rename = "signCommits")]
             pub gitbutler_sign_commits: Option<bool>,
             pub gitbutler_gerrit_mode: Option<bool>,
+            #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
             pub gitbutler_forge_review_template_path: Option<BStringForFrontend>,
+            #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
+            pub gitbutler_gitlab_project_id: Option<BStringForFrontend>,
+            #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
+            pub gitbutler_gitlab_upstream_project_id: Option<BStringForFrontend>,
+            #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
             pub signing_key: Option<BStringForFrontend>,
+            #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
             pub signing_format: Option<BStringForFrontend>,
+            #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
             pub gpg_program: Option<BStringForFrontend>,
+            #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
             pub gpg_ssh_program: Option<BStringForFrontend>,
         }
 
@@ -39,6 +52,8 @@ pub mod git {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path,
+                    gitbutler_gitlab_project_id,
+                    gitbutler_gitlab_upstream_project_id,
                     signing_key,
                     signing_format,
                     gpg_program,
@@ -49,6 +64,8 @@ pub mod git {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path: gitbutler_forge_review_template_path.map(Into::into),
+                    gitbutler_gitlab_project_id: gitbutler_gitlab_project_id.map(Into::into),
+                    gitbutler_gitlab_upstream_project_id: gitbutler_gitlab_upstream_project_id.map(Into::into),
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
                     gpg_program: gpg_program.and_then(|v| gix::path::os_string_into_bstring(v).ok().map(Into::into)),
@@ -64,6 +81,8 @@ pub mod git {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path,
+                    gitbutler_gitlab_project_id,
+                    gitbutler_gitlab_upstream_project_id,
                     signing_key,
                     signing_format,
                     gpg_program,
@@ -74,6 +93,8 @@ pub mod git {
                     gitbutler_sign_commits,
                     gitbutler_gerrit_mode,
                     gitbutler_forge_review_template_path: gitbutler_forge_review_template_path.map(Into::into),
+                    gitbutler_gitlab_project_id: gitbutler_gitlab_project_id.map(Into::into),
+                    gitbutler_gitlab_upstream_project_id: gitbutler_gitlab_upstream_project_id.map(Into::into),
                     signing_key: signing_key.map(Into::into),
                     signing_format: signing_format.map(Into::into),
                     gpg_program: gpg_program.map(Into::into),
@@ -103,6 +124,11 @@ pub mod git {
             pub gitbutler_gerrit_mode: Option<bool>,
             /// The path to the review description template to be used for this repository.
             pub gitbutler_forge_review_template_path: Option<BString>,
+            /// The project ID of the GitLab project this repository is associated with, if any.
+            pub gitbutler_gitlab_project_id: Option<BString>,
+            /// The project ID of the upstream GitLab project this repository is associated with, if any.
+            /// In the case of a fork, this is the project ID of the parent project, otherwise it is the same as `gitbutler_gitlab_project_id`.
+            pub gitbutler_gitlab_upstream_project_id: Option<BString>,
             /// `user.signingKey`.
             pub signing_key: Option<BString>,
             /// `gpg.format`
@@ -127,6 +153,9 @@ pub mod git {
             let gitbutler_gerrit_mode = config.boolean(GITBUTLER_GERRIT_MODE).or(Some(false));
             let gitbutler_forge_review_template_path =
                 config.string(GITBUTLER_FORGE_TEMPLATE_PATH).map(Cow::into_owned);
+            let gitbutler_gitlab_project_id = config.string(GITBUTLER_GITLAB_PROJECT_ID).map(Cow::into_owned);
+            let gitbutler_gitlab_upstream_project_id =
+                config.string(GITBUTLER_GITLAB_UPSTREAM_PROJECT_ID).map(Cow::into_owned);
             let signing_key = config.string(SIGNING_KEY).map(Cow::into_owned);
             let signing_format = config.string(SIGNING_FORMAT).map(Cow::into_owned);
             let gpg_program = config.trusted_program(GPG_PROGRAM).map(Cow::into_owned);
@@ -135,6 +164,8 @@ pub mod git {
                 gitbutler_sign_commits,
                 gitbutler_gerrit_mode,
                 gitbutler_forge_review_template_path,
+                gitbutler_gitlab_project_id,
+                gitbutler_gitlab_upstream_project_id,
                 signing_key,
                 signing_format,
                 gpg_program,
@@ -167,6 +198,15 @@ pub mod git {
             }
             if let Some(gpg_ssh_program) = self.gpg_ssh_program.as_ref().and_then(osstring_into_bstring) {
                 config.set_raw_value(&GPG_SSH_PROGRAM, gpg_ssh_program.as_bstr())?;
+            }
+            if let Some(gitlab_project_id) = &self.gitbutler_gitlab_project_id {
+                config.set_raw_value(&GITBUTLER_GITLAB_PROJECT_ID, gitlab_project_id.as_bstr())?;
+            }
+            if let Some(gitlab_upstream_project_id) = &self.gitbutler_gitlab_upstream_project_id {
+                config.set_raw_value(
+                    &GITBUTLER_GITLAB_UPSTREAM_PROJECT_ID,
+                    gitlab_upstream_project_id.as_bstr(),
+                )?;
             }
 
             repo.write_local_common_config(&config)?;
