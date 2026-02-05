@@ -86,7 +86,7 @@
 	}
 </script>
 
-<div class="stack-v gap-16">
+<div class="stack-v gap-8">
 	<CardGroup>
 		<ReduxResult result={accounts.result}>
 			<!-- IF ERROR -->

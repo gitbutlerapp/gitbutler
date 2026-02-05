@@ -14,6 +14,7 @@
 		CardGroup,
 		Link,
 		Textbox,
+		Spacer,
 		chipToasts as toasts
 	} from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
@@ -141,7 +142,7 @@
 	}
 </script>
 
-<div class="stack-v gap-16">
+<div class="stack-v gap-8">
 	<CardGroup>
 		<ReduxResult result={accounts.result}>
 			<!-- IF ERROR -->
@@ -348,6 +349,10 @@
 				</div>
 			</CardGroup.Item>
 		</CardGroup>
+	{/if}
+
+	{#if showingFlow}
+		<Spacer dotted margin={8} />
 	{/if}
 </div>
 

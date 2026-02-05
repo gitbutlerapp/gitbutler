@@ -55,14 +55,14 @@
 		</div>
 
 		<div class="forge-user-card__content">
-			<h3 class="text-15 text-bold forge-user-card__title">
-				{username}
+			<div class="forge-user-card__title">
+				<span class="text-15 text-bold">{username}</span>
 				{#if badge}
 					<span class="m-l-4">
 						{@render badge()}
 					</span>
 				{/if}
-			</h3>
+			</div>
 			<p class="text-12 forge-user-card__text">
 				{#if email}
 					{email}

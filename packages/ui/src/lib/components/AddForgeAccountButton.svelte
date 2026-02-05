@@ -23,13 +23,12 @@
 	let addProfileButtonRef = $state<HTMLElement>();
 	let addAccountContextMenu = $state<ContextMenu>();
 
-	const buttonStyle = $derived(noAccounts ? 'pop' : 'gray');
 	const buttonText = $derived(noAccounts ? 'Add account' : 'Add another account');
 </script>
 
 <Button
 	bind:el={addProfileButtonRef}
-	style={buttonStyle}
+	kind="outline"
 	onclick={() => addAccountContextMenu?.toggle()}
 	{disabled}
 	{loading}
