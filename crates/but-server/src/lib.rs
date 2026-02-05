@@ -887,6 +887,16 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "update_review_footers" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::update_review_footers_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
         // Askpass commands (async)
         "submit_prompt_response" => {
             let params = deserialize_json(request.params);
