@@ -597,6 +597,9 @@ pub fn stash_into_branch(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn canned_branch_name(ctx: &Context) -> Result<String> {
+    // TODO: should be this:
+    // let rn = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+    // Ok(rn.shorten().to_string())
     let repo = ctx.repo.get()?;
     let base_name = but_core::branch::canned_refname(&repo)?.shorten().to_string();
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
