@@ -20,8 +20,20 @@ pub struct HeadAndMode {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
-    let head = match ctx.git2_repo.get()?.head() {
-        Ok(head_ref) => head_ref.shorthand().map(|s| s.to_string()),
+    let head = match ctx.repo.get()?.head() {
+        Ok(head_ref) => {
+            // For symbolic references (branch), return the branch name
+            // For detached HEAD, return the shortened commit SHA
+            match &head_ref.kind {
+                gix::head::Kind::Symbolic(r) => Some(r.name.shorten().to_string()),
+                gix::head::Kind::Detached { target, .. } => {
+                    let sha = target.to_string();
+                    // SHA strings are always ASCII hex, so byte slicing is safe
+                    Some(sha[..7.min(sha.len())].to_string())
+                }
+                gix::head::Kind::Unborn(r) => Some(r.shorten().to_string()),
+            }
+        }
         Err(_) => None,
     };
 
@@ -40,8 +52,8 @@ pub struct HeadSha {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn head_sha(ctx: &but_ctx::Context) -> Result<HeadSha, Error> {
-    let git2_repo = ctx.git2_repo.get()?;
-    let head_ref = git2_repo.head().context("failed to get head")?;
+    let repo = ctx.repo.get()?;
+    let head_ref = repo.head().context("failed to get head")?;
     let head_sha = head_ref
         .peel_to_commit()
         .context("failed to get head commit")?
