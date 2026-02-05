@@ -2,11 +2,20 @@
 	import CtaButton from '$home/components/CtaButton.svelte';
 	import VideoOverlay from '$home/components/VideoOverlay.svelte';
 	import contentJson from '$home/data/content.json';
+	import HeroHeader from '$home/sections/HeroHeader.svelte';
 	import Header from '$lib/components/marketing/Header.svelte';
+	import { type Snippet } from 'svelte';
+
+	interface Props {
+		currentPage?: 'home' | 'cli';
+		descriptionContent: Snippet;
+	}
+
+	const { currentPage = 'home', descriptionContent }: Props = $props();
 
 	const heroContent = contentJson.hero;
 
-	let showVideoOverlay = false;
+	let showVideoOverlay = $state(false);
 
 	function openVideoOverlay() {
 		showVideoOverlay = true;
@@ -21,13 +30,7 @@
 	<Header disableLogoLink />
 
 	<div class="hero-content">
-		<h1 class="title">
-			Git, <i>finally</i> designed for humans.
-			<i class="title-caption">(And AI Agents)</i>
-		</h1>
-		<p class="description">
-			{heroContent.description}
-		</p>
+		<HeroHeader {currentPage} {descriptionContent} />
 
 		<section class="cta">
 			<CtaButton />
@@ -81,33 +84,11 @@
 	}
 
 	.hero-content {
-		display: grid;
-		grid-column: narrow-start / narrow-end;
+		display: flex;
+		grid-column: narrow-start / off-center;
 		flex-direction: column;
-		max-width: 700px;
+		max-width: 800px;
 		padding-top: 52px;
-	}
-
-	.title {
-		margin-bottom: 32px;
-		font-size: 82px;
-		line-height: 1;
-		font-family: var(--font-accent);
-		text-wrap: balance;
-	}
-
-	.title-caption {
-		display: inline-flex;
-		transform: translateY(14px);
-		color: var(--clr-text-2);
-		font-size: 63%;
-	}
-
-	.description {
-		max-width: 520px;
-		color: var(--clr-text-2);
-		font-size: 16px;
-		line-height: 1.5;
 	}
 
 	.cta {
@@ -152,10 +133,6 @@
 	}
 
 	@media (--mobile-viewport) {
-		.title {
-			margin-bottom: 16px;
-			font-size: 62px;
-		}
 		.cta {
 			flex-direction: column;
 			align-items: flex-start;
@@ -164,14 +141,6 @@
 		.video-preview {
 			aspect-ratio: 16 / 9;
 			width: 100%;
-		}
-		.title-caption {
-			display: block;
-			width: 100%;
-			margin-top: 14px;
-			transform: none;
-			font-size: 70%;
-			text-align: right;
 		}
 	}
 </style>

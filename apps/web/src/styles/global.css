@@ -133,3 +133,21 @@ body:has(.marketing-page)::-webkit-scrollbar-thumb {
 	border-left: 3px solid var(--color-primary);
 	font-style: italic;
 }
+
+/* Grainy background effect */
+.grainy-bg {
+	position: absolute;
+	width: 1000px;
+	height: 950px;
+	transform: rotate(30deg);
+	background-image: url('/images/grainy-gradient-light.png');
+	background-size: 100%;
+	background-repeat: no-repeat;
+	opacity: 0.08;
+	pointer-events: none;
+}
+
+.dark .grainy-bg {
+	background-image: url('/images/grainy-gradient-dark.png');
+	opacity: 0.08;
+}
