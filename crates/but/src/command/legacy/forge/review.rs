@@ -373,6 +373,7 @@ async fn publish_reviews_for_branch_and_dependents(
 
     let mut newly_published = Vec::new();
     let mut already_existing = Vec::new();
+    let mut all_reviews_in_order = Vec::new();
     let mut current_target_branch = base_branch.short_name();
     for head in stack_entry.heads.iter().rev() {
         if let Some(out) = out.for_human() {
@@ -399,9 +400,14 @@ async fn publish_reviews_for_branch_and_dependents(
         .await?;
         match published_review {
             PublishReviewResult::Published(review) => {
-                newly_published.push(*review);
+                newly_published.push(*review.clone());
+                all_reviews_in_order.push(*review);
             }
             PublishReviewResult::AlreadyExists(reviews) => {
+                if let Some(review) = reviews.first() {
+                    // Ignore other existing reviews for ordering
+                    all_reviews_in_order.push(review.clone());
+                }
                 already_existing.extend(reviews);
             }
         }
@@ -412,6 +418,13 @@ async fn publish_reviews_for_branch_and_dependents(
             break;
         }
     }
+
+    // Update the PR descriptions to have the footers
+    but_api::legacy::forge::update_review_footers(
+        ctx.to_sync(),
+        all_reviews_in_order.into_iter().map(Into::into).collect(),
+    )
+    .await?;
 
     let outcome = PublishReviewsOutcome {
         published: newly_published,
