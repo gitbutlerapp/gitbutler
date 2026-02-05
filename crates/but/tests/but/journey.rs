@@ -31,15 +31,10 @@ Please run 'but setup' to initialize the project.
 "#]]);
 
     // Setup doesn't work without a Git repository
-    env.but("setup").assert().failure().stderr_eq(str![
-        r#"
-Error: Failed to set up GitButler project.
+    env.but("setup").assert().failure().stderr_eq(str![[r#"
+Error: No git repository found - run `but setup --init` to initialize a new repository.
 
-Caused by:
-    No git repository found - run `but setup --init` to initialize a new repository.
-
-"#
-    ]);
+"#]]);
 
     // TODO: this should work, but we still have requirements and can't deal with any repo.
     env.but("setup --init").assert().success().stdout_eq(str![[r#"
