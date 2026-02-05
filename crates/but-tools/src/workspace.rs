@@ -1590,8 +1590,8 @@ fn changes_in_branch_inner(
     } else {
         let start_commit_id = repo.find_reference(&branch_name)?.peel_to_commit()?.id;
         let target = state.get_default_target()?;
-        let merge_base = ctx.git2_repo.get()?.merge_base(start_commit_id.to_git2(), target.sha)?;
-        Ok((start_commit_id, merge_base.to_gix()))
+        let merge_base = repo.merge_base(start_commit_id, target.sha.to_gix())?.detach();
+        Ok((start_commit_id, merge_base))
     }?;
 
     but_core::diff::ui::changes_with_line_stats_in_range(&repo, start_commit_id, base_commit_id)
