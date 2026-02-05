@@ -9,4 +9,3 @@
 *.app
 *.nsis
 *.zip
-but
