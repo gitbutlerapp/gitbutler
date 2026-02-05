@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use anyhow::Context;
 use bstr::BStr;
-use but_core::{RefMetadata, extract_remote_name, ref_metadata::StackId};
+use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata::StackId};
 use petgraph::Direction;
 use tracing::instrument;
 
@@ -74,7 +74,7 @@ impl Workspace {
                 .iter()
                 .map(|name| Cow::Borrowed(name.as_str().into()))
                 .collect();
-            extract_remote_name(tr.ref_name.as_ref(), &remote_names)
+            extract_remote_name_and_short_name(tr.ref_name.as_ref(), &remote_names).map(|(remote_name, _)| remote_name)
         } else if let Some(md) = self.metadata.as_ref() {
             md.push_remote.clone()
         } else {

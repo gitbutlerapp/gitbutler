@@ -119,15 +119,6 @@ pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
     ref_name.as_bstr() == "refs/heads/gitbutler/workspace" || ref_name.as_bstr() == "refs/heads/gitbutler/integration"
 }
 
-/// A utility to extract the name of the remote from a remote tracking ref with `ref_name`.
-/// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
-/// `None` is returned.
-/// `remote_names` are expected to be returned by [`gix::Repository::remote_names()`],
-/// and as such are sorted in ascending order by length.
-pub fn extract_remote_name(ref_name: &gix::refs::FullNameRef, remote_names: &gix::remote::Names<'_>) -> Option<String> {
-    extract_remote_name_and_short_name(ref_name, remote_names).map(|(remote_name, _)| remote_name)
-}
-
 /// A utility to extract the name of the remote from a remote tracking ref with `ref_name`,
 /// along with the short name of the branch that remains after stripping the remote name.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
