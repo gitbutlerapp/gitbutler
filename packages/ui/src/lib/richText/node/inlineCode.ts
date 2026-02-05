@@ -1,5 +1,6 @@
 import {
 	TextNode,
+	$getSelection as getSelection,
 	type BaseSelection,
 	type EditorConfig,
 	type LexicalNode,
@@ -26,19 +27,16 @@ export type SerializedInlineCodeNode = Spread<
 >;
 
 export class InlineCodeNode extends TextNode {
-	__code: string;
-
 	static getType(): string {
 		return 'inline-code';
 	}
 
 	static clone(node: InlineCodeNode): InlineCodeNode {
-		return new InlineCodeNode(node.__code, node.__key);
+		return new InlineCodeNode(node.__text, node.__key);
 	}
 
 	constructor(code: string, key?: NodeKey) {
 		super(code, key);
-		this.__code = code;
 	}
 
 	createDOM(config: EditorConfig): HTMLElement {
@@ -54,7 +52,6 @@ export class InlineCodeNode extends TextNode {
 		const node = createInlineCodeNode(serializedNode.code);
 		node.setFormat(serializedNode.format);
 		node.setDetail(serializedNode.detail);
-		node.setMode(serializedNode.mode);
 		node.setStyle(serializedNode.style);
 		return node;
 	}
@@ -63,7 +60,7 @@ export class InlineCodeNode extends TextNode {
 		return {
 			...super.exportJSON(),
 			type: 'inline-code',
-			code: this.__code
+			code: this.getTextContent()
 		};
 	}
 
@@ -88,27 +85,41 @@ export class InlineCodeNode extends TextNode {
 		return true;
 	}
 
-	getTextContent(): string {
-		return this.__code;
+	spliceText(offset: number, delCount: number, newText: string, moveSelection?: boolean): TextNode {
+		const result = super.spliceText(offset, delCount, newText, moveSelection);
+		const text = this.getLatest().__text;
+
+		if (!text.startsWith('`') || !text.endsWith('`') || text.length < 3) {
+			const textNode = createTextNode(text);
+			this.replace(textNode);
+			// Place cursor at the correct position in the replacement node
+			const selection = getSelection();
+			if (moveSelection && isRangeSelection(selection)) {
+				const newOffset = Math.min(offset + newText.length, text.length);
+				textNode.select(newOffset, newOffset);
+			}
+			return textNode;
+		}
+
+		return result;
 	}
 
 	setTextContent(text: string): this {
 		// If the text no longer has backticks on both ends, convert back to a regular text node
-		if (!text.startsWith('`') || !text.endsWith('`') || text.length < 2) {
+		if (!text.startsWith('`') || !text.endsWith('`') || text.length < 3) {
 			const textNode = createTextNode(text);
 			this.replace(textNode);
 			return textNode as any;
 		}
 
 		const writable = this.getWritable();
-		writable.__code = text;
 		writable.__text = text;
 		return writable;
 	}
 }
 
 export function createInlineCodeNode(code: string): InlineCodeNode {
-	return new InlineCodeNode(code).setMode('token');
+	return new InlineCodeNode(code);
 }
 
 export function isInlineCodeNode(node: LexicalNode): node is InlineCodeNode {
