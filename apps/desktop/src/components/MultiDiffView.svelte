@@ -17,6 +17,7 @@
 	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { type SelectionId } from '$lib/selection/key';
+	import { SETTINGS } from '$lib/settings/userSettings';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
 	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from '@gitbutler/ui';
@@ -49,20 +50,109 @@
 
 	const diffService = inject(DIFF_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
+	const userSettings = inject(SETTINGS);
+
+	const singleDiffView = $derived($userSettings.singleDiffView);
 
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let scrollContainer = $state<HTMLElement | null>(null);
-	let highlightedIndex = $state<number | null>(startIndex ?? null);
+	let highlightedIndex = $state<number | undefined>(startIndex);
 	let contextMenus = $state<Record<string, ReturnType<typeof ChangedFilesContextMenu>>>({});
 	let headerTriggers = $state<Record<string, HTMLElement>>({});
 	let buttonElements = $state<Record<string, HTMLElement>>({});
 	let menuOpenStates = $state<Record<string, boolean>>({});
 
 	export function jumpToIndex(index: number) {
-		virtualList?.jumpToIndex(index);
 		highlightedIndex = index;
+		if (!singleDiffView) {
+			virtualList?.jumpToIndex(index);
+		}
 	}
 </script>
+
+{#snippet changeItem(change: TreeChange, index?: number, highlight?: boolean)}
+	{@const diffQuery = diffService.getDiff(projectId, change)}
+	{@const diffData = diffQuery.response}
+	{@const isExecutable = isExecutableStatus(change.status)}
+	{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
+	<Drawer
+		noshrink
+		stickyHeader
+		reserveSpaceOnStuck={!!onclose}
+		closeButtonPlaceholder
+		scrollRoot={scrollContainer}
+		highlighted={highlight && highlightedIndex === index}
+	>
+		{#snippet header()}
+			<div bind:this={headerTriggers[change.path]}>
+				<FileViewHeader
+					filePath={change.path}
+					fileStatus={computeChangeStatus(change)}
+					linesAdded={patchData?.linesAdded}
+					linesRemoved={patchData?.linesRemoved}
+					executable={isExecutable}
+				/>
+			</div>
+		{/snippet}
+
+		{#snippet actions()}
+			<ChangedFilesContextMenu
+				bind:this={contextMenus[change.path]}
+				{projectId}
+				{stackId}
+				{selectionId}
+				leftClickTrigger={buttonElements[change.path]}
+				trigger={headerTriggers[change.path]}
+				onopen={() => {
+					menuOpenStates[change.path] = true;
+				}}
+				onclose={() => {
+					menuOpenStates[change.path] = false;
+				}}
+			/>
+			<Button
+				bind:el={buttonElements[change.path]}
+				kind="ghost"
+				icon="kebab"
+				size="tag"
+				activated={menuOpenStates[change.path]}
+				onclick={async () => {
+					const contextMenu = contextMenus[change.path];
+					const buttonEl = buttonElements[change.path];
+					if (!contextMenu || !buttonEl) return;
+
+					const changes = await idSelection.treeChanges(projectId, selectionId);
+					if (idSelection.has(change.path, selectionId) && changes.length > 0) {
+						contextMenu.open(buttonEl, { changes });
+					} else {
+						contextMenu.open(buttonEl, { changes: [change] });
+					}
+				}}
+			/>
+		{/snippet}
+
+		<ReduxResult {projectId} hideLoading result={diffQuery.result}>
+			{#snippet children(diff)}
+				<UnifiedDiffView
+					{projectId}
+					{stackId}
+					commitId={selectionId.type === 'commit' ? selectionId.commitId : undefined}
+					{draggable}
+					{change}
+					{diff}
+					{selectable}
+					{selectionId}
+					topPadding
+				/>
+			{/snippet}
+			{#snippet loading()}
+				<div class="loading">
+					<HunkDiffSkeleton />
+				</div>
+			{/snippet}
+		</ReduxResult>
+	</Drawer>
+{/snippet}
 
 <div
 	class="multi-diff-view"
@@ -77,99 +167,29 @@
 	{/if}
 
 	{#if changes && changes.length > 0}
-		<VirtualList
-			bind:this={virtualList}
-			{startIndex}
-			grow
-			items={changes}
-			defaultHeight={102}
-			visibility="scroll"
-			renderDistance={100}
-		>
-			{#snippet template(change, index)}
-				{@const diffQuery = diffService.getDiff(projectId, change)}
-				{@const diffData = diffQuery.response}
-				{@const isExecutable = isExecutableStatus(change.status)}
-				{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
-				<Drawer
-					noshrink
-					stickyHeader
-					reserveSpaceOnStuck={!!onclose}
-					closeButtonPlaceholder
-					scrollRoot={scrollContainer}
-					highlighted={highlightedIndex === index}
-				>
-					{#snippet header()}
-						<div bind:this={headerTriggers[change.path]}>
-							<FileViewHeader
-								filePath={change.path}
-								fileStatus={computeChangeStatus(change)}
-								linesAdded={patchData?.linesAdded}
-								linesRemoved={patchData?.linesRemoved}
-								executable={isExecutable}
-							/>
-						</div>
-					{/snippet}
-
-					{#snippet actions()}
-						<ChangedFilesContextMenu
-							bind:this={contextMenus[change.path]}
-							{projectId}
-							{stackId}
-							{selectionId}
-							leftClickTrigger={buttonElements[change.path]}
-							trigger={headerTriggers[change.path]}
-							onopen={() => {
-								menuOpenStates[change.path] = true;
-							}}
-							onclose={() => {
-								menuOpenStates[change.path] = false;
-							}}
-						/>
-						<Button
-							bind:el={buttonElements[change.path]}
-							kind="ghost"
-							icon="kebab"
-							size="tag"
-							activated={menuOpenStates[change.path]}
-							onclick={async () => {
-								const contextMenu = contextMenus[change.path];
-								const buttonEl = buttonElements[change.path];
-								if (!contextMenu || !buttonEl) return;
-
-								const changes = await idSelection.treeChanges(projectId, selectionId);
-								if (idSelection.has(change.path, selectionId) && changes.length > 0) {
-									contextMenu.open(buttonEl, { changes });
-								} else {
-									contextMenu.open(buttonEl, { changes: [change] });
-								}
-							}}
-						/>
-					{/snippet}
-
-					<ReduxResult {projectId} hideLoading result={diffQuery.result}>
-						{#snippet children(diff)}
-							<UnifiedDiffView
-								{projectId}
-								{stackId}
-								commitId={selectionId.type === 'commit' ? selectionId.commitId : undefined}
-								{draggable}
-								{change}
-								{diff}
-								{selectable}
-								{selectionId}
-								topPadding
-							/>
-						{/snippet}
-						{#snippet loading()}
-							<div class="loading">
-								<HunkDiffSkeleton />
-							</div>
-						{/snippet}
-					</ReduxResult>
-				</Drawer>
-			{/snippet}
-		</VirtualList>
+		{#if singleDiffView}
+			{@const index = highlightedIndex ?? startIndex ?? 0}
+			{@const change = changes[index]}
+			{#if change}
+				<div class="single-diff-view">
+					{@render changeItem(change, index)}
+				</div>
+			{/if}
+		{:else}
+			<VirtualList
+				bind:this={virtualList}
+				{startIndex}
+				grow
+				items={changes}
+				defaultHeight={102}
+				visibility="scroll"
+				renderDistance={100}
+			>
+				{#snippet template(change, index)}
+					{@render changeItem(change, index, true)}
+				{/snippet}
+			</VirtualList>
+		{/if}
 	{:else}
 		<FilePreviewPlaceholder />
 	{/if}
@@ -206,6 +226,14 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-s);
+	}
+
+	.single-diff-view {
+		display: flex;
+		flex-grow: 1;
+		flex-direction: column;
+		width: 100%;
+		overflow-y: auto;
 	}
 
 	.loading {
