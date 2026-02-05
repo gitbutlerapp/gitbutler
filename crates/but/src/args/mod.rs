@@ -1016,6 +1016,14 @@ pub enum Subcommands {
     /// It is designed to be called by the installer after installation.
     #[clap(hide = true)]
     Onboarding,
+
+    /// AI: Claude Code hook for workspace awareness and skill activation.
+    ///
+    /// Outputs workspace status as JSON and a skill-loading nudge.
+    /// Intended to fire on the Stop hook.
+    #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
+    EvalHook,
 }
 
 pub mod alias;
