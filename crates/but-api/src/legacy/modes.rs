@@ -1,5 +1,5 @@
 //! In place of commands.rs
-use anyhow::{Context as _, Result};
+use anyhow::Result;
 use but_api_macros::but_api;
 use but_core::{ref_metadata::StackId, ui::TreeChange};
 use but_ctx::Context;
@@ -20,25 +20,15 @@ pub struct HeadAndMode {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
-    let head = match ctx.repo.get()?.head() {
-        Ok(head_ref) => {
-            // For symbolic references (branch), return the branch name
-            // For detached HEAD, return the shortened commit SHA
-            match &head_ref.kind {
-                gix::head::Kind::Symbolic(r) => Some(r.name.shorten().to_string()),
-                gix::head::Kind::Detached { target, .. } => {
-                    let sha = target.to_string();
-                    // SHA strings are always ASCII hex, so byte slicing is safe
-                    Some(sha[..7.min(sha.len())].to_string())
-                }
-                gix::head::Kind::Unborn(r) => Some(r.shorten().to_string()),
-            }
-        }
-        Err(_) => None,
+    let repo = ctx.repo.get()?;
+    let head = repo.head();
+    let head_ref_short = match head.as_ref().map(|head| head.referent_name()) {
+        Ok(Some(head_ref)) => Some(head_ref.shorten().to_string()),
+        _ => None,
     };
 
     Ok(HeadAndMode {
-        head,
+        head: head_ref_short,
         operating_mode: Some(gitbutler_operating_modes::operating_mode(ctx)),
     })
 }
@@ -53,13 +43,8 @@ pub struct HeadSha {
 #[instrument(err(Debug))]
 pub fn head_sha(ctx: &but_ctx::Context) -> Result<HeadSha, Error> {
     let repo = ctx.repo.get()?;
-    let head_ref = repo.head().context("failed to get head")?;
-    let head_sha = head_ref
-        .peel_to_commit()
-        .context("failed to get head commit")?
-        .id()
-        .to_string();
-
+    let mut head_ref = repo.head().map_err(anyhow::Error::from)?;
+    let head_sha = head_ref.peel_to_commit().map_err(anyhow::Error::from)?.id.to_string();
     Ok(HeadSha { head_sha })
 }
 
