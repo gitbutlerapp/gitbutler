@@ -99,6 +99,27 @@
 	{/snippet}
 </CardGroup.Item>
 
+<CardGroup.Item labelFor="singleDiffView" standalone>
+	{#snippet title()}
+		Single diff view
+	{/snippet}
+	{#snippet caption()}
+		Show only the selected file's diff instead of a scrollable list of all file diffs.
+	{/snippet}
+	{#snippet actions()}
+		<Toggle
+			id="singleDiffView"
+			checked={$userSettings.singleDiffView}
+			onclick={() => {
+				userSettings.update((s) => ({
+					...s,
+					singleDiffView: !s.singleDiffView
+				}));
+			}}
+		/>
+	{/snippet}
+</CardGroup.Item>
+
 <CardGroup>
 	<CardGroup.Item alignment="center">
 		{#snippet title()}
