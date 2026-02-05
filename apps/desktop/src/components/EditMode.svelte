@@ -2,6 +2,7 @@
 	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import {
 		conflictEntryHint,
 		getConflictState,
@@ -20,8 +21,19 @@
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal, TestId } from '@gitbutler/ui';
+	import {
+		Avatar,
+		Badge,
+		Button,
+		EmptyStatePlaceholder,
+		FileListItem,
+		Icon,
+		InfoButton,
+		Modal,
+		TestId
+	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
 	import type { FileInfo } from '$lib/files/file';
@@ -140,6 +152,23 @@
 
 	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
 
+	// Track the loading state of file queries
+	const isLoadingFiles = $derived.by(() => {
+		const initialStatus = initialFiles.result.status;
+		const uncommittedStatus = uncommittedFiles.result.status;
+		return (
+			initialStatus === QueryStatus.pending ||
+			initialStatus === QueryStatus.uninitialized ||
+			uncommittedStatus === QueryStatus.pending ||
+			uncommittedStatus === QueryStatus.uninitialized
+		);
+	});
+
+	// Determine if files are truly empty (loaded but no data)
+	const isFilesEmpty = $derived.by(() => {
+		return !isLoadingFiles && files.length === 0;
+	});
+
 	let manuallyResolvedFiles = new SvelteSet<string>();
 	const filesWithConflictedStatues = $derived(
 		conflictedFiles.map((f) => [f, isConflicted(f)] as [FileEntry, Readable<boolean>])
@@ -257,29 +286,47 @@
 								isCommitListScrolled = !visible;
 							}}
 						>
-							{#each files as file (file.path)}
-								{@const conflictedStore = isConflicted(file)}
-								{@const conflicted = fromStore(conflictedStore).current}
-								<div class="file">
-									<FileListItem
-										filePath={file.path}
-										pathFirst={$userSettings.pathFirst}
-										fileStatus={file.status}
-										{conflicted}
-										clickable={false}
-										onresolveclick={file.conflicted
-											? () => manuallyResolvedFiles.add(file.path)
-											: undefined}
-										conflictHint={file.conflictHint}
-										oncontextmenu={(e) => {
-											const treeChange = getTreeChangeForFile(file);
-											if (treeChange) {
-												contextMenu?.open(e, { changes: [treeChange] });
-											}
-										}}
-									/>
+							{#if isLoadingFiles}
+								<div class="files-state">
+									<Icon name="spinner" />
+									<span class="text-12 text-body">Loading files...</span>
 								</div>
-							{/each}
+							{:else if isFilesEmpty}
+								<EmptyStatePlaceholder
+									image={emptyFolderSvg}
+									gap={8}
+									topBottomPadding={32}
+									bottomMargin={0}
+								>
+									{#snippet caption()}
+										This commit appears to have no files
+									{/snippet}
+								</EmptyStatePlaceholder>
+							{:else}
+								{#each files as file (file.path)}
+									{@const conflictedStore = isConflicted(file)}
+									{@const conflicted = fromStore(conflictedStore).current}
+									<div class="file">
+										<FileListItem
+											filePath={file.path}
+											pathFirst={$userSettings.pathFirst}
+											fileStatus={file.status}
+											{conflicted}
+											clickable={false}
+											onresolveclick={file.conflicted
+												? () => manuallyResolvedFiles.add(file.path)
+												: undefined}
+											conflictHint={file.conflictHint}
+											oncontextmenu={(e) => {
+												const treeChange = getTreeChangeForFile(file);
+												if (treeChange) {
+													contextMenu?.open(e, { changes: [treeChange] });
+												}
+											}}
+										/>
+									</div>
+								{/each}
+							{/if}
 						</ScrollableContainer>
 					</div>
 				</div>
@@ -411,6 +458,16 @@
 			&:last-child {
 				border-bottom: none;
 			}
+		}
+
+		& .files-state {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 8px;
+			padding: 32px 16px;
+			color: var(--clr-text-2);
 		}
 	}
 
