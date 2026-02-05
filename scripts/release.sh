@@ -91,6 +91,9 @@ ARCH="$(arch)"
 OS="$(os)"
 DIST="release"
 
+# the OS is used for certain build decisions and signing
+export OS
+
 function tauri() {
 	(cd "$PWD/.." && pnpm tauri-for-release "$@")
 }
@@ -157,8 +160,7 @@ if [ "$DO_SIGN" = "true" ]; then
 		export SIGN_KEY="$APPIMAGE_KEY_ID"
 		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"
 	elif [ "$OS" == "windows" ]; then
-		# Nothing to do on windows
-		export OS
+		: # nothing to do on windows
 	else
 		error "signing is not supported on $(uname -s)"
 	fi
