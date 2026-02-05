@@ -49,7 +49,7 @@
 			onForget={() => alert('Forget clicked')}
 		>
 			{#snippet badge()}
-				<Badge style="purple" icon="github">GitHub</Badge>
+				<Badge style="purple">PAT</Badge>
 			{/snippet}
 		</ForgeUserCard>
 	{/snippet}
@@ -65,11 +65,7 @@
 			isLoading={true}
 			isForgetLoading={false}
 			onForget={() => alert('Forget clicked')}
-		>
-			{#snippet badge()}
-				<Badge style="purple" icon="github">GitHub</Badge>
-			{/snippet}
-		</ForgeUserCard>
+		/>
 	{/snippet}
 </Story>
 
@@ -83,11 +79,7 @@
 			isLoading={false}
 			isForgetLoading={false}
 			onForget={() => alert('Forget clicked')}
-		>
-			{#snippet badge()}
-				<Badge style="purple" icon="github">GitHub</Badge>
-			{/snippet}
-		</ForgeUserCard>
+		/>
 	{/snippet}
 </Story>
 
@@ -101,11 +93,7 @@
 			isLoading={false}
 			isForgetLoading={false}
 			onForget={() => alert('Forget clicked')}
-		>
-			{#snippet badge()}
-				<Badge style="purple" icon="github">GitHub</Badge>
-			{/snippet}
-		</ForgeUserCard>
+		/>
 	{/snippet}
 </Story>
 
@@ -119,11 +107,7 @@
 			isLoading={false}
 			isForgetLoading={true}
 			onForget={() => alert('Forget clicked')}
-		>
-			{#snippet badge()}
-				<Badge style="purple" icon="github">GitHub</Badge>
-			{/snippet}
-		</ForgeUserCard>
+		/>
 	{/snippet}
 </Story>
 
@@ -139,7 +123,7 @@
 			onForget={() => alert('Forget clicked')}
 		>
 			{#snippet badge()}
-				<Badge style="purple" icon="github">GitHub</Badge>
+				<Badge style="purple">PAT</Badge>
 			{/snippet}
 		</ForgeUserCard>
 	{/snippet}
@@ -157,7 +141,7 @@
 			onForget={() => alert('Forget clicked')}
 		>
 			{#snippet badge()}
-				<Badge style="warning" icon="gitlab">GitLab</Badge>
+				<Badge style="warning">PAT</Badge>
 			{/snippet}
 		</ForgeUserCard>
 	{/snippet}
@@ -174,12 +158,7 @@
 				isLoading={false}
 				isForgetLoading={false}
 				onForget={() => alert('Forget octocat')}
-			>
-				{#snippet badge()}
-					<Badge style="purple" icon="github">GitHub</Badge>
-				{/snippet}
-			</ForgeUserCard>
-
+			/>
 			<ForgeUserCard
 				username="gitlabuser"
 				avatarUrl="https://secure.gravatar.com/avatar/e64c7d89f26bd1972efa854d13d7dd61?s=80&d=identicon"
@@ -188,12 +167,7 @@
 				isLoading={false}
 				isForgetLoading={false}
 				onForget={() => alert('Forget gitlabuser')}
-			>
-				{#snippet badge()}
-					<Badge style="warning" icon="gitlab">GitLab</Badge>
-				{/snippet}
-			</ForgeUserCard>
-
+			/>
 			<ForgeUserCard
 				username="erroruser"
 				avatarUrl={null}
@@ -202,11 +176,7 @@
 				isLoading={false}
 				isForgetLoading={false}
 				onForget={() => alert('Forget erroruser')}
-			>
-				{#snippet badge()}
-					<Badge style="purple" icon="github">GitHub</Badge>
-				{/snippet}
-			</ForgeUserCard>
+			/>
 		</div>
 	{/snippet}
 </Story>
