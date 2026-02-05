@@ -207,6 +207,10 @@ async fn match_subcommand(
             Ok(())
         }
         Subcommands::Onboarding => command::onboarding::handle(out),
+        Subcommands::EvalHook => {
+            command::eval_hook::execute();
+            Ok(())
+        }
         Subcommands::Alias(alias_args::Platform { cmd }) => {
             let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
             match cmd {

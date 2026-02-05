@@ -7,6 +7,7 @@ pub mod alias;
 pub mod branch;
 pub mod completions;
 pub mod config;
+pub mod eval_hook;
 pub mod gui;
 pub mod help;
 pub mod onboarding;
