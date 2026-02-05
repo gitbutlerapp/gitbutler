@@ -198,6 +198,10 @@
 	{#if showingFlow === 'oauthFlow'}
 		<div in:fade={{ duration: 100 }}>
 			<CardGroup.Item standalone>
+				<div class="close-button-wrapper">
+					<Button kind="ghost" style="gray" icon="cross" onclick={cleanupAuthFlow} />
+				</div>
+
 				<div class="wrapper">
 					<div class="step-section">
 						<div class="step-line"></div>
@@ -397,6 +401,13 @@
 {/snippet}
 
 <style lang="postcss">
+	.close-button-wrapper {
+		display: flex;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+	}
+
 	.wrapper {
 		display: flex;
 		flex-direction: column;
