@@ -475,7 +475,7 @@ pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repositor
     read_only_in_memory_scenario_named(name, "")
 }
 
-/// Obtain an isolated `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects.
+/// Obtain an isolated `repo` from the `tests/fixtures/$script_name.sh/…/$dirname` script, with in-memory objects.
 pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
@@ -483,7 +483,7 @@ pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> a
     Ok(repo)
 }
 
-/// Obtain an isolated `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects,
+/// Obtain an isolated `repo` from the `tests/fixtures/$script_name.sh/…/$dirname` script, with in-memory objects,
 /// with `dirname` being the sub-directory to look into once the fixture was created.
 /// `dirname` can be "" to make it a no-op.
 /// Use `post_fn` to modify the fixture and produce a value of type `T`, which is also returned.

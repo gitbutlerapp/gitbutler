@@ -55,7 +55,7 @@ impl RemoteTrackingReference {
     pub fn for_ui(ref_name: gix::refs::FullName, remote_names: &gix::remote::Names) -> anyhow::Result<Self> {
         let (category, _short_name) = ref_name
             .category_and_short_name()
-            .with_context(|| format!("Failed to categorize presume remote reference '{ref_name}'"))?;
+            .with_context(|| format!("Failed to categorize presumed remote reference '{ref_name}'"))?;
         if category != Category::RemoteBranch {
             bail!("Expected '{ref_name}' to be a remote tracking branch, but was {category:?}");
         }

@@ -144,7 +144,7 @@ pub fn extract_remote_name_and_short_name(
         })
         .next()
         .or_else(|| {
-            // it's a stray RTB, without registered remote name. Let's not risk it and assume a nanme without slashes.
+            // it's a stray RTB, without registered remote name. Let's not risk it and assume a name without slashes.
             let rtb_short_name = ref_name.shorten();
             let pos = rtb_short_name.find_byte(b'/')?;
             let remote_name = rtb_short_name[..pos].as_bstr();
