@@ -1,7 +1,7 @@
 use std::fs;
 
 use but_core::{ChangeId, commit::Headers};
-use but_oxidize::git2_to_gix_object_id;
+use but_oxidize::OidExt;
 use gitbutler_repo::RepositoryExt;
 use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{TempDir, tempdir};
@@ -203,7 +203,7 @@ pub fn assert_tree_matches_with_mode(
 ) {
     let gix_repository = gix::open(repository.path()).unwrap();
 
-    let tree = gix_repository.find_tree(git2_to_gix_object_id(tree)).unwrap();
+    let tree = gix_repository.find_tree(tree.to_gix()).unwrap();
 
     for (path, content, entry_attributes) in files {
         let tree_entry = tree.lookup_entry_by_path(path).unwrap().unwrap();

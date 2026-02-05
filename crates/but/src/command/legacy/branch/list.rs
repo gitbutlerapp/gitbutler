@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path};
 
 use but_ctx::Context;
-use but_oxidize::OidExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
 
@@ -231,8 +231,6 @@ fn output_json(
     ctx: &Context,
     out: &mut OutputChannel,
 ) -> Result<(), anyhow::Error> {
-    use but_oxidize::gix_to_git2_oid;
-
     use crate::command::legacy::branch::json::*;
 
     // Open repo to get commit information
@@ -250,7 +248,7 @@ fn output_json(
                     let merges_cleanly = merge_status_map.and_then(|map| map.get(&head.name.to_string()).copied());
 
                     // Get commit information
-                    let (last_commit_at, last_author) = match repo.find_commit(gix_to_git2_oid(head.tip)) {
+                    let (last_commit_at, last_author) = match repo.find_commit(head.tip.to_git2()) {
                         Ok(commit) => {
                             let author = commit.author();
                             let timestamp_ms = (commit.time().seconds() * 1000) as u128;
@@ -355,7 +353,7 @@ fn check_branches_merge_cleanly(
     let target_commit = match repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
-            git2_repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
+            git2_repo.find_commit(target_oid.to_git2())?
         }
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
@@ -369,7 +367,7 @@ fn check_branches_merge_cleanly(
     for stack_entry in applied_stacks {
         for head in &stack_entry.heads {
             let branch_name = head.name.to_string();
-            match git2_repo.find_commit(but_oxidize::gix_to_git2_oid(head.tip)) {
+            match git2_repo.find_commit(head.tip.to_git2()) {
                 Ok(branch_commit) => {
                     // Find merge base
                     match git2_repo.merge_base(target_commit.id(), branch_commit.id()) {
@@ -440,43 +438,40 @@ fn calculate_commits_ahead(
     ctx: &Context,
     branches: &[gitbutler_branch_actions::BranchListing],
 ) -> Result<HashMap<String, usize>, anyhow::Error> {
-    let repo = &*ctx.git2_repo.get()?;
+    use gix::prelude::ObjectIdExt as _;
+
+    let repo = ctx.repo.get()?;
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let target = stack.get_default_target()?;
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
     let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
-    let target_commit = match ctx.repo.get()?.find_reference(&target_ref_name) {
-        Ok(reference) => {
-            let target_oid = reference.id();
-            repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
-        }
+    let target_oid = match repo.find_reference(&target_ref_name) {
+        Ok(mut reference) => reference.peel_to_commit()?.id,
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            repo.find_commit(target.sha)?
+            target.sha.to_gix()
         }
     };
 
     let mut result = HashMap::new();
 
     for branch in branches {
-        let branch_commit = match repo.find_commit(branch.head) {
-            Ok(commit) => commit,
-            Err(_) => continue, // Skip if we can't find the commit
-        };
+        let branch_oid = branch.head.to_gix();
 
         // Count commits ahead using merge base
-        let merge_base = match repo.merge_base(target_commit.id(), branch_commit.id()) {
+        let merge_base = match repo.merge_base(branch_oid, target_oid) {
             Ok(base) => base,
             Err(_) => continue, // Skip if no merge base found
         };
 
         // Walk from branch head to merge base
-        let mut revwalk = repo.revwalk()?;
-        revwalk.push(branch_commit.id())?;
-        revwalk.hide(merge_base)?;
+        let traversal = match branch_oid.attach(&repo).ancestors().with_hidden(Some(merge_base)).all() {
+            Ok(t) => t,
+            Err(_) => continue,
+        };
 
-        let count = revwalk.count();
+        let count = traversal.filter_map(Result::ok).count();
         result.insert(branch.name.to_string(), count);
     }
 
@@ -519,8 +514,6 @@ fn print_applied_branches_table(
     id_map: &HashMap<String, String>,
     out: &mut (dyn std::fmt::Write + 'static),
 ) -> Result<(), anyhow::Error> {
-    use but_oxidize::gix_to_git2_oid;
-
     use crate::tui::{Table, table::Cell};
 
     if applied_stacks.is_empty() {
@@ -549,7 +542,7 @@ fn print_applied_branches_table(
             let is_single_branch = stack.heads.len() == 1;
 
             // Get commit information
-            let (author_str, date_str) = match repo.find_commit(gix_to_git2_oid(branch.tip)) {
+            let (author_str, date_str) = match repo.find_commit(branch.tip.to_git2()) {
                 Ok(commit) => {
                     let author = commit.author();
                     let author_str = author

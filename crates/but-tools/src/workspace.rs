@@ -8,7 +8,7 @@ use anyhow::Context as _;
 use bstr::BString;
 use but_core::{TreeChange, UnifiedPatch, ref_metadata::StackId};
 use but_ctx::Context;
-use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{CommmitSplitOutcome, ui::StackEntryNoOpt};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
 use gitbutler_oplog::{
@@ -984,7 +984,7 @@ pub fn squash_commits(
     // Update the commit mapping with the new commit id.
     commit_mapping.insert(destination_id.to_gix(), new_commit_id.to_gix());
 
-    Ok(git2_to_gix_object_id(new_commit_id))
+    Ok(new_commit_id.to_gix())
 }
 
 pub struct SplitBranch;

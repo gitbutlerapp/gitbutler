@@ -7,7 +7,7 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
-use but_oxidize::{ObjectIdExt, OidExt, RepoExt, git2_to_gix_object_id, gix_to_git2_index};
+use but_oxidize::{ObjectIdExt, OidExt, RepoExt, gix_to_git2_index};
 use but_workspace::legacy::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::update_workspace_commit;
@@ -51,9 +51,9 @@ fn get_commit_index(ctx: &Context, commit: &git2::Commit) -> Result<git2::Index>
         let gix_repo = repo.clone().for_tree_diffing()?;
         // Merge without favoring a side this time to get a tree containing the actual conflicts.
         let mut merge_result = gix_repo.merge_trees(
-            git2_to_gix_object_id(base),
-            git2_to_gix_object_id(ours),
-            git2_to_gix_object_id(theirs),
+            base.to_gix(),
+            ours.to_gix(),
+            theirs.to_gix(),
             gix_repo.default_merge_labels(),
             gix_repo.tree_merge_options()?,
         )?;

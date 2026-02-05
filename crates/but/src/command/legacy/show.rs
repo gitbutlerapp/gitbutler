@@ -449,7 +449,10 @@ fn get_branch_commits(
     branch_name: &str,
     verbose: bool,
 ) -> Result<(Vec<BranchCommitInfo>, Option<BranchCommitInfo>)> {
+    use gix::prelude::ObjectIdExt as _;
+
     let repo = &*ctx.git2_repo.get()?;
+    let gix_repo = ctx.repo.get()?;
 
     // Get the target from workspace
     let guard = ctx.shared_worktree_access();
@@ -461,7 +464,7 @@ fn get_branch_commits(
     // Find merge base
     let Some(merge_base) = ws
         .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map(|t| t.0.to_git2())
+        .map(|t| t.0)
     else {
         tracing::warn!(
             branch_name,
@@ -471,13 +474,17 @@ fn get_branch_commits(
     };
 
     // Walk from branch head to merge base, collecting commits
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push(branch_commit.id())?;
-    revwalk.hide(merge_base)?;
+    let branch_gix_oid = branch_commit.id().to_gix();
+    let traversal = branch_gix_oid
+        .attach(&gix_repo)
+        .ancestors()
+        .with_hidden(Some(merge_base))
+        .all()?;
 
     let mut commits = Vec::new();
-    for oid in revwalk {
-        let oid = oid?;
+    for info in traversal {
+        let info = info?;
+        let oid = info.id.to_git2();
         let commit = repo.find_commit(oid)?;
         let author = commit.author();
 
@@ -577,7 +584,8 @@ fn get_branch_commits(
 
     // Get base commit info
     let base_commit_info = if verbose {
-        let base_commit = repo.find_commit(merge_base)?;
+        let merge_base_git2 = merge_base.to_git2();
+        let base_commit = repo.find_commit(merge_base_git2)?;
         let base_author = base_commit.author();
         let base_message = base_commit
             .message()
@@ -588,8 +596,8 @@ fn get_branch_commits(
             .to_string();
 
         Some(BranchCommitInfo {
-            sha: merge_base.to_string(),
-            short_sha: merge_base.to_string()[..7].to_string(),
+            sha: merge_base_git2.to_string(),
+            short_sha: merge_base_git2.to_string()[..7].to_string(),
             message: base_message,
             full_message: None,
             author_name: base_author.name().unwrap_or("Unknown").to_string(),
@@ -746,7 +754,10 @@ fn get_stack_chain(ctx: &Context, branch_name: &str) -> Result<Vec<StackChainBra
 }
 
 fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
+    use gix::prelude::ObjectIdExt as _;
+
     let repo = &*ctx.git2_repo.get()?;
+    let gix_repo = ctx.repo.get()?;
 
     // Get the target from workspace
     let guard = ctx.shared_worktree_access();
@@ -757,7 +768,7 @@ fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     let branch_commit = repo.find_commit(branch_oid)?;
     let Some(merge_base) = ws
         .merge_base_with_target_branch(branch_commit.id().to_gix())
-        .map(|t| t.0.to_git2())
+        .map(|t| t.0)
     else {
         tracing::warn!(
             branch_name,
@@ -767,9 +778,12 @@ fn get_branch_commit_count(ctx: &Context, branch_name: &str) -> Result<usize> {
     };
 
     // Count commits
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push(branch_commit.id())?;
-    revwalk.hide(merge_base)?;
+    let branch_gix_oid = branch_commit.id().to_gix();
+    let traversal = branch_gix_oid
+        .attach(&gix_repo)
+        .ancestors()
+        .with_hidden(Some(merge_base))
+        .all()?;
 
-    Ok(revwalk.count())
+    Ok(traversal.filter_map(Result::ok).count())
 }

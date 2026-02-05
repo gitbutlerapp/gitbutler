@@ -25,9 +25,6 @@ itertools.workspace = true
 [dev-dependencies]
 but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
-tempfile.workspace = true
 
 gitbutler-reference.workspace = true
-
-gix-testtools.workspace = true
 insta = "1.45.1"
