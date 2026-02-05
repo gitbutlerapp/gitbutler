@@ -576,7 +576,9 @@ pub async fn create_forge_review(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./forge/review.ts"))]
 pub struct ForgeReviewDescriptionUpdate {
     /// The unique identifier number for this review within its repository. This can be a PR or MR number.
     pub number: i64,
