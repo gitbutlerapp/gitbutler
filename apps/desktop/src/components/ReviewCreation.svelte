@@ -327,7 +327,7 @@
 			prNumbers[currentIndex] = pr.number;
 			const definedPrNumbers = prNumbers.filter(isDefined);
 			if (definedPrNumbers.length > 0) {
-				updatePrStackInfo(prService, definedPrNumbers);
+				updatePrStackInfo(projectId, prService, definedPrNumbers);
 			}
 
 			// Show success notification

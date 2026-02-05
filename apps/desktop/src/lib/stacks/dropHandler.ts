@@ -6,7 +6,7 @@ import {
 	HunkDropDataV3,
 	type ChangeDropData
 } from '$lib/dragging/draggables';
-import { unstackPRs, updateStackPrs } from '$lib/forge/shared/prFooter';
+import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
 import StackMacros from '$lib/stacks/macros';
 import { handleMoveBranchResult } from '$lib/stacks/stack';
 import { ensureValue } from '$lib/utils/validation';
@@ -230,16 +230,16 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		if (this.prService === undefined) return;
 		if (data.prNumber === undefined) return;
 		if (this.baseBranchName === undefined) return;
-		const prs = [data.prNumber, ...data.allOtherPrNumbersInStack];
 
 		if (data.allOtherPrNumbersInStack.length === 1) {
-			await unstackPRs(this.prService, prs, this.baseBranchName);
+			const prs = [data.prNumber, ...data.allOtherPrNumbersInStack];
+			await updatePrDescriptionTables(this.projectId, this.prService, prs);
 			return;
 		}
 
-		await unstackPRs(this.prService, [data.prNumber], this.baseBranchName);
 		const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
-		await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
+		const prs = branchDetails.map((b) => b.prNumber).filter((n): n is number => n !== null);
+		await updatePrDescriptionTables(this.projectId, this.prService, prs);
 	}
 
 	async ondrop(data: unknown): Promise<void> {

@@ -1,5 +1,5 @@
 import { FileChangeDropData, FolderChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
-import { updateStackPrs } from '$lib/forge/shared/prFooter';
+import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
 import type { DropzoneHandler } from '$lib/dragging/handler';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
@@ -58,11 +58,13 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 
 		if (!deletedStacks.includes(data.stackId)) {
 			const branchDetails = await this.stackService.fetchBranches(this.projectId, data.stackId);
-			await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
+			const prNumbers = branchDetails.map((b) => b.prNumber).filter((n): n is number => n !== null);
+			await updatePrDescriptionTables(this.projectId, this.prService, prNumbers);
 		}
 
 		const branchDetails = await this.stackService.fetchBranches(this.projectId, this.stackId);
-		await updateStackPrs(this.prService, branchDetails, this.baseBranchName);
+		const prNumbers = branchDetails.map((b) => b.prNumber).filter((n): n is number => n !== null);
+		await updatePrDescriptionTables(this.projectId, this.prService, prNumbers);
 	}
 }
 

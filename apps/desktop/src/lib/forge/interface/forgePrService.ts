@@ -5,6 +5,7 @@ import type {
 	PullRequest
 } from '$lib/forge/interface/types';
 import type { ReactiveQuery } from '$lib/state/butlerModule';
+import type { ForgeReview } from '@gitbutler/core/api';
 import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
 import type { Writable } from 'svelte/store';
 
@@ -37,5 +38,9 @@ export interface ForgePrService {
 	update(
 		prNumber: number,
 		details: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
+	): Promise<void>;
+	updateReviewFooters(
+		projectId: string,
+		reviews: ForgeReview.ForgeReviewDescriptionUpdate[]
 	): Promise<void>;
 }
