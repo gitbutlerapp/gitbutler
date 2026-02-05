@@ -2,6 +2,7 @@ import { invalidatesItem, invalidatesList, providesItem, ReduxTag } from '$lib/s
 import { InjectionToken } from '@gitbutler/core/context';
 import type { IBackend } from '$lib/backend';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import type { GitConfigSettings } from '@gitbutler/core/api';
 
 export const GIT_CONFIG_SERVICE = new InjectionToken<GitConfigService>('GitConfigService');
 
@@ -41,12 +42,25 @@ export class GitConfigService {
 		return this.api.endpoints.gbConfig.useQuery({ projectId });
 	}
 
-	async getGbConfig(projectId: string): Promise<GbConfig> {
+	async getGbConfig(projectId: string): Promise<GitConfigSettings> {
 		return await this.api.endpoints.gbConfig.fetch({ projectId });
 	}
 
-	async setGbConfig(projectId: string, config: GbConfig) {
-		return await this.api.endpoints.setGbConfig.mutate({ projectId, config });
+	async setGbConfig(projectId: string, config: Partial<GitConfigSettings>) {
+		return await this.api.endpoints.setGbConfig.mutate({
+			projectId,
+			config: {
+				signCommits: config.signCommits ?? null,
+				gitbutlerGerritMode: config.gitbutlerGerritMode ?? null,
+				gitbutlerForgeReviewTemplatePath: config.gitbutlerForgeReviewTemplatePath ?? null,
+				gitbutlerGitlabProjectId: config.gitbutlerGitlabProjectId ?? null,
+				gitbutlerGitlabUpstreamProjectId: config.gitbutlerGitlabUpstreamProjectId ?? null,
+				signingKey: config.signingKey ?? null,
+				signingFormat: config.signingFormat ?? null,
+				gpgProgram: config.gpgProgram ?? null,
+				gpgSshProgram: config.gpgSshProgram ?? null
+			}
+		});
 	}
 
 	async setGerritMode(projectId: string, gerritMode: boolean) {
@@ -86,19 +100,6 @@ export class GitConfigService {
 	}
 }
 
-// These are git configuration values that are read and set by gitbutler.
-// Let's use this config type as a middle ground between setting string key/values from the frontend and having separate get/set methods for each key.
-// This way we can keep track on both frontend and rust-end what is being used and for what purpose.
-export class GbConfig {
-	signCommits?: boolean | undefined;
-	gitbutlerGerritMode?: boolean | undefined;
-	gitbutlerForgeReviewTemplatePath?: string | null;
-	signingKey?: string | undefined;
-	signingFormat?: string | undefined;
-	gpgProgram?: string | undefined;
-	gpgSshProgram?: string | undefined;
-}
-
 function injectEndpoints(api: ClientState['backendApi']) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
@@ -125,13 +126,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesItem(ReduxTag.GitConfigProperty, args.key)
 				]
 			}),
-			gbConfig: build.query<GbConfig, { projectId: string }>({
+			gbConfig: build.query<GitConfigSettings, { projectId: string }>({
 				extraOptions: { command: 'get_gb_config' },
 				query: (args) => args,
 				providesTags: (_result, _error, args) =>
 					providesItem(ReduxTag.GitButlerConfig, args.projectId)
 			}),
-			setGbConfig: build.mutation<void, { projectId: string; config: GbConfig }>({
+			setGbConfig: build.mutation<void, { projectId: string; config: GitConfigSettings }>({
 				extraOptions: { command: 'set_gb_config' },
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [

@@ -6,3 +6,4 @@ export * as Workspace from './workspace/index';
 export * as HunkAssignment from './hunkAssignment';
 export * as Settings from './settings';
 export * as Action from './action/autoCommit';
+export type { GitConfigSettings } from './settings/gitConfigSettings';
