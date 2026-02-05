@@ -153,6 +153,8 @@
 	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
 
 	// Track the loading state of file queries
+	// We need BOTH queries to complete before we can display the files list,
+	// because the files computation merges data from both queries
 	const isLoadingFiles = $derived.by(() => {
 		const initialStatus = initialFiles.result.status;
 		const uncommittedStatus = uncommittedFiles.result.status;
