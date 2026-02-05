@@ -11,9 +11,9 @@ fi
 
 set -x
 cargo build --release -p gitbutler-git
-if [ "${OS:-}" == "windows" ]; then
-  # WARNING: should only run if the `builtin-but` feature is *not* selected in `release.sh`.
-  #          Right now we just keep these scripts in sync to do the right thing, assuming it won't change.
+if [ "${OS:-}" == "windows" ] || [ "${OS:-}" == "linux" ]; then
+  # NOTE: Should run either if the builtin-but feature is *not* selected in `release.sh` (case for Windows), OR if we
+  # need the standalone CLI for separate publishing (case for Linux)
   cargo build --release -p but
 fi
 bash ./crates/gitbutler-tauri/inject-git-binaries.sh
