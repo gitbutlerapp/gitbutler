@@ -6,15 +6,7 @@
 	import { GITLAB_USER_SERVICE } from '$lib/forge/gitlab/gitlabUserService.svelte';
 	import { inject } from '@gitbutler/core/context';
 
-	import {
-		Button,
-		CardGroup,
-		ContextMenu,
-		ContextMenuItem,
-		ContextMenuSection,
-		Link,
-		Textbox
-	} from '@gitbutler/ui';
+	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
 
 	const gitlabUserService = inject(GITLAB_USER_SERVICE);
@@ -36,10 +28,6 @@
 	let selfHostedHostInput = $state<string>();
 	let selfHostedPatError = $state<string>();
 	let selfHostedHostError = $state<string>();
-
-	// Add account button and context menu
-	let addProfileButtonRef = $state<HTMLElement>();
-	let addAccountContextMenu = $state<ContextMenu>();
 
 	function cleanupPatFlow() {
 		showingFlow = undefined;
@@ -235,38 +223,19 @@
 </p>
 
 {#snippet addProfileButton(noAccounts: boolean)}
-	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
-	<Button
-		bind:el={addProfileButtonRef}
-		kind="outline"
-		onclick={() => addAccountContextMenu?.toggle()}
+	<AddForgeAccountButton
+		{noAccounts}
 		disabled={showingFlow !== undefined}
 		loading={storePatResult.current.isLoading || storeSelfHostedPatResult.current.isLoading}
-		icon="plus-small"
-	>
-		{buttonText}
-	</Button>
-
-	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addProfileButtonRef}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Add Personal Access Token"
-				icon="token-lock"
-				onclick={() => {
-					startPatFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Add Self-Hosted GitLab Account"
-				icon="enterprise"
-				onclick={() => {
-					startSelfHostedFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
+		menuItems={[
+			{ label: 'Add Personal Access Token', icon: 'token-lock', onclick: startPatFlow },
+			{
+				label: 'Add Self-Hosted GitLab Account',
+				icon: 'enterprise',
+				onclick: startSelfHostedFlow
+			}
+		]}
+	/>
 {/snippet}
 
 <style lang="postcss">

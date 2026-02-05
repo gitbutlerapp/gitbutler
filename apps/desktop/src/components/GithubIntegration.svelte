@@ -9,11 +9,9 @@
 	import { inject } from '@gitbutler/core/context';
 
 	import {
+		AddForgeAccountButton,
 		Button,
 		CardGroup,
-		ContextMenu,
-		ContextMenuItem,
-		ContextMenuSection,
 		Link,
 		Textbox,
 		chipToasts as toasts
@@ -50,10 +48,6 @@
 	let gheHostInput = $state<string>();
 	let ghePatError = $state<string>();
 	let gheHostError = $state<string>();
-
-	// Add account button and context menu
-	let addProfileButtonRef = $state<HTMLElement>();
-	let addAccountContextMenu = $state<ContextMenu>();
 
 	function cleanupAuthFlow() {
 		showingFlow = undefined;
@@ -358,46 +352,20 @@
 </div>
 
 {#snippet addProfileButton(noAccounts: boolean)}
-	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
-	<Button
-		bind:el={addProfileButtonRef}
-		kind="outline"
-		onclick={() => addAccountContextMenu?.toggle()}
+	<AddForgeAccountButton
+		{noAccounts}
 		disabled={showingFlow !== undefined}
 		loading={storePatResult.current.isLoading || storeGhePatResult.current.isLoading}
-		icon="plus-small"
-	>
-		{buttonText}
-	</Button>
-
-	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addProfileButtonRef}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Authorize GitHub Account"
-				icon="connect-github"
-				onclick={() => {
-					gitHubStartOauth();
-					addAccountContextMenu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Add Personal Access Token"
-				icon="token-lock"
-				onclick={() => {
-					startPatFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Add GitHub Enterprise Account"
-				icon="enterprise"
-				onclick={() => {
-					startGitHubEnterpriseFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
+		menuItems={[
+			{ label: 'Authorize GitHub Account', icon: 'connect-github', onclick: gitHubStartOauth },
+			{ label: 'Add Personal Access Token', icon: 'token-lock', onclick: startPatFlow },
+			{
+				label: 'Add GitHub Enterprise Account',
+				icon: 'enterprise',
+				onclick: startGitHubEnterpriseFlow
+			}
+		]}
+	/>
 {/snippet}
 
 <style lang="postcss">
