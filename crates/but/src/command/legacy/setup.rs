@@ -1,6 +1,9 @@
 use std::path::{self, Path};
 
-use but_core::{RepositoryExt, sync::RepoShared};
+use but_core::{
+    RepositoryExt,
+    sync::{RepoExclusive, RepoShared},
+};
 use but_ctx::Context;
 use colored::Colorize;
 use serde::Serialize;
@@ -101,7 +104,11 @@ fn display_splash_screen(out: &mut dyn std::fmt::Write) -> anyhow::Result<()> {
 }
 
 /// Finds an existing git repository at `repo_path`, or initializes a new one if `init` is true.
-fn find_or_initialize_repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> anyhow::Result<gix::Repository> {
+pub fn find_or_initialize_repo(
+    repo_path: &Path,
+    out: &mut OutputChannel,
+    init: bool,
+) -> anyhow::Result<gix::Repository> {
     match gix::open(repo_path) {
         Ok(repo) => Ok(repo),
         Err(_) => {
@@ -143,21 +150,23 @@ fn find_or_initialize_repo(repo_path: &Path, out: &mut OutputChannel, init: bool
 }
 
 // setup a gitbutler project for the repository at `repo_path`
-pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> anyhow::Result<()> {
+pub(crate) fn repo(
+    ctx: &mut Context,
+    repo_path: &Path,
+    out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
     let mut target_info: Option<TargetInfo> = None;
 
-    let repo = match but_api::legacy::projects::add_project_best_effort(repo_path.to_path_buf())? {
-        gitbutler_project::AddProjectOutcome::Added(project)
-        | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => gix::open(project.git_dir())?,
-        _ => find_or_initialize_repo(repo_path, out, init)?,
-    };
-
     // what branch is head() pointing to?
-    let pre_head = repo.head()?;
-    let pre_head_name = pre_head
-        .referent_name()
-        .map(|n| n.shorten().to_string())
-        .unwrap_or_default();
+    let pre_head_name = {
+        let repo = ctx.repo.get()?;
+        let pre_head = repo.head()?;
+        pre_head
+            .referent_name()
+            .map(|n| n.shorten().to_string())
+            .unwrap_or_default()
+    };
 
     // find or setup the gitbutler project
     if let Some(out) = out.for_human() {
@@ -215,8 +224,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
     }?;
 
     // Check if target branch is set
-    let mut ctx = but_ctx::Context::from_repo(repo)?;
-    let target = but_api::legacy::virtual_branches::get_base_branch_data(&ctx)?;
+    let target = but_api::legacy::virtual_branches::get_base_branch_data(ctx)?;
 
     // If new or already exists but target is not set, set the target to be the remote's HEAD
     if (matches!(outcome, gitbutler_project::AddProjectOutcome::Added(_))
@@ -268,7 +276,12 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         };
 
         drop(repo);
-        but_api::legacy::virtual_branches::set_base_branch(&mut ctx, name.clone(), Some(remote_name.clone()))?;
+        but_api::legacy::virtual_branches::set_base_branch_with_perm(
+            ctx,
+            name.clone(),
+            Some(remote_name.clone()),
+            perm,
+        )?;
 
         // Track target info for JSON output
         target_info = Some(TargetInfo {
@@ -305,7 +318,6 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
         }
     }
 
-    // what branch is head() pointing to?
     let head_name = {
         let repo = ctx.repo.get()?;
         let head = repo.head()?;
@@ -316,7 +328,7 @@ pub(crate) fn repo(repo_path: &Path, out: &mut OutputChannel, init: bool) -> any
 
     // switch to gitbutler/workspace if not already there
     if !head_name.starts_with("gitbutler/") {
-        but_api::legacy::virtual_branches::switch_back_to_workspace(&mut ctx)?;
+        but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
     }
 
     // Install managed hooks to prevent accidental git commits
@@ -393,8 +405,10 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
     }
 
     // check if there is a remote
-    if ws.remote_name().is_none() || repo.remote_default_name(gix::remote::Direction::Push).is_none() {
-        anyhow::bail!("No push remote found in workspace or unambiguously in the Git repository configuration.")
+    if ws.remote_name().is_none() && repo.remote_default_name(gix::remote::Direction::Push).is_none() {
+        anyhow::bail!(
+            "Neither found push remote found in workspace nor unambiguously in the Git repository configuration."
+        )
     };
 
     // check if we're on gitbutler/workspace

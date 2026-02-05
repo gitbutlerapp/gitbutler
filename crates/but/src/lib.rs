@@ -724,9 +724,18 @@ async fn match_subcommand(
             command::legacy::discard::handle(&mut ctx, out, &id).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Setup { init } => command::legacy::setup::repo(&args.current_dir, out, init)
-            .context("Failed to set up GitButler project.")
-            .emit_metrics(metrics_ctx),
+        Subcommands::Setup { init } => {
+            let repo = match but_api::legacy::projects::add_project_best_effort(args.current_dir.clone())? {
+                gitbutler_project::AddProjectOutcome::Added(project)
+                | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => gix::open(project.git_dir())?,
+                _ => command::legacy::setup::find_or_initialize_repo(&args.current_dir, out, init)?,
+            };
+            let mut ctx = but_ctx::Context::from_repo(repo)?;
+            let mut guard = ctx.exclusive_worktree_access();
+            command::legacy::setup::repo(&mut ctx, &args.current_dir, out, guard.write_permission())
+                .context("Failed to set up GitButler project.")
+                .emit_metrics(metrics_ctx)
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Teardown => {
             let mut ctx = setup::init_ctx(

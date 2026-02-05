@@ -5,10 +5,7 @@ fn not_a_git_repository() -> anyhow::Result<()> {
     let env = Sandbox::empty()?;
 
     env.but("setup").assert().failure().stderr_eq(snapbox::str![[r#"
-Error: Failed to set up GitButler project.
-
-Caused by:
-    No git repository found - run `but setup --init` to initialize a new repository.
+Error: No git repository found - run `but setup --init` to initialize a new repository.
 
 "#]]);
 
@@ -514,10 +511,7 @@ fn json_output_not_a_git_repo() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(snapbox::str![[r#"
-Error: Failed to set up GitButler project.
-
-Caused by:
-    No git repository found.
+Error: No git repository found.
 
 "#]])
         .stdout_eq(snapbox::str![]);
