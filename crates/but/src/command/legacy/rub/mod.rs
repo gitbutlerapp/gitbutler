@@ -441,117 +441,122 @@ fn parse_sources_with_disambiguation(
     source: &str,
     out: &mut OutputChannel,
 ) -> anyhow::Result<Vec<CliId>> {
-    // Check if it's a range (contains '-')
-    if source.contains('-') {
-        parse_range(ctx, id_map, source)
-    }
     // Check if it's a list (contains ',')
-    else if source.contains(',') {
-        parse_list_with_disambiguation(ctx, id_map, source, out)
+    if source.contains(',') {
+        return parse_list_with_disambiguation(ctx, id_map, source, out);
     }
-    // Single source
-    else {
-        let source_result = id_map.parse_using_context(source, ctx)?;
+
+    // Check if it's a valid range (e.g., "g0-h2" where both sides are uncommitted files).
+    // If the string contains '-' but isn't a valid range (e.g., a filename like "my-file.rs"
+    // or a branch name like "feature-auth"), fall through to single-entity parsing.
+    if source.contains('-')
+        && let Some(range_result) = try_parse_range(ctx, id_map, source)?
+    {
+        return Ok(range_result);
+    }
+
+    // Single source (including strings with dashes that aren't valid ranges)
+    let source_result = id_map.parse_using_context(source, ctx)?;
+    if source_result.is_empty() {
+        return Err(anyhow::anyhow!(
+            "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
+            source
+        ));
+    }
+
+    if source_result.len() > 1 {
+        // Ambiguous - prompt the user to disambiguate
+        let selected = prompt_for_disambiguation(source, source_result, "the source", out)?;
+        return Ok(vec![selected]);
+    }
+
+    Ok(vec![source_result[0].clone()])
+}
+
+pub(crate) fn parse_sources(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
+    // Check if it's a list (contains ',')
+    if source.contains(',') {
+        return parse_list(ctx, id_map, source);
+    }
+
+    // Check if it's a valid range (e.g., "g0-h2" where both sides are uncommitted files).
+    // If the string contains '-' but isn't a valid range (e.g., a filename like "my-file.rs"
+    // or a branch name like "feature-auth"), fall through to single-entity parsing.
+    if source.contains('-')
+        && let Some(range_result) = try_parse_range(ctx, id_map, source)?
+    {
+        return Ok(range_result);
+    }
+
+    // Single source (including strings with dashes that aren't valid ranges)
+    let source_result = id_map.parse_using_context(source, ctx)?;
+    if source_result.len() != 1 {
         if source_result.is_empty() {
             return Err(anyhow::anyhow!(
                 "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
                 source
             ));
+        } else {
+            let matches: Vec<String> = source_result
+                .iter()
+                .map(|id| format!("{} ({})", id.to_short_string(), id.kind_for_humans()))
+                .collect();
+            return Err(anyhow::anyhow!(
+                "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
+                source,
+                matches.join(", ")
+            ));
         }
-
-        if source_result.len() > 1 {
-            // Ambiguous - prompt the user to disambiguate
-            let selected = prompt_for_disambiguation(source, source_result, "the source", out)?;
-            return Ok(vec![selected]);
-        }
-
-        Ok(vec![source_result[0].clone()])
     }
+    Ok(vec![source_result[0].clone()])
 }
 
-pub(crate) fn parse_sources(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
-    // Check if it's a range (contains '-')
-    if source.contains('-') {
-        parse_range(ctx, id_map, source)
-    }
-    // Check if it's a list (contains ',')
-    else if source.contains(',') {
-        parse_list(ctx, id_map, source)
-    }
-    // Single source
-    else {
-        let source_result = id_map.parse_using_context(source, ctx)?;
-        if source_result.len() != 1 {
-            if source_result.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-                    source
-                ));
-            } else {
-                let matches: Vec<String> = source_result
-                    .iter()
-                    .map(|id| format!("{} ({})", id.to_short_string(), id.kind_for_humans()))
-                    .collect();
-                return Err(anyhow::anyhow!(
-                    "Source '{}' is ambiguous. Matches: {}. Try using more characters, a longer SHA, or the full branch name to disambiguate.",
-                    source,
-                    matches.join(", ")
-                ));
-            }
-        }
-        Ok(vec![source_result[0].clone()])
-    }
-}
-
-fn parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Vec<CliId>> {
+/// Tries to parse `source` as a range expression like "g0-h2".
+///
+/// A range is only valid when:
+/// - The string splits on '-' into exactly 2 parts
+/// - Both parts resolve to exactly one `Uncommitted` entity each
+///
+/// Returns `Ok(Some(ids))` for a valid range, `Ok(None)` if it's not a range
+/// (allowing the caller to fall through to single-entity parsing), or `Err`
+/// if it looks like a range but the IDs aren't in the display order.
+fn try_parse_range(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result<Option<Vec<CliId>>> {
     let parts: Vec<&str> = source.split('-').collect();
     if parts.len() != 2 {
-        return Err(anyhow::anyhow!("Range format should be 'start-end', got '{}'", source));
+        return Ok(None);
     }
 
-    let start_str = parts[0];
-    let end_str = parts[1];
+    // If either half fails to parse (e.g., single character "a" in "a-file.txt"),
+    // this isn't a range — fall through to single-entity parsing.
+    let Ok(start_matches) = id_map.parse_using_context(parts[0], ctx) else {
+        return Ok(None);
+    };
+    let Ok(end_matches) = id_map.parse_using_context(parts[1], ctx) else {
+        return Ok(None);
+    };
 
-    // Get the start and end IDs
-    let start_matches = id_map.parse_using_context(start_str, ctx)?;
-    let end_matches = id_map.parse_using_context(end_str, ctx)?;
-
-    if start_matches.len() != 1 {
-        return Err(anyhow::anyhow!(
-            "Start of range '{}' must match exactly one item",
-            start_str
-        ));
+    // Both sides must resolve to exactly one Uncommitted entity
+    if start_matches.len() != 1 || end_matches.len() != 1 {
+        return Ok(None);
     }
-    if end_matches.len() != 1 {
-        return Err(anyhow::anyhow!(
-            "End of range '{}' must match exactly one item",
-            end_str
-        ));
+    if !matches!(&start_matches[0], CliId::Uncommitted(_)) || !matches!(&end_matches[0], CliId::Uncommitted(_)) {
+        return Ok(None);
     }
 
-    let start_id = &start_matches[0];
-    let end_id = &end_matches[0];
+    // Valid range — resolve positions in display order
+    let all_files = get_all_files_in_display_order(ctx, id_map)?;
+    let start_pos = all_files.iter().position(|id| id == &start_matches[0]);
+    let end_pos = all_files.iter().position(|id| id == &end_matches[0]);
 
-    // Get all files in display order (same order as shown in status)
-    let all_files_in_order = get_all_files_in_display_order(ctx, id_map)?;
-
-    // Find the positions of start and end in the ordered file list
-    let start_pos = all_files_in_order.iter().position(|id| id == start_id);
-    let end_pos = all_files_in_order.iter().position(|id| id == end_id);
-
-    if let (Some(start_idx), Some(end_idx)) = (start_pos, end_pos) {
-        if start_idx <= end_idx {
-            return Ok(all_files_in_order[start_idx..=end_idx].to_vec());
-        } else {
-            return Ok(all_files_in_order[end_idx..=start_idx].to_vec());
-        }
+    match (start_pos, end_pos) {
+        (Some(s), Some(e)) if s <= e => Ok(Some(all_files[s..=e].to_vec())),
+        (Some(s), Some(e)) => Ok(Some(all_files[e..=s].to_vec())),
+        _ => Err(anyhow::anyhow!(
+            "Could not find range from '{}' to '{}' in the displayed file list",
+            parts[0],
+            parts[1]
+        )),
     }
-
-    Err(anyhow::anyhow!(
-        "Could not find range from '{}' to '{}' in the displayed file list",
-        start_str,
-        end_str
-    ))
 }
 
 fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::Result<Vec<CliId>> {

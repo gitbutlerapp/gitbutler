@@ -435,6 +435,29 @@ Staged a hunk in a.txt in the unassigned area → [A].
     Ok(())
 }
 
+// Regression: filenames with dashes should not be misinterpreted as ranges.
+// Before the fix, "my-file.txt" would be split on '-' and treated as a range
+// from "my" to "file.txt", which would fail.
+#[test]
+fn filename_with_dash_not_treated_as_range() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("my-file.txt", "arbitrary text\n");
+
+    // Staging by filename should work — the dash should NOT be interpreted as a range separator
+    env.but("stage my-file.txt A")
+        .assert()
+        .success()
+        .stdout_eq(snapbox::str![[r#"
+Staged the only hunk in my-file.txt in the unassigned area → [A].
+
+"#]])
+        .stderr_eq(str![""]);
+
+    Ok(())
+}
+
 // Tests for convenience commands
 
 #[test]
