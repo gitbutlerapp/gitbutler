@@ -16,6 +16,6 @@ pnpm format
 
 if ! git diff --quiet; then
   git status
-  echo "There are changed TS bindings. This error will go away with `git add .`, and on CI when the changes are committed."
+  echo "There are changed TS bindings. This error will go away with 'git add .', and on CI when the changes are committed."
   exit 2
 fi

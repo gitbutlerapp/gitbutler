@@ -112,7 +112,14 @@ pub fn init_ctx(args: &Args, options: InitCtxOptions, out: &mut OutputChannel) -
                     match prompt_for_setup(out, &message) {
                         SetupPromptResult::RunSetup => {
                             // Run setup
-                            crate::command::legacy::setup::repo(&args.current_dir, out, false)?;
+                            let mut ctx = Context::from_repo(repo.clone())?;
+                            let mut guard = ctx.exclusive_worktree_access();
+                            crate::command::legacy::setup::repo(
+                                &mut ctx,
+                                &args.current_dir,
+                                out,
+                                guard.write_permission(),
+                            )?;
                             // Retry finding the project after setup
                             LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
                                 anyhow::anyhow!("Setup completed but project still not found at {}", workdir.display())
@@ -128,13 +135,18 @@ pub fn init_ctx(args: &Args, options: InitCtxOptions, out: &mut OutputChannel) -
             // Check project setup, prompt for setup if needed
             let mut ctx = Context::new_from_legacy_project(project)?;
             {
-                let guard = ctx.exclusive_worktree_access();
+                let mut guard = ctx.exclusive_worktree_access();
                 if let Err(e) = check_project_setup(&ctx, guard.read_permission()) {
                     let message = e.to_string();
                     match prompt_for_setup(out, &message) {
                         SetupPromptResult::RunSetup => {
                             // Run setup to fix the project configuration
-                            crate::command::legacy::setup::repo(&args.current_dir, out, false)?;
+                            crate::command::legacy::setup::repo(
+                                &mut ctx,
+                                &args.current_dir,
+                                out,
+                                guard.write_permission(),
+                            )?;
                             // Re-find and re-check the project after setup
                             let _project = LegacyProject::find_by_worktree_dir(workdir).map_err(|_| {
                                 anyhow::anyhow!("Setup completed but project still not found at {}", workdir.display())

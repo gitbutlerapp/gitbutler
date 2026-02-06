@@ -58,3 +58,15 @@ pub async fn get(
         .context("Failed to get pull request")?;
     Ok(pr)
 }
+
+pub async fn update(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    params: crate::client::UpdatePullRequestParams<'_>,
+    storage: &but_forge_storage::Controller,
+) -> Result<crate::client::PullRequest> {
+    let pr = GitHubClient::from_storage(storage, preferred_account)?
+        .update_pull_request(&params)
+        .await
+        .context("Failed to update pull request")?;
+    Ok(pr)
+}

@@ -323,8 +323,8 @@ but status --json
 
 # 2. Conflicts between feature-b and feature-c
 # Unapply them temporarily
-but branch unapply bv
-but branch unapply bw
+but unapply bv
+but unapply bw
 
 # 3. Focus on feature-a
 # (make changes, stage, commit)
@@ -335,8 +335,8 @@ but commit bu --only -m "Complete feature-a"
 but pr new bu
 
 # 5. Reapply other branches
-but branch apply bv
-but branch apply bw
+but apply bv
+but apply bw
 
 # 6. Deal with their conflicts now
 but resolve ...

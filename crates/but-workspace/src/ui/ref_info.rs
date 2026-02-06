@@ -1,6 +1,9 @@
 use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{ref_metadata, ref_metadata::StackId};
+use but_core::{
+    extract_remote_name_and_short_name,
+    ref_metadata::{self, StackId},
+};
 use gix::refs::Category;
 
 use crate::{
@@ -50,31 +53,19 @@ impl RemoteTrackingReference {
     /// Create a new instance from `ref_name` and `remote_names`, essentially splitting the remote
     /// name off the short name.
     pub fn for_ui(ref_name: gix::refs::FullName, remote_names: &gix::remote::Names) -> anyhow::Result<Self> {
-        let (category, short_name) = ref_name
+        let (category, _short_name) = ref_name
             .category_and_short_name()
-            .with_context(|| format!("Failed to categorize presume remote reference '{ref_name}'"))?;
+            .with_context(|| format!("Failed to categorize presumed remote reference '{ref_name}'"))?;
         if category != Category::RemoteBranch {
             bail!("Expected '{ref_name}' to be a remote tracking branch, but was {category:?}");
         }
-        let (longest_remote, short_name) = remote_names
-            .iter()
-            .rev()
-            .find_map(|remote_name| {
-                short_name.strip_prefix(remote_name.as_bytes()).and_then(|stripped| {
-                    if stripped.first() == Some(&b'/') {
-                        #[allow(clippy::indexing_slicing)]
-                        Some((remote_name, stripped[1..].as_bstr()))
-                    } else {
-                        None
-                    }
-                })
-            })
+        let (longest_remote, short_name) = extract_remote_name_and_short_name(ref_name.as_ref(), remote_names)
             .ok_or(anyhow::anyhow!("Failed to find remote branch's corresponding remote"))
             .with_context(|| format!("Remote reference '{ref_name}' couldn't be matched with any known remote"))?;
 
         Ok(RemoteTrackingReference {
             display_name: short_name.to_str_lossy().into_owned(),
-            remote_name: longest_remote.to_str_lossy().into_owned(),
+            remote_name: longest_remote,
             full_name_bytes: ref_name.into_inner(),
         })
     }

@@ -1,6 +1,6 @@
 use but_ctx::Context;
 use but_llm::ChatMessage;
-use but_oxidize::OidExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
 use tracing::instrument;
 
@@ -115,12 +115,14 @@ struct CommitRef {
     timestamp: i64,
 }
 
+// TODO(perf): re-write with `gix`, just avoid duplicate work there (get_merge_conflict_paths) isn't needed.
 // TODO(perf): re-write this to use a graph that includes all branches from the listing, needs a listing that uses
 //             the graph.
 fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck, anyhow::Error> {
     use but_core::RepositoryExt;
 
     let git2_repo = &*ctx.git2_repo.get()?;
+    let gix_repo = ctx.repo.get()?;
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
 
     // Get the target (remote tracking branch like origin/master)
@@ -132,7 +134,7 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
     let target_commit = match repo.find_reference(&target_ref_name) {
         Ok(reference) => {
             let target_oid = reference.id();
-            git2_repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
+            git2_repo.find_commit(target_oid.to_git2())?
         }
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
@@ -172,11 +174,17 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
             branch_commit.tree_id(),
         )?;
 
+        let merge_base_gix = merge_base.to_gix();
+        let branch_commit_gix = branch_commit.id().to_gix();
+        let target_commit_gix = target_commit.id().to_gix();
+
         // For each conflicting file, find which commits on both sides modified it
         for path in conflict_paths {
-            let branch_commits = find_commits_modifying_file(git2_repo, &path, merge_base, branch_commit.id())?;
+            let branch_commits =
+                find_commits_modifying_file(git2_repo, &gix_repo, &path, merge_base_gix, branch_commit_gix)?;
 
-            let upstream_commits = find_commits_modifying_file(git2_repo, &path, merge_base, target_commit.id())?;
+            let upstream_commits =
+                find_commits_modifying_file(git2_repo, &gix_repo, &path, merge_base_gix, target_commit_gix)?;
 
             conflicting_files.push(ConflictingFile {
                 path,
@@ -202,9 +210,9 @@ fn get_merge_conflict_paths(
 
     let (options, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     let merge_result = gix_repo.merge_trees(
-        but_oxidize::git2_to_gix_object_id(base_tree),
-        but_oxidize::git2_to_gix_object_id(ours_tree),
-        but_oxidize::git2_to_gix_object_id(theirs_tree),
+        base_tree.to_gix(),
+        ours_tree.to_gix(),
+        theirs_tree.to_gix(),
         gix_repo.default_merge_labels(),
         options,
     )?;
@@ -227,20 +235,26 @@ fn get_merge_conflict_paths(
 }
 
 fn find_commits_modifying_file(
-    repo: &git2::Repository,
+    git2_repo: &git2::Repository,
+    gix_repo: &gix::Repository,
     path: &str,
-    from_commit: git2::Oid,
-    to_commit: git2::Oid,
+    from_commit: gix::ObjectId,
+    to_commit: gix::ObjectId,
 ) -> Result<Vec<CommitRef>, anyhow::Error> {
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push(to_commit)?;
-    revwalk.hide(from_commit)?;
+    use gix::prelude::ObjectIdExt as _;
+
+    let traversal = to_commit
+        .attach(gix_repo)
+        .ancestors()
+        .with_hidden(Some(from_commit))
+        .all()?;
 
     let mut commits = Vec::new();
 
-    for oid in revwalk {
-        let oid = oid?;
-        let commit = repo.find_commit(oid)?;
+    for info in traversal {
+        let info = info?;
+        let oid = info.id.to_git2();
+        let commit = git2_repo.find_commit(oid)?;
 
         // Check if this commit modified the file
         let tree = commit.tree()?;
@@ -250,7 +264,7 @@ fn find_commits_modifying_file(
             None
         };
 
-        let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
+        let diff = git2_repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
 
         // Check if any delta in the diff touches this file
         let mut modified_file = false;
@@ -291,7 +305,10 @@ fn find_commits_modifying_file(
 }
 
 fn get_commits_ahead(ctx: &Context, branch_name: &str, show_files: bool) -> Result<Vec<CommitInfo>, anyhow::Error> {
+    use gix::prelude::ObjectIdExt as _;
+
     let repo = &*ctx.git2_repo.get()?;
+    let gix_repo = ctx.repo.get()?;
 
     // Get the target (remote tracking branch like origin/master)
     let stack = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -299,15 +316,11 @@ fn get_commits_ahead(ctx: &Context, branch_name: &str, show_files: bool) -> Resu
 
     // Try to find the remote tracking branch (e.g., refs/remotes/origin/master)
     let target_ref_name = format!("refs/remotes/{}/{}", target.branch.remote(), target.branch.branch());
-    let gix_repo = ctx.repo.get()?;
-    let target_commit = match gix_repo.find_reference(&target_ref_name) {
-        Ok(reference) => {
-            let target_oid = reference.id();
-            repo.find_commit(but_oxidize::gix_to_git2_oid(target_oid))?
-        }
+    let target_oid_gix = match gix_repo.find_reference(&target_ref_name) {
+        Ok(reference) => reference.id().detach(),
         Err(_) => {
             // Fallback to the stored SHA if remote branch doesn't exist
-            repo.find_commit(target.sha)?
+            target.sha.to_gix()
         }
     };
 
@@ -318,19 +331,22 @@ fn get_commits_ahead(ctx: &Context, branch_name: &str, show_files: bool) -> Resu
         .find(|b| b.name.to_string() == branch_name)
         .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found", branch_name))?;
 
-    let branch_commit = repo.find_commit(branch.head)?;
+    let branch_oid_gix = branch.head.to_gix();
 
     // Find merge base
-    let merge_base = repo.merge_base(target_commit.id(), branch_commit.id())?;
+    let merge_base = gix_repo.merge_base(branch_oid_gix, target_oid_gix)?;
 
     // Walk from branch head to merge base, collecting commits
-    let mut revwalk = repo.revwalk()?;
-    revwalk.push(branch_commit.id())?;
-    revwalk.hide(merge_base)?;
+    let traversal = branch_oid_gix
+        .attach(&gix_repo)
+        .ancestors()
+        .with_hidden(Some(merge_base))
+        .all()?;
 
     let mut commits = Vec::new();
-    for oid in revwalk {
-        let oid = oid?;
+    for info in traversal {
+        let info = info?;
+        let oid = info.id.to_git2();
         let commit = repo.find_commit(oid)?;
         let author = commit.author();
 

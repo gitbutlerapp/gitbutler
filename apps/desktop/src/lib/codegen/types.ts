@@ -217,6 +217,26 @@ export type ClaudePermissionRequest = {
 	useWildcard?: boolean;
 };
 
+/** A single option in an AskUserQuestion question */
+export type AskUserQuestionOption = {
+	/** Display label for the option */
+	label: string;
+	/** Description of what this option means */
+	description: string;
+};
+
+/** A single question in an AskUserQuestion request */
+export type AskUserQuestion = {
+	/** The question text to display */
+	question: string;
+	/** Short header label (max 12 chars) */
+	header: string;
+	/** Available answers. */
+	options: AskUserQuestionOption[];
+	/** Whether multiple selections are allowed */
+	multiSelect: boolean;
+};
+
 export type ClaudeTodo = {
 	status: 'pending' | 'in_progress' | 'completed';
 	content: string;

@@ -565,24 +565,6 @@
 		}
 	}
 
-	/* GRAINY BG */
-	.grainy-bg {
-		position: absolute;
-		width: 1000px;
-		height: 950px;
-		transform: rotate(30deg);
-		background-image: url('/images/grainy-gradient-light.png');
-		background-size: 100%;
-		background-repeat: no-repeat;
-		opacity: 0.08;
-		pointer-events: none;
-	}
-
-	:global(.dark) .grainy-bg {
-		background-image: url('/images/grainy-gradient-dark.png');
-		opacity: 0.08;
-	}
-
 	.grainy-1 {
 		top: -40%;
 		right: -45%;
@@ -642,11 +624,6 @@
 
 		.release-row__links {
 			padding: 16px;
-		}
-
-		.grainy-bg {
-			width: 1000px;
-			height: 800px;
 		}
 	}
 </style>

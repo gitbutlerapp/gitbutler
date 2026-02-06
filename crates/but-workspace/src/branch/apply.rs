@@ -133,7 +133,7 @@ pub(crate) mod function {
 
     use anyhow::{Context as _, bail};
     use but_core::{
-        ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name, ref_metadata,
+        ObjectStorageExt, RefMetadata, RepositoryExt, extract_remote_name_and_short_name, ref_metadata,
         ref_metadata::{
             StackId, StackKind,
             StackKind::AppliedAndUnapplied,
@@ -752,7 +752,8 @@ pub(crate) mod function {
         let mut section = config.section_mut_or_create_new("branch", Some(local_tracking_ref.shorten()))?;
         // Only edit the configuration if truly empty, let's not overwrite user data.
         if section.num_values() == 0
-            && let Some(remote_name) = extract_remote_name(remote_tracking_ref, &repo.remote_names())
+            && let Some((remote_name, _short_name)) =
+                extract_remote_name_and_short_name(remote_tracking_ref, &repo.remote_names())
         {
             section
                 .push(

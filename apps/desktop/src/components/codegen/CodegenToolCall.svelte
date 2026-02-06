@@ -2,11 +2,10 @@
 	import ExpandableSection from '$components/codegen/ExpandableSection.svelte';
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
 	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
-	import { Codeblock } from '@gitbutler/ui';
+	import { Codeblock, Tooltip } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
-		style?: 'nested' | 'standalone';
 		toolCall: ToolCall;
 		fullWidth?: boolean;
 		toolCallKey?: string;
@@ -14,8 +13,17 @@
 			groups: Map<string, boolean>;
 			individual: Map<string, boolean>;
 		};
+		firstInGroup: boolean;
+		lastInGroup: boolean;
 	};
-	const { toolCall, style, fullWidth, toolCallKey, toolCallExpandedState }: Props = $props();
+	const {
+		toolCall,
+		firstInGroup,
+		lastInGroup,
+		fullWidth,
+		toolCallKey,
+		toolCallExpandedState
+	}: Props = $props();
 
 	// Initialize expanded state from map, default to false (collapsed)
 	const initialExpanded =
@@ -31,7 +39,12 @@
 	}
 </script>
 
-<div class="tool-call {style}" class:full-width={fullWidth}>
+<div
+	class="tool-call"
+	class:first-in-group={firstInGroup}
+	class:last-in-group={lastInGroup}
+	class:full-width={fullWidth}
+>
 	<ExpandableSection
 		label={toolCall.name}
 		icon={getToolIcon(toolCall.name)}
@@ -40,7 +53,8 @@
 		onToggle={handleToggle}
 	>
 		{#snippet summary()}
-			<span class="summary truncate">{formatToolCall(toolCall)}</span>
+			{@const formattedCall = formatToolCall(toolCall)}
+			<Tooltip text={formattedCall}><span class="summary truncate">{formattedCall}</span></Tooltip>
 		{/snippet}
 
 		{#snippet content()}
@@ -56,6 +70,8 @@
 
 <style lang="postcss">
 	.tool-call {
+		padding-bottom: 8px;
+
 		&:not(.full-width) {
 			max-width: var(--message-max-width);
 		}
@@ -63,8 +79,11 @@
 		&.full-width {
 			width: 100%;
 		}
-		&.standalone {
-			padding: 12px 0;
+		&.first-in-group {
+			padding-top: 12px;
+		}
+		&.last-in-group {
+			padding-bottom: 12px;
 		}
 	}
 

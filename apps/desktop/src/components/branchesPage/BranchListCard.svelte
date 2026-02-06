@@ -137,16 +137,17 @@
 			{/if}
 
 			{#each branchListing.remotes as remote}
-				<span>{remote}</span>
+				<span class="truncate">{remote}</span>
 				<span class="sidebar-entry__divider">•</span>
 			{/each}
+
 			{#if branchListing.hasLocal}
-				<span>local</span>
+				<span class="truncate">local</span>
 				<span class="sidebar-entry__divider">•</span>
 			{/if}
+
 			{#if branchListing.remotes.length === 0 && !branchListing.hasLocal}
-				<span class="sidebar-entry__divider">•</span>
-				<span>No remotes</span>
+				<span class="truncate">No remotes</span>
 			{/if}
 		</div>
 	{/snippet}

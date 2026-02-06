@@ -79,11 +79,14 @@ impl Subcommands {
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Delete { .. }) => BranchDelete,
                 #[cfg(feature = "legacy")]
-                Some(branch::Subcommands::Unapply { .. }) => BranchUnapply,
-                Some(branch::Subcommands::Apply { .. }) => BranchApply,
-                #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
+                #[cfg(not(feature = "legacy"))]
+                Some(branch::Subcommands::Apply { .. }) => BranchApply,
             },
+            #[cfg(feature = "legacy")]
+            Subcommands::Unapply { .. } => BranchUnapply,
+            #[cfg(feature = "legacy")]
+            Subcommands::Apply { .. } => BranchApply,
             #[cfg(feature = "legacy")]
             Subcommands::Worktree(worktree::Platform { cmd: _ }) => Worktree,
             #[cfg(feature = "legacy")]
@@ -114,7 +117,7 @@ impl Subcommands {
                 claude::Subcommands::PreTool => ClaudePreTool,
                 claude::Subcommands::PostTool => ClaudePostTool,
                 claude::Subcommands::Stop => ClaudeStop,
-                claude::Subcommands::Last { .. } | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
+                claude::Subcommands::Last { .. } => Unknown,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
@@ -179,7 +182,7 @@ impl Subcommands {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
-            Subcommands::Onboarding => Unknown,
+            Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }
     }
 }

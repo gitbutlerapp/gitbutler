@@ -4,9 +4,7 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::BString;
 use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix, commit::Headers};
 use but_error::Code;
-use but_oxidize::{
-    ObjectIdExt as _, git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
-};
+use but_oxidize::{ObjectIdExt as _, OidExt, git2_signature_to_gix_signature, gix_to_git2_signature};
 use but_rebase::commit::sign_buffer;
 use but_status::create_wd_tree;
 use git2::Tree;
@@ -148,14 +146,11 @@ impl RepositoryExt for git2::Repository {
         let repo = gix::open(self.path())?;
         let mut commit = gix::objs::Commit {
             message: message.into(),
-            tree: git2_to_gix_object_id(tree.id()),
+            tree: tree.id().to_gix(),
             author: git2_signature_to_gix_signature(author),
             committer: git2_signature_to_gix_signature(committer),
             encoding: None,
-            parents: parents
-                .iter()
-                .map(|commit| git2_to_gix_object_id(commit.id()))
-                .collect(),
+            parents: parents.iter().map(|commit| commit.id().to_gix()).collect(),
             extra_headers: commit_headers.map(|h| (&h).into()).unwrap_or_default(),
         };
 
@@ -194,7 +189,7 @@ impl RepositoryExt for git2::Repository {
         }
 
         // TODO: extra-headers should be supported in `gix` directly.
-        let oid = gix_to_git2_oid(repo.write_object(&commit)?);
+        let oid = repo.write_object(&commit)?.to_git2();
 
         // update reference
         if let Some(refname) = update_ref {

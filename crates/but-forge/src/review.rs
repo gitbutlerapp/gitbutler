@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::forge::ForgeName;
 
+pub const STACKING_FOOTER_BOUNDARY_TOP: &str = "<!-- GitButler Footer Boundary Top -->";
+pub const STACKING_FOOTER_BOUNDARY_BOTTOM: &str = "<!-- GitButler Footer Boundary Bottom -->";
+
 /// Get a list of available review template paths for a project
 ///
 /// The paths are relative to the root path
@@ -710,6 +713,140 @@ pub async fn create_forge_review(
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ForgeReviewDescriptionUpdate {
+    /// The unique identifier number for this review within its repository. This can be a PR or MR number.
+    pub number: i64,
+    /// The current body/description of the review, which may be None if no description is set.
+    pub body: Option<String>,
+    /// The platform-specific symbol for this review type (e.g., "#" for GitHub pull requests and "!" for MRs).
+    pub unit_symbol: String,
+}
+
+impl From<ForgeReview> for ForgeReviewDescriptionUpdate {
+    fn from(review: ForgeReview) -> Self {
+        ForgeReviewDescriptionUpdate {
+            number: review.number,
+            body: review.body,
+            unit_symbol: review.unit_symbol,
+        }
+    }
+}
+
+/// Update the review description tables for a set of reviews
+pub async fn update_review_description_tables(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    reviews: &[ForgeReviewDescriptionUpdate],
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
+
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr_numbers: Vec<i64> = reviews.iter().map(|r| r.number).collect();
+
+            for review in reviews {
+                let updated_body = update_body(review.body.as_deref(), review.number, &pr_numbers, &review.unit_symbol);
+
+                let params = but_github::UpdatePullRequestParams {
+                    owner,
+                    repo,
+                    pr_number: review.number,
+                    title: None,
+                    body: Some(&updated_body),
+                    base: None,
+                    state: None,
+                };
+
+                but_github::pr::update(preferred_account, params, storage).await?;
+            }
+
+            Ok(())
+        }
+        _ => Err(Error::msg(format!(
+            "Updating review descriptions for forge {:?} is not implemented yet.",
+            forge,
+        ))),
+    }
+}
+
+/// Replaces or inserts a new footer into an existing body of text.
+///
+/// If there is only one PR in the stack, no footer is appended and any existing
+/// footer is removed.
+///
+/// # Arguments
+/// * `body` - The existing PR body text (may be None or empty)
+/// * `pr_number` - The PR number for which to update the body
+/// * `all_pr_numbers` - All PR numbers in the stack (ordered from base to top)
+/// * `symbol` - The symbol to use before the PR number (e.g., "#" or "!")
+///
+/// # Returns
+/// The updated body with the footer replaced, inserted, or removed
+fn update_body(body: Option<&str>, pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> String {
+    let body = body.unwrap_or("");
+    let head = body.split(STACKING_FOOTER_BOUNDARY_TOP).next().unwrap_or("").trim();
+    let tail = body.split(STACKING_FOOTER_BOUNDARY_BOTTOM).nth(1).unwrap_or("").trim();
+
+    // If there's only one PR, don't add a footer
+    if all_pr_numbers.len() == 1 {
+        if tail.is_empty() {
+            return head.to_string();
+        }
+        return format!("{}\n\n{}", head, tail);
+    }
+
+    let footer = generate_footer(pr_number, all_pr_numbers, symbol);
+    if tail.is_empty() {
+        format!("{}\n\n{}", head, footer)
+    } else {
+        format!("{}\n\n{}\n\n{}", head, footer, tail)
+    }
+}
+
+/// Generates a footer for use in pull request descriptions when part of a stack.
+///
+/// # Arguments
+/// * `for_pr_number` - The PR number for which to generate the footer
+/// * `all_pr_numbers` - All PR numbers in the stack (ordered from base to top)
+/// * `symbol` - The symbol to use before the PR number (e.g., "#" or "!")
+///
+/// # Returns
+/// A formatted markdown footer string with stack information
+fn generate_footer(for_pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> String {
+    let stack_length = all_pr_numbers.len();
+    let stack_index = all_pr_numbers.iter().position(|&n| n == for_pr_number).unwrap_or(0);
+    let nth = stack_length - stack_index;
+
+    let mut footer = String::new();
+    footer.push_str(STACKING_FOOTER_BOUNDARY_TOP);
+    footer.push('\n');
+    footer.push_str("---\n");
+    footer.push_str(&format!(
+        "This is **part {} of {} in a stack** made with GitButler:\n",
+        nth, stack_length
+    ));
+
+    for (i, &pr_number) in all_pr_numbers.iter().rev().enumerate() {
+        let current = pr_number == for_pr_number;
+        let indicator = if current { "👈 " } else { "" };
+        footer.push_str(&format!(
+            "- <kbd>&nbsp;{}&nbsp;</kbd> {}{}{}{}\n",
+            stack_length - i,
+            symbol,
+            pr_number,
+            if current { " " } else { "" },
+            indicator
+        ));
+    }
+
+    footer.push_str(STACKING_FOOTER_BOUNDARY_BOTTOM);
+    footer
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -826,5 +963,282 @@ mod tests {
         assert!(is_review_template_gitlab(
             ".gitlab\\merge_request_templates\\Default.md"
         ));
+    }
+
+    #[test]
+    fn test_generate_footer_single_pr() {
+        let footer = generate_footer(123, &[123], "#");
+        assert!(footer.contains(STACKING_FOOTER_BOUNDARY_TOP));
+        assert!(footer.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
+        assert!(footer.contains("part 1 of 1 in a stack"));
+        assert!(footer.contains("#123"));
+        assert!(footer.contains("👈"));
+    }
+
+    #[test]
+    fn test_generate_footer_multiple_prs() {
+        let all_prs = vec![100, 101, 102];
+        let footer = generate_footer(101, &all_prs, "#");
+
+        assert!(footer.contains("part 2 of 3 in a stack"));
+        assert!(footer.contains("#100"));
+        assert!(footer.contains("#101"));
+        assert!(footer.contains("#102"));
+
+        // The current PR (101) should have the pointing emoji
+        let lines: Vec<&str> = footer.lines().collect();
+        let pr_101_line = lines.iter().find(|l| l.contains("#101")).unwrap();
+        assert!(pr_101_line.contains("👈"));
+
+        // Other PRs should not have the emoji
+        let pr_100_line = lines.iter().find(|l| l.contains("#100")).unwrap();
+        assert!(!pr_100_line.contains("👈"));
+    }
+
+    #[test]
+    fn test_generate_footer_with_custom_symbol() {
+        let footer = generate_footer(42, &[41, 42, 43], "!");
+        assert!(footer.contains("!41"));
+        assert!(footer.contains("!42"));
+        assert!(footer.contains("!43"));
+    }
+
+    #[test]
+    fn test_generate_footer_numbering() {
+        let all_prs = vec![100, 101, 102, 103];
+        let footer = generate_footer(101, &all_prs, "#");
+
+        let lines: Vec<&str> = footer.lines().collect();
+
+        // Check that numbering goes from top (4) to bottom (1)
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("<kbd>&nbsp;1&nbsp;</kbd>") && l.contains("#100"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("<kbd>&nbsp;2&nbsp;</kbd>") && l.contains("#101"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("<kbd>&nbsp;3&nbsp;</kbd>") && l.contains("#102"))
+        );
+        assert!(
+            lines
+                .iter()
+                .any(|l| l.contains("<kbd>&nbsp;4&nbsp;</kbd>") && l.contains("#103"))
+        );
+    }
+
+    #[test]
+    fn test_update_body_none() {
+        let result = update_body(None, 123, &[123, 124], "#");
+        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+        assert!(result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
+        assert!(result.contains("#123"));
+    }
+
+    #[test]
+    fn test_update_body_empty() {
+        let result = update_body(Some(""), 123, &[123, 124], "#");
+        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+        assert!(result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
+        assert!(result.contains("#123"));
+    }
+
+    #[test]
+    fn test_update_body_with_existing_content() {
+        let body = "This is my PR description.\n\nIt has multiple lines.";
+        let result = update_body(Some(body), 123, &[123, 124], "#");
+
+        assert!(result.starts_with("This is my PR description.\n\nIt has multiple lines."));
+        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+        assert!(result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
+        assert!(result.contains("#123"));
+    }
+
+    #[test]
+    fn test_footer_ordering_base_to_top() {
+        // PRs should be listed from base (oldest) at bottom to top (newest) at top
+        let all_prs = vec![100, 101, 102, 103]; // base to top order
+        let footer = generate_footer(102, &all_prs, "#");
+
+        let lines: Vec<&str> = footer.lines().collect();
+
+        // Find the indices of each PR in the footer
+        let pr_100_idx = lines.iter().position(|l| l.contains("#100")).unwrap();
+        let pr_101_idx = lines.iter().position(|l| l.contains("#101")).unwrap();
+        let pr_102_idx = lines.iter().position(|l| l.contains("#102")).unwrap();
+        let pr_103_idx = lines.iter().position(|l| l.contains("#103")).unwrap();
+
+        // The top PR (103) should appear first, base PR (100) should appear last
+        assert!(pr_103_idx < pr_102_idx);
+        assert!(pr_102_idx < pr_101_idx);
+        assert!(pr_101_idx < pr_100_idx);
+    }
+
+    #[test]
+    fn test_footer_position_indicator_first_pr() {
+        let all_prs = vec![100, 101, 102];
+        let footer = generate_footer(100, &all_prs, "#");
+
+        let lines: Vec<&str> = footer.lines().collect();
+        let pr_100_line = lines.iter().find(|l| l.contains("#100")).unwrap();
+
+        assert!(pr_100_line.contains("👈"));
+        assert!(pr_100_line.contains("<kbd>&nbsp;1&nbsp;</kbd>"));
+    }
+
+    #[test]
+    fn test_footer_position_indicator_last_pr() {
+        let all_prs = vec![100, 101, 102];
+        let footer = generate_footer(102, &all_prs, "#");
+
+        let lines: Vec<&str> = footer.lines().collect();
+        let pr_102_line = lines.iter().find(|l| l.contains("#102")).unwrap();
+
+        assert!(pr_102_line.contains("👈"));
+        assert!(pr_102_line.contains("<kbd>&nbsp;3&nbsp;</kbd>"));
+    }
+
+    #[test]
+    fn test_update_body_multiple_prs_to_single_pr() {
+        let old_footer = generate_footer(123, &[122, 123, 124], "#");
+        let body = format!("Description\n\n{}", old_footer);
+
+        // Update to a single PR stack
+        let result = update_body(Some(&body), 123, &[123], "#");
+
+        assert_eq!(result, "Description");
+        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+    }
+
+    #[test]
+    fn test_update_body_maintains_proper_spacing() {
+        let body = "First paragraph\n\nSecond paragraph";
+        let result = update_body(Some(body), 100, &[100, 101], "#");
+
+        // Should have proper spacing between description and footer
+        assert!(result.contains("First paragraph\n\nSecond paragraph\n\n"));
+        assert!(result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+    }
+
+    #[test]
+    fn test_generate_footer_large_stack() {
+        let all_prs: Vec<i64> = (1..=10).collect();
+        let footer = generate_footer(5, &all_prs, "#");
+
+        assert!(footer.contains("part 6 of 10 in a stack"));
+
+        // Verify all PRs are listed
+        for pr in &all_prs {
+            assert!(footer.contains(&format!("#{}", pr)));
+        }
+    }
+
+    #[test]
+    fn test_update_body_with_tail_and_multiple_newlines() {
+        let old_footer = generate_footer(100, &[100, 101], "#");
+        let body = format!("Head\n\n{}\n\n\n\nTail with gaps", old_footer);
+
+        let result = update_body(Some(&body), 100, &[100, 101, 102], "#");
+
+        assert!(result.contains("Head"));
+        assert!(result.contains("Tail with gaps"));
+        assert!(result.contains("#102"));
+    }
+
+    #[test]
+    fn test_update_body_replaces_existing_footer() {
+        let old_footer = generate_footer(123, &[123], "#");
+        let body = format!("My description\n\n{}\n\nSome trailing content", old_footer);
+
+        let result = update_body(Some(&body), 123, &[123, 124], "#");
+
+        // Should contain the original description
+        assert!(result.contains("My description"));
+        // Should contain the trailing content
+        assert!(result.contains("Some trailing content"));
+        // Should have the new footer with both PRs
+        assert!(result.contains("#123"));
+        assert!(result.contains("#124"));
+        // Should only have one footer (not duplicated)
+        let boundary_count = result.matches(STACKING_FOOTER_BOUNDARY_TOP).count();
+        assert_eq!(boundary_count, 1);
+    }
+
+    #[test]
+    fn test_update_body_preserves_head_and_tail() {
+        let body = format!(
+            "Head content\n\n{}\n---\nOld footer\n{}\n\nTail content",
+            STACKING_FOOTER_BOUNDARY_TOP, STACKING_FOOTER_BOUNDARY_BOTTOM
+        );
+
+        let result = update_body(Some(&body), 456, &[456, 457], "!");
+
+        assert!(result.starts_with("Head content"));
+        assert!(result.ends_with("Tail content"));
+        assert!(result.contains("!456"));
+        assert!(result.contains("!457"));
+        assert!(!result.contains("Old footer"));
+    }
+
+    #[test]
+    fn test_update_body_trims_whitespace() {
+        let body = "  Content with spaces  ";
+        let result = update_body(Some(body), 100, &[100, 101], "#");
+
+        assert!(result.starts_with("Content with spaces"));
+        assert!(!result.starts_with("  Content"));
+    }
+
+    #[test]
+    fn test_update_body_single_pr_no_footer() {
+        let body = "This is my PR description.";
+        let result = update_body(Some(body), 123, &[123], "#");
+
+        // Should contain the description
+        assert_eq!(result, "This is my PR description.");
+        // Should NOT contain any footer
+        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
+        assert!(!result.contains("#123"));
+    }
+
+    #[test]
+    fn test_update_body_single_pr_removes_existing_footer() {
+        let old_footer = generate_footer(123, &[123, 124], "#");
+        let body = format!("My description\n\n{}\n\nSome trailing content", old_footer);
+
+        // Now updating with just one PR should remove the footer
+        let result = update_body(Some(&body), 123, &[123], "#");
+
+        assert!(result.contains("My description"));
+        assert!(result.contains("Some trailing content"));
+        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_BOTTOM));
+    }
+
+    #[test]
+    fn test_update_body_single_pr_empty_body() {
+        let result = update_body(None, 123, &[123], "#");
+
+        // Should return empty string (or just whitespace)
+        assert!(result.is_empty() || result.trim().is_empty());
+        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
+    }
+
+    #[test]
+    fn test_update_body_single_pr_with_tail() {
+        let old_footer = generate_footer(123, &[123], "#");
+        let body = format!("Head content\n\n{}\n\nTail content", old_footer);
+
+        let result = update_body(Some(&body), 123, &[123], "#");
+
+        assert_eq!(result, "Head content\n\nTail content");
+        assert!(!result.contains(STACKING_FOOTER_BOUNDARY_TOP));
     }
 }

@@ -1,7 +1,9 @@
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
 use but_ctx::Context;
+use but_oxidize::OidExt;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
+use gitbutler_stack::StackId;
 use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
 ///
@@ -183,7 +185,7 @@ pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
 /// Visualize a git2 tree, otherwise just like [`visualize_gix_tree()`].
 pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termtree::Tree<String> {
     let repo = gix::open_opts(repo.path(), gix::open::Options::isolated()).unwrap();
-    visualize_gix_tree(git2_to_gix_object_id(tree_id).attach(&repo))
+    visualize_gix_tree(tree_id.to_gix().attach(&repo))
 }
 
 pub fn stack_details(ctx: &Context) -> Vec<(StackId, StackDetails)> {
@@ -274,8 +276,6 @@ pub mod read_only {
 
 use std::path::{Path, PathBuf};
 
-use but_oxidize::git2_to_gix_object_id;
-use gitbutler_stack::StackId;
 use gix::{bstr::ByteSlice, prelude::ObjectIdExt};
 use once_cell::sync::Lazy;
 

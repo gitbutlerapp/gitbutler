@@ -152,24 +152,67 @@ pub fn get_user_message(ctx: &Context, offset: Option<i64>) -> anyhow::Result<Op
 }
 
 /// Lists all Permission Requests
-pub fn list_all_permission_requests(ctx: &Context) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
-    let requests = ctx.db.get()?.claude().list_permission_requests()?;
-    requests.into_iter().map(|s| s.try_into()).collect::<Result<_, _>>()
+pub fn list_all_permission_requests(_ctx: &Context) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
+    Ok(crate::pending_requests::pending_requests().list_permissions())
 }
 
-/// Update permission request decision
+/// Update permission request decision.
+/// This sends the decision to the waiting in-memory request.
 pub fn update_permission_request(
-    ctx: &mut Context,
+    _ctx: &mut Context,
     id: &str,
     decision: crate::PermissionDecision,
     use_wildcard: bool,
 ) -> anyhow::Result<()> {
-    let decision_str = serde_json::to_string(&decision)?;
-    ctx.db
-        .get_mut()?
-        .claude_mut()
-        .set_permission_request_decision_and_wildcard(id, Some(decision_str), use_wildcard)?;
-    Ok(())
+    crate::pending_requests::pending_requests().respond_permission(id, decision, use_wildcard)
+}
+
+// AskUserQuestion request functions
+// Note: AskUserQuestion requests are stored in-memory only (no database persistence)
+// since they are ephemeral and tied to active Claude sessions.
+
+/// Lists all pending (unanswered) AskUserQuestion requests.
+pub fn list_pending_ask_user_question_requests(
+    _ctx: &Context,
+) -> anyhow::Result<Vec<crate::ClaudeAskUserQuestionRequest>> {
+    Ok(crate::pending_requests::pending_requests().list_questions())
+}
+
+/// Updates the answers for an AskUserQuestion request.
+/// This sends the answers to the waiting in-memory request.
+pub fn set_ask_user_question_answers(
+    _ctx: &mut Context,
+    id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<()> {
+    crate::pending_requests::pending_requests().respond_question(id, answers)
+}
+
+/// Alias for set_ask_user_question_answers for API compatibility.
+pub fn answer_ask_user_question(
+    ctx: &mut Context,
+    id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<()> {
+    set_ask_user_question_answers(ctx, id, answers)
+}
+
+/// Updates the answers for the pending AskUserQuestion request for a specific stack.
+/// Returns true if an update was made, false if no pending request was found for the stack.
+pub fn set_ask_user_question_answers_by_stack(
+    _ctx: &mut Context,
+    stack_id: gitbutler_stack::StackId,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<bool> {
+    let pending = crate::pending_requests::pending_requests();
+
+    // Find the pending question for this stack
+    if let Some(request) = pending.get_question_by_stack(&stack_id) {
+        pending.respond_question(&request.id, answers)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {

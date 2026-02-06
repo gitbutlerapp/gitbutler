@@ -221,6 +221,32 @@ pub async fn publish_review(
     )
     .await
 }
+/// Update the stacked review descriptions to have the correct footers.
+#[but_api]
+#[instrument(err(Debug))]
+pub async fn update_review_footers(
+    ctx: ThreadSafeContext,
+    reviews: Vec<but_forge::ForgeReviewDescriptionUpdate>,
+) -> Result<()> {
+    let (storage, base_branch, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::update_review_description_tables(
+        &preferred_forge_user,
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        &reviews,
+        &storage,
+    )
+    .await
+}
 
 #[but_api]
 #[instrument(err(Debug))]

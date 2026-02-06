@@ -644,6 +644,12 @@ pub async fn run() {
             )),
         )
         .route(
+            "/claude_answer_ask_user_question",
+            post(json_response(
+                legacy::claude::claude_answer_ask_user_question_cmd,
+            )),
+        )
+        .route(
             "/claude_list_prompt_templates",
             post(json_response(
                 legacy::claude::claude_list_prompt_templates_cmd,
@@ -916,6 +922,16 @@ async fn handle_command(
             match params {
                 Ok(params) => {
                     let result = legacy::forge::publish_review_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "update_review_footers" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::update_review_footers_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

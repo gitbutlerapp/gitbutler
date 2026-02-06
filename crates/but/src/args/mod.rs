@@ -304,10 +304,11 @@ pub enum Subcommands {
 
     /// Commands for managing branches.
     ///
-    /// This includes creating, deleting, listing, showing details about, and
-    /// applying and unapplying branches.
+    /// This includes creating, deleting, listing, and showing details about branches.
     ///
     /// By default without a subcommand, it will list the branches.
+    ///
+    /// To apply or unapply branches, use `but apply` and `but unapply`.
     ///
     #[clap(verbatim_doc_comment)]
     Branch(branch::Platform),
@@ -885,6 +886,70 @@ pub enum Subcommands {
         target_branch: Option<String>,
     },
 
+    /// Unapply a branch from the workspace.
+    ///
+    /// If you want to unapply an applied branch from your workspace
+    /// (effectively stashing it) so you can work on other branches,
+    /// you can run `but unapply <branch-name>`.
+    ///
+    /// This will remove the changes in that branch from your working
+    /// directory and you can re-apply it later when needed. You will then
+    /// see the branch as unapplied in `but branch list`.
+    ///
+    /// The identifier can be:
+    /// - A CLI ID pointing to a stack or branch (e.g., "bu" from `but status`)
+    /// - A branch name
+    ///
+    /// If a branch name (or an identifier pointing to a branch) is provided,
+    /// the entire stack containing that branch will be unapplied.
+    ///
+    /// ## Examples
+    ///
+    /// Unapply by branch name:
+    ///
+    /// ```text
+    /// but unapply my-feature-branch
+    /// ```
+    ///
+    /// Unapply by CLI ID:
+    ///
+    /// ```text
+    /// but unapply bu
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Unapply {
+        /// CLI ID or name of the branch/stack to unapply
+        identifier: String,
+        /// Force unapply without confirmation
+        #[clap(long, short = 'f')]
+        force: bool,
+    },
+
+    /// Apply a branch to the workspace.
+    ///
+    /// If you want to apply an unapplied branch to your workspace so you
+    /// can work on it, you can run `but apply <branch-name>`.
+    ///
+    /// This will apply the changes in that branch into your working directory
+    /// as a parallel applied branch.
+    ///
+    /// ## Examples
+    ///
+    /// Apply by branch name:
+    ///
+    /// ```text
+    /// but apply my-feature-branch
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Apply {
+        /// Name of the branch to apply
+        branch_name: String,
+    },
+
     /// Stages a file or hunk to a specific branch.
     ///
     /// Wrapper for `but rub <file-or-hunk> <branch>`.
@@ -951,6 +1016,14 @@ pub enum Subcommands {
     /// It is designed to be called by the installer after installation.
     #[clap(hide = true)]
     Onboarding,
+
+    /// AI: Claude Code hook for workspace awareness and skill activation.
+    ///
+    /// Outputs workspace status as JSON and a skill-loading nudge.
+    /// Intended to fire on the Stop hook.
+    #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
+    EvalHook,
 }
 
 pub mod alias;
@@ -1006,12 +1079,6 @@ pub mod claude {
         #[clap(alias = "post-tool-use")]
         PostTool,
         Stop,
-        #[clap(alias = "pp")]
-        PermissionPromptMcp {
-            /// The Claude session ID for this MCP server instance
-            #[clap(long)]
-            session_id: String,
-        },
         /// Get the last user message (for testing purposes)
         #[clap(hide = true)]
         Last {

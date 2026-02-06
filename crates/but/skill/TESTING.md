@@ -159,7 +159,7 @@ Verify Claude avoids problematic git commands.
 
 - Explains GitButler workspace model
 - Does NOT use `git checkout`
-- Uses `but branch apply/unapply` if needed
+- Uses `but apply`/`but unapply` if needed
 
 ### 6. Edge Case Tests
 

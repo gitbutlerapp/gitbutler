@@ -47,7 +47,6 @@
 	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
 	import OptionsGroup from '$components/select/OptionsGroup.svelte';
 	import SearchItem from '$components/select/SearchItem.svelte';
-	import { KeyName } from '$lib/utils/hotkeys';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
@@ -261,39 +260,16 @@
 
 	function handleKeyDown(e: KeyboardEvent) {
 		const { key } = e;
+		if (!['Enter', 'Escape', 'ArrowUp', 'ArrowDown'].includes(key)) return;
 
-		if (!listOpen) {
-			// When list is closed, handle keys to open it
-			if (key === KeyName.Enter || key === KeyName.Down || key === KeyName.Up) {
-				e.preventDefault();
-				e.stopPropagation();
-				openList();
-				if (key === KeyName.Up) {
-					highlightedIndex = selectableOptions.length - 1;
-				} else if (key === KeyName.Down) {
-					highlightedIndex = 0;
-				}
-			}
-			return;
-		}
-
-		// When list is open, handle navigation
+		e.stopPropagation();
 		e.preventDefault();
 
-		switch (key) {
-			case KeyName.Escape:
-				closeList();
-				break;
-			case KeyName.Up:
-				handleArrowUp();
-				break;
-			case KeyName.Down:
-				handleArrowDown();
-				break;
-			case KeyName.Enter:
-				handleEnter(e);
-				break;
-		}
+		if (key === 'Escape') closeList();
+		else if (!listOpen) openList();
+		else if (key === 'ArrowUp') handleArrowUp();
+		else if (key === 'ArrowDown') handleArrowDown();
+		else if (key === 'Enter') handleEnter(e);
 	}
 
 	function getTopStyle() {

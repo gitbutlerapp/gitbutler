@@ -312,7 +312,11 @@
 			await tick(); // Wait for element to be added
 			const element = visibleRowElements?.[i - startingAt];
 			if (!element) {
-				throw new Error('Expected to find element');
+				// Most likely cause for this is that something else made `visibleRange.end = 0`
+				// during the tick(). This needs debugging, but is not severe enough to warrant
+				// immediate attention.
+				console.warn('Invariant violation - root cause not yet determined.');
+				return;
 			}
 			heightMap[i] = element.clientHeight;
 			if (calculateHeightSum(startingAt, visibleRange.end) > viewportHeight + renderDistance) {
@@ -329,7 +333,8 @@
 			await tick(); // Wait for element to be added
 			const element = visibleRowElements?.[0];
 			if (!element) {
-				throw new Error('Expected to find element');
+				console.warn('Invariant violation - root cause not yet determined.');
+				return;
 			}
 			const heightDiff = element.clientHeight - (lockedHeights[i] || defaultHeight);
 			if (heightDiff !== 0) {

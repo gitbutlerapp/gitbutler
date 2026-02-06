@@ -1,9 +1,11 @@
+use std::collections::BTreeSet;
+
 use anyhow::Context;
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::refs;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{RepositoryExt, branch::normalize_short_name};
+use crate::{RepositoryExt, branch::normalize_short_name, extract_remote_name_and_short_name};
 
 /// Produce a branch named after the author configured in `repo`, or default it to a generic name
 pub fn canned_refname(repo: &gix::Repository) -> anyhow::Result<gix::refs::FullName> {
@@ -30,12 +32,24 @@ pub fn find_unique_refname(
     repo: &gix::Repository,
     template: &gix::refs::FullNameRef,
 ) -> anyhow::Result<gix::refs::FullName> {
+    // TODO(perf): ideally we remove that special case of auto-associating local branches with seemingly matching
+    //             RTBs, and avoid this lookup and reference traversal.
+    let remote_names = repo.remote_names();
+    let rtb_lut: BTreeSet<_> = repo
+        .references()?
+        .prefixed("refs/remotes/")?
+        .filter_map(Result::ok)
+        .filter_map(|rn| {
+            extract_remote_name_and_short_name(rn.name(), &remote_names).map(|(_rn, short_name)| short_name)
+        })
+        .collect();
+
     // Check if the original name is available
-    if repo.try_find_reference(template)?.is_none() {
+    let short_name = template.shorten();
+    if !rtb_lut.contains(short_name) && repo.try_find_reference(template)?.is_none() {
         return Ok(template.to_owned());
     }
 
-    let short_name = template.shorten();
     // Extract base name and number if it already has a numerical suffix
     let trailing_number =
         short_name
@@ -58,7 +72,11 @@ pub fn find_unique_refname(
         candidate_short.push(b'-');
         candidate_short.push_str(num.to_string());
 
+        if rtb_lut.contains(candidate_short.as_bstr()) {
+            continue;
+        }
         let candidate_full = category.to_full_name(candidate_short.as_bstr())?;
+
         if repo.try_find_reference(&candidate_full)?.is_none() {
             return Ok(candidate_full);
         }
