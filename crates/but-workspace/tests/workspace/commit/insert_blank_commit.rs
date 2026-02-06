@@ -1,7 +1,10 @@
 use anyhow::Result;
-use but_rebase::graph_rebase::{GraphExt as _, mutate::InsertSide};
+use but_rebase::graph_rebase::{
+    GraphExt as _,
+    mutate::{InsertSide, RelativeTo},
+};
 use but_testsupport::visualize_commit_graph_all;
-use but_workspace::commit::{insert_blank_commit, insert_blank_commit::RelativeTo};
+use but_workspace::commit::insert_blank_commit;
 
 use crate::ref_info::with_workspace_commit::utils::named_writable_scenario_with_description_and_graph as writable_scenario;
 

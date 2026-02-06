@@ -101,11 +101,79 @@ pub(crate) struct Edge {
 type StepGraphIndex = petgraph::stable_graph::NodeIndex;
 type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 
+/// Convert a structure to a selector for a particular editor.
+///
+/// `ToSelector` does _not_ normalize a selector.
+pub trait ToSelector {
+    /// Converts a given object into a selector. Calling `to_selector` on an
+    /// object asserts that the reciever was a object that is selectable in the
+    /// graph.
+    fn to_selector(&self, editor: &Editor) -> Result<Selector>;
+}
+
+/// Convert a type to a selector, and ensures that it is type commit.
+pub trait ToCommitSelector {
+    /// Converts a given object into a selector. Calling `to_commit_selector` on
+    /// an object asserts that the reciever has a selectable pick step in the
+    /// graph.
+    fn to_commit_selector(&self, editor: &Editor) -> Result<Selector>;
+}
+
+/// Convert a type to a selector, and ensures that it is type reference.
+pub trait ToReferenceSelector {
+    /// Converts a given object into a selector. Calling `to_reference_selector` on
+    /// an object asserts that the reciever has a selectable reference step in
+    /// the graph.
+    fn to_reference_selector(&self, editor: &Editor) -> Result<Selector>;
+}
+
 /// Points to a step in the rebase editor.
 #[derive(Debug, Clone, Copy)]
 pub struct Selector {
     id: StepGraphIndex,
     revision: usize,
+}
+
+impl ToSelector for dyn ToCommitSelector {
+    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+        self.to_commit_selector(editor)
+    }
+}
+
+impl ToSelector for dyn ToReferenceSelector {
+    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+        self.to_reference_selector(editor)
+    }
+}
+
+impl ToSelector for Selector {
+    fn to_selector(&self, _: &Editor) -> Result<Selector> {
+        Ok(*self)
+    }
+}
+
+impl ToCommitSelector for Selector {
+    fn to_commit_selector(&self, editor: &Editor) -> Result<Selector> {
+        let selector = editor.history.normalize_selector(*self)?;
+        let step = &editor.graph[selector.id];
+        if !matches!(step, Step::Pick(_)) {
+            bail!("Expected selector for {:?} to refer to a commit", step);
+        }
+
+        Ok(selector)
+    }
+}
+
+impl ToReferenceSelector for Selector {
+    fn to_reference_selector(&self, editor: &Editor) -> Result<Selector> {
+        let selector = editor.history.normalize_selector(*self)?;
+        let step = &editor.graph[selector.id];
+        if !matches!(step, Step::Reference { .. }) {
+            bail!("Expected selector for {:?} to refer to a reference", step);
+        }
+
+        Ok(selector)
+    }
 }
 
 /// Represents places where `safe_checkout` should be called from

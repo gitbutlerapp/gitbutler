@@ -5,7 +5,7 @@ pub(crate) mod function {
     use bstr::BStr;
     use but_rebase::{
         commit::DateMode,
-        graph_rebase::{Editor, Selector, Step, SuccessfulRebase},
+        graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
     };
 
     /// This action will rewrite a commit and any relevant history so it uses
@@ -14,12 +14,11 @@ pub(crate) mod function {
     /// Returns a selector to the rewritten commit
     pub fn reword(
         mut editor: Editor,
-        commit_id: gix::ObjectId,
+        commit: impl ToCommitSelector,
         new_message: &BStr,
     ) -> Result<(SuccessfulRebase, Selector)> {
-        let target_selector = editor.select_commit(commit_id)?;
+        let (target_selector, mut commit) = editor.find_selectable_commit(commit)?;
 
-        let mut commit = editor.find_commit(commit_id)?;
         commit.message = new_message.to_owned();
         let new_id = editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?;
 

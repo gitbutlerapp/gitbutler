@@ -1,11 +1,11 @@
 //! Provides some slightly higher level tools to help with manipulating commits, in preparation for use in the editor.
 
-use anyhow::{Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use gix::prelude::ObjectIdExt;
 
 use crate::{
     commit::{DateMode, create},
-    graph_rebase::Editor,
+    graph_rebase::{Editor, Pick, Selector, Step, ToCommitSelector},
 };
 
 impl Editor {
@@ -17,6 +17,18 @@ impl Editor {
     /// Finds a commit from inside the editor's in memory repository.
     pub fn find_commit(&self, id: gix::ObjectId) -> Result<but_core::Commit<'_>> {
         but_core::Commit::from_id(id.attach(&self.repo))
+    }
+
+    /// Finds a commit that is selectable in the editor graph and is
+    /// found in the editor's repo.
+    ///
+    /// Returns the normalized selector and the found commit.
+    pub fn find_selectable_commit(&self, selector: impl ToCommitSelector) -> Result<(Selector, but_core::Commit<'_>)> {
+        let selector = self.history.normalize_selector(selector.to_commit_selector(self)?)?;
+        let Step::Pick(Pick { id, .. }) = &self.graph[selector.id] else {
+            bail!("BUG: Expected pick step from commit selector. This should never happen");
+        };
+        Ok((selector, self.find_commit(*id)?))
     }
 
     /// Writes a commit with correct signing to the in memory repository.
