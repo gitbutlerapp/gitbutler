@@ -16,7 +16,7 @@
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Button, CardGroup, InfoMessage, Link, Select, SelectItem } from '@gitbutler/ui';
+	import { Button, CardGroup, Link, Select, SelectItem } from '@gitbutler/ui';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
@@ -119,7 +119,11 @@
 	{#if forge.current.name === 'gitlab'}
 		<CardGroup.Item>
 			{#snippet title()}
-				Configure GitLab integration
+				{#if gitlabAccounts.current.length === 0 || !preferredGitLabAccount.current}
+					No GitLab accounts found
+				{:else}
+					Configure GitLab integration
+				{/if}
 			{/snippet}
 
 			{#snippet caption()}
@@ -127,15 +131,8 @@
 					href="https://docs.gitbutler.com/features/forge-integration/gitlab-integration">docs</Link
 				>
 			{/snippet}
+
 			{#if gitlabAccounts.current.length === 0 || !preferredGitLabAccount.current}
-				<InfoMessage style="warning" filled outlined={false}>
-					{#snippet title()}
-						No GitLab accounts found
-					{/snippet}
-					{#snippet content()}
-						Add a GitLab account in General Settings to enable GitLab integration
-					{/snippet}
-				</InfoMessage>
 				{@render openSettingsButton()}
 			{:else}
 				{@const account = preferredGitLabAccount.current}
@@ -178,7 +175,11 @@
 	{#if forge.current.name === 'github'}
 		<CardGroup.Item>
 			{#snippet title()}
-				Configure GitHub integration
+				{#if githubAccounts.current.length === 0 || !preferredGitHubAccount.current}
+					No GitHub accounts found
+				{:else}
+					Configure GitHub integration
+				{/if}
 			{/snippet}
 
 			{#snippet caption()}
@@ -188,14 +189,6 @@
 			{/snippet}
 
 			{#if githubAccounts.current.length === 0 || !preferredGitHubAccount.current}
-				<InfoMessage style="warning" filled outlined={false}>
-					{#snippet title()}
-						No GitHub accounts found
-					{/snippet}
-					{#snippet content()}
-						Add a GitHub account in General Settings to enable GitHub integration
-					{/snippet}
-				</InfoMessage>
 				{@render openSettingsButton()}
 			{:else}
 				{@const account = preferredGitHubAccount.current}
@@ -237,16 +230,9 @@
 </CardGroup>
 
 {#snippet openSettingsButton()}
-	<div class="forge-form__open-settings-container">
-		<Button onclick={() => openGeneralSettings('integrations')} style="pop"
-			>Go to General Settings</Button
+	<div class="flex">
+		<Button onclick={() => openGeneralSettings('integrations')} style="pop" icon="link"
+			>Set up in General Settings</Button
 		>
 	</div>
 {/snippet}
-
-<style lang="scss">
-	.forge-form__open-settings-container {
-		display: flex;
-		justify-content: center;
-	}
-</style>
