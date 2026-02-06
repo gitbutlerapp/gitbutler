@@ -150,14 +150,12 @@ impl InstallerConfig {
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
 
-        if os != "macos" {
-            bail!("This installer currently only supports macOS. Your OS: {}", os);
-        }
-
-        let platform = match arch {
-            "x86_64" => "darwin-x86_64",
-            "aarch64" => "darwin-aarch64",
-            _ => bail!("Unsupported architecture: {}", arch),
+        let platform = match (os, arch) {
+            ("macos", "aarch64") => "darwin-aarch64",
+            ("macos", "x86_64") => "darwin-x86_64",
+            ("linux", "aarch64") => "linux-aarch64",
+            ("linux", "x86_64") => "linux-x86_64",
+            (os, arch) => bail!("unsopported OS or architecture: {os} {arch}"),
         };
 
         Ok(Self {
