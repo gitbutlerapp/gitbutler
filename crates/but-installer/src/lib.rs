@@ -1,6 +1,7 @@
+#![cfg(unix)]
 //! GitButler installer library
 //!
-//! This library provides functionality for installing GitButler on macOS systems.
+//! This library provides functionality for installing GitButler on Linux and macOS systems.
 //! It handles downloading releases, verifying signatures, extracting archives,
 //! and setting up the application and CLI tools.
 
