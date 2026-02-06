@@ -54,9 +54,8 @@ but-path.workspace = true
 but-db.workspace = true
 but-ctx.workspace = true
 but-rebase.workspace = true
-# NOTE: close to mostly 'proper', but depends on `gitbutler-user`
 but-github.workspace = true
-# NOTE: close to mostly 'proper', but depends on `but-github` which depends on `gitbutler-user`
+but-gitlab.workspace = true
 but-forge.workspace = true
 but-workspace = { workspace = true }
 but-api = { workspace = true, features = ["path-bytes"] }

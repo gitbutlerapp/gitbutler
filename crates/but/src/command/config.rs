@@ -393,7 +393,7 @@ async fn user_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<Use
 pub(crate) async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubcommand>) -> Result<()> {
     match cmd {
         Some(ForgeSubcommand::Auth) => forge_auth(out).await,
-        Some(ForgeSubcommand::ListUsers) => forge_list_users(out).await,
+        Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await,
         Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await,
         None => forge_show_overview(out).await,
     }
@@ -401,41 +401,21 @@ pub(crate) async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubco
 
 /// Show overview of forge configuration (same as list-users)
 async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
-    let known_accounts = but_api::github::list_known_github_accounts().await?;
+    let known_gh_accounts = but_api::github::list_known_github_accounts().await?;
+    let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts().await?;
 
     if let Some(out) = out.for_human() {
-        if known_accounts.is_empty() {
+        if known_gh_accounts.is_empty() && known_gl_accounts.is_empty() {
             writeln!(out, "\n{}", "No forge accounts configured".dimmed())?;
             writeln!(out)?;
             writeln!(
                 out,
-                "Run {} to authenticate with GitHub",
+                "Run {} to authenticate with GitHub or GitLab.",
                 "but config forge auth".cyan()
             )?;
         } else {
-            writeln!(out, "\n{}:", "Authenticated GitHub accounts".bold())?;
-            writeln!(out)?;
-
-            let mut some_accounts_invalid = false;
-            for account in &known_accounts {
-                let account_status = but_api::github::check_github_credentials(account.clone()).await.ok();
-
-                let message = match account_status {
-                    Some(but_github::CredentialCheckResult::Valid) => "(valid credentials)".green().bold(),
-                    Some(but_github::CredentialCheckResult::Invalid) => {
-                        some_accounts_invalid = true;
-                        "(invalid credentials)".bold().yellow()
-                    }
-                    Some(but_github::CredentialCheckResult::NoCredentials) => {
-                        some_accounts_invalid = true;
-                        "(no credentials)".bold().yellow()
-                    }
-                    None => "(unknown status)".bold().red(),
-                };
-
-                writeln!(out, "  • {} {}", account, message)?;
-            }
-            writeln!(out)?;
+            let mut some_accounts_invalid = display_authenticated_github_accounts(&known_gh_accounts, out).await?;
+            some_accounts_invalid |= display_authenticated_gitlab_accounts(&known_gl_accounts, out).await?;
 
             if some_accounts_invalid {
                 writeln!(out, "{}", "Some accounts have invalid or missing credentials.".yellow())?;
@@ -456,43 +436,81 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
             )?;
         }
     } else if let Some(out) = out.for_shell() {
-        for account in known_accounts {
-            writeln!(out, "{}", account.username())?;
-        }
-    } else if let Some(out) = out.for_json() {
-        #[derive(Serialize)]
-        struct ForgeAccount {
-            provider: String,
-            username: String,
-            account_type: String,
+        if known_gh_accounts.is_empty() && known_gl_accounts.is_empty() {
+            writeln!(out, "No forge accounts configured")?;
+            return Ok(());
         }
 
-        let accounts: Vec<ForgeAccount> = known_accounts
-            .iter()
-            .map(|account| {
-                let (username, account_type) = match account {
-                    but_github::GithubAccountIdentifier::OAuthUsername { username } => {
-                        (username.clone(), "OAuth".to_string())
-                    }
-                    but_github::GithubAccountIdentifier::PatUsername { username } => {
-                        (username.clone(), "Personal Access Token".to_string())
-                    }
-                    but_github::GithubAccountIdentifier::Enterprise { username, host } => {
-                        (format!("{}@{}", username, host), "GitHub Enterprise".to_string())
-                    }
-                };
-                ForgeAccount {
-                    provider: "GitHub".to_string(),
-                    username,
-                    account_type,
-                }
-            })
-            .collect();
+        if !known_gh_accounts.is_empty() {
+            writeln!(out, "GitHub accounts:")?;
+            for account in &known_gh_accounts {
+                writeln!(out, "  {}", account.username())?;
+            }
+        }
+        if !known_gl_accounts.is_empty() {
+            writeln!(out, "GitLab accounts:")?;
+            for account in known_gl_accounts {
+                writeln!(out, "  {}", account.username())?;
+            }
+        }
+    } else if let Some(out) = out.for_json() {
+        let accounts = extract_account_details(known_gh_accounts, known_gl_accounts);
 
         out.write_value(serde_json::json!({ "accounts": accounts }))?;
     }
 
     Ok(())
+}
+
+#[derive(Serialize)]
+struct ForgeAccount {
+    provider: String,
+    username: String,
+    account_type: String,
+}
+
+/// Extract account details for JSON output, combining GitHub and GitLab accounts into a unified format
+fn extract_account_details(
+    known_gh_accounts: Vec<but_github::GithubAccountIdentifier>,
+    known_gl_accounts: Vec<but_gitlab::GitlabAccountIdentifier>,
+) -> Vec<ForgeAccount> {
+    let mut accounts: Vec<ForgeAccount> = Vec::new();
+
+    // Add GitHub accounts
+    for account in &known_gh_accounts {
+        let (username, account_type) = match account {
+            but_github::GithubAccountIdentifier::OAuthUsername { username } => (username.clone(), "OAuth".to_string()),
+            but_github::GithubAccountIdentifier::PatUsername { username } => {
+                (username.clone(), "Personal Access Token".to_string())
+            }
+            but_github::GithubAccountIdentifier::Enterprise { username, host } => {
+                (format!("{}@{}", username, host), "GitHub Enterprise".to_string())
+            }
+        };
+        accounts.push(ForgeAccount {
+            provider: "GitHub".to_string(),
+            username,
+            account_type,
+        });
+    }
+
+    // Add GitLab accounts
+    for account in &known_gl_accounts {
+        let (username, account_type) = match account {
+            but_gitlab::GitlabAccountIdentifier::PatUsername { username } => {
+                (username.clone(), "Personal Access Token".to_string())
+            }
+            but_gitlab::GitlabAccountIdentifier::SelfHosted { username, host } => {
+                (format!("{}@{}", username, host), "GitLab Self-Hosted".to_string())
+            }
+        };
+        accounts.push(ForgeAccount {
+            provider: "GitLab".to_string(),
+            username,
+            account_type,
+        });
+    }
+    accounts
 }
 
 /// Authenticate with GitHub
@@ -596,44 +614,70 @@ async fn github_oauth(mut inout: InputOutputChannel<'_>) -> Result<()> {
     Ok(())
 }
 
-/// List authenticated GitHub accounts
-async fn forge_list_users(out: &mut OutputChannel) -> Result<()> {
-    let known_accounts = but_api::github::list_known_github_accounts().await?;
-    if let Some(out) = out.for_human() {
-        writeln!(out, "Known GitHub usernames:")?;
-        let mut some_accounts_invalid = false;
-        for account in known_accounts {
-            let account_status = but_api::github::check_github_credentials(account.clone()).await.ok();
+async fn display_authenticated_github_accounts(
+    known_gh_accounts: &Vec<but_github::GithubAccountIdentifier>,
+    out: &mut (dyn Write + 'static),
+) -> Result<bool, anyhow::Error> {
+    writeln!(out, "\n{}:", "Authenticated GitHub accounts".bold())?;
+    writeln!(out)?;
 
-            let message = match account_status {
-                Some(but_github::CredentialCheckResult::Valid) => "(valid credentials)".green().bold(),
-                Some(but_github::CredentialCheckResult::Invalid) => {
-                    some_accounts_invalid = true;
-                    "(invalid credentials)".bold().yellow()
-                }
-                Some(but_github::CredentialCheckResult::NoCredentials) => {
-                    some_accounts_invalid = true;
-                    "(no credentials)".bold().yellow()
-                }
-                None => " (unknown status)".bold().red(),
-            };
+    let mut some_accounts_invalid = false;
 
-            writeln!(out, "- {} {}", account, message)?;
-        }
+    for account in known_gh_accounts {
+        let account_status = but_api::github::check_github_credentials(account.clone()).await.ok();
 
-        if some_accounts_invalid {
-            writeln!(
-                out,
-                "\nSome accounts have invalid or missing credentials.\nYou may want to re-authenticate with those accounts using the '{}' command.",
-                "but config forge auth".bold()
-            )?;
-        }
-    } else if let Some(out) = out.for_shell() {
-        for account in known_accounts {
-            writeln!(out, "{}", account.username())?;
-        }
+        let message = match account_status {
+            Some(but_github::CredentialCheckResult::Valid) => "(valid credentials)".green().bold(),
+            Some(but_github::CredentialCheckResult::Invalid) => {
+                some_accounts_invalid = true;
+                "(invalid credentials)".bold().yellow()
+            }
+            Some(but_github::CredentialCheckResult::NoCredentials) => {
+                some_accounts_invalid = true;
+                "(no credentials)".bold().yellow()
+            }
+            None => "(unknown status)".bold().red(),
+        };
+
+        writeln!(out, "  • {} {}", account, message)?;
     }
-    Ok(())
+    writeln!(out)?;
+    Ok(some_accounts_invalid)
+}
+
+async fn display_authenticated_gitlab_accounts(
+    known_gl_accounts: &Vec<but_gitlab::GitlabAccountIdentifier>,
+    out: &mut (dyn Write + 'static),
+) -> Result<bool, anyhow::Error> {
+    if known_gl_accounts.is_empty() {
+        return Ok(false);
+    }
+
+    writeln!(out, "\n{}:", "Authenticated GitLab accounts".bold())?;
+    writeln!(out)?;
+
+    let mut some_accounts_invalid = false;
+
+    for account in known_gl_accounts {
+        let account_status = but_api::gitlab::check_gitlab_credentials(account.clone()).await.ok();
+
+        let message = match account_status {
+            Some(but_gitlab::CredentialCheckResult::Valid) => "(valid credentials)".green().bold(),
+            Some(but_gitlab::CredentialCheckResult::Invalid) => {
+                some_accounts_invalid = true;
+                "(invalid credentials)".bold().yellow()
+            }
+            Some(but_gitlab::CredentialCheckResult::NoCredentials) => {
+                some_accounts_invalid = true;
+                "(no credentials)".bold().yellow()
+            }
+            None => "(unknown status)".bold().red(),
+        };
+
+        writeln!(out, "  • {} {}", account, message)?;
+    }
+    writeln!(out)?;
+    Ok(some_accounts_invalid)
 }
 
 /// Forget a GitHub account

@@ -535,6 +535,7 @@ pub enum Subcommands {
     ///
     #[cfg(feature = "legacy")]
     #[clap(visible_alias = "review")]
+    #[clap(visible_alias = "mr")]
     Pr(forge::pr::Platform),
 
     /// Trigger a refresh of remote data fetching from the remote, Pull Requests, and CI status.
