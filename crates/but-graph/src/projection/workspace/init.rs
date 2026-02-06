@@ -455,6 +455,10 @@ impl Graph {
     /// Also return the segment that we stopped at.
     /// **Important**: `stop` is not called with `start`, this is a feature.
     ///
+    /// The `stop` signal is ignored for unnamed segments (no `ref_info`) whose `sibling_segment_id`
+    /// points to a segment already collected in the output. This prevents the traversal from stopping
+    /// at an ancestor-link segment that merely reconnects to a workspace branch we are already traversing.
+    ///
     /// Note that the traversal assumes as well-segmented graph without cycles.
     fn collect_first_parent_segments_until<'a>(
         &'a self,
@@ -467,7 +471,12 @@ impl Graph {
         let mut seen = BTreeSet::new();
         while let Some(first_edge) = edge {
             let next = &self[first_edge.target()];
-            if stop(next) {
+            if stop(next)
+                && !(next.ref_info.is_none()
+                    && next
+                        .sibling_segment_id
+                        .is_some_and(|sid| out.iter().any(|s| s.id == sid)))
+            {
                 stopped_at = Some(next);
                 break;
             }
