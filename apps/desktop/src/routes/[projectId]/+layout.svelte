@@ -20,6 +20,7 @@
 	import { useGitHubAccessToken } from '$lib/forge/github/hooks.svelte';
 	import { createGitLabProjectId } from '$lib/forge/gitlab/gitlab';
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
+	import { GITLAB_USER_SERVICE } from '$lib/forge/gitlab/gitlabUserService.svelte';
 	import { useGitLabAccessToken } from '$lib/forge/gitlab/hooks.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
@@ -91,6 +92,7 @@
 
 	const gitHubClient = inject(GITHUB_CLIENT);
 	const gitLabClient = inject(GITLAB_CLIENT);
+	const gitlabUserService = inject(GITLAB_USER_SERVICE);
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
 	const githubAccessToken = useGitHubAccessToken(reactive(() => projectId));
@@ -132,6 +134,14 @@
 				gitlabForkProjectId,
 				gitlabUpstreamProjectId
 			);
+		}
+	});
+
+	// GitLab migration
+	// Migrate the stored access token from the old location to the new one on app load
+	$effect(() => {
+		if (projectId) {
+			gitlabUserService.migrate(projectId);
 		}
 	});
 

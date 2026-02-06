@@ -1,5 +1,6 @@
 import { providesItem, providesList, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
+import type { SecretsService } from '$lib/secrets/secretsService';
 import type { BackendApi } from '$lib/state/clientState.svelte';
 import type { ButGitLab, ButGitLabToken } from '@gitbutler/core/api';
 
@@ -85,8 +86,26 @@ export function stringToGitLabAccountIdentifier(
 export class GitLabUserService {
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;
 
-	constructor(backendApi: BackendApi) {
+	constructor(
+		backendApi: BackendApi,
+		private secretsService: SecretsService
+	) {
 		this.backendApi = injectBackendEndpoints(backendApi);
+	}
+
+	/**
+	 * Migrate the access token for the given project from the old storage location (if it exists) to the new one.
+	 */
+	async migrate(projectId: string): Promise<void> {
+		try {
+			const gitlabToken = await this.secretsService.get(`git-lab-token:${projectId}`);
+			if (!gitlabToken) return;
+			await this.backendApi.endpoints.storeGitLabPat.initiate({ accessToken: gitlabToken });
+			await this.secretsService.delete(`git-lab-token:${projectId}`);
+		} catch (error) {
+			// Fail should not explote. Log instead.
+			console.warn(`Failed to migrate GitLab token for project ${projectId}:`, error);
+		}
 	}
 
 	get storeGitLabPat() {
