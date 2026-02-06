@@ -5,7 +5,10 @@ use but_api_macros::but_api;
 use but_core::sync::RepoExclusive;
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
-use but_rebase::graph_rebase::{GraphExt, LookupStep as _, mutate::InsertSide};
+use but_rebase::graph_rebase::{
+    GraphExt, LookupStep as _,
+    mutate::{InsertSide, RelativeTo},
+};
 use tracing::instrument;
 
 use crate::json;
@@ -72,16 +75,16 @@ pub mod ui {
         Reference(gix::refs::FullName),
     }
 
-    impl From<but_workspace::commit::insert_blank_commit::RelativeTo<'_>> for RelativeTo {
-        fn from(value: but_workspace::commit::insert_blank_commit::RelativeTo) -> Self {
+    impl From<but_rebase::graph_rebase::mutate::RelativeTo<'_>> for RelativeTo {
+        fn from(value: but_rebase::graph_rebase::mutate::RelativeTo) -> Self {
             match value {
-                but_workspace::commit::insert_blank_commit::RelativeTo::Commit(c) => Self::Commit(c),
-                but_workspace::commit::insert_blank_commit::RelativeTo::Reference(r) => Self::Reference(r.into()),
+                but_rebase::graph_rebase::mutate::RelativeTo::Commit(c) => Self::Commit(c),
+                but_rebase::graph_rebase::mutate::RelativeTo::Reference(r) => Self::Reference(r.into()),
             }
         }
     }
 
-    impl<'a> From<&'a RelativeTo> for but_workspace::commit::insert_blank_commit::RelativeTo<'a> {
+    impl<'a> From<&'a RelativeTo> for but_rebase::graph_rebase::mutate::RelativeTo<'a> {
         fn from(value: &'a RelativeTo) -> Self {
             match value {
                 RelativeTo::Commit(c) => Self::Commit(*c),
@@ -118,7 +121,7 @@ pub(crate) fn commit_insert_blank_only_impl(
     let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
     let editor = ws.graph.to_editor(&repo)?;
 
-    let relative_to = (&relative_to).into();
+    let relative_to: RelativeTo = (&relative_to).into();
 
     let (outcome, blank_commit_selector) = but_workspace::commit::insert_blank_commit(editor, side, relative_to)?;
 
@@ -177,8 +180,8 @@ pub fn commit_move_changes_between_only(
 
     let outcome = but_workspace::commit::move_changes_between_commits(
         editor,
-        source_commit_id.into(),
-        destination_commit_id.into(),
+        gix::ObjectId::from(source_commit_id),
+        gix::ObjectId::from(destination_commit_id),
         changes,
         context_lines,
     )?;
@@ -255,7 +258,8 @@ pub fn commit_uncommit_changes_only(
     };
 
     let editor = ws.graph.to_editor(&repo)?;
-    let outcome = but_workspace::commit::uncommit_changes(editor, commit_id.into(), changes, context_lines)?;
+    let outcome =
+        but_workspace::commit::uncommit_changes(editor, gix::ObjectId::from(commit_id), changes, context_lines)?;
 
     let materialized = outcome.rebase.materialize_without_checkout()?;
     let new_commit_id = materialized.lookup_pick(outcome.commit_selector)?;

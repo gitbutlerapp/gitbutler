@@ -5,7 +5,7 @@ pub(crate) mod function {
     use but_core::{DiffSpec, RepositoryExt};
     use but_rebase::{
         commit::DateMode,
-        graph_rebase::{Editor, LookupStep, Selector, Step, SuccessfulRebase},
+        graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
     };
 
     use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
@@ -41,30 +41,27 @@ pub(crate) mod function {
     /// `outcome.rebase.materialize()` to persist the changes.
     pub fn move_changes_between_commits(
         mut editor: Editor,
-        source_commit_id: gix::ObjectId,
-        destination_commit_id: gix::ObjectId,
+        source_commit: impl ToCommitSelector,
+        destination_commit: impl ToCommitSelector,
         changes_to_move: impl IntoIterator<Item = DiffSpec>,
         context_lines: u32,
     ) -> Result<MoveChangesOutcome> {
+        let (source_selector, source_commit) = editor.find_selectable_commit(source_commit)?;
+        let (destination_selector, destination_commit) = editor.find_selectable_commit(destination_commit)?;
+
         // Early return if source and destination are the same
-        if source_commit_id == destination_commit_id {
+        if source_commit.id == destination_commit.id {
             // Select the commit to get a valid selector, then just rebase (no-op)
-            let selector = editor.select_commit(source_commit_id)?;
             let outcome = editor.rebase()?;
             return Ok(MoveChangesOutcome {
                 rebase: outcome,
-                source_selector: selector,
-                destination_selector: selector,
+                source_selector,
+                destination_selector,
             });
         }
 
-        // Select both commits BEFORE any modifications to ensure they can be found
-        let source_selector = editor.select_commit(source_commit_id)?;
-        let destination_commit_selector = editor.select_commit(destination_commit_id)?;
-
         // Step 1: Get the source commit and its tree
         let source_tree_id = {
-            let source_commit = editor.find_commit(source_commit_id)?;
             if source_commit.is_conflicted() {
                 bail!("Source commit must not be conflicted")
             }
@@ -73,7 +70,9 @@ pub(crate) mod function {
 
         let (source_tree_without_changes_id, dropped_diffs) = create_tree_without_diff(
             editor.repo(),
-            ChangesSource::Commit { id: source_commit_id },
+            ChangesSource::Commit {
+                id: source_commit.id.into(),
+            },
             changes_to_move,
             context_lines,
         )?;
@@ -83,7 +82,7 @@ pub(crate) mod function {
         }
 
         let new_source_commit_id = {
-            let mut new_source_commit = editor.find_commit(source_commit_id)?;
+            let mut new_source_commit = source_commit.clone();
             new_source_commit.tree = source_tree_without_changes_id;
             editor.new_commit(new_source_commit, DateMode::CommitterUpdateAuthorKeep)?
         };
@@ -92,8 +91,7 @@ pub(crate) mod function {
 
         // Rebase and get potentially rebased destination commit
         let mut editor = editor.rebase()?.to_editor();
-        let rebased_destination_id = editor.lookup_pick(destination_commit_selector)?;
-        let rebased_destination_commit = editor.find_commit(rebased_destination_id)?;
+        let (_, rebased_destination_commit) = editor.find_selectable_commit(destination_selector)?;
         let destination_tree_id = {
             if rebased_destination_commit.is_conflicted() {
                 bail!("Destination commit must not be conflicted")
@@ -125,16 +123,14 @@ pub(crate) mod function {
             editor.new_commit(commit, DateMode::CommitterUpdateAuthorKeep)?
         };
 
-        // Select the rebased destination commit (not the original ID) and replace
-        let rebased_destination_selector = editor.select_commit(rebased_destination_id)?;
-        editor.replace(rebased_destination_selector, Step::new_pick(new_destination_commit_id))?;
+        editor.replace(destination_selector, Step::new_pick(new_destination_commit_id))?;
 
         let outcome = editor.rebase()?;
 
         Ok(MoveChangesOutcome {
             rebase: outcome,
             source_selector,
-            destination_selector: destination_commit_selector,
+            destination_selector,
         })
     }
 }

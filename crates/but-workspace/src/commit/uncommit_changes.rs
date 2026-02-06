@@ -5,7 +5,7 @@ pub(crate) mod function {
     use but_core::DiffSpec;
     use but_rebase::{
         commit::DateMode,
-        graph_rebase::{Editor, Selector, Step, SuccessfulRebase},
+        graph_rebase::{Editor, Selector, Step, SuccessfulRebase, ToCommitSelector},
     };
 
     use crate::tree_manipulation::{ChangesSource, create_tree_without_diff};
@@ -25,20 +25,19 @@ pub(crate) mod function {
     /// them so they appear in the working directory as uncommitted changes.
     pub fn uncommit_changes(
         mut editor: Editor,
-        commit_id: gix::ObjectId,
+        commit: impl ToCommitSelector,
         changes: impl IntoIterator<Item = DiffSpec>,
         context_lines: u32,
     ) -> Result<UncommitChangesOutcome> {
-        let commit_selector = editor.select_commit(commit_id)?;
+        let (commit_selector, commit) = editor.find_selectable_commit(commit)?;
 
-        let commit = editor.find_commit(commit_id)?;
         if commit.is_conflicted() {
             bail!("Cannot uncommit changes from a conflicted commit")
         }
 
         let (tree_without_changes, dropped_diffs) = create_tree_without_diff(
             editor.repo(),
-            ChangesSource::Commit { id: commit_id },
+            ChangesSource::Commit { id: commit.id.into() },
             changes,
             context_lines,
         )?;
@@ -48,7 +47,7 @@ pub(crate) mod function {
         }
 
         let new_commit_id = {
-            let mut new_commit = editor.find_commit(commit_id)?;
+            let mut new_commit = commit.clone();
             new_commit.tree = tree_without_changes;
             editor.new_commit(new_commit, DateMode::CommitterUpdateAuthorKeep)?
         };
