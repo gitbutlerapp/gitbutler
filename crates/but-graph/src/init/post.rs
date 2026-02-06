@@ -822,7 +822,8 @@ impl Graph {
             }
 
             let num_outgoing = self.inner.neighbors_directed(sidx, Direction::Incoming).count();
-            if num_outgoing < 2 {
+            let single_incoming_connection = num_outgoing < 2;
+            if single_incoming_connection {
                 continue;
             }
 
@@ -838,16 +839,29 @@ impl Graph {
                 }
 
                 s.ref_info.as_ref().is_some_and(|ri| {
-                    let is_known_to_workspace = ws_data
-                        .stacks(AppliedAndUnapplied)
-                        .any(|s| s.branches.iter().any(|b| b.ref_name == ri.ref_name));
+                    let is_known_to_workspace = ws_data.contains_ref(ri.ref_name.as_ref(), AppliedAndUnapplied);
                     if is_known_to_workspace {
                         named_segment_id = Some(s.id);
                     }
                     is_known_to_workspace
                 })
             });
-            self[sidx].sibling_segment_id = named_segment_id;
+            if let Some(named_sid) = named_segment_id
+                && self[sidx].sibling_segment_id.is_none()
+            {
+                // Don't set sibling if the named segment is already known to the workspace
+                // by direct connection.
+                let segment_name = self[named_sid]
+                    .ref_info
+                    .as_ref()
+                    .expect("BUG: named segment must have name")
+                    .ref_name
+                    .as_ref();
+                let is_stack_tip = ws_data.stack_names(Applied).any(|sn| sn == segment_name);
+                if !is_stack_tip {
+                    self[sidx].sibling_segment_id = Some(named_sid);
+                }
+            }
         }
 
         // The named-segment check is needed as we don't want to double-split unnamed segments.
