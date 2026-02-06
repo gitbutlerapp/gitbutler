@@ -873,14 +873,14 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
                         ref_name: "►A",
-                        remote_tracking_ref_name: "None",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(1818c17, "A\n", integrated(0b6b861)),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: "None",
-                        push_status: CompletelyUnpushed,
+                        push_status: Integrated,
                         base: "281456a",
                     },
                 ],
