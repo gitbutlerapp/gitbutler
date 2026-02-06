@@ -71,7 +71,9 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
                 break;
             }
             if let Some(s) = graph.node_weight(sidx)
-                && (s.metadata.is_some() || s.sibling_segment_id.is_some())
+                && (s.metadata.is_some()
+                    || s.sibling_segment_id.is_some()
+                    || s.remote_tracking_branch_segment_id.is_some())
             {
                 continue;
             }
