@@ -102,7 +102,7 @@
 		{listMode}
 		{stackId}
 		{onFileClick}
-		showLockedIndicator={mode === 'unassigned'}
+		showLockedIndicator
 	/>
 {/snippet}
 
