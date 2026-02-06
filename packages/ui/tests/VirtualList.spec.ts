@@ -270,6 +270,47 @@ test('should initialize at bottom with very tall items when stickToBottom enable
 	expect(scrollTop).toBeGreaterThan(0);
 });
 
+test('should stick to bottom when last item expands even with stickToBottom disabled', async ({
+	mount
+}) => {
+	// When manually scrolled to bottom (without stickToBottom), expanding the last item
+	// should still keep us at the bottom - this is important for expanding collapsed diffs
+	const component = await mount(VirtualListTestWrapper, {
+		props: {
+			...config,
+			stickToBottom: false,
+			asyncContent: undefined
+		}
+	});
+
+	const viewport = component.locator('.viewport');
+	await waitForScrollStability(viewport);
+
+	// Initially at top
+	const { scrollTop: initialScrollTop } = await getScrollProperties(viewport);
+	expect(initialScrollTop).toBe(0);
+
+	// Scroll to bottom manually
+	const scrollButton = component.getByTestId('scroll-to-bottom-button');
+	await scrollButton.click();
+	await waitForScrollStability(viewport);
+	await expectAtBottom(viewport);
+
+	// Record scroll height before expansion
+	const { scrollHeight: scrollHeightBefore } = await getScrollProperties(viewport);
+
+	// Expand the last item
+	await component.locator('button', { hasText: 'Expand Last' }).click();
+	await waitForScrollStability(viewport);
+
+	// Verify the item actually expanded
+	const { scrollHeight: scrollHeightAfter } = await getScrollProperties(viewport);
+	expect(scrollHeightAfter).toBeGreaterThan(scrollHeightBefore);
+
+	// Should still be at bottom after expansion
+	await expectAtBottom(viewport);
+});
+
 test('should stick to bottom when footer toggled in children snippet', async ({ mount }) => {
 	// This tests that stickToBottom works correctly when content is added to the children snippet
 	const component = await mount(VirtualListTestWrapper, {
