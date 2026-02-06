@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Error, Result};
 use but_fs::list_files;
+use but_gitlab::GitLabProjectId;
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
 
@@ -482,7 +483,7 @@ fn list_forge_reviews(
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab().cloned());
 
             // Clone owned data for thread
-            let project_id = "todo"; // Retrieve poject ID properly
+            let project_id = GitLabProjectId::new(owner, repo);
             let storage = storage.clone();
 
             let mrs = std::thread::spawn(move || {
@@ -538,7 +539,7 @@ pub async fn list_forge_reviews_for_branch(
         }
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab().cloned());
-            let project_id = "todo"; // Retrieve poject ID properly
+            let project_id = GitLabProjectId::new(owner, repo);
             let mrs =
                 but_gitlab::mr::list_all_for_target(preferred_account.as_ref(), project_id, branch, storage).await?;
             let mrs = filter_mrs(mrs, &filter);
@@ -645,7 +646,7 @@ pub async fn get_forge_review(
         }
         ForgeName::GitLab => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
-            let project_id = "todo"; // Retrieve poject ID properly
+            let project_id = GitLabProjectId::new(owner, repo);
             let mr = but_gitlab::mr::get(preferred_account, project_id, review_number, storage).await?;
             Ok(ForgeReview::from(mr))
         }
@@ -692,11 +693,11 @@ pub async fn create_forge_review(
             Ok(ForgeReview::from(pr))
         }
         ForgeName::GitLab => {
-            let project_id = "todo"; // TODO: Retrieve poject ID properly
+            let project_id = GitLabProjectId::new(owner, repo);
             // TODO: handle forks better
             // TODO: handle draft properly
             let mr_params = but_gitlab::CreateMergeRequestParams {
-                project: project_id,
+                project_id,
                 title: &params.title,
                 body: &params.body,
                 source_branch: &params.source_branch,

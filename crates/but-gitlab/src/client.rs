@@ -3,6 +3,8 @@ use but_secret::Sensitive;
 use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderMap, HeaderValue, USER_AGENT};
 use serde::{Deserialize, Serialize};
 
+use crate::GitLabProjectId;
+
 const GITLAB_API_BASE_URL: &str = "https://gitlab.com/api/v4";
 
 pub struct GitLabClient {
@@ -91,12 +93,8 @@ impl GitLabClient {
         })
     }
 
-    pub async fn list_open_mrs(&self, project: &str) -> Result<Vec<MergeRequest>> {
-        let url = format!(
-            "{}/projects/{}/merge_requests",
-            self.base_url,
-            urlencoding::encode(project)
-        );
+    pub async fn list_open_mrs(&self, project_id: GitLabProjectId) -> Result<Vec<MergeRequest>> {
+        let url = format!("{}/projects/{}/merge_requests", self.base_url, project_id);
 
         let response = self
             .client
@@ -113,12 +111,12 @@ impl GitLabClient {
         Ok(mrs.into_iter().map(Into::into).collect())
     }
 
-    pub async fn list_mrs_for_target(&self, project: &str, target_branch: &str) -> Result<Vec<MergeRequest>> {
-        let url = format!(
-            "{}/projects/{}/merge_requests",
-            self.base_url,
-            urlencoding::encode(project)
-        );
+    pub async fn list_mrs_for_target(
+        &self,
+        project_id: GitLabProjectId,
+        target_branch: &str,
+    ) -> Result<Vec<MergeRequest>> {
+        let url = format!("{}/projects/{}/merge_requests", self.base_url, project_id);
 
         let response = self
             .client
@@ -152,11 +150,7 @@ impl GitLabClient {
             target_project_id: Option<i64>,
         }
 
-        let url = format!(
-            "{}/projects/{}/merge_requests",
-            self.base_url,
-            urlencoding::encode(params.project)
-        );
+        let url = format!("{}/projects/{}/merge_requests", self.base_url, params.project_id);
 
         let body = CreateMergeRequestBody {
             title: params.title,
@@ -178,13 +172,8 @@ impl GitLabClient {
         Ok(mr.into())
     }
 
-    pub async fn get_merge_request(&self, project: &str, mr_iid: i64) -> Result<MergeRequest> {
-        let url = format!(
-            "{}/projects/{}/merge_requests/{}",
-            self.base_url,
-            urlencoding::encode(project),
-            mr_iid
-        );
+    pub async fn get_merge_request(&self, project_id: GitLabProjectId, mr_iid: i64) -> Result<MergeRequest> {
+        let url = format!("{}/projects/{}/merge_requests/{}", self.base_url, project_id, mr_iid);
 
         let response = self.client.get(&url).send().await?;
 
@@ -202,7 +191,7 @@ pub struct CreateMergeRequestParams<'a> {
     pub body: &'a str,
     pub source_branch: &'a str,
     pub target_branch: &'a str,
-    pub project: &'a str,
+    pub project_id: GitLabProjectId,
 }
 
 #[derive(Debug, Serialize)]
