@@ -99,6 +99,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
         Some(Subcommands::Diff { tui, .. }) => !tui,
+        #[cfg(feature = "legacy")]
+        Some(Subcommands::Stage { ref file_or_hunk, .. }) => file_or_hunk.is_some(),
         _ => false,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -897,7 +899,11 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Stage { file_or_hunk, branch } => {
+        Subcommands::Stage {
+            file_or_hunk,
+            branch_pos,
+            branch,
+        } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -906,10 +912,27 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
-                .context("Failed to stage.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            if file_or_hunk.is_some() {
+                // Direct mode: but stage <file_or_hunk> <branch>
+                let file_or_hunk = file_or_hunk.unwrap();
+                let branch = branch.or(branch_pos).ok_or_else(|| {
+                    anyhow::anyhow!("Missing required argument: <branch>. Usage: but stage <file_or_hunk> <branch>")
+                })?;
+                command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
+                    .context("Failed to stage.")
+                    .emit_metrics(metrics_ctx)
+                    .show_root_cause_error_then_exit_without_destructors(output)
+            } else {
+                // Interactive mode: but stage [--branch <branch>]
+                use std::io::IsTerminal;
+                if !std::io::stdout().is_terminal() {
+                    anyhow::bail!("Interactive stage requires a terminal. Use: but stage <file_or_hunk> <branch>");
+                }
+                command::legacy::rub::handle_stage_tui(&mut ctx, out, branch.as_deref())
+                    .context("Failed to stage.")
+                    .emit_metrics(metrics_ctx)
+                    .show_root_cause_error_then_exit_without_destructors(output)
+            }
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unstage { file_or_hunk, branch } => {

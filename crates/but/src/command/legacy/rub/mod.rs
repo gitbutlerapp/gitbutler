@@ -830,6 +830,103 @@ pub(crate) fn handle_stage(
     handle(ctx, out, file_or_hunk_str, branch_str)
 }
 
+/// Handler for `but stage --tui` - interactive hunk selection TUI.
+/// If `branch_str` is None, prompts the user to select a branch.
+pub(crate) fn handle_stage_tui(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    branch_str: Option<&str>,
+) -> anyhow::Result<()> {
+    use crate::tui::stage_viewer::{StageFileEntry, StageResult};
+
+    let id_map = IdMap::new_from_context(ctx, None)?;
+
+    // Resolve branch: from flag, or interactive selection
+    let branch_name = if let Some(branch_str) = branch_str {
+        let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)?;
+        match &branch {
+            CliId::Branch { name, .. } => name.clone(),
+            other => {
+                bail!(
+                    "Cannot stage to {} - it is {}. Target must be a branch.",
+                    other.to_short_string().blue().underline(),
+                    other.kind_for_humans().yellow()
+                );
+            }
+        }
+    } else {
+        // Get available stacks, use top branch of each as the staging target
+        let stacks = crate::legacy::commits::stacks(ctx)?;
+        let stack_top_branches: Vec<String> = stacks
+            .iter()
+            .filter_map(|s| s.heads.first().map(|h| h.name.to_string()))
+            .collect();
+
+        if stack_top_branches.is_empty() {
+            // Auto-create a branch with a generated name
+            let branch_name = but_api::legacy::workspace::canned_branch_name(ctx)?;
+            but_api::legacy::stack::create_reference(
+                ctx,
+                but_api::legacy::stack::create_reference::Request {
+                    new_name: branch_name.clone(),
+                    anchor: None,
+                },
+            )?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Created new branch '{}'", branch_name)?;
+            }
+            branch_name
+        } else if stack_top_branches.len() == 1 {
+            stack_top_branches.into_iter().next().unwrap()
+        } else {
+            match crate::tui::stage_viewer::run_branch_selector(&stack_top_branches)? {
+                Some(name) => name,
+                None => {
+                    if let Some(out) = out.for_human() {
+                        writeln!(out, "Stage cancelled.")?;
+                    }
+                    return Ok(());
+                }
+            }
+        }
+    };
+
+    let files = StageFileEntry::from_worktree(&id_map);
+
+    if files.is_empty() {
+        bail!("No uncommitted changes to stage.");
+    }
+
+    let result = crate::tui::stage_viewer::run_stage_viewer(files, &branch_name)?;
+
+    match result {
+        StageResult::Stage { selected, unselected } => {
+            if selected.is_empty() {
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "No hunks selected. Nothing staged.")?;
+                }
+                return Ok(());
+            }
+            create_snapshot(ctx, OperationKind::MoveHunk);
+            // Stage selected hunks to the target branch
+            let mut reqs = assign::to_assignment_request(ctx, selected.into_iter(), Some(&branch_name))?;
+            // Unassign deselected hunks (set stack_id to None)
+            reqs.extend(assign::to_assignment_request(ctx, unselected.into_iter(), None)?);
+            assign::do_assignments(ctx, reqs, out)?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Staged selected hunks → {}.", format!("[{branch_name}]").green())?;
+            }
+            Ok(())
+        }
+        StageResult::Cancelled => {
+            if let Some(out) = out.for_human() {
+                writeln!(out, "Stage cancelled.")?;
+            }
+            Ok(())
+        }
+    }
+}
+
 /// Handler for `but unstage <file_or_hunk> [branch]` - runs `but rub <file_or_hunk> zz`
 /// Validates that file_or_hunk is uncommitted. Optionally validates it's assigned to the specified branch.
 pub(crate) fn handle_unstage(

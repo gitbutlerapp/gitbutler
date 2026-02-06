@@ -174,7 +174,7 @@ fn parse_unified_patch(patch: &but_core::UnifiedPatch) -> Vec<DiffLine> {
     }
 }
 
-fn parse_hunk_assignment_to_lines(assignment: &but_hunk_assignment::HunkAssignment) -> Vec<DiffLine> {
+pub(crate) fn parse_hunk_assignment_to_lines(assignment: &but_hunk_assignment::HunkAssignment) -> Vec<DiffLine> {
     if let (Some(diff), Some(header)) = (&assignment.diff, &assignment.hunk_header) {
         let hunk = DiffHunk {
             old_start: header.old_start,
