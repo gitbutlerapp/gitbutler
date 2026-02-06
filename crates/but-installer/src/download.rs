@@ -78,7 +78,7 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     let response_code = easy.response_code().context("Failed to get response code")?;
     if response_code == 403 {
         bail!(
-            "Download failed, the download artifact could not be found. Most likely, the but CLI has not been publised for the requested version."
+            "Download failed, the download artifact could not be found. Most likely, the but CLI has not been published for the requested version."
         )
     } else if response_code != 200 {
         bail!("Download failed with HTTP status: {}", response_code);

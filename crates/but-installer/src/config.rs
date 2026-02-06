@@ -155,7 +155,7 @@ impl InstallerConfig {
             ("macos", "x86_64") => "darwin-x86_64",
             ("linux", "aarch64") => "linux-aarch64",
             ("linux", "x86_64") => "linux-x86_64",
-            (os, arch) => bail!("unsopported OS or architecture: {os} {arch}"),
+            (os, arch) => bail!("unsupported OS or architecture: {os} {arch}"),
         };
 
         Ok(Self {
