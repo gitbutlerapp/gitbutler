@@ -34,6 +34,8 @@ pub fn commited_file_to_another_commit(
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Moved files between commits!")?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
 
     Ok(())
@@ -73,6 +75,8 @@ pub fn uncommit_file(
 
     if let Some(out) = out.for_human() {
         writeln!(out, "Uncommitted changes")?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
 
     Ok(())

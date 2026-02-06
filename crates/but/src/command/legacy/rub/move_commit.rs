@@ -34,7 +34,7 @@ pub(crate) fn to_branch(
         gitbutler_branch_actions::move_commit(ctx, target_stack_id, oid.to_git2(), source_stack_id)?
     {
         if let Some(out) = out.for_human() {
-            match illegal_move {
+            match &illegal_move {
                 gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
                     writeln!(
                         out,
@@ -58,6 +58,8 @@ pub(crate) fn to_branch(
                     )
                 }
             }?;
+        } else if let Some(out) = out.for_json() {
+            out.write_value(super::illegal_move_to_json(&illegal_move))?;
         }
         bail!("Illegal move")
     }
@@ -68,6 +70,8 @@ pub(crate) fn to_branch(
             oid.to_string()[..7].blue(),
             format!("[{branch_name}]").green()
         )?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
     Ok(())
 }

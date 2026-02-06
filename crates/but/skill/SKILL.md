@@ -16,8 +16,8 @@ Help users work with GitButler CLI (`but` command) in workspace mode.
 1. **Check state** → `but status --json` (always use `--json` for structured output)
 2. **Start work** → `but branch new <task-name>` (create stack for this work theme)
 3. **Make changes** → Edit files as needed
-4. **Commit work** → `but commit <branch> -m "message" --changes <id>,<id>` (commit specific files by CLI ID)
-5. **Refine** → Use `but absorb` or `but squash` to clean up history
+4. **Commit work** → `but commit <branch> -m "message" --changes <id>,<id> --json --status-after` (commit specific files by CLI ID, get updated status in one call)
+5. **Refine** → Use `but absorb --json --status-after` or `but squash --json --status-after` to clean up history
 
 **Commit early, commit often.** Don't hesitate to create commits - GitButler makes editing history trivial. You can always `squash`, `reword`, or `absorb` changes into existing commits later. Small atomic commits are better than large uncommitted changes.
 
@@ -26,7 +26,7 @@ Help users work with GitButler CLI (`but` command) in workspace mode.
 When ready to commit:
 
 1. Run `but status --json` to see uncommitted changes and get their CLI IDs
-2. Commit the relevant files directly: `but commit <branch> -m "message" --changes <id>,<id>`
+2. Commit the relevant files directly: `but commit <branch> -m "message" --changes <id>,<id> --json --status-after`
 
 You can batch multiple file edits before committing - no need to commit after every single change.
 
@@ -63,7 +63,7 @@ but skill install --path <path>    # Install/update skill (agents use --path wit
 but status --json       # Always start here - shows workspace state (JSON for agents)
 but branch new feature  # Create new stack for work
 # Make changes...
-but commit <branch> -m "…" --changes <id>,<id>  # Commit specific files by CLI ID
+but commit <branch> -m "…" --changes <id>,<id> --json --status-after  # Commit + get updated status
 but push <branch>       # Push to remote
 ```
 
@@ -83,6 +83,7 @@ For detailed command syntax and all available options, see [references/reference
 **Flags explanation:**
 - `--json` - Output structured JSON instead of human-readable text (always use for agents)
 - `-f` - Include detailed file lists in status output (combines with --json: `but status --json -f`)
+- `--status-after` - After a mutation command (`commit`, `absorb`, `rub`, `stage`, `amend`, `squash`, `move`, `uncommit`), also output workspace status. With `--json`, wraps both in `{"result": ..., "status": ...}`. Saves a separate `but status` call.
 
 **Organizing work:**
 
@@ -150,24 +151,23 @@ but branch new api-endpoint
 but branch new ui-update
 # Make changes, then commit specific files to appropriate branches
 but status --json  # Get file CLI IDs
-but commit api-endpoint -m "Add endpoint" --changes <api-file-id>
-but commit ui-update -m "Update UI" --changes <ui-file-id>
+but commit api-endpoint -m "Add endpoint" --changes <api-file-id> --json --status-after
+but commit ui-update -m "Update UI" --changes <ui-file-id> --json --status-after
 ```
 
 **Committing specific hunks (fine-grained control):**
 
 ```bash
 but diff --json             # See hunk IDs when a file has multiple changes
-but commit <branch> -m "Fix first issue" --changes <hunk-id-1>
-but commit <branch> -m "Fix second issue" --changes <hunk-id-2>
+but commit <branch> -m "Fix first issue" --changes <hunk-id-1> --json --status-after
+but commit <branch> -m "Fix second issue" --changes <hunk-id-2> --json --status-after
 ```
 
 **Cleaning up commits:**
 
 ```bash
-but absorb              # Auto-amend changes
-but status --json       # Verify absorb result
-but squash <branch>     # Squash all commits in branch
+but absorb --json --status-after    # Auto-amend changes + get updated status in one call
+but squash <branch> --json --status-after  # Squash all commits in branch + get updated status
 ```
 
 **Resolving conflicts:**
@@ -185,6 +185,7 @@ but resolve finish      # Complete resolution
 3. Use `--changes` to commit specific files directly - no need to stage first
 4. **Commit early and often** - don't wait for perfection. Unlike traditional git, GitButler makes editing history trivial with `absorb`, `squash`, and `reword`. It's better to have small, atomic commits that you refine later than to accumulate large uncommitted changes.
 5. **Use `--json` flag for ALL commands** when running as an agent - this provides structured, parseable output instead of human-readable text
-6. Use `--dry-run` flags (push, absorb) when unsure
-7. Run `but pull` regularly to stay updated with upstream
-8. When updating this skill, use `but skill install --path <known-path>` to avoid prompts
+6. **Use `--status-after`** on mutation commands (`commit`, `absorb`, `rub`, `stage`, `amend`, `squash`, `move`, `uncommit`) to get workspace status in the same call — avoids a separate `but status` round-trip
+7. Use `--dry-run` flags (push, absorb) when unsure
+8. Run `but pull` regularly to stay updated with upstream
+9. When updating this skill, use `but skill install --path <known-path>` to avoid prompts

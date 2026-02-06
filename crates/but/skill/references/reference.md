@@ -146,6 +146,7 @@ Stage file to a specific branch.
 
 ```bash
 but stage <file-id> <branch-id>
+but stage <file-id> <branch-id> --status-after  # Stage then show workspace status
 ```
 
 Alias for `but rub <file> <branch>`. You can't stage changes that depend on branch A to branch B.
@@ -169,6 +170,7 @@ but commit <branch> --only -m "message"  # Commit ONLY staged changes (recommend
 but commit <branch> -m "message"         # Commit ALL uncommitted changes to branch
 but commit <branch> -m "message" --changes <id>,<id>  # Commit specific files or hunks by CLI ID
 but commit <branch> -i                   # AI-generated commit message
+but commit <branch> -m "message" --status-after  # Commit then show workspace status
 but commit empty --before <target>       # Insert empty commit before target
 but commit empty --after <target>        # Insert empty commit after target
 ```
@@ -197,6 +199,7 @@ but absorb <branch-id>        # Absorb all changes staged to this branch
 but absorb                    # Absorb ALL uncommitted changes (use with caution)
 but absorb --dry-run          # Preview without making changes
 but absorb <file-id> --dry-run  # Preview specific file absorption
+but absorb --status-after     # Absorb then show workspace status
 ```
 
 **Recommendation:** Prefer targeted absorb (`but absorb <file-id>`) over absorbing everything. Running `but absorb` without arguments absorbs ALL uncommitted changes across all branches, which may not be what you want.
@@ -218,6 +221,7 @@ but rub <file> <branch>      # Stage file to branch
 but rub <file> <commit>      # Amend file into commit
 but rub <commit> <commit>    # Squash commits together
 but rub <commit> <branch>    # Move commit to branch
+but rub <file> <commit> --status-after  # Amend then show workspace status
 ```
 
 The core "rub two things together" operation.
@@ -230,6 +234,7 @@ Squash commits together.
 but squash <c1> <c2> <c3>    # Squash multiple commits (into last)
 but squash <c1>..<c4>        # Squash a range
 but squash <branch>          # Squash all commits in branch into bottom-most
+but squash <branch> --status-after  # Squash then show workspace status
 ```
 
 ### `but amend <file> <commit>`
@@ -237,7 +242,8 @@ but squash <branch>          # Squash all commits in branch into bottom-most
 Amend file into a specific commit. Use when you know exactly which commit the change belongs to.
 
 ```bash
-but amend <file-id> <commit-id>    # Amend file into specific commit
+but amend <file-id> <commit-id>                  # Amend file into specific commit
+but amend <file-id> <commit-id> --status-after   # Amend then show workspace status
 ```
 
 **When to use `amend` vs `absorb`:**
@@ -254,6 +260,7 @@ Move a commit to a different location.
 but move <source> <target>           # Move before target
 but move <source> <target> --after   # Move after target
 but move <commit> <branch>           # Move to top of branch
+but move <commit> <branch> --status-after  # Move then show workspace status
 ```
 
 ### `but uncommit <source>`
@@ -263,6 +270,7 @@ Uncommit changes back to unstaged area.
 ```bash
 but uncommit <commit-id>      # Uncommit entire commit
 but uncommit <file-id>        # Uncommit specific file from its commit
+but uncommit <commit-id> --status-after  # Uncommit then show workspace status
 ```
 
 ### `but reword <id>`
@@ -491,6 +499,7 @@ but alias
 Available on most commands:
 
 - `-j, --json` - Output in JSON format for parsing
+- `--status-after` - After a mutation command, also output workspace status. In human mode, prints status after the command output. In JSON mode, wraps both in `{"result": ..., "status": ...}`. Supported on: `rub`, `commit`, `stage`, `amend`, `absorb`, `squash`, `move`, `uncommit`.
 - `-C, --current-dir <PATH>` - Run as if started in different directory
 - `-h, --help` - Show help for command
 

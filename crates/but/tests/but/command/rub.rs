@@ -697,3 +697,62 @@ Failed to unstage. Cannot unstage from fc - it is a commit. Target must be a bra
 
     Ok(())
 }
+
+#[test]
+fn status_after_json_wraps_mutation_and_status() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("a.txt", "arbitrary text\n");
+
+    // Use --json --status-after with a stage operation
+    let output = env.but("--json --status-after stage a.txt A").allow_json().output()?;
+    assert!(output.status.success());
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+
+    // The combined output must have both "result" and "status" fields
+    assert!(
+        json.get("result").is_some(),
+        "expected 'result' field in combined JSON output"
+    );
+    assert!(
+        json.get("status").is_some(),
+        "expected 'status' field in combined JSON output"
+    );
+
+    // The result should contain the mutation output (stage produces {"ok": true})
+    assert_eq!(json["result"]["ok"], true, "mutation result should indicate success");
+
+    // The status should have standard status fields
+    assert!(json["status"].get("stacks").is_some(), "status should contain 'stacks'");
+    assert!(
+        json["status"].get("unassignedChanges").is_some(),
+        "status should contain 'unassignedChanges'"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn status_after_json_success_has_no_status_error_field() -> anyhow::Result<()> {
+    // Verifies that on a successful mutation with --status-after, the combined
+    // JSON output contains {result, status} but NOT status_error.
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("b.txt", "content\n");
+
+    let output = env.but("--json --status-after stage b.txt A").allow_json().output()?;
+    assert!(output.status.success());
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+
+    // On success, status_error should NOT be present
+    assert!(
+        json.get("status_error").is_none(),
+        "status_error should not be present on success"
+    );
+
+    Ok(())
+}

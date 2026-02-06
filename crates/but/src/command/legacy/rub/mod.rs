@@ -18,6 +18,29 @@ use gitbutler_oplog::{
 
 use crate::{CliId, IdMap, utils::OutputChannel};
 
+/// Serialize a [`gitbutler_branch_actions::MoveCommitIllegalAction`] to a structured JSON value.
+///
+/// Shared between `move.rs` and `move_commit.rs` to avoid duplicated match arms.
+pub(crate) fn illegal_move_to_json(action: &gitbutler_branch_actions::MoveCommitIllegalAction) -> serde_json::Value {
+    let (reason, deps) = match action {
+        gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
+            ("depends_on_commits", Some(deps.clone()))
+        }
+        gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentChanges(deps) => {
+            ("has_dependent_changes", Some(deps.clone()))
+        }
+        gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
+            ("has_dependent_uncommitted_changes", None)
+        }
+    };
+    serde_json::json!({
+        "ok": false,
+        "error": "illegal_move",
+        "reason": reason,
+        "dependencies": deps,
+    })
+}
+
 /// Represents the operation to perform for a given source and target combination.
 /// This enum serves as the single source of truth for valid rub operations.
 #[derive(Debug)]

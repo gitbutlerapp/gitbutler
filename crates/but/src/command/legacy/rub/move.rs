@@ -249,6 +249,16 @@ fn move_to_commit(
                 "     {} Reposition to the desired location (use the new commit ID from step 1)",
                 "↳".cyan()
             )?;
+        } else if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({
+                "ok": false,
+                "error": "cross_stack_position",
+                "hint": format!(
+                    "Move to branch first with 'but move {} {}', then reposition",
+                    &source_oid.to_string()[..7],
+                    target_stack_head_branch
+                ),
+            }))?;
         }
 
         bail!("Cannot move commit to specific position in another stack");
@@ -311,6 +321,8 @@ fn move_to_branch(
                 let cmd = format!("but move {} <target-commit> [--after]", &source_str[..7]);
                 writeln!(out, "  {}", cmd.green())?;
             }
+        } else if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({"ok": true}))?;
         }
     } else {
         // Different stack - use move_commit API
@@ -318,7 +330,7 @@ fn move_to_branch(
             gitbutler_branch_actions::move_commit(ctx, target_stack_id, source_oid.to_git2(), source_stack_id)?
         {
             if let Some(out) = out.for_human() {
-                match illegal_move {
+                match &illegal_move {
                     gitbutler_branch_actions::MoveCommitIllegalAction::DependsOnCommits(deps) => {
                         writeln!(
                             out,
@@ -343,6 +355,8 @@ fn move_to_branch(
                         )?;
                     }
                 }
+            } else if let Some(out) = out.for_json() {
+                out.write_value(super::illegal_move_to_json(&illegal_move))?;
             }
             bail!("Illegal move");
         }
@@ -371,6 +385,8 @@ fn move_to_branch(
                 let cmd = format!("but move {} <target-commit> [--after]", &source_str[..7]);
                 writeln!(out, "  {}", cmd.green())?;
             }
+        } else if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({"ok": true}))?;
         }
     }
 
@@ -415,6 +431,8 @@ fn move_within_stack(
     if git2_source_oid == git2_target_oid {
         if let Some(out) = out.for_human() {
             writeln!(out, "Source and target are the same commit. Nothing to do.")?;
+        } else if let Some(out) = out.for_json() {
+            out.write_value(serde_json::json!({"ok": true}))?;
         }
         return Ok(());
     }
@@ -457,6 +475,8 @@ fn move_within_stack(
             position_desc,
             target_oid.to_string()[..7].blue()
         )?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
 
     Ok(())

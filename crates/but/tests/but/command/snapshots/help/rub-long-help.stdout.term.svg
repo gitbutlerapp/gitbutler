@@ -1,4 +1,4 @@
-<svg width="776px" height="1208px" xmlns="http://www.w3.org/2000/svg">
+<svg width="852px" height="1334px" xmlns="http://www.w3.org/2000/svg">
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
@@ -144,11 +144,25 @@
 </tspan>
     <tspan x="10px" y="1144px">
 </tspan>
-    <tspan x="10px" y="1162px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+    <tspan x="10px" y="1162px"><tspan>      </tspan><tspan class="bold">--status-after</tspan>
 </tspan>
-    <tspan x="10px" y="1180px"><tspan>          Print help (see a summary with '-h')</tspan>
+    <tspan x="10px" y="1180px"><tspan>          After a mutation command completes, also output workspace status.</tspan>
 </tspan>
-    <tspan x="10px" y="1198px">
+    <tspan x="10px" y="1198px"><tspan>          </tspan>
+</tspan>
+    <tspan x="10px" y="1216px"><tspan>          In human mode, prints status after the command output. In JSON mode, wraps both in</tspan>
+</tspan>
+    <tspan x="10px" y="1234px"><tspan>          {"result": ..., "status": ...} on success, or {"result": ..., "status_error": ...} if the</tspan>
+</tspan>
+    <tspan x="10px" y="1252px"><tspan>          status query fails (in which case "status" is absent).</tspan>
+</tspan>
+    <tspan x="10px" y="1270px">
+</tspan>
+    <tspan x="10px" y="1288px"><tspan>  </tspan><tspan class="bold">-h</tspan><tspan>, </tspan><tspan class="bold">--help</tspan>
+</tspan>
+    <tspan x="10px" y="1306px"><tspan>          Print help (see a summary with '-h')</tspan>
+</tspan>
+    <tspan x="10px" y="1324px">
 </tspan>
   </text>
 
