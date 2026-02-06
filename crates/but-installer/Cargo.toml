@@ -40,3 +40,7 @@ base64 = "0.22.1"
 [target.'cfg(target_os = "macos")'.dependencies]
 # For removing quarantine attribute on macOS
 xattr = "1.6.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# I couldn't make it work without the ssl feature enabled, it doesn't dynamically link to libssl without it so https just doesn't work
+curl = { version = "0.4.49", default-features = false, features = ["ssl"] }
