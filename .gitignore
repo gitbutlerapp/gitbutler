@@ -68,6 +68,7 @@ packages/ui/tests/.cache
 .swarm
 .claude-flow
 /.agents/
+/.claude/
 
 # Auto-generated design tokens
 packages/ui/src/styles/tokens.css

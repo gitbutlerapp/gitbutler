@@ -167,7 +167,11 @@ fn assign_all_inner(
     Ok(())
 }
 
-fn do_assignments(ctx: &mut Context, reqs: Vec<HunkAssignmentRequest>, out: &mut OutputChannel) -> anyhow::Result<()> {
+pub(crate) fn do_assignments(
+    ctx: &mut Context,
+    reqs: Vec<HunkAssignmentRequest>,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
     let context_lines = ctx.settings.context_lines;
     let (_guard, repo, ws, mut db) = ctx.workspace_and_db_mut()?;
     let rejections = but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, reqs, None, context_lines)?;
@@ -199,7 +203,7 @@ fn stack_id_to_branch_name(ctx: &Context, stack_id: &StackId) -> Option<String> 
         .and_then(|s| s.heads.first().map(|h| h.name.to_string()))
 }
 
-fn to_assignment_request(
+pub(crate) fn to_assignment_request(
     ctx: &mut Context,
     assignments: impl Iterator<Item = (Option<HunkHeader>, BString)>,
     branch_name: Option<&str>,

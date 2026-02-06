@@ -98,7 +98,9 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // Determine if pager should be used based on the command
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
-        Some(Subcommands::Diff { .. }) => true,
+        Some(Subcommands::Diff { tui, .. }) => !tui,
+        #[cfg(feature = "legacy")]
+        Some(Subcommands::Stage { ref file_or_hunk, .. }) => file_or_hunk.is_some(),
         _ => false,
     };
     let mut out = OutputChannel::new_with_optional_pager(output_format, use_pager);
@@ -443,7 +445,7 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Diff { target } => {
+        Subcommands::Diff { target, tui, no_tui } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -452,9 +454,28 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::diff::handle(&mut ctx, out, target.as_deref())
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            let use_tui = if tui {
+                true
+            } else if no_tui {
+                false
+            } else {
+                // Check git config for but.ui.tui
+                ctx.git2_repo
+                    .get()
+                    .ok()
+                    .and_then(|repo| repo.config().ok())
+                    .map(|config| command::config::get_tui_enabled(&config))
+                    .unwrap_or(false)
+            };
+            if use_tui {
+                command::legacy::diff::handle_tui(&mut ctx, target.as_deref())
+                    .emit_metrics(metrics_ctx)
+                    .show_root_cause_error_then_exit_without_destructors(output)
+            } else {
+                command::legacy::diff::handle(&mut ctx, out, target.as_deref())
+                    .emit_metrics(metrics_ctx)
+                    .show_root_cause_error_then_exit_without_destructors(output)
+            }
         }
         #[cfg(feature = "legacy")]
         Subcommands::Show { commit, verbose } => {
@@ -878,7 +899,11 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Stage { file_or_hunk, branch } => {
+        Subcommands::Stage {
+            file_or_hunk,
+            branch_pos,
+            branch,
+        } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -887,10 +912,26 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
-                .context("Failed to stage.")
-                .emit_metrics(metrics_ctx)
-                .show_root_cause_error_then_exit_without_destructors(output)
+            if let Some(file_or_hunk) = file_or_hunk {
+                // Direct mode: but stage <file_or_hunk> <branch>
+                let branch = branch.or(branch_pos).ok_or_else(|| {
+                    anyhow::anyhow!("Missing required argument: <branch>. Usage: but stage <file_or_hunk> <branch>")
+                })?;
+                command::legacy::rub::handle_stage(&mut ctx, out, &file_or_hunk, &branch)
+                    .context("Failed to stage.")
+                    .emit_metrics(metrics_ctx)
+                    .show_root_cause_error_then_exit_without_destructors(output)
+            } else {
+                // Interactive mode: but stage [--branch <branch>]
+                use std::io::IsTerminal;
+                if !std::io::stdout().is_terminal() {
+                    anyhow::bail!("Interactive stage requires a terminal. Use: but stage <file_or_hunk> <branch>");
+                }
+                command::legacy::rub::handle_stage_tui(&mut ctx, out, branch.as_deref())
+                    .context("Failed to stage.")
+                    .emit_metrics(metrics_ctx)
+                    .show_root_cause_error_then_exit_without_destructors(output)
+            }
         }
         #[cfg(feature = "legacy")]
         Subcommands::Unstage { file_or_hunk, branch } => {

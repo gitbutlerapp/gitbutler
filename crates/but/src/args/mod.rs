@@ -182,6 +182,12 @@ pub enum Subcommands {
     Diff {
         /// The CLI ID of the entity to show the diff for
         target: Option<String>,
+        /// Open an interactive TUI diff viewer
+        #[clap(long = "tui", conflicts_with = "no_tui")]
+        tui: bool,
+        /// Disable the interactive TUI diff viewer (overrides but.ui.tui config)
+        #[clap(long = "no-tui", conflicts_with = "tui")]
+        no_tui: bool,
     },
 
     /// Shows detailed information about a commit or branch.
@@ -952,14 +958,23 @@ pub enum Subcommands {
 
     /// Stages a file or hunk to a specific branch.
     ///
-    /// Wrapper for `but rub <file-or-hunk> <branch>`.
+    /// Without arguments, opens an interactive TUI for selecting files and hunks to stage.
+    /// With arguments, stages the specified file or hunk to the given branch.
+    ///
+    /// Usage:
+    ///   `but stage`                             (interactive TUI selector)
+    ///   `but stage --branch <branch>`           (interactive, specific branch)
+    ///   `but stage <file-or-hunk> <branch>`     (direct staging)
     #[cfg(feature = "legacy")]
     #[clap(verbatim_doc_comment)]
     Stage {
         /// File or hunk ID to stage
-        file_or_hunk: String,
-        /// Branch ID to stage to
-        branch: String,
+        file_or_hunk: Option<String>,
+        /// Branch to stage to (positional)
+        branch_pos: Option<String>,
+        /// Branch to stage to (for interactive mode)
+        #[clap(long = "branch", short = 'b')]
+        branch: Option<String>,
     },
 
     /// Unstages a file or hunk from a branch.

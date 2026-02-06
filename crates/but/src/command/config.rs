@@ -13,7 +13,7 @@ use colored::Colorize;
 use serde::Serialize;
 
 use crate::{
-    args::config::{ForgeSubcommand, MetricsStatus, Subcommands, UserSubcommand},
+    args::config::{ForgeSubcommand, MetricsStatus, Subcommands, UiSubcommand, UserSubcommand},
     tui,
     utils::{ConfirmOrEmpty, InputOutputChannel, OutputChannel},
 };
@@ -25,6 +25,7 @@ pub async fn exec(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<Subcom
         Some(Subcommands::Target { branch }) => target_config(ctx, out, branch).await,
         Some(Subcommands::Forge { cmd }) => forge_config(out, cmd).await,
         Some(Subcommands::Metrics { status }) => metrics_config(out, status).await,
+        Some(Subcommands::Ui { cmd }) => ui_config(ctx, out, cmd),
         None => show_overview(ctx, out).await,
     }
 }
@@ -106,24 +107,48 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         }
         writeln!(out)?;
 
+        // UI section
+        {
+            let git2_repo = &*ctx.git2_repo.get()?;
+            let git2_config = git2_repo.config()?;
+            let tui_enabled = get_tui_enabled(&git2_config);
+            writeln!(out, "{}:", "UI".bold())?;
+            writeln!(
+                out,
+                "  {}: {}",
+                "TUI mode".dimmed(),
+                if tui_enabled {
+                    "enabled".green()
+                } else {
+                    "disabled".dimmed()
+                }
+            )?;
+            writeln!(out)?;
+        }
+
         // Hints
         writeln!(out, "{}", "Available subcommands:".dimmed())?;
         writeln!(
             out,
-            "  {}   - User settings (name, email, editor)",
+            "  {}    - User settings (name, email, editor)",
             "but config user".blue().dimmed()
         )?;
         writeln!(
             out,
-            "  {}  - Forge settings (GitHub, etc)",
+            "  {}   - Forge settings (GitHub, etc)",
             "but config forge".blue().dimmed()
         )?;
         writeln!(
             out,
-            "  {} - Target branch settings",
+            "  {}  - Target branch settings",
             "but config target".blue().dimmed()
         )?;
         writeln!(out, "  {} - Metrics settings", "but config metrics".blue().dimmed())?;
+        writeln!(
+            out,
+            "  {}      - UI preferences (TUI mode)",
+            "but config ui".blue().dimmed()
+        )?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!(ConfigOverview {
             name: user_info.name,
@@ -760,6 +785,118 @@ async fn target_config(ctx: &mut Context, out: &mut OutputChannel, branch: Optio
     }
 
     Ok(())
+}
+
+/// Handle UI config subcommand
+fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcommand>) -> Result<()> {
+    let repo = &*ctx.git2_repo.get()?;
+
+    match cmd {
+        None => {
+            let config = repo.config()?;
+            let tui_enabled = get_tui_enabled(&config);
+            let tui_scope = get_config_scope(&config, "but.ui.tui");
+
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{}:", "\nUI Configuration".bold())?;
+                writeln!(out)?;
+                writeln!(
+                    out,
+                    "  {}: {} {}",
+                    "Prefer TUI mode".dimmed(),
+                    if tui_enabled {
+                        "enabled".green()
+                    } else {
+                        "disabled".red()
+                    },
+                    format_scope(&tui_scope)
+                )?;
+                writeln!(out)?;
+                writeln!(out, "{}:", "To change".dimmed())?;
+                writeln!(out, "  {}", "but config ui set tui true".blue().dimmed())?;
+                writeln!(out, "  {}", "but config ui set tui false".blue().dimmed())?;
+            } else if let Some(out) = out.for_shell() {
+                writeln!(out, "{}", tui_enabled)?;
+            } else if let Some(out) = out.for_json() {
+                out.write_value(serde_json::json!({ "tui": tui_enabled }))?;
+            }
+        }
+        Some(UiSubcommand::Set { key, value, global }) => {
+            let git_key = key.to_git_key();
+            let bool_value = parse_bool_value(&value)
+                .ok_or_else(|| anyhow::anyhow!("Invalid value '{value}'. Use true/false or 1/0."))?;
+
+            let mut config = if global {
+                let all = git2::Config::open_default()?;
+                all.open_level(git2::ConfigLevel::Global)?
+            } else {
+                repo.config()?
+            };
+
+            config.set_bool(git_key, bool_value)?;
+
+            if let Some(out) = out.for_human() {
+                writeln!(
+                    out,
+                    "{} Set {} {} {}",
+                    "✓".green(),
+                    git_key.green(),
+                    "→".dimmed(),
+                    if bool_value { "true".cyan() } else { "false".cyan() }
+                )?;
+                if global {
+                    writeln!(out, "  (configured globally)")?;
+                }
+            } else if let Some(out) = out.for_json() {
+                out.write_value(serde_json::json!({
+                    "key": git_key,
+                    "value": bool_value,
+                    "scope": if global { "global" } else { "local" }
+                }))?;
+            }
+        }
+        Some(UiSubcommand::Unset { key, global }) => {
+            let git_key = key.to_git_key();
+
+            let mut config = if global {
+                let all = git2::Config::open_default()?;
+                all.open_level(git2::ConfigLevel::Global)?
+            } else {
+                repo.config()?
+            };
+
+            config.remove(git_key)?;
+
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{} Removed {}", "✓".green(), git_key.green())?;
+                if global {
+                    writeln!(out, "  (removed from global config)")?;
+                }
+            } else if let Some(out) = out.for_json() {
+                out.write_value(serde_json::json!({
+                    "key": git_key,
+                    "action": "unset",
+                    "scope": if global { "global" } else { "local" }
+                }))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Check if TUI mode is enabled in git config. Defaults to false.
+pub(crate) fn get_tui_enabled(config: &git2::Config) -> bool {
+    config.get_bool("but.ui.tui").unwrap_or(false)
+}
+
+/// Parse a string as a boolean value (true/false, 1/0, yes/no, on/off).
+fn parse_bool_value(value: &str) -> Option<bool> {
+    match value.to_lowercase().as_str() {
+        "true" | "1" | "yes" | "on" => Some(true),
+        "false" | "0" | "no" | "off" => Some(false),
+        _ => None,
+    }
 }
 
 /// Get the scope (local/global) where a config key is set
