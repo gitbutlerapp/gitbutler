@@ -54,6 +54,10 @@
 
 	const singleDiffView = $derived($userSettings.singleDiffView);
 
+	// Track expanded/collapsed state for each diff by file path
+	// This persists across re-renders (e.g., when VirtualList recycles items)
+	const diffExpandedState = new Map<string, boolean>();
+
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let highlightedIndex = $state<number | undefined>(startIndex);
@@ -75,6 +79,7 @@
 	{@const diffData = diffQuery.response}
 	{@const isExecutable = isExecutableStatus(change.status)}
 	{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
+	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
 	<Drawer
 		noshrink
 		stickyHeader={!singleDiffView}
@@ -82,8 +87,12 @@
 		closeButtonPlaceholder
 		scrollRoot={scrollContainer}
 		collapsable={!singleDiffView}
+		defaultCollapsed={isCollapsed}
 		highlighted={highlight && highlightedIndex === index}
 		onclose={singleDiffView ? onclose : undefined}
+		ontoggle={(collapsed) => {
+			diffExpandedState.set(change.path, collapsed);
+		}}
 	>
 		{#snippet header()}
 			<div class="full-width" bind:this={headerTriggers[change.path]}>
