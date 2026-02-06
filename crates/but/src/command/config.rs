@@ -513,8 +513,117 @@ fn extract_account_details(
     accounts
 }
 
-/// Authenticate with GitHub
+/// Authenticate with a forge provider (GitHub, GitLab, etc)
 async fn forge_auth(out: &mut OutputChannel) -> Result<()> {
+    use cli_prompts::DisplayPrompt;
+
+    #[derive(Debug, Clone)]
+    enum ForgeProvider {
+        GitHub,
+        GitLab,
+    }
+
+    impl From<ForgeProvider> for String {
+        fn from(provider: ForgeProvider) -> String {
+            match provider {
+                ForgeProvider::GitHub => "GitHub".to_string(),
+                ForgeProvider::GitLab => "GitLab".to_string(),
+            }
+        }
+    }
+
+    let auth_options = vec![ForgeProvider::GitHub, ForgeProvider::GitLab];
+
+    let auth_prompt =
+        cli_prompts::prompts::Selection::new("Select a forge provider to authenticate with", auth_options.into_iter());
+
+    let selected_option = auth_prompt
+        .display()
+        .map_err(|_| anyhow::anyhow!("Could not determine which forge provider to authenticate with"))?;
+
+    match selected_option {
+        ForgeProvider::GitHub => github_auth(out).await,
+        ForgeProvider::GitLab => gitlab_auth(out).await,
+    }
+}
+
+/// Authenticate with GitLab
+async fn gitlab_auth(out: &mut OutputChannel) -> Result<()> {
+    use cli_prompts::DisplayPrompt;
+    #[derive(Debug, Clone)]
+    enum AuthMethod {
+        Pat,
+        SelfHosted,
+    }
+
+    impl From<AuthMethod> for String {
+        fn from(method: AuthMethod) -> String {
+            match method {
+                AuthMethod::Pat => "Personal Access Token (PAT)".to_string(),
+                AuthMethod::SelfHosted => "Self-Hosted GitLab".to_string(),
+            }
+        }
+    }
+
+    let input = out
+        .prepare_for_terminal_input()
+        .context("Human input required - run this in a terminal")?;
+    let auth_method_prompt = cli_prompts::prompts::Selection::new(
+        "Select an authentication method",
+        vec![AuthMethod::Pat, AuthMethod::SelfHosted].into_iter(),
+    );
+
+    let selected_method = auth_method_prompt
+        .display()
+        .map_err(|_| anyhow::anyhow!("Could not determine authentication method"))?;
+
+    match selected_method {
+        AuthMethod::Pat => gitlab_pat(input).await,
+        AuthMethod::SelfHosted => gitlab_self_hosted(input).await,
+    }
+}
+
+/// Authenticate with GitLab using a Personal Access Token (PAT)
+async fn gitlab_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
+    use but_gitlab::AuthStatusResponse;
+    use but_secret::Sensitive;
+
+    let input = inout
+        .prompt("Please enter your GitLab Personal Access Token (PAT) and hit enter:")?
+        .context("No PAT provided. Aborting authentication.")?;
+
+    let pat = Sensitive(input);
+    let AuthStatusResponse { username, .. } = but_api::gitlab::store_gitlab_pat(pat)
+        .await
+        .map_err(|err| err.context("Authentication failed"))?;
+
+    writeln!(inout, "Authentication successful! Welcome, {}.", username)?;
+    Ok(())
+}
+
+/// Authenticate with self-hosted GitLab
+async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
+    use but_gitlab::AuthStatusResponse;
+    use but_secret::Sensitive;
+
+    let base_url = inout
+        .prompt("Please enter your GitLab instance URL (e.g., https://gitlab.mycompany.com) and hit enter:")?
+        .context("No host provided. Aborting authentication.")?;
+
+    let input = inout
+        .prompt("Now, please enter your GitLab Personal Access Token (PAT) and hit enter:")?
+        .context("No PAT provided. Aborting authentication.")?;
+    let pat = Sensitive(input);
+    let AuthStatusResponse { username, .. } = but_api::gitlab::store_gitlab_selfhosted_pat(pat, base_url)
+        .await
+        .map_err(|err| err.context("Authentication failed"))?;
+
+    writeln!(inout, "Authentication successful! Welcome, {}.", username)?;
+    Ok(())
+}
+
+/// Authenticate with GitHub
+async fn github_auth(out: &mut OutputChannel) -> Result<()> {
     use cli_prompts::DisplayPrompt;
 
     #[derive(Debug, Clone)]
