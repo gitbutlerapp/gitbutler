@@ -132,6 +132,35 @@ pub enum Subcommands {
         #[clap(value_enum)]
         status: Option<MetricsStatus>,
     },
+
+    /// View and configure UI preferences.
+    ///
+    /// Without arguments, displays current UI settings.
+    /// Use subcommands to set or unset configuration values.
+    ///
+    /// ## Examples
+    ///
+    /// View UI configuration:
+    ///
+    /// ```text
+    /// but config ui
+    /// ```
+    ///
+    /// Enable TUI mode for diff by default:
+    ///
+    /// ```text
+    /// but config ui set tui true
+    /// ```
+    ///
+    /// Disable TUI mode:
+    ///
+    /// ```text
+    /// but config ui set tui false
+    /// ```
+    Ui {
+        #[clap(subcommand)]
+        cmd: Option<UiSubcommand>,
+    },
 }
 
 /// Subcommands for `but config user`
@@ -181,6 +210,59 @@ pub enum UserConfigKey {
     Email,
     /// Git editor (core.editor)
     Editor,
+}
+
+/// Subcommands for `but config ui`
+#[derive(Debug, clap::Subcommand)]
+pub enum UiSubcommand {
+    /// Set a UI configuration value.
+    ///
+    /// ## Examples
+    ///
+    /// ```text
+    /// but config ui set tui true
+    /// but config ui set --global tui true
+    /// ```
+    Set {
+        /// The configuration key to set
+        key: UiConfigKey,
+        /// The value to set (true/false or 1/0)
+        value: String,
+        /// Set the configuration globally instead of locally
+        #[clap(long, short = 'g')]
+        global: bool,
+    },
+
+    /// Unset (remove) a UI configuration value.
+    ///
+    /// ## Examples
+    ///
+    /// ```text
+    /// but config ui unset tui
+    /// ```
+    Unset {
+        /// The configuration key to unset
+        key: UiConfigKey,
+        /// Unset the global configuration instead of local
+        #[clap(long, short = 'g')]
+        global: bool,
+    },
+}
+
+/// UI configuration keys that can be set or unset
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum UiConfigKey {
+    /// Use the interactive TUI for diff by default (but.ui.tui)
+    Tui,
+}
+
+impl UiConfigKey {
+    /// Convert to the corresponding git config key
+    pub fn to_git_key(&self) -> &'static str {
+        match self {
+            UiConfigKey::Tui => "but.ui.tui",
+        }
+    }
 }
 
 /// Values for `but config metrics`

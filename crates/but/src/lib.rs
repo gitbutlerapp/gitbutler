@@ -443,7 +443,7 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Diff { target, tui } => {
+        Subcommands::Diff { target, tui, no_tui } => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -452,7 +452,20 @@ async fn match_subcommand(
                 },
                 out,
             )?;
-            if tui {
+            let use_tui = if tui {
+                true
+            } else if no_tui {
+                false
+            } else {
+                // Check git config for but.ui.tui
+                ctx.git2_repo
+                    .get()
+                    .ok()
+                    .and_then(|repo| repo.config().ok())
+                    .map(|config| command::config::get_tui_enabled(&config))
+                    .unwrap_or(false)
+            };
+            if use_tui {
                 command::legacy::diff::handle_tui(&mut ctx, target.as_deref())
                     .emit_metrics(metrics_ctx)
                     .show_root_cause_error_then_exit_without_destructors(output)
