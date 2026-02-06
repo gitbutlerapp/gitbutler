@@ -387,6 +387,13 @@ impl Claudes {
             ],
         );
 
+        // Use the configured executable path from settings
+        let cli_path = if sync_ctx.settings.claude.executable.is_empty() {
+            None
+        } else {
+            Some(std::path::PathBuf::from(&sync_ctx.settings.claude.executable))
+        };
+
         let options = ClaudeAgentOptions {
             model,
             permission_mode: Some(permission_mode),
@@ -401,6 +408,7 @@ impl Claudes {
             // This is critical: tells CLI to send permission requests via stdio control protocol
             // instead of using built-in UI. Required for can_use_tool callback to work.
             permission_prompt_tool_name: Some("stdio".to_string()),
+            cli_path,
             ..Default::default()
         };
 
