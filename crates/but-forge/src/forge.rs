@@ -26,7 +26,9 @@ impl PartialEq for ForgeRepoInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(tag = "provider", rename_all = "lowercase", content = "details")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./forge/user.ts"))]
 pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
     GitLab(but_gitlab::GitlabAccountIdentifier),
