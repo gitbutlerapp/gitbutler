@@ -3,7 +3,7 @@
 //! Provides subcommands to view and modify configuration settings including
 //! user information, AI provider, forge accounts, and target branch.
 
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
@@ -680,19 +680,49 @@ async fn display_authenticated_gitlab_accounts(
     Ok(some_accounts_invalid)
 }
 
+#[derive(Debug, Clone)]
+enum AccountToForget {
+    GitHub(but_github::GithubAccountIdentifier),
+    GitLab(but_gitlab::GitlabAccountIdentifier),
+}
+
+impl Display for AccountToForget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AccountToForget::GitHub(account) => write!(f, "GitHub account '{}'", account),
+            AccountToForget::GitLab(account) => write!(f, "GitLab account '{}'", account),
+        }
+    }
+}
+
+fn forget_account(account: &AccountToForget) -> Result<()> {
+    match account {
+        AccountToForget::GitHub(gh_account) => but_api::github::forget_github_account(gh_account.clone()),
+        AccountToForget::GitLab(gl_account) => but_api::gitlab::forget_gitlab_account(gl_account.clone()),
+    }
+}
+
 /// Forget a GitHub account
 async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Result<()> {
     use cli_prompts::DisplayPrompt;
 
-    let known_accounts = but_api::github::list_known_github_accounts().await?;
-    let accounts_to_delete: Vec<_> = if let Some(username) = &username {
-        known_accounts
-            .into_iter()
-            .filter(|account| account.username() == username)
-            .collect()
-    } else {
-        known_accounts
-    };
+    let known_gh_accounts = but_api::github::list_known_github_accounts().await?;
+    let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts().await?;
+
+    // Gather all potential accounts to delete based on the provided username (or all if no username provided)
+    let mut accounts_to_delete: Vec<AccountToForget> = Vec::new();
+
+    for account in known_gh_accounts {
+        if username.as_ref().is_none_or(|u| account.username() == u) {
+            accounts_to_delete.push(AccountToForget::GitHub(account.clone()));
+        }
+    }
+
+    for account in known_gl_accounts {
+        if username.as_ref().is_none_or(|u| account.username() == u) {
+            accounts_to_delete.push(AccountToForget::GitLab(account.clone()));
+        }
+    }
 
     // Handle case where no matching account was found
     if accounts_to_delete.is_empty() {
@@ -706,9 +736,9 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
     match accounts_to_delete.as_slice() {
         [single_account] => {
             // Single account: delete automatically
-            but_api::github::forget_github_account(single_account.clone())?;
+            forget_account(single_account)?;
             if let Some(out) = out.for_human() {
-                writeln!(out, "Forgot GitHub account '{}'", single_account)?;
+                writeln!(out, "Forgot forge account '{}'", single_account)?;
             }
         }
         _ => {
@@ -730,8 +760,8 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
                 }
 
                 for account in selected_accounts {
-                    but_api::github::forget_github_account(account.clone())?;
-                    writeln!(out, "Forgot GitHub account '{}'", account)?;
+                    forget_account(&account)?;
+                    writeln!(out, "Forgot forge account '{}'", account)?;
                 }
             } else {
                 anyhow::bail!("Username ambiguous, got {accounts_to_delete:?}");

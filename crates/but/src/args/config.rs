@@ -295,9 +295,14 @@ pub enum ForgeSubcommand {
     /// Authenticate with your forge provider (currently only GitHub is supported).
     ///
     /// This will guide you through the authentication process using either:
-    /// - Device flow (OAuth)
-    /// - Personal Access Token (PAT)
-    /// - GitHub Enterprise
+    /// GitHub
+    ///  - Device flow (OAuth)
+    ///  - Personal Access Token (PAT)
+    ///  - GitHub Enterprise
+    ///
+    /// GitLab
+    ///  - Personal Access Token (PAT)
+    ///  - Self-Hosted
     Auth,
 
     /// List authenticated forge accounts known to GitButler.
@@ -310,6 +315,8 @@ pub enum ForgeSubcommand {
     /// ## Examples
     ///
     /// Forget a specific account:
+    ///
+    /// If there are multiple accounts with the same username, you'll be interactively prompted to select which one(s) to forget.
     ///
     /// ```text
     /// but config forge forget username
