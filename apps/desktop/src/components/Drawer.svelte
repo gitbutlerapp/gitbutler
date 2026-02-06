@@ -15,6 +15,7 @@
 		actions?: Snippet<[element: HTMLElement]>;
 		children: Snippet;
 		testId?: string;
+		collapsable?: boolean;
 		persistId?: string;
 		topBorder?: boolean;
 		bottomBorder?: boolean;
@@ -41,6 +42,7 @@
 		actions,
 		children,
 		testId,
+		collapsable = true,
 		persistId,
 		bottomBorder = true,
 		topBorder = false,
@@ -77,16 +79,16 @@
 	const totalHeightRem = $derived(pxToRem(headerHeight + 1 + contentHeight, zoom));
 
 	function setCollapsed(newValue: boolean) {
-		if (isCollapsed !== undefined) {
-			internalCollapsed.set(newValue);
-			ontoggle?.(newValue);
-		}
+		if (isCollapsed === undefined) return;
+
+		internalCollapsed.set(newValue);
+		ontoggle?.(newValue);
 	}
 
 	function toggleCollapsed() {
-		if (isCollapsed !== undefined) {
-			setCollapsed(!isCollapsed);
-		}
+		if (!collapsable || isCollapsed === undefined) return;
+
+		setCollapsed(!isCollapsed);
 	}
 
 	export function open() {
@@ -132,17 +134,19 @@
 		{closeButtonPlaceholder}
 	>
 		{#snippet content()}
-			<button
-				type="button"
-				class="chevron-btn"
-				class:expanded={!isCollapsed}
-				onclick={(e) => {
-					e.stopPropagation();
-					toggleCollapsed();
-				}}
-			>
-				<Icon name="chevron-right" />
-			</button>
+			{#if collapsable}
+				<button
+					type="button"
+					class="chevron-btn"
+					class:expanded={!isCollapsed}
+					onclick={(e) => {
+						e.stopPropagation();
+						toggleCollapsed();
+					}}
+				>
+					<Icon name="chevron-right" />
+				</button>
+			{/if}
 
 			{#if containerDiv}
 				{@render header(containerDiv)}
@@ -150,16 +154,18 @@
 		{/snippet}
 	</PreviewHeader>
 
+	{#snippet drawerContent()}
+		<div class="drawer__content" bind:clientHeight={contentHeight}>
+			{@render children()}
+		</div>
+	{/snippet}
+
 	{#if !isCollapsed}
 		{#if notScrollable}
-			<div class="drawer__content" bind:clientHeight={contentHeight}>
-				{@render children()}
-			</div>
+			{@render drawerContent()}
 		{:else}
 			<ConfigurableScrollableContainer>
-				<div class="drawer__content" bind:clientHeight={contentHeight}>
-					{@render children()}
-				</div>
+				{@render drawerContent()}
 			</ConfigurableScrollableContainer>
 		{/if}
 	{/if}
