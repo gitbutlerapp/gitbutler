@@ -8,13 +8,13 @@ use serde::Deserialize;
 use crate::{config::InstallerConfig, http::create_client};
 
 /// Release information from the GitButler API
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Release {
     pub version: String,
     pub platforms: HashMap<String, PlatformInfo>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct PlatformInfo {
     pub url: Option<String>,
     pub signature: String,

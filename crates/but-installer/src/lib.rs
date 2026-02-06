@@ -104,7 +104,7 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
         .get(&config.platform)
         .ok_or_else(|| anyhow::anyhow!("Platform {} not found in release", config.platform))?;
 
-    download_and_install_app(&config, platform_info, &release, channel)?;
+    download_and_install_app(config.clone(), platform_info.clone(), release.clone(), channel)?;
 
     // Setup PATH
     setup_path(&config.home_dir)?;

@@ -118,6 +118,7 @@ impl VersionRequest {
 }
 
 /// Configuration for the installer
+#[derive(Debug, Clone)]
 pub struct InstallerConfig {
     pub version_request: VersionRequest,
     pub home_dir: PathBuf,

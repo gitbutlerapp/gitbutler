@@ -12,13 +12,20 @@ use flate2::read::GzDecoder;
 use tar::Archive;
 
 use crate::{
-    config::Channel,
+    config::{Channel, InstallerConfig},
+    download::{download_file, validate_tarball, verify_signature},
+    release::{PlatformInfo, Release, validate_download_url},
     ui::{info, success, warn},
 };
 
 use crate::install::validate_installed_binary;
 
-pub fn download_and_install_app(config: InstallerConfig, platform_info: PlatformInfo, release: Release, channel: Option<Channel>) -> Result<()> {
+pub fn download_and_install_app(
+    config: InstallerConfig,
+    platform_info: PlatformInfo,
+    release: Release,
+    channel: Option<Channel>,
+) -> Result<()> {
     let download_url = platform_info.url.as_deref().ok_or_else(|| {
         anyhow::anyhow!(
             "No download URL for platform {} in release {}",
@@ -61,7 +68,8 @@ pub fn download_and_install_app(config: InstallerConfig, platform_info: Platform
     verify_app_structure(&app_dir)?;
 
     // Detect channel from app bundle name
-    let app_basename = app_dir
+    // TODO(slarse): why this?
+    let _app_basename = app_dir
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| anyhow::anyhow!("Failed to get app bundle name"))?;
@@ -87,7 +95,9 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
 
     info(&format!(
         "Installing{} to {}...",
-        channel.map(|c| format!(" channel {}", c.display_name())).unwrap_or_default(),
+        channel
+            .map(|c| format!(" channel {}", c.display_name()))
+            .unwrap_or_default(),
         install_app.display()
     ));
 
@@ -382,7 +392,6 @@ pub(crate) fn verify_app_structure(app_dir: &Path) -> Result<()> {
 
     Ok(())
 }
-
 
 /// Recursively remove the macOS quarantine attribute from a directory
 fn remove_quarantine_recursive(path: &Path) -> Result<()> {
