@@ -18,9 +18,7 @@ pub(crate) fn download_and_install_app(
     config: &InstallerConfig,
     platform_info: &PlatformInfo,
     release: &Release,
-    // Channel is currently unused for Linux, but it will be used for detecting channel switching
-    // in the future, and potentially installing multiple channels of `but` at the same time
-    _channel: Option<Channel>,
+    channel: Option<Channel>,
 ) -> Result<()> {
     let appimage_download_url = platform_info.url.as_deref().ok_or_else(|| {
         anyhow::anyhow!(
@@ -48,16 +46,17 @@ pub(crate) fn download_and_install_app(
 
     info(&format!("Downloading GitButler {}...", release.version));
     download_file(download_url, &tmp_filepath)?;
+    info("Download completed successfully");
 
     // TODO verify signature
 
     // Install the app bundle
-    install_app(&tmp_filepath, &config.home_dir)?;
+    install_app(&tmp_filepath, &config.home_dir, channel)?;
 
     Ok(())
 }
 
-fn install_app(but_path: &Path, home_dir: &Path) -> Result<()> {
+fn install_app(but_path: &Path, home_dir: &Path, channel: Option<Channel>) -> Result<()> {
     let install_bin_path = but_binary_path(home_dir);
     let bin_dir = install_bin_path
         .parent()
@@ -65,7 +64,14 @@ fn install_app(but_path: &Path, home_dir: &Path) -> Result<()> {
     fs::create_dir_all(bin_dir)?;
 
     let but_backup = if install_bin_path.is_file() {
-        let but_backup = bin_dir.join("but.bak");
+        let suffix: u64 = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64 ^ std::process::id() as u64)
+            .unwrap_or(std::process::id() as u64);
+        let mut backup_name = install_bin_path.as_os_str().to_owned();
+        backup_name.push(format!(".{suffix:x}"));
+        let but_backup = std::path::PathBuf::from(backup_name);
+
         info(&format!(
             "Found existing install at {}, backing up to {}",
             install_bin_path.to_string_lossy(),
@@ -78,7 +84,14 @@ fn install_app(but_path: &Path, home_dir: &Path) -> Result<()> {
         None
     };
 
-    info(&format!("Installing but CLI at {}", install_bin_path.to_string_lossy()));
+    info(&format!(
+        "Installing{} to {}...",
+        channel
+            .map(|c| format!(" channel {}", c.display_name()))
+            .unwrap_or_default(),
+        install_bin_path.to_string_lossy(),
+    ));
+
     // NOTE: Must copy rather than rename. Rename assumes source and dest are on the same mount
     // point, but /tmp on Linux systems is very often an in-memory file system (tmpfs) and thus on
     // a different mount point than persistent files
@@ -105,6 +118,7 @@ fn install_app(but_path: &Path, home_dir: &Path) -> Result<()> {
             bail!("Installation failed and no backup available to restore");
         }
     } else if let Some(but_backup) = but_backup {
+        info(&format!("Removing backup at {}", but_backup.to_string_lossy()));
         fs::remove_file(&but_backup)?;
     }
 
