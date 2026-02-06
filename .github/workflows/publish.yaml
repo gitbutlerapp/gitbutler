@@ -67,13 +67,13 @@ jobs:
         run: pnpm build:desktop -- --mode ${{ env.vitemode }}
         env:
           SENTRY_RELEASE: ${{ env.version }}
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         name: Upload pnpm-store contents
         with:
           name: pnpm-store
           path: /home/runner/setup-pnpm/node_modules/.bin/store/v3
           retention-days: 7
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         name: Upload SvelteKit build output
         with:
           name: sveltekit-build
@@ -232,7 +232,7 @@ jobs:
             echo "artifact_suffix=" >> $GITHUB_ENV
           fi
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: '${{ env.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}'
           path: release/
@@ -247,7 +247,7 @@ jobs:
           cp target/release/gitbutler-git-askpass.exe tauri-aux-artifacts/
 
       - name: Upload Windows Aux Binary Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: runner.os == 'Windows'
         with:
           name: '${{ env.channel }}-windows-aux-${{ github.run_number }}'
@@ -277,7 +277,7 @@ jobs:
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release/
@@ -326,7 +326,7 @@ jobs:
         run: |
           Compress-Archive -Force -Path "release/${{ steps.set-path.outputs.msi_file }}" -DestinationPath "release/${{ steps.set-path.outputs.msi_file }}.zip"
       - name: Upload re-signed artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release/

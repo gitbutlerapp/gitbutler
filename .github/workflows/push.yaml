@@ -312,7 +312,7 @@ jobs:
           test -x target/${{matrix.target}}/release/but-installer
           file target/${{matrix.target}}/release/but-installer
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: 'but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}'
           path: target/${{matrix.target}}/release/but-installer
@@ -444,7 +444,7 @@ jobs:
       - name: run playwright tests
         run: pnpm exec turbo run test:ct
         if: ${{ github.ref != 'refs/heads/master' }}
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
