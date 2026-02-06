@@ -10,6 +10,8 @@ pub(crate) fn commit(ctx: &mut Context, oid: &ObjectId, out: &mut OutputChannel)
     gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Uncommitted {}", oid.to_string()[..7].blue())?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
     Ok(())
 }

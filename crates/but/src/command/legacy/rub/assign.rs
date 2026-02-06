@@ -22,6 +22,8 @@ pub(crate) fn assign_uncommitted_to_branch(
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Staged {} → {}.", description, format!("[{branch_name}]").green())?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
     Ok(())
 }
@@ -53,6 +55,8 @@ pub(crate) fn assign_uncommitted_to_stack(
             description,
             format!("[{}]", stack_id).green()
         )?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
     Ok(())
 }
@@ -72,6 +76,8 @@ pub(crate) fn unassign_uncommitted(
     do_assignments(ctx, reqs, out)?;
     if let Some(out) = out.for_human() {
         writeln!(out, "Unstaged {description}")?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
     Ok(())
 }
@@ -163,6 +169,8 @@ fn assign_all_inner(
                     .unwrap_or_else(|| "unstaged".to_string().bold())
             )?;
         }
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({"ok": true}))?;
     }
     Ok(())
 }

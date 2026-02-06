@@ -256,6 +256,12 @@ fn squash_commits_internal(
                 final_commit_oid.to_gix().to_string()[..7].blue()
             )?
         }
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "ok": true,
+            "new_commit_id": final_commit_oid.to_gix().to_string(),
+            "squashed_count": source_oids.len(),
+        }))?;
     }
     Ok(())
 }

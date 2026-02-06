@@ -34,6 +34,9 @@ pub struct OutputChannel {
     stdout: std::io::Stdout,
     /// Possibly a pager we are using. If `Some`, the pager itself is used for output instead of `stdout`.
     pager: Option<minus::Pager>,
+    /// When `Some`, JSON values written via `write_value` are captured here instead of going to stdout.
+    /// Used by `--status-after` to buffer mutation JSON before combining with status JSON.
+    json_buffer: Option<serde_json::Value>,
 }
 
 /// A channel that implements [`std::io::Write`], to make unbuffered writes to [`std::io::stderr`]
@@ -156,9 +159,51 @@ impl OutputChannel {
 impl OutputChannel {
     /// Write `value` as pretty JSON to the output.
     ///
+    /// When JSON buffering is active (via [`Self::start_json_buffering`]), the value is captured
+    /// in the buffer instead of being written to stdout. Only one value should be written per
+    /// buffering session; if called again while the buffer already holds data, a warning is
+    /// emitted to stderr and the previous value is replaced.
+    ///
     /// Note that it's owned to avoid double-printing with [ResultJsonExt::output_json]
     pub fn write_value(&mut self, value: impl serde::Serialize) -> std::io::Result<()> {
-        json_pretty_to_stdout(&value)
+        if self.json_buffer.is_some() {
+            let new_value = serde_json::to_value(&value).map_err(std::io::Error::other)?;
+            if !matches!(self.json_buffer, Some(serde_json::Value::Null)) {
+                eprintln!(
+                    "warning: write_value called while buffer already contains data; previous value will be lost"
+                );
+            }
+            self.json_buffer = Some(new_value);
+            Ok(())
+        } else {
+            json_pretty_to_stdout(&value)
+        }
+    }
+
+    /// Start buffering JSON output instead of writing to stdout.
+    pub fn start_json_buffering(&mut self) {
+        self.json_buffer = Some(serde_json::Value::Null);
+    }
+
+    /// Conditionally start JSON buffering for `--status-after` mode.
+    ///
+    /// If `status_after` is `true` and the output is in JSON mode,
+    /// begins buffering so mutation output can be captured and later
+    /// combined with workspace status.
+    pub fn begin_status_after(&mut self, status_after: bool) {
+        if status_after && matches!(self.format, OutputFormat::Json) {
+            self.start_json_buffering();
+        }
+    }
+
+    /// Take the buffered JSON value, stopping buffering.
+    pub fn take_json_buffer(&mut self) -> Option<serde_json::Value> {
+        self.json_buffer.take()
+    }
+
+    /// Returns `true` if output is in JSON mode.
+    pub fn is_json(&self) -> bool {
+        matches!(self.format, OutputFormat::Json)
     }
 }
 
@@ -328,6 +373,7 @@ impl OutputChannel {
                 pager.set_prompt("GitButler").expect(msg);
                 Some(pager)
             },
+            json_buffer: None,
         }
     }
 
@@ -341,12 +387,22 @@ impl OutputChannel {
             },
             stdout: std::io::stdout(),
             pager: None,
+            json_buffer: None,
         }
     }
 }
 
 impl Drop for OutputChannel {
     fn drop(&mut self) {
+        // Flush any buffered JSON that was never consumed — this means
+        // the status-after path did not complete, but we should still
+        // emit the mutation result rather than silently discarding it.
+        if let Some(buffer) = self.json_buffer.take()
+            && buffer != serde_json::Value::Null
+            && let Err(err) = json_pretty_to_stdout(&buffer)
+        {
+            eprintln!("warning: failed to flush buffered JSON on drop: {err}");
+        }
         if let Some(pager) = self.pager.take() {
             minus::page_all(pager).ok();
         }

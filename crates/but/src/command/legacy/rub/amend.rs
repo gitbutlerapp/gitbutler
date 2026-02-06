@@ -26,15 +26,21 @@ pub(crate) fn uncommitted_to_commit(
         .collect();
 
     let mut guard = ctx.exclusive_worktree_access();
-    let new_commit = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?
-        .new_commit
-        .map(|c| {
-            let s = c.to_string();
-            format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
-        })
-        .unwrap_or_default();
+    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?;
     if let Some(out) = out.for_human() {
+        let new_commit = outcome
+            .new_commit
+            .map(|c| {
+                let s = c.to_string();
+                format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
+            })
+            .unwrap_or_default();
         writeln!(out, "Amended {} → {}", description, new_commit)?;
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "ok": true,
+            "new_commit_id": outcome.new_commit.map(|c| c.to_string()),
+        }))?;
     }
     Ok(())
 }
@@ -52,15 +58,15 @@ pub(crate) fn assignments_to_commit(
         .map(|assignment| assignment.into())
         .collect();
     let mut guard = ctx.exclusive_worktree_access();
-    let new_commit = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?
-        .new_commit
-        .map(|c| {
-            let s = c.to_string();
-            format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
-        })
-        .unwrap_or_default();
-
+    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?;
     if let Some(out) = out.for_human() {
+        let new_commit = outcome
+            .new_commit
+            .map(|c| {
+                let s = c.to_string();
+                format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
+            })
+            .unwrap_or_default();
         if let Some(branch_name) = branch_name {
             writeln!(
                 out,
@@ -71,6 +77,11 @@ pub(crate) fn assignments_to_commit(
         } else {
             writeln!(out, "Amended unassigned files → {new_commit}")?;
         }
+    } else if let Some(out) = out.for_json() {
+        out.write_value(serde_json::json!({
+            "ok": true,
+            "new_commit_id": outcome.new_commit.map(|c| c.to_string()),
+        }))?;
     }
     Ok(())
 }

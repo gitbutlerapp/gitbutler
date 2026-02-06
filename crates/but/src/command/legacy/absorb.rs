@@ -65,8 +65,10 @@ pub(crate) fn handle(
     // At this time, the context is passed pretty deep into the function.
     let absorption_plan = but_api::legacy::absorb::absorption_plan(ctx, target)?;
 
-    // Display the plan
-    display_absorption_plan(&absorption_plan, out, new)?;
+    // Display the plan (in JSON mode for non-dry-run, collect without writing — we'll
+    // combine it with the result in absorb_assignments to avoid a double-write that
+    // would overwrite the plan in the JSON buffer).
+    let plan_json = display_absorption_plan(&absorption_plan, out, new, dry_run)?;
 
     if dry_run {
         // Nothing more to do
@@ -86,12 +88,22 @@ pub(crate) fn handle(
     let _snapshot = ctx
         .create_snapshot(SnapshotDetails::new(OperationKind::Absorb), guard.write_permission())
         .ok(); // Ignore errors for snapshot creation
-    absorb_assignments(absorption_plan, &mut guard, &repo, &data_dir, out, context_lines, new)?;
+    absorb_assignments(
+        absorption_plan,
+        &mut guard,
+        &repo,
+        &data_dir,
+        out,
+        context_lines,
+        new,
+        plan_json,
+    )?;
 
     Ok(())
 }
 
 /// Absorb a single file into the appropriate commit
+#[allow(clippy::too_many_arguments)]
 fn absorb_assignments(
     absorption_plan: Vec<CommitAbsorption>,
     guard: &mut RepoExclusiveGuard,
@@ -100,6 +112,7 @@ fn absorb_assignments(
     out: &mut OutputChannel,
     context_lines: u32,
     new: bool,
+    plan_json: Option<JsonAbsorbOutput>,
 ) -> anyhow::Result<()> {
     let total_rejected = if new {
         but_action::auto_commit_simple(repo, data_dir, context_lines, None, absorption_plan, guard)?
@@ -120,6 +133,17 @@ fn absorb_assignments(
             )?;
         }
         writeln!(out, "{}: you can run `but undo` to undo these changes", "Hint".cyan())?;
+    } else if let Some(out) = out.for_json() {
+        // Combine plan and result into a single JSON write to avoid overwriting
+        // the plan in the JSON buffer (which would lose absorption plan data).
+        let mut combined = serde_json::json!({
+            "ok": total_rejected == 0,
+            "rejected": total_rejected,
+        });
+        if let Some(plan) = plan_json {
+            combined["plan"] = serde_json::to_value(plan).unwrap_or(serde_json::Value::Null);
+        }
+        out.write_value(combined)?;
     }
 
     Ok(())
@@ -152,63 +176,71 @@ fn get_hunk_ranges(assignment: &HunkAssignment) -> Vec<String> {
     }
 }
 
-/// Display the absorption plan to the user
+/// Display the absorption plan to the user.
+///
+/// When `write_json` is true (dry-run), writes JSON directly. When false (non-dry-run),
+/// returns the plan data so the caller can combine it with the operation result
+/// in a single JSON write — avoiding a double-write that would overwrite the buffer.
 fn display_absorption_plan(
     commit_absorptions: &[CommitAbsorption],
     out: &mut OutputChannel,
     new: bool,
-) -> anyhow::Result<()> {
+    write_json: bool,
+) -> anyhow::Result<Option<JsonAbsorbOutput>> {
     // Count total files
     let total_files: usize = commit_absorptions.iter().map(|c| c.files.len()).sum();
 
     // Handle empty case
     if commit_absorptions.is_empty() || total_files == 0 {
-        if let Some(json_out) = out.for_json() {
-            let output = JsonAbsorbOutput {
-                total_files: 0,
-                commits: vec![],
-            };
-            json_out.write_value(output)?;
-        } else if let Some(out) = out.for_human() {
+        let output = JsonAbsorbOutput {
+            total_files: 0,
+            commits: vec![],
+        };
+        if write_json && let Some(json_out) = out.for_json() {
+            json_out.write_value(&output)?;
+        }
+        if let Some(out) = out.for_human() {
             writeln!(out, "No files to absorb")?;
         }
-        return Ok(());
+        return Ok(if write_json { None } else { Some(output) });
     }
 
-    if let Some(json_out) = out.for_json() {
-        let json_commits: Vec<JsonCommitAbsorption> = commit_absorptions
-            .iter()
-            .map(|absorption| {
-                let files: Vec<JsonFileAbsorption> = absorption
-                    .files
-                    .iter()
-                    .map(|file| {
-                        let hunks = get_hunk_ranges(&file.assignment);
+    let json_commits: Vec<JsonCommitAbsorption> = commit_absorptions
+        .iter()
+        .map(|absorption| {
+            let files: Vec<JsonFileAbsorption> = absorption
+                .files
+                .iter()
+                .map(|file| {
+                    let hunks = get_hunk_ranges(&file.assignment);
 
-                        JsonFileAbsorption {
-                            path: file.path.clone(),
-                            hunks,
-                        }
-                    })
-                    .collect();
+                    JsonFileAbsorption {
+                        path: file.path.clone(),
+                        hunks,
+                    }
+                })
+                .collect();
 
-                JsonCommitAbsorption {
-                    commit_id: absorption.commit_id.to_hex().to_string(),
-                    commit_summary: absorption.commit_summary.clone(),
-                    reason: absorption.reason.clone(),
-                    reason_description: absorption.reason.description().to_string(),
-                    files,
-                }
-            })
-            .collect();
+            JsonCommitAbsorption {
+                commit_id: absorption.commit_id.to_hex().to_string(),
+                commit_summary: absorption.commit_summary.clone(),
+                reason: absorption.reason.clone(),
+                reason_description: absorption.reason.description().to_string(),
+                files,
+            }
+        })
+        .collect();
 
-        let output = JsonAbsorbOutput {
-            total_files,
-            commits: json_commits,
-        };
+    let plan_output = JsonAbsorbOutput {
+        total_files,
+        commits: json_commits,
+    };
 
-        json_out.write_value(output)?;
-    } else if let Some(out) = out.for_human() {
+    if write_json && let Some(json_out) = out.for_json() {
+        json_out.write_value(&plan_output)?;
+    }
+
+    if let Some(out) = out.for_human() {
         writeln!(
             out,
             "Found {} changed file{} to absorb:",
@@ -238,5 +270,7 @@ fn display_absorption_plan(
         }
     }
 
-    Ok(())
+    // When write_json is false (non-dry-run), return the plan so the caller can
+    // combine it with the operation result in a single write_value call.
+    Ok(if write_json { None } else { Some(plan_output) })
 }
