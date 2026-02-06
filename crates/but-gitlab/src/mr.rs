@@ -1,14 +1,14 @@
 use anyhow::{Context as _, Result};
 
-use crate::client::GitLabClient;
+use crate::{GitLabProjectId, client::GitLabClient};
 
 pub async fn list(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
-    project: &str,
+    project_id: GitLabProjectId,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
     if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_open_mrs(project)
+        gl.list_open_mrs(project_id)
             .await
             .context("Failed to list open merge requests")
     } else {
@@ -18,12 +18,12 @@ pub async fn list(
 
 pub async fn list_all_for_target(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
-    project: &str,
+    project_id: GitLabProjectId,
     target_branch: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::MergeRequest>> {
     if let Ok(gl) = GitLabClient::from_storage(storage, preferred_account) {
-        gl.list_mrs_for_target(project, target_branch)
+        gl.list_mrs_for_target(project_id, target_branch)
             .await
             .context("Failed to list merge requests for target branch")
     } else {
@@ -45,13 +45,13 @@ pub async fn create(
 
 pub async fn get(
     preferred_account: Option<&crate::GitlabAccountIdentifier>,
-    project: &str,
+    project_id: GitLabProjectId,
     mr_iid: usize,
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::client::MergeRequest> {
     let mr_iid = mr_iid.try_into().context("MR number is too large")?;
     let mr = GitLabClient::from_storage(storage, preferred_account)?
-        .get_merge_request(project, mr_iid)
+        .get_merge_request(project_id, mr_iid)
         .await
         .context("Failed to get merge request")?;
     Ok(mr)
