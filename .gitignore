@@ -60,7 +60,14 @@ packages/ui/tests/.cache
 .vercel
 
 # Rust analyzer
+# We no longer use the .rust-analzyer folder as RA's target. We instead make use
+# of `target/rust-analyzer` because it is included when we run `cargo clean`.
+#
+# We are keeping this here so developers who have had the old `.rust-analyzer`
+# folder and haven't deleted it yet don't gete a supprise when their old
+# `.rust-analyzer` folder is now appearing in their git tooling.
 .rust-analyzer/
+
 .aider*
 *.pending-snap
 
