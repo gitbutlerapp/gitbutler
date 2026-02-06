@@ -399,6 +399,12 @@ impl Graph {
             .node_weight(self.inner.node_weight(sidx)?.sibling_segment_id?)
     }
 
+    /// Lookup the segment of `sidx` and then find its remote tracking branch segment, if it has one.
+    pub fn lookup_remote_tracking_branch_segment(&self, sidx: SegmentIndex) -> Option<&Segment> {
+        self.inner
+            .node_weight(self.inner.node_weight(sidx)?.remote_tracking_branch_segment_id?)
+    }
+
     /// Return the entry-point of the graph as configured during traversal.
     /// It's useful for when one wants to know which commit was used to discover the entire graph.
     ///

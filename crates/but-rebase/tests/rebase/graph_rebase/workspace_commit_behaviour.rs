@@ -13,7 +13,7 @@ fn assert_consistent_private_key() -> Result<()> {
     let (_repo, tmpdir, _meta) = fixture_writable_with_signing("workspace-signed")?;
 
     let key = fs::read_to_string(tmpdir.path().join("signature.key"))?;
-    insta::assert_snapshot!(key, @r"
+    insta::assert_snapshot!(key, @"
     -----BEGIN OPENSSH PRIVATE KEY-----
     b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
     NhAAAAAwEAAQAAAQEA6PXEslQskTtIE0vEaO6uiKjR6UxGu/B+UOSD6Mrdsb0U24DH4F2+
@@ -51,7 +51,7 @@ fn workspace_remains_unchanged_with_no_operations() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * 8600a31 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 2b9cba3 (main, c) c
     * 8df3400 (b) b
@@ -101,7 +101,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * 8600a31 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 2b9cba3 (main, c) c
     * 8df3400 (b) b
@@ -120,14 +120,14 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     let outcome = editor.rebase()?;
     outcome.materialize()?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 04c2142 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * f5d7b3a (main, c) c
     * 5b128a2 (b, a) a
     * 3b506ba (base) base
     ");
 
-    insta::assert_snapshot!(cat_commit(&repo, "gitbutler/workspace")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "gitbutler/workspace")?, @"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent f5d7b3afc9bb95d2e6658923dce0c9b0193fe3d8
     author author <author@example.com> 946684800 +0000
@@ -139,7 +139,7 @@ fn workspace_commit_is_not_signed_after_cherry_pick() -> Result<()> {
     ");
 
     // We expect "c" to remain signed
-    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent 5b128a2ec3b714a5f78d9f97ff6f89b416069017
     author author <author@example.com> 946684800 +0000
@@ -172,7 +172,7 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -220,7 +220,7 @@ fn ad_hoc_workspace_keeps_regular_defaults() -> Result<()> {
 fn workspace_commit_should_not_be_allowed_to_conflict() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-with-wc-content-signed")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f7f22fe (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 734fb4e (main, c) c
     * 17ac6d7 (b) b
@@ -254,7 +254,7 @@ fn workspace_commit_should_not_be_allowed_to_have_non_reference_parents() -> Res
     let (repo, _tmpdir, meta) = fixture_writable_with_signing("workspace-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * 8600a31 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 2b9cba3 (main, c) c
     * 8df3400 (b) b

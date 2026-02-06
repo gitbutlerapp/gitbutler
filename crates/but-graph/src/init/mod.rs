@@ -449,21 +449,20 @@ impl Graph {
                     &ctx.worktree_by_branch,
                 )?);
                 let (local_sidx, local_goal) = if let Some((local_ref_name, target_local_tip)) = local_tip_info {
-                    let local_sidx = graph.insert_segment(branch_segment_from_name_and_meta_sibling(
+                    let local_sidx = graph.insert_segment(branch_segment_from_name_and_meta(
                         None,
-                        Some(target_segment),
                         meta,
                         Some((&ctx.refs_by_id, target_local_tip)),
                         &ctx.worktree_by_branch,
                     )?);
                     // We use auto-naming based on ambiguity - if the name ends up something else,
-                    // remove the nodes sibling link.
-                    let has_sibling_link = {
+                    // remove the nodes remote tracking branch link.
+                    let has_remote_link = {
                         let s = &mut graph[local_sidx];
                         if s.ref_name().is_none_or(|rn| rn != local_ref_name.as_ref()) {
-                            s.sibling_segment_id = None;
                             false
                         } else {
+                            s.remote_tracking_branch_segment_id = Some(target_segment);
                             true
                         }
                     };
@@ -476,7 +475,7 @@ impl Graph {
                         target_limit,
                     ));
                     next.add_goal_to(tip, goal);
-                    (has_sibling_link.then_some(local_sidx), goal)
+                    (has_remote_link.then_some(local_sidx), goal)
                 } else {
                     (None, CommitFlags::empty())
                 };

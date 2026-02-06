@@ -12,7 +12,7 @@ use crate::{
 fn four_commits() -> Result<()> {
     let (repo, meta) = fixture("four-commits")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -23,7 +23,7 @@ fn four_commits() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
     ● 120e3a9 c
     ● a96434e b
@@ -53,7 +53,7 @@ fn merge_in_the_middle() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
     ● e8ee978 on top of inner merge
     ● 2fc288c Merge branch 'B' into with-inner-merge
@@ -94,7 +94,7 @@ fn three_branches_merged() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
     ● 1348870 Merge branches 'A', 'B' and 'C'
     ├─┬─╮
@@ -120,7 +120,7 @@ fn three_branches_merged() -> Result<()> {
 fn many_references() -> Result<()> {
     let (repo, meta) = fixture("many-references")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe (Z, Y, X) a
@@ -129,7 +129,8 @@ fn many_references() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
     └── 👉►:0[0]:main[🌳]
         ├── ·120e3a9 (⌂|1)
         ├── ·a96434e (⌂|1)
@@ -139,7 +140,7 @@ fn many_references() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/main
     ● 120e3a9 c
     ● a96434e b
@@ -172,7 +173,8 @@ fn first_parent_leg_long() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
     └── 👉►:0[0]:with-inner-merge[🌳]
         └── ·6ac5745 (⌂|1)
             └── ►:1[1]:anon:
@@ -190,7 +192,7 @@ fn first_parent_leg_long() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
     ● 6ac5745 on top of inner merge
     ● d20f547 Merge branch 'B' into with-inner-merge
@@ -229,7 +231,8 @@ fn second_parent_leg_long() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
     └── 👉►:0[0]:with-inner-merge[🌳]
         └── ·a6775ea (⌂|1)
             └── ►:1[1]:anon:
@@ -247,7 +250,7 @@ fn second_parent_leg_long() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/with-inner-merge
     ● a6775ea on top of inner merge
     ● b85214b Merge branch 'B' into with-inner-merge
@@ -290,13 +293,14 @@ fn workspace_with_empty_stack() -> Result<()> {
 
     let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
 
-    insta::assert_snapshot!(graph_tree(&graph), @r"
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
     ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
     │   └── ·74bcc92 (⌂|🏘|01)
     │       ├── 📙►:3[1]:stack-1
     │       │   ├── ·2169646 (⌂|🏘|01)
     │       │   └── ·46ef828 (⌂|🏘|01)
-    │       │       └── ►:4[2]:anon: →:5:
+    │       │       └── ►:4[2]:anon:
     │       │           ├── ·f555940 (⌂|🏘|✓|11)
     │       │           ├── ·d664be0 (⌂|🏘|✓|11)
     │       │           └── ·fafd9d0 (⌂|🏘|✓|11)
@@ -310,7 +314,7 @@ fn workspace_with_empty_stack() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
 
-    insta::assert_snapshot!(editor.steps_ascii(), @r"
+    insta::assert_snapshot!(editor.steps_ascii(), @"
     ◎ refs/heads/gitbutler/workspace
     ● 74bcc92 GitButler Workspace Commit
     ├─╮

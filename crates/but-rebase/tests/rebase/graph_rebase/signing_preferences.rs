@@ -13,7 +13,7 @@ fn assert_consistent_private_key() -> Result<()> {
     let (_repo, tmpdir, _meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let key = fs::read_to_string(tmpdir.path().join("signature.key"))?;
-    insta::assert_snapshot!(key, @r"
+    insta::assert_snapshot!(key, @"
     -----BEGIN OPENSSH PRIVATE KEY-----
     b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABFwAAAAdzc2gtcn
     NhAAAAAwEAAQAAAQEAuBhnTC0+8nJnjSpZEh7wBsBiEpiC3RtZfdnXo/JmNYQX4UXH1tFJ
@@ -51,7 +51,7 @@ fn commits_maintain_state_if_not_cherry_picked() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * dd72792 (HEAD -> main, c) c
     * e5aa7b5 (b) b
     * 3bfeb52 (a) a
@@ -81,7 +81,7 @@ fn commits_are_signed_by_default() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * dd72792 (HEAD -> main, c) c
     * e5aa7b5 (b) b
     * 3bfeb52 (a) a
@@ -99,13 +99,13 @@ fn commits_are_signed_by_default() -> Result<()> {
     let outcome = editor.rebase()?;
     outcome.materialize()?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * de980c3 (HEAD -> main, c) c
     * 3bfeb52 (b, a) a
     * b6e2f57 (base) base
     ");
 
-    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent 3bfeb524461f65f82bf5027fc895fe9fd5f36203
     author author <author@example.com> 946684800 +0000
@@ -138,7 +138,7 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable_with_signing("four-commits-signed")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * dd72792 (HEAD -> main, c) c
     * e5aa7b5 (b) b
     * 3bfeb52 (a) a
@@ -163,13 +163,13 @@ fn when_cherry_picking_dont_resign_if_not_set() -> Result<()> {
     let outcome = editor.rebase()?;
     outcome.materialize()?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 06fee46 (HEAD -> main, c) c
     * 3bfeb52 (b, a) a
     * b6e2f57 (base) base
     ");
 
-    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @"
     tree ea0372ea78d32151cb4c2b6a05a084817947c8f3
     parent 3bfeb524461f65f82bf5027fc895fe9fd5f36203
     author author <author@example.com> 946684800 +0000

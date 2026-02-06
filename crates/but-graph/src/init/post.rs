@@ -742,8 +742,8 @@ impl Graph {
                     .take_if(|ri| refs_for_dependent_branches.contains(&ri.ref_name));
                 if s.ref_info.is_none() {
                     s.metadata = None;
-                    if let Some(sibling) = s.sibling_segment_id.take() {
-                        self[sibling].sibling_segment_id = None;
+                    if let Some(remote_sidx) = s.remote_tracking_branch_segment_id.take() {
+                        self[remote_sidx].sibling_segment_id = None;
                     }
                 }
 
@@ -806,11 +806,15 @@ impl Graph {
         }
 
         // Setup sibling IDs for all unnamed segments with a known segment ref in its future.
-        for sidx in ws_stacks.iter().flat_map(|s| {
-            s.segments
-                .iter()
-                .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
-        }) {
+        let unique_ws_segment_ids: BTreeSet<SegmentIndex> = ws_stacks
+            .iter()
+            .flat_map(|s| {
+                s.segments
+                    .iter()
+                    .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
+            })
+            .collect();
+        for &sidx in &unique_ws_segment_ids {
             // The workspace might be stale by now as we delete empty segments.
             // Thus, be careful, and ignore non-existing ones - after all our workspace
             // is temporary, nothing to worry about.
@@ -821,8 +825,9 @@ impl Graph {
                 continue;
             }
 
-            let num_outgoing = self.inner.neighbors_directed(sidx, Direction::Incoming).count();
-            if num_outgoing < 2 {
+            let num_incoming = self.inner.neighbors_directed(sidx, Direction::Incoming).count();
+            let single_incoming_connection = num_incoming < 2;
+            if single_incoming_connection {
                 continue;
             }
 
@@ -838,16 +843,43 @@ impl Graph {
                 }
 
                 s.ref_info.as_ref().is_some_and(|ri| {
-                    let is_known_to_workspace = ws_data
-                        .stacks(AppliedAndUnapplied)
-                        .any(|s| s.branches.iter().any(|b| b.ref_name == ri.ref_name));
+                    let is_known_to_workspace = ws_data.contains_ref(ri.ref_name.as_ref(), AppliedAndUnapplied);
                     if is_known_to_workspace {
                         named_segment_id = Some(s.id);
                     }
                     is_known_to_workspace
                 })
             });
-            self[sidx].sibling_segment_id = named_segment_id;
+            if let Some(named_sid) = named_segment_id
+                && self[sidx].sibling_segment_id.is_none()
+            {
+                // Don't set sibling if the named segment is already known to the workspace
+                // by direct connection. However, if the named segment is *not* a direct
+                // workspace child and there are no further workspace segments below this
+                // anonymous one, the sibling is the only way to identify the stack.
+                let segment_name = self[named_sid]
+                    .ref_info
+                    .as_ref()
+                    .expect("BUG: named segment must have name")
+                    .ref_name
+                    .as_ref();
+                let is_stack_tip = ws_data.stack_names(Applied).any(|sn| sn == segment_name);
+                if !is_stack_tip {
+                    self[sidx].sibling_segment_id = Some(named_sid);
+                } else {
+                    let named_is_direct_ws_child = self
+                        .inner
+                        .neighbors_directed(ws_sidx, Direction::Outgoing)
+                        .any(|n| n == named_sid);
+                    let has_ws_segments_below = self
+                        .inner
+                        .neighbors_directed(sidx, Direction::Outgoing)
+                        .any(|n| unique_ws_segment_ids.contains(&n));
+                    if !named_is_direct_ws_child && !has_ws_segments_below {
+                        self[sidx].sibling_segment_id = Some(named_sid);
+                    }
+                }
+            }
         }
 
         // The named-segment check is needed as we don't want to double-split unnamed segments.
@@ -956,7 +988,7 @@ impl Graph {
             let (local, remote, remote_sidx) = disambiguated_name.pop().expect("one item as checked above");
             s.ref_info = Some(crate::RefInfo::from_ref(local, worktree_by_branch));
             s.remote_tracking_ref_name = Some(remote);
-            s.sibling_segment_id = Some(remote_sidx);
+            s.remote_tracking_branch_segment_id = Some(remote_sidx);
             let rn = s.ref_info.as_ref().expect("just set it");
             s.commits.first_mut().unwrap().refs.retain(|crn| crn != rn);
             // Assure the remote is also paired up!
@@ -985,7 +1017,7 @@ impl Graph {
                 .as_ref()
                 .and_then(|rn| remote_sidx_by_ref_name.remove(rn.as_ref()))
             {
-                segment.sibling_segment_id = Some(remote_sidx);
+                segment.remote_tracking_branch_segment_id = Some(remote_sidx);
                 links_from_remote_to_local.push((remote_sidx, segment.id));
             }
         }
@@ -1223,7 +1255,9 @@ fn create_independent_segments<T: RefMetadata>(
                 s.ref_info = None;
                 s.metadata = None;
                 let sibling = s.sibling_segment_id.take();
+                let remote = s.remote_tracking_branch_segment_id.take();
                 graph[new_segment_sidx].sibling_segment_id = sibling;
+                graph[new_segment_sidx].remote_tracking_branch_segment_id = remote;
 
                 if let Some((ep_sidx, ep_commit_idx)) = graph.entrypoint.as_mut()
                     && *ep_sidx == below_idx

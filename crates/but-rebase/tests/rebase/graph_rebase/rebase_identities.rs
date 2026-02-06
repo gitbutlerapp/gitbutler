@@ -12,7 +12,7 @@ fn four_commits() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -35,7 +35,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
 
     let before = visualize_commit_graph_all(&repo)?;
-    insta::assert_snapshot!(before, @r"
+    insta::assert_snapshot!(before, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -46,7 +46,7 @@ fn four_commits_with_short_traversal() -> Result<()> {
     let graph = Graph::from_head(&repo, &*meta, options)?.validated()?;
     let ws = graph.into_workspace()?;
 
-    insta::assert_snapshot!(graph_workspace(&ws), @r"
+    insta::assert_snapshot!(graph_workspace(&ws), @"
     ⌂:0:main[🌳] <> ✓!
     └── ≡:0:main[🌳] {1}
         └── :0:main[🌳]

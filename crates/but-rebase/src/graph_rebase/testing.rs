@@ -550,7 +550,7 @@ mod tests {
         add_edge(&mut graph, d, none, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ● 1111111
         ● 2222222
@@ -582,7 +582,7 @@ mod tests {
         add_edge(&mut graph, b, c, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─╮
         ● │ aaaaaaa
@@ -618,7 +618,7 @@ mod tests {
         add_edge(&mut graph, c, d, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa
@@ -667,7 +667,7 @@ mod tests {
         add_edge(&mut graph, b, c, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─╮
         ● │ fffffff
@@ -704,7 +704,7 @@ mod tests {
         add_edge(&mut graph, d, base, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─┬─┬─╮
         ● │ │ │ aaaaaaa
@@ -745,7 +745,7 @@ mod tests {
         add_edge(&mut graph, b, c, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─╮
         ● │ a1a1a1a
@@ -790,7 +790,7 @@ mod tests {
         add_edge(&mut graph, c, f, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─╮
         ● │ bbbbbbb
@@ -843,7 +843,7 @@ mod tests {
         add_edge(&mut graph, c, d, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─┬─╮
         ● │ │ fffffff
@@ -904,7 +904,7 @@ mod tests {
         add_edge(&mut graph, f, base, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa
@@ -969,7 +969,7 @@ mod tests {
         add_edge(&mut graph, g, f, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa
@@ -1034,7 +1034,7 @@ mod tests {
         add_edge(&mut graph, shared, base, 0);
 
         let output = render_ascii_graph(&graph, |_| None);
-        insta::assert_snapshot!(output, @r"
+        insta::assert_snapshot!(output, @"
         ◎ refs/heads/main
         ├─┬─╮
         ● │ │ aaaaaaa

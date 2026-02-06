@@ -151,13 +151,15 @@ pub struct StackSegment {
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means [`commits_outside`](Self::commits_outside) are possibly available.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
-    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
-    /// avoiding a search through the entire graph.
     /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
     /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
     /// If `ref_name` is `None` and this segment is the ancestor of a named segment that is known to a workspace,
     /// this id is pointing to that named segment to allow the reconstruction of the originally desired workspace.
     pub sibling_segment_id: Option<SegmentIndex>,
+    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
+    /// avoiding a search through the entire graph.
+    /// It *only* ever points to the remote tracking branch segment.
+    pub remote_tracking_branch_segment_id: Option<SegmentIndex>,
     /// An ID which uniquely identifies the [first graph segment](crate::Segment) that is contained
     /// in this instance.
     /// This is always the first id in the `commits_by_segment`.
@@ -268,6 +270,7 @@ impl StackSegment {
             ref_info: ref ref_name,
             ref remote_tracking_ref_name,
             sibling_segment_id,
+            remote_tracking_branch_segment_id,
             commits: _,
             ref metadata,
         } = segments_iter.next().context("BUG: need one or more segments")?;
@@ -314,6 +317,7 @@ impl StackSegment {
             id,
             remote_tracking_ref_name: remote_tracking_ref_name.clone(),
             sibling_segment_id,
+            remote_tracking_branch_segment_id,
             // `base` is set later in the context of the entire stack.
             base: None,
             base_segment_id: None,
@@ -372,7 +376,8 @@ impl StackSegment {
             ref_name_remote = Graph::ref_and_remote_debug_string(
                 self.ref_info.as_ref(),
                 self.remote_tracking_ref_name.as_ref(),
-                self.sibling_segment_id
+                self.sibling_segment_id,
+                self.remote_tracking_branch_segment_id,
             ),
             local_commits = if num_local_commits == 0 {
                 "".into()
