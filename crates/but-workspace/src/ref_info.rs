@@ -503,6 +503,7 @@ pub(crate) mod function {
                 base_segment_id: _,
                 remote_tracking_ref_name,
                 sibling_segment_id: _,
+                remote_tracking_branch_segment_id: _,
                 id,
                 commits,
                 // TODO: make it visible in this this data structure.

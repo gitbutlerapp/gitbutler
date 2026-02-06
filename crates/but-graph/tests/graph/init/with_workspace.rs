@@ -4217,11 +4217,23 @@ fn without_target_ref_or_managed_commit_ambiguous() -> anyhow::Result<()> {
     // Order is respected
     add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &["A"]);
     let graph = Graph::from_commit_traversal(id, a_ref, &*meta, standard_options())?.validated()?;
+    // TODO: should look like this as the remote tracking branch must remain linked
+    // 📕🏘️⚠️:1:gitbutler/workspace[🌳] <> ✓!
+    // └── ≡📙:4:B {1}
+    //     ├── 📙:4:B
+    //     ├── 👉📙:5:A <> origin/A →:2:⇣1
+    //     │   ├── 🟣4fe5a6f
+    //     │   ├── ❄️a62b0de (🏘️)
+    //     │   └── ❄️120a217 (🏘️)
+    //     └── :3:main
+    //         └── ❄fafd9d0 (🏘️)
     insta::assert_snapshot!(graph_workspace(&graph.into_workspace()?), @"
     📕🏘️⚠️:1:gitbutler/workspace[🌳] <> ✓!
     └── ≡📙:4:B {1}
         ├── 📙:4:B
         ├── 👉📙:5:A <> origin/A →:2:⇣1
+        │   └── 🟣4fe5a6f
+        ├── 📙:0:A <> origin/A →:5:⇣1
         │   ├── 🟣4fe5a6f
         │   ├── ❄️a62b0de (🏘️)
         │   └── ❄️120a217 (🏘️)

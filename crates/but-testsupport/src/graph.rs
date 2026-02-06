@@ -126,7 +126,8 @@ fn recurse_segment(
                     " ({}{maybe_sibling})",
                     Graph::ref_debug_string(ri.ref_name.as_ref(), ri.worktree.as_ref()),
                     maybe_sibling = segment
-                        .sibling_segment_id
+                        .remote_tracking_branch_segment_id
+                        .or(segment.sibling_segment_id)
                         .map_or_else(String::new, |sid| format!(" →:{}:", sid.index()))
                 ))
                 .unwrap_or_default()
@@ -184,7 +185,8 @@ fn recurse_segment(
         ref_name_and_remote = Graph::ref_and_remote_debug_string(
             segment.ref_info.as_ref(),
             segment.remote_tracking_ref_name.as_ref(),
-            segment.sibling_segment_id
+            segment.sibling_segment_id,
+            segment.remote_tracking_branch_segment_id,
         ),
     ));
     for (cidx, commit) in segment.commits.iter().enumerate() {

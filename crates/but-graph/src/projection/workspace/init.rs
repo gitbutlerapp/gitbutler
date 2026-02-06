@@ -136,7 +136,7 @@ impl Graph {
                 target_ref = ws_head_segment
                     .remote_tracking_ref_name
                     .as_ref()
-                    .zip(ws_head_segment.sibling_segment_id)
+                    .zip(ws_head_segment.remote_tracking_branch_segment_id)
                     .map(|(target_ref, target_sidx)| TargetRef {
                         ref_name: target_ref.to_owned(),
                         segment_index: target_sidx,
@@ -695,7 +695,7 @@ impl WorkspaceState {
             .flat_map(|s| {
                 s.segments
                     .iter()
-                    .filter_map(|s| s.remote_tracking_ref_name.as_ref().cloned().zip(s.sibling_segment_id))
+                    .filter_map(|s| s.remote_tracking_ref_name.as_ref().cloned().zip(s.remote_tracking_branch_segment_id))
             })
             .collect();
         for (remote_tracking_ref_name, remote_sidx) in remote_refs {

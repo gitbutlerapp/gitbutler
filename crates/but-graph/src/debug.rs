@@ -179,11 +179,12 @@ impl Graph {
     }
 
     /// Return a useful one-line string showing the relationship between `ref_name`, `remote_ref_name` and how
-    /// they are linked with `sibling_id`.
+    /// they are linked with `sibling_id` and `remote_tracking_branch_id`.
     pub fn ref_and_remote_debug_string(
         ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
         sibling_id: Option<SegmentIndex>,
+        remote_tracking_branch_id: Option<SegmentIndex>,
     ) -> String {
         format!(
             "{ref_name}{remote}",
@@ -206,7 +207,7 @@ impl Graph {
                 .map(|remote_ref_name| format!(
                     " <> {remote_name}{maybe_id}",
                     remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
-                    maybe_id = sibling_id.map(|id| format!(" →:{}:", id.index())).unwrap_or_default()
+                    maybe_id = remote_tracking_branch_id.or(sibling_id).map(|id| format!(" →:{}:", id.index())).unwrap_or_default()
                 ))
                 .unwrap_or_default()
         )
@@ -298,7 +299,8 @@ impl Graph {
                 ref_name_and_remote = Self::ref_and_remote_debug_string(
                     s.ref_info.as_ref(),
                     s.remote_tracking_ref_name.as_ref(),
-                    s.sibling_segment_id
+                    s.sibling_segment_id,
+                    s.remote_tracking_branch_segment_id,
                 ),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
             );

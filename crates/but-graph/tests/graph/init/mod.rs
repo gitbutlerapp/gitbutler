@@ -26,6 +26,7 @@ fn unborn() -> anyhow::Result<()> {
                     ref_info: "►main[🌳]",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
+                    remote_tracking_branch_segment_id: "None",
                     commits: [],
                     metadata: "None",
                 },
@@ -100,6 +101,7 @@ fn detached() -> anyhow::Result<()> {
                     ref_info: "None",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
+                    remote_tracking_branch_segment_id: "None",
                     commits: [
                         Commit(541396b, ⌂|1►annotated, ►release/v1, ►main),
                     ],
@@ -111,6 +113,7 @@ fn detached() -> anyhow::Result<()> {
                     ref_info: "►other",
                     remote_tracking_ref_name: "None",
                     sibling_segment_id: "None",
+                    remote_tracking_branch_segment_id: "None",
                     commits: [
                         Commit(fafd9d0, ⌂|1),
                     ],

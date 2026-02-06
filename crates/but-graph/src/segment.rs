@@ -204,13 +204,15 @@ pub struct Segment {
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
     /// Its presence means that a remote is configured and that the stack content
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
-    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
-    /// avoiding a search through the entire graph.
     /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
     /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
     /// If `ref_name` is `None` and this segment is the ancestor of a named segment that is known to a workspace,
     /// this id is pointing to that named segment to allow the reconstruction of the originally desired workspace.
     pub sibling_segment_id: Option<SegmentIndex>,
+    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
+    /// avoiding a search through the entire graph.
+    /// It *only* ever points to the remote tracking branch segment.
+    pub remote_tracking_branch_segment_id: Option<SegmentIndex>,
     /// The portion of commits that can be reached from the tip of the *branch* downwards, so that they are unique
     /// for that stack segment and not included in any other stack or stack segment.
     ///
@@ -287,6 +289,7 @@ impl std::fmt::Debug for Segment {
                 commits,
                 remote_tracking_ref_name,
                 sibling_segment_id,
+                remote_tracking_branch_segment_id,
                 metadata,
             } = self;
             f.debug_struct("Segment")
@@ -309,6 +312,13 @@ impl std::fmt::Debug for Segment {
                 .field(
                     "sibling_segment_id",
                     &match sibling_segment_id.as_ref() {
+                        None => "None".to_string(),
+                        Some(id) => id.index().to_string(),
+                    },
+                )
+                .field(
+                    "remote_tracking_branch_segment_id",
+                    &match remote_tracking_branch_segment_id.as_ref() {
                         None => "None".to_string(),
                         Some(id) => id.index().to_string(),
                     },
