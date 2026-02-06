@@ -19,8 +19,9 @@ ARCH=$(uname -m)
 # Map OS to installer format
 case "$OS" in
     "darwin") INSTALLER_OS="macos" ;;
+    "linux") INSTALLER_OS="linux" ;;
     *)
-        echo "Error: This installer currently only supports macOS. Your OS: $OS" >&2
+        echo "Error: This installer currently only supports macOS and linux. Your OS: $OS" >&2
         exit 1
         ;;
 esac
@@ -39,65 +40,65 @@ esac
 # Use explicit templates for portability across GNU/BSD mktemp variants
 INSTALLER_JSON=$(mktemp "${TMPDIR:-/tmp}/gitbutler-installer-json.XXXXXX")
 INSTALLER_BIN=$(mktemp "${TMPDIR:-/tmp}/gitbutler-installer-bin.XXXXXX")
-trap 'rm -f "$INSTALLER_JSON" "$INSTALLER_BIN"' EXIT INT TERM
+#trap 'rm -f "$INSTALLER_JSON" "$INSTALLER_BIN"' EXIT INT TERM
 
-# Fetch installer metadata and validate effective URL
-INSTALLER_API_URL="https://app.gitbutler.com/installers/info/$INSTALLER_OS/$INSTALLER_ARCH"
-echo "Fetching installer information..."
-
-EFFECTIVE_URL=$(curl --fail --silent --show-error --location --max-redirs 5 --max-time 30 \
-    -o "$INSTALLER_JSON" -w '%{url_effective}' "$INSTALLER_API_URL") || {
-    echo "Error: Failed to fetch installer information from $INSTALLER_API_URL" >&2
-    exit 1
-}
-
-case "$EFFECTIVE_URL" in
-    https://app.gitbutler.com/*)
-        : # Valid - stayed on trusted domain
-        ;;
-    *)
-        echo "Error: API was redirected to an untrusted URL: $EFFECTIVE_URL" >&2
-        exit 1
-        ;;
-esac
-
-# Parse installer URL from JSON
-INSTALLER_URL=$(grep -o '"url":"[^"]*"' "$INSTALLER_JSON" | head -1 | sed 's/"url":"\(.*\)"/\1/')
-
-if [ -z "$INSTALLER_URL" ]; then
-    echo "Error: Failed to parse installer URL from API response" >&2
-    exit 1
-fi
-
-# Validate URL from API is trusted
-case "$INSTALLER_URL" in
-    https://releases.gitbutler.com/*)
-        : # Valid
-        ;;
-    *)
-        echo "Error: Installer URL is not from a trusted GitButler domain: $INSTALLER_URL" >&2
-        exit 1
-        ;;
-esac
-
-# Download installer and validate effective URL
-echo "Downloading installer..."
-
+## Fetch installer metadata and validate effective URL
+#INSTALLER_API_URL="https://app.gitbutler.com/installers/info/$INSTALLER_OS/$INSTALLER_ARCH"
+#echo "Fetching installer information..."
+#
+#EFFECTIVE_URL=$(curl --fail --silent --show-error --location --max-redirs 5 --max-time 30 \
+#    -o "$INSTALLER_JSON" -w '%{url_effective}' "$INSTALLER_API_URL") || {
+#    echo "Error: Failed to fetch installer information from $INSTALLER_API_URL" >&2
+#    exit 1
+#}
+#
+#case "$EFFECTIVE_URL" in
+#    https://app.gitbutler.com/*)
+#        : # Valid - stayed on trusted domain
+#        ;;
+#    *)
+#        echo "Error: API was redirected to an untrusted URL: $EFFECTIVE_URL" >&2
+#        exit 1
+#        ;;
+#esac
+#
+## Parse installer URL from JSON
+#INSTALLER_URL=$(grep -o '"url":"[^"]*"' "$INSTALLER_JSON" | head -1 | sed 's/"url":"\(.*\)"/\1/')
+#
+#if [ -z "$INSTALLER_URL" ]; then
+#    echo "Error: Failed to parse installer URL from API response" >&2
+#    exit 1
+#fi
+#
+## Validate URL from API is trusted
+#case "$INSTALLER_URL" in
+#    https://releases.gitbutler.com/*)
+#        : # Valid
+#        ;;
+#    *)
+#        echo "Error: Installer URL is not from a trusted GitButler domain: $INSTALLER_URL" >&2
+#        exit 1
+#        ;;
+#esac
+#
+## Download installer and validate effective URL
+#echo "Downloading installer..."
+#
 EFFECTIVE_DOWNLOAD_URL=$(curl --fail --silent --show-error --location --max-redirs 5 --max-time 120 \
-    -o "$INSTALLER_BIN" -w '%{url_effective}' "$INSTALLER_URL") || {
+    -o "$INSTALLER_BIN" -w '%{url_effective}' "file:///home/slarse/projects/gitbutler/target/debug/but-installer") || {
     echo "Error: Failed to download installer from $INSTALLER_URL" >&2
     exit 1
 }
-
-case "$EFFECTIVE_DOWNLOAD_URL" in
-    https://releases.gitbutler.com/*)
-        : # Valid - stayed on trusted domain
-        ;;
-    *)
-        echo "Error: Download was redirected to an untrusted URL: $EFFECTIVE_DOWNLOAD_URL" >&2
-        exit 1
-        ;;
-esac
+#
+#case "$EFFECTIVE_DOWNLOAD_URL" in
+#    https://releases.gitbutler.com/*)
+#        : # Valid - stayed on trusted domain
+#        ;;
+#    *)
+#        echo "Error: Download was redirected to an untrusted URL: $EFFECTIVE_DOWNLOAD_URL" >&2
+#        exit 1
+#        ;;
+#esac
 
 # Verify downloaded installer
 [ -s "$INSTALLER_BIN" ] || {
@@ -111,4 +112,5 @@ chmod +x "$INSTALLER_BIN" || {
 }
 
 # Run installer with forwarded arguments
-exec "$INSTALLER_BIN" "$@"
+# exec "$INSTALLER_BIN" "$@"
+echo "Reached end of script and put outputs in $INSTALLER_BIN and $INSTALLER_JSON"
