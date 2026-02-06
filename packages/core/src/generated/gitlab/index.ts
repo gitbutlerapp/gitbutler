@@ -37,6 +37,10 @@ export type AuthStatusResponseSensitive = {
  */
 export type AuthenticatedUserSensitive = {
 	/**
+	 * The GitLab access token as a plain string (sensitive data).
+	 */
+	accessToken: string;
+	/**
 	 * The GitLab username.
 	 */
 	username: string;
