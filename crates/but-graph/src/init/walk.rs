@@ -424,7 +424,7 @@ pub fn branch_segment_from_name_and_meta<T: RefMetadata>(
 }
 
 /// Like `branch_segment_from_name_and_meta`, but allows to set `sibling_sidx` as well to link
-/// a new remote segment to a local tracking branch.
+/// a new remote tracking segment to a local tracking segment.
 pub fn branch_segment_from_name_and_meta_sibling<T: RefMetadata>(
     ref_name: Option<(gix::refs::FullName, Option<SegmentMetadata>)>,
     sibling_sidx: Option<SegmentIndex>,
