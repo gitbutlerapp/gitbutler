@@ -70,7 +70,9 @@ export class GiteaClient {
 			throw new Error(`Gitea API error ${response.status}: ${errorBody}`);
 		}
 
-		return response.json() as Promise<T>;
+		const text = await response.text();
+		if (!text) return undefined as T;
+		return JSON.parse(text) as T;
 	}
 
 	async getCurrentUser(): Promise<GiteaApiUser> {

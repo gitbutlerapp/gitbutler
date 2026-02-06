@@ -326,6 +326,7 @@ impl From<GiteaApiLabel> for GiteaLabel {
 struct GiteaPrRef {
     #[serde(rename = "ref")]
     ref_field: String,
+    sha: String,
     repo: Option<GiteaPrRepo>,
 }
 
@@ -355,6 +356,7 @@ struct GiteaPullRequest {
     head: Option<GiteaPrRef>,
     base: Option<GiteaPrRef>,
     #[serde(default)]
+    #[allow(dead_code)]
     merge_base: Option<String>,
     created_at: Option<String>,
     updated_at: Option<String>,
@@ -379,7 +381,11 @@ impl From<GiteaPullRequest> for PullRequest {
             .as_ref()
             .map(|b| b.ref_field.clone())
             .unwrap_or_default();
-        let sha = pr.merge_base.unwrap_or_default();
+        let sha = pr
+            .head
+            .as_ref()
+            .map(|h| h.sha.clone())
+            .unwrap_or_default();
 
         let repository_ssh_url = pr
             .head
