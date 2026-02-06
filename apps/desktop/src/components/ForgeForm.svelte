@@ -1,16 +1,22 @@
 <script lang="ts">
 	import GitHubAccountBadge from '$components/GitHubAccountBadge.svelte';
+	import GitLabAccountBadge from '$components/GitLabAccountBadge.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import {
 		githubAccountIdentifierToString,
 		stringToGitHubAccountIdentifier
 	} from '$lib/forge/github/githubUserService.svelte';
 	import { usePreferredGitHubUsername } from '$lib/forge/github/hooks.svelte';
-	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
+	import {
+		gitlabAccountIdentifierToString,
+		stringToGitLabAccountIdentifier
+	} from '$lib/forge/gitlab/gitlabUserService.svelte';
+	import { usePreferredGitLabUsername } from '$lib/forge/gitlab/hooks.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { CardGroup, InfoMessage, Link, Select, SelectItem, Spacer, Textbox } from '@gitbutler/ui';
+	import { Button, CardGroup, InfoMessage, Link, Select, SelectItem } from '@gitbutler/ui';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
@@ -18,15 +24,14 @@
 	const { projectId }: { projectId: string } = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const gitLabState = inject(GITLAB_STATE);
 	const { preferredGitHubAccount, githubAccounts } = usePreferredGitHubUsername(
 		reactive(() => projectId)
 	);
+	const { preferredGitLabAccount, gitlabAccounts } = usePreferredGitLabUsername(
+		reactive(() => projectId)
+	);
 
-	const token = gitLabState.token;
-	const forkProjectId = gitLabState.forkProjectId;
-	const upstreamProjectId = gitLabState.upstreamProjectId;
-	const instanceUrl = gitLabState.instanceUrl;
+	const { openGeneralSettings } = useSettingsModal();
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
@@ -118,44 +123,55 @@
 			{/snippet}
 
 			{#snippet caption()}
-				Learn how to find your GitLab Personal Token and Project ID in our <Link
+				Enable merge request creation. Read more in the <Link
 					href="https://docs.gitbutler.com/features/forge-integration/gitlab-integration">docs</Link
 				>
-				<br />
-				The Fork Project ID is where branches are pushed; the Upstream Project ID is where merge requests
-				are created.
 			{/snippet}
-
-			<Textbox
-				label="Personal token"
-				type="password"
-				value={$token}
-				oninput={(value) => ($token = value)}
-			/>
-			<Textbox
-				label="Your fork's project ID"
-				value={$forkProjectId}
-				oninput={(value) => ($forkProjectId = value)}
-			/>
-			<Textbox
-				label="Upstream project ID"
-				value={$upstreamProjectId}
-				oninput={(value) => ($upstreamProjectId = value)}
-			/>
-			<Textbox
-				label="Instance URL"
-				value={$instanceUrl}
-				oninput={(value) => ($instanceUrl = value)}
-			/>
-
-			<Spacer margin={5} />
-
-			<p class="text-12 text-body clr-text-2">
-				For custom GitLab instances (not gitlab.com), add them as a custom CSP entry so GitButler
-				can connect. Read more in the <Link
-					href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
+			{#if gitlabAccounts.current.length === 0 || !preferredGitLabAccount.current}
+				<InfoMessage style="warning" filled outlined={false}>
+					{#snippet title()}
+						No GitLab accounts found
+					{/snippet}
+					{#snippet content()}
+						Add a GitLab account in General Settings to enable GitLab integration
+					{/snippet}
+				</InfoMessage>
+				{@render openSettingsButton()}
+			{:else}
+				{@const account = preferredGitLabAccount.current}
+				<Select
+					label="GitLab account for this project"
+					value={gitlabAccountIdentifierToString(account)}
+					options={gitlabAccounts.current.map((account) => ({
+						label: account.info.username,
+						value: gitlabAccountIdentifierToString(account)
+					}))}
+					onselect={(value) => {
+						const account = stringToGitLabAccountIdentifier(value);
+						if (!account) return;
+						projectsService.updatePreferredForgeUser(projectId, {
+							provider: 'gitlab',
+							details: account
+						});
+					}}
+					disabled={gitlabAccounts.current.length <= 1}
+					wide
 				>
-			</p>
+					{#snippet itemSnippet({ item, highlighted })}
+						{@const itemAccount = item.value && stringToGitLabAccountIdentifier(item.value)}
+						<SelectItem
+							selected={item.value === gitlabAccountIdentifierToString(account)}
+							{highlighted}
+						>
+							{item.label}
+
+							{#if itemAccount}
+								<GitLabAccountBadge account={itemAccount} class="m-l-4" />
+							{/if}
+						</SelectItem>
+					{/snippet}
+				</Select>
+			{/if}
 		</CardGroup.Item>
 	{/if}
 
@@ -172,7 +188,6 @@
 			{/snippet}
 
 			{#if githubAccounts.current.length === 0 || !preferredGitHubAccount.current}
-				<!-- TODO: Link to the general settings -->
 				<InfoMessage style="warning" filled outlined={false}>
 					{#snippet title()}
 						No GitHub accounts found
@@ -181,6 +196,7 @@
 						Add a GitHub account in General Settings to enable GitHub integration
 					{/snippet}
 				</InfoMessage>
+				{@render openSettingsButton()}
 			{:else}
 				{@const account = preferredGitHubAccount.current}
 				<Select
@@ -193,7 +209,10 @@
 					onselect={(value) => {
 						const account = stringToGitHubAccountIdentifier(value);
 						if (!account) return;
-						projectsService.updatePreferredForgeUser(projectId, account);
+						projectsService.updatePreferredForgeUser(projectId, {
+							provider: 'github',
+							details: account
+						});
 					}}
 					disabled={githubAccounts.current.length <= 1}
 					wide
@@ -216,3 +235,18 @@
 		</CardGroup.Item>
 	{/if}
 </CardGroup>
+
+{#snippet openSettingsButton()}
+	<div class="forge-form__open-settings-container">
+		<Button onclick={() => openGeneralSettings('integrations')} style="pop"
+			>Go to General Settings</Button
+		>
+	</div>
+{/snippet}
+
+<style lang="scss">
+	.forge-form__open-settings-container {
+		display: flex;
+		justify-content: center;
+	}
+</style>

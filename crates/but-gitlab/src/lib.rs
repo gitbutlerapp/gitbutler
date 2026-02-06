@@ -125,6 +125,7 @@ pub async fn get_gl_user(
             }
         };
         Ok(Some(AuthenticatedUser {
+            access_token,
             username: user.username,
             name: user.name,
             email: user.email,
@@ -179,6 +180,7 @@ pub fn clear_all_gitlab_tokens(storage: &but_forge_storage::Controller) -> Resul
 
 #[derive(Debug, Clone)]
 pub struct AuthenticatedUser {
+    pub access_token: Sensitive<String>,
     pub username: String,
     pub avatar_url: Option<String>,
     pub name: Option<String>,
@@ -244,6 +246,8 @@ pub mod json {
     #[serde(rename_all = "camelCase")]
     #[cfg_attr(feature = "export-ts", ts(export, export_to = "./gitlab/index.ts"))]
     pub struct AuthenticatedUserSensitive {
+        /// The GitLab access token as a plain string (sensitive data).
+        pub access_token: String,
         /// The GitLab username.
         pub username: String,
         /// The URL to the user's avatar image, if available.
@@ -257,6 +261,7 @@ pub mod json {
     impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
         fn from(
             AuthenticatedUser {
+                access_token,
                 username,
                 avatar_url,
                 name,
@@ -264,6 +269,7 @@ pub mod json {
             }: AuthenticatedUser,
         ) -> Self {
             AuthenticatedUserSensitive {
+                access_token: access_token.0,
                 username,
                 avatar_url,
                 name,

@@ -31,7 +31,8 @@ describe('GitLab', () => {
 			repo: baseRepo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -51,7 +52,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -71,7 +73,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -91,7 +94,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -111,7 +115,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		const branch = gitlab.branch('feature-branch');
@@ -132,7 +137,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -152,7 +158,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		const branch = gitlab.branch('feature-branch');
@@ -173,7 +180,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -195,7 +203,8 @@ describe('GitLab', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			dispatch: () => {}
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(

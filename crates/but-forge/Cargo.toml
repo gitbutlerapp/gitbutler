@@ -7,6 +7,9 @@ publish = false
 rust-version.workspace = true
 description = "Utilities to interact with forges in a somewhat generic way"
 
+[features]
+export-ts = ["dep:ts-rs"]
+
 [lib]
 doctest = false
 
@@ -24,3 +27,4 @@ git-url-parse = "0.6.0"
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
+ts-rs = { workspace = true, optional = true }
