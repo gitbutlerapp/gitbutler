@@ -5,7 +5,7 @@ use bstr::ByteSlice;
 use but_core::{Reference, RepositoryExt};
 use but_ctx::{Context, access::RepoExclusive};
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::{ObjectIdExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use but_serde::BStringForFrontend;
 use but_workspace::{legacy::stack_ext::StackDetailsExt, ref_info::Options};
@@ -232,7 +232,7 @@ fn get_stack_status(
     review_map: &HashMap<String, but_forge::ForgeReview>,
     ctx: &Context,
 ) -> Result<StackStatus> {
-    let mut last_head: git2::Oid = gix_to_git2_oid(new_target_commit_id);
+    let mut last_head: git2::Oid = new_target_commit_id.to_git2();
 
     let mut branch_statuses: Vec<NameAndStatus> = vec![];
 
@@ -395,13 +395,7 @@ pub fn upstream_integration_statuses(context: &UpstreamIntegrationContext) -> Re
         .map(|stack| {
             Ok((
                 stack.id,
-                get_stack_status(
-                    &repo_in_memory,
-                    git2_to_gix_object_id(*new_target),
-                    stack.id,
-                    review_map,
-                    context.ctx,
-                )?,
+                get_stack_status(&repo_in_memory, new_target.to_gix(), stack.id, review_map, context.ctx)?,
             ))
         })
         .collect::<Result<Vec<_>>>()?;

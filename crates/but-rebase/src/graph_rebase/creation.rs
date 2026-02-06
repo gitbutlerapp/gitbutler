@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use but_graph::{Commit, CommitFlags, Graph, Segment, SegmentIndex};
 use petgraph::{Direction, visit::EdgeRef as _};
 
@@ -138,7 +138,7 @@ impl GraphExt for Graph {
                     find_segment_edge_commits(self, sidx)
                 } else {
                     vec![CommitViaReference {
-                        commit: &s.commits[idx + 1],
+                        commit: s.commits[idx + 1].id,
                         // We always want to point to the references point to a
                         // commit within a segment.
                         via_reference: true,
@@ -154,30 +154,42 @@ impl GraphExt for Graph {
                     c.parent_ids
                         .iter()
                         .enumerate()
-                        .find(|id| *id.1 == parent.commit.id)
+                        .find(|id| *id.1 == parent.commit)
                         .map(|(idx, _)| idx)
                         .unwrap_or(usize::MAX)
                 });
 
-                if c.parent_ids != parent_ids.iter().map(|p| p.commit.id).collect::<Vec<_>>() {
+                // Unless it's the workspace commit which can have virtual
+                // parents, if the parents inferred from the but graph with
+                // their extra information doesn't match reality, then we should
+                // ignore what the but-graph has told us and pull information
+                // from the commit graph directly.
+                if c.parent_ids != parent_ids.iter().map(|p| p.commit).collect::<Vec<_>>()
+                    && Some(c.id) != workspace_commit_id
+                {
                     if let Some(StepChain { bottom, .. }) = steps_for_commits.get(&c.id)
                         && let Step::Pick(Pick { preserved_parents, .. }) = &graph[*bottom]
                         && preserved_parents.is_some()
                     {
-                        // The commit has preserved parents, so the parent
-                        // connections don't really matter.
-                        // Further, the but graph does some _fancy_ stuff with
-                        // the workspace commit so we can ignore divergance.
-                        // It will result in the workspace commit getting
-                        // rewritten, but that is _fine_.
-                    } else if Some(c.id) != workspace_commit_id {
-                        bail!(
-                            "BUG: Parents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
+                        // Don't warn if preserved parents is set, we don't need
+                        // to warn.
+                    } else {
+                        tracing::warn!(
+                            "but-graph inconsistent with the commit graph.\nParents for commit {} do not match.\n\nFound:{:?}\nExpected:{:?}\n\nThese IDs may be in memory, but may be helpful for debugging.",
                             c.id,
-                            parent_ids.iter().map(|p| p.commit.id.to_string()).collect::<Vec<_>>(),
+                            parent_ids.iter().map(|p| p.commit.to_string()).collect::<Vec<_>>(),
                             c.parent_ids.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
                         );
                     }
+
+                    parent_ids = c
+                        .parent_ids
+                        .iter()
+                        .map(|p| CommitViaReference {
+                            commit: *p,
+                            via_reference: true,
+                        })
+                        .collect();
                 }
 
                 for (i, p) in parent_ids.iter().enumerate() {
@@ -187,7 +199,7 @@ impl GraphExt for Graph {
                             top: top_p,
                             bottom: bottom_p,
                         }),
-                    ) = (steps_for_commits.get(&c.id), steps_for_commits.get(&p.commit.id))
+                    ) = (steps_for_commits.get(&c.id), steps_for_commits.get(&p.commit))
                     {
                         if p.via_reference {
                             graph.add_edge(*bottom, *top_p, Edge { order: i });
@@ -241,8 +253,8 @@ fn find_nearest_commit<'graph>(graph: &'graph Graph, segment: &'graph Segment) -
 
 /// When we try to find the parent commits of the bottom commit in a given
 /// segment, did we also encounter a reference that points to the commit.
-struct CommitViaReference<'a> {
-    commit: &'a Commit,
+struct CommitViaReference {
+    commit: gix::ObjectId,
     /// Between the source sidx did we encounter a reference that points to the
     /// commit
     via_reference: bool,
@@ -253,7 +265,7 @@ struct CommitViaReference<'a> {
 ///
 /// It also annotates whether a reference was found between the bottom of the
 /// starting sidx and each parent commit.
-fn find_segment_edge_commits(graph: &but_graph::Graph, sidx: SegmentIndex) -> Vec<CommitViaReference<'_>> {
+fn find_segment_edge_commits(graph: &but_graph::Graph, sidx: SegmentIndex) -> Vec<CommitViaReference> {
     struct SegmentViaReference {
         sidx: SegmentIndex,
         via_reference: bool,
@@ -272,7 +284,7 @@ fn find_segment_edge_commits(graph: &but_graph::Graph, sidx: SegmentIndex) -> Ve
     while let Some(candidate) = potential_parents.pop() {
         if let Some(commit) = graph[candidate.sidx].commits.first() {
             parents.push(CommitViaReference {
-                commit,
+                commit: commit.id,
                 via_reference: candidate.via_reference || !commit.refs.is_empty(),
             });
             // Don't pursue the children

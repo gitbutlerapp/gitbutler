@@ -20,10 +20,12 @@
 	const stackCount = $derived(stacksQuery.response?.length);
 	const targetChangeDisabled = $derived(!!(stackCount && stackCount > 0));
 
-	function uniqueRemotes(remoteBranches: { name: string }[]) {
-		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
-			name: r
-		}));
+	function uniqueRemotes(remoteBranches: { name: string }[]): { name: string }[] {
+		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0])))
+			.filter((name): name is string => !!name)
+			.map((r) => ({
+				name: r
+			}));
 	}
 
 	async function switchTarget(branch: string, pushRemote?: string) {
@@ -50,6 +52,7 @@
 {:else if remoteBranchesQuery.result.isSuccess}
 	{@const remoteBranches = remoteBranchesQuery.response}
 	{#if remoteBranches && remoteBranches.length > 0}
+		{@const remotes = uniqueRemotes(remoteBranches)}
 		<CardGroup>
 			<CardGroup.Item>
 				{#snippet title()}
@@ -79,10 +82,10 @@
 					{/snippet}
 				</Select>
 
-				{#if uniqueRemotes(remoteBranches).length > 1}
+				{#if remotes.length > 1}
 					<Select
 						value={selectedRemote}
-						options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name!, value: r.name! }))}
+						options={remotes.map((r) => ({ label: r.name, value: r.name }))}
 						wide
 						onselect={(value) => {
 							selectedRemote = value;

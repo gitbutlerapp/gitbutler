@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
-use but_api::{commit, diff, github, legacy, platform};
+use but_api::{commit, diff, github, gitlab, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
@@ -216,6 +216,12 @@ fn main() -> anyhow::Result<()> {
                 github::tauri_forget_github_account::forget_github_account,
                 github::tauri_list_known_github_accounts::list_known_github_accounts,
                 github::tauri_clear_all_github_tokens::clear_all_github_tokens,
+                gitlab::tauri_store_gitlab_pat::store_gitlab_pat,
+                gitlab::tauri_store_gitlab_selfhosted_pat::store_gitlab_selfhosted_pat,
+                gitlab::tauri_get_gl_user::get_gl_user,
+                gitlab::tauri_forget_gitlab_account::forget_gitlab_account,
+                gitlab::tauri_list_known_gitlab_accounts::list_known_gitlab_accounts,
+                gitlab::tauri_clear_all_gitlab_tokens::clear_all_gitlab_tokens,
                 diff::tauri_commit_details::commit_details,
                 diff::tauri_commit_details_with_line_stats::commit_details_with_line_stats,
                 but_api::branch::tauri_branch_diff::branch_diff,
@@ -306,6 +312,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::forge::tauri_pr_template::pr_template,
                 legacy::forge::tauri_list_reviews::list_reviews,
                 legacy::forge::tauri_publish_review::publish_review,
+                legacy::forge::tauri_update_review_footers::update_review_footers,
                 legacy::cli::tauri_install_cli::install_cli,
                 legacy::cli::tauri_cli_path::cli_path,
                 legacy::rules::tauri_create_workspace_rule::create_workspace_rule,
@@ -336,6 +343,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::claude::tauri_claude_get_session_details::claude_get_session_details,
                 legacy::claude::tauri_claude_list_permission_requests::claude_list_permission_requests,
                 legacy::claude::tauri_claude_update_permission_request::claude_update_permission_request,
+                legacy::claude::tauri_claude_answer_ask_user_question::claude_answer_ask_user_question,
                 legacy::claude::tauri_claude_check_available::claude_check_available,
                 legacy::claude::tauri_claude_list_prompt_templates::claude_list_prompt_templates,
                 legacy::claude::tauri_claude_get_prompt_dirs::claude_get_prompt_dirs,

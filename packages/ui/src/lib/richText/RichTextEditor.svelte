@@ -3,10 +3,10 @@
 	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
 	import { standardConfig } from '$lib/richText/config/config';
 	import { standardTheme } from '$lib/richText/config/theme';
-	import { INLINE_CODE_TRANSFORMER } from '$lib/richText/customTransforers';
 	// import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
 	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
 	import IndentPlugin from '$lib/richText/plugins/IndentPlugin.svelte';
+	import InlineCodePlugin from '$lib/richText/plugins/InlineCode.svelte';
 	import PlainTextPastePlugin from '$lib/richText/plugins/PlainTextPastePlugin.svelte';
 	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
 	import OnInput, { type OnInputCallback } from '$lib/richText/plugins/onInput.svelte';
@@ -28,7 +28,6 @@
 		RichTextPlugin,
 		AutoFocusPlugin,
 		PlaceHolder,
-		MarkdownShortcutPlugin,
 		HistoryPlugin
 	} from 'svelte-lexical';
 
@@ -291,7 +290,7 @@
 		<RichTextPlugin />
 		<IndentPlugin />
 		<PlainTextPastePlugin />
-		<MarkdownShortcutPlugin transformers={[INLINE_CODE_TRANSFORMER]} />
+		<InlineCodePlugin />
 
 		{#if autoFocus}
 			<AutoFocusPlugin />

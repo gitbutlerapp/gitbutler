@@ -9,7 +9,7 @@ pub fn gix_time_to_git2(time: gix::date::Time) -> git2::Time {
     git2::Time::new(time.seconds, time.offset / 60)
 }
 
-pub fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
+fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
     gix::ObjectId::try_from(id.as_bytes()).expect("git2 oid is always valid")
 }
 
@@ -23,7 +23,7 @@ impl OidExt for git2::Oid {
     }
 }
 
-pub fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
+fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
     git2::Oid::from_bytes(id.into().as_bytes()).expect("always valid")
 }
 

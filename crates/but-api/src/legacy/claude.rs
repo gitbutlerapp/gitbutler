@@ -106,6 +106,18 @@ pub fn claude_update_permission_request(
     but_claude::db::update_permission_request(ctx, &request_id, decision, use_wildcard)
 }
 
+#[but_api]
+#[instrument(err(Debug))]
+pub fn claude_answer_ask_user_question(
+    project_id: ProjectId,
+    stack_id: StackId,
+    answers: std::collections::HashMap<String, String>,
+) -> Result<bool> {
+    let project = gitbutler_project::get(project_id)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    but_claude::db::set_ask_user_question_answers_by_stack(&mut ctx, stack_id, answers)
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelSessionParams {
@@ -123,7 +135,7 @@ pub async fn claude_cancel_session(claude: &Claude, params: CancelSessionParams)
 pub async fn claude_check_available() -> Result<ClaudeCheckResult> {
     let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let claude_executable = app_settings.claude.executable.clone();
-    Ok(but_claude::bridge::check_claude_available(&claude_executable).await)
+    Ok(but_claude::session::check_claude_available(&claude_executable).await)
 }
 
 #[derive(Deserialize)]

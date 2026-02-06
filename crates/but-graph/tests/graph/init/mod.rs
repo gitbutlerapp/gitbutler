@@ -1,5 +1,8 @@
 use but_graph::Graph;
-use but_testsupport::{graph_tree, graph_workspace, visualize_commit_graph_all};
+use but_testsupport::{
+    gix_testtools::{self, Creation, rust_fixture_writable},
+    graph_tree, graph_workspace, visualize_commit_graph_all,
+};
 
 #[test]
 fn unborn() -> anyhow::Result<()> {
@@ -854,14 +857,20 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
 #[test]
 fn commit_with_two_parents() -> anyhow::Result<()> {
-    let tmp = tempfile::TempDir::new()?;
-    let repo = gix::ThreadSafeRepository::init_opts(
-        tmp.path(),
-        gix::create::Kind::WithWorktree,
-        gix::create::Options::default(),
-        but_testsupport::open_repo_config()?,
-    )?
-    .to_thread_local();
+    let (tmp, repo) = rust_fixture_writable("empty", 2, Creation::ExecuteScript, |fixture| {
+        let open_opts = but_testsupport::open_repo_config()?;
+        Ok(match fixture {
+            FixtureState::Uninitialized(path) => gix::ThreadSafeRepository::init_opts(
+                path,
+                gix::create::Kind::WithWorktree,
+                gix::create::Options::default(),
+                open_opts,
+            )?
+            .to_thread_local(),
+            FixtureState::Fresh(path) => gix::open_opts(path, open_opts)?,
+        })
+    })
+    .map_err(anyhow::Error::from_boxed)?;
 
     let first_commit = repo.commit("HEAD", "base", repo.object_hash().empty_tree(), None::<gix::ObjectId>)?;
     let same_parent_twice = [first_commit.detach(), first_commit.into()];
@@ -895,6 +904,7 @@ fn commit_with_two_parents() -> anyhow::Result<()> {
 mod with_workspace;
 
 pub(crate) mod utils;
+use gix_testtools::FixtureState;
 pub use utils::{
     StackState, add_stack_with_segments, add_workspace, id_at, id_by_rev, read_only_in_memory_scenario,
     standard_options,

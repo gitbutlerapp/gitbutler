@@ -5,6 +5,7 @@ mod client;
 pub mod mr;
 pub use client::{CreateMergeRequestParams, GitLabClient, GitLabLabel, GitLabUser, MergeRequest};
 mod token;
+use serde::Serialize;
 pub use token::GitlabAccountIdentifier;
 
 #[derive(Debug, Clone)]
@@ -108,6 +109,7 @@ pub async fn get_gl_user(
         let user = match gl.get_authenticated().await {
             Ok(user) => user,
             Err(client_err) => {
+                println!("Error fetching authenticated user: {:?}", client_err);
                 // Check if this is a network error
                 if let Some(reqwest_err) = client_err.downcast_ref::<reqwest::Error>()
                     && is_network_error(reqwest_err)
@@ -138,7 +140,7 @@ fn is_network_error(err: &reqwest::Error) -> bool {
     err.is_timeout() || err.is_connect() || err.is_request()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum CredentialCheckResult {
     Valid,
     Invalid,
@@ -179,6 +181,94 @@ pub struct AuthenticatedUser {
     pub avatar_url: Option<String>,
     pub name: Option<String>,
     pub email: Option<String>,
+}
+
+/// JSON serialization types for GitLab API responses.
+///
+/// This module contains serializable versions of GitLab authentication types
+/// that expose sensitive data (like access tokens) as plain strings for API responses.
+pub mod json {
+    use crate::{AuthStatusResponse, AuthenticatedUser};
+    use serde::Serialize;
+
+    /// Serializable version of [`AuthStatusResponse`] with exposed access token.
+    ///
+    /// This struct is used for API responses where the access token needs to be
+    /// sent as a plain string. Field names are converted to camelCase for JSON.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./gitlab/index.ts"))]
+    pub struct AuthStatusResponseSensitive {
+        /// The GitLab access token as a plain string (sensitive data).
+        pub access_token: String,
+        /// The GitLab username.
+        pub username: String,
+        /// The user's display name, if available.
+        pub name: Option<String>,
+        /// The user's email address, if available.
+        pub email: Option<String>,
+        /// The self-hosted GitLab host, if this is a self-hosted instance.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub host: Option<String>,
+    }
+
+    impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
+        fn from(
+            AuthStatusResponse {
+                access_token,
+                username,
+                name,
+                email,
+                host,
+            }: AuthStatusResponse,
+        ) -> Self {
+            AuthStatusResponseSensitive {
+                access_token: access_token.0,
+                username,
+                name,
+                email,
+                host,
+            }
+        }
+    }
+
+    /// Serializable version of [`AuthenticatedUser`] with exposed access token.
+    ///
+    /// This struct represents an authenticated GitLab user with their credentials
+    /// exposed as plain strings for API responses. Field names are converted to camelCase for JSON.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./gitlab/index.ts"))]
+    pub struct AuthenticatedUserSensitive {
+        /// The GitLab username.
+        pub username: String,
+        /// The URL to the user's avatar image, if available.
+        pub avatar_url: Option<String>,
+        /// The user's display name, if available.
+        pub name: Option<String>,
+        /// The user's email address, if available.
+        pub email: Option<String>,
+    }
+
+    impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
+        fn from(
+            AuthenticatedUser {
+                username,
+                avatar_url,
+                name,
+                email,
+            }: AuthenticatedUser,
+        ) -> Self {
+            AuthenticatedUserSensitive {
+                username,
+                avatar_url,
+                name,
+                email,
+            }
+        }
+    }
 }
 
 #[cfg(test)]

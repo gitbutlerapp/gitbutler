@@ -117,7 +117,7 @@ impl Subcommands {
                 claude::Subcommands::PreTool => ClaudePreTool,
                 claude::Subcommands::PostTool => ClaudePostTool,
                 claude::Subcommands::Stop => ClaudeStop,
-                claude::Subcommands::Last { .. } | claude::Subcommands::PermissionPromptMcp { .. } => Unknown,
+                claude::Subcommands::Last { .. } => Unknown,
             },
             #[cfg(feature = "legacy")]
             Subcommands::Cursor(cursor::Platform { cmd }) => match cmd {
@@ -182,7 +182,7 @@ impl Subcommands {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
-            Subcommands::Onboarding => Unknown,
+            Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }
     }
 }

@@ -3,6 +3,7 @@ use but_meta::{
     VirtualBranchesTomlMetadata,
     virtual_branches_legacy_types::{Stack, StackBranch, Target},
 };
+use but_testsupport::gix_testtools::scripted_fixture_read_only;
 
 pub fn read_only_in_memory_scenario(
     name: &str,
@@ -28,8 +29,7 @@ pub fn in_memory_meta(
 
 /// Provide a scenario but assure the returned repository will write objects to memory, in a subdirectory `dirname`.
 pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> anyhow::Result<gix::Repository> {
-    let root =
-        gix_testtools::scripted_fixture_read_only(format!("{script_name}.sh")).map_err(anyhow::Error::from_boxed)?;
+    let root = scripted_fixture_read_only(format!("{script_name}.sh")).map_err(anyhow::Error::from_boxed)?;
     let repo = gix::open_opts(root.join(dirname), gix::open::Options::isolated())?.with_object_memory();
     Ok(repo)
 }

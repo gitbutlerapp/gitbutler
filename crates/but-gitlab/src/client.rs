@@ -250,10 +250,13 @@ impl From<GitLabApiUser> for GitLabUser {
 
 #[derive(Debug, Serialize)]
 pub struct GitLabLabel {
-    pub id: i64,
     pub name: String,
-    pub description: Option<String>,
-    pub color: String,
+}
+
+impl From<String> for GitLabLabel {
+    fn from(name: String) -> Self {
+        GitLabLabel { name }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -263,7 +266,7 @@ pub struct MergeRequest {
     pub title: String,
     pub description: Option<String>,
     pub author: Option<GitLabUser>,
-    pub labels: Vec<String>,
+    pub labels: Vec<GitLabLabel>,
     pub draft: bool,
     pub source_branch: String,
     pub target_branch: String,
@@ -313,7 +316,7 @@ impl From<GitLabMergeRequest> for MergeRequest {
             title: mr.title,
             description: mr.description,
             author,
-            labels: mr.labels,
+            labels: mr.labels.into_iter().map(Into::into).collect(),
             draft: mr.draft,
             source_branch: mr.source_branch,
             target_branch: mr.target_branch,

@@ -12,7 +12,7 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt as _, OidExt, git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid};
+use but_oxidize::{ObjectIdExt as _, OidExt, gix_time_to_git2};
 use git2::FileMode;
 use gitbutler_cherry_pick::RepositoryExtLite;
 use gitbutler_repo::{RepositoryExt as _, SignaturePurpose};
@@ -187,7 +187,7 @@ impl OplogExt for Context {
         include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>> {
         let repo = self.repo.get()?;
-        let traversal_root_id = git2_to_gix_object_id(match oplog_commit_id {
+        let traversal_root_id = match oplog_commit_id {
             Some(id) => id,
             None => {
                 let oplog_state = OplogHandle::new(&self.project_data_dir());
@@ -197,7 +197,8 @@ impl OplogExt for Context {
                     return Ok(vec![]);
                 }
             }
-        })
+        }
+        .to_gix()
         .attach(&repo);
 
         let mut snapshots = Vec::new();
@@ -224,7 +225,7 @@ impl OplogExt for Context {
                 continue;
             }
 
-            let commit_id = gix_to_git2_oid(commit_id);
+            let commit_id = commit_id.to_git2();
             let details = commit
                 .message_raw()?
                 .to_str()
@@ -332,16 +333,16 @@ fn get_workdir_tree(
     match wd_trees_cache {
         Some(cache) => {
             if let Entry::Vacant(entry) = cache.entry(snapshot_commit.id)
-                && let Ok(tree_id) = tree_from_applied_vbranches(repo, gix_to_git2_oid(snapshot_commit.id), ctx)
+                && let Ok(tree_id) = tree_from_applied_vbranches(repo, snapshot_commit.id.to_git2(), ctx)
             {
-                entry.insert(git2_to_gix_object_id(tree_id));
+                entry.insert(tree_id.to_gix());
             }
             cache
                 .get(&snapshot_commit.id)
                 .copied()
                 .ok_or_else(|| anyhow!("Could not get a tree of all applied virtual branches merged"))
         }
-        None => tree_from_applied_vbranches(repo, gix_to_git2_oid(snapshot_commit.id), ctx).map(|x| x.to_gix()),
+        None => tree_from_applied_vbranches(repo, snapshot_commit.id.to_git2(), ctx).map(|x| x.to_gix()),
     }
 }
 
@@ -756,7 +757,7 @@ fn tree_from_applied_vbranches(
     snapshot_commit_id: git2::Oid,
     ctx: &Context,
 ) -> Result<git2::Oid> {
-    let snapshot_commit = repo.find_commit(git2_to_gix_object_id(snapshot_commit_id))?;
+    let snapshot_commit = repo.find_commit(snapshot_commit_id.to_gix())?;
     let snapshot_tree = snapshot_commit.tree()?;
 
     // If the `worktree` subtree is available, we should return that instead
@@ -808,5 +809,5 @@ fn tree_from_applied_vbranches(
         }
     }
 
-    Ok(gix_to_git2_oid(workdir_tree_id))
+    Ok(workdir_tree_id.to_git2())
 }

@@ -50,7 +50,7 @@ use std::{
     path::PathBuf,
 };
 
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use gix::{object::tree::EntryKind, refs::FullNameRef, status::plumbing::index_as_worktree::ConflictIndexEntry};
 use serde::Serialize;
 
@@ -119,21 +119,42 @@ pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
     ref_name.as_bstr() == "refs/heads/gitbutler/workspace" || ref_name.as_bstr() == "refs/heads/gitbutler/integration"
 }
 
-/// A utility to extra the name of the remote from a remote tracking ref with `ref_name`.
+/// A utility to extract the name of the remote from a remote tracking ref with `ref_name`,
+/// along with the short name of the branch that remains after stripping the remote name.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
 /// `None` is returned.
-pub fn extract_remote_name(ref_name: &gix::refs::FullNameRef, remote_names: &gix::remote::Names<'_>) -> Option<String> {
+/// `remote_names` are expected to be returned by [`gix::Repository::remote_names()`],
+/// and as such are sorted in ascending order by length.
+pub fn extract_remote_name_and_short_name(
+    ref_name: &gix::refs::FullNameRef,
+    remote_names: &gix::remote::Names<'_>,
+) -> Option<(String, BString)> {
     let (category, shorthand_name) = ref_name.category_and_short_name()?;
     if !matches!(category, gix::refs::Category::RemoteBranch) {
         return None;
     }
 
-    let longest_remote = remote_names
+    let (longest_remote, short_name) = remote_names
         .iter()
-        .rfind(|reference_name| shorthand_name.starts_with(reference_name))
-        .ok_or(anyhow::anyhow!("Failed to find remote branch's corresponding remote"))
-        .ok()?;
-    Some(longest_remote.to_string())
+        .rev()
+        .filter_map(|remote_name| {
+            let stripped = shorthand_name.strip_prefix(remote_name.iter().as_slice())?;
+            let short_name = stripped.strip_prefix(b"/")?;
+            Some((remote_name.as_bstr(), short_name.as_bstr()))
+        })
+        .next()
+        .or_else(|| {
+            // it's a stray RTB, without registered remote name. Let's not risk it and assume a name without slashes.
+            let rtb_short_name = ref_name.shorten();
+            let pos = rtb_short_name.find_byte(b'/')?;
+            let remote_name = rtb_short_name[..pos].as_bstr();
+            let short_name = rtb_short_name[pos + 1..].as_bstr();
+            if short_name.find_byte(b'/').is_some() {
+                return None;
+            }
+            Some((remote_name, short_name))
+        })?;
+    Some((longest_remote.to_string(), short_name.to_owned()))
 }
 
 /// A trait to associate arbitrary metadata with any *Git reference name*.

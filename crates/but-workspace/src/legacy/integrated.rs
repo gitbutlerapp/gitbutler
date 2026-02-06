@@ -4,7 +4,7 @@
 
 use anyhow::{Context as _, Result, anyhow};
 use but_core::RepositoryExt;
-use but_oxidize::{OidExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
     RepositoryExt as _,
@@ -56,15 +56,15 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         Ok(Self {
             repo,
             graph,
-            target_commit_id: git2_to_gix_object_id(target.sha),
-            upstream_tree_id: git2_to_gix_object_id(upstream_tree_id),
+            target_commit_id: target.sha.to_gix(),
+            upstream_tree_id: upstream_tree_id.to_gix(),
             upstream_commits,
             upstream_change_ids,
         })
     }
 
     pub(crate) fn is_integrated(&mut self, commit: &git2::Commit<'_>) -> Result<bool> {
-        if self.target_commit_id == git2_to_gix_object_id(commit.id()) {
+        if self.target_commit_id == commit.id().to_gix() {
             // could not be integrated if heads are the same.
             return Ok(false);
         }
@@ -91,10 +91,10 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(true);
         }
 
-        let merge_base_id =
-            self.repo
-                .merge_base_with_graph(self.target_commit_id, git2_to_gix_object_id(commit.id()), self.graph)?;
-        if gix_to_git2_oid(merge_base_id).eq(&commit.id()) {
+        let merge_base_id = self
+            .repo
+            .merge_base_with_graph(self.target_commit_id, commit.id().to_gix(), self.graph)?;
+        if merge_base_id.to_git2().eq(&commit.id()) {
             // if merge branch is the same as branch head and there are upstream commits
             // then it's integrated
             return Ok(true);
@@ -116,7 +116,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .repo
             .merge_trees(
                 merge_base_tree_id,
-                git2_to_gix_object_id(commit.tree_id()),
+                commit.tree_id().to_gix(),
                 self.upstream_tree_id,
                 Default::default(),
                 merge_options,

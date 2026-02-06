@@ -2,16 +2,14 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use but_ctx::ThreadSafeContext;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-pub mod bridge;
-pub use bridge::ClaudeCheckResult;
+pub mod session;
 use but_core::ref_metadata::StackId;
+pub use session::ClaudeCheckResult;
 
-pub(crate) mod claude_config;
 pub mod claude_mcp;
 pub mod claude_settings;
 pub mod claude_sub_agents;
@@ -22,15 +20,15 @@ pub use claude_transcript::Transcript;
 pub mod db;
 pub mod hooks;
 pub(crate) mod legacy;
-pub mod mcp;
 pub mod notifications;
+pub mod pending_requests;
 pub mod permissions;
 pub mod prompt_templates;
 mod rules;
 
 pub use permissions::Permission;
 
-use crate::bridge::Claudes;
+use crate::session::Claudes;
 
 pub mod broadcaster;
 use broadcaster::FrontendEvent;
@@ -391,6 +389,49 @@ pub struct ClaudePermissionRequest {
     pub use_wildcard: bool,
 }
 
+/// A single option in an AskUserQuestion question.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AskUserQuestionOption {
+    /// Display label for the option
+    pub label: String,
+    /// Description of what this option means
+    pub description: String,
+}
+
+/// A single question in an AskUserQuestion request.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AskUserQuestion {
+    /// The question text to display
+    pub question: String,
+    /// Short header label (max 12 chars)
+    pub header: String,
+    /// Available options (2-4 choices)
+    pub options: Vec<AskUserQuestionOption>,
+    /// Whether multiple selections are allowed
+    pub multi_select: bool,
+}
+
+/// Represents a request from Claude to ask the user clarifying questions.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeAskUserQuestionRequest {
+    /// Maps to the tool_use_id from the MCP request
+    pub id: String,
+    /// When the request was made.
+    pub created_at: chrono::NaiveDateTime,
+    /// When the request was updated.
+    pub updated_at: chrono::NaiveDateTime,
+    /// The questions to ask the user
+    pub questions: Vec<AskUserQuestion>,
+    /// The user's answers, keyed by question text
+    /// None if not yet answered
+    pub answers: Option<std::collections::HashMap<String, String>>,
+    /// The stack ID this question is associated with
+    pub stack_id: Option<gitbutler_stack::StackId>,
+}
+
 /// Represents the thinking level for Claude Code.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -449,23 +490,18 @@ pub struct ClaudeUserParams {
     pub attachments: Option<Vec<PromptAttachment>>,
 }
 
-pub async fn send_claude_message(
-    sync_ctx: ThreadSafeContext,
-    broadcaster: Arc<Mutex<Broadcaster>>,
+pub fn send_claude_message(
+    ctx: &mut but_ctx::Context,
+    broadcaster: &Broadcaster,
     session_id: uuid::Uuid,
     stack_id: StackId,
     content: MessagePayload,
 ) -> Result<()> {
-    let (message, project_id) = {
-        let mut ctx = sync_ctx.into_thread_local();
-        (
-            db::save_new_message(&mut ctx, session_id, content.clone())?,
-            ctx.legacy_project.id,
-        )
-    };
+    let message = db::save_new_message(ctx, session_id, content.clone())?;
+    let project_id = ctx.legacy_project.id;
 
-    broadcaster.lock().await.send(FrontendEvent {
-        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+    broadcaster.send(FrontendEvent {
+        name: format!("project://{project_id}/claude/{stack_id}/message_received"),
         payload: json!(message),
     });
     Ok(())

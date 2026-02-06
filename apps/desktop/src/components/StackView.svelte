@@ -356,6 +356,15 @@
 		attachmentService.clearByBranch(branchName);
 	}
 
+	async function handleAnswerQuestion(answers: Record<string, string>) {
+		if (!stackId) return;
+		await claudeCodeService.answerAskUserQuestion({
+			projectId,
+			stackId,
+			answers
+		});
+	}
+
 	const assignedFiles = $derived(uncommittedService.getChangesByStackId(stackId || null));
 
 	let multiDiffView = $state<MultiDiffView>();
@@ -550,6 +559,7 @@
 							sessionId={sessionId.response}
 							{isStackActive}
 							{hasRulesToClear}
+							onAnswerQuestion={handleAnswerQuestion}
 						/>
 					{:else}
 						{@const commit = commitQuery?.response}

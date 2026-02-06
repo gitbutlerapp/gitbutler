@@ -24,6 +24,8 @@
 <style>
 	.section-header {
 		display: flex;
+		z-index: 1;
+		position: relative;
 		grid-column: narrow-start / narrow-end;
 		align-items: center;
 		justify-content: space-between;
@@ -34,6 +36,7 @@
 		font-size: 60px;
 		line-height: 1;
 		font-family: var(--font-accent);
+		text-wrap: balance;
 	}
 
 	.section-header__buttons {

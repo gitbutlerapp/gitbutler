@@ -1,6 +1,6 @@
 use std::{fs, path, path::PathBuf};
 
-use but_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
@@ -226,8 +226,8 @@ impl TestProject {
         let merge_tree = {
             use but_core::RepositoryExt;
             let mut merge_result = gix_repo.merge_commits(
-                git2_to_gix_object_id(master_branch_commit.id()),
-                git2_to_gix_object_id(branch.get().peel_to_commit()?.id()),
+                master_branch_commit.id().to_gix(),
+                branch.get().peel_to_commit()?.id().to_gix(),
                 gix_repo.default_merge_labels(),
                 gix::merge::commit::Options::default(),
             )?;
@@ -236,7 +236,7 @@ impl TestProject {
                 "test-merges should have non-conflicting trees"
             );
             let tree_id = merge_result.tree_merge.tree.write()?;
-            self.remote_repo.find_tree(gix_to_git2_oid(tree_id))?
+            self.remote_repo.find_tree(tree_id.to_git2())?
         };
 
         let repo: &git2::Repository = &self.remote_repo;

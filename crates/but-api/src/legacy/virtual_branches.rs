@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, anyhow};
 use but_api_macros::but_api;
-use but_core::DiffSpec;
+use but_core::{DiffSpec, sync::RepoExclusive};
 use but_ctx::{Context, ThreadSafeContext};
 use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::{StackEntryNoOpt, StackHeadInfo};
@@ -138,6 +138,12 @@ pub fn integrate_branch_with_steps(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch> {
+    let mut guard = ctx.exclusive_worktree_access();
+    switch_back_to_workspace_with_perm(ctx, guard.write_permission())
+}
+
+#[instrument(skip(perm), err(Debug))]
+pub fn switch_back_to_workspace_with_perm(ctx: &mut but_ctx::Context, perm: &mut RepoExclusive) -> Result<BaseBranch> {
     let base_branch =
         gitbutler_branch_actions::base::get_base_branch_data(ctx).context("Failed to get base branch data")?;
 
@@ -145,10 +151,8 @@ pub fn switch_back_to_workspace(ctx: &mut but_ctx::Context) -> Result<BaseBranch
         .parse()
         .context("Invalid branch name")?;
 
-    let mut guard = ctx.exclusive_worktree_access();
-    gitbutler_branch_actions::set_base_branch(ctx, &branch_name, guard.write_permission())?;
-
-    crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission()).ok();
+    gitbutler_branch_actions::set_base_branch(ctx, &branch_name, perm)?;
+    crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, perm).ok();
 
     Ok(base_branch)
 }
@@ -166,18 +170,28 @@ pub fn get_base_branch_data(ctx: &but_ctx::Context) -> Result<Option<BaseBranch>
 #[but_api]
 #[instrument(err(Debug))]
 pub fn set_base_branch(ctx: &mut but_ctx::Context, branch: String, push_remote: Option<String>) -> Result<BaseBranch> {
+    let mut guard = ctx.exclusive_worktree_access();
+    set_base_branch_with_perm(ctx, branch, push_remote, guard.write_permission())
+}
+
+#[instrument(skip(perm), err(Debug))]
+pub fn set_base_branch_with_perm(
+    ctx: &mut but_ctx::Context,
+    branch: String,
+    push_remote: Option<String>,
+    perm: &mut RepoExclusive,
+) -> Result<BaseBranch> {
     let branch_name = format!("refs/remotes/{branch}")
         .parse()
         .context("Invalid branch name")?;
-    let mut guard = ctx.exclusive_worktree_access();
-    let base_branch = gitbutler_branch_actions::set_base_branch(ctx, &branch_name, guard.write_permission())?;
+    let base_branch = gitbutler_branch_actions::set_base_branch(ctx, &branch_name, perm)?;
 
     // if they also sent a different push remote, set that too
     if let Some(push_remote) = push_remote {
         gitbutler_branch_actions::set_target_push_remote(ctx, &push_remote)?;
     }
     {
-        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission()).ok();
+        crate::legacy::meta::reconcile_in_workspace_state_of_vb_toml(ctx, perm).ok();
     }
 
     Ok(base_branch)

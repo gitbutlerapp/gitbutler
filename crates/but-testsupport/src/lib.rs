@@ -8,7 +8,7 @@ use gix::{
     config::tree::Key,
 };
 pub use gix_testtools;
-use gix_testtools::{Creation, tempfile};
+use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
 
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
@@ -375,8 +375,32 @@ pub fn write_sequence(
 
 /// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script.
 pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
-        .expect("fixtures will yield valid repositories")
+    let (a, b, _) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        None::<String>,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
+    (a, b)
+}
+
+/// Obtain a `(repo, tmp, post)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script.
+/// Use `post_fn` to modify the fixture and produce a value of type `T`, which is also returned.
+/// Increment `version` each time `post_fn` is modified.
+pub fn writable_scenario_with_post<T>(
+    name: &str,
+    version: u32,
+    post_fn: impl FnMut(FixtureState<'_>) -> PostResult<T>,
+) -> (gix::Repository, tempfile::TempDir, T) {
+    let (repo, tmp, post) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        None::<String>,
+        Some((version, post_fn)),
+    )
+    .expect("fixtures will yield valid repositories");
+    (repo, tmp, post.unwrap())
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script,
@@ -385,15 +409,28 @@ pub fn writable_scenario_with_args(
     name: &str,
     args: impl IntoIterator<Item = impl Into<String>>,
 ) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly, args).expect("fixtures will yield valid repositories")
+    let (a, b, _) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        args,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
+    (a, b)
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is the result of the execution of the `tests/fixtures/scenario/$name.sh` script.
 ///
 /// It's slow because it has to re-execute the script, in case the script creates files with absolute paths in them.
 pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::ExecuteScript, None::<String>)
-        .expect("fixtures will yield valid repositories")
+    let (a, b, _) = writable_scenario_inner(
+        name,
+        Creation::ExecuteScript,
+        None::<String>,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
+    (a, b)
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script,
@@ -405,8 +442,13 @@ pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir
 ///
 /// Git will also be configured to use the key for signing in the returned `repo`.
 pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
-        .expect("fixtures will yield valid repositories");
+    let (mut repo, tmp, _) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        None::<String>,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
     let signing_key_path = repo.workdir().expect("non-bare").join("signature.key");
     assert!(
         signing_key_path.is_file(),
@@ -433,7 +475,7 @@ pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repositor
     read_only_in_memory_scenario_named(name, "")
 }
 
-/// Obtain an isolated `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects.
+/// Obtain an isolated `repo` from the `tests/fixtures/$script_name.sh/…/$dirname` script, with in-memory objects.
 pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
@@ -441,15 +483,54 @@ pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> a
     Ok(repo)
 }
 
-fn writable_scenario_inner(
+/// Obtain an isolated `repo` from the `tests/fixtures/$script_name.sh/…/$dirname` script, with in-memory objects,
+/// with `dirname` being the sub-directory to look into once the fixture was created.
+/// `dirname` can be "" to make it a no-op.
+/// Use `post_fn` to modify the fixture and produce a value of type `T`, which is also returned.
+/// Increment `version` each time `post_fn` is modified.
+pub fn read_only_in_memory_scenario_named_with_post<T>(
+    script_name: &str,
+    dirname: &str,
+    version: u32,
+    post_fn: impl FnMut(FixtureState<'_>) -> PostResult<T>,
+) -> anyhow::Result<(gix::Repository, T)> {
+    let (repo, value) =
+        read_only_in_memory_scenario_named_with_post_inner(script_name, dirname, Some((version, post_fn)))?;
+    Ok((repo, value.unwrap()))
+}
+
+fn read_only_in_memory_scenario_named_with_post_inner<T>(
+    script_name: &str,
+    dirname: &str,
+    post_fn: Option<(u32, impl FnMut(FixtureState<'_>) -> PostResult<T>)>,
+) -> anyhow::Result<(gix::Repository, Option<T>)> {
+    let path = format!("scenario/{script_name}.sh");
+    let (root, value) = match post_fn {
+        Some((v, f)) => {
+            gix_testtools::scripted_fixture_read_only_with_post(path, v, f).map(|(root, value)| (root, Some(value)))
+        }
+        None => gix_testtools::scripted_fixture_read_only(path).map(|root| (root, None)),
+    }
+    .map_err(anyhow::Error::from_boxed)?;
+    let repo = open_repo(&root.join(dirname))?.with_object_memory();
+    Ok((repo, value))
+}
+
+fn writable_scenario_inner<T>(
     name: &str,
     creation: Creation,
     args: impl IntoIterator<Item = impl Into<String>>,
-) -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
-    let tmp = gix_testtools::scripted_fixture_writable_with_args(format!("scenario/{name}.sh"), args, creation)
-        .map_err(anyhow::Error::from_boxed)?;
+    post_fn: Option<(u32, impl FnMut(FixtureState<'_>) -> PostResult<T>)>,
+) -> anyhow::Result<(gix::Repository, tempfile::TempDir, Option<T>)> {
+    let script_name = format!("scenario/{name}.sh");
+    let (tmp, post) = match post_fn {
+        Some((v, f)) => gix_testtools::scripted_fixture_writable_with_args_with_post(script_name, args, creation, v, f)
+            .map(|(tmp, post)| (tmp, Some(post))),
+        None => gix_testtools::scripted_fixture_writable_with_args(script_name, args, creation).map(|tmp| (tmp, None)),
+    }
+    .map_err(anyhow::Error::from_boxed)?;
     let repo = open_repo(tmp.path())?;
-    Ok((repo, tmp))
+    Ok((repo, tmp, post))
 }
 
 /// Windows dummy
