@@ -77,14 +77,16 @@
 	{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
 	<Drawer
 		noshrink
-		stickyHeader
+		stickyHeader={!singleDiffView}
 		reserveSpaceOnStuck={!!onclose}
 		closeButtonPlaceholder
 		scrollRoot={scrollContainer}
+		collapsable={!singleDiffView}
 		highlighted={highlight && highlightedIndex === index}
+		onclose={singleDiffView ? onclose : undefined}
 	>
 		{#snippet header()}
-			<div bind:this={headerTriggers[change.path]}>
+			<div class="full-width" bind:this={headerTriggers[change.path]}>
 				<FileViewHeader
 					filePath={change.path}
 					fileStatus={computeChangeStatus(change)}
@@ -160,7 +162,7 @@
 	class:no-border={!showBorder}
 	class:no-rounded={!showRoundedEdges}
 >
-	{#if onclose}
+	{#if onclose && !singleDiffView}
 		<div class="floating-close">
 			<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
 		</div>
