@@ -1,5 +1,6 @@
 use bitflags::bitflags;
 use bstr::{BString, ByteSlice};
+use but_core::ref_metadata::MaybeDebug;
 
 use crate::{CommitIndex, SegmentIndex};
 
@@ -295,33 +296,22 @@ impl std::fmt::Debug for Segment {
             f.debug_struct("Segment")
                 .field("id", id)
                 .field("generation", generation)
-                .field(
-                    "ref_info",
-                    &match ref_info.as_ref() {
-                        None => "None".to_string(),
-                        Some(info) => info.debug_string(),
-                    },
-                )
+                .field("ref_info", &MaybeDebug(&ref_info.as_ref().map(|ri| ri.debug_string())))
                 .field(
                     "remote_tracking_ref_name",
-                    &match remote_tracking_ref_name.as_ref() {
-                        None => "None".to_string(),
-                        Some(name) => name.to_string(),
-                    },
+                    &MaybeDebug(&remote_tracking_ref_name.as_ref().map(|n| n.to_string())),
                 )
                 .field(
                     "sibling_segment_id",
-                    &match sibling_segment_id.as_ref() {
-                        None => "None".to_string(),
-                        Some(id) => id.index().to_string(),
-                    },
+                    &MaybeDebug(&sibling_segment_id.as_ref().map(|id| id.index().to_string())),
                 )
                 .field(
                     "remote_tracking_branch_segment_id",
-                    &match remote_tracking_branch_segment_id.as_ref() {
-                        None => "None".to_string(),
-                        Some(id) => id.index().to_string(),
-                    },
+                    &MaybeDebug(
+                        &remote_tracking_branch_segment_id
+                            .as_ref()
+                            .map(|id| id.index().to_string()),
+                    ),
                 )
                 .field("commits", &commits)
                 .field(

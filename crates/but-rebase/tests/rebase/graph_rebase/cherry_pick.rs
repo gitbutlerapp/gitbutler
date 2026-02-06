@@ -23,7 +23,7 @@ fn basic_cherry_pick_clean() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(023c575a8c22020139844490ba2e8f333fcec85c),
     )
@@ -54,7 +54,7 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
         Sha1(92a5de18951fc289787883411346bf5151f9c854),
     )
@@ -96,7 +96,7 @@ fn basic_cherry_pick_identity() -> Result<()> {
     let parents = get_parents(&target)?;
     let result = cherry_pick(&repo, target.detach(), &parents, true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Identity(
         Sha1(b23d933c3781f649b740445e5337362d74b9103e),
     )
@@ -115,7 +115,7 @@ fn single_parent_to_multiple_parents_clean() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(39763a0f3cb7ca0f3eac78368173aa6367aeffcf),
     )
@@ -149,7 +149,7 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
         Sha1(e0da7f3ff8f416b3f93c84a5e737b265021897f1),
     )
@@ -196,7 +196,7 @@ fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
         base_merge_failed: false,
         bases: None,
@@ -223,7 +223,7 @@ fn multiple_parents_to_single_parent_clean() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(1327f60f892048e2dd2c96c639e6b6aa750bdbe3),
     )
@@ -255,7 +255,7 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
         Sha1(b31d986b2deb4337c487ae0f431fe37688fa2197),
     )
@@ -303,7 +303,7 @@ fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
         base_merge_failed: true,
         bases: Some(
@@ -331,7 +331,7 @@ fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(819265d9df0efd0ecba56b9f930f16eea335d329),
     )
@@ -365,7 +365,7 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
         Sha1(ef56061bb8c852be7983011e1a59fe80eefcf31d),
     )
@@ -416,7 +416,7 @@ fn multiple_parents_to_multiple_parents_base_parents_conflict() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
         base_merge_failed: true,
         bases: Some(
@@ -443,7 +443,7 @@ fn multiple_parents_to_multiple_parents_target_parents_conflict() -> Result<()> 
 
     let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
         base_merge_failed: false,
         bases: None,
@@ -470,7 +470,7 @@ fn multiple_parents_to_multiple_parents_identity() -> Result<()> {
 
     let result = cherry_pick(&repo, target.detach(), &parents, true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Identity(
         Sha1(bec85a3ab113b86032660cac3d09afb4d342e135),
     )
@@ -488,7 +488,7 @@ fn no_parents_identity() -> Result<()> {
 
     let result = cherry_pick(&repo, target.detach(), &[], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Identity(
         Sha1(7a749663ddce268238da073e025f30a281120ef5),
     )
@@ -506,7 +506,7 @@ fn single_parent_to_no_parents_clean() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(756d7a456e069d4553d52d339158135390d3780e),
     )
@@ -536,7 +536,7 @@ fn no_parents_to_single_parent_clean() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(f3555f184de4e805e12a6ee83e406f3a39eb2091),
     )
@@ -567,7 +567,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     let result = cherry_pick(&repo, target, &[onto], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
         Sha1(fc01136874918a3912b3a5ff76e625d46dda7cb6),
     )
@@ -609,7 +609,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     let result = cherry_pick(&repo, target.detach(), &[onto, onto2], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
         Sha1(ef56061bb8c852be7983011e1a59fe80eefcf31d),
     )
@@ -623,7 +623,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     let result = cherry_pick(&repo, id, &parents, true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(3d7dfa09a071658d3b84eb1ee195ea0ebfeb601f),
     )
@@ -648,7 +648,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 fn cherry_pick_recursive_merge() -> Result<()> {
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick-recursive-merge")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * aae265d (first-parent) first-parent
     | * 7d9539e (second-parent) second-parent
     |/  
@@ -668,7 +668,7 @@ fn cherry_pick_recursive_merge() -> Result<()> {
 
     let result = cherry_pick(&repo, target.detach(), &[onto, onto2, onto3], true)?;
 
-    insta::assert_debug_snapshot!(result, @r"
+    insta::assert_debug_snapshot!(result, @"
     Commit(
         Sha1(cd1d00c1d637d5567f7a0739d1aa9ca3e65b990e),
     )

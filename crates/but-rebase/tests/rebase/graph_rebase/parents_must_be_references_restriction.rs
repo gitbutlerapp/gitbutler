@@ -11,7 +11,7 @@ use crate::utils::{fixture_writable, standard_options};
 fn by_default_parents_can_be_picks() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -27,7 +27,7 @@ fn by_default_parents_can_be_picks() -> Result<()> {
     outcome.materialize()?;
 
     // The graph should remain unchanged since we made no modifications
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -41,7 +41,7 @@ fn by_default_parents_can_be_picks() -> Result<()> {
 fn if_a_commit_requires_reference_parents_but_has_pick_parent_an_error_is_raised() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
     * 3b3bd41 (b) b
     * 5e0ba46 (a) a
@@ -80,7 +80,7 @@ fn if_a_commit_requires_reference_parents_but_has_pick_parent_an_error_is_raised
 fn if_a_commit_requires_reference_parents_and_has_reference_parent_result_is_ok() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
     * 3b3bd41 (b) b
     * 5e0ba46 (a) a
@@ -106,7 +106,7 @@ fn if_a_commit_requires_reference_parents_and_has_reference_parent_result_is_ok(
     outcome.materialize()?;
 
     // The graph should remain unchanged since we made no content modifications
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
     * 3b3bd41 (b) b
     * 5e0ba46 (a) a

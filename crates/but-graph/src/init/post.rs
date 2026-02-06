@@ -806,7 +806,7 @@ impl Graph {
         }
 
         // Setup sibling IDs for all unnamed segments with a known segment ref in its future.
-        let all_ws_segment_ids: BTreeSet<SegmentIndex> = ws_stacks
+        let unique_ws_segment_ids: BTreeSet<SegmentIndex> = ws_stacks
             .iter()
             .flat_map(|s| {
                 s.segments
@@ -814,7 +814,7 @@ impl Graph {
                     .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
             })
             .collect();
-        for &sidx in &all_ws_segment_ids {
+        for &sidx in &unique_ws_segment_ids {
             // The workspace might be stale by now as we delete empty segments.
             // Thus, be careful, and ignore non-existing ones - after all our workspace
             // is temporary, nothing to worry about.
@@ -825,8 +825,8 @@ impl Graph {
                 continue;
             }
 
-            let num_outgoing = self.inner.neighbors_directed(sidx, Direction::Incoming).count();
-            let single_incoming_connection = num_outgoing < 2;
+            let num_incoming = self.inner.neighbors_directed(sidx, Direction::Incoming).count();
+            let single_incoming_connection = num_incoming < 2;
             if single_incoming_connection {
                 continue;
             }
@@ -874,7 +874,7 @@ impl Graph {
                     let has_ws_segments_below = self
                         .inner
                         .neighbors_directed(sidx, Direction::Outgoing)
-                        .any(|n| all_ws_segment_ids.contains(&n));
+                        .any(|n| unique_ws_segment_ids.contains(&n));
                     if !named_is_direct_ws_child && !has_ws_segments_below {
                         self[sidx].sibling_segment_id = Some(named_sid);
                     }

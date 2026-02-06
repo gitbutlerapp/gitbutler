@@ -207,7 +207,10 @@ impl Graph {
                 .map(|remote_ref_name| format!(
                     " <> {remote_name}{maybe_id}",
                     remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
-                    maybe_id = remote_tracking_branch_id.or(sibling_id).map(|id| format!(" →:{}:", id.index())).unwrap_or_default()
+                    maybe_id = remote_tracking_branch_id
+                        .or(sibling_id)
+                        .map(|id| format!(" →:{}:", id.index()))
+                        .unwrap_or_default()
                 ))
                 .unwrap_or_default()
         )

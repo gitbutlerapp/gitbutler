@@ -14,7 +14,7 @@ use crate::utils::{fixture_writable, standard_options};
 fn by_default_conflicts_are_allowed() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
     * 3b3bd41 (b) b
     * 5e0ba46 (a) a
@@ -34,7 +34,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
     outcome.materialize()?;
 
     // We expect to see conflicted headers
-    insta::assert_snapshot!(cat_commit(&repo, "c")?, @r"
+    insta::assert_snapshot!(cat_commit(&repo, "c")?, @"
     tree 7c4363d235e51107d74c858038cfab0d192db092
     parent 5e0ba4636be91de6216903697b269915d3db6c53
     author author <author@example.com> 946684800 +0000
@@ -53,7 +53,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_error_is_raised() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
     * 3b3bd41 (b) b
     * 5e0ba46 (a) a
@@ -92,7 +92,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_but_ends_up_conflicted_an_err
 fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_result_is_ok() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits-one-file")?;
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * f37690f (HEAD -> main, c) c
     * 3b3bd41 (b) b
     * 5e0ba46 (a) a
@@ -124,7 +124,7 @@ fn if_a_commit_has_been_configured_not_to_conflict_and_doesnt_end_up_conflicted_
     outcome.materialize()?;
 
     // The rebase is successful because `c` remained unconflicted
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 00c31ec (HEAD -> main, c) c
     * 7762cf9 (b) I'm a new commit! Hello there
     * 3b3bd41 b

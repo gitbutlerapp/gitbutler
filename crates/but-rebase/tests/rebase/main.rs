@@ -41,7 +41,7 @@ mod commit {
             commit::save_author_if_unset_in_repo(&repo, gix::config::Source::Local, "user", "email")?;
 
             // New values are written and everything else is still contained.
-            insta::assert_snapshot!(std::fs::read_to_string(local_config_path)?, @r"
+            insta::assert_snapshot!(std::fs::read_to_string(local_config_path)?, @"
             # a comment
             [special] 
             value=foo #value comment
@@ -71,7 +71,7 @@ fn single_stack_journey() -> Result<()> {
             RebaseStep::Reference(but_core::Reference::Virtual("anchor".into())),
         ])?
         .rebase()?;
-    insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
+    insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -79,7 +79,7 @@ fn single_stack_journey() -> Result<()> {
     ");
     // The base remains unchanged, and two commits remain: a squash commit and a merge with
     // the original `c` commit.
-    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"
     * 0fce812 second step: squash b into a
     * 35b8235 base
     ");
@@ -179,7 +179,7 @@ fn amended_commit() -> Result<()> {
     * 8f0d338 (tag: base) base
     ");
     // This time without anchor.
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
         top_commit: Sha1(6a38e6718b008686a81969c07f8654dd68f7b824),
         references: [],
@@ -250,7 +250,7 @@ fn reorder_merge_in_reverse() -> Result<()> {
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
         top_commit: Sha1(eb90e584f71ba2b0f122d9778abd0225bde3c669),
         references: [],
@@ -323,7 +323,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
             },
         ])?
         .rebase()?;
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
         top_commit: Sha1(3ccc6a6db258bc7deed5a08efc892de13ba21746),
         references: [],
@@ -405,7 +405,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     "#);
 
     // gitbutler headers were added here to indicate conflict (change-id is frozen for testing)
-    insta::assert_snapshot!(conflict_commit_id.object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(conflict_commit_id.object()?.data.as_bstr(), @"
     tree db4a5b82b209e5165cdf8d04ff4328ec1fc2526d
     parent eebaa8b32984736d7a835f805724c66a3988f01b
     author author <author@example.com> 946684800 +0000
@@ -418,7 +418,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     ");
 
     // And they are added to merge commits.
-    insta::assert_snapshot!(out.top_commit.attach(&repo).object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(out.top_commit.attach(&repo).object()?.data.as_bstr(), @"
     tree 6abc3da6f1642bfd5543ef97f98b924f4f232a96
     parent add59d26b2ffd7468fcb44c2db48111dd8f481e5
     parent a7487625f079bedf4d20e48f052312c010117b38
@@ -433,7 +433,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
 
     // And they are also added to other cherry-picked commits that don't conflict.
     let (_base, original, cherry_picked_no_conflict) = out.commit_mapping.first().unwrap();
-    insta::assert_snapshot!(cherry_picked_no_conflict.attach(&repo).object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(cherry_picked_no_conflict.attach(&repo).object()?.data.as_bstr(), @"
     tree fa799da5c8300f1e8f8d89f1c5989a8f03ccd852
     parent 8f0d33828e5c859c95fb9e9fc063374fdd482536
     author author <author@example.com> 946684800 +0000
@@ -445,7 +445,7 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     ");
 
     // The original commit might not have had these extra headers.
-    insta::assert_snapshot!(original.attach(&repo).object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(original.attach(&repo).object()?.data.as_bstr(), @"
     tree fa799da5c8300f1e8f8d89f1c5989a8f03ccd852
     parent 8f0d33828e5c859c95fb9e9fc063374fdd482536
     author author <author@example.com> 946684800 +0000
@@ -638,7 +638,7 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
         ])?
         .rebase()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* e380582 reworded base after squash");
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
         top_commit: Sha1(e3805829c98eb212c529d5e853a94283ed32747c),
         references: [],

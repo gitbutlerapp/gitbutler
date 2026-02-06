@@ -377,7 +377,7 @@ mod test {
             graph.add_edge(a, b, Edge { order: 0 });
             graph.add_edge(b, c, Edge { order: 0 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ● 1000000
             ● 2000000
             ● 3000000
@@ -440,7 +440,7 @@ mod test {
 
             graph.add_edge(i, j, Edge { order: 0 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ● 1000000
             ● 2000000
             │ ● 6000000
@@ -489,7 +489,7 @@ mod test {
             graph.add_edge(d, e, Edge { order: 0 });
             graph.add_edge(e, b, Edge { order: 0 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ● 1000000
             ├─╮
             │ ● 4000000
@@ -532,7 +532,7 @@ mod test {
 
             graph.add_edge(a, b, Edge { order: 1 });
 
-            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @r"
+            insta::assert_snapshot!(render_ascii_graph(&graph, |_| None), @"
             ● 1000000
             ├─╮
             ● │ 4000000

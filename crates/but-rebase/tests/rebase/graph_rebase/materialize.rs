@@ -11,14 +11,14 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
     let worktree = repo.workdir().unwrap();
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
     * 35b8235 base
     ");
 
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @"
     .
     ├── .git:40755
     ├── a:100644
@@ -39,7 +39,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     outcome.materialize()?;
 
     // After materialize, file 'c' should be GONE from worktree
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @"
     .
     ├── .git:40755
     ├── a:100644
@@ -47,7 +47,7 @@ fn materialize_removes_dropped_commit_changes_from_worktree() -> Result<()> {
     └── base:100644
     ");
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * a96434e (HEAD -> main) b
     * d591dfe a
     * 35b8235 base
@@ -61,14 +61,14 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     let (repo, _tmpdir, meta) = fixture_writable("four-commits")?;
     let worktree = repo.workdir().unwrap();
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
     * 35b8235 base
     ");
 
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @"
     .
     ├── .git:40755
     ├── a:100644
@@ -89,7 +89,7 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     outcome.materialize_without_checkout()?;
 
     // After materialize_without_checkout, file 'c' should STILL exist in worktree
-    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @r"
+    insta::assert_snapshot!(visualize_disk_tree_skip_dot_git(worktree)?, @"
     .
     ├── .git:40755
     ├── a:100644
@@ -99,7 +99,7 @@ fn materialize_without_checkout_preserves_dropped_commit_changes_in_worktree() -
     ");
 
     // But the commit graph should still be updated (refs moved)
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
     * a96434e (HEAD -> main) b
     * d591dfe a
     * 35b8235 base

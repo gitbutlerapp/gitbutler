@@ -6140,8 +6140,8 @@ fn reproduce_12146() -> anyhow::Result<()> {
         └── →:2: (main →:1:)
     ");
 
-    // The sibling ID is not set, and we see only two stacks, with B owning 7163661
-    // and A owning 81d4e38.
+    // The sibling ID is not set, and we see only two stacks: B owns 7163661,
+    // and both A and B include the shared base commit 81d4e38 (A only has 81d4e38).
     let ws = &graph.into_workspace()?;
     insta::assert_snapshot!(graph_workspace(ws), @"
     📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e32cf47

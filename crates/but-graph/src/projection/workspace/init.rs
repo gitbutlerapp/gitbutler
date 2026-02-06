@@ -693,9 +693,12 @@ impl WorkspaceState {
             .stacks
             .iter()
             .flat_map(|s| {
-                s.segments
-                    .iter()
-                    .filter_map(|s| s.remote_tracking_ref_name.as_ref().cloned().zip(s.remote_tracking_branch_segment_id))
+                s.segments.iter().filter_map(|s| {
+                    s.remote_tracking_ref_name
+                        .as_ref()
+                        .cloned()
+                        .zip(s.remote_tracking_branch_segment_id)
+                })
             })
             .collect();
         for (remote_tracking_ref_name, remote_sidx) in remote_refs {
