@@ -22,7 +22,7 @@
 		{#snippet children(itIsAGerritProject)}
 			<CardGroup.Item standalone labelFor="gerritModeToggle">
 				{#snippet title()}
-					Gerrit Configuration
+					Gerrit configuration
 				{/snippet}
 
 				{#snippet caption()}
