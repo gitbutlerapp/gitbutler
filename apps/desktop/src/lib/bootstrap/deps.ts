@@ -28,7 +28,6 @@ import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFact
 import { GITHUB_CLIENT, GitHubClient } from '$lib/forge/github/githubClient';
 import { GitHubUserService, GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 import { GITLAB_CLIENT, GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
-import { GITLAB_STATE, GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
 import { GITLAB_USER_SERVICE, GitLabUserService } from '$lib/forge/gitlab/gitlabUserService.svelte';
 import { GitService, GIT_SERVICE } from '$lib/git/gitService';
 import { HISTORY_SERVICE, HistoryService } from '$lib/history/history';
@@ -126,8 +125,7 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const gitHubClient = new GitHubClient();
-	const gitLabState = new GitLabState(secretsService);
-	const gitLabClient = new GitLabClient(gitLabState);
+	const gitLabClient = new GitLabClient();
 
 	// ============================================================================
 	// EXPERIMENTAL STUFF
@@ -342,7 +340,6 @@ export function initDependencies(args: {
 		[GITHUB_USER_SERVICE, githubUserService],
 		[GITLAB_USER_SERVICE, gitlabUserService],
 		[GITLAB_CLIENT, gitLabClient],
-		[GITLAB_STATE, gitLabState],
 		[GIT_CONFIG_SERVICE, gitConfig],
 		[GIT_SERVICE, gitService],
 		[HISTORY_SERVICE, historyService],

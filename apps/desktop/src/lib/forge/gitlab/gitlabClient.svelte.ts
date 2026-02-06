@@ -1,7 +1,6 @@
 import { Gitlab } from '@gitbeaker/rest';
 import { InjectionToken } from '@gitbutler/core/context';
-import { derived } from 'svelte/store';
-import type { GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
+import type { GitLabProjectId } from '$lib/forge/gitlab/gitlab';
 
 type GitlabInstance = InstanceType<typeof Gitlab<false>>;
 
@@ -11,43 +10,21 @@ export class GitLabClient {
 	api: GitlabInstance | undefined;
 	forkProjectId: string | undefined;
 	upstreamProjectId: string | undefined;
-	instanceUrl: string | undefined;
 
-	private callbacks: (() => void)[] = [];
+	constructor() {}
 
-	constructor(private gitlabState: GitLabState) {}
-
-	set() {
-		const subscribable = derived(
-			[
-				this.gitlabState.forkProjectId,
-				this.gitlabState.upstreamProjectId,
-				this.gitlabState.instanceUrl,
-				this.gitlabState.token
-			],
-			([forkProjectId, upstreamProjectId, instanceUrl, token]) => {
-				this.forkProjectId = forkProjectId;
-				this.upstreamProjectId = upstreamProjectId;
-				if (token && instanceUrl) {
-					this.api = new Gitlab({
-						token,
-						host: instanceUrl
-					});
-				} else {
-					this.api = undefined;
-				}
-			}
-		);
-
-		$effect(() => {
-			const unsubscribe = subscribable.subscribe(() => {});
-			return unsubscribe;
+	set(
+		instanceUrl: string | undefined,
+		accessToken: string,
+		forkProjectId: GitLabProjectId,
+		upstreamProjectId: GitLabProjectId
+	) {
+		this.api = new Gitlab({
+			host: instanceUrl,
+			token: accessToken
 		});
-	}
-
-	onReset(fn: () => void) {
-		this.callbacks.push(fn);
-		return () => (this.callbacks = this.callbacks.filter((cb) => cb !== fn));
+		this.forkProjectId = forkProjectId;
+		this.upstreamProjectId = upstreamProjectId;
 	}
 }
 

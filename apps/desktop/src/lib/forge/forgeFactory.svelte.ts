@@ -22,7 +22,7 @@ export type ForgeConfig = {
 	pushRepo?: RepoInfo;
 	baseBranch?: string;
 	githubAuthenticated?: boolean;
-	githubIsLoading?: boolean;
+	forgeIsLoading?: boolean;
 	githubError?: { code: string; message: string };
 	gitlabAuthenticated?: boolean;
 	detectedForgeProvider: ForgeProvider | undefined;
@@ -104,7 +104,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			pushRepo,
 			baseBranch,
 			githubAuthenticated,
-			githubIsLoading,
+			forgeIsLoading,
 			githubError,
 			gitlabAuthenticated,
 			detectedForgeProvider,
@@ -118,7 +118,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				pushRepo,
 				baseBranch,
 				githubAuthenticated,
-				githubIsLoading,
+				forgeIsLoading,
 				gitlabAuthenticated,
 				detectedForgeProvider,
 				forgeOverride
@@ -134,7 +134,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		pushRepo,
 		baseBranch,
 		githubAuthenticated,
-		githubIsLoading,
+		forgeIsLoading,
 		gitlabAuthenticated,
 		detectedForgeProvider,
 		forgeOverride
@@ -143,7 +143,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		pushRepo?: RepoInfo;
 		baseBranch: string;
 		githubAuthenticated?: boolean;
-		githubIsLoading?: boolean;
+		forgeIsLoading?: boolean;
 		gitlabAuthenticated?: boolean;
 		detectedForgeProvider: ForgeProvider | undefined;
 		forgeOverride: ForgeName | undefined;
@@ -172,7 +172,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				client: gitHubClient,
 				posthog: posthog,
 				authenticated: !!githubAuthenticated,
-				isLoading: githubIsLoading ?? false
+				isLoading: forgeIsLoading ?? false
 			});
 		}
 		if (forgeType === 'gitlab') {
@@ -183,7 +183,8 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				client: gitLabClient,
 				posthog: posthog,
 				authenticated: !!gitlabAuthenticated,
-				dispatch
+				dispatch,
+				isLoading: forgeIsLoading ?? false
 			});
 		}
 		if (forgeType === 'bitbucket') {
