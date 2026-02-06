@@ -25,6 +25,8 @@ import {
 } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FILE_SERVICE, FileService } from '$lib/files/fileService';
 import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+import { GITEA_CLIENT, GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
+import { GITEA_STATE, GiteaState } from '$lib/forge/gitea/giteaState.svelte';
 import { GITHUB_CLIENT, GitHubClient } from '$lib/forge/github/githubClient';
 import { GitHubUserService, GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 import { GITLAB_CLIENT, GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
@@ -128,6 +130,8 @@ export function initDependencies(args: {
 	const gitHubClient = new GitHubClient();
 	const gitLabState = new GitLabState(secretsService);
 	const gitLabClient = new GitLabClient(gitLabState);
+	const giteaState = new GiteaState(secretsService);
+	const giteaClient = new GiteaClient(giteaState);
 
 	// ============================================================================
 	// EXPERIMENTAL STUFF
@@ -141,7 +145,7 @@ export function initDependencies(args: {
 	// STATE MANAGEMENT
 	// ============================================================================
 
-	const clientState = new ClientState(backend, gitHubClient, gitLabClient, ircClient, posthog);
+	const clientState = new ClientState(backend, gitHubClient, gitLabClient, giteaClient, ircClient, posthog);
 	const githubUserService = new GitHubUserService(clientState.backendApi);
 	const gitlabUserService = new GitLabUserService(clientState.backendApi);
 
@@ -175,9 +179,11 @@ export function initDependencies(args: {
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
 		gitLabClient,
+		giteaClient,
 		backendApi: clientState['backendApi'],
 		gitHubApi: clientState['githubApi'],
 		gitLabApi: clientState['gitlabApi'],
+		giteaApi: clientState['giteaApi'],
 		dispatch: clientState.dispatch,
 		posthog: posthog
 	});
@@ -338,6 +344,8 @@ export function initDependencies(args: {
 		[FEED_SERVICE, feedService],
 		[FILE_SERVICE, fileService],
 		[FOCUS_MANAGER, focusManager],
+		[GITEA_CLIENT, giteaClient],
+		[GITEA_STATE, giteaState],
 		[GITHUB_CLIENT, gitHubClient],
 		[GITHUB_USER_SERVICE, githubUserService],
 		[GITLAB_USER_SERVICE, gitlabUserService],

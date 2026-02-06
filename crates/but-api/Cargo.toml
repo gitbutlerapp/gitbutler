@@ -67,6 +67,7 @@ but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
+but-gitea.workspace = true
 
 # 'legacy' is needed while we only have `virtual-branches.toml`
 but-meta = { workspace = true, features = ["legacy"] }

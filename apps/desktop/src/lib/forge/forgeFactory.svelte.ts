@@ -1,6 +1,7 @@
 import { AZURE_DOMAIN, AzureDevOps } from '$lib/forge/azure/azure';
 import { BitBucket, BITBUCKET_DOMAIN } from '$lib/forge/bitbucket/bitbucket';
 import { DefaultForge } from '$lib/forge/default/default';
+import { Gitea, GITEA_DOMAIN, GITEA_SUB_DOMAIN } from '$lib/forge/gitea/gitea';
 import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
 import { GitHubClient } from '$lib/forge/github/githubClient';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
@@ -8,9 +9,10 @@ import { InjectionToken } from '@gitbutler/core/context';
 import { deepCompare } from '@gitbutler/shared/compare';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgeProvider } from '$lib/baseBranch/baseBranch';
+import type { GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { BackendApi, GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
+import type { BackendApi, GiteaApi, GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
 import type { ReduxTag } from '$lib/state/tags';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Reactive } from '@gitbutler/shared/storeUtils';
@@ -25,6 +27,7 @@ export type ForgeConfig = {
 	githubIsLoading?: boolean;
 	githubError?: { code: string; message: string };
 	gitlabAuthenticated?: boolean;
+	giteaAuthenticated?: boolean;
 	detectedForgeProvider: ForgeProvider | undefined;
 	forgeOverride?: ForgeName;
 };
@@ -56,6 +59,8 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			gitHubApi: GitHubApi;
 			gitLabClient: GitLabClient;
 			gitLabApi: GitLabApi;
+			giteaClient: GiteaClient;
+			giteaApi: GiteaApi;
 			posthog: PostHogWrapper;
 			dispatch: ThunkDispatch<any, any, UnknownAction>;
 		}
@@ -107,6 +112,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			githubIsLoading,
 			githubError,
 			gitlabAuthenticated,
+			giteaAuthenticated,
 			detectedForgeProvider,
 			forgeOverride
 		} = config;
@@ -120,6 +126,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				githubAuthenticated,
 				githubIsLoading,
 				gitlabAuthenticated,
+				giteaAuthenticated,
 				detectedForgeProvider,
 				forgeOverride
 			});
@@ -136,6 +143,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		githubAuthenticated,
 		githubIsLoading,
 		gitlabAuthenticated,
+		giteaAuthenticated,
 		detectedForgeProvider,
 		forgeOverride
 	}: {
@@ -145,6 +153,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		githubAuthenticated?: boolean;
 		githubIsLoading?: boolean;
 		gitlabAuthenticated?: boolean;
+		giteaAuthenticated?: boolean;
 		detectedForgeProvider: ForgeProvider | undefined;
 		forgeOverride: ForgeName | undefined;
 	}): Forge {
@@ -186,6 +195,17 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				dispatch
 			});
 		}
+		if (forgeType === 'gitea') {
+			const { giteaClient, giteaApi, posthog, dispatch } = this.params;
+			return new Gitea({
+				...baseParams,
+				api: giteaApi,
+				client: giteaClient,
+				posthog: posthog,
+				authenticated: !!giteaAuthenticated,
+				dispatch
+			});
+		}
 		if (forgeType === 'bitbucket') {
 			return new BitBucket(baseParams);
 		}
@@ -214,6 +234,13 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		) {
 			return 'gitlab';
 		}
+		if (
+			domain === GITEA_DOMAIN ||
+			domain.startsWith(GITEA_SUB_DOMAIN + '.') ||
+			domain.includes('.' + GITEA_SUB_DOMAIN + '.')
+		) {
+			return 'gitea';
+		}
 		if (domain.includes(BITBUCKET_DOMAIN)) {
 			return 'bitbucket';
 		}
@@ -233,7 +260,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	}
 }
 
-const AVAILABLE_FORGES = ['github', 'gitlab'] satisfies ForgeName[];
+const AVAILABLE_FORGES = ['github', 'gitlab', 'gitea'] satisfies ForgeName[];
 export type AvailableForge = (typeof AVAILABLE_FORGES)[number];
 
 function isAvalilableForge(forge: ForgeName): forge is AvailableForge {
@@ -246,6 +273,8 @@ export function availableForgeLabel(forge: AvailableForge): string {
 			return 'GitHub';
 		case 'gitlab':
 			return 'GitLab';
+		case 'gitea':
+			return 'Gitea';
 	}
 }
 
@@ -255,6 +284,8 @@ export function availableForgeReviewUnit(forge: AvailableForge): string {
 			return 'Pull Requests';
 		case 'gitlab':
 			return 'Merge Requests';
+		case 'gitea':
+			return 'Pull Requests';
 	}
 }
 
@@ -264,5 +295,7 @@ export function availableForgeDocsLink(forge: AvailableForge): string {
 			return 'https://docs.gitbutler.com/features/forge-integration/github-integration';
 		case 'gitlab':
 			return 'https://docs.gitbutler.com/features/forge-integration/gitlab-integration';
+		case 'gitea':
+			return 'https://docs.gitbutler.com/features/forge-integration/gitea-integration';
 	}
 }

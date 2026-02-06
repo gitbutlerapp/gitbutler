@@ -18,6 +18,7 @@ export enum ReduxTag {
 	GitLabUserList = 'GitLabUserList',
 	PullRequests = 'PullRequests',
 	GitLabPullRequests = 'GitLabPullRequests',
+	GiteaPullRequests = 'GiteaPullRequests',
 	Checks = 'Checks',
 	RepoInfo = 'RepoInfo',
 	BaseBranchData = 'BaseBranchData',

@@ -18,6 +18,8 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { useGitHubAccessToken } from '$lib/forge/github/hooks.svelte';
+	import { GITEA_CLIENT } from '$lib/forge/gitea/giteaClient.svelte';
+	import { GITEA_STATE } from '$lib/forge/gitea/giteaState.svelte';
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
@@ -91,6 +93,8 @@
 	const gitHubClient = inject(GITHUB_CLIENT);
 	const gitLabState = inject(GITLAB_STATE);
 	const gitLabClient = inject(GITLAB_CLIENT);
+	const giteaState = inject(GITEA_STATE);
+	const giteaClient = inject(GITEA_CLIENT);
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
 	const githubAccessToken = useGitHubAccessToken(reactive(() => projectId));
@@ -111,6 +115,18 @@
 		};
 	});
 
+	// Gitea setup
+	const giteaConfigured = $derived(giteaState.configured);
+	$effect.pre(() => {
+		giteaState.init(projectId, repoInfo);
+		giteaClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name });
+		giteaClient.set();
+
+		return () => {
+			giteaState.cleanup();
+		};
+	});
+
 	// Forge factory configuration
 	$effect(() => {
 		forgeFactory.setConfig({
@@ -121,6 +137,7 @@
 			githubIsLoading: githubAccessToken.isLoading.current,
 			githubError: githubAccessToken.error.current,
 			gitlabAuthenticated: !!$gitlabConfigured,
+			giteaAuthenticated: !!$giteaConfigured,
 			detectedForgeProvider: baseBranch?.forgeRepoInfo?.forge ?? undefined,
 			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
 		});

@@ -69,6 +69,10 @@ fn ci_checks_for_ref(
                     .collect()
             })
         }
+        ForgeName::Gitea => {
+            // TODO: Implement Gitea CI checks via commit status API
+            Ok(Vec::new())
+        }
         _ => Err(anyhow::anyhow!(
             "Listing ci checks for forge {:?} is not implemented yet.",
             forge

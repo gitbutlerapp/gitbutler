@@ -872,6 +872,7 @@ dependencies = [
  "but-forge",
  "but-forge-storage",
  "but-gerrit",
+ "but-gitea",
  "but-github",
  "but-gitlab",
  "but-graph",
@@ -1115,6 +1116,7 @@ dependencies = [
  "but-db",
  "but-forge-storage",
  "but-fs",
+ "but-gitea",
  "but-github",
  "but-gitlab",
  "chrono",
@@ -1161,6 +1163,20 @@ dependencies = [
  "gix",
  "serde",
  "snapbox",
+]
+
+[[package]]
+name = "but-gitea"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-error",
+ "but-forge-storage",
+ "but-secret",
+ "but-settings",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
