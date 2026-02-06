@@ -614,6 +614,7 @@ fn restore_snapshot(
 
     // Now that the toml file has been restored, update references to reflect the the values from virtual_branches.toml
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    vb_state.import_toml_into_db_for_restore()?;
     let stacks = vb_state.list_stacks_in_workspace()?;
     for stack in stacks {
         for branch in stack.heads {

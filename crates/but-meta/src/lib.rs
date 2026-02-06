@@ -9,3 +9,6 @@ pub use legacy::VirtualBranchesTomlMetadata;
 
 #[cfg(feature = "legacy")]
 pub mod virtual_branches_legacy_types;
+
+#[cfg(feature = "legacy")]
+pub mod legacy_storage;

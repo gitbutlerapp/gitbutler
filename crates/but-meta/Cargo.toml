@@ -13,6 +13,7 @@ test = false
 
 [features]
 legacy = [
+    "dep:but-db",
     "dep:but-serde",
     "dep:but-graph",
     "dep:gitbutler-reference",
@@ -22,11 +23,13 @@ legacy = [
     "dep:serde",
     "dep:md5",
     "dep:hex",
+    "dep:sha2",
     "dep:gix",
 ]
 
 [dependencies]
 but-core.workspace = true
+but-db = { workspace = true, optional = true }
 but-serde = { workspace = true, optional = true }
 but-graph = { workspace = true, optional = true }
 
@@ -42,6 +45,7 @@ toml = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 md5 = { workspace = true, optional = true }
 hex = { version = "0.4.3", optional = true }
+sha2 = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-meta = {workspace = true, features = ["legacy"] }

@@ -5,7 +5,6 @@ use std::{
 
 use anyhow::{Result, anyhow};
 use but_error::Code;
-use but_fs::read_toml_file_or_default;
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
 use git2::Repository;
@@ -245,13 +244,27 @@ impl VirtualBranchesHandle {
     ///
     /// If the file does not exist, it will be created.
     pub fn read_file(&self) -> Result<VirtualBranches> {
-        let data: virtual_branches_legacy_types::VirtualBranches = read_toml_file_or_default(&self.file_path)?;
+        let data = self.ensure_vb_storage_in_sync()?;
         Ok(data.into())
     }
 
     /// Write the given `virtual_branches` back to disk in one go.
     pub fn write_file(&self, virtual_branches: &VirtualBranches) -> Result<()> {
-        write(self.file_path.as_path(), virtual_branches)
+        let _ = self.ensure_vb_storage_in_sync()?;
+        let legacy = virtual_branches_legacy_types::VirtualBranches::from(virtual_branches.clone());
+        but_meta::legacy_storage::write_virtual_branches_and_sync(&self.file_path, &legacy)
+    }
+
+    /// Ensure TOML and DB are synchronized before proceeding with metadata operations.
+    fn ensure_vb_storage_in_sync(&self) -> Result<virtual_branches_legacy_types::VirtualBranches> {
+        but_meta::legacy_storage::read_synced_virtual_branches(&self.file_path)
+    }
+
+    /// Import TOML into DB and refresh sync metadata.
+    ///
+    /// This is primarily used for oplog restore, where TOML was restored externally.
+    pub fn import_toml_into_db_for_restore(&self) -> Result<()> {
+        but_meta::legacy_storage::import_toml_into_db(&self.file_path)
     }
 
     pub fn update_ordering(&self) -> Result<()> {
@@ -389,11 +402,6 @@ impl VirtualBranchesHandle {
         let virtual_branches = self.read_file()?;
         Ok(virtual_branches.last_pushed_base)
     }
-}
-
-fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
-    let v = virtual_branches_legacy_types::VirtualBranches::from(virtual_branches.clone());
-    but_fs::create_dirs_then_write(file_path, toml::to_string(&v)?).map_err(Into::into)
 }
 
 /// Re-commit a commit with altered parentage

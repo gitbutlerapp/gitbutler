@@ -26,16 +26,13 @@ fn journey() -> anyhow::Result<()> {
     drop(store);
 
     assert!(
-        !writable_toml_path.exists(),
-        "The file is deleted when the workspace is removed"
+        writable_toml_path.exists(),
+        "The TOML mirror remains present after workspace removal"
     );
     let store = VirtualBranchesTomlMetadata::from_path(&writable_toml_path)?;
     assert_eq!(store.iter().count(), 0, "on drop we write the file immediately");
     drop(store);
-    assert!(
-        !writable_toml_path.exists(),
-        "default content isn't written back either"
-    );
+    assert!(writable_toml_path.exists(), "default content is mirrored back to TOML");
 
     Ok(())
 }
@@ -275,7 +272,7 @@ fn read_only() -> anyhow::Result<()> {
     assert!(toml_path.exists(), "the file is still present");
     let was_deleted = store.remove("refs/heads/gitbutler/workspace".try_into()?)?;
     assert!(was_deleted, "This basically clears out everything");
-    assert!(!toml_path.exists(), "implemented brutally by file deletion");
+    assert!(toml_path.exists(), "workspace clear keeps an empty TOML mirror");
 
     // Asking for the workspace
     let ws = store.workspace("refs/heads/gitbutler/integration".try_into()?)?;
@@ -291,7 +288,7 @@ fn read_only() -> anyhow::Result<()> {
 
     drop(store);
 
-    assert!(!toml_path.exists(), "It won't recreate a previously deleted file");
+    assert!(toml_path.exists(), "the TOML mirror stays available");
     Ok(())
 }
 
@@ -502,7 +499,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let branch_name: gix::refs::FullName = "refs/heads/feat".try_into()?;
     let mut branch = store.branch(branch_name.as_ref())?;
     assert!(branch.is_default(), "nothing was there yet");
-    assert!(!toml_path.exists(), "file wasn't written yet");
+    assert!(toml_path.exists(), "TOML mirror exists from initialization");
     assert_eq!(branch.stack_id(), None, "default values have no stack-id");
 
     branch.review = but_core::ref_metadata::Review {
@@ -840,10 +837,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     "#);
 
     drop(store);
-    assert!(
-        !toml_path.exists(),
-        "if everything is just the default, the file is deleted on write"
-    );
+    assert!(toml_path.exists(), "default state is still mirrored into TOML");
 
     let mut store = VirtualBranchesTomlMetadata::from_path(&toml_path)?;
     store.data_mut().default_target = Some(default_target());

@@ -157,6 +157,7 @@ pub(crate) fn improve_concurrency(conn: &rusqlite::Connection) -> anyhow::Result
         PRAGMA synchronous = NORMAL;             -- fsync only in critical moments,
         PRAGMA wal_autocheckpoint = 1000;        -- write WAL changes back every 1000 pages, for an average 1MB WAL file.,
         PRAGMA wal_checkpoint(TRUNCATE);         -- free some space by truncating possibly massive WAL files from the last run.,
+        PRAGMA foreign_keys = ON;                -- enforce FK integrity for normalized data.
         "#;
     conn.execute_batch(query)?;
     conn.busy_timeout(BUSY_TIMEOUT)?;
