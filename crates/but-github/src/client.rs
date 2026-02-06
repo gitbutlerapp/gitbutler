@@ -323,7 +323,7 @@ pub struct GitHubPrLabel {
     pub id: i64,
     pub name: String,
     pub description: Option<String>,
-    pub color: String,
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -353,7 +353,7 @@ struct GitHubPrLabelApi {
     id: i64,
     name: String,
     description: Option<String>,
-    color: String,
+    color: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -9,13 +9,12 @@
 	import { inject } from '@gitbutler/core/context';
 
 	import {
+		AddForgeAccountButton,
 		Button,
 		CardGroup,
-		ContextMenu,
-		ContextMenuItem,
-		ContextMenuSection,
 		Link,
 		Textbox,
+		Spacer,
 		chipToasts as toasts
 	} from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
@@ -50,10 +49,6 @@
 	let gheHostInput = $state<string>();
 	let ghePatError = $state<string>();
 	let gheHostError = $state<string>();
-
-	// Add account button and context menu
-	let addProfileButtonRef = $state<HTMLElement>();
-	let addAccountContextMenu = $state<ContextMenu>();
 
 	function cleanupAuthFlow() {
 		showingFlow = undefined;
@@ -147,7 +142,7 @@
 	}
 </script>
 
-<div class="stack-v gap-16">
+<div class="stack-v gap-8">
 	<CardGroup>
 		<ReduxResult result={accounts.result}>
 			<!-- IF ERROR -->
@@ -198,6 +193,10 @@
 	{#if showingFlow === 'oauthFlow'}
 		<div in:fade={{ duration: 100 }}>
 			<CardGroup.Item standalone>
+				<div class="close-button-wrapper">
+					<Button kind="ghost" style="gray" icon="cross" onclick={cleanupAuthFlow} />
+				</div>
+
 				<div class="wrapper">
 					<div class="step-section">
 						<div class="step-line"></div>
@@ -351,57 +350,37 @@
 			</CardGroup.Item>
 		</CardGroup>
 	{/if}
+
+	{#if showingFlow}
+		<Spacer dotted margin={8} />
+	{/if}
 </div>
 
-<p class="text-12 text-body github-integration-settings__text">
-	🔒 Credentials are persisted locally in your OS Keychain / Credential Manager.
-</p>
-
 {#snippet addProfileButton(noAccounts: boolean)}
-	{@const buttonStyle = noAccounts ? 'pop' : 'gray'}
-	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
-	<Button
-		bind:el={addProfileButtonRef}
-		style={buttonStyle}
-		onclick={() => addAccountContextMenu?.toggle()}
+	<AddForgeAccountButton
+		{noAccounts}
 		disabled={showingFlow !== undefined}
 		loading={storePatResult.current.isLoading || storeGhePatResult.current.isLoading}
-		icon="plus-small"
-	>
-		{buttonText}
-	</Button>
-
-	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addProfileButtonRef}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Authorize GitHub Account"
-				icon="connect-github"
-				onclick={() => {
-					gitHubStartOauth();
-					addAccountContextMenu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Add Personal Access Token"
-				icon="token-lock"
-				onclick={() => {
-					startPatFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Add GitHub Enterprise Account"
-				icon="enterprise"
-				onclick={() => {
-					startGitHubEnterpriseFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
+		menuItems={[
+			{ label: 'Authorize GitHub Account', icon: 'connect-github', onclick: gitHubStartOauth },
+			{ label: 'Add Personal Access Token', icon: 'token-lock', onclick: startPatFlow },
+			{
+				label: 'Add GitHub Enterprise Account',
+				icon: 'enterprise',
+				onclick: startGitHubEnterpriseFlow
+			}
+		]}
+	/>
 {/snippet}
 
 <style lang="postcss">
+	.close-button-wrapper {
+		display: flex;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+	}
+
 	.wrapper {
 		display: flex;
 		flex-direction: column;
@@ -491,9 +470,5 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
-	}
-
-	.github-integration-settings__text {
-		color: var(--clr-text-2);
 	}
 </style>

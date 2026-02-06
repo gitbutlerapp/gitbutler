@@ -13,8 +13,8 @@ import { persisted } from '@gitbutler/shared/persisted';
 import { chipToasts } from '@gitbutler/ui';
 import { get } from 'svelte/store';
 import type { IBackend } from '$lib/backend';
-import type { GitHubAccountIdentifier } from '$lib/forge/github/githubUserService.svelte';
 import type { ClientState } from '$lib/state/clientState.svelte';
+import type { ButGitHubToken } from '@gitbutler/core/api';
 
 export type ProjectInfo = {
 	is_exclusive: boolean;
@@ -58,7 +58,7 @@ export class ProjectsService {
 
 	async updatePreferredForgeUser(
 		projectId: string,
-		preferredGitHubAccount: GitHubAccountIdentifier | null
+		preferredGitHubAccount: ButGitHubToken.GithubAccountIdentifier | null
 	) {
 		const project = await this.fetchProject(projectId, true);
 		await this.updateProject({

@@ -14,6 +14,9 @@ pub mod legacy;
 /// Functions for GitHub authentication.
 pub mod github;
 
+/// Functions for GitLab authentication.
+pub mod gitlab;
+
 /// Functions that take a branch as input.
 pub mod branch;
 

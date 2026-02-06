@@ -2,8 +2,8 @@ import { goto } from '$app/navigation';
 import { showToast } from '$lib/notifications/toasts';
 import { projectPath } from '$lib/routes/routes.svelte';
 import { TestId } from '@gitbutler/ui';
-import type { GitHubAccountIdentifier } from '$lib/forge/github/githubUserService.svelte';
 import type { ForgeName } from '$lib/forge/interface/forge';
+import type { ButGitHubToken } from '@gitbutler/core/api';
 
 export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
 export type LocalKey = {
@@ -14,7 +14,7 @@ export type AuthKey = Exclude<KeyType, 'local'> | LocalKey;
 
 export type ForgeUserIdentifier = {
 	provider: 'github';
-	details: GitHubAccountIdentifier;
+	details: ButGitHubToken.GithubAccountIdentifier;
 };
 
 export type Project = {

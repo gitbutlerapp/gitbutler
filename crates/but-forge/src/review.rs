@@ -178,7 +178,7 @@ fn is_valid_review_template_path_azure(_path: &path::Path) -> bool {
 pub struct ForgeReviewLabel {
     pub name: String,
     pub description: Option<String>,
-    pub color: String,
+    pub color: Option<String>,
 }
 
 impl From<but_github::GitHubPrLabel> for ForgeReviewLabel {
@@ -187,6 +187,16 @@ impl From<but_github::GitHubPrLabel> for ForgeReviewLabel {
             name: label.name,
             description: label.description,
             color: label.color,
+        }
+    }
+}
+
+impl From<but_gitlab::GitLabLabel> for ForgeReviewLabel {
+    fn from(label: but_gitlab::GitLabLabel) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            description: None,
+            color: None,
         }
     }
 }
@@ -228,6 +238,19 @@ impl From<but_github::GitHubUser> for ForgeUser {
         ForgeUser {
             id: user.id,
             login: user.login,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: user.is_bot,
+        }
+    }
+}
+
+impl From<but_gitlab::GitLabUser> for ForgeUser {
+    fn from(user: but_gitlab::GitLabUser) -> Self {
+        ForgeUser {
+            id: user.id,
+            login: user.username,
             name: user.name,
             email: user.email,
             avatar_url: user.avatar_url,
@@ -355,6 +378,34 @@ impl From<but_github::PullRequest> for ForgeReview {
         }
     }
 }
+
+impl From<but_gitlab::MergeRequest> for ForgeReview {
+    fn from(mr: but_gitlab::MergeRequest) -> Self {
+        ForgeReview {
+            html_url: mr.web_url,
+            number: mr.iid,
+            title: mr.title,
+            body: mr.description,
+            author: mr.author.map(ForgeUser::from),
+            labels: mr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
+            draft: mr.draft,
+            source_branch: mr.source_branch,
+            target_branch: mr.target_branch,
+            sha: mr.sha,
+            created_at: mr.created_at,
+            modified_at: mr.updated_at,
+            merged_at: mr.merged_at,
+            closed_at: mr.closed_at,
+            repository_ssh_url: None,
+            repository_https_url: None,
+            repo_owner: None,
+            reviewers: mr.reviewers.into_iter().map(ForgeUser::from).collect(),
+            unit_symbol: "!".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
@@ -427,6 +478,25 @@ fn list_forge_reviews(
 
             pulls.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
         }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab().cloned());
+
+            // Clone owned data for thread
+            let project_id = "todo"; // Retrieve poject ID properly
+            let storage = storage.clone();
+
+            let mrs = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new().unwrap().block_on(but_gitlab::mr::list(
+                    preferred_account.as_ref(),
+                    project_id,
+                    &storage,
+                ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+
+            mrs.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
+        }
         _ => {
             return Err(Error::msg(format!(
                 "Listing reviews for forge {:?} is not implemented yet.",
@@ -465,6 +535,14 @@ pub async fn list_forge_reviews_for_branch(
             let prs = filter_prs(prs, &filter);
 
             Ok(prs.into_iter().map(ForgeReview::from).collect())
+        }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab().cloned());
+            let project_id = "todo"; // Retrieve poject ID properly
+            let mrs =
+                but_gitlab::mr::list_all_for_target(preferred_account.as_ref(), project_id, branch, storage).await?;
+            let mrs = filter_mrs(mrs, &filter);
+            Ok(mrs.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
             "Listing reviews for forge {:?} is not implemented yet.",
@@ -512,19 +590,64 @@ fn filter_prs(prs: Vec<but_github::PullRequest>, filter: &ForgeReviewFilter) -> 
         .collect()
 }
 
+fn filter_mrs(mrs: Vec<but_gitlab::MergeRequest>, filter: &ForgeReviewFilter) -> Vec<but_gitlab::MergeRequest> {
+    let now = chrono::Utc::now();
+    mrs.into_iter()
+        .filter(|mr| {
+            if mr.merged_at.is_none() {
+                return false;
+            }
+            match filter {
+                ForgeReviewFilter::Today => {
+                    if let Some(merged_at_str) = &mr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.date_naive() == now.date_naive();
+                    }
+                    false
+                }
+                ForgeReviewFilter::ThisWeek => {
+                    if let Some(merged_at_str) = &mr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        let week_start = now - chrono::Duration::days(now.weekday().num_days_from_monday() as i64);
+                        return merged_at.date_naive() >= week_start.date_naive();
+                    }
+                    false
+                }
+                ForgeReviewFilter::ThisMonth => {
+                    if let Some(merged_at_str) = &mr.merged_at
+                        && let Ok(merged_at) = chrono::DateTime::parse_from_rfc3339(merged_at_str)
+                    {
+                        return merged_at.year() == now.year() && merged_at.month() == now.month();
+                    }
+                    false
+                }
+                ForgeReviewFilter::All => true,
+            }
+        })
+        .collect()
+}
+
 /// Get a specific review (e.g. pull request) for a given forge repository
 pub async fn get_forge_review(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
-    pr_number: usize,
+    review_number: usize,
     storage: &but_forge_storage::Controller,
 ) -> Result<ForgeReview> {
     let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
     match forge {
         ForgeName::GitHub => {
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
-            let pr = but_github::pr::get(preferred_account, owner, repo, pr_number, storage).await?;
+            let pr = but_github::pr::get(preferred_account, owner, repo, review_number, storage).await?;
             Ok(ForgeReview::from(pr))
+        }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
+            let project_id = "todo"; // Retrieve poject ID properly
+            let mr = but_gitlab::mr::get(preferred_account, project_id, review_number, storage).await?;
+            Ok(ForgeReview::from(mr))
         }
         _ => Err(Error::msg(format!(
             "Getting reviews for forge {:?} is not implemented yet.",
@@ -567,6 +690,21 @@ pub async fn create_forge_review(
             let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
             let pr = but_github::pr::create(preferred_account, pr_params, storage).await?;
             Ok(ForgeReview::from(pr))
+        }
+        ForgeName::GitLab => {
+            let project_id = "todo"; // TODO: Retrieve poject ID properly
+            // TODO: handle forks better
+            // TODO: handle draft properly
+            let mr_params = but_gitlab::CreateMergeRequestParams {
+                project: project_id,
+                title: &params.title,
+                body: &params.body,
+                source_branch: &params.source_branch,
+                target_branch: &params.target_branch,
+            };
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
+            let mr = but_gitlab::mr::create(preferred_account, mr_params, storage).await?;
+            Ok(ForgeReview::from(mr))
         }
         _ => Err(Error::msg(format!(
             "Creating reviews for forge {:?} is not implemented yet.",

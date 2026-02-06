@@ -12,7 +12,7 @@ use axum::{
     response::IntoResponse,
     routing::{any, post},
 };
-use but_api::{commit, diff, github, json, legacy, platform};
+use but_api::{commit, diff, github, gitlab, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
@@ -595,6 +595,14 @@ pub async fn run() {
             "/clear_all_github_tokens",
             post(json_response(github::clear_all_github_tokens_cmd)),
         )
+        .route(
+            "/forget_gitlab_account",
+            post(json_response(gitlab::forget_gitlab_account_cmd)),
+        )
+        .route(
+            "/clear_all_gitlab_tokens",
+            post(json_response(gitlab::clear_all_gitlab_tokens_cmd)),
+        )
         // Forge commands
         .route(
             "/pr_templates",
@@ -861,6 +869,38 @@ async fn handle_command(
             match params {
                 Ok(params) => {
                     let result = github::get_gh_user_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        // GitLab commands (async, not yet migrated)
+        "store_gitlab_pat" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = gitlab::store_gitlab_pat_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "store_gitlab_selfhosted_pat" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = gitlab::store_gitlab_selfhosted_pat_cmd(params).await;
+                    result.map(|r| json!(r))
+                }
+                Err(e) => Err(e),
+            }
+        }
+        "list_known_gitlab_accounts" => gitlab::list_known_gitlab_accounts().await.map(|r| json!(r)),
+        "get_gl_user" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = but_api::gitlab::get_gl_user_cmd(params).await;
                     result.map(|r| json!(r))
                 }
                 Err(e) => Err(e),

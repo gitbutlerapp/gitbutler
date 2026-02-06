@@ -52,7 +52,9 @@ pub fn clear_all_github_accounts(storage: &but_forge_storage::Controller) -> Res
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase", tag = "type", content = "info")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./github/token.ts"))]
 pub enum GithubAccountIdentifier {
     OAuthUsername { username: String },
     PatUsername { username: String },

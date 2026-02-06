@@ -252,7 +252,7 @@ fn is_network_error(err: &reqwest::Error) -> bool {
     err.is_timeout() || err.is_connect() || err.is_request()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum CredentialCheckResult {
     Valid,
     Invalid,
@@ -285,6 +285,98 @@ pub async fn list_known_github_accounts(
 
 pub fn clear_all_github_tokens(storage: &but_forge_storage::Controller) -> Result<()> {
     token::clear_all_github_accounts(storage).context("Failed to clear all GitHub tokens")
+}
+
+/// JSON serialization types for GitHub API responses.
+///
+/// This module contains serializable versions of GitHub authentication types
+/// that expose sensitive data (like access tokens) as plain strings for API responses.
+pub mod json {
+    use crate::{AuthStatusResponse, AuthenticatedUser};
+    use serde::Serialize;
+
+    /// Serializable version of [`AuthStatusResponse`] with exposed access token.
+    ///
+    /// This struct is used for API responses where the access token needs to be
+    /// sent as a plain string. Field names are converted to camelCase for JSON.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./github/index.ts"))]
+    pub struct AuthStatusResponseSensitive {
+        /// The GitHub access token as a plain string (sensitive data).
+        pub access_token: String,
+        /// The GitHub username/login.
+        pub login: String,
+        /// The user's display name, if available.
+        pub name: Option<String>,
+        /// The user's email address, if available.
+        pub email: Option<String>,
+        /// The GitHub Enterprise host, if this is an enterprise account.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub host: Option<String>,
+    }
+
+    impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
+        fn from(
+            AuthStatusResponse {
+                access_token,
+                login,
+                name,
+                email,
+                host,
+            }: AuthStatusResponse,
+        ) -> Self {
+            AuthStatusResponseSensitive {
+                access_token: access_token.0,
+                login,
+                name,
+                email,
+                host,
+            }
+        }
+    }
+
+    /// Serializable version of [`AuthenticatedUser`] with exposed access token.
+    ///
+    /// This struct represents an authenticated GitHub user with their credentials
+    /// exposed as plain strings for API responses. Field names are converted to camelCase for JSON.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./github/index.ts"))]
+    pub struct AuthenticatedUserSensitive {
+        /// The GitHub access token as a plain string (sensitive data).
+        pub access_token: String,
+        /// The GitHub username/login.
+        pub login: String,
+        /// The URL to the user's avatar image, if available.
+        pub avatar_url: Option<String>,
+        /// The user's display name, if available.
+        pub name: Option<String>,
+        /// The user's email address, if available.
+        pub email: Option<String>,
+    }
+
+    impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
+        fn from(
+            AuthenticatedUser {
+                access_token,
+                login,
+                avatar_url,
+                name,
+                email,
+            }: AuthenticatedUser,
+        ) -> Self {
+            AuthenticatedUserSensitive {
+                access_token: access_token.0,
+                login,
+                avatar_url,
+                name,
+                email,
+            }
+        }
+    }
 }
 
 #[cfg(test)]

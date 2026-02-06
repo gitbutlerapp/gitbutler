@@ -1113,6 +1113,7 @@ dependencies = [
  "but-forge-storage",
  "but-fs",
  "but-github",
+ "but-gitlab",
  "chrono",
  "git-url-parse",
  "serde",
@@ -1172,6 +1173,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "ts-rs",
 ]
 
 [[package]]
@@ -1187,6 +1189,7 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "ts-rs",
  "urlencoding",
 ]
 
