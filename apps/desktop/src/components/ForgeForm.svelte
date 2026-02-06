@@ -6,6 +6,7 @@
 		stringToGitHubAccountIdentifier
 	} from '$lib/forge/github/githubUserService.svelte';
 	import { usePreferredGitHubUsername } from '$lib/forge/github/hooks.svelte';
+	import { GITEA_STATE } from '$lib/forge/gitea/giteaState.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { inject } from '@gitbutler/core/context';
@@ -18,6 +19,7 @@
 	const { projectId }: { projectId: string } = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
+	const giteaState = inject(GITEA_STATE);
 	const gitLabState = inject(GITLAB_STATE);
 	const { preferredGitHubAccount, githubAccounts } = usePreferredGitHubUsername(
 		reactive(() => projectId)
@@ -27,6 +29,9 @@
 	const forkProjectId = gitLabState.forkProjectId;
 	const upstreamProjectId = gitLabState.upstreamProjectId;
 	const instanceUrl = gitLabState.instanceUrl;
+
+	const giteaToken = giteaState.token;
+	const giteaInstanceUrl = giteaState.instanceUrl;
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
@@ -44,6 +49,10 @@
 		{
 			label: 'GitLab',
 			value: 'gitlab'
+		},
+		{
+			label: 'Gitea',
+			value: 'gitea'
 		},
 		{
 			label: 'Azure',
@@ -82,7 +91,7 @@
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
 				<br />
-				<span class="text-bold">Note:</span> Currently, only GitHub and GitLab support pull request creation.
+				<span class="text-bold">Note:</span> Currently, only GitHub, GitLab, and Gitea support pull request creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
 					>{forge.determinedForgeType.toUpperCase()}</span
@@ -213,6 +222,41 @@
 					{/snippet}
 				</Select>
 			{/if}
+		</CardGroup.Item>
+	{/if}
+
+	{#if forge.current.name === 'gitea'}
+		<CardGroup.Item>
+			{#snippet title()}
+				Configure Gitea integration
+			{/snippet}
+
+			{#snippet caption()}
+				Enter your Gitea Personal Access Token and instance URL.
+				<br />
+				Works with Codeberg.org and self-hosted Gitea instances.
+			{/snippet}
+
+			<Textbox
+				label="Personal token"
+				type="password"
+				value={$giteaToken}
+				oninput={(value) => ($giteaToken = value)}
+			/>
+			<Textbox
+				label="Instance URL"
+				value={$giteaInstanceUrl}
+				oninput={(value) => ($giteaInstanceUrl = value)}
+			/>
+
+			<Spacer margin={5} />
+
+			<p class="text-12 text-body clr-text-2">
+				For self-hosted Gitea instances, add them as a custom CSP entry so GitButler
+				can connect. Read more in the <Link
+					href="https://docs.gitbutler.com/troubleshooting/custom-csp">docs</Link
+				>
+			</p>
 		</CardGroup.Item>
 	{/if}
 </CardGroup>

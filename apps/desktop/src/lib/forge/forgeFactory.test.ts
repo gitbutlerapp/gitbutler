@@ -7,6 +7,7 @@ import { type BackendApi, type GitHubApi } from '$lib/state/clientState.svelte';
 import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
 import { expect, test, describe, vi } from 'vitest';
+import type { GiteaClient } from '$lib/forge/gitea/giteaClient.svelte';
 import type { GitHubClient } from '$lib/forge/github/githubClient';
 import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
 import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
@@ -32,10 +33,14 @@ describe.concurrent('DefaultforgeFactory', () => {
 	const backendApi: BackendApi = new MockBackendApi();
 	const gitHubClient = { onReset: () => {} } as any as GitHubClient;
 	const gitLabClient = { onReset: () => {} } as any as GitLabClient;
+	const giteaClient = { onReset: () => {} } as any as GiteaClient;
 
 	// TODO: Replace with a better mock.
 	const dispatch = (() => {}) as ThunkDispatch<any, any, UnknownAction>;
 	const gitLabApi: any = {
+		injectEndpoints: vi.fn()
+	};
+	const giteaApi: any = {
 		injectEndpoints: vi.fn()
 	};
 
@@ -46,6 +51,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			backendApi,
 			gitLabClient,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			dispatch
 		});
@@ -70,6 +77,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			backendApi,
 			gitLabClient,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			dispatch
 		});
@@ -94,6 +103,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			backendApi,
 			gitLabClient,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			dispatch
 		});
@@ -118,6 +129,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			backendApi,
 			gitLabClient,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			dispatch
 		});
@@ -141,6 +154,8 @@ describe.concurrent('DefaultforgeFactory', () => {
 			gitLabClient,
 			backendApi,
 			gitLabApi,
+			giteaClient,
+			giteaApi,
 			posthog,
 			dispatch
 		});

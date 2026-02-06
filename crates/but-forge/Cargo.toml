@@ -14,6 +14,7 @@ doctest = false
 but-fs.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
+but-gitea.workspace = true
 but-forge-storage.workspace = true
 but-db.workspace = true
 

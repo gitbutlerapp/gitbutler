@@ -21,6 +21,7 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
+	import { GITEA_STATE } from '$lib/forge/gitea/giteaState.svelte';
 	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
 	import { PrPersistedStore } from '$lib/forge/prContents';
@@ -64,6 +65,8 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
 
+	const giteaState = inject(GITEA_STATE);
+	const giteaConfigured = $derived(giteaState.configured);
 	const gitLabState = inject(GITLAB_STATE);
 	const gitLabConfigured = $derived(gitLabState.configured);
 
@@ -197,6 +200,13 @@
 		if (forge.determinedForgeType === 'gitlab' && !gitLabConfigured) {
 			chipToasts.error(
 				'You must configure the GitLab integration before creating a Merge Request.'
+			);
+			return;
+		}
+
+		if (forge.determinedForgeType === 'gitea' && !giteaConfigured) {
+			chipToasts.error(
+				'You must configure the Gitea integration before creating a Pull Request.'
 			);
 			return;
 		}

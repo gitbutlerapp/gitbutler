@@ -54,6 +54,7 @@
 				openGeneralSettings('integrations');
 				break;
 			case 'gitlab':
+			case 'gitea':
 				openProjectSettings(projectId);
 				break;
 		}
@@ -72,7 +73,13 @@
 
 	<div class="forge-prompt">
 		<div class="forge-prompt__logo">
-			{@html forgeName === 'github' ? githubLogoSvg : gitlabLogoSvg}
+			{#if forgeName === 'github'}
+				{@html githubLogoSvg}
+			{:else if forgeName === 'gitlab'}
+				{@html gitlabLogoSvg}
+			{:else}
+				<span class="text-13 text-bold">{forgeLabel}</span>
+			{/if}
 		</div>
 		<h3 class="text-13 text-body text-bold">It looks like you have a {forgeLabel} remote!</h3>
 		<p class="text-12 text-body m-b-8 clr-text-2">

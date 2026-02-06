@@ -17,6 +17,9 @@ pub mod github;
 /// Functions for GitLab authentication.
 pub mod gitlab;
 
+/// Functions for Gitea authentication.
+pub mod gitea;
+
 /// Functions that take a branch as input.
 pub mod branch;
 

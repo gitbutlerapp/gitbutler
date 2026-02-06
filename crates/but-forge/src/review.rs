@@ -94,6 +94,13 @@ pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFu
             is_valid_review_template_path: is_valid_review_template_path_gitlab,
             supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
         },
+        ForgeName::Gitea => ReviewTemplateFunctions {
+            // Gitea does not have a standard template directory
+            is_review_template: is_review_template_gitea,
+            get_root: get_gitea_directory_path,
+            is_valid_review_template_path: is_valid_review_template_path_gitea,
+            supported_template_directories: &[SupportedTemplateDirectory::ForgeRoot],
+        },
         ForgeName::Bitbucket => ReviewTemplateFunctions {
             is_review_template: is_review_template_bitbucket,
             get_root: get_bitbucket_directory_path,
@@ -174,6 +181,21 @@ fn is_valid_review_template_path_azure(_path: &path::Path) -> bool {
     false
 }
 
+fn get_gitea_directory_path(root_path: &path::Path) -> path::PathBuf {
+    // Gitea does not have a standard template directory
+    root_path.to_path_buf()
+}
+
+fn is_review_template_gitea(_path_str: &str) -> bool {
+    // Gitea does not have a standard template convention
+    false
+}
+
+fn is_valid_review_template_path_gitea(_path: &path::Path) -> bool {
+    // Gitea does not have a standard template convention
+    false
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ForgeReviewLabel {
@@ -198,6 +220,16 @@ impl From<but_gitlab::GitLabLabel> for ForgeReviewLabel {
             name: label.name,
             description: None,
             color: None,
+        }
+    }
+}
+
+impl From<but_gitea::GiteaLabel> for ForgeReviewLabel {
+    fn from(label: but_gitea::GiteaLabel) -> Self {
+        ForgeReviewLabel {
+            name: label.name,
+            description: label.description,
+            color: Some(label.color),
         }
     }
 }
@@ -252,6 +284,19 @@ impl From<but_gitlab::GitLabUser> for ForgeUser {
         ForgeUser {
             id: user.id,
             login: user.username,
+            name: user.name,
+            email: user.email,
+            avatar_url: user.avatar_url,
+            is_bot: user.is_bot,
+        }
+    }
+}
+
+impl From<but_gitea::GiteaUser> for ForgeUser {
+    fn from(user: but_gitea::GiteaUser) -> Self {
+        ForgeUser {
+            id: user.id,
+            login: user.login,
             name: user.name,
             email: user.email,
             avatar_url: user.avatar_url,
@@ -407,6 +452,33 @@ impl From<but_gitlab::MergeRequest> for ForgeReview {
     }
 }
 
+impl From<but_gitea::PullRequest> for ForgeReview {
+    fn from(pr: but_gitea::PullRequest) -> Self {
+        ForgeReview {
+            html_url: pr.html_url,
+            number: pr.number,
+            title: pr.title,
+            body: pr.body,
+            author: pr.author.map(ForgeUser::from),
+            labels: pr.labels.into_iter().map(ForgeReviewLabel::from).collect(),
+            draft: pr.draft,
+            source_branch: pr.source_branch,
+            target_branch: pr.target_branch,
+            sha: pr.sha,
+            created_at: pr.created_at,
+            modified_at: pr.updated_at,
+            merged_at: pr.merged_at,
+            closed_at: pr.closed_at,
+            repository_ssh_url: pr.repository_ssh_url,
+            repository_https_url: pr.repository_https_url,
+            repo_owner: pr.repo_owner,
+            reviewers: pr.requested_reviewers.into_iter().map(ForgeUser::from).collect(),
+            unit_symbol: "#".to_string(),
+            last_sync_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
@@ -498,6 +570,26 @@ fn list_forge_reviews(
 
             mrs.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea().cloned());
+
+            let owner = owner.clone();
+            let repo = repo.clone();
+            let storage = storage.clone();
+
+            let pulls = std::thread::spawn(move || {
+                tokio::runtime::Runtime::new().unwrap().block_on(but_gitea::pr::list(
+                    preferred_account.as_ref(),
+                    &owner,
+                    &repo,
+                    &storage,
+                ))
+            })
+            .join()
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+
+            pulls.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
+        }
         _ => {
             return Err(Error::msg(format!(
                 "Listing reviews for forge {:?} is not implemented yet.",
@@ -544,6 +636,13 @@ pub async fn list_forge_reviews_for_branch(
                 but_gitlab::mr::list_all_for_target(preferred_account.as_ref(), project_id, branch, storage).await?;
             let mrs = filter_mrs(mrs, &filter);
             Ok(mrs.into_iter().map(ForgeReview::from).collect())
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea().cloned());
+            let prs =
+                but_gitea::pr::list_all_for_branch(preferred_account.as_ref(), owner, repo, branch, storage).await?;
+
+            Ok(prs.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
             "Listing reviews for forge {:?} is not implemented yet.",
@@ -650,6 +749,11 @@ pub async fn get_forge_review(
             let mr = but_gitlab::mr::get(preferred_account, project_id, review_number, storage).await?;
             Ok(ForgeReview::from(mr))
         }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr = but_gitea::pr::get(preferred_account, owner, repo, review_number, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
         _ => Err(Error::msg(format!(
             "Getting reviews for forge {:?} is not implemented yet.",
             forge,
@@ -707,6 +811,19 @@ pub async fn create_forge_review(
             let mr = but_gitlab::mr::create(preferred_account, mr_params, storage).await?;
             Ok(ForgeReview::from(mr))
         }
+        ForgeName::Gitea => {
+            let pr_params = but_gitea::CreatePullRequestParams {
+                owner,
+                repo,
+                title: &params.title,
+                body: &params.body,
+                head: &params.source_branch,
+                base: &params.target_branch,
+            };
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr = but_gitea::pr::create(preferred_account, pr_params, storage).await?;
+            Ok(ForgeReview::from(pr))
+        }
         _ => Err(Error::msg(format!(
             "Creating reviews for forge {:?} is not implemented yet.",
             forge,
@@ -763,6 +880,28 @@ pub async fn update_review_description_tables(
                 };
 
                 but_github::pr::update(preferred_account, params, storage).await?;
+            }
+
+            Ok(())
+        }
+        ForgeName::Gitea => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitea());
+            let pr_numbers: Vec<i64> = reviews.iter().map(|r| r.number).collect();
+
+            for review in reviews {
+                let updated_body = update_body(review.body.as_deref(), review.number, &pr_numbers, &review.unit_symbol);
+
+                let params = but_gitea::UpdatePullRequestParams {
+                    owner,
+                    repo,
+                    pr_number: review.number,
+                    title: None,
+                    body: Some(&updated_body),
+                    base: None,
+                    state: None,
+                };
+
+                but_gitea::pr::update(preferred_account, params, storage).await?;
             }
 
             Ok(())
