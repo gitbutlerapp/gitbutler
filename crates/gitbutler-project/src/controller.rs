@@ -71,7 +71,7 @@ impl Controller {
             .iter()
             .find(|project| resolved_path.starts_with(project.worktree_dir_but_should_use_git_dir()))
         {
-            return Ok(AddProjectOutcome::AlreadyExists(existing_project.to_owned()));
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project.clone().migrated()?));
         }
 
         self.add(worktree_dir)
@@ -88,7 +88,7 @@ impl Controller {
             .iter()
             .find(|project| project.worktree_dir_but_should_use_git_dir() == resolved_path)
         {
-            return Ok(AddProjectOutcome::AlreadyExists(existing_project.to_owned()));
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project.clone().migrated()?));
         }
         if !resolved_path.exists() {
             return Ok(AddProjectOutcome::PathNotFound);
