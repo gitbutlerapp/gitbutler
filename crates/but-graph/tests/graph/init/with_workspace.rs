@@ -6096,3 +6096,54 @@ fn complex_merge_history_with_origin_main_target() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn reproduce_12146() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("ws/reproduce-12146")?;
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
+    *   d77ecda (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    |\  
+    | * 7163661 (B) New commit on branch B
+    |/  
+    * 81d4e38 (A) add A
+    * e32cf47 (origin/main, main) add M
+    ");
+
+    add_stack_with_segments(&mut meta, 0, "A", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 1, "B", StackState::InWorkspace, &[]);
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·d77ecda (⌂|🏘|01)
+    │       ├── 📙►:5[1]:A
+    │       │   └── ►:3[2]:anon: →:5:
+    │       │       └── ·81d4e38 (⌂|🏘|01)
+    │       │           └── ►:2[3]:main <> origin/main →:1:
+    │       │               └── ·e32cf47 (⌂|🏘|✓|11)
+    │       └── 📙►:4[1]:B
+    │           └── ·7163661 (⌂|🏘|01)
+    │               └── →:3:
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+
+    // The sibling ID is not set, and we see only two stacks, with B owning 7163661
+    // and A owning 81d4e38.
+    let ws = &graph.into_workspace()?;
+    insta::assert_snapshot!(graph_workspace(ws), @"
+    📕🏘️:0:gitbutler/workspace[🌳] <> ✓refs/remotes/origin/main on e32cf47
+    ├── ≡📙:4:B on e32cf47 {1}
+    │   ├── 📙:4:B
+    │   │   └── ·7163661 (🏘️)
+    │   └── 📙:3:A →:5:
+    │       └── ·81d4e38 (🏘️)
+    └── ≡📙:5:A on e32cf47 {0}
+        ├── 📙:5:A
+        └── 📙:3:A →:5:
+            └── ·81d4e38 (🏘️)
+    ");
+
+    Ok(())
+}

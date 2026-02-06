@@ -1428,6 +1428,18 @@ EOF
   # |\ \
   # | * (Byron/fix) Adjust type...
   # * |   Merge pull request #11573
+  git init reproduce-12146
+  (cd reproduce-12146
+      commit "add M"
+      setup_target_to_match_main
+      git checkout -b A
+        commit "add A"
+      git checkout -b B
+        commit "New commit on branch B"
+      git checkout A
+    create_workspace_commit_once A B
+  )
+
   git init complex-merge-origin-main
   (cd complex-merge-origin-main
     # Start with initial history
