@@ -182,6 +182,9 @@ pub enum Subcommands {
     Diff {
         /// The CLI ID of the entity to show the diff for
         target: Option<String>,
+        /// Open an interactive TUI diff viewer
+        #[clap(long = "tui")]
+        tui: bool,
     },
 
     /// Shows detailed information about a commit or branch.

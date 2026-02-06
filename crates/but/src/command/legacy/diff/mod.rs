@@ -9,6 +9,43 @@ mod show;
 // Note: To use the DiffDisplay trait in other modules,
 // import it with: use crate::command::diff::display::DiffDisplay;
 
+pub fn handle_tui(ctx: &mut Context, target_str: Option<&str>) -> anyhow::Result<()> {
+    use crate::tui::diff_viewer::{DiffFileEntry, WorktreeFilter};
+
+    let wt_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
+    let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;
+
+    let files = if let Some(entity) = target_str {
+        let id = id_map
+            .parse_using_context(entity, ctx)?
+            .first()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("No ID found for entity"))?;
+
+        match id {
+            CliId::Uncommitted(ref uncommitted_id) => {
+                let filter = WorktreeFilter::Uncommitted(Box::new(uncommitted_id.clone()));
+                DiffFileEntry::from_worktree(&id_map, Some(&filter))
+            }
+            CliId::Unassigned { .. } => DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::Unassigned)),
+            CliId::Stack { stack_id, .. } => {
+                DiffFileEntry::from_worktree(&id_map, Some(&WorktreeFilter::Stack(stack_id)))
+            }
+            CliId::CommittedFile { commit_id, path, .. } => DiffFileEntry::from_commit(ctx, commit_id, Some(path))?,
+            CliId::Commit { commit_id, .. } => DiffFileEntry::from_commit(ctx, commit_id, None)?,
+            CliId::Branch { name, .. } => DiffFileEntry::from_branch(ctx, name)?,
+        }
+    } else {
+        DiffFileEntry::from_worktree(&id_map, None)
+    };
+
+    if files.is_empty() {
+        anyhow::bail!("No diffs to show.");
+    }
+
+    crate::tui::diff_viewer::run_diff_viewer(files)
+}
+
 pub fn handle(ctx: &mut Context, out: &mut OutputChannel, target_str: Option<&str>) -> anyhow::Result<()> {
     let wt_changes = but_api::legacy::diff::changes_in_worktree(ctx)?;
     let id_map = IdMap::new_from_context(ctx, Some(wt_changes.assignments.clone()))?;

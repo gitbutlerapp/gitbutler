@@ -6,3 +6,5 @@ pub mod table;
 pub use table::types::Table;
 
 pub mod get_text;
+
+pub(crate) mod diff_viewer;
