@@ -38,7 +38,7 @@ impl GitHubClient {
             account_id.client(&access_token)
         } else {
             Err(anyhow::anyhow!(
-                "No GitHub access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
+                "No GitHub access token found for account '{}'.\nRun 'but config forge auth' to re-authenticate.",
                 account_id
             ))
         }
@@ -435,14 +435,14 @@ pub(crate) fn resolve_account(
 ) -> Result<crate::GithubAccountIdentifier, anyhow::Error> {
     let known_accounts = crate::token::list_known_github_accounts(storage)?;
     let Some(default_account) = known_accounts.first() else {
-        bail!("No authenticated GitHub users found. Please authenticate with GitHub first.");
+        bail!("No authenticated GitHub users found.\nRun 'but config forge auth' to authenticate with GitHub.");
     };
     let account = if let Some(account) = preferred_account {
         if known_accounts.contains(account) {
             account
         } else {
             bail!(
-                "Preferred GitHub account '{}' has not authenticated yet. Please choose another account or authenticate with the desired account first.",
+                "Preferred GitHub account '{}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account.",
                 account
             );
         }
