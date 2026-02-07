@@ -131,12 +131,30 @@ but commit ui-branch -m "..."    # Commit from ui-branch's staging area
 
 The operation performed depends on what you combine:
 
+```
+SOURCE ↓ / TARGET →  │ zz (unassigned) │ Commit     │ Branch      │ Stack
+─────────────────────┼─────────────────┼────────────┼─────────────┼────────────
+File/Hunk            │ Unstage         │ Amend      │ Stage       │ Stage
+Commit               │ Undo            │ Squash     │ Move        │ -
+Branch (all changes) │ Unstage all     │ Amend all  │ Reassign    │ Reassign
+Stack (all changes)  │ Unstage all     │ -          │ Reassign    │ Reassign
+Unassigned (zz)      │ -               │ Amend all  │ Stage all   │ Stage all
+File-in-Commit       │ Uncommit        │ Move       │ Uncommit & assign │ -
+```
+
+`zz` is a special target meaning "unassigned" (no branch).
+
+**Common examples:**
+
 | Source | Target | Operation | Example |
 |--------|--------|-----------|---------|
 | File | Branch | Stage file to branch | `but rub a1 bu` |
 | File | Commit | Amend file into commit | `but rub a1 c3` |
 | Commit | Commit | Squash commits | `but rub c2 c3` |
 | Commit | Branch | Move commit to branch | `but rub c2 bu` |
+| File | `zz` | Unstage file | `but rub a1 zz` |
+| Commit | `zz` | Undo commit | `but rub c2 zz` |
+| `zz` | Branch | Stage all unassigned | `but rub zz bu` |
 
 ### Higher-Level Conveniences
 

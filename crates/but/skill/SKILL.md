@@ -97,6 +97,8 @@ For detailed command syntax and all available options, see [references/reference
 - `but commit <branch> -m "msg" -p <id>,<id>` - Same as above, using short flag
 - `but commit <branch> -m "msg"` - Commit ALL uncommitted changes to branch
 - `but commit <branch> --only -m "msg"` - Commit only pre-staged changes (cannot combine with --changes)
+- `but commit <branch> --message-file msg.txt` - Read commit message from file
+- `but commit <branch> -c -m "msg"` - Create new branch (or use existing) and commit
 - `but amend <file-id> <commit-id>` - Amend file into specific commit (explicit control)
 - `but absorb <file-id>` - Absorb file into auto-detected commit (smart matching)
 - `but absorb <branch-id>` - Absorb all changes staged to a branch
@@ -138,6 +140,9 @@ For deeper understanding of the workspace model, dependency tracking, and philos
 - File + Commit → Amend
 - Commit + Commit → Squash
 - Commit + Branch → Move
+- File/Commit + `zz` → Unstage/Undo (back to unassigned)
+- `zz` + Branch/Commit → Stage/Amend all unassigned changes
+- File-in-Commit + `zz` → Uncommit specific file
 
 ## Workflow Examples
 
