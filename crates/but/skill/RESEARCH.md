@@ -323,13 +323,13 @@ The current Tier 4 harness lives in `crates/but/skill/eval/` and uses:
 cd crates/but/skill/eval
 
 # One run (PR smoke)
-npm run eval
+pnpm run eval
 
 # Repeated run (nightly/pre-release)
-npm run eval:repeat
+pnpm run eval:repeat
 
 # View report UI
-npm run view
+pnpm run view
 ```
 
 #### Field Learnings (Observed February 7, 2026)

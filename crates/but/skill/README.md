@@ -46,7 +46,8 @@ The skill directory contains both distributable skill files and development docu
 crates/but/skill/
 ├── SKILL.md                   ← Main skill entry point (INSTALLED)
 ├── README.md                  ← This file - development docs (NOT installed)
-├── TESTING.md                 ← Testing guidelines (NOT installed)
+├── RESEARCH.md                ← Tier 4 testing research and strategy (NOT installed)
+├── eval/                      ← Tier 4 integration eval harness (NOT installed)
 └── references/                ← Additional skill documentation (INSTALLED)
     ├── reference.md           - Command reference
     ├── concepts.md            - Deep concepts
@@ -61,7 +62,8 @@ The `but skill install` command only copies the distributable files to the user'
 **What stays in the repository:**
 Development documentation remains in the source tree and is not installed:
 - `README.md` - This file (development and maintenance docs)
-- `TESTING.md` - Testing guidelines for contributors
+- `RESEARCH.md` - Testing strategy and learnings
+- `eval/` - Tier 4 integration test harness and scenarios
 
 ## When This Skill Is Invoked
 
@@ -142,6 +144,16 @@ Test that Claude:
 3. Stages changes after edits
 4. Commits at logical points
 5. Uses `but` commands instead of `git`
+
+For automated integration testing against real disposable repositories, use the Tier 4 harness in `eval/`:
+Node must satisfy the `promptfoo` engine range documented in `eval/README.md` (repo baseline: `lts/jod`).
+
+```bash
+cd crates/but/skill/eval
+pnpm install --ignore-workspace
+pnpm approve-builds --ignore-workspace
+pnpm run eval
+```
 
 ## References
 
