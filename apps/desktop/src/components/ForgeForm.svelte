@@ -161,7 +161,7 @@
 	<CardGroup.Item>
 		{#snippet title()}
 			{#if accounts.length === 0 || !preferredAccount}
-				No {displayName} accounts found
+				Connect your {displayName} account
 			{:else}
 				Configure {displayName} integration
 			{/if}
