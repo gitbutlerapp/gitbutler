@@ -6,8 +6,7 @@
 		availableForgeDocsLink,
 		availableForgeLabel,
 		availableForgeReviewUnit,
-		DEFAULT_FORGE_FACTORY,
-		type AvailableForge
+		DEFAULT_FORGE_FACTORY
 	} from '$lib/forge/forgeFactory.svelte';
 	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -19,7 +18,7 @@
 
 	const { projectId }: Props = $props();
 
-	const { openGeneralSettings, openProjectSettings } = useSettingsModal();
+	const { openGeneralSettings } = useSettingsModal();
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 	const dismissedTheIntegrationPrompt = $derived(
 		persistedDismissedForgeIntegrationPrompt(projectId)
@@ -48,15 +47,8 @@
 		return () => clearTimeout(timeoutId);
 	});
 
-	function configureIntegration(forge: AvailableForge): void {
-		switch (forge) {
-			case 'github':
-				openGeneralSettings('integrations');
-				break;
-			case 'gitlab':
-				openProjectSettings(projectId);
-				break;
-		}
+	function configureIntegration(): void {
+		openGeneralSettings('integrations');
 	}
 
 	function dismissPrompt() {
@@ -82,9 +74,7 @@
 
 		<div class="forge-prompt__footer">
 			<Button kind="outline" onclick={dismissPrompt}>Dismiss</Button>
-			<Button style="pop" onclick={() => configureIntegration(forgeName)}
-				>Configure integration…</Button
-			>
+			<Button style="pop" onclick={configureIntegration}>Configure integration…</Button>
 		</div>
 	</div>
 {/if}
