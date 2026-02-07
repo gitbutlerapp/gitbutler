@@ -3,7 +3,8 @@ use but_api::{json::Error, legacy::settings};
 use but_settings::{
     AppSettings, AppSettingsWithDiskSync,
     api::{
-        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, IrcUpdate, ReviewsUpdate, TelemetryUpdate,
+        UiUpdate,
     },
 };
 use tauri::State;
@@ -98,6 +99,16 @@ pub fn update_ui(
     update: UiUpdate,
 ) -> Result<(), Error> {
     settings::update_ui(&app_settings_sync, settings::UpdateUiParams { update }).map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app_settings_sync), err(Debug))]
+pub fn update_irc(
+    app_settings_sync: State<'_, AppSettingsWithDiskSync>,
+    update: IrcUpdate,
+) -> Result<(), Error> {
+    settings::update_irc(&app_settings_sync, settings::UpdateIrcParams { update })
+        .map_err(Into::into)
 }
 
 #[tauri::command(async)]

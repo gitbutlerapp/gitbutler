@@ -17,6 +17,7 @@
 		hunkHeaderEquals,
 		type DiffHunk,
 	} from "$lib/hunks/hunk";
+	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { type SelectionId } from "$lib/selection/key";
 	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
@@ -29,6 +30,7 @@
 	import type { FileDependencies } from "$lib/dependencies/dependencies";
 	import type { TreeChange } from "$lib/hunks/change";
 	import type { UnifiedDiff } from "$lib/hunks/diff";
+	import type { CommitReaction } from "$lib/irc/ircApi";
 	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 	const LARGE_DIFF_THRESHOLD = 1000;
@@ -86,6 +88,32 @@
 	const userSettings = inject(SETTINGS);
 
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
+
+	const ircApiService = inject(IRC_API_SERVICE);
+	const fileReactionsQuery = $derived(
+		ircApiService.fileMessageReactions({ filePath: change.path }),
+	);
+	const fileReactions = $derived(fileReactionsQuery?.response ?? {});
+
+	function hunkKey(hunk: DiffHunk): string {
+		return `${hunk.oldStart}:${hunk.oldLines}:${hunk.newStart}:${hunk.newLines}`;
+	}
+
+	function groupReactions(
+		reactions: CommitReaction[],
+	): { emoji: string; count: number; senders: string[] }[] {
+		const map = new Map<string, string[]>();
+		for (const r of reactions) {
+			const senders = map.get(r.reaction) ?? [];
+			senders.push(r.sender);
+			map.set(r.reaction, senders);
+		}
+		return Array.from(map.entries()).map(([emoji, senders]) => ({
+			emoji,
+			count: senders.length,
+			senders,
+		}));
+	}
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
 		if (selectionId.type !== "worktree") return hunks;
@@ -198,6 +226,7 @@
 					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
 					{@const hunkId = generateHunkId(change.path, hunkIndex)}
+					{@const reactions = fileReactions[hunkKey(hunk)] ?? []}
 					<div
 						class="hunk-content"
 						use:draggableChips={{
@@ -290,6 +319,18 @@
 								<LineLocksWarning {projectId} {locks} />
 							{/snippet}
 						</HunkDiff>
+						{#if reactions.length > 0}
+							<div class="hunk-reactions">
+								{#each groupReactions(reactions) as group}
+									<span class="hunk-reaction-pill" title={group.senders.join(", ")}>
+										{group.emoji}
+										{#if group.count > 1}
+											{group.count}
+										{/if}
+									</span>
+								{/each}
+							</div>
+						{/if}
 					</div>
 				{:else}
 					<div class="hunk-placehoder">
@@ -357,5 +398,21 @@
 
 	.hunk-content {
 		user-select: text;
+	}
+	.hunk-reactions {
+		display: flex;
+		align-items: center;
+		padding: 4px 0 0;
+		gap: 4px;
+	}
+	.hunk-reaction-pill {
+		display: inline-flex;
+		align-items: center;
+		padding: 2px 6px;
+		gap: 4px;
+		border: 1px solid transparent;
+		border-radius: 10px;
+		background-color: var(--clr-bg-2);
+		font-size: 12px;
 	}
 </style>

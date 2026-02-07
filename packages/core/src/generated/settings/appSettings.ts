@@ -96,6 +96,56 @@ export type GitHubOAuthAppSettings = {
 	oauthClientId: string;
 };
 
+export type IrcConnectionSettings = {
+	/**
+	 * Whether this connection is enabled
+	 */
+	enabled: boolean;
+	/**
+	 * IRC nickname
+	 */
+	nickname: string | null;
+	/**
+	 * IRC server password
+	 */
+	password: string | null;
+	/**
+	 * IRC real name
+	 */
+	realname: string | null;
+};
+
+export type IrcServerSettings = {
+	/**
+	 * IRC server hostname (e.g., "irc.gitbutler.com")
+	 */
+	host: string;
+	/**
+	 * IRC server port (default: 6697 for TLS)
+	 */
+	port: number;
+};
+
+export type IrcSettings = {
+	/**
+	 * IRC server configuration
+	 */
+	server: IrcServerSettings;
+	/**
+	 * Auto-share new Claude Code sessions to IRC channels
+	 */
+	autoShare: boolean;
+	/**
+	 * Channel to auto-join when opening a project.
+	 * If set, joins that channel name (sanitized). If null, auto-constructs #<project-name>.
+	 */
+	projectChannel: string | null;
+	/**
+	 * IRC connection settings
+	 */
+	connection: IrcConnectionSettings;
+};
+
 export type Reviews = {
 	/**
 	 * Whether to auto-fill PR title and description from the first commit when a branch has only one commit.

@@ -285,8 +285,8 @@ class WebListener {
 }
 
 function getWebUrl(): string {
-	const host = getCookie("butlerHost") || import.meta.env.VITE_BUTLER_HOST || "localhost";
-	const port = getCookie("butlerPort") || import.meta.env.VITE_BUTLER_PORT || "6978";
+	const host = import.meta.env.VITE_BUTLER_HOST || "localhost";
+	const port = import.meta.env.VITE_BUTLER_PORT || "6978";
 	return `${host}:${port}`;
 }
 

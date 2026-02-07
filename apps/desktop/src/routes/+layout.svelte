@@ -22,9 +22,7 @@
 	import { MessageQueueProcessor } from "$lib/codegen/messageQueue.svelte";
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
-	import { ircEnabled, ircServer, fModeEnabled } from "$lib/config/uiFeatureFlags";
-	import { IRC_CLIENT } from "$lib/irc/ircClient.svelte";
-	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { fModeEnabled } from "$lib/config/uiFeatureFlags";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
@@ -102,27 +100,17 @@
 	// EXPERIMENTAL FEATURES
 	// =============================================================================
 
-	// IRC functionality (experimental)
-	const ircClient = inject(IRC_CLIENT);
-	const ircService = inject(IRC_SERVICE);
+	// App settings from backend
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = settingsService.appSettings;
 
-	$effect(() => {
-		if (!$ircEnabled || !$ircServer || !$user || !$user.login) {
-			return;
-		}
-		ircClient.connect({ server: $ircServer, nick: $user.login });
-		return () => {
-			ircService.disconnect();
-		};
-	});
+	// IRC connections are managed by the Rust backend (irc_lifecycle.rs).
+	// The backend handles auto-connect on startup and reacts to settings changes.
+	// Frontend queries IRC state via RTKQ endpoints (ircApi.ts).
 
 	// =============================================================================
 	// DEBUG & DEVELOPMENT TOOLS
 	// =============================================================================
-
-	// Debug services (only used for development)
-	const settingsService = inject(SETTINGS_SERVICE);
-	const settingsStore = settingsService.appSettings;
 
 	function handleKeyDown(e: KeyboardEvent) {
 		// Explicitly detect cmd/ctrl + A since Tauri gets in the way of default behavior.

@@ -4,6 +4,7 @@
 	import MultiStackOfflaneDropzone from "$components/MultiStackOfflaneDropzone.svelte";
 	import MultiStackPagination, { scrollToLane } from "$components/MultiStackPagination.svelte";
 	import Scrollbar from "$components/Scrollbar.svelte";
+	import SharedStackView from "$components/SharedStackView.svelte";
 	import StackDraft from "$components/StackDraft.svelte";
 	import StackView from "$components/StackView.svelte";
 	import { HorizontalPanner } from "$lib/dragging/horizontalPanner";
@@ -14,6 +15,7 @@
 		onDragOver,
 	} from "$lib/dragging/reordering";
 	import { WorkspaceAutoPanner } from "$lib/dragging/workspaceAutoPanner";
+	import { RECEIVED_STACKS_STORE } from "$lib/irc/receivedStacksStore.svelte";
 	import { branchesPath } from "$lib/routes/routes.svelte";
 	import { type SelectionId } from "$lib/selection/key";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
@@ -39,6 +41,8 @@
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
+	const receivedStacksStore = inject(RECEIVED_STACKS_STORE);
+	const receivedStacks = $derived(receivedStacksStore.stacks);
 
 	// Persisted folded stacks state per project using pure $state + localStorage
 	const storageKey = $derived(`folded-stacks-${projectId}`);
@@ -81,7 +85,6 @@
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
-	let lanesScrollableHeight = $state<number>(0);
 	let stackElements = $state<Record<string, HTMLElement>>({});
 
 	let laneWidths = $state<number[]>([]);
@@ -186,7 +189,6 @@
 	data-scrollable-for-dragging
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
-	bind:clientHeight={lanesScrollableHeight}
 	class:multi={stacks.length < SHOW_PAGINATION_THRESHOLD}
 	ondrop={() => {
 		stackService.updateStackOrder({
@@ -272,6 +274,16 @@
 						}}
 					/>
 				{/if}
+			</div>
+		{/each}
+
+		{#each receivedStacks as received (received.id)}
+			<div class="received-stack dotted-pattern">
+				<SharedStackView
+					{projectId}
+					{received}
+					onDismiss={() => receivedStacksStore.remove(received.id)}
+				/>
 			</div>
 		{/each}
 
@@ -368,5 +380,14 @@
 		margin-left: -1px;
 		border-left: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-2);
+	}
+
+	.received-stack {
+		display: flex;
+		flex-shrink: 0;
+		flex-direction: column;
+		width: fit-content;
+		height: 100%;
+		margin-left: -1px;
 	}
 </style>

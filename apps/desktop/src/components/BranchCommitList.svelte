@@ -30,6 +30,7 @@
 	} from "$lib/dragging/stackingReorderDropzoneManager";
 	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
+	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { createCommitSelection } from "$lib/selection/key";
 	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 	import { combineResults } from "$lib/state/helpers";
@@ -82,8 +83,12 @@
 	const uiState = inject(UI_STATE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
 	const hooksService = inject(HOOKS_SERVICE);
+	const ircApiService = inject(IRC_API_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
+
+	const commitReactionsQuery = $derived(ircApiService.commitReactions());
+	const commitReactions = $derived(commitReactionsQuery?.response ?? {});
 
 	const [integrateUpstreamCommits, integrating] = stackService.integrateUpstreamCommits;
 
@@ -255,6 +260,7 @@
 								{lastCommit}
 								{selected}
 								{active}
+								reactions={commitReactions[commit.id]}
 								onclick={() => handleCommitClick(commit.id, true)}
 								disableCommitActions={false}
 								editable={!!stackId}
@@ -373,6 +379,7 @@
 									{selected}
 									{tooltip}
 									{active}
+									reactions={commitReactions[commit.id]}
 									onclick={() => handleCommitClick(commit.id, false)}
 									disableCommitActions={false}
 									editable={!!stackId}

@@ -85,5 +85,31 @@
 	// The duration between application update checks in seconds. If `0`, no update checks will be performed.
 	// This controls background update checks for both CLI and GUI.
 	// In the future, this will replace the legacy `ui.checkForUpdatesIntervalInSeconds` setting.
-	"appUpdatesCheckIntervalSec": 3600
+	"appUpdatesCheckIntervalSec": 3600,
+	// IRC integration settings
+	"irc": {
+		// Shared IRC server configuration
+		"server": {
+			// IRC server hostname
+			"host": "irc.gitbutler.com",
+			// IRC server port (6697 for TLS)
+			"port": 6697
+		},
+		// Auto-share new Claude Code sessions to IRC channels
+		"autoShare": false,
+		// Channel to auto-join when opening a project.
+		// null = auto-construct #<project-name>. A string = join that exact channel name.
+		"projectChannel": null,
+		// IRC connection settings
+		"connection": {
+			// Whether IRC is enabled
+			"enabled": false,
+			// IRC nickname (defaults to username if not set)
+			"nickname": null,
+			// IRC server password
+			"password": null,
+			// Real name (defaults to user's name if not set)
+			"realname": null
+		}
+	}
 }

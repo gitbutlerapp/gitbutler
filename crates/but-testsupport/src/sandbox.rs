@@ -476,6 +476,7 @@ impl Sandbox {
                 check_for_updates_interval_in_seconds: 0,
             },
             app_updates_check_interval_sec: 0,
+            irc: todo!(),
         };
         settings.save(&self.app_data_dir().join("gitbutler/settings.json"), None)?;
         self.app_settings = Some(settings);

@@ -3,7 +3,8 @@ use anyhow::Result;
 use but_settings::{
     AppSettingsWithDiskSync,
     api::{
-        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, ReviewsUpdate, TelemetryUpdate, UiUpdate,
+        ClaudeUpdate, FeatureFlagsUpdate, FetchUpdate, IrcUpdate, ReviewsUpdate, TelemetryUpdate,
+        UiUpdate,
     },
 };
 use serde::Deserialize;
@@ -110,4 +111,17 @@ pub fn update_ui(
     params: UpdateUiParams,
 ) -> Result<()> {
     app_settings_sync.update_ui(params.update)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateIrcParams {
+    pub update: IrcUpdate,
+}
+
+pub fn update_irc(
+    app_settings_sync: &AppSettingsWithDiskSync,
+    params: UpdateIrcParams,
+) -> Result<()> {
+    app_settings_sync.update_irc(params.update)
 }

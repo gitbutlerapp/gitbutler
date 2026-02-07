@@ -33,6 +33,9 @@ const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	drawerHeight: 20,
 	aiSuggestionsOnType: true,
+	ircChatOpen: false,
+	ircChatSize: { width: 520, height: 460 },
+	ircChatPosition: "bottom-right",
 	channel: undefined,
 	draftBranchName: undefined,
 	useFloatingBox: false,

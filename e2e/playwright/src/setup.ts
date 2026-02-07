@@ -12,11 +12,12 @@ export function getBaseURL() {
 	return `http://localhost:${port}`;
 }
 
-export function getButlerPort(): string {
+export function getButlerPort(): number {
 	// Zero based parallel counter
 	const id = parseInt(process.env.TEST_PARALLEL_INDEX ?? "0", 10);
 	// Start from default + 1 to avoid interfering with dev server
-	return `${parseInt(BUT_SERVER_PORT, 10) + id + 1}`;
+	const port = parseInt(BUT_SERVER_PORT, 10) + id + 1;
+	return port;
 }
 
 export interface GitButler {
@@ -146,11 +147,9 @@ function getButlerDataDir(configDir: string): string {
 	return path.join(configDir, "com.gitbutler.app");
 }
 
-async function waitForServer(port: string, host = "localhost", maxAttempts = 500) {
-	const parsed = parseInt(port, 10);
-
+async function waitForServer(port: number, host = "localhost", maxAttempts = 500) {
 	for (let i = 0; i < maxAttempts; i++) {
-		if (await checkPort(parsed, host)) {
+		if (await checkPort(port, host)) {
 			log(`✅ Server is ready on ${host}:${port}`, colors.green);
 			return true;
 		}

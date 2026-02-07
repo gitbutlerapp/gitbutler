@@ -6,6 +6,7 @@
 	import GeneralSettings from "$components/profileSettings/GeneralSettings.svelte";
 	import GitSettings from "$components/profileSettings/GitSettings.svelte";
 	import IntegrationsSettings from "$components/profileSettings/IntegrationsSettings.svelte";
+	import IrcSettings from "$components/profileSettings/IrcSettings.svelte";
 	import LanesAndBranchesSettings from "$components/profileSettings/LanesAndBranchesSettings.svelte";
 	import OrganisationSettings from "$components/profileSettings/OrganisationSettings.svelte";
 	import TelemetrySettings from "$components/profileSettings/TelemetrySettings.svelte";
@@ -58,6 +59,8 @@
 				<IntegrationsSettings />
 			{:else if currentPage.id === "ai"}
 				<AiSettings />
+			{:else if currentPage.id === "irc"}
+				<IrcSettings />
 			{:else if currentPage.id === "telemetry"}
 				<TelemetrySettings />
 			{:else if currentPage.id === "experimental"}

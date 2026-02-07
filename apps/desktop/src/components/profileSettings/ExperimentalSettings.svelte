@@ -1,14 +1,9 @@
 <script lang="ts">
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
-	import {
-		ircEnabled,
-		ircServer,
-		fModeEnabled,
-		useNewRebaseEngine,
-	} from "$lib/config/uiFeatureFlags";
+	import { fModeEnabled, useNewRebaseEngine } from "$lib/config/uiFeatureFlags";
 	import { USER } from "$lib/user/user";
 	import { inject } from "@gitbutler/core/context";
-	import { CardGroup, Textbox, Toggle } from "@gitbutler/ui";
+	import { CardGroup, Toggle } from "@gitbutler/ui";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
@@ -89,29 +84,6 @@
 				/>
 			{/snippet}
 		</CardGroup.Item>
-
-		<CardGroup.Item labelFor="irc">
-			{#snippet title()}
-				IRC
-			{/snippet}
-			{#snippet caption()}
-				Enable experimental in-app chat.
-			{/snippet}
-			{#snippet actions()}
-				<Toggle id="irc" checked={$ircEnabled} onclick={() => ($ircEnabled = !$ircEnabled)} />
-			{/snippet}
-		</CardGroup.Item>
-		{#if $ircEnabled}
-			<CardGroup.Item>
-				<Textbox
-					value={$ircServer}
-					size="large"
-					label="Server"
-					placeholder="wss://irc.gitbutler.com:443"
-					onchange={(value) => ($ircServer = value)}
-				/>
-			</CardGroup.Item>
-		{/if}
 	{/if}
 </CardGroup>
 

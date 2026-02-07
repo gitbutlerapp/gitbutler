@@ -18,6 +18,8 @@
 )]
 
 pub mod claude;
+pub mod irc;
+pub mod irc_lifecycle;
 
 pub mod logs;
 pub mod menu;

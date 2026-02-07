@@ -710,6 +710,14 @@ export class StackService {
 		return this.api.endpoints.discardChanges.mutate;
 	}
 
+	get applyPatch() {
+		return this.api.endpoints.applyPatch.mutate;
+	}
+
+	checkPatch(projectId: string, patch: string) {
+		return this.api.endpoints.checkPatch.useQuery({ projectId, patch });
+	}
+
 	get moveChangesBetweenCommits() {
 		if (get(useNewRebaseEngine)) {
 			return this.api.endpoints.commitMoveChangesBetween.mutate;
@@ -1451,6 +1459,18 @@ function injectEndpoints(api: BackendApi, uiState: UiState) {
 				},
 				query: (args) => args,
 				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
+			}),
+			applyPatch: build.mutation<void, { projectId: string; patch: string; reverse: boolean }>({
+				extraOptions: {
+					command: "apply_patch",
+					actionName: "Apply Patch",
+				},
+				query: (args) => args,
+				invalidatesTags: [invalidatesList(ReduxTag.WorktreeChanges)],
+			}),
+			checkPatch: build.query<string, { projectId: string; patch: string }>({
+				extraOptions: { command: "check_patch" },
+				query: (args) => args,
 			}),
 			legacyMoveChangesBetweenCommits: build.mutation<
 				{ replacedCommits: [string, string][] },

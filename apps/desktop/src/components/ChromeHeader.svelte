@@ -7,26 +7,15 @@
 	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
 	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { projectDisableCodegen } from "$lib/config/config";
-	import { ircEnabled } from "$lib/config/uiFeatureFlags";
-	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
 	import { MODE_SERVICE } from "$lib/mode/modeService";
 	import { handleAddProjectOutcome } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
-	import { ircPath, isWorkspacePath, projectPath } from "$lib/routes/routes.svelte";
+	import { isWorkspacePath, projectPath } from "$lib/routes/routes.svelte";
 	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
 	import { useCreateAiStack } from "$lib/stacks/createAiStack.svelte";
 	import { inject } from "@gitbutler/core/context";
 	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-	import {
-		Button,
-		Icon,
-		NotificationButton,
-		OptionsGroup,
-		Select,
-		SelectItem,
-		TestId,
-		Tooltip,
-	} from "@gitbutler/ui";
+	import { Button, Icon, OptionsGroup, Select, SelectItem, TestId, Tooltip } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	type Props = {
@@ -41,7 +30,6 @@
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
-	const ircService = inject(IRC_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const modeService = inject(MODE_SERVICE);
 	const shortcutService = inject(SHORTCUT_SERVICE);
@@ -95,9 +83,6 @@
 
 	let newProjectLoading = $state(false);
 	let projectSelectorOpen = $state(false);
-
-	const unreadCount = $derived(ircService.unreadCount());
-	const isNotificationsUnread = $derived(unreadCount.current > 0);
 
 	const isOnWorkspacePage = $derived(!!isWorkspacePath());
 
@@ -256,14 +241,6 @@
 	</div>
 
 	<div class="chrome-right" data-tauri-drag-region={useCustomTitleBar}>
-		{#if $ircEnabled}
-			<NotificationButton
-				hasUnread={isNotificationsUnread}
-				onclick={() => {
-					goto(ircPath(projectId));
-				}}
-			/>
-		{/if}
 		{#if isOnWorkspacePage}
 			<Button
 				testId={TestId.ChromeHeaderCreateBranchButton}

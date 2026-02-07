@@ -15,6 +15,7 @@ use axum::{
 use but_api::{commit, diff, github, gitlab, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
 use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
 use serde::{Deserialize, Serialize};
@@ -23,8 +24,12 @@ use tokio::sync::Mutex;
 use tower::ServiceBuilder;
 use tower_http::cors::{self, CorsLayer};
 
+mod irc;
+mod irc_lifecycle;
 mod projects;
+pub(crate) mod working_files;
 use crate::projects::ActiveProjects;
+use crate::working_files::WorkingFilesBroadcast;
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
@@ -51,6 +56,8 @@ struct AppState {
     app: Claude,
     extra: Extra,
     app_settings: AppSettingsWithDiskSync,
+    irc_manager: IrcManager,
+    working_files_broadcast: WorkingFilesBroadcast,
 }
 
 #[derive(Deserialize)]
@@ -136,18 +143,59 @@ pub async fn run() {
         active_projects: Arc::new(Mutex::new(ActiveProjects::new())),
         archival,
     };
-    let app_settings = AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
-        .expect("failed to create app settings");
+    let mut app_settings =
+        AppSettingsWithDiskSync::new_with_customization(config_dir.clone(), None)
+            .expect("failed to create app settings");
 
     let app = Claude {
         broadcaster: broadcaster.clone(),
         instance_by_stack: Default::default(),
     };
 
+    let irc_manager = IrcManager::new();
+
+    // Auto-connect IRC connections based on settings
+    if let Ok(settings) = app_settings.get() {
+        irc_lifecycle::auto_connect_on_startup(&irc_manager, &broadcaster, &settings.irc);
+    }
+
+    // Watch for settings changes and reconcile IRC connections
+    {
+        let irc_manager = irc_manager.clone();
+        let broadcaster = broadcaster.clone();
+        let prev_irc_settings =
+            std::sync::Mutex::new(app_settings.get().ok().map(|s| s.irc.clone()));
+
+        app_settings
+            .watch_in_background(move |app_settings| {
+                let new_irc = app_settings.irc.clone();
+                if let Ok(mut prev) = prev_irc_settings.lock() {
+                    if let Some(old_irc) = prev.as_ref()
+                        && old_irc != &new_irc
+                    {
+                        tracing::info!("IRC settings changed, reconciling connections");
+                        irc_lifecycle::on_settings_changed(
+                            &irc_manager,
+                            &broadcaster,
+                            old_irc,
+                            &new_irc,
+                        );
+                    }
+                    *prev = Some(new_irc);
+                }
+                Ok(())
+            })
+            .expect("failed to start settings watcher");
+    }
+
+    let irc_manager_for_shutdown = irc_manager.clone();
+    let working_files_broadcast = WorkingFilesBroadcast::new(irc_manager.clone());
     let state = AppState {
         app,
         extra,
         app_settings,
+        irc_manager,
+        working_files_broadcast,
     };
 
     let app = Router::new()
@@ -584,6 +632,55 @@ pub async fn run() {
             but_post(commit::commit_uncommit_changes_cmd),
         )
         .route("/build_type", but_post(platform::build_type_cmd))
+        // IRC commands
+        .route("/irc_connect", post(irc::irc_connect))
+        .route("/irc_disconnect", post(irc::irc_disconnect))
+        .route("/irc_state", post(irc::irc_state))
+        .route("/irc_wait_ready", post(irc::irc_wait_ready))
+        .route("/irc_join", post(irc::irc_join))
+        .route("/irc_part", post(irc::irc_part))
+        .route("/irc_auto_join", post(irc::irc_auto_join))
+        .route("/irc_auto_leave", post(irc::irc_auto_leave))
+        .route("/irc_send_message", post(irc::irc_send_message))
+        .route(
+            "/irc_send_message_with_data",
+            post(irc::irc_send_message_with_data),
+        )
+        .route("/irc_request_history", post(irc::irc_request_history))
+        .route(
+            "/irc_request_history_before",
+            post(irc::irc_request_history_before),
+        )
+        .route("/irc_send_raw", post(irc::irc_send_raw))
+        .route("/irc_list_connections", post(irc::irc_list_connections))
+        .route("/irc_exists", post(irc::irc_exists))
+        .route("/irc_nick", post(irc::irc_nick))
+        .route("/irc_messages", post(irc::irc_messages))
+        .route("/irc_channels", post(irc::irc_channels))
+        .route("/irc_users", post(irc::irc_users))
+        .route("/irc_mark_read", post(irc::irc_mark_read))
+        .route("/irc_clear_messages", post(irc::irc_clear_messages))
+        .route(
+            "/irc_get_all_commit_reactions",
+            post(irc::irc_get_all_commit_reactions),
+        )
+        .route(
+            "/irc_get_all_message_reactions",
+            post(irc::irc_get_all_message_reactions),
+        )
+        .route(
+            "/irc_get_file_message_reactions",
+            post(irc::irc_get_file_message_reactions),
+        )
+        .route("/irc_get_working_files", post(irc::irc_get_working_files))
+        .route(
+            "/irc_start_working_files_broadcast",
+            post(irc::irc_start_working_files_broadcast),
+        )
+        .route(
+            "/irc_stop_working_files_broadcast",
+            post(irc::irc_stop_working_files_broadcast),
+        )
         // Catch-all for commands that need special handling (app, extra, app_settings_sync)
         .route("/{command}", post(post_handle_command_with_path))
         .route("/ws", any(move |req| handle_ws_request(req, broadcaster)))
@@ -618,12 +715,23 @@ pub async fn run() {
     let url = format!("{host}:{port}");
     let listener = tokio::net::TcpListener::bind(&url).await.unwrap();
     println!("Running at {url}");
-    axum::serve(
+    let server = axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
-    )
-    .await
-    .unwrap();
+    );
+
+    tokio::select! {
+        result = server => { result.unwrap(); }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Shutdown signal received, closing IRC connections…");
+            irc_manager_for_shutdown.shutdown().await;
+            // The settings file watcher (spawn_blocking with infinite loop) and
+            // other background tasks prevent the tokio runtime from exiting
+            // cleanly. Since we've already sent QUIT to IRC servers, it's safe
+            // to terminate immediately.
+            std::process::exit(0);
+        }
+    }
 }
 
 /// Handler that extracts the command from the URL path.
@@ -636,8 +744,9 @@ async fn post_handle_command_with_path(
     let app = state.app;
     let extra = state.extra;
     let app_settings_sync = state.app_settings;
+    let working_files_broadcast = state.working_files_broadcast;
     let req = Request { command, params };
-    let res = handle_command(req, app, extra, app_settings_sync).await;
+    let res = handle_command(req, app, extra, app_settings_sync, working_files_broadcast).await;
     match res {
         Ok(value) => Json(json!(Response::Success(value))),
         Err(e) => {
@@ -689,6 +798,7 @@ async fn handle_command(
     app: Claude,
     extra: Extra,
     app_settings_sync: AppSettingsWithDiskSync,
+    working_files_broadcast: WorkingFilesBroadcast,
     // TODO: make this anyhow::Result<serde_json::Value>
 ) -> anyhow::Result<serde_json::Value> {
     let command: &str = &request.command;
@@ -718,10 +828,20 @@ async fn handle_command(
         "update_reviews" => deserialize_json(request.params).and_then(|params| {
             legacy::settings::update_reviews(&app_settings_sync, params).map(|r| json!(r))
         }),
+        "update_irc" => deserialize_json(request.params).and_then(|params| {
+            legacy::settings::update_irc(&app_settings_sync, params).map(|r| json!(r))
+        }),
         // Project management (need extra or app)
         "list_projects" => projects::list_projects(&extra).await,
         "set_project_active" => {
-            projects::set_project_active(&app, &extra, app_settings_sync, request.params).await
+            projects::set_project_active(
+                &app,
+                &extra,
+                app_settings_sync,
+                working_files_broadcast,
+                request.params,
+            )
+            .await
         }
         // Async virtual branches commands (not yet migrated due to different pattern)
         "upstream_integration_statuses" => {

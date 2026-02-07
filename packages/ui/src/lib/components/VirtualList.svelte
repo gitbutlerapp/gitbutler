@@ -99,6 +99,11 @@
 		 */
 		renderDistance?: number;
 		/**
+		 * Distance in pixels from the loading edge at which `onloadmore` fires.
+		 * Defaults to 300.
+		 */
+		loadMoreThreshold?: number;
+		/**
 		 * Whether to show the "Scroll to bottom" button when user scrolls up.
 		 * Defaults to false.
 		 */
@@ -114,11 +119,16 @@
 
 		/** Returns a stable identifier for an item, used to detect head/tail changes. */
 		getId: (item: T) => string | undefined;
+		/**
+		 * Optional static content rendered at the top of the scroll area, before
+		 * any list items. Not tracked as a virtual list item.
+		 */
+		banner?: Snippet<[]>;
 	};
 
 	/** Distance from bottom (px) within which the user is considered "at the bottom". */
 	const NEAR_BOTTOM_THRESHOLD = 70;
-	const LOAD_MORE_THRESHOLD = 300;
+	const DEFAULT_LOAD_MORE_THRESHOLD = 300;
 	const DEBOUNCE_DELAY = 50;
 	const HEIGHT_LOCK_DURATION = 250;
 
@@ -134,9 +144,11 @@
 		stickToBottom,
 		startIndex,
 		renderDistance = 0,
+		loadMoreThreshold = DEFAULT_LOAD_MORE_THRESHOLD,
 		showBottomButton = false,
 		onVisibleChange,
 		getId,
+		banner,
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -218,11 +230,11 @@
 		if (viewport.scrollHeight <= viewport.clientHeight) return true;
 		if (stickToBottom) {
 			// In stick-to-bottom mode, load more when near the TOP (older content)
-			return viewport.scrollTop < LOAD_MORE_THRESHOLD;
+			return viewport.scrollTop < loadMoreThreshold;
 		}
 		// In normal mode, load more when near the BOTTOM (newer content)
 		const distance = getDistanceFromBottom();
-		return distance >= 0 && distance < LOAD_MORE_THRESHOLD;
+		return distance >= 0 && distance < loadMoreThreshold;
 	}
 
 	/**
@@ -385,16 +397,15 @@
 			}
 		}
 
-		if (!isInitialized()) {
-			return;
-		}
+		if (!isInitialized()) return;
 
 		updateOffsets();
 		await tick();
 
 		// Guard: viewport can become undefined during unmount due to reactive teardown.
 		if (viewport) {
-			viewport.scrollTop = calculateHeightSum(0, startingAt);
+			const targetScrollTop = calculateHeightSum(0, startingAt);
+			viewport.scrollTop = targetScrollTop;
 		}
 
 		isInitializing = false;
@@ -568,8 +579,19 @@
 			await recalculateRanges();
 		} else if (stickToBottom && tailChanged && !headChanged) {
 			const distance = getDistanceFromBottom();
-			await tick();
 			if (isNearBottom(previousDistance) || isNearBottom(distance)) {
+				// When more items arrive than are currently rendered, the incremental
+				// path would render at the old scrollTop (top of list) then scroll down,
+				// causing a flash and potential drift from height estimate errors.
+				// Re-initializing from the bottom builds the correct render range directly.
+				const renderedCount = renderRange.end - renderRange.start;
+				if (countDelta > renderedCount) {
+					renderRange = { start: 0, end: 0 };
+					await initializeAt(items.length - 1);
+					scrollToBottom();
+					return;
+				}
+				await tick();
 				await recalculateRanges();
 				scrollToBottom();
 			} else {
@@ -739,7 +761,25 @@
 	// avoid re-triggering on the state mutations that handler makes.
 	$effect(() => {
 		if (!viewport) return;
-		if (!items || items.length === 0) return;
+		if (!items || items.length === 0) {
+			if (previousLength > 0) {
+				heightMap = [];
+				renderRange = { start: 0, end: 0 };
+				offset = { top: 0, bottom: 0 };
+				previousLength = 0;
+				previousHeadId = undefined;
+				previousTailId = undefined;
+				lastOffsetItemCount = 0;
+			}
+			// Empty list with viewport — content is shorter than viewport,
+			// so trigger onloadmore if available.
+			untrack(() => {
+				if (shouldTriggerLoadMore()) {
+					debouncedLoadMore();
+				}
+			});
+			return;
+		}
 		const currentHeadId = getId(items[0]);
 		const currentTailId = getId(items.at(-1)!);
 		const countDelta = items.length - previousLength;
@@ -788,6 +828,7 @@
 	whenToShow={visibility}
 	{padding}
 >
+	{@render banner?.()}
 	<div
 		bind:this={container}
 		data-remove-from-panning
@@ -855,7 +896,6 @@
 <style>
 	.list-row {
 		display: block;
-		background-color: var(--clr-bg-1);
 	}
 
 	.padded-contents {

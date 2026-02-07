@@ -159,3 +159,51 @@ pub struct UiSettings {
     )]
     pub check_for_updates_interval_in_seconds: u64,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./settings/appSettings.ts")
+)]
+pub struct IrcSettings {
+    /// IRC server configuration
+    pub server: IrcServerSettings,
+    /// Auto-share new Claude Code sessions to IRC channels
+    pub auto_share: bool,
+    /// Channel to auto-join when opening a project.
+    /// If set, joins that channel name (sanitized). If null, auto-constructs #<project-name>.
+    pub project_channel: Option<String>,
+    /// IRC connection settings
+    pub connection: IrcConnectionSettings,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./settings/appSettings.ts")
+)]
+pub struct IrcServerSettings {
+    /// IRC server hostname (e.g., "irc.gitbutler.com")
+    pub host: String,
+    /// IRC server port (default: 6697 for TLS)
+    pub port: u16,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(
+    feature = "export-ts",
+    ts(export, export_to = "./settings/appSettings.ts")
+)]
+pub struct IrcConnectionSettings {
+    /// Whether this connection is enabled
+    pub enabled: bool,
+    /// IRC nickname
+    pub nickname: Option<String>,
+    /// IRC server password
+    pub password: Option<String>,
+    /// IRC real name
+    pub realname: Option<String>,
+}

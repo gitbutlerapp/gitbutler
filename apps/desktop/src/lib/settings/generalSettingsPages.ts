@@ -39,6 +39,12 @@ export const generalSettingsPages = [
 		icon: "ai",
 	},
 	{
+		id: "irc",
+		label: "IRC",
+		icon: "chat",
+		adminOnly: true,
+	},
+	{
 		id: "telemetry",
 		label: "Telemetry",
 		icon: "chart-bar-x",

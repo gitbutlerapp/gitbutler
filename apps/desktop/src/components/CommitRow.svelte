@@ -8,6 +8,7 @@
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	import { slide } from "svelte/transition";
+	import type { CommitReaction } from "$lib/irc/ircApi";
 	import type { Snippet } from "svelte";
 
 	type BaseProps = {
@@ -30,6 +31,7 @@
 		disabled?: boolean;
 		editable?: boolean;
 		gerritReviewUrl?: string;
+		reactions?: CommitReaction[];
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		changedFiles?: Snippet;
 		onclick?: () => void;
@@ -79,6 +81,7 @@
 		active,
 		editable,
 		gerritReviewUrl,
+		reactions,
 		onclick,
 		menu,
 		changedFiles,
@@ -182,6 +185,32 @@
 							<span class="text-11 text-semibold">{reviewId}</span>
 						</div>
 					{/if}
+				{/if}
+				{#if reactions && reactions.length > 0}
+					{@const grouped = Object.values(
+						reactions.reduce(
+							(acc, r) => {
+								const entry = acc[r.reaction] ?? {
+									emoji: r.reaction,
+									count: 0,
+									senders: [] as string[],
+								};
+								entry.count++;
+								entry.senders.push(r.sender);
+								acc[r.reaction] = entry;
+								return acc;
+							},
+							{} as Record<string, { emoji: string; count: number; senders: string[] }>,
+						),
+					)}
+					{#each grouped as group}
+						<div class="reaction-pill" title={group.senders.join(", ")}>
+							<span class="text-12">{group.emoji}</span>
+							{#if group.count > 1}
+								<span class="text-11 text-bold">{group.count}</span>
+							{/if}
+						</div>
+					{/each}
 				{/if}
 			</div>
 
@@ -362,5 +391,16 @@
 			outline: 2px solid var(--clr-focus-border);
 			outline-offset: 1px;
 		}
+	}
+
+	.reaction-pill {
+		display: inline-flex;
+		align-items: center;
+		padding: 2px 6px;
+		gap: 4px;
+		border: 1px solid transparent;
+		border-radius: 10px;
+		background-color: var(--clr-bg-2);
+		cursor: pointer;
 	}
 </style>

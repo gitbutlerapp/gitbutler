@@ -34,8 +34,13 @@ import { HISTORY_SERVICE, HistoryService } from "$lib/history/history";
 import { OplogService, OPLOG_SERVICE } from "$lib/history/oplogService.svelte";
 import { HOOKS_SERVICE, HooksService } from "$lib/hooks/hooksService";
 import { DiffService, DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
-import { IrcClient, IRC_CLIENT } from "$lib/irc/ircClient.svelte";
-import { IrcService, IRC_SERVICE } from "$lib/irc/ircService.svelte";
+import { IrcApiService, IRC_API_SERVICE } from "$lib/irc/ircApiService";
+import { RECEIVED_STACKS_STORE, ReceivedStacksStore } from "$lib/irc/receivedStacksStore.svelte";
+import { IRC_SESSION_BRIDGE, IrcSessionBridge } from "$lib/irc/sessionBridge.svelte";
+import {
+	WORKING_FILES_BROADCAST,
+	WorkingFilesBroadcast,
+} from "$lib/irc/workingFilesBroadcast.svelte";
 import { ModeService, MODE_SERVICE } from "$lib/mode/modeService";
 import { ProjectsService, PROJECTS_SERVICE } from "$lib/project/projectsService";
 import { PROMPT_SERVICE, PromptService } from "$lib/prompt/promptService";
@@ -128,18 +133,10 @@ export function initDependencies(args: {
 	const gitLabClient = new GitLabClient();
 
 	// ============================================================================
-	// EXPERIMENTAL STUFF
-	// ============================================================================
-
-	// It's a bit weird that this is a dependency of `ClientState` while `IrcService`
-	// depends on it.
-	const ircClient = new IrcClient();
-
-	// ============================================================================
 	// STATE MANAGEMENT
 	// ============================================================================
 
-	const clientState = new ClientState(backend, gitHubClient, gitLabClient, ircClient, posthog);
+	const clientState = new ClientState(backend, gitHubClient, gitLabClient, posthog);
 	const githubUserService = new GitHubUserService(clientState.backendApi);
 	const gitlabUserService = new GitLabUserService(clientState.backendApi, secretsService);
 
@@ -147,9 +144,6 @@ export function initDependencies(args: {
 		reactive(() => clientState.uiState ?? uiStateSlice.getInitialState()),
 		clientState.dispatch,
 	);
-	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog, uiState);
-	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
-	const attachmentService = new AttachmentService(clientState);
 
 	// ============================================================================
 	// CONFIGURATION & SETTINGS
@@ -164,7 +158,23 @@ export function initDependencies(args: {
 
 	const aiPromptService = new AIPromptService();
 	const aiService = new AIService(gitConfig, secretsService, httpClient, tokenMemoryService);
-	const claudeCodeService = new ClaudeCodeService(clientState["backendApi"]);
+	const claudeCodeService = new ClaudeCodeService(backend, clientState.backendApi);
+	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog, uiState);
+	const ircApiService = new IrcApiService(clientState.backendApi);
+	const attachmentService = new AttachmentService(clientState);
+
+	const receivedStacksStore = new ReceivedStacksStore();
+
+	// IRC Session Bridge - instantiated here for $effect context
+	const ircSessionBridge = new IrcSessionBridge(
+		backend,
+		ircApiService,
+		claudeCodeService,
+		settingsService,
+		receivedStacksStore,
+	);
+
+	const workingFilesBroadcast = new WorkingFilesBroadcast(backend);
 
 	// ============================================================================
 	// FORGE FACTORY
@@ -350,8 +360,7 @@ export function initDependencies(args: {
 		[HTTP_CLIENT, httpClient],
 		[FILE_SELECTION_MANAGER, fileSelectionManager],
 		[IME_COMPOSITION_HANDLER, imeHandler],
-		[IRC_CLIENT, ircClient],
-		[IRC_SERVICE, ircService],
+		[IRC_API_SERVICE, ircApiService],
 		[MODE_SERVICE, modeService],
 		[OPLOG_SERVICE, oplogService],
 		[ORGANIZATION_SERVICE, organizationService],
@@ -378,5 +387,8 @@ export function initDependencies(args: {
 		[USER_SERVICE, userService],
 		[WORKTREE_SERVICE, worktreeService],
 		[EXTERNAL_LINK_SERVICE, externalLinkService],
+		[IRC_SESSION_BRIDGE, ircSessionBridge],
+		[WORKING_FILES_BROADCAST, workingFilesBroadcast],
+		[RECEIVED_STACKS_STORE, receivedStacksStore],
 	]);
 }
