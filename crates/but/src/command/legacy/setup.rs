@@ -156,6 +156,27 @@ pub(crate) fn repo(
     out: &mut OutputChannel,
     perm: &mut RepoExclusive,
 ) -> anyhow::Result<()> {
+    repo_inner(ctx, repo_path, out, perm, false)
+}
+
+/// Like [`repo`], but suppresses the splash screen, workspace-switch warning,
+/// and step-by-step progress output. Used by `but clone`.
+pub(crate) fn repo_quiet(
+    ctx: &mut Context,
+    repo_path: &Path,
+    out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<()> {
+    repo_inner(ctx, repo_path, out, perm, true)
+}
+
+fn repo_inner(
+    ctx: &mut Context,
+    repo_path: &Path,
+    out: &mut OutputChannel,
+    perm: &mut RepoExclusive,
+    quiet: bool,
+) -> anyhow::Result<()> {
     let mut target_info: Option<TargetInfo> = None;
 
     // what branch is head() pointing to?
@@ -169,14 +190,16 @@ pub(crate) fn repo(
     };
 
     // find or setup the gitbutler project
-    if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "Setting up GitButler project...".cyan())?;
-        writeln!(out)?;
-        writeln!(
-            out,
-            "{}",
-            "→ Adding repository to GitButler project registry".to_string().dimmed()
-        )?;
+    if !quiet {
+        if let Some(out) = out.for_human() {
+            writeln!(out, "{}", "Setting up GitButler project...".cyan())?;
+            writeln!(out)?;
+            writeln!(
+                out,
+                "{}",
+                "→ Adding repository to GitButler project registry".to_string().dimmed()
+            )?;
+        }
     }
 
     let outcome = but_api::legacy::projects::add_project_best_effort(repo_path.to_path_buf())?;
@@ -184,14 +207,18 @@ pub(crate) fn repo(
     // Track project status for JSON output
     let project_status = match outcome {
         gitbutler_project::AddProjectOutcome::Added(_) => {
-            if let Some(out) = out.for_human() {
-                writeln!(out, "  {}", "✓ Repository added to project registry".green())?;
+            if !quiet {
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "  {}", "✓ Repository added to project registry".green())?;
+                }
             }
             Ok(ProjectStatus::Added)
         }
         gitbutler_project::AddProjectOutcome::AlreadyExists(_) => {
-            if let Some(out) = out.for_human() {
-                writeln!(out, "  {}", "✓ Repository already in project registry".green())?;
+            if !quiet {
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "  {}", "✓ Repository already in project registry".green())?;
+                }
             }
             Ok(ProjectStatus::AlreadyExists)
         }
@@ -232,16 +259,20 @@ pub(crate) fn repo(
         && target.is_none()
     {
         // Step 2: Determine remote
-        if let Some(out) = out.for_human() {
-            writeln!(out)?;
-            writeln!(out, "{}", "→ Configuring default target branch".dimmed())?;
+        if !quiet {
+            if let Some(out) = out.for_human() {
+                writeln!(out)?;
+                writeln!(out, "{}", "→ Configuring default target branch".dimmed())?;
+            }
         }
 
         let repo = ctx.repo.get()?;
         let remote_name = match repo.remote_default_name(gix::remote::Direction::Push) {
             Some(name) => {
-                if let Some(out) = out.for_human() {
-                    writeln!(out, "  {}", format!("✓ Using existing push remote: {}", name).green())?;
+                if !quiet {
+                    if let Some(out) = out.for_human() {
+                        writeln!(out, "  {}", format!("✓ Using existing push remote: {}", name).green())?;
+                    }
                 }
                 name.to_string()
             }
@@ -260,12 +291,14 @@ pub(crate) fn repo(
             });
             match fallback_branch {
                 Some(branch) => {
-                    if let Some(out) = out.for_human() {
-                        writeln!(
-                            out,
-                            "  {}",
-                            format!("✓ No remote HEAD found, using {}/{}", remote_name, branch).yellow()
-                        )?;
+                    if !quiet {
+                        if let Some(out) = out.for_human() {
+                            writeln!(
+                                out,
+                                "  {}",
+                                format!("✓ No remote HEAD found, using {}/{}", remote_name, branch).yellow()
+                            )?;
+                        }
                     }
                     format!("{remote_name}/{branch}")
                 }
@@ -290,13 +323,15 @@ pub(crate) fn repo(
             newly_set: true,
         });
 
-        if let Some(out) = out.for_human() {
-            writeln!(out, "  {}", format!("✓ Set default target to: {}", name).green())?;
-            writeln!(out)?;
-            writeln!(out, "{}", "GitButler project setup complete!".green().bold())?;
-            writeln!(out, "{}", format!("Target branch: {}", name).dimmed())?;
-            writeln!(out, "{}", format!("Remote: {}", remote_name).dimmed())?;
-            writeln!(out)?;
+        if !quiet {
+            if let Some(out) = out.for_human() {
+                writeln!(out, "  {}", format!("✓ Set default target to: {}", name).green())?;
+                writeln!(out)?;
+                writeln!(out, "{}", "GitButler project setup complete!".green().bold())?;
+                writeln!(out, "{}", format!("Target branch: {}", name).dimmed())?;
+                writeln!(out, "{}", format!("Remote: {}", remote_name).dimmed())?;
+                writeln!(out)?;
+            }
         }
     } else {
         // Target already exists
@@ -308,13 +343,15 @@ pub(crate) fn repo(
             });
         }
 
-        if let Some(out) = out.for_human() {
-            writeln!(out)?;
-            writeln!(out, "{}", "GitButler project is already set up!".green().bold())?;
-            if let Some(target) = target {
-                writeln!(out, "{}", format!("Target branch: {}", target.branch_name).dimmed())?;
+        if !quiet {
+            if let Some(out) = out.for_human() {
+                writeln!(out)?;
+                writeln!(out, "{}", "GitButler project is already set up!".green().bold())?;
+                if let Some(target) = target {
+                    writeln!(out, "{}", format!("Target branch: {}", target.branch_name).dimmed())?;
+                }
+                writeln!(out)?;
             }
-            writeln!(out)?;
         }
     }
 
@@ -343,15 +380,16 @@ pub(crate) fn repo(
         )?;
     }
 
-    // if we switched - tell the user what this is all about
-    if pre_head_name != "gitbutler/workspace"
-        && let Some(out) = out.for_human()
-    {
-        writeln!(
-            out,
-            "{}",
-            format!(
-                r#"
+    if !quiet {
+        // if we switched - tell the user what this is all about
+        if pre_head_name != "gitbutler/workspace"
+            && let Some(out) = out.for_human()
+        {
+            writeln!(
+                out,
+                "{}",
+                format!(
+                    r#"
 Setting up your project for GitButler tooling. Some things to note:
 
 - Switching you to a special `gitbutler/workspace` branch to enable parallel branches
@@ -364,15 +402,16 @@ To undo these changes and return to normal Git mode, either:
 
 More info: https://docs.gitbutler.com/workspace-branch
 "#,
-                pre_head_name
-            )
-            .yellow()
-        )?;
-    }
+                    pre_head_name
+                )
+                .yellow()
+            )?;
+        }
 
-    // Display splash screen for human output
-    if let Some(out) = out.for_human() {
-        display_splash_screen(out)?;
+        // Display splash screen for human output
+        if let Some(out) = out.for_human() {
+            display_splash_screen(out)?;
+        }
     }
 
     // Output JSON if requested
