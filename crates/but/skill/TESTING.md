@@ -53,6 +53,25 @@ Verify the skill is invoked at the right times.
 - Uses `but squash` or `but rub`
 - Provides correct syntax
 
+#### Test 1.6: Natural Language Trigger
+
+**User says:** "Check what's changed"
+**Expected:**
+
+- Skill is invoked
+- Runs `but status --json` (or `but diff --json` for detailed changes)
+- Does NOT use `git status`
+- Prefers `but diff` over `git diff` (`git diff` is safe but lacks CLI IDs and `--json`)
+
+#### Test 1.7: Git Synonym Trigger
+
+**User says:** "Can you do a git push?"
+**Expected:**
+
+- Skill is invoked
+- Uses `but push` instead of `git push`
+- Explains that `but` replaces `git` for write operations
+
 ### 2. Command Selection Tests
 
 Verify Claude picks the right commands.
@@ -160,6 +179,23 @@ Verify Claude avoids problematic git commands.
 - Explains GitButler workspace model
 - Does NOT use `git checkout`
 - Uses `but apply`/`but unapply` if needed
+
+#### Test 5.4: Absorb Without Arguments Avoidance
+
+**User says:** "Absorb my changes"
+**Expected:**
+
+- Uses `but absorb <file-id>` or `but absorb <branch-id>`, NOT bare `but absorb`
+- Or at minimum, warns before running bare `but absorb`
+
+#### Test 5.5: JSON Flag Usage
+
+**Scenario:** Agent runs any `but` command
+**Expected:**
+
+- Always includes `--json` flag
+- On mutation commands, includes `--status-after`
+- Parses JSON output rather than displaying raw text
 
 ### 6. Edge Case Tests
 

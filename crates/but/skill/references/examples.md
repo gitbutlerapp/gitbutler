@@ -2,6 +2,8 @@
 
 Real-world examples of common workflows.
 
+**Note on CLI IDs:** Examples below use illustrative IDs like `bu`, `c3`, `a1` to keep commands readable. In practice, **always read actual IDs from `but status --json`** — they are generated per-session and will differ from these examples. Branch IDs are derived from unique substrings of the branch name (e.g., `fe` from `feature-x`), commit IDs use short hex prefixes (e.g., `1b`, `8f`), and file/hunk/stack IDs are auto-generated (e.g., `g0`, `h0`). All IDs are unique across entity types.
+
 ## Example 1: Starting Independent Parallel Work
 
 **Scenario:** Need to work on two independent features: a new API endpoint and UI styling updates.
@@ -20,21 +22,23 @@ but branch new ui-styling
 # 4. Check what's unstaged
 but status --json
 
-# 5. Stage files to appropriate branches
-but stage a1 bu    # api/users.js → api-endpoint branch
-but stage a2 bv    # Button.svelte → ui-styling branch
+# 5. Commit specific files directly using --changes (recommended for agents)
+# Use cliId values from but status --json output (e.g., branch IDs and file IDs)
+but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id> --json --status-after
+but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id> --json --status-after
 
-# 6. Commit each branch (--only to commit only staged files)
-but commit bu --only -m "Add user details endpoint" --json --status-after
-but commit bv --only -m "Update button hover styles" --json --status-after
+# Alternative: stage first, then commit with --only
+# but stage <api-file-id> <api-branch-id> && but stage <ui-file-id> <ui-branch-id>
+# but commit <api-branch-id> --only -m "Add user details endpoint" --json --status-after
+# but commit <ui-branch-id> --only -m "Update button hover styles" --json --status-after
 
-# 7. Push branches independently (optional, can skip if using pr new)
-but push bu
-but push bv
+# 6. Push branches independently (optional, can skip if using pr new)
+but push <api-branch-id> --json
+but push <ui-branch-id> --json
 
-# 8. Create pull requests (auto-pushes if not already pushed)
-but pr new bu
-but pr new bv
+# 7. Create pull requests (auto-pushes if not already pushed)
+but pr new <api-branch-id> --json
+but pr new <ui-branch-id> --json
 ```
 
 **Why parallel branches?** The API endpoint and UI styling are independent - neither depends on the other. They can be reviewed and merged separately.
@@ -45,7 +49,7 @@ but pr new bv
 
 ```bash
 # 1. Check current state and update
-but pull
+but pull --json
 but status --json
 
 # 2. Create base branch for authentication
@@ -67,7 +71,7 @@ but stage <file-ids> bv --json --status-after  # Stage changes to profile branch
 but commit bv --only -m "Add user profile page" --json --status-after
 
 # 6. Push both branches (maintains stack relationship)
-but push
+but push --json
 ```
 
 **Result:** Two PRs where user-profile PR depends on authentication PR. GitHub/GitLab shows the dependency.
@@ -89,7 +93,7 @@ but status --json
 #   a1: fix-typo.js (staged to bu)
 
 # 2. Preview what absorb would do (recommended first step)
-but absorb a1 --dry-run    # Shows where a1 would be absorbed
+but absorb a1 --dry-run --json    # Shows where a1 would be absorbed
 
 # 3. Absorb the specific file into appropriate commit
 but absorb a1 --json --status-after    # Absorb just this file + get updated status
@@ -205,7 +209,7 @@ but mark c5    # Commit c5 is now marked
 # (edit files)
 
 # 4. Check result
-but show c5    # Shows accumulated changes
+but show c5 --json    # Shows accumulated changes
 
 # 5. Remove mark when done
 but unmark
@@ -217,7 +221,7 @@ but unmark
 
 ```bash
 # 1. Pull updates
-but pull
+but pull --json
 
 # Output:
 # Conflict in commit c3 on branch feature-x
@@ -261,7 +265,7 @@ but resolve finish
 
 ```bash
 # 1. Update to latest
-but pull
+but pull --json
 
 # 2. Create branch for feature
 but branch new user-dashboard
@@ -287,20 +291,20 @@ but commit bu --only -m "Style dashboard components" --json --status-after
 # (fix typo in widget)
 but absorb a1 --json --status-after    # Absorb specific file into appropriate commit
 
-# 9. Clean up if needed
+# 8. Clean up if needed
 but squash bu --json --status-after    # Combine all commits (optional)
 
-# 10. Push to remote (can also skip - pr new auto-pushes)
-but push bu
+# 9. Push to remote (can also skip - pr new auto-pushes)
+but push bu --json
 
-# 11. Create pull request
-but pr new bu
+# 10. Create pull request
+but pr new bu --json
 
 # Output:
 # Created PR #123: https://github.com/org/repo/pull/123
 
-# 12. After PR is merged, update
-but pull
+# 11. After PR is merged, update
+but pull --json
 ```
 
 ## Example 8: Working with Applied/Unapplied Branches
@@ -328,7 +332,7 @@ but stage <file-ids> bu --json --status-after
 but commit bu --only -m "Complete feature-a" --json --status-after
 
 # 4. Create PR for feature-a (auto-pushes)
-but pr new bu
+but pr new bu --json
 
 # 5. Reapply other branches
 but apply bv
@@ -372,8 +376,8 @@ but squash c2 c3 --json --status-after    # Combine error handling commits
 #   c2: Fix edge case in parser and update error messages
 #   c1: Initial
 
-# 6. Push clean history
-but push bu
+# 5. Push clean history
+but push bu --json
 ```
 
 ## Example 10: Daily Development Workflow
@@ -382,7 +386,7 @@ but push bu
 
 ```bash
 # Morning: Start day
-but pull                          # Get latest from team
+but pull --json                   # Get latest from team
 
 # Start new task
 but branch new fix-auth-bug       # Create branch for today's work
@@ -403,7 +407,7 @@ but branch new hotfix-login       # Parallel branch for urgent work
 # (make fix)
 but stage <file-ids> bv --json --status-after    # Stage to hotfix branch
 but commit bv --only -m "Fix login redirect loop" --json --status-after
-but pr new bv                     # Push and create PR immediately
+but pr new bv --json              # Push and create PR immediately
 
 # Back to original work
 # (continue working on bu, auth bug fix)
@@ -412,14 +416,14 @@ but commit bu --only -m "Add tests for token handling" --json --status-after
 
 # End of day: Clean up and create PR
 but squash bu --json --status-after    # Combine into clean history
-but pr new bu                     # Push and create PR
+but pr new bu --json              # Push and create PR
 
 # After PR review: Make requested changes
 # (make changes based on feedback)
 but absorb <file-id> --json --status-after    # Absorb specific changes into commits
 # Or absorb all changes for this branch:
 but absorb bu --json --status-after          # Absorb all changes staged to bu
-but push bu --with-force          # Force push updated history
+but push bu --with-force --json   # Force push updated history
 ```
 
 ## Example 11: Recovering from Mistakes
@@ -440,7 +444,7 @@ but undo         # Reverts the squash
 
 ```bash
 # View operation history
-but oplog
+but oplog --json
 
 # Output:
 # s5: squash branch bu
@@ -472,14 +476,14 @@ but discard a1
 ### Quick Status Check
 
 ```bash
-but status -f    # File-centric view for quick overview
+but status --json -f    # File-centric view for quick overview
 ```
 
 ### Preview Before Doing
 
 ```bash
-but absorb <file-id> --dry-run  # See where specific file would be absorbed
-but push --dry-run      # See what would be pushed
+but absorb <file-id> --dry-run --json  # See where specific file would be absorbed
+but push --dry-run --json              # See what would be pushed
 ```
 
 ### JSON for Scripting
@@ -498,6 +502,6 @@ eval "$(but completions bash)"    # Add to ~/.bashrc
 ### Viewing History
 
 ```bash
-but show bu              # Show all commits in branch
+but show bu --json       # Show all commits in branch
 git log bu               # Traditional git log (read-only, still works)
 ```
