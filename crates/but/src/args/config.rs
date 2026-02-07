@@ -310,6 +310,52 @@ pub enum ForgeSubcommand {
     /// Shows all configured accounts and their authentication status.
     ListUsers,
 
+    /// View or set the default protocol for clone shorthand expansion.
+    ///
+    /// ## Examples
+    ///
+    /// View current protocol:
+    ///
+    /// ```text
+    /// but config forge protocol
+    /// ```
+    ///
+    /// Set protocol to SSH:
+    ///
+    /// ```text
+    /// but config forge protocol ssh
+    /// ```
+    Protocol {
+        /// The protocol to use: "https" (default) or "ssh".
+        value: Option<String>,
+    },
+
+    /// View or set the default host for clone shorthand expansion.
+    ///
+    /// ## Examples
+    ///
+    /// View current host:
+    ///
+    /// ```text
+    /// but config forge host
+    /// ```
+    ///
+    /// Set host to GitLab:
+    ///
+    /// ```text
+    /// but config forge host gitlab
+    /// ```
+    ///
+    /// Set a custom host:
+    ///
+    /// ```text
+    /// but config forge host gitea.example.com
+    /// ```
+    Host {
+        /// The host to use: "github" (default), "gitlab", or a custom domain.
+        value: Option<String>,
+    },
+
     /// Forget a previously authenticated forge account.
     ///
     /// ## Examples

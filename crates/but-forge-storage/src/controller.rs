@@ -101,6 +101,30 @@ impl Controller {
         self.save_settings(&settings)
     }
 
+    /// Get the configured clone protocol ("https" or "ssh"), if set.
+    pub fn clone_protocol(&self) -> anyhow::Result<Option<String>> {
+        Ok(self.read_settings()?.clone_protocol)
+    }
+
+    /// Set (or clear) the default clone protocol.
+    pub fn set_clone_protocol(&self, value: Option<String>) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.clone_protocol = value;
+        self.save_settings(&settings)
+    }
+
+    /// Get the configured clone host ("github", "gitlab", or a custom URL), if set.
+    pub fn clone_host(&self) -> anyhow::Result<Option<String>> {
+        Ok(self.read_settings()?.clone_host)
+    }
+
+    /// Set (or clear) the default clone host.
+    pub fn set_clone_host(&self, value: Option<String>) -> anyhow::Result<()> {
+        let mut settings = self.read_settings()?;
+        settings.clone_host = value;
+        self.save_settings(&settings)
+    }
+
     fn read_settings(&self) -> anyhow::Result<crate::settings::ForgeSettings> {
         self.settings_storage.read()
     }

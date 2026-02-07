@@ -8,6 +8,12 @@ pub struct ForgeSettings {
     /// GitLab-specific settings.
     #[serde(default)]
     pub gitlab: GitLabSettings,
+    /// Default protocol for clone shorthand expansion: "https" (default) or "ssh".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clone_protocol: Option<String>,
+    /// Default host for clone shorthand expansion: "github" (default), "gitlab", or a custom base URL.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub clone_host: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

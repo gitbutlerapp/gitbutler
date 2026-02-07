@@ -395,6 +395,8 @@ pub(crate) async fn forge_config(out: &mut OutputChannel, cmd: Option<ForgeSubco
         Some(ForgeSubcommand::Auth) => forge_auth(out).await,
         Some(ForgeSubcommand::ListUsers) => forge_show_overview(out).await,
         Some(ForgeSubcommand::Forget { username }) => forge_forget(username, out).await,
+        Some(ForgeSubcommand::Protocol { value }) => forge_clone_protocol(value, out),
+        Some(ForgeSubcommand::Host { value }) => forge_clone_host(value, out),
         None => forge_show_overview(out).await,
     }
 }
@@ -422,6 +424,16 @@ async fn forge_show_overview(out: &mut OutputChannel) -> Result<()> {
                 writeln!(out, "Re-authenticate using: {}", "but config forge auth".cyan())?;
                 writeln!(out)?;
             }
+
+            // Show clone defaults
+            let storage = forge_storage()?;
+            let protocol = storage.clone_protocol()?.unwrap_or_else(|| "https".to_string());
+            let host = storage.clone_host()?.unwrap_or_else(|| "github".to_string());
+            writeln!(out)?;
+            writeln!(out, "{}:", "Clone defaults".dimmed())?;
+            writeln!(out, "  {} {}", "Protocol:".dimmed(), protocol.green())?;
+            writeln!(out, "  {} {}", "Host:".dimmed(), host.green())?;
+            writeln!(out)?;
 
             writeln!(out, "{}:", "Available commands".dimmed())?;
             writeln!(
@@ -511,6 +523,49 @@ fn extract_account_details(
         });
     }
     accounts
+}
+
+fn forge_storage() -> anyhow::Result<but_forge_storage::Controller> {
+    Ok(but_forge_storage::Controller::from_path(but_path::app_data_dir()?))
+}
+
+/// View or set the default clone protocol.
+fn forge_clone_protocol(value: Option<String>, out: &mut OutputChannel) -> Result<()> {
+    let storage = forge_storage()?;
+    if let Some(value) = value {
+        match value.as_str() {
+            "https" | "ssh" => {
+                storage.set_clone_protocol(Some(value.clone()))?;
+                if let Some(out) = out.for_human() {
+                    writeln!(out, "Clone protocol set to: {}", value.green())?;
+                }
+            }
+            _ => anyhow::bail!("Invalid protocol '{}'. Must be 'https' or 'ssh'.", value),
+        }
+    } else {
+        let current = storage.clone_protocol()?.unwrap_or_else(|| "https".to_string());
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Clone protocol: {}", current.green())?;
+        }
+    }
+    Ok(())
+}
+
+/// View or set the default clone host.
+fn forge_clone_host(value: Option<String>, out: &mut OutputChannel) -> Result<()> {
+    let storage = forge_storage()?;
+    if let Some(value) = value {
+        storage.set_clone_host(Some(value.clone()))?;
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Clone host set to: {}", value.green())?;
+        }
+    } else {
+        let current = storage.clone_host()?.unwrap_or_else(|| "github".to_string());
+        if let Some(out) = out.for_human() {
+            writeln!(out, "Clone host: {}", current.green())?;
+        }
+    }
+    Ok(())
 }
 
 /// Authenticate with a forge provider (GitHub, GitLab, etc)

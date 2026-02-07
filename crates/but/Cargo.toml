@@ -57,6 +57,7 @@ but-rebase.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
 but-forge.workspace = true
+but-forge-storage.workspace = true
 but-workspace = { workspace = true }
 but-api = { workspace = true, features = ["path-bytes"] }
 but-graph.workspace = true
