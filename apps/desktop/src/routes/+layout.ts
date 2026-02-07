@@ -3,6 +3,7 @@ import { EventContext } from '$lib/analytics/eventContext';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import createBackend from '$lib/backend';
 import { SettingsService } from '$lib/config/appSettingsV2';
+import { NetworkStatusService } from '$lib/network/networkStatusService.svelte';
 import lscache from 'lscache';
 import type { LayoutLoad } from './$types';
 
@@ -12,6 +13,9 @@ lscache.flushExpired();
 export const ssr = false;
 export const prerender = false;
 export const csr = true;
+
+// Initialize network status monitoring
+const networkStatusService = new NetworkStatusService();
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async () => {
@@ -35,6 +39,7 @@ export const load: LayoutLoad = async () => {
 		settingsService,
 		appSettings,
 		posthog,
-		eventContext
+		eventContext,
+		networkStatusService
 	};
 };
