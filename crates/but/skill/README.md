@@ -48,9 +48,9 @@ crates/but/skill/
 ├── README.md                  ← This file - development docs (NOT installed)
 ├── TESTING.md                 ← Testing guidelines (NOT installed)
 └── references/                ← Additional skill documentation (INSTALLED)
-    ├── reference.md          (393 lines) - Command reference
-    ├── concepts.md           (317 lines) - Deep concepts
-    └── examples.md           (494 lines) - Workflow examples
+    ├── reference.md           - Command reference
+    ├── concepts.md            - Deep concepts
+    └── examples.md            - Workflow examples
 ```
 
 **What gets installed:**
@@ -131,7 +131,7 @@ Uses directive language ("do this") rather than passive ("this might happen").
 
 ### Line Count Guideline
 
-Keep SKILL.md under 500 lines (currently 137). Split content into other files if approaching limit.
+Keep SKILL.md at or under 250 lines. Split content into reference files if approaching the limit.
 
 ## Testing the Skill
 

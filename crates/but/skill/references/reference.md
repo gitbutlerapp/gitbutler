@@ -59,6 +59,8 @@ but diff                # Diff for entire workspace
 but diff --json         # JSON output with hunk IDs for `but commit --changes`
 ```
 
+**Hunk IDs in JSON output:** For uncommitted changes, `but diff --json` returns each hunk as a separate entry in `changes[]` with an `id` field (e.g., `e8`, `j0`). Pass these IDs to `but commit --changes` for fine-grained, hunk-level commits. For commit/branch diffs, `id` is absent — entries are per-file with hunks nested under `diff.hunks`.
+
 ## Branching
 
 ### `but branch`
@@ -548,7 +550,7 @@ but alias
 Available on most commands:
 
 - `-j, --json` - Output in JSON format for parsing
-- `--status-after` - After a mutation command, also output workspace status. In human mode, prints status after the command output. In JSON mode, wraps both in `{"result": ..., "status": ...}`. Supported on: `rub`, `commit`, `stage`, `amend`, `absorb`, `squash`, `move`, `uncommit`.
+- `--status-after` - After a mutation command, also output workspace status. In human mode, prints status after the command output. In JSON mode, wraps both in `{"result": ..., "status": ...}` on success, or `{"result": ..., "status_error": "..."}` if the status query fails. Supported on: `rub`, `commit`, `stage`, `amend`, `absorb`, `squash`, `move`, `uncommit`.
 - `-C, --current-dir <PATH>` - Run as if started in different directory
 - `-h, --help` - Show help for command
 
