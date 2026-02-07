@@ -760,6 +760,10 @@ async fn match_subcommand(
             command::legacy::discard::handle(&mut ctx, out, &id).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
+        Subcommands::Clone { url, path } => command::legacy::clone::run(url, path, out)
+            .context("Failed to clone repository.")
+            .emit_metrics(metrics_ctx),
+        #[cfg(feature = "legacy")]
         Subcommands::Setup { init } => {
             let repo = match but_api::legacy::projects::add_project_best_effort(args.current_dir.clone())? {
                 gitbutler_project::AddProjectOutcome::Added(project)

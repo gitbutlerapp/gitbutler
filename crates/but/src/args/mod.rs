@@ -241,6 +241,35 @@ pub enum Subcommands {
         verbose: bool,
     },
 
+    /// Clone a git repository and set up GitButler in it.
+    ///
+    /// This is equivalent to running `git clone` followed by `but setup`.
+    /// It clones the repository using the gitoxide library and then
+    /// configures it as a GitButler project.
+    ///
+    /// ## Examples
+    ///
+    /// Clone a repository:
+    ///
+    /// ```text
+    /// but clone https://github.com/user/repo.git
+    /// ```
+    ///
+    /// Clone into a specific directory:
+    ///
+    /// ```text
+    /// but clone https://github.com/user/repo.git my-repo
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Clone {
+        /// The URL of the repository to clone.
+        url: String,
+        /// The directory to clone into (defaults to the repository name).
+        path: Option<PathBuf>,
+    },
+
     /// Sets up a GitButler project from a git repository in the current directory.
     ///
     /// This command will:
