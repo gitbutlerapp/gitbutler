@@ -57,6 +57,8 @@ export type Message = { createdAt: string } &
 				questions: AskUserQuestion[];
 				/** Whether the question has been answered */
 				answered: boolean;
+				/** Optional tool result text when answered */
+				resultText?: string;
 		  }
 		| ({
 				source: 'system';
@@ -173,7 +175,8 @@ export function formatMessages(
 								subtype: 'askUserQuestion',
 								toolUseId: content.id,
 								questions: input.questions,
-								answered: false
+								answered: false,
+								resultText: undefined
 							};
 							out.push(askMessage);
 							askUserQuestionToolCalls[content.id] = askMessage;
@@ -234,6 +237,13 @@ export function formatMessages(
 						askMessage.subtype === 'askUserQuestion'
 					) {
 						askMessage.answered = true;
+						if (!isDefined(result.content)) {
+							askMessage.resultText = 'User answered the question';
+						} else if (typeof result.content === 'string') {
+							askMessage.resultText = result.content;
+						} else if (result.content[0]!.type === 'text') {
+							askMessage.resultText = result.content[0]!.text;
+						}
 						continue;
 					}
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ExpandableSection from '$components/codegen/ExpandableSection.svelte';
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
-	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
+	import { formatToolCall, getToolIcon, getToolLabel } from '$lib/utils/codegenTools';
 	import { Codeblock, Tooltip } from '@gitbutler/ui';
 
 	type Props = {
@@ -46,7 +46,7 @@
 	class:full-width={fullWidth}
 >
 	<ExpandableSection
-		label={toolCall.name}
+		label={getToolLabel(toolCall.name)}
 		icon={getToolIcon(toolCall.name)}
 		loading={toolCallLoading(toolCall)}
 		expanded={initialExpanded}
@@ -59,7 +59,9 @@
 
 		{#snippet content()}
 			<div class="stack-v gap-6 m-b-8">
-				<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
+				{#if toolCall.name !== 'AskUserQuestion'}
+					<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
+				{/if}
 				{#if toolCall.result}
 					<Codeblock content={toolCall.result.slice(0, 65536)} />
 				{/if}

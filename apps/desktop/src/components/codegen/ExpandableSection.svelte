@@ -39,13 +39,16 @@
 			<div class="section-header__arrow">
 				<Icon name="chevron-right" />
 			</div>
-			{#if loading}
-				<Icon name="spinner" />
-			{:else if icon}
-				<Icon name={icon} color="var(--clr-text-3)" />
-			{/if}
 
-			<span class="section-label" class:text-semibold={root}>{label}</span>
+			<div class="flex items-center gap-8">
+				{#if loading}
+					<Icon name="spinner" />
+				{:else if icon}
+					<Icon name={icon} color="var(--clr-text-3)" />
+				{/if}
+
+				<span class="section-label" class:text-semibold={root}>{label}</span>
+			</div>
 		</div>
 
 		{#if summary && !(root && expanded)}

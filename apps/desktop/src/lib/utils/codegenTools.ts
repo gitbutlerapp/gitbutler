@@ -37,9 +37,21 @@ export function getToolIcon(toolName: string): IconName {
 	if (name.includes('task')) {
 		return 'spinner';
 	}
+	if (name.includes('askuserquestion')) {
+		return 'chat';
+	}
 
 	// Default icon for unknown tool types
 	return 'settings';
+}
+
+export function getToolLabel(toolName: string): string {
+	switch (toolName) {
+		case 'AskUserQuestion':
+			return 'Ask user';
+		default:
+			return toolName;
+	}
 }
 
 const KNOWN_TOOLS = [
@@ -107,7 +119,7 @@ export function formatToolCall(toolCall: ToolCall): string {
 			return `Stop task ${input['task_id'] || 'unknown'}`;
 
 		case 'AskUserQuestion':
-			return 'Asking user question';
+			return formatAskUserQuestion(input);
 
 		case 'Skill':
 			return input['skill'] || 'Running skill';
@@ -146,4 +158,22 @@ export function formatToolCall(toolCall: ToolCall): string {
 function truncate(str: string, maxLength: number): string {
 	if (str.length <= maxLength) return str;
 	return str.slice(0, maxLength - 1) + '…';
+}
+
+function formatAskUserQuestion(input: Record<string, any>): string {
+	const questions = input['questions'];
+	if (!Array.isArray(questions) || questions.length === 0) {
+		return 'Asking user question';
+	}
+	const questionTexts = questions
+		.map((question) =>
+			question && typeof question.question === 'string' ? question.question : 'Question'
+		)
+		.filter(Boolean);
+	const count = questionTexts.length;
+	if (count === 1) {
+		return `Question: ${truncate(questionTexts[0]!, 160)}`;
+	}
+	const joined = questionTexts.join('; ');
+	return `Questions (${count}): ${truncate(joined, 240)}`;
 }

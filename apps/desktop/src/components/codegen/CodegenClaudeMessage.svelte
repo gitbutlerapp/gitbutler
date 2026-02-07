@@ -45,13 +45,31 @@
 			{/snippet}
 		</CodegenServiceMessage>
 	{:else if 'subtype' in message && message.subtype === 'askUserQuestion'}
-		<CodegenAskUserQuestion
-			questions={message.questions}
-			answered={message.answered}
-			onSubmitAnswers={async (answers) => {
-				await onAnswerQuestion?.(answers);
+		{#if message.answered}
+			{@const toolCall = {
+				name: 'AskUserQuestion',
+				id: message.toolUseId,
+				input: { questions: message.questions },
+				result: message.resultText ?? 'Answered',
+				requestAt: new Date(message.createdAt)
 			}}
-		/>
+			<CodegenToolCall
+				{projectId}
+				{toolCall}
+				toolCallKey={message.toolUseId}
+				{toolCallExpandedState}
+				firstInGroup={true}
+				lastInGroup={true}
+			/>
+		{:else}
+			<CodegenAskUserQuestion
+				questions={message.questions}
+				answered={message.answered}
+				onSubmitAnswers={async (answers) => {
+					await onAnswerQuestion?.(answers);
+				}}
+			/>
+		{/if}
 	{:else}
 		{#each message.contentBlocks as block, index}
 			{@const prevBlock = message.contentBlocks[index - 1]}
