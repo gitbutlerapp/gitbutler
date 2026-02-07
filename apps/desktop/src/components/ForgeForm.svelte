@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ForgeAccountConfig from '$components/ForgeAccountConfig.svelte';
 	import GitHubAccountBadge from '$components/GitHubAccountBadge.svelte';
 	import GitLabAccountBadge from '$components/GitLabAccountBadge.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -13,53 +14,40 @@
 	} from '$lib/forge/gitlab/gitlabUserService.svelte';
 	import { usePreferredGitLabUsername } from '$lib/forge/gitlab/hooks.svelte';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Button, CardGroup, InfoMessage, Link, Select, SelectItem } from '@gitbutler/ui';
+	import { CardGroup, Select, SelectItem } from '@gitbutler/ui';
 
 	import type { ForgeName } from '$lib/forge/interface/forge';
 	import type { Project } from '$lib/project/project';
+	import type { ButGitHubToken, ButGitLabToken } from '@gitbutler/core/api';
+
+	const FORGE_OPTIONS: { label: string; value: ForgeName }[] = [
+		{ label: 'None', value: 'default' },
+		{ label: 'GitHub', value: 'github' },
+		{ label: 'GitLab', value: 'gitlab' },
+		{ label: 'Azure', value: 'azure' },
+		{ label: 'BitBucket', value: 'bitbucket' }
+	];
 
 	const { projectId }: { projectId: string } = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const { preferredGitHubAccount, githubAccounts } = usePreferredGitHubUsername(
-		reactive(() => projectId)
-	);
-	const { preferredGitLabAccount, gitlabAccounts } = usePreferredGitLabUsername(
-		reactive(() => projectId)
-	);
-
-	const { openGeneralSettings } = useSettingsModal();
-
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const project = $derived(projectQuery.response);
 
-	const forgeOptions: { label: string; value: ForgeName }[] = [
-		{
-			label: 'None',
-			value: 'default'
-		},
-		{
-			label: 'GitHub',
-			value: 'github'
-		},
-		{
-			label: 'GitLab',
-			value: 'gitlab'
-		},
-		{
-			label: 'Azure',
-			value: 'azure'
-		},
-		{
-			label: 'BitBucket',
-			value: 'bitbucket'
-		}
-	];
-	let selectedOption = $derived(project?.forge_override || 'default');
+	const selectedOption = $derived(project?.forge_override || 'default');
+
+	// GitHub hooks
+	const { preferredGitHubAccount, githubAccounts } = usePreferredGitHubUsername(
+		reactive(() => projectId)
+	);
+
+	// GitLab hooks
+	const { preferredGitLabAccount, gitlabAccounts } = usePreferredGitLabUsername(
+		reactive(() => projectId)
+	);
 
 	function handleSelectionChange(selectedOption: ForgeName) {
 		if (!project) return;
@@ -72,6 +60,26 @@
 			mutableProject.forge_override = selectedOption;
 		}
 		projectsService.updateProject(mutableProject);
+	}
+
+	function updatePreferredGitHubAccount(
+		projectId: string,
+		account: ButGitHubToken.GithubAccountIdentifier
+	) {
+		projectsService.updatePreferredForgeUser(projectId, {
+			provider: 'github',
+			details: account
+		});
+	}
+
+	function updatePreferredGitLabAccount(
+		projectId: string,
+		account: ButGitLabToken.GitlabAccountIdentifier
+	) {
+		projectsService.updatePreferredForgeUser(projectId, {
+			provider: 'gitlab',
+			details: account
+		});
 	}
 </script>
 
@@ -100,12 +108,9 @@
 		{#if forge.determinedForgeType === 'default'}
 			<Select
 				value={selectedOption}
-				options={forgeOptions}
+				options={FORGE_OPTIONS}
 				wide
-				onselect={(value) => {
-					selectedOption = value as ForgeName;
-					handleSelectionChange(selectedOption);
-				}}
+				onselect={(value) => handleSelectionChange(value as ForgeName)}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
 					<SelectItem selected={item.value === selectedOption} {highlighted}>
@@ -116,137 +121,35 @@
 		{/if}
 	</CardGroup.Item>
 
-	{#if forge.current.name === 'gitlab'}
-		<CardGroup.Item>
-			{#snippet title()}
-				Configure GitLab integration
-			{/snippet}
-
-			{#snippet caption()}
-				Enable merge request creation. Read more in the <Link
-					href="https://docs.gitbutler.com/features/forge-integration/gitlab-integration">docs</Link
-				>
-			{/snippet}
-			{#if gitlabAccounts.current.length === 0 || !preferredGitLabAccount.current}
-				<InfoMessage style="warning" filled outlined={false}>
-					{#snippet title()}
-						No GitLab accounts found
-					{/snippet}
-					{#snippet content()}
-						Add a GitLab account in General Settings to enable GitLab integration
-					{/snippet}
-				</InfoMessage>
-				{@render openSettingsButton()}
-			{:else}
-				{@const account = preferredGitLabAccount.current}
-				<Select
-					label="GitLab account for this project"
-					value={gitlabAccountIdentifierToString(account)}
-					options={gitlabAccounts.current.map((account) => ({
-						label: account.info.username,
-						value: gitlabAccountIdentifierToString(account)
-					}))}
-					onselect={(value) => {
-						const account = stringToGitLabAccountIdentifier(value);
-						if (!account) return;
-						projectsService.updatePreferredForgeUser(projectId, {
-							provider: 'gitlab',
-							details: account
-						});
-					}}
-					disabled={gitlabAccounts.current.length <= 1}
-					wide
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						{@const itemAccount = item.value && stringToGitLabAccountIdentifier(item.value)}
-						<SelectItem
-							selected={item.value === gitlabAccountIdentifierToString(account)}
-							{highlighted}
-						>
-							{item.label}
-
-							{#if itemAccount}
-								<GitLabAccountBadge account={itemAccount} class="m-l-4" />
-							{/if}
-						</SelectItem>
-					{/snippet}
-				</Select>
-			{/if}
-		</CardGroup.Item>
+	{#if forge.current.name === 'github'}
+		<ForgeAccountConfig
+			{projectId}
+			displayName="GitHub"
+			accounts={githubAccounts.current}
+			preferredAccount={preferredGitHubAccount.current}
+			accountToString={githubAccountIdentifierToString}
+			stringToAccount={stringToGitHubAccountIdentifier}
+			getUsername={(account) => account.info.username}
+			updatePreferredAccount={updatePreferredGitHubAccount}
+			AccountBadge={GitHubAccountBadge}
+			docsUrl="https://docs.gitbutler.com/features/forge-integration/github-integration"
+			requestType="pull request"
+		/>
 	{/if}
 
-	{#if forge.current.name === 'github'}
-		<CardGroup.Item>
-			{#snippet title()}
-				Configure GitHub integration
-			{/snippet}
-
-			{#snippet caption()}
-				Enable pull request creation. Read more in the <Link
-					href="https://docs.gitbutler.com/features/forge-integration/github-integration">docs</Link
-				>
-			{/snippet}
-
-			{#if githubAccounts.current.length === 0 || !preferredGitHubAccount.current}
-				<InfoMessage style="warning" filled outlined={false}>
-					{#snippet title()}
-						No GitHub accounts found
-					{/snippet}
-					{#snippet content()}
-						Add a GitHub account in General Settings to enable GitHub integration
-					{/snippet}
-				</InfoMessage>
-				{@render openSettingsButton()}
-			{:else}
-				{@const account = preferredGitHubAccount.current}
-				<Select
-					label="GitHub account for this project"
-					value={githubAccountIdentifierToString(account)}
-					options={githubAccounts.current.map((account) => ({
-						label: account.info.username,
-						value: githubAccountIdentifierToString(account)
-					}))}
-					onselect={(value) => {
-						const account = stringToGitHubAccountIdentifier(value);
-						if (!account) return;
-						projectsService.updatePreferredForgeUser(projectId, {
-							provider: 'github',
-							details: account
-						});
-					}}
-					disabled={githubAccounts.current.length <= 1}
-					wide
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						{@const itemAccount = item.value && stringToGitHubAccountIdentifier(item.value)}
-						<SelectItem
-							selected={item.value === githubAccountIdentifierToString(account)}
-							{highlighted}
-						>
-							{item.label}
-
-							{#if itemAccount}
-								<GitHubAccountBadge account={itemAccount} class="m-l-4" />
-							{/if}
-						</SelectItem>
-					{/snippet}
-				</Select>
-			{/if}
-		</CardGroup.Item>
+	{#if forge.current.name === 'gitlab'}
+		<ForgeAccountConfig
+			{projectId}
+			displayName="GitLab"
+			accounts={gitlabAccounts.current}
+			preferredAccount={preferredGitLabAccount.current}
+			accountToString={gitlabAccountIdentifierToString}
+			stringToAccount={stringToGitLabAccountIdentifier}
+			getUsername={(account) => account.info.username}
+			updatePreferredAccount={updatePreferredGitLabAccount}
+			AccountBadge={GitLabAccountBadge}
+			docsUrl="https://docs.gitbutler.com/features/forge-integration/gitlab-integration"
+			requestType="merge request"
+		/>
 	{/if}
 </CardGroup>
-
-{#snippet openSettingsButton()}
-	<div class="forge-form__open-settings-container">
-		<Button onclick={() => openGeneralSettings('integrations')} style="pop"
-			>Go to General Settings</Button
-		>
-	</div>
-{/snippet}
-
-<style lang="scss">
-	.forge-form__open-settings-container {
-		display: flex;
-		justify-content: center;
-	}
-</style>
