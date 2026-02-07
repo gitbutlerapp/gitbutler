@@ -74,6 +74,16 @@ pub async fn create_pr(
     message: Option<PrMessage>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
+    // Fail fast if no forge user is authenticated, before pushing or prompting.
+    let known_gh_accounts = but_api::github::list_known_github_accounts().await?;
+    let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts().await?;
+    if known_gh_accounts.is_empty() && known_gl_accounts.is_empty() {
+        anyhow::bail!(
+            "No authenticated forge users found.\nRun '{}' to authenticate with GitHub or GitLab.",
+            "but config forge auth"
+        );
+    }
+
     let review_map = get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?;
     let applied_stacks =
         but_api::legacy::workspace::stacks(ctx, Some(but_workspace::legacy::StacksFilter::InWorkspace))?;
