@@ -39,6 +39,10 @@ export enum ReduxTag {
 	IntegrationSteps = "IntegrationSteps",
 	GitConfigProperty = "GitConfigProperty",
 	GitButlerConfig = "GitButlerConfig",
+	IrcConnectionState = "IrcConnectionState",
+	IrcChannels = "IrcChannels",
+	IrcMessages = "IrcMessages",
+	IrcUsers = "IrcUsers",
 }
 
 type Tag<T extends string | number> = {

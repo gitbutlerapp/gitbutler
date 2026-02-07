@@ -12,9 +12,9 @@
 </script>
 
 <script lang="ts">
-	import { ircEnabled } from "$lib/config/uiFeatureFlags";
+	import IrcSendToSubmenus from "$components/IrcSendToSubmenus.svelte";
 	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from "$lib/hunks/hunk";
-	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
 	import { vscodePath } from "$lib/project/project";
 	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import { SETTINGS } from "$lib/settings/userSettings";
@@ -48,14 +48,11 @@
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
-	const ircService = inject(IRC_SERVICE);
+	const ircApiService = inject(IRC_API_SERVICE);
 	const projectService = inject(PROJECTS_SERVICE);
 	const urlService = inject(URL_SERVICE);
 
 	const userSettings = inject(SETTINGS);
-	const ircChats = $derived(ircService.getChats());
-	const ircUsers = $derived(Object.keys(ircChats));
-	const ircChannels = $derived(Object.keys(ircService.getChannels()));
 
 	const filePath = $derived(change.path);
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
@@ -174,32 +171,18 @@
 				/>
 			</ContextMenuSection>
 
-			{#if $ircEnabled}
-				<ContextMenuSection>
-					{#each ircUsers as ircUser}
-						<ContextMenuItem
-							label={ircUser}
-							onclick={() => {
-								const data = btoa(JSON.stringify({ change, diff: item.hunk }));
-								if (!data) return;
-								ircService.sendToNick(ircUser, change.path, data);
-								contextMenu?.close();
-							}}
-						/>
-					{/each}
-					{#each ircChannels as ircChannel}
-						<ContextMenuItem
-							label={ircChannel}
-							onclick={() => {
-								const data = btoa(JSON.stringify({ change, diff: item.hunk }));
-								if (!data) return;
-								ircService.sendToGroup(ircChannel, change.path, data);
-								contextMenu?.close();
-							}}
-						/>
-					{/each}
-				</ContextMenuSection>
-			{/if}
+			<IrcSendToSubmenus
+				{projectId}
+				onSend={(target) => {
+					const data = JSON.stringify({ change, diff: item.hunk });
+					ircApiService.sendMessageWithData({
+						target,
+						message: change.path,
+						data,
+					});
+				}}
+				closeMenu={() => contextMenu?.close()}
+			/>
 
 			{#if selectable}
 				<ContextMenuSection>

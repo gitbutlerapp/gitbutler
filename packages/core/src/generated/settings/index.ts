@@ -5,6 +5,7 @@ import type {
 	FeatureFlags,
 	Fetch,
 	GitHubOAuthAppSettings,
+	IrcSettings,
 	Reviews,
 	TelemetrySettings,
 	UiSettings,
@@ -57,4 +58,8 @@ export type AppSettings = {
 	 * In the future, this will replace the legacy `ui.checkForUpdatesIntervalInSeconds` setting.
 	 */
 	appUpdatesCheckIntervalSec: bigint;
+	/**
+	 * IRC integration settings.
+	 */
+	irc: IrcSettings;
 };

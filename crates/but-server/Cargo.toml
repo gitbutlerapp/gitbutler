@@ -21,6 +21,7 @@ doctest = false
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
 but-claude.workspace = true
 but-db.workspace = true
+but-irc.workspace = true
 but-path.workspace = true
 but-settings.workspace = true
 but-feedback.workspace = true

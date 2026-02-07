@@ -29,6 +29,8 @@ pub struct AppSettings {
     /// This setting controls background update checks for both the CLI and GUI.
     /// In the future, this will replace the legacy `ui.checkForUpdatesIntervalInSeconds` setting.
     pub app_updates_check_interval_sec: u64,
+    /// IRC integration settings.
+    pub irc: app_settings::IrcSettings,
 }
 
 impl Default for AppSettings {

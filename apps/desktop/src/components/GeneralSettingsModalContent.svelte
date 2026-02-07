@@ -6,10 +6,12 @@
 	import GeneralSettings from "$components/profileSettings/GeneralSettings.svelte";
 	import GitSettings from "$components/profileSettings/GitSettings.svelte";
 	import IntegrationsSettings from "$components/profileSettings/IntegrationsSettings.svelte";
+	import IrcSettings from "$components/profileSettings/IrcSettings.svelte";
 	import LanesAndBranchesSettings from "$components/profileSettings/LanesAndBranchesSettings.svelte";
 	import OrganisationSettings from "$components/profileSettings/OrganisationSettings.svelte";
 	import TelemetrySettings from "$components/profileSettings/TelemetrySettings.svelte";
 	import AppearanceSettings from "$components/projectSettings/AppearanceSettings.svelte";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import {
 		generalSettingsPages,
 		type GeneralSettingsPageId,
@@ -28,6 +30,9 @@
 
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = settingsService.appSettings;
+	const ircEnabled = $derived($settingsStore?.featureFlags.irc ?? false);
 	const urlService = inject(URL_SERVICE);
 
 	let currentSelectedId = $derived(data.selectedId || generalSettingsPages[0]!.id);
@@ -39,7 +44,7 @@
 
 <SettingsModalLayout
 	title="Global settings"
-	pages={generalSettingsPages}
+	pages={generalSettingsPages.filter((p) => p.id !== "irc" || ircEnabled)}
 	selectedId={currentSelectedId}
 	isAdmin={$user?.role === "admin"}
 	onSelectPage={selectPage}
@@ -58,6 +63,8 @@
 				<IntegrationsSettings />
 			{:else if currentPage.id === "ai"}
 				<AiSettings />
+			{:else if currentPage.id === "irc"}
+				<IrcSettings />
 			{:else if currentPage.id === "telemetry"}
 				<TelemetrySettings />
 			{:else if currentPage.id === "experimental"}

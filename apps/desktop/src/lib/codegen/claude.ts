@@ -22,6 +22,7 @@ import {
 	ReduxTag,
 } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
+import type { IBackend } from "$lib/backend/backend";
 import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const CLAUDE_CODE_SERVICE = new InjectionToken<ClaudeCodeService>("Claude code service");
@@ -29,8 +30,28 @@ export const CLAUDE_CODE_SERVICE = new InjectionToken<ClaudeCodeService>("Claude
 export class ClaudeCodeService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(clientState: BackendApi) {
-		this.api = injectEndpoints(clientState);
+	constructor(
+		private backend: IBackend,
+		api: BackendApi,
+	) {
+		this.api = injectEndpoints(api);
+	}
+
+	/**
+	 * Subscribe to new Claude messages for a specific project/stack.
+	 * Returns an unsubscribe function.
+	 */
+	onMessage(
+		projectId: string,
+		stackId: string,
+		callback: (message: ClaudeMessage) => void,
+	): () => void {
+		return this.backend.listen<ClaudeMessage>(
+			`project://${projectId}/claude/${stackId}/message_received`,
+			(event) => {
+				callback(event.payload);
+			},
+		);
 	}
 
 	get sendMessageMutate() {

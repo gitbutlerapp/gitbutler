@@ -48,6 +48,8 @@
 		showLockedIndicator?: boolean;
 		dataTestId?: string;
 		visibleRange?: { start: number; end: number };
+		/** nick → file paths mapping from IRC working files broadcast */
+		ircWorkingFiles?: Record<string, string[]>;
 	};
 
 	const {
@@ -65,7 +67,25 @@
 		showLockedIndicator = false,
 		dataTestId,
 		visibleRange,
+		ircWorkingFiles,
 	}: Props = $props();
+
+	/** Invert nick→paths map to path→nicks for per-file lookup. */
+	const ircWorkingUsersByPath = $derived.by(() => {
+		if (!ircWorkingFiles) return undefined;
+		const map = new Map<string, string[]>();
+		for (const [nick, paths] of Object.entries(ircWorkingFiles)) {
+			for (const p of paths) {
+				const nicks = map.get(p);
+				if (nicks) {
+					nicks.push(nick);
+				} else {
+					map.set(p, [nick]);
+				}
+			}
+		}
+		return map;
+	});
 
 	const focusManager = inject(FOCUS_MANAGER);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -276,6 +296,7 @@
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
+		ircWorkingUsers={ircWorkingUsersByPath?.get(change.path)}
 		focusableOpts={{
 			onKeydown: (e) => handleKeyDown(change, idx, e),
 			focusable: true,

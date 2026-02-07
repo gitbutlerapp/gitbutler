@@ -16,15 +16,32 @@ use std::sync::Arc;
 use anyhow::{Context, bail};
 use but_api::{commit, diff, github, gitlab, legacy, platform};
 use but_claude::{Broadcaster, Claude};
+use but_irc::IrcManager;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::{
-    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, logs, menu, projects,
-    settings, zip,
+    WindowState, action, askpass, bot, claude, csp::csp_with_extras, env, irc, logs, menu,
+    projects, settings, zip,
 };
 use tauri::{Emitter, Manager, generate_context};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
+
+/// Return a copy of `irc` with `connection.enabled` forced to `false` when
+/// the IRC feature flag is off. This lets the existing reconciliation logic
+/// treat "flag turned off" the same as "user disabled the connection".
+fn effective_irc(
+    irc: &but_settings::app_settings::IrcSettings,
+    feature_enabled: bool,
+) -> but_settings::app_settings::IrcSettings {
+    if feature_enabled {
+        irc.clone()
+    } else {
+        let mut copy = irc.clone();
+        copy.connection.enabled = false;
+        copy
+    }
+}
 
 fn main() -> anyhow::Result<()> {
     but_api::panic_capture::install_panic_hook();
@@ -45,6 +62,14 @@ fn main() -> anyhow::Result<()> {
     gitbutler_project::configure_git2();
     let mut tauri_context = generate_context!();
     but_secret::secret::set_application_namespace(&tauri_context.config().identifier);
+
+    // Set the macOS notification bundle ID so notifications appear as GitButler.
+    #[cfg(target_os = "macos")]
+    {
+        if let Err(e) = notify_rust::set_application(&tauri_context.config().identifier) {
+            tracing::warn!(error = %e, "Failed to set notification application");
+        }
+    }
 
     let config_dir = but_path::app_config_dir().expect("missing config dir");
     std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
@@ -154,10 +179,33 @@ fn main() -> anyhow::Result<()> {
                                    name = %app_handle.package_info().name, "starting app");
 
                 app_handle.manage(WindowState::new(app_handle.clone()));
+                let irc_manager = IrcManager::new();
+                app_handle.manage(gitbutler_tauri::working_files::WorkingFilesBroadcast::new(irc_manager.clone()));
+                app_handle.manage(irc_manager);
+
+                // Track previous effective IRC settings for diffing on changes.
+                // "Effective" means connection.enabled is forced false when the
+                // feature flag is off, so toggling the flag also disconnects.
+                let prev_irc_settings = std::sync::Mutex::new(
+                    app_settings.get().ok().map(|s| effective_irc(&s.irc, s.feature_flags.irc))
+                );
 
                 app_settings.watch_in_background({
                     let app_handle = app_handle.clone();
                     move |app_settings| {
+                        // Compute effective settings: honour the feature flag gate.
+                        let new_irc = effective_irc(&app_settings.irc, app_settings.feature_flags.irc);
+                        if let Ok(mut prev) = prev_irc_settings.lock() {
+                            if let Some(old_irc) = prev.as_ref()
+                                && old_irc != &new_irc
+                            {
+                                gitbutler_tauri::irc_lifecycle::on_settings_changed(
+                                    &app_handle, old_irc, &new_irc,
+                                );
+                            }
+                            *prev = Some(new_irc);
+                        }
+
                         gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
                     }
                 })?;
@@ -192,6 +240,11 @@ fn main() -> anyhow::Result<()> {
                 app_handle.manage(app_settings);
                 app_handle.manage(claude);
 
+                // Auto-connect IRC connections based on settings (only when feature flag is on).
+                if let Ok(settings) = app_handle.state::<AppSettingsWithDiskSync>().get() {
+                    let irc = effective_irc(&settings.irc, settings.feature_flags.irc);
+                    gitbutler_tauri::irc_lifecycle::auto_connect_on_startup(app_handle, &irc);
+                }
                 tauri_app.on_menu_event(move |handle, event| {
                     let target_window = handle
                         .webview_windows()
@@ -402,6 +455,7 @@ fn main() -> anyhow::Result<()> {
                 settings::update_fetch,
                 settings::update_reviews,
                 settings::update_ui,
+                settings::update_irc,
                 bot::bot,
                 bot::forge_branch_chat,
                 // Debug-only - not for production!
@@ -412,6 +466,37 @@ fn main() -> anyhow::Result<()> {
                 claude::claude_cancel_session,
                 claude::claude_is_stack_active,
                 claude::claude_compact_history,
+                irc::irc_connect,
+                irc::irc_disconnect,
+                irc::irc_state,
+                irc::irc_wait_ready,
+                irc::irc_join,
+                irc::irc_part,
+                irc::irc_auto_join,
+                irc::irc_auto_leave,
+                irc::irc_send_message,
+                irc::irc_send_message_with_data,
+                irc::irc_send_raw,
+                irc::irc_send_typing,
+                irc::irc_send_reaction,
+                irc::irc_remove_reaction,
+                irc::irc_redact_message,
+                irc::irc_list_connections,
+                irc::irc_exists,
+                irc::irc_nick,
+                irc::irc_request_history,
+                irc::irc_request_history_before,
+                irc::irc_messages,
+                irc::irc_channels,
+                irc::irc_users,
+                irc::irc_mark_read,
+                irc::irc_clear_messages,
+                irc::irc_get_all_commit_reactions,
+                irc::irc_get_all_message_reactions,
+                irc::irc_get_file_message_reactions,
+                irc::irc_get_working_files,
+                irc::irc_start_working_files_broadcast,
+                irc::irc_stop_working_files_broadcast,
                 commit::tauri_commit_reword::commit_reword,
                 commit::tauri_commit_insert_blank::commit_insert_blank,
                 commit::tauri_commit_create::commit_create,
@@ -453,7 +538,10 @@ fn main() -> anyhow::Result<()> {
             .build(tauri_context)
             .expect("Failed to build tauri app")
             .run(|app_handle, event| {
-                let _ = (app_handle, event);
+                if let tauri::RunEvent::Exit = event {
+                    let irc_manager = app_handle.state::<IrcManager>();
+                    tauri::async_runtime::block_on(irc_manager.shutdown());
+                }
             });
     });
     Ok(())

@@ -18,6 +18,8 @@
 )]
 
 pub mod claude;
+pub mod irc;
+pub mod irc_lifecycle;
 
 pub mod logs;
 pub mod menu;
@@ -31,6 +33,7 @@ pub mod debug;
 pub mod projects;
 
 pub mod settings;
+pub mod working_files;
 pub mod zip;
 
 pub mod env;

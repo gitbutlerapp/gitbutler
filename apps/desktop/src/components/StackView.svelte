@@ -6,6 +6,8 @@
 	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
 	import Dropzone from "$components/Dropzone.svelte";
 	import FullviewLoading from "$components/FullviewLoading.svelte";
+	import IrcChannel from "$components/IrcChannel.svelte";
+	import IrcRow from "$components/IrcRow.svelte";
 	import MultiDiffView from "$components/MultiDiffView.svelte";
 	import NewCommitView from "$components/NewCommitView.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
@@ -24,10 +26,14 @@
 		createCommitDropHandlers,
 		type DzCommitData,
 	} from "$lib/commits/dropHandler";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import { projectRunCommitHooks } from "$lib/config/config";
 	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
 	import { isParsedError } from "$lib/error/parser";
 	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
+	import { IRC_API_SERVICE } from "$lib/irc/ircApiService";
+	import { sessionChannel } from "$lib/irc/protocol";
+	import { IRC_SESSION_BRIDGE } from "$lib/irc/sessionBridge.svelte";
 	import { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import {
@@ -50,6 +56,7 @@
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { intersectionObserver } from "@gitbutler/ui/utils/intersectionObserver";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { untrack } from "svelte";
 	import { fly } from "svelte/transition";
 
 	type Props = {
@@ -280,8 +287,9 @@
 	const hasActiveSelection = $derived(!!(branchName || commitId || selectedFile));
 	const isPreviewOpenForSelection = $derived(hasActiveSelection && previewOpen);
 	const hasAssignedFiles = $derived(!!assignedKey);
+	const ircPanelOpen = $derived(selection.current?.irc === true);
 
-	let isDetailsViewOpen = $derived(isPreviewOpenForSelection || hasAssignedFiles);
+	let isDetailsViewOpen = $derived(isPreviewOpenForSelection || hasAssignedFiles || ircPanelOpen);
 
 	const DETAILS_RIGHT_PADDING_REM = 1.125;
 
@@ -322,12 +330,19 @@
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const rulesService = inject(RULES_SERVICE);
 	const attachmentService = inject(ATTACHMENT_SERVICE);
+	const settingsService = inject(SETTINGS_SERVICE);
+	const settingsStore = settingsService.appSettings;
+	const ircSettings = $derived($settingsStore?.irc);
+	const ircEnabled = $derived(
+		($settingsStore?.featureFlags?.irc && $settingsStore?.irc?.connection?.enabled) ?? false,
+	);
 
 	const claudeConfigQuery = $derived(claudeCodeService.claudeConfig({ projectId }));
 	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
 	const isStackActive = $derived(isStackActiveQuery?.response || false);
 	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
-	const sessionId = $derived(rulesService.aiSessionId(projectId, stackId));
+	const sessionIdQuery = $derived(rulesService.aiSessionId(projectId, stackId));
+	const sessionId = $derived(sessionIdQuery.response);
 	const hasRulesToClear = $derived(rulesService.hasRulesToClear(projectId, stackId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const attachments = $derived(attachmentService.getByBranch(branchName));
@@ -357,6 +372,54 @@
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 	let multiDiffView = $state<MultiDiffView>();
 	let visibleRange = $state<{ start: number; end: number } | undefined>();
+
+	// IRC Session Bridge
+	const ircSessionBridge = inject(IRC_SESSION_BRIDGE);
+
+	// IRC Channel panel
+	const ircApiService = inject(IRC_API_SERVICE);
+	const ircNickQuery = $derived(ircApiService.nick());
+	const ircNick = $derived(ircNickQuery?.response);
+	const ircChannel = $derived(
+		ircNick && topBranchName ? sessionChannel(ircNick, topBranchName) : undefined,
+	);
+
+	const isManuallyBridged = $derived(ircSessionBridge.isManuallyBridged(stackId));
+	const readyToBridge = $derived(
+		sessionId &&
+			stackId &&
+			topBranchName &&
+			ircEnabled &&
+			(ircSettings?.autoShare || isManuallyBridged.current),
+	);
+
+	// Reactive connection state — drives bridge connect/disconnect.
+	const connectionStateQuery = $derived(ircEnabled ? ircApiService.connectionState() : undefined);
+	const connectionReady = $derived(connectionStateQuery?.response?.ready ?? false);
+
+	// Register/unregister the bridge when auto-share conditions are met.
+	$effect(() => {
+		if (!readyToBridge) return;
+		if (!stackId || !topBranchName) return;
+
+		untrack(() => {
+			ircSessionBridge.startBridging({
+				projectId,
+				stackId,
+				branchName: topBranchName,
+			});
+		});
+
+		return () => {
+			ircSessionBridge.stopBridging(stackId);
+		};
+	});
+
+	// React to connection readiness changes.
+	$effect(() => {
+		if (!stackId) return;
+		ircSessionBridge.setBotReady(stackId, connectionReady);
+	});
 
 	async function onAbort() {
 		if (stackId) {
@@ -430,16 +493,18 @@
 					class="stack-view"
 					class:details-open={isDetailsViewOpen}
 					style:width="{$persistedStackWidth}rem"
+					data-fade-on-reorder
 					use:focusable={{ vertical: true, onActive: (value) => (active = value) }}
 					bind:this={stackViewEl}
 				>
-					<div class="stack-v" data-fade-on-reorder>
+					<div class="stack-v stack-view__inner">
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<StackDragHandle
 							stackId={stableStackId}
 							{projectId}
 							disabled={isCommitting}
 							onFold={onFoldStack}
+							branchName={topBranchName}
 						/>
 
 						<div
@@ -509,6 +574,10 @@
 							{/if}
 						</div>
 
+						{#if ircEnabled && topBranchName}
+							<IrcRow stackId={stableStackId} channel={ircChannel} selected={ircPanelOpen} />
+						{/if}
+
 						<BranchList
 							projectId={stableProjectId}
 							{branches}
@@ -553,14 +622,16 @@
 				<div
 					in:fly={{ y: 20, duration: 200 }}
 					class="details-view"
-					class:codegen-view={selection?.codegen}
+					class:codegen-view={selection?.codegen || selection?.irc}
 					bind:this={compactDiv}
 					data-details={stableStackId}
 					style:right="{DETAILS_RIGHT_PADDING_REM}rem"
 					use:focusable={{ vertical: true }}
 					data-testid={TestId.StackPreview}
 				>
-					{#if stableStackId && selection?.branchName && selection?.codegen}
+					{#if stableStackId && selection?.irc && ircChannel}
+						<IrcChannel projectId={stableProjectId} type="group" channel={ircChannel} autojoin />
+					{:else if stableStackId && selection?.branchName && selection?.codegen}
 						<CodegenMessages
 							projectId={stableProjectId}
 							stackId={stableStackId}
@@ -576,7 +647,7 @@
 							permissionRequests={permissionRequests.response || []}
 							onSubmit={sendMessage}
 							onChange={(prompt) => messageSender?.setPrompt(prompt)}
-							sessionId={sessionId.response}
+							sessionId={sessionIdQuery.response}
 							{isStackActive}
 							{hasRulesToClear}
 							projectRegistered={claudeConfig.projectRegistered}
@@ -793,6 +864,12 @@
 		padding: 0 12px;
 		/* Use CSS custom properties for details view width to avoid ResizeObserver errors */
 		--details-view-width: 0rem;
+	}
+
+	.stack-view__inner {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
 	}
 
 	.stack-view.details-open {

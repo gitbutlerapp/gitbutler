@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::Extra;
+use crate::working_files::WorkingFilesBroadcast;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,6 +43,7 @@ impl ActiveProjects {
         ctx: &mut Context,
         claude: &Claude,
         app_settings_sync: AppSettingsWithDiskSync,
+        working_files_broadcast: WorkingFilesBroadcast,
     ) -> Result<()> {
         if self.projects.contains_key(&ctx.legacy_project.id) {
             return Ok(());
@@ -50,6 +52,7 @@ impl ActiveProjects {
         // Set up file watcher for worktree changes
         let handler = gitbutler_watcher::Handler::new({
             let broadcaster = claude.broadcaster.clone();
+            let wfb = working_files_broadcast;
 
             move |value| {
                 let frontend_event = match value {
@@ -76,11 +79,22 @@ impl ActiveProjects {
                     },
                     Change::WorktreeChanges {
                         project_id,
-                        changes,
-                    } => FrontendEvent {
-                        name: format!("project://{project_id}/worktree_changes"),
-                        payload: serde_json::json!(&changes),
-                    },
+                        ref changes,
+                    } => {
+                        // Broadcast working files to IRC.
+                        let paths: Vec<String> = changes
+                            .worktree_changes
+                            .changes
+                            .iter()
+                            .map(|c| c.path.to_string())
+                            .collect();
+                        wfb.on_worktree_change(project_id.clone(), paths);
+
+                        FrontendEvent {
+                            name: format!("project://{project_id}/worktree_changes"),
+                            payload: serde_json::json!(&changes),
+                        }
+                    }
                 };
 
                 broadcaster.blocking_lock().send(frontend_event);
@@ -151,6 +165,7 @@ pub async fn set_project_active(
     claude: &Claude,
     extra: &Extra,
     app_settings_sync: AppSettingsWithDiskSync,
+    working_files_broadcast: WorkingFilesBroadcast,
     params: serde_json::Value,
 ) -> Result<serde_json::Value> {
     let params: SetProjectActiveParams = serde_json::from_value(params).to_json_error()?;
@@ -161,7 +176,7 @@ pub async fn set_project_active(
     let mut active_projects = extra.active_projects.lock().await;
     let mut ctx: Context = params.id.try_into()?;
     but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
-    active_projects.set_active(&mut ctx, claude, app_settings_sync)?;
+    active_projects.set_active(&mut ctx, claude, app_settings_sync, working_files_broadcast)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);
 

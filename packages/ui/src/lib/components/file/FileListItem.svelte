@@ -4,6 +4,7 @@
 	import Checkbox from "$components/Checkbox.svelte";
 	import Icon from "$components/Icon.svelte";
 	import Tooltip from "$components/Tooltip.svelte";
+	import AvatarGroup from "$components/avatar/AvatarGroup.svelte";
 	import ExecutableLabel from "$components/file/ExecutableLabel.svelte";
 	import FileIndent from "$components/file/FileIndent.svelte";
 	import FileName from "$components/file/FileName.svelte";
@@ -38,6 +39,7 @@
 		isLast?: boolean;
 		actionOpts?: FocusableOptions;
 		notched?: boolean;
+		ircWorkingUsers?: string[];
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
 			e: Event & {
@@ -79,6 +81,7 @@
 		isLast = false,
 		actionOpts,
 		notched,
+		ircWorkingUsers,
 		oncheck,
 		oncheckclick,
 		onclick,
@@ -147,6 +150,17 @@
 	<FileName {filePath} hideFilePath={listMode === "tree"} {pathFirst} />
 
 	<div class="file-list-item__details">
+		{#if ircWorkingUsers && ircWorkingUsers.length > 0}
+			<AvatarGroup
+				avatars={ircWorkingUsers.map((nick) => ({
+					srcUrl: `https://github.com/${encodeURIComponent(nick)}.png?size=32`,
+					username: nick,
+				}))}
+				maxAvatars={3}
+				size="small"
+			/>
+		{/if}
+
 		{#if executable}
 			<ExecutableLabel />
 		{/if}

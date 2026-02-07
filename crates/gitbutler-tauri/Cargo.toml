@@ -40,6 +40,8 @@ but-ctx = { workspace = true, features = ["legacy"] }
 but-forge.workspace = true
 but-llm.workspace = true
 but-hunk-assignment.workspace = true
+but-irc.workspace = true
+notify-rust.workspace = true
 
 gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true

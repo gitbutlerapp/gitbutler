@@ -21,7 +21,6 @@ import type { PostHogWrapper } from "$lib/analytics/posthog";
 import type { IBackend } from "$lib/backend";
 import type { GitHubClient } from "$lib/forge/github/githubClient";
 import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
-import type { IrcClient } from "$lib/irc/ircClient.svelte";
 import type { ReduxError } from "$lib/state/reduxError";
 
 /**
@@ -80,7 +79,6 @@ export class ClientState {
 		backend: IBackend,
 		gitHubClient: GitHubClient,
 		gitLabClient: GitLabClient,
-		ircClient: IrcClient,
 		posthog: PostHogWrapper,
 	) {
 		const butlerMod = butlerModule({
@@ -98,7 +96,6 @@ export class ClientState {
 			backend,
 			gitHubClient,
 			gitLabClient,
-			ircClient,
 			backendApi: this.backendApi,
 			githubApi: this.githubApi,
 			gitlabApi: this.gitlabApi,
@@ -154,13 +151,11 @@ function createStore(params: {
 	backend: IBackend;
 	gitHubClient: GitHubClient;
 	gitLabClient: GitLabClient;
-	ircClient: IrcClient;
 	backendApi: BackendApi;
 	githubApi: GitHubApi;
 	gitlabApi: GitLabApi;
 }) {
-	const { backend, gitHubClient, gitLabClient, ircClient, backendApi, githubApi, gitlabApi } =
-		params;
+	const { backend, gitHubClient, gitLabClient, backendApi, githubApi, gitlabApi } = params;
 
 	// We can't use the `persistStore` function because it doesn't work
 	// with injected reducers. We should inject all reduces so we don't
@@ -198,7 +193,6 @@ function createStore(params: {
 						backend,
 						gitHubClient,
 						gitLabClient,
-						ircClient,
 					},
 				},
 				serializableCheck: {
