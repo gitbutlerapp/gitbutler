@@ -17,6 +17,11 @@ doctest = false
 
 [features]
 
+## Enable mock Claude client for E2E testing.
+## When enabled, set CLAUDE_MOCK_SCENARIO env var to a JSON scenario file path.
+## The mock client replays pre-recorded Claude interactions for deterministic tests.
+claude-testing = ["but-claude/testing"]
+
 [dependencies]
 but-api = { workspace = true, features = ["path-bytes", "legacy"] }
 but-claude.workspace = true

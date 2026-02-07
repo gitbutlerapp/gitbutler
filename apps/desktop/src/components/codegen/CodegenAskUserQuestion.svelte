@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { AsyncButton, Icon, Textbox } from '@gitbutler/ui';
+	import { TestId } from '@gitbutler/ui/utils/testIds';
 	import type { AskUserQuestion } from '$lib/codegen/types';
 
 	type Props = {
@@ -106,7 +107,7 @@
 	}
 </script>
 
-<div class="ask-user-question">
+<div class="ask-user-question" data-testid={TestId.CodegenAskUserQuestion}>
 	<div class="ask-user-question__header">
 		<Icon name="ai-small" color="var(--clr-text-3)" />
 		<span class="text-13 header-text">Claude needs your input</span>
@@ -126,6 +127,7 @@
 							type="button"
 							class="option"
 							class:selected={isOptionSelected(q.question, option.label)}
+							data-testid={TestId.CodegenAskUserQuestion_Option}
 							disabled={answered}
 							onclick={() => {
 								if (q.multiSelect) {
@@ -219,7 +221,12 @@
 				Answered
 			</span>
 		{:else}
-			<AsyncButton style="pop" disabled={!allAnswered} action={handleSubmit}>
+			<AsyncButton
+				style="pop"
+				disabled={!allAnswered}
+				testId={TestId.CodegenAskUserQuestion_SubmitButton}
+				action={handleSubmit}
+			>
 				Submit answers
 			</AsyncButton>
 		{/if}

@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "recorded_at": "1706900000",
+  "sdk_version": "0.6.3",
+  "cli_version": null,
+  "options": null,
+  "messages": [
+    {
+      "offset_ms": 0,
+      "direction": "Received",
+      "content": {
+        "type": "system",
+        "subtype": "init",
+        "session_id": "test-session-askuser",
+        "model": "claude-sonnet-4-20250514",
+        "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "AskUserQuestion"],
+        "mcp_servers": [],
+        "cwd": "/tmp/test-project",
+        "permission_mode": "default",
+        "uuid": "sys-001"
+      }
+    },
+    {
+      "offset_ms": 100,
+      "direction": "Received",
+      "content": {
+        "type": "assistant",
+        "message": {
+          "content": [
+            {
+              "type": "text",
+              "text": "I have a question before I proceed."
+            },
+            {
+              "type": "tool_use",
+              "id": "tool_askuser_001",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "What testing framework would you like to use?",
+                    "header": "Framework",
+                    "options": [
+                      {
+                        "label": "Jest (Recommended)",
+                        "description": "Popular JavaScript testing framework with great TypeScript support"
+                      },
+                      {
+                        "label": "Vitest",
+                        "description": "Fast Vite-native testing framework"
+                      },
+                      {
+                        "label": "Mocha",
+                        "description": "Flexible testing framework with many plugins"
+                      }
+                    ],
+                    "multiSelect": false
+                  }
+                ]
+              }
+            }
+          ],
+          "model": "claude-sonnet-4-20250514",
+          "id": "msg_001",
+          "stop_reason": "tool_use",
+          "role": "assistant",
+          "type": "message",
+          "usage": {
+            "input_tokens": 120,
+            "output_tokens": 80,
+            "cache_creation_input_tokens": null,
+            "cache_read_input_tokens": null,
+            "server_tool_use": null,
+            "service_tier": null
+          }
+        },
+        "session_id": "test-session-askuser",
+        "uuid": "ast-001"
+      }
+    },
+    {
+      "offset_ms": 5000,
+      "direction": "Received",
+      "content": {
+        "type": "assistant",
+        "message": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Great choice! I'll set up Jest for your project."
+            }
+          ],
+          "model": "claude-sonnet-4-20250514",
+          "id": "msg_002",
+          "stop_reason": "end_turn",
+          "role": "assistant",
+          "type": "message",
+          "usage": {
+            "input_tokens": 150,
+            "output_tokens": 25,
+            "cache_creation_input_tokens": null,
+            "cache_read_input_tokens": null,
+            "server_tool_use": null,
+            "service_tier": null
+          }
+        },
+        "session_id": "test-session-askuser",
+        "uuid": "ast-002"
+      }
+    },
+    {
+      "offset_ms": 5100,
+      "direction": "Received",
+      "content": {
+        "type": "result",
+        "subtype": "success",
+        "total_cost_usd": 0.01,
+        "duration_ms": 5100,
+        "duration_api_ms": 500,
+        "num_turns": 1,
+        "is_error": false,
+        "session_id": "test-session-askuser"
+      }
+    }
+  ]
+}

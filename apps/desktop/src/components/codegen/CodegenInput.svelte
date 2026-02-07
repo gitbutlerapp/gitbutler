@@ -17,6 +17,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { inject } from '@gitbutler/core/context';
 	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from '@gitbutler/ui';
+	import { TestId } from '@gitbutler/ui/utils/testIds';
 	import { tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
@@ -222,6 +223,7 @@
 
 	<div
 		class="text-input dialog-input"
+		data-testid={TestId.CodegenInput}
 		data-remove-from-panning
 		role="button"
 		tabindex="-1"
@@ -330,6 +332,7 @@
 							type="button"
 							class:loading
 							style="pop"
+							data-testid={TestId.CodegenInputSendButton}
 							onclick={handleSubmit}
 							aria-label="Send"
 						>

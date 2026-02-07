@@ -327,6 +327,7 @@
 						/>
 						{#if !$codegenDisabled && first && codegenQuery?.response?.length === 0}
 							<Button
+								testId={TestId.BranchHeaderContextMenu_StartCodegenAgent}
 								icon="ai-small"
 								style="gray"
 								size="tag"

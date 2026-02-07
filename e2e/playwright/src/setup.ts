@@ -1,7 +1,7 @@
 import { setConfig } from './config.ts';
 import { BUT_SERVER_PORT, BUT_TESTING, DESKTOP_PORT, GIT_CONFIG_GLOBAL } from './env.ts';
 import { type BrowserContext } from '@playwright/test';
-import { ChildProcess, spawn } from 'node:child_process';
+import { ChildProcess, execSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { Socket } from 'node:net';
 import path from 'node:path';
@@ -56,11 +56,22 @@ class GitButlerManager implements GitButler {
 			}
 		}
 
+		// Allow RUST_LOG to be overridden by test env, default to error
+		const rustLog = this.env?.RUST_LOG || 'error';
+		const port = getButlerPort();
+
+		// Clean up any lingering processes on this port from previous test runs
+		try {
+			execSync(`lsof -ti :${port} | xargs kill -9 2>/dev/null || true`, { stdio: 'ignore' });
+		} catch {
+			// Ignore errors - port might already be free
+		}
+
 		const serverEnv = {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
-			BUTLER_PORT: getButlerPort(),
+			BUTLER_PORT: port.toString(),
 			GIT_CONFIG_GLOBAL,
-			RUST_LOG: 'error',
+			RUST_LOG: rustLog,
 			...this.env
 		};
 
@@ -120,7 +131,14 @@ class GitButlerManager implements GitButler {
 }
 
 function createButServerProcess(rootDir: string, serverEnv: Record<string, string>): ChildProcess {
-	const child = spawn('cargo', ['run', '-p', 'but-server'], {
+	// Build cargo args, adding claude-testing feature if CLAUDE_MOCK_SCENARIO is set
+	const cargoArgs = ['run', '-p', 'but-server'];
+	const mockScenario = serverEnv.CLAUDE_MOCK_SCENARIO || process.env.CLAUDE_MOCK_SCENARIO;
+	if (mockScenario) {
+		cargoArgs.push('--features', 'claude-testing');
+	}
+
+	const child = spawn('cargo', cargoArgs, {
 		cwd: rootDir,
 		stdio: 'pipe',
 		env: {

@@ -319,13 +319,21 @@
 
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 
-	const mcpConfigQuery = $derived(claudeCodeService.mcpConfig({ projectId }));
-	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
+	const mcpConfigQuery = $derived(claudeCodeService.mcpConfig({ projectId: stableProjectId }));
+	const isStackActiveQuery = $derived(
+		claudeCodeService.isStackActive(stableProjectId, stableStackId)
+	);
 	const isStackActive = $derived(isStackActiveQuery?.response || false);
-	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
-	const sessionId = $derived(rulesService.aiSessionId(projectId, stackId));
-	const hasRulesToClear = $derived(rulesService.hasRulesToClear(projectId, stackId));
-	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
+	const events = $derived(
+		stableStackId
+			? claudeCodeService.messages({ projectId: stableProjectId, stackId: stableStackId })
+			: undefined
+	);
+	const sessionId = $derived(rulesService.aiSessionId(stableProjectId, stableStackId));
+	const hasRulesToClear = $derived(rulesService.hasRulesToClear(stableProjectId, stableStackId));
+	const permissionRequests = $derived(
+		claudeCodeService.permissionRequests({ projectId: stableProjectId })
+	);
 	const attachments = $derived(attachmentService.getByBranch(branchName));
 
 	const selectedThinkingLevel = $derived(projectState.thinkingLevel.current);
@@ -404,14 +412,14 @@
 >
 	<ReduxResult
 		projectId={stableProjectId}
-		result={combineResults(branchesQuery.result, hasRulesToClear.result)}
+		result={combineResults(branchesQuery.result, hasRulesToClear.result, permissionRequests.result)}
 	>
 		{#snippet loading()}
 			<div style:width="{$persistedStackWidth}rem" class="lane-skeleton">
 				<FullviewLoading />
 			</div>
 		{/snippet}
-		{#snippet children([branches, hasRulesToClear])}
+		{#snippet children([branches, hasRulesToClear, permissionRequests])}
 			<ConfigurableScrollableContainer childrenWrapHeight="100%" enableDragScroll>
 				<div
 					class="stack-view"
@@ -542,18 +550,18 @@
 				>
 					{#if stableStackId && selection?.branchName && selection?.codegen}
 						<CodegenMessages
-							projectId={stableProjectId}
-							stackId={stableStackId}
+							{projectId}
+							{stackId}
 							{laneId}
-							branchName={selection.branchName}
+							branchName={selection.branchName!}
 							onclose={onclosePreview}
 							onMcpSettings={() => {
 								mcpConfigModal?.open();
 							}}
 							{onAbort}
 							{initialPrompt}
-							events={events.response || []}
-							permissionRequests={permissionRequests.response || []}
+							events={events?.response || []}
+							permissionRequests={permissionRequests || []}
 							onSubmit={sendMessage}
 							onChange={(prompt) => messageSender?.setPrompt(prompt)}
 							sessionId={sessionId.response}

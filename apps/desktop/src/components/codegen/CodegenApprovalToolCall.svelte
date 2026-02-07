@@ -10,6 +10,7 @@
 		Button,
 		Icon
 	} from '@gitbutler/ui';
+	import { TestId } from '@gitbutler/ui/utils/testIds';
 	import type { PermissionDecision } from '$lib/codegen/types';
 
 	type Props = {
@@ -91,7 +92,7 @@
 	});
 </script>
 
-<div class="tool-call">
+<div class="tool-call" data-testid={TestId.CodegenPermissionApproval}>
 	<div class="tool-call__details">
 		<div class="tool-call__header">
 			<Icon name={getToolIcon(toolCall.name)} color="var(--clr-text-3)" />
@@ -117,6 +118,7 @@
 				kind="outline"
 				icon="select-chevron"
 				shrinkable
+				testId={TestId.CodegenPermissionApproval_WildcardButton}
 				onclick={() => {
 					wildcardContextMenu?.toggle();
 				}}
@@ -145,6 +147,7 @@
 			bind:this={denyDropdownButton}
 			style="danger"
 			kind="outline"
+			testId={TestId.CodegenPermissionApproval_DenyButton}
 			onclick={async () => {
 				await onPermissionDecision(
 					toolCall.id,
@@ -192,6 +195,7 @@
 		<DropdownButton
 			bind:this={allowDropdownButton}
 			style="pop"
+			testId={TestId.CodegenPermissionApproval_AllowButton}
 			onclick={async () => {
 				await onPermissionDecision(
 					toolCall.id,
