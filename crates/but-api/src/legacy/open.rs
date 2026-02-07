@@ -157,7 +157,7 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     #[cfg(target_os = "macos")]
     {
         /// Check if a macOS application is installed using `open -Ra`.
-        fn ensure_app_installed(app_name: &str) -> Result<()> {
+        fn ensure_app_installed(app_name: &str, terminal_id: &str, path: &str) -> Result<()> {
             let status = std::process::Command::new("open")
                 .arg("-Ra")
                 .arg(app_name)
@@ -166,7 +166,12 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
                 .status()
                 .context("Failed to run 'open -Ra' to check application availability")?;
             if !status.success() {
-                bail!("{app_name} was not found in Applications folder");
+                return Err(anyhow::anyhow!(
+                    "command: open_in_terminal\n\
+                     params: terminal=\"{terminal_id}\", path=\"{path}\"\n\n\
+                     '{app_name}' was not found."
+                )
+                .context(but_error::Code::DefaultTerminalNotFound));
             }
             Ok(())
         }
@@ -251,6 +256,23 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
         let path_str = canonical_path.to_str().context("Path contains invalid UTF-8")?;
         let cleaned_path = path_str.strip_prefix(r"\\?\").unwrap_or(path_str);
 
+        // Check if the terminal binary exists in PATH before attempting to launch.
+        let binary_found = Command::new("where")
+            .arg(&terminal_id)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !binary_found {
+            return Err(anyhow::anyhow!(
+                "command: open_in_terminal\n\
+                 params: terminal=\"{terminal_id}\", path=\"{cleaned_path}\"\n\n\
+                 '{terminal_id}' was not found."
+            )
+            .context(but_error::Code::DefaultTerminalNotFound));
+        }
+
         // CREATE_NEW_CONSOLE: Creates a new console for the process (0x00000010)
         // This allows the terminal to run independently without blocking our thread
         const CREATE_NEW_CONSOLE: u32 = 0x00000010;
@@ -262,7 +284,11 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
                 cmd.creation_flags(CREATE_NEW_CONSOLE);
                 // Windows Terminal detaches automatically, just check if it launches
                 cmd.spawn()
-                    .with_context(|| format!("Failed to launch Windows Terminal at '{}'", cleaned_path))?;
+                    .with_context(|| format!(
+                        "command: open_in_terminal\n\
+                         params: terminal=\"{terminal_id}\", path=\"{cleaned_path}\"\n\n\
+                         Failed to launch Windows Terminal at '{cleaned_path}'"
+                    ))?;
             }
             "powershell" => {
                 let mut cmd = Command::new("powershell");
@@ -271,7 +297,11 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
                 cmd.arg("-NoExit"); // Keep the window open
                 cmd.creation_flags(CREATE_NEW_CONSOLE);
                 cmd.spawn()
-                    .with_context(|| format!("Failed to launch PowerShell at '{}'", cleaned_path))?;
+                    .with_context(|| format!(
+                        "command: open_in_terminal\n\
+                         params: terminal=\"{terminal_id}\", path=\"{cleaned_path}\"\n\n\
+                         Failed to launch PowerShell at '{cleaned_path}'"
+                    ))?;
             }
             "cmd" => {
                 let mut cmd = Command::new("cmd");
@@ -280,7 +310,11 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
                 cmd.arg("/K"); // Keep the window open
                 cmd.creation_flags(CREATE_NEW_CONSOLE);
                 cmd.spawn()
-                    .with_context(|| format!("Failed to launch Command Prompt at '{}'", cleaned_path))?;
+                    .with_context(|| format!(
+                        "command: open_in_terminal\n\
+                         params: terminal=\"{terminal_id}\", path=\"{cleaned_path}\"\n\n\
+                         Failed to launch Command Prompt at '{cleaned_path}'"
+                    ))?;
             }
             _ => bail!("Unknown terminal: {}", terminal_id),
         };
@@ -288,6 +322,31 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
 
     #[cfg(target_os = "linux")]
     {
+        // Resolve the actual binary name (some terminals use a different binary than their ID)
+        let binary = match terminal_id.as_str() {
+            "warp" => "warp-terminal",
+            other => other,
+        };
+
+        // Check if the terminal binary exists in PATH before attempting to launch.
+        // This lets us give a clear error directing users to Settings, rather than
+        // a vague launch failure (which could be confused with path issues).
+        let binary_found = Command::new("which")
+            .arg(binary)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !binary_found {
+            return Err(anyhow::anyhow!(
+                "command: open_in_terminal\n\
+                 params: terminal=\"{terminal_id}\", path=\"{path}\"\n\n\
+                 '{binary}' was not found."
+            )
+            .context(but_error::Code::DefaultTerminalNotFound));
+        }
+
         // Most Linux terminal emulators follow a convention: they open in the current working
         // directory of the parent process. This means we can simply set current_dir() on the
         // Command instead of passing explicit --working-directory or --workdir flags.
