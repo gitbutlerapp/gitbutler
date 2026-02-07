@@ -379,7 +379,13 @@
 					{/snippet}
 
 					{#snippet changedFiles()}
-						{#if selected}
+						<!--
+							Based on anecdotal evidence the type for `items` seems incorrect. It's
+							likely that during some kind of unmount event items can become `undefined`
+							due to some subtle reactivity condition, causing `branchChanges` to be
+							called without a branch name.
+						-->
+						{#if selected && branchName}
 							{@const changesQuery = stackService.branchChanges({
 								projectId,
 								stackId,

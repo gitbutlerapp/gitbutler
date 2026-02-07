@@ -361,7 +361,11 @@
 
 		updateOffsets();
 		await tick();
-		viewport.scrollTop = calculateHeightSum(0, startingAt);
+
+		// Based on anecdotal evidence the type for `viewport` seems incorrect. It's likely
+		// that during some kind of unmount event it can become `undefined` due to a subtle
+		// reactivity condition.
+		if (viewport) viewport.scrollTop = calculateHeightSum(0, startingAt);
 	}
 
 	async function recalculateVisibleRange(): Promise<void> {
@@ -413,7 +417,10 @@
 	}
 
 	export async function jumpToIndex(index: number) {
-		if (index < 0 || index > items.length - 1) {
+		// Based on anecdotal evidence the type for `items` seems incorrect. It's likely
+		// that during some kind of unmount event it can become `undefined` due to
+		// some subtle reactivity condition.
+		if (!items || index < 0 || index > items.length - 1) {
 			return;
 		}
 		lastScrollDirection = undefined;
@@ -566,7 +573,7 @@
 					icon="arrow-down"
 					tooltip="Scroll to bottom"
 					onclick={() => {
-						if (items.length > 0) {
+						if (items && items.length > 0) {
 							initializeAt(items.length - 1);
 						}
 					}}
