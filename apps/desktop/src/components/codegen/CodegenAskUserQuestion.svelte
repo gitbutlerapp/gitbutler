@@ -139,14 +139,11 @@
 			}
 			if (Array.isArray(answer)) {
 				// Multi-select: replace '__other__' with the actual text
-				const resolvedAnswers = answer.map((a) =>
-					a === '__other__' ? (otherText[key] ?? '') : a
-				);
+				const resolvedAnswers = answer.map((a) => (a === '__other__' ? (otherText[key] ?? '') : a));
 				answers[question.question] = resolvedAnswers.join(', ');
 			} else {
 				// Single-select: replace '__other__' with the actual text
-				answers[question.question] =
-					answer === '__other__' ? (otherText[key] ?? '') : answer;
+				answers[question.question] = answer === '__other__' ? (otherText[key] ?? '') : answer;
 			}
 		}
 		await onSubmitAnswers(answers);
@@ -158,121 +155,121 @@
 		{#if currentQuestion}
 			{#key currentQuestionKey}
 				<div class="question">
-				<div class="question-header" class:stacked={isMultiStep}>
-					{#if isMultiStep}
-						<div class="flex gap-4">
-							<Badge kind="soft">{currentStep + 1}/{questions.length}</Badge>
+					<div class="question-header" class:stacked={isMultiStep}>
+						{#if isMultiStep}
+							<div class="flex gap-4">
+								<Badge kind="soft">{currentStep + 1}/{questions.length}</Badge>
+								<Badge kind="soft">{currentQuestion.header}</Badge>
+							</div>
+							<h3 class="text-13 text-bold text-body">{currentQuestion.question}</h3>
+						{:else}
 							<Badge kind="soft">{currentQuestion.header}</Badge>
-						</div>
-						<h3 class="text-13 text-bold text-body">{currentQuestion.question}</h3>
-					{:else}
-						<Badge kind="soft">{currentQuestion.header}</Badge>
-						<h3 class="text-13 text-bold text-body">{currentQuestion.question}</h3>
-					{/if}
-				</div>
+							<h3 class="text-13 text-bold text-body">{currentQuestion.question}</h3>
+						{/if}
+					</div>
 
-				<div class="question-options">
-					{#each currentQuestion.options as option (getOptionId(currentStep, option.label))}
-						{@const optionId = getOptionId(currentStep, option.label)}
+					<div class="question-options">
+						{#each currentQuestion.options as option (getOptionId(currentStep, option.label))}
+							{@const optionId = getOptionId(currentStep, option.label)}
+							<label
+								for={optionId}
+								class="option"
+								class:selected={isOptionSelected(currentQuestionKey, option.label)}
+								class:disabled={answered}
+							>
+								<div class="option__indicator">
+									{#if currentQuestion.multiSelect}
+										<Checkbox
+											id={optionId}
+											name={`question-${currentStep}`}
+											value={option.label}
+											small
+											disabled={answered}
+											checked={isOptionSelected(currentQuestionKey, option.label)}
+											onclick={() => {
+												if (answered) return;
+												activateOption(currentQuestionKey, option.label);
+											}}
+										/>
+									{:else}
+										<RadioButton
+											id={optionId}
+											name={`question-${currentStep}`}
+											value={option.label}
+											small
+											disabled={answered}
+											checked={isOptionSelected(currentQuestionKey, option.label)}
+											onchange={() => {
+												if (answered) return;
+												activateOption(currentQuestionKey, option.label);
+											}}
+										/>
+									{/if}
+								</div>
+
+								<div class="option__content">
+									<span class="option__label text-13 text-body">{option.label}</span>
+									<span class="option__description text-12 text-body">{option.description}</span>
+								</div>
+							</label>
+						{/each}
+
+						<!-- Other option -->
 						<label
-							for={optionId}
+							for={getOptionId(currentStep, 'other')}
 							class="option"
-							class:selected={isOptionSelected(currentQuestionKey, option.label)}
+							class:selected={isOtherSelected(currentQuestionKey)}
 							class:disabled={answered}
 						>
 							<div class="option__indicator">
 								{#if currentQuestion.multiSelect}
 									<Checkbox
-										id={optionId}
+										id={getOptionId(currentStep, 'other')}
 										name={`question-${currentStep}`}
-										value={option.label}
+										value="__other__"
 										small
 										disabled={answered}
-										checked={isOptionSelected(currentQuestionKey, option.label)}
+										checked={isOtherSelected(currentQuestionKey)}
 										onclick={() => {
 											if (answered) return;
-											activateOption(currentQuestionKey, option.label);
+											activateOption(currentQuestionKey, '__other__');
 										}}
 									/>
 								{:else}
 									<RadioButton
-										id={optionId}
+										id={getOptionId(currentStep, 'other')}
 										name={`question-${currentStep}`}
-										value={option.label}
+										value="__other__"
 										small
 										disabled={answered}
-										checked={isOptionSelected(currentQuestionKey, option.label)}
+										checked={isOtherSelected(currentQuestionKey)}
 										onchange={() => {
 											if (answered) return;
-											activateOption(currentQuestionKey, option.label);
+											activateOption(currentQuestionKey, '__other__');
 										}}
 									/>
 								{/if}
 							</div>
-
 							<div class="option__content">
-								<span class="option__label text-13 text-body">{option.label}</span>
-								<span class="option__description text-12 text-body">{option.description}</span>
+								<Textarea
+									flex="1"
+									unstyled
+									placeholder="Need something else? Describe it here..."
+									bind:value={otherText[currentQuestionKey]}
+									disabled={answered}
+									onfocus={() => {
+										if (answered) return;
+										activateOption(currentQuestionKey, '__other__');
+									}}
+								/>
 							</div>
 						</label>
-					{/each}
+					</div>
 
-					<!-- Other option -->
-					<label
-						for={getOptionId(currentStep, 'other')}
-						class="option"
-						class:selected={isOtherSelected(currentQuestionKey)}
-						class:disabled={answered}
-					>
-						<div class="option__indicator">
-							{#if currentQuestion.multiSelect}
-								<Checkbox
-									id={getOptionId(currentStep, 'other')}
-									name={`question-${currentStep}`}
-									value="__other__"
-									small
-									disabled={answered}
-									checked={isOtherSelected(currentQuestionKey)}
-									onclick={() => {
-										if (answered) return;
-										activateOption(currentQuestionKey, '__other__');
-									}}
-								/>
-							{:else}
-								<RadioButton
-									id={getOptionId(currentStep, 'other')}
-									name={`question-${currentStep}`}
-									value="__other__"
-									small
-									disabled={answered}
-									checked={isOtherSelected(currentQuestionKey)}
-									onchange={() => {
-										if (answered) return;
-										activateOption(currentQuestionKey, '__other__');
-									}}
-								/>
-							{/if}
-						</div>
-						<div class="option__content">
-							<Textarea
-								flex="1"
-								unstyled
-								placeholder="Need something else? Describe it here..."
-								bind:value={otherText[currentQuestionKey]}
-								disabled={answered}
-								onfocus={() => {
-									if (answered) return;
-									activateOption(currentQuestionKey, '__other__');
-								}}
-							/>
-						</div>
-					</label>
+					{#if currentQuestion.multiSelect}
+						<span class="question__hint text-11">Select one or more options</span>
+					{/if}
 				</div>
-
-				{#if currentQuestion.multiSelect}
-					<span class="question__hint text-11">Select one or more options</span>
-				{/if}
-			</div>
 			{/key}
 		{/if}
 	</div>
@@ -429,11 +426,6 @@
 
 	.option__description {
 		color: var(--clr-text-2);
-	}
-
-	.other-input {
-		margin-top: 4px;
-		margin-left: 26px;
 	}
 
 	.ask-user-question__actions {
