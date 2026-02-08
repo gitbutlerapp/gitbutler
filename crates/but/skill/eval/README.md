@@ -11,7 +11,7 @@ This directory implements Tier 4 testing from `../RESEARCH.md`: run a real Claud
 
 ## Prerequisites
 
-- Claude Code CLI is installed, up to date, and logged in (`claude` then `/login`)
+- Claude Code CLI is installed and up to date. For `auto`/`local`, log in (`claude` then `/login`). For `api`, provide `ANTHROPIC_API_KEY` (or `BUT_EVAL_ANTHROPIC_API_KEY`); login is not required.
 - Node.js version compatible with `promptfoo` engines (currently `^20.20.0 || >=22.22.0`; recommended: `lts/jod` from repo `.nvmrc`)
 - Rust toolchain installed
 - GitButler must be initialized in the test repo (`but setup`) before running commands. The harness enforces this for each fixture.

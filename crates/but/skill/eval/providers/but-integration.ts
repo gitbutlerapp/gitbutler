@@ -5,8 +5,6 @@ import { fileURLToPath } from "node:url";
 
 type ProviderConfig = {
   model?: string;
-  max_turns?: number;
-  max_budget_usd?: number;
   repo_root?: string;
   but_bin?: string;
   claude_bin?: string;
@@ -506,8 +504,6 @@ export default class ButIntegrationProvider {
     const claudeRunner = resolvePathInEvalDir(this.config.claude_runner ?? "providers/claude-local.sh");
     const authMode = this.config.auth_mode ?? process.env.BUT_EVAL_AUTH_MODE ?? "auto";
     const model = this.config.model ?? "claude-sonnet-4-5-20250929";
-    const maxTurns = this.config.max_turns ?? 25;
-    const maxBudgetUsd = this.config.max_budget_usd ?? 1.0;
     const allowedTools = this.config.allowed_tools ?? DEFAULT_ALLOWED_TOOLS;
 
     let fixtureDir: string | null = null;
@@ -559,8 +555,6 @@ export default class ButIntegrationProvider {
             BUT_EVAL_ALLOWED_TOOLS: allowedTools.join(","),
             BUT_EVAL_PERMISSION_MODE: "bypassPermissions",
             BUT_EVAL_APPEND_SYSTEM_PROMPT: buildPolicyPrompt(requirePullCheckBeforePull),
-            BUT_EVAL_MAX_TURNS: String(maxTurns),
-            BUT_EVAL_MAX_BUDGET_USD: String(maxBudgetUsd),
           },
         });
       } catch (error) {
@@ -640,7 +634,7 @@ export default class ButIntegrationProvider {
               reorderState = fromFirstMove;
             }
 
-            if (reorderState && !isDesiredReorder(reorderState)) {
+            if (!isDesiredReorder(reorderState)) {
               const freshFirstId = commitCliIdByMessage(reorderState, "reorder-test", "Add first.rs");
               const freshSecondId = commitCliIdByMessage(reorderState, "reorder-test", "Add second.rs");
               if (freshFirstId && freshSecondId) {
