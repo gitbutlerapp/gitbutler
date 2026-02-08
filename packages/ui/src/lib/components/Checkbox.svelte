@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	export interface Props {
+		id?: string;
 		name?: string;
 		small?: boolean;
 		disabled?: boolean;
@@ -19,6 +20,7 @@
 	let input = $state<HTMLInputElement>();
 
 	let {
+		id,
 		name,
 		small = false,
 		disabled = false,
@@ -102,7 +104,7 @@
 		type="checkbox"
 		class="checkbox-input"
 		{value}
-		id={name}
+		id={id ?? name}
 		{name}
 		{disabled}
 	/>
@@ -133,7 +135,8 @@
 		}
 
 		/* Unchecked states */
-		&:not(.checked):not(.disabled):hover {
+		&:not(.checked):not(.disabled):hover,
+		:global(label:hover) &:not(.checked):not(.disabled) {
 			box-shadow: inset 0 0 0 var(--border-width) var(--clr-border-1);
 
 			& .checkbox-checkmark {
@@ -156,7 +159,8 @@
 				opacity: 1;
 			}
 
-			&:hover {
+			&:hover,
+			:global(label:hover) & {
 				background-color: var(--hover-pop);
 				box-shadow: inset 0 0 0 var(--border-width) var(--hover-pop);
 			}

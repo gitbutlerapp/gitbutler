@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CodegenApprovalToolCall from '$components/codegen/CodegenApprovalToolCall.svelte';
-	import CodegenAskUserQuestion from '$components/codegen/CodegenAskUserQuestion.svelte';
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
 	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
@@ -18,19 +17,12 @@
 			decision: PermissionDecision,
 			useWildcard: boolean
 		) => Promise<void>;
-		onAnswerQuestion?: (answers: Record<string, string>) => Promise<void>;
 		toolCallExpandedState?: {
 			groups: Map<string, boolean>;
 			individual: Map<string, boolean>;
 		};
 	};
-	const {
-		projectId,
-		message,
-		onPermissionDecision,
-		onAnswerQuestion,
-		toolCallExpandedState
-	}: Props = $props();
+	const { projectId, message, onPermissionDecision, toolCallExpandedState }: Props = $props();
 
 	let expanded = $state(false);
 </script>
@@ -45,13 +37,23 @@
 			{/snippet}
 		</CodegenServiceMessage>
 	{:else if 'subtype' in message && message.subtype === 'askUserQuestion'}
-		<CodegenAskUserQuestion
-			questions={message.questions}
-			answered={message.answered}
-			onSubmitAnswers={async (answers) => {
-				await onAnswerQuestion?.(answers);
+		{#if message.answered}
+			{@const toolCall = {
+				name: 'AskUserQuestion',
+				id: message.toolUseId,
+				input: { questions: message.questions },
+				result: message.resultText ?? 'Answered',
+				requestAt: new Date(message.createdAt)
 			}}
-		/>
+			<CodegenToolCall
+				{projectId}
+				{toolCall}
+				toolCallKey={message.toolUseId}
+				{toolCallExpandedState}
+				firstInGroup={true}
+				lastInGroup={true}
+			/>
+		{/if}
 	{:else}
 		{#each message.contentBlocks as block, index}
 			{@const prevBlock = message.contentBlocks[index - 1]}

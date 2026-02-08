@@ -4,6 +4,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import AddedDirectories from '$components/codegen/AddedDirectories.svelte';
 	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
+	import CodegenAskUserQuestion from '$components/codegen/CodegenAskUserQuestion.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
@@ -118,6 +119,7 @@
 	let promptConfigModal = $state<CodegenPromptConfigModal>();
 	let virtualList = $state<VirtualList<Message>>();
 	let inputRef = $state<CodegenInput>();
+	let dismissedAskUserQuestions = $state<Record<string, boolean>>({});
 
 	// Track expanded state for tool calls by message createdAt timestamp
 	const toolCallExpandedState = {
@@ -264,6 +266,49 @@
 	}
 
 	const formattedMessages = $derived(formatMessages(events, permissionRequests, isStackActive));
+
+	$effect(() => {
+		const activeIds = new Set(
+			formattedMessages.flatMap((message) =>
+				message.source === 'claude' && 'subtype' in message && message.subtype === 'askUserQuestion'
+					? [message.toolUseId]
+					: []
+			)
+		);
+		let changed = false;
+		for (const id of Object.keys(dismissedAskUserQuestions)) {
+			if (!activeIds.has(id)) {
+				delete dismissedAskUserQuestions[id];
+				changed = true;
+			}
+		}
+		if (changed) {
+			dismissedAskUserQuestions = { ...dismissedAskUserQuestions };
+		}
+	});
+	const pendingAskUserQuestion = $derived.by(() => {
+		for (let i = formattedMessages.length - 1; i >= 0; i -= 1) {
+			const message = formattedMessages[i];
+			if (
+				message?.source === 'claude' &&
+				'subtype' in message &&
+				message.subtype === 'askUserQuestion' &&
+				!message.answered &&
+				!dismissedAskUserQuestions[message.toolUseId]
+			) {
+				return message;
+			}
+		}
+		return undefined;
+	});
+	const messagesForList = $derived.by(() =>
+		formattedMessages.filter((message) => {
+			if (message.source !== 'claude' || !('subtype' in message)) {
+				return true;
+			}
+			return message.subtype !== 'askUserQuestion' || message.answered;
+		})
+	);
 </script>
 
 <div class="chat" use:focusable={{ vertical: true }}>
@@ -457,7 +502,7 @@
 						grow
 						stickToBottom
 						showBottomButton
-						items={formattedMessages}
+						items={messagesForList}
 						visibility={$userSettings.scrollbarVisibilityState}
 						padding={{ left: 20, right: 20, top: 12, bottom: 12 }}
 						defaultHeight={65}
@@ -467,7 +512,6 @@
 								{projectId}
 								{message}
 								{onPermissionDecision}
-								{onAnswerQuestion}
 								{toolCallExpandedState}
 							/>
 						{/snippet}
@@ -477,7 +521,7 @@
 							{@const status = userFeedbackStatus(formattedMessages)}
 							{#if status.waitingForFeedback}
 								<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-							{:else}
+							{:else if !pendingAskUserQuestion}
 								<CodegenServiceMessageThinking
 									{startAt}
 									msSpentWaiting={status.msSpentWaiting}
@@ -509,81 +553,98 @@
 				{@const addedDirs = laneState.addedDirs.current}
 
 				<div class="dialog-wrapper">
-					<AddedDirectories
-						{addedDirs}
-						onRemoveDir={(dir) => {
-							laneState.addedDirs.remove(dir);
-						}}
-					/>
+					{#if pendingAskUserQuestion}
+						<CodegenAskUserQuestion
+							questions={pendingAskUserQuestion.questions}
+							answered={pendingAskUserQuestion.answered}
+							onSubmitAnswers={async (answers) => {
+								await onAnswerQuestion?.(answers);
+							}}
+							onCancel={async () => {
+								dismissedAskUserQuestions = {
+									...dismissedAskUserQuestions,
+									[pendingAskUserQuestion.toolUseId]: true
+								};
+								await onAbort?.();
+							}}
+						/>
+					{:else}
+						<AddedDirectories
+							{addedDirs}
+							onRemoveDir={(dir) => {
+								laneState.addedDirs.remove(dir);
+							}}
+						/>
 
-					<CodegenInput
-						bind:this={inputRef}
-						{projectId}
-						{stackId}
-						branchName={stableBranchName}
-						value={initialPrompt || ''}
-						loading={['running', 'compacting'].includes(status)}
-						compacting={status === 'compacting'}
-						{onChange}
-						onSubmit={async (prompt) => {
-							await onSubmit?.(prompt);
-							setTimeout(() => {
-								virtualList?.scrollToBottom();
-							}, 100);
-						}}
-						{onAbort}
-						onCancel={onclose}
-					>
-						{#snippet actionsOnLeft()}
-							{@const permissionModeLabel = permissionModeOptions.find(
-								(a) => a.value === selectedPermissionMode
-							)?.label}
+						<CodegenInput
+							bind:this={inputRef}
+							{projectId}
+							{stackId}
+							branchName={stableBranchName}
+							value={initialPrompt || ''}
+							loading={['running', 'compacting'].includes(status)}
+							compacting={status === 'compacting'}
+							{onChange}
+							onSubmit={async (prompt) => {
+								await onSubmit?.(prompt);
+								setTimeout(() => {
+									virtualList?.scrollToBottom();
+								}, 100);
+							}}
+							{onAbort}
+							onCancel={onclose}
+						>
+							{#snippet actionsOnLeft()}
+								{@const permissionModeLabel = permissionModeOptions.find(
+									(a) => a.value === selectedPermissionMode
+								)?.label}
 
-							<div class="flex m-right-4 gap-2">
-								<Button
-									bind:el={templateTrigger}
-									kind="ghost"
-									icon="script"
-									tooltip="Insert template"
-									onclick={(e) => templateContextMenu?.toggle(e)}
-								/>
-								<Button
-									bind:el={thinkingModeTrigger}
-									kind="ghost"
-									icon="thinking"
-									reversedDirection
-									onclick={() => thinkingModeContextMenu?.toggle()}
-									tooltip="Thinking mode"
-									children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
-								/>
-								<Button
-									bind:el={permissionModeTrigger}
-									kind="ghost"
-									icon={getPermissionModeIcon(selectedPermissionMode)}
-									shrinkable
-									onclick={() => permissionModeContextMenu?.toggle()}
-									tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
-										? 'Permission modes disable when all permissions are allowed'
-										: permissionModeLabel}
-									disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
-								/>
-							</div>
-						{/snippet}
+								<div class="flex m-right-4 gap-2">
+									<Button
+										bind:el={templateTrigger}
+										kind="ghost"
+										icon="script"
+										tooltip="Insert template"
+										onclick={(e) => templateContextMenu?.toggle(e)}
+									/>
+									<Button
+										bind:el={thinkingModeTrigger}
+										kind="ghost"
+										icon="thinking"
+										reversedDirection
+										onclick={() => thinkingModeContextMenu?.toggle()}
+										tooltip="Thinking mode"
+										children={selectedThinkingLevel === 'normal' ? undefined : thinkingBtnText}
+									/>
+									<Button
+										bind:el={permissionModeTrigger}
+										kind="ghost"
+										icon={getPermissionModeIcon(selectedPermissionMode)}
+										shrinkable
+										onclick={() => permissionModeContextMenu?.toggle()}
+										tooltip={$settingsService?.claude.dangerouslyAllowAllPermissions
+											? 'Permission modes disable when all permissions are allowed'
+											: permissionModeLabel}
+										disabled={$settingsService?.claude.dangerouslyAllowAllPermissions}
+									/>
+								</div>
+							{/snippet}
 
-						{#snippet actionsOnRight()}
-							{#if !claudeSettings?.useConfiguredModel}
-								<Button
-									bind:el={modelTrigger}
-									kind="ghost"
-									icon="chevron-down"
-									shrinkable
-									onclick={() => modelContextMenu?.toggle()}
-								>
-									{modelOptions.find((a) => a.value === selectedModel)?.label}
-								</Button>
-							{/if}
-						{/snippet}
-					</CodegenInput>
+							{#snippet actionsOnRight()}
+								{#if !claudeSettings?.useConfiguredModel}
+									<Button
+										bind:el={modelTrigger}
+										kind="ghost"
+										icon="chevron-down"
+										shrinkable
+										onclick={() => modelContextMenu?.toggle()}
+									>
+										{modelOptions.find((a) => a.value === selectedModel)?.label}
+									</Button>
+								{/if}
+							{/snippet}
+						</CodegenInput>
+					{/if}
 				</div>
 			{/if}
 		{/snippet}

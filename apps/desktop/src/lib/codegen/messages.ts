@@ -57,6 +57,8 @@ export type Message = { createdAt: string } &
 				questions: AskUserQuestion[];
 				/** Whether the question has been answered */
 				answered: boolean;
+				/** Optional tool result text when answered */
+				resultText?: string;
 		  }
 		| ({
 				source: 'system';
@@ -173,7 +175,8 @@ export function formatMessages(
 								subtype: 'askUserQuestion',
 								toolUseId: content.id,
 								questions: input.questions,
-								answered: false
+								answered: false,
+								resultText: undefined
 							};
 							out.push(askMessage);
 							askUserQuestionToolCalls[content.id] = askMessage;
@@ -234,6 +237,19 @@ export function formatMessages(
 						askMessage.subtype === 'askUserQuestion'
 					) {
 						askMessage.answered = true;
+						if (!isDefined(result.content)) {
+							askMessage.resultText = 'User answered the question';
+						} else if (typeof result.content === 'string') {
+							askMessage.resultText = result.content;
+						} else if (
+							Array.isArray(result.content) &&
+							result.content.length > 0 &&
+							result.content[0]!.type === 'text'
+						) {
+							askMessage.resultText = result.content[0]!.text;
+						} else {
+							askMessage.resultText = 'User answered the question';
+						}
 						continue;
 					}
 
@@ -245,8 +261,14 @@ export function formatMessages(
 						foundToolCall.result = 'Tool completed with no output';
 					} else if (typeof result.content === 'string') {
 						foundToolCall.result = result.content;
-					} else if (result.content[0]!.type === 'text') {
+					} else if (
+						Array.isArray(result.content) &&
+						result.content.length > 0 &&
+						result.content[0]!.type === 'text'
+					) {
 						foundToolCall.result = result.content[0]!.text;
+					} else {
+						foundToolCall.result = 'Tool completed with no output';
 					}
 				}
 			}
@@ -380,6 +402,16 @@ type UserFeedbackStatus =
 			waitingForFeedback: false;
 			msSpentWaiting: number;
 	  };
+
+export function hasPendingAskUserQuestion(messages: Message[]): boolean {
+	return messages.some(
+		(message) =>
+			message.source === 'claude' &&
+			'subtype' in message &&
+			message.subtype === 'askUserQuestion' &&
+			!message.answered
+	);
+}
 
 export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
 	const lastMessage = messages.filter((m) => m.source !== 'gitButler')?.at(-1);
