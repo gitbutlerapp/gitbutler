@@ -105,6 +105,10 @@ Do not run `git push`, even if `but push` reports nothing to push.
 - Prefer explicit IDs over file paths for mutations.
 - `--changes` is the safe default for precise commits.
 - Read-only git inspection is allowed (`git log`, `git blame`) when needed.
+- Keep skill version checks low-noise:
+  - Do not run `but skill check` as a routine preflight on every task.
+  - Run `but skill check` when command behavior appears to diverge from this skill (for example: unexpected unknown-flag errors, missing subcommands, or output shape mismatches), or when the user asks.
+  - If update is available, recommend `but skill check --update` (or run it if the user asked to update).
 - For deeper command syntax and flags, use `references/reference.md`.
 - For workspace model and dependency behavior, use `references/concepts.md`.
 - For end-to-end workflow patterns, use `references/examples.md`.
