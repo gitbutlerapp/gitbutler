@@ -40,19 +40,24 @@ pub struct OutputChannel {
 }
 
 /// A channel that implements [`std::io::Write`], to make unbuffered writes to [`std::io::stderr`]
-/// if the error channel is connected to a terminal, for providing progress or error information.
+/// if the error channel is connected to a terminal and the output format is for humans,
+/// for providing progress or error information.
 /// Broken pipes will also be ignored, thus the output written to this channel should be considered optional.
 pub struct ProgressChannel {
-    /// The channel writes will go to, if we are connected to a terminal.
+    /// The channel writes will go to, if we are connected to a terminal and output is for humans.
     inner: Option<std::io::Stderr>,
 }
 
-impl Default for ProgressChannel {
-    fn default() -> Self {
+impl ProgressChannel {
+    /// Create a new progress channel that writes to stderr if it's a terminal and `for_humans` is true.
+    /// If `for_humans` is false, the channel becomes a no-op.
+    pub fn new(for_humans: bool) -> Self {
         ProgressChannel {
-            inner: {
+            inner: if for_humans {
                 let stderr = std::io::stderr();
                 stderr.is_terminal().then_some(stderr)
+            } else {
+                None
             },
         }
     }
@@ -121,9 +126,10 @@ impl OutputChannel {
         matches!(self.format, OutputFormat::Json).then_some(self)
     }
 
-    /// A convenience function to create a progress channel, which doesn't have any relationship with this instance.
+    /// A convenience function to create a progress channel that only writes when the output is for humans.
+    /// The progress channel writes to stderr if it's a terminal and the output format is [`OutputFormat::Human`].
     pub fn progress_channel(&self) -> ProgressChannel {
-        ProgressChannel::default()
+        ProgressChannel::new(matches!(self.format, OutputFormat::Human))
     }
 }
 
