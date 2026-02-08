@@ -559,9 +559,9 @@ fn commit_changes_conflicts_with_only() -> anyhow::Result<()> {
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-error: the argument '--changes <CHANGES>...' cannot be used with '--only'
+error: the argument '--changes <CHANGES>' cannot be used with '--only'
 
-Usage: but commit --message <MESSAGE> --changes <CHANGES>... [BRANCH]
+Usage: but commit --message <MESSAGE> --changes <CHANGES> [BRANCH]
 
 For more information, try '--help'.
 
