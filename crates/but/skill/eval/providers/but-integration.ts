@@ -1,16 +1,17 @@
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { query, type HookInput, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
-
 type ProviderConfig = {
   model?: string;
-  max_turns?: number;
-  max_budget_usd?: number;
   repo_root?: string;
   but_bin?: string;
+  claude_bin?: string;
+  claude_runner?: string;
+  auth_mode?: "auto" | "local" | "api";
+  claude_timeout_ms?: number;
+  min_claude_version?: string;
   keep_fixtures?: boolean;
   allowed_tools?: string[];
 };
@@ -24,22 +25,14 @@ type CommandTrace = {
   failed: boolean;
 };
 
-type RepoCommit = {
-  cliId?: unknown;
-  message?: unknown;
-};
-
-type RepoBranch = {
-  name?: unknown;
-  commits?: unknown;
-};
-
-type RepoStack = {
-  branches?: unknown;
-};
-
-type RepoState = {
-  stacks?: unknown;
+type ResultMeta = {
+  text: string;
+  subtype: string | null;
+  isError: boolean;
+  costUsd: number | null;
+  turns: number | null;
+  durationMs: number | null;
+  error: string | null;
 };
 
 const DEFAULT_ALLOWED_TOOLS = [
@@ -54,66 +47,38 @@ const DEFAULT_ALLOWED_TOOLS = [
   "TodoWrite",
 ];
 
-const GIT_WRITE_COMMAND_RE =
-  /\bgit\s+(add|commit|push|merge|rebase|checkout|switch|stash|cherry-pick)\b/;
-const GIT_ANY_COMMAND_RE = /\bgit\s+/;
-const BUT_STATUS_RE = /^\s*but\s+status\b/;
-const BUT_AMEND_RE = /\bbut\s+amend\b/;
-const BUT_MOVE_RE = /\bbut\s+move\b/;
-const BUT_PULL_RE = /^\s*but\s+pull\b/;
+const BASH_TOOL_NAME = "Bash";
+const DEFAULT_CLAUDE_TIMEOUT_MS = 180_000;
+const DEFAULT_MIN_CLAUDE_VERSION = "1.0.88";
 
-function hasRequiredMutationFlags(command: string): boolean {
-  return command.includes("--json") && command.includes("--status-after");
-}
-
-function asRepoState(value: unknown): RepoState | null {
-  if (!value || typeof value !== "object") {
+function parsePositiveInt(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value !== "string") {
     return null;
   }
-  return value as RepoState;
-}
-
-function branchesFor(state: RepoState, branchName: string): RepoBranch[] {
-  if (!Array.isArray(state.stacks)) {
-    return [];
-  }
-  const branches: RepoBranch[] = [];
-  for (const stack of state.stacks as RepoStack[]) {
-    if (!Array.isArray(stack?.branches)) {
-      continue;
-    }
-    for (const branch of stack.branches as RepoBranch[]) {
-      if (branch?.name === branchName) {
-        branches.push(branch);
-      }
-    }
-  }
-  return branches;
-}
-
-function commitOrderMessages(state: RepoState, branchName: string): string[] {
-  const branch = branchesFor(state, branchName)[0];
-  if (!branch || !Array.isArray(branch.commits)) {
-    return [];
-  }
-  return (branch.commits as RepoCommit[]).map((commit) =>
-    typeof commit?.message === "string" ? commit.message : "",
-  );
-}
-
-function commitCliIdByMessage(state: RepoState, branchName: string, messageNeedle: string): string | null {
-  const branch = branchesFor(state, branchName)[0];
-  if (!branch || !Array.isArray(branch.commits)) {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
     return null;
   }
-  for (const commit of branch.commits as RepoCommit[]) {
-    const message = typeof commit?.message === "string" ? commit.message : "";
-    const cliId = typeof commit?.cliId === "string" ? commit.cliId : null;
-    if (cliId && message.includes(messageNeedle)) {
-      return cliId;
-    }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
   }
-  return null;
+  return parsed;
+}
+
+function resolveClaudeTimeoutMs(config: ProviderConfig): number {
+  const fromEnv = parsePositiveInt(process.env.BUT_EVAL_CLAUDE_TIMEOUT_MS);
+  if (fromEnv !== null) {
+    return fromEnv;
+  }
+  const fromConfig = parsePositiveInt(config.claude_timeout_ms);
+  if (fromConfig !== null) {
+    return fromConfig;
+  }
+  return DEFAULT_CLAUDE_TIMEOUT_MS;
 }
 
 function parseJson(input: string): unknown {
@@ -122,22 +87,6 @@ function parseJson(input: string): unknown {
   } catch {
     return null;
   }
-}
-
-function statusFromMutationOutput(output: string): RepoState | null {
-  const parsed = parseJson(output);
-  if (!parsed || typeof parsed !== "object") {
-    return null;
-  }
-  const maybeStatus = (parsed as { status?: unknown }).status;
-  return asRepoState(maybeStatus);
-}
-
-function isDesiredReorder(state: RepoState): boolean {
-  const messages = commitOrderMessages(state, "reorder-test");
-  const firstIndex = messages.findIndex((message) => message.includes("Add first.rs"));
-  const secondIndex = messages.findIndex((message) => message.includes("Add second.rs"));
-  return firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex;
 }
 
 function scriptDir(): string {
@@ -173,16 +122,242 @@ function toMessage(error: unknown): string {
   return String(error);
 }
 
-function asCommand(toolInput: unknown): string | null {
-  if (!toolInput || typeof toolInput !== "object") {
+function toStdout(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "";
+  }
+  const maybeStdOut = (error as { stdout?: string | Buffer }).stdout;
+  if (typeof maybeStdOut === "string") {
+    return maybeStdOut;
+  }
+  if (Buffer.isBuffer(maybeStdOut)) {
+    return maybeStdOut.toString("utf8");
+  }
+  return "";
+}
+
+function toStderr(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "";
+  }
+  const maybeStdErr = (error as { stderr?: string | Buffer }).stderr;
+  if (typeof maybeStdErr === "string") {
+    return maybeStdErr;
+  }
+  if (Buffer.isBuffer(maybeStdErr)) {
+    return maybeStdErr.toString("utf8");
+  }
+  return "";
+}
+
+function wasTimeout(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const maybeError = error as NodeJS.ErrnoException & { killed?: boolean; signal?: string | null };
+  if (maybeError.code === "ETIMEDOUT") {
+    return true;
+  }
+  if (maybeError.killed === true && maybeError.signal === "SIGTERM") {
+    return true;
+  }
+  return false;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
-  const maybe = toolInput as { command?: unknown };
-  if (typeof maybe.command !== "string") {
-    return null;
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function asNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asBoolean(value: unknown): boolean | null {
+  return typeof value === "boolean" ? value : null;
+}
+
+function parseJsonLines(output: string): unknown[] {
+  const events: unknown[] = [];
+  for (const line of output.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+      continue;
+    }
+    const parsed = parseJson(trimmed);
+    if (parsed) {
+      events.push(parsed);
+    }
   }
-  const command = maybe.command.trim();
-  return command.length > 0 ? command : null;
+  return events;
+}
+
+function pushCommand(traces: CommandTrace[], command: string, failed: boolean): void {
+  const normalized = command.trim();
+  if (normalized.length === 0) {
+    return;
+  }
+  const previous = traces[traces.length - 1];
+  if (previous && previous.command === normalized && previous.failed === failed) {
+    return;
+  }
+  traces.push({ command: normalized, failed });
+}
+
+function collectBashCommands(value: unknown, traces: CommandTrace[], inBash = false, failed = false): void {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectBashCommands(item, traces, inBash, failed);
+    }
+    return;
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return;
+  }
+
+  const type = asString(record.type);
+  const name = asString(record.name);
+  const toolName = asString(record.tool_name);
+  const nextInBash =
+    inBash ||
+    name === BASH_TOOL_NAME ||
+    toolName === BASH_TOOL_NAME ||
+    (type === "tool_use" && name === BASH_TOOL_NAME);
+
+  const isFailed =
+    failed ||
+    asBoolean(record.failed) === true ||
+    asBoolean(record.is_error) === true ||
+    asBoolean(record.success) === false ||
+    (!!record.error && record.error !== false);
+
+  const maybeCommand = asString(record.command);
+  if (nextInBash && maybeCommand) {
+    pushCommand(traces, maybeCommand, isFailed);
+  }
+
+  for (const nested of Object.values(record)) {
+    collectBashCommands(nested, traces, nextInBash, isFailed);
+  }
+}
+
+function extractCommandTrace(events: unknown[]): CommandTrace[] {
+  const traces: CommandTrace[] = [];
+  for (const event of events) {
+    collectBashCommands(event, traces);
+  }
+  return traces;
+}
+
+function textFromContent(value: unknown): string {
+  if (!Array.isArray(value)) {
+    return "";
+  }
+
+  const pieces: string[] = [];
+  for (const block of value) {
+    const record = asRecord(block);
+    if (!record) {
+      continue;
+    }
+    if (record.type === "text" && typeof record.text === "string") {
+      pieces.push(record.text);
+    }
+  }
+  return pieces.join("\n").trim();
+}
+
+function extractResultMeta(events: unknown[]): ResultMeta {
+  let text = "";
+  let subtype: string | null = null;
+  let isError = false;
+  let costUsd: number | null = null;
+  let turns: number | null = null;
+  let durationMs: number | null = null;
+  let error: string | null = null;
+  let lastAssistantText = "";
+
+  for (const event of events) {
+    const record = asRecord(event);
+    if (!record) {
+      continue;
+    }
+
+    const recordType = asString(record.type);
+
+    const messageRecord = asRecord(record.message);
+    if (recordType === "assistant" && messageRecord) {
+      const assistantText = textFromContent(messageRecord.content);
+      if (assistantText.length > 0) {
+        lastAssistantText = assistantText;
+      }
+    }
+
+    const looksLikeResult =
+      recordType === "result" ||
+      "result" in record ||
+      "subtype" in record ||
+      "num_turns" in record ||
+      "duration_ms" in record;
+
+    if (!looksLikeResult) {
+      continue;
+    }
+
+    const nextText = asString(record.result);
+    const nextSubtype = asString(record.subtype);
+    const nextIsError = asBoolean(record.is_error);
+    const nextError = asString(record.error);
+
+    if (nextText !== null) {
+      text = nextText;
+    }
+    if (nextSubtype !== null) {
+      subtype = nextSubtype;
+    }
+    if (nextIsError !== null) {
+      isError = nextIsError;
+    }
+    if (nextError !== null && nextError.trim().length > 0) {
+      error = nextError;
+    }
+
+    const nextCost = asNumber(record.total_cost_usd);
+    const nextTurns = asNumber(record.num_turns);
+    const nextDuration = asNumber(record.duration_ms);
+
+    if (nextCost !== null) {
+      costUsd = nextCost;
+    }
+    if (nextTurns !== null) {
+      turns = nextTurns;
+    }
+    if (nextDuration !== null) {
+      durationMs = nextDuration;
+    }
+  }
+
+  if (text.length === 0 && lastAssistantText.length > 0) {
+    text = lastAssistantText;
+  }
+
+  return {
+    text,
+    subtype,
+    isError,
+    costUsd,
+    turns,
+    durationMs,
+    error,
+  };
 }
 
 function stringEnv(overrides?: Record<string, string>): Record<string, string> {
@@ -215,6 +390,26 @@ function ensureGitButlerSetup(butBin: string, fixtureDir: string, env: Record<st
       `Fixture is not initialized for GitButler. Run 'but setup' before testing in this repo. ${toMessage(error)}`,
     );
   }
+}
+
+function resolvePathInEvalDir(candidatePath: string): string {
+  if (path.isAbsolute(candidatePath)) {
+    return candidatePath;
+  }
+  return path.resolve(evalDir(), candidatePath);
+}
+
+function buildPolicyPrompt(requirePullCheckBeforePull: boolean): string {
+  const lines = [
+    "Use GitButler commands instead of raw git commands for workflow changes.",
+    "Use `but status --json` when checking status.",
+    "For mutation commands (`but commit`, `but amend`, `but move`, `but pull` updates), include `--json --status-after`.",
+    "For pull checks, use `but pull --check --json`.",
+  ];
+  if (requirePullCheckBeforePull) {
+    lines.push("This task explicitly asks for mergeability check before updating; run `but pull --check --json` before `but pull --json --status-after`.");
+  }
+  return lines.join("\n");
 }
 
 export default class ButIntegrationProvider {
@@ -265,10 +460,14 @@ export default class ButIntegrationProvider {
   async callApi(prompt: string, context?: PromptfooContext): Promise<{ output: string }> {
     const repoRoot = this.config.repo_root ?? fallbackRepoRoot();
     const butBin = this.config.but_bin ?? path.join(repoRoot, "target/debug/but");
-    const model = this.config.model ?? "claude-sonnet-4-5-20250929";
-    const maxTurns = this.config.max_turns ?? 25;
-    const maxBudgetUsd = this.config.max_budget_usd ?? 1.0;
+    const claudeBin = process.env.BUT_EVAL_CLAUDE_BIN ?? this.config.claude_bin ?? "claude";
+    const claudeRunner = resolvePathInEvalDir(this.config.claude_runner ?? "providers/claude-local.sh");
+    const authMode = this.config.auth_mode ?? process.env.BUT_EVAL_AUTH_MODE ?? "auto";
+    const model = process.env.BUT_EVAL_MODEL ?? this.config.model ?? "claude-sonnet-4-5-20250929";
     const allowedTools = this.config.allowed_tools ?? DEFAULT_ALLOWED_TOOLS;
+    const claudeTimeoutMs = resolveClaudeTimeoutMs(this.config);
+    const minClaudeVersion =
+      process.env.BUT_EVAL_MIN_CLAUDE_VERSION ?? this.config.min_claude_version ?? DEFAULT_MIN_CLAUDE_VERSION;
 
     let fixtureDir: string | null = null;
     const commands: CommandTrace[] = [];
@@ -282,6 +481,10 @@ export default class ButIntegrationProvider {
     let resultErrorMessage: string | null = null;
 
     try {
+      if (!fs.existsSync(claudeRunner)) {
+        throw new Error(`Claude runner script not found: ${claudeRunner}`);
+      }
+
       fixtureDir = this.createFixture(repoRoot, butBin);
       const appDataDir = path.join(fixtureDir, ".but-data");
       const env = withButOnPath(stringEnv({ E2E_TEST_APP_DATA_DIR: appDataDir }), butBin);
@@ -297,179 +500,56 @@ export default class ButIntegrationProvider {
       const requirePullCheckBeforePull =
         /\bcheck\b[\s\S]*\bmerge cleanly\b[\s\S]*\bupdate\b/i.test(taskPrompt) ||
         /\bmerge cleanly\b[\s\S]*\bthen\b[\s\S]*\bupdate\b/i.test(taskPrompt);
-      let sawPullCheck = false;
 
-      const captureBash = async (input: HookInput) => {
-        if (!("tool_name" in input) || input.tool_name !== "Bash") {
-          return { continue: true };
-        }
-        const command = asCommand(input.tool_input);
-        if (command) {
-          commands.push({ command, failed: false });
-        }
-        return { continue: true };
-      };
+      let rawClaudeOutput = "";
+      let cliRunError: string | null = null;
 
-      const captureFailedBash = async (input: HookInput) => {
-        if (!("tool_name" in input) || input.tool_name !== "Bash") {
-          return { continue: true };
-        }
-        const command = asCommand(input.tool_input);
-        if (command) {
-          commands.push({ command, failed: true });
-        }
-        return { continue: true };
-      };
-
-      const enforceCommandPolicy = async (input: HookInput) => {
-        if (!("tool_name" in input) || input.tool_name !== "Bash") {
-          return { continue: true };
-        }
-        const command = asCommand(input.tool_input);
-        if (!command) {
-          return { continue: true };
-        }
-
-        if (GIT_WRITE_COMMAND_RE.test(command)) {
-          return {
-            continue: false,
-            decision: "block" as const,
-            reason:
-              "Use GitButler commands (`but commit`, `but push`, `but move`, `but amend`) instead of raw git write commands.",
-            hookSpecificOutput: {
-              hookEventName: "PreToolUse" as const,
-              permissionDecision: "deny" as const,
-              permissionDecisionReason:
-                "Raw git writes are blocked in this eval. Use equivalent `but` commands.",
-            },
-          };
-        }
-
-        // Keep eval traces focused on GitButler semantics and avoid drifting to git-only mental models.
-        if (GIT_ANY_COMMAND_RE.test(command)) {
-          return {
-            continue: false,
-            decision: "block" as const,
-            reason:
-              "Use `but status --json`, `but show --json`, or `but diff` instead of raw git commands in this eval.",
-            hookSpecificOutput: {
-              hookEventName: "PreToolUse" as const,
-              permissionDecision: "deny" as const,
-              permissionDecisionReason:
-                "Raw git commands are blocked in this eval to enforce GitButler-native workflows.",
-            },
-          };
-        }
-
-        if (BUT_STATUS_RE.test(command) && !command.includes("--json")) {
-          return {
-            continue: false,
-            decision: "block" as const,
-            reason: "Use `but status --json`.",
-            hookSpecificOutput: {
-              hookEventName: "PreToolUse" as const,
-              permissionDecision: "deny" as const,
-              permissionDecisionReason: "Use JSON status output in this eval.",
-            },
-          };
-        }
-
-        if ((BUT_AMEND_RE.test(command) || BUT_MOVE_RE.test(command)) && !hasRequiredMutationFlags(command)) {
-          return {
-            continue: false,
-            decision: "block" as const,
-            reason: "Mutation commands must include `--json --status-after` in this eval.",
-            hookSpecificOutput: {
-              hookEventName: "PreToolUse" as const,
-              permissionDecision: "deny" as const,
-              permissionDecisionReason:
-                "Add `--json --status-after` to mutation commands (`but amend`, `but move`).",
-            },
-          };
-        }
-
-        if (BUT_PULL_RE.test(command)) {
-          const isCheck = /\s--check(\s|$)/.test(command);
-          const hasJson = command.includes("--json");
-          if (!hasJson) {
-            return {
-              continue: false,
-              decision: "block" as const,
-              reason: "Use JSON mode for pull commands (`but pull --check --json` or `but pull --json --status-after`).",
-              hookSpecificOutput: {
-                hookEventName: "PreToolUse" as const,
-                permissionDecision: "deny" as const,
-                permissionDecisionReason: "Pull commands in this eval must include `--json`.",
-              },
-            };
-          }
-
-          if (isCheck) {
-            sawPullCheck = true;
-            return { continue: true };
-          }
-
-          if (requirePullCheckBeforePull && !sawPullCheck) {
-            return {
-              continue: false,
-              decision: "block" as const,
-              reason:
-                "This task asks to check mergeability before updating. Run `but pull --check --json` first.",
-              hookSpecificOutput: {
-                hookEventName: "PreToolUse" as const,
-                permissionDecision: "deny" as const,
-                permissionDecisionReason:
-                  "Run `but pull --check --json` before `but pull --json --status-after` for this scenario.",
-              },
-            };
-          }
-
-          if (!command.includes("--status-after")) {
-            return {
-              continue: false,
-              decision: "block" as const,
-              reason: "Use `but pull --json --status-after` for update steps in this eval.",
-              hookSpecificOutput: {
-                hookEventName: "PreToolUse" as const,
-                permissionDecision: "deny" as const,
-                permissionDecisionReason: "Update pull command must include `--status-after`.",
-              },
-            };
-          }
-        }
-
-        return { continue: true };
-      };
-
-      for await (const message of query({
-        prompt: taskPrompt,
-        options: {
-          model,
+      try {
+        rawClaudeOutput = execFileSync("bash", [claudeRunner], {
           cwd: fixtureDir,
-          permissionMode: "bypassPermissions",
-          allowDangerouslySkipPermissions: true,
-          settingSources: ["project", "local"],
-          allowedTools,
-          maxTurns,
-          maxBudgetUsd,
-          env,
-          hooks: {
-            PreToolUse: [{ matcher: "Bash", hooks: [enforceCommandPolicy] }],
-            PostToolUse: [{ matcher: "Bash", hooks: [captureBash] }],
-            PostToolUseFailure: [{ matcher: "Bash", hooks: [captureFailedBash] }],
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: claudeTimeoutMs,
+          env: {
+            ...env,
+            BUT_EVAL_CLAUDE_BIN: claudeBin,
+            BUT_EVAL_MODEL: model,
+            BUT_EVAL_AUTH_MODE: authMode,
+            BUT_EVAL_PROMPT: taskPrompt,
+            BUT_EVAL_ALLOWED_TOOLS: allowedTools.join(","),
+            BUT_EVAL_PERMISSION_MODE: "bypassPermissions",
+            BUT_EVAL_APPEND_SYSTEM_PROMPT: buildPolicyPrompt(requirePullCheckBeforePull),
+            BUT_EVAL_MIN_CLAUDE_VERSION: minClaudeVersion,
           },
-        },
-      })) {
-        if (message.type === "result") {
-          const data: SDKResultMessage = message;
-          resultText = data.subtype === "success" ? data.result : "";
-          resultSubtype = data.subtype;
-          resultIsError = data.is_error;
-          resultCostUsd = data.total_cost_usd;
-          resultTurns = data.num_turns;
-          resultDurationMs = data.duration_ms;
-          resultErrorMessage = data.subtype === "success" ? null : data.errors.join("\n");
+        });
+      } catch (error) {
+        const stdout = toStdout(error);
+        const stderr = toStderr(error);
+        rawClaudeOutput = `${stdout}${stdout && stderr ? "\n" : ""}${stderr}`;
+        if (wasTimeout(error)) {
+          cliRunError = `Claude runner timed out after ${claudeTimeoutMs}ms.`;
+        } else {
+          cliRunError = toMessage(error);
         }
+      }
+
+      const events = parseJsonLines(rawClaudeOutput);
+      const capturedCommands = extractCommandTrace(events);
+      commands.push(...capturedCommands);
+
+      const meta = extractResultMeta(events);
+      resultText = meta.text;
+      resultSubtype = meta.subtype;
+      resultIsError = meta.isError;
+      resultCostUsd = meta.costUsd;
+      resultTurns = meta.turns;
+      resultDurationMs = meta.durationMs;
+      resultErrorMessage = meta.error;
+
+      if (cliRunError) {
+        resultIsError = true;
+        resultSubtype = resultSubtype ?? "error";
+        resultErrorMessage = resultErrorMessage ? `${resultErrorMessage}\n${cliRunError}` : cliRunError;
       }
 
       let repoState: unknown = null;
@@ -483,68 +563,6 @@ export default class ButIntegrationProvider {
         );
       } catch (error) {
         repoStateError = toMessage(error);
-      }
-
-      const isReorderPrompt = taskPrompt.includes("Reorder commits on branch reorder-test");
-      const hasFlaggedMove = commands.some(
-        (entry) =>
-          entry.failed !== true &&
-          /\bbut (move|rub)\b/.test(entry.command) &&
-          hasRequiredMutationFlags(entry.command),
-      );
-
-      if (isReorderPrompt) {
-        const runBut = (args: string[], displayCommand: string): string | null => {
-          try {
-            const stdout = execFileSync(butBin, ["-C", fixtureDir!, ...args], {
-              encoding: "utf8",
-              env,
-            });
-            commands.push({ command: displayCommand, failed: false });
-            return stdout;
-          } catch {
-            commands.push({ command: displayCommand, failed: true });
-            return null;
-          }
-        };
-
-        const statusOut = runBut(["status", "--json"], "but status --json");
-        let reorderState = asRepoState(statusOut ? parseJson(statusOut) : repoState);
-
-        if (reorderState && (!hasFlaggedMove || !isDesiredReorder(reorderState))) {
-          const firstId = commitCliIdByMessage(reorderState, "reorder-test", "Add first.rs");
-          const secondId = commitCliIdByMessage(reorderState, "reorder-test", "Add second.rs");
-
-          if (firstId && secondId) {
-            const firstMoveCmd = `but move ${firstId} ${secondId} --json --status-after`;
-            const firstMoveOut = runBut(["move", firstId, secondId, "--json", "--status-after"], firstMoveCmd);
-            const fromFirstMove = firstMoveOut ? statusFromMutationOutput(firstMoveOut) : null;
-            if (fromFirstMove) {
-              reorderState = fromFirstMove;
-            }
-
-            if (reorderState && !isDesiredReorder(reorderState)) {
-              const freshFirstId = commitCliIdByMessage(reorderState, "reorder-test", "Add first.rs");
-              const freshSecondId = commitCliIdByMessage(reorderState, "reorder-test", "Add second.rs");
-              if (freshFirstId && freshSecondId) {
-                const secondMoveCmd = `but move ${freshSecondId} ${freshFirstId} --json --status-after`;
-                const secondMoveOut = runBut(
-                  ["move", freshSecondId, freshFirstId, "--json", "--status-after"],
-                  secondMoveCmd,
-                );
-                const fromSecondMove = secondMoveOut ? statusFromMutationOutput(secondMoveOut) : null;
-                if (fromSecondMove) {
-                  reorderState = fromSecondMove;
-                }
-              }
-            }
-          }
-        }
-
-        if (reorderState) {
-          repoState = reorderState;
-          repoStateError = null;
-        }
       }
 
       return {

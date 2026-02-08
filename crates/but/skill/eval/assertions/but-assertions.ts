@@ -275,8 +275,8 @@ export function conflictResolveFlow(output: unknown): boolean {
   const enterHasFlags = enterCmd.includes("--json") && enterCmd.includes("--status-after");
   const finishHasFlags = finishCmd.includes("--json") && finishCmd.includes("--status-after");
   const finishOrderingOk = finishIndex < 0 || finishIndex > statusIndex;
-  const enterShapeOk = enterHasFlags || enterCmd.length > 0;
-  const finishShapeOk = finishIndex < 0 || finishHasFlags || finishCmd.length > 0;
+  const enterShapeOk = enterHasFlags;
+  const finishShapeOk = finishIndex < 0 || finishHasFlags;
   const canceled = attempted.some((cmd) => /\bbut resolve cancel\b/.test(cmd));
 
   return (

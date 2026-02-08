@@ -6,9 +6,11 @@ prompts:
 providers:
   - id: file://dist/providers/but-integration.js
     config:
+      claude_runner: "providers/claude-local.sh"
+      claude_bin: "claude"
       model: "claude-sonnet-4-5-20250929"
-      max_turns: 25
-      max_budget_usd: 1.0
+      claude_timeout_ms: 180000
+      min_claude_version: "1.0.88"
       keep_fixtures: false
 
 defaultTest:
