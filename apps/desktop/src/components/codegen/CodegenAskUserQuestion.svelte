@@ -186,7 +186,7 @@
 											small
 											disabled={answered}
 											checked={isOptionSelected(currentQuestionKey, option.label)}
-											onclick={() => {
+											onchange={() => {
 												if (answered) return;
 												activateOption(currentQuestionKey, option.label);
 											}}
@@ -230,7 +230,7 @@
 										small
 										disabled={answered}
 										checked={isOtherSelected(currentQuestionKey)}
-										onclick={() => {
+										onchange={() => {
 											if (answered) return;
 											activateOption(currentQuestionKey, '__other__');
 										}}
