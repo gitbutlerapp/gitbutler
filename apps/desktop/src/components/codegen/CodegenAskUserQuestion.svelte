@@ -10,7 +10,7 @@
 	};
 	const { questions, answered = false, onSubmitAnswers, onCancel }: Props = $props();
 
-	// Track selected answers for each question (keyed by question text)
+	// Track selected answers for each question (keyed by question index + text)
 	// For single-select: string (the label or 'other')
 	// For multi-select: string[] (array of labels, may include 'other')
 	let selectedAnswers = $state<Record<string, string | string[]>>({});
@@ -19,17 +19,22 @@
 	let otherText = $state<Record<string, string>>({});
 	let currentStep = $state(0);
 
+	function getQuestionKey(questionIndex: number, questionText: string): string {
+		return `${questionIndex}:${questionText}`;
+	}
+
 	// Initialize answers only once when questions change, preserving existing selections
 	$effect(() => {
-		const questionKeys = new Set(questions.map((q) => q.question));
+		const questionKeys = new Set(questions.map((q, index) => getQuestionKey(index, q.question)));
 
 		// Initialize new questions, preserve existing answers
-		for (const q of questions) {
-			if (!(q.question in selectedAnswers)) {
-				selectedAnswers[q.question] = q.multiSelect ? [] : '';
+		for (const [index, q] of questions.entries()) {
+			const key = getQuestionKey(index, q.question);
+			if (!(key in selectedAnswers)) {
+				selectedAnswers[key] = q.multiSelect ? [] : '';
 			}
-			if (!(q.question in otherText)) {
-				otherText[q.question] = '';
+			if (!(key in otherText)) {
+				otherText[key] = '';
 			}
 		}
 
@@ -48,14 +53,18 @@
 
 	const isMultiStep = $derived(questions.length > 1);
 	const currentQuestion = $derived(questions[currentStep]);
+	const currentQuestionKey = $derived(
+		currentQuestion ? getQuestionKey(currentStep, currentQuestion.question) : ''
+	);
 
-	function isQuestionAnswered(question: AskUserQuestion): boolean {
-		const answer = selectedAnswers[question.question];
+	function isQuestionAnswered(question: AskUserQuestion, questionIndex: number): boolean {
+		const key = getQuestionKey(questionIndex, question.question);
+		const answer = selectedAnswers[key];
 		if (!answer || (Array.isArray(answer) && answer.length === 0)) {
 			return false;
 		}
-		if (isOtherSelected(question.question)) {
-			const text = otherText[question.question];
+		if (isOtherSelected(key)) {
+			const text = otherText[key];
 			if (!text || text.trim() === '') {
 				return false;
 			}
@@ -63,38 +72,38 @@
 		return true;
 	}
 
-	function toggleMultiSelectOption(question: string, label: string) {
-		const current = selectedAnswers[question];
+	function toggleMultiSelectOption(questionKey: string, label: string) {
+		const current = selectedAnswers[questionKey];
 		if (Array.isArray(current)) {
 			if (current.includes(label)) {
-				selectedAnswers[question] = current.filter((l) => l !== label);
+				selectedAnswers[questionKey] = current.filter((l) => l !== label);
 			} else {
-				selectedAnswers[question] = [...current, label];
+				selectedAnswers[questionKey] = [...current, label];
 			}
 		}
 	}
 
-	function selectSingleOption(question: string, label: string) {
-		selectedAnswers[question] = label;
+	function selectSingleOption(questionKey: string, label: string) {
+		selectedAnswers[questionKey] = label;
 	}
 
-	function isOptionSelected(question: string, label: string): boolean {
-		const current = selectedAnswers[question];
+	function isOptionSelected(questionKey: string, label: string): boolean {
+		const current = selectedAnswers[questionKey];
 		if (Array.isArray(current)) {
 			return current.includes(label);
 		}
 		return current === label;
 	}
 
-	function isOtherSelected(question: string): boolean {
-		return isOptionSelected(question, '__other__');
+	function isOtherSelected(questionKey: string): boolean {
+		return isOptionSelected(questionKey, '__other__');
 	}
 
-	function activateOption(question: string, label: string) {
+	function activateOption(questionKey: string, label: string) {
 		if (currentQuestion?.multiSelect) {
-			toggleMultiSelectOption(question, label);
+			toggleMultiSelectOption(questionKey, label);
 		} else {
-			selectSingleOption(question, label);
+			selectSingleOption(questionKey, label);
 		}
 	}
 
@@ -104,8 +113,8 @@
 
 	// Check if all questions have been answered
 	const allAnswered = $derived.by(() => {
-		for (const q of questions) {
-			if (!isQuestionAnswered(q)) {
+		for (const [index, q] of questions.entries()) {
+			if (!isQuestionAnswered(q, index)) {
 				return false;
 			}
 		}
@@ -114,7 +123,7 @@
 
 	const currentQuestionAnswered = $derived.by(() => {
 		if (!currentQuestion) return false;
-		return isQuestionAnswered(currentQuestion);
+		return isQuestionAnswered(currentQuestion, currentStep);
 	});
 
 	async function handleSubmit() {
@@ -122,16 +131,22 @@
 
 		// Convert answers to the expected format
 		const answers: Record<string, string> = {};
-		for (const [question, answer] of Object.entries(selectedAnswers)) {
+		for (const [index, question] of questions.entries()) {
+			const key = getQuestionKey(index, question.question);
+			const answer = selectedAnswers[key];
+			if (!answer) {
+				continue;
+			}
 			if (Array.isArray(answer)) {
 				// Multi-select: replace '__other__' with the actual text
 				const resolvedAnswers = answer.map((a) =>
-					a === '__other__' ? (otherText[question] ?? '') : a
+					a === '__other__' ? (otherText[key] ?? '') : a
 				);
-				answers[question] = resolvedAnswers.join(', ');
+				answers[question.question] = resolvedAnswers.join(', ');
 			} else {
 				// Single-select: replace '__other__' with the actual text
-				answers[question] = answer === '__other__' ? (otherText[question] ?? '') : answer;
+				answers[question.question] =
+					answer === '__other__' ? (otherText[key] ?? '') : answer;
 			}
 		}
 		await onSubmitAnswers(answers);
@@ -141,7 +156,8 @@
 <div class="ask-user-question">
 	<div class="ask-user-question__questions">
 		{#if currentQuestion}
-			<div class="question">
+			{#key currentQuestionKey}
+				<div class="question">
 				<div class="question-header" class:stacked={isMultiStep}>
 					{#if isMultiStep}
 						<div class="flex gap-4">
@@ -156,12 +172,12 @@
 				</div>
 
 				<div class="question-options">
-					{#each currentQuestion.options as option}
+					{#each currentQuestion.options as option (getOptionId(currentStep, option.label))}
 						{@const optionId = getOptionId(currentStep, option.label)}
 						<label
 							for={optionId}
 							class="option"
-							class:selected={isOptionSelected(currentQuestion.question, option.label)}
+							class:selected={isOptionSelected(currentQuestionKey, option.label)}
 							class:disabled={answered}
 						>
 							<div class="option__indicator">
@@ -172,10 +188,10 @@
 										value={option.label}
 										small
 										disabled={answered}
-										checked={isOptionSelected(currentQuestion.question, option.label)}
+										checked={isOptionSelected(currentQuestionKey, option.label)}
 										onclick={() => {
 											if (answered) return;
-											activateOption(currentQuestion.question, option.label);
+											activateOption(currentQuestionKey, option.label);
 										}}
 									/>
 								{:else}
@@ -185,10 +201,10 @@
 										value={option.label}
 										small
 										disabled={answered}
-										checked={isOptionSelected(currentQuestion.question, option.label)}
+										checked={isOptionSelected(currentQuestionKey, option.label)}
 										onchange={() => {
 											if (answered) return;
-											activateOption(currentQuestion.question, option.label);
+											activateOption(currentQuestionKey, option.label);
 										}}
 									/>
 								{/if}
@@ -205,7 +221,7 @@
 					<label
 						for={getOptionId(currentStep, 'other')}
 						class="option"
-						class:selected={isOtherSelected(currentQuestion.question)}
+						class:selected={isOtherSelected(currentQuestionKey)}
 						class:disabled={answered}
 					>
 						<div class="option__indicator">
@@ -216,10 +232,10 @@
 									value="__other__"
 									small
 									disabled={answered}
-									checked={isOtherSelected(currentQuestion.question)}
+									checked={isOtherSelected(currentQuestionKey)}
 									onclick={() => {
 										if (answered) return;
-										activateOption(currentQuestion.question, '__other__');
+										activateOption(currentQuestionKey, '__other__');
 									}}
 								/>
 							{:else}
@@ -229,10 +245,10 @@
 									value="__other__"
 									small
 									disabled={answered}
-									checked={isOtherSelected(currentQuestion.question)}
+									checked={isOtherSelected(currentQuestionKey)}
 									onchange={() => {
 										if (answered) return;
-										activateOption(currentQuestion.question, '__other__');
+										activateOption(currentQuestionKey, '__other__');
 									}}
 								/>
 							{/if}
@@ -242,11 +258,11 @@
 								flex="1"
 								unstyled
 								placeholder="Need something else? Describe it here..."
-								bind:value={otherText[currentQuestion.question]}
+								bind:value={otherText[currentQuestionKey]}
 								disabled={answered}
 								onfocus={() => {
 									if (answered) return;
-									activateOption(currentQuestion.question, '__other__');
+									activateOption(currentQuestionKey, '__other__');
 								}}
 							/>
 						</div>
@@ -257,6 +273,7 @@
 					<span class="question__hint text-11">Select one or more options</span>
 				{/if}
 			</div>
+			{/key}
 		{/if}
 	</div>
 
