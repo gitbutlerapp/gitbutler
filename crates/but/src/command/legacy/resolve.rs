@@ -526,7 +526,10 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
     // Find the bottom-most commit (first in topological order) on the first branch
     let default_commit = all_commits.first();
 
-    if let Some(default) = default_commit {
+    // Interactive prompting only for human output mode with terminal
+    if out.can_prompt()
+        && let Some(default) = default_commit
+    {
         write!(
             progress,
             "Enter commit ID to resolve [default: {}]: ",
