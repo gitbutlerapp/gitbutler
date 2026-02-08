@@ -104,7 +104,7 @@
 		type="checkbox"
 		class="checkbox-input"
 		{value}
-		{id}
+		id={id ?? name}
 		{name}
 		{disabled}
 	/>
