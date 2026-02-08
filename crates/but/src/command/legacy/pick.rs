@@ -26,6 +26,19 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, source: &str, target_b
         bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
     }
 
+    // If no target branch was specified, resolve it once upfront so the user
+    // isn't prompted repeatedly when picking multiple commits.
+    let target_branch_resolved: Option<String>;
+    let effective_target = if target_branch.is_some() {
+        target_branch
+    } else if stacks.len() > 1 && out.can_prompt() {
+        let (_stack_id, branch_name) = select_target_interactively(&stacks)?;
+        target_branch_resolved = Some(branch_name);
+        target_branch_resolved.as_deref()
+    } else {
+        None
+    };
+
     // Resolve the source to commit(s) (may involve interactive multi-selection for branches)
     let commit_oids = resolve_source_commits(ctx, out, source)?;
 
@@ -39,7 +52,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, source: &str, target_b
 
         // Resolve the target stack based on status and user input
         let (target_stack_id, target_branch_name) =
-            resolve_target_stack(ctx, out, &stacks, target_branch, &status, &commit_hex)?;
+            resolve_target_stack(ctx, out, &stacks, effective_target, &status, &commit_hex)?;
 
         // Execute cherry-apply
         cherry_apply::cherry_apply(ctx, commit_hex.clone(), target_stack_id).context("Failed to cherry-pick commit")?;
