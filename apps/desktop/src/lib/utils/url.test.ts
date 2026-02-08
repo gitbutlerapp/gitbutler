@@ -38,7 +38,9 @@ describe.concurrent('getEditorUri', () => {
 			path: ['/home/user/project', 'src/file.ts']
 		});
 
-		expect(uri).toBe('jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Ffile.ts');
+		expect(uri).toBe(
+			'jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Ffile.ts'
+		);
 	});
 
 	test('generates JetBrains IDE URI with line number', () => {
@@ -48,7 +50,9 @@ describe.concurrent('getEditorUri', () => {
 			line: 10
 		});
 
-		expect(uri).toBe('jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Ffile.ts%3A10');
+		expect(uri).toBe(
+			'jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Ffile.ts%3A10'
+		);
 	});
 
 	test('generates JetBrains IDE URI with line and column', () => {
@@ -59,7 +63,9 @@ describe.concurrent('getEditorUri', () => {
 			column: 5
 		});
 
-		expect(uri).toBe('jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Ffile.ts%3A10%3A5');
+		expect(uri).toBe(
+			'jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Ffile.ts%3A10%3A5'
+		);
 	});
 
 	test('generates JetBrains IDE URI with nested file path', () => {
@@ -70,7 +76,9 @@ describe.concurrent('getEditorUri', () => {
 			column: 10
 		});
 
-		expect(uri).toBe('jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Fcomponents%2FButton.tsx%3A25%3A10');
+		expect(uri).toBe(
+			'jetbrains://idea/navigate/reference?project=%2Fhome%2Fuser%2Fproject&path=src%2Fcomponents%2FButton.tsx%3A25%3A10'
+		);
 	});
 
 	test('generates Zed URI correctly', () => {

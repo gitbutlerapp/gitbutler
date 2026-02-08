@@ -43,7 +43,7 @@ export function getEditorUri(params: EditorUriParams): string {
 		// Using 'idea' as the tool tag which acts as a fallback and works with all JetBrains IDEs
 		const projectPath = params.path[0] || '';
 		const filePath = params.path.slice(1).join(SEPARATOR);
-		
+
 		let positionSuffix = '';
 		if (params.line !== undefined) {
 			positionSuffix += `:${params.line}`;
