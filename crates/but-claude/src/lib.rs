@@ -26,6 +26,9 @@ pub mod permissions;
 pub mod prompt_templates;
 mod rules;
 
+#[cfg(feature = "testing")]
+pub mod mock_scenario;
+
 pub use permissions::Permission;
 
 use crate::session::Claudes;

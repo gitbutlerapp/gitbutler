@@ -100,7 +100,7 @@ function webServers() {
 			VITE_BUTLER_HOST: 'localhost',
 			VITE_BUILD_TARGET: 'web'
 		},
-		reuseExistingServer: true,
+		reuseExistingServer: !process.env.CI,
 		stdout: 'pipe'
 	} as const;
 

@@ -47,6 +47,7 @@
 
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import { TestId } from '@gitbutler/ui/utils/testIds';
 	import type {
 		ClaudeMessage,
 		ThinkingLevel,
@@ -409,7 +410,7 @@
 				{/snippet}
 			</PreviewHeader>
 
-			<div class="chat-container">
+			<div class="chat-container" data-testid={TestId.CodegenMessages}>
 				{#if claudeAvailable.status !== 'available' && formattedMessages.length === 0}
 					<ConfigurableScrollableContainer childrenWrapDisplay="contents">
 						<div class="no-agent-placeholder">

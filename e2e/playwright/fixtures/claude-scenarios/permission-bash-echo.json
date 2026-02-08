@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "recorded_at": "1706900000",
+  "sdk_version": "0.6.3",
+  "cli_version": null,
+  "options": null,
+  "messages": [
+    {
+      "offset_ms": 0,
+      "direction": "Received",
+      "content": {
+        "type": "system",
+        "subtype": "init",
+        "session_id": "test-session-permission-bash",
+        "model": "claude-sonnet-4-20250514",
+        "tools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+        "mcp_servers": [],
+        "cwd": "/tmp/test-project",
+        "permission_mode": "default",
+        "uuid": "sys-001"
+      }
+    },
+    {
+      "offset_ms": 100,
+      "direction": "Received",
+      "content": {
+        "type": "assistant",
+        "message": {
+          "content": [
+            {
+              "type": "text",
+              "text": "I'll run the echo command for you."
+            },
+            {
+              "type": "tool_use",
+              "id": "tool_bash_echo_001",
+              "name": "Bash",
+              "input": {
+                "command": "echo hello world"
+              }
+            }
+          ],
+          "model": "claude-sonnet-4-20250514",
+          "id": "msg_001",
+          "stop_reason": "tool_use",
+          "role": "assistant",
+          "type": "message",
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_creation_input_tokens": null,
+            "cache_read_input_tokens": null,
+            "server_tool_use": null,
+            "service_tier": null
+          }
+        },
+        "session_id": "test-session-permission-bash",
+        "uuid": "ast-001"
+      }
+    },
+    {
+      "offset_ms": 200,
+      "direction": "Received",
+      "content": {
+        "type": "control_request",
+        "request_id": "perm_001",
+        "request": {
+          "subtype": "can_use_tool",
+          "tool_name": "Bash",
+          "tool_use_id": "tool_bash_echo_001",
+          "input": {
+            "command": "echo hello world"
+          }
+        }
+      }
+    },
+    {
+      "offset_ms": 5000,
+      "direction": "Received",
+      "content": {
+        "type": "assistant",
+        "message": {
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "tool_bash_echo_001",
+              "content": "hello world\n"
+            },
+            {
+              "type": "text",
+              "text": "The command executed successfully and printed \"hello world\"."
+            }
+          ],
+          "model": "claude-sonnet-4-20250514",
+          "id": "msg_002",
+          "stop_reason": "end_turn",
+          "role": "assistant",
+          "type": "message",
+          "usage": {
+            "input_tokens": 150,
+            "output_tokens": 30,
+            "cache_creation_input_tokens": null,
+            "cache_read_input_tokens": null,
+            "server_tool_use": null,
+            "service_tier": null
+          }
+        },
+        "session_id": "test-session-permission-bash",
+        "uuid": "ast-002"
+      }
+    },
+    {
+      "offset_ms": 5100,
+      "direction": "Received",
+      "content": {
+        "type": "result",
+        "subtype": "success",
+        "total_cost_usd": 0.01,
+        "duration_ms": 5100,
+        "duration_api_ms": 500,
+        "num_turns": 1,
+        "is_error": false,
+        "session_id": "test-session-permission-bash"
+      }
+    }
+  ]
+}
