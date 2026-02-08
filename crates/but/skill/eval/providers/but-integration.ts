@@ -60,6 +60,7 @@ const GIT_ANY_COMMAND_RE = /\bgit\s+/;
 const BUT_STATUS_RE = /^\s*but\s+status\b/;
 const BUT_AMEND_RE = /\bbut\s+amend\b/;
 const BUT_MOVE_RE = /\bbut\s+move\b/;
+const BUT_PULL_RE = /^\s*but\s+pull\b/;
 
 function hasRequiredMutationFlags(command: string): boolean {
   return command.includes("--json") && command.includes("--status-after");
@@ -250,11 +251,15 @@ export default class ButIntegrationProvider {
     if (typeof rawSetupCommands !== "string" || rawSetupCommands.trim().length === 0) {
       return;
     }
-    execSync(rawSetupCommands, {
-      cwd: fixtureDir,
-      env,
-      stdio: "pipe",
-    });
+    try {
+      execFileSync("bash", ["-euo", "pipefail", "-c", rawSetupCommands], {
+        cwd: fixtureDir,
+        env,
+        stdio: "pipe",
+      });
+    } catch (error) {
+      throw new Error(`Failed setup_commands: ${toMessage(error)}`);
+    }
   }
 
   async callApi(prompt: string, context?: PromptfooContext): Promise<{ output: string }> {
@@ -289,6 +294,10 @@ export default class ButIntegrationProvider {
         typeof context?.vars?.prompt === "string" && context.vars.prompt.trim().length > 0
           ? context.vars.prompt
           : prompt;
+      const requirePullCheckBeforePull =
+        /\bcheck\b[\s\S]*\bmerge cleanly\b[\s\S]*\bupdate\b/i.test(taskPrompt) ||
+        /\bmerge cleanly\b[\s\S]*\bthen\b[\s\S]*\bupdate\b/i.test(taskPrompt);
+      let sawPullCheck = false;
 
       const captureBash = async (input: HookInput) => {
         if (!("tool_name" in input) || input.tool_name !== "Bash") {
@@ -377,6 +386,56 @@ export default class ButIntegrationProvider {
                 "Add `--json --status-after` to mutation commands (`but amend`, `but move`).",
             },
           };
+        }
+
+        if (BUT_PULL_RE.test(command)) {
+          const isCheck = /\s--check(\s|$)/.test(command);
+          const hasJson = command.includes("--json");
+          if (!hasJson) {
+            return {
+              continue: false,
+              decision: "block" as const,
+              reason: "Use JSON mode for pull commands (`but pull --check --json` or `but pull --json --status-after`).",
+              hookSpecificOutput: {
+                hookEventName: "PreToolUse" as const,
+                permissionDecision: "deny" as const,
+                permissionDecisionReason: "Pull commands in this eval must include `--json`.",
+              },
+            };
+          }
+
+          if (isCheck) {
+            sawPullCheck = true;
+            return { continue: true };
+          }
+
+          if (requirePullCheckBeforePull && !sawPullCheck) {
+            return {
+              continue: false,
+              decision: "block" as const,
+              reason:
+                "This task asks to check mergeability before updating. Run `but pull --check --json` first.",
+              hookSpecificOutput: {
+                hookEventName: "PreToolUse" as const,
+                permissionDecision: "deny" as const,
+                permissionDecisionReason:
+                  "Run `but pull --check --json` before `but pull --json --status-after` for this scenario.",
+              },
+            };
+          }
+
+          if (!command.includes("--status-after")) {
+            return {
+              continue: false,
+              decision: "block" as const,
+              reason: "Use `but pull --json --status-after` for update steps in this eval.",
+              hookSpecificOutput: {
+                hookEventName: "PreToolUse" as const,
+                permissionDecision: "deny" as const,
+                permissionDecisionReason: "Update pull command must include `--status-after`.",
+              },
+            };
+          }
         }
 
         return { continue: true };

@@ -17,6 +17,7 @@ Use GitButler CLI (`but`) as the default version-control interface.
 4. Use CLI IDs from `but status --json` / `but diff --json` / `but show --json`; do not hardcode IDs and do not switch branches with `git checkout`.
 5. After a successful mutation with `--status-after`, do not run a redundant `but status` unless needed for new IDs.
 6. If the user says a `git` write command (for example "git push"), translate it to the `but` equivalent and execute the `but` command directly.
+7. For branch-update tasks, run `but pull --check --json` before `but pull --json --status-after`. Do not substitute `but fetch` + status summaries for this check.
 
 ## Core Flow
 
@@ -42,6 +43,10 @@ but <mutation> ... --json --status-after
   `but push`
   or
   `but push <branch-id>`
+- Pull update safety flow:
+  `but pull --check --json`
+  then
+  `but pull --json --status-after`
 
 ## Task Recipes
 
@@ -61,6 +66,12 @@ but <mutation> ... --json --status-after
 
 Interpret as GitButler push. Run `but push` (or `but push <branch-id>`) immediately.
 Do not run `git push`, even if `but push` reports nothing to push.
+
+### Check mergeability, then update branches
+
+1. Run exactly: `but pull --check --json`
+2. If user asked to proceed, run: `but pull --json --status-after`
+3. Do not replace step 1 with `but fetch`, `but status`, or a narrative-only summary.
 
 ### Amend into existing commit
 

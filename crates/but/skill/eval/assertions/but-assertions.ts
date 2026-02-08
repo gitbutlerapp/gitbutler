@@ -12,6 +12,7 @@ type RepoCommit = {
 };
 
 type RepoBranch = {
+  cliId?: unknown;
   name?: unknown;
   commits?: RepoCommit[];
 };
@@ -22,6 +23,10 @@ type RepoStack = {
 
 type EvalOutput = {
   commands?: CommandTrace[];
+  result?: unknown;
+  resultMeta?: {
+    isError?: unknown;
+  };
   repoState?: {
     unassignedChanges?: RepoChange[];
     stacks?: RepoStack[];
@@ -47,6 +52,12 @@ function commandStrings(data: EvalOutput): string[] {
   return (data.commands || [])
     .filter((entry) => entry?.failed !== true)
     .map((entry) => (typeof entry?.command === "string" ? entry.command : ""));
+}
+
+function attemptedCommandStrings(data: EvalOutput): string[] {
+  return (data.commands || []).map((entry) =>
+    typeof entry?.command === "string" ? entry.command : "",
+  );
 }
 
 function hasTargetedButCommit(commands: string[]): boolean {
@@ -94,6 +105,14 @@ function containsGitWrite(commands: string[]): boolean {
 
 function containsGitWriteNoRebase(commands: string[]): boolean {
   return commands.some((cmd) => GIT_WRITE_NO_REBASE_RE.test(cmd));
+}
+
+function outputText(data: EvalOutput): string {
+  return typeof data.result === "string" ? data.result : "";
+}
+
+function isErrorResult(data: EvalOutput): boolean {
+  return data.resultMeta?.isError === true;
 }
 
 export function basicCommitFlow(output: unknown): boolean {
@@ -232,5 +251,135 @@ export function reorderFlow(output: unknown): boolean {
     !containsGitWriteNoRebase(commands) &&
     hasRepoState(data) &&
     reordered
+  );
+}
+
+export function conflictResolveFlow(output: unknown): boolean {
+  const data = parseOutput(output);
+  const commands = commandStrings(data);
+  const attempted = attemptedCommandStrings(data);
+  const enterIndex = attempted.findIndex(
+    (cmd) =>
+      /\bbut resolve\b/.test(cmd) &&
+      !/\bbut resolve (status|finish|cancel)\b/.test(cmd),
+  );
+  const statusIndex = attempted.findIndex(
+    (cmd, idx) => idx > enterIndex && /\bbut resolve status\b/.test(cmd),
+  );
+  const finishIndex = attempted.findIndex(
+    (cmd, idx) => idx > statusIndex && /\bbut resolve finish\b/.test(cmd),
+  );
+
+  const enterCmd = enterIndex >= 0 ? attempted[enterIndex] : "";
+  const finishCmd = finishIndex >= 0 ? attempted[finishIndex] : "";
+  const enterHasFlags = enterCmd.includes("--json") && enterCmd.includes("--status-after");
+  const finishHasFlags = finishCmd.includes("--json") && finishCmd.includes("--status-after");
+  const finishOrderingOk = finishIndex < 0 || finishIndex > statusIndex;
+  const enterShapeOk = enterHasFlags || enterCmd.length > 0;
+  const finishShapeOk = finishIndex < 0 || finishHasFlags || finishCmd.length > 0;
+  const canceled = attempted.some((cmd) => /\bbut resolve cancel\b/.test(cmd));
+
+  return (
+    enterIndex >= 0 &&
+    statusIndex >= 0 &&
+    enterShapeOk &&
+    finishOrderingOk &&
+    finishShapeOk &&
+    !canceled &&
+    !containsGitWrite(commands)
+  );
+}
+
+export function pullCheckThenPullFlow(output: unknown): boolean {
+  const data = parseOutput(output);
+  const commands = commandStrings(data);
+  const pullCheckIndex = commands.findIndex(
+    (cmd) => /\bbut pull\b/.test(cmd) && /\s--check(\s|$)/.test(cmd),
+  );
+  const pullIndex = commands.findIndex(
+    (cmd, idx) => idx > pullCheckIndex && /\bbut pull\b/.test(cmd) && !/\s--check(\s|$)/.test(cmd),
+  );
+
+  const pullCheckCmd = pullCheckIndex >= 0 ? commands[pullCheckIndex] : "";
+  const pullCmd = pullIndex >= 0 ? commands[pullIndex] : "";
+  const pullCheckHasJson = pullCheckCmd.includes("--json");
+  const pullHasFlags = pullCmd.includes("--json") && pullCmd.includes("--status-after");
+
+  return (
+    pullCheckIndex >= 0 &&
+    pullIndex > pullCheckIndex &&
+    pullCheckHasJson &&
+    pullHasFlags &&
+    !containsGitWrite(commands)
+  );
+}
+
+export function stackedPrCreationFlow(output: unknown): boolean {
+  const data = parseOutput(output);
+  const commands = commandStrings(data);
+  const attempted = attemptedCommandStrings(data);
+  const result = outputText(data);
+
+  const prNewCommands = attempted.filter((cmd) => /\bbut pr new\b/.test(cmd));
+  const profileBranch = branches(data).find((branch) => branch?.name === "profile-stack");
+  const acceptedTargets = new Set<string>(["profile-stack"]);
+  if (typeof profileBranch?.cliId === "string" && profileBranch.cliId.length > 0) {
+    acceptedTargets.add(profileBranch.cliId);
+  }
+  const usesTopStackBranch = prNewCommands.some((cmd) => {
+    const match = cmd.match(/\bbut pr new\s+([^\s-][^\s]*)/);
+    if (!match) {
+      return false;
+    }
+    return acceptedTargets.has(match[1]);
+  });
+  const usesGhPr = attempted.some((cmd) => /\bgh pr\b/.test(cmd));
+  const authGuidancePresent =
+    /\bbut config forge auth\b/i.test(result) ||
+    /\bconfig forge auth\b/i.test(result) ||
+    attempted.some((cmd) => /\bbut config forge auth\b/.test(cmd));
+
+  return (
+    prNewCommands.length > 0 &&
+    usesTopStackBranch &&
+    !usesGhPr &&
+    !containsGitWrite(commands) &&
+    (authGuidancePresent || !isErrorResult(data))
+  );
+}
+
+export function stackedAnchorCommitFlow(output: unknown): boolean {
+  const data = parseOutput(output);
+  const commands = commandStrings(data);
+  const unassigned = unassignedChanges(data);
+
+  const anchorIndex = commands.findIndex(
+    (cmd) =>
+      /\bbut branch new profile-ui\b/.test(cmd) && /(?:\s-a|\s--anchor)\s+\S+/.test(cmd),
+  );
+  const commitIndex = commands.findIndex(
+    (cmd) => /\bbut commit\b/.test(cmd) && !/\s--help(\s|$)/.test(cmd),
+  );
+  const commitCmd = commitIndex >= 0 ? commands[commitIndex] : "";
+  const commitIsTargeted =
+    commitCmd.includes("--changes") ||
+    /\s-p(\s|=)\S+/.test(commitCmd);
+
+  const noiseStillUnassigned = unassigned.some((change) => change.filePath === "src/noise.rs");
+  const profileNotUnassigned = !unassigned.some((change) => change.filePath === "src/profile.rs");
+  const repoBranches = branches(data).map((branch) => branch.name);
+  const hasAuthBaseBranch = repoBranches.includes("auth-base");
+  const hasProfileBranch = repoBranches.includes("profile-ui");
+
+  return (
+    anchorIndex >= 0 &&
+    commitIndex > anchorIndex &&
+    commitIsTargeted &&
+    !containsGitWrite(commands) &&
+    hasRepoState(data) &&
+    hasAuthBaseBranch &&
+    hasProfileBranch &&
+    noiseStillUnassigned &&
+    profileNotUnassigned
   );
 }
