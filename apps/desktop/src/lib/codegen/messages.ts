@@ -241,8 +241,14 @@ export function formatMessages(
 							askMessage.resultText = 'User answered the question';
 						} else if (typeof result.content === 'string') {
 							askMessage.resultText = result.content;
-						} else if (result.content[0]!.type === 'text') {
+						} else if (
+							Array.isArray(result.content) &&
+							result.content.length > 0 &&
+							result.content[0]!.type === 'text'
+						) {
 							askMessage.resultText = result.content[0]!.text;
+						} else {
+							askMessage.resultText = 'User answered the question';
 						}
 						continue;
 					}
@@ -255,8 +261,14 @@ export function formatMessages(
 						foundToolCall.result = 'Tool completed with no output';
 					} else if (typeof result.content === 'string') {
 						foundToolCall.result = result.content;
-					} else if (result.content[0]!.type === 'text') {
+					} else if (
+						Array.isArray(result.content) &&
+						result.content.length > 0 &&
+						result.content[0]!.type === 'text'
+					) {
 						foundToolCall.result = result.content[0]!.text;
+					} else {
+						foundToolCall.result = 'Tool completed with no output';
 					}
 				}
 			}
