@@ -115,7 +115,7 @@ Based on industry standards and our specific skill file, here are the metrics to
 | **Tool routing accuracy** | Uses `but` instead of `git` for write ops | 100% | Binary per command |
 | **`--json` compliance** | All `but` commands include `--json` | 100% | Count across all commands in response |
 | **`--status-after` compliance** | Mutation commands include `--status-after` | 100% | Check commit/absorb/rub/stage/squash/move/uncommit |
-| **`--changes` specificity** | `but commit` uses `--changes <ids>` not bare commit | >90% | Binary per commit command |
+| **`--changes` specificity** | `but commit` uses `--changes` with explicit IDs (`a1,b2` or repeated flag), not bare commit | >90% | Binary per commit command |
 | **Workflow ordering** | Runs `but status --json` before mutations | 100% | Check command sequence |
 | **Unnecessary round-trips** | No `but status` after commands with `--status-after` | 0 | Count redundant status calls |
 | **Task completion** | End-to-end task succeeds | >80% | Binary per scenario |
@@ -207,7 +207,7 @@ Test complete workflows with mock tool execution. This is the highest-signal tie
 User: "I just finished implementing auth. Commit it."
 Expected sequence:
   1. but status --json           (check state)
-  2. but commit <branch> -m "..." --changes <ids> --json --status-after  (commit)
+  2. but commit <branch> -m "..." --changes <id>,<id> --json --status-after  (commit)
 Assertions:
   - Step 1 happens before step 2
   - Commit includes --changes (not bare commit)

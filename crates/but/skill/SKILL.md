@@ -104,6 +104,7 @@ Do not run `git push`, even if `but push` reports nothing to push.
 
 - Prefer explicit IDs over file paths for mutations.
 - `--changes` is the safe default for precise commits.
+- `--changes` accepts one argument per flag. For multiple IDs, use comma-separated values (`--changes a1,b2`) or repeat the flag (`--changes a1 --changes b2`), not `--changes a1 b2`.
 - Read-only git inspection is allowed (`git log`, `git blame`) when needed.
 - Keep skill version checks low-noise:
   - Do not run `but skill check` as a routine preflight on every task.

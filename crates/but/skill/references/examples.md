@@ -24,6 +24,7 @@ but status --json
 
 # 5. Commit specific files directly using --changes (recommended for agents)
 # Use cliId values from but status --json output (e.g., branch IDs and file IDs)
+# For multiple IDs, use one comma-separated argument or repeat --changes.
 but commit <api-branch-id> -m "Add user details endpoint" --changes <api-file-id> --json --status-after
 but commit <ui-branch-id> -m "Update button hover styles" --changes <ui-file-id> --json --status-after
 
