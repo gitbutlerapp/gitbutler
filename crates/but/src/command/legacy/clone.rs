@@ -1,5 +1,8 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 
 use anyhow::Context as _;
 use colored::Colorize;
@@ -48,6 +51,191 @@ fn expand_shorthand(input: &str, protocol: &str, host: &str) -> String {
     }
 }
 
+/// Format a byte count as a human-readable string.
+fn format_bytes(bytes: u64) -> String {
+    let bytes = bytes as f64;
+    if bytes >= 1_073_741_824.0 {
+        format!("{:.2} GiB", bytes / 1_073_741_824.0)
+    } else if bytes >= 1_048_576.0 {
+        format!("{:.2} MiB", bytes / 1_048_576.0)
+    } else if bytes >= 1_024.0 {
+        format!("{:.1} KiB", bytes / 1_024.0)
+    } else {
+        format!("{bytes:.0} B")
+    }
+}
+
+/// Capitalize the first character of a string.
+fn capitalize(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(c) => c.to_uppercase().to_string() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+/// Spawn a thread that renders a single updating progress bar to stderr.
+/// The bar is cleared when the thread exits.
+fn spawn_progress_renderer(progress: &Arc<prodash::tree::Root>, stop: Arc<AtomicBool>) -> std::thread::JoinHandle<()> {
+    let progress = Arc::downgrade(progress);
+    std::thread::spawn(move || {
+        let mut snapshot = Vec::new();
+
+        while !stop.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_millis(150));
+            let Some(progress) = progress.upgrade() else {
+                break;
+            };
+            progress.sorted_snapshot(&mut snapshot);
+
+            // Find the best task to display and any byte counter
+            let mut best_name = String::new();
+            let mut best_current: usize = 0;
+            let mut best_total: Option<usize> = None;
+            let mut bytes_received: Option<usize> = None;
+
+            for (_key, task) in &snapshot {
+                if let Some(ref prog) = task.progress {
+                    let current = prog.step.load(Ordering::Relaxed);
+                    if current == 0 && prog.done_at.is_none() {
+                        continue;
+                    }
+                    let is_bytes = prog
+                        .unit
+                        .as_ref()
+                        .map(|u: &prodash::unit::Unit| format!("{}", u.display(1, None, None)).contains('B'))
+                        .unwrap_or(false);
+
+                    if is_bytes {
+                        bytes_received = Some(current);
+                    } else if prog.done_at.is_some() {
+                        best_name = task.name.clone();
+                        best_current = current;
+                        best_total = prog.done_at;
+                    } else if best_total.is_none() {
+                        best_name = task.name.clone();
+                        best_current = current;
+                    }
+                }
+            }
+
+            if best_name.is_empty() && bytes_received.is_none() {
+                continue;
+            }
+
+            let width = terminal_size::terminal_size().map(|(w, _)| w.0 as usize).unwrap_or(80);
+
+            // Build suffix: " 45678/232966, 65.20 MiB"
+            let mut suffix = String::new();
+            if let Some(total) = best_total {
+                suffix.push_str(&format!(" {best_current}/{total}"));
+            } else if best_current > 0 {
+                suffix.push_str(&format!(" {best_current}"));
+            }
+            if let Some(b) = bytes_received {
+                if !suffix.is_empty() {
+                    suffix.push_str(", ");
+                } else {
+                    suffix.push(' ');
+                }
+                suffix.push_str(&format_bytes(b as u64));
+            }
+
+            let label = if best_name.is_empty() {
+                "Fetching".to_string()
+            } else {
+                capitalize(&best_name)
+            };
+            let colored_label = format!("{}", label.bold().green());
+            let label_width = label.len();
+
+            let chrome = label_width + 2 + 1 + suffix.len();
+            let bar_width = if width > chrome + 5 { width - chrome - 1 } else { 20 };
+
+            let bar = if let Some(total) = best_total {
+                let fraction = if total > 0 {
+                    (best_current as f64 / total as f64).min(1.0)
+                } else {
+                    0.0
+                };
+                let filled = (fraction * bar_width as f64) as usize;
+                let arrow = if filled < bar_width { ">" } else { "=" };
+                let empty = bar_width.saturating_sub(filled).saturating_sub(1);
+                format!(
+                    "{}{}{}",
+                    "=".repeat(filled),
+                    if filled < bar_width { arrow } else { "" },
+                    " ".repeat(empty)
+                )
+            } else {
+                " ".repeat(bar_width)
+            };
+
+            let _ = write!(std::io::stderr(), "\x1b[2K\r{colored_label} [{}]{suffix}", bar.cyan());
+            let _ = std::io::stderr().flush();
+        }
+
+        // Clear the progress line
+        let _ = write!(std::io::stderr(), "\x1b[2K\r");
+        let _ = std::io::stderr().flush();
+    })
+}
+
+/// Print clone statistics from the fetch outcome.
+fn print_stats(
+    outcome: &gix::remote::fetch::Outcome,
+    elapsed: Duration,
+    out: &mut OutputChannel,
+) -> anyhow::Result<()> {
+    let Some(out) = out.for_human() else {
+        return Ok(());
+    };
+
+    let refs_updated = match &outcome.status {
+        gix::remote::fetch::Status::Change { update_refs, .. } => update_refs.edits.len(),
+        gix::remote::fetch::Status::NoPackReceived { update_refs, .. } => update_refs.edits.len(),
+    };
+
+    match &outcome.status {
+        gix::remote::fetch::Status::Change { write_pack_bundle, .. } => {
+            let objects = write_pack_bundle.index.num_objects;
+            let pack_size = write_pack_bundle
+                .data_path
+                .as_ref()
+                .and_then(|p| std::fs::metadata(p).ok())
+                .map(|m| m.len());
+            let idx_size = write_pack_bundle
+                .index_path
+                .as_ref()
+                .and_then(|p| std::fs::metadata(p).ok())
+                .map(|m| m.len());
+
+            let secs = elapsed.as_secs_f64();
+            writeln!(out)?;
+            writeln!(out, "{}", "Clone complete.".green())?;
+            writeln!(out)?;
+            writeln!(out, "  {}  {}", "Objects:".bold(), objects)?;
+            if let Some(size) = pack_size {
+                writeln!(out, "  {}     {}", "Pack:".bold(), format_bytes(size))?;
+            }
+            if let Some(size) = idx_size {
+                writeln!(out, "  {}    {}", "Index:".bold(), format_bytes(size))?;
+            }
+            writeln!(out, "  {}     {refs_updated}", "Refs:".bold())?;
+            writeln!(out, "  {}     {secs:.1}s", "Time:".bold())?;
+            writeln!(out)?;
+        }
+        gix::remote::fetch::Status::NoPackReceived { .. } => {
+            writeln!(out)?;
+            writeln!(out, "{}", "Clone complete.".green())?;
+            writeln!(out, "  {}     {refs_updated}", "Refs:".bold())?;
+            writeln!(out)?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Clone a repository from `url` into `path` and then run GitButler setup.
 pub fn run(url: String, path: Option<PathBuf>, out: &mut OutputChannel) -> anyhow::Result<()> {
     let (protocol, host) = load_clone_defaults();
@@ -58,39 +246,51 @@ pub fn run(url: String, path: Option<PathBuf>, out: &mut OutputChannel) -> anyho
     };
 
     if target_dir.exists() {
-        anyhow::bail!(
-            "Destination path '{}' already exists.",
-            target_dir.display()
-        );
+        anyhow::bail!("Destination path '{}' already exists.", target_dir.display());
     }
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{}",
-            format!("Cloning into '{}'...", target_dir.display()).cyan()
-        )?;
+        writeln!(out, "{}", format!("Cloning into '{}'...", target_dir.display()).cyan())?;
     }
 
+    let start = std::time::Instant::now();
     let should_interrupt = AtomicBool::new(false);
 
-    let (mut checkout, _outcome) = gix::prepare_clone(url.as_str(), &target_dir)?
-        .fetch_then_checkout(gix::progress::Discard, &should_interrupt)
+    let is_human = out.for_human().is_some();
+    let progress = Arc::new(prodash::tree::Root::new());
+    let stop_renderer = Arc::new(AtomicBool::new(false));
+    let render_thread = if is_human {
+        Some(spawn_progress_renderer(&progress, Arc::clone(&stop_renderer)))
+    } else {
+        None
+    };
+
+    let mut clone_progress = progress.add_child("clone");
+
+    let (mut checkout, fetch_outcome) = gix::prepare_clone(url.as_str(), &target_dir)?
+        .fetch_then_checkout(&mut clone_progress, &should_interrupt)
         .context("Failed to fetch repository")?;
 
-    let (repo, _) = checkout
-        .main_worktree(gix::progress::Discard, &should_interrupt)
+    let (_repo, _) = checkout
+        .main_worktree(&mut clone_progress, &should_interrupt)
         .context("Failed to checkout worktree")?;
 
-    if let Some(out) = out.for_human() {
-        writeln!(out, "{}", "Clone complete.".green())?;
-        writeln!(out)?;
-    }
+    let elapsed = start.elapsed();
 
-    let repo_path = repo
-        .workdir()
-        .unwrap_or_else(|| repo.git_dir())
-        .to_path_buf();
+    // Stop the progress renderer (clear the line)
+    stop_renderer.store(true, Ordering::Relaxed);
+    if let Some(handle) = render_thread {
+        let _ = handle.join();
+    }
+    drop(clone_progress);
+    drop(progress);
+
+    // Print stats summary
+    print_stats(&fetch_outcome, elapsed, out)?;
+
+    // Use the canonicalized target_dir for setup, matching how `but setup` uses
+    // args.current_dir. This ensures path consistency for project registration.
+    let repo_path = std::fs::canonicalize(&target_dir).unwrap_or_else(|_| target_dir.clone());
 
     run_setup(&repo_path, out)
 }
@@ -112,11 +312,18 @@ fn load_clone_defaults() -> (String, String) {
 }
 
 /// Run the GitButler setup on an already-cloned repository.
+/// This mirrors the `but setup` flow: register the project first,
+/// then open the repo from the registered project's git dir.
 fn run_setup(repo_path: &Path, out: &mut OutputChannel) -> anyhow::Result<()> {
     let repo = match but_api::legacy::projects::add_project_best_effort(repo_path.to_path_buf())? {
         gitbutler_project::AddProjectOutcome::Added(project)
         | gitbutler_project::AddProjectOutcome::AlreadyExists(project) => gix::open(project.git_dir())?,
-        _ => gix::open(repo_path)?,
+        _ => {
+            anyhow::bail!(
+                "Could not register '{}' as a GitButler project. Run 'but setup' manually.",
+                repo_path.display()
+            );
+        }
     };
     let mut ctx = but_ctx::Context::from_repo(repo)?;
     let mut guard = ctx.exclusive_worktree_access();
@@ -130,18 +337,9 @@ mod tests {
 
     #[test]
     fn test_directory_from_url() {
-        assert_eq!(
-            directory_from_url("https://github.com/user/repo.git").unwrap(),
-            "repo"
-        );
-        assert_eq!(
-            directory_from_url("https://github.com/user/repo").unwrap(),
-            "repo"
-        );
-        assert_eq!(
-            directory_from_url("git@github.com:user/repo.git").unwrap(),
-            "repo"
-        );
+        assert_eq!(directory_from_url("https://github.com/user/repo.git").unwrap(), "repo");
+        assert_eq!(directory_from_url("https://github.com/user/repo").unwrap(), "repo");
+        assert_eq!(directory_from_url("git@github.com:user/repo.git").unwrap(), "repo");
         assert!(directory_from_url("").is_err());
     }
 

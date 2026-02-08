@@ -117,6 +117,10 @@ gix = { workspace = true, features = [
     "blocking-http-transport-reqwest-rust-tls",
     "credentials",
     "worktree-mutation",
+    "progress-tree",
+] }
+prodash = { workspace = true, features = [
+    "progress-tree",
 ] }
 colored = "3.0.0"
 serde_json.workspace = true

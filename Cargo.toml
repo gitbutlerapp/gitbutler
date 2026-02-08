@@ -196,6 +196,7 @@ bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { version = "0.78.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
 gix-testtools = { version = "0.18.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main" }
+prodash = { version = "31.0.0", default-features = false }
 
 ts-rs = { version = "11.1.0", features = ["serde-compat", "no-serde-warnings"] }
 insta = { version = "1.45.1", features = ["json"] }
