@@ -521,7 +521,7 @@
 							{@const status = userFeedbackStatus(formattedMessages)}
 							{#if status.waitingForFeedback}
 								<CodegenServiceMessageUseTool toolCall={status.toolCall} />
-							{:else}
+							{:else if !pendingAskUserQuestion}
 								<CodegenServiceMessageThinking
 									{startAt}
 									msSpentWaiting={status.msSpentWaiting}

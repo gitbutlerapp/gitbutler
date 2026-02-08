@@ -13,6 +13,7 @@
 		extractLastMessage,
 		formatMessages,
 		getTodos,
+		hasPendingAskUserQuestion,
 		userFeedbackStatus
 	} from '$lib/codegen/messages';
 	import { combineResults } from '$lib/state/helpers';
@@ -116,14 +117,16 @@
 				{@const totalCount = todos.length}
 				{@const formattedMessages = formatMessages(messages, permissionReqs, status === 'running')}
 				{@const feedbackStatus = userFeedbackStatus(formattedMessages)}
+				{@const hasPendingQuestion = hasPendingAskUserQuestion(formattedMessages)}
 				{@const hasPendingApproval = feedbackStatus.waitingForFeedback}
+				{@const hasPendingAction = hasPendingApproval || hasPendingQuestion}
 
 				<button
 					type="button"
 					class="codegen-row"
 					class:selected
 					class:active
-					class:codegen-row--wiggle={hasPendingApproval && !selected}
+					class:codegen-row--wiggle={hasPendingAction && !selected}
 					onclick={toggleSelection}
 					use:focusable={{
 						onAction: toggleSelection,
@@ -141,13 +144,13 @@
 					{/if}
 
 					<Icon
-						name={getCurrentIconName(hasPendingApproval)}
+						name={getCurrentIconName(hasPendingAction)}
 						color="var(--clr-theme-purple-element)"
 					/>
 					<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
 
-					{#if hasPendingApproval}
-						<Badge style="pop" tooltip="Waiting for approval">Action needed</Badge>
+					{#if hasPendingAction}
+						<Badge style="pop" tooltip="Waiting for action">Action needed</Badge>
 					{/if}
 
 					{#if totalCount > 1}

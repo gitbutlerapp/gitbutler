@@ -391,6 +391,16 @@ type UserFeedbackStatus =
 			msSpentWaiting: number;
 	  };
 
+export function hasPendingAskUserQuestion(messages: Message[]): boolean {
+	return messages.some(
+		(message) =>
+			message.source === 'claude' &&
+			'subtype' in message &&
+			message.subtype === 'askUserQuestion' &&
+			!message.answered
+	);
+}
+
 export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
 	const lastMessage = messages.filter((m) => m.source !== 'gitButler')?.at(-1);
 	if (!lastMessage || lastMessage.source === 'user' || lastMessage.source === 'system') {
