@@ -153,6 +153,8 @@ cd crates/but/skill/eval
 pnpm install --ignore-workspace
 pnpm approve-builds --ignore-workspace
 pnpm run eval
+# Optional: run the same harness with Codex instead of Claude
+pnpm run eval:codex
 ```
 
 ## References

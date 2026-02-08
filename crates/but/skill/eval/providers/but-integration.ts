@@ -4,14 +4,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 type ProviderConfig = {
+  agent?: "claude" | "codex";
   model?: string;
   repo_root?: string;
   but_bin?: string;
+  runner?: string;
+  runner_bin?: string;
+  runner_timeout_ms?: number;
+  min_runner_version?: string;
   claude_bin?: string;
   claude_runner?: string;
+  codex_bin?: string;
+  codex_runner?: string;
   auth_mode?: "auto" | "local" | "api";
   claude_timeout_ms?: number;
   min_claude_version?: string;
+  min_codex_version?: string;
   keep_fixtures?: boolean;
   allowed_tools?: string[];
 };
@@ -48,8 +56,9 @@ const DEFAULT_ALLOWED_TOOLS = [
 ];
 
 const BASH_TOOL_NAME = "Bash";
-const DEFAULT_CLAUDE_TIMEOUT_MS = 180_000;
+const DEFAULT_RUNNER_TIMEOUT_MS = 180_000;
 const DEFAULT_MIN_CLAUDE_VERSION = "1.0.88";
+const DEFAULT_MIN_CODEX_VERSION = "0.99.0";
 
 function parsePositiveInt(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
@@ -69,16 +78,20 @@ function parsePositiveInt(value: unknown): number | null {
   return parsed;
 }
 
-function resolveClaudeTimeoutMs(config: ProviderConfig): number {
-  const fromEnv = parsePositiveInt(process.env.BUT_EVAL_CLAUDE_TIMEOUT_MS);
+function resolveRunnerTimeoutMs(config: ProviderConfig): number {
+  const fromEnv = parsePositiveInt(process.env.BUT_EVAL_RUNNER_TIMEOUT_MS);
   if (fromEnv !== null) {
     return fromEnv;
   }
-  const fromConfig = parsePositiveInt(config.claude_timeout_ms);
+  const fromLegacyEnv = parsePositiveInt(process.env.BUT_EVAL_CLAUDE_TIMEOUT_MS);
+  if (fromLegacyEnv !== null) {
+    return fromLegacyEnv;
+  }
+  const fromConfig = parsePositiveInt(config.runner_timeout_ms ?? config.claude_timeout_ms);
   if (fromConfig !== null) {
     return fromConfig;
   }
-  return DEFAULT_CLAUDE_TIMEOUT_MS;
+  return DEFAULT_RUNNER_TIMEOUT_MS;
 }
 
 function parseJson(input: string): unknown {
@@ -249,10 +262,33 @@ function collectBashCommands(value: unknown, traces: CommandTrace[], inBash = fa
   }
 }
 
+function collectCodexCommand(value: unknown, traces: CommandTrace[]): void {
+  const record = asRecord(value);
+  if (!record || asString(record.type) !== "item.completed") {
+    return;
+  }
+
+  const item = asRecord(record.item);
+  if (!item || asString(item.type) !== "command_execution") {
+    return;
+  }
+
+  const command = asString(item.command);
+  if (!command) {
+    return;
+  }
+
+  const exitCode = asNumber(item.exit_code);
+  const status = asString(item.status);
+  const failed = (exitCode !== null && exitCode !== 0) || status === "failed";
+  pushCommand(traces, command, failed);
+}
+
 function extractCommandTrace(events: unknown[]): CommandTrace[] {
   const traces: CommandTrace[] = [];
   for (const event of events) {
     collectBashCommands(event, traces);
+    collectCodexCommand(event, traces);
   }
   return traces;
 }
@@ -284,6 +320,7 @@ function extractResultMeta(events: unknown[]): ResultMeta {
   let durationMs: number | null = null;
   let error: string | null = null;
   let lastAssistantText = "";
+  let codexTurnCount = 0;
 
   for (const event of events) {
     const record = asRecord(event);
@@ -299,6 +336,18 @@ function extractResultMeta(events: unknown[]): ResultMeta {
       if (assistantText.length > 0) {
         lastAssistantText = assistantText;
       }
+    }
+
+    const codexItem = asRecord(record.item);
+    if (recordType === "item.completed" && codexItem && asString(codexItem.type) === "agent_message") {
+      const assistantText = asString(codexItem.text);
+      if (assistantText && assistantText.trim().length > 0) {
+        lastAssistantText = assistantText.trim();
+      }
+    }
+
+    if (recordType === "turn.completed") {
+      codexTurnCount += 1;
     }
 
     const looksLikeResult =
@@ -343,6 +392,10 @@ function extractResultMeta(events: unknown[]): ResultMeta {
     if (nextDuration !== null) {
       durationMs = nextDuration;
     }
+  }
+
+  if (turns === null && codexTurnCount > 0) {
+    turns = codexTurnCount;
   }
 
   if (text.length === 0 && lastAssistantText.length > 0) {
@@ -405,6 +458,7 @@ function buildPolicyPrompt(requirePullCheckBeforePull: boolean): string {
     "Use `but status --json` when checking status.",
     "For mutation commands (`but commit`, `but amend`, `but move`, `but pull` updates), include `--json --status-after`.",
     "For pull checks, use `but pull --check --json`.",
+    "Avoid routine `--help` probes before mutations; use the skill's canonical command patterns first.",
   ];
   if (requirePullCheckBeforePull) {
     lines.push("This task explicitly asks for mergeability check before updating; run `but pull --check --json` before `but pull --json --status-after`.");
@@ -460,14 +514,38 @@ export default class ButIntegrationProvider {
   async callApi(prompt: string, context?: PromptfooContext): Promise<{ output: string }> {
     const repoRoot = this.config.repo_root ?? fallbackRepoRoot();
     const butBin = this.config.but_bin ?? path.join(repoRoot, "target/debug/but");
-    const claudeBin = process.env.BUT_EVAL_CLAUDE_BIN ?? this.config.claude_bin ?? "claude";
-    const claudeRunner = resolvePathInEvalDir(this.config.claude_runner ?? "providers/claude-local.sh");
+    const agent = (process.env.BUT_EVAL_AGENT ?? this.config.agent ?? "claude") === "codex" ? "codex" : "claude";
+    const runnerBin =
+      process.env.BUT_EVAL_RUNNER_BIN ??
+      (agent === "codex"
+        ? process.env.BUT_EVAL_CODEX_BIN ?? this.config.runner_bin ?? this.config.codex_bin ?? "codex"
+        : process.env.BUT_EVAL_CLAUDE_BIN ?? this.config.runner_bin ?? this.config.claude_bin ?? "claude");
+    const runnerScript = resolvePathInEvalDir(
+      process.env.BUT_EVAL_RUNNER ??
+        this.config.runner ??
+        (agent === "codex"
+          ? this.config.codex_runner ?? "providers/codex-local.sh"
+          : this.config.claude_runner ?? "providers/claude-local.sh"),
+    );
     const authMode = this.config.auth_mode ?? process.env.BUT_EVAL_AUTH_MODE ?? "auto";
-    const model = process.env.BUT_EVAL_MODEL ?? this.config.model ?? "claude-sonnet-4-5-20250929";
+    const model =
+      process.env.BUT_EVAL_MODEL ??
+      this.config.model ??
+      (agent === "codex" ? "gpt-5-codex" : "claude-sonnet-4-5-20250929");
     const allowedTools = this.config.allowed_tools ?? DEFAULT_ALLOWED_TOOLS;
-    const claudeTimeoutMs = resolveClaudeTimeoutMs(this.config);
-    const minClaudeVersion =
-      process.env.BUT_EVAL_MIN_CLAUDE_VERSION ?? this.config.min_claude_version ?? DEFAULT_MIN_CLAUDE_VERSION;
+    const runnerTimeoutMs = resolveRunnerTimeoutMs(this.config);
+    const minRunnerVersion =
+      process.env.BUT_EVAL_MIN_RUNNER_VERSION ??
+      (agent === "codex"
+        ? process.env.BUT_EVAL_MIN_CODEX_VERSION ??
+          this.config.min_runner_version ??
+          this.config.min_codex_version ??
+          DEFAULT_MIN_CODEX_VERSION
+        : process.env.BUT_EVAL_MIN_CLAUDE_VERSION ??
+          this.config.min_runner_version ??
+          this.config.min_claude_version ??
+          DEFAULT_MIN_CLAUDE_VERSION);
+    const agentLabel = agent === "codex" ? "Codex" : "Claude";
 
     let fixtureDir: string | null = null;
     const commands: CommandTrace[] = [];
@@ -481,8 +559,8 @@ export default class ButIntegrationProvider {
     let resultErrorMessage: string | null = null;
 
     try {
-      if (!fs.existsSync(claudeRunner)) {
-        throw new Error(`Claude runner script not found: ${claudeRunner}`);
+      if (!fs.existsSync(runnerScript)) {
+        throw new Error(`${agentLabel} runner script not found: ${runnerScript}`);
       }
 
       fixtureDir = this.createFixture(repoRoot, butBin);
@@ -501,39 +579,54 @@ export default class ButIntegrationProvider {
         /\bcheck\b[\s\S]*\bmerge cleanly\b[\s\S]*\bupdate\b/i.test(taskPrompt) ||
         /\bmerge cleanly\b[\s\S]*\bthen\b[\s\S]*\bupdate\b/i.test(taskPrompt);
 
-      let rawClaudeOutput = "";
+      let rawAgentOutput = "";
       let cliRunError: string | null = null;
 
       try {
-        rawClaudeOutput = execFileSync("bash", [claudeRunner], {
+        rawAgentOutput = execFileSync("bash", [runnerScript], {
           cwd: fixtureDir,
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
-          timeout: claudeTimeoutMs,
+          timeout: runnerTimeoutMs,
           env: {
             ...env,
-            BUT_EVAL_CLAUDE_BIN: claudeBin,
+            BUT_EVAL_AGENT: agent,
+            BUT_EVAL_RUNNER_BIN: runnerBin,
+            BUT_EVAL_CLAUDE_BIN:
+              agent === "claude"
+                ? runnerBin
+                : process.env.BUT_EVAL_CLAUDE_BIN ?? this.config.claude_bin ?? "claude",
+            BUT_EVAL_CODEX_BIN:
+              agent === "codex" ? runnerBin : process.env.BUT_EVAL_CODEX_BIN ?? this.config.codex_bin ?? "codex",
             BUT_EVAL_MODEL: model,
             BUT_EVAL_AUTH_MODE: authMode,
             BUT_EVAL_PROMPT: taskPrompt,
             BUT_EVAL_ALLOWED_TOOLS: allowedTools.join(","),
             BUT_EVAL_PERMISSION_MODE: "bypassPermissions",
             BUT_EVAL_APPEND_SYSTEM_PROMPT: buildPolicyPrompt(requirePullCheckBeforePull),
-            BUT_EVAL_MIN_CLAUDE_VERSION: minClaudeVersion,
+            BUT_EVAL_MIN_RUNNER_VERSION: minRunnerVersion,
+            BUT_EVAL_MIN_CLAUDE_VERSION:
+              agent === "claude"
+                ? minRunnerVersion
+                : process.env.BUT_EVAL_MIN_CLAUDE_VERSION ?? this.config.min_claude_version ?? DEFAULT_MIN_CLAUDE_VERSION,
+            BUT_EVAL_MIN_CODEX_VERSION:
+              agent === "codex"
+                ? minRunnerVersion
+                : process.env.BUT_EVAL_MIN_CODEX_VERSION ?? this.config.min_codex_version ?? DEFAULT_MIN_CODEX_VERSION,
           },
         });
       } catch (error) {
         const stdout = toStdout(error);
         const stderr = toStderr(error);
-        rawClaudeOutput = `${stdout}${stdout && stderr ? "\n" : ""}${stderr}`;
+        rawAgentOutput = `${stdout}${stdout && stderr ? "\n" : ""}${stderr}`;
         if (wasTimeout(error)) {
-          cliRunError = `Claude runner timed out after ${claudeTimeoutMs}ms.`;
+          cliRunError = `${agentLabel} runner timed out after ${runnerTimeoutMs}ms.`;
         } else {
           cliRunError = toMessage(error);
         }
       }
 
-      const events = parseJsonLines(rawClaudeOutput);
+      const events = parseJsonLines(rawAgentOutput);
       const capturedCommands = extractCommandTrace(events);
       commands.push(...capturedCommands);
 

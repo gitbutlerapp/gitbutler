@@ -37,6 +37,19 @@ type EvalOutput = {
 const GIT_WRITE_RE = /\bgit (add|commit|push|merge|rebase|checkout)\b/;
 const GIT_WRITE_NO_REBASE_RE = /\bgit (add|commit|push|merge|checkout)\b/;
 
+function normalizeCommand(command: string): string {
+  const trimmed = command.trim();
+  const shellWrapped = trimmed.match(/^[^ ]+ -lc '([\s\S]*)'$/);
+  if (shellWrapped && shellWrapped[1]) {
+    return shellWrapped[1].trim();
+  }
+  return trimmed;
+}
+
+function isHelpCommand(command: string): boolean {
+  return /\s--help(\s|$)/.test(` ${normalizeCommand(command)} `);
+}
+
 function parseOutput(output: unknown): EvalOutput {
   if (typeof output !== "string") {
     return {};
@@ -51,17 +64,24 @@ function parseOutput(output: unknown): EvalOutput {
 function commandStrings(data: EvalOutput): string[] {
   return (data.commands || [])
     .filter((entry) => entry?.failed !== true)
-    .map((entry) => (typeof entry?.command === "string" ? entry.command : ""));
+    .map((entry) =>
+      typeof entry?.command === "string" ? normalizeCommand(entry.command) : "",
+    )
+    .filter((command) => command.length > 0);
 }
 
 function attemptedCommandStrings(data: EvalOutput): string[] {
-  return (data.commands || []).map((entry) =>
-    typeof entry?.command === "string" ? entry.command : "",
-  );
+  return (data.commands || [])
+    .map((entry) =>
+      typeof entry?.command === "string" ? normalizeCommand(entry.command) : "",
+    )
+    .filter((command) => command.length > 0);
 }
 
 function hasTargetedButCommit(commands: string[]): boolean {
-  const commitCmds = commands.filter((cmd) => cmd.includes("but commit"));
+  const commitCmds = commands.filter(
+    (cmd) => cmd.includes("but commit") && !isHelpCommand(cmd),
+  );
   return commitCmds.some(
     (cmd) =>
       cmd.includes("--changes") &&
@@ -74,7 +94,9 @@ function hasTargetedButMutation(
   commands: string[],
   matcher: RegExp,
 ): boolean {
-  const mutationCmds = commands.filter((cmd) => matcher.test(cmd));
+  const mutationCmds = commands.filter(
+    (cmd) => matcher.test(cmd) && !isHelpCommand(cmd),
+  );
   return mutationCmds.some(
     (cmd) => cmd.includes("--json") && cmd.includes("--status-after"),
   );
@@ -120,7 +142,9 @@ export function basicCommitFlow(output: unknown): boolean {
   const commands = commandStrings(data);
 
   const statusIndex = commands.findIndex((cmd) => cmd.includes("but status"));
-  const commitIndex = commands.findIndex((cmd) => cmd.includes("but commit"));
+  const commitIndex = commands.findIndex(
+    (cmd) => cmd.includes("but commit") && !isHelpCommand(cmd),
+  );
   const commitCmd = commitIndex >= 0 ? commands[commitIndex] : "";
   const hasChanges = commitCmd.includes("--changes");
   const hasJson = commitCmd.includes("--json");
@@ -147,8 +171,12 @@ export function branchWorkflow(output: unknown): boolean {
   const branchIndex = commands.findIndex((cmd) =>
     /\bbut branch new dark-mode\b/.test(cmd),
   );
-  const commitIndex = commands.findIndex((cmd) => cmd.includes("but commit"));
-  const commitCmds = commands.filter((cmd) => cmd.includes("but commit"));
+  const commitIndex = commands.findIndex(
+    (cmd) => cmd.includes("but commit") && !isHelpCommand(cmd),
+  );
+  const commitCmds = commands.filter(
+    (cmd) => cmd.includes("but commit") && !isHelpCommand(cmd),
+  );
   const createdWithCommitFlag = commitCmds.some(
     (cmd) => /\bbut commit dark-mode\b/.test(cmd) && /\s-c(\s|$)/.test(cmd),
   );
@@ -175,7 +203,9 @@ export function orderingFlow(output: unknown): boolean {
   const data = parseOutput(output);
   const commands = commandStrings(data);
   const statusIndex = commands.findIndex((cmd) => cmd.includes("but status"));
-  const commitIndex = commands.findIndex((cmd) => cmd.includes("but commit"));
+  const commitIndex = commands.findIndex(
+    (cmd) => cmd.includes("but commit") && !isHelpCommand(cmd),
+  );
   return (
     statusIndex >= 0 &&
     commitIndex > statusIndex &&
@@ -204,7 +234,9 @@ export function amendFlow(output: unknown): boolean {
   const data = parseOutput(output);
   const commands = commandStrings(data);
   const statusIndex = commands.findIndex((cmd) => cmd.includes("but status"));
-  const amendIndex = commands.findIndex((cmd) => cmd.includes("but amend"));
+  const amendIndex = commands.findIndex(
+    (cmd) => cmd.includes("but amend") && !isHelpCommand(cmd),
+  );
   const amendCmd = amendIndex >= 0 ? commands[amendIndex] : "";
   const hasJson = amendCmd.includes("--json");
   const hasStatusAfter = amendCmd.includes("--status-after");
@@ -358,7 +390,7 @@ export function stackedAnchorCommitFlow(output: unknown): boolean {
       /\bbut branch new profile-ui\b/.test(cmd) && /(?:\s-a|\s--anchor)\s+\S+/.test(cmd),
   );
   const commitIndex = commands.findIndex(
-    (cmd) => /\bbut commit\b/.test(cmd) && !/\s--help(\s|$)/.test(cmd),
+    (cmd) => /\bbut commit\b/.test(cmd) && !isHelpCommand(cmd),
   );
   const commitCmd = commitIndex >= 0 ? commands[commitIndex] : "";
   const commitIsTargeted =

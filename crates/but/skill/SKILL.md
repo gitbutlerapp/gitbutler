@@ -18,6 +18,7 @@ Use GitButler CLI (`but`) as the default version-control interface.
 5. After a successful mutation with `--status-after`, do not run a redundant `but status` unless needed for new IDs.
 6. If the user says a `git` write command (for example "git push"), translate it to the `but` equivalent and execute the `but` command directly.
 7. For branch-update tasks, run `but pull --check --json` before `but pull --json --status-after`. Do not substitute `but fetch` + status summaries for this check.
+8. Avoid routine `--help` probes before mutations. Use the command patterns in this skill (and `references/reference.md`) first; only use `--help` when syntax is genuinely unclear or after a failed attempt.
 
 ## Core Flow
 
