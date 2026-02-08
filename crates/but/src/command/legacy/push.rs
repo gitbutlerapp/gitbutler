@@ -748,7 +748,9 @@ fn handle_no_branch_specified(ctx: &Context, out: &mut OutputChannel) -> anyhow:
     let branches_with_info = get_branches_with_unpushed_info(ctx)?;
 
     if branches_with_info.is_empty() {
-        anyhow::bail!("No branches found in the workspace");
+        // Treat an empty workspace as a no-op push instead of an error.
+        // This keeps `but push` safe to call even before any stack branches exist.
+        return Ok(BranchSelection::All);
     }
 
     // Check if we're in an interactive terminal with human output format

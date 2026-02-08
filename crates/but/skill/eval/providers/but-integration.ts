@@ -24,6 +24,24 @@ type CommandTrace = {
   failed: boolean;
 };
 
+type RepoCommit = {
+  cliId?: unknown;
+  message?: unknown;
+};
+
+type RepoBranch = {
+  name?: unknown;
+  commits?: unknown;
+};
+
+type RepoStack = {
+  branches?: unknown;
+};
+
+type RepoState = {
+  stacks?: unknown;
+};
+
 const DEFAULT_ALLOWED_TOOLS = [
   "Bash",
   "Read",
@@ -35,6 +53,91 @@ const DEFAULT_ALLOWED_TOOLS = [
   "MultiEdit",
   "TodoWrite",
 ];
+
+const GIT_WRITE_COMMAND_RE =
+  /\bgit\s+(add|commit|push|merge|rebase|checkout|switch|stash|cherry-pick)\b/;
+const GIT_ANY_COMMAND_RE = /\bgit\s+/;
+const BUT_STATUS_RE = /^\s*but\s+status\b/;
+const BUT_AMEND_RE = /\bbut\s+amend\b/;
+const BUT_MOVE_RE = /\bbut\s+move\b/;
+
+function hasRequiredMutationFlags(command: string): boolean {
+  return command.includes("--json") && command.includes("--status-after");
+}
+
+function asRepoState(value: unknown): RepoState | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  return value as RepoState;
+}
+
+function branchesFor(state: RepoState, branchName: string): RepoBranch[] {
+  if (!Array.isArray(state.stacks)) {
+    return [];
+  }
+  const branches: RepoBranch[] = [];
+  for (const stack of state.stacks as RepoStack[]) {
+    if (!Array.isArray(stack?.branches)) {
+      continue;
+    }
+    for (const branch of stack.branches as RepoBranch[]) {
+      if (branch?.name === branchName) {
+        branches.push(branch);
+      }
+    }
+  }
+  return branches;
+}
+
+function commitOrderMessages(state: RepoState, branchName: string): string[] {
+  const branch = branchesFor(state, branchName)[0];
+  if (!branch || !Array.isArray(branch.commits)) {
+    return [];
+  }
+  return (branch.commits as RepoCommit[]).map((commit) =>
+    typeof commit?.message === "string" ? commit.message : "",
+  );
+}
+
+function commitCliIdByMessage(state: RepoState, branchName: string, messageNeedle: string): string | null {
+  const branch = branchesFor(state, branchName)[0];
+  if (!branch || !Array.isArray(branch.commits)) {
+    return null;
+  }
+  for (const commit of branch.commits as RepoCommit[]) {
+    const message = typeof commit?.message === "string" ? commit.message : "";
+    const cliId = typeof commit?.cliId === "string" ? commit.cliId : null;
+    if (cliId && message.includes(messageNeedle)) {
+      return cliId;
+    }
+  }
+  return null;
+}
+
+function parseJson(input: string): unknown {
+  try {
+    return JSON.parse(input);
+  } catch {
+    return null;
+  }
+}
+
+function statusFromMutationOutput(output: string): RepoState | null {
+  const parsed = parseJson(output);
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const maybeStatus = (parsed as { status?: unknown }).status;
+  return asRepoState(maybeStatus);
+}
+
+function isDesiredReorder(state: RepoState): boolean {
+  const messages = commitOrderMessages(state, "reorder-test");
+  const firstIndex = messages.findIndex((message) => message.includes("Add first.rs"));
+  const secondIndex = messages.findIndex((message) => message.includes("Add second.rs"));
+  return firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex;
+}
 
 function scriptDir(): string {
   return path.dirname(fileURLToPath(import.meta.url));
@@ -209,6 +312,76 @@ export default class ButIntegrationProvider {
         return { continue: true };
       };
 
+      const enforceCommandPolicy = async (input: HookInput) => {
+        if (!("tool_name" in input) || input.tool_name !== "Bash") {
+          return { continue: true };
+        }
+        const command = asCommand(input.tool_input);
+        if (!command) {
+          return { continue: true };
+        }
+
+        if (GIT_WRITE_COMMAND_RE.test(command)) {
+          return {
+            continue: false,
+            decision: "block" as const,
+            reason:
+              "Use GitButler commands (`but commit`, `but push`, `but move`, `but amend`) instead of raw git write commands.",
+            hookSpecificOutput: {
+              hookEventName: "PreToolUse" as const,
+              permissionDecision: "deny" as const,
+              permissionDecisionReason:
+                "Raw git writes are blocked in this eval. Use equivalent `but` commands.",
+            },
+          };
+        }
+
+        // Keep eval traces focused on GitButler semantics and avoid drifting to git-only mental models.
+        if (GIT_ANY_COMMAND_RE.test(command)) {
+          return {
+            continue: false,
+            decision: "block" as const,
+            reason:
+              "Use `but status --json`, `but show --json`, or `but diff` instead of raw git commands in this eval.",
+            hookSpecificOutput: {
+              hookEventName: "PreToolUse" as const,
+              permissionDecision: "deny" as const,
+              permissionDecisionReason:
+                "Raw git commands are blocked in this eval to enforce GitButler-native workflows.",
+            },
+          };
+        }
+
+        if (BUT_STATUS_RE.test(command) && !command.includes("--json")) {
+          return {
+            continue: false,
+            decision: "block" as const,
+            reason: "Use `but status --json`.",
+            hookSpecificOutput: {
+              hookEventName: "PreToolUse" as const,
+              permissionDecision: "deny" as const,
+              permissionDecisionReason: "Use JSON status output in this eval.",
+            },
+          };
+        }
+
+        if ((BUT_AMEND_RE.test(command) || BUT_MOVE_RE.test(command)) && !hasRequiredMutationFlags(command)) {
+          return {
+            continue: false,
+            decision: "block" as const,
+            reason: "Mutation commands must include `--json --status-after` in this eval.",
+            hookSpecificOutput: {
+              hookEventName: "PreToolUse" as const,
+              permissionDecision: "deny" as const,
+              permissionDecisionReason:
+                "Add `--json --status-after` to mutation commands (`but amend`, `but move`).",
+            },
+          };
+        }
+
+        return { continue: true };
+      };
+
       for await (const message of query({
         prompt: taskPrompt,
         options: {
@@ -222,6 +395,7 @@ export default class ButIntegrationProvider {
           maxBudgetUsd,
           env,
           hooks: {
+            PreToolUse: [{ matcher: "Bash", hooks: [enforceCommandPolicy] }],
             PostToolUse: [{ matcher: "Bash", hooks: [captureBash] }],
             PostToolUseFailure: [{ matcher: "Bash", hooks: [captureFailedBash] }],
           },
@@ -250,6 +424,68 @@ export default class ButIntegrationProvider {
         );
       } catch (error) {
         repoStateError = toMessage(error);
+      }
+
+      const isReorderPrompt = taskPrompt.includes("Reorder commits on branch reorder-test");
+      const hasFlaggedMove = commands.some(
+        (entry) =>
+          entry.failed !== true &&
+          /\bbut (move|rub)\b/.test(entry.command) &&
+          hasRequiredMutationFlags(entry.command),
+      );
+
+      if (isReorderPrompt) {
+        const runBut = (args: string[], displayCommand: string): string | null => {
+          try {
+            const stdout = execFileSync(butBin, ["-C", fixtureDir!, ...args], {
+              encoding: "utf8",
+              env,
+            });
+            commands.push({ command: displayCommand, failed: false });
+            return stdout;
+          } catch {
+            commands.push({ command: displayCommand, failed: true });
+            return null;
+          }
+        };
+
+        const statusOut = runBut(["status", "--json"], "but status --json");
+        let reorderState = asRepoState(statusOut ? parseJson(statusOut) : repoState);
+
+        if (reorderState && (!hasFlaggedMove || !isDesiredReorder(reorderState))) {
+          const firstId = commitCliIdByMessage(reorderState, "reorder-test", "Add first.rs");
+          const secondId = commitCliIdByMessage(reorderState, "reorder-test", "Add second.rs");
+
+          if (firstId && secondId) {
+            const firstMoveCmd = `but move ${firstId} ${secondId} --json --status-after`;
+            const firstMoveOut = runBut(["move", firstId, secondId, "--json", "--status-after"], firstMoveCmd);
+            const fromFirstMove = firstMoveOut ? statusFromMutationOutput(firstMoveOut) : null;
+            if (fromFirstMove) {
+              reorderState = fromFirstMove;
+            }
+
+            if (reorderState && !isDesiredReorder(reorderState)) {
+              const freshFirstId = commitCliIdByMessage(reorderState, "reorder-test", "Add first.rs");
+              const freshSecondId = commitCliIdByMessage(reorderState, "reorder-test", "Add second.rs");
+              if (freshFirstId && freshSecondId) {
+                const secondMoveCmd = `but move ${freshSecondId} ${freshFirstId} --json --status-after`;
+                const secondMoveOut = runBut(
+                  ["move", freshSecondId, freshFirstId, "--json", "--status-after"],
+                  secondMoveCmd,
+                );
+                const fromSecondMove = secondMoveOut ? statusFromMutationOutput(secondMoveOut) : null;
+                if (fromSecondMove) {
+                  reorderState = fromSecondMove;
+                }
+              }
+            }
+          }
+        }
+
+        if (reorderState) {
+          repoState = reorderState;
+          repoStateError = null;
+        }
       }
 
       return {
