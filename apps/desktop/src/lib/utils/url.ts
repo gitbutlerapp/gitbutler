@@ -37,6 +37,30 @@ export interface EditorUriParams {
 }
 
 export function getEditorUri(params: EditorUriParams): string {
+	// JetBrains IDEs use a different URL format
+	if (params.schemeId === 'jetbrains') {
+		// Format: jetbrains://idea/navigate/reference?project=${project}&path=${filePath}:${line}:${column}
+		// Using 'idea' as the tool tag which acts as a fallback and works with all JetBrains IDEs
+		const projectPath = params.path[0] || '';
+		const filePath = params.path.slice(1).join(SEPARATOR);
+		
+		let positionSuffix = '';
+		if (params.line !== undefined) {
+			positionSuffix += `:${params.line}`;
+			if (params.column !== undefined) {
+				positionSuffix += `:${params.column}`;
+			}
+		}
+
+		const searchParams = new URLSearchParams({
+			project: projectPath,
+			path: `${filePath}${positionSuffix}`
+		});
+
+		return `jetbrains://idea/navigate/reference?${searchParams.toString()}`;
+	}
+
+	// Default format for VSCode-compatible editors
 	const searchParamsString = new URLSearchParams(params.searchParams).toString();
 	// Separator is always a forward slash for editor paths, even on Windows
 	const pathString = params.path.join(SEPARATOR);

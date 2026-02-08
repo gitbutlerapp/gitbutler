@@ -19,6 +19,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         "windsurf",
         "cursor",
         "trae",
+        "jetbrains",
     ]
     .contains(&target_url.scheme())
     {
