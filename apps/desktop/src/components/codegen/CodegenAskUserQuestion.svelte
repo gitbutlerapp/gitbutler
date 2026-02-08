@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AsyncButton, Badge, Button, Checkbox, RadioButton, Textbox } from '@gitbutler/ui';
+	import { AsyncButton, Badge, Button, Checkbox, RadioButton, Textarea } from '@gitbutler/ui';
 	import type { AskUserQuestion } from '$lib/codegen/types';
 
 	type Props = {
@@ -238,23 +238,20 @@
 							{/if}
 						</div>
 						<div class="option__content">
-							<span class="option__label text-13 text-body">Other</span>
-							<span class="option__description text-12 text-body">Provide a custom answer</span>
+							<Textarea
+								flex="1"
+								unstyled
+								placeholder="Need something else? Describe it here..."
+								bind:value={otherText[currentQuestion.question]}
+								disabled={answered}
+								onfocus={() => {
+									if (answered) return;
+									activateOption(currentQuestion.question, '__other__');
+								}}
+							/>
 						</div>
 					</label>
 				</div>
-
-				<!-- Other text input (shown when Other is selected) -->
-				{#if isOtherSelected(currentQuestion.question)}
-					<div class="other-input">
-						<Textbox
-							placeholder="Enter your answer..."
-							bind:value={otherText[currentQuestion.question]}
-							disabled={answered}
-							wide
-						/>
-					</div>
-				{/if}
 
 				{#if currentQuestion.multiSelect}
 					<span class="question__hint text-11">Select one or more options</span>
@@ -404,6 +401,7 @@
 	.option__content {
 		display: flex;
 		flex-direction: column;
+		width: 100%;
 		gap: 2px;
 	}
 
