@@ -103,7 +103,7 @@
 	const STICKY_DISTANCE = 40;
 	const LOAD_MORE_THRESHOLD = 300;
 	const DEBOUNCE_DELAY = 50;
-	const HEIGHT_LOCK_DURATION = 1000;
+	const HEIGHT_LOCK_DURATION = 250;
 
 	const {
 		items,
@@ -184,12 +184,17 @@
 					// resize. Scroll direction is undefined during jumps.
 					viewport.scrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
 					skipNextScrollEvent = true;
+				} else if (stickToBottom && previousDistance < STICKY_DISTANCE) {
+					// Maintain bottom position when near bottom and `stickToBottom` is true
+					skipNextScrollEvent = true;
+					scrollToBottom();
 				} else if (
-					(stickToBottom || index === items.length - 1) &&
-					previousDistance < STICKY_DISTANCE
+					previousDistance < STICKY_DISTANCE &&
+					index === items.length - 1 &&
+					viewport.scrollTop !== 0
 				) {
-					// Maintain bottom position when near bottom and either stickToBottom
-					// is enabled or the last visible item resizes.
+					// When we are not at the scrollTop, but near the bottom, if the last
+					// element resizes we scroll to bottom
 					skipNextScrollEvent = true;
 					scrollToBottom();
 				}
