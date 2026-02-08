@@ -51,4 +51,9 @@
   <b>Don't worry, I can stop anytime.</b>
 </details>
 
+<details>
+  <summary>What is the full form for git?</summary>
+  <b>Global Information Tracker!</b>
+</details>
+
 <br>
