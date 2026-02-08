@@ -77,7 +77,9 @@ Why use GitButler instead of vanilla Git? What a great question.
 
 ## Tech
 
-GitButler is a [Tauri](https://tauri.app/)-based application. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org) and its backend is written in [Rust](https://www.rust-lang.org/).
+The GitButler desktop app is a [Tauri](https://tauri.app/)-based application. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org) and its backend is written in [Rust](https://www.rust-lang.org/).
+
+The `but` CLI is the same Rust backend engine with a Rust command line UI.
 
 ## Documentation
 
