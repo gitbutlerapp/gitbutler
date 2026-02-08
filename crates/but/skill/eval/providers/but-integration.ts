@@ -10,6 +10,8 @@ type ProviderConfig = {
   claude_bin?: string;
   claude_runner?: string;
   auth_mode?: "auto" | "local" | "api";
+  claude_timeout_ms?: number;
+  min_claude_version?: string;
   keep_fixtures?: boolean;
   allowed_tools?: string[];
 };
@@ -64,6 +66,38 @@ const DEFAULT_ALLOWED_TOOLS = [
 ];
 
 const BASH_TOOL_NAME = "Bash";
+const DEFAULT_CLAUDE_TIMEOUT_MS = 180_000;
+const DEFAULT_MIN_CLAUDE_VERSION = "1.0.88";
+
+function parsePositiveInt(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return null;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+}
+
+function resolveClaudeTimeoutMs(config: ProviderConfig): number {
+  const fromEnv = parsePositiveInt(process.env.BUT_EVAL_CLAUDE_TIMEOUT_MS);
+  if (fromEnv !== null) {
+    return fromEnv;
+  }
+  const fromConfig = parsePositiveInt(config.claude_timeout_ms);
+  if (fromConfig !== null) {
+    return fromConfig;
+  }
+  return DEFAULT_CLAUDE_TIMEOUT_MS;
+}
 
 function hasRequiredMutationFlags(command: string): boolean {
   return command.includes("--json") && command.includes("--status-after");
@@ -202,6 +236,20 @@ function toStderr(error: unknown): string {
     return maybeStdErr.toString("utf8");
   }
   return "";
+}
+
+function wasTimeout(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const maybeError = error as NodeJS.ErrnoException & { killed?: boolean; signal?: string | null };
+  if (maybeError.code === "ETIMEDOUT") {
+    return true;
+  }
+  if (maybeError.killed === true && maybeError.signal === "SIGTERM") {
+    return true;
+  }
+  return false;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -500,11 +548,14 @@ export default class ButIntegrationProvider {
   async callApi(prompt: string, context?: PromptfooContext): Promise<{ output: string }> {
     const repoRoot = this.config.repo_root ?? fallbackRepoRoot();
     const butBin = this.config.but_bin ?? path.join(repoRoot, "target/debug/but");
-    const claudeBin = this.config.claude_bin ?? "claude";
+    const claudeBin = process.env.BUT_EVAL_CLAUDE_BIN ?? this.config.claude_bin ?? "claude";
     const claudeRunner = resolvePathInEvalDir(this.config.claude_runner ?? "providers/claude-local.sh");
     const authMode = this.config.auth_mode ?? process.env.BUT_EVAL_AUTH_MODE ?? "auto";
-    const model = this.config.model ?? "claude-sonnet-4-5-20250929";
+    const model = process.env.BUT_EVAL_MODEL ?? this.config.model ?? "claude-sonnet-4-5-20250929";
     const allowedTools = this.config.allowed_tools ?? DEFAULT_ALLOWED_TOOLS;
+    const claudeTimeoutMs = resolveClaudeTimeoutMs(this.config);
+    const minClaudeVersion =
+      process.env.BUT_EVAL_MIN_CLAUDE_VERSION ?? this.config.min_claude_version ?? DEFAULT_MIN_CLAUDE_VERSION;
 
     let fixtureDir: string | null = null;
     const commands: CommandTrace[] = [];
@@ -546,6 +597,7 @@ export default class ButIntegrationProvider {
           cwd: fixtureDir,
           encoding: "utf8",
           stdio: ["ignore", "pipe", "pipe"],
+          timeout: claudeTimeoutMs,
           env: {
             ...env,
             BUT_EVAL_CLAUDE_BIN: claudeBin,
@@ -555,13 +607,18 @@ export default class ButIntegrationProvider {
             BUT_EVAL_ALLOWED_TOOLS: allowedTools.join(","),
             BUT_EVAL_PERMISSION_MODE: "bypassPermissions",
             BUT_EVAL_APPEND_SYSTEM_PROMPT: buildPolicyPrompt(requirePullCheckBeforePull),
+            BUT_EVAL_MIN_CLAUDE_VERSION: minClaudeVersion,
           },
         });
       } catch (error) {
         const stdout = toStdout(error);
         const stderr = toStderr(error);
         rawClaudeOutput = `${stdout}${stdout && stderr ? "\n" : ""}${stderr}`;
-        cliRunError = toMessage(error);
+        if (wasTimeout(error)) {
+          cliRunError = `Claude runner timed out after ${claudeTimeoutMs}ms.`;
+        } else {
+          cliRunError = toMessage(error);
+        }
       }
 
       const events = parseJsonLines(rawClaudeOutput);

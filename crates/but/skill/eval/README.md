@@ -56,6 +56,14 @@ BUT_EVAL_AUTH_MODE=local pnpm run eval
 BUT_EVAL_AUTH_MODE=api ANTHROPIC_API_KEY=... pnpm run eval
 ```
 
+## Runner safeguards
+
+- The Claude runner validates CLI version and requires `>= 1.0.88` by default.
+- You can override the minimum with `BUT_EVAL_MIN_CLAUDE_VERSION`.
+- The provider enforces a per-test Claude timeout (default `180000` ms).
+- You can override timeout via `providers[].config.claude_timeout_ms` or `BUT_EVAL_CLAUDE_TIMEOUT_MS`.
+- You can override the Claude executable path with `BUT_EVAL_CLAUDE_BIN`.
+
 ## Files
 
 - `promptfooconfig.yaml`: Tier 4 scenarios and assertion wiring
