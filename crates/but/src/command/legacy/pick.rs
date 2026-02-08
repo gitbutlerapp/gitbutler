@@ -11,6 +11,8 @@ use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
+use gitbutler_oplog::OplogExt;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{revision::walk::Sorting, traverse::commit::simple::CommitTimeOrder};
 
 use crate::{CliId, IdMap, utils::OutputChannel};
@@ -41,6 +43,15 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, source: &str, target_b
 
     // Resolve the source to commit(s) (may involve interactive multi-selection for branches)
     let commit_oids = resolve_source_commits(ctx, out, source)?;
+
+    // Save an oplog snapshot before applying picks so the operation can be undone
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        let _ = ctx.create_snapshot(
+            SnapshotDetails::new(OperationKind::CherryPick),
+            guard.write_permission(),
+        );
+    }
 
     let mut picked = Vec::new();
     for commit_oid in &commit_oids {
