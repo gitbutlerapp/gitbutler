@@ -362,14 +362,12 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     use std::fmt::Write;
     let mut progress = out.progress_channel();
 
-    if out.for_human().is_some() {
-        let _ = writeln!(
-            progress,
-            "The current project is not configured to be managed by GitButler.\n"
-        );
-
-        let _ = writeln!(progress, "{}\n", message.red());
-    }
+    // Progress channel only writes when output is for humans, so we can write unconditionally
+    let _ = writeln!(
+        progress,
+        "The current project is not configured to be managed by GitButler.\n"
+    );
+    let _ = writeln!(progress, "{}\n", message.red());
 
     // Check if we have an interactive terminal and prompt the user
     let prompt_result = if let Some(mut inout) = out.prepare_for_terminal_input() {
@@ -393,15 +391,6 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     // Now handle the declined/non-interactive cases with a fresh borrow
     if prompt_result.is_some() {
         // User declined in interactive mode
-        if out.for_human().is_some() {
-            let _ = writeln!(
-                progress,
-                "{}",
-                "Please run `but setup` to switch to GitButler management.\n".yellow()
-            );
-        }
-    } else if out.for_human().is_some() {
-        // Non-interactive terminal, just show the hint
         let _ = writeln!(
             progress,
             "{}",
@@ -413,6 +402,13 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
             "message": message.to_string(),
             "hint": "run `but setup` to configure the project"
         }));
+    } else {
+        // Non-interactive terminal, just show the hint (progress channel handles format check)
+        let _ = writeln!(
+            progress,
+            "{}",
+            "Please run `but setup` to switch to GitButler management.\n".yellow()
+        );
     }
 
     SetupPromptResult::Declined

@@ -387,15 +387,13 @@ async fn match_subcommand(
         }
         #[cfg(feature = "legacy")]
         Subcommands::Fetch => {
-            if out.for_human().is_some() {
-                use std::fmt::Write;
-                let mut progress = out.progress_channel();
-                writeln!(
-                    progress,
-                    "{}",
-                    "Assuming you meant to check for upstream work, running `but pull --check`".yellow()
-                )?;
-            }
+            use std::fmt::Write;
+            let mut progress = out.progress_channel();
+            writeln!(
+                progress,
+                "{}",
+                "Assuming you meant to check for upstream work, running `but pull --check`".yellow()
+            )?;
             let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             command::legacy::pull::handle(&ctx, out, true)
                 .await

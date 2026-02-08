@@ -134,9 +134,7 @@ fn handle_dry_run(ctx: &mut Context, branch_id: &Option<String>, out: &mut Outpu
     let mut progress = out.progress_channel();
 
     // Fetch from remote first to get latest state
-    if out.for_human().is_some() {
-        writeln!(progress, "Fetching from remote...")?;
-    }
+    writeln!(progress, "Fetching from remote...")?;
 
     but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("dry_run_push".into()))?;
 
@@ -166,9 +164,7 @@ fn handle_dry_run(ctx: &mut Context, branch_id: &Option<String>, out: &mut Outpu
             out.write_value(&DryRunResult { branches: vec![] })?;
         }
 
-        if out.for_human().is_some() {
-            writeln!(progress, "{}", "No branches have unpushed commits.".dimmed())?;
-        }
+        writeln!(progress, "{}", "No branches have unpushed commits.".dimmed())?;
         return Ok(());
     }
 
@@ -295,234 +291,232 @@ fn handle_dry_run(ctx: &mut Context, branch_id: &Option<String>, out: &mut Outpu
     }
 
     // Output human-readable format
-    if out.for_human().is_some() {
-        writeln!(progress)?;
-        writeln!(
-            progress,
-            "{} {}",
-            "Dry run:".bright_blue().bold(),
-            "Showing what would be pushed".dimmed()
-        )?;
-        writeln!(progress)?;
+    writeln!(progress)?;
+    writeln!(
+        progress,
+        "{} {}",
+        "Dry run:".bright_blue().bold(),
+        "Showing what would be pushed".dimmed()
+    )?;
+    writeln!(progress)?;
 
-        // Group branches by stack
-        let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
-            std::collections::HashMap::new();
-        for info in &dry_run_infos {
-            branches_by_stack.entry(info.stack_name.clone()).or_default().push(info);
+    // Group branches by stack
+    let mut branches_by_stack: std::collections::HashMap<String, Vec<&DryRunBranchInfo>> =
+        std::collections::HashMap::new();
+    for info in &dry_run_infos {
+        branches_by_stack.entry(info.stack_name.clone()).or_default().push(info);
+    }
+
+    let mut stack_names: Vec<_> = branches_by_stack.keys().collect();
+    stack_names.sort();
+
+    for stack_name in stack_names {
+        let branches = branches_by_stack.get(stack_name).unwrap();
+
+        // Highlight stacked branches (multiple branches in same stack)
+        if branches.len() > 1 {
+            writeln!(
+                progress,
+                "{} {} {}",
+                "Stack:".yellow().bold(),
+                stack_name.cyan(),
+                format!("({} branches)", branches.len()).dimmed()
+            )?;
         }
 
-        let mut stack_names: Vec<_> = branches_by_stack.keys().collect();
-        stack_names.sort();
+        // Sort branches to show stacking order (top to bottom)
+        let mut sorted_branches: Vec<_> = branches.to_vec();
+        sorted_branches.sort_by(|a, b| {
+            // If a is stacked on b, then a should come first (reverse of before)
+            if a.stacked_on.as_ref() == Some(&b.branch_name) {
+                std::cmp::Ordering::Less
+            } else if b.stacked_on.as_ref() == Some(&a.branch_name) {
+                std::cmp::Ordering::Greater
+            } else {
+                a.branch_name.cmp(&b.branch_name)
+            }
+        });
 
-        for stack_name in stack_names {
-            let branches = branches_by_stack.get(stack_name).unwrap();
+        for info in sorted_branches.iter() {
+            let has_stacked_on = info.stacked_on.is_some();
+            let is_stacked_on = sorted_branches
+                .iter()
+                .any(|b| b.stacked_on.as_ref() == Some(&info.branch_name));
 
-            // Highlight stacked branches (multiple branches in same stack)
-            if branches.len() > 1 {
+            let is_in_stack = has_stacked_on || is_stacked_on;
+            let is_first = has_stacked_on && !is_stacked_on;
+            let is_last = !has_stacked_on && is_stacked_on;
+            let has_next = is_in_stack && !is_last;
+
+            if is_in_stack && !is_first {
+                writeln!(progress, "{}", "│".dimmed())?;
+            } else {
+                writeln!(progress)?;
+            }
+
+            // Determine the gutter character
+            let gutter = if is_in_stack {
+                if is_first {
+                    "┌─" // Top branch in stack
+                } else if is_last {
+                    "└─" // Bottom branch in stack
+                } else {
+                    "├─" // Middle branch
+                }
+            } else {
+                "  " // Base branch (no parent)
+            };
+
+            // Display branch name with stacking indicator and visual line
+            if let Some(stacked_on) = &info.stacked_on {
+                writeln!(
+                    progress,
+                    "{} {} {} {} {}",
+                    gutter.dimmed(),
+                    "Branch:".bold(),
+                    info.branch_name.cyan().bold(),
+                    "↑".dimmed(),
+                    format!("(on top of {})", stacked_on).blue()
+                )?;
+            } else {
                 writeln!(
                     progress,
                     "{} {} {}",
-                    "Stack:".yellow().bold(),
-                    stack_name.cyan(),
-                    format!("({} branches)", branches.len()).dimmed()
+                    gutter.dimmed(),
+                    "Branch:".bold(),
+                    info.branch_name.cyan().bold()
                 )?;
             }
 
-            // Sort branches to show stacking order (top to bottom)
-            let mut sorted_branches: Vec<_> = branches.to_vec();
-            sorted_branches.sort_by(|a, b| {
-                // If a is stacked on b, then a should come first (reverse of before)
-                if a.stacked_on.as_ref() == Some(&b.branch_name) {
-                    std::cmp::Ordering::Less
-                } else if b.stacked_on.as_ref() == Some(&a.branch_name) {
-                    std::cmp::Ordering::Greater
-                } else {
-                    a.branch_name.cmp(&b.branch_name)
-                }
-            });
+            // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
+            let branch_name = info
+                .remote_ref
+                .strip_prefix("refs/remotes/")
+                .and_then(|s| s.strip_prefix(&format!("{}/", info.remote)))
+                .unwrap_or(&info.remote_ref);
 
-            for info in sorted_branches.iter() {
-                let has_stacked_on = info.stacked_on.is_some();
-                let is_stacked_on = sorted_branches
-                    .iter()
-                    .any(|b| b.stacked_on.as_ref() == Some(&info.branch_name));
+            // Determine the line prefix for details (vertical line or space)
+            // Show line if there are more branches after this one
+            let line_prefix = if has_next { "│ " } else { "  " };
 
-                let is_in_stack = has_stacked_on || is_stacked_on;
-                let is_first = has_stacked_on && !is_stacked_on;
-                let is_last = !has_stacked_on && is_stacked_on;
-                let has_next = is_in_stack && !is_last;
+            writeln!(
+                progress,
+                "{}  {} {} {}",
+                line_prefix.dimmed(),
+                "→".green(),
+                "Would push to:".dimmed(),
+                format!("{}/{}", info.remote, branch_name).yellow()
+            )?;
+            writeln!(
+                progress,
+                "{}  {} {}",
+                line_prefix.dimmed(),
+                "Commits:".dimmed(),
+                format!(
+                    "{} unpushed commit{}",
+                    info.unpushed_commits,
+                    if info.unpushed_commits == 1 { "" } else { "s" }
+                )
+                .yellow()
+            )?;
 
-                if is_in_stack && !is_first {
-                    writeln!(progress, "{}", "│".dimmed())?;
+            if !info.commits.is_empty() {
+                if is_in_stack {
+                    writeln!(progress, "{}", line_prefix.dimmed())?;
                 } else {
                     writeln!(progress)?;
                 }
-
-                // Determine the gutter character
-                let gutter = if is_in_stack {
-                    if is_first {
-                        "┌─" // Top branch in stack
-                    } else if is_last {
-                        "└─" // Bottom branch in stack
-                    } else {
-                        "├─" // Middle branch
-                    }
-                } else {
-                    "  " // Base branch (no parent)
-                };
-
-                // Display branch name with stacking indicator and visual line
-                if let Some(stacked_on) = &info.stacked_on {
+                for commit in &info.commits {
                     writeln!(
                         progress,
-                        "{} {} {} {} {}",
-                        gutter.dimmed(),
-                        "Branch:".bold(),
-                        info.branch_name.cyan().bold(),
-                        "↑".dimmed(),
-                        format!("(on top of {stacked_on})").blue()
-                    )?;
-                } else {
-                    writeln!(
-                        progress,
-                        "{} {} {}",
-                        gutter.dimmed(),
-                        "Branch:".bold(),
-                        info.branch_name.cyan().bold()
+                        "{}    {} {}",
+                        line_prefix.dimmed(),
+                        commit.sha_short.green(),
+                        commit.message.dimmed()
                     )?;
                 }
 
-                // Extract branch name from remote_ref (e.g., refs/remotes/origin/branch -> branch)
-                let branch_name = info
-                    .remote_ref
-                    .strip_prefix("refs/remotes/")
-                    .and_then(|s| s.strip_prefix(&format!("{}/", info.remote)))
-                    .unwrap_or(&info.remote_ref);
+                if info.unpushed_commits > info.commits.len() {
+                    writeln!(
+                        progress,
+                        "{}    {}",
+                        line_prefix.dimmed(),
+                        format!("... and {} more", info.unpushed_commits - info.commits.len()).dimmed()
+                    )?;
+                }
+            }
 
-                // Determine the line prefix for details (vertical line or space)
-                // Show line if there are more branches after this one
-                let line_prefix = if has_next { "│ " } else { "  " };
-
+            // Show upstream commits if any
+            if !info.upstream_commits.is_empty() {
+                writeln!(progress)?;
                 writeln!(
                     progress,
                     "{}  {} {} {}",
                     line_prefix.dimmed(),
-                    "→".green(),
-                    "Would push to:".dimmed(),
-                    format!("{}/{}", info.remote, branch_name).yellow()
-                )?;
-                writeln!(
-                    progress,
-                    "{}  {} {}",
-                    line_prefix.dimmed(),
-                    "Commits:".dimmed(),
+                    "⚠".yellow(),
+                    "Upstream commits (on remote):".yellow(),
                     format!(
-                        "{} unpushed commit{}",
-                        info.unpushed_commits,
-                        if info.unpushed_commits == 1 { "" } else { "s" }
+                        "{} commit{}",
+                        info.upstream_commits.len(),
+                        if info.upstream_commits.len() == 1 { "" } else { "s" }
                     )
                     .yellow()
                 )?;
-
-                if !info.commits.is_empty() {
-                    if is_in_stack {
-                        writeln!(progress, "{}", line_prefix.dimmed())?;
-                    } else {
-                        writeln!(progress)?;
-                    }
-                    for commit in &info.commits {
-                        writeln!(
-                            progress,
-                            "{}    {} {}",
-                            line_prefix.dimmed(),
-                            commit.sha_short.green(),
-                            commit.message.dimmed()
-                        )?;
-                    }
-
-                    if info.unpushed_commits > info.commits.len() {
-                        writeln!(
-                            progress,
-                            "{}    {}",
-                            line_prefix.dimmed(),
-                            format!("... and {} more", info.unpushed_commits - info.commits.len()).dimmed()
-                        )?;
-                    }
-                }
-
-                // Show upstream commits if any
-                if !info.upstream_commits.is_empty() {
-                    writeln!(progress)?;
+                writeln!(progress)?;
+                for commit in &info.upstream_commits {
                     writeln!(
                         progress,
-                        "{}  {} {} {}",
+                        "{}    {} {}",
                         line_prefix.dimmed(),
-                        "⚠".yellow(),
-                        "Upstream commits (on remote):".yellow(),
-                        format!(
-                            "{} commit{}",
-                            info.upstream_commits.len(),
-                            if info.upstream_commits.len() == 1 { "" } else { "s" }
-                        )
-                        .yellow()
-                    )?;
-                    writeln!(progress)?;
-                    for commit in &info.upstream_commits {
-                        writeln!(
-                            progress,
-                            "{}    {} {}",
-                            line_prefix.dimmed(),
-                            commit.sha_short.red(),
-                            commit.message.dimmed()
-                        )?;
-                    }
-                }
-
-                // Show warning if present
-                if let Some(warning) = &info.warning {
-                    writeln!(progress)?;
-                    writeln!(
-                        progress,
-                        "{}  {} {}",
-                        line_prefix.dimmed(),
-                        "⚠".red().bold(),
-                        warning.red()
-                    )?;
-                }
-
-                // Show force push indicator
-                if info.requires_force {
-                    writeln!(progress)?;
-                    writeln!(
-                        progress,
-                        "{}  {} {}",
-                        line_prefix.dimmed(),
-                        "⚡".yellow(),
-                        "Force push required".yellow()
+                        commit.sha_short.red(),
+                        commit.message.dimmed()
                     )?;
                 }
             }
 
-            writeln!(progress)?;
+            // Show warning if present
+            if let Some(warning) = &info.warning {
+                writeln!(progress)?;
+                writeln!(
+                    progress,
+                    "{}  {} {}",
+                    line_prefix.dimmed(),
+                    "⚠".red().bold(),
+                    warning.red()
+                )?;
+            }
+
+            // Show force push indicator
+            if info.requires_force {
+                writeln!(progress)?;
+                writeln!(
+                    progress,
+                    "{}  {} {}",
+                    line_prefix.dimmed(),
+                    "⚡".yellow(),
+                    "Force push required".yellow()
+                )?;
+            }
         }
 
-        let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
-        let total_branches = dry_run_infos.len();
-
         writeln!(progress)?;
-        writeln!(
-            progress,
-            "{} Would push {} {} across {} {}",
-            "Summary:".bright_blue().bold(),
-            total_commits.to_string().yellow().bold(),
-            if total_commits == 1 { "commit" } else { "commits" },
-            total_branches.to_string().cyan().bold(),
-            if total_branches == 1 { "branch" } else { "branches" }
-        )?;
-        writeln!(progress)?;
-        writeln!(progress, "{}", "Run without --dry-run to push these changes.".dimmed())?;
     }
+
+    let total_commits: usize = dry_run_infos.iter().map(|i| i.unpushed_commits).sum();
+    let total_branches = dry_run_infos.len();
+
+    writeln!(progress)?;
+    writeln!(
+        progress,
+        "{} Would push {} {} across {} {}",
+        "Summary:".bright_blue().bold(),
+        total_commits.to_string().yellow().bold(),
+        if total_commits == 1 { "commit" } else { "commits" },
+        total_branches.to_string().cyan().bold(),
+        if total_branches == 1 { "branch" } else { "branches" }
+    )?;
+    writeln!(progress)?;
+    writeln!(progress, "{}", "Run without --dry-run to push these changes.".dimmed())?;
 
     Ok(())
 }
@@ -541,31 +535,29 @@ fn push_single_branch(
         out.write_value(&result)?;
     }
 
-    if out.for_human().is_some() {
-        writeln!(progress)?;
-        writeln!(progress, "{} Push completed successfully", "✓".green().bold())?;
-        writeln!(progress)?;
-        if !result.branch_sha_updates.is_empty() {
-            for (branch, before_sha, after_sha) in &result.branch_sha_updates {
-                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                    "(new branch)".to_string()
-                } else {
-                    before_sha.chars().take(7).collect()
-                };
-                let after_str: String = after_sha.chars().take(7).collect();
+    writeln!(progress)?;
+    writeln!(progress, "{} Push completed successfully", "✓".green().bold())?;
+    writeln!(progress)?;
+    if !result.branch_sha_updates.is_empty() {
+        for (branch, before_sha, after_sha) in &result.branch_sha_updates {
+            let before_str = if before_sha == "0000000000000000000000000000000000000000" {
+                "(new branch)".to_string()
+            } else {
+                before_sha.chars().take(7).collect()
+            };
+            let after_str: String = after_sha.chars().take(7).collect();
 
-                // Construct simple remote ref format: remote/branch
-                let remote_ref = format!("{}/{}", result.remote, branch);
+            // Construct simple remote ref format: remote/branch
+            let remote_ref = format!("{}/{}", result.remote, branch);
 
-                writeln!(
-                    progress,
-                    "  {} -> {} ({} -> {})",
-                    branch.cyan(),
-                    remote_ref.dimmed(),
-                    before_str.dimmed(),
-                    after_str.green()
-                )?;
-            }
+            writeln!(
+                progress,
+                "  {} -> {} ({} -> {})",
+                branch.cyan(),
+                remote_ref.dimmed(),
+                before_str.dimmed(),
+                after_str.green()
+            )?;
         }
     }
 
@@ -627,39 +619,31 @@ fn push_all_branches(
             out.write_value(&batch_result)?;
         }
 
-        if out.for_human().is_some() {
-            writeln!(progress, "{}", "No branches have unpushed commits.".dimmed())?;
-        }
+        writeln!(progress, "{}", "No branches have unpushed commits.".dimmed())?;
         return Ok(());
     }
 
-    if out.for_human().is_some() {
-        writeln!(progress)?;
-        writeln!(progress, "{}", "Pushing branches...".bright_blue().bold())?;
-        writeln!(progress)?;
-    }
+    writeln!(progress)?;
+    writeln!(progress, "{}", "Pushing branches...".bright_blue().bold())?;
+    writeln!(progress)?;
 
     let mut total_commits_pushed = 0;
     let mut pushed_results = Vec::new();
     let mut failed_branches = Vec::new();
 
     for (branch_name, unpushed_count, _) in branches_to_push {
-        if out.for_human().is_some() {
-            write!(progress, "  {} {}... ", "→".cyan(), branch_name.bold())?;
-        }
+        write!(progress, "  {} {}... ", "→".cyan(), branch_name.bold())?;
 
         match push_single_branch_impl(ctx, &branch_name, args, gerrit_mode) {
             Ok(result) => {
                 total_commits_pushed += unpushed_count;
-                if out.for_human().is_some() {
-                    writeln!(
-                        progress,
-                        "{} ({} commit{})",
-                        "✓".green(),
-                        unpushed_count.to_string().yellow(),
-                        if unpushed_count == 1 { "" } else { "s" }
-                    )?;
-                }
+                writeln!(
+                    progress,
+                    "{} ({} commit{})",
+                    "✓".green(),
+                    unpushed_count.to_string().yellow(),
+                    if unpushed_count == 1 { "" } else { "s" }
+                )?;
                 pushed_results.push(result);
             }
             Err(e) => {
@@ -667,9 +651,7 @@ fn push_all_branches(
                     branch_name: branch_name.clone(),
                     error: e.to_string(),
                 });
-                if out.for_human().is_some() {
-                    writeln!(progress, "{} {}", "✗".red(), e.to_string().red())?;
-                }
+                writeln!(progress, "{} {}", "✗".red(), e.to_string().red())?;
             }
         }
     }
@@ -683,61 +665,59 @@ fn push_all_branches(
         out.write_value(&batch_result)?;
     }
 
-    if out.for_human().is_some() {
+    writeln!(progress)?;
+
+    if !pushed_results.is_empty() {
+        writeln!(
+            progress,
+            "{} {} {} {}",
+            "✓".green().bold(),
+            "Successfully pushed".green().bold(),
+            total_commits_pushed.to_string().yellow().bold(),
+            if total_commits_pushed == 1 { "commit" } else { "commits" }
+        )?;
         writeln!(progress)?;
 
-        if !pushed_results.is_empty() {
-            writeln!(
-                progress,
-                "{} {} {} {}",
-                "✓".green().bold(),
-                "Successfully pushed".green().bold(),
-                total_commits_pushed.to_string().yellow().bold(),
-                if total_commits_pushed == 1 { "commit" } else { "commits" }
-            )?;
-            writeln!(progress)?;
+        // Print combined branch, remote, and SHA information for all pushed branches
+        for result in &pushed_results {
+            for (branch, before_sha, after_sha) in &result.branch_sha_updates {
+                let before_str = if before_sha == "0000000000000000000000000000000000000000" {
+                    "(new branch)".to_string()
+                } else {
+                    before_sha.chars().take(7).collect()
+                };
+                let after_str: String = after_sha.chars().take(7).collect();
 
-            // Print combined branch, remote, and SHA information for all pushed branches
-            for result in &pushed_results {
-                for (branch, before_sha, after_sha) in &result.branch_sha_updates {
-                    let before_str = if before_sha == "0000000000000000000000000000000000000000" {
-                        "(new branch)".to_string()
-                    } else {
-                        before_sha.chars().take(7).collect()
-                    };
-                    let after_str: String = after_sha.chars().take(7).collect();
+                // Construct simple remote ref format: remote/branch
+                let remote_ref = format!("{}/{}", result.remote, branch);
 
-                    // Construct simple remote ref format: remote/branch
-                    let remote_ref = format!("{}/{}", result.remote, branch);
-
-                    writeln!(
-                        progress,
-                        "  {} -> {} ({} -> {})",
-                        branch.cyan(),
-                        remote_ref.dimmed(),
-                        before_str.dimmed(),
-                        after_str.green()
-                    )?;
-                }
+                writeln!(
+                    progress,
+                    "  {} -> {} ({} -> {})",
+                    branch.cyan(),
+                    remote_ref.dimmed(),
+                    before_str.dimmed(),
+                    after_str.green()
+                )?;
             }
         }
+    }
 
-        if !failed_branches.is_empty() {
-            writeln!(progress)?;
-            writeln!(
-                progress,
-                "{} Failed to push {} {}:",
-                "✗".red().bold(),
-                failed_branches.len().to_string().red().bold(),
-                if failed_branches.len() == 1 {
-                    "branch"
-                } else {
-                    "branches"
-                }
-            )?;
-            for failed in &failed_branches {
-                writeln!(progress, "    {} - {}", failed.branch_name.red(), failed.error.dimmed())?;
+    if !failed_branches.is_empty() {
+        writeln!(progress)?;
+        writeln!(
+            progress,
+            "{} Failed to push {} {}:",
+            "✗".red().bold(),
+            failed_branches.len().to_string().red().bold(),
+            if failed_branches.len() == 1 {
+                "branch"
+            } else {
+                "branches"
             }
+        )?;
+        for failed in &failed_branches {
+            writeln!(progress, "    {} - {}", failed.branch_name.red(), failed.error.dimmed())?;
         }
     }
 

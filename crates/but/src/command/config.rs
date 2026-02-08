@@ -942,9 +942,9 @@ async fn target_config(ctx: &mut Context, out: &mut OutputChannel, branch: Optio
                 );
             }
 
-            if out.for_human().is_some() {
+            if let Some(out) = out.for_human() {
                 writeln!(
-                    out.for_human().unwrap(),
+                    out,
                     "{} Changing target branch to '{}'",
                     "✓".green(),
                     new_branch.cyan()

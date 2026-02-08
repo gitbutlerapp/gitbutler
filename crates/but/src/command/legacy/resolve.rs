@@ -159,20 +159,18 @@ fn show_status_impl(ctx: &mut Context, out: &mut OutputChannel, prompt_to_finali
 
     let mut progress = out.progress_channel();
 
-    if out.for_human().is_some() {
-        writeln!(
-            progress,
-            "{}\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
-            "You are currently in conflict resolution mode.".bold(),
-            "but resolve finish".green().bold(),
-            "but resolve cancel".red().bold()
-        )?;
-    }
+    writeln!(
+        progress,
+        "{}\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
+        "You are currently in conflict resolution mode.".bold(),
+        "but resolve finish".green().bold(),
+        "but resolve cancel".red().bold()
+    )?;
 
     let all_resolved = show_conflicted_files(ctx, out)?;
 
     // If all conflicts are resolved and we're in human mode, offer to finalize
-    if all_resolved && out.for_human().is_some() && prompt_to_finalize {
+    if all_resolved && prompt_to_finalize {
         writeln!(progress)?;
         writeln!(progress, "{}", "All conflicts have been resolved!".green().bold())?;
 
@@ -241,16 +239,14 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
     let all_resolved = still_conflicted.is_empty();
 
     if all_resolved {
-        if out.for_human().is_some() {
-            writeln!(progress, "{}", "No conflicted files remaining!".green())?;
-            if !resolved.is_empty() {
-                writeln!(progress, "{} resolved:", "Files".green())?;
-                for change in &resolved {
-                    writeln!(progress, "  {} {}", "✓".green(), change.path.to_str_lossy().green())?;
-                }
+        writeln!(progress, "{}", "No conflicted files remaining!".green())?;
+        if !resolved.is_empty() {
+            writeln!(progress, "{} resolved:", "Files".green())?;
+            for change in &resolved {
+                writeln!(progress, "  {} {}", "✓".green(), change.path.to_str_lossy().green())?;
             }
         }
-    } else if out.for_human().is_some() {
+    } else {
         writeln!(progress, "{}:", "Conflicted files remaining".yellow().bold())?;
         for change in &still_conflicted {
             writeln!(progress, "  {} {}", "✗".red(), change.path.to_str_lossy().yellow())?;
@@ -261,7 +257,9 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
                 writeln!(progress, "  {} {}", "✓".green(), change.path.to_str_lossy().green())?;
             }
         }
-    } else if let Some(out) = out.for_json() {
+    }
+
+    if let Some(out) = out.for_json() {
         let conflicted_list: Vec<String> = still_conflicted
             .iter()
             .map(|change| change.path.to_str_lossy().to_string())
@@ -494,59 +492,62 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
     let mut progress = out.progress_channel();
 
     // We have conflicts - show them grouped by branch
-    if out.for_human().is_some() {
-        writeln!(progress, "{}", "Found conflicted commits:".yellow().bold())?;
-        writeln!(progress)?;
+    writeln!(progress, "{}", "Found conflicted commits:".yellow().bold())?;
+    writeln!(progress)?;
 
-        let mut all_commits: Vec<&ConflictedCommit> = vec![];
+    let mut all_commits: Vec<&ConflictedCommit> = vec![];
 
-        for (branch_name, commits) in &conflicts_by_branch {
-            writeln!(progress, "{} {}", "Branch:".bold(), branch_name.green())?;
-            for commit in commits {
-                writeln!(
-                    progress,
-                    "  {} {} {}",
-                    "●".red(),
-                    commit.commit_short_id.dimmed(),
-                    commit.commit_message
-                )?;
-                all_commits.push(commit);
-            }
-            writeln!(progress)?;
+    for (branch_name, commits) in &conflicts_by_branch {
+        writeln!(progress, "{} {}", "Branch:".bold(), branch_name.green())?;
+        for commit in commits {
+            writeln!(
+                progress,
+                "  {} {} {}",
+                "●".red(),
+                commit.commit_short_id.dimmed(),
+                commit.commit_message
+            )?;
+            all_commits.push(commit);
         }
+        writeln!(progress)?;
+    }
 
-        // Prompt user to select a commit to resolve
-        writeln!(
+    // Prompt user to select a commit to resolve
+    writeln!(
+        progress,
+        "{}",
+        "Would you like to start resolving these conflicts?".bold()
+    )?;
+
+    // Find the bottom-most commit (first in topological order) on the first branch
+    let default_commit = all_commits.first();
+
+    // Interactive prompting only for human output mode with terminal
+    if out.can_prompt()
+        && let Some(default) = default_commit
+    {
+        write!(
             progress,
-            "{}",
-            "Would you like to start resolving these conflicts?".bold()
+            "Enter commit ID to resolve [default: {}]: ",
+            default.commit_short_id.cyan()
         )?;
 
-        // Find the bottom-most commit (first in topological order) on the first branch
-        let default_commit = all_commits.first();
+        let mut response = String::new();
+        std::io::stdin().read_line(&mut response)?;
+        let response = response.trim();
 
-        if let Some(default) = default_commit {
-            write!(
-                progress,
-                "Enter commit ID to resolve [default: {}]: ",
-                default.commit_short_id.cyan()
-            )?;
+        let commit_id_to_resolve = if response.is_empty() {
+            default.commit_short_id.clone()
+        } else {
+            response.to_string()
+        };
 
-            let mut response = String::new();
-            std::io::stdin().read_line(&mut response)?;
-            let response = response.trim();
+        // Enter resolution mode for the selected commit
+        writeln!(progress)?;
+        return enter_resolution(ctx, out, &commit_id_to_resolve);
+    }
 
-            let commit_id_to_resolve = if response.is_empty() {
-                default.commit_short_id.clone()
-            } else {
-                response.to_string()
-            };
-
-            // Enter resolution mode for the selected commit
-            writeln!(progress)?;
-            return enter_resolution(ctx, out, &commit_id_to_resolve);
-        }
-    } else if let Some(json_out) = out.for_json() {
+    if let Some(json_out) = out.for_json() {
         // JSON output mode
         let mut json_conflicts = serde_json::Map::new();
 
