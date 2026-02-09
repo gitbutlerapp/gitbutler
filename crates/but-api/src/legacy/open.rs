@@ -12,6 +12,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         "http",
         "https",
         "mailto",
+        "file",
         "vscode",
         "vscodium",
         "vscode-insiders",
@@ -115,19 +116,22 @@ pub fn show_in_finder(path: String) -> Result<()> {
 
     #[cfg(target_os = "linux")]
     {
-        // For directories, open the directory directly
-        if std::path::Path::new(&path).is_dir() {
-            open_that(&path).with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
+        // Convert filesystem paths to file:// URLs because open_that() expects
+        // a valid URL (it parses with Url::parse which rejects bare paths).
+        let target_path = std::path::Path::new(&path);
+        let dir_path = if target_path.is_dir() {
+            target_path.to_path_buf()
         } else {
-            // For files, try to open the parent directory
-            if let Some(parent) = std::path::Path::new(&path).parent() {
-                let parent_str = parent.to_string_lossy();
-                open_that(&parent_str)
-                    .with_context(|| format!("Failed to open parent directory of '{path}' in file manager",))?;
-            } else {
-                open_that(&path).with_context(|| format!("Failed to open '{path}' in file manager"))?;
-            }
-        }
+            // For files, open the parent directory
+            target_path
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| target_path.to_path_buf())
+        };
+        let file_url = Url::from_file_path(&dir_path)
+            .map_err(|()| anyhow::anyhow!("Failed to convert path to file URL: '{}'", dir_path.display()))?;
+        open_that(file_url.as_str())
+            .with_context(|| format!("Failed to open parent directory of '{path}' in file manager"))?;
     }
 
     Ok(())
