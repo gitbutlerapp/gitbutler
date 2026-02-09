@@ -171,6 +171,7 @@
 					commitMessage={commit.message}
 					className="text-14 text-semibold text-body"
 					editable={!isReadOnly}
+					onclick={canEdit() ? () => setMode('edit') : undefined}
 				/>
 			{/snippet}
 
