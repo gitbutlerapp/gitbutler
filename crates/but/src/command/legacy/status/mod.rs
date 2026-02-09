@@ -149,21 +149,13 @@ pub(crate) async fn worktree(
         let repo = ctx.repo.get()?;
         let base_commit = repo.find_commit(target.sha.to_gix())?;
         let base_commit_decoded = base_commit.decode()?;
-        let message = base_commit_decoded
-            .message
-            .to_string()
-            .lines()
-            .next()
-            .unwrap_or("")
-            .chars()
-            .take(40)
-            .collect::<String>();
+        let full_message = base_commit_decoded.message.to_string();
         let formatted_date = base_commit_decoded.committer()?.time()?.format_or_unix(DATE_ONLY);
         let author = base_commit_decoded.author()?;
         let common_merge_base_data = CommonMergeBase {
             target_name: target_name.clone(),
             common_merge_base: target.sha.to_string()[..7].to_string(),
-            message: message.clone(),
+            message: full_message,
             commit_date: formatted_date,
             commit_id: target.sha.to_gix(),
             created_at: base_commit_decoded.committer()?.time()?.seconds as i128 * 1000,
@@ -364,6 +356,15 @@ pub(crate) async fn worktree(
         }
     }
 
+    let display_message = common_merge_base_data
+        .message
+        .lines()
+        .next()
+        .unwrap_or("")
+        .chars()
+        .take(40)
+        .collect::<String>();
+
     writeln!(
         out,
         "{} {} [{}] {} {}",
@@ -371,7 +372,7 @@ pub(crate) async fn worktree(
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
-        common_merge_base_data.message,
+        display_message,
     )?;
 
     let not_on_workspace = matches!(mode, gitbutler_operating_modes::OperatingMode::OutsideWorkspace(_));
