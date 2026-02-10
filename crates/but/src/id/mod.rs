@@ -6,7 +6,7 @@
 
 #![forbid(missing_docs)]
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{ChangeId, ref_metadata::StackId};
@@ -31,53 +31,60 @@ type ShortId = String;
 
 const UNASSIGNED: &str = "zz";
 
-fn rhs_indexes_from_tree_changes(
-    tree_changes: Vec<but_core::TreeChange>,
-) -> anyhow::Result<Vec<(u64, but_core::TreeChange)>> {
-    let FileInfo { changes } = FileInfo::from_tree_changes(tree_changes)?;
-    let mut used_indexes: HashSet<u64> = HashSet::new();
-
-    // First pass: assign indexes for all filenames that look like nonnegative
-    // integers
-    let changes: Vec<(Option<u64>, Vec<but_core::TreeChange>)> = changes
-        .into_iter()
-        .map(|(path, changes)| {
-            (
-                if let Ok(utf8) = str::from_utf8(&path)
-                    && let Ok(index) = utf8.parse::<u64>()
-                {
-                    used_indexes.insert(index);
-                    Some(index)
-                } else {
-                    None
-                },
-                changes,
-            )
-        })
-        .collect();
-
-    // Second pass: assign indexes for all other filenames
-    let mut candidate_index = 0u64;
-    let mut tree_changes: Vec<(u64, but_core::TreeChange)> = Vec::new();
-    for (assigned_index, changes) in changes {
-        let index_to_use = if let Some(index) = assigned_index {
-            index
+/// Create a CLI ID for the given staged file (if `stack_id` is `Some`) or the
+/// given unstaged file or committed file (if `stack_id` is `None`).
+fn create_reverse_hex_id(path_bytes: &[u8], stack_id: Option<&StackId>) -> anyhow::Result<ChangeId> {
+    Ok(
+        if stack_id.is_none() && path_bytes.iter().all(|c| b'k' <= *c && *c <= b'z') {
+            ChangeId::from(BString::from(path_bytes))
         } else {
-            while used_indexes.contains(&candidate_index) {
-                candidate_index = candidate_index
-                    .checked_add(1)
-                    .ok_or_else(|| anyhow::format_err!("commit has more than 2**64 changes"))?;
+            let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
+            hasher.update(path_bytes);
+            if let Some(stack_id) = stack_id {
+                hasher.update(stack_id.0.as_bytes());
             }
-            let index_to_use = candidate_index;
-            candidate_index = candidate_index
-                .checked_add(1)
-                .ok_or_else(|| anyhow::format_err!("commit has more than 2**64 changes"))?;
-            index_to_use
-        };
-        tree_changes.extend(changes.into_iter().map(move |change| (index_to_use, change)));
-    }
+            let object_id = hasher.try_finalize()?;
+            ChangeId::from_bytes(object_id.as_bytes())
+        },
+    )
+}
 
-    Ok(tree_changes)
+/// Assign short IDs to each `Some` entry such that they are unambiguous with
+/// respect to every other entry. `reverse_hex_short_ids` must already be
+/// sorted.
+fn assign_short_ids(reverse_hex_short_ids: &mut [(ChangeId, Option<&mut ShortId>)]) -> anyhow::Result<()> {
+    let mut common_with_previous_len = 0;
+    let mut remaining = reverse_hex_short_ids;
+    while let Some(((reverse_hex, short_id), rest)) = remaining.split_first_mut() {
+        let common_with_next_len = rest.first().map_or(0, |(next_reverse_hex, _next_short_id)| {
+            common_prefix_len(reverse_hex, next_reverse_hex)
+        });
+        if let Some(short_id) = short_id {
+            short_id.push_str(str::from_utf8(
+                &reverse_hex[..(1 + 1.max(common_with_previous_len).max(common_with_next_len))],
+            )?);
+        }
+        common_with_previous_len = common_with_next_len;
+        remaining = rest;
+    }
+    Ok(())
+}
+
+fn short_ids_from_tree_changes(
+    tree_changes: Vec<but_core::TreeChange>,
+) -> anyhow::Result<Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)>> {
+    let FileInfo { changes } = FileInfo::from_tree_changes(tree_changes)?;
+    let mut short_ids: Vec<(NonEmpty<but_core::TreeChange>, ChangeId, ShortId)> = Vec::new();
+    for (path, changes) in changes {
+        short_ids.push((changes, create_reverse_hex_id(&path, None)?, ShortId::default()));
+    }
+    let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = short_ids
+        .iter_mut()
+        .map(|(_changes, reverse_hex, short_id)| (reverse_hex.clone(), Some(short_id)))
+        .collect();
+    reverse_hex_short_ids.sort();
+    assign_short_ids(reverse_hex_short_ids.as_mut_slice())?;
+    Ok(short_ids)
 }
 
 /// A change in a workspace commit.
@@ -118,13 +125,14 @@ impl WorkspaceCommitWithId {
     where
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
     {
-        let rhs_indexes =
-            rhs_indexes_from_tree_changes(changes_in_commit_fn(self.commit_id(), self.first_parent_id())?)?;
+        let rhs_indexes = short_ids_from_tree_changes(changes_in_commit_fn(self.commit_id(), self.first_parent_id())?)?;
         Ok(rhs_indexes
             .into_iter()
-            .map(|(index, tree_change)| TreeChangeWithId {
-                short_id: format!("{}:{}", self.short_id, index),
-                inner: tree_change,
+            .flat_map(|(changes, _change_id, short_id)| {
+                changes.into_iter().map(move |change| TreeChangeWithId {
+                    short_id: format!("{}:{}", self.short_id, short_id.clone()),
+                    inner: change,
+                })
             })
             .collect())
     }
@@ -275,17 +283,7 @@ impl IdMap {
             let HunkAssignment {
                 path_bytes, stack_id, ..
             } = hunk_assignments.first();
-            let reverse_hex = if stack_id.is_none() && path_bytes.iter().all(|c| b'k' <= *c && *c <= b'z') {
-                ChangeId::from(path_bytes.to_owned())
-            } else {
-                let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
-                hasher.update(path_bytes);
-                if let Some(stack_id) = stack_id {
-                    hasher.update(stack_id.0.as_bytes());
-                }
-                let object_id = hasher.try_finalize()?;
-                ChangeId::from_bytes(object_id.as_bytes())
-            };
+            let reverse_hex = create_reverse_hex_id(path_bytes, stack_id.as_ref())?;
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
                 id_usage.mark_used(uint_id);
@@ -313,20 +311,7 @@ impl IdMap {
             reverse_hex_short_ids.push((ChangeId::from(BString::from(short_id.as_str())), None));
         }
         reverse_hex_short_ids.sort();
-        let mut common_with_previous_len = 0;
-        let mut remaining = reverse_hex_short_ids.as_mut_slice();
-        while let Some(((reverse_hex, short_id), rest)) = remaining.split_first_mut() {
-            let common_with_next_len = rest.first().map_or(0, |(next_reverse_hex, _next_short_id)| {
-                common_prefix_len(reverse_hex, next_reverse_hex)
-            });
-            if let Some(short_id) = short_id {
-                short_id.push_str(str::from_utf8(
-                    &reverse_hex[..(1 + 1.max(common_with_previous_len).max(common_with_next_len))],
-                )?);
-            }
-            common_with_previous_len = common_with_next_len;
-            remaining = rest;
-        }
+        assign_short_ids(&mut reverse_hex_short_ids)?;
 
         let mut uncommitted_hunks = HashMap::new();
         for uncommitted_file in uncommitted_files.values() {
@@ -524,7 +509,7 @@ impl IdMap {
         }
         matches
     }
-    /// Parses indexes or filenames of committed files.
+    /// Parses IDs or filenames of committed files.
     fn parse_committed_filename_rhs<F>(
         &self,
         commit_id: gix::ObjectId,
@@ -532,27 +517,23 @@ impl IdMap {
         mut changes_in_commit_fn: F,
         lhs: &str,
         rhs: &str,
-    ) -> anyhow::Result<Option<CliId>>
+    ) -> anyhow::Result<Vec<CliId>>
     where
         F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
     {
-        let rhs_indexes = rhs_indexes_from_tree_changes(changes_in_commit_fn(commit_id, first_parent_id)?)?;
-        let rhs_u64 = rhs.parse::<u64>().ok();
-        for (index, tree_change) in rhs_indexes {
-            let is_match = if let Some(rhs_u64) = rhs_u64 {
-                index == rhs_u64
-            } else {
-                tree_change.path == BStr::new(rhs)
-            };
+        let mut matches = Vec::new();
+        let rhs_indexes = short_ids_from_tree_changes(changes_in_commit_fn(commit_id, first_parent_id)?)?;
+        for (tree_changes, change_id, short_id) in rhs_indexes {
+            let is_match = change_id.starts_with(rhs.as_bytes()) || tree_changes.first().path == BStr::new(rhs);
             if is_match {
-                return Ok(Some(CliId::CommittedFile {
+                matches.push(CliId::CommittedFile {
                     commit_id,
-                    path: tree_change.path,
-                    id: format!("{}:{}", lhs, rhs),
-                }));
+                    path: tree_changes.first().path.clone(),
+                    id: format!("{}:{}", lhs, short_id),
+                });
             }
         }
-        Ok(None)
+        Ok(matches)
     }
 }
 

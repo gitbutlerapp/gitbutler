@@ -581,17 +581,17 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         "the case matters for uncommitted files"
     );
 
-    insta::assert_debug_snapshot!(id_map.parse("0a:0", changed_paths_fn)?, @r#"
+    insta::assert_debug_snapshot!(id_map.parse("0a:zt", changed_paths_fn)?, @r#"
     [
         CommittedFile {
             commit_id: Sha1(0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a),
             path: "committed.txt",
-            id: "0a:0",
+            id: "0a:zt",
         },
     ]
     "#);
     assert_eq!(
-        id_map.parse("0A:0", changed_paths_fn)?,
+        id_map.parse("0a:ZT", changed_paths_fn)?,
         [],
         "the case matters for committed files"
     );
@@ -1022,87 +1022,11 @@ fn committed_files_are_deduplicated_by_commit_oid_path() -> anyhow::Result<()> {
             })
         };
 
-    // The duplicate should be deduplicated - we should only have 2 committed files
-    insta::assert_debug_snapshot!(id_map.debug_state(), @r"
-    workspace_and_remote_commits_count: 1
-    branches: [ br ]
-    ");
-
-    // Verify we can look up both files both by index and filename
-    assert!(id_map.parse("02:0", changed_paths_fn)?.len() == 1);
-    assert!(id_map.parse("02:1", changed_paths_fn)?.len() == 1);
+    // Verify we can look up both files both by ID and filename
+    assert!(id_map.parse("02:uv", changed_paths_fn)?.len() == 1);
+    assert!(id_map.parse("02:xw", changed_paths_fn)?.len() == 1);
     assert!(id_map.parse("02:file.txt", changed_paths_fn)?.len() == 1);
     assert!(id_map.parse("02:other.txt", changed_paths_fn)?.len() == 1);
-
-    Ok(())
-}
-
-#[test]
-fn committed_file_ids_avoid_numeric_filenames() -> anyhow::Result<()> {
-    let stacks = vec![stack([segment("branch", [id(2)], Some(id(1)), [])])];
-    let id_map = IdMap::new(stacks, Vec::new())?;
-
-    let changed_paths_fn =
-        |commit_id: gix::ObjectId, parent_id: Option<gix::ObjectId>| -> anyhow::Result<Vec<but_core::TreeChange>> {
-            Ok(if commit_id == id(2) && parent_id == Some(id(1)) {
-                vec![
-                    tree_change_addition("a.txt"),
-                    tree_change_addition("b.txt"),
-                    tree_change_addition("1"),
-                    tree_change_addition("100"),
-                ]
-            } else {
-                anyhow::bail!("unexpected IDs {} {:?}", commit_id, parent_id);
-            })
-        };
-
-    // Numeric filenames become the index
-    insta::assert_debug_snapshot!(id_map.parse("02:1", changed_paths_fn), @r#"
-    Ok(
-        [
-            CommittedFile {
-                commit_id: Sha1(0202020202020202020202020202020202020202),
-                path: "1",
-                id: "02:1",
-            },
-        ],
-    )
-    "#);
-    insta::assert_debug_snapshot!(id_map.parse("02:100", changed_paths_fn), @r#"
-    Ok(
-        [
-            CommittedFile {
-                commit_id: Sha1(0202020202020202020202020202020202020202),
-                path: "100",
-                id: "02:100",
-            },
-        ],
-    )
-    "#);
-
-    // Remaining indexes are assigned to other files
-    insta::assert_debug_snapshot!(id_map.parse("02:0", changed_paths_fn), @r#"
-    Ok(
-        [
-            CommittedFile {
-                commit_id: Sha1(0202020202020202020202020202020202020202),
-                path: "a.txt",
-                id: "02:0",
-            },
-        ],
-    )
-    "#);
-    insta::assert_debug_snapshot!(id_map.parse("02:2", changed_paths_fn), @r#"
-    Ok(
-        [
-            CommittedFile {
-                commit_id: Sha1(0202020202020202020202020202020202020202),
-                path: "b.txt",
-                id: "02:2",
-            },
-        ],
-    )
-    "#);
 
     Ok(())
 }

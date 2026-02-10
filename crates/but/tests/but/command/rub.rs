@@ -127,12 +127,12 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "e8:0",
+                  "cliId": "e8:nk",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 },
                 {
-                  "cliId": "e8:1",
+                  "cliId": "e8:pn",
                   "filePath": "b.txt",
                   "changeType": "modified"
                 }
@@ -142,12 +142,12 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "fc:0",
+                  "cliId": "fc:nk",
                   "filePath": "a.txt",
                   "changeType": "added"
                 },
                 {
-                  "cliId": "fc:1",
+                  "cliId": "fc:pn",
                   "filePath": "b.txt",
                   "changeType": "added"
                 }
@@ -157,7 +157,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "94:0",
+                  "cliId": "94:tm",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -167,7 +167,7 @@ fn committed_file_to_unassigned() -> anyhow::Result<()> {
 
 "#]]);
 
-    env.but("fc:1 zz")
+    env.but("fc:b.txt zz")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -204,7 +204,7 @@ Uncommitted changes
 ...
               "changes": [
                 {
-                  "cliId": "1e:0",
+                  "cliId": "1e:nk",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 }
@@ -214,7 +214,7 @@ Uncommitted changes
 ...
               "changes": [
                 {
-                  "cliId": "99:0",
+                  "cliId": "99:nk",
                   "filePath": "a.txt",
                   "changeType": "added"
                 }
@@ -224,7 +224,7 @@ Uncommitted changes
 ...
               "changes": [
                 {
-                  "cliId": "94:0",
+                  "cliId": "94:tm",
                   "filePath": "A",
                   "changeType": "added"
                 }
@@ -242,7 +242,7 @@ Uncommitted changes
 ...
               "changes": [
                 {
-                  "cliId": "d3:0",
+                  "cliId": "d3:pl",
                   "filePath": "B",
                   "changeType": "added"
                 }
