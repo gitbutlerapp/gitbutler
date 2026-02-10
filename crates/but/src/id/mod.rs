@@ -226,9 +226,9 @@ pub struct IdMap {
     /// The ID representing the unassigned area, i.e. uncommitted files that aren't assigned to a stack.
     unassigned: CliId,
 
-    /// Uncommitted files in a mapping from generated `ShortID`s to its file information.
+    /// Maps full reverse hex IDs to uncommitted files.
     /// It's public for convenience in `but rub` currently.
-    pub uncommitted_files: BTreeMap<ShortId, UncommittedFile>,
+    pub uncommitted_files: BTreeMap<ChangeId, UncommittedFile>,
     /// Uncommitted hunks.
     pub uncommitted_hunks: HashMap<ShortId, UncommittedHunk>,
 }
@@ -270,7 +270,7 @@ impl IdMap {
             }
         }
 
-        let mut raw_uncommitted_files: Vec<(ShortId, ChangeId, UncommittedFile)> = Vec::new();
+        let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
         for hunk_assignments in partitioned_hunks {
             let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
             hasher.update(&hunk_assignments.first().path_bytes);
@@ -286,11 +286,20 @@ impl IdMap {
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
                 id_usage.mark_used(uint_id);
             }
-            raw_uncommitted_files.push((ShortId::default(), reverse_hex, UncommittedFile { hunk_assignments }));
+            uncommitted_files.insert(
+                reverse_hex,
+                UncommittedFile {
+                    short_id: ShortId::default(),
+                    hunk_assignments,
+                },
+            );
+            // Skip an ID for stability of other IDs below with respect to older
+            // versions of the GitButler CLI.
+            id_usage.next_available()?;
         }
-        let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = raw_uncommitted_files
+        let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = uncommitted_files
             .iter_mut()
-            .map(|uncommitted_file| (std::mem::take(&mut uncommitted_file.1), Some(&mut uncommitted_file.0)))
+            .map(|(reverse_hex, uncommitted_file)| (reverse_hex.clone(), Some(&mut uncommitted_file.short_id)))
             .collect();
         // Ensure that uncommitted files do not collide with branch substrings
         for short_id in short_ids_to_count.keys() {
@@ -312,14 +321,7 @@ impl IdMap {
             remaining = rest;
         }
 
-        let mut uncommitted_files = BTreeMap::new();
         let mut uncommitted_hunks = HashMap::new();
-        for (short_id, _, uncommitted_file) in raw_uncommitted_files {
-            uncommitted_files.insert(short_id, uncommitted_file);
-            // Skip an ID for stability of other IDs below with respect to older
-            // versions of the GitButler CLI.
-            id_usage.next_available()?;
-        }
         for uncommitted_file in uncommitted_files.values() {
             for hunk_assignment in uncommitted_file.hunk_assignments.iter() {
                 uncommitted_hunks.insert(
@@ -510,7 +512,7 @@ impl IdMap {
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
             if hunk_assignment.stack_id == stack_id && hunk_assignment.path_bytes == entity.as_bytes() {
-                matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
+                matches.push(uncommitted_file.to_cli_id());
             }
         }
         matches
@@ -611,15 +613,29 @@ impl IdMap {
         }
 
         matches = self.parse_regular_lhs(entity);
-        if let Some(uncommitted_file) = self.uncommitted_files.get(entity) {
-            matches.push(uncommitted_file.to_cli_id(entity.to_owned()));
-        }
         if let Some(uncommitted_hunk) = self.uncommitted_hunks.get(entity) {
             matches.push(CliId::Uncommitted(UncommittedCliId {
                 id: entity.to_string(),
                 hunk_assignments: NonEmpty::new(uncommitted_hunk.hunk_assignment.clone()),
                 is_entire_file: false,
             }));
+        }
+
+        // To avoid false positives, only check uncommitted files if nothing
+        // else matches. See the uncommitted_files_disambiguate_with_branch()
+        // test for an example of the desired behavior (an uncommitted file
+        // is assigned the ID "kpr" to avoid ambiguity with a branch with the
+        // substring "kp"), so it should not match with "kp".
+        if matches.is_empty() {
+            let entity_bstring = BString::from(entity);
+            for (reverse_hex, uncommitted_file) in
+                self.uncommitted_files.range(ChangeId::from(entity_bstring.clone())..)
+            {
+                if !reverse_hex.starts_with(&entity_bstring) {
+                    break;
+                }
+                matches.push(uncommitted_file.to_cli_id());
+            }
         }
 
         Ok(matches)
@@ -813,6 +829,8 @@ impl CliId {
 /// Internal representation of an uncommitted file.
 #[derive(Debug, Clone)]
 pub struct UncommittedFile {
+    /// The shortest ID that can be used to unambiguously refer to this file.
+    pub short_id: ShortId,
     /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes],
     /// so the first assignment can be used to obtain both.
     pub hunk_assignments: NonEmpty<HunkAssignment>,
@@ -827,11 +845,11 @@ impl UncommittedFile {
     pub fn path(&self) -> &BStr {
         self.hunk_assignments.first().path_bytes.as_ref()
     }
-    /// Turn this instance into a [CliId], using `id` for identification.
-    pub fn to_cli_id(&self, id: ShortId) -> CliId {
+    /// Turn this instance into a [CliId].
+    pub fn to_cli_id(&self) -> CliId {
         CliId::Uncommitted(UncommittedCliId {
             hunk_assignments: self.hunk_assignments.clone(),
-            id,
+            id: self.short_id.clone(),
             is_entire_file: true,
         })
     }

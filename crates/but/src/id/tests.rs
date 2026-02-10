@@ -613,8 +613,51 @@ fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
             })
         };
 
-    // TODO make this return both (instead of none) so that the user can disambiguate
-    insta::assert_debug_snapshot!(id_map.parse("kp", changed_paths_fn)?, @"[]");
+    // Ambiguous ID returns every possible match
+    insta::assert_debug_snapshot!(id_map.parse("kp", changed_paths_fn)?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "kpo",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "foo242",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+        Uncommitted(
+            UncommittedCliId {
+                id: "kpr",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "foo23",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
 
     insta::assert_debug_snapshot!(id_map.parse("kpo", changed_paths_fn)?, @r#"
     [
@@ -723,6 +766,49 @@ fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
 }
 
 #[test]
+fn longer_id_is_ok() -> anyhow::Result<()> {
+    let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
+    let hunk_assignments = vec![hunk_assignment("foo23", None)];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    let changed_paths_fn =
+        |commit_id: gix::ObjectId, parent_id: Option<gix::ObjectId>| -> anyhow::Result<Vec<but_core::TreeChange>> {
+            Ok(if commit_id == id(1) && parent_id.is_none() {
+                vec![]
+            } else {
+                bail!("unexpected IDs {} {:?}", commit_id, parent_id);
+            })
+        };
+
+    // "kp" would be sufficient (see the "id" field in the output), but "kpr" works too
+    insta::assert_debug_snapshot!(id_map.parse("kpr", changed_paths_fn)?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "kp",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "foo23",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    Ok(())
+}
+
+#[test]
 fn branch_and_file_by_name() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
     let hunk_assignments = vec![hunk_assignment("foo", None)];
@@ -748,7 +834,7 @@ fn branch_and_file_by_name() -> anyhow::Result<()> {
         },
         Uncommitted(
             UncommittedCliId {
-                id: "foo",
+                id: "zo",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -793,7 +879,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     [
         Uncommitted(
             UncommittedCliId {
-                id: "assigned",
+                id: "mv",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -821,7 +907,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     [
         Uncommitted(
             UncommittedCliId {
-                id: "assigned",
+                id: "mv",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -849,7 +935,7 @@ fn colon_uncommitted_filename() -> anyhow::Result<()> {
     [
         Uncommitted(
             UncommittedCliId {
-                id: "unassigned",
+                id: "wq",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -1129,7 +1215,11 @@ mod util {
                         .values()
                         .map(|remote_commit| remote_commit.short_id.clone()),
                 )
-                .chain(uncommitted_files.keys().cloned())
+                .chain(
+                    uncommitted_files
+                        .values()
+                        .map(|uncommitted_file| uncommitted_file.short_id.clone()),
+                )
                 .chain(uncommitted_hunks.keys().cloned())
                 .flat_map(|id| self.parse(&id, changed_paths_fn).expect("BUG: valid ID means no error"))
                 .sorted_by(id_cmp)
@@ -1163,7 +1253,14 @@ mod util {
                 "branches",
                 branch_name_to_cli_id.values().map(|id| id.to_short_string()).sorted(),
             )?;
-            id_list_if_not_empty(f, "uncommitted_files", uncommitted_files.keys().cloned())?;
+            id_list_if_not_empty(
+                f,
+                "uncommitted_files",
+                uncommitted_files
+                    .values()
+                    .map(|uncommitted_file| uncommitted_file.short_id.clone())
+                    .sorted(),
+            )?;
             id_list_if_not_empty(f, "uncommitted_hunks", uncommitted_hunks.keys().sorted().cloned())?;
             id_list_if_not_empty(f, "stacks", stack_ids.values().map(|id| id.to_short_string()).sorted())?;
             Ok(())

@@ -591,17 +591,13 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
         .collect();
     let mut positioned_files: Vec<(usize, &BStr, CliId)> = id_map
         .uncommitted_files
-        .iter()
-        .flat_map(|(short_id, uncommitted_file)| {
+        .values()
+        .flat_map(|uncommitted_file| {
             let position = match uncommitted_file.stack_id() {
                 Some(stack_id) => stack_ids.iter().position(|e| *e == stack_id)?,
                 None => usize::MAX,
             };
-            Some((
-                position,
-                uncommitted_file.path(),
-                uncommitted_file.to_cli_id(short_id.clone()),
-            ))
+            Some((position, uncommitted_file.path(), uncommitted_file.to_cli_id()))
         })
         .collect();
     positioned_files
@@ -750,7 +746,7 @@ pub(crate) fn handle_uncommit(ctx: &mut Context, out: &mut OutputChannel, source
             _ => {
                 bail!(
                     "Cannot uncommit {} - it is {}. Only commits and files-in-commits can be uncommitted.",
-                    source.to_short_string().blue().underline(),
+                    source_str.blue().underline(),
                     source.kind_for_humans().yellow()
                 );
             }

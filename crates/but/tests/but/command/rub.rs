@@ -505,7 +505,7 @@ Failed to uncommit. Cannot uncommit a.txt - it is an uncommitted file or hunk. O
 
     // Test that uncommit rejects branches
     env.but("uncommit A").assert().failure().stderr_eq(str![[r#"
-Failed to uncommit. Cannot uncommit g0 - it is a branch. Only commits and files-in-commits can be uncommitted.
+Failed to uncommit. Cannot uncommit A - it is a branch. Only commits and files-in-commits can be uncommitted.
 
 "#]]);
 
