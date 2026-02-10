@@ -55,7 +55,7 @@
 </script>
 
 <Tooltip text={badgeDetails.text}>
-	<div class="review-badge" class:pr-type={status}>
+	<div class="review-badge pr-{status}">
 		<div class="review-badge__icon">
 			{#if type === 'MR'}
 				{@html glLogo}
@@ -66,15 +66,11 @@
 
 		<span class="text-11 text-semibold review-badge-text">
 			{#if status === 'draft'}
-				Draft
+				Draft {reviewUnit}
 			{:else}
 				{reviewUnit} {id}
 			{/if}
 		</span>
-
-		{#if badgeDetails.color}
-			<div class="pr-status" style:--pr-color={badgeDetails.color}></div>
-		{/if}
 	</div>
 </Tooltip>
 
@@ -85,13 +81,10 @@
 		justify-content: center;
 		width: fit-content;
 		height: var(--size-icon);
-		padding-right: 3px;
-		padding-left: 2px;
+		padding-right: 5px;
+		padding-left: 4px;
 		gap: 3px;
-		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--hover-bg-1);
-		color: var(--clr-text-1);
 		line-height: 1;
 	}
 
@@ -104,10 +97,26 @@
 		white-space: nowrap;
 	}
 
-	.pr-status {
-		width: 8px;
-		height: 8px;
-		border-radius: 100%;
-		background-color: var(--pr-color);
+	.pr-open,
+	.pr-unknown {
+		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-muted);
+		color: var(--clr-text-1);
+	}
+
+	.pr-closed {
+		background-color: var(--clr-theme-danger-soft);
+		color: var(--clr-theme-danger-on-soft);
+	}
+
+	.pr-draft {
+		border: 1px solid var(--clr-border-1);
+		border-style: dotted;
+		color: var(--clr-text-1);
+	}
+
+	.pr-merged {
+		background-color: var(--clr-theme-purple-soft);
+		color: var(--clr-theme-purple-on-soft);
 	}
 </style>

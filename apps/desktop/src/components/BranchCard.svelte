@@ -253,7 +253,14 @@
 							{#if args.prNumber}
 								{@const prQuery = prService?.get(args.prNumber, { forceRefetch: true })}
 								{@const pr = prQuery?.response}
-								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status="unknown" />
+								{@const prStatus = (() => {
+									if (!pr) return 'unknown';
+									if (pr.mergedAt) return 'merged';
+									if (pr.closedAt) return 'closed';
+									if (pr.draft) return 'draft';
+									return 'open';
+								})()}
+								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status={prStatus} />
 								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
 									<ChecksPolling
 										{projectId}
