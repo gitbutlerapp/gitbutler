@@ -319,7 +319,7 @@ Unstaged a hunk in a.txt in a stack
       "cliId": "m0",
       "assignedChanges": [
         {
-          "cliId": "j0",
+          "cliId": "km",
           "filePath": "a.txt",
           "changeType": "modified"
         }
@@ -398,7 +398,7 @@ Staged a hunk in a.txt in the unassigned area → [A].
       "cliId": "m0",
       "assignedChanges": [
         {
-          "cliId": "j0",
+          "cliId": "km",
           "filePath": "a.txt",
           "changeType": "modified"
         }
@@ -535,7 +535,7 @@ fn stage_command() -> anyhow::Result<()> {
       "cliId": "l0",
       "assignedChanges": [
         {
-          "cliId": "i0",
+          "cliId": "km",
           "filePath": "a.txt",
           "changeType": "modified"
         }
@@ -570,7 +570,7 @@ fn unstage_command() -> anyhow::Result<()> {
       "cliId": "l0",
       "assignedChanges": [
         {
-          "cliId": "i0",
+          "cliId": "km",
           "filePath": "a.txt",
           "changeType": "modified"
         }

@@ -270,31 +270,29 @@ impl IdMap {
             }
         }
 
-        let mut unstaged_files: Vec<(ShortId, ChangeId, UncommittedFile)> = Vec::new();
-        let mut staged_files: Vec<UncommittedFile> = Vec::new();
+        let mut raw_uncommitted_files: Vec<(ShortId, ChangeId, UncommittedFile)> = Vec::new();
         for hunk_assignments in partitioned_hunks {
-            if hunk_assignments.first().stack_id.is_some() {
-                staged_files.push(UncommittedFile { hunk_assignments });
-            } else {
-                let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
-                hasher.update(&hunk_assignments.first().path_bytes);
-                let object_id = hasher.try_finalize()?;
-                let reverse_hex = ChangeId::from_bytes(object_id.as_bytes());
-                // Ensure that unstaged files do not collide with CLI IDs generated after
-                if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
-                    id_usage.mark_used(uint_id);
-                }
-                if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
-                    id_usage.mark_used(uint_id);
-                }
-                unstaged_files.push((ShortId::default(), reverse_hex, UncommittedFile { hunk_assignments }));
+            let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
+            hasher.update(&hunk_assignments.first().path_bytes);
+            if let Some(stack_id) = hunk_assignments.first().stack_id {
+                hasher.update(stack_id.0.as_bytes());
             }
+            let object_id = hasher.try_finalize()?;
+            let reverse_hex = ChangeId::from_bytes(object_id.as_bytes());
+            // Ensure that uncommitted files do not collide with CLI IDs generated after
+            if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
+                id_usage.mark_used(uint_id);
+            }
+            if let Some(uint_id) = UintId::from_name(&reverse_hex[..3]) {
+                id_usage.mark_used(uint_id);
+            }
+            raw_uncommitted_files.push((ShortId::default(), reverse_hex, UncommittedFile { hunk_assignments }));
         }
-        let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = unstaged_files
+        let mut reverse_hex_short_ids: Vec<(ChangeId, Option<&mut ShortId>)> = raw_uncommitted_files
             .iter_mut()
-            .map(|unstaged_file| (std::mem::take(&mut unstaged_file.1), Some(&mut unstaged_file.0)))
+            .map(|uncommitted_file| (std::mem::take(&mut uncommitted_file.1), Some(&mut uncommitted_file.0)))
             .collect();
-        // Ensure that unstaged files do not collide with branch substrings
+        // Ensure that uncommitted files do not collide with branch substrings
         for short_id in short_ids_to_count.keys() {
             reverse_hex_short_ids.push((ChangeId::from(BString::from(short_id.as_str())), None));
         }
@@ -316,14 +314,11 @@ impl IdMap {
 
         let mut uncommitted_files = BTreeMap::new();
         let mut uncommitted_hunks = HashMap::new();
-        for (short_id, _, uncommitted_file) in unstaged_files {
+        for (short_id, _, uncommitted_file) in raw_uncommitted_files {
             uncommitted_files.insert(short_id, uncommitted_file);
             // Skip an ID for stability of other IDs below with respect to older
             // versions of the GitButler CLI.
             id_usage.next_available()?;
-        }
-        for uncommitted_file in staged_files {
-            uncommitted_files.insert(id_usage.next_available()?.to_short_id(), uncommitted_file);
         }
         for uncommitted_file in uncommitted_files.values() {
             for hunk_assignment in uncommitted_file.hunk_assignments.iter() {

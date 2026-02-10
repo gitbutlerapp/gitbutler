@@ -8,7 +8,7 @@ use uuid::Uuid;
 /// `Default` is implemented to generate a new UUID
 /// via [`Uuid::new_v4`].
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Id<const KIND: char>(Uuid);
+pub struct Id<const KIND: char>(pub Uuid);
 
 impl<const KIND: char> Id<KIND> {
     /// Generate a new ID.
