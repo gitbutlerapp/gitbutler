@@ -11,13 +11,15 @@ use but_workspace::legacy::{StacksFilter, ui::StackEntry};
 use cli_prompts::DisplayPrompt;
 use colored::Colorize;
 use gitbutler_branch_actions::BranchListingFilter;
+use gitbutler_oplog::OplogExt;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gix::{revision::walk::Sorting, traverse::commit::simple::CommitTimeOrder};
 
 use crate::{CliId, IdMap, utils::OutputChannel};
 
 /// Handle the `but pick` command.
 ///
-/// Cherry-picks a commit from an unapplied branch into an applied virtual branch.
+/// Cherry-picks one or more commits from an unapplied branch into an applied virtual branch.
 pub fn handle(ctx: &mut Context, out: &mut OutputChannel, source: &str, target_branch: Option<&str>) -> Result<()> {
     // Get applied stacks first - we'll need them for target resolution
     let stacks = workspace::stacks(ctx, Some(StacksFilter::InWorkspace)).context("Failed to list stacks")?;
@@ -26,57 +28,105 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, source: &str, target_b
         bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
     }
 
-    // Resolve the source to a commit (may involve interactive selection for branches)
-    let commit_oid = resolve_source_commit(ctx, out, source)?;
-    let commit_hex = commit_oid.to_string();
+    // If no target branch was specified, resolve it once upfront so the user
+    // isn't prompted repeatedly when picking multiple commits.
+    let target_branch_resolved: Option<String>;
+    let effective_target = if target_branch.is_some() {
+        target_branch
+    } else if stacks.len() > 1 && out.can_prompt() {
+        let (_stack_id, branch_name) = select_target_interactively(&stacks)?;
+        target_branch_resolved = Some(branch_name);
+        target_branch_resolved.as_deref()
+    } else {
+        None
+    };
 
-    // Check cherry-apply status
-    let status =
-        cherry_apply::cherry_apply_status(ctx, commit_hex.clone()).context("Failed to check cherry-apply status")?;
+    // Resolve the source to commit(s) (may involve interactive multi-selection for branches)
+    let commit_oids = resolve_source_commits(ctx, out, source)?;
 
-    // Resolve the target stack based on status and user input
-    let (target_stack_id, target_branch_name) =
-        resolve_target_stack(ctx, out, &stacks, target_branch, &status, &commit_hex)?;
+    // Save an oplog snapshot before applying picks so the operation can be undone
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        let _ = ctx.create_snapshot(
+            SnapshotDetails::new(OperationKind::CherryPick),
+            guard.write_permission(),
+        );
+    }
 
-    // Execute cherry-apply
-    cherry_apply::cherry_apply(ctx, commit_hex.clone(), target_stack_id).context("Failed to cherry-pick commit")?;
+    let mut picked = Vec::new();
+    for commit_oid in &commit_oids {
+        let commit_hex = commit_oid.to_string();
+
+        // Check cherry-apply status for each commit
+        let status = cherry_apply::cherry_apply_status(ctx, commit_hex.clone())
+            .context("Failed to check cherry-apply status")?;
+
+        // Resolve the target stack based on status and user input
+        let (target_stack_id, target_branch_name) =
+            resolve_target_stack(ctx, out, &stacks, effective_target, &status, &commit_hex)?;
+
+        // Execute cherry-apply
+        cherry_apply::cherry_apply(ctx, commit_hex.clone(), target_stack_id).context("Failed to cherry-pick commit")?;
+
+        picked.push((commit_hex, target_branch_name, target_stack_id));
+    }
 
     // Output results
-    let commit_short = &commit_hex[..7.min(commit_hex.len())];
-
-    if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "{} {} {} {}",
-            "Picked commit".green(),
-            commit_short.yellow(),
-            "into branch".green(),
-            target_branch_name.cyan()
-        )?;
+    for (commit_hex, target_branch_name, _) in &picked {
+        let commit_short = &commit_hex[..7.min(commit_hex.len())];
+        if let Some(out) = out.for_human() {
+            writeln!(
+                out,
+                "{} {} {} {}",
+                "Picked commit".green(),
+                commit_short.yellow(),
+                "into branch".green(),
+                target_branch_name.cyan()
+            )?;
+        }
     }
 
     if let Some(out) = out.for_shell() {
-        writeln!(out, "{commit_hex}")?;
+        for (commit_hex, _, _) in &picked {
+            writeln!(out, "{commit_hex}")?;
+        }
     }
 
     if let Some(out) = out.for_json() {
-        out.write_value(serde_json::json!({
-            "picked_commit": commit_hex,
-            "target_branch": target_branch_name,
-            "target_stack_id": target_stack_id.to_string(),
-        }))?;
+        if picked.len() == 1 {
+            let (commit_hex, target_branch_name, target_stack_id) = &picked[0];
+            out.write_value(serde_json::json!({
+                "picked_commit": commit_hex,
+                "target_branch": target_branch_name,
+                "target_stack_id": target_stack_id.to_string(),
+            }))?;
+        } else {
+            let commits: Vec<_> = picked
+                .iter()
+                .map(|(commit_hex, target_branch_name, target_stack_id)| {
+                    serde_json::json!({
+                        "picked_commit": commit_hex,
+                        "target_branch": target_branch_name,
+                        "target_stack_id": target_stack_id.to_string(),
+                    })
+                })
+                .collect();
+            out.write_value(serde_json::json!({
+                "picked_commits": commits,
+            }))?;
+        }
     }
 
     Ok(())
 }
 
-/// Resolve the source argument to a commit OID.
+/// Resolve the source argument to one or more commit OIDs.
 ///
 /// Tries in order:
 /// 1. Unapplied branch name (shows interactive commit selection if available)
 /// 2. CLI ID (e.g., "c5")
 /// 3. Full or partial commit SHA (via rev_parse)
-fn resolve_source_commit(ctx: &mut Context, out: &mut OutputChannel, source: &str) -> Result<gix::ObjectId> {
+fn resolve_source_commits(ctx: &mut Context, out: &mut OutputChannel, source: &str) -> Result<Vec<gix::ObjectId>> {
     // Try as an unapplied branch name first (case-insensitive)
     // This takes priority so branch names trigger interactive commit selection
     let branches = virtual_branches::list_branches(
@@ -94,7 +144,7 @@ fn resolve_source_commit(ctx: &mut Context, out: &mut OutputChannel, source: &st
         .find(|b| b.name.to_string() == source || b.name.to_string().to_lowercase() == source_lower)
     {
         let branch_name = branch.name.to_string();
-        return select_commit_from_branch(ctx, out, branch.head, &branch_name);
+        return select_commits_from_branch(ctx, out, branch.head, &branch_name);
     }
 
     // Try using IdMap for CLI IDs
@@ -103,7 +153,7 @@ fn resolve_source_commit(ctx: &mut Context, out: &mut OutputChannel, source: &st
 
     for cli_id in &cli_ids {
         if let CliId::Commit { commit_id, .. } = cli_id {
-            return Ok(*commit_id);
+            return Ok(vec![*commit_id]);
         }
     }
 
@@ -113,7 +163,7 @@ fn resolve_source_commit(ctx: &mut Context, out: &mut OutputChannel, source: &st
         if let Ok(oid) = repo.rev_parse_single(source) {
             let object_id: gix::ObjectId = oid.detach();
             if repo.find_commit(object_id).is_ok() {
-                return Ok(object_id);
+                return Ok(vec![object_id]);
             }
         }
     }
@@ -125,13 +175,13 @@ Run 'but status' to see available CLI IDs, or 'but branch list' to see branches.
     );
 }
 
-/// Select a commit from a branch, either interactively or using the head.
-fn select_commit_from_branch(
+/// Select one or more commits from a branch, either interactively or using the head.
+fn select_commits_from_branch(
     ctx: &mut Context,
     out: &mut OutputChannel,
     branch_head: git2::Oid,
     branch_name: &str,
-) -> Result<gix::ObjectId> {
+) -> Result<Vec<gix::ObjectId>> {
     use gix::prelude::ObjectIdExt as _;
 
     let git2_repo = ctx.git2_repo.get()?;
@@ -158,7 +208,7 @@ fn select_commit_from_branch(
                 branch_name
             );
         }
-        return Ok(branch_head_gix);
+        return Ok(vec![branch_head_gix]);
     }
 
     // Interactive mode: walk commits from branch head to merge base
@@ -190,10 +240,10 @@ fn select_commit_from_branch(
 
     // If only one commit, use it directly
     if commits.len() == 1 {
-        return Ok(commit_oids[0]);
+        return Ok(vec![commit_oids[0]]);
     }
 
-    // Interactive selection - use index to avoid SHA collision issues
+    // Interactive multi-selection
     let options: Vec<String> = commits
         .iter()
         .enumerate()
@@ -210,22 +260,29 @@ fn select_commit_from_branch(
         })
         .collect();
 
-    let prompt = cli_prompts::prompts::Selection::new(
-        &format!("Select commit from '{}':", branch_name),
-        options.iter().cloned(),
-    );
+    let prompt =
+        cli_prompts::prompts::Multiselect::new(&format!("Pick commits from '{branch_name}':"), options.iter().cloned());
 
-    let selection = prompt
+    let selections = prompt
         .display()
         .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
 
-    // Find index by matching the full selection string
-    let selected_index = options
-        .iter()
-        .position(|opt| opt == &selection)
-        .context("Selected commit not found")?;
+    if selections.is_empty() {
+        bail!("No commits selected.");
+    }
 
-    Ok(commit_oids[selected_index])
+    // Map selected strings back to indices, then collect OIDs
+    let selected_indices: Vec<usize> = selections
+        .iter()
+        .filter_map(|sel| options.iter().position(|opt| opt == sel))
+        .collect();
+
+    // Return in oldest-first order so they are applied chronologically
+    let mut selected_indices_sorted = selected_indices;
+    selected_indices_sorted.sort_unstable();
+    selected_indices_sorted.reverse();
+
+    Ok(selected_indices_sorted.into_iter().map(|i| commit_oids[i]).collect())
 }
 
 /// Resolve the target stack based on user input and cherry-apply status.
