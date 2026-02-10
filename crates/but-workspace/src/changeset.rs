@@ -203,19 +203,22 @@ impl PushStatus {
     ///       * Special cases of remote is merged, and remote tracking branch is deleted after fetch
     ///         if it was deleted on the remote?
     fn derive_from_commits(has_remote_tracking_ref: bool, commits: &[LocalCommit], remote_has_commits: bool) -> Self {
+        let first_commit = commits.first();
+        let everything_integrated_locally =
+            first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated(_)));
+        let first_commit_is_local = first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
+
         if !has_remote_tracking_ref {
             // Generally, don't do anything if no remote relationship is set up (anymore).
             // There may be better ways to deal with this.
             return PushStatus::CompletelyUnpushed;
         }
 
-        let first_commit = commits.first();
-        let everything_integrated_locally =
-            first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated(_)));
-        let first_commit_is_local = first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
         if everything_integrated_locally {
-            PushStatus::Integrated
-        } else if commits.iter().any(|c| {
+            return PushStatus::Integrated;
+        }
+
+        if commits.iter().any(|c| {
             matches!(c.relation, LocalCommitRelation::LocalAndRemote(id) if c.id != id)
                 || (first_commit_is_local && matches!(c.relation, LocalCommitRelation::Integrated(_)))
         }) {
