@@ -18,7 +18,7 @@ const CHANGE_ID_REVERSE_BYTE_LEN: usize = CHANGE_ID_REVERSE_HEX_LEN / 2;
 /// header, but is usually a reverse hex string or a uuid.
 ///
 /// For all intents and purposes, this type acts like a [`BString`].
-#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ChangeId(BString);
 
 impl ChangeId {
@@ -31,8 +31,14 @@ impl ChangeId {
     pub fn generate() -> Self {
         let mut rng = rand::rng();
         let bytes: [u8; CHANGE_ID_REVERSE_BYTE_LEN] = rng.random();
+        ChangeId::from_bytes(&bytes)
+    }
+
+    /// Creates a reverse hex ChangeId from the first 16 elements of `bytes`. If
+    /// there are fewer, the created ChangeId is right-padded with 'z'.
+    pub fn from_bytes(bytes: &[u8]) -> Self {
         let mut out = vec![b'z'; CHANGE_ID_REVERSE_HEX_LEN];
-        for (i, byte) in bytes.iter().enumerate() {
+        for (i, byte) in bytes.iter().take(CHANGE_ID_REVERSE_BYTE_LEN).enumerate() {
             let [a, b] = byte_to_reverse_hex(*byte);
             let i = i * 2;
             out[i] = a;

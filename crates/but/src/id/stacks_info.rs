@@ -12,6 +12,7 @@ fn stacks_info_without_short_ids(stacks: Vec<Stack>) -> StacksInfo {
     let mut stacks_info = StacksInfo {
         stacks: Vec::with_capacity(stacks.len()),
         id_usage: IdUsage::default(),
+        short_ids_to_count: HashMap::new(),
     };
     for stack in stacks {
         let mut stack_with_id = StackWithId {
@@ -49,18 +50,9 @@ fn stacks_info_without_short_ids(stacks: Vec<Stack>) -> StacksInfo {
 fn populate_branch_short_ids(
     stacks: &mut [StackWithId],
     id_usage: &mut IdUsage,
+    short_ids_to_count: &mut HashMap<ShortId, u8>,
     uncommitted_short_filenames: &HashSet<BString>,
 ) -> anyhow::Result<()> {
-    // Map from an acceptable short ID to how many times it appears among
-    // uncommitted short filenames and substrings of branch names. If a
-    // string doesn't appear in this map, it is not an acceptable short ID,
-    // and if a string's count is more than 1, it's ambiguous.
-    //
-    // Note that this map's keys do not necessarily need to start with g-z,
-    // unlike [UintId], as long as the key cannot be confused with a commit
-    // ID.
-    let mut short_ids_to_count: HashMap<ShortId, u8> = HashMap::new();
-
     // Fill the `short_ids_to_count` and `id_usage` data structures.
     let mut maybe_mark_used = |candidate| {
         if let Some(short_id) = UintId::from_name(candidate)
@@ -180,6 +172,15 @@ fn populate_commit_short_ids(stacks: &mut [StackWithId]) {
 pub(crate) struct StacksInfo {
     pub(crate) stacks: Vec<StackWithId>,
     pub(crate) id_usage: IdUsage,
+    // Map from an acceptable short ID to how many times it appears among
+    // uncommitted short filenames and substrings of branch names. If a
+    // string doesn't appear in this map, it is not an acceptable short ID,
+    // and if a string's count is more than 1, it's ambiguous.
+    //
+    // Note that this map's keys do not necessarily need to start with g-z,
+    // unlike [UintId], as long as the key cannot be confused with a commit
+    // ID.
+    pub(crate) short_ids_to_count: HashMap<ShortId, u8>,
 }
 
 impl StacksInfo {
@@ -188,6 +189,7 @@ impl StacksInfo {
         populate_branch_short_ids(
             &mut stacks_info.stacks,
             &mut stacks_info.id_usage,
+            &mut stacks_info.short_ids_to_count,
             uncommitted_short_filenames,
         )?;
         populate_commit_short_ids(&mut stacks_info.stacks);

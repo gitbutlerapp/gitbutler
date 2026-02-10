@@ -85,7 +85,7 @@ fn uncommitted_file_to_branch() -> anyhow::Result<()> {
     env.setup_metadata(&["A", "B"])?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    env.but("rub i0 A")
+    env.but("rub a.txt A")
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
@@ -186,7 +186,7 @@ Uncommitted changes
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "pn",
       "filePath": "b.txt",
       "changeType": "added"
     }
@@ -262,32 +262,11 @@ fn shorthand_uncommitted_hunk_to_unassigned() -> anyhow::Result<()> {
     env.setup_metadata(&["A", "B"])?;
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
-    // Assign the change to A and verify that the assignment happened.
-    env.but("i0 A").assert().success();
-    env.but("--json status -f")
-        .allow_json()
-        .assert()
-        .success()
-        .stderr_eq(snapbox::str![])
-        .stdout_eq(snapbox::str![[r#"
-{
-  "unassignedChanges": [],
-  "stacks": [
-    {
-      "cliId": "l0",
-      "assignedChanges": [
-        {
-          "cliId": "i0",
-          "filePath": "a.txt",
-          "changeType": "modified"
-        }
-      ],
-...
-
-"#]]);
+    // Assign the change to A.
+    env.but("a.txt A").assert().success();
 
     // Verify that the first hunk is j0, and move it to unassigned.
-    env.but("diff i0")
+    env.but("diff A@{stack}:a.txt")
         .assert()
         .success()
         .stderr_eq(snapbox::str![])
@@ -330,7 +309,7 @@ Unstaged a hunk in a.txt in a stack
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -409,7 +388,7 @@ Staged a hunk in a.txt in the unassigned area → [A].
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -486,12 +465,12 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "added"
     },
     {
-      "cliId": "j0",
+      "cliId": "pn",
       "filePath": "b.txt",
       "changeType": "added"
     }
@@ -516,11 +495,11 @@ fn uncommit_command_validation() -> anyhow::Result<()> {
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Test that uncommit rejects uncommitted files
-    env.but("uncommit i0")
+    env.but("uncommit a.txt")
         .assert()
         .failure()
         .stderr_eq(str![[r#"
-Failed to uncommit. Cannot uncommit i0 - it is an uncommitted file or hunk. Only commits and files-in-commits can be uncommitted.
+Failed to uncommit. Cannot uncommit a.txt - it is an uncommitted file or hunk. Only commits and files-in-commits can be uncommitted.
 
 "#]]);
 
@@ -541,7 +520,7 @@ fn stage_command() -> anyhow::Result<()> {
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Test stage command
-    env.but("stage i0 A").assert().success();
+    env.but("stage a.txt A").assert().success();
 
     // Verify the file is assigned to A
     env.but("--json status -f")
@@ -576,7 +555,7 @@ fn unstage_command() -> anyhow::Result<()> {
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // First stage the file to A
-    env.but("stage i0 A").assert().success();
+    env.but("stage a.txt A").assert().success();
 
     // Verify it's assigned
     env.but("--json status -f")
@@ -601,7 +580,7 @@ fn unstage_command() -> anyhow::Result<()> {
 "#]]);
 
     // Now unstage it
-    env.but("unstage i0").assert().success();
+    env.but("unstage A@{stack}:a.txt").assert().success();
 
     // Verify it's now unassigned
     env.but("--json status -f")
@@ -612,7 +591,7 @@ fn unstage_command() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -636,10 +615,10 @@ fn unstage_command_with_branch() -> anyhow::Result<()> {
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "a.txt");
 
     // Stage the file to A
-    env.but("stage i0 A").assert().success();
+    env.but("stage a.txt A").assert().success();
 
     // Unstage with branch parameter
-    env.but("unstage i0 A").assert().success();
+    env.but("unstage A@{stack}:a.txt A").assert().success();
 
     // Verify it's unassigned
     env.but("--json status -f")
@@ -650,7 +629,7 @@ fn unstage_command_with_branch() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -687,7 +666,7 @@ Failed to unstage. Cannot unstage fc - it is a commit. Only uncommitted files an
 
     // Test that unstage rejects non-branch as branch parameter
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "c.txt");
-    env.but(format!("unstage i0 {}", commit_id))
+    env.but(format!("unstage c.txt {}", commit_id))
         .assert()
         .failure()
         .stderr_eq(str![[r#"
