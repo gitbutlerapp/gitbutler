@@ -906,30 +906,12 @@ fn commit_with_file_assigned_to_different_stack_fails() -> anyhow::Result<()> {
     // Create a file
     env.file("file.txt", "content");
 
-    // Get file ID from status
-    let status_output = env.but("status --json").assert().success();
-    let stdout = std::str::from_utf8(&status_output.get_output().stdout)?;
-    let status: serde_json::Value = serde_json::from_str(stdout)?;
-
-    let file_id = status["unassignedChanges"]
-        .as_array()
-        .and_then(|changes| {
-            changes.iter().find_map(|c| {
-                if c["filePath"].as_str() == Some("file.txt") {
-                    c["cliId"].as_str().map(|s| s.to_string())
-                } else {
-                    None
-                }
-            })
-        })
-        .expect("file.txt should have a CLI ID");
-
     // Stage the file to branch A
-    env.but(format!("stage {} A", file_id)).assert().success();
+    env.but("stage file.txt A").assert().success();
 
     // Try to commit the file to branch B (should fail because it's staged to A)
     let output = env
-        .but(format!("commit -m 'test' B --changes {}", file_id))
+        .but("commit -m 'test' B --changes A@{stack}:file.txt")
         .assert()
         .failure();
 
