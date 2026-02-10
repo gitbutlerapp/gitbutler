@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
-	import { computePrStatus } from '$lib/forge/interface/prUtils';
+	import { getPrStatus } from '$lib/forge/interface/prUtils';
 	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from '@gitbutler/ui';
 	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
 	type basePrData = {
@@ -43,7 +43,7 @@
 
 	const unknownName = 'Unknown Author';
 
-	const prStatus = $derived(computePrStatus(mergedAt, closedAt, isDraft));
+	const prStatus = $derived(getPrStatus({ mergedAt, closedAt, draft: isDraft }));
 </script>
 
 <BranchesCardTemplate

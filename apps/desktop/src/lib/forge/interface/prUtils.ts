@@ -12,15 +12,3 @@ export function getPrStatus(pr: {
 	if (pr.draft) return 'draft';
 	return 'open';
 }
-
-/**
- * Computes the status of a pull request from individual properties.
- * Returns the status in order of priority: merged > closed > draft > open
- */
-export function computePrStatus(
-	mergedAt?: string,
-	closedAt?: string,
-	isDraft?: boolean
-): 'merged' | 'closed' | 'draft' | 'open' {
-	return getPrStatus({ mergedAt, closedAt, draft: isDraft ?? false });
-}
