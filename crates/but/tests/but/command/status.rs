@@ -113,7 +113,7 @@ fn json_shows_paths_as_strings() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "qu",
       "filePath": "test-file.txt",
       "changeType": "added"
     }
@@ -236,12 +236,12 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     },
     {
-      "cliId": "j0",
+      "cliId": "pn",
       "filePath": "b.txt",
       "changeType": "modified"
     }

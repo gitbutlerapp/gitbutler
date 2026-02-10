@@ -22,7 +22,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -150,7 +150,7 @@ Hint: you can run `but undo` to undo these changes
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -279,7 +279,7 @@ k0 a.txt│
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [unstaged changes] 
-┊   i0 M a.txt 🔒 889385c, a7aa4ef, f4ea7f8
+┊   nk M a.txt 🔒 889385c, a7aa4ef, f4ea7f8
 ┊
 ┊╭┄g0 [A]  
 ┊●   a7aa4ef partial change to a.txt 3  
@@ -391,7 +391,7 @@ fn uncommitted_file_new() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -569,7 +569,7 @@ Hint: you can run `but undo` to undo these changes
         .stderr_eq(snapbox::str![])
         .stdout_eq(snapbox::str![[r#"
 ╭┄zz [unstaged changes] 
-┊   i0 M a.txt 🔒 f4ea7f8
+┊   nk M a.txt 🔒 f4ea7f8
 ┊
 ┊╭┄g0 [A]  
 ┊●   5a72bff [AUTO-COMMIT] Generated commit message  
@@ -597,7 +597,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -668,7 +668,7 @@ Dry run complete. No changes were made.
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -739,7 +739,7 @@ Dry run complete. No changes were made.
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }

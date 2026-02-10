@@ -186,7 +186,7 @@ Uncommitted changes
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "pn",
       "filePath": "b.txt",
       "changeType": "added"
     }
@@ -309,7 +309,7 @@ Unstaged a hunk in a.txt in a stack
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -388,7 +388,7 @@ Staged a hunk in a.txt in the unassigned area → [A].
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -465,12 +465,12 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "added"
     },
     {
-      "cliId": "j0",
+      "cliId": "pn",
       "filePath": "b.txt",
       "changeType": "added"
     }
@@ -591,7 +591,7 @@ fn unstage_command() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }
@@ -629,7 +629,7 @@ fn unstage_command_with_branch() -> anyhow::Result<()> {
 {
   "unassignedChanges": [
     {
-      "cliId": "i0",
+      "cliId": "nk",
       "filePath": "a.txt",
       "changeType": "modified"
     }

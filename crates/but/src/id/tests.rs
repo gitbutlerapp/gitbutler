@@ -278,7 +278,7 @@ fn branches_avoid_uncommitted_filenames() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
     branches: [ ij ]
-    uncommitted_files: [ g0, h0 ]
+    uncommitted_files: [ nx, yz ]
     uncommitted_hunks: [ i0, j0 ]
     ");
 
@@ -355,7 +355,7 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
     branches: [ h0 ]
-    uncommitted_files: [ g0, i0 ]
+    uncommitted_files: [ kv, ro ]
     uncommitted_hunks: [ j0, k0, l0 ]
     stacks: [ m0 ]
     ");
@@ -365,9 +365,104 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
             commit_id: Sha1(0202020202020202020202020202020202020202),
             id: "02",
         },
+        Branch {
+            name: "h0",
+            id: "h0",
+            stack_id: Some(
+                00000000-0000-0000-0000-000000000001,
+            ),
+        },
         Uncommitted(
             UncommittedCliId {
-                id: "g0",
+                id: "j0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "uncommitted2.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+        Uncommitted(
+            UncommittedCliId {
+                id: "k0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-1,2", "+1,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+        Uncommitted(
+            UncommittedCliId {
+                id: "kv",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "uncommitted2.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+        Uncommitted(
+            UncommittedCliId {
+                id: "l0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-3,2", "+3,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+        Stack {
+            id: "m0",
+            stack_id: 00000000-0000-0000-0000-000000000001,
+        },
+        Uncommitted(
+            UncommittedCliId {
+                id: "ro",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -401,101 +496,6 @@ fn non_commit_ids_do_not_collide() -> anyhow::Result<()> {
                 is_entire_file: true,
             },
         ),
-        Branch {
-            name: "h0",
-            id: "h0",
-            stack_id: Some(
-                00000000-0000-0000-0000-000000000001,
-            ),
-        },
-        Uncommitted(
-            UncommittedCliId {
-                id: "i0",
-                hunk_assignments: NonEmpty {
-                    head: HunkAssignment {
-                        id: None,
-                        hunk_header: None,
-                        path: "",
-                        path_bytes: "uncommitted2.txt",
-                        stack_id: None,
-                        hunk_locks: None,
-                        line_nums_added: None,
-                        line_nums_removed: None,
-                        diff: None,
-                    },
-                    tail: [],
-                },
-                is_entire_file: true,
-            },
-        ),
-        Uncommitted(
-            UncommittedCliId {
-                id: "j0",
-                hunk_assignments: NonEmpty {
-                    head: HunkAssignment {
-                        id: None,
-                        hunk_header: Some(
-                            HunkHeader("-1,2", "+1,2"),
-                        ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        stack_id: None,
-                        hunk_locks: None,
-                        line_nums_added: None,
-                        line_nums_removed: None,
-                        diff: None,
-                    },
-                    tail: [],
-                },
-                is_entire_file: false,
-            },
-        ),
-        Uncommitted(
-            UncommittedCliId {
-                id: "k0",
-                hunk_assignments: NonEmpty {
-                    head: HunkAssignment {
-                        id: None,
-                        hunk_header: Some(
-                            HunkHeader("-3,2", "+3,2"),
-                        ),
-                        path: "",
-                        path_bytes: "uncommitted1.txt",
-                        stack_id: None,
-                        hunk_locks: None,
-                        line_nums_added: None,
-                        line_nums_removed: None,
-                        diff: None,
-                    },
-                    tail: [],
-                },
-                is_entire_file: false,
-            },
-        ),
-        Uncommitted(
-            UncommittedCliId {
-                id: "l0",
-                hunk_assignments: NonEmpty {
-                    head: HunkAssignment {
-                        id: None,
-                        hunk_header: None,
-                        path: "",
-                        path_bytes: "uncommitted2.txt",
-                        stack_id: None,
-                        hunk_locks: None,
-                        line_nums_added: None,
-                        line_nums_removed: None,
-                        diff: None,
-                    },
-                    tail: [],
-                },
-                is_entire_file: false,
-            },
-        ),
-        Stack {
-            id: "m0",
-            stack_id: 00000000-0000-0000-0000-000000000001,
-        },
     ]
     "#);
 
@@ -518,7 +518,7 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     insta::assert_debug_snapshot!(id_map.debug_state(), @r"
     workspace_and_remote_commits_count: 1
     branches: [ h0 ]
-    uncommitted_files: [ g0 ]
+    uncommitted_files: [ ln ]
     uncommitted_hunks: [ i0 ]
     ");
 
@@ -551,11 +551,11 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         "the case matters for branches"
     );
 
-    insta::assert_debug_snapshot!(id_map.parse("g0", changed_paths_fn)?, @r#"
+    insta::assert_debug_snapshot!(id_map.parse("ln", changed_paths_fn)?, @r#"
     [
         Uncommitted(
             UncommittedCliId {
-                id: "g0",
+                id: "ln",
                 hunk_assignments: NonEmpty {
                     head: HunkAssignment {
                         id: None,
@@ -576,7 +576,7 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
     ]
     "#);
     assert_eq!(
-        id_map.parse("G0", changed_paths_fn)?,
+        id_map.parse("LN", changed_paths_fn)?,
         [],
         "the case matters for uncommitted files"
     );
@@ -595,6 +595,129 @@ fn ids_are_case_sensitive() -> anyhow::Result<()> {
         [],
         "the case matters for committed files"
     );
+
+    Ok(())
+}
+
+#[test]
+fn uncommitted_files_disambiguate_between_themselves() -> anyhow::Result<()> {
+    let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
+    let hunk_assignments = vec![hunk_assignment("foo23", None), hunk_assignment("foo242", None)];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    let changed_paths_fn =
+        |commit_id: gix::ObjectId, parent_id: Option<gix::ObjectId>| -> anyhow::Result<Vec<but_core::TreeChange>> {
+            Ok(if commit_id == id(1) && parent_id.is_none() {
+                vec![]
+            } else {
+                bail!("unexpected IDs {} {:?}", commit_id, parent_id);
+            })
+        };
+
+    // TODO make this return both (instead of none) so that the user can disambiguate
+    insta::assert_debug_snapshot!(id_map.parse("kp", changed_paths_fn)?, @"[]");
+
+    insta::assert_debug_snapshot!(id_map.parse("kpo", changed_paths_fn)?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "kpo",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "foo242",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+    insta::assert_debug_snapshot!(id_map.parse("kpr", changed_paths_fn)?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "kpr",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "foo23",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn uncommitted_files_disambiguate_with_branch() -> anyhow::Result<()> {
+    let stacks = vec![stack([segment("fookpfoo", [id(1)], None, [])])];
+    let hunk_assignments = vec![hunk_assignment("foo23", None)];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    let changed_paths_fn =
+        |commit_id: gix::ObjectId, parent_id: Option<gix::ObjectId>| -> anyhow::Result<Vec<but_core::TreeChange>> {
+            Ok(if commit_id == id(1) && parent_id.is_none() {
+                vec![]
+            } else {
+                bail!("unexpected IDs {} {:?}", commit_id, parent_id);
+            })
+        };
+
+    // Only the branch is returned
+    insta::assert_debug_snapshot!(id_map.parse("kp", changed_paths_fn)?, @r#"
+    [
+        Branch {
+            name: "fookpfoo",
+            id: "ok",
+            stack_id: None,
+        },
+    ]
+    "#);
+
+    // More characters must be specified to get the file
+    insta::assert_debug_snapshot!(id_map.parse("kpr", changed_paths_fn)?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "kpr",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "foo23",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
 
     Ok(())
 }
