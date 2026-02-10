@@ -3,6 +3,7 @@
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { getPrStatus } from '$lib/forge/interface/prUtils';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 
@@ -122,15 +123,9 @@
 
 		<div class="text-12 sidebar-entry__about">
 			{#if pr}
-				{@const prStatus = (() => {
-					if (pr.mergedAt) return 'merged';
-					if (pr.closedAt) return 'closed';
-					if (pr.draft) return 'draft';
-					return 'open';
-				})()}
 				<ReviewBadge
 					type={reviewUnit?.abbr}
-					status={prStatus}
+					status={getPrStatus(pr)}
 					title={pr.title}
 					number={pr.number}
 				/>
