@@ -208,14 +208,14 @@ impl PushStatus {
             first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated(_)));
         let first_commit_is_local = first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
 
-        if everything_integrated_locally {
-            return PushStatus::Integrated;
-        }
-
         if !has_remote_tracking_ref {
             // Generally, don't do anything if no remote relationship is set up (anymore).
             // There may be better ways to deal with this.
             return PushStatus::CompletelyUnpushed;
+        }
+
+        if everything_integrated_locally {
+            return PushStatus::Integrated;
         }
 
         if commits.iter().any(|c| {
