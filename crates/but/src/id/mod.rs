@@ -272,13 +272,20 @@ impl IdMap {
 
         let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
         for hunk_assignments in partitioned_hunks {
-            let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
-            hasher.update(&hunk_assignments.first().path_bytes);
-            if let Some(stack_id) = hunk_assignments.first().stack_id {
-                hasher.update(stack_id.0.as_bytes());
-            }
-            let object_id = hasher.try_finalize()?;
-            let reverse_hex = ChangeId::from_bytes(object_id.as_bytes());
+            let HunkAssignment {
+                path_bytes, stack_id, ..
+            } = hunk_assignments.first();
+            let reverse_hex = if stack_id.is_none() && path_bytes.iter().all(|c| b'k' <= *c && *c <= b'z') {
+                ChangeId::from(path_bytes.to_owned())
+            } else {
+                let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
+                hasher.update(path_bytes);
+                if let Some(stack_id) = stack_id {
+                    hasher.update(stack_id.0.as_bytes());
+                }
+                let object_id = hasher.try_finalize()?;
+                ChangeId::from_bytes(object_id.as_bytes())
+            };
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
                 id_usage.mark_used(uint_id);
