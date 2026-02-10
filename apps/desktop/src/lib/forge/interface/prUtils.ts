@@ -22,8 +22,5 @@ export function computePrStatus(
 	closedAt?: string,
 	isDraft?: boolean
 ): 'merged' | 'closed' | 'draft' | 'open' {
-	if (mergedAt) return 'merged';
-	if (closedAt) return 'closed';
-	if (isDraft) return 'draft';
-	return 'open';
+	return getPrStatus({ mergedAt, closedAt, draft: isDraft ?? false });
 }
