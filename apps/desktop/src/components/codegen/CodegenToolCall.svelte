@@ -2,7 +2,7 @@
 	import ExpandableSection from '$components/codegen/ExpandableSection.svelte';
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
 	import { formatToolCall, getToolIcon, getToolLabel } from '$lib/utils/codegenTools';
-	import { Codeblock, Tooltip } from '@gitbutler/ui';
+	import { Codeblock } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
@@ -54,7 +54,7 @@
 	>
 		{#snippet summary()}
 			{@const formattedCall = formatToolCall(toolCall)}
-			<Tooltip text={formattedCall}><span class="summary truncate">{formattedCall}</span></Tooltip>
+			<span class="summary truncate">{formattedCall}</span>
 		{/snippet}
 
 		{#snippet content()}
