@@ -14,6 +14,8 @@
 		};
 
 		modifiedAt?: string;
+		mergedAt?: string;
+		closedAt?: string;
 	};
 
 	interface Props extends basePrData {
@@ -33,10 +35,19 @@
 		sourceBranch,
 		author,
 		modifiedAt,
+		mergedAt,
+		closedAt,
 		onclick
 	}: Props = $props();
 
 	const unknownName = 'Unknown Author';
+
+	const prStatus = $derived.by(() => {
+		if (mergedAt) return 'merged';
+		if (closedAt) return 'closed';
+		if (isDraft) return 'draft';
+		return 'open';
+	});
 </script>
 
 <BranchesCardTemplate
@@ -49,7 +60,9 @@
 			title,
 			sourceBranch,
 			author,
-			modifiedAt
+			modifiedAt,
+			mergedAt,
+			closedAt
 		})}
 >
 	{#snippet content()}
@@ -61,12 +74,7 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge
-				type={reviewUnit?.abbr}
-				status={isDraft ? 'draft' : 'unknown'}
-				{title}
-				{number}
-			/>
+			<ReviewBadge type={reviewUnit?.abbr} status={prStatus} {title} {number} />
 			<span class="sidebar-entry__divider">•</span>
 
 			{#if noRemote || !sourceBranch}

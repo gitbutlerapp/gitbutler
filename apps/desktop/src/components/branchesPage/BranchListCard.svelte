@@ -122,9 +122,15 @@
 
 		<div class="text-12 sidebar-entry__about">
 			{#if pr}
+				{@const prStatus = (() => {
+					if (pr.mergedAt) return 'merged';
+					if (pr.closedAt) return 'closed';
+					if (pr.draft) return 'draft';
+					return 'open';
+				})()}
 				<ReviewBadge
 					type={reviewUnit?.abbr}
-					status={pr.draft ? 'draft' : 'unknown'}
+					status={prStatus}
 					title={pr.title}
 					number={pr.number}
 				/>
