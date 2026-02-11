@@ -228,6 +228,8 @@
 										gravatarUrl: sidebarEntrySubject.subject.author?.gravatarUrl
 									}}
 									modifiedAt={sidebarEntrySubject.subject.modifiedAt}
+									mergedAt={sidebarEntrySubject.subject.mergedAt}
+									closedAt={sidebarEntrySubject.subject.closedAt}
 									selected={selection.type === 'pr' &&
 										selection.prNumber === sidebarEntrySubject.subject.number}
 									onclick={(pr) => (selection = { type: 'pr', prNumber: pr.number })}

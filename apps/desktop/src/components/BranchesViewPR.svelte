@@ -96,6 +96,8 @@
 				title={pr.title}
 				sourceBranch={pr.sourceBranch}
 				isDraft={pr.draft ?? false}
+				mergedAt={pr.mergedAt}
+				closedAt={pr.closedAt}
 				noRemote
 			/>
 		</div>

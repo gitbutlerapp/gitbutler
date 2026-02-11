@@ -3,6 +3,7 @@
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { getPrStatus } from '$lib/forge/interface/prUtils';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 
@@ -124,7 +125,7 @@
 			{#if pr}
 				<ReviewBadge
 					type={reviewUnit?.abbr}
-					status={pr.draft ? 'draft' : 'unknown'}
+					status={getPrStatus(pr)}
 					title={pr.title}
 					number={pr.number}
 				/>
