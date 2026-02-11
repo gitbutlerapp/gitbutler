@@ -79,18 +79,26 @@ pub enum OperatingMode {
 }
 
 pub fn operating_mode(ctx: &Context) -> OperatingMode {
-    let repo = ctx.git2_repo.get().unwrap();
+    let outside = || OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx).unwrap_or_default());
+
+    let Ok(repo) = ctx.repo.get() else {
+        // If we can't even open/borrow the repo handle, attempting to compute metadata would just
+        // try (and fail) to open it again.
+        return OperatingMode::OutsideWorkspace(OutsideWorkspaceMetadata::default());
+    };
     let Ok(head_ref) = repo.head() else {
-        return OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx).unwrap_or_default());
+        return outside();
+    };
+    let Some(head_ref_name) = head_ref.referent_name().map(|name| name.as_bstr()) else {
+        return outside();
     };
 
-    let Some(head_ref_name) = head_ref.name() else {
-        return OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx).unwrap_or_default());
-    };
-
-    if OPEN_WORKSPACE_REFS.contains(&head_ref_name) {
+    if OPEN_WORKSPACE_REFS
+        .iter()
+        .any(|workspace_ref| workspace_ref.as_bytes() == head_ref_name)
+    {
         OperatingMode::OpenWorkspace
-    } else if head_ref_name == EDIT_BRANCH_REF {
+    } else if EDIT_BRANCH_REF.as_bytes() == head_ref_name {
         let edit_mode_metadata = read_edit_mode_metadata(ctx);
 
         match edit_mode_metadata {
@@ -100,11 +108,11 @@ pub fn operating_mode(ctx: &Context) -> OperatingMode {
                     "Failed to open in edit mode, falling back to outside workspace {}",
                     error
                 );
-                OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx).unwrap_or_default())
+                outside()
             }
         }
     } else {
-        OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx).unwrap_or_default())
+        outside()
     }
 }
 
