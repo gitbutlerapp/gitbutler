@@ -22,6 +22,41 @@ fn create_edit_mode_metadata(ctx: &Context) {
 }
 
 mod operating_modes {
+    mod invalid_repo_fallback {
+        use gitbutler_testsupport::{Case, Suite};
+
+        #[test]
+        fn operating_mode_falls_back_to_outside_workspace_when_repo_cannot_be_opened() {
+            let suite = Suite::default();
+            let Case { ctx, .. } = &suite.new_case();
+
+            // Make opening the repo fail by removing the `.git` directory.
+            std::fs::remove_dir_all(&ctx.gitdir).unwrap();
+
+            assert_eq!(
+                gitbutler_operating_modes::operating_mode(ctx),
+                gitbutler_operating_modes::OperatingMode::OutsideWorkspace(
+                    gitbutler_operating_modes::OutsideWorkspaceMetadata::default()
+                )
+            );
+        }
+    }
+
+    mod edit_branch_no_metadata_fallback {
+        use gitbutler_operating_modes::{OperatingMode, operating_mode};
+        use gitbutler_testsupport::{Case, Suite};
+
+        #[test]
+        fn operating_mode_falls_back_to_outside_workspace_when_on_edit_branch_without_metadata() {
+            let suite = Suite::default();
+            let Case { ctx, .. } = &suite.new_case();
+
+            crate::create_and_checkout_branch(ctx, "gitbutler/edit");
+
+            assert!(matches!(operating_mode(ctx), OperatingMode::OutsideWorkspace(_)));
+        }
+    }
+
     mod open_workspace_mode {
         use gitbutler_operating_modes::{ensure_open_workspace_mode, in_open_workspace_mode};
         use gitbutler_testsupport::{Case, Suite};
