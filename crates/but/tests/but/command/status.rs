@@ -252,12 +252,12 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "44:0",
+                  "cliId": "44:nk",
                   "filePath": "a.txt",
                   "changeType": "modified"
                 },
                 {
-                  "cliId": "44:1",
+                  "cliId": "44:pn",
                   "filePath": "b.txt",
                   "changeType": "modified"
                 }
@@ -267,12 +267,12 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 ...
               "changes": [
                 {
-                  "cliId": "49:0",
+                  "cliId": "49:nk",
                   "filePath": "a.txt",
                   "changeType": "added"
                 },
                 {
-                  "cliId": "49:1",
+                  "cliId": "49:pn",
                   "filePath": "b.txt",
                   "changeType": "added"
                 }
