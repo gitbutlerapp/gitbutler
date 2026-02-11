@@ -6,6 +6,7 @@ use but_core::{
 };
 use but_ctx::Context;
 use colored::Colorize;
+use gitbutler_operating_modes::OperatingMode;
 use serde::Serialize;
 
 use crate::utils::OutputChannel;
@@ -396,8 +397,17 @@ More info: https://docs.gitbutler.com/workspace-branch
 /// - if the project is registered in GitButler
 /// - if there is a remote
 /// - if there is a default target branch set
-/// - if we're on gitbutler/workspace
+/// - if we're not in outside-workspace mode
 pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<bool> {
+    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    if matches!(mode, OperatingMode::OutsideWorkspace(_)) {
+        anyhow::bail!("Not currently on a gitbutler/* branch.");
+    }
+
+    if matches!(mode, OperatingMode::Edit(_)) {
+        return Ok(true);
+    }
+
     let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
     // TODO(legacy): it's fine to have no target.
     if ws.target_ref.is_none() {
@@ -410,16 +420,6 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
             "Neither found push remote found in workspace nor unambiguously in the Git repository configuration."
         )
     };
-
-    // check if we're on gitbutler/workspace
-    let head = repo.head()?;
-    let head_name = head
-        .referent_name()
-        .map(|n| n.shorten().to_string())
-        .unwrap_or_default();
-    if !head_name.starts_with("gitbutler/") {
-        anyhow::bail!("Not currently on a gitbutler/* branch.");
-    }
 
     Ok(true)
 }
