@@ -22,17 +22,16 @@
 
 	async function stopTracking(id: string) {
 		isDeleting = true;
-		deleteProject: {
-			try {
-				await projectsService.deleteProject(id);
-			} catch {
-				deleteSucceeded = false;
-				break deleteProject;
-			}
+		// Navigate away first to prevent "project not found" errors from
+		// RTKQ cache invalidation triggering refetches on mounted components.
+		await goto('/');
+		try {
+			await projectsService.deleteProject(id);
 			deleteSucceeded = true;
+		} catch {
+			deleteSucceeded = false;
 		}
 		isDeleting = false;
-		goto('/');
 	}
 
 	async function locate(id: string) {
