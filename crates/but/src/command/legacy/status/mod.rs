@@ -482,6 +482,12 @@ fn print_assignments(
         )?;
     }
 
+    let max_id_width = assignments
+        .iter()
+        .map(|fa| fa.assignments[0].cli_id.len())
+        .max()
+        .unwrap_or(0);
+
     for fa in assignments {
         let state = status_from_changes(changes, fa.path.clone());
         let path = match &state {
@@ -491,7 +497,9 @@ fn print_assignments(
 
         let status = state.as_ref().map(status_letter_ui).unwrap_or_default();
 
-        let id = fa.assignments[0].cli_id.underline().blue();
+        let cli_id = &fa.assignments[0].cli_id;
+        let pad = max_id_width.saturating_sub(cli_id.len());
+        let id = format!("{:pad$}{}", "", cli_id.underline().blue());
 
         let mut locks = fa
             .assignments
