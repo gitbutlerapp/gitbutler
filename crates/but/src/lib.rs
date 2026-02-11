@@ -494,6 +494,12 @@ async fn match_subcommand(
                     .show_root_cause_error_then_exit_without_destructors(output)
             }
         }
+        Subcommands::Edit { file } => {
+            let path = args.current_dir.join(&file);
+            tui::editor::edit_file(&path)
+                .emit_metrics(metrics_ctx)
+                .show_root_cause_error_then_exit_without_destructors(output)
+        }
         #[cfg(feature = "legacy")]
         Subcommands::Show { commit, verbose } => {
             let mut ctx = setup::init_ctx(

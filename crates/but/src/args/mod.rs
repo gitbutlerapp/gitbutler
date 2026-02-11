@@ -197,6 +197,25 @@ pub enum Subcommands {
         no_tui: bool,
     },
 
+    /// Open a file in the built-in text editor.
+    ///
+    /// A simple terminal-based text editor for quick edits. This is the same
+    /// editor used as the fallback when no external editor is configured.
+    ///
+    /// ## Examples
+    ///
+    /// Edit a file:
+    ///
+    /// ```text
+    /// but edit README.md
+    /// ```
+    ///
+    #[clap(verbatim_doc_comment, hide = true)]
+    Edit {
+        /// Path to the file to edit (created if it doesn't exist)
+        file: String,
+    },
+
     /// Shows detailed information about a commit or branch.
     ///
     /// When given a commit ID, displays the full commit message, author information,
