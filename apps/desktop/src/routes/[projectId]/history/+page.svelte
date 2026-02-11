@@ -38,6 +38,7 @@
 
 	let currentSelectionId: SelectionId | undefined = $state(undefined);
 	let createSnapshotModal: CreateSnapshotModal;
+	let restoring = $state(false);
 
 	// Derive selectedFile from the selection service
 	const selectedFile = $derived.by(() => {
@@ -119,11 +120,16 @@
 								{projectId}
 								{entry}
 								isWithinRestore={withinRestoreItems.includes(entry.id)}
-								onRestoreClick={() => {
-									historyService.restoreSnapshot(projectId, entry.id);
-									// In some cases, restoring the snapshot doesn't update the UI correctly
-									// Until we have that figured out, we need to reload the page.
-									location.reload();
+								{restoring}
+								onRestoreClick={async () => {
+									restoring = true;
+									try {
+										await historyService.restoreSnapshot(projectId, entry.id);
+									} finally {
+										// In some cases, restoring the snapshot doesn't update the UI correctly
+										// Until we have that figured out, we need to reload the page.
+										location.reload();
+									}
 								}}
 								onDiffClick={() => {
 									currentSelectionId = createSnapshotSelection({ snapshotId: entry.id });
