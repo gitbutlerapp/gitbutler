@@ -18,43 +18,25 @@
 
 	const badgeDetails = $derived.by(() => {
 		if (title) {
-			return {
-				text: title,
-				color: undefined
-			};
+			return title;
 		}
 
 		switch (status) {
 			case 'open':
-				return {
-					text: `${reviewUnit} ${id} is open`,
-					color: 'var(--clr-theme-safe-element)'
-				};
+				return `${reviewUnit} ${id} is open`;
 			case 'closed':
-				return {
-					text: `${reviewUnit} ${id} is closed`,
-					color: 'var(--clr-theme-danger-element)'
-				};
+				return `${reviewUnit} ${id} is closed`;
 			case 'draft':
-				return {
-					text: `${reviewUnit} ${id} is a draft`,
-					color: undefined
-				};
+				return `${reviewUnit} ${id} is a draft`;
 			case 'merged':
-				return {
-					text: `${reviewUnit} ${id} is merged`,
-					color: 'var(--clr-theme-purple-element)'
-				};
+				return `${reviewUnit} ${id} is merged`;
 			default:
-				return {
-					text: `${reviewUnit} ${id}`,
-					color: undefined
-				};
+				return `${reviewUnit} ${id}`;
 		}
 	});
 </script>
 
-<Tooltip text={badgeDetails.text}>
+<Tooltip text={badgeDetails}>
 	<div class="review-badge pr-{status}">
 		<div class="review-badge__icon">
 			{#if type === 'MR'}
