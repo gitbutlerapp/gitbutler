@@ -36,9 +36,14 @@ pub async fn git_clone_repository(repository_url: String, target_dir: PathBuf) -
 
 async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> {
     tracing::info!("received prompt for clone of {url}: {prompt:?}");
-    askpass::get_broker()
-        .submit_prompt(prompt, askpass::Context::Clone { url })
-        .await
+    if let Some(broker) = askpass::get_broker() {
+        broker
+            .submit_prompt(prompt, askpass::Context::Clone { url })
+            .await
+    } else {
+        tracing::warn!("askpass broker not initialized (running outside GUI?); returning None");
+        None
+    }
 }
 
 #[but_api]

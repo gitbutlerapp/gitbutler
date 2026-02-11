@@ -334,9 +334,14 @@ impl RepoActionsExt for Context {
 async fn handle_git_prompt_push(prompt: String, askpass: Option<Option<StackId>>) -> Option<String> {
     if let Some(branch_id) = askpass {
         tracing::info!("received prompt for branch push {branch_id:?}: {prompt:?}");
-        askpass::get_broker()
-            .submit_prompt(prompt, askpass::Context::Push { branch_id })
-            .await
+        if let Some(broker) = askpass::get_broker() {
+            broker
+                .submit_prompt(prompt, askpass::Context::Push { branch_id })
+                .await
+        } else {
+            tracing::warn!("askpass broker not initialized (running outside GUI?); returning None");
+            None
+        }
     } else {
         tracing::warn!("received askpass push prompt but no broker was supplied; returning None");
         None
@@ -346,9 +351,14 @@ async fn handle_git_prompt_push(prompt: String, askpass: Option<Option<StackId>>
 async fn handle_git_prompt_fetch(prompt: String, askpass: Option<String>) -> Option<String> {
     if let Some(action) = askpass {
         tracing::info!("received prompt for fetch with action {action:?}: {prompt:?}");
-        askpass::get_broker()
-            .submit_prompt(prompt, askpass::Context::Fetch { action })
-            .await
+        if let Some(broker) = askpass::get_broker() {
+            broker
+                .submit_prompt(prompt, askpass::Context::Fetch { action })
+                .await
+        } else {
+            tracing::warn!("askpass broker not initialized (running outside GUI?); returning None");
+            None
+        }
     } else {
         tracing::warn!("received askpass fetch prompt but no broker was supplied; returning None");
         None
