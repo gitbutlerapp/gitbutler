@@ -112,6 +112,7 @@
 	.pr-draft {
 		border: 1px solid var(--clr-border-1);
 		border-style: dotted;
+		background-color: var(--clr-bg-muted);
 		color: var(--clr-text-1);
 	}
 
