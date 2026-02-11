@@ -285,6 +285,31 @@ fn uncommitted_and_committed_file_cli_ids() -> anyhow::Result<()> {
 }
 
 #[test]
+fn long_file_cli_ids_are_aligned() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix")?;
+
+    // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
+    env.setup_metadata(&["A"])?;
+
+    // foo1 has a CLI ID of length 2; the others have length 3
+    env.file("foo1", "contents");
+    env.file("foo23", "contents");
+    env.file("foo242", "contents");
+
+    // Even with differing lengths, the IDs are aligned
+    env.but("status")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::file![
+            "snapshots/status/long-file-cli-ids-are-aligned.stdout.term.svg"
+        ]);
+
+    Ok(())
+}
+
+#[test]
 fn long_cli_ids() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("commits-with-same-prefix")?;
 
