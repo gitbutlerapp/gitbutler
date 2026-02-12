@@ -32,10 +32,13 @@
 	async function onDeleteClicked() {
 		loading = true;
 		try {
+			// Navigate away first to unmount components that subscribe to project
+			// data. This prevents "project not found" errors from RTKQ cache
+			// invalidation triggering refetches on still-mounted components.
 			deleteConfirmationModal?.close();
+			await goto('/');
 			await projectsService.deleteProject(projectId);
 			chipToasts.success('Project deleted');
-			goto('/');
 		} catch (err: any) {
 			console.error(err);
 			showError('Failed to delete project', err);
