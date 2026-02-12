@@ -17,6 +17,8 @@ pub struct Release {
 #[derive(Debug, Deserialize)]
 pub struct PlatformInfo {
     pub url: Option<String>,
+
+    #[cfg(target_os = "macos")]
     pub signature: String,
 }
 
