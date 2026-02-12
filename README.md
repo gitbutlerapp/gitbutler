@@ -5,7 +5,7 @@
 
   <h1 align="center">GitButler</h1>
   
-  <p align="center" style="max-width: 460px;">
+  <p align="center">
    <b>Git, <i>but</i> better</b>.
    <br/>
    GitButler is a modern Git-based version control interface with both a GUI and CLI built from the ground up for AI-powered workflows.
