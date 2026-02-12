@@ -1172,7 +1172,7 @@ mod tests {
     fn gen_then_time_sort_is_deterministic_and_total() {
         // Throw a mix of items at sort and ensure it doesn't panic.
         // This directly exercises the code path from the stack trace.
-        let mut items = vec![
+        let mut items = [
             gtt(Some(3), 200),
             gtt(None, 150),
             gtt(Some(5), 100),
