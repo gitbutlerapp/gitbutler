@@ -115,6 +115,11 @@ const SKILL_FORMATS: &[SkillFormat] = &[
         description: "Windsurf skill format",
         path: ".windsurf/skills/gitbutler",
     },
+    SkillFormat {
+        name: "Gemini CLI",
+        description: "Gemini CLI skill format",
+        path: ".gemini/skills/gitbutler",
+    },
 ];
 
 /// Status of an installed skill
