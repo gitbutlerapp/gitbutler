@@ -87,6 +87,37 @@ fn short_ids_from_tree_changes(
     Ok(short_ids)
 }
 
+type ChangesInCommitFn<'a> =
+    Box<dyn FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>> + 'a>;
+trait Node<'a> {
+    fn parse(
+        self: Box<Self>,
+        element: &str,
+        id_map: &'a IdMap,
+        changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>>;
+
+    fn to_cli_id(self: Box<Self>, short_id: &str, id_map: &IdMap) -> anyhow::Result<Option<CliId>>;
+}
+
+struct Leaf {
+    cli_id: CliId,
+}
+impl<'a> Node<'a> for Leaf {
+    fn parse(
+        self: Box<Self>,
+        _element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(self: Box<Self>, _short_id: &str, _id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(self.cli_id.clone()))
+    }
+}
+
 /// A change in a workspace commit.
 #[derive(Debug, Clone)]
 pub struct TreeChangeWithId {
@@ -142,6 +173,37 @@ impl WorkspaceCommitWithId {
         self.tree_changes(|commit_id, parent_id| but_core::diff::tree_changes(repo, parent_id, commit_id))
     }
 }
+impl<'a> Node<'a> for &'a WorkspaceCommitWithId {
+    fn parse(
+        self: Box<Self>,
+        element: &str,
+        _id_map: &'a IdMap,
+        changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+        let rhs_indexes = short_ids_from_tree_changes(changes_in_commit_fn(self.commit_id(), self.first_parent_id())?)?;
+        for (tree_changes, change_id, short_id) in rhs_indexes {
+            let is_match = change_id.starts_with(element.as_bytes()) || tree_changes.first().path == BStr::new(element);
+            if is_match {
+                matches.push(Box::new(Leaf {
+                    cli_id: CliId::CommittedFile {
+                        commit_id: self.commit_id(),
+                        path: tree_changes.first().path.clone(),
+                        id: format!("{}:{}", self.short_id, short_id),
+                    },
+                }));
+            }
+        }
+        Ok(matches)
+    }
+
+    fn to_cli_id(self: Box<Self>, _short_id: &str, _id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::Commit {
+            commit_id: self.commit_id(),
+            id: self.short_id.clone(),
+        }))
+    }
+}
 
 /// A remote commit with its short ID.
 #[derive(Debug, Clone)]
@@ -155,6 +217,23 @@ impl RemoteCommitWithId {
     /// The object ID of the commit.
     pub fn commit_id(&self) -> gix::ObjectId {
         self.inner.id
+    }
+}
+impl<'a> Node<'a> for &'a RemoteCommitWithId {
+    fn parse(
+        self: Box<Self>,
+        _element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(self: Box<Self>, _short_id: &str, _id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::Commit {
+            commit_id: self.commit_id(),
+            id: self.short_id.clone(),
+        }))
     }
 }
 
@@ -173,6 +252,10 @@ pub struct SegmentWithId {
     pub workspace_commits: Vec<WorkspaceCommitWithId>,
     /// The original `inner.commits_on_remote` with additional information.
     pub remote_commits: Vec<RemoteCommitWithId>,
+    /// Backreference to the ID of the stack that this segment belongs to, for
+    /// workflows that refer to a stack by the name of one of its constituent
+    /// segments.
+    pub stack_id: Option<StackId>,
 }
 impl SegmentWithId {
     /// Returns the branch name.
@@ -198,6 +281,26 @@ impl SegmentWithId {
         }
     }
 }
+impl<'a> Node<'a> for &'a SegmentWithId {
+    fn parse(
+        self: Box<Self>,
+        _element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        // TODO: it may be confusing for the user if `branch_id:something`
+        // silently does not match instead of an error message being printed.
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(self: Box<Self>, _short_id: &str, _id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::Branch {
+            name: self.branch_name().unwrap_or_default().to_string(),
+            id: self.short_id.clone(),
+            stack_id: self.stack_id,
+        }))
+    }
+}
 
 /// A stack with segment and commit IDs.
 #[derive(Debug, Clone)]
@@ -207,10 +310,40 @@ pub struct StackWithId {
     /// Parallel to the original [Stack::segments].
     pub segments: Vec<SegmentWithId>,
 }
+impl<'a> Node<'a> for &'a StackWithId {
+    fn parse(
+        self: Box<Self>,
+        element: &str,
+        id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        for uncommitted_file in id_map.uncommitted_files.values() {
+            let hunk_assignment = uncommitted_file.hunk_assignments.first();
+            // TODO once the set of allowed CLI IDs is determined and the
+            // access patterns of `uncommitted_files` are known, change its data
+            // structure to be more efficient than the current linear search.
+            if hunk_assignment.stack_id == self.id && hunk_assignment.path_bytes == element.as_bytes() {
+                return Ok(vec![Box::new(uncommitted_file)]);
+            }
+        }
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(self: Box<Self>, short_id: &str, _id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+        let Some(stack_id) = self.id else {
+            return Ok(None);
+        };
+        Ok(Some(CliId::Stack {
+            id: short_id.to_owned(),
+            stack_id,
+        }))
+    }
+}
 
 struct StacksIndexes<'a> {
-    workspace_commits: BTreeMap<gix::ObjectId, &'a WorkspaceCommitWithId>,
-    remote_commits: BTreeMap<gix::ObjectId, &'a RemoteCommitWithId>,
+    // This is left here in case we need indexes in the future. (If we don't, we
+    // can delete this.)
+    _dummy: &'a Vec<StackWithId>,
 }
 self_cell!(
     struct IndexedStacks {
@@ -224,11 +357,6 @@ self_cell!(
 pub struct IdMap {
     /// Stacks with indexes into various fields.
     indexed_stacks: IndexedStacks,
-    /// Maps shortened branch names to their assigned CLI IDs
-    branch_name_to_cli_id: BTreeMap<BString, CliId>,
-    /// Maps [ShortId]s of branches if they are autogenerated to CLI IDs.
-    /// This will be duplicate at least in parts with `branch_name_to_cli_id`.
-    branch_auto_id_to_cli_id: HashMap<ShortId, CliId>,
     /// Mapping from stack IDs to their corresponding stack CLI IDs.
     stack_ids: BTreeMap<StackId, CliId>,
     /// The ID representing the unassigned area, i.e. uncommitted files that aren't assigned to a stack.
@@ -259,24 +387,6 @@ impl IdMap {
             mut id_usage,
             short_ids_to_count,
         } = StacksInfo::new(stacks, &uncommitted_short_filenames)?;
-
-        let mut branch_name_to_cli_id = BTreeMap::new();
-        let mut branch_auto_id_to_cli_id = HashMap::new();
-        for stack in stacks.iter() {
-            for segment in stack.segments.iter() {
-                if let Some(branch_name) = segment.branch_name() {
-                    let cli_id = CliId::Branch {
-                        name: branch_name.to_string(),
-                        id: segment.short_id.clone(),
-                        stack_id: stack.id,
-                    };
-                    if segment.is_auto_id {
-                        branch_auto_id_to_cli_id.insert(segment.short_id.clone(), cli_id.clone());
-                    }
-                    branch_name_to_cli_id.insert(branch_name.to_owned(), cli_id);
-                }
-            }
-        }
 
         let mut uncommitted_files: BTreeMap<ChangeId, UncommittedFile> = BTreeMap::new();
         for hunk_assignments in partitioned_hunks {
@@ -337,30 +447,10 @@ impl IdMap {
             }
         }
 
-        let indexed_stacks = IndexedStacks::new(stacks, |stacks| {
-            let mut workspace_commits = BTreeMap::new();
-            let mut remote_commits = BTreeMap::new();
-            for stack in stacks.iter() {
-                for segment in stack.segments.iter() {
-                    for workspace_commit in segment.workspace_commits.iter() {
-                        workspace_commits.insert(workspace_commit.commit_id(), workspace_commit);
-                    }
-                    for remote_commit in segment.remote_commits.iter() {
-                        remote_commits.insert(remote_commit.commit_id(), remote_commit);
-                    }
-                }
-            }
-
-            StacksIndexes {
-                workspace_commits,
-                remote_commits,
-            }
-        });
+        let indexed_stacks = IndexedStacks::new(stacks, |stacks| StacksIndexes { _dummy: stacks });
 
         Ok(Self {
             indexed_stacks,
-            branch_name_to_cli_id,
-            branch_auto_id_to_cli_id,
             stack_ids,
             unassigned: CliId::Unassigned {
                 id: UNASSIGNED.to_string(),
@@ -411,128 +501,166 @@ impl IdMap {
 /// Private methods to individually parse what can appear on both side of a
 /// colon. (Some of them can also appear alone.)
 impl IdMap {
-    /// Parses "long" IDs, which take precedence over any "regular" ID.
-    fn parse_long_lhs(&self, entity: &str) -> Vec<CliId> {
-        // Parse known suffixes.
-        if let Some(prefix) = entity.strip_suffix("@{stack}")
-            && let Some((_, CliId::Branch { stack_id, .. })) = self
-                .branch_name_to_cli_id
-                .iter()
-                .find(|(branch_name, _)| *branch_name == prefix)
-            && let Some(stack_id) = stack_id
-        {
-            return vec![CliId::Stack {
-                id: entity.to_string(),
-                stack_id: *stack_id,
-            }];
-        }
-
-        let mut matches = Vec::<CliId>::new();
-        // Branches match if they match exactly.
-        if let Some((_, cli_id)) = self
-            .branch_name_to_cli_id
-            .iter()
-            .find(|(branch_name, _)| *branch_name == entity)
-        {
-            matches.push(cli_id.clone());
-        }
-        matches
-    }
-    /// Parses "regular" IDs.
-    fn parse_regular_lhs(&self, entity: &str) -> Vec<CliId> {
-        let mut matches = Vec::<CliId>::new();
-
-        // Parse known suffixes.
-        if let Some(prefix) = entity.strip_suffix("@{stack}") {
-            for cli_id in self.find_branches_by_substring_match(prefix.into()) {
-                if let CliId::Branch { stack_id, .. } = cli_id
-                    && let Some(stack_id) = stack_id
-                {
-                    matches.push(CliId::Stack {
-                        id: entity.to_string(),
-                        stack_id: *stack_id,
-                    });
-                }
-            }
-        }
-        if !matches.is_empty() {
-            return matches;
-        }
-
-        // First, try partial branch name match
-        matches.extend(self.find_branches_by_substring_match(entity.into()).map(Clone::clone));
-
-        // Only try SHA matching if the input looks like a hex string
-        if entity.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
-            && let Ok(prefix) = gix::hash::Prefix::from_hex_nonempty(entity)
-        {
-            for oid in self
-                .workspace_and_remote_commit_ids()
-                .filter(|oid| prefix.cmp_oid(oid).is_eq())
-            {
-                matches.push(CliId::Commit {
-                    commit_id: *oid,
-                    id: entity.to_owned(),
-                });
-            }
-        }
-
-        // handle stack_ids as well
-        if let Some(cli_id) = self
-            .stack_ids
-            .values()
-            .find(|cli_id| matches!(cli_id, CliId::Stack { id, .. } if id == entity))
-        {
-            matches.push(cli_id.clone());
-        }
-
-        // Then try CliId matching
-        if let Some(cli_id) = self.branch_auto_id_to_cli_id.get(entity) {
-            matches.push(cli_id.clone());
-        }
-        if entity == UNASSIGNED {
-            matches.push(self.unassigned.clone());
-        }
-        matches
-    }
-    /// Parses filenames of uncommitted files.
-    fn parse_uncommitted_filename_rhs(&self, stack_id: Option<StackId>, entity: &str) -> Vec<CliId> {
-        let mut matches = Vec::<CliId>::new();
+    fn parse_uncommitted_filename<'a>(
+        &'a self,
+        stack_id: Option<StackId>,
+        element: &str,
+    ) -> Vec<Box<dyn Node<'a> + 'a>> {
+        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
         for uncommitted_file in self.uncommitted_files.values() {
             let hunk_assignment = uncommitted_file.hunk_assignments.first();
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
-            if hunk_assignment.stack_id == stack_id && hunk_assignment.path_bytes == entity.as_bytes() {
-                matches.push(uncommitted_file.to_cli_id());
+            if hunk_assignment.stack_id == stack_id && hunk_assignment.path_bytes == element.as_bytes() {
+                matches.push(Box::new(uncommitted_file));
             }
         }
         matches
     }
-    /// Parses IDs or filenames of committed files.
-    fn parse_committed_filename_rhs<F>(
-        &self,
-        commit_id: gix::ObjectId,
-        first_parent_id: Option<gix::ObjectId>,
-        mut changes_in_commit_fn: F,
-        lhs: &str,
-        rhs: &str,
-    ) -> anyhow::Result<Vec<CliId>>
-    where
-        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
-    {
-        let mut matches = Vec::new();
-        let rhs_indexes = short_ids_from_tree_changes(changes_in_commit_fn(commit_id, first_parent_id)?)?;
-        for (tree_changes, change_id, short_id) in rhs_indexes {
-            let is_match = change_id.starts_with(rhs.as_bytes()) || tree_changes.first().path == BStr::new(rhs);
-            if is_match {
-                matches.push(CliId::CommittedFile {
-                    commit_id,
-                    path: tree_changes.first().path.clone(),
-                    id: format!("{}:{}", lhs, short_id),
-                });
+
+    fn parse_element<'a>(&'a self, element: &str) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        // Parse known suffixes.
+        if let Some(prefix) = element.strip_suffix("@{stack}") {
+            let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+            for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+                for segment_with_id in stack_with_id.segments.iter() {
+                    if segment_with_id
+                        .branch_name()
+                        .is_some_and(|branch_name| branch_name.contains_str(prefix))
+                    {
+                        matches.push(Box::new(stack_with_id));
+                        break;
+                    }
+                }
+            }
+            return Ok(matches);
+        }
+
+        let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
+
+        // Branches match if they match exactly. Likewise for uncommitted, unassigned files.
+        for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+            for segment_with_id in stack_with_id.segments.iter() {
+                if segment_with_id
+                    .branch_name()
+                    .is_some_and(|branch_name| branch_name == element)
+                {
+                    matches.push(Box::new(segment_with_id));
+                }
             }
         }
+        matches.extend(self.parse_uncommitted_filename(None, element));
+
+        // The following match only if there have been no matches so far.
+        if !matches.is_empty() {
+            return Ok(matches);
+        }
+
+        if element.len() < 2 {
+            return Err(anyhow::anyhow!(
+                "Id needs to be at least 2 characters long: '{element}'"
+            ));
+        }
+
+        // Partial branch name match.
+        for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+            for segment_with_id in stack_with_id.segments.iter() {
+                if segment_with_id
+                    .branch_name()
+                    .is_some_and(|branch_name| branch_name.contains_str(element))
+                {
+                    matches.push(Box::new(segment_with_id));
+                }
+            }
+        }
+
+        // Only try SHA matching if the input looks like a hex string
+        if element
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+            && let Ok(prefix) = gix::hash::Prefix::from_hex_nonempty(element)
+        {
+            for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+                for segment_with_id in stack_with_id.segments.iter() {
+                    for workspace_commit_with_id in segment_with_id.workspace_commits.iter() {
+                        if prefix.cmp_oid(&workspace_commit_with_id.commit_id()).is_eq() {
+                            matches.push(Box::new(workspace_commit_with_id));
+                        }
+                    }
+                    for remote_commit_with_id in segment_with_id.remote_commits.iter() {
+                        if prefix.cmp_oid(&remote_commit_with_id.commit_id()).is_eq() {
+                            matches.push(Box::new(remote_commit_with_id));
+                        }
+                    }
+                }
+            }
+        }
+
+        // handle stack_ids as well
+        // TODO: add a ShortId field to StackWithId so that we don't have to do
+        // a double lookup
+        for cli_id in self.stack_ids.values() {
+            if let CliId::Stack { id, stack_id } = cli_id
+                && id == element
+                && let Some(stack_with_id) = self
+                    .indexed_stacks
+                    .borrow_owner()
+                    .iter()
+                    .find(|stack_with_id| stack_with_id.id == Some(*stack_id))
+            {
+                matches.push(Box::new(stack_with_id));
+                break;
+            }
+        }
+
+        // Then try CliId matching
+        for stack_with_id in self.indexed_stacks.borrow_owner().iter() {
+            for segment_with_id in stack_with_id.segments.iter() {
+                if segment_with_id.is_auto_id && segment_with_id.short_id == element {
+                    matches.push(Box::new(segment_with_id));
+                }
+            }
+        }
+        if element == UNASSIGNED {
+            struct Unstaged {}
+            impl<'a> Node<'a> for Unstaged {
+                fn parse(
+                    self: Box<Self>,
+                    element: &str,
+                    id_map: &'a IdMap,
+                    _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+                ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+                    Ok(id_map.parse_uncommitted_filename(None, element))
+                }
+
+                fn to_cli_id(self: Box<Self>, _short_id: &str, id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+                    Ok(Some(id_map.unassigned.clone()))
+                }
+            }
+            matches.push(Box::new(Unstaged {}));
+        }
+        if let Some(uncommitted_hunk) = self.uncommitted_hunks.get(element) {
+            matches.push(Box::new(uncommitted_hunk));
+        }
+
+        // To avoid false positives, only check uncommitted files if nothing
+        // else matches. See the uncommitted_files_disambiguate_with_branch()
+        // test for an example of the desired behavior (an uncommitted file
+        // is assigned the ID "kpr" to avoid ambiguity with a branch with the
+        // substring "kp"), so it should not match with "kp".
+        if matches.is_empty() {
+            let element_bstring = BString::from(element);
+            for (reverse_hex, uncommitted_file) in
+                self.uncommitted_files.range(ChangeId::from(element_bstring.clone())..)
+            {
+                if !reverse_hex.starts_with(&element_bstring) {
+                    break;
+                }
+                matches.push(Box::new(uncommitted_file));
+            }
+        }
+
         Ok(matches)
     }
 }
@@ -544,96 +672,36 @@ impl IdMap {
     ///
     /// Besides generated IDs, this method also accepts filenames, which are
     /// interpreted as uncommitted, unassigned files.
-    pub fn parse<F>(&self, entity: &str, mut changes_in_commit_fn: F) -> anyhow::Result<Vec<CliId>>
-    where
-        F: FnMut(gix::ObjectId, Option<gix::ObjectId>) -> anyhow::Result<Vec<but_core::TreeChange>>,
-    {
+    pub fn parse<'a>(
+        &'a self,
+        entity: &str,
+        mut changes_in_commit_fn: ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<CliId>> {
+        let mut cli_ids = Vec::new();
         if let Some((lhs, rhs)) = entity.split_once(':') {
-            let mut lhs_matches = self.parse_long_lhs(lhs);
-            if lhs_matches.is_empty() {
-                lhs_matches = self.parse_regular_lhs(lhs);
-            }
-            if lhs_matches.is_empty() {
-                return Ok(lhs_matches);
-            }
-            let mut matches = Vec::new();
-            for cli_id in lhs_matches {
-                match cli_id {
-                    CliId::Unassigned { .. } => {
-                        matches.append(&mut self.parse_uncommitted_filename_rhs(None, rhs));
+            for node in self.parse_element(lhs)? {
+                for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
+                    if let Some(cli_id) = node.to_cli_id(entity, self)? {
+                        cli_ids.push(cli_id);
                     }
-                    CliId::Stack { stack_id, .. } => {
-                        matches.append(&mut self.parse_uncommitted_filename_rhs(Some(stack_id), rhs));
-                    }
-                    CliId::Commit { commit_id, .. } => {
-                        if let Some(workspace_commit) =
-                            self.indexed_stacks.borrow_dependent().workspace_commits.get(&commit_id)
-                        {
-                            matches.extend(self.parse_committed_filename_rhs(
-                                workspace_commit.commit_id(),
-                                workspace_commit.first_parent_id(),
-                                &mut changes_in_commit_fn,
-                                lhs,
-                                rhs,
-                            )?);
-                        }
-                    }
-                    _ => {
-                        // TODO: it may be confusing for the user if some IDs
-                        // (e.g. branch) silently do not match instead
-                        // of an error message being printed.
-                        continue;
-                    }
-                };
-            }
-            return Ok(matches);
-        }
-
-        // Branches match if they match exactly. Likewise for uncommitted, unassigned files.
-        let mut matches = self.parse_long_lhs(entity);
-        matches.append(&mut self.parse_uncommitted_filename_rhs(None, entity));
-        if !matches.is_empty() {
-            return Ok(matches);
-        }
-
-        if entity.len() < 2 {
-            return Err(anyhow::anyhow!("Id needs to be at least 2 characters long: '{entity}'"));
-        }
-
-        matches = self.parse_regular_lhs(entity);
-        if let Some(uncommitted_hunk) = self.uncommitted_hunks.get(entity) {
-            matches.push(CliId::Uncommitted(UncommittedCliId {
-                id: entity.to_string(),
-                hunk_assignments: NonEmpty::new(uncommitted_hunk.hunk_assignment.clone()),
-                is_entire_file: false,
-            }));
-        }
-
-        // To avoid false positives, only check uncommitted files if nothing
-        // else matches. See the uncommitted_files_disambiguate_with_branch()
-        // test for an example of the desired behavior (an uncommitted file
-        // is assigned the ID "kpr" to avoid ambiguity with a branch with the
-        // substring "kp"), so it should not match with "kp".
-        if matches.is_empty() {
-            let entity_bstring = BString::from(entity);
-            for (reverse_hex, uncommitted_file) in
-                self.uncommitted_files.range(ChangeId::from(entity_bstring.clone())..)
-            {
-                if !reverse_hex.starts_with(&entity_bstring) {
-                    break;
                 }
-                matches.push(uncommitted_file.to_cli_id());
+            }
+        } else {
+            for node in self.parse_element(entity)? {
+                if let Some(cli_id) = node.to_cli_id(entity, self)? {
+                    cli_ids.push(cli_id);
+                }
             }
         }
 
-        Ok(matches)
+        Ok(cli_ids)
     }
-
     /// Convenience for [IdMap::parse] if a [gix::Repository] is available.
-    pub fn parse_using_repo(&self, entity: &str, repo: &gix::Repository) -> anyhow::Result<Vec<CliId>> {
-        self.parse(entity, |commit_id, parent_id| {
-            but_core::diff::tree_changes(repo, parent_id, commit_id)
-        })
+    pub fn parse_using_repo<'a>(&'a self, entity: &str, repo: &'a gix::Repository) -> anyhow::Result<Vec<CliId>> {
+        self.parse(
+            entity,
+            Box::new(move |commit_id, parent_id| but_core::diff::tree_changes(repo, parent_id, commit_id)),
+        )
     }
 
     /// Convenience for [IdMap::parse] if a [Context] is available.
@@ -658,28 +726,6 @@ impl IdMap {
     /// Returns all known stacks.
     pub fn stacks(&self) -> &Vec<StackWithId> {
         self.indexed_stacks.borrow_owner()
-    }
-}
-
-/// Private helper methods for `IdMap`.
-impl IdMap {
-    /// Finds all branches whose names contain the given `substring`.
-    ///
-    /// A vector of [`CliId::Branch`] instances for all matching branches.
-    fn find_branches_by_substring_match<'a, 's: 'a>(&'s self, substring: &'a BStr) -> impl Iterator<Item = &'s CliId> {
-        self.branch_name_to_cli_id
-            .iter()
-            .filter_map(move |(branch_name, cli_id)| branch_name.contains_str(substring).then_some(cli_id))
-    }
-
-    /// Returns an iterator over all commit IDs (workspace and remote) known to
-    /// this ID map.
-    fn workspace_and_remote_commit_ids(&self) -> impl Iterator<Item = &gix::ObjectId> {
-        let StacksIndexes {
-            workspace_commits,
-            remote_commits,
-        } = self.indexed_stacks.borrow_dependent();
-        workspace_commits.keys().chain(remote_commits.keys())
     }
 }
 
@@ -834,12 +880,30 @@ impl UncommittedFile {
         self.hunk_assignments.first().path_bytes.as_ref()
     }
     /// Turn this instance into a [CliId].
-    pub fn to_cli_id(&self) -> CliId {
+    pub fn to_id(&self) -> CliId {
         CliId::Uncommitted(UncommittedCliId {
             hunk_assignments: self.hunk_assignments.clone(),
             id: self.short_id.clone(),
             is_entire_file: true,
         })
+    }
+}
+impl<'a> Node<'a> for &'a UncommittedFile {
+    fn parse(
+        self: Box<Self>,
+        _element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(self: Box<Self>, _short_id: &str, _id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::Uncommitted(UncommittedCliId {
+            id: self.short_id.clone(),
+            hunk_assignments: self.hunk_assignments.clone(),
+            is_entire_file: true,
+        })))
     }
 }
 
@@ -848,4 +912,22 @@ impl UncommittedFile {
 pub struct UncommittedHunk {
     /// The hunk assignment.
     pub hunk_assignment: HunkAssignment,
+}
+impl<'a> Node<'a> for &'a UncommittedHunk {
+    fn parse(
+        self: Box<Self>,
+        _element: &str,
+        _id_map: &'a IdMap,
+        _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
+    ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        Ok(Vec::new())
+    }
+
+    fn to_cli_id(self: Box<Self>, short_id: &str, _id_map: &IdMap) -> anyhow::Result<Option<CliId>> {
+        Ok(Some(CliId::Uncommitted(UncommittedCliId {
+            id: short_id.to_owned(),
+            hunk_assignments: NonEmpty::new(self.hunk_assignment.clone()),
+            is_entire_file: false,
+        })))
+    }
 }

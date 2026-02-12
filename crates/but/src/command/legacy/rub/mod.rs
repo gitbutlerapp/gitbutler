@@ -597,7 +597,7 @@ fn get_all_files_in_display_order(ctx: &mut Context, id_map: &IdMap) -> anyhow::
                 Some(stack_id) => stack_ids.iter().position(|e| *e == stack_id)?,
                 None => usize::MAX,
             };
-            Some((position, uncommitted_file.path(), uncommitted_file.to_cli_id()))
+            Some((position, uncommitted_file.path(), uncommitted_file.to_id()))
         })
         .collect();
     positioned_files

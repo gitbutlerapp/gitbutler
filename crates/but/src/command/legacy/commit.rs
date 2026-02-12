@@ -569,7 +569,7 @@ fn find_stack_by_hint(
     }
 
     // Try CLI ID parsing
-    let cli_ids = id_map.parse(hint, |_, _| Ok(Vec::new())).ok()?;
+    let cli_ids = id_map.parse(hint, Box::new(move |_, _| Ok(Vec::new()))).ok()?;
     for cli_id in cli_ids {
         if let CliId::Branch { name, .. } = cli_id {
             for (stack_id, stack_details) in stacks {
