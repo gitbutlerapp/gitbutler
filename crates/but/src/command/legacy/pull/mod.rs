@@ -73,15 +73,11 @@ pub async fn handle(ctx: &Context, out: &mut OutputChannel, check_only: bool) ->
 async fn handle_check(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<()> {
     let mut progress = out.progress_channel();
 
-    if out.for_human().is_some() {
-        writeln!(progress, "Fetching from upstream remotes...")?;
-    }
+    writeln!(progress, "Fetching from upstream remotes...")?;
 
     let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("auto".to_string()))?;
 
-    if out.for_human().is_some() {
-        writeln!(progress, "Checking integration statuses...")?;
-    }
+    writeln!(progress, "Checking integration statuses...")?;
 
     let status = but_api::legacy::virtual_branches::upstream_integration_statuses(ctx.to_sync(), None).await?;
 
@@ -242,9 +238,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
     let mut progress = out.progress_channel();
 
     // Step 1: Check upstream data
-    if let Some(_out) = out.for_human() {
-        writeln!(progress, "{}", "Fetching newest data from remotes...".bright_cyan())?;
-    }
+    writeln!(progress, "{}", "Fetching newest data from remotes...".bright_cyan())?;
 
     // Fetch from remotes to get latest upstream info
     let base_branch = but_api::legacy::virtual_branches::fetch_from_remotes(ctx, Some("pull".to_string()))?;
