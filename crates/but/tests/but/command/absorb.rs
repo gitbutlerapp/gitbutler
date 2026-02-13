@@ -34,7 +34,7 @@ fn uncommitted_file() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Found 2 changed files to absorb:
+Found 1 changed file to absorb:
 
 Absorbed to commit: f4ea7f8 a.txt
   (files locked to commit due to hunk range overlap)
@@ -309,7 +309,7 @@ Hint: run `but diff` to see uncommitted changes and `but stage <file>` to stage 
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Found 2 changed files to absorb:
+Found 1 changed file to absorb:
 
 Absorbed to commit: 889385c partial change to a.txt 2
   (files locked to commit due to hunk range overlap)
@@ -403,7 +403,7 @@ fn uncommitted_file_new() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Found 2 changed files to absorb:
+Found 1 changed file to absorb:
 
 Created on top of commit: f4ea7f8 a.txt
   (files locked to commit due to hunk range overlap)
@@ -579,6 +579,7 @@ Hint: you can run `but undo` to undo these changes
 ┊
 ┊╭┄h0 [B]  
 ┊●   d3e2ba3 add B  
+┊│     d3:0 A B
 ├╯
 ┊
 ┴ 0dc3733 (common base) [origin/main] 2000-01-02 add M 
@@ -624,7 +625,7 @@ fn dry_run_new_shows_plan_without_changes() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Found 2 changed files to absorb:
+Found 1 changed file to absorb:
 
 Created on top of commit: f4ea7f8 a.txt
   (files locked to commit due to hunk range overlap)
@@ -695,7 +696,7 @@ fn dry_run_shows_plan_without_changes() -> anyhow::Result<()> {
         .assert()
         .success()
         .stdout_eq(snapbox::str![[r#"
-Found 2 changed files to absorb:
+Found 1 changed file to absorb:
 
 Absorbed to commit: f4ea7f8 a.txt
   (files locked to commit due to hunk range overlap)

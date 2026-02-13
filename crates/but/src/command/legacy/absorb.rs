@@ -187,8 +187,12 @@ fn display_absorption_plan(
     new: bool,
     write_json: bool,
 ) -> anyhow::Result<Option<JsonAbsorbOutput>> {
-    // Count total files
-    let total_files: usize = commit_absorptions.iter().map(|c| c.files.len()).sum();
+    // Count unique files (not hunks — a file with multiple hunks is still one file)
+    let total_files: usize = commit_absorptions
+        .iter()
+        .flat_map(|c| c.files.iter().map(|f| f.path.as_str()))
+        .collect::<std::collections::HashSet<_>>()
+        .len();
 
     // Handle empty case
     if commit_absorptions.is_empty() || total_files == 0 {
