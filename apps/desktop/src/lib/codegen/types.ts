@@ -8,7 +8,8 @@ export type PromptAttachment =
 	| { type: 'lines'; path: string; start: number; end: number; commitId?: string }
 	| { type: 'commit'; commitId: string }
 	| { type: 'directory'; path: string }
-	| { type: 'folder'; path: string };
+	| { type: 'folder'; path: string }
+	| { type: 'image'; name: string; base64: string; mimeType: string };
 
 /**
  * Result of checking Claude Code availability
