@@ -58,7 +58,8 @@
 		{ schemeIdentifer: 'windsurf', displayName: 'Windsurf' },
 		{ schemeIdentifer: 'zed', displayName: 'Zed' },
 		{ schemeIdentifer: 'cursor', displayName: 'Cursor' },
-		{ schemeIdentifer: 'trae', displayName: 'Trae' }
+		{ schemeIdentifer: 'trae', displayName: 'Trae' },
+		{ schemeIdentifer: 'jetbrains', displayName: 'JetBrains IDE' }
 	];
 	const editorOptionsForSelect = editorOptions.map((option) => ({
 		label: option.displayName,
