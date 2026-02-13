@@ -39,7 +39,7 @@ toml.workspace = true
 base64 = "0.22.1"
 infer = "0.19.0"
 scopeguard = "1.2.0"
-fuzzy-matcher = "0.3.7"
+nucleo-matcher = "0.3"
 ignore = "0.4.25"
 
 [[test]]
