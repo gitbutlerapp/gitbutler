@@ -91,6 +91,34 @@ Do not run `git push`, even if `but push` reports nothing to push.
 5. This two-step sequence is the safe default for reorder requests.
 6. Never use `git rebase` for this.
 
+### Resolve merge conflicts after pull
+
+When `but pull` introduces conflicts, affected commits are marked CONFLICTED.
+
+1. `but status --json` — identify commits with conflicted status
+2. `but resolve <commit-id>` — enter resolution mode for a specific commit
+   (or `but resolve` with no args to interactively select the first conflicted commit)
+3. Edit files to remove conflict markers (GitButler uses zdiff3-style: `<<<<<<<` ours, `|||||||` ancestor, `=======` theirs, `>>>>>>>`)
+4. `but resolve status` — check remaining conflicted files
+5. `but resolve finish` — finalize and return to workspace mode
+   (or `but resolve` again to proceed to the next conflicted commit)
+6. To abort: `but resolve cancel`
+
+**Important:**
+- Resolving one commit may cascade new conflicts in commits above it (rebase chain). Check `but status --json` after each resolution.
+- During resolution mode, other `but` mutation commands are limited. Finish or cancel before resuming normal work.
+- Conflicts can be resolved in any order — you are not forced to resolve them sequentially.
+- If `but resolve finish` fails unexpectedly, `but gui` can be used as a fallback to complete resolution through the desktop client.
+
+### Handle hunk lock rejections
+
+When two branches modify the same file, GitButler locks hunks to the branch that first touched those line ranges. This is not a merge conflict — it is a branch ownership constraint.
+
+**Symptoms:** `but stage` returns an `AssignmentRejection` with reason `HunkLock`. Commits targeting the locked lines silently produce empty commits.
+
+**Fix:** Move the locking commit into the target branch to consolidate ownership:
+`but rub <locking-commit> <target-branch> --json --status-after`
+
 ## Git-to-But Map
 
 - `git status` -> `but status --json`
