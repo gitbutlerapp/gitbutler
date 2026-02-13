@@ -106,7 +106,7 @@ type StepGraph = petgraph::stable_graph::StableDiGraph<Step, Edge>;
 /// `ToSelector` does _not_ normalize a selector.
 pub trait ToSelector {
     /// Converts a given object into a selector. Calling `to_selector` on an
-    /// object asserts that the reciever was a object that is selectable in the
+    /// object asserts that the receiver was a object that is selectable in the
     /// graph.
     fn to_selector(&self, editor: &Editor) -> Result<Selector>;
 }
@@ -114,7 +114,7 @@ pub trait ToSelector {
 /// Convert a type to a selector, and ensures that it is type commit.
 pub trait ToCommitSelector {
     /// Converts a given object into a selector. Calling `to_commit_selector` on
-    /// an object asserts that the reciever has a selectable pick step in the
+    /// an object asserts that the receiver has a selectable pick step in the
     /// graph.
     fn to_commit_selector(&self, editor: &Editor) -> Result<Selector>;
 }
@@ -122,7 +122,7 @@ pub trait ToCommitSelector {
 /// Convert a type to a selector, and ensures that it is type reference.
 pub trait ToReferenceSelector {
     /// Converts a given object into a selector. Calling `to_reference_selector` on
-    /// an object asserts that the reciever has a selectable reference step in
+    /// an object asserts that the receiver has a selectable reference step in
     /// the graph.
     fn to_reference_selector(&self, editor: &Editor) -> Result<Selector>;
 }
