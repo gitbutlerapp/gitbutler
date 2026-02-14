@@ -226,9 +226,10 @@ fn select_commits_from_branch(
         .take(50) // Limit to reasonable number
         .collect();
 
+    // Keep OID paired with each commit so indices stay aligned after filtering.
     let commits: Vec<_> = commit_oids
         .iter()
-        .filter_map(|oid| git2_repo.find_commit(oid.to_git2()).ok())
+        .filter_map(|oid| git2_repo.find_commit(oid.to_git2()).ok().map(|c| (*oid, c)))
         .collect();
 
     if commits.is_empty() {
@@ -240,14 +241,14 @@ fn select_commits_from_branch(
 
     // If only one commit, use it directly
     if commits.len() == 1 {
-        return Ok(vec![commit_oids[0]]);
+        return Ok(vec![commits[0].0]);
     }
 
     // Interactive multi-selection
     let options: Vec<String> = commits
         .iter()
         .enumerate()
-        .map(|(i, c)| {
+        .map(|(i, (_oid, c))| {
             let short_id = &c.id().to_string()[..7];
             let message = c.summary().unwrap_or("(no message)");
             let truncated: String = message.chars().take(60).collect();
@@ -271,7 +272,7 @@ fn select_commits_from_branch(
         bail!("No commits selected.");
     }
 
-    // Map selected strings back to indices, then collect OIDs
+    // Map selected strings back to indices in the paired `commits` vec
     let selected_indices: Vec<usize> = selections
         .iter()
         .filter_map(|sel| options.iter().position(|opt| opt == sel))
@@ -282,7 +283,7 @@ fn select_commits_from_branch(
     selected_indices_sorted.sort_unstable();
     selected_indices_sorted.reverse();
 
-    Ok(selected_indices_sorted.into_iter().map(|i| commit_oids[i]).collect())
+    Ok(selected_indices_sorted.into_iter().map(|i| commits[i].0).collect())
 }
 
 /// Resolve the target stack based on user input and cherry-apply status.
