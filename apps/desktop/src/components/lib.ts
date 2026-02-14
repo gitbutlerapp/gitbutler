@@ -67,7 +67,7 @@ export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
 		case 'unpushedCommitsRequiringForce':
 			return { label: 'Some unpushed', color: colorMap.LocalAndRemote };
 		case 'integrated':
-			return { label: 'Integrated', color: colorMap.Integrated };
+			return { label: 'Integrated branch', color: colorMap.Integrated };
 		default:
 			return { label: 'Unknown', color: colorMap.Error };
 	}
