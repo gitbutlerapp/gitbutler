@@ -128,7 +128,7 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
 
     writeln!(
         out,
-        "To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, MCP), see:"
+        "To use the GitButler CLI with coding agents (Claude Code hooks, Cursor hooks, Gemini CLI, MCP), see:"
     )?;
     writeln!(out, "  https://docs.gitbutler.com/features/ai-integration/ai-overview")?;
     writeln!(out)?;

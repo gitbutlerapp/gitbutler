@@ -11,7 +11,7 @@ pub enum Subcommands {
     ///
     /// By default, installs the skill into the current repository. The command
     /// will prompt you to select a skill folder format (Claude Code, OpenCode, Codex, GitHub Copilot,
-    /// Cursor, Windsurf) unless you specify a custom path with --path.
+    /// Cursor, Windsurf, Gemini CLI) unless you specify a custom path with --path.
     ///
     /// Use --global to install the skill in a global location instead of the
     /// current repository.
