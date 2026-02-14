@@ -10,6 +10,10 @@ pub struct SubmitPromptResponseParams {
 }
 
 pub async fn submit_prompt_response(params: SubmitPromptResponseParams) -> anyhow::Result<()> {
-    askpass::get_broker().handle_response(params.id, params.response).await;
+    if let Some(broker) = askpass::get_broker() {
+        broker.handle_response(params.id, params.response).await;
+    } else {
+        tracing::warn!("received askpass response but broker is not initialized; ignoring");
+    }
     Ok(())
 }

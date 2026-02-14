@@ -20,13 +20,13 @@ pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 
     }
 }
 
-/// Get the global askpass broker.
+/// Get the global askpass broker, if it has been initialized.
 ///
-/// # Panics
-/// Will panic if [`init`] was not called before this function.
+/// Returns `None` when running outside the GUI (e.g. the standalone `but` CLI)
+/// where [`init`] is never called.
 #[expect(static_mut_refs)]
-pub fn get_broker() -> &'static AskpassBroker {
-    unsafe { GLOBAL_ASKPASS_BROKER.as_ref().expect("askpass broker not initialized") }
+pub fn get_broker() -> Option<&'static AskpassBroker> {
+    unsafe { GLOBAL_ASKPASS_BROKER.as_ref() }
 }
 
 pub struct AskpassRequest {
