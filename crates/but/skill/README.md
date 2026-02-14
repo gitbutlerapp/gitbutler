@@ -7,20 +7,22 @@ Claude Code skill for working with the GitButler CLI (`but` command) in workspac
 Install this skill using the GitButler CLI:
 
 ```bash
-but skill install    # Prompts for installation location
+but skill install    # Prompts for scope and format
 ```
 
-The command will prompt you to select a skill format (Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf) and install to the appropriate location.
+The command prompts you to choose local (repository) or global (home directory) scope first, then prompts you to select a skill format (Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf) and installs to the appropriate location. When run outside a git repository, local scope is unavailable and the default install location is global (home directory), but you can still install to a custom location with `--path` using an absolute or `~` path.
 
 **Options:**
-- `--path <path>` - Install to a custom path
+- `--path <path>` - Install to a custom path (outside a repository, relative paths require `--global`)
 - `--global` - Install globally (in home directory) instead of current repository
 - `--detect` - Auto-detect installation location from existing installation (useful for updates)
+
+In non-interactive mode, use `--path` or `--detect`.
 
 **Requirements:**
 - **GitButler CLI** installed: `curl -sSL https://gitbutler.com/install.sh | sh`
 - **Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf**
-- Repository initialized with GitButler: `but setup`
+- Repository initialized with GitButler: `but setup` (only for local installs)
 
 **Updating:**
 
