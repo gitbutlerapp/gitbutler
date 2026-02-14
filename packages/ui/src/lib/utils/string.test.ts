@@ -1,4 +1,4 @@
-import { slugify, camelCaseToTitleCase } from '$lib/utils/string';
+import { slugify, slugifyBranchName, camelCaseToTitleCase } from '$lib/utils/string';
 import { describe, expect, test } from 'vitest';
 
 describe.concurrent('camelCaseToTitleCase with valid inputs', () => {
@@ -56,5 +56,35 @@ describe.concurrent('branch slugify with replaced characters', () => {
 
 	test('most special characters are nuked', () => {
 		expect(slugify('a!b@c$d;e%f^g&h*i(j)k+l=m~n`')).toEqual('abcdefghijklmn');
+	});
+});
+
+describe.concurrent('slugifyBranchName preserves git-valid characters', () => {
+	test('hash/number sign is preserved', () => {
+		expect(slugifyBranchName('feat/#1234-ticket-name')).toEqual('feat/#1234-ticket-name');
+	});
+
+	test('at sign is preserved', () => {
+		expect(slugifyBranchName('user@feature')).toEqual('user@feature');
+	});
+
+	test('forward slashes are preserved', () => {
+		expect(slugifyBranchName('my/branch')).toEqual('my/branch');
+	});
+
+	test('periods are preserved', () => {
+		expect(slugifyBranchName('v1.2.3')).toEqual('v1.2.3');
+	});
+
+	test('whitespace becomes hyphens', () => {
+		expect(slugifyBranchName('my branch name')).toEqual('my-branch-name');
+	});
+
+	test('git-invalid characters are removed', () => {
+		expect(slugifyBranchName('a~b^c:d?e*f')).toEqual('abcdef');
+	});
+
+	test('behaves like slugify for simple names', () => {
+		expect(slugifyBranchName('feature/my-branch')).toEqual('feature/my-branch');
 	});
 });

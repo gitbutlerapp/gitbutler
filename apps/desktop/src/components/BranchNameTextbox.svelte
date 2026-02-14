@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Textbox } from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
+	import { slugifyBranchName } from '@gitbutler/ui/utils/string';
 
 	type Props = {
 		value?: string;
@@ -19,7 +19,7 @@
 
 	let textbox = $state<ReturnType<typeof Textbox>>();
 
-	const slugifiedName = $derived(value && slugify(value));
+	const slugifiedName = $derived(value && slugifyBranchName(value));
 	const namesDiverge = $derived(!!value && slugifiedName !== value);
 	const computedHelperText = $derived(
 		namesDiverge ? `Will be created as '${slugifiedName}'` : helperText
