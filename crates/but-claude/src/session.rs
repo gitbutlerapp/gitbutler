@@ -13,6 +13,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{Result, bail};
+use base64::Engine as _;
 use but_action::cli::get_cli_path;
 use but_core::{
     ref_metadata::StackId,
@@ -1094,6 +1095,11 @@ fn validate_attachment(attachment: &PromptAttachment) -> Result<()> {
         PromptAttachment::Commit(commit) => {
             validate_commit_id(&commit.commit_id)?;
         }
+        PromptAttachment::Image(image) => {
+            if image.name.trim().is_empty() {
+                bail!("Image name cannot be empty");
+            }
+        }
     }
     Ok(())
 }
@@ -1153,11 +1159,65 @@ async fn format_message_with_attachments(original_message: &str, attachments: &[
         validate_attachment(attachment)?;
     }
 
-    let attachments_json = serde_json::to_string_pretty(&attachments)?;
+    // Separate image attachments from other attachments
+    let mut non_image_attachments = Vec::new();
+    let mut image_messages = Vec::new();
 
-    let message = format!(
-        "{}
+    for attachment in attachments {
+        match attachment {
+            PromptAttachment::Image(image) => {
+                // Decode base64 and write to temp file
+                let bytes = base64::engine::general_purpose::STANDARD
+                    .decode(&image.base64)
+                    .map_err(|e| anyhow::anyhow!("Failed to decode base64 image data: {}", e))?;
 
+                // Determine file extension from mime type
+                let ext = match image.mime_type.as_str() {
+                    "image/png" => "png",
+                    "image/jpeg" | "image/jpg" => "jpg",
+                    "image/gif" => "gif",
+                    "image/webp" => "webp",
+                    "image/svg+xml" => "svg",
+                    "image/bmp" => "bmp",
+                    _ => "png",
+                };
+
+                // Write to a temp file in the system temp directory
+                let filename = format!("{}.{}", uuid::Uuid::new_v4(), ext);
+                let temp_dir = std::env::temp_dir().join("gitbutler-images");
+                fs::create_dir_all(&temp_dir).await?;
+                let file_path = temp_dir.join(&filename);
+                fs::write(&file_path, &bytes).await?;
+
+                image_messages.push(format!(
+                    "Image '{}' has been saved to {}. Use the Read tool to view it.",
+                    image.name,
+                    file_path.display()
+                ));
+            }
+            other => {
+                non_image_attachments.push(other);
+            }
+        }
+    }
+
+    let mut message = original_message.to_string();
+
+    // Add image file references
+    if !image_messages.is_empty() {
+        message.push_str("\n\n<attached-images>\n");
+        for img_msg in &image_messages {
+            message.push_str(img_msg);
+            message.push('\n');
+        }
+        message.push_str("</attached-images>\n");
+    }
+
+    // Add non-image attachments as JSON context
+    if !non_image_attachments.is_empty() {
+        let attachments_json = serde_json::to_string_pretty(&non_image_attachments)?;
+        message.push_str(&format!(
+            "
 <context-attachments>
 The following JSON of files, line ranges, and commits have been added as
 context. Please consider them if a question or reference to files, lines,
@@ -1167,8 +1227,9 @@ or commits, is unspecified.
 </attachments>
 </context-attachments>
 ",
-        original_message, attachments_json
-    );
+            attachments_json
+        ));
+    }
 
     Ok(message)
 }

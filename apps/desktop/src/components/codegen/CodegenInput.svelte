@@ -16,7 +16,15 @@
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { showError } from '$lib/notifications/toasts';
 	import { inject } from '@gitbutler/core/context';
-	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from '@gitbutler/ui';
+	import {
+		Tooltip,
+		AsyncButton,
+		RichTextEditor,
+		FilePlugin,
+		UpDownPlugin,
+		FileUploadPlugin
+	} from '@gitbutler/ui';
+	import type { DropFileResult } from '@gitbutler/ui';
 	import { tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
@@ -190,6 +198,56 @@
 		return false;
 	}
 
+	const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
+	async function handleFileDrop(
+		files: FileList | undefined
+	): Promise<DropFileResult[] | undefined> {
+		if (!files) return undefined;
+
+		const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'));
+		if (imageFiles.length === 0) return undefined;
+
+		for (const file of imageFiles) {
+			if (file.size > MAX_IMAGE_SIZE) {
+				showError('Image too large', `"${file.name}" exceeds the 5MB size limit.`);
+				continue;
+			}
+
+			const base64 = await fileToBase64(file);
+			attachmentService.add(branchName, [
+				{
+					type: 'image',
+					name: file.name,
+					base64,
+					mimeType: file.type
+				}
+			]);
+		}
+
+		// Return empty array so nothing gets inserted into the editor text.
+		// Images appear in the AttachmentList above the editor instead.
+		return [];
+	}
+
+	function fileToBase64(file: File): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => {
+				const result = reader.result as string;
+				// Strip the data URL prefix (e.g., "data:image/png;base64,")
+				const base64 = result.split(',')[1];
+				if (base64) {
+					resolve(base64);
+				} else {
+					reject(new Error('Failed to extract base64 data'));
+				}
+			};
+			reader.onerror = () => reject(reader.error);
+			reader.readAsDataURL(file);
+		});
+	}
+
 	function addAttachment(items: PromptAttachment[]) {
 		return attachmentService.add(branchName, items);
 	}
@@ -270,6 +328,8 @@
 							fileSuggestions = undefined;
 						}}
 					/>
+
+					<FileUploadPlugin onDrop={handleFileDrop} />
 
 					<UpDownPlugin
 						historyLookup={async (offset) => {

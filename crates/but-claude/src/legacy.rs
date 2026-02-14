@@ -87,6 +87,7 @@ pub enum PromptAttachment {
     Lines(LinesAttachment),
     File(FileAttachment),
     Commit(CommitAttachment),
+    Image(ImageAttachment),
 }
 
 impl From<PromptAttachment> for crate::PromptAttachment {
@@ -95,6 +96,25 @@ impl From<PromptAttachment> for crate::PromptAttachment {
             PromptAttachment::Lines(lines) => crate::PromptAttachment::Lines(lines.into()),
             PromptAttachment::File(file) => crate::PromptAttachment::File(file.into()),
             PromptAttachment::Commit(commit) => crate::PromptAttachment::Commit(commit.into()),
+            PromptAttachment::Image(image) => crate::PromptAttachment::Image(image.into()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageAttachment {
+    name: String,
+    base64: String,
+    mime_type: String,
+}
+
+impl From<ImageAttachment> for crate::ImageAttachment {
+    fn from(value: ImageAttachment) -> Self {
+        crate::ImageAttachment {
+            name: value.name,
+            base64: value.base64,
+            mime_type: value.mime_type,
         }
     }
 }
