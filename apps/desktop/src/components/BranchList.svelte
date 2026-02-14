@@ -334,9 +334,7 @@
 								onclick={async () => {
 									if (!stackId) return;
 									laneState?.selection.set({ branchName, codegen: true, previewOpen: true });
-									setTimeout(() => {
-										focusClaudeInput(stackId);
-									}, 100);
+									focusClaudeInput(stackId);
 								}}
 							/>
 						{/if}
