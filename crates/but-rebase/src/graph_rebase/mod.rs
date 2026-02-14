@@ -41,6 +41,9 @@ pub struct Pick {
     /// If set to true, the rebase engine will try to sign the commit if it
     /// gets cherry-picked and the user has configured signing.
     pub sign_if_configured: bool,
+    /// If set to true, if the pick is moved to or from multiple bases, the
+    /// multiple bases will be auto-resolved when creating the virtual base.
+    pub(crate) auto_resolve_bases: bool,
 }
 
 impl Pick {
@@ -52,6 +55,7 @@ impl Pick {
             conflictable: true,
             parents_must_be_references: false,
             sign_if_configured: true,
+            auto_resolve_bases: true,
         }
     }
 
@@ -63,6 +67,7 @@ impl Pick {
             conflictable: false,
             parents_must_be_references: true,
             sign_if_configured: false,
+            auto_resolve_bases: false,
         }
     }
 }
@@ -312,7 +317,8 @@ mod test {
                 preserved_parents: None,
                 conflictable: false,
                 parents_must_be_references: true,
-                sign_if_configured: false
+                sign_if_configured: false,
+                auto_resolve_bases: true
             }
         );
 
@@ -330,7 +336,8 @@ mod test {
                 preserved_parents: None,
                 conflictable: true,
                 parents_must_be_references: false,
-                sign_if_configured: true
+                sign_if_configured: true,
+                auto_resolve_bases: false
             }
         );
 
