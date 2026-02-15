@@ -227,7 +227,7 @@
 							tabSize={$userSettings.tabSize}
 							wrapText={$userSettings.wrapText}
 							diffFont={$userSettings.diffFont}
-							diffContrast={$userSettings.diffContrast}
+							strongContrast={$userSettings.strongContrast}
 							colorBlindFriendly={$userSettings.colorBlindFriendly}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 							onLineClick={(p) => {

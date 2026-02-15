@@ -204,10 +204,11 @@
 	tbody {
 		z-index: var(--z-lifted);
 	}
+
 	.diff-comment {
 		width: 100%;
 		padding-left: 4px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		font-size: 12px;
 		line-height: 1.25;
@@ -220,7 +221,7 @@
 
 	.diff-comment__number-column {
 		padding: 4px 4px;
-		border-right: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-diff-count-border);
 		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);

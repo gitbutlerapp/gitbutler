@@ -296,8 +296,8 @@
 		box-sizing: border-box;
 
 		left: calc(var(--offset) * -1);
-		width: calc(var(--width) + 1px);
-		height: var(--height);
+		width: 100%;
+		height: 100%;
 		border-right: 1px solid var(--clr-theme-warn-element);
 		border-left: 1px solid var(--clr-theme-warn-element);
 		background: color-mix(in srgb, var(--clr-btn-warn-outline-bg), transparent 30%);
@@ -316,7 +316,7 @@
 		display: flex;
 		z-index: var(--z-lifted);
 		position: absolute;
-		top: calc(var(--height) - var(--overflow-menu-height) - 6px);
+		top: calc(100% - var(--overflow-menu-height) - 6px);
 		left: 0;
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
@@ -339,17 +339,13 @@
 		display: flex;
 	}
 
-	.table__lockColumn {
-		padding: 0;
-	}
-
 	.table__numberColumn {
 		z-index: var(--z-ground);
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 		padding: 0 4px;
 		border-color: var(--clr-diff-count-border);
-		border-right: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
 		font-size: 11px;
@@ -363,26 +359,22 @@
 			border-color: var(--clr-diff-addition-count-border);
 			background-color: var(--clr-diff-addition-count-bg);
 			color: var(--clr-diff-addition-count-text);
-			--checkmark-color: var(--clr-diff-addition-count-checkmark);
 		}
 
 		&.diff-line-deletion {
 			border-color: var(--clr-diff-deletion-count-border);
 			background-color: var(--clr-diff-deletion-count-bg);
 			color: var(--clr-diff-deletion-count-text);
-			--checkmark-color: var(--clr-diff-deletion-count-checkmark);
 		}
 
 		&.clickable {
 			cursor: pointer;
 		}
 		&.stagable {
-			left: calc(var(--column-and-boder));
 			min-width: var(--staging-column-width);
 		}
 
 		&.stagable:not(.is-before) {
-			left: calc(var(--column-and-boder) * 2);
 			min-width: var(--staging-column-width);
 		}
 
@@ -408,9 +400,8 @@
 	.table__lockColumn {
 		padding: 0 1px;
 		border-color: var(--clr-diff-count-border);
-		border-right: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
-		color: var(--clr-diff-count-text);
 		line-height: 1;
 		vertical-align: top;
 
@@ -467,13 +458,13 @@
 		pointer-events: none;
 
 		&:not(.locked).staged {
-			color: var(--clr-diff-selected-count-checkmark);
+			color: var(--clr-diff-selected-count-text);
 		}
 		&.locked {
-			color: var(--clr-diff-locked-count-checkmark);
+			color: var(--clr-diff-locked-count-text);
 		}
 		&.staged.locked {
-			color: var(--clr-diff-locked-selected-count-checkmark);
+			color: var(--clr-diff-locked-selected-count-text);
 		}
 	}
 </style>

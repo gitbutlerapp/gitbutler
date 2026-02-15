@@ -63,7 +63,7 @@
 								wrapText={$userSettings.wrapText}
 								diffFont={$userSettings.diffFont}
 								diffLigatures={$userSettings.diffLigatures}
-								diffContrast={$userSettings.diffContrast}
+								strongContrast={$userSettings.strongContrast}
 								colorBlindFriendly={$userSettings.colorBlindFriendly}
 								inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 								hunkStr={dependency.hunk.diff}

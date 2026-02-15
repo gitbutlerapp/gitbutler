@@ -29,7 +29,7 @@
 		diffFont?: string;
 		diffLigatures?: boolean;
 		inlineUnifiedDiffs?: boolean;
-		diffContrast?: 'light' | 'medium' | 'strong';
+		strongContrast?: boolean;
 		colorBlindFriendly?: boolean;
 		staged?: boolean;
 		stagedLines?: LineId[];
@@ -55,7 +55,7 @@
 		wrapText = true,
 		diffFont = 'var(--font-mono)',
 		diffLigatures = true,
-		diffContrast = 'medium',
+		strongContrast = false,
 		colorBlindFriendly = false,
 		inlineUnifiedDiffs = false,
 		staged,
@@ -117,7 +117,8 @@
 		}
 	}}
 	bind:this={tableWrapperElem}
-	class="table__wrapper contrast-{diffContrast}"
+	class="table__wrapper"
+	class:contrast-strong={strongContrast}
 	class:colorblind-friendly={colorBlindFriendly}
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
@@ -204,9 +205,9 @@
 		position: relative;
 		width: 100%;
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		border: 1px solid var(--clr-diff-count-border);
 		border-radius: var(--radius-m);
-		background-color: var(--clr-diff-line-bg);
+		background-color: var(--clr-bg-1);
 
 		&:hover .table__drag-handle {
 			opacity: 1;
@@ -234,16 +235,13 @@
 	}
 
 	table thead th {
-		/* position: sticky; */
-		top: 0;
-		left: 0;
 		height: 28px;
 	}
 
 	.table__checkbox-container {
 		box-sizing: border-box;
-		border-right: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-diff-count-border);
+		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 
 		&.stageable {
@@ -261,11 +259,11 @@
 		align-items: center;
 		justify-content: flex-start;
 		padding: 4px;
-		color: var(--clr-diff-count-checkmark);
+		color: var(--clr-diff-count-text);
 		pointer-events: none;
 
 		&.staged {
-			color: var(--clr-diff-selected-count-checkmark);
+			color: var(--clr-diff-selected-count-text);
 		}
 	}
 
@@ -298,177 +296,113 @@
 		align-items: center;
 		padding: 4px 6px;
 		border-bottom: 1px solid var(--clr-border-2);
-		color: var(--clr-text-2);
+		color: var(--clr-diff-count-text);
 		font-size: 12px;
 		text-wrap: nowrap;
 	}
 
 	/* CONTRAST MODIFIERS */
-	.contrast-light {
-		--clr-diff-count-text: var('--', var(--clr-diff-count-text));
-		/* deletion */
-		--clr-diff-deletion-line-bg: var('--', var(--clr-diff-deletion-line-bg));
-		--clr-diff-deletion-line-highlight: var('--', var(--clr-diff-deletion-line-highlight));
-		--clr-diff-deletion-count-bg: var('--', var(--clr-diff-deletion-count-bg));
-		--clr-diff-deletion-count-text: var('--', var(--clr-diff-deletion-count-text));
-		--clr-diff-deletion-count-border: var('--', var(--clr-diff-deletion-count-border));
-		/* addition */
-		--ctx-diff-addition-line-bg: var('--', var(--clr-diff-addition-line-bg));
-		--clr-diff-addition-line-highlight: var('--', var(--clr-diff-addition-line-highlight));
-		--clr-diff-addition-count-bg: var('--', var(--clr-diff-addition-count-bg));
-		--clr-diff-addition-count-text: var('--', var(--clr-diff-addition-count-text));
-		--clr-diff-addition-count-border: var('--', var(--clr-diff-addition-count-border));
-		/* locked */
-		--clr-diff-locked-count-bg: var('--', var(--clr-diff-locked-count-bg));
-		--clr-diff-locked-count-text: var('--', var(--clr-diff-locked-count-text));
-		--clr-diff-locked-count-border: var('--', var(--clr-diff-locked-count-border));
-	}
-
-	/* Color blind-friendly overrides for light contrast */
-	.contrast-light.colorblind-friendly {
+	/* Color blind-friendly overrides for medium (default) contrast */
+	.colorblind-friendly {
 		/* deletion (orange) */
-		--clr-diff-deletion-line-bg: color(srgb 1 0.94 0.87);
-		--clr-diff-deletion-line-highlight: color(srgb 1 0.85 0.67);
-		--clr-diff-deletion-count-bg: color(srgb 1 0.9 0.77);
-		--clr-diff-deletion-count-text: color(srgb 0.8 0.4 0.1);
-		--clr-diff-deletion-count-border: color(srgb 1 0.8 0.6);
-		--clr-diff-deletion-count-checkmark: color(srgb 0.8 0.4 0.1);
+		--clr-diff-deletion-line-bg: #fae8cc;
+		--clr-diff-deletion-line-highlight: #f5d199;
+		--clr-diff-deletion-count-bg: #f5deb3;
+		--clr-diff-deletion-count-text: #bf590d;
+		--clr-diff-deletion-count-border: #f2bf7f;
 		/* addition (blue) */
-		--clr-diff-addition-line-bg: color(srgb 0.87 0.94 1);
-		--clr-diff-addition-line-highlight: color(srgb 0.67 0.85 1);
-		--clr-diff-addition-count-bg: color(srgb 0.77 0.9 1);
-		--clr-diff-addition-count-text: color(srgb 0.1 0.4 0.8);
-		--clr-diff-addition-count-border: color(srgb 0.6 0.8 1);
-		--clr-diff-addition-count-checkmark: color(srgb 0.1 0.4 0.8);
+		--clr-diff-addition-line-bg: #cce8fa;
+		--clr-diff-addition-line-highlight: #99d1f5;
+		--clr-diff-addition-count-bg: #b3def5;
+		--clr-diff-addition-count-text: #0d59bf;
+		--clr-diff-addition-count-border: #79b8eb;
 	}
 
-	/* Dark theme color-blind friendly overrides for light contrast */
-	:global(.dark) .contrast-light.colorblind-friendly {
+	/* Dark theme color-blind friendly overrides for medium (default) contrast */
+	:global(.dark) .colorblind-friendly {
 		/* deletion (orange) - darker variants for dark theme */
-		--clr-diff-deletion-line-bg: color(srgb 0.25 0.15 0.05);
-		--clr-diff-deletion-line-highlight: color(srgb 0.4 0.2 0.05);
-		--clr-diff-deletion-count-bg: color(srgb 0.35 0.2 0.08);
-		--clr-diff-deletion-count-text: color(srgb 1 0.7 0.3);
-		--clr-diff-deletion-count-border: color(srgb 0.6 0.4 0.15);
-		--clr-diff-deletion-count-checkmark: color(srgb 1 0.7 0.3);
+		--clr-diff-deletion-line-bg: #4d2e14;
+		--clr-diff-deletion-line-highlight: #73401a;
+		--clr-diff-deletion-count-bg: #66401f;
+		--clr-diff-deletion-count-text: #ffbf66;
+		--clr-diff-deletion-count-border: #a67333;
 		/* addition (blue) - darker variants for dark theme */
-		--clr-diff-addition-line-bg: color(srgb 0.05 0.15 0.25);
-		--clr-diff-addition-line-highlight: color(srgb 0.05 0.25 0.4);
-		--clr-diff-addition-count-bg: color(srgb 0.08 0.2 0.35);
-		--clr-diff-addition-count-text: color(srgb 0.5 0.8 1);
-		--clr-diff-addition-count-border: color(srgb 0.2 0.5 0.8);
-		--clr-diff-addition-count-checkmark: color(srgb 0.5 0.8 1);
+		--clr-diff-addition-line-bg: #142e4d;
+		--clr-diff-addition-line-highlight: #1a4d73;
+		--clr-diff-addition-count-bg: #1f4066;
+		--clr-diff-addition-count-text: #99d9ff;
+		--clr-diff-addition-count-border: #2f6dab;
 	}
 
-	.contrast-medium {
-		--clr-diff-count-text: var(--clr-diff-count-text-contrast-2);
-		/* deletion */
-		--clr-diff-deletion-line-bg: var(--clr-diff-deletion-contrast-2-line-bg);
-		--clr-diff-deletion-line-highlight: var(--clr-diff-deletion-contrast-2-line-highlight);
-		--clr-diff-deletion-count-bg: var(--clr-diff-deletion-contrast-2-count-bg);
-		--clr-diff-deletion-count-text: var(--clr-diff-deletion-contrast-2-count-text);
-		--clr-diff-deletion-count-border: var(--clr-diff-deletion-contrast-2-count-border);
-		/* addition */
-		--clr-diff-addition-line-bg: var(--clr-diff-addition-contrast-2-line-bg);
-		--clr-diff-addition-line-highlight: var(--clr-diff-addition-contrast-2-line-highlight);
-		--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-2-count-bg);
-		--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-2-count-text);
-		--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-2-count-border);
-		/* locked */
-		--clr-diff-locked-count-bg: var(--clr-diff-locked-contrast-2-count-bg);
-		--clr-diff-locked-count-text: var(--clr-diff-locked-contrast-2-count-text);
-		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-2-count-border);
-	}
-
-	/* Color blind-friendly overrides for medium contrast */
-	.contrast-medium.colorblind-friendly {
-		/* deletion (orange) */
-		--clr-diff-deletion-line-bg: color(srgb 0.98 0.91 0.8);
-		--clr-diff-deletion-line-highlight: color(srgb 0.96 0.82 0.6);
-		--clr-diff-deletion-count-bg: color(srgb 0.96 0.87 0.7);
-		--clr-diff-deletion-count-text: color(srgb 0.75 0.35 0.05);
-		--clr-diff-deletion-count-border: color(srgb 0.95 0.75 0.5);
-		--clr-diff-deletion-count-checkmark: color(srgb 0.75 0.35 0.05);
-		/* addition (blue) */
-		--clr-diff-addition-line-bg: color(srgb 0.8 0.91 0.98);
-		--clr-diff-addition-line-highlight: color(srgb 0.6 0.82 0.96);
-		--clr-diff-addition-count-bg: color(srgb 0.7 0.87 0.96);
-		--clr-diff-addition-count-text: color(srgb 0.05 0.35 0.75);
-		--clr-diff-addition-count-border: color(srgb 0.5 0.75 0.95);
-		--clr-diff-addition-count-checkmark: color(srgb 0.05 0.35 0.75);
-	}
-
-	/* Dark theme color-blind friendly overrides for medium contrast */
-	:global(.dark) .contrast-medium.colorblind-friendly {
-		/* deletion (orange) - darker variants for dark theme */
-		--clr-diff-deletion-line-bg: color(srgb 0.3 0.18 0.08);
-		--clr-diff-deletion-line-highlight: color(srgb 0.45 0.25 0.1);
-		--clr-diff-deletion-count-bg: color(srgb 0.4 0.25 0.12);
-		--clr-diff-deletion-count-text: color(srgb 1 0.75 0.4);
-		--clr-diff-deletion-count-border: color(srgb 0.65 0.45 0.2);
-		--clr-diff-deletion-count-checkmark: color(srgb 1 0.75 0.4);
-		/* addition (blue) - darker variants for dark theme */
-		--clr-diff-addition-line-bg: color(srgb 0.08 0.18 0.3);
-		--clr-diff-addition-line-highlight: color(srgb 0.1 0.3 0.45);
-		--clr-diff-addition-count-bg: color(srgb 0.12 0.25 0.4);
-		--clr-diff-addition-count-text: color(srgb 0.6 0.85 1);
-		--clr-diff-addition-count-border: color(srgb 0.25 0.55 0.85);
-		--clr-diff-addition-count-checkmark: color(srgb 0.6 0.85 1);
-	}
-
+	/* STRONG CONTRAST */
 	.contrast-strong {
-		--clr-diff-count-text: var(--clr-diff-count-text-contrast-3);
 		/* deletion */
-		--clr-diff-deletion-line-bg: var(--clr-diff-deletion-contrast-3-line-bg);
-		--clr-diff-deletion-line-highlight: var(--clr-diff-deletion-contrast-3-line-highlight);
-		--clr-diff-deletion-count-bg: var(--clr-diff-deletion-contrast-3-count-bg);
-		--clr-diff-deletion-count-text: var(--clr-diff-deletion-contrast-3-count-text);
-		--clr-diff-deletion-count-border: var(--clr-diff-deletion-contrast-3-count-border);
+		--clr-diff-deletion-line-bg: #ffd4d8;
+		--clr-diff-deletion-line-highlight: #ff9eaa;
+		--clr-diff-deletion-count-bg: #ffb8c2;
+		--clr-diff-deletion-count-text: #9b2030;
+		--clr-diff-deletion-count-border: #e88a96;
 		/* addition */
-		--clr-diff-addition-line-bg: var(--clr-diff-addition-contrast-3-line-bg);
-		--clr-diff-addition-line-highlight: var(--clr-diff-addition-contrast-3-line-highlight);
-		--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-3-count-bg);
-		--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-3-count-text);
-		--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-3-count-border);
+		--clr-diff-addition-line-bg: #a5f5d4;
+		--clr-diff-addition-line-highlight: #5de0aa;
+		--clr-diff-addition-count-bg: #7aeebe;
+		--clr-diff-addition-count-text: #1a6b47;
+		--clr-diff-addition-count-border: #4dd49a;
 		/* locked */
-		--clr-diff-locked-count-bg: var(--clr-diff-locked-contrast-3-count-bg);
-		--clr-diff-locked-count-text: var(--clr-diff-locked-contrast-3-count-text);
-		--clr-diff-locked-count-border: var(--clr-diff-locked-contrast-3-count-border);
+		--clr-diff-locked-count-bg: #fae6ad;
+		--clr-diff-locked-count-text: #bd7d12;
+		--clr-diff-locked-count-border: #e6bf78;
+	}
+
+	/* Dark theme overrides for contrast-strong */
+	:global(.dark) .contrast-strong {
+		/* deletion */
+		--clr-diff-deletion-line-bg: #6e1a28;
+		--clr-diff-deletion-line-highlight: #b82e48;
+		--clr-diff-deletion-count-bg: #8f2238;
+		--clr-diff-deletion-count-text: #ffa0b4;
+		--clr-diff-deletion-count-border: #c45068;
+		/* addition */
+		--clr-diff-addition-line-bg: #125747;
+		--clr-diff-addition-line-highlight: #1c9d78;
+		--clr-diff-addition-count-bg: #187a5f;
+		--clr-diff-addition-count-text: #7aeebe;
+		--clr-diff-addition-count-border: #3db888;
+		/* locked */
+		--clr-diff-locked-count-bg: #785217;
+		--clr-diff-locked-count-text: #ebba66;
+		--clr-diff-locked-count-border: #9b7338;
 	}
 
 	/* Color blind-friendly overrides for strong contrast */
 	.contrast-strong.colorblind-friendly {
 		/* deletion (orange) */
-		--clr-diff-deletion-line-bg: color(srgb 0.96 0.88 0.75);
-		--clr-diff-deletion-line-highlight: color(srgb 0.93 0.78 0.55);
-		--clr-diff-deletion-count-bg: color(srgb 0.93 0.84 0.65);
-		--clr-diff-deletion-count-text: color(srgb 0.7 0.3 0.02);
-		--clr-diff-deletion-count-border: color(srgb 0.9 0.7 0.45);
-		--clr-diff-deletion-count-checkmark: color(srgb 0.7 0.3 0.02);
+		--clr-diff-deletion-line-bg: #f0d4a0;
+		--clr-diff-deletion-line-highlight: #e6b060;
+		--clr-diff-deletion-count-bg: #eac080;
+		--clr-diff-deletion-count-text: #a04000;
+		--clr-diff-deletion-count-border: #d9a050;
 		/* addition (blue) */
-		--clr-diff-addition-line-bg: color(srgb 0.75 0.88 0.96);
-		--clr-diff-addition-line-highlight: color(srgb 0.55 0.78 0.93);
-		--clr-diff-addition-count-bg: color(srgb 0.65 0.84 0.93);
-		--clr-diff-addition-count-text: color(srgb 0.02 0.3 0.7);
-		--clr-diff-addition-count-border: color(srgb 0.45 0.7 0.9);
-		--clr-diff-addition-count-checkmark: color(srgb 0.02 0.3 0.7);
+		--clr-diff-addition-line-bg: #a0d4f0;
+		--clr-diff-addition-line-highlight: #60b0e6;
+		--clr-diff-addition-count-bg: #84c4ee;
+		--clr-diff-addition-count-text: #0040a0;
+		--clr-diff-addition-count-border: #4e97ca;
 	}
 
 	/* Dark theme color-blind friendly overrides for strong contrast */
 	:global(.dark) .contrast-strong.colorblind-friendly {
 		/* deletion (orange) - darker variants for dark theme */
-		--clr-diff-deletion-line-bg: color(srgb 0.35 0.22 0.12);
-		--clr-diff-deletion-line-highlight: color(srgb 0.5 0.3 0.15);
-		--clr-diff-deletion-count-bg: color(srgb 0.45 0.3 0.18);
-		--clr-diff-deletion-count-text: color(srgb 1 0.8 0.5);
-		--clr-diff-deletion-count-border: color(srgb 0.7 0.5 0.25);
-		--clr-diff-deletion-count-checkmark: color(srgb 1 0.8 0.5);
+		--clr-diff-deletion-line-bg: #664020;
+		--clr-diff-deletion-line-highlight: #996030;
+		--clr-diff-deletion-count-bg: #805530;
+		--clr-diff-deletion-count-text: #ffc060;
+		--clr-diff-deletion-count-border: #c08840;
 		/* addition (blue) - darker variants for dark theme */
-		--clr-diff-addition-line-bg: color(srgb 0.12 0.22 0.35);
-		--clr-diff-addition-line-highlight: color(srgb 0.15 0.35 0.5);
-		--clr-diff-addition-count-bg: color(srgb 0.18 0.3 0.45);
-		--clr-diff-addition-count-text: color(srgb 0.7 0.9 1);
-		--clr-diff-addition-count-border: color(srgb 0.3 0.6 0.9);
-		--clr-diff-addition-count-checkmark: color(srgb 0.7 0.9 1);
+		--clr-diff-addition-line-bg: #204066;
+		--clr-diff-addition-line-highlight: #306099;
+		--clr-diff-addition-count-bg: #305580;
+		--clr-diff-addition-count-text: #80d0ff;
+		--clr-diff-addition-count-border: #4088c0;
 	}
 </style>
