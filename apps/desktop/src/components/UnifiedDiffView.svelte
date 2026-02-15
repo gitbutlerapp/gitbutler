@@ -230,6 +230,7 @@
 							strongContrast={$userSettings.strongContrast}
 							colorBlindFriendly={$userSettings.colorBlindFriendly}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+							selectable={isUncommittedChange}
 							onLineClick={(p) => {
 								if (!canBePartiallySelected(diff.subject)) {
 									uncommittedService.checkHunk(stackId || null, change.path, hunk);

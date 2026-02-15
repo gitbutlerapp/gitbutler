@@ -34,6 +34,7 @@
 		staged?: boolean;
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
+		selectable?: boolean;
 		selectedLines?: LineSelector[];
 		lineLocks?: LineLock[];
 		draggingDisabled?: boolean;
@@ -60,6 +61,7 @@
 		inlineUnifiedDiffs = false,
 		staged,
 		stagedLines,
+		selectable,
 		hideCheckboxes,
 		selectedLines,
 		lineLocks,
@@ -176,6 +178,7 @@
 				<HunkDiffBody
 					comment={hunk.comment}
 					{filePath}
+					{selectable}
 					content={hunk.contentSections}
 					{onLineClick}
 					clearLineSelection={() => clearLineSelection?.(filePath)}

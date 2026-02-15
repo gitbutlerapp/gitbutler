@@ -20,6 +20,7 @@
 
 	interface Props {
 		filePath: string;
+		selectable?: boolean;
 		content: ContentSection[];
 		tabSize?: number;
 		wrapText?: boolean;
@@ -44,6 +45,7 @@
 	const {
 		comment,
 		filePath,
+		selectable: isSelectable,
 		content,
 		onLineClick,
 		clearLineSelection,
@@ -69,7 +71,7 @@
 	const renderRows = $derived(
 		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines, lineLocks)
 	);
-	const clickable = $derived(!!onLineClick);
+	const clickable = $derived(!!isSelectable);
 	const maxLineNumber = $derived.by(() => {
 		if (renderRows.length === 0) return 0;
 
