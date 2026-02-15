@@ -1,8 +1,6 @@
 <script lang="ts">
 	import HunkDiffRow, { type ContextMenuParams } from '$components/hunkDiff/HunkDiffRow.svelte';
 	import LineSelection from '$components/hunkDiff/lineSelection.svelte';
-	import { isTouchDevice } from '$lib/utils/browserAgent';
-	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		type ContentSection,
 		type DependencyLock,
@@ -10,7 +8,6 @@
 		type LineId,
 		lineIdKey,
 		type LineLock,
-		type LineSelector,
 		parserFromFilename,
 		type Row,
 		SectionType
@@ -26,18 +23,13 @@
 		wrapText?: boolean;
 		diffFont?: string;
 		inlineUnifiedDiffs?: boolean;
-		selectedLines?: LineSelector[];
 		lineLocks?: LineLock[];
 		onLineClick?: (params: LineSelectionParams) => void;
-		clearLineSelection?: () => void;
-		onQuoteSelection?: () => void;
-		onCopySelection?: () => void;
 		numberHeaderWidth?: number;
 		staged?: boolean;
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
-		clickOutsideExcludeElements?: HTMLElement[];
 		comment?: string;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
@@ -48,28 +40,23 @@
 		selectable: isSelectable,
 		content,
 		onLineClick,
-		clearLineSelection,
 		wrapText = true,
 		diffFont,
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
-		selectedLines,
 		lineLocks,
 		numberHeaderWidth,
-		onCopySelection,
-		onQuoteSelection,
 		staged,
 		stagedLines,
 		hideCheckboxes,
 		handleLineContextMenu,
-		clickOutsideExcludeElements,
 		lockWarning
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
 	const parser = $derived(parserFromFilename(filePath));
 	const renderRows = $derived(
-		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines, lineLocks)
+		generateRows(filePath, content, inlineUnifiedDiffs, parser, undefined, lineLocks)
 	);
 	const clickable = $derived(!!isSelectable);
 	const maxLineNumber = $derived.by(() => {
@@ -108,14 +95,6 @@
 	$effect(() => lineSelection.setRows(renderRows));
 	$effect(() => lineSelection.setOnLineClick(onLineClick));
 
-	const hasSelectedLines = $derived(renderRows.filter((row) => row.isSelected).length > 0);
-
-	let hoveringOverTable = $state(false);
-	function handleClearSelection() {
-		if (hasSelectedLines) clearLineSelection?.();
-		lineSelection.onEnd();
-	}
-
 	function getStageState(row: Row): boolean | undefined {
 		if (staged === undefined) return undefined;
 		if (stagedLines === undefined || stagedLines.length === 0) return staged;
@@ -145,7 +124,6 @@
 	});
 
 	const commentRow = $derived(commentRows?.[0]);
-	const touchDevice = isTouchDevice();
 
 	function divideIntoChunks<T>(array: T[], size: number): T[][] {
 		return Array.from({ length: Math.ceil(array.length / size) }, (_v, i) =>
@@ -168,14 +146,7 @@
 {/if}
 
 {#each renderChunks as chunkRows}
-	<tbody
-		onmouseenter={() => (hoveringOverTable = true)}
-		onmouseleave={() => (hoveringOverTable = false)}
-		use:clickOutside={{
-			handler: handleClearSelection,
-			excludeElement: clickOutsideExcludeElements
-		}}
-	>
+	<tbody>
 		{#each chunkRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
 			<HunkDiffRow
 				{minWidth}
@@ -187,15 +158,10 @@
 				{wrapText}
 				{diffFont}
 				{numberHeaderWidth}
-				{onQuoteSelection}
-				{onCopySelection}
-				clearLineSelection={handleClearSelection}
-				{hoveringOverTable}
 				staged={getStageState(row)}
 				{hideCheckboxes}
 				{handleLineContextMenu}
 				{lockWarning}
-				{touchDevice}
 				hunkHasLocks={lineLocks && lineLocks.length > 0}
 			/>
 		{/each}

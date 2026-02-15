@@ -9,14 +9,11 @@
 	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
 	import { focusable } from '$lib/focus/focusable';
 	import {
-		type ContentSection,
 		type DependencyLock,
 		type LineId,
 		type LineLock,
-		type LineSelector,
 		parseHunk
 	} from '$lib/utils/diffParsing';
-	import { isDefined } from '$lib/utils/typeguards';
 	import type { ContextMenuParams } from '$components/hunkDiff/HunkDiffRow.svelte';
 	import type { Snippet } from 'svelte';
 
@@ -35,16 +32,11 @@
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
 		selectable?: boolean;
-		selectedLines?: LineSelector[];
 		lineLocks?: LineLock[];
 		draggingDisabled?: boolean;
 		onChangeStage?: (staged: boolean) => void;
 		onLineClick?: (params: LineSelectionParams) => void;
-		clearLineSelection?: (fileName: string) => void;
-		onQuoteSelection?: () => void;
-		onCopySelection?: (contentSections: ContentSection[]) => void;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
-		clickOutsideExcludeElement?: HTMLElement;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
 
@@ -63,15 +55,10 @@
 		stagedLines,
 		selectable,
 		hideCheckboxes,
-		selectedLines,
 		lineLocks,
 		onChangeStage,
 		onLineClick,
-		clearLineSelection,
-		onCopySelection,
-		onQuoteSelection,
 		handleLineContextMenu,
-		clickOutsideExcludeElement,
 		draggingDisabled,
 		lockWarning
 	}: Props = $props();
@@ -81,10 +68,6 @@
 	let numberHeaderWidth = $state<number>(0);
 
 	const hunk = $derived(parseHunk(hunkStr));
-
-	function handleCopySelection() {
-		onCopySelection?.(hunk.contentSections);
-	}
 
 	const hunkSummary = $derived(
 		`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`
@@ -167,35 +150,22 @@
 			</thead>
 
 			{#if tableWrapperElem}
-				<!-- We need to await the table wrapper to be mounted in order to set the array of elements
-			 to ignore when clicking outside.
-			 This is the case because the clickOutside handler needs to know which elements to ignore
-			 at mount time. Reactive updates to the array will not work as expected. -->
-				{@const elemetsToIgnoreInClickOutside = [
-					clickOutsideExcludeElement,
-					tableWrapperElem
-				].filter(isDefined)}
 				<HunkDiffBody
 					comment={hunk.comment}
 					{filePath}
 					{selectable}
 					content={hunk.contentSections}
 					{onLineClick}
-					clearLineSelection={() => clearLineSelection?.(filePath)}
 					{wrapText}
 					{tabSize}
 					{diffFont}
 					{inlineUnifiedDiffs}
-					{selectedLines}
 					{lineLocks}
 					{numberHeaderWidth}
-					onCopySelection={onCopySelection && handleCopySelection}
-					{onQuoteSelection}
 					{staged}
 					{stagedLines}
 					{hideCheckboxes}
 					{handleLineContextMenu}
-					clickOutsideExcludeElements={elemetsToIgnoreInClickOutside}
 					{lockWarning}
 				/>
 			{/if}

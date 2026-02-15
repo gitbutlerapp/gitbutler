@@ -8,7 +8,6 @@
 </script>
 
 <script lang="ts">
-	import Button from '$components/Button.svelte';
 	import Icon from '$components/Icon.svelte';
 	import InfoButton from '$components/InfoButton.svelte';
 	import {
@@ -26,22 +25,17 @@
 		idx: number;
 		row: Row;
 		clickable?: boolean;
-		clearLineSelection?: () => void;
 		lineSelection: LineSelection;
 		tabSize: number;
 		wrapText: boolean;
 		diffFont?: string;
 		numberHeaderWidth?: number;
-		onQuoteSelection?: () => void;
-		onCopySelection?: () => void;
-		hoveringOverTable: boolean;
 		staged?: boolean;
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		minWidth: number;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 		hunkHasLocks?: boolean;
-		touchDevice?: boolean;
 	}
 
 	const {
@@ -52,21 +46,15 @@
 		tabSize,
 		wrapText,
 		diffFont = 'var(--font-mono)',
-		clearLineSelection,
 		numberHeaderWidth,
-		onQuoteSelection,
-		onCopySelection,
-		hoveringOverTable,
 		staged,
 		hideCheckboxes,
 		handleLineContextMenu,
 		minWidth,
 		lockWarning,
-		hunkHasLocks,
-		touchDevice
+		hunkHasLocks
 	}: Props = $props();
 
-	let overflowMenuHeight = $state<number>(0);
 	let stagingColumnWidth = $state<number>(0);
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
@@ -198,9 +186,6 @@
 		class:diff-line-addition={row.type === SectionType.AddedLines}
 		class:selected={row.isSelected}
 		class:is-last={row.isLast}
-		onclick={() => {
-			if (!row.isSelected) clearLineSelection?.();
-		}}
 		oncontextmenu={(ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -219,39 +204,6 @@
 					class:is-last={row.isLastOfSelectionGroup}
 					style="--number-col-width: {numberHeaderWidth}px; "
 				></div>
-			{/if}
-
-			{#if row.isLastSelected}
-				<div
-					bind:clientHeight={overflowMenuHeight}
-					class="table__selected-row-overflow-menu"
-					class:visible={hoveringOverTable || touchDevice}
-					style="--number-col-width: {numberHeaderWidth}px; --overflow-menu-height: {overflowMenuHeight}px;"
-				>
-					{#if onQuoteSelection}
-						<div class="button-wrapper">
-							<Button
-								icon="text-quote"
-								style="gray"
-								kind="ghost"
-								size="button"
-								tooltip="Quote"
-								onclick={onQuoteSelection}
-							/>
-						</div>
-					{/if}
-
-					<div class="button-wrapper">
-						<Button
-							icon="copy-small"
-							style="gray"
-							kind="ghost"
-							size="button"
-							tooltip="Copy"
-							onclick={onCopySelection}
-						/>
-					</div>
-				</div>
 			{/if}
 
 			{@html row.tokens.join('')}
@@ -310,33 +262,6 @@
 		&.is-last {
 			border-bottom: 1px solid var(--clr-theme-warn-element);
 		}
-	}
-
-	.table__selected-row-overflow-menu {
-		display: flex;
-		z-index: var(--z-lifted);
-		position: absolute;
-		top: calc(100% - var(--overflow-menu-height) - 6px);
-		left: 0;
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-		box-shadow: var(--fx-shadow-s);
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity var(--transition-medium);
-
-		.button-wrapper:not(:last-child) {
-			border-right: 1px solid var(--clr-border-2);
-		}
-
-		&.visible {
-			opacity: 1;
-			pointer-events: all;
-		}
-	}
-
-	.button-wrapper {
-		display: flex;
 	}
 
 	.table__numberColumn {
