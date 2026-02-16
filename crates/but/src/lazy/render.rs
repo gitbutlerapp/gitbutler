@@ -1,0 +1,723 @@
+use bstr::ByteSlice;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{
+    Block, Borders, Clear, List, ListItem, Paragraph, Wrap,
+};
+use ratatui::Frame;
+
+use super::app::{App, Panel, StatusItem};
+
+// ---------------------------------------------------------------------------
+// Main UI entry point
+// ---------------------------------------------------------------------------
+
+pub(super) fn ui(f: &mut Frame, app: &App) {
+    let size = f.area();
+
+    // Top-level vertical split: main area + command log
+    let main_chunks = if app.command_log_visible {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(10), Constraint::Length(6)])
+            .split(size)
+    } else {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Min(10), Constraint::Length(0)])
+            .split(size)
+    };
+
+    // Horizontal split: left panels (40%) + details (60%)
+    let h_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .split(main_chunks[0]);
+
+    // Left side: vertical split into upstream + status + oplog
+    let has_upstream = app.upstream_info.is_some();
+    let left_chunks = if has_upstream {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3),
+                Constraint::Min(8),
+                Constraint::Length(10),
+            ])
+            .split(h_chunks[0])
+    } else {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(0),
+                Constraint::Min(8),
+                Constraint::Length(10),
+            ])
+            .split(h_chunks[0])
+    };
+
+    // Render panels
+    render_upstream_panel(f, app, left_chunks[0]);
+    render_status_panel(f, app, left_chunks[1]);
+    render_oplog_panel(f, app, left_chunks[2]);
+    render_details_panel(f, app, h_chunks[1]);
+
+    // Command log
+    if app.command_log_visible {
+        render_command_log(f, app, main_chunks[1]);
+    }
+
+    // Help overlay
+    if app.show_help {
+        render_help_overlay(f, app, size);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Upstream panel
+// ---------------------------------------------------------------------------
+
+fn render_upstream_panel(f: &mut Frame, app: &App, area: Rect) {
+    // Store area for mouse detection (we need to cast away mutability concern)
+    // This is handled by storing in the app before render in the main loop
+    let is_active = app.active_panel == Panel::Upstream;
+    let border_style = panel_border_style(is_active);
+
+    let content = if let Some(info) = &app.upstream_info {
+        let fetched = info
+            .last_fetched_ms
+            .map(|ms| format_relative_time(ms))
+            .unwrap_or_else(|| "never".to_string());
+
+        Line::from(vec![
+            Span::styled(
+                format!(" {} behind", info.behind_count),
+                Style::default().fg(Color::Yellow),
+            ),
+            Span::raw("  "),
+            Span::styled(
+                format!("fetched {fetched}"),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ])
+    } else {
+        Line::from(Span::styled(
+            " Up to date",
+            Style::default().fg(Color::Green),
+        ))
+    };
+
+    let block = Paragraph::new(content).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Upstream ")
+            .border_style(border_style),
+    );
+    f.render_widget(block, area);
+}
+
+// ---------------------------------------------------------------------------
+// Status panel
+// ---------------------------------------------------------------------------
+
+fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
+    let is_active = app.active_panel == Panel::Status && !app.details_selected;
+    let border_style = panel_border_style(is_active);
+
+    let mut items: Vec<ListItem> = Vec::new();
+
+    // Unassigned files
+    if !app.unassigned_files.is_empty() {
+        items.push(ListItem::new(Line::from(vec![Span::styled(
+            "── Unassigned ──",
+            Style::default()
+                .fg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        )])));
+
+        for file in &app.unassigned_files {
+            let path = file.path.to_str_lossy();
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled("  ", Style::default()),
+                Span::styled(
+                    path.into_owned(),
+                    Style::default().fg(Color::Yellow),
+                ),
+            ])));
+        }
+    }
+
+    // Stacks & branches
+    for (si, stack) in app.stacks.iter().enumerate() {
+        for (bi, branch) in stack.branches.iter().enumerate() {
+            // Branch header with tree connector
+            let connector = if bi == 0 && stack.branches.len() > 1 {
+                "┌"
+            } else if bi == stack.branches.len() - 1 && stack.branches.len() > 1 {
+                "└"
+            } else if stack.branches.len() > 1 {
+                "├"
+            } else {
+                "─"
+            };
+
+            let no_commits_hint = if branch.commits.is_empty() {
+                " (no commits)"
+            } else {
+                ""
+            };
+
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("{connector}─ "),
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(
+                    branch.name.clone(),
+                    Style::default()
+                        .fg(Color::Blue)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    no_commits_hint,
+                    Style::default().fg(Color::DarkGray),
+                ),
+            ])));
+
+            // Assigned files
+            for file in &branch.files {
+                let path = file.path.to_str_lossy();
+                items.push(ListItem::new(Line::from(vec![
+                    Span::styled("│ ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        path.into_owned(),
+                        Style::default().fg(Color::Yellow),
+                    ),
+                ])));
+            }
+
+            // Commits
+            for commit in &branch.commits {
+                let dot = commit_status_dot(&commit.state);
+                let msg = commit.message.lines().next().unwrap_or("");
+                items.push(ListItem::new(Line::from(vec![
+                    Span::styled("│ ", Style::default().fg(Color::DarkGray)),
+                    dot,
+                    Span::raw(" "),
+                    Span::styled(
+                        commit.id.clone(),
+                        Style::default().fg(Color::Green),
+                    ),
+                    Span::raw(" "),
+                    Span::raw(msg.to_string()),
+                ])));
+            }
+        }
+
+        // Separator between stacks
+        if si < app.stacks.len() - 1 {
+            items.push(ListItem::new(Line::from("")));
+        }
+    }
+
+    if items.is_empty() {
+        items.push(ListItem::new(Line::from(Span::styled(
+            "  No branches or files",
+            Style::default().fg(Color::DarkGray),
+        ))));
+    }
+
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Status ")
+                .border_style(border_style),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        );
+
+    f.render_stateful_widget(list, area, &mut app.status_state.clone());
+}
+
+// ---------------------------------------------------------------------------
+// Oplog panel
+// ---------------------------------------------------------------------------
+
+fn render_oplog_panel(f: &mut Frame, app: &App, area: Rect) {
+    let is_active = app.active_panel == Panel::Oplog;
+    let border_style = panel_border_style(is_active);
+
+    let items: Vec<ListItem> = app
+        .oplog_entries
+        .iter()
+        .map(|entry| {
+            ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("{:<8}", entry.operation),
+                    Style::default().fg(Color::Cyan),
+                ),
+                Span::raw(" "),
+                Span::raw(entry.title.clone()),
+            ]))
+        })
+        .collect();
+
+    let list = List::new(items)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Oplog ")
+                .border_style(border_style),
+        )
+        .highlight_style(
+            Style::default()
+                .bg(Color::DarkGray)
+                .add_modifier(Modifier::BOLD),
+        );
+
+    f.render_stateful_widget(list, area, &mut app.oplog_state.clone());
+}
+
+// ---------------------------------------------------------------------------
+// Details panel
+// ---------------------------------------------------------------------------
+
+fn render_details_panel(f: &mut Frame, app: &App, area: Rect) {
+    let is_active = app.details_selected;
+    let border_style = panel_border_style(is_active);
+
+    let lines = build_details_content(app);
+
+    let block = Paragraph::new(lines)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Details ")
+                .border_style(border_style),
+        )
+        .wrap(Wrap { trim: false })
+        .scroll((app.details_scroll, 0));
+
+    f.render_widget(block, area);
+}
+
+fn build_details_content(app: &App) -> Vec<Line<'static>> {
+    match app.active_panel {
+        Panel::Status => build_status_details(app),
+        Panel::Oplog => build_oplog_details(app),
+        Panel::Upstream => build_upstream_details(app),
+    }
+}
+
+fn build_status_details(app: &App) -> Vec<Line<'static>> {
+    let item = match app.selected_status_item() {
+        Some(item) => item,
+        None => {
+            return vec![Line::from(Span::styled(
+                "Select an item to see details",
+                Style::default().fg(Color::DarkGray),
+            ))];
+        }
+    };
+
+    match item {
+        StatusItem::UnassignedHeader => {
+            let count = app.unassigned_files.len();
+            vec![
+                Line::from(vec![Span::styled(
+                    "Unassigned Files",
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(Modifier::BOLD),
+                )]),
+                Line::from(""),
+                Line::from(format!("{count} file(s) not assigned to any branch.")),
+                Line::from(""),
+                Line::from(vec![Span::styled(
+                    "Use 'but stage <file> <branch>' to assign, or 'but absorb' to auto-assign.",
+                    Style::default().fg(Color::DarkGray),
+                )]),
+            ]
+        }
+        StatusItem::UnassignedFile(idx) => {
+            if let Some(file) = app.unassigned_files.get(idx) {
+                let path = file.path.to_str_lossy().into_owned();
+                vec![
+                    Line::from(vec![
+                        Span::styled("File: ", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled(path, Style::default().fg(Color::Yellow)),
+                    ]),
+                    Line::from(""),
+                    Line::from(format!("{} hunk(s)", file.assignments.len())),
+                ]
+            } else {
+                vec![]
+            }
+        }
+        StatusItem::Branch { stack, branch } => {
+            if let Some(b) = app.stacks.get(stack).and_then(|s| s.branches.get(branch)) {
+                let commit_count = b.commits.len();
+                let file_count = b.files.len();
+                vec![
+                    Line::from(vec![
+                        Span::styled("Branch: ", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled(b.name.clone(), Style::default().fg(Color::Blue)),
+                    ]),
+                    Line::from(""),
+                    Line::from(format!("{commit_count} commit(s), {file_count} staged file(s)")),
+                ]
+            } else {
+                vec![]
+            }
+        }
+        StatusItem::AssignedFile { stack, branch, file } => {
+            if let Some(f) = app
+                .stacks
+                .get(stack)
+                .and_then(|s| s.branches.get(branch))
+                .and_then(|b| b.files.get(file))
+            {
+                let path = f.path.to_str_lossy().into_owned();
+                vec![
+                    Line::from(vec![
+                        Span::styled("File: ", Style::default().add_modifier(Modifier::BOLD)),
+                        Span::styled(path, Style::default().fg(Color::Yellow)),
+                    ]),
+                    Line::from(""),
+                    Line::from(format!(
+                        "Staged to branch, {} hunk(s)",
+                        f.assignments.len()
+                    )),
+                ]
+            } else {
+                vec![]
+            }
+        }
+        StatusItem::Commit {
+            stack,
+            branch,
+            commit,
+        } => {
+            if let Some(c) = app
+                .stacks
+                .get(stack)
+                .and_then(|s| s.branches.get(branch))
+                .and_then(|b| b.commits.get(commit))
+            {
+                let branch_name = app
+                    .stacks
+                    .get(stack)
+                    .and_then(|s| s.branches.get(branch))
+                    .map(|b| b.name.clone())
+                    .unwrap_or_default();
+
+                let mut lines = vec![
+                    Line::from(vec![
+                        Span::styled(
+                            "Commit ",
+                            Style::default().add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(c.id.clone(), Style::default().fg(Color::Green)),
+                        Span::raw(" on "),
+                        Span::styled(branch_name, Style::default().fg(Color::Blue)),
+                    ]),
+                    Line::from(""),
+                ];
+
+                // Full commit message
+                for line in c.message.lines() {
+                    lines.push(Line::from(line.to_string()));
+                }
+
+                lines.push(Line::from(""));
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        "Author: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(c.author.clone()),
+                ]));
+                lines.push(Line::from(vec![
+                    Span::styled("Date:   ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(c.created_at.clone()),
+                ]));
+
+                // State
+                let state_desc = match &c.state {
+                    but_workspace::ui::CommitState::LocalOnly => "Local only",
+                    but_workspace::ui::CommitState::LocalAndRemote(_) => "Pushed to remote",
+                    but_workspace::ui::CommitState::Integrated => "Integrated",
+                };
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        "State:  ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::raw(state_desc.to_string()),
+                ]));
+
+                lines
+            } else {
+                vec![]
+            }
+        }
+    }
+}
+
+fn build_oplog_details(app: &App) -> Vec<Line<'static>> {
+    let idx = match app.oplog_state.selected() {
+        Some(idx) => idx,
+        None => {
+            return vec![Line::from(Span::styled(
+                "Select an oplog entry",
+                Style::default().fg(Color::DarkGray),
+            ))];
+        }
+    };
+
+    if let Some(entry) = app.oplog_entries.get(idx) {
+        vec![
+            Line::from(vec![
+                Span::styled(
+                    "Operation: ",
+                    Style::default().add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(entry.operation.clone(), Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::styled("Title: ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(entry.title.clone()),
+            ]),
+            Line::from(vec![
+                Span::styled("SHA:   ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::styled(entry.full_id.clone(), Style::default().fg(Color::Green)),
+            ]),
+            Line::from(vec![
+                Span::styled("Time:  ", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(entry.time.clone()),
+            ]),
+        ]
+    } else {
+        vec![]
+    }
+}
+
+fn build_upstream_details(app: &App) -> Vec<Line<'static>> {
+    match &app.upstream_info {
+        Some(info) => {
+            let mut lines = vec![
+                Line::from(vec![
+                    Span::styled(
+                        "Upstream ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{} commits behind", info.behind_count),
+                        Style::default().fg(Color::Yellow),
+                    ),
+                ]),
+                Line::from(""),
+                Line::from(vec![
+                    Span::styled(
+                        "Latest: ",
+                        Style::default().add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        info.latest_commit.clone(),
+                        Style::default().fg(Color::Green),
+                    ),
+                    Span::raw(" "),
+                    Span::raw(info.message.clone()),
+                ]),
+                Line::from(vec![
+                    Span::styled("Date:   ", Style::default().add_modifier(Modifier::BOLD)),
+                    Span::raw(info.commit_date.clone()),
+                ]),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "Upstream commits:",
+                    Style::default().add_modifier(Modifier::BOLD),
+                )),
+            ];
+
+            for uc in &info.commits {
+                lines.push(Line::from(vec![
+                    Span::styled(uc.id.clone(), Style::default().fg(Color::Green)),
+                    Span::raw(" "),
+                    Span::raw(uc.message.lines().next().unwrap_or("").to_string()),
+                    Span::raw(" "),
+                    Span::styled(
+                        format!("({})", uc.author),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]));
+            }
+
+            lines
+        }
+        None => vec![Line::from(Span::styled(
+            "Up to date with upstream",
+            Style::default().fg(Color::Green),
+        ))],
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Command log
+// ---------------------------------------------------------------------------
+
+fn render_command_log(f: &mut Frame, app: &App, area: Rect) {
+    let visible = app
+        .command_log
+        .iter()
+        .rev()
+        .take(area.height.saturating_sub(2) as usize)
+        .rev()
+        .map(|s| Line::from(Span::styled(s.clone(), Style::default().fg(Color::DarkGray))))
+        .collect::<Vec<_>>();
+
+    let block = Paragraph::new(visible).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Log (~) ")
+            .border_style(Style::default().fg(Color::DarkGray)),
+    );
+    f.render_widget(block, area);
+}
+
+// ---------------------------------------------------------------------------
+// Help overlay
+// ---------------------------------------------------------------------------
+
+fn render_help_overlay(f: &mut Frame, app: &App, area: Rect) {
+    let w = 60u16.min(area.width.saturating_sub(4));
+    let h = 24u16.min(area.height.saturating_sub(4));
+    let modal = Rect {
+        x: (area.width.saturating_sub(w)) / 2,
+        y: (area.height.saturating_sub(h)) / 2,
+        width: w,
+        height: h,
+    };
+
+    f.render_widget(Clear, modal);
+
+    let lines = vec![
+        Line::from(Span::styled(
+            "GitButler TUI - Keyboard Shortcuts",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(""),
+        help_line("q / Ctrl+C", "Quit"),
+        help_line("?", "Toggle this help"),
+        help_line("Tab / Shift+Tab", "Switch panels"),
+        help_line("j / k / ↑ / ↓", "Navigate items"),
+        help_line("h / l / ← / →", "Focus details / back"),
+        help_line("f", "Fetch from upstream"),
+        help_line("Ctrl+R", "Refresh data"),
+        help_line("~", "Toggle command log"),
+        Line::from(""),
+        help_line("c", "Commit (TODO)"),
+        help_line("r", "Reword commit (TODO)"),
+        help_line("s", "Squash commits (TODO)"),
+        help_line("u", "Uncommit (TODO)"),
+        help_line("a", "Absorb changes (TODO)"),
+        help_line("d", "View diff (TODO)"),
+        help_line("R", "Rename branch (TODO)"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Press ? or Esc to close",
+            Style::default().fg(Color::DarkGray),
+        )),
+    ];
+
+    let block = Paragraph::new(lines)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Help ")
+                .border_style(
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+        )
+        .scroll((app.help_scroll, 0))
+        .wrap(Wrap { trim: false })
+        .style(Style::default().bg(Color::Black));
+
+    f.render_widget(block, modal);
+}
+
+fn help_line<'a>(key: &'a str, desc: &'a str) -> Line<'a> {
+    Line::from(vec![
+        Span::styled(
+            format!("  {key:<20}"),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(desc),
+    ])
+}
+
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+
+fn panel_border_style(active: bool) -> Style {
+    if active {
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    }
+}
+
+fn commit_status_dot(state: &but_workspace::ui::CommitState) -> Span<'static> {
+    match state {
+        but_workspace::ui::CommitState::LocalOnly => {
+            Span::styled("●", Style::default().fg(Color::Yellow))
+        }
+        but_workspace::ui::CommitState::LocalAndRemote(_) => {
+            Span::styled("●", Style::default().fg(Color::Green))
+        }
+        but_workspace::ui::CommitState::Integrated => {
+            Span::styled("●", Style::default().fg(Color::Blue))
+        }
+    }
+}
+
+fn format_relative_time(ms: u128) -> String {
+    let now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+
+    if ms > now_ms {
+        return "just now".to_string();
+    }
+
+    let diff_secs = ((now_ms - ms) / 1000) as u64;
+    if diff_secs < 60 {
+        return "just now".to_string();
+    }
+    let minutes = diff_secs / 60;
+    if minutes < 60 {
+        return format!("{minutes}m ago");
+    }
+    let hours = minutes / 60;
+    if hours < 24 {
+        return format!("{hours}h ago");
+    }
+    let days = hours / 24;
+    format!("{days}d ago")
+}
