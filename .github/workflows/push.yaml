@@ -21,6 +21,7 @@ jobs:
       ui: ${{ steps.filter.outputs.ui }}
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
+      install_script: ${{ steps.filter.outputs.install_script }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -53,6 +54,8 @@ jobs:
               - 'Cargo.lock'
               - 'Cargo.toml'
               - 'crates/but-installer/**'
+            install_script:
+              - 'scripts/install.sh'
 
   prettier:
     needs: changes
@@ -320,7 +323,8 @@ jobs:
           retention-days: 7
 
   fetch-published-versions:
-    needs: build-installer
+    needs: changes
+    if: ${{ needs.changes.outputs.install_script == 'true' || needs.changes.outputs.but_installer == 'true' }}
     runs-on: ubuntu-22.04
     permissions:
       contents: none
@@ -333,6 +337,37 @@ jobs:
         run: |
           echo "release_version=$(curl -s https://app.gitbutler.com/releases | jq -r .version)" >> $GITHUB_OUTPUT
           echo "nightly_version=$(curl -s https://app.gitbutler.com/releases/nightly | jq -r .version)" >> $GITHUB_OUTPUT
+
+  validate-install-script:
+    needs:
+      - changes
+      - fetch-published-versions
+    if: ${{ needs.changes.outputs.install_script == 'true' }}
+    permissions:
+      contents: read
+    env:
+      LATEST_RELEASE_VERSION: ${{ needs.fetch-published-versions.outputs.release_version }}
+      LATEST_NIGHTLY_VERSION: ${{ needs.fetch-published-versions.outputs.nightly_version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15 # [macOs, ARM64] - default target
+          - platform: ubuntu-22.04 # [linux, x64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Install release
+        run: ./scripts/install.sh
+      - name: Validate release version
+        run: but --version | grep "but $LATEST_RELEASE_VERSION"
+      - name: Install nightly
+        run: ./scripts/install.sh nightly
+      - name: Validate nightly version
+        run: but --version | grep "but $LATEST_NIGHTLY_VERSION"
 
   validate-installer:
     needs:
