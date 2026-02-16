@@ -244,7 +244,16 @@ export type ClaudeTodo = {
 
 export type ThinkingLevel = 'normal' | 'think' | 'megaThink' | 'ultraThink';
 
-export type ModelType = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opusplan';
+export type ModelType =
+	| 'haiku'
+	| 'sonnet'
+	| 'sonnet[1m]'
+	| 'opus'
+	| 'opusplan'
+	| 'claude-opus-4-6'
+	| 'claude-opus-4-5-20251101'
+	| 'claude-sonnet-4-5-20250929'
+	| 'claude-haiku-4-5-20251001';
 
 export type PermissionMode = 'default' | 'plan' | 'acceptEdits';
 

@@ -453,6 +453,14 @@ pub enum ModelType {
     Opus,
     #[serde(rename = "opusplan")]
     OpusPlan,
+    #[serde(rename = "claude-opus-4-6")]
+    ClaudeOpus46,
+    #[serde(rename = "claude-opus-4-5-20251101")]
+    ClaudeOpus45,
+    #[serde(rename = "claude-sonnet-4-5-20250929")]
+    ClaudeSonnet45,
+    #[serde(rename = "claude-haiku-4-5-20251001")]
+    ClaudeHaiku45,
 }
 
 impl ModelType {
@@ -464,6 +472,10 @@ impl ModelType {
             ModelType::Sonnet1m => "sonnet[1m]",
             ModelType::Opus => "opus",
             ModelType::OpusPlan => "opusplan",
+            ModelType::ClaudeOpus46 => "claude-opus-4-6",
+            ModelType::ClaudeOpus45 => "claude-opus-4-5-20251101",
+            ModelType::ClaudeSonnet45 => "claude-sonnet-4-5-20250929",
+            ModelType::ClaudeHaiku45 => "claude-haiku-4-5-20251001",
         }
     }
 }
@@ -546,5 +558,22 @@ mod tests {
         assert!(user_input.attachments.is_some());
         let attachments = user_input.attachments.unwrap();
         assert_eq!(attachments.len(), 1);
+    }
+
+    #[test]
+    fn test_model_type_cli_string_for_latest_claude_models() {
+        assert_eq!(ModelType::ClaudeOpus46.to_cli_string(), "claude-opus-4-6");
+        assert_eq!(
+            ModelType::ClaudeOpus45.to_cli_string(),
+            "claude-opus-4-5-20251101"
+        );
+        assert_eq!(
+            ModelType::ClaudeSonnet45.to_cli_string(),
+            "claude-sonnet-4-5-20250929"
+        );
+        assert_eq!(
+            ModelType::ClaudeHaiku45.to_cli_string(),
+            "claude-haiku-4-5-20251001"
+        );
     }
 }
