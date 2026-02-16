@@ -1,13 +1,14 @@
 //! In place of commands.rs
 use std::env;
 
+#[allow(unused_imports)]
+use anyhow::anyhow;
 use anyhow::{Context as _, Result, bail};
 use but_api_macros::but_api;
 use tracing::instrument;
 use url::Url;
 
-pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
-    let target_url = Url::parse(path).with_context(|| format!("Invalid path format: '{path}'"))?;
+pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
     if ![
         "http",
         "https",
@@ -43,7 +44,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
 
     let mut cmd_errors = Vec::new();
 
-    for mut cmd in open::commands(path) {
+    for mut cmd in open::commands(target_url.path()) {
         let cleaned_vars = clean_env_vars(&[
             "APPDIR",
             "GDK_PIXBUF_MODULE_FILE",
@@ -82,6 +83,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
 #[but_api]
 #[instrument(err(Debug))]
 pub fn open_url(url: String) -> Result<()> {
+    let url = Url::parse(&url).with_context(|| format!("Invalid path format: '{url}'"))?;
     open_that(&url)
 }
 
@@ -117,15 +119,16 @@ pub fn show_in_finder(path: String) -> Result<()> {
     {
         // For directories, open the directory directly
         if std::path::Path::new(&path).is_dir() {
-            open_that(&path).with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
+            open_that(&Url::from_file_path(&path).map_err(|_| anyhow!("Failed to parse URL"))?)
+                .with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
         } else {
             // For files, try to open the parent directory
             if let Some(parent) = std::path::Path::new(&path).parent() {
-                let parent_str = parent.to_string_lossy();
-                open_that(&parent_str)
+                open_that(&Url::from_file_path(parent).map_err(|_| anyhow!("Failed to parse URL"))?)
                     .with_context(|| format!("Failed to open parent directory of '{path}' in file manager",))?;
             } else {
-                open_that(&path).with_context(|| format!("Failed to open '{path}' in file manager"))?;
+                open_that(&Url::from_file_path(&path).map_err(|_| anyhow!("Failed to parse URL"))?)
+                    .with_context(|| format!("Failed to open '{path}' in file manager"))?;
             }
         }
     }
