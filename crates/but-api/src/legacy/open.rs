@@ -20,6 +20,7 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
         "windsurf",
         "cursor",
         "trae",
+        "file",
     ]
     .contains(&target_url.scheme())
     {
