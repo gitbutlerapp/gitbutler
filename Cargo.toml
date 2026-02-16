@@ -278,8 +278,8 @@ unicode-segmentation = "1.12.0"
 
 [workspace.lints.clippy]
 all = "deny"
-perf = "deny"
-correctness = "deny"
+# Note that `all` doesn't include everything, so extra lints should be added here.
+# You can try `pedantic = deny` to see those extra lints (alongside `all`).
 uninlined_format_args = "deny"
 
 [profile.release]

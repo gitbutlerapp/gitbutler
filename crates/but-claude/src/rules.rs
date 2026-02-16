@@ -93,7 +93,7 @@ pub(crate) fn create_claude_assignment_rule(
     }
     if existing_rules.iter().any(|rule| rule.session_id == session_id) {
         return Err(anyhow::anyhow!(
-            "These is an existing WorkspaceRule triggered on ClaudeCodeHook with filter on session_id: {session_id}"
+            "There is an existing WorkspaceRule triggered on ClaudeCodeHook with filter on session_id: {session_id}"
         ));
     }
 
