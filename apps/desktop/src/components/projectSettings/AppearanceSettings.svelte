@@ -49,6 +49,38 @@
 
 <CardGroup.Item alignment="center" standalone>
 	{#snippet title()}
+		UI font size
+	{/snippet}
+	{#snippet caption()}
+		Font size scaling is global.
+		<br />
+		Layout and inter-element spacing remain consistent.
+	{/snippet}
+	{#snippet actions()}
+		<Textbox
+			type="number"
+			width={106}
+			textAlign="center"
+			value={Math.round($userSettings.uiFontScale * 100).toString()}
+			minVal={75}
+			maxVal={150}
+			showCountActions
+			onchange={(value: string) => {
+				const parsed = parseInt(value);
+				if (parsed) {
+					userSettings.update((s) => ({
+						...s,
+						uiFontScale: parsed / 100
+					}));
+				}
+			}}
+			placeholder="100"
+		/>
+	{/snippet}
+</CardGroup.Item>
+
+<CardGroup.Item alignment="center" standalone>
+	{#snippet title()}
 		Default file list mode
 	{/snippet}
 	{#snippet caption()}
@@ -131,6 +163,7 @@
 			tabSize={$userSettings.tabSize}
 			wrapText={$userSettings.wrapText}
 			diffFont={$userSettings.diffFont}
+			diffFontSize={$userSettings.diffFontSize}
 			diffLigatures={$userSettings.diffLigatures}
 			strongContrast={$userSettings.strongContrast}
 			colorBlindFriendly={$userSettings.colorBlindFriendly}
@@ -174,6 +207,34 @@
 						diffLigatures: !$userSettings.diffLigatures
 					}));
 				}}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+
+	<CardGroup.Item alignment="center">
+		{#snippet title()}
+			Font size
+		{/snippet}
+		{#snippet caption()}
+			Font size in pixels for the diff view.
+		{/snippet}
+
+		{#snippet actions()}
+			<Textbox
+				type="number"
+				width={100}
+				textAlign="center"
+				value={$userSettings.diffFontSize.toString()}
+				minVal={8}
+				maxVal={24}
+				showCountActions
+				onchange={(value: string) => {
+					userSettings.update((s) => ({
+						...s,
+						diffFontSize: parseInt(value) || $userSettings.diffFontSize
+					}));
+				}}
+				placeholder={$userSettings.diffFontSize.toString()}
 			/>
 		{/snippet}
 	</CardGroup.Item>

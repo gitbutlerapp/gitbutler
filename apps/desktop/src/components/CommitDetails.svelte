@@ -126,13 +126,13 @@
 		color: var(--clr-text-2);
 
 		& .divider {
-			font-size: 12px;
+			font-size: calc(12px * var(--ui-font-scale, 1));
 			opacity: 0.4;
 		}
 	}
 
 	.description {
-		font-size: 13px;
+		font-size: calc(13px * var(--ui-font-scale, 1));
 		line-height: var(--text-lineheight-body);
 		font-family: var(--commit-message-font);
 		white-space: pre-line;

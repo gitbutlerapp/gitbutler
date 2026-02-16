@@ -94,7 +94,7 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-2);
-		font-size: 12px;
+		font-size: calc(12px * var(--ui-font-scale, 1));
 		font-family: var(--font-mono);
 	}
 </style>

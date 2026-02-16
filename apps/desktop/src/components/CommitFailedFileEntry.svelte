@@ -62,6 +62,7 @@
 								tabSize={$userSettings.tabSize}
 								wrapText={$userSettings.wrapText}
 								diffFont={$userSettings.diffFont}
+								diffFontSize={$userSettings.diffFontSize}
 								diffLigatures={$userSettings.diffLigatures}
 								strongContrast={$userSettings.strongContrast}
 								colorBlindFriendly={$userSettings.colorBlindFriendly}

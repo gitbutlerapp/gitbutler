@@ -178,7 +178,7 @@
 		padding-left: 4px;
 		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
-		font-size: 12px;
+		font-size: var(--diff-font-size, 12px);
 		line-height: 1.25;
 		text-wrap: wrap;
 		white-space: pre;
@@ -193,7 +193,7 @@
 		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
-		font-size: 11px;
+		font-size: calc(var(--diff-font-size, 12px) - 1px);
 		text-align: right;
 		vertical-align: middle;
 		touch-action: none;

@@ -5,6 +5,48 @@
 	--dropzone-stroke: oklch(from var(--clr-theme-pop-element) l c h / 0.8);
 	--dropzone-fill-hover: oklch(from var(--clr-core-pop-50) l c h / 0.25);
 	--dropzone-stroke-hover: oklch(from var(--clr-theme-pop-element) l c h / 1);
+	--ui-font-scale: 1;
+}
+
+/* UI font scale overrides */
+.text-9 {
+	font-size: calc(0.563rem * var(--ui-font-scale));
+}
+.text-10 {
+	font-size: calc(0.625rem * var(--ui-font-scale));
+}
+.text-11 {
+	font-size: calc(0.6875rem * var(--ui-font-scale));
+}
+.text-12 {
+	font-size: calc(0.75rem * var(--ui-font-scale));
+}
+.text-13 {
+	font-size: calc(0.8125rem * var(--ui-font-scale));
+}
+.text-14 {
+	font-size: calc(0.875rem * var(--ui-font-scale));
+}
+.text-15 {
+	font-size: calc(0.938rem * var(--ui-font-scale));
+}
+.text-16 {
+	font-size: calc(1rem * var(--ui-font-scale));
+}
+.text-18 {
+	font-size: calc(1.125rem * var(--ui-font-scale));
+}
+.text-head-20 {
+	font-size: calc(1.25rem * var(--ui-font-scale));
+}
+.text-head-22 {
+	font-size: calc(1.375rem * var(--ui-font-scale));
+}
+.text-head-24 {
+	font-size: calc(1.5rem * var(--ui-font-scale));
+}
+.text-serif-42 {
+	font-size: calc(2.625rem * var(--ui-font-scale));
 }
 
 body {

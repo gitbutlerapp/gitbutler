@@ -149,7 +149,7 @@
 		class:textarea-unstyled={unstyled}
 		class:hide-scrollbar={measureElHeight < maxHeight}
 		style:height="{pxToRem(Math.max(measureElHeight, minHeight))}rem"
-		style:font-size="{pxToRem(fontSize)}rem"
+		style:font-size="calc({pxToRem(fontSize)}rem * var(--ui-font-scale, 1))"
 		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
 		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
 		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}

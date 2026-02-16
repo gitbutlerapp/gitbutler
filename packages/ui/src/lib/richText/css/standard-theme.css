@@ -26,13 +26,13 @@
 }
 
 .StandardTheme__h1 {
-	font-size: 24px;
+	font-size: calc(24px * var(--ui-font-scale, 1));
 }
 .StandardTheme__h2 {
-	font-size: 22px;
+	font-size: calc(22px * var(--ui-font-scale, 1));
 }
 .StandardTheme__h3 {
-	font-size: 20px;
+	font-size: calc(20px * var(--ui-font-scale, 1));
 }
 
 .StandardTheme__paragraph {
