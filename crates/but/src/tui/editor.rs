@@ -11,6 +11,55 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
+// ── Hard wrap utility for commit messages ───────────────────────────────────
+
+/// Hard wraps commit message text at 72 characters.
+/// First line is preserved as-is (the summary line), subsequent lines are wrapped.
+fn hard_wrap_commit_message(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    if lines.is_empty() {
+        return String::new();
+    }
+
+    let mut result = Vec::new();
+
+    // First line (summary) - keep as-is
+    if let Some(first) = lines.first() {
+        result.push(first.to_string());
+    }
+
+    // Process remaining lines
+    for line in lines.iter().skip(1) {
+        // Empty lines and comment lines are preserved
+        if line.trim().is_empty() || line.trim_start().starts_with('#') {
+            result.push(line.to_string());
+            continue;
+        }
+
+        // Wrap line at 72 characters
+        let words: Vec<&str> = line.split_whitespace().collect();
+        let mut current_line = String::new();
+
+        for word in words {
+            if current_line.is_empty() {
+                current_line = word.to_string();
+            } else if current_line.len() + 1 + word.len() <= 72 {
+                current_line.push(' ');
+                current_line.push_str(word);
+            } else {
+                result.push(current_line);
+                current_line = word.to_string();
+            }
+        }
+
+        if !current_line.is_empty() {
+            result.push(current_line);
+        }
+    }
+
+    result.join("\n")
+}
+
 // ── Colour palette (inspired by the screenshot) ──────────────────────────────
 
 const MENU_BAR_BG: Color = Color::Rgb(90, 90, 140);
@@ -23,12 +72,20 @@ const LINE_NUM_FG: Color = Color::Rgb(100, 100, 140);
 const LINE_NUM_BG: Color = Color::Rgb(30, 32, 44);
 const STATUS_BAR_BG: Color = Color::Rgb(80, 80, 140);
 const STATUS_BAR_FG: Color = Color::Rgb(220, 220, 220);
-const SELECTION_BG: Color = Color::Rgb(80, 100, 180);
 const DROPDOWN_BG: Color = Color::Rgb(70, 72, 90);
 const DROPDOWN_FG: Color = Color::Rgb(210, 210, 210);
 const DROPDOWN_HIGHLIGHT_BG: Color = Color::Rgb(100, 110, 160);
 const CURSOR_BG: Color = Color::Rgb(200, 200, 200);
 const CURSOR_FG: Color = Color::Rgb(30, 30, 30);
+
+// ── Editor mode ──────────────────────────────────────────────────────────────
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum EditorMode {
+    CommitMessage,
+    PullRequest,
+    BranchName,
+}
 
 // ── Menu definitions ─────────────────────────────────────────────────────────
 
@@ -43,25 +100,17 @@ enum MenuAction {
     Save,
     SaveAndQuit,
     Cancel,
-    Undo,
-    Redo,
-    Cut,
-    Copy,
-    Paste,
-    SelectAll,
     WordWrap,
-    GoToLine,
     ShowHelp,
 }
 
-const MENU_TITLES: &[&str] = &["File", "Edit", "View", "Help"];
+const MENU_TITLES: &[&str] = &["File", "View", "Help"];
 
 fn menu_items(menu_index: usize) -> &'static [MenuItem] {
     match menu_index {
         0 => &FILE_MENU,
-        1 => &EDIT_MENU,
-        2 => &VIEW_MENU,
-        3 => &HELP_MENU,
+        1 => &VIEW_MENU,
+        2 => &HELP_MENU,
         _ => &[],
     }
 }
@@ -72,40 +121,13 @@ static FILE_MENU: [MenuItem; 3] = [
     MenuItem { label: "Cancel", shortcut: "Esc", action: MenuAction::Cancel },
 ];
 
-static EDIT_MENU: [MenuItem; 6] = [
-    MenuItem { label: "Undo", shortcut: "Ctrl+Z", action: MenuAction::Undo },
-    MenuItem { label: "Redo", shortcut: "Ctrl+Y", action: MenuAction::Redo },
-    MenuItem { label: "Cut", shortcut: "Ctrl+X", action: MenuAction::Cut },
-    MenuItem { label: "Copy", shortcut: "Ctrl+C", action: MenuAction::Copy },
-    MenuItem { label: "Paste", shortcut: "Ctrl+V", action: MenuAction::Paste },
-    MenuItem { label: "Select All", shortcut: "Ctrl+A", action: MenuAction::SelectAll },
-];
-
-static VIEW_MENU: [MenuItem; 2] = [
+static VIEW_MENU: [MenuItem; 1] = [
     MenuItem { label: "Word Wrap", shortcut: "Alt+Z", action: MenuAction::WordWrap },
-    MenuItem { label: "Go to Line:Column...", shortcut: "Ctrl+G", action: MenuAction::GoToLine },
 ];
 
 static HELP_MENU: [MenuItem; 1] = [
     MenuItem { label: "Keyboard Shortcuts", shortcut: "", action: MenuAction::ShowHelp },
 ];
-
-// ── Undo snapshot ────────────────────────────────────────────────────────────
-
-#[derive(Clone)]
-struct Snapshot {
-    lines: Vec<String>,
-    cursor_row: usize,
-    cursor_col: usize,
-}
-
-// ── Go-to-line dialog ────────────────────────────────────────────────────────
-
-#[derive(Default)]
-struct GoToLineDialog {
-    active: bool,
-    input: String,
-}
 
 // ── Help overlay ─────────────────────────────────────────────────────────────
 
@@ -132,26 +154,22 @@ struct EditorApp {
     should_quit: bool,
     save_on_quit: bool,
     word_wrap: bool,
-    // Selection: (row, col) of the anchor; cursor is the other end.
-    selection_anchor: Option<(usize, usize)>,
+    mode: EditorMode,
     // Menus
     active_menu: Option<usize>,
     menu_item_index: usize,
-    // Undo / redo
-    undo_stack: Vec<Snapshot>,
-    redo_stack: Vec<Snapshot>,
-    // Clipboard (internal)
-    clipboard: String,
-    // Dialogs
-    goto_dialog: GoToLineDialog,
+    // Help overlay
     help_overlay: HelpOverlay,
     // Layout cache (set during render)
     editor_area: Rect,
     gutter_width: u16,
+    // Esc key hint highlighting
+    highlight_save_hint: bool,
+    hint_highlight_frames: u8,
 }
 
 impl EditorApp {
-    fn new(filename: &str, content: &str) -> Self {
+    fn new(filename: &str, content: &str, mode: EditorMode) -> Self {
         let lines: Vec<String> = if content.is_empty() {
             vec![String::new()]
         } else {
@@ -170,109 +188,25 @@ impl EditorApp {
             should_quit: false,
             save_on_quit: false,
             word_wrap: false,
-            selection_anchor: None,
+            mode,
             active_menu: None,
             menu_item_index: 0,
-            undo_stack: Vec::new(),
-            redo_stack: Vec::new(),
-            clipboard: String::new(),
-            goto_dialog: GoToLineDialog::default(),
             help_overlay: HelpOverlay::default(),
             editor_area: Rect::default(),
             gutter_width: 4,
+            highlight_save_hint: false,
+            hint_highlight_frames: 0,
         }
     }
 
     fn content(&self) -> String {
-        self.lines.join("\n")
-    }
-
-    // ── Undo helpers ─────────────────────────────────────────────────────
-
-    fn push_undo(&mut self) {
-        self.undo_stack.push(Snapshot {
-            lines: self.lines.clone(),
-            cursor_row: self.cursor_row,
-            cursor_col: self.cursor_col,
-        });
-        self.redo_stack.clear();
-    }
-
-    fn undo(&mut self) {
-        if let Some(snap) = self.undo_stack.pop() {
-            self.redo_stack.push(Snapshot {
-                lines: self.lines.clone(),
-                cursor_row: self.cursor_row,
-                cursor_col: self.cursor_col,
-            });
-            self.lines = snap.lines;
-            self.cursor_row = snap.cursor_row;
-            self.cursor_col = snap.cursor_col;
-            self.modified = true;
-        }
-    }
-
-    fn redo(&mut self) {
-        if let Some(snap) = self.redo_stack.pop() {
-            self.undo_stack.push(Snapshot {
-                lines: self.lines.clone(),
-                cursor_row: self.cursor_row,
-                cursor_col: self.cursor_col,
-            });
-            self.lines = snap.lines;
-            self.cursor_row = snap.cursor_row;
-            self.cursor_col = snap.cursor_col;
-            self.modified = true;
-        }
-    }
-
-    // ── Selection helpers ────────────────────────────────────────────────
-
-    fn selection_range(&self) -> Option<((usize, usize), (usize, usize))> {
-        let anchor = self.selection_anchor?;
-        let cursor = (self.cursor_row, self.cursor_col);
-        Some(if anchor <= cursor { (anchor, cursor) } else { (cursor, anchor) })
-    }
-
-    fn selected_text(&self) -> Option<String> {
-        let ((sr, sc), (er, ec)) = self.selection_range()?;
-        if sr == er {
-            Some(self.lines[sr][sc..ec].to_string())
+        let text = self.lines.join("\n");
+        // Apply hard wrap for commit messages
+        if self.mode == EditorMode::CommitMessage {
+            hard_wrap_commit_message(&text)
         } else {
-            let mut result = self.lines[sr][sc..].to_string();
-            result.push('\n');
-            for row in (sr + 1)..er {
-                result.push_str(&self.lines[row]);
-                result.push('\n');
-            }
-            result.push_str(&self.lines[er][..ec]);
-            Some(result)
+            text
         }
-    }
-
-    fn delete_selection(&mut self) -> bool {
-        if let Some(((sr, sc), (er, ec))) = self.selection_range() {
-            self.push_undo();
-            let before = self.lines[sr][..sc].to_string();
-            let after = self.lines[er][ec..].to_string();
-            self.lines[sr] = before + &after;
-            if er > sr {
-                self.lines.drain((sr + 1)..=er);
-            }
-            self.cursor_row = sr;
-            self.cursor_col = sc;
-            self.selection_anchor = None;
-            self.modified = true;
-            true
-        } else {
-            false
-        }
-    }
-
-    fn select_all(&mut self) {
-        self.selection_anchor = Some((0, 0));
-        self.cursor_row = self.lines.len() - 1;
-        self.cursor_col = self.lines[self.cursor_row].len();
     }
 
     // ── Cursor helpers ───────────────────────────────────────────────────
@@ -308,16 +242,12 @@ impl EditorApp {
     // ── Edit operations ──────────────────────────────────────────────────
 
     fn insert_char(&mut self, ch: char) {
-        self.delete_selection();
-        self.push_undo();
         self.lines[self.cursor_row].insert(self.cursor_col, ch);
         self.cursor_col += ch.len_utf8();
         self.modified = true;
     }
 
     fn insert_newline(&mut self) {
-        self.delete_selection();
-        self.push_undo();
         let rest = self.lines[self.cursor_row][self.cursor_col..].to_string();
         self.lines[self.cursor_row].truncate(self.cursor_col);
         self.cursor_row += 1;
@@ -327,11 +257,7 @@ impl EditorApp {
     }
 
     fn backspace(&mut self) {
-        if self.delete_selection() {
-            return;
-        }
         if self.cursor_col > 0 {
-            self.push_undo();
             // Find the start of the previous character
             let prev = self.lines[self.cursor_row][..self.cursor_col]
                 .char_indices()
@@ -342,7 +268,6 @@ impl EditorApp {
             self.cursor_col = prev;
             self.modified = true;
         } else if self.cursor_row > 0 {
-            self.push_undo();
             let line = self.lines.remove(self.cursor_row);
             self.cursor_row -= 1;
             self.cursor_col = self.lines[self.cursor_row].len();
@@ -352,59 +277,15 @@ impl EditorApp {
     }
 
     fn delete(&mut self) {
-        if self.delete_selection() {
-            return;
-        }
         let line_len = self.lines[self.cursor_row].len();
         if self.cursor_col < line_len {
-            self.push_undo();
             self.lines[self.cursor_row].remove(self.cursor_col);
             self.modified = true;
         } else if self.cursor_row + 1 < self.lines.len() {
-            self.push_undo();
             let next_line = self.lines.remove(self.cursor_row + 1);
             self.lines[self.cursor_row].push_str(&next_line);
             self.modified = true;
         }
-    }
-
-    fn cut(&mut self) {
-        if let Some(text) = self.selected_text() {
-            self.clipboard = text;
-            self.delete_selection();
-        }
-    }
-
-    fn copy(&mut self) {
-        if let Some(text) = self.selected_text() {
-            self.clipboard = text;
-        }
-    }
-
-    fn paste(&mut self) {
-        if self.clipboard.is_empty() {
-            return;
-        }
-        self.delete_selection();
-        self.push_undo();
-        let clip = self.clipboard.clone();
-        let clip_lines: Vec<&str> = clip.split('\n').collect();
-        if clip_lines.len() == 1 {
-            self.lines[self.cursor_row].insert_str(self.cursor_col, clip_lines[0]);
-            self.cursor_col += clip_lines[0].len();
-        } else {
-            let after = self.lines[self.cursor_row][self.cursor_col..].to_string();
-            self.lines[self.cursor_row].truncate(self.cursor_col);
-            self.lines[self.cursor_row].push_str(clip_lines[0]);
-            for (i, &cl) in clip_lines.iter().enumerate().skip(1) {
-                self.lines.insert(self.cursor_row + i, cl.to_string());
-            }
-            let last_idx = self.cursor_row + clip_lines.len() - 1;
-            self.cursor_row = last_idx;
-            self.cursor_col = self.lines[last_idx].len();
-            self.lines[last_idx].push_str(&after);
-        }
-        self.modified = true;
     }
 
     // ── Menu action dispatch ─────────────────────────────────────────────
@@ -421,17 +302,7 @@ impl EditorApp {
                 self.save_on_quit = false;
                 self.should_quit = true;
             }
-            MenuAction::Undo => self.undo(),
-            MenuAction::Redo => self.redo(),
-            MenuAction::Cut => self.cut(),
-            MenuAction::Copy => self.copy(),
-            MenuAction::Paste => self.paste(),
-            MenuAction::SelectAll => self.select_all(),
             MenuAction::WordWrap => self.word_wrap = !self.word_wrap,
-            MenuAction::GoToLine => {
-                self.goto_dialog.active = true;
-                self.goto_dialog.input.clear();
-            }
             MenuAction::ShowHelp => {
                 self.help_overlay.active = !self.help_overlay.active;
             }
@@ -441,13 +312,16 @@ impl EditorApp {
     // ── Input handling ───────────────────────────────────────────────────
 
     fn handle_event(&mut self, ev: Event) {
-        // If a dialog is active, route to it first.
-        if self.goto_dialog.active {
-            self.handle_goto_dialog_event(ev);
-            return;
+        // Decrement hint highlight counter
+        if self.hint_highlight_frames > 0 {
+            self.hint_highlight_frames = self.hint_highlight_frames.saturating_sub(1);
+            if self.hint_highlight_frames == 0 {
+                self.highlight_save_hint = false;
+            }
         }
+
+        // If help overlay is active, any key dismisses it
         if self.help_overlay.active {
-            // Any key dismisses the help overlay
             if let Event::Key(key) = ev {
                 if key.kind == KeyEventKind::Press {
                     self.help_overlay.active = false;
@@ -455,6 +329,7 @@ impl EditorApp {
             }
             return;
         }
+
         if self.active_menu.is_some() {
             self.handle_menu_event(ev);
             return;
@@ -463,11 +338,9 @@ impl EditorApp {
         match ev {
             Event::Key(key) if key.kind == KeyEventKind::Press => {
                 let mods = key.modifiers;
-                let shift = mods.contains(KeyModifiers::SHIFT);
                 let ctrl = mods.contains(KeyModifiers::CONTROL);
                 let alt = mods.contains(KeyModifiers::ALT);
 
-                // Start/extend selection on shift, clear on non-shift movement
                 match key.code {
                     // ── Ctrl shortcuts ────────────────────────────────
                     KeyCode::Char('s') if ctrl => {
@@ -475,15 +348,6 @@ impl EditorApp {
                     }
                     KeyCode::Char('q') if ctrl => {
                         self.execute_menu_action(MenuAction::SaveAndQuit);
-                    }
-                    KeyCode::Char('z') if ctrl => self.undo(),
-                    KeyCode::Char('y') if ctrl => self.redo(),
-                    KeyCode::Char('x') if ctrl => self.cut(),
-                    KeyCode::Char('c') if ctrl => self.copy(),
-                    KeyCode::Char('v') if ctrl => self.paste(),
-                    KeyCode::Char('a') if ctrl => self.select_all(),
-                    KeyCode::Char('g') if ctrl => {
-                        self.execute_menu_action(MenuAction::GoToLine);
                     }
 
                     // ── Alt shortcuts ─────────────────────────────────
@@ -493,17 +357,14 @@ impl EditorApp {
 
                     // ── Navigation ────────────────────────────────────
                     KeyCode::Up => {
-                        if !shift { self.selection_anchor = None; } else if self.selection_anchor.is_none() { self.selection_anchor = Some((self.cursor_row, self.cursor_col)); }
                         if self.cursor_row > 0 { self.cursor_row -= 1; }
                         self.clamp_cursor();
                     }
                     KeyCode::Down => {
-                        if !shift { self.selection_anchor = None; } else if self.selection_anchor.is_none() { self.selection_anchor = Some((self.cursor_row, self.cursor_col)); }
                         if self.cursor_row + 1 < self.lines.len() { self.cursor_row += 1; }
                         self.clamp_cursor();
                     }
                     KeyCode::Left => {
-                        if !shift { self.selection_anchor = None; } else if self.selection_anchor.is_none() { self.selection_anchor = Some((self.cursor_row, self.cursor_col)); }
                         if ctrl {
                             self.move_word_left();
                         } else if self.cursor_col > 0 {
@@ -519,7 +380,6 @@ impl EditorApp {
                         }
                     }
                     KeyCode::Right => {
-                        if !shift { self.selection_anchor = None; } else if self.selection_anchor.is_none() { self.selection_anchor = Some((self.cursor_row, self.cursor_col)); }
                         if ctrl {
                             self.move_word_right();
                         } else {
@@ -535,23 +395,19 @@ impl EditorApp {
                         }
                     }
                     KeyCode::Home => {
-                        if !shift { self.selection_anchor = None; } else if self.selection_anchor.is_none() { self.selection_anchor = Some((self.cursor_row, self.cursor_col)); }
                         if ctrl { self.cursor_row = 0; }
                         self.cursor_col = 0;
                     }
                     KeyCode::End => {
-                        if !shift { self.selection_anchor = None; } else if self.selection_anchor.is_none() { self.selection_anchor = Some((self.cursor_row, self.cursor_col)); }
                         if ctrl { self.cursor_row = self.lines.len() - 1; }
                         self.cursor_col = self.lines[self.cursor_row].len();
                     }
                     KeyCode::PageUp => {
-                        if !shift { self.selection_anchor = None; }
                         let page = self.editor_area.height as usize;
                         self.cursor_row = self.cursor_row.saturating_sub(page);
                         self.clamp_cursor();
                     }
                     KeyCode::PageDown => {
-                        if !shift { self.selection_anchor = None; }
                         let page = self.editor_area.height as usize;
                         self.cursor_row = (self.cursor_row + page).min(self.lines.len() - 1);
                         self.clamp_cursor();
@@ -566,21 +422,15 @@ impl EditorApp {
                     KeyCode::Delete => self.delete(),
                     KeyCode::Tab => {
                         // Insert 4 spaces
-                        self.delete_selection();
-                        self.push_undo();
                         self.lines[self.cursor_row].insert_str(self.cursor_col, "    ");
                         self.cursor_col += 4;
                         self.modified = true;
                     }
 
-                    // ── Menu activation ───────────────────────────────
+                    // ── Esc: highlight save hint instead of quitting ──
                     KeyCode::Esc => {
-                        if self.selection_anchor.is_some() {
-                            self.selection_anchor = None;
-                        } else {
-                            self.save_on_quit = false;
-                            self.should_quit = true;
-                        }
+                        self.highlight_save_hint = true;
+                        self.hint_highlight_frames = 6; // Flash for ~6 frames
                     }
                     KeyCode::F(10) => {
                         self.active_menu = Some(0);
@@ -649,7 +499,6 @@ impl EditorApp {
                     && mouse.row < self.editor_area.y + self.editor_area.height
                     && mouse.column >= self.editor_area.x + self.gutter_width
                 {
-                    self.selection_anchor = None;
                     let row = (mouse.row as usize - 1) + self.scroll_row;
                     let col = (mouse.column - self.editor_area.x - self.gutter_width) as usize + self.scroll_col;
                     self.cursor_row = row.min(self.lines.len() - 1);
@@ -757,44 +606,6 @@ impl EditorApp {
         }
     }
 
-    fn handle_goto_dialog_event(&mut self, ev: Event) {
-        if let Event::Key(key) = ev {
-            if key.kind != KeyEventKind::Press {
-                return;
-            }
-            match key.code {
-                KeyCode::Esc => {
-                    self.goto_dialog.active = false;
-                }
-                KeyCode::Enter => {
-                    // Parse "line" or "line:col"
-                    let input = self.goto_dialog.input.trim().to_string();
-                    self.goto_dialog.active = false;
-                    if let Some((line_str, col_str)) = input.split_once(':') {
-                        if let Ok(line) = line_str.trim().parse::<usize>() {
-                            self.cursor_row = line.saturating_sub(1).min(self.lines.len() - 1);
-                            if let Ok(col) = col_str.trim().parse::<usize>() {
-                                self.cursor_col = col.saturating_sub(1).min(self.lines[self.cursor_row].len());
-                            }
-                        }
-                    } else if let Ok(line) = input.parse::<usize>() {
-                        self.cursor_row = line.saturating_sub(1).min(self.lines.len() - 1);
-                        self.cursor_col = 0;
-                    }
-                    self.clamp_cursor();
-                    self.selection_anchor = None;
-                }
-                KeyCode::Char(ch) if ch.is_ascii_digit() || ch == ':' => {
-                    self.goto_dialog.input.push(ch);
-                }
-                KeyCode::Backspace => {
-                    self.goto_dialog.input.pop();
-                }
-                _ => {}
-            }
-        }
-    }
-
     // ── Dropdown rect calculation ────────────────────────────────────────
 
     fn dropdown_rect(&self, menu_index: usize) -> Rect {
@@ -838,11 +649,6 @@ fn render(frame: &mut ratatui::Frame, app: &mut EditorApp) {
         render_dropdown(frame, app, mi);
     }
 
-    // Render go-to-line dialog if active
-    if app.goto_dialog.active {
-        render_goto_dialog(frame, app);
-    }
-
     // Render help overlay if active
     if app.help_overlay.active {
         render_help_overlay(frame);
@@ -883,8 +689,8 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
     let text_width = area.width.saturating_sub(app.gutter_width) as usize;
     app.ensure_cursor_visible();
 
-    // Selection range for highlighting
-    let sel = app.selection_range();
+    // 72-char guide line position (only for commit message mode)
+    let guide_col = if app.mode == EditorMode::CommitMessage { Some(72) } else { None };
 
     for row_offset in 0..visible_rows {
         let line_idx = app.scroll_row + row_offset;
@@ -915,29 +721,18 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
             let display_start = if app.word_wrap { 0 } else { app.scroll_col };
             let display_line: String = line.chars().skip(display_start).take(text_width).collect();
 
-            // Build spans with selection highlighting and cursor
+            // Build spans with cursor and 72-char guide
             let mut spans = Vec::new();
             let mut col = display_start;
             for ch in display_line.chars() {
                 let is_cursor = line_idx == app.cursor_row && col == app.cursor_col;
-                let is_selected = sel.map_or(false, |((sr, sc), (er, ec))| {
-                    if line_idx < sr || line_idx > er {
-                        false
-                    } else if line_idx == sr && line_idx == er {
-                        col >= sc && col < ec
-                    } else if line_idx == sr {
-                        col >= sc
-                    } else if line_idx == er {
-                        col < ec
-                    } else {
-                        true
-                    }
-                });
+                let is_guide = guide_col.map_or(false, |g| col == g);
 
                 let style = if is_cursor {
                     Style::default().fg(CURSOR_FG).bg(CURSOR_BG)
-                } else if is_selected {
-                    Style::default().fg(EDITOR_FG).bg(SELECTION_BG)
+                } else if is_guide {
+                    // Subtle guide line
+                    Style::default().fg(EDITOR_FG).bg(Color::Rgb(60, 62, 74))
                 } else {
                     Style::default().fg(EDITOR_FG).bg(EDITOR_BG)
                 };
@@ -950,32 +745,40 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
                 let remaining = text_width.saturating_sub(display_line.len());
                 if remaining > 0 {
                     spans.push(Span::styled(" ", Style::default().fg(CURSOR_FG).bg(CURSOR_BG)));
+                    col += 1;
                     if remaining > 1 {
-                        spans.push(Span::styled(
-                            " ".repeat(remaining - 1),
-                            Style::default().bg(EDITOR_BG),
-                        ));
+                        // Continue with guide line if needed
+                        for _ in 1..remaining {
+                            let is_guide = guide_col.map_or(false, |g| col == g);
+                            let bg = if is_guide { Color::Rgb(60, 62, 74) } else { EDITOR_BG };
+                            spans.push(Span::styled(" ", Style::default().bg(bg)));
+                            col += 1;
+                        }
                     }
                 }
             } else {
-                // Fill remaining space
+                // Fill remaining space with guide line if needed
                 let remaining = text_width.saturating_sub(display_line.len());
-                if remaining > 0 {
-                    spans.push(Span::styled(
-                        " ".repeat(remaining),
-                        Style::default().bg(EDITOR_BG),
-                    ));
+                for _ in 0..remaining {
+                    let is_guide = guide_col.map_or(false, |g| col == g);
+                    let bg = if is_guide { Color::Rgb(60, 62, 74) } else { EDITOR_BG };
+                    spans.push(Span::styled(" ", Style::default().bg(bg)));
+                    col += 1;
                 }
             }
 
             frame.render_widget(Paragraph::new(Line::from(spans)), text_area);
         } else {
-            // Empty line beyond end of document
-            let fill = Paragraph::new(Span::styled(
-                " ".repeat(text_width),
-                Style::default().bg(EDITOR_BG),
-            ));
-            frame.render_widget(fill, text_area);
+            // Empty line beyond end of document - show guide line if applicable
+            let mut col = 0;
+            let mut spans = Vec::new();
+            for _ in 0..text_width {
+                let is_guide = guide_col.map_or(false, |g| col == g);
+                let bg = if is_guide { Color::Rgb(60, 62, 74) } else { EDITOR_BG };
+                spans.push(Span::styled(" ", Style::default().bg(bg)));
+                col += 1;
+            }
+            frame.render_widget(Paragraph::new(Line::from(spans)), text_area);
         }
     }
 }
@@ -983,15 +786,29 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
 fn render_status_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
     let modified_indicator = if app.modified { "*" } else { "" };
     let left = format!(
-        " [LF]   [UTF-8]   [Spaces:4]   {}:{}  {}",
+        " [UTF-8] [Spaces:4] {}:{} {}",
         app.cursor_row + 1,
         app.cursor_col + 1,
         modified_indicator,
     );
-    let right = format!("[{}] ", app.filename);
+
+    // Highlight ctrl-q if Esc was pressed
+    let ctrl_q_style = if app.highlight_save_hint {
+        Style::default()
+            .fg(Color::Rgb(255, 255, 100))
+            .bg(Color::Rgb(100, 100, 50))
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(STATUS_BAR_FG).bg(STATUS_BAR_BG)
+    };
+
+    let right = format!("[{}]  ", app.filename);
+    let ctrl_q_hint = "Ctrl-Q to save ";
+
+    let total_right_len = right.len() + ctrl_q_hint.len();
     let padding = area
         .width
-        .saturating_sub(left.len() as u16 + right.len() as u16);
+        .saturating_sub(left.len() as u16 + total_right_len as u16);
 
     let line = Line::from(vec![
         Span::styled(&left, Style::default().fg(STATUS_BAR_FG).bg(STATUS_BAR_BG)),
@@ -999,6 +816,7 @@ fn render_status_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
             " ".repeat(padding as usize),
             Style::default().bg(STATUS_BAR_BG),
         ),
+        Span::styled(ctrl_q_hint, ctrl_q_style),
         Span::styled(&right, Style::default().fg(STATUS_BAR_FG).bg(STATUS_BAR_BG)),
     ]);
     frame.render_widget(Paragraph::new(line), area);
@@ -1048,34 +866,10 @@ fn render_dropdown(frame: &mut ratatui::Frame, app: &EditorApp, menu_index: usiz
     frame.render_widget(dropdown, rect);
 }
 
-fn render_goto_dialog(frame: &mut ratatui::Frame, app: &EditorApp) {
-    let screen = frame.area();
-    let width = 36u16.min(screen.width.saturating_sub(4));
-    let height = 3u16;
-    let x = (screen.width.saturating_sub(width)) / 2;
-    let y = (screen.height.saturating_sub(height)) / 2;
-    let rect = Rect::new(x, y, width, height);
-
-    frame.render_widget(Clear, rect);
-
-    let prompt = format!(" Go to line:column: {}_", app.goto_dialog.input);
-    let dialog = Paragraph::new(Line::styled(
-        prompt,
-        Style::default().fg(DROPDOWN_FG).bg(DROPDOWN_BG),
-    ))
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Rgb(140, 140, 180)).bg(DROPDOWN_BG))
-            .style(Style::default().bg(DROPDOWN_BG)),
-    );
-    frame.render_widget(dialog, rect);
-}
-
 fn render_help_overlay(frame: &mut ratatui::Frame) {
     let screen = frame.area();
     let width = 50u16.min(screen.width.saturating_sub(4));
-    let height = 18u16.min(screen.height.saturating_sub(4));
+    let height = 12u16.min(screen.height.saturating_sub(4));
     let x = (screen.width.saturating_sub(width)) / 2;
     let y = (screen.height.saturating_sub(height)) / 2;
     let rect = Rect::new(x, y, width, height);
@@ -1085,16 +879,9 @@ fn render_help_overlay(frame: &mut ratatui::Frame) {
     let help_text = vec![
         Line::styled("  Keyboard Shortcuts", Style::default().fg(MENU_ACTIVE_BG).add_modifier(Modifier::BOLD)),
         Line::raw(""),
-        Line::styled("  Ctrl+S        Save", Style::default().fg(DROPDOWN_FG)),
         Line::styled("  Ctrl+Q        Save & Quit", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Esc           Cancel (no save)", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Ctrl+Z        Undo", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Ctrl+Y        Redo", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Ctrl+X        Cut", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Ctrl+C        Copy", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Ctrl+V        Paste", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Ctrl+A        Select All", Style::default().fg(DROPDOWN_FG)),
-        Line::styled("  Ctrl+G        Go to Line:Column", Style::default().fg(DROPDOWN_FG)),
+        Line::styled("  Ctrl+S        Save", Style::default().fg(DROPDOWN_FG)),
+        Line::styled("  Esc           Highlight save hint", Style::default().fg(DROPDOWN_FG)),
         Line::styled("  Alt+Z         Toggle Word Wrap", Style::default().fg(DROPDOWN_FG)),
         Line::styled("  F10           Open Menu", Style::default().fg(DROPDOWN_FG)),
         Line::raw(""),
@@ -1116,9 +903,13 @@ fn render_help_overlay(frame: &mut ratatui::Frame) {
 /// Opens the built-in TUI text editor.
 ///
 /// Returns `Some(content)` if the user saved, or `None` if they cancelled.
-pub fn run_builtin_editor(filename: &str, initial_content: &str) -> anyhow::Result<Option<String>> {
+pub fn run_builtin_editor(
+    filename: &str,
+    initial_content: &str,
+    mode: EditorMode,
+) -> anyhow::Result<Option<String>> {
     let mut guard = super::TerminalGuard::new(true)?;
-    let mut app = EditorApp::new(filename, initial_content);
+    let mut app = EditorApp::new(filename, initial_content, mode);
 
     loop {
         guard.terminal_mut().draw(|frame| render(frame, &mut app))?;
@@ -1154,7 +945,8 @@ pub fn edit_file(path: &std::path::Path) -> anyhow::Result<()> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "untitled".to_string());
 
-    if let Some(new_content) = run_builtin_editor(&filename, &content)? {
+    // Generic file editing defaults to PR mode (no hard wrap)
+    if let Some(new_content) = run_builtin_editor(&filename, &content, EditorMode::PullRequest)? {
         std::fs::write(path, new_content)?;
     }
 

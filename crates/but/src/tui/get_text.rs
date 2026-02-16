@@ -79,7 +79,16 @@ fn from_external_editor(
 
 /// Launch the built-in TUI editor.
 fn from_builtin_editor(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
-    match super::editor::run_builtin_editor(filename_safe_intent, initial_text)? {
+    // Determine editor mode based on the intent
+    let mode = if filename_safe_intent.contains("commit") {
+        super::editor::EditorMode::CommitMessage
+    } else if filename_safe_intent.contains("branch") {
+        super::editor::EditorMode::BranchName
+    } else {
+        super::editor::EditorMode::PullRequest
+    };
+
+    match super::editor::run_builtin_editor(filename_safe_intent, initial_text, mode)? {
         Some(content) => Ok(content.into()),
         None => bail!("Editor cancelled"),
     }
