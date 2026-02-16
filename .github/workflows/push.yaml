@@ -264,56 +264,116 @@ jobs:
       - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows
 
-  build-installer-macos:
+  build-installer:
     needs: changes
     if: ${{ needs.changes.outputs.but_installer == 'true' }}
     permissions:
       contents: read
-    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15 # [macOs, ARM64] - default target
+            artifact_id: macos-15-aarch64
+            target: ''
+          - platform: macos-15 # [macOs, x64] - cross-compile
+            artifact_id: macos-15-x86_64
+            target: x86_64-apple-darwin
+          - platform: ubuntu-22.04 # [linux, x64]
+            artifact_id: linux-x86_64
+            target: ''
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+            artifact_id: linux-aarch64
+            target: ''
+
+    runs-on: ${{ matrix.platform }}
+
     env:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Install Rust targets
+      - name: Set Cargo build target to ${{ matrix.target }}
+        shell: bash
+        if: matrix.target != ''
         run: |
-          rustup target add x86_64-apple-darwin
-          rustup target add aarch64-apple-darwin
+          echo "CARGO_BUILD_TARGET=${{ matrix.target }}" >> $GITHUB_ENV
+          rustup target add ${{ matrix.target }}
       - name: Rust Cache
         uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
         with:
-          shared-key: installer-macos
+          shared-key: installer
           save-if: ${{ github.ref == 'refs/heads/master' }}
       - name: Build installer for x86_64
-        run: cargo build --release -p but-installer --target x86_64-apple-darwin
-      - name: Build installer for aarch64
-        run: cargo build --release -p but-installer --target aarch64-apple-darwin
+        run: cargo build --release -p but-installer
       - name: Verify binaries
         run: |
-          test -x target/x86_64-apple-darwin/release/but-installer
-          test -x target/aarch64-apple-darwin/release/but-installer
-          echo "x86_64 binary:"
-          file target/x86_64-apple-darwin/release/but-installer
-          echo "aarch64 binary:"
-          file target/aarch64-apple-darwin/release/but-installer
-      - name: Upload x86_64 installer artifact
+          test -x target/${{matrix.target}}/release/but-installer
+          file target/${{matrix.target}}/release/but-installer
+      - name: Upload Artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: 'but-installer-darwin-x86_64-${{ github.run_number }}'
-          path: target/x86_64-apple-darwin/release/but-installer
-          retention-days: 7
+          name: 'but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}'
+          path: target/${{matrix.target}}/release/but-installer
           if-no-files-found: error
-      - name: Upload aarch64 installer artifact
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+          retention-days: 7
+
+  fetch-published-versions:
+    needs: build-installer
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: none
+    outputs:
+      release_version: ${{ steps.fetch.outputs.release_version }}
+      nightly_version: ${{ steps.fetch.outputs.nightly_version }}
+    steps:
+      - name: Fetch latest release and nightly versions
+        id: fetch
+        run: |
+          echo "release_version=$(curl -s https://app.gitbutler.com/releases | jq -r .version)" >> $GITHUB_OUTPUT
+          echo "nightly_version=$(curl -s https://app.gitbutler.com/releases/nightly | jq -r .version)" >> $GITHUB_OUTPUT
+
+  validate-installer:
+    needs:
+      - build-installer
+      - fetch-published-versions
+    permissions:
+      contents: none
+    env:
+      LATEST_RELEASE_VERSION: ${{ needs.fetch-published-versions.outputs.release_version }}
+      LATEST_NIGHTLY_VERSION: ${{ needs.fetch-published-versions.outputs.nightly_version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15 # [macOs, ARM64] - default target
+            artifact_id: macos-15-aarch64
+          - platform: macos-15 # [macOs, x64] - cross-compile
+            artifact_id: macos-15-x86_64
+          - platform: ubuntu-22.04 # [linux, x64]
+            artifact_id: linux-x86_64
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+            artifact_id: linux-aarch64
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Download ${{ matrix.artifact_id }} installer
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          name: 'but-installer-darwin-aarch64-${{ github.run_number }}'
-          path: target/aarch64-apple-darwin/release/but-installer
-          retention-days: 7
-          if-no-files-found: error
+          name: 'but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}'
+          path: .
+      - run: chmod +x ./but-installer
+      - name: Install release
+        run: ./but-installer
+      - name: Validate release version
+        run: but --version | grep "but $LATEST_RELEASE_VERSION"
+      - name: Install nightly
+        run: ./but-installer nightly
+      - name: Validate nightly version
+        run: but --version | grep "but $LATEST_NIGHTLY_VERSION"
 
   publish-installer:
-    needs: build-installer-macos
+    needs: build-installer
     if: ${{ github.ref == 'refs/heads/master' }}
     runs-on: ubuntu-latest
     permissions:
@@ -322,23 +382,29 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
-      - name: Download x86_64 installer
+      - name: Download macOS x86_64 installer
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          name: 'but-installer-darwin-x86_64-${{ github.run_number }}'
-          path: installer-artifacts/darwin-x86_64
-      - name: Download aarch64 installer
+          name: 'but-installer-macos-15-x86_64-${{ github.run_number }}'
+          path: s3-upload/macos/x86_64
+      - name: Download macOS aarch64 installer
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          name: 'but-installer-darwin-aarch64-${{ github.run_number }}'
-          path: installer-artifacts/darwin-aarch64
-      - name: Prepare S3 payload
+          name: 'but-installer-macos-15-aarch64-${{ github.run_number }}'
+          path: s3-upload/macos/aarch64
+      - name: Download Linux x86_64 installer
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: 'but-installer-linux-x86_64-${{ github.run_number }}'
+          path: s3-upload/linux/x86_64
+      - name: Download Linux aarch64 installer
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: 'but-installer-linux-aarch64-${{ github.run_number }}'
+          path: s3-upload/linux/aarch64
+      - name: Make binaries executable
         run: |
-          mkdir -p s3-upload/macos/x86_64
-          mkdir -p s3-upload/macos/aarch64
-          cp installer-artifacts/darwin-x86_64/but-installer s3-upload/macos/x86_64/but-installer
-          cp installer-artifacts/darwin-aarch64/but-installer s3-upload/macos/aarch64/but-installer
-          chmod +x s3-upload/macos/*/but-installer
+          find ./s3-upload -name 'but-installer' | xargs chmod +x
       - name: Upload to S3
         uses: shallwefootball/s3-upload-action@4350529f410221787ccf424e50133cbc1b52704e # master
         with:
@@ -365,7 +431,7 @@ jobs:
       - rust-test-tauri
       - rust-lint
       - cargo-doc
-      - build-installer-macos
+      - build-installer
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
@@ -431,7 +497,7 @@ jobs:
       - name: run playwright tests
         run: pnpm exec turbo run test:ct
         if: ${{ github.ref != 'refs/heads/master' }}
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ !cancelled() }}
         with:
           name: playwright-report

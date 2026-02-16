@@ -3,11 +3,15 @@
 //! This binary provides a command-line interface for installing GitButler.
 //! The actual installation logic is in the library.
 
-use but_installer::ui;
-
 fn main() {
+    #[cfg(unix)]
     if let Err(e) = but_installer::run_installation() {
-        ui::error(&e.to_string());
+        but_installer::ui::error(&format!("{:#}", e));
+        std::process::exit(1);
+    }
+    #[cfg(not(unix))]
+    {
+        eprintln!("but-installer is only supported on Linux and macOS");
         std::process::exit(1);
     }
 }
