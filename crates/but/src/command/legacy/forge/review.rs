@@ -60,18 +60,18 @@ pub fn set_review_template(
     Ok(())
 }
 
-/// Create a new PR for a branch.
+/// Create a new forge review for a branch.
 /// If no branch is specified, prompts the user to select one.
-/// If there is only one branch without a PR, asks for confirmation.
+/// If there is only one branch without a an acco, asks for confirmation.
 #[allow(clippy::too_many_arguments)]
-pub async fn create_pr(
+pub async fn create_review(
     ctx: &mut Context,
     branch: Option<String>,
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
     default: bool,
-    message: Option<PrMessage>,
+    message: Option<ForgeReviewMessage>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
@@ -90,7 +90,7 @@ pub async fn create_pr(
 
         if branches_without_prs.is_empty() {
             if let Some(out) = out.for_human() {
-                writeln!(out, "All branches already have PRs.")?;
+                writeln!(out, "All branches already have reviews.")?;
             }
             return Ok(());
         } else if branches_without_prs.len() == 1 {
@@ -100,7 +100,7 @@ pub async fn create_pr(
                 .prepare_for_terminal_input()
                 .context("Terminal input not available. Please specify a branch using command line arguments.")?;
             if inout.confirm(
-                format!("Do you want to open a new PR on branch '{branch_name}'?"),
+                format!("Do you want to open a new review on branch '{branch_name}'?"),
                 ConfirmDefault::Yes,
             )? == Confirm::Yes
             {
@@ -149,14 +149,27 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
     let account_validity =
         but_forge::check_forge_account_is_valid(preferred_forge_user, &forge_repo_info, &storage).await?;
 
+    let forge_display_name = match forge_repo_info.forge {
+        but_forge::ForgeName::Azure => {
+            anyhow::bail!("Azure is unsupported at the minute. Sorry 😞.");
+        }
+        but_forge::ForgeName::Bitbucket => {
+            anyhow::bail!("Bitbucket is unsupported at the minute. Sorry 😞.");
+        }
+        but_forge::ForgeName::GitHub => "GitHub",
+        but_forge::ForgeName::GitLab => "GitLab",
+    };
+
     match account_validity {
         but_forge::ForgeAccountValidity::Invalid => Err(anyhow::anyhow!(
-            "Known account is not correctly authenticated.\nRun '{}' to authenticate with GitHub or GitLab.",
-            "but config forge auth"
+            "Known account is not correctly authenticated.\nRun '{}' to authenticate with {}.",
+            "but config forge auth",
+            forge_display_name
         )),
         but_forge::ForgeAccountValidity::NoCredentials => Err(anyhow::anyhow!(
-            "No authenticated forge users found.\nRun '{}' to authenticate with GitHub or GitLab.",
-            "but config forge auth"
+            "No authenticated forge users found.\nRun '{}' to authenticate with {}.",
+            "but config forge auth",
+            forge_display_name
         )),
         but_forge::ForgeAccountValidity::Valid => {
             // All good, continue
@@ -212,7 +225,7 @@ pub async fn handle_multiple_branches_in_workspace(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
-    message: Option<&PrMessage>,
+    message: Option<&ForgeReviewMessage>,
     out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
@@ -371,7 +384,7 @@ async fn publish_reviews_for_branch_and_dependents(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
-    message: Option<&PrMessage>,
+    message: Option<&ForgeReviewMessage>,
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
@@ -543,12 +556,12 @@ enum PublishReviewResult {
 }
 
 #[derive(Clone, Debug)]
-pub struct PrMessage {
+pub struct ForgeReviewMessage {
     pub title: String,
     pub body: String,
 }
 
-pub fn parse_pr_message(content: &str) -> anyhow::Result<PrMessage> {
+pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage> {
     let mut lines = content.lines();
     let title = lines.next().unwrap_or("").trim().to_string();
 
@@ -564,7 +577,7 @@ pub fn parse_pr_message(content: &str) -> anyhow::Result<PrMessage> {
         .trim()
         .to_string();
 
-    Ok(PrMessage { title, body })
+    Ok(ForgeReviewMessage { title, body })
 }
 
 async fn publish_review_for_branch(
@@ -574,7 +587,7 @@ async fn publish_review_for_branch(
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     default_message: bool,
-    message: Option<&PrMessage>,
+    message: Option<&ForgeReviewMessage>,
 ) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
     // If it does, skip publishing a new review.
@@ -746,7 +759,7 @@ fn get_pr_title_and_body_from_editor(
     template.push_str("#\n");
 
     let content = get_text::from_editor_no_comments("pr_message", &template)?.to_string();
-    let message = parse_pr_message(&content)?;
+    let message = parse_review_message(&content)?;
     Ok((message.title, message.body))
 }
 
@@ -835,56 +848,56 @@ mod tests {
 
     #[test]
     fn parse_pr_message_title_only() {
-        let msg = parse_pr_message("My PR Title").unwrap();
+        let msg = parse_review_message("My PR Title").unwrap();
         assert_eq!(msg.title, "My PR Title");
         assert_eq!(msg.body, "");
     }
 
     #[test]
     fn parse_pr_message_title_and_body() {
-        let msg = parse_pr_message("My PR Title\n\nThis is the body.").unwrap();
+        let msg = parse_review_message("My PR Title\n\nThis is the body.").unwrap();
         assert_eq!(msg.title, "My PR Title");
         assert_eq!(msg.body, "This is the body.");
     }
 
     #[test]
     fn parse_pr_message_multiline_body() {
-        let msg = parse_pr_message("Title\n\nLine 1\nLine 2\nLine 3").unwrap();
+        let msg = parse_review_message("Title\n\nLine 1\nLine 2\nLine 3").unwrap();
         assert_eq!(msg.title, "Title");
         assert_eq!(msg.body, "Line 1\nLine 2\nLine 3");
     }
 
     #[test]
     fn parse_pr_message_skips_blank_lines_between_title_and_body() {
-        let msg = parse_pr_message("Title\n\n\n\nBody starts here").unwrap();
+        let msg = parse_review_message("Title\n\n\n\nBody starts here").unwrap();
         assert_eq!(msg.title, "Title");
         assert_eq!(msg.body, "Body starts here");
     }
 
     #[test]
     fn parse_pr_message_trims_whitespace() {
-        let msg = parse_pr_message("  Title with spaces  \n\n  Body with spaces  ").unwrap();
+        let msg = parse_review_message("  Title with spaces  \n\n  Body with spaces  ").unwrap();
         assert_eq!(msg.title, "Title with spaces");
         assert_eq!(msg.body, "Body with spaces");
     }
 
     #[test]
     fn parse_pr_message_empty_string_fails() {
-        let result = parse_pr_message("");
+        let result = parse_review_message("");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("empty PR title"));
     }
 
     #[test]
     fn parse_pr_message_whitespace_only_fails() {
-        let result = parse_pr_message("   \n\n   ");
+        let result = parse_review_message("   \n\n   ");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("empty PR title"));
     }
 
     #[test]
     fn parse_pr_message_blank_first_line_fails() {
-        let result = parse_pr_message("\nActual title on second line");
+        let result = parse_review_message("\nActual title on second line");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("empty PR title"));
     }
