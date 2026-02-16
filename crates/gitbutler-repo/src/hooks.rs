@@ -161,7 +161,7 @@ pub fn pre_push(
         // Check if the process has already exited unexpectedly.
         if let Some(status) = child.try_wait()? {
             // Process already exited, don't write to stdin.
-            let error = format!("pre-push hook exited early with status: {}", status);
+            let error = format!("pre-push hook exited early with status: {status}");
             return Ok(HookResult::Failure(ErrorData { error }));
         }
 

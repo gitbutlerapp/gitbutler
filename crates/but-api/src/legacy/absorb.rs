@@ -95,7 +95,7 @@ pub fn absorption_plan(ctx: &mut Context, target: AbsorptionTarget) -> anyhow::R
                         .iter()
                         .any(|h| h.name.to_str().map(|n| n == branch_name).unwrap_or(false))
                 })
-                .ok_or_else(|| anyhow::anyhow!("Branch not found: {}", branch_name))?;
+                .ok_or_else(|| anyhow::anyhow!("Branch not found: {branch_name}"))?;
 
             let stack_id = stack.id.ok_or_else(|| anyhow::anyhow!("Stack has no ID"))?;
 
@@ -107,7 +107,7 @@ pub fn absorption_plan(ctx: &mut Context, target: AbsorptionTarget) -> anyhow::R
                 .collect();
 
             if stack_assignments.is_empty() {
-                anyhow::bail!("No uncommitted changes assigned to branch: {}", branch_name);
+                anyhow::bail!("No uncommitted changes assigned to branch: {branch_name}");
             }
 
             stack_assignments
@@ -128,7 +128,7 @@ pub fn absorption_plan(ctx: &mut Context, target: AbsorptionTarget) -> anyhow::R
                 .collect();
 
             if stack_assignments.is_empty() {
-                anyhow::bail!("No uncommitted changes assigned to stack: {:?}", assigned_stack_id);
+                anyhow::bail!("No uncommitted changes assigned to stack: {assigned_stack_id:?}");
             }
 
             stack_assignments
@@ -272,7 +272,7 @@ fn determine_target_commit(
             return Ok((stack_id, commit.id, AbsorptionReason::StackAssignment));
         }
 
-        anyhow::bail!("Failed to create blank commit in stack: {:?}", stack_id);
+        anyhow::bail!("Failed to create blank commit in stack: {stack_id:?}");
     }
 
     // Priority 3: If no assignment, find the topmost commit of the leftmost lane

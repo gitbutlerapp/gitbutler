@@ -343,7 +343,7 @@ impl AddProjectOutcome {
             AddProjectOutcome::NonMainWorktree => Err(anyhow::anyhow!("non-main worktrees are not supported")),
             AddProjectOutcome::NoWorkdir => Err(anyhow::anyhow!("no workdir found for repository")),
             AddProjectOutcome::NoDotGitDirectory => Err(anyhow::anyhow!("no .git directory found in repository")),
-            AddProjectOutcome::NotAGitRepository(msg) => Err(anyhow::anyhow!("not a git repository: {}", msg)),
+            AddProjectOutcome::NotAGitRepository(msg) => Err(anyhow::anyhow!("not a git repository: {msg}")),
         }
     }
 }

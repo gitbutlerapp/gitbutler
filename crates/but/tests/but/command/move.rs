@@ -31,7 +31,7 @@ fn move_commit_before_another_commit() -> anyhow::Result<()> {
     let first_commit_id = commits[2]["cliId"].as_str().unwrap();
 
     // Move "third commit" before "first commit" (making it the oldest)
-    env.but(format!("move {} {}", third_commit_id, first_commit_id))
+    env.but(format!("move {third_commit_id} {first_commit_id}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -71,7 +71,7 @@ fn move_commit_after_another_commit() -> anyhow::Result<()> {
     let third_commit_id = commits[0]["cliId"].as_str().unwrap();
 
     // Move "first commit" after "third commit" (making it the newest)
-    env.but(format!("move {} {} --after", first_commit_id, third_commit_id))
+    env.but(format!("move {first_commit_id} {third_commit_id} --after"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -107,7 +107,7 @@ fn move_commit_to_branch() -> anyhow::Result<()> {
         .unwrap();
 
     // Move commit to branch B
-    env.but(format!("move {} B", commit_id))
+    env.but(format!("move {commit_id} B"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -165,7 +165,7 @@ fn move_commit_with_after_flag_and_branch_target() -> anyhow::Result<()> {
         .unwrap();
 
     // Try to move commit to branch with --after flag (should error)
-    env.but(format!("move {} B --after", commit_id))
+    env.but(format!("move {commit_id} B --after"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -193,7 +193,7 @@ fn move_same_commit_to_itself() -> anyhow::Result<()> {
         .unwrap();
 
     // Move commit to itself (should be no-op)
-    env.but(format!("move {} {}", commit_id, commit_id))
+    env.but(format!("move {commit_id} {commit_id}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -219,7 +219,7 @@ fn move_commit_with_invalid_target() -> anyhow::Result<()> {
         .as_str()
         .unwrap();
 
-    env.but(format!("move {} nonexistent", commit_id))
+    env.but(format!("move {commit_id} nonexistent"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -252,7 +252,7 @@ fn move_cross_stack_shows_helpful_error() -> anyhow::Result<()> {
         .unwrap();
 
     // Try to move commit from A to specific position in B (should show helpful error)
-    env.but(format!("move {} {}", commit_a_id, commit_b_id))
+    env.but(format!("move {commit_a_id} {commit_b_id}"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -295,7 +295,7 @@ fn move_committed_file_to_another_commit() -> anyhow::Result<()> {
         .expect("Could not find c.txt file ID in status output");
 
     // Move c.txt from second commit to first commit
-    env.but(format!("move {} {}", c_txt_file_id, first_commit_id))
+    env.but(format!("move {c_txt_file_id} {first_commit_id}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"

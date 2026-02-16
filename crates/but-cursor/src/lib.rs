@@ -117,7 +117,7 @@ fn cursor_path_to_pathbuf(input: &str) -> PathBuf {
 
 pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
     let mut input: FileEditEvent =
-        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
     let hook_headers = input
         .edits
         .last()
@@ -198,7 +198,7 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
 
 pub async fn handle_stop(nightly: bool, read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
     let input: StopEvent =
-        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
     let dir = input
         .workspace_roots
         .first()

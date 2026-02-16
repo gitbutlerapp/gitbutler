@@ -169,9 +169,8 @@ fn resolve_source_commits(ctx: &mut Context, out: &mut OutputChannel, source: &s
     }
 
     bail!(
-        "Source '{}' is not a valid commit ID, CLI ID, or unapplied branch name.\n\
-Run 'but status' to see available CLI IDs, or 'but branch list' to see branches.",
-        source
+        "Source '{source}' is not a valid commit ID, CLI ID, or unapplied branch name.\n\
+Run 'but status' to see available CLI IDs, or 'but branch list' to see branches."
     );
 }
 
@@ -203,10 +202,7 @@ fn select_commits_from_branch(
     if !out.can_prompt() {
         // Verify branch_head is not the merge base itself (i.e., there are commits to pick)
         if branch_head_gix == merge_base {
-            bail!(
-                "No commits found on branch '{}' that aren't already in target.",
-                branch_name
-            );
+            bail!("No commits found on branch '{branch_name}' that aren't already in target.");
         }
         return Ok(vec![branch_head_gix]);
     }
@@ -233,10 +229,7 @@ fn select_commits_from_branch(
         .collect();
 
     if commits.is_empty() {
-        bail!(
-            "No commits found on branch '{}' that aren't already in target.",
-            branch_name
-        );
+        bail!("No commits found on branch '{branch_name}' that aren't already in target.");
     }
 
     // If only one commit, use it directly
@@ -266,7 +259,7 @@ fn select_commits_from_branch(
 
     let selections = prompt
         .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
 
     if selections.is_empty() {
         bail!("No commits selected.");
@@ -451,7 +444,7 @@ fn select_target_interactively(stacks: &[StackEntry]) -> Result<(StackId, String
 
     let selection = prompt
         .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
 
     // Find the selected stack
     for stack in stacks {

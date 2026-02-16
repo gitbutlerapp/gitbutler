@@ -93,9 +93,9 @@ impl GitlabAccountIdentifier {
 impl std::fmt::Display for GitlabAccountIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GitlabAccountIdentifier::PatUsername { username } => write!(f, "PAT: {}", username),
+            GitlabAccountIdentifier::PatUsername { username } => write!(f, "PAT: {username}"),
             GitlabAccountIdentifier::SelfHosted { username, host } => {
-                write!(f, "Self-hosted {}@{}", username, host)
+                write!(f, "Self-hosted {username}@{host}")
             }
         }
     }
@@ -167,8 +167,8 @@ impl GitLabAccount {
 
     fn secret_key(&self) -> String {
         match self {
-            GitLabAccount::Pat { username, .. } => format!("gitlab_pat_{}", username),
-            GitLabAccount::SelfHosted { host, .. } => format!("gitlab_selfhosted_{}", host),
+            GitLabAccount::Pat { username, .. } => format!("gitlab_pat_{username}"),
+            GitLabAccount::SelfHosted { host, .. } => format!("gitlab_selfhosted_{host}"),
         }
     }
 

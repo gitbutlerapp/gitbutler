@@ -26,7 +26,7 @@ pub fn set_review_template(
         let message = format!("Set review template path to: {}", &path);
         but_api::legacy::forge::set_review_template(ctx, Some(path))?;
         if let Some(out) = out.for_human() {
-            writeln!(out, "{}", message)?;
+            writeln!(out, "{message}")?;
         }
     } else {
         let current_template = but_api::legacy::forge::review_template(ctx)?;
@@ -37,7 +37,7 @@ pub fn set_review_template(
             |s| {
                 if let Some(current) = &current_template {
                     if s == &current.path {
-                        format!("{} (current)", s)
+                        format!("{s} (current)")
                     } else {
                         s.clone()
                     }
@@ -53,7 +53,7 @@ pub fn set_review_template(
         let message = format!("Set review template path to: {}", &selected_template);
         but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
-            writeln!(out, "{}", message)?;
+            writeln!(out, "{message}")?;
         }
     }
 
@@ -216,7 +216,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
         .collect::<Vec<_>>();
 
     if branch_ids.is_empty() {
-        anyhow::bail!("No branch found for ID: {}", branch_id);
+        anyhow::bail!("No branch found for ID: {branch_id}");
     }
 
     Ok(branch_ids)
@@ -368,10 +368,10 @@ fn prompt_for_branch_selection(
                 if num > 0 && num <= all_branches.len() {
                     selected.push(all_branches[num - 1].0.clone());
                 } else {
-                    println!("Warning: Ignoring invalid branch number: {}", num);
+                    println!("Warning: Ignoring invalid branch number: {num}");
                 }
             } else {
-                println!("Warning: Ignoring invalid input: {}", part);
+                println!("Warning: Ignoring invalid input: {part}");
             }
         }
         selected
@@ -752,7 +752,7 @@ fn get_pr_title_and_body_from_editor(
                 if !file_paths.is_empty() {
                     template.push_str("#    Modified files:\n");
                     for file in file_paths.iter().take(10) {
-                        template.push_str(&format!("#      - {}\n", file));
+                        template.push_str(&format!("#      - {file}\n"));
                     }
                     if file_paths.len() > 10 {
                         template.push_str(&format!("#      ... and {} more files\n", file_paths.len() - 10));
@@ -839,9 +839,9 @@ pub fn get_review_numbers(
             .collect::<Vec<String>>()
             .join(", ");
 
-        format!(" ({})", review_numbers).blue()
+        format!(" ({review_numbers})").blue()
     } else if let Some(pr_number) = associated_review_number {
-        format!(" (#{})", pr_number).blue()
+        format!(" (#{pr_number})").blue()
     } else {
         "".to_string().normal()
     }

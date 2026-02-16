@@ -21,3 +21,6 @@ gitbutler-oplog = { workspace = true, optional = true }
 
 gix.workspace = true
 anyhow.workspace = true
+
+[lints]
+workspace = true

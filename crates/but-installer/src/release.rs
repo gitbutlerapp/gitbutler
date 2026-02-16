@@ -26,7 +26,7 @@ pub(crate) fn fetch_release(config: &InstallerConfig) -> Result<Release> {
     let url = config.releases_url();
     let mut easy = create_client()?;
 
-    easy.url(&url).with_context(|| format!("Failed to set URL: {}", url))?;
+    easy.url(&url).with_context(|| format!("Failed to set URL: {url}"))?;
 
     let mut response_data = Vec::new();
     {
@@ -39,7 +39,7 @@ pub(crate) fn fetch_release(config: &InstallerConfig) -> Result<Release> {
             .context("Failed to set write function")?;
         transfer
             .perform()
-            .with_context(|| format!("Failed to fetch release information from {}", url))?;
+            .with_context(|| format!("Failed to fetch release information from {url}"))?;
     }
 
     let response_code = easy.response_code().context("Failed to get response code")?;
@@ -48,20 +48,14 @@ pub(crate) fn fetch_release(config: &InstallerConfig) -> Result<Release> {
         match &config.version_request {
             crate::config::VersionRequest::Specific(version) => {
                 bail!(
-                    "Failed to fetch release information for version {}. Version may not exist. HTTP {}",
-                    version,
-                    response_code
+                    "Failed to fetch release information for version {version}. Version may not exist. HTTP {response_code}"
                 );
             }
             crate::config::VersionRequest::Nightly => {
-                bail!("Failed to fetch nightly release information. HTTP {}", response_code);
+                bail!("Failed to fetch nightly release information. HTTP {response_code}");
             }
             crate::config::VersionRequest::Release => {
-                bail!(
-                    "Failed to fetch release information from {}. HTTP {}",
-                    url,
-                    response_code
-                );
+                bail!("Failed to fetch release information from {url}. HTTP {response_code}");
             }
         }
     }
@@ -74,7 +68,7 @@ pub(crate) fn fetch_release(config: &InstallerConfig) -> Result<Release> {
         .ok_or_else(|| anyhow!("Effective URL is missing"))?;
 
     validate_api_url(effective_url)
-        .with_context(|| format!("Release API was redirected to an untrusted URL: {}", effective_url))?;
+        .with_context(|| format!("Release API was redirected to an untrusted URL: {effective_url}"))?;
 
     let release: Release = serde_json::from_slice(&response_data).context("Failed to parse release information")?;
 
@@ -98,7 +92,7 @@ pub(crate) fn fetch_release(config: &InstallerConfig) -> Result<Release> {
 fn validate_gitbutler_url(url: &str, url_type: &str, is_host_valid: impl Fn(&str) -> bool) -> Result<()> {
     // Only allow HTTPS URLs
     if !url.starts_with("https://") {
-        bail!("{} must use HTTPS: {}", url_type, url);
+        bail!("{url_type} must use HTTPS: {url}");
     }
 
     // Extract host from URL
@@ -109,7 +103,7 @@ fn validate_gitbutler_url(url: &str, url_type: &str, is_host_valid: impl Fn(&str
 
     // Validate host using the provided predicate
     if !is_host_valid(host) {
-        bail!("{} is not from a trusted GitButler domain: {}", url_type, url);
+        bail!("{url_type} is not from a trusted GitButler domain: {url}");
     }
 
     Ok(())

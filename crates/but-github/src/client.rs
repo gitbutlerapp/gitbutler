@@ -38,8 +38,7 @@ impl GitHubClient {
             account_id.client(&access_token)
         } else {
             Err(anyhow::anyhow!(
-                "No GitHub access token found for account '{}'.\nRun 'but config forge auth' to re-authenticate.",
-                account_id
+                "No GitHub access token found for account '{account_id}'.\nRun 'but config forge auth' to re-authenticate."
             ))
         }
     }
@@ -442,8 +441,7 @@ pub(crate) fn resolve_account(
             account
         } else {
             bail!(
-                "Preferred GitHub account '{}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account.",
-                account
+                "Preferred GitHub account '{account}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account."
             );
         }
     } else {

@@ -18,3 +18,6 @@ anyhow.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 walkdir = "2.5.0"
 toml.workspace = true
+
+[lints]
+workspace = true

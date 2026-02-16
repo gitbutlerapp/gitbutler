@@ -206,7 +206,7 @@ impl AgentState {
 
     fn call_tool_inner(&mut self, name: &str, parameters: &str) -> anyhow::Result<serde_json::Value> {
         let params: serde_json::Value =
-            serde_json::from_str(parameters).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
+            serde_json::from_str(parameters).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {e}"))?;
         let state_tool = AgentStateTool::try_from((name, params))?;
 
         match state_tool {
@@ -219,9 +219,9 @@ impl AgentState {
             }
             AgentStateTool::UpdateTodoStatus(params) => {
                 let uuid =
-                    uuid::Uuid::parse_str(&params.id).map_err(|e| anyhow::anyhow!("Failed to parse UUID: {}", e))?;
+                    uuid::Uuid::parse_str(&params.id).map_err(|e| anyhow::anyhow!("Failed to parse UUID: {e}"))?;
                 self.update_todo_status(uuid, params.status)
-                    .map_err(|e| anyhow::anyhow!("Failed to update todo status: {}", e))?;
+                    .map_err(|e| anyhow::anyhow!("Failed to update todo status: {e}"))?;
 
                 Ok(json!({"status": "success", "message": "Todo status updated successfully"}))
             }
@@ -263,13 +263,13 @@ impl TryFrom<(&str, serde_json::Value)> for AgentStateTool {
     fn try_from(value: (&str, serde_json::Value)) -> Result<Self, Self::Error> {
         match value.0 {
             "add_todos" => {
-                let params: AddTodosParamters = serde_json::from_value(value.1)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
+                let params: AddTodosParamters =
+                    serde_json::from_value(value.1).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {e}"))?;
                 Ok(AgentStateTool::AddTodos(params))
             }
             "update_todo_status" => {
-                let params: UpdateTodoStatusParameters = serde_json::from_value(value.1)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
+                let params: UpdateTodoStatusParameters =
+                    serde_json::from_value(value.1).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {e}"))?;
                 Ok(AgentStateTool::UpdateTodoStatus(params))
             }
             _ => Err(anyhow::anyhow!("Unknown tool: {}", value.0)),

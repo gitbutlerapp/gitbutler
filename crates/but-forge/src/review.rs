@@ -554,7 +554,7 @@ fn list_forge_reviews(
                 ))
             })
             .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
 
             pulls.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
         }
@@ -573,14 +573,13 @@ fn list_forge_reviews(
                 ))
             })
             .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
 
             mrs.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
         }
         _ => {
             return Err(Error::msg(format!(
-                "Listing reviews for forge {:?} is not implemented yet.",
-                forge,
+                "Listing reviews for forge {forge:?} is not implemented yet.",
             )));
         }
     };
@@ -625,8 +624,7 @@ pub async fn list_forge_reviews_for_branch(
             Ok(mrs.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
-            "Listing reviews for forge {:?} is not implemented yet.",
-            forge,
+            "Listing reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -730,8 +728,7 @@ pub async fn get_forge_review(
             Ok(ForgeReview::from(mr))
         }
         _ => Err(Error::msg(format!(
-            "Getting reviews for forge {:?} is not implemented yet.",
-            forge,
+            "Getting reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -787,8 +784,7 @@ pub async fn create_forge_review(
             Ok(ForgeReview::from(mr))
         }
         _ => Err(Error::msg(format!(
-            "Creating reviews for forge {:?} is not implemented yet.",
-            forge,
+            "Creating reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -847,8 +843,7 @@ pub async fn update_review_description_tables(
             Ok(())
         }
         _ => Err(Error::msg(format!(
-            "Updating review descriptions for forge {:?} is not implemented yet.",
-            forge,
+            "Updating review descriptions for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -876,14 +871,14 @@ fn update_body(body: Option<&str>, pr_number: i64, all_pr_numbers: &[i64], symbo
         if tail.is_empty() {
             return head.to_string();
         }
-        return format!("{}\n\n{}", head, tail);
+        return format!("{head}\n\n{tail}");
     }
 
     let footer = generate_footer(pr_number, all_pr_numbers, symbol);
     if tail.is_empty() {
-        format!("{}\n\n{}", head, footer)
+        format!("{head}\n\n{footer}")
     } else {
-        format!("{}\n\n{}\n\n{}", head, footer, tail)
+        format!("{head}\n\n{footer}\n\n{tail}")
     }
 }
 
@@ -906,8 +901,7 @@ fn generate_footer(for_pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> 
     footer.push('\n');
     footer.push_str("---\n");
     footer.push_str(&format!(
-        "This is **part {} of {} in a stack** made with GitButler:\n",
-        nth, stack_length
+        "This is **part {nth} of {stack_length} in a stack** made with GitButler:\n"
     ));
 
     for (i, &pr_number) in all_pr_numbers.iter().rev().enumerate() {
@@ -1187,7 +1181,7 @@ mod tests {
     #[test]
     fn test_update_body_multiple_prs_to_single_pr() {
         let old_footer = generate_footer(123, &[122, 123, 124], "#");
-        let body = format!("Description\n\n{}", old_footer);
+        let body = format!("Description\n\n{old_footer}");
 
         // Update to a single PR stack
         let result = update_body(Some(&body), 123, &[123], "#");
@@ -1215,14 +1209,14 @@ mod tests {
 
         // Verify all PRs are listed
         for pr in &all_prs {
-            assert!(footer.contains(&format!("#{}", pr)));
+            assert!(footer.contains(&format!("#{pr}")));
         }
     }
 
     #[test]
     fn test_update_body_with_tail_and_multiple_newlines() {
         let old_footer = generate_footer(100, &[100, 101], "#");
-        let body = format!("Head\n\n{}\n\n\n\nTail with gaps", old_footer);
+        let body = format!("Head\n\n{old_footer}\n\n\n\nTail with gaps");
 
         let result = update_body(Some(&body), 100, &[100, 101, 102], "#");
 
@@ -1234,7 +1228,7 @@ mod tests {
     #[test]
     fn test_update_body_replaces_existing_footer() {
         let old_footer = generate_footer(123, &[123], "#");
-        let body = format!("My description\n\n{}\n\nSome trailing content", old_footer);
+        let body = format!("My description\n\n{old_footer}\n\nSome trailing content");
 
         let result = update_body(Some(&body), 123, &[123, 124], "#");
 
@@ -1253,8 +1247,7 @@ mod tests {
     #[test]
     fn test_update_body_preserves_head_and_tail() {
         let body = format!(
-            "Head content\n\n{}\n---\nOld footer\n{}\n\nTail content",
-            STACKING_FOOTER_BOUNDARY_TOP, STACKING_FOOTER_BOUNDARY_BOTTOM
+            "Head content\n\n{STACKING_FOOTER_BOUNDARY_TOP}\n---\nOld footer\n{STACKING_FOOTER_BOUNDARY_BOTTOM}\n\nTail content"
         );
 
         let result = update_body(Some(&body), 456, &[456, 457], "!");
@@ -1291,7 +1284,7 @@ mod tests {
     #[test]
     fn test_update_body_single_pr_removes_existing_footer() {
         let old_footer = generate_footer(123, &[123, 124], "#");
-        let body = format!("My description\n\n{}\n\nSome trailing content", old_footer);
+        let body = format!("My description\n\n{old_footer}\n\nSome trailing content");
 
         // Now updating with just one PR should remove the footer
         let result = update_body(Some(&body), 123, &[123], "#");
@@ -1314,7 +1307,7 @@ mod tests {
     #[test]
     fn test_update_body_single_pr_with_tail() {
         let old_footer = generate_footer(123, &[123], "#");
-        let body = format!("Head content\n\n{}\n\nTail content", old_footer);
+        let body = format!("Head content\n\n{old_footer}\n\nTail content");
 
         let result = update_body(Some(&body), 123, &[123], "#");
 

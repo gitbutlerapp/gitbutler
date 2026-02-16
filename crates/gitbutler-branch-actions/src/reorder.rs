@@ -143,7 +143,7 @@ impl StackOrder {
         // Ensure that every commit in the order is in the stack
         for commit_id in &new_order_commit_ids {
             if !current_order_commit_ids.contains(commit_id) {
-                bail!("Commit '{}' does not exist in the stack", commit_id);
+                bail!("Commit '{commit_id}' does not exist in the stack");
             }
         }
 

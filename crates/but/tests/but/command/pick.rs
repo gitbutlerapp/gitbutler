@@ -43,7 +43,7 @@ fn pick_by_full_sha() -> anyhow::Result<()> {
     env.setup_metadata(&["applied-branch"])?;
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-    env.but(format!("pick {} applied-branch", sha)).assert().success();
+    env.but(format!("pick {sha} applied-branch")).assert().success();
 
     assert!(branch_has_commit_message(
         &env,
@@ -59,7 +59,7 @@ fn pick_by_short_sha() -> anyhow::Result<()> {
     env.setup_metadata(&["applied-branch"])?;
 
     let short_sha = &get_commit_sha(&env, "refs/gitbutler/pickable-first")[..7];
-    env.but(format!("pick {} applied-branch", short_sha)).assert().success();
+    env.but(format!("pick {short_sha} applied-branch")).assert().success();
 
     assert!(branch_has_commit_message(
         &env,
@@ -93,7 +93,7 @@ fn pick_auto_selects_single_stack() -> anyhow::Result<()> {
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
 
     // No target specified - should auto-select the only stack
-    let result = env.but(format!("pick {}", sha)).assert().success();
+    let result = env.but(format!("pick {sha}")).assert().success();
     let stdout = String::from_utf8_lossy(&result.get_output().stdout);
 
     assert!(stdout.contains("into branch applied-branch"));
@@ -106,7 +106,7 @@ fn pick_target_is_case_insensitive() -> anyhow::Result<()> {
     env.setup_metadata(&["applied-branch"])?;
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-    env.but(format!("pick {} APPLIED-BRANCH", sha)).assert().success();
+    env.but(format!("pick {sha} APPLIED-BRANCH")).assert().success();
 
     Ok(())
 }
@@ -118,7 +118,7 @@ fn pick_json_output() -> anyhow::Result<()> {
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
     let result = env
-        .but(format!("--json pick {} applied-branch", sha))
+        .but(format!("--json pick {sha} applied-branch"))
         .allow_json()
         .output()?;
 
@@ -157,7 +157,7 @@ fn pick_invalid_target_fails() -> anyhow::Result<()> {
     env.setup_metadata(&["applied-branch"])?;
 
     let sha = get_commit_sha(&env, "refs/gitbutler/pickable-first");
-    env.but(format!("pick {} nonexistent-branch", sha))
+    env.but(format!("pick {sha} nonexistent-branch"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"

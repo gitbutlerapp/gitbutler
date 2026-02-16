@@ -36,3 +36,6 @@ tracing.workspace = true
 gitbutler-testsupport.workspace = true
 
 tempfile.workspace = true
+
+[lints]
+workspace = true

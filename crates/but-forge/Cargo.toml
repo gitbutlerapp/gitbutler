@@ -28,3 +28,6 @@ serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
 ts-rs = { workspace = true, optional = true }
+
+[lints]
+workspace = true

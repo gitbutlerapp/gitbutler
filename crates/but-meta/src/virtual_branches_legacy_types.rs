@@ -382,7 +382,7 @@ mod stack {
                     .parse::<u32>()
                     .context(format!("failed to parse start of range: {s}"))
             } else {
-                Err(anyhow!("invalid range: {}", s))
+                Err(anyhow!("invalid range: {s}"))
             }?;
 
             let end = if let Some(raw_end) = range.next() {
@@ -390,7 +390,7 @@ mod stack {
                     .parse::<u32>()
                     .context(format!("failed to parse end of range: {s}"))
             } else {
-                Err(anyhow!("invalid range: {}", s))
+                Err(anyhow!("invalid range: {s}"))
             }?;
 
             let hash = if let Some(raw_hash) = range.next() {
@@ -412,7 +412,7 @@ mod stack {
     impl Hunk {
         pub fn new(start: u32, end: u32, hash: Option<HunkHash>) -> anyhow::Result<Self> {
             if start > end {
-                Err(anyhow!("invalid range: {}-{}", start, end))
+                Err(anyhow!("invalid range: {start}-{end}"))
             } else {
                 Ok(Hunk {
                     hash,

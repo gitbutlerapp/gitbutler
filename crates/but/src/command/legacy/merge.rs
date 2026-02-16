@@ -14,10 +14,10 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
     // Resolve the branch ID
     let resolved_ids = id_map.parse_using_context(branch_id, ctx)?;
     if resolved_ids.is_empty() {
-        bail!("Could not find branch: {}", branch_id);
+        bail!("Could not find branch: {branch_id}");
     }
     if resolved_ids.len() > 1 {
-        bail!("Ambiguous branch '{}', matches multiple items", branch_id);
+        bail!("Ambiguous branch '{branch_id}', matches multiple items");
     }
 
     let cli_id = &resolved_ids[0];
@@ -55,13 +55,13 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
         let repo = gix::open(ctx.gitdir.as_path())?;
         let local_branch = repo
             .try_find_reference(&local_branch_name)?
-            .ok_or_else(|| anyhow::anyhow!("Local branch {} not found", local_branch_name))?;
+            .ok_or_else(|| anyhow::anyhow!("Local branch {local_branch_name} not found"))?;
         let local_branch_head_oid = local_branch.into_fully_peeled_id()?;
 
         // get the oid of the branch we're merging in
         let merge_in_branch_head_oid = repo
             .try_find_reference(&branch_name)?
-            .ok_or_else(|| anyhow::anyhow!("Branch {} not found", branch_name))?
+            .ok_or_else(|| anyhow::anyhow!("Branch {branch_name} not found"))?
             .into_fully_peeled_id()?;
 
         if out.for_human().is_some() {
@@ -88,14 +88,11 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
         )?;
 
         if merge_result.tree_merge.has_unresolved_conflicts(Default::default()) {
-            bail!(
-                "Merge resulted in conflicts, please run `but pull` to update {}",
-                local_branch_name
-            );
+            bail!("Merge resulted in conflicts, please run `but pull` to update {local_branch_name}");
         }
 
         // write the merge commit and update the local branch
-        let commit_message = format!("Merge branch '{}'", branch_name);
+        let commit_message = format!("Merge branch '{branch_name}'");
         let merge_commit = repo.new_commit(
             commit_message,
             merge_result.tree_merge.tree.write()?,
@@ -121,10 +118,7 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
             writeln!(progress, "\n{}", "Merge and update complete!".green().bold())?;
         }
     } else {
-        bail!(
-            "Target remote is {}, not gb-local. This command only works with gb-local targets.",
-            target_remote
-        );
+        bail!("Target remote is {target_remote}, not gb-local. This command only works with gb-local targets.");
     }
 
     Ok(())

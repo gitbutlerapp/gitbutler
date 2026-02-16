@@ -195,7 +195,7 @@ pub(crate) async fn metrics_config(out: &mut OutputChannel, status: Option<Metri
                 writeln!(out, "  {}", "but config metrics enable".blue().dimmed())?;
                 writeln!(out, "  {}", "but config metrics disable".blue().dimmed())?;
             } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{}", enabled)?;
+                writeln!(out, "{enabled}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({ "app_metrics_enabled": enabled }))?;
             }
@@ -221,7 +221,7 @@ pub(crate) async fn metrics_config(out: &mut OutputChannel, status: Option<Metri
                     if enabled { "enabled".green() } else { "disabled".red() }
                 )?;
             } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{}", enabled)?;
+                writeln!(out, "{enabled}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({ "app_metrics_enabled": enabled }))?;
             }
@@ -484,7 +484,7 @@ fn extract_account_details(
                 (username.clone(), "Personal Access Token".to_string())
             }
             but_github::GithubAccountIdentifier::Enterprise { username, host } => {
-                (format!("{}@{}", username, host), "GitHub Enterprise".to_string())
+                (format!("{username}@{host}"), "GitHub Enterprise".to_string())
             }
         };
         accounts.push(ForgeAccount {
@@ -501,7 +501,7 @@ fn extract_account_details(
                 (username.clone(), "Personal Access Token".to_string())
             }
             but_gitlab::GitlabAccountIdentifier::SelfHosted { username, host } => {
-                (format!("{}@{}", username, host), "GitLab Self-Hosted".to_string())
+                (format!("{username}@{host}"), "GitLab Self-Hosted".to_string())
             }
         };
         accounts.push(ForgeAccount {
@@ -597,7 +597,7 @@ async fn gitlab_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
         .await
         .map_err(|err| err.context("Authentication failed"))?;
 
-    writeln!(inout, "Authentication successful! Welcome, {}.", username)?;
+    writeln!(inout, "Authentication successful! Welcome, {username}.")?;
     Ok(())
 }
 
@@ -618,7 +618,7 @@ async fn gitlab_self_hosted(mut inout: InputOutputChannel<'_>) -> Result<()> {
         .await
         .map_err(|err| err.context("Authentication failed"))?;
 
-    writeln!(inout, "Authentication successful! Welcome, {}.", username)?;
+    writeln!(inout, "Authentication successful! Welcome, {username}.")?;
     Ok(())
 }
 
@@ -676,7 +676,7 @@ async fn github_pat(mut inout: InputOutputChannel<'_>) -> Result<()> {
         .await
         .map_err(|err| err.context("Authentication failed"))?;
 
-    writeln!(inout, "Authentication successful! Welcome, {}.", login)?;
+    writeln!(inout, "Authentication successful! Welcome, {login}.")?;
     Ok(())
 }
 
@@ -695,7 +695,7 @@ async fn github_enterprise(mut inout: InputOutputChannel<'_>) -> Result<()> {
         .await
         .map_err(|err| err.context("Authentication failed"))?;
 
-    writeln!(inout, "Authentication successful! Welcome, {}.", login)?;
+    writeln!(inout, "Authentication successful! Welcome, {login}.")?;
     Ok(())
 }
 
@@ -748,7 +748,7 @@ async fn display_authenticated_github_accounts(
             None => "(unknown status)".bold().red(),
         };
 
-        writeln!(out, "  • {} {}", account, message)?;
+        writeln!(out, "  • {account} {message}")?;
     }
     writeln!(out)?;
     Ok(some_accounts_invalid)
@@ -783,7 +783,7 @@ async fn display_authenticated_gitlab_accounts(
             None => "(unknown status)".bold().red(),
         };
 
-        writeln!(out, "  • {} {}", account, message)?;
+        writeln!(out, "  • {account} {message}")?;
     }
     writeln!(out)?;
     Ok(some_accounts_invalid)
@@ -798,8 +798,8 @@ enum AccountToForget {
 impl Display for AccountToForget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AccountToForget::GitHub(account) => write!(f, "GitHub account '{}'", account),
-            AccountToForget::GitLab(account) => write!(f, "GitLab account '{}'", account),
+            AccountToForget::GitHub(account) => write!(f, "GitHub account '{account}'"),
+            AccountToForget::GitLab(account) => write!(f, "GitLab account '{account}'"),
         }
     }
 }
@@ -847,7 +847,7 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
             // Single account: delete automatically
             forget_account(single_account)?;
             if let Some(out) = out.for_human() {
-                writeln!(out, "Forgot forge account '{}'", single_account)?;
+                writeln!(out, "Forgot forge account '{single_account}'")?;
             }
         }
         _ => {
@@ -870,7 +870,7 @@ async fn forge_forget(username: Option<String>, out: &mut OutputChannel) -> Resu
 
                 for account in selected_accounts {
                     forget_account(&account)?;
-                    writeln!(out, "Forgot forge account '{}'", account)?;
+                    writeln!(out, "Forgot forge account '{account}'")?;
                 }
             } else {
                 anyhow::bail!("Username ambiguous, got {accounts_to_delete:?}");
@@ -999,7 +999,7 @@ fn ui_config(ctx: &mut Context, out: &mut OutputChannel, cmd: Option<UiSubcomman
                 writeln!(out, "  {}", "but config ui set tui true".blue().dimmed())?;
                 writeln!(out, "  {}", "but config ui set tui false".blue().dimmed())?;
             } else if let Some(out) = out.for_shell() {
-                writeln!(out, "{}", tui_enabled)?;
+                writeln!(out, "{tui_enabled}")?;
             } else if let Some(out) = out.for_json() {
                 out.write_value(serde_json::json!({ "tui": tui_enabled }))?;
             }
@@ -1110,7 +1110,7 @@ fn get_config_scope(config: &git2::Config, key: &str) -> Option<String> {
 /// Format the scope for display
 fn format_scope(scope: &Option<String>) -> String {
     match scope {
-        Some(s) => format!("({})", s).dimmed().to_string(),
+        Some(s) => format!("({s})").dimmed().to_string(),
         None => String::new(),
     }
 }

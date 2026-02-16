@@ -63,9 +63,7 @@ pub fn replace_pick_with_commit(
         Ok(())
     } else {
         Err(anyhow::anyhow!(
-            "Failed to replace pick step {} with {}",
-            target_commit_id,
-            replacement_commit_id
+            "Failed to replace pick step {target_commit_id} with {replacement_commit_id}"
         ))
     }
 }
@@ -100,8 +98,7 @@ pub fn replace_pick_with_multiple_commits(
         Ok(())
     } else {
         Err(anyhow::anyhow!(
-            "Failed to replace pick step {} with multiple commits",
-            target_commit_id
+            "Failed to replace pick step {target_commit_id} with multiple commits"
         ))
     }
 }

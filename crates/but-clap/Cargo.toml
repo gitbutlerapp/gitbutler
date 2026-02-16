@@ -19,3 +19,6 @@ doctest = false
 but.workspace = true
 clap.workspace = true
 anyhow.workspace = true
+
+[lints]
+workspace = true

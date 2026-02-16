@@ -31,7 +31,7 @@ fn list_with_pagination() -> anyhow::Result<()> {
     // Insert 5 workflows
     let mut expected = Vec::new();
     for i in 0..5 {
-        let workflow = create_workflow(&format!("wf{}", i), "rebase", "user");
+        let workflow = create_workflow(&format!("wf{i}"), "rebase", "user");
         expected.push(workflow.clone());
         db.workflows_mut().insert(workflow)?;
     }

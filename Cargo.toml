@@ -276,6 +276,12 @@ crossterm = "0.28"
 self_cell = "1.2.2"
 unicode-segmentation = "1.12.0"
 
+[workspace.lints.clippy]
+all = "deny"
+# Note that `all` doesn't include everything, so extra lints should be added here.
+# You can try `pedantic = deny` to see those extra lints (alongside `all`).
+uninlined_format_args = "deny"
+
 [profile.release]
 # There are no overrides here as we optimise for fast release builds,
 # which are used when building locally and when making Nightly builds.

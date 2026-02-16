@@ -42,7 +42,7 @@ fn list_with_pagination() -> anyhow::Result<()> {
     let mut expected = Vec::new();
     for i in 0..5 {
         let action = butler_action(
-            &format!("id{}", i),
+            &format!("id{i}"),
             "handler",
             "summary",
             "snapshot_before",

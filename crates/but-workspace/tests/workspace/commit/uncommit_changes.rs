@@ -171,8 +171,7 @@ fn error_when_changes_not_found() -> Result<()> {
     let err = result.unwrap_err();
     assert!(
         err.to_string().contains("Failed to remove specified changes"),
-        "Expected error about failed removal, got: {}",
-        err
+        "Expected error about failed removal, got: {err}"
     );
 
     Ok(())

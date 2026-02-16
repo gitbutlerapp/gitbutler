@@ -33,13 +33,13 @@ pub(crate) fn download_and_install_app(
     let filename = "but";
     let download_url = appimage_download_url
         .rsplit_once('/')
-        .map(|(base, _)| format!("{}/{filename}", base))
+        .map(|(base, _)| format!("{base}/{filename}"))
         .ok_or_else(|| anyhow::anyhow!("Failed to construct but cli URL"))?;
     let download_url = download_url.as_str();
 
     validate_download_url(download_url)?;
 
-    info(&format!("Download URL: {}", download_url));
+    info(&format!("Download URL: {download_url}"));
 
     let temp_dir = tempfile::Builder::new().prefix("gitbutler-install.").tempdir()?;
     let tmp_filepath = temp_dir.path().join(filename);

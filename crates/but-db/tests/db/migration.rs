@@ -394,8 +394,8 @@ mod util {
         let mut out = String::new();
         for row in rows {
             let (type_, name, sql) = row?;
-            writeln!(out, "-- {} {}", type_, name)?;
-            writeln!(out, "{};", sql)?;
+            writeln!(out, "-- {type_} {name}")?;
+            writeln!(out, "{sql};")?;
             writeln!(out)?;
         }
         Ok(out)
@@ -403,16 +403,16 @@ mod util {
 
     fn dump_table(conn: &rusqlite::Connection, table_name: &str, out: &mut String) -> anyhow::Result<()> {
         let query = if table_name == "__diesel_schema_migrations" {
-            format!("SELECT version FROM {}", table_name)
+            format!("SELECT version FROM {table_name}")
         } else {
-            format!("SELECT * FROM {}", table_name)
+            format!("SELECT * FROM {table_name}")
         };
         let mut stmt = conn.prepare(&query)?;
 
         let column_count = stmt.column_count();
         let column_names: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
 
-        writeln!(out, "Table: {}", table_name)?;
+        writeln!(out, "Table: {table_name}")?;
         writeln!(out, "{}", column_names.join(" | "))?;
 
         let rows = stmt.query_map([], |row| {
@@ -420,7 +420,7 @@ mod util {
             for i in 0..column_count {
                 let val: String = row
                     .get::<_, rusqlite::types::Value>(i)
-                    .map(|v| format!("{:?}", v))
+                    .map(|v| format!("{v:?}"))
                     .unwrap_or_else(|_| "NULL".to_string());
                 values.push(val);
             }

@@ -47,7 +47,7 @@ pub fn handle(
                 if let Some(stack_id) = stack_id {
                     get_stack_branches(&stacks, *stack_id, name)?
                 } else {
-                    bail!("Branch '{}' does not have an associated stack", name);
+                    bail!("Branch '{name}' does not have an associated stack");
                 }
             }
             CliId::Commit { .. } => {
@@ -80,12 +80,12 @@ fn get_stack_branches(
     let stack = stacks
         .iter()
         .find(|s| s.id == Some(stack_id))
-        .with_context(|| format!("Stack for '{}' not found in workspace", identifier))?;
+        .with_context(|| format!("Stack for '{identifier}' not found in workspace"))?;
 
     let branches: Vec<String> = stack.heads.iter().map(|h| h.name.to_string()).collect();
 
     if branches.is_empty() {
-        bail!("Stack for '{}' has no branches", identifier);
+        bail!("Stack for '{identifier}' has no branches");
     }
 
     Ok((stack_id, branches))
@@ -105,7 +105,7 @@ fn find_stack_by_branch_name(
         }
     }
 
-    bail!("Branch '{}' not found in any applied stack", branch_name);
+    bail!("Branch '{branch_name}' not found in any applied stack");
 }
 
 /// Create a snapshot in the oplog before performing an unapply operation
@@ -151,17 +151,13 @@ fn confirm_and_unapply_stack(
     but_api::legacy::virtual_branches::unapply_stack(ctx, sid)?;
 
     if let Some(out) = out.for_human() {
-        writeln!(
-            out,
-            "Unapplied stack with branches '{}' from workspace",
-            branches_display
-        )?;
+        writeln!(out, "Unapplied stack with branches '{branches_display}' from workspace")?;
     }
 
     if let Some(out) = out.for_shell() {
         // Shell output: one branch per line
         for branch in branches {
-            writeln!(out, "{}", branch)?;
+            writeln!(out, "{branch}")?;
         }
     }
 

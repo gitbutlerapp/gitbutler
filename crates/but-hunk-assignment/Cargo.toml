@@ -33,3 +33,6 @@ ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 uuid.workspace = true
+
+[lints]
+workspace = true

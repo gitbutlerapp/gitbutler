@@ -49,7 +49,7 @@ impl Version {
 
         // Reject if it looks like a flag
         if version.starts_with('-') {
-            bail!("Invalid version: {}. Usage: but-installer [version|nightly]", version);
+            bail!("Invalid version: {version}. Usage: but-installer [version|nightly]");
         }
 
         // Only allow semver-compatible characters
@@ -58,17 +58,13 @@ impl Version {
             .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '+')
         {
             bail!(
-                "Invalid version format: {}. Version must contain only alphanumeric characters, dots, hyphens, and plus signs.",
-                version
+                "Invalid version format: {version}. Version must contain only alphanumeric characters, dots, hyphens, and plus signs."
             );
         }
 
         // Must contain at least one alphanumeric character
         if !version.chars().any(|c| c.is_alphanumeric()) {
-            bail!(
-                "Invalid version format: {}. Version must contain at least one alphanumeric character.",
-                version
-            );
+            bail!("Invalid version format: {version}. Version must contain at least one alphanumeric character.");
         }
 
         Ok(())
@@ -254,7 +250,7 @@ mod tests {
     #[test]
     fn test_version_display() {
         let version = Version::new("1.2.3".to_string()).unwrap();
-        assert_eq!(format!("{}", version), "1.2.3");
+        assert_eq!(format!("{version}"), "1.2.3");
     }
 
     #[test]

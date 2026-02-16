@@ -43,3 +43,6 @@ notify-rust = { workspace = true }
 url.workspace = true
 futures.workspace = true
 claude-agent-sdk-rs = { git = "https://github.com/gitbutlerapp/claude-agent-sdk-rs", rev = "1a82f44f7524b74cc206f74b3b49358d30de64fb" }
+
+[lints]
+workspace = true

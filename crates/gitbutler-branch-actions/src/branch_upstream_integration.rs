@@ -55,7 +55,7 @@ pub fn get_initial_integration_steps_for_branch(
         .branch_details
         .into_iter()
         .find(|b| b.name == branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Series '{}' not found in stack '{:?}'", branch_name, stack_id))?;
+        .ok_or_else(|| anyhow::anyhow!("Series '{branch_name}' not found in stack '{stack_id:?}'"))?;
 
     let mut initial_steps = vec![];
 
@@ -108,7 +108,7 @@ pub fn integrate_branch_with_steps(
 
     let branch_ref = repo
         .try_find_reference(&branch_name)?
-        .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", branch_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Source branch '{branch_name}' not found in repository"))?;
     let branch_ref_name = branch_ref.name().to_owned();
 
     let mut inside_branch = false;

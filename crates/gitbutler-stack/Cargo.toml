@@ -38,3 +38,6 @@ path = "tests/mod.rs"
 gitbutler-testsupport.workspace = true
 gitbutler-repo-actions.workspace = true
 tempfile.workspace = true
+
+[lints]
+workspace = true

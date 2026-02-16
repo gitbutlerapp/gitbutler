@@ -266,7 +266,7 @@ impl InputOutputChannel<'_> {
     pub fn prompt(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<Option<String>> {
         use std::fmt::Write;
         let prompt = prompt.as_ref();
-        writeln!(self, "{}", prompt)?;
+        writeln!(self, "{prompt}")?;
         write!(self, "> ")?;
         std::io::Write::flush(&mut self.out.stdout)?;
 

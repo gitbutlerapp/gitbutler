@@ -34,9 +34,9 @@ impl<'a> WorkspaceToolset<'a> {
     fn call_tool_inner(&mut self, name: &str, parameters: &str) -> anyhow::Result<serde_json::Value> {
         let tool = self
             .get(name)
-            .ok_or_else(|| anyhow::anyhow!("Tool '{}' not found", name))?;
+            .ok_or_else(|| anyhow::anyhow!("Tool '{name}' not found"))?;
         let params: serde_json::Value =
-            serde_json::from_str(parameters).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
+            serde_json::from_str(parameters).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {e}"))?;
         tool.call(params, self.ctx, &mut self.commit_mapping)
     }
 }

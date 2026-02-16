@@ -12,11 +12,7 @@ pub(crate) fn handle(ctx: &mut Context, out: &mut OutputChannel, target_str: &st
     let id_map = IdMap::new_from_context(ctx, None)?;
     let target_result = id_map.parse_using_context(target_str, ctx)?;
     if target_result.len() != 1 {
-        return Err(anyhow::anyhow!(
-            "Target {} is ambiguous: {:?}",
-            target_str,
-            target_result
-        ));
+        return Err(anyhow::anyhow!("Target {target_str} is ambiguous: {target_result:?}"));
     }
     // Hack - delete all other rules
     for rule in but_rules::list_rules(ctx)? {
@@ -52,7 +48,7 @@ fn mark_commit(ctx: &mut Context, oid: gix::ObjectId, delete: bool, out: &mut Ou
         let commit = repo.find_commit(oid)?;
         let change_id = commit
             .change_id()
-            .ok_or_else(|| anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", oid))?;
+            .ok_or_else(|| anyhow::anyhow!("Commit {oid} does not have a Change-Id, cannot mark it"))?;
         let action = but_rules::Action::Explicit(Operation::Amend { change_id });
         but_rules::CreateRuleRequest {
             trigger: but_rules::Trigger::FileSytemChange,
@@ -114,7 +110,7 @@ pub(crate) fn commit_marked(ctx: &Context, commit_id: String) -> anyhow::Result<
         let commit = repo.find_commit(gix::ObjectId::from_str(&commit_id)?)?;
         commit
             .change_id()
-            .ok_or_else(|| anyhow::anyhow!("Commit {} does not have a Change-Id, cannot mark it", commit_id))?
+            .ok_or_else(|| anyhow::anyhow!("Commit {commit_id} does not have a Change-Id, cannot mark it"))?
     };
     let rules = but_rules::list_rules(ctx)?
         .iter()

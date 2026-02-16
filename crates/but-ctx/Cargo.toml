@@ -30,3 +30,6 @@ tracing.workspace = true
 anyhow.workspace = true
 gix.workspace = true
 git2.workspace = true
+
+[lints]
+workspace = true

@@ -120,7 +120,7 @@ fn handle_amend(
     }
 
     let commit_id = commit_id
-        .ok_or_else(|| anyhow::anyhow!("No commit with Change-Id {} found in the current workspace", change_id))?;
+        .ok_or_else(|| anyhow::anyhow!("No commit with Change-Id {change_id} found in the current workspace"))?;
 
     commit_engine::create_commit_and_update_refs_with_project(
         repo,

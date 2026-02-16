@@ -70,7 +70,7 @@ fn get_cursor_db_path(repo_path: &Path, nightly: bool) -> Result<std::path::Path
 /// Parse the JSON value from the database into a Vec<Generation>
 fn parse_generations_json(json_str: &str) -> Result<Vec<Generation>> {
     let generations: Vec<Generation> =
-        serde_json::from_str(json_str).map_err(|e| anyhow::anyhow!("Failed to parse generations JSON: {}", e))?;
+        serde_json::from_str(json_str).map_err(|e| anyhow::anyhow!("Failed to parse generations JSON: {e}"))?;
     Ok(generations)
 }
 
@@ -83,18 +83,18 @@ pub fn get_generations(repo_path: &Path, nightly: bool) -> Result<Vec<Generation
     }
 
     let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| anyhow::anyhow!("Failed to connect to database at {:?}: {}", db_path, e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to connect to database at {db_path:?}: {e}"))?;
 
     let mut stmt = conn
         .prepare("SELECT value FROM ItemTable WHERE key = ?")
-        .map_err(|e| anyhow::anyhow!("Failed to prepare statement: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to prepare statement: {e}"))?;
 
     let mut rows = stmt
         .query([&"aiService.generations"])
-        .map_err(|e| anyhow::anyhow!("Database query failed: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Database query failed: {e}"))?;
 
-    if let Some(row) = rows.next().map_err(|e| anyhow::anyhow!("Failed to fetch row: {}", e))? {
-        let value: String = row.get(0).map_err(|e| anyhow::anyhow!("Failed to get value: {}", e))?;
+    if let Some(row) = rows.next().map_err(|e| anyhow::anyhow!("Failed to fetch row: {e}"))? {
+        let value: String = row.get(0).map_err(|e| anyhow::anyhow!("Failed to get value: {e}"))?;
         parse_generations_json(&value)
     } else {
         Ok(Vec::new()) // Key not found

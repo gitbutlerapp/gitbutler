@@ -27,10 +27,7 @@ pub fn show(
             .find(|(_, id)| id.as_str() == branch_id)
             .map(|(name, _)| name.clone())
             .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Branch ID '{}' not found. Run 'but branch' to see available IDs.",
-                    branch_id
-                )
+                anyhow::anyhow!("Branch ID '{branch_id}' not found. Run 'but branch' to see available IDs.")
             })?
     } else {
         // Assume it's a branch name
@@ -147,7 +144,7 @@ fn check_merge_conflicts(ctx: &Context, branch_name: &str) -> Result<MergeCheck,
     let branch = branches
         .iter()
         .find(|b| b.name.to_string() == branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found", branch_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
 
     let branch_commit = git2_repo.find_commit(branch.head)?;
 
@@ -329,7 +326,7 @@ fn get_commits_ahead(ctx: &Context, branch_name: &str, show_files: bool) -> Resu
     let branch = branches
         .iter()
         .find(|b| b.name.to_string() == branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found", branch_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' not found"))?;
 
     let branch_oid_gix = branch.head.to_gix();
 
@@ -524,8 +521,7 @@ fn generate_branch_summary(
 
     // Build the prompt with commit information
     let mut prompt = format!(
-        "Please provide a concise summary (2-3 sentences) of what this branch '{}' accomplishes based on the following commits:\n\n",
-        branch_name
+        "Please provide a concise summary (2-3 sentences) of what this branch '{branch_name}' accomplishes based on the following commits:\n\n"
     );
 
     for commit in commits {
@@ -626,7 +622,7 @@ fn output_human(
             .map(|r| format!("{}{}", r.unit_symbol, r.number))
             .collect::<Vec<String>>()
             .join(", ");
-        format!(" ({})", review_numbers).blue().to_string()
+        format!(" ({review_numbers})").blue().to_string()
     } else {
         String::new()
     };
@@ -684,7 +680,7 @@ fn output_human(
                         format!("    {} (+{}, -{})", status_color, file.insertions, file.deletions)
                     };
 
-                    writeln!(buf, "{}", change_str)?;
+                    writeln!(buf, "{change_str}")?;
                 }
             }
 
@@ -722,7 +718,7 @@ fn output_human(
                 writeln!(buf, "  {}", "Description:".dimmed())?;
                 // Indent each line of the description
                 for line in body.lines() {
-                    writeln!(buf, "    {}", line)?;
+                    writeln!(buf, "    {line}")?;
                 }
             }
 
@@ -737,7 +733,7 @@ fn output_human(
         writeln!(buf)?;
         writeln!(buf)?;
         writeln!(buf, "{}", "AI Summary:".bold().cyan())?;
-        writeln!(buf, "{}", summary)?;
+        writeln!(buf, "{summary}")?;
         writeln!(buf)?;
     }
 

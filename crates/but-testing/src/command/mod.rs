@@ -30,7 +30,7 @@ pub fn parse_diff_spec(arg: &Option<String>) -> Result<Option<Vec<DiffSpec>>, an
         .map(|value| {
             serde_json::from_str::<Vec<but_core::DiffSpec>>(value)
                 .map(|diff_spec| diff_spec.into_iter().collect())
-                .map_err(|e| anyhow!("Failed to parse diff_spec: {}", e))
+                .map_err(|e| anyhow!("Failed to parse diff_spec: {e}"))
         })
         .transpose()
 }

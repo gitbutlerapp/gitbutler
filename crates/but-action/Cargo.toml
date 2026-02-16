@@ -48,3 +48,6 @@ rmcp.workspace = true
 tracing.workspace = true
 bstr = { workspace = true }
 ts-rs = { workspace = true, optional = true }
+
+[lints]
+workspace = true

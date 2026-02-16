@@ -27,3 +27,6 @@ serde.workspace = true
 [dev-dependencies]
 but-testsupport.workspace = true
 but-ctx = { workspace = true, features = ["legacy"] }
+
+[lints]
+workspace = true

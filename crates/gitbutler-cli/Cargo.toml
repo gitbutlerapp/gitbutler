@@ -35,3 +35,6 @@ tracing-subscriber.workspace = true
 tracing.workspace = true
 
 gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
+
+[lints]
+workspace = true

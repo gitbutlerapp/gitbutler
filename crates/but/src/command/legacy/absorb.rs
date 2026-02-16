@@ -75,7 +75,7 @@ pub(crate) fn handle(
         // Nothing more to do
         if let Some(out) = out.for_human() {
             let message = "Dry run complete. No changes were made.".green();
-            writeln!(out, "{}", message)?;
+            writeln!(out, "{message}")?;
         }
         return Ok(());
     }

@@ -8,7 +8,7 @@ pub fn format_relative_time(now: std::time::SystemTime, timestamp_seconds: i64) 
     let seconds_ago = now.saturating_sub(timestamp_seconds);
 
     if seconds_ago < 60 {
-        format!("{}s ago", seconds_ago)
+        format!("{seconds_ago}s ago")
     } else if seconds_ago < 3600 {
         format!("{}m ago", seconds_ago / 60)
     } else if seconds_ago < 86400 {
@@ -18,7 +18,7 @@ pub fn format_relative_time(now: std::time::SystemTime, timestamp_seconds: i64) 
         if days == 1 {
             "yesterday".to_string()
         } else {
-            format!("{}d ago", days)
+            format!("{days}d ago")
         }
     } else if seconds_ago < 2592000 {
         format!("{}w ago", seconds_ago / 604800)
@@ -40,7 +40,7 @@ pub fn format_relative_time_verbose(now: std::time::SystemTime, timestamp_ms: u1
     let elapsed_secs = elapsed_ms / 1000;
 
     if elapsed_secs < 60 {
-        format!("{} seconds ago", elapsed_secs)
+        format!("{elapsed_secs} seconds ago")
     } else if elapsed_secs < 3600 {
         let minutes = elapsed_secs / 60;
         format!("{} {} ago", minutes, if minutes == 1 { "minute" } else { "minutes" })

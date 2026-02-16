@@ -30,7 +30,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
             let reference = if reference.starts_with("refs/heads/") {
                 gix::refs::FullName::try_from(reference.clone())?
             } else {
-                gix::refs::FullName::try_from(format!("refs/heads/{}", reference))?
+                gix::refs::FullName::try_from(format!("refs/heads/{reference}"))?
             };
             let output = but_api::legacy::worktree::worktree_new(ctx, reference)?;
             if let Some(out) = out.for_json() {
@@ -38,7 +38,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
             } else if let Some(out) = out.for_human() {
                 writeln!(out, "Created worktree at: {}", output.created.path.display())?;
                 if let Some(reference) = output.created.created_from_ref {
-                    writeln!(out, "Reference: {}", reference)?;
+                    writeln!(out, "Reference: {reference}")?;
                 }
             }
             Ok(())
@@ -54,10 +54,10 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     for entry in &output.entries {
                         writeln!(out, "Path: {}", entry.path.display())?;
                         if let Some(reference) = &entry.created_from_ref {
-                            writeln!(out, "Reference: {}", reference)?;
+                            writeln!(out, "Reference: {reference}")?;
                         }
                         if let Some(base) = entry.base {
-                            writeln!(out, "Base: {}", base)?;
+                            writeln!(out, "Base: {base}")?;
                         }
                         writeln!(out)?;
                     }
@@ -75,7 +75,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     gix::refs::FullName::try_from(target_str.clone())?
                 } else {
                     // Assume it's a branch name and prepend refs/heads/
-                    gix::refs::FullName::try_from(format!("refs/heads/{}", target_str))?
+                    gix::refs::FullName::try_from(format!("refs/heads/{target_str}"))?
                 }
             } else {
                 // No target specified - get it from the worktree metadata
@@ -102,7 +102,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     out.write_value(status)?;
                 } else if let Some(out) = out.for_human() {
                     writeln!(out, "Integration status for worktree: {id}")?;
-                    writeln!(out, "Target: {}", target_ref)?;
+                    writeln!(out, "Target: {target_ref}")?;
                     match status {
                         IntegrationStatus::NoMergeBaseFound => {
                             writeln!(out, "Status: Cannot integrate - no merge base found")?;
@@ -142,7 +142,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     out.write_value(serde_json::json!({"status": "success"}))?;
                 } else if let Some(out) = out.for_human() {
                     writeln!(out, "Successfully integrated worktree: {id}")?;
-                    writeln!(out, "Target: {}", target_ref)?;
+                    writeln!(out, "Target: {target_ref}")?;
                 }
             }
 
@@ -155,7 +155,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     gix::refs::FullName::try_from(target.clone())?
                 } else {
                     // Assume it's a branch name and prepend refs/heads/
-                    gix::refs::FullName::try_from(format!("refs/heads/{}", target))?
+                    gix::refs::FullName::try_from(format!("refs/heads/{target}"))?
                 };
 
                 let output = but_api::legacy::worktree::worktree_destroy_by_reference(ctx, reference.clone())?;
@@ -164,7 +164,7 @@ pub fn handle(cmd: Subcommands, ctx: &mut Context, out: &mut OutputChannel) -> R
                     out.write_value(output)?;
                 } else if let Some(out) = out.for_human() {
                     if output.destroyed_ids.is_empty() {
-                        writeln!(out, "No worktrees found for reference: {}", reference)?;
+                        writeln!(out, "No worktrees found for reference: {reference}")?;
                     } else {
                         writeln!(
                             out,

@@ -82,7 +82,7 @@ pub struct ClaudeStopInput {
 
 pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudeStopInput =
-        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
     handle_stop_from_input(&input.session_id, &input.transcript_path)
 }
@@ -340,7 +340,7 @@ pub struct ClaudePreToolUseInput {
 
 pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
     let mut input: ClaudePreToolUseInput =
-        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
     let dir = std::path::Path::new(&input.tool_input.file_path)
         .parent()
@@ -397,7 +397,7 @@ pub fn handle_pre_tool_call_for_sdk(session_id: &str, file_path: &str) -> anyhow
 
 pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudePostToolUseInput =
-        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {}", e))?;
+        serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
     handle_post_tool_call_from_input(
         &input.session_id,
