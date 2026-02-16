@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::{Error, Result};
 use but_fs::list_files;
+use but_github::CredentialCheckResult;
 use but_gitlab::GitLabProjectId;
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
@@ -449,6 +450,84 @@ pub fn list_forge_reviews_with_cache(
         }
     };
     Ok(reviews)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ForgeAccountValidity {
+    Valid,
+    Invalid,
+    NoCredentials,
+}
+
+impl From<but_github::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_github::CredentialCheckResult) -> Self {
+        match value {
+            CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
+            CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
+impl From<but_gitlab::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_gitlab::CredentialCheckResult) -> Self {
+        match value {
+            but_gitlab::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            but_gitlab::CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
+            but_gitlab::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
+/// Check whether there's an account that would be used for this repository is authenticated.
+pub async fn check_forge_account_is_valid(
+    preferred_forge_user: Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeAccountValidity> {
+    match forge_repo_info.forge {
+        ForgeName::GitHub => {
+            let preferred_account = match preferred_forge_user.as_ref().and_then(|user| user.github().cloned()) {
+                Some(account) => account,
+                None => {
+                    let known_accounts = but_github::list_known_github_accounts(storage).await?;
+                    match known_accounts.first() {
+                        Some(account) => account.clone(),
+                        None => {
+                            return Ok(ForgeAccountValidity::NoCredentials);
+                        }
+                    }
+                }
+            };
+
+            but_github::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        ForgeName::GitLab => {
+            let preferred_account = match preferred_forge_user.as_ref().and_then(|user| user.gitlab().cloned()) {
+                Some(account) => account,
+                None => {
+                    let known_accounts = but_gitlab::list_known_gitlab_accounts(storage).await?;
+                    match known_accounts.first() {
+                        Some(account) => account.clone(),
+                        None => {
+                            return Ok(ForgeAccountValidity::NoCredentials);
+                        }
+                    }
+                }
+            };
+
+            but_gitlab::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        _ => Err(Error::msg(format!(
+            "Checking reviews for forge {:?} is not implemented yet",
+            forge_repo_info.forge
+        ))),
+    }
 }
 
 fn list_forge_reviews(

@@ -75,14 +75,7 @@ pub async fn create_pr(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
-    let known_gh_accounts = but_api::github::list_known_github_accounts().await?;
-    let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts().await?;
-    if known_gh_accounts.is_empty() && known_gl_accounts.is_empty() {
-        anyhow::bail!(
-            "No authenticated forge users found.\nRun '{}' to authenticate with GitHub or GitLab.",
-            "but config forge auth"
-        );
-    }
+    ensure_forge_authentication(ctx).await?;
 
     let review_map = get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?;
     let applied_stacks =
@@ -134,6 +127,42 @@ pub async fn create_pr(
         maybe_branch_names,
     )
     .await
+}
+
+/// Make sure that the account that is about to be used in this repository's forge is correctly authenticated.
+async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Error> {
+    let (storage, base_branch, preferred_forge_user) = {
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+
+    let forge_repo_info = base_branch.forge_repo_info.ok_or_else(|| {
+        anyhow::anyhow!(
+            "Unable to determine the forge for this project. Is target branch associated with a supported forge?"
+        )
+    })?;
+
+    let account_validity =
+        but_forge::check_forge_account_is_valid(preferred_forge_user, &forge_repo_info, &storage).await?;
+
+    match account_validity {
+        but_forge::ForgeAccountValidity::Invalid => Err(anyhow::anyhow!(
+            "Known account is not correctly authenticated.\nRun '{}' to authenticate with GitHub or GitLab.",
+            "but config forge auth"
+        )),
+        but_forge::ForgeAccountValidity::NoCredentials => Err(anyhow::anyhow!(
+            "No authenticated forge users found.\nRun '{}' to authenticate with GitHub or GitLab.",
+            "but config forge auth"
+        )),
+        but_forge::ForgeAccountValidity::Valid => {
+            // All good, continue
+            Ok(())
+        }
+    }
 }
 
 /// Get list of branch names that don't have PRs yet.
