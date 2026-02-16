@@ -200,7 +200,7 @@ fn assignments_and_errors(
             Some(dependencies),
             context_lines,
         )?,
-        Err(e) => (vec![], Some(anyhow::anyhow!("failed to get hunk dependencies: {}", e))),
+        Err(e) => (vec![], Some(anyhow::anyhow!("failed to get hunk dependencies: {e}"))),
     };
     Ok((assignments, assignments_error.map(|err| serde_error::Error::new(&*err))))
 }

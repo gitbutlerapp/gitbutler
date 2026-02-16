@@ -67,7 +67,5 @@ file-id = { git = "https://github.com/notify-rs/notify", rev = "978fe719b066a8ce
 snapbox.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
-[lints.clippy]
-all = "deny"
-perf = "deny"
-correctness = "deny"
+[lints]
+workspace = true
