@@ -49,11 +49,11 @@
 		}
 	}}
 >
-	<span class="capitalize">
+	<span>
 		{#if loading}
 			Fetching...
 		{:else if lastFetched}
-			<TimeAgo date={lastFetched} addSuffix={true} />
+			<TimeAgo date={lastFetched} addSuffix={true} capitalize={true} />
 		{:else}
 			Refetch
 		{/if}
