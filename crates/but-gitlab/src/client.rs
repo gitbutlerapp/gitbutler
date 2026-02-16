@@ -183,6 +183,29 @@ impl GitLabClient {
         let mr: GitLabMergeRequest = response.json().await?;
         Ok(mr.into())
     }
+
+    pub async fn merge_merge_request(&self, params: &MergeMergeRequestParams) -> Result<()> {
+        #[derive(Serialize)]
+        struct MergeMergeRequestBody {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            squash: Option<bool>,
+        }
+
+        let url = format!(
+            "{}/projects/{}/merge_requests/{}/merge",
+            self.base_url, params.project_id, params.mr_iid
+        );
+
+        let body = MergeMergeRequestBody { squash: params.squash };
+
+        let response = self.client.put(&url).json(&body).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to merge merge request: {}", response.status());
+        }
+
+        Ok(())
+    }
 }
 
 pub struct CreateMergeRequestParams<'a> {
@@ -191,6 +214,11 @@ pub struct CreateMergeRequestParams<'a> {
     pub source_branch: &'a str,
     pub target_branch: &'a str,
     pub project_id: GitLabProjectId,
+}
+pub struct MergeMergeRequestParams {
+    pub project_id: GitLabProjectId,
+    pub mr_iid: i64,
+    pub squash: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
