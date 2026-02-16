@@ -7,7 +7,7 @@ use ratatui::widgets::{
 };
 use ratatui::Frame;
 
-use super::app::{App, Panel, StatusItem};
+use super::app::{App, CommitModalFocus, Panel, StatusItem};
 
 // ---------------------------------------------------------------------------
 // Main UI entry point
@@ -73,7 +73,10 @@ pub(super) fn ui(f: &mut Frame, app: &App) {
     // Help bar
     render_help_bar(f, app, helpbar_area);
 
-    // Help overlay
+    // Overlays
+    if app.show_commit_modal {
+        render_commit_modal(f, app, size);
+    }
     if app.show_help {
         render_help_overlay(f, app, size);
     }
@@ -650,7 +653,7 @@ fn render_help_overlay(f: &mut Frame, app: &App, area: Rect) {
         help_line("Ctrl+R", "Refresh data"),
         help_line("~", "Toggle command log"),
         Line::from(""),
-        help_line("c", "Commit (TODO)"),
+        help_line("c", "Commit changes"),
         help_line("r", "Reword commit (TODO)"),
         help_line("s", "Squash commits (TODO)"),
         help_line("u", "Uncommit (TODO)"),
@@ -695,6 +698,213 @@ fn help_line<'a>(key: &'a str, desc: &'a str) -> Line<'a> {
 }
 
 // ---------------------------------------------------------------------------
+// Commit modal
+// ---------------------------------------------------------------------------
+
+fn render_commit_modal(f: &mut Frame, app: &App, area: Rect) {
+    let w = 80u16.min(area.width.saturating_sub(4));
+    let h = 30u16.min(area.height.saturating_sub(4));
+    let modal = Rect {
+        x: (area.width.saturating_sub(w)) / 2,
+        y: (area.height.saturating_sub(h)) / 2,
+        width: w,
+        height: h,
+    };
+
+    f.render_widget(Clear, modal);
+
+    // Top-level: main content + footer
+    let outer = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(6), Constraint::Length(1)])
+        .split(modal);
+
+    // Horizontal split: left (branch + files) | right (subject + message)
+    let h_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+        .split(outer[0]);
+
+    // Left side: branch selector (4 rows) + file list (rest)
+    let left_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(4), Constraint::Min(4)])
+        .split(h_chunks[0]);
+
+    // Right side: subject (3 rows) + message (rest)
+    let right_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(4)])
+        .split(h_chunks[1]);
+
+    // --- Branch selector (top-left) ---
+    let branch_focus = app.commit_focus == CommitModalFocus::BranchSelect;
+    let branch_border = if branch_focus {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let staged_label = if app.commit_staged_only {
+        " [s]taged only "
+    } else {
+        " [s]taged + unassigned "
+    };
+
+    let branch_items: Vec<ListItem> = app
+        .commit_branch_options
+        .iter()
+        .enumerate()
+        .map(|(i, opt)| {
+            let marker = if i == app.commit_selected_branch {
+                ">"
+            } else {
+                " "
+            };
+            let label = if opt.is_new_branch {
+                format!("{marker} + {}", opt.branch_name)
+            } else {
+                format!("{marker}   {}", opt.branch_name)
+            };
+            let style = if i == app.commit_selected_branch {
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            ListItem::new(Line::from(Span::styled(label, style)))
+        })
+        .collect();
+
+    let branch_list = List::new(branch_items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" Branch{staged_label}"))
+            .border_style(branch_border),
+    );
+    f.render_widget(branch_list, left_chunks[0]);
+
+    // --- File list (bottom-left) ---
+    let files_focus = app.commit_focus == CommitModalFocus::Files;
+    let files_border = if files_focus {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let file_items: Vec<ListItem> = app
+        .commit_files
+        .iter()
+        .enumerate()
+        .map(|(i, f)| {
+            let check = if f.selected { "[x]" } else { "[ ]" };
+            let cursor = if i == app.commit_file_cursor && files_focus {
+                ">"
+            } else {
+                " "
+            };
+            let style = if f.selected {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+            ListItem::new(Line::from(Span::styled(
+                format!("{cursor} {check} {}", f.path),
+                style,
+            )))
+        })
+        .collect();
+
+    let file_count = app.commit_files.iter().filter(|f| f.selected).count();
+    let file_list = List::new(file_items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(format!(" Files ({file_count} selected, Space to toggle) "))
+            .border_style(files_border),
+    );
+    f.render_widget(file_list, left_chunks[1]);
+
+    // --- Subject (top-right) ---
+    let subject_focus = app.commit_focus == CommitModalFocus::Subject;
+    let subject_border = if subject_focus {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let subject_display = if app.commit_subject.is_empty() && !subject_focus {
+        Span::styled("Enter commit subject...", Style::default().fg(Color::DarkGray))
+    } else {
+        let cursor = if subject_focus { "_" } else { "" };
+        Span::raw(format!("{}{cursor}", app.commit_subject))
+    };
+
+    let subject = Paragraph::new(Line::from(subject_display)).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Subject ")
+            .border_style(subject_border),
+    );
+    f.render_widget(subject, right_chunks[0]);
+
+    // --- Message body (bottom-right) ---
+    let msg_focus = app.commit_focus == CommitModalFocus::Message;
+    let msg_border = if msg_focus {
+        Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
+    let msg_display = if app.commit_message.is_empty() && !msg_focus {
+        Span::styled(
+            "Optional extended description...",
+            Style::default().fg(Color::DarkGray),
+        )
+    } else {
+        let cursor = if msg_focus { "_" } else { "" };
+        Span::raw(format!("{}{cursor}", app.commit_message))
+    };
+
+    let message = Paragraph::new(Line::from(msg_display))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Message ")
+                .border_style(msg_border),
+        )
+        .wrap(Wrap { trim: false });
+    f.render_widget(message, right_chunks[1]);
+
+    // --- Footer with commit button ---
+    let button_focused = app.commit_focus == CommitModalFocus::CommitButton;
+    let button_style = if button_focused {
+        Style::default()
+            .fg(Color::Black)
+            .bg(Color::Green)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+            .fg(Color::Green)
+            .add_modifier(Modifier::BOLD)
+    };
+    let footer_key = Style::default()
+        .fg(Color::Black)
+        .bg(Color::DarkGray)
+        .add_modifier(Modifier::BOLD);
+    let footer_desc = Style::default().fg(Color::DarkGray);
+    let footer = Line::from(vec![
+        Span::styled(" Commit ", button_style),
+        Span::raw("  "),
+        Span::styled(" Tab ", footer_key),
+        Span::styled("Next field ", footer_desc),
+        Span::styled(" s ", footer_key),
+        Span::styled("Toggle staged ", footer_desc),
+        Span::styled(" Esc ", footer_key),
+        Span::styled("Cancel ", footer_desc),
+    ]);
+    f.render_widget(Paragraph::new(footer), outer[1]);
+}
+
+// ---------------------------------------------------------------------------
 // Help bar
 // ---------------------------------------------------------------------------
 
@@ -721,6 +931,10 @@ fn render_help_bar(f: &mut Frame, app: &App, area: Rect) {
     match app.active_panel {
         Panel::Upstream | Panel::Status => hotkey("f", "Fetch"),
         Panel::Oplog => {}
+    }
+
+    if app.has_uncommitted_changes() {
+        hotkey("c", "Commit");
     }
 
     hotkey("^R", "Refresh");

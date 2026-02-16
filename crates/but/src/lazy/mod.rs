@@ -1,4 +1,5 @@
 mod app;
+mod commit;
 mod input;
 mod render;
 
