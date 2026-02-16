@@ -4,7 +4,9 @@ use but_secret::Sensitive;
 mod client;
 pub mod mr;
 mod project;
-pub use client::{CreateMergeRequestParams, GitLabClient, GitLabLabel, GitLabUser, MergeRequest};
+pub use client::{
+    CreateMergeRequestParams, GitLabClient, GitLabLabel, GitLabUser, MergeMergeRequestParams, MergeRequest,
+};
 pub use project::GitLabProjectId;
 mod token;
 use serde::Serialize;

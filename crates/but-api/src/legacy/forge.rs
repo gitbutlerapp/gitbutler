@@ -221,6 +221,31 @@ pub async fn publish_review(
     )
     .await
 }
+
+/// Merge a review on the forge.
+#[but_api]
+#[instrument(err(Debug))]
+pub async fn merge_review(ctx: ThreadSafeContext, review_id: usize) -> Result<()> {
+    let (storage, base_branch, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::merge_review(
+        &preferred_forge_user,
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        review_id,
+        &storage,
+    )
+    .await
+}
+
 /// Update the stacked review descriptions to have the correct footers.
 #[but_api]
 #[instrument(err(Debug))]

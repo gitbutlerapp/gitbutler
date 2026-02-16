@@ -3,7 +3,7 @@ use std::{
     path::{self},
 };
 
-use anyhow::{Error, Result};
+use anyhow::{Context as _, Error, Result};
 use but_fs::list_files;
 use but_github::CredentialCheckResult;
 use but_gitlab::GitLabProjectId;
@@ -729,6 +729,50 @@ pub async fn get_forge_review(
         }
         _ => Err(Error::msg(format!(
             "Getting reviews for forge {forge:?} is not implemented yet.",
+        ))),
+    }
+}
+
+/// Merge a review to it's target branch
+pub async fn merge_review(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_github::MergePullRequestParams {
+                owner,
+                repo,
+                pr_number,
+                commit_message: None,
+                commit_title: None,
+                merge_method: None,
+            };
+            but_github::pr::merge(preferred_account, params, storage).await
+        }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
+            let project_id = GitLabProjectId::new(owner, repo);
+            let mr_iid = review_number
+                .try_into()
+                .context("MR: Failed to cast usize to i64, somehow")?;
+            let params = but_gitlab::MergeMergeRequestParams {
+                project_id,
+                mr_iid,
+                squash: None,
+            };
+
+            but_gitlab::mr::merge(preferred_account, params, storage).await
+        }
+        _ => Err(Error::msg(format!(
+            "Merging reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
