@@ -237,8 +237,10 @@
 		<div class="wrap">
 			<Select
 				searchable
+				label="Select an option with a very long label"
 				options={args.longOptions}
 				value={selectedLongOption}
+				minHeight={200}
 				onselect={(value: string) => {
 					selectedLongOption = value;
 				}}

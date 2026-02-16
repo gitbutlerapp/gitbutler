@@ -1,47 +1,29 @@
-use std::{
-    collections::{BTreeSet, HashSet, VecDeque},
-    str::FromStr,
-};
+use std::{collections::HashSet, str::FromStr};
 
-use anyhow::Context;
-use but_api_macros::api_cmd;
-use but_core::RepositoryExt;
-use but_graph::petgraph::Direction;
+use anyhow::{Context as _, Result};
+use but_api_macros::but_api;
+use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
+use but_ctx::Context;
 use but_hunk_assignment::HunkAssignmentRequest;
-use but_meta::VirtualBranchesTomlMetadata;
 use but_settings::AppSettings;
-use but_workspace::{
-    commit_engine,
-    commit_engine::StackSegmentId,
-    legacy::{MoveChangesResult, ui::StackEntry},
-};
+use but_workspace::{commit_engine, commit_engine::StackSegmentId, legacy::ui::StackEntry};
 use gitbutler_branch_actions::{BranchManagerExt, update_workspace_commit};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::{
     OplogExt, SnapshotExt,
     entry::{OperationKind, SnapshotDetails},
 };
-use gitbutler_project::{Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use serde::Serialize;
 use tracing::instrument;
 
-use crate::json::{Error, HexHash};
+use crate::json::HexHash;
 
-fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
-}
-
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let meta = ref_metadata_toml(ctx.project())?;
+pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
+    let meta = ctx.legacy_meta()?;
     but_workspace::head_info(
         &repo,
         &meta,
@@ -50,44 +32,23 @@ pub fn head_info(project_id: ProjectId) -> Result<but_workspace::ui::RefInfo, Er
             expensive_commit_info: true,
         },
     )
-    .map_err(Into::into)
-    .and_then(|info| {
-        but_workspace::ui::RefInfo::for_ui(info, &repo)
-            .map(|ref_info| ref_info.pruned_to_entrypoint())
-            .map_err(Into::into)
-    })
+    .and_then(|info| but_workspace::ui::RefInfo::for_ui(info, &repo).map(|ref_info| ref_info.pruned_to_entrypoint()))
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn stacks(
-    project_id: ProjectId,
-    filter: Option<but_workspace::legacy::StacksFilter>,
-) -> Result<Vec<StackEntry>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
-    } else {
-        but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, filter.unwrap_or_default())
-    }
-    .map_err(Into::into)
+pub fn stacks(ctx: &Context, filter: Option<but_workspace::legacy::StacksFilter>) -> Result<Vec<StackEntry>> {
+    let repo = ctx.clone_repo_for_merging_non_persisting()?;
+    let meta = ctx.legacy_meta()?;
+    but_workspace::legacy::stacks_v3(&repo, &meta, filter.unwrap_or_default(), None)
 }
 
 #[cfg(unix)]
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
-    use but_settings::AppSettings;
-
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_local_only()?;
-    let meta = ref_metadata_toml(&project)?;
+pub fn show_graph_svg(ctx: &Context) -> Result<()> {
+    let repo = ctx.open_isolated_repo()?;
+    let meta = ctx.legacy_meta()?;
     let mut graph = but_graph::Graph::from_head(
         &repo,
         &meta,
@@ -101,24 +62,24 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
     const LIMIT: usize = 5000;
     let mut to_remove = graph.num_segments().saturating_sub(LIMIT);
     if to_remove > 0 {
-        tracing::warn!(
-            "Pruning at most {to_remove} nodes from the bottom to assure 'dot' won't hang",
-        );
-        let mut next = VecDeque::new();
+        tracing::warn!("Pruning at most {to_remove} nodes from the bottom to assure 'dot' won't hang",);
+        let mut next = std::collections::VecDeque::new();
         next.extend(graph.base_segments());
-        let mut seen = BTreeSet::new();
+        let mut seen = std::collections::BTreeSet::new();
         while let Some(sidx) = next.pop_front() {
             if to_remove == 0 {
                 break;
             }
             if let Some(s) = graph.node_weight(sidx)
-                && (s.metadata.is_some() || s.sibling_segment_id.is_some())
+                && (s.metadata.is_some()
+                    || s.sibling_segment_id.is_some()
+                    || s.remote_tracking_branch_segment_id.is_some())
             {
                 continue;
             }
             next.extend(
                 graph
-                    .neighbors_directed(sidx, Direction::Incoming)
+                    .neighbors_directed(sidx, but_graph::petgraph::Direction::Incoming)
                     .filter(|n| seen.insert(*n)),
             );
             graph.remove_node(sidx);
@@ -133,35 +94,20 @@ pub fn show_graph_svg(project_id: ProjectId) -> Result<(), Error> {
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn stack_details(
-    project_id: ProjectId,
-    stack_id: Option<StackId>,
-) -> Result<but_workspace::ui::StackDetails, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut details = if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(ctx.project())?;
+pub fn stack_details(ctx: &Context, stack_id: Option<StackId>) -> Result<but_workspace::ui::StackDetails> {
+    let mut details = {
+        let repo = ctx.clone_repo_for_merging_non_persisting()?;
+        let meta = ctx.legacy_meta()?;
         but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)
-    } else {
-        but_workspace::legacy::stack_details(
-            &project.gb_dir(),
-            stack_id.context("BUG(opt-stack-id)")?,
-            &ctx,
-        )
     }?;
-    let repo = ctx.gix_repo()?;
-    let gerrit_mode = ctx
-        .gix_repo()?
-        .git_settings()?
-        .gitbutler_gerrit_mode
-        .unwrap_or(false);
+    let repo = ctx.repo.get()?;
+    let gerrit_mode = repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
+    let db = ctx.db.get()?;
     if gerrit_mode {
         for branch in details.branch_details.iter_mut() {
-            handle_gerrit(branch, &repo, &mut ctx)?;
+            handle_gerrit(branch, &repo, &db)?;
             update_push_status(branch);
         }
     }
@@ -170,7 +116,7 @@ pub fn stack_details(
 
 fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
     // If there are any commits that are LocalOnly, then the branch push state should be UnpushedCommits
-    // However, if there are alos any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
+    // However, if there are also any LocalAndRemote commits where the id != remote_commit_id, then it should be UnpushedCommitsRequiringForce
 
     let has_local_only = branch
         .commits
@@ -203,16 +149,16 @@ fn update_push_status(branch: &mut but_workspace::ui::BranchDetails) {
 fn handle_gerrit(
     branch: &mut but_workspace::ui::BranchDetails,
     repo: &gix::Repository,
-    ctx: &mut CommandContext,
+    db: &but_db::DbHandle,
 ) -> anyhow::Result<()> {
-    let mut db = ctx.db()?.gerrit_metadata();
+    let db = db.gerrit_metadata();
     for commit in branch.commits.iter_mut() {
         let change_id = repo
             .find_commit(commit.id)
             .map_err(anyhow::Error::from)
             .and_then(|c| c.change_id().ok_or(anyhow::anyhow!("no change-id")));
         if let Ok(change_id) = change_id
-            && let Some(meta) = db.get(&change_id)?
+            && let Some(meta) = db.get(&change_id.to_string())?
         {
             commit.gerrit_review_url = Some(meta.review_url.clone());
             if matches!(commit.state, but_workspace::ui::CommitState::Integrated) {
@@ -231,19 +177,16 @@ fn handle_gerrit(
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn branch_details(
-    project_id: ProjectId,
+    ctx: &but_ctx::Context,
     branch_name: String,
     remote: Option<String>,
-) -> Result<but_workspace::ui::BranchDetails, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut details = if ctx.app_settings().feature_flags.ws3 {
-        let repo = ctx.gix_repo_for_merging_non_persisting()?;
-        let meta = ref_metadata_toml(ctx.project())?;
+) -> Result<but_workspace::ui::BranchDetails> {
+    let mut details = {
+        let repo = ctx.clone_repo_for_merging_non_persisting()?;
+        let meta = ctx.legacy_meta()?;
         let ref_name: gix::refs::FullName = match remote.as_deref() {
             None => {
                 format!("refs/heads/{branch_name}")
@@ -255,22 +198,12 @@ pub fn branch_details(
         .try_into()
         .map_err(anyhow::Error::from)?;
         but_workspace::branch_details(&repo, ref_name.as_ref(), &meta)
-    } else {
-        but_workspace::legacy::branch_details(
-            &project.gb_dir(),
-            &branch_name,
-            remote.as_deref(),
-            &ctx,
-        )
     }?;
-    let repo = ctx.gix_repo()?;
-    let gerrit_mode = ctx
-        .gix_repo()?
-        .git_settings()?
-        .gitbutler_gerrit_mode
-        .unwrap_or(false);
+    let repo = ctx.repo.get()?;
+    let db = ctx.db.get()?;
+    let gerrit_mode = ctx.repo.get()?.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
     if gerrit_mode {
-        handle_gerrit(&mut details, &repo, &mut ctx)?;
+        handle_gerrit(&mut details, &repo, &db)?;
         update_push_status(&mut details);
     }
     Ok(details)
@@ -284,24 +217,21 @@ pub fn branch_details(
 /// hunks would fail.
 /// `stack_branch_name` is the short name of the reference that the UI knows is present in a given segment.
 /// It is necessary to insert the new commit into the right bucket.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn create_commit_from_worktree_changes(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     stack_id: StackId,
     parent_id: Option<HexHash>,
     worktree_changes: Vec<but_core::DiffSpec>,
     message: String,
     stack_branch_name: String,
-) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+) -> Result<commit_engine::ui::CreateCommitOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
     let snapshot_tree = ctx.prepare_snapshot(guard.read_permission());
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_simple(
-        &ctx,
+        ctx,
         stack_id,
         parent_id.map(|id| id.into()),
         worktree_changes,
@@ -329,25 +259,36 @@ pub fn create_commit_from_worktree_changes(
 /// All `changes` are meant to be relative to the worktree.
 /// Note that submodules *must* be provided as diffspec without hunks, as attempting to generate
 /// hunks would fail.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn amend_commit_from_worktree_changes(
-    project_id: ProjectId,
+    ctx: &mut Context,
     stack_id: StackId,
-    commit_id: HexHash,
+    commit_id: gix::ObjectId,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut guard = project.exclusive_worktree_access();
-    let repo = project.open_for_merging()?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+) -> Result<commit_engine::ui::CreateCommitOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    let data_dir = ctx.project_data_dir();
+    amend_commit_and_count_failures(stack_id, commit_id, worktree_changes, &mut guard, &repo, &data_dir)
+}
+
+/// Amend a commit with the given changes and return the number of rejected files
+pub fn amend_commit_and_count_failures(
+    stack_id: StackId,
+    commit_id: gix::ObjectId,
+    worktree_changes: Vec<but_core::DiffSpec>,
+    guard: &mut RepoExclusiveGuard,
+    repo: &gix::Repository,
+    data_dir: &std::path::Path,
+) -> anyhow::Result<commit_engine::ui::CreateCommitOutcome> {
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
-        &repo,
-        &project,
+        repo,
+        data_dir,
         Some(stack_id),
         commit_engine::Destination::AmendCommit {
-            commit_id: commit_id.into(),
+            commit_id,
             // TODO: Expose this in the UI for 'edit message' functionality.
             new_message: None,
         },
@@ -363,145 +304,129 @@ pub fn amend_commit_from_worktree_changes(
 
 /// Discard all worktree changes that match the specs in `worktree_changes`.
 ///
-/// If whole files should be discarded, be sure to not pass any [hunks](but_workspace::discard::ui::DiscardSpec::hunk_headers)
+/// If whole files should be discarded, be sure to not pass any hunks
 ///
 /// Returns the `worktree_changes` that couldn't be applied,
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn discard_worktree_changes(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<Vec<but_core::DiffSpec>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let repo = project.open()?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+) -> Result<Vec<but_core::DiffSpec>> {
+    let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
         guard.write_permission(),
     );
-    let refused = but_workspace::discard_workspace_changes(
-        &repo,
-        worktree_changes,
-        ctx.app_settings().context_lines,
-    )?;
+    let refused =
+        but_workspace::discard_workspace_changes(&*ctx.repo.get()?, worktree_changes, ctx.settings.context_lines)?;
     if !refused.is_empty() {
         tracing::warn!(?refused, "Failed to discard at least one hunk");
     }
     Ok(refused)
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UIMoveChangesResult {
-    replaced_commits: Vec<(String, String)>,
-}
+mod json {
+    use but_workspace::legacy::MoveChangesResult;
 
-impl From<MoveChangesResult> for UIMoveChangesResult {
-    fn from(value: MoveChangesResult) -> Self {
-        Self {
-            replaced_commits: value
-                .replaced_commits
-                .into_iter()
-                .map(|(x, y)| (x.to_hex().to_string(), y.to_hex().to_string()))
-                .collect(),
+    pub use crate::json::UIMoveChangesResult;
+
+    impl From<MoveChangesResult> for UIMoveChangesResult {
+        fn from(value: MoveChangesResult) -> Self {
+            Self {
+                replaced_commits: value
+                    .replaced_commits
+                    .into_iter()
+                    .map(|(x, y)| (x.into(), y.into()))
+                    .collect(),
+            }
         }
     }
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn move_changes_between_commits(
-    project_id: ProjectId,
+    ctx: &mut Context,
     source_stack_id: StackId,
-    source_commit_id: HexHash,
+    source_commit_id: gix::ObjectId,
     destination_stack_id: StackId,
-    destination_commit_id: HexHash,
+    destination_commit_id: gix::ObjectId,
     changes: Vec<but_core::DiffSpec>,
-) -> Result<UIMoveChangesResult, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
-
+) -> Result<json::UIMoveChangesResult> {
+    let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::AmendCommit),
         guard.write_permission(),
     );
     let result = but_workspace::legacy::move_changes_between_commits(
-        &ctx,
+        ctx,
         source_stack_id,
-        source_commit_id.into(),
+        source_commit_id,
         destination_stack_id,
-        destination_commit_id.into(),
+        destination_commit_id,
         changes,
-        ctx.app_settings().context_lines,
+        guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx, false)?;
+    // TODO(ctx): remove this, with the rebase engine this is done above - needs at least manual testing to be sure
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     Ok(result.into())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn split_branch(
-    project_id: ProjectId,
+    ctx: &mut Context,
     source_stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<UIMoveChangesResult, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
-
+) -> Result<json::UIMoveChangesResult> {
+    let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SplitBranch),
         guard.write_permission(),
     );
 
     let (_, move_changes_result) = but_workspace::legacy::split_branch(
-        &ctx,
+        ctx,
         source_stack_id,
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.app_settings().context_lines,
+        guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx, false)?;
+    // TODO(ctx): remove this, it's done above
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     let refname = Refname::Local(LocalRefname::new(&new_branch_name, None));
     let branch_manager = ctx.branch_manager();
-    branch_manager.create_virtual_branch_from_branch(
-        &refname,
-        None,
-        None,
-        guard.write_permission(),
-    )?;
+    branch_manager.create_virtual_branch_from_branch(&refname, None, None, guard.write_permission())?;
+
+    // TODO(ctx): use new branch creation, which would update the ctx workspace as well.
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(move_changes_result.into())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn split_branch_into_dependent_branch(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     source_stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: Vec<String>,
-) -> Result<UIMoveChangesResult, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
+) -> Result<json::UIMoveChangesResult> {
+    let mut guard = ctx.exclusive_worktree_access();
 
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::SplitBranch),
@@ -509,16 +434,16 @@ pub fn split_branch_into_dependent_branch(
     );
 
     let move_changes_result = but_workspace::legacy::split_into_dependent_branch(
-        &ctx,
+        ctx,
         source_stack_id,
         source_branch_name,
         new_branch_name.clone(),
         &file_changes_to_split_off,
-        ctx.app_settings().context_lines,
+        guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx, false)?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     Ok(move_changes_result.into())
 }
@@ -528,25 +453,20 @@ pub fn split_branch_into_dependent_branch(
 /// If `assign_to` is provided, the changes will be assigned to the stack
 /// specified.
 /// If `assign_to` is not provided, the changes will be unassigned.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn uncommit_changes(
-    project_id: ProjectId,
+    ctx: &mut Context,
     stack_id: StackId,
-    commit_id: HexHash,
+    commit_id: gix::ObjectId,
     changes: Vec<but_core::DiffSpec>,
     assign_to: Option<StackId>,
-) -> Result<UIMoveChangesResult, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let mut guard = project.exclusive_worktree_access();
-
+) -> Result<json::UIMoveChangesResult> {
+    let mut guard = ctx.exclusive_worktree_access();
     let _ = ctx.create_snapshot(
         SnapshotDetails::new(OperationKind::DiscardChanges),
         guard.write_permission(),
     );
-
     // If we want to assign the changes after uncommitting, we could try to do
     // something with the hunk headers, but this is not precise as the hunk
     // headers might have changed from what they were like when they were
@@ -555,12 +475,17 @@ pub fn uncommit_changes(
     // As such, we take all the old assignments, and all the new assignments from after the
     // uncommit, and find the ones that are not present in the old assignments.
     // We then convert those into assignment requests for the given stack.
+    let context_lines = ctx.settings.context_lines;
     let before_assignments = if assign_to.is_some() {
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
         let changes = but_hunk_assignment::assignments_with_fallback(
-            &mut ctx,
+            db.hunk_assignments_mut()?,
+            &repo,
+            &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
+            context_lines,
         )?;
         Some(changes.0)
     } else {
@@ -568,22 +493,26 @@ pub fn uncommit_changes(
     };
 
     let result = but_workspace::legacy::remove_changes_from_commit_in_stack(
-        &ctx,
+        ctx,
         stack_id,
-        commit_id.into(),
+        commit_id,
         changes,
-        ctx.app_settings().context_lines,
+        guard.write_permission(),
     )?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    update_workspace_commit(&vb_state, &ctx, false)?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    update_workspace_commit(&vb_state, ctx, false)?;
 
     if let (Some(before_assignments), Some(stack_id)) = (before_assignments, assign_to) {
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(guard.read_permission())?;
         let (after_assignments, _) = but_hunk_assignment::assignments_with_fallback(
-            &mut ctx,
+            db.hunk_assignments_mut()?,
+            &repo,
+            &ws,
             false,
             None::<Vec<but_core::TreeChange>>,
             None,
+            context_lines,
         )?;
 
         let before_assignments = before_assignments
@@ -601,7 +530,7 @@ pub fn uncommit_changes(
             })
             .collect::<Vec<_>>();
 
-        but_hunk_assignment::assign(&mut ctx, to_assign, None)?;
+        but_hunk_assignment::assign(db.hunk_assignments_mut()?, &repo, &ws, to_assign, None, context_lines)?;
     }
 
     Ok(result.into())
@@ -611,19 +540,14 @@ pub fn uncommit_changes(
 /// Unlike the regular stash, the user specifies a new branch where those changes will be 'saved'/committed.
 /// Immediately after the changes are committed, the branch is unapplied from the workspace, and the "stash" branch can be re-applied at a later time
 /// In theory it should be possible to specify an existing "dumping" branch for this, but currently this endpoint expects a new branch.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn stash_into_branch(
-    project_id: ProjectId,
+    ctx: &mut Context,
     branch_name: String,
     worktree_changes: Vec<but_core::DiffSpec>,
-) -> Result<commit_engine::ui::CreateCommitOutcome, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let repo = ctx.gix_repo_for_merging()?;
-
-    let mut guard = project.exclusive_worktree_access();
+) -> Result<commit_engine::ui::CreateCommitOutcome> {
+    let mut guard = ctx.exclusive_worktree_access();
     let perm = guard.write_permission();
 
     let _ = ctx.snapshot_stash_into_branch(branch_name.clone(), perm);
@@ -637,12 +561,12 @@ pub fn stash_into_branch(
         perm,
     )?;
 
-    let parent_commit_id = stack.head_oid(&repo)?;
+    let parent_commit_id = stack.head_oid(ctx)?;
     let branch_name = stack.derived_name()?;
 
     let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
-        &repo,
-        &project,
+        &*ctx.repo.get()?,
+        &ctx.project_data_dir(),
         Some(stack.id),
         commit_engine::Destination::NewCommit {
             parent_commit_id: Some(parent_commit_id),
@@ -655,21 +579,15 @@ pub fn stash_into_branch(
             }),
         },
         worktree_changes,
-        ctx.app_settings().context_lines,
+        ctx.settings.context_lines,
         perm,
     );
 
-    let vb_state = VirtualBranchesHandle::new(project.gb_dir());
-    gitbutler_branch_actions::update_workspace_commit(&vb_state, &ctx, false)
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    gitbutler_branch_actions::update_workspace_commit(&vb_state, ctx, false)
         .context("failed to update gitbutler workspace")?;
 
-    branch_manager.unapply(
-        stack.id,
-        perm,
-        false,
-        Vec::new(),
-        ctx.app_settings().feature_flags.cv3,
-    )?;
+    branch_manager.unapply(stack.id, perm, false, Vec::new(), ctx.settings.feature_flags.cv3)?;
 
     let outcome = outcome?;
     Ok(outcome.into())
@@ -677,32 +595,25 @@ pub fn stash_into_branch(
 
 /// Returns a new available branch name based on a simple template - user_initials-branch-count
 /// The main point of this is to be able to provide branch names that are not already taken.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+/// This checks local branches and the short-names of remote tracking branches. The reason for
+/// the latter is that the but-graph traversal, for now, associates local branches
+/// with remote tracking branches by name, not only by configuration, to support older GitButler setups.
+///
+// TODO(apply): once the new apply is used by default, we can start thinking about phasing this out
+//              as it will setup normal Git tracking branch associations via `.git/config`.
+#[but_api]
 #[instrument(err(Debug))]
-pub fn canned_branch_name(project_id: ProjectId) -> Result<String, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
-    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, &state, template, false)
-        .map_err(Into::into)
+pub fn canned_branch_name(ctx: &Context) -> Result<String> {
+    let rn = but_core::branch::unique_canned_refname(&*ctx.repo.get()?)?;
+    Ok(rn.shorten().to_string())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn target_commits(
-    project_id: ProjectId,
+    ctx: &but_ctx::Context,
     last_commit_id: Option<HexHash>,
     page_size: Option<usize>,
-) -> Result<Vec<but_workspace::ui::Commit>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    but_workspace::legacy::log_target_first_parent(
-        &ctx,
-        last_commit_id.map(|id| id.into()),
-        page_size.unwrap_or(30),
-    )
-    .map_err(Into::into)
+) -> Result<Vec<but_workspace::ui::Commit>> {
+    but_workspace::legacy::log_target_first_parent(ctx, last_commit_id.map(|id| id.into()), page_size.unwrap_or(30))
 }

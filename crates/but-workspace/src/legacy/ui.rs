@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
 use but_core::ref_metadata::StackId;
 use gitbutler_stack::Stack;
@@ -6,14 +6,20 @@ use serde::Serialize;
 
 /// The information about the branch inside a stack
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/legacy/index.ts"))]
 pub struct StackHeadInfo {
     /// The name of the branch.
     #[serde(with = "but_serde::bstring_lossy")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub name: BString,
     /// The tip of the branch.
     #[serde(with = "but_serde::object_id")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub tip: gix::ObjectId,
+    /// The associated forge review with this branch, e.g. GitHub PRs or GitLab MRs
+    pub review_id: Option<usize>,
     /// If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
     /// This is `false` if the worktree is checked out.
     pub is_checked_out: bool,
@@ -34,9 +40,12 @@ impl StackHeadInfo {
 /// Represents a lightweight version of a [`Stack`] for listing.
 /// NOTE: this is a UI type mostly because it's still modeled after the legacy stack with StackId, something that doesn't exist anymore.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/legacy/index.ts"))]
 pub struct StackEntry {
     /// The ID of the stack.
+    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub id: Option<StackId>,
     /// The list of the branch information that are part of the stack.
     /// The list is never empty.
@@ -44,6 +53,7 @@ pub struct StackEntry {
     pub heads: Vec<StackHeadInfo>,
     /// The tip of the top-most branch, i.e., the most recent commit that would become the parent of new commits of the topmost stack branch.
     #[serde(with = "but_serde::object_id")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub tip: gix::ObjectId,
     /// The zero-based index for sorting stacks.
     pub order: Option<usize>,
@@ -137,24 +147,13 @@ impl From<StackEntryNoOpt> for StackEntry {
     }
 }
 
-impl StackEntry {
-    pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
-        Ok(StackEntry {
-            id: Some(stack.id),
-            heads: crate::legacy::stacks::stack_heads_info(stack, repo)?,
-            tip: stack.head_oid(repo)?,
-            order: Some(stack.order),
-            is_checked_out: false,
-        })
-    }
-}
-
 impl StackEntryNoOpt {
     pub(crate) fn try_new(repo: &gix::Repository, stack: &Stack) -> anyhow::Result<Self> {
+        let ctx = but_ctx::Context::try_from(repo.clone())?;
         Ok(StackEntryNoOpt {
             id: stack.id,
             heads: crate::legacy::stacks::stack_heads_info(stack, repo)?,
-            tip: stack.head_oid(repo)?,
+            tip: stack.head_oid(&ctx)?,
             order: Some(stack.order),
             is_checked_out: false,
         })

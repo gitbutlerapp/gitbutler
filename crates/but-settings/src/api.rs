@@ -17,10 +17,7 @@ pub struct TelemetryUpdate {
 /// Update request for [`crate::app_settings::FeatureFlags`].
 pub struct FeatureFlagsUpdate {
     pub cv3: Option<bool>,
-    pub ws3: Option<bool>,
     pub apply3: Option<bool>,
-    pub actions: Option<bool>,
-    pub butbot: Option<bool>,
     pub rules: Option<bool>,
     pub single_branch: Option<bool>,
 }
@@ -56,6 +53,7 @@ pub struct FetchUpdate {
 /// Update request for [`crate::app_settings::UiSettings`].
 pub struct UiUpdate {
     pub use_native_title_bar: Option<bool>,
+    // Note that the CLI related information cannot be set - it's set at compile time.
 }
 
 /// Mutation, immediately followed by writing everything to disk.
@@ -90,10 +88,7 @@ impl AppSettingsWithDiskSync {
         &self,
         FeatureFlagsUpdate {
             cv3,
-            ws3,
             apply3,
-            actions,
-            butbot,
             rules,
             single_branch,
         }: FeatureFlagsUpdate,
@@ -102,17 +97,8 @@ impl AppSettingsWithDiskSync {
         if let Some(cv3) = cv3 {
             settings.feature_flags.cv3 = cv3;
         }
-        if let Some(ws3) = ws3 {
-            settings.feature_flags.ws3 = ws3;
-        }
         if let Some(apply3) = apply3 {
             settings.feature_flags.apply3 = apply3;
-        }
-        if let Some(actions) = actions {
-            settings.feature_flags.actions = actions;
-        }
-        if let Some(butbot) = butbot {
-            settings.feature_flags.butbot = butbot;
         }
         if let Some(rules) = rules {
             settings.feature_flags.rules = rules;
@@ -148,11 +134,8 @@ impl AppSettingsWithDiskSync {
 
     pub fn update_reviews(&self, update: ReviewsUpdate) -> Result<()> {
         let mut settings = self.get_mut_enforce_save()?;
-        if let Some(auto_fill_pr_description_from_commit) =
-            update.auto_fill_pr_description_from_commit
-        {
-            settings.reviews.auto_fill_pr_description_from_commit =
-                auto_fill_pr_description_from_commit;
+        if let Some(auto_fill_pr_description_from_commit) = update.auto_fill_pr_description_from_commit {
+            settings.reviews.auto_fill_pr_description_from_commit = auto_fill_pr_description_from_commit;
         }
         settings.save()
     }

@@ -67,7 +67,7 @@
 	.markdown code {
 		padding: 1px 3px;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-scale-ntrl-80);
+		background-color: var(--clr-bg-2);
 		font-size: 92%;
 		font-family: var(--font-mono);
 	}

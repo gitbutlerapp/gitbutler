@@ -1,20 +1,20 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::Project;
+use anyhow::{Context as _, Result};
+use but_ctx::Context;
 use gitbutler_reference::RemoteRefname;
 
 use crate::command::debug_print;
 
 pub fn list() -> Result<()> {
     for project in gitbutler_project::dangerously_list_projects_without_migration()? {
+        let ctx = Context::new_from_legacy_project(project.clone())?;
+        let workdir = ctx.workdir_or_fail()?;
         println!(
             "{id} {name} {path}",
             id = project.id,
             name = project.title,
-            path = project.worktree_dir()?.display()
+            path = workdir.display()
         );
     }
     Ok(())
@@ -26,24 +26,12 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
         .context("Only non-bare repositories can be added")?
         .to_owned()
         .canonicalize()?;
-    let outcome = gitbutler_project::add_with_path(data_dir, path)?;
+    let outcome = gitbutler_project::add_at_app_data_dir(data_dir, path)?;
     let project = outcome.try_project()?;
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     if let Some(refname) = refname {
-        gitbutler_branch_actions::set_base_branch(
-            &ctx,
-            &refname,
-            ctx.project().exclusive_worktree_access().write_permission(),
-        )?;
+        let mut guard = ctx.exclusive_worktree_access();
+        gitbutler_branch_actions::set_base_branch(&ctx, &refname, guard.write_permission())?;
     };
     debug_print(project)
-}
-
-pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
-    let ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    debug_print(gitbutler_branch_actions::set_base_branch(
-        &ctx,
-        &refname,
-        ctx.project().exclusive_worktree_access().write_permission(),
-    )?)
 }

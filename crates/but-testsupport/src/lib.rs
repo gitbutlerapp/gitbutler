@@ -8,27 +8,41 @@ use gix::{
     config::tree::Key,
 };
 pub use gix_testtools;
-use gix_testtools::{Creation, tempfile};
+use gix_testtools::{Creation, FixtureState, PostResult, tempfile};
 
 mod in_memory_meta;
 pub use in_memory_meta::{InMemoryRefMetadata, InMemoryRefMetadataHandle, StackState};
 
+#[cfg(feature = "sandbox")]
+mod sandbox;
+#[cfg(feature = "sandbox")]
+pub use sandbox::Sandbox;
+
 /// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
 /// i.e. `hunk_header("-1,10", "+1,10")`.
 /// Returns `( (old_start, old_lines), (new_start, new_lines) )`.
-pub fn hunk_header(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
+pub fn hunk_header_raw(old: &str, new: &str) -> ((u32, u32), (u32, u32)) {
     fn parse_header(hunk_info: &str) -> (u32, u32) {
         let hunk_info = hunk_info.trim_start_matches(['-', '+'].as_slice());
         let parts: Vec<_> = hunk_info.split(',').collect();
         let start = parts[0].parse().unwrap();
-        let lines = if parts.len() > 1 {
-            parts[1].parse().unwrap()
-        } else {
-            1
-        };
+        let lines = if parts.len() > 1 { parts[1].parse().unwrap() } else { 1 };
         (start, lines)
     }
     (parse_header(old), parse_header(new))
+}
+
+/// Choose a slightly more obvious, yet easy to type syntax than a function with 4 parameters.
+/// i.e. `hunk_header("-1,10", "+1,10")`.
+/// Returns a [but_core::HunkHeader].
+pub fn hunk_header(old: &str, new: &str) -> but_core::HunkHeader {
+    let ((old_start, old_lines), (new_start, new_lines)) = hunk_header_raw(old, new);
+    but_core::HunkHeader {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+    }
 }
 
 /// While `gix` can't (or can't conveniently) do everything, let's make using `git` easier,
@@ -92,19 +106,15 @@ pub fn open_repo(path: &Path) -> anyhow::Result<gix::Repository> {
 /// Return isolated configuration with a basic setup to run read-only and read-write tests.
 /// This includes the author configuration in particular.
 pub fn open_repo_config() -> anyhow::Result<gix::open::Options> {
-    let config = gix::open::Options::isolated()
-        .lossy_config(false)
-        .config_overrides([
-            gix::config::tree::Author::NAME
-                .validated_assignment("Author (Memory Override)".into())?,
-            gix::config::tree::Author::EMAIL.validated_assignment("author@example.com".into())?,
-            gix::config::tree::Committer::NAME
-                .validated_assignment("Committer (Memory Override)".into())?,
-            gix::config::tree::Committer::EMAIL
-                .validated_assignment("committer@example.com".into())?,
-            gix::config::tree::gitoxide::Commit::COMMITTER_DATE
-                .validated_assignment("2000-01-01 00:00:00 +0000".into())?,
-        ]);
+    let config = gix::open::Options::isolated().lossy_config(false).config_overrides([
+        gix::config::tree::Author::NAME.validated_assignment("Author (Memory Override)".into())?,
+        gix::config::tree::Author::EMAIL.validated_assignment("author@example.com".into())?,
+        gix::config::tree::Committer::NAME.validated_assignment("Committer (Memory Override)".into())?,
+        gix::config::tree::Committer::EMAIL.validated_assignment("committer@example.com".into())?,
+        gix::config::tree::gitoxide::Commit::AUTHOR_DATE.validated_assignment("2000-01-01 00:00:00 +0000".into())?,
+        gix::config::tree::gitoxide::Commit::COMMITTER_DATE.validated_assignment("2000-01-02 00:00:00 +0000".into())?,
+        "gitbutler.testing.changeId=1".to_owned().into(),
+    ]);
     Ok(config)
 }
 
@@ -113,10 +123,15 @@ pub fn hex_to_id(hex: &str) -> gix::ObjectId {
     gix::ObjectId::from_hex(hex.as_bytes()).expect("statically known to be valid")
 }
 
-/// Sets and environment that assures commits are reproducible.
+/// Sets up an environment that assures commits are reproducible. This is particularly
+/// needed for `GITBUTLER_CHANGE_ID`.
 /// This needs the `testing` feature enabled in `but-core` as well to work.
 /// **This changes the process environment, be aware.**
-pub fn assure_stable_env() {
+///
+/// ### DEPRECATION WARNING
+///
+/// Do not use this function unless it's interfacing with old code. Prefer [`open_repo()`] for instance.
+pub fn deprecated_stable_env_vars() {
     let env = gix_testtools::Env::new()
         // TODO(gix): once everything is ported, all these can be configured on `gix::Repository`.
         //            CHANGE_ID now works with a single value.
@@ -129,7 +144,7 @@ pub fn assure_stable_env() {
         .set("GIT_COMMITTER_NAME", "committer (From Env)")
         .set("GITBUTLER_CHANGE_ID", "change-id");
     // assure it doesn't get racy.
-    std::mem::forget(env);
+    _ = std::mem::ManuallyDrop::new(env);
 }
 
 /// Utilities for the [`git()`] command.
@@ -151,10 +166,7 @@ impl CommandExt for std::process::Command {
 }
 
 /// Produce a graph of all commits reachable from `refspec`.
-pub fn visualize_commit_graph(
-    repo: &gix::Repository,
-    refspec: impl ToString,
-) -> std::io::Result<String> {
+pub fn visualize_commit_graph(repo: &gix::Repository, refspec: impl ToString) -> std::io::Result<String> {
     let log = git(repo)
         .args(["log", "--oneline", "--graph", "--decorate"])
         .arg(refspec.to_string())
@@ -188,6 +200,13 @@ pub fn git_status_at_dir(dir: impl AsRef<Path>) -> std::io::Result<String> {
     let out = git_at_dir(dir).args(["status", "--porcelain"]).output()?;
     assert!(out.status.success(), "STDERR: {}", out.stderr.as_bstr());
     Ok(out.stdout.to_str().expect("no illformed UTF-8").to_string())
+}
+
+/// Gets the content of a commit at a specific revision, similar to
+/// `git cat-file commit <revision>`
+pub fn cat_commit(repo: &gix::Repository, arg: &str) -> anyhow::Result<String> {
+    let commit_id = repo.rev_parse_single(arg)?;
+    Ok(repo.find_commit(commit_id)?.data.to_str_lossy().to_string())
 }
 
 /// Show one index entry per line, without content.
@@ -226,11 +245,7 @@ pub fn visualize_index_with_content(repo: &gix::Repository, index: &gix::index::
             "{mode:o}:{id} {path} {content:?}",
             id = &entry.id.to_hex_with_len(7),
             mode = entry.mode.bits(),
-            content = repo
-                .find_blob(entry.id)
-                .expect("index only has blobs")
-                .data
-                .as_bstr()
+            content = repo.find_blob(entry.id).expect("index only has blobs").data.as_bstr()
         )
         .expect("enough memory")
     }
@@ -247,41 +262,34 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
             id.to_hex_with_len(7).to_string()
         }
         let repo = id.repo;
-        let entry_name =
-            |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
-                match name {
-                    None => short_id(id),
-                    Some((name, mode)) => {
-                        format!(
-                            "{name}:{mode}{} {}",
-                            short_id(id),
-                            match repo.find_blob(id) {
-                                Ok(blob) => format!("{:?}", blob.data.as_bstr()),
-                                Err(_) => "".into(),
-                            },
-                            mode = if mode.is_tree() {
-                                "".into()
-                            } else {
-                                format!("{:o}:", mode.value())
-                            }
-                        )
-                    }
+        let entry_name = |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
+            match name {
+                None => short_id(id),
+                Some((name, mode)) => {
+                    format!(
+                        "{name}:{mode}{} {}",
+                        short_id(id),
+                        match repo.find_blob(id) {
+                            Ok(blob) => format!("{:?}", blob.data.as_bstr()),
+                            Err(_) => "".into(),
+                        },
+                        mode = if mode.is_tree() {
+                            "".into()
+                        } else {
+                            format!("{:o}:", mode.value())
+                        }
+                    )
                 }
-            };
+            }
+        };
 
         let mut tree = termtree::Tree::new(entry_name(&id, name_and_mode));
         for entry in repo.find_tree(id)?.iter() {
             let entry = entry?;
             if entry.mode().is_tree() {
-                tree.push(visualize_tree(
-                    entry.id(),
-                    Some((entry.filename(), entry.mode())),
-                )?);
+                tree.push(visualize_tree(entry.id(), Some((entry.filename(), entry.mode())))?);
             } else {
-                tree.push(entry_name(
-                    entry.oid(),
-                    Some((entry.filename(), entry.mode())),
-                ));
+                tree.push(entry_name(entry.oid(), Some((entry.filename(), entry.mode()))));
             }
         }
         Ok(tree)
@@ -304,14 +312,13 @@ pub fn visualize_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
 pub fn visualize_disk_tree_skip_dot_git(root: &Path) -> anyhow::Result<termtree::Tree<String>> {
     use std::os::unix::fs::MetadataExt;
     fn normalize_mode(mode: u32) -> u32 {
-        match mode {
-            0o40777 => 0o40755,
-            0o100666 => 0o100644,
-            0o100777 => 0o100755,
-            0o120777 => 0o120755,
-            other => other,
-        }
+        let filetype_bits = 0o170000 & mode;
+        // Git only cares about the permission bits for regular files, but we normalize everything the same way for the
+        // sake of simplicity.
+        let normalized_permission_bits = if mode & 0o100 == 0 { 0o644 } else { 0o755 };
+        filetype_bits | normalized_permission_bits
     }
+
     fn label(p: &Path, md: &std::fs::Metadata) -> String {
         format!(
             "{name}:{mode:o}",
@@ -362,17 +369,38 @@ pub fn write_sequence(
             writeln!(&mut out, "{num}")?;
         }
     }
-    std::fs::write(
-        repo.workdir().expect("non-bare").join(filename),
-        out.as_bytes(),
-    )?;
+    std::fs::write(repo.workdir().expect("non-bare").join(filename), out.as_bytes())?;
     Ok(())
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script.
 pub fn writable_scenario(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
-        .expect("fixtures will yield valid repositories")
+    let (a, b, _) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        None::<String>,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
+    (a, b)
+}
+
+/// Obtain a `(repo, tmp, post)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script.
+/// Use `post_fn` to modify the fixture and produce a value of type `T`, which is also returned.
+/// Increment `version` each time `post_fn` is modified.
+pub fn writable_scenario_with_post<T>(
+    name: &str,
+    version: u32,
+    post_fn: impl FnMut(FixtureState<'_>) -> PostResult<T>,
+) -> (gix::Repository, tempfile::TempDir, T) {
+    let (repo, tmp, post) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        None::<String>,
+        Some((version, post_fn)),
+    )
+    .expect("fixtures will yield valid repositories");
+    (repo, tmp, post.unwrap())
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script,
@@ -381,16 +409,28 @@ pub fn writable_scenario_with_args(
     name: &str,
     args: impl IntoIterator<Item = impl Into<String>>,
 ) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::CopyFromReadOnly, args)
-        .expect("fixtures will yield valid repositories")
+    let (a, b, _) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        args,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
+    (a, b)
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is the result of the execution of the `tests/fixtures/scenario/$name.sh` script.
 ///
 /// It's slow because it has to re-execute the script, in case the script creates files with absolute paths in them.
 pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    writable_scenario_inner(name, Creation::ExecuteScript, None::<String>)
-        .expect("fixtures will yield valid repositories")
+    let (a, b, _) = writable_scenario_inner(
+        name,
+        Creation::ExecuteScript,
+        None::<String>,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
+    (a, b)
 }
 
 /// Obtain a `(repo, tmp)` where `tmp` is a copy of the `tests/fixtures/scenario/$name.sh` script,
@@ -402,8 +442,13 @@ pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir
 ///
 /// Git will also be configured to use the key for signing in the returned `repo`.
 pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile::TempDir) {
-    let (mut repo, tmp) = writable_scenario_inner(name, Creation::CopyFromReadOnly, None::<String>)
-        .expect("fixtures will yield valid repositories");
+    let (mut repo, tmp, _) = writable_scenario_inner(
+        name,
+        Creation::CopyFromReadOnly,
+        None::<String>,
+        None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
+    )
+    .expect("fixtures will yield valid repositories");
     let signing_key_path = repo.workdir().expect("non-bare").join("signature.key");
     assert!(
         signing_key_path.is_file(),
@@ -420,102 +465,72 @@ pub fn writable_scenario_with_ssh_key(name: &str) -> (gix::Repository, tempfile:
     }
 
     repo.config_snapshot_mut()
-        .set_raw_value(
-            &"user.signingKey",
-            gix::path::into_bstr(signing_key_path).as_ref(),
-        )
+        .set_raw_value(&"user.signingKey", gix::path::into_bstr(signing_key_path).as_ref())
         .expect("in-memory values can always be set");
-    write_local_config(&repo)
-        .expect("need this to be in configuration file while git2 is involved");
     (repo, tmp)
 }
 
-/// Obtain a `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
-/// Note that this is non-isolated, and will be affected by environment variables.
-pub fn read_only_in_memory_scenario_non_isolated_keep_env(
-    name: &str,
-) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(name, "", gix::open::permissions::Environment::all())
-}
-
-/// Obtain an isolated repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
+/// Obtain an isolated `repo` from the `tests/fixtures/$name.sh` script, with in-memory objects.
 pub fn read_only_in_memory_scenario(name: &str) -> anyhow::Result<gix::Repository> {
     read_only_in_memory_scenario_named(name, "")
 }
 
-/// Obtain an isolated `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects.
-pub fn read_only_in_memory_scenario_named(
-    script_name: &str,
-    dirname: &str,
-) -> anyhow::Result<gix::Repository> {
-    read_only_in_memory_scenario_named_env(
-        script_name,
-        dirname,
-        gix::open::permissions::Environment::isolated(),
-    )
-}
-
-/// Obtain an `repo` from the `tests/fixtures/$dirname/$script_name.sh` script, with in-memory objects, using `open_env`
-/// to control how environment variables are handled.
-pub fn read_only_in_memory_scenario_named_env(
-    script_name: &str,
-    dirname: &str,
-    open_env: gix::open::permissions::Environment,
-) -> anyhow::Result<gix::Repository> {
+/// Obtain an isolated `repo` from the `tests/fixtures/$script_name.sh/…/$dirname` script, with in-memory objects.
+pub fn read_only_in_memory_scenario_named(script_name: &str, dirname: &str) -> anyhow::Result<gix::Repository> {
     let root = gix_testtools::scripted_fixture_read_only(format!("scenario/{script_name}.sh"))
         .map_err(anyhow::Error::from_boxed)?;
-    let mut options = gix::open::Options::isolated();
-    options.permissions.env = open_env;
-    let repo = gix::open_opts(root.join(dirname), freeze_time(options))?.with_object_memory();
+    let repo = open_repo(&root.join(dirname))?.with_object_memory();
     Ok(repo)
 }
 
-/// Write the repository local configuration in `repo` back to its `.git/config`.
-///
-/// In-memory config changes aren't always enough as we still only have snapshots,
-/// without the ability to keep the entire configuration fresh.
-pub fn write_local_config(repo: &gix::Repository) -> anyhow::Result<()> {
-    repo.config_snapshot().write_to_filter(
-        &mut std::fs::File::create(repo.path().join("config"))?,
-        |section| section.meta().source == gix::config::Source::Local,
-    )?;
-    Ok(())
+/// Obtain an isolated `repo` from the `tests/fixtures/$script_name.sh/…/$dirname` script, with in-memory objects,
+/// with `dirname` being the sub-directory to look into once the fixture was created.
+/// `dirname` can be "" to make it a no-op.
+/// Use `post_fn` to modify the fixture and produce a value of type `T`, which is also returned.
+/// Increment `version` each time `post_fn` is modified.
+pub fn read_only_in_memory_scenario_named_with_post<T>(
+    script_name: &str,
+    dirname: &str,
+    version: u32,
+    post_fn: impl FnMut(FixtureState<'_>) -> PostResult<T>,
+) -> anyhow::Result<(gix::Repository, T)> {
+    let (repo, value) =
+        read_only_in_memory_scenario_named_with_post_inner(script_name, dirname, Some((version, post_fn)))?;
+    Ok((repo, value.unwrap()))
 }
 
-fn writable_scenario_inner(
+fn read_only_in_memory_scenario_named_with_post_inner<T>(
+    script_name: &str,
+    dirname: &str,
+    post_fn: Option<(u32, impl FnMut(FixtureState<'_>) -> PostResult<T>)>,
+) -> anyhow::Result<(gix::Repository, Option<T>)> {
+    let path = format!("scenario/{script_name}.sh");
+    let (root, value) = match post_fn {
+        Some((v, f)) => {
+            gix_testtools::scripted_fixture_read_only_with_post(path, v, f).map(|(root, value)| (root, Some(value)))
+        }
+        None => gix_testtools::scripted_fixture_read_only(path).map(|root| (root, None)),
+    }
+    .map_err(anyhow::Error::from_boxed)?;
+    let repo = open_repo(&root.join(dirname))?.with_object_memory();
+    Ok((repo, value))
+}
+
+fn writable_scenario_inner<T>(
     name: &str,
     creation: Creation,
     args: impl IntoIterator<Item = impl Into<String>>,
-) -> anyhow::Result<(gix::Repository, tempfile::TempDir)> {
-    let tmp = gix_testtools::scripted_fixture_writable_with_args(
-        format!("scenario/{name}.sh"),
-        args,
-        creation,
-    )
+    post_fn: Option<(u32, impl FnMut(FixtureState<'_>) -> PostResult<T>)>,
+) -> anyhow::Result<(gix::Repository, tempfile::TempDir, Option<T>)> {
+    let script_name = format!("scenario/{name}.sh");
+    let (tmp, post) = match post_fn {
+        Some((v, f)) => gix_testtools::scripted_fixture_writable_with_args_with_post(script_name, args, creation, v, f)
+            .map(|(tmp, post)| (tmp, Some(post))),
+        None => gix_testtools::scripted_fixture_writable_with_args(script_name, args, creation).map(|tmp| (tmp, None)),
+    }
     .map_err(anyhow::Error::from_boxed)?;
-    let mut options = crate::open_repo_config()?;
-    options.permissions.env = gix::open::permissions::Environment::all();
-    let repo = gix::open_opts(tmp.path(), freeze_time(options))?;
-    Ok((repo, tmp))
-}
-
-/// Set `opts` to use a predefined time each time a commit author or signature is created.
-fn freeze_time(opts: gix::open::Options) -> gix::open::Options {
-    use gix::config::tree::{User, gitoxide};
-    // Note: this should equal what's used other free-time functions that
-    // are environment based, as env-vars override this.
-    // TODO: don't allow the test-suite to change the current environment (which was needed to help old code)
-    let time = "946771200 +0000".into();
-    opts.config_overrides(
-        [
-            User::NAME.validated_assignment("user".into()),
-            User::EMAIL.validated_assignment("email@example.com".into()),
-            gitoxide::Commit::AUTHOR_DATE.validated_assignment(time),
-            gitoxide::Commit::COMMITTER_DATE.validated_assignment(time),
-        ]
-        .into_iter()
-        .map(Result::unwrap),
-    )
+    let repo = open_repo(tmp.path())?;
+    Ok((repo, tmp, post))
 }
 
 /// Windows dummy
@@ -526,33 +541,23 @@ pub fn visualize_disk_tree_skip_dot_git(_root: &Path) -> anyhow::Result<termtree
 
 /// Produce the id at the reference with `name` (short-name is fine), and also return the full name
 /// of the reference.
-pub fn id_at<'repo>(
-    repo: &'repo gix::Repository,
-    name: &str,
-) -> (gix::Id<'repo>, gix::refs::FullName) {
-    let mut rn = repo
-        .find_reference(name)
-        .expect("statically known reference exists");
+pub fn id_at<'repo>(repo: &'repo gix::Repository, name: &str) -> (gix::Id<'repo>, gix::refs::FullName) {
+    let mut rn = repo.find_reference(name).expect("statically known reference exists");
     let id = rn.peel_to_id().expect("must be valid reference");
     (id, rn.inner.name)
 }
 
 /// Return the commit by the given `revspec`.
 pub fn id_by_rev<'repo>(repo: &'repo gix::Repository, revspec: &str) -> gix::Id<'repo> {
-    repo.rev_parse_single(revspec)
-        .expect("well-known revspec when testing")
+    repo.rev_parse_single(revspec).expect("well-known revspec when testing")
 }
 
 /// Find all UUIDs and unix timestamps in `input` and return a new string
 /// with these replaced by a sequential number, along with a mapping from the replaced string to the number
 /// in question.
-pub fn sanitize_uuids_and_timestamps_with_mapping(
-    input: String,
-) -> (String, HashMap<String, usize>) {
-    let uuid_regex = regex::Regex::new(
-        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
-    )
-    .unwrap();
+pub fn sanitize_uuids_and_timestamps_with_mapping(input: String) -> (String, HashMap<String, usize>) {
+    let uuid_regex =
+        regex::Regex::new(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}").unwrap();
     let timestamp_regex = regex::Regex::new(r#"("\d{13}")|( \d{13})"#).unwrap();
 
     let mut uuid_map: HashMap<String, usize> = HashMap::new();
@@ -593,8 +598,7 @@ pub fn debug_str(input: &dyn std::fmt::Debug) -> String {
 }
 
 mod graph;
-
-pub use graph::{graph_tree, graph_workspace};
+pub use graph::{graph_tree, graph_workspace, graph_workspace_determinisitcally};
 
 mod prepare_cmd_env;
 pub use prepare_cmd_env::isolate_env_std_cmd;

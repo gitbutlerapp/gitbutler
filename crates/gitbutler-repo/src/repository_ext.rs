@@ -1,16 +1,13 @@
 use std::str;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use bstr::BString;
-use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix};
+use but_core::{GitConfigSettings, RepositoryExt as RepositoryExtGix, commit::Headers};
 use but_error::Code;
-use but_oxidize::{
-    ObjectIdExt as _, RepoExt, git2_signature_to_gix_signature, git2_to_gix_object_id,
-    gix_to_git2_oid, gix_to_git2_signature,
-};
+use but_oxidize::{ObjectIdExt as _, OidExt, git2_signature_to_gix_signature, gix_to_git2_signature};
+use but_rebase::commit::sign_buffer;
 use but_status::create_wd_tree;
 use git2::Tree;
-use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
 use tracing::instrument;
@@ -65,7 +62,7 @@ pub trait RepositoryExt {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        commit_headers: Option<CommitHeadersV2>,
+        commit_headers: Option<Headers>,
     ) -> Result<git2::Oid>;
 }
 
@@ -82,9 +79,7 @@ impl RepositoryExt for git2::Repository {
         let branch = self.find_branch(
             &name.simple_name(),
             match name {
-                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
-                    git2::BranchType::Local
-                }
+                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => git2::BranchType::Local,
                 Refname::Remote(_) => git2::BranchType::Remote,
             },
         );
@@ -99,9 +94,7 @@ impl RepositoryExt for git2::Repository {
         let branch = self.find_branch(
             &name.simple_name(),
             match name {
-                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
-                    git2::BranchType::Local
-                }
+                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => git2::BranchType::Local,
                 Refname::Remote(_) => git2::BranchType::Remote,
             },
         )?;
@@ -109,9 +102,9 @@ impl RepositoryExt for git2::Repository {
         Ok(branch)
     }
 
-    /// Creates a tree containing the uncommited changes in the project.
+    /// Creates a tree containing the uncommitted changes in the project.
     /// This includes files in the index that are considered conflicted.
-    #[instrument(level = tracing::Level::DEBUG, skip(self, untracked_limit_in_bytes), err(Debug))]
+    #[instrument(level = "debug", skip(self, untracked_limit_in_bytes), err(Debug))]
     fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree<'_>> {
         let repo = gix::open_opts(
             self.path(),
@@ -148,26 +141,23 @@ impl RepositoryExt for git2::Repository {
         message: &str,
         tree: &git2::Tree<'_>,
         parents: &[&git2::Commit<'_>],
-        commit_headers: Option<CommitHeadersV2>,
+        commit_headers: Option<Headers>,
     ) -> Result<git2::Oid> {
-        let repo = self.to_gix()?;
+        let repo = gix::open(self.path())?;
         let mut commit = gix::objs::Commit {
             message: message.into(),
-            tree: git2_to_gix_object_id(tree.id()),
+            tree: tree.id().to_gix(),
             author: git2_signature_to_gix_signature(author),
             committer: git2_signature_to_gix_signature(committer),
             encoding: None,
-            parents: parents
-                .iter()
-                .map(|commit| git2_to_gix_object_id(commit.id()))
-                .collect(),
-            extra_headers: commit_headers.unwrap_or_default().into(),
+            parents: parents.iter().map(|commit| commit.id().to_gix()).collect(),
+            extra_headers: commit_headers.map(|h| (&h).into()).unwrap_or_default(),
         };
 
         if repo.git_settings()?.gitbutler_sign_commits.unwrap_or(false) {
             let mut buf = Vec::new();
             commit.write_to(&mut buf)?;
-            let signature = self.sign_buffer(&buf);
+            let signature = sign_buffer(&repo, &buf);
             match signature {
                 Ok(signature) => {
                     commit.extra_headers.push(("gpgsig".into(), signature));
@@ -176,17 +166,14 @@ impl RepositoryExt for git2::Repository {
                     // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
                     if repo
                         .config_snapshot()
-                        .boolean_filter("gitbutler.signCommits", |md| {
-                            md.source != gix::config::Source::Local
-                        })
+                        .boolean_filter("gitbutler.signCommits", |md| md.source != gix::config::Source::Local)
                         .is_none()
                     {
                         repo.set_git_settings(&GitConfigSettings {
                             gitbutler_sign_commits: Some(false),
                             ..Default::default()
                         })?;
-                        return Err(anyhow!("Failed to sign commit: {}", err)
-                            .context(Code::CommitSigningFailed));
+                        return Err(anyhow!("Failed to sign commit: {}", err).context(Code::CommitSigningFailed));
                     } else {
                         tracing::warn!(
                             "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
@@ -202,7 +189,7 @@ impl RepositoryExt for git2::Repository {
         }
 
         // TODO: extra-headers should be supported in `gix` directly.
-        let oid = gix_to_git2_oid(repo.write_object(&commit)?);
+        let oid = repo.write_object(&commit)?.to_git2();
 
         // update reference
         if let Some(refname) = update_ref {
@@ -216,20 +203,15 @@ impl RepositoryExt for git2::Repository {
     }
 
     fn remotes_as_string(&self) -> Result<Vec<String>> {
-        Ok(self.remotes().map(|string_array| {
-            string_array
-                .iter()
-                .filter_map(|s| s.map(String::from))
-                .collect()
-        })?)
+        Ok(self
+            .remotes()
+            .map(|string_array| string_array.iter().filter_map(|s| s.map(String::from)).collect())?)
     }
 
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>> {
         self.branches(Some(git2::BranchType::Remote))?
             .flatten()
-            .map(|(branch, _)| {
-                RemoteRefname::try_from(&branch).context("failed to convert branch to remote name")
-            })
+            .map(|(branch, _)| RemoteRefname::try_from(&branch).context("failed to convert branch to remote name"))
             .collect::<Result<Vec<_>>>()
     }
 
@@ -265,8 +247,7 @@ impl RepositoryExt for git2::Repository {
         let first_oid = ids[0];
 
         let output = ids[1..].iter().try_fold(first_oid, |base, oid| {
-            self.merge_base(base, *oid)
-                .context("Failed to find merge base")
+            self.merge_base(base, *oid).context("Failed to find merge base")
         })?;
 
         Ok(output)

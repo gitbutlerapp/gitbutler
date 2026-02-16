@@ -8,6 +8,7 @@
 		activated?: boolean;
 		tabindex?: number | undefined;
 		type?: 'submit' | 'reset' | 'button' | undefined;
+		autofocus?: boolean;
 		// Layout props
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
@@ -51,6 +52,7 @@
 	import { focusable } from '$lib/focus/focusable';
 	import { formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { onMount, tick } from 'svelte';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
@@ -63,6 +65,7 @@
 		activated = false,
 		tabindex,
 		type = 'button',
+		autofocus = false,
 		shrinkable = false,
 		reversedDirection = false,
 		width,
@@ -72,7 +75,7 @@
 		grow = false,
 		align = 'auto',
 		dropdownChild = false,
-		style = 'neutral',
+		style = 'gray',
 		kind = 'solid',
 		hotkey,
 		class: className = '',
@@ -110,6 +113,14 @@
 		tooltipInstance?.dismiss();
 		onmousedownExternal?.(e);
 	}
+
+	onMount(() => {
+		if (autofocus) {
+			tick().then(() => {
+				el?.focus();
+			});
+		}
+	});
 </script>
 
 <Tooltip
@@ -131,7 +142,7 @@
 			}
 		}}
 		class={[
-			'btn focus-state',
+			'btn',
 			style,
 			kind,
 			size && `${size}-size`,
@@ -200,7 +211,6 @@
 </Tooltip>
 
 <style lang="postcss">
-	/* Global variables for button styles */
 	/* :where approach applies a lower specificity to the styles,
 	   allowing for easier overrides and better maintainability.
 	 */
@@ -229,32 +239,26 @@
 
 		/* Consolidated outline and ghost styles */
 
-		/* All outline buttons except neutral get a slight background by default */
-		:where(&.outline:not(.neutral)) {
+		/* All outline and ghost buttons share the same icon opacity */
+		:where(&.outline),
+		:where(&.ghost) {
+			--icon-opacity: var(--opacity-btn-icon-outline);
+		}
+
+		/* All outline buttons except gray get a slight background by default */
+		:where(&.outline:not(.gray)) {
 			--opacity-btn-bg: 0.1;
-			--icon-opacity: var(--opacity-btn-icon-outline);
 		}
 
-		/* Ghost buttons and neutral outline buttons keep transparent background by default */
+		/* Ghost buttons and gray outline buttons keep transparent background by default */
 		:where(&.ghost),
-		:where(&.outline.neutral) {
+		:where(&.outline.gray) {
 			--opacity-btn-bg: 0;
-			--icon-opacity: var(--opacity-btn-icon-outline);
-		}
-
-		/* Outline buttons (except neutral) hover with darker background */
-		:where(&.outline:not(.neutral):not(:disabled):hover),
-		:where(&.outline:not(.neutral).activated) {
-			--icon-opacity: var(--opacity-btn-icon-outline-hover);
-			--opacity-btn-bg: 0.25;
-		}
-
-		/* Neutral outline and ghost buttons hover */
-		:where(&.outline.neutral:not(:disabled):hover),
+		} /* All outline and ghost buttons hover with darker background */
+		:where(&.outline:not(:disabled):hover),
 		:where(&.ghost:not(:disabled):hover),
-		:where(&.outline.neutral.activated),
+		:where(&.outline.activated),
 		:where(&.ghost.activated) {
-			--icon-opacity: var(--opacity-btn-icon-outline-hover);
 			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
 		}
 
@@ -296,13 +300,14 @@
 		}
 
 		/* Theme Variables - All themes use the same pattern */
-		:where(&.neutral) {
-			--theme-outline-text: var(--clr-btn-ntrl-outline-text);
-			--theme-outline-bg: var(--clr-btn-ntrl-outline-bg);
-			--theme-outline-border: var(--clr-btn-ntrl-outline);
-			--theme-solid-text: var(--clr-theme-ntrl-on-element);
-			--theme-solid-bg: var(--clr-theme-ntrl-element);
-			--theme-solid-bg-hover: var(--clr-theme-ntrl-element-hover);
+		:where(&.gray) {
+			--theme-outline-text: var(--clr-btn-gray-outline-text);
+			--theme-outline-bg: var(--clr-btn-gray-outline-bg);
+			--theme-outline-border: var(--clr-btn-gray-outline);
+			--theme-solid-text: var(--clr-theme-gray-on-element);
+			--theme-solid-bg: var(--clr-theme-gray-element);
+			--theme-focus-color: var(--clr-theme-pop-element);
+			--theme-focus-mix-ratio: 100%;
 		}
 
 		:where(&.pop) {
@@ -311,25 +316,25 @@
 			--theme-outline-border: var(--clr-btn-pop-outline);
 			--theme-solid-text: var(--clr-theme-pop-on-element);
 			--theme-solid-bg: var(--clr-theme-pop-element);
-			--theme-solid-bg-hover: var(--clr-theme-pop-element-hover);
+			--theme-focus-color: var(--clr-theme-pop-element);
 		}
 
-		:where(&.success) {
-			--theme-outline-text: var(--clr-btn-succ-outline-text);
-			--theme-outline-bg: var(--clr-btn-succ-outline-bg);
-			--theme-outline-border: var(--clr-btn-succ-outline);
-			--theme-solid-text: var(--clr-theme-succ-on-element);
-			--theme-solid-bg: var(--clr-theme-succ-element);
-			--theme-solid-bg-hover: var(--clr-theme-succ-element-hover);
+		:where(&.safe) {
+			--theme-outline-text: var(--clr-btn-safe-outline-text);
+			--theme-outline-bg: var(--clr-btn-safe-outline-bg);
+			--theme-outline-border: var(--clr-btn-safe-outline);
+			--theme-solid-text: var(--clr-theme-safe-on-element);
+			--theme-solid-bg: var(--clr-theme-safe-element);
+			--theme-focus-color: var(--clr-theme-safe-element);
 		}
 
-		:where(&.error) {
-			--theme-outline-text: var(--clr-btn-err-outline-text);
-			--theme-outline-bg: var(--clr-btn-err-outline-bg);
-			--theme-outline-border: var(--clr-btn-err-outline);
-			--theme-solid-text: var(--clr-theme-err-on-element);
-			--theme-solid-bg: var(--clr-theme-err-element);
-			--theme-solid-bg-hover: var(--clr-theme-err-element-hover);
+		:where(&.danger) {
+			--theme-outline-text: var(--clr-btn-danger-outline-text);
+			--theme-outline-bg: var(--clr-btn-danger-outline-bg);
+			--theme-outline-border: var(--clr-btn-danger-outline);
+			--theme-solid-text: var(--clr-theme-danger-on-element);
+			--theme-solid-bg: var(--clr-theme-danger-element);
+			--theme-focus-color: var(--clr-theme-danger-element);
 		}
 
 		:where(&.warning) {
@@ -338,16 +343,33 @@
 			--theme-outline-border: var(--clr-btn-warn-outline);
 			--theme-solid-text: var(--clr-theme-warn-on-element);
 			--theme-solid-bg: var(--clr-theme-warn-element);
-			--theme-solid-bg-hover: var(--clr-theme-warn-element-hover);
+			--theme-focus-color: var(--clr-theme-warn-element);
 		}
 
 		:where(&.purple) {
-			--theme-outline-text: var(--clr-btn-purp-outline-text);
-			--theme-outline-bg: var(--clr-btn-purp-outline-bg);
-			--theme-outline-border: var(--clr-btn-purp-outline);
-			--theme-solid-text: var(--clr-theme-purp-on-element);
-			--theme-solid-bg: var(--clr-theme-purp-element);
-			--theme-solid-bg-hover: var(--clr-theme-purp-element-hover);
+			--theme-outline-text: var(--clr-btn-purple-outline-text);
+			--theme-outline-bg: var(--clr-btn-purple-outline-bg);
+			--theme-outline-border: var(--clr-btn-purple-outline);
+			--theme-solid-text: var(--clr-theme-purple-on-element);
+			--theme-solid-bg: var(--clr-theme-purple-element);
+			--theme-focus-color: var(--clr-theme-purple-element);
+		}
+
+		/* Focus styles for all themed buttons */
+		:where(&.outline:focus-visible),
+		:where(&.ghost:focus-visible) {
+			outline: 2px solid var(--theme-focus-color);
+			outline-offset: -2px;
+		}
+
+		:where(&.solid:focus-visible) {
+			outline: 2px solid
+				color-mix(
+					in srgb,
+					var(--theme-focus-color) var(--theme-focus-mix-ratio, 50%),
+					var(--clr-text-1)
+				);
+			outline-offset: -2px;
 		}
 
 		/* Apply patterns using consolidated theme variables */
@@ -367,11 +389,15 @@
 			--icon-opacity: var(--opacity-btn-icon-solid);
 			--label-clr: var(--theme-solid-text);
 			--btn-bg: var(--theme-solid-bg);
+			--theme-solid-bg-hover: color-mix(
+				in srgb,
+				var(--theme-solid-bg),
+				var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
+			);
 		}
 
 		:where(&.solid:not(:disabled):hover),
 		:where(&.solid.activated) {
-			--icon-opacity: var(--opacity-btn-icon-solid-hover);
 			--btn-bg: var(--theme-solid-bg-hover);
 		}
 
@@ -467,9 +493,5 @@
 			overflow: hidden;
 			text-overflow: ellipsis;
 		}
-	}
-	/* See `tabbable.ts` for more on this class. */
-	:global(.focus-visible) {
-		outline: 2px solid var(--clr-theme-pop-element-hover);
 	}
 </style>

@@ -9,13 +9,12 @@
 	import { inject } from '@gitbutler/core/context';
 
 	import {
+		AddForgeAccountButton,
 		Button,
-		ContextMenu,
-		ContextMenuItem,
-		ContextMenuSection,
+		CardGroup,
 		Link,
-		SectionCard,
 		Textbox,
+		Spacer,
 		chipToasts as toasts
 	} from '@gitbutler/ui';
 	import { fade } from 'svelte/transition';
@@ -50,10 +49,6 @@
 	let gheHostInput = $state<string>();
 	let ghePatError = $state<string>();
 	let gheHostError = $state<string>();
-
-	// Add account button and context menu
-	let addAccountButtonRef = $state<HTMLElement>();
-	let addAccountContextMenu = $state<ContextMenu>();
 
 	function cleanupAuthFlow() {
 		showingFlow = undefined;
@@ -147,12 +142,12 @@
 	}
 </script>
 
-<div class="stack-v gap-16">
-	<div class="stack-v">
+<div class="stack-v gap-8">
+	<CardGroup>
 		<ReduxResult result={accounts.result}>
-			<!-- IF ERRROR -->
+			<!-- IF ERROR -->
 			{#snippet error()}
-				<SectionCard orientation="row">
+				<CardGroup.Item>
 					{#snippet title()}
 						Failed to load GitHub accounts
 					{/snippet}
@@ -161,21 +156,17 @@
 						onclick={deleteAllGitHubAccounts}
 						loading={clearingAllResult.current.isLoading}>Try again</Button
 					>
-				</SectionCard>
+				</CardGroup.Item>
 			{/snippet}
 
 			<!-- ADD ACCOUNT(S) LIST -->
 			{#snippet children(accounts)}
 				{@const noAccounts = accounts.length === 0}
-				{#each accounts as account, index}
-					<GithubUserLoginState {account} isFirst={index === 0} />
+				{#each accounts as account}
+					<GithubUserLoginState {account} />
 				{/each}
 
-				<SectionCard
-					orientation="row"
-					background={accounts.length > 0 ? 'disabled' : undefined}
-					roundedTop={accounts.length === 0}
-				>
+				<CardGroup.Item background={accounts.length > 0 ? 'var(--clr-bg-2)' : undefined}>
 					{#snippet iconSide()}
 						<div class="icon-wrapper__logo">
 							{@html githubLogoSvg}
@@ -190,16 +181,22 @@
 						Allows you to create Pull Requests
 					{/snippet}
 
-					{@render addAccountButton(noAccounts)}
-				</SectionCard>
+					{#snippet actions()}
+						{@render addProfileButton(noAccounts)}
+					{/snippet}
+				</CardGroup.Item>
 			{/snippet}
 		</ReduxResult>
-	</div>
+	</CardGroup>
 
 	<!-- AUTH FLOW -->
 	{#if showingFlow === 'oauthFlow'}
 		<div in:fade={{ duration: 100 }}>
-			<SectionCard orientation="row">
+			<CardGroup.Item standalone>
+				<div class="close-button-wrapper">
+					<Button kind="ghost" style="gray" icon="cross" onclick={cleanupAuthFlow} />
+				</div>
+
 				<div class="wrapper">
 					<div class="step-section">
 						<div class="step-line"></div>
@@ -211,7 +208,7 @@
 									{userCode}
 								</span>
 								<Button
-									style="neutral"
+									style="gray"
 									kind="outline"
 									icon="copy"
 									disabled={codeCopied}
@@ -271,13 +268,13 @@
 						</div>
 					{/if}
 				</div>
-			</SectionCard>
+			</CardGroup.Item>
 		</div>
 
 		<!-- PAT FLOW -->
 	{:else if showingFlow === 'pat'}
-		<div class="stack-v" in:fade={{ duration: 100 }}>
-			<SectionCard roundedBottom={false}>
+		<CardGroup>
+			<CardGroup.Item>
 				{#snippet title()}
 					Add Personal Access Token
 				{/snippet}
@@ -290,10 +287,10 @@
 					oninput={(value) => (patInput = value)}
 					error={patError}
 				/>
-			</SectionCard>
-			<SectionCard roundedTop={false}>
+			</CardGroup.Item>
+			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="neutral" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupPatFlow}>Cancel</Button>
 					<Button
 						style="pop"
 						disabled={!patInput}
@@ -303,11 +300,11 @@
 						Add account
 					</Button>
 				</div>
-			</SectionCard>
-		</div>
+			</CardGroup.Item>
+		</CardGroup>
 	{:else if showingFlow === 'ghe'}
-		<div in:fade={{ duration: 100 }}>
-			<SectionCard roundedBottom={false}>
+		<CardGroup>
+			<CardGroup.Item>
 				{#snippet title()}
 					Add GitHub Enterprise Account
 				{/snippet}
@@ -337,10 +334,10 @@
 					oninput={(value) => (ghePatInput = value)}
 					error={ghePatError}
 				/>
-			</SectionCard>
-			<SectionCard roundedTop={false}>
+			</CardGroup.Item>
+			<CardGroup.Item>
 				<div class="flex justify-end gap-6">
-					<Button style="neutral" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
+					<Button style="gray" kind="outline" onclick={cleanupGheFlow}>Cancel</Button>
 					<Button
 						style="pop"
 						disabled={!gheHostInput || !ghePatInput}
@@ -350,60 +347,40 @@
 						Add account
 					</Button>
 				</div>
-			</SectionCard>
-		</div>
+			</CardGroup.Item>
+		</CardGroup>
+	{/if}
+
+	{#if showingFlow}
+		<Spacer dotted margin={8} />
 	{/if}
 </div>
 
-<p class="text-12 text-body github-integration-settings__text">
-	🔒 Credentials are persisted locally in your OS Keychain / Credential Manager.
-</p>
-
-{#snippet addAccountButton(noAccounts: boolean)}
-	{@const buttonStyle = noAccounts ? 'pop' : 'neutral'}
-	{@const buttonText = noAccounts ? 'Add account' : 'Add another account'}
-	<Button
-		bind:el={addAccountButtonRef}
-		style={buttonStyle}
-		onclick={() => addAccountContextMenu?.toggle()}
+{#snippet addProfileButton(noAccounts: boolean)}
+	<AddForgeAccountButton
+		{noAccounts}
 		disabled={showingFlow !== undefined}
 		loading={storePatResult.current.isLoading || storeGhePatResult.current.isLoading}
-		icon="plus-small"
-	>
-		{buttonText}
-	</Button>
-
-	<ContextMenu bind:this={addAccountContextMenu} leftClickTrigger={addAccountButtonRef}>
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Authorize GitHub Account"
-				icon="connect-github"
-				onclick={() => {
-					gitHubStartOauth();
-					addAccountContextMenu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Add Personal Access Token"
-				icon="token-lock"
-				onclick={() => {
-					startPatFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Add GitHub Enterprise Account"
-				icon="enterprise"
-				onclick={() => {
-					startGitHubEnterpriseFlow();
-					addAccountContextMenu?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	</ContextMenu>
+		menuItems={[
+			{ label: 'Authorize GitHub Account', icon: 'connect-github', onclick: gitHubStartOauth },
+			{ label: 'Add Personal Access Token', icon: 'token-lock', onclick: startPatFlow },
+			{
+				label: 'Add GitHub Enterprise Account',
+				icon: 'enterprise',
+				onclick: startGitHubEnterpriseFlow
+			}
+		]}
+	/>
 {/snippet}
 
 <style lang="postcss">
+	.close-button-wrapper {
+		display: flex;
+		position: absolute;
+		top: 8px;
+		right: 8px;
+	}
+
 	.wrapper {
 		display: flex;
 		flex-direction: column;
@@ -444,7 +421,7 @@
 			height: 1px;
 			margin-top: 8px;
 			margin-bottom: 6px;
-			background-color: var(--clr-scale-ntrl-60);
+			background-color: var(--clr-border-1);
 			content: '';
 			opacity: 0.4;
 		}
@@ -455,7 +432,7 @@
 		position: relative;
 		width: 1px;
 		margin-top: 4px;
-		border-right: 1px dashed var(--clr-scale-ntrl-60);
+		border-right: 1px dashed var(--clr-border-1);
 
 		&::before {
 			position: absolute;
@@ -464,14 +441,12 @@
 			height: 10px;
 			transform: translateX(-50%);
 			border-radius: 100%;
-			background-color: var(--clr-scale-ntrl-60);
+			background-color: var(--clr-border-1);
 			content: '';
 		}
 	}
 
 	.step-line-default {
-		border-right: 1px dashed var(--clr-scale-ntrl-60);
-
 		&::before {
 			top: 28px;
 		}
@@ -495,9 +470,5 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
 		user-select: text;
-	}
-
-	.github-integration-settings__text {
-		color: var(--clr-text-2);
 	}
 </style>

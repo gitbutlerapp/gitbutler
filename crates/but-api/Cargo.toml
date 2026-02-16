@@ -1,14 +1,14 @@
 [package]
 name = "but-api"
 version = "0.0.0"
-edition = "2024"
-repository = "https://github.com/gitbutlerapp/gitbutler"
+edition.workspace = true
+repository.workspace = true
 license-file = "../../LICENSE.md"
 description = "A GitButler CLI tool"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+authors.workspace = true
 readme = "../../README.md"
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
@@ -16,74 +16,94 @@ doctest = false
 [features]
 default = []
 ## Provide Tauri commands automatically where possible, to avoid duplication.
-tauri = ["dep:tauri"]
+## Needs "legacy" as long as it needs `ProjectId` and is not switched to `ProjectHandle`.
+tauri = ["dep:tauri", "legacy"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
-path-bytes = ["dep:bstr"]
+path-bytes = []
 ## Make legacy functionality available.
 legacy = [
+    "but-ctx/legacy",
+    "but-workspace/legacy",
     "dep:gitbutler-user",
     "dep:gitbutler-project",
     "dep:gitbutler-branch",
     "dep:gitbutler-branch-actions",
     "dep:gitbutler-commit",
-    "dep:gitbutler-command-context",
     "dep:gitbutler-reference",
     "dep:gitbutler-stack",
     "dep:gitbutler-repo",
     "dep:gitbutler-repo-actions",
     "dep:gitbutler-edit-mode",
     "dep:gitbutler-operating-modes",
-    "dep:gitbutler-sync",
     "dep:gitbutler-oplog",
+    "dep:gitbutler-git",
+    "dep:but-action",
+    "dep:but-claude",
+    "dep:but-rules",
+    "dep:but-gerrit",
+    "dep:but-worktrees",
+    "dep:but-cherry-apply",
+    "dep:url",
 ]
 
-
 [dependencies]
-but-settings.workspace = true
-but-github = { workspace = true, features = ["legacy"] }
-but-secret.workspace = true
-but-workspace = { workspace = true, features = ["legacy"] }
-but-worktrees.workspace = true
-but-core.workspace = true
-but-gerrit.workspace = true
-but-hunk-assignment.workspace = true
-but-action.workspace = true
-but-api-macros.workspace = true
-but-rebase.workspace = true
 but-serde.workspace = true
-but-graph.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
-but-claude.workspace = true
-but-broadcaster.workspace = true
-but-cherry-apply.workspace = true
-but-hunk-dependency.workspace = true
 but-path.workspace = true
-but-forge-storage.workspace = true
-but-feedback.workspace = true
-but-error.workspace = true
-but-rules.workspace = true
+but-api-macros.workspace = true
 but-oxidize.workspace = true
+but-error.workspace = true
+but-core.workspace = true
+but-graph.workspace = true
+but-ctx.workspace = true
+but-workspace.workspace = true
+but-settings.workspace = true
+but-secret.workspace = true
+but-rebase.workspace = true
+but-db.workspace = true
 but-forge.workspace = true
+but-forge-storage.workspace = true
+but-hunk-assignment.workspace = true
+but-hunk-dependency.workspace = true
+but-github.workspace = true
+but-gitlab.workspace = true
 
-gitbutler-user = {workspace = true, optional = true}
-gitbutler-project = {workspace = true, optional = true}
-gitbutler-branch = {workspace = true, optional = true}
-gitbutler-branch-actions = {workspace = true, optional = true}
-gitbutler-commit = {workspace = true, optional = true}
-gitbutler-command-context = {workspace = true, optional = true}
-gitbutler-reference = {workspace = true, optional = true}
-gitbutler-stack = {workspace = true, optional = true}
-gitbutler-repo = {workspace = true, optional = true}
-gitbutler-repo-actions = {workspace = true, optional = true}
-gitbutler-edit-mode = {workspace = true, optional = true}
-gitbutler-operating-modes = {workspace = true, optional = true}
-gitbutler-sync = {workspace = true, optional = true}
-gitbutler-oplog = {workspace = true, optional = true}
+# 'legacy' is needed while we only have `virtual-branches.toml`
+but-meta = { workspace = true, features = ["legacy"] }
+# 'legacy' is needed while this is only a sketch of what the oplog could be.
+# For single-branch testing, we also want the oplog and just take it as it is.
+but-oplog = { workspace = true, features = ["legacy"] }
+itertools.workspace = true
 
-tauri = { version = "^2.9.2", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
+# What follows is *basically* newly written crates that are built on top of legacy,
+# so need some refactoring/rethinking to become usable.
+but-cherry-apply = { workspace = true, optional = true }
+but-action = { workspace = true, optional = true }
+but-claude = { workspace = true, optional = true }
+but-rules = { workspace = true, optional = true }
+but-gerrit = { workspace = true, optional = true }
+but-worktrees = { workspace = true, optional = true }
 
-bstr = { workspace = true, optional = true }
+gitbutler-user = { workspace = true, optional = true }
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-branch = { workspace = true, optional = true }
+gitbutler-branch-actions = { workspace = true, optional = true }
+gitbutler-commit = { workspace = true, optional = true }
+gitbutler-reference = { workspace = true, optional = true }
+gitbutler-stack = { workspace = true, optional = true }
+gitbutler-repo = { workspace = true, optional = true }
+gitbutler-repo-actions = { workspace = true, optional = true }
+gitbutler-edit-mode = { workspace = true, optional = true }
+gitbutler-operating-modes = { workspace = true, optional = true }
+gitbutler-oplog = { workspace = true, optional = true }
+gitbutler-git = { workspace = true, optional = true }
+
+tauri = { version = "^2.9.5", features = [
+    "unstable",
+], optional = true } # For the #[tauri::command(async)] macro only
+
+boolean-enums = { version = "0.4.1", features = ["serde"] }
+bstr = { workspace = true }
 schemars.workspace = true
 serde.workspace = true
 tokio = { workspace = true, features = ["full"] }
@@ -91,8 +111,11 @@ anyhow.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
 serde-error = "0.1.3"
-gix = { workspace = true, features = ["worktree-mutation" ] }
+gix = { workspace = true, features = ["worktree-mutation"] }
 git2.workspace = true
 open.workspace = true
-url = "2.5"
+url = { version = "2.5", optional = true }
 uuid.workspace = true
+
+[dev-dependencies]
+insta.workspace = true

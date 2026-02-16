@@ -127,11 +127,11 @@ class ListeningSubscription<Arguments> implements Subscription<Arguments> {
  * given service. There will only ever be one interest for each set of `args`
  * provided. This allows us to avoid making duplicate or supuflous requests.
  *
- * If it's constructed with a `frequency` the start notifer will get called first
+ * If it's constructed with a `frequency` the start notifier will get called first
  * when the subscription is first registered, and then many subsequent times,
  * until it is no longer registered.
  *
- * If it's constructed without a `frequency`, the start notifer will only get
+ * If it's constructed without a `frequency`, the start notifier will only get
  * called once before it's stop notifier is called.
  */
 export class InterestStore<Arguments> {

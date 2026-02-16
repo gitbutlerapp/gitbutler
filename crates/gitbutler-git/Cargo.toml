@@ -1,9 +1,9 @@
 [package]
 name = "gitbutler-git"
 version = "0.0.0"
-edition = "2024"
+edition.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 path = "src/lib.rs"
@@ -23,10 +23,10 @@ test = false
 default = ["serde", "tokio"]
 serde = ["dep:serde"]
 tokio = ["dep:tokio"]
-## a flag that is needed for integration tests that run this code to work.
-test-askpass-path = []
 ## a flag to indicate benchmarks are run
 benches = []
+## a flag to turn on the askpass machinery for Git commands (should be enabled for GUI, disabled for CLI)
+askpass = []
 
 [dependencies]
 tracing.workspace = true
@@ -40,7 +40,6 @@ tokio = { workspace = true, optional = true, features = [
     "net",
     "fs",
 ] }
-uuid = { workspace = true, features = ["fast-rng"] }
 rand.workspace = true
 futures.workspace = true
 sysinfo = { workspace = true, features = ["system"] }

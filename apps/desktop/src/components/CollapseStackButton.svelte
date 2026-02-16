@@ -7,9 +7,10 @@
 		projectId: string;
 		disabled?: boolean;
 		isFolded?: boolean;
+		onToggle?: (toggleFn: () => void) => void;
 	}
 
-	const { stackId, projectId, disabled, isFolded }: Props = $props();
+	const { stackId, projectId, disabled, isFolded, onToggle }: Props = $props();
 
 	// Persisted folded stacks state per project (without expiration)
 	const foldedStacks = persisted<string[]>([], `folded-stacks-${projectId}`);
@@ -28,9 +29,16 @@
 			}
 		}
 	}
+
+	// Call onToggle callback with toggleFold function if provided
+	$effect(() => {
+		if (onToggle) {
+			onToggle(toggleFold);
+		}
+	});
 </script>
 
-<Tooltip text={isFolded ? 'Expand stack' : 'Collapse stack'} delay={800}>
+<Tooltip text={isFolded ? 'Expand stack' : 'Collapse stack'}>
 	<button
 		class="collapse-button"
 		class:isFolded

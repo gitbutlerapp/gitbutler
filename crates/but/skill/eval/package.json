@@ -1,0 +1,36 @@
+{
+  "name": "but-skill-tier4-eval",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tier 4 integration evaluation harness for the GitButler but CLI skill",
+  "packageManager": "pnpm@10.20.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "eval": "pnpm run build && cargo build -p but --manifest-path ../../../../Cargo.toml && promptfoo eval -c promptfooconfig.yaml",
+    "eval:repeat": "pnpm run build && cargo build -p but --manifest-path ../../../../Cargo.toml && promptfoo eval -c promptfooconfig.yaml --repeat 3",
+    "eval:codex": "pnpm run build && cargo build -p but --manifest-path ../../../../Cargo.toml && BUT_EVAL_AGENT=codex BUT_EVAL_RUNNER=providers/codex-local.sh BUT_EVAL_RUNNER_BIN=codex BUT_EVAL_MODEL=${BUT_EVAL_MODEL:-gpt-5-codex} promptfoo eval -c promptfooconfig.yaml",
+    "eval:codex:repeat": "pnpm run build && cargo build -p but --manifest-path ../../../../Cargo.toml && BUT_EVAL_AGENT=codex BUT_EVAL_RUNNER=providers/codex-local.sh BUT_EVAL_RUNNER_BIN=codex BUT_EVAL_MODEL=${BUT_EVAL_MODEL:-gpt-5-codex} promptfoo eval -c promptfooconfig.yaml --repeat 3",
+    "view": "promptfoo view"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.1.27",
+    "promptfoo": "^0.120.23"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@playwright/browser-chromium",
+      "@swc/core",
+      "better-sqlite3",
+      "esbuild",
+      "onnxruntime-node",
+      "promptfoo",
+      "protobufjs",
+      "sharp"
+    ]
+  }
+}

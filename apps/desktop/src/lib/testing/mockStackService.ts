@@ -16,33 +16,34 @@ const MOCK_COMMIT_A: Commit = {
 	message: 'Initial commit message',
 	hasConflicts: false,
 	state: { type: 'LocalOnly' },
-	createdAt: 1672531200000, // Example timestamp
+	createdAt: BigInt(1672531200000), // Example timestamp
 	author: MOCK_AUTHOR_A,
-	gerritReviewUrl: undefined
+	gerritReviewUrl: null
 };
 
 const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {
 	id: 'upstream-commit-a-id',
 	message: 'Upstream commit message',
-	createdAt: 1672531200000, // Example timestamp
+	createdAt: BigInt(1672531200000), // Example timestamp
 	author: MOCK_AUTHOR_A
 };
 
 const BRANCH_DETAILS_A: BranchDetails = {
 	name: 'branch-a',
+	reference: 'refs/heads/branch-a',
 	pushStatus: 'nothingToPush',
-	lastUpdatedAt: 1672531200000, // Example timestamp
 	authors: [MOCK_AUTHOR_A],
 	isConflicted: false,
 	commits: [MOCK_COMMIT_A],
 	upstreamCommits: [MOCK_UPSTREAM_COMMIT_A],
 	remoteTrackingBranch: null,
-	description: null,
 	prNumber: null,
 	reviewId: null,
 	tip: 'tip-commit-a',
 	baseCommit: 'base-commit-a',
-	isRemoteHead: false
+	isRemoteHead: false,
+	linkedWorktreeId: null,
+	lastUpdatedAt: BigInt(1672531200000)
 };
 
 export function getStackServiceMock() {
@@ -96,7 +97,10 @@ export function getStackServiceMock() {
 	];
 	StackServiceMock.prototype.newBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.uncommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
-	StackServiceMock.prototype.insertBlankCommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
+	StackServiceMock.prototype.insertBlankCommit = {
+		useMutation: vi.fn(() => [vi.fn(), reactive(() => mockReduxFulfilled({}))]),
+		mutate: vi.fn()
+	};
 	StackServiceMock.prototype.unapply = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.publishBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.amendCommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];

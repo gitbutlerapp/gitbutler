@@ -8,7 +8,7 @@
 		component: Badge as any,
 		args: {
 			text: 'Badge',
-			style: 'neutral',
+			style: 'gray',
 			kind: 'solid',
 			size: 'icon',
 			icon: undefined
@@ -18,7 +18,7 @@
 				control: { type: 'text' }
 			},
 			style: {
-				options: ['neutral', 'pop', 'success', 'warning', 'error', 'purple'],
+				options: ['gray', 'pop', 'safe', 'warning', 'danger', 'purple'],
 				control: { type: 'select' }
 			},
 			kind: {
@@ -32,6 +32,12 @@
 			icon: {
 				options: Object.keys(iconsJson),
 				control: { type: 'select' }
+			},
+			reversedDirection: {
+				control: { type: 'boolean' }
+			},
+			skeleton: {
+				control: { type: 'boolean' }
 			}
 		}
 	});
@@ -39,7 +45,14 @@
 
 <Story name="default">
 	{#snippet template(args)}
-		<Badge style={args.style} kind={args.kind} icon={args.icon} size={args.size}>
+		<Badge
+			style={args.style}
+			kind={args.kind}
+			icon={args.icon}
+			size={args.size}
+			reversedDirection={args.reversedDirection}
+			skeleton={args.skeleton}
+		>
 			{args.text}
 		</Badge>
 	{/snippet}

@@ -9,16 +9,7 @@
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { inject } from '@gitbutler/core/context';
-	import {
-		Button,
-		Select,
-		SelectItem,
-		TestId,
-		Link,
-		Icon,
-		SectionCard,
-		Toggle
-	} from '@gitbutler/ui';
+	import { Button, CardGroup, Icon, Link, Select, SelectItem, TestId, Toggle } from '@gitbutler/ui';
 	import { slide } from 'svelte/transition';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
 
@@ -140,7 +131,7 @@
 			{/snippet}
 			{#snippet children([isGerrit])}
 				{#if isGerrit}
-					<SectionCard labelFor="gerritToggle" orientation="row">
+					<CardGroup.Item standalone labelFor="gerritToggle">
 						{#snippet iconSide()}
 							{@html gerritLogoSvg}
 						{/snippet}
@@ -163,7 +154,7 @@
 								}}
 							/>
 						{/snippet}
-					</SectionCard>
+					</CardGroup.Item>
 				{/if}
 			{/snippet}
 		</ReduxResult>
@@ -201,7 +192,8 @@
 				</svg>
 
 				<h3 class="text-13 text-body text-semibold">
-					GitButler switches your repo to gitbutler/workspace
+					GitButler switches your active branch to <span class="text-bold">gitbutler/workspace</span
+					>
 				</h3>
 			</div>
 
@@ -271,7 +263,7 @@
 		padding: 14px 16px;
 		gap: 8px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 		cursor: pointer;
 
 		&:hover {

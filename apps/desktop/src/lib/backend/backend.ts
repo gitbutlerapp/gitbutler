@@ -2,6 +2,7 @@ import type { Readable } from 'svelte/store';
 
 export type DeepLinkHandlers = {
 	open: (path: string) => void;
+	login: (accesToken: string) => void;
 };
 export interface IBackend {
 	/**

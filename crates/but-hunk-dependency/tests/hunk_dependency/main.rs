@@ -19,11 +19,8 @@ fn intersect_workspace_ranges(
         };
         let mut intersections = Vec::new();
         for hunk in hunks {
-            if let Some(hunk_ranges) =
-                ranges.intersection(&change.path, hunk.old_start, hunk.old_lines)
-            {
-                let hunk_ranges: Vec<_> =
-                    hunk_ranges.into_iter().copied().map(Into::into).collect();
+            if let Some(hunk_ranges) = ranges.intersection(&change.path, hunk.old_start, hunk.old_lines) {
+                let hunk_ranges: Vec<_> = hunk_ranges.into_iter().cloned().map(Into::into).collect();
                 intersections.push(HunkIntersection {
                     hunk,
                     commit_intersections: hunk_ranges,
@@ -44,12 +41,7 @@ fn intersect_workspace_ranges(
             .ranges_by_path_map()
             .iter()
             .sorted_by(|a, b| a.0.cmp(b.0))
-            .map(|(path, ranges)| {
-                (
-                    path.to_owned(),
-                    ranges.iter().map(|hr| (*hr).into()).collect(),
-                )
-            })
+            .map(|(path, ranges)| (path.to_owned(), ranges.iter().map(|hr| hr.clone().into()).collect()))
             .collect(),
     })
 }
@@ -111,7 +103,7 @@ mod types {
         fn from(
             HunkRange {
                 change_type,
-                stack_id: _,
+                target: _,
                 commit_id,
                 start,
                 lines,

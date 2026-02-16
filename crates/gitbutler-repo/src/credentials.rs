@@ -1,7 +1,6 @@
 use std::{path::PathBuf, str::FromStr, vec};
 
-use anyhow::Context;
-use gitbutler_command_context::CommandContext;
+use anyhow::Context as _;
 use gitbutler_project::AuthKey;
 use gitbutler_url::{ConvertError, Scheme, Url};
 
@@ -31,18 +30,11 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
         let mut remote_callbacks = git2::RemoteCallbacks::new();
         match value {
             Credential::Noop => {}
-            Credential::Ssh(SshCredential::Keyfile {
-                key_path,
-                passphrase,
-            }) => {
+            Credential::Ssh(SshCredential::Keyfile { key_path, passphrase }) => {
                 remote_callbacks.credentials(move |url, username_from_url, _allowed_types| {
                     use resolve_path::PathResolveExt;
                     let key_path = key_path.resolve();
-                    tracing::info!(
-                        "authenticating with {} using key {}",
-                        url,
-                        key_path.display()
-                    );
+                    tracing::info!("authenticating with {} using key {}", url, key_path.display());
                     git2::Cred::ssh_key(
                         username_from_url.unwrap_or("git"),
                         None,
@@ -81,25 +73,25 @@ pub enum HelpError {
 }
 
 pub fn help<'a>(
-    ctx: &'a CommandContext,
+    repo: &'a git2::Repository,
+    project: &gitbutler_project::Project,
     remote_name: &str,
 ) -> Result<Vec<(git2::Remote<'a>, Vec<Credential>)>, HelpError> {
-    let remote = ctx.repo().find_remote(remote_name)?;
-    let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
-        .context("failed to parse remote url")?;
+    let remote = repo.find_remote(remote_name)?;
+    let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?).context("failed to parse remote url")?;
 
     // if file, no auth needed.
     if remote_url.scheme == Scheme::File {
         return Ok(vec![(remote, vec![Credential::Noop])]);
     }
 
-    match &ctx.project().preferred_key {
+    match &project.preferred_key {
         AuthKey::Local { private_key_path } => {
             let ssh_remote = if remote_url.scheme == Scheme::Ssh {
                 Ok(remote)
             } else {
                 let ssh_url = remote_url.as_ssh()?;
-                ctx.repo().remote_anonymous(&ssh_url.to_string())
+                repo.remote_anonymous(&ssh_url.to_string())
             }?;
 
             Ok(vec![(
@@ -115,28 +107,26 @@ pub fn help<'a>(
                 Ok(remote)
             } else {
                 let url = remote_url.as_https()?;
-                ctx.repo().remote_anonymous(&url.to_string())
+                repo.remote_anonymous(&url.to_string())
             }?;
-            let flow = https_flow(ctx, &remote_url)?
+            let flow = https_flow(repo, &remote_url)?
                 .into_iter()
                 .map(Credential::Https)
                 .collect::<Vec<_>>();
             Ok(vec![(https_remote, flow)])
         }
         AuthKey::SystemExecutable => {
-            tracing::error!(
-                "WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong."
-            );
+            tracing::error!("WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong.");
             Ok(vec![])
         }
     }
 }
 
-fn https_flow(ctx: &CommandContext, remote_url: &Url) -> Result<Vec<HttpsCredential>, HelpError> {
+fn https_flow(repo: &git2::Repository, remote_url: &Url) -> Result<Vec<HttpsCredential>, HelpError> {
     let mut flow = vec![];
 
     let mut helper = git2::CredentialHelper::new(&remote_url.to_string());
-    let config = ctx.repo().config()?;
+    let config = repo.config()?;
     helper.config(&config);
     if let Some((username, password)) = helper.execute() {
         flow.push(HttpsCredential::CredentialHelper { username, password });

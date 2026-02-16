@@ -65,7 +65,7 @@
 
 	.indicator {
 		--label-clr: var(--clr-text-1);
-		--btn-border-clr: var(--clr-btn-ntrl-outline);
+		--btn-border-clr: var(--clr-btn-gray-outline);
 		--btn-border-opacity: var(--opacity-btn-outline);
 
 		display: flex;

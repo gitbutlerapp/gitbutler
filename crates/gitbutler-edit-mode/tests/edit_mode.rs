@@ -1,11 +1,11 @@
 use anyhow::Result;
+use but_ctx::Context;
 use git2::build::CheckoutBuilder;
-use gitbutler_command_context::CommandContext;
 use gitbutler_edit_mode::commands::{enter_edit_mode, save_and_return_to_workspace};
 use gitbutler_stack::VirtualBranchesHandle;
 use tempfile::TempDir;
 
-fn command_ctx(folder: &str) -> Result<(CommandContext, TempDir)> {
+fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
     gitbutler_testsupport::writable::fixture("edit_mode.sh", folder)
 }
 
@@ -20,34 +20,25 @@ fn command_ctx(folder: &str) -> Result<(CommandContext, TempDir)> {
 // Where "left" and "right" contain changes which conflict with each other
 #[test]
 fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
-    let (ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
-    let repository = ctx.repo();
+    let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
+    let repo = ctx.git2_repo.get()?;
 
-    let foobar = repository.head()?.peel_to_commit()?.parent(0)?;
+    let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = vb_state.list_stacks_in_workspace()?;
     let stack = stacks.first().unwrap();
-    enter_edit_mode(&ctx, foobar.id(), stack.id)?;
+    drop(repo);
+    enter_edit_mode(&mut ctx, foobar, stack.id)?;
 
-    let init = repository
-        .find_reference("refs/heads/main")?
-        .peel_to_commit()?;
-    let left = repository
-        .find_reference("refs/heads/left")?
-        .peel_to_commit()?;
-    let right = repository
-        .find_reference("refs/heads/right")?
-        .peel_to_commit()?;
+    let repo = ctx.git2_repo.get()?;
+    let init = repo.find_reference("refs/heads/main")?.peel_to_commit()?;
+    let left = repo.find_reference("refs/heads/left")?.peel_to_commit()?;
+    let right = repo.find_reference("refs/heads/right")?.peel_to_commit()?;
 
-    let mut merge = repository.merge_trees(
-        &init.tree()?,
-        &left.tree()?,
-        &right.tree()?,
-        Default::default(),
-    )?;
+    let mut merge = repo.merge_trees(&init.tree()?, &left.tree()?, &right.tree()?, Default::default())?;
 
-    repository.checkout_index(
+    repo.checkout_index(
         Some(&mut merge),
         Some(
             CheckoutBuilder::new()
@@ -57,10 +48,13 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
         ),
     )?;
 
-    save_and_return_to_workspace(&ctx)?;
+    drop((init, left, right));
+    drop(repo);
+    save_and_return_to_workspace(&mut ctx)?;
 
+    let repo = ctx.git2_repo.get()?;
     assert_eq!(
-        std::fs::read_to_string(repository.path().parent().unwrap().join("conflict"))?,
+        std::fs::read_to_string(repo.path().parent().unwrap().join("conflict"))?,
         "<<<<<<< ours\nleft\n|||||||\n=======\nright\n>>>>>>> theirs\n".to_string()
     );
 

@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, fmt::Display};
 
+use but_ctx::Context;
 use but_tools::{
     emit::Emittable,
     tool::{Tool, Toolset},
 };
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use gix::ObjectId;
 use schemars::{JsonSchema, schema_for};
@@ -33,7 +33,7 @@ Ideally, before todos that perform actions, you should add todos with clear plan
 You can generally perform the normal Git operations, such as creating branches and committing to them.
 You can also perform more advanced operations, such as:
 - `absorb`: Take a set of file changes and amend them into the existing commits in the project.
-    This requires you to figure out where the changes should go based on the locks, assingments and any other user provided information.
+    This requires you to figure out where the changes should go based on the locks, assignments and any other user provided information.
 - `split a commit`: Take an existing commit and split it into multiple commits based on the the user directive.
     This can be achieved by using the `split_commit` tool.
 - `split a branch`: Take an existing branch and split it into two branches. This basically takes a set of committed file changes and moves them to a new branch, removing them from the original branch.
@@ -138,11 +138,7 @@ pub struct AgentState {
 }
 
 impl AgentState {
-    pub fn new(
-        project_id: ProjectId,
-        message_id: String,
-        emitter: std::sync::Arc<but_tools::emit::Emitter>,
-    ) -> Self {
+    pub fn new(project_id: ProjectId, message_id: String, emitter: std::sync::Arc<but_tools::emit::Emitter>) -> Self {
         let mut state = AgentState {
             todos: Vec::new(),
             sys_prompt: SYS_PROMPT.to_string(),
@@ -159,8 +155,7 @@ impl AgentState {
     }
 
     fn emit(&self) {
-        let todos: Vec<but_tools::emit::TodoState> =
-            self.todos.iter().map(|todo| todo.clone().into()).collect();
+        let todos: Vec<but_tools::emit::TodoState> = self.todos.iter().map(|todo| todo.clone().into()).collect();
         let todo_update = but_tools::emit::TodoUpdate {
             project_id: self.project_id,
             message_id: self.message_id.clone(),
@@ -209,13 +204,9 @@ impl AgentState {
         next_todo
     }
 
-    fn call_tool_inner(
-        &mut self,
-        name: &str,
-        parameters: &str,
-    ) -> anyhow::Result<serde_json::Value> {
-        let params: serde_json::Value = serde_json::from_str(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
+    fn call_tool_inner(&mut self, name: &str, parameters: &str) -> anyhow::Result<serde_json::Value> {
+        let params: serde_json::Value =
+            serde_json::from_str(parameters).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
         let state_tool = AgentStateTool::try_from((name, params))?;
 
         match state_tool {
@@ -227,8 +218,8 @@ impl AgentState {
                 Ok(json!({"status": "success", "message": "Todos added successfully"}))
             }
             AgentStateTool::UpdateTodoStatus(params) => {
-                let uuid = uuid::Uuid::parse_str(&params.id)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse UUID: {}", e))?;
+                let uuid =
+                    uuid::Uuid::parse_str(&params.id).map_err(|e| anyhow::anyhow!("Failed to parse UUID: {}", e))?;
                 self.update_todo_status(uuid, params.status)
                     .map_err(|e| anyhow::anyhow!("Failed to update todo status: {}", e))?;
 
@@ -308,7 +299,7 @@ pub struct TodoDescription {
     <important_notes>
         This should provide more context about the todo item.
         Mention any specific requirements and relevant resources (branch names, commit ids, files etc.).
-        It should have a clear defintion of done.
+        It should have a clear definition of done.
         Keep the description to under 1000 characters.
     </important_notes>
     ")]
@@ -347,13 +338,10 @@ impl Tool for AddTodos {
     fn call(
         self: std::sync::Arc<Self>,
         _: serde_json::Value,
-        _: &mut CommandContext,
-        _: std::sync::Arc<but_tools::emit::Emitter>,
+        _: &mut Context,
         _: &mut std::collections::HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        Err(anyhow::anyhow!(
-            "The tool AddTodos doesn't support contextual calls."
-        ))
+        Err(anyhow::anyhow!("The tool AddTodos doesn't support contextual calls."))
     }
 }
 
@@ -388,8 +376,7 @@ impl Tool for UpdateTodoStatus {
     fn call(
         self: std::sync::Arc<Self>,
         _: serde_json::Value,
-        _: &mut CommandContext,
-        _: std::sync::Arc<but_tools::emit::Emitter>,
+        _: &mut Context,
         _: &mut std::collections::HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         Err(anyhow::anyhow!(

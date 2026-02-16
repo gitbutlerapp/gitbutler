@@ -3,6 +3,7 @@
 use anyhow::bail;
 use but_core::{
     DiffSpec, RepositoryExt,
+    commit::Headers,
     ref_metadata::StackId,
     tree::{CreateTreeOutcome, create_tree, create_tree::RejectionReason},
 };
@@ -92,7 +93,7 @@ pub struct CreateCommitOutcome {
 /// Alter the single `destination` in a given `frame` with as many `changes` as possible and write new objects into `repo`,
 /// but only if the commit succeeds.
 ///
-/// `context_lines` is the amount of lines of context included in each [`HunkHeader`], and the value that will be used to recover the existing hunks,
+/// `context_lines` is the amount of lines of context included in each [`HunkHeader`](but_core::HunkHeader), and the value that will be used to recover the existing hunks,
 /// so that the hunks can be matched.
 ///
 /// Return additional information that helps to understand to what extent the commit was created, as the commit might not contain all the [`DiffSpecs`](DiffSpec)
@@ -126,8 +127,7 @@ pub fn create_commit(
 ) -> anyhow::Result<CreateCommitOutcome> {
     let parents = match &destination {
         Destination::NewCommit {
-            parent_commit_id: None,
-            ..
+            parent_commit_id: None, ..
         } => Vec::new(),
         Destination::NewCommit {
             parent_commit_id: Some(parent),
@@ -148,16 +148,14 @@ pub fn create_commit(
 
     let target_tree = match &destination {
         Destination::NewCommit {
-            parent_commit_id: None,
-            ..
+            parent_commit_id: None, ..
         } => gix::ObjectId::empty_tree(repo.object_hash()),
         Destination::NewCommit {
             parent_commit_id: Some(base_commit),
             ..
         }
         | Destination::AmendCommit {
-            commit_id: base_commit,
-            ..
+            commit_id: base_commit, ..
         } => but_core::Commit::from_id(base_commit.attach(repo))?
             .tree_id_or_auto_resolution()?
             .detach(),
@@ -176,15 +174,11 @@ pub fn create_commit(
                 stack_segment: _,
             } => {
                 let (author, committer) = repo.commit_signatures()?;
-                let new_commit = create_possibly_signed_commit(
-                    repo, author, committer, &message, new_tree, parents, None,
-                )?;
+                let new_commit =
+                    create_possibly_signed_commit(repo, author, committer, &message, new_tree, parents, None)?;
                 Some(new_commit)
             }
-            Destination::AmendCommit {
-                commit_id,
-                new_message,
-            } => {
+            Destination::AmendCommit { commit_id, new_message } => {
                 let mut commit = but_core::Commit::from_id(commit_id.attach(repo))?;
                 commit.tree = new_tree;
                 if let Some(message) = new_message {
@@ -193,7 +187,8 @@ pub fn create_commit(
                 Some(but_rebase::commit::create(
                     repo,
                     commit.inner,
-                    DateMode::CommitterUpdateAuthorUpdate,
+                    DateMode::CommitterUpdateAuthorKeep,
+                    true,
                 )?)
             }
         }
@@ -218,7 +213,7 @@ fn create_possibly_signed_commit(
     message: &str,
     tree: gix::ObjectId,
     parents: impl IntoIterator<Item = impl Into<gix::ObjectId>>,
-    commit_headers: Option<but_core::commit::HeadersV2>,
+    commit_headers: Option<but_core::commit::Headers>,
 ) -> anyhow::Result<gix::ObjectId> {
     let commit = gix::objs::Commit {
         message: message.into(),
@@ -227,7 +222,7 @@ fn create_possibly_signed_commit(
         committer,
         encoding: None,
         parents: parents.into_iter().map(Into::into).collect(),
-        extra_headers: (&commit_headers.unwrap_or_default()).into(),
+        extra_headers: (&commit_headers.unwrap_or_else(|| Headers::from_config(&repo.config_snapshot()))).into(),
     };
-    but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep)
+    but_rebase::commit::create(repo, commit, DateMode::CommitterKeepAuthorKeep, true)
 }

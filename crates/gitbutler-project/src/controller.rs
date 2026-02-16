@@ -1,6 +1,6 @@
 use std::path::{Component, Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context as _, Result, anyhow, bail};
 use but_error::Code;
 
 use super::{Project, ProjectId, storage, storage::UpdateRequest};
@@ -14,10 +14,7 @@ pub(crate) struct Controller {
 
 impl Controller {
     /// Assure we can list projects, and if not possibly existing projects files will be renamed, and an error is produced early.
-    pub(crate) fn assure_app_can_startup_or_fix_it(
-        &self,
-        projects: Result<Vec<Project>>,
-    ) -> Result<Vec<Project>> {
+    pub(crate) fn assure_app_can_startup_or_fix_it(&self, projects: Result<Vec<Project>>) -> Result<Vec<Project>> {
         match projects {
             Ok(works) => Ok(works),
             Err(probably_file_load_err) => {
@@ -60,10 +57,7 @@ impl Controller {
         }
     }
 
-    pub(crate) fn add_with_best_effort<P: AsRef<Path>>(
-        &self,
-        worktree_dir: P,
-    ) -> Result<AddProjectOutcome> {
+    pub(crate) fn add_with_best_effort<P: AsRef<Path>>(&self, worktree_dir: P) -> Result<AddProjectOutcome> {
         let worktree_dir = worktree_dir.as_ref();
 
         let all_projects = self
@@ -71,14 +65,13 @@ impl Controller {
             .list()
             .context("failed to list projects from storage")?;
 
+        let resolved_path = gix::path::realpath(worktree_dir)?;
         // Check if any existing project contains the given path
         if let Some(existing_project) = all_projects
             .iter()
-            .find(|project| worktree_dir.starts_with(project.worktree_dir_but_should_use_git_dir()))
+            .find(|project| resolved_path.starts_with(project.worktree_dir_but_should_use_git_dir()))
         {
-            return Ok(AddProjectOutcome::AlreadyExists(
-                existing_project.to_owned(),
-            ));
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project.clone().migrated()?));
         }
 
         self.add(worktree_dir)
@@ -86,25 +79,23 @@ impl Controller {
 
     pub(crate) fn add(&self, worktree_dir: impl AsRef<Path>) -> Result<AddProjectOutcome> {
         let worktree_dir = worktree_dir.as_ref();
+        let resolved_path = gix::path::realpath(worktree_dir)?;
         let all_projects = self
             .projects_storage
             .list()
             .context("failed to list projects from storage")?;
         if let Some(existing_project) = all_projects
             .iter()
-            .find(|project| project.worktree_dir_but_should_use_git_dir() == worktree_dir)
+            .find(|project| project.worktree_dir_but_should_use_git_dir() == resolved_path)
         {
-            return Ok(AddProjectOutcome::AlreadyExists(
-                existing_project.to_owned(),
-            ));
+            return Ok(AddProjectOutcome::AlreadyExists(existing_project.clone().migrated()?));
         }
-        if !worktree_dir.exists() {
+        if !resolved_path.exists() {
             return Ok(AddProjectOutcome::PathNotFound);
         }
-        if !worktree_dir.is_dir() {
+        if !resolved_path.is_dir() {
             return Ok(AddProjectOutcome::NotADirectory);
         }
-        let resolved_path = gix::path::realpath(worktree_dir)?;
         // Make sure the repo is opened from the resolved path - it must be absolute for persistence.
         let repo = match gix::open_opts(&resolved_path, gix::open::Options::isolated()) {
             Ok(repo) if repo.is_bare() => {
@@ -145,10 +136,9 @@ impl Controller {
             worktree_dir
         };
 
-        let title = path_for_title.file_name().map_or_else(
-            || id.to_string(),
-            |name| name.to_string_lossy().into_owned(),
-        );
+        let title = path_for_title
+            .file_name()
+            .map_or_else(|| id.to_string(), |name| name.to_string_lossy().into_owned());
 
         let project = Project {
             title,
@@ -174,25 +164,16 @@ impl Controller {
     #[cfg_attr(not(windows), allow(unused_mut))]
     pub(crate) fn update(&self, mut project: UpdateRequest) -> Result<Project> {
         #[cfg(not(windows))]
-        if let Some(AuthKey::Local {
-            private_key_path, ..
-        }) = &project.preferred_key
-        {
+        if let Some(AuthKey::Local { private_key_path, .. }) = &project.preferred_key {
             use resolve_path::PathResolveExt;
             let private_key_path = private_key_path.resolve();
 
             if !private_key_path.exists() {
-                bail!(
-                    "private key at \"{}\" not found",
-                    private_key_path.display()
-                );
+                bail!("private key at \"{}\" not found", private_key_path.display());
             }
 
             if !private_key_path.is_file() {
-                bail!(
-                    "private key at \"{}\" is not a file",
-                    private_key_path.display()
-                );
+                bail!("private key at \"{}\" is not a file", private_key_path.display());
             }
         }
 
@@ -228,7 +209,7 @@ impl Controller {
         // BACKWARD-COMPATIBLE MIGRATION
         project.migrate()?;
         if validate {
-            let repo = project.open_isolated();
+            let repo = project.open_isolated_repo();
             if repo.is_err() {
                 let suffix = if !project.worktree_dir.exists() {
                     " as it does not exist"
@@ -289,7 +270,7 @@ impl Controller {
 
         // Delete references in the gitbutler namespace
         if let Err(err) = project
-            .open_isolated()
+            .open_isolated_repo()
             .and_then(|repo| delete_gitbutler_references(&repo))
         {
             tracing::error!(project_id = %project.id, ?err, "failed to delete gitbutler references");

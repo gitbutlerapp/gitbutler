@@ -57,8 +57,8 @@
 		const checks = checksQuery?.response;
 		if (!checksService && isFork) {
 			return {
-				style: 'neutral',
-				icon: 'info',
+				style: 'gray',
+				icon: undefined,
 				text: 'No PR checks',
 				reducedText: 'No checks',
 				tooltip: 'Checks for forked repos only available on the web.'
@@ -67,7 +67,7 @@
 
 		if (checksQuery?.result.error) {
 			return {
-				style: 'error',
+				style: 'danger',
 				icon: 'warning-small',
 				text: 'Failed to load',
 				reducedText: 'Failed'
@@ -75,7 +75,7 @@
 		}
 
 		if (checks) {
-			const style = checks.completed ? (checks.success ? 'success' : 'error') : 'warning';
+			const style = checks.completed ? (checks.success ? 'safe' : 'danger') : 'warning';
 			const icon =
 				checks.completed && !loading
 					? checks.success
@@ -97,10 +97,10 @@
 			return { style, icon, text, reducedText, tooltip };
 		}
 		if (loading) {
-			return { style: 'neutral', icon: 'spinner', text: 'Checks', reducedText: 'Checks' };
+			return { style: 'gray', icon: 'spinner', text: 'Checks', reducedText: 'Checks' };
 		}
 
-		return { style: 'neutral', icon: undefined, text: 'No PR checks', reducedText: 'No checks' };
+		return { style: 'gray', icon: undefined, text: 'No PR checks', reducedText: 'No checks' };
 	});
 
 	// Track previous state to detect transitions.

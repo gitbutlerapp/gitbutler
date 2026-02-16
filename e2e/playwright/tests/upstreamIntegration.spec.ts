@@ -1,3 +1,4 @@
+import { createNewBranch } from '../src/branch.ts';
 import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
 import { clickByTestId, getByTestId, waitForTestId, waitForTestIdToNotExist } from '../src/util.ts';
 import { expect, test } from '@playwright/test';
@@ -113,7 +114,7 @@ test('should handle the update of workspace with integrated parent branch in sta
 	// Update the workspace
 	await clickByTestId(page, 'integrate-upstream-commits-button');
 
-	// The staus of the branch1 should be "Integrated"
+	// The status of the branch1 should be "Integrated"
 	const branch1Status = page.locator('[data-integration-row-branch-name="branch1"]').first();
 	await branch1Status.waitFor();
 	const statusBadge = branch1Status.getByTestId('integrate-upstream-series-row-status-badge');
@@ -185,12 +186,7 @@ test('should handle the update of an empty branch gracefully', async ({
 	await expect(stacks).toHaveCount(0);
 
 	// Create a new branch
-	await clickByTestId(page, 'chrome-header-create-branch-button');
-	const modal = await waitForTestId(page, 'create-new-branch-modal');
-
-	const input = modal.locator('#new-branch-name-input');
-	await input.fill('new-branch');
-	await clickByTestId(page, 'confirm-submit');
+	await createNewBranch(page, 'new-branch');
 
 	// There should be no stacks
 	stacks = getByTestId(page, 'stack');

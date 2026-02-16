@@ -78,7 +78,7 @@
 	const stackService = inject(STACK_SERVICE);
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 	const modeService = injectOptional(MODE_SERVICE, undefined);
-	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit;
+	const [insertBlankCommitInBranch, commitInsertion] = stackService.insertBlankCommit.useMutation();
 	const [createRef, refCreation] = stackService.createReference;
 
 	// Component is read-only when stackId is undefined
@@ -95,9 +95,8 @@
 	) {
 		await insertBlankCommitInBranch({
 			projectId,
-			stackId,
-			commitId: commitId,
-			offset: location === 'above' ? -1 : 1
+			relativeTo: { type: 'commit', subject: commitId },
+			side: location
 		});
 	}
 
@@ -130,7 +129,7 @@
 	}
 </script>
 
-{#if rightClickTrigger && contextData}
+{#if contextData}
 	<KebabButton
 		{showOnHover}
 		contextElement={rightClickTrigger}

@@ -87,8 +87,8 @@
 		.local-dot {
 			width: 11px;
 			height: 10px;
-			fill: var(--clr-commit-local);
 			transform: translateX(-1px);
+			fill: var(--clr-commit-local);
 		}
 	}
 </style>

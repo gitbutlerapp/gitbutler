@@ -1,60 +1,41 @@
 //! In place of commands.rs
-use anyhow::Context;
-use but_api_macros::api_cmd;
+use anyhow::{Context as _, Result};
+use but_api_macros::but_api;
 use but_core::RepositoryExt;
-use but_forge::{
-    ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions,
-};
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::ProjectId;
+use but_ctx::{Context, ThreadSafeContext};
+use but_forge::{ForgeName, ReviewTemplateFunctions, available_review_templates, get_review_template_functions};
 use gitbutler_repo::RepoCommands;
 use tracing::instrument;
 
-use crate::json::Error;
-
 /// (Deprecated) Get the list of PR template paths for the given project and forge.
 /// This function is deprecated in favor of `list_available_review_templates`.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn pr_templates(project_id: ProjectId, forge: ForgeName) -> Result<Vec<String>, Error> {
-    let project = gitbutler_project::get_validated(project_id)?;
-    Ok(available_review_templates(project.worktree_dir()?, &forge))
+pub fn pr_templates(ctx: &but_ctx::Context, forge: ForgeName) -> Result<Vec<String>> {
+    Ok(available_review_templates(&ctx.workdir_or_fail()?, &forge))
 }
 
 /// Get the list of review template paths for the given project.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn list_available_review_templates(project_id: ProjectId) -> Result<Vec<String>, Error> {
-    let project = gitbutler_project::get_validated(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+pub fn list_available_review_templates(ctx: &Context) -> Result<Vec<String>> {
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let forge = &base_branch
         .forge_repo_info
         .as_ref()
         .context("No forge could be determined for this repository branch")?
         .forge;
 
-    Ok(available_review_templates(project.worktree_dir()?, forge))
+    Ok(available_review_templates(&ctx.workdir_or_gitdir()?, forge))
 }
 
 /// (Deprecated) Get the PR template content for the given project and relative path.
 ///
 /// This function is deprecated in favor of `review_template`, which serves the same purpose
 /// but uses the updated storage location.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn pr_template(
-    project_id: ProjectId,
-    relative_path: std::path::PathBuf,
-    forge: ForgeName,
-) -> Result<String, Error> {
-    let project = gitbutler_project::get_validated(project_id)?;
-
+pub fn pr_template(ctx: &but_ctx::Context, relative_path: std::path::PathBuf, forge: ForgeName) -> Result<String> {
     let ReviewTemplateFunctions {
         is_valid_review_template_path,
         ..
@@ -63,36 +44,34 @@ pub fn pr_template(
     if !is_valid_review_template_path(&relative_path) {
         return Err(anyhow::format_err!(
             "Invalid review template path: {:?}",
-            project.worktree_dir()?.join(relative_path),
-        )
-        .into());
+            ctx.workdir_or_fail()?.join(relative_path),
+        ));
     }
-    Ok(project
-        .read_file_from_workspace(&relative_path)?
+    ctx.read_file_from_workspace(&relative_path)?
         .content
-        .context("PR template was not valid UTF-8")?)
+        .context("PR template was not valid UTF-8")
 }
 
-/// Information about the project's review template.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ReviewTemplateInfo {
-    /// The relative path to the review template within the repository.
-    pub path: String,
-    /// The content of the review template.
-    pub content: String,
+mod json {
+    /// Information about the project's review template.
+    #[derive(Debug, Clone, serde::Serialize)]
+    pub struct ReviewTemplateInfo {
+        /// The relative path to the review template within the repository.
+        pub path: String,
+        /// The content of the review template.
+        pub content: String,
+    }
 }
 
 /// Get the review template content for the given project and relative path.
 ///
 /// This function determines the forge of a project and retrieves the review template
 /// from the git config.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInfo>, Error> {
-    let project = gitbutler_project::get_validated(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
+pub fn review_template(ctx: &Context) -> Result<Option<json::ReviewTemplateInfo>> {
+    let project = gitbutler_project::get_validated(ctx.legacy_project.id)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
     let forge = &base_branch
         .forge_repo_info
@@ -100,11 +79,8 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInf
         .context("No forge could be determined for this repository branch")?
         .forge;
 
-    match ctx
-        .gix_repo()?
-        .git_settings()?
-        .gitbutler_forge_review_template_path
-    {
+    let repo = ctx.repo.get()?;
+    match repo.git_settings()?.gitbutler_forge_review_template_path {
         Some(review_template_path) => {
             let ReviewTemplateFunctions {
                 is_valid_review_template_path,
@@ -116,16 +92,15 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInf
             if !is_valid_review_template_path(&path) {
                 return Err(anyhow::format_err!(
                     "Invalid review template path: {:?}",
-                    project.worktree_dir()?.join(path),
-                )
-                .into());
+                    ctx.workdir_or_fail()?.join(path),
+                ));
             }
-            let content = project
+            let content = ctx
                 .read_file_from_workspace(&path)?
                 .content
                 .context("PR template was not valid UTF-8")?;
 
-            Ok(Some(ReviewTemplateInfo {
+            Ok(Some(json::ReviewTemplateInfo {
                 path: template_path,
                 content,
             }))
@@ -136,20 +111,13 @@ pub fn review_template(project_id: ProjectId) -> Result<Option<ReviewTemplateInf
 
 /// Set the review template path in the git configuration for the given project.
 /// The template path will be validated.
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn set_review_template(
-    project_id: ProjectId,
-    template_path: Option<String>,
-) -> Result<(), Error> {
-    let project = gitbutler_project::get_validated(project_id)?;
-    let repo = project.open_isolated()?;
+pub fn set_review_template(ctx: &but_ctx::Context, template_path: Option<String>) -> Result<()> {
+    let repo = ctx.open_isolated_repo()?;
     let mut git_config = repo.git_settings()?;
 
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
     let forge = &base_branch
         .forge_repo_info
         .as_ref()
@@ -164,82 +132,87 @@ pub fn set_review_template(
     if let Some(ref path) = template_path {
         let path_buf = std::path::PathBuf::from(path);
         if !is_valid_review_template_path(&path_buf) {
-            return Err(anyhow::format_err!(
-                "Invalid review template path: {:?}",
-                project.worktree_dir()?.join(&path_buf),
-            )
-            .into());
+            let wd = ctx.workdir_or_fail()?.join(&path_buf);
+            return Err(anyhow::format_err!("Invalid review template path: {wd:?}"));
         }
     }
 
     git_config.gitbutler_forge_review_template_path = template_path.map(|p| p.into());
-    repo.set_git_settings(&git_config).map_err(Into::into)
+    repo.set_git_settings(&git_config)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn determine_forge_from_url(url: String) -> Result<Option<ForgeName>, Error> {
-    Ok(but_forge::determine_forge_from_url(&url))
-}
+pub fn list_reviews(
+    ctx: &mut Context,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::ForgeReview>> {
+    let (storage, base_branch, preferred_forge_user) = {
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
-#[instrument(err(Debug))]
-pub async fn list_reviews(project_id: ProjectId) -> Result<Vec<but_forge::ForgeReview>, Error> {
-    list_reviews_cmd(ListReviewsParams { project_id }).await
-}
+    let db = &mut *ctx.db.get_mut()?;
 
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListReviewsParams {
-    pub project_id: ProjectId,
-}
-
-pub async fn list_reviews_cmd(
-    ListReviewsParams { project_id }: ListReviewsParams,
-) -> Result<Vec<but_forge::ForgeReview>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
-    but_forge::list_forge_reviews(
-        &project.preferred_forge_user,
+    but_forge::list_forge_reviews_with_cache(
+        preferred_forge_user,
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
         &storage,
+        db,
+        cache_config,
     )
-    .await
-    .map_err(Into::into)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
+#[instrument(skip(ctx), err(Debug))]
+pub fn list_ci_checks_and_update_cache(
+    ctx: &mut Context,
+    reference: String,
+    cache_config: Option<but_forge::CacheConfig>,
+) -> Result<Vec<but_forge::CiCheck>> {
+    let (storage, base_branch) = {
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+        )
+    };
+    let db = &mut *ctx.db.get_mut()?;
+    but_forge::ci_checks_for_ref_with_cache(
+        ctx.legacy_project.preferred_forge_user.clone(),
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        &storage,
+        &reference,
+        db,
+        cache_config,
+    )
+}
+
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn publish_review(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     params: but_forge::CreateForgeReviewParams,
-) -> Result<but_forge::ForgeReview, Error> {
-    publish_review_cmd(PublishReviewParams { project_id, params }).await
-}
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PublishReviewParams {
-    pub project_id: ProjectId,
-    pub params: but_forge::CreateForgeReviewParams,
-}
-
-pub async fn publish_review_cmd(
-    PublishReviewParams { project_id, params }: PublishReviewParams,
-) -> Result<but_forge::ForgeReview, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let app_settings = AppSettings::load_from_default_path_creating()?;
-    let ctx = CommandContext::open(&project, app_settings)?;
-    let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
-    let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
+) -> Result<but_forge::ForgeReview> {
+    let (storage, base_branch, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
     but_forge::create_forge_review(
-        &project.preferred_forge_user,
+        &preferred_forge_user,
         &base_branch
             .forge_repo_info
             .context("No forge could be determined for this repository branch")?,
@@ -247,5 +220,109 @@ pub async fn publish_review_cmd(
         &storage,
     )
     .await
-    .map_err(Into::into)
+}
+/// Update the stacked review descriptions to have the correct footers.
+#[but_api]
+#[instrument(err(Debug))]
+pub async fn update_review_footers(
+    ctx: ThreadSafeContext,
+    reviews: Vec<but_forge::ForgeReviewDescriptionUpdate>,
+) -> Result<()> {
+    let (storage, base_branch, preferred_forge_user) = {
+        let ctx = ctx.into_thread_local();
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+    but_forge::update_review_description_tables(
+        &preferred_forge_user,
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        &reviews,
+        &storage,
+    )
+    .await
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub async fn list_reviews_for_branch(
+    ctx: ThreadSafeContext,
+    branch: String,
+    filter: Option<but_forge::ForgeReviewFilter>,
+) -> Result<Vec<but_forge::ForgeReview>> {
+    let (storage, base_branch, project) = {
+        let ctx = ctx.into_thread_local();
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(&ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.clone(),
+        )
+    };
+    but_forge::list_forge_reviews_for_branch(
+        project.preferred_forge_user,
+        &base_branch
+            .forge_repo_info
+            .context("No forge could be determined for this repository branch")?,
+        &branch,
+        &storage,
+        filter,
+    )
+    .await
+}
+
+/// Warm up the CI checks cache for all applied branches with PRs.
+/// This function fetches CI check data from the forge and caches it in the database
+/// without returning any data. It only processes branches that have associated pull requests.
+/// Additionally, it cleans up stale CI check entries for references that are no longer
+/// part of any applied stack.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn warm_ci_checks_cache(ctx: &mut Context) -> Result<()> {
+    // Get all stacks
+    let stacks = crate::legacy::workspace::stacks(ctx, None)?;
+
+    // Collect branch references that have CI checks cached
+    let mut current_refs = std::collections::HashSet::new();
+
+    // For each stack, get details and check branches
+    for stack in stacks {
+        if let Some(stack_id) = stack.id {
+            let details = crate::legacy::workspace::stack_details(ctx, Some(stack_id))?;
+
+            // Process each branch that has a PR
+            for branch in &details.branch_details {
+                if branch.pr_number.is_some() {
+                    // Fetch CI checks with NoCache to force refresh
+                    let _ = list_ci_checks_and_update_cache(
+                        ctx,
+                        branch.name.to_string(),
+                        Some(but_forge::CacheConfig::NoCache),
+                    );
+                    // Ignore errors for individual branches to ensure we process all branches
+
+                    // Track this reference as having CI checks
+                    current_refs.insert(branch.name.to_string());
+                }
+            }
+        }
+    }
+
+    // Clean up stale CI check entries from the database
+    let db = &mut *ctx.db.get_mut()?;
+    let all_cached_refs = db.ci_checks().list_all_references()?;
+
+    // Delete CI checks for references that are no longer in applied stacks
+    for cached_ref in all_cached_refs {
+        if !current_refs.contains(&cached_ref) {
+            db.ci_checks_mut()?.delete_for_reference(&cached_ref)?;
+        }
+    }
+
+    Ok(())
 }

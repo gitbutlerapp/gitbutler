@@ -1,10 +1,13 @@
 [package]
 name = "but-settings"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
+
+[features]
+export-ts = []
 
 [lib]
 doctest = false
@@ -20,9 +23,7 @@ serde_json_lenient.workspace = true
 notify.workspace = true
 tracing.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }
-
-[[test]]
-name = "settings"
-path = "tests/mod.rs"
+ts-rs.workspace = true
 
 [dev-dependencies]
+tempfile.workspace = true

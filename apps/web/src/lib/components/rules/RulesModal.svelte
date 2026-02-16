@@ -41,7 +41,7 @@
 	const SYSTEM_PROMPT = $derived(`
 		You're an expert code generation rule creator.
 		Take the user's input and help them create rule metadata for it.
-		Respond with the actual values ONLY, skip aditional information.
+		Respond with the actual values ONLY, skip additional information.
 		`);
 
 	const diffPatchContext = $derived(

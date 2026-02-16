@@ -1,11 +1,14 @@
 [package]
 name = "but-forge"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 description = "Utilities to interact with forges in a somewhat generic way"
+
+[features]
+export-ts = ["dep:ts-rs"]
 
 [lib]
 doctest = false
@@ -13,9 +16,15 @@ doctest = false
 [dependencies]
 but-fs.workspace = true
 but-github.workspace = true
+but-gitlab.workspace = true
 but-forge-storage.workspace = true
+but-db.workspace = true
+
+chrono.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 git-url-parse = "0.6.0"
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
+ts-rs = { workspace = true, optional = true }

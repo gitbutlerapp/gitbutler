@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use gitbutler_stack::{StackId, VirtualBranchesState};
 use gix::{prelude::ObjectIdExt, revision::walk::Sorting};
 
@@ -14,13 +14,10 @@ pub enum InferenceMode {
 
 impl ReferenceFrame {
     /// Create a reference frame using the information in `vb` and `mode`.
-    pub fn infer(
-        repo: &gix::Repository,
-        vb: &VirtualBranchesState,
-        mode: InferenceMode,
-    ) -> anyhow::Result<Self> {
+    pub fn infer(repo: &gix::Repository, vb: &VirtualBranchesState, mode: InferenceMode) -> anyhow::Result<Self> {
+        let ctx = but_ctx::Context::try_from(repo.clone())?;
         let head_id = repo.head_id()?;
-        let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned();
+        let workspace_commit = head_id.object()?.into_commit().decode()?.to_owned()?;
 
         let cache = repo.commit_graph_if_enabled()?;
         let mut graph = repo.revision_graph(cache.as_ref());
@@ -47,19 +44,17 @@ impl ReferenceFrame {
                     .context("Didn't find stack - was it deleted just now?")?;
                 Ok(ReferenceFrame {
                     workspace_tip: Some(head_id.detach()),
-                    branch_tip: Some(stack.head_oid(repo)?),
+                    branch_tip: Some(stack.head_oid(&ctx)?),
                 })
             }
             InferenceMode::CommitIdInStack(commit_id) => {
                 for stack in vb.branches.values() {
-                    let stack_tip = stack.head_oid(repo)?;
+                    let stack_tip = stack.head_oid(&ctx)?;
                     if stack_tip
                         .attach(repo)
                         .ancestors()
                         .with_boundary(match default_target_tip {
-                            Some(target_tip) => {
-                                Some(repo.merge_base_with_graph(stack_tip, target_tip, &mut graph)?)
-                            }
+                            Some(target_tip) => Some(repo.merge_base_with_graph(stack_tip, target_tip, &mut graph)?),
                             None => merge_base,
                         })
                         .sorting(Sorting::BreadthFirst)

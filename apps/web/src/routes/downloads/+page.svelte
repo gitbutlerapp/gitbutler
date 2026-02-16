@@ -3,7 +3,7 @@
 	import Header from '$lib/components/marketing/Header.svelte';
 	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
 	import osIcons from '$lib/data/os-icons.json';
-	import { marked } from '@gitbutler/ui/utils/marked';
+	import Markdown from 'svelte-exmarkdown';
 	import type { Release } from '$lib/types/releases';
 	import type { LatestReleaseBuilds } from '$lib/utils/releaseUtils';
 
@@ -150,7 +150,7 @@
 
 		{#if latestRelease.notes}
 			<div class="release-notes-content">
-				{@html marked(latestRelease.notes)}
+				<Markdown md={latestRelease.notes} />
 			</div>
 		{/if}
 
@@ -162,8 +162,8 @@
 			</p>
 		</div>
 
-		<div class="latest-release-background__noisy noisy-1"></div>
-		<div class="latest-release-background__noisy noisy-2"></div>
+		<div class="grainy-bg grainy-1"></div>
+		<div class="grainy-bg grainy-2"></div>
 	</div>
 </section>
 
@@ -347,29 +347,18 @@
 		}
 	}
 
-	.latest-release-background__noisy {
-		position: absolute;
-		width: 100%;
-		height: 1240px;
-		transform: rotate(-65deg);
-		border-radius: 50%;
-		background:
-			radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0)),
-			url("data:image/svg+xml,%3Csvg viewBox='0 0 600 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-		mix-blend-mode: multiply;
-		filter: contrast(145%) brightness(1100%);
-		opacity: 0.06;
-		pointer-events: none;
+	.grainy-bg {
+		background-image: url('/images/grainy-gradient-dark.png');
+	}
 
-		&.noisy-1 {
-			top: -30%;
-			right: -40%;
-		}
+	.grainy-1 {
+		top: -30%;
+		right: -50%;
+	}
 
-		&.noisy-2 {
-			bottom: -34%;
-			left: -35%;
-		}
+	.grainy-2 {
+		bottom: -70%;
+		left: -60%;
 	}
 
 	.releases {

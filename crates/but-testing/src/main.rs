@@ -1,18 +1,16 @@
 //! A debug-CLI for making `but`-crates functionality available in real-world repositories.
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
 use command::parse_diff_spec;
 use gix::bstr::BString;
 
 mod args;
 use args::Args;
 use but_core::HunkHeader;
+use but_ctx::Context;
 
-use crate::{
-    args::Subcommands,
-    command::{RepositoryOpenMode, graph::Dot, repo_and_maybe_project},
-};
+use crate::{args::Subcommands, command::graph::Dot};
 
 mod command;
 
@@ -29,9 +27,7 @@ async fn main() -> Result<()> {
     if let Some(suffix) = &args.app_suffix
         && CHANNEL != Some(suffix)
     {
-        bail!(
-            "Launch with CHANNEL={suffix} cargo run -- but-testing… instead - must be compiled in!"
-        )
+        bail!("Launch with CHANNEL={suffix} cargo run -- but-testing… instead - must be compiled in!")
     }
 
     match &args.cmd {
@@ -73,13 +69,9 @@ async fn main() -> Result<()> {
             current_path,
             previous_path.as_deref(),
             if !hunk_indices.is_empty() {
-                Some(command::discard_change::IndicesOrHeaders::Indices(
-                    hunk_indices,
-                ))
+                Some(command::discard_change::IndicesOrHeaders::Indices(hunk_indices))
             } else if !hunk_headers.is_empty() {
-                Some(command::discard_change::IndicesOrHeaders::Headers(
-                    hunk_headers,
-                ))
+                Some(command::discard_change::IndicesOrHeaders::Headers(hunk_headers))
             } else {
                 None
             },
@@ -95,11 +87,10 @@ async fn main() -> Result<()> {
             stack_segment_ref,
             diff_spec,
         } => {
-            let (repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
+            let ctx = Context::discover(&args.current_dir)?;
             let diff_spec = parse_diff_spec(diff_spec)?;
             command::commit(
-                repo,
-                project,
+                ctx.repo.get()?.clone(),
                 message.as_deref(),
                 *amend,
                 parent.as_deref(),
@@ -116,9 +107,7 @@ async fn main() -> Result<()> {
                 args.json,
             )
         }
-        args::Subcommands::HunkDependency { simple } => {
-            command::diff::locks(&args.current_dir, *simple, args.json)
-        }
+        args::Subcommands::HunkDependency { simple } => command::diff::locks(&args.current_dir, *simple, args.json),
         args::Subcommands::Status {
             unified_diff,
             context_lines,
@@ -133,27 +122,18 @@ async fn main() -> Result<()> {
             previous_commit.as_deref(),
             *unified_diff,
         ),
-        args::Subcommands::Watch => command::watch(&args).await,
+        args::Subcommands::Watch { mode } => command::watch(&args, mode.as_deref()).await,
         args::Subcommands::WatchDb => command::watch_db(&args),
         args::Subcommands::Stacks { workspace_only } => {
-            command::stacks::list(&args.current_dir, args.json, args.v3, *workspace_only)
+            command::stacks::list(&args.current_dir, args.json, *workspace_only)
         }
-        args::Subcommands::BranchList => {
-            let (_repo, project) = repo_and_maybe_project(&args, RepositoryOpenMode::Merge)?;
-            command::branch_list(project)
-        }
-        args::Subcommands::BranchDetails { ref_name } => {
-            command::stacks::branch_details(ref_name, &args.current_dir, args.v3)
-        }
-        args::Subcommands::StackDetails { id } => {
-            command::stacks::details(*id, &args.current_dir, args.v3)
-        }
-        args::Subcommands::RefInfo {
-            ref_name,
-            expensive,
-        } => command::ref_info(&args, ref_name.as_deref(), *expensive),
+        args::Subcommands::BranchList => command::branch_list(&args.current_dir),
+        args::Subcommands::BranchDetails { ref_name } => command::stacks::branch_details(ref_name, &args.current_dir),
+        args::Subcommands::StackDetails { id } => command::stacks::details(*id, &args.current_dir),
+        args::Subcommands::RefInfo { ref_name, expensive } => command::ref_info(&args, ref_name.as_deref(), *expensive),
         args::Subcommands::Graph {
             dot_show,
+            no_post,
             stats,
             ref_name,
             limit,
@@ -181,10 +161,9 @@ async fn main() -> Result<()> {
             *hard_limit,
             *no_debug_workspace,
             *stats,
+            *no_post,
         ),
-        args::Subcommands::HunkAssignments => {
-            command::assignment::hunk_assignments(&args.current_dir, args.json)
-        }
+        args::Subcommands::HunkAssignments => command::assignment::hunk_assignments(&args.current_dir, args.json),
         args::Subcommands::AssignHunk {
             path,
             stack_id,
@@ -208,23 +187,15 @@ async fn main() -> Result<()> {
         args::Subcommands::StackBranches {
             id,
             branch_name,
-            description,
+            description: _,
             remote,
         } => match (branch_name, id) {
-            (Some(branch_name), maybe_id) => command::stacks::create_branch(
-                *maybe_id,
-                branch_name,
-                description.as_deref(),
-                &args.current_dir,
-                *remote,
-                args.json,
-                args.v3,
-            ),
+            (Some(branch_name), maybe_id) => {
+                command::stacks::create_branch(*maybe_id, branch_name, &args.current_dir, *remote, args.json)
+            }
             (None, Some(id)) => command::stacks::branches(*id, &args.current_dir, args.json),
             (None, None) => {
-                bail!(
-                    "You must provide a stack ID to list branches. Use `--branch-name` to create a new branch."
-                )
+                bail!("You must provide a stack ID to list branches. Use `--branch-name` to create a new branch.")
             }
         },
         args::Subcommands::MoveBranch {
@@ -240,9 +211,7 @@ async fn main() -> Result<()> {
 
 mod trace {
     use tracing::metadata::LevelFilter;
-    use tracing_subscriber::{
-        Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt,
-    };
+    use tracing_subscriber::{Layer, fmt::format::FmtSpan, layer::SubscriberExt, util::SubscriberInitExt};
 
     pub fn init(level: u8) -> anyhow::Result<()> {
         let filter = match level {

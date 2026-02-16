@@ -6,13 +6,14 @@
 
 	interface Props {
 		commitStatus: CommitStatusType;
-		diverged: boolean;
+		diverged?: boolean;
 		tooltip?: string;
 		lastCommit?: boolean;
 		lastBranch?: boolean;
 		hasConflicts?: boolean;
-		alignDot?: 'center' | 'start';
+		dotOnTop?: boolean;
 		hideDot?: boolean;
+		height?: string;
 	}
 
 	const {
@@ -21,9 +22,10 @@
 		tooltip,
 		lastCommit,
 		lastBranch,
-		alignDot = 'center',
+		dotOnTop,
 		hasConflicts,
-		hideDot = false
+		hideDot,
+		height
 	}: Props = $props();
 
 	const color = $derived(getColorFromCommitState(commitStatus, diverged));
@@ -32,17 +34,19 @@
 
 	function getCommitColor() {
 		if (hasConflicts) {
-			return 'var(--clr-theme-err-element)';
+			return 'var(--clr-theme-danger-element)';
 		}
 		return color;
 	}
 </script>
 
 <div
-	class="commit-lines align-{alignDot}"
+	class="commit-lines"
+	class:dot-on-top={dotOnTop}
+	style:height
 	style:--commit-color={getCommitColor()}
 	style:--commit-local-color={hasConflicts
-		? 'var(--clr-theme-err-element)'
+		? 'var(--clr-theme-danger-element)'
 		: 'var(--clr-commit-local)'}
 >
 	{#if hideDot}
@@ -82,15 +86,9 @@
 		width: 42px;
 		gap: 3px;
 
-		&.align-start {
+		&.dot-on-top {
 			.top {
 				flex: 0 0 13px;
-			}
-		}
-
-		&.align-center {
-			.top {
-				flex: 1;
 			}
 		}
 	}
@@ -131,15 +129,15 @@
 		.shadow-dot {
 			width: 10px;
 			height: 10px;
-			fill: var(--clr-commit-shadow);
 			transform: scale(1.1);
+			fill: var(--clr-commit-shadow);
 		}
 
 		.local-dot {
 			width: 10px;
 			height: 9px;
-			fill: var(--commit-local-color);
 			margin-top: -1px;
+			fill: var(--commit-local-color);
 		}
 	}
 </style>

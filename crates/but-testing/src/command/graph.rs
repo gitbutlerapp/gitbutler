@@ -2,8 +2,6 @@ use std::io::{Write, stdout};
 
 use gix::odb::store::RefreshMode;
 
-use crate::command::{RepositoryOpenMode, meta_from_maybe_project, repo_and_maybe_project};
-
 pub enum Dot {
     Print,
     OpenAsSVG,
@@ -21,9 +19,13 @@ pub fn doit(
     hard_limit: Option<usize>,
     no_debug_workspace: bool,
     stats: bool,
+    dangerously_skip_postprocessing_for_debugging: bool,
 ) -> anyhow::Result<()> {
-    let (mut repo, project) = repo_and_maybe_project(args, RepositoryOpenMode::General)?;
+    let mut ctx = but_ctx::Context::discover(&args.current_dir)?;
+    let mut repo = ctx.repo.get_mut()?;
     repo.objects.refresh = RefreshMode::Never;
+    drop(repo);
+    let repo = &*ctx.repo.get()?;
     let extra_target = extra_target_spec
         .map(|rev_spec| repo.rev_parse_single(rev_spec))
         .transpose()?
@@ -46,13 +48,13 @@ pub fn doit(
                     .expect("the prefix is unambiguous")
             })
             .collect(),
-        dangerously_skip_postprocessing_for_debugging: false,
+        dangerously_skip_postprocessing_for_debugging,
     };
 
-    // Never drop - this is read-only.
-    let meta = meta_from_maybe_project(project.as_ref())?;
+    let _guard = ctx.shared_worktree_access();
+    let meta = std::mem::ManuallyDrop::new(ctx.meta()?);
     let graph = match ref_name {
-        None => but_graph::Graph::from_head(&repo, &*meta, opts),
+        None => but_graph::Graph::from_head(repo, &*meta, opts),
         Some(ref_name) => {
             let mut reference = repo.find_reference(ref_name)?;
             let id = reference.peel_to_id()?;
@@ -68,36 +70,31 @@ pub fn doit(
         eprintln!("{:#?}", graph.statistics());
     }
 
-    let workspace = graph.to_workspace()?;
+    let ws = graph.into_workspace()?;
     if no_debug_workspace {
         eprintln!(
             "Workspace with {} stacks and {} segments across all stacks with {} commits total",
-            workspace.stacks.len(),
-            workspace
-                .stacks
-                .iter()
-                .map(|s| s.segments.len())
-                .sum::<usize>(),
-            workspace
-                .stacks
+            ws.stacks.len(),
+            ws.stacks.iter().map(|s| s.segments.len()).sum::<usize>(),
+            ws.stacks
                 .iter()
                 .flat_map(|s| s.segments.iter().map(|s| s.commits.len()))
                 .sum::<usize>(),
         );
     } else {
-        eprintln!("{workspace:#?}");
+        eprintln!("{ws:#?}");
     }
 
     match dot {
         Some(Dot::Print) => {
-            stdout().write_all(graph.dot_graph().as_bytes())?;
+            stdout().write_all(ws.graph.dot_graph().as_bytes())?;
         }
         Some(Dot::OpenAsSVG) => {
             #[cfg(unix)]
-            graph.open_as_svg();
+            ws.graph.open_as_svg();
         }
         Some(Dot::Debug) => {
-            eprintln!("{graph:#?}");
+            eprintln!("{graph:#?}", graph = ws.graph);
         }
         None => {}
     }

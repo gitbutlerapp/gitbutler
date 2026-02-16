@@ -6,6 +6,7 @@ use but_core::{
     ref_metadata::StackKind::{Applied, AppliedAndUnapplied},
 };
 use gix::{ObjectId, prelude::ObjectIdExt, reference::Category};
+use itertools::Itertools;
 use petgraph::{Direction, graph::NodeIndex, prelude::EdgeRef, visit::NodeRef};
 use tracing::instrument;
 
@@ -43,7 +44,7 @@ impl Context<'_> {
 impl Graph {
     /// Now that the graph is complete, perform additional structural improvements with
     /// the requirement of them to be computationally cheap.
-    #[instrument(level = tracing::Level::TRACE, skip(self, meta, repo, refs_by_id), err(Debug))]
+    #[instrument(level = "trace", skip_all, fields(tip), err(Debug))]
     pub(super) fn post_processed<T: RefMetadata>(
         mut self,
         meta: &OverlayMetadata<'_, T>,
@@ -101,6 +102,8 @@ impl Graph {
         // Finally, once all segments were added, it's good to generations
         // have to figure out early abort conditions, or to know what's ahead of another.
         self.compute_generation_numbers();
+
+        self.symbolic_remote_names = symbolic_remote_names.to_vec();
         Ok(self)
     }
 
@@ -109,10 +112,7 @@ impl Graph {
     /// to set it right in post than to let everything deal with this.
     fn update_entrypoint_commit_index(&mut self, tip: ObjectId) {
         if let Some((segment, ep_commit)) = self.entrypoint.as_mut() {
-            *ep_commit = self
-                .inner
-                .node_weight(*segment)
-                .and_then(|s| s.commit_index_of(tip));
+            *ep_commit = self.inner.node_weight(*segment).and_then(|s| s.commit_index_of(tip));
         }
     }
 
@@ -122,13 +122,8 @@ impl Graph {
     ///
     /// *This is the brute-force way of doing it, instead of ensuring that the workspace upgrade functions
     /// that create independent and dependent branches keep everything up-to-date at all times.
-    fn set_entrypoint_to_ref_name<T: RefMetadata>(
-        &mut self,
-        meta: &OverlayMetadata<'_, T>,
-    ) -> anyhow::Result<()> {
-        let Some(((ep_sidx, _commit_idx), desired_ref_name)) =
-            self.entrypoint.zip(self.entrypoint_ref.clone())
-        else {
+    fn set_entrypoint_to_ref_name<T: RefMetadata>(&mut self, meta: &OverlayMetadata<'_, T>) -> anyhow::Result<()> {
+        let Some(((ep_sidx, _commit_idx), desired_ref_name)) = self.entrypoint.zip(self.entrypoint_ref.clone()) else {
             return Ok(());
         };
 
@@ -185,12 +180,7 @@ impl Graph {
                     ri.worktree = desired_ref_name.worktree;
                 }
                 let entrypoint_sidx = self.insert_segment_set_entrypoint(entrypoint_segment);
-                self.connect_segments(
-                    entrypoint_sidx,
-                    None,
-                    new_ep_sidx,
-                    new_ep_sidx_first_commit_idx,
-                );
+                self.connect_segments(entrypoint_sidx, None, new_ep_sidx, new_ep_sidx_first_commit_idx);
                 for edge in incoming_edges {
                     self.inner.add_edge(
                         edge.source,
@@ -241,8 +231,7 @@ impl Graph {
                 .enumerate()
                 .filter_map(|t| (!t.1.refs.is_empty()).then_some(t))
             {
-                let is_splittable =
-                    commit_with_refs.flags.is_remote() && node_has_commits && cidx > 0;
+                let is_splittable = commit_with_refs.flags.is_remote() && node_has_commits && cidx > 0;
                 commit_with_refs.refs.retain(|ri| {
                     ri.ref_name.category().is_none_or(|c| {
                         if matches!(c, Category::RemoteBranch) {
@@ -345,13 +334,8 @@ impl Graph {
             worktree_by_branch,
         )?;
         new_segment.commits = new_segment_commits;
-        let new_segment_sidx = self.connect_new_segment(
-            sidx,
-            last_cidx_in_top_segment,
-            new_segment,
-            0,
-            tip_of_new_segment,
-        );
+        let new_segment_sidx =
+            self.connect_new_segment(sidx, last_cidx_in_top_segment, new_segment, 0, tip_of_new_segment);
 
         let (src, src_id) = {
             let s = &self[new_segment_sidx];
@@ -408,12 +392,7 @@ impl Graph {
         let segments_with_refs_on_first_commit: Vec<_> = self
             .inner
             .node_indices()
-            .filter(|sidx| {
-                self[*sidx]
-                    .commits
-                    .first()
-                    .is_some_and(|c| !c.refs.is_empty())
-            })
+            .filter(|sidx| self[*sidx].commits.first().is_some_and(|c| !c.refs.is_empty()))
             .collect();
         for sidx in segments_with_refs_on_first_commit {
             let s = &mut self.inner[sidx];
@@ -443,10 +422,9 @@ impl Graph {
                         if !inserted_proxy_segments.contains(&sidx) {
                             continue;
                         }
-                        let Some((rn, metadata)) = disambiguate_refs_by_branch_metadata(
-                            first_commit.refs.iter().map(|ri| &ri.ref_name),
-                            meta,
-                        ) else {
+                        let Some((rn, metadata)) =
+                            disambiguate_refs_by_branch_metadata(first_commit.refs.iter().map(|ri| &ri.ref_name), meta)
+                        else {
                             continue;
                         };
 
@@ -465,7 +443,9 @@ impl Graph {
     fn candidates_for_independent_branches_in_workspace(
         &self,
         ws_sidx: SegmentIndex,
-        target: Option<&crate::projection::Target>,
+        target_ref: Option<SegmentIndex>,
+        target_commit_sidx: Option<SegmentIndex>,
+        ws_low_bound: Option<SegmentIndex>,
         ws_stacks: &[crate::projection::Stack],
         repo: &OverlayRepo<'_>,
     ) -> anyhow::Result<Vec<SegmentIndex>> {
@@ -486,7 +466,7 @@ impl Graph {
                     .filter_map(|s| {
                         // This rule means that if there is no target, we'd want to put new independent stacks
                         // onto segments which then are ambiguous so they get pulled out.
-                        if target.is_some() {
+                        if target_ref.is_some() {
                             return None;
                         }
                         // It's a very specialised filter… will that lead to strange behaviour later?
@@ -506,21 +486,24 @@ impl Graph {
         out.dedup_by_key(|t| t.1.id);
 
         let mut out: Vec<_> = out.into_iter().map(|t| t.0).collect();
-        if let Some(extra_target) = self.extra_target {
+        for extra_sidx in self
+            .extra_target
+            .into_iter()
+            .chain(target_commit_sidx)
+            .chain(ws_low_bound)
+            .dedup()
+        {
             out.extend(
-                self.first_commit_or_find_along_first_parent(extra_target)
+                self.first_commit_or_find_along_first_parent(extra_sidx)
                     .and_then(|(c, sidx)| {
-                        (!out.contains(&sidx) && c.flags.contains(CommitFlags::InWorkspace))
-                            .then_some(sidx)
+                        (!out.contains(&sidx) && c.flags.contains(CommitFlags::InWorkspace)).then_some(sidx)
                     }),
             );
         }
 
-        match target {
+        match target_ref {
             None => {
-                let Some(commit_with_refs) =
-                    self[ws_sidx].commits.first().filter(|c| !c.refs.is_empty())
-                else {
+                let Some(commit_with_refs) = self[ws_sidx].commits.first().filter(|c| !c.refs.is_empty()) else {
                     return Ok(out);
                 };
 
@@ -543,16 +526,16 @@ impl Graph {
                      - this shouldn't be possible"
                 )
             }
-            Some(target) => {
-                let target_rtb = &self[target.segment_index];
-                out.extend(
-                    self.first_commit_or_find_along_first_parent(target_rtb.id)
-                        .and_then(|(c, sidx)| {
-                            c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)
-                        }),
-                );
-                out.sort();
-                out.dedup();
+            Some(target_sidx) => {
+                let target_rtb = &self[target_sidx];
+                if self.is_connected_from_above(target_sidx, ws_sidx) {
+                    out.extend(
+                        self.first_commit_or_find_along_first_parent(target_rtb.id)
+                            .and_then(|(c, sidx)| c.flags.contains(CommitFlags::InWorkspace).then_some(sidx)),
+                    );
+                    out.sort();
+                    out.dedup();
+                }
             }
         }
         Ok(out)
@@ -571,21 +554,29 @@ impl Graph {
         refs_by_id: &RefsById,
         worktree_by_branch: &WorktreeByBranch,
     ) -> anyhow::Result<()> {
-        let Some((ws_sidx, ws_stacks, ws_data, ws_target, ws_low_bound_sidx)) = self
-            .to_workspace_inner(workspace::Downgrade::Disallow)
-            .ok()
-            .and_then(|mut ws| {
-                let md = ws.metadata.take();
-                md.map(|md| {
-                    let lower_bound_if_in_workspace = ws.lower_bound_segment_id.filter(|lb_sidx| {
-                        ws.stacks
-                            .iter()
-                            .flat_map(|s| s.segments.iter().map(|s| s.id))
-                            .any(|sid| sid == *lb_sidx)
-                    });
-                    (ws.id, ws.stacks, md, ws.target, lower_bound_if_in_workspace)
+        let Some((ws_sidx, ws_stacks, ws_data, ws_target_ref, ws_target_commit, ws_low_bound_in_ws_sidx, ws_low_bound)) =
+            self.to_workspace_state(workspace::Downgrade::Disallow)
+                .ok()
+                .and_then(|mut ws| {
+                    let md = ws.metadata.take();
+                    md.map(|md| {
+                        let lower_bound_if_in_workspace = ws.lower_bound_segment_id.filter(|lb_sidx| {
+                            ws.stacks
+                                .iter()
+                                .flat_map(|s| s.segments.iter().map(|s| s.id))
+                                .any(|sid| sid == *lb_sidx)
+                        });
+                        (
+                            ws.id,
+                            ws.stacks,
+                            md,
+                            ws.target_ref,
+                            ws.target_commit,
+                            lower_bound_if_in_workspace,
+                            ws.lower_bound_segment_id,
+                        )
+                    })
                 })
-            })
         else {
             return Ok(());
         };
@@ -593,34 +584,42 @@ impl Graph {
         // Setup independent stacks, first by looking at potential bases.
         let candidates = self.candidates_for_independent_branches_in_workspace(
             ws_sidx,
-            ws_target.as_ref(),
+            ws_target_ref.as_ref().map(|t| t.segment_index),
+            ws_target_commit.as_ref().map(|t| t.segment_index),
+            ws_low_bound,
             &ws_stacks,
             repo,
         )?;
         for base_sidx in candidates.iter().cloned() {
+            let mut seen = BTreeSet::new();
             let base_segment = &self[base_sidx];
             // Also use the segment name as part of available refs to latch on to, and make
             // the segment anonymous if it actually gets used.
             let base_segment_name = base_segment.ref_info.clone();
             let matching_refs_per_stack: Vec<_> = find_all_desired_stack_refs_in_commit(
                 &ws_data,
-                base_segment_name
-                    .as_ref()
-                    .into_iter()
-                    .map(|ri| &ri.ref_name)
-                    .chain(
-                        base_segment
-                            .commits
-                            .first()
-                            .map(|c| c.refs.iter())
-                            .into_iter()
-                            .flatten()
-                            .map(|ri| &ri.ref_name),
-                    ),
-                Some((&self.inner, ws_sidx, &ws_stacks, &candidates)),
+                base_segment_name.as_ref().into_iter().map(|ri| &ri.ref_name).chain(
+                    base_segment
+                        .commits
+                        .first()
+                        .map(|c| c.refs.iter())
+                        .into_iter()
+                        .flatten()
+                        .map(|ri| &ri.ref_name),
+                ),
+                (&self.inner, ws_sidx, &ws_stacks, &candidates),
             )
             .collect();
             for refs_for_independent_branches in matching_refs_per_stack {
+                // Matching refs can be repeated, even with unsound workspace metadata that mentions them multiple times.
+                // Instead of catching this earlier, we handle deduplication right here where it matters.
+                let unique_refs_for_independent_branches: Vec<_> = refs_for_independent_branches
+                    .into_iter()
+                    .filter_map(|rn| seen.insert(rn.clone()).then_some(rn))
+                    .collect();
+                if unique_refs_for_independent_branches.is_empty() {
+                    continue;
+                }
                 let edges_connecting_base_with_ws_tip: Vec<EdgeOwned> = self
                     .inner
                     .edges_connecting(ws_sidx, base_sidx)
@@ -630,7 +629,7 @@ impl Graph {
                     self,
                     ws_sidx,
                     base_sidx,
-                    refs_for_independent_branches,
+                    unique_refs_for_independent_branches,
                     meta,
                     worktree_by_branch,
                 )?;
@@ -643,7 +642,7 @@ impl Graph {
         // Setup dependent stacks based on searching refs on existing workspace commits.
         // Note that we can still source names from previously used stacks just to be able to capture more
         // of the original intent, despite the graph having changed. This works because in the end, we are consuming
-        // refs on commits that can't be re-used once they have been moved into their own segment.
+        // refs on commits that can't be reused once they have been moved into their own segment.
         let mut segments_to_possibly_delete = Vec::new();
         for stack in &ws_stacks {
             let mut last_created_segment = None;
@@ -661,7 +660,7 @@ impl Graph {
                     let commit = &self[ws_segment_sidx].commits[commit_idx];
                     let has_inserted_segment_above = current_above != ws_segment_sidx;
                     let Some(refs_for_dependent_branches) =
-                        find_all_desired_stack_refs_in_commit(&ws_data, commit.ref_iter(), None)
+                        find_all_desired_stack_refs_in_commit_for_dependent_branches(&ws_data, commit.ref_iter(), None)
                             .next()
                     else {
                         // Now we have to assign this uninteresting commit to the last created segment, if there was one.
@@ -697,14 +696,12 @@ impl Graph {
                 last_created_segment = Some(current_above);
             }
 
-            if let Some((last_segment_id, base_sidx, commit)) =
-                stack.segments.last().and_then(|s| {
-                    let base_sidx = s.base_segment_id?;
-                    let c = self.node_weight(base_sidx)?.commits.first()?;
-                    Some((last_created_segment.unwrap_or(s.id), base_sidx, c))
-                })
-            {
-                let Some(refs_for_dependent_branches) = find_all_desired_stack_refs_in_commit(
+            if let Some((last_segment_id, base_sidx, commit)) = stack.segments.last().and_then(|s| {
+                let base_sidx = s.base_segment_id?;
+                let c = self.node_weight(base_sidx)?.commits.first()?;
+                Some((last_created_segment.unwrap_or(s.id), base_sidx, c))
+            }) {
+                let Some(refs_for_dependent_branches) = find_all_desired_stack_refs_in_commit_for_dependent_branches(
                     &ws_data,
                     self[base_sidx]
                         .ref_info
@@ -713,7 +710,7 @@ impl Graph {
                         .filter(|_| !commit.refs.is_empty())
                         .into_iter()
                         .chain(commit.ref_iter()),
-                    None,
+                    Some(stack),
                 )
                 .next() else {
                     continue;
@@ -721,10 +718,7 @@ impl Graph {
 
                 let edges_from_segment_above = collect_edges_at_commit_reverse_order(
                     self,
-                    (
-                        last_segment_id,
-                        self[last_segment_id].commits.len().checked_sub(1),
-                    ),
+                    (last_segment_id, self[last_segment_id].commits.len().checked_sub(1)),
                     Direction::Outgoing,
                 );
                 let new_sidx_above_base_sidx = maybe_create_multiple_segments(
@@ -748,8 +742,8 @@ impl Graph {
                     .take_if(|ri| refs_for_dependent_branches.contains(&ri.ref_name));
                 if s.ref_info.is_none() {
                     s.metadata = None;
-                    if let Some(sibling) = s.sibling_segment_id.take() {
-                        self[sibling].sibling_segment_id = None;
+                    if let Some(remote_sidx) = s.remote_tracking_branch_segment_id.take() {
+                        self[remote_sidx].sibling_segment_id = None;
                     }
                 }
 
@@ -759,20 +753,14 @@ impl Graph {
                     .first_mut()
                     .filter(|c| !c.refs.is_empty())
                     .map(|c| &mut c.refs)
-                    && let Some((name, md)) = disambiguate_refs_by_branch_metadata(
-                        refs.iter().map(|ri| &ri.ref_name),
-                        meta,
-                    )
+                    && let Some((name, md)) =
+                        disambiguate_refs_by_branch_metadata(refs.iter().map(|ri| &ri.ref_name), meta)
                 {
                     refs.retain(|ri| ri.ref_name != name);
                     s.ref_info = Some(crate::RefInfo::from_ref(name, worktree_by_branch));
                     s.metadata = md;
                 }
-                reconnect_outgoing_edges(
-                    self,
-                    edges_from_segment_above,
-                    (new_sidx_above_base_sidx, None),
-                );
+                reconnect_outgoing_edges(self, edges_from_segment_above, (new_sidx_above_base_sidx, None));
             }
         }
 
@@ -812,22 +800,23 @@ impl Graph {
         });
 
         for (eid, target_sidx, _) in edges_pointing_to_named_segment {
-            let weight = self
-                .inner
-                .remove_edge(eid)
-                .expect("we found the edge before");
+            let weight = self.inner.remove_edge(eid).expect("we found the edge before");
             // Reconnect according to the new order.
             self.inner.add_edge(ws_sidx, target_sidx, weight);
         }
 
         // Setup sibling IDs for all unnamed segments with a known segment ref in its future.
-        for sidx in ws_stacks.iter().flat_map(|s| {
-            s.segments
-                .iter()
-                .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
-        }) {
+        let unique_ws_segment_ids: BTreeSet<SegmentIndex> = ws_stacks
+            .iter()
+            .flat_map(|s| {
+                s.segments
+                    .iter()
+                    .flat_map(|s| s.commits_by_segment.iter().map(|(sidx, _)| *sidx))
+            })
+            .collect();
+        for &sidx in &unique_ws_segment_ids {
             // The workspace might be stale by now as we delete empty segments.
-            // Thus be careful, and ignore non-existing ones - after all our workspace
+            // Thus, be careful, and ignore non-existing ones - after all our workspace
             // is temporary, nothing to worry about.
             let Some(s) = self.inner.node_weight(sidx) else {
                 continue;
@@ -836,11 +825,9 @@ impl Graph {
                 continue;
             }
 
-            let num_outgoing = self
-                .inner
-                .neighbors_directed(sidx, Direction::Incoming)
-                .count();
-            if num_outgoing < 2 {
+            let num_incoming = self.inner.neighbors_directed(sidx, Direction::Incoming).count();
+            let single_incoming_connection = num_incoming < 2;
+            if single_incoming_connection {
                 continue;
             }
 
@@ -856,23 +843,50 @@ impl Graph {
                 }
 
                 s.ref_info.as_ref().is_some_and(|ri| {
-                    let is_known_to_workspace = ws_data
-                        .stacks(AppliedAndUnapplied)
-                        .any(|s| s.branches.iter().any(|b| b.ref_name == ri.ref_name));
+                    let is_known_to_workspace = ws_data.contains_ref(ri.ref_name.as_ref(), AppliedAndUnapplied);
                     if is_known_to_workspace {
                         named_segment_id = Some(s.id);
                     }
                     is_known_to_workspace
                 })
             });
-            self[sidx].sibling_segment_id = named_segment_id;
+            if let Some(named_sid) = named_segment_id
+                && self[sidx].sibling_segment_id.is_none()
+            {
+                // Don't set sibling if the named segment is already known to the workspace
+                // by direct connection. However, if the named segment is *not* a direct
+                // workspace child and there are no further workspace segments below this
+                // anonymous one, the sibling is the only way to identify the stack.
+                let segment_name = self[named_sid]
+                    .ref_info
+                    .as_ref()
+                    .expect("BUG: named segment must have name")
+                    .ref_name
+                    .as_ref();
+                let is_stack_tip = ws_data.stack_names(Applied).any(|sn| sn == segment_name);
+                if !is_stack_tip {
+                    self[sidx].sibling_segment_id = Some(named_sid);
+                } else {
+                    let named_is_direct_ws_child = self
+                        .inner
+                        .neighbors_directed(ws_sidx, Direction::Outgoing)
+                        .any(|n| n == named_sid);
+                    let has_ws_segments_below = self
+                        .inner
+                        .neighbors_directed(sidx, Direction::Outgoing)
+                        .any(|n| unique_ws_segment_ids.contains(&n));
+                    if !named_is_direct_ws_child && !has_ws_segments_below {
+                        self[sidx].sibling_segment_id = Some(named_sid);
+                    }
+                }
+            }
         }
 
         // The named-segment check is needed as we don't want to double-split unnamed segments.
         // What this really does is to pass ownership of the base commit from a named segment to an unnamed one,
         // as all algorithms kind of rely on it.
         // So if this ever becomes a problem, we can also try to adjust said algorithms downstream.
-        if let Some(low_bound_segment_id) = ws_low_bound_sidx
+        if let Some(low_bound_segment_id) = ws_low_bound_in_ws_sidx
             && self[low_bound_segment_id].ref_info.is_some()
         {
             self.split_segment(
@@ -904,10 +918,8 @@ impl Graph {
     ) -> anyhow::Result<()> {
         // Map (segment-to-be-named, [candidate-remote]), so we don't set a name if there is more
         // than one remote.
-        let mut remotes_by_segment_map = BTreeMap::<
-            SegmentIndex,
-            Vec<(gix::refs::FullName, gix::refs::FullName, SegmentIndex)>,
-        >::new();
+        let mut remotes_by_segment_map =
+            BTreeMap::<SegmentIndex, Vec<(gix::refs::FullName, gix::refs::FullName, SegmentIndex)>>::new();
 
         let mut remote_sidx_by_ref_name = BTreeMap::new();
         for (remote_sidx, remote_ref_name) in self.inner.node_indices().filter_map(|sidx| {
@@ -920,8 +932,7 @@ impl Graph {
         }) {
             remote_sidx_by_ref_name.insert(remote_ref_name.clone(), remote_sidx);
             let start_idx = self[remote_sidx].commits.first().map(|_| 0);
-            let mut walk = TopoWalk::start_from(remote_sidx, start_idx, Direction::Outgoing)
-                .skip_tip_segment();
+            let mut walk = TopoWalk::start_from(remote_sidx, start_idx, Direction::Outgoing).skip_tip_segment();
 
             while let Some((sidx, commit_range)) = walk.next(&self.inner) {
                 let segment = &self[sidx];
@@ -974,11 +985,10 @@ impl Graph {
             .filter(|(_, candidates)| candidates.len() == 1)
         {
             let s = &mut self[anon_sidx];
-            let (local, remote, remote_sidx) =
-                disambiguated_name.pop().expect("one item as checked above");
+            let (local, remote, remote_sidx) = disambiguated_name.pop().expect("one item as checked above");
             s.ref_info = Some(crate::RefInfo::from_ref(local, worktree_by_branch));
             s.remote_tracking_ref_name = Some(remote);
-            s.sibling_segment_id = Some(remote_sidx);
+            s.remote_tracking_branch_segment_id = Some(remote_sidx);
             let rn = s.ref_info.as_ref().expect("just set it");
             s.commits.first_mut().unwrap().refs.retain(|crn| crn != rn);
             // Assure the remote is also paired up!
@@ -1007,7 +1017,7 @@ impl Graph {
                 .as_ref()
                 .and_then(|rn| remote_sidx_by_ref_name.remove(rn.as_ref()))
             {
-                segment.sibling_segment_id = Some(remote_sidx);
+                segment.remote_tracking_branch_segment_id = Some(remote_sidx);
                 links_from_remote_to_local.push((remote_sidx, segment.id));
             }
         }
@@ -1028,19 +1038,17 @@ impl Graph {
                     .into_iter()
                     .map(EdgeOwned::from)
                     .collect();
-                let remote_is_connected_to_local =
-                    outgoing.iter().any(|e| e.target.id() == local_sidx);
+                let remote_is_connected_to_local = outgoing.iter().any(|e| e.target.id() == local_sidx);
                 if !remote_is_connected_to_local
-                    && let Some(edge) = outgoing.iter().find(|e| {
-                        outgoing.len() == 1 || e.target.id() == owner_of_commit_same_as_remote
-                    })
+                    && let Some(edge) = outgoing
+                        .iter()
+                        .find(|e| outgoing.len() == 1 || e.target.id() == owner_of_commit_same_as_remote)
                 {
                     self.inner.remove_edge(edge.id);
                     self.inner.add_edge(
                         remote_sidx,
                         local_sidx,
-                        edge.weight
-                            .adjusted_for(remote_sidx, local_sidx, &self.inner),
+                        edge.weight.adjusted_for(remote_sidx, local_sidx, &self.inner),
                     );
                 }
             }
@@ -1064,9 +1072,9 @@ impl Graph {
     }
 
     // Fill in generation numbers by walking down the graph topologically.
+    // This is called at the end of post-processing to ensure generations are correct
+    // after all segment insertions and edge rewiring.
     fn compute_generation_numbers(&mut self) {
-        // Start at tips, those without incoming connections.
-        // TODO(perf): save tips from actual iteration, computing these is expensive.
         let mut topo = petgraph::visit::Topo::new(&self.inner);
         while let Some(sidx) = topo.next(&self.inner) {
             let max_gen_of_incoming = self
@@ -1078,24 +1086,55 @@ impl Graph {
             self[sidx].generation = max_gen_of_incoming;
         }
     }
+
+    /// Returns `true` if `below_sidx` is connected to `above_sidx` from above, so `above_sidx` has an
+    /// outgoing connection to `below_sidx`.
+    fn is_connected_from_above(&self, below_sidx: SegmentIndex, above_sidx: SegmentIndex) -> bool {
+        self.edges_directed(below_sidx, Direction::Incoming)
+            .any(|e| e.source() == above_sidx)
+    }
+}
+
+/// Search `ws_data` for all matching names in `commit_refs` and return them, once per stack.
+/// If `only_in_stack` is set, it will only search the stack in `ws_data` that either matches its stack-id or
+/// its tip name, to avoid matching names that are not meant to be used in `only_in_stack`.
+fn find_all_desired_stack_refs_in_commit_for_dependent_branches<'a>(
+    ws_data: &'a ref_metadata::Workspace,
+    commit_refs: impl Iterator<Item = &'a gix::refs::FullName> + Clone + 'a,
+    only_in_stack: Option<&'a crate::projection::Stack>,
+) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
+    ws_data.stacks(Applied).filter_map(move |stack| {
+        if only_in_stack.is_some_and(|limit_to| limit_to.id != Some(stack.id) && limit_to.ref_name() != stack.name()) {
+            return None;
+        }
+        let matching_refs: Vec<_> = stack
+            .branches
+            .iter()
+            .filter_map(|s| commit_refs.clone().find(|rn| *rn == &s.ref_name).cloned())
+            .collect();
+        if matching_refs.is_empty() {
+            return None;
+        }
+        Some(matching_refs)
+    })
 }
 
 fn find_all_desired_stack_refs_in_commit<'a>(
     ws_data: &'a ref_metadata::Workspace,
     commit_refs: impl Iterator<Item = &'a gix::refs::FullName> + Clone + 'a,
-    graph_and_ws_idx_and_candidates: Option<(
+    graph_and_ws_idx_and_candidates: (
         &'a PetGraph,
         SegmentIndex,
         &'a [crate::projection::Stack],
         &'a [SegmentIndex],
-    )>,
+    ),
 ) -> impl Iterator<Item = Vec<gix::refs::FullName>> + 'a {
+    let (graph, ws_idx, ws_stacks, candidates) = graph_and_ws_idx_and_candidates;
     ws_data.stacks(Applied).filter_map(move |stack| {
-        if let Some((_, _, ws_stacks, candidates)) = graph_and_ws_idx_and_candidates
-            && ws_stacks
-                .iter()
-                .filter(|s| !s.segments.iter().any(|s| candidates.contains(&s.id)))
-                .any(|existing_stack| existing_stack.id == Some(stack.id))
+        if ws_stacks
+            .iter()
+            .filter(|s| !s.segments.iter().any(|s| candidates.contains(&s.id)))
+            .any(|existing_stack| existing_stack.id == Some(stack.id))
         {
             return None;
         }
@@ -1110,18 +1149,12 @@ fn find_all_desired_stack_refs_in_commit<'a>(
 
         // We match any part of a stack above, so have to assure we don't recreate
         // part of an existing stack as new stack.
-        let is_used_in_existing_stack = graph_and_ws_idx_and_candidates
-            .zip(stack.branches.first())
-            .is_some_and(
-                |((graph, ws_idx, _ws_stacks, candidates), top_segment_name)| {
-                    graph
-                        .neighbors_directed(ws_idx, Direction::Outgoing)
-                        .filter(|sidx| !candidates.contains(sidx))
-                        .any(|stack_sidx| {
-                            graph[stack_sidx].ref_name() == Some(top_segment_name.ref_name.as_ref())
-                        })
-                },
-            );
+        let is_used_in_existing_stack = stack.branches.first().is_some_and(|top_segment_name| {
+            graph
+                .neighbors_directed(ws_idx, Direction::Outgoing)
+                .filter(|sidx| !candidates.contains(sidx))
+                .any(|stack_sidx| graph[stack_sidx].ref_name() == Some(top_segment_name.ref_name.as_ref()))
+        });
         if is_used_in_existing_stack {
             return None;
         }
@@ -1148,10 +1181,7 @@ fn delete_anon_if_empty_and_reconnect(graph: &mut Graph, sidx: SegmentIndex) {
         return;
     }
 
-    tracing::debug!(
-        ?sidx,
-        "Deleting seemingly isolated and now completely unused segment"
-    );
+    tracing::debug!(?sidx, "Deleting seemingly isolated and now completely unused segment");
     // Reconnect
     let new_target = first_outgoing.target();
     let incoming: Vec<_> = graph
@@ -1206,19 +1236,10 @@ fn create_independent_segments<T: RefMetadata>(
     let mut above = above_idx;
     let mut new_refs = graph[below_idx].commits[0].refs.clone();
     for ref_name in matching_refs {
-        let new_segment = branch_segment_from_name_and_meta(
-            Some((ref_name.clone(), None)),
-            meta,
-            None,
-            worktree_by_branch,
-        )?;
-        let new_segment_sidx = graph.connect_new_segment(
-            above,
-            graph[above].last_commit_index(),
-            new_segment,
-            None,
-            None,
-        );
+        let new_segment =
+            branch_segment_from_name_and_meta(Some((ref_name.clone(), None)), meta, None, worktree_by_branch)?;
+        let new_segment_sidx =
+            graph.connect_new_segment(above, graph[above].last_commit_index(), new_segment, None, None);
         above = new_segment_sidx;
 
         match new_refs.iter().position(|ri| ri.ref_name == ref_name) {
@@ -1226,13 +1247,17 @@ fn create_independent_segments<T: RefMetadata>(
                 let s = &mut graph[below_idx];
                 if s.ref_name() != Some(ref_name.as_ref()) {
                     bail!(
-                        "BUG: ref-names must either be present in the first commit, or be the segment name"
+                        "BUG: ref-names must either be present in the first commit, or be the segment name: below_idx = {below_idx:?}, below.ref_name = {below_name:?}, above.ref_name = {above_name}",
+                        below_name = s.ref_name().map(|rn| rn.as_bstr()),
+                        above_name = ref_name.as_bstr()
                     )
                 }
                 s.ref_info = None;
                 s.metadata = None;
                 let sibling = s.sibling_segment_id.take();
+                let remote = s.remote_tracking_branch_segment_id.take();
                 graph[new_segment_sidx].sibling_segment_id = sibling;
+                graph[new_segment_sidx].remote_tracking_branch_segment_id = remote;
 
                 if let Some((ep_sidx, ep_commit_idx)) = graph.entrypoint.as_mut()
                     && *ep_sidx == below_idx
@@ -1285,26 +1310,18 @@ fn maybe_create_multiple_segments<T: RefMetadata>(
         c.refs.retain(|ri| !matching_refs.contains(&ri.ref_name));
         c
     });
-    let matching_refs = matching_refs
-        .into_iter()
-        .enumerate()
-        .map(|(idx, ref_name)| {
-            let (mut first, mut last) = (false, false);
-            if idx == 0 {
-                first = true;
-            }
-            if idx + 1 == iter_len {
-                last = true;
-            }
-            (first, last, ref_name)
-        });
+    let matching_refs = matching_refs.into_iter().enumerate().map(|(idx, ref_name)| {
+        let (mut first, mut last) = (false, false);
+        if idx == 0 {
+            first = true;
+        }
+        if idx + 1 == iter_len {
+            last = true;
+        }
+        (first, last, ref_name)
+    });
     for (is_first, is_last, ref_name) in matching_refs {
-        let new_segment = branch_segment_from_name_and_meta(
-            Some((ref_name, None)),
-            meta,
-            None,
-            worktree_by_branch,
-        )?;
+        let new_segment = branch_segment_from_name_and_meta(Some((ref_name, None)), meta, None, worktree_by_branch)?;
         let above_commit_idx = {
             let s = &graph[above_idx];
             let cidx = commit.as_ref().and_then(|c| s.commit_index_of(c.id));
@@ -1382,11 +1399,7 @@ fn reconnect_outgoing(
     (source_sidx, source_cidx): (SegmentIndex, CommitIndex),
     (target_sidx, target_cidx): (SegmentIndex, gix::ObjectId),
 ) {
-    let edges = collect_edges_at_commit_reverse_order(
-        graph,
-        (source_sidx, Some(source_cidx)),
-        Direction::Outgoing,
-    );
+    let edges = collect_edges_at_commit_reverse_order(graph, (source_sidx, Some(source_cidx)), Direction::Outgoing);
     reconnect_outgoing_edges(graph, edges, (target_sidx, Some(target_cidx)))
 }
 

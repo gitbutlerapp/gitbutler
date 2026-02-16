@@ -1,13 +1,16 @@
 // Main UI Components
 export { default as ButPcAvatar, type faceType } from '$components/ButPcAvatar.svelte';
+export { default as ProfileButton } from '$components/avatar/ProfileButton.svelte';
 export { default as AsyncButton } from '$components/AsyncButton.svelte';
 export { default as Badge } from '$components/Badge.svelte';
 export { default as Button, type Props as ButtonProps } from '$components/Button.svelte';
 export { default as Checkbox } from '$components/Checkbox.svelte';
+export { default as Codeblock } from '$components/Codeblock.svelte';
 export {
 	default as CommitStatusBadge,
 	type CommitStatusType
 } from '$components/CommitStatusBadge.svelte';
+export { default as CopyButton } from '$components/CopyButton.svelte';
 export { default as ContextMenu } from '$components/ContextMenu.svelte';
 export { default as ContextMenuItem } from '$components/ContextMenuItem.svelte';
 export { default as ContextMenuItemSubmenu } from '$components/ContextMenuItemSubmenu.svelte';
@@ -16,7 +19,9 @@ export { default as DropdownButton } from '$components/DropdownButton.svelte';
 export { default as EditorLogo } from '$components/EditorLogo.svelte';
 export { default as EmptyStatePlaceholder } from '$components/EmptyStatePlaceholder.svelte';
 export { default as HunkDiff, type LineClickParams } from '$components/hunkDiff/HunkDiff.svelte';
+export { default as HunkDiffSkeleton } from '$components/hunkDiff/HunkDiffSkeleton.svelte';
 export { default as Icon, type IconName } from '$components/Icon.svelte';
+export { default as ImageDiff } from '$components/ImageDiff.svelte';
 export { default as InfoButton } from '$components/InfoButton.svelte';
 export { default as InfoMessage, type MessageStyle } from '$components/InfoMessage.svelte';
 export {
@@ -36,12 +41,14 @@ export {
 	type Props as ProfilePictureUploadProps
 } from '$components/ProfilePictureUpload.svelte';
 export { default as RadioButton } from '$components/RadioButton.svelte';
+export { default as RangeInput } from '$components/RangeInput.svelte';
 export { default as ReviewBadge } from '$components/ReviewBadge.svelte';
-export { default as SectionCard } from '$components/SectionCard.svelte';
+export { CardGroup } from '$components/cardGroup';
 export { default as SeriesIcon } from '$components/SeriesIcon.svelte';
 export { default as SeriesLabelsRow } from '$components/SeriesLabelsRow.svelte';
-export { default as SidebarEntry } from '$components/SidebarEntry.svelte';
 export { default as SimpleCommitRow } from '$components/SimpleCommitRow.svelte';
+export { default as SimpleCommitRowSkeleton } from '$components/SimpleCommitRowSkeleton.svelte';
+export { default as SkeletonBone } from '$components/SkeletonBone.svelte';
 export { default as Spacer } from '$components/Spacer.svelte';
 export { default as TagInput, type Tag } from '$components/TagInput.svelte';
 export { default as Textarea } from '$components/Textarea.svelte';
@@ -51,6 +58,8 @@ export { default as TimeAgo } from '$components/TimeAgo.svelte';
 export { default as Timestamp } from '$components/Timestamp.svelte';
 export { default as Toggle } from '$components/Toggle.svelte';
 export { default as Tooltip } from '$components/Tooltip.svelte';
+export { default as ForgeUserCard } from '$components/ForgeUserCard.svelte';
+export { default as AddForgeAccountButton } from '$components/AddForgeAccountButton.svelte';
 
 // ChipToast Components
 export { default as ChipToast } from '$components/chipToast/ChipToast.svelte';
@@ -103,10 +112,10 @@ export {
 	default as Scrollbar,
 	type ScrollbarVisilitySettings
 } from '$components/scroll/Scrollbar.svelte';
+export { default as VirtualList } from '$components/VirtualList.svelte';
 
 // Segment Control Components
-export { default as Segment } from '$components/segmentControl/Segment.svelte';
-export { default as SegmentControl } from '$components/segmentControl/SegmentControl.svelte';
+export { SegmentControl, SegmentItem } from '$components/segmentControl';
 
 // Commit Lines Components
 export { default as Cell } from '$components/commitLines/Cell.svelte';
@@ -144,6 +153,7 @@ export { default as Formatter } from '$lib/richText/plugins/Formatter.svelte';
 export { default as GhostTextPlugin } from '$lib/richText/plugins/GhostText.svelte';
 export { default as HardWrapPlugin } from '$lib/richText/plugins/HardWrapPlugin.svelte';
 export { default as FilePlugin } from '$lib/richText/plugins/FilePlugin.svelte';
+export { default as PlainTextPastePlugin } from '$lib/richText/plugins/PlainTextPastePlugin.svelte';
 export { default as UpDownPlugin } from '$lib/richText/plugins/UpDownPlugin.svelte';
 export {
 	default as Mention,
@@ -160,3 +170,5 @@ export type {
 	InputStylingProps,
 	InputStateCallbacks
 } from '$components/inputTypes';
+
+export * from '$lib/utils/hunk';

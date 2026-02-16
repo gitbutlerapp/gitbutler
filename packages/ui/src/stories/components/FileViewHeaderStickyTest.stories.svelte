@@ -22,6 +22,7 @@
 						draggable={true}
 						linesAdded={10}
 						linesRemoved={5}
+						pathFirst={true}
 					/>
 					<p class="content-example">some content</p>
 				</div>

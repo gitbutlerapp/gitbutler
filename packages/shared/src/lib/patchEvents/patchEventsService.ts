@@ -125,7 +125,7 @@ export class PatchEventsService {
 		}
 
 		// If a chat event has appeared, then we want to make sure that the
-		// change is propogated elsewhere.
+		// change is propagated elsewhere.
 		if (patchEvent.eventType === 'patch_version') {
 			this.appDispatch.dispatch(
 				patchCommitTable.upsertOne({

@@ -1,11 +1,18 @@
-use std::{collections::HashMap, path::Path, time::Duration};
+use std::{collections::HashMap, path::Path};
 
-use futures::{FutureExt, select};
-use rand::Rng;
+use gix::bstr::ByteSlice;
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
 use crate::RefSpec;
 
+#[cfg(feature = "askpass")]
+use futures::{FutureExt, select};
+#[cfg(feature = "askpass")]
+use rand::{Rng, SeedableRng};
+#[cfg(feature = "askpass")]
+use std::time::Duration;
+
+#[cfg(feature = "askpass")]
 /// The number of characters in the secret used for checking
 /// askpass invocations by ssh/git when connecting to our process.
 const ASKPASS_SECRET_LENGTH: usize = 24;
@@ -25,9 +32,7 @@ pub enum RepositoryError<
     AskpassServer(Easkpass),
     #[error("i/o error communicating with askpass utility: {0}")]
     AskpassIo(Esocket),
-    #[error(
-        "git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}"
-    )]
+    #[error("git command exited with non-zero exit code {status}: {args:?}\n\nSTDOUT:\n{stdout}\n\nSTDERR:\n{stderr}")]
     Failed {
         status: usize,
         args: Vec<String>,
@@ -51,10 +56,8 @@ pub enum RepositoryError<
     AskpassDeviceMismatch,
     #[error("failed to perform askpass security check; executable mismatch")]
     AskpassExecutableMismatch,
-    #[error(
-        "askpass binary at '{path}' not found. Run `cargo build -p gitbutler-git` to get the binaries needed"
-    )]
-    AskpassExecutableNotFound { path: String },
+    #[error("Run `{prefix}cargo build -p gitbutler-git` to get the askpass binary at '{path}'")]
+    AskpassExecutableNotFound { path: String, prefix: String },
 }
 
 /// Higher level errors that can occur when interacting with the CLI.
@@ -64,9 +67,41 @@ pub type Error<E> = RepositoryError<
     <<<E as GitExecutor>::ServerHandle as AskpassServer>::SocketHandle as Socket>::Error,
 >;
 
+enum HarnessEnv<P: AsRef<Path>> {
+    /// The contained P is the repository's worktree directory or its `.git` directory.
+    Repo(P),
+    /// The contained P is the path that the command should be executed in
+    Global(P),
+}
+
 #[cold]
 async fn execute_with_auth_harness<P, F, Fut, E, Extra>(
-    repo_path: P,
+    harness_env: HarnessEnv<P>,
+    executor: &E,
+    args: &[&str],
+    envs: Option<HashMap<String, String>>,
+    // below arguments only used if askpass is enabled
+    mut _on_prompt: F,
+    _extra: Extra,
+) -> Result<(usize, String, String), Error<E>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+    F: FnMut(String, Extra) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+    Extra: Send + Clone,
+{
+    #[cfg(feature = "askpass")]
+    return execute_with_indirect_askpass(harness_env, executor, args, envs, _on_prompt, _extra).await;
+    #[cfg(not(feature = "askpass"))]
+    return execute_direct(harness_env, executor, args, envs).await;
+}
+
+#[cfg(feature = "askpass")]
+/// Askpass-aware execution of Git commands, allowing the GUI to communicate with the askpass
+/// process over a pipe.
+async fn execute_with_indirect_askpass<P, F, Fut, E, Extra>(
+    harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
     envs: Option<HashMap<String, String>>,
@@ -81,62 +116,67 @@ where
     Extra: Send + Clone,
 {
     let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
-    current_exe = current_exe.canonicalize().unwrap_or(current_exe);
-    tracing::trace!(?current_exe);
+    // On Windows, we get these \\? prefix that have issues. Let's do nothing there for now,
+    // and otherwise switch to `gix::path::realpath()` everywhere.
+    if cfg!(unix) {
+        current_exe = current_exe.canonicalize().unwrap_or(current_exe);
+    }
 
     // TODO(qix-): Get parent PID of connecting processes to make sure they're us.
-    //let our_pid = std::process::id();
-
-    // TODO(qix-): This is a bit of a hack. Under a test environment,
-    // TODO(qix-): Cargo is running a test runner with a quasi-random
-    // TODO(qix-): suffix. The actual executables live in the parent directory.
-    // TODO(qix-): Thus, we have to do this under test. It's not ideal, but
-    // TODO(qix-): it works for now.
-    #[cfg(feature = "test-askpass-path")]
-    let current_exe = current_exe.parent().unwrap();
+    // This is a bit of a hack. Under a test environment, Cargo is running a
+    // test runner with a quasi-random suffix. The actual executables live in
+    // the parent directory. Thus, we have to do this under test. It's not
+    // ideal, but it works for now.
+    //
+    // TODO: remove this special case once `gitbutler-branch-actions` is gone.
+    if current_exe.iter().nth_back(1) == Some("deps".as_ref()) {
+        current_exe = current_exe.parent().unwrap().to_path_buf();
+    }
 
     let askpath_path = current_exe
-        .with_file_name({
-            #[cfg(unix)]
-            {
-                "gitbutler-git-askpass"
-            }
-            #[cfg(windows)]
-            {
-                "gitbutler-git-askpass.exe"
-            }
-        })
-        .to_string_lossy()
-        .into_owned();
+        .with_file_name("gitbutler-git-askpass")
+        .with_extension(std::env::consts::EXE_EXTENSION);
 
     #[cfg(unix)]
-    let setsid_path = current_exe
-        .with_file_name("gitbutler-git-setsid")
-        .to_string_lossy()
-        .into_owned();
+    let setsid_path = current_exe.with_file_name("gitbutler-git-setsid");
 
     let res = executor.stat(&askpath_path).await.map_err(Error::<E>::Exec);
     if res.is_err() {
-        return Err(Error::<E>::AskpassExecutableNotFound { path: askpath_path });
+        let (path, prefix) = if let Some(workdir) = std::env::current_dir().ok().and_then(|cwd| {
+            gix::discover::upwards(&cwd)
+                .ok()
+                .and_then(|p| p.0.into_repository_and_work_tree_directories().1)
+        }) {
+            let prefix = std::env::var_os("CARGO_TARGET_DIR")
+                .map(std::path::PathBuf::from)
+                .map(|path| {
+                    format!(
+                        "CARGO_TARGET_DIR={path} ",
+                        path = path.strip_prefix(&workdir).unwrap_or(&path).display()
+                    )
+                })
+                .unwrap_or_default();
+            (askpath_path.strip_prefix(&workdir).unwrap_or(&askpath_path), prefix)
+        } else {
+            (askpath_path.as_path(), "".into())
+        };
+        return Err(Error::<E>::AskpassExecutableNotFound {
+            path: path.display().to_string(),
+            prefix,
+        });
     }
     let askpath_stat = res?;
 
     #[cfg(unix)]
-    let setsid_stat = executor
-        .stat(&setsid_path)
-        .await
-        .map_err(Error::<E>::Exec)?;
+    let setsid_stat = executor.stat(&setsid_path).await.map_err(Error::<E>::Exec)?;
 
     #[expect(unsafe_code)]
     let sock_server = unsafe { executor.create_askpass_server() }
         .await
         .map_err(Error::<E>::Exec)?;
 
-    // FIXME(qix-): This is probably not cryptographically secure, did this in a bit
-    // FIXME(qix-): of a hurry. We should probably use a proper CSPRNG here, but this
-    // FIXME(qix-): is probably fine for now (as this security mechanism is probably
-    // FIXME(qix-): overkill to begin with).
-    let secret = rand::rng()
+    // NB: StdRng is always a cryptographically secure random generator.
+    let secret = rand::rngs::StdRng::from_os_rng()
         .sample_iter(&rand::distr::Alphanumeric)
         .take(ASKPASS_SECRET_LENGTH)
         .map(char::from)
@@ -145,64 +185,35 @@ where
     let mut envs = envs.unwrap_or_default();
     envs.insert("GITBUTLER_ASKPASS_PIPE".into(), sock_server.to_string());
     envs.insert("GITBUTLER_ASKPASS_SECRET".into(), secret.clone());
-    envs.insert("SSH_ASKPASS".into(), askpath_path);
+    envs.insert("SSH_ASKPASS".into(), askpath_path.display().to_string());
 
     // DISPLAY is required by SSH to check SSH_ASKPASS.
     // Please don't ask us why, it's unclear.
-    if !std::env::var("DISPLAY")
-        .map(|v| !v.is_empty())
-        .unwrap_or(false)
-    {
+    if !std::env::var("DISPLAY").map(|v| !v.is_empty()).unwrap_or(false) {
         envs.insert("DISPLAY".into(), ":".into());
     }
 
-    let base_ssh_command = match envs
-        .get("GIT_SSH_COMMAND")
-        .cloned()
-        .or_else(|| envs.get("GIT_SSH").cloned())
-        .or_else(|| std::env::var("GIT_SSH_COMMAND").ok())
-        .or_else(|| std::env::var("GIT_SSH").ok())
-    {
-        Some(v) => v,
-        None => get_core_sshcommand(&repo_path)
-            .ok()
-            .flatten()
-            .unwrap_or_else(|| "ssh".into()),
+    let git_ssh_command = resolve_git_ssh_command(&harness_env, &envs);
+    let setsid_prefix = {
+        #[cfg(unix)]
+        {
+            format!("'{setsid_path}' ", setsid_path = setsid_path.display())
+        }
+        #[cfg(windows)]
+        {
+            ""
+        }
     };
 
-    envs.insert(
-        "GIT_SSH_COMMAND".into(),
-        format!(
-            "{}{base_ssh_command} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{}",
-            {
-                #[cfg(unix)]
-                {
-                    format!("'{setsid_path}' ")
-                }
-                #[cfg(windows)]
-                {
-                    ""
-                }
-            },
-            {
-                // In test environments, we don't want to pollute the user's known hosts file.
-                // So, we just use /dev/null instead.
-                #[cfg(test)]
-                {
-                    " -o UserKnownHostsFile=/dev/null"
-                }
-                #[cfg(not(test))]
-                {
-                    ""
-                }
-            }
-        ),
-    );
+    envs.insert("GIT_SSH_COMMAND".into(), format!("{setsid_prefix}{git_ssh_command}"));
 
+    let cwd = match harness_env {
+        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
+    };
     let mut child_process = core::pin::pin! {
         async {
             executor
-                .execute(args, repo_path, Some(envs))
+                .execute(args, cwd, Some(envs))
                 .await
                 .map_err(Error::<E>::Exec)
         }.fuse()
@@ -224,9 +235,15 @@ where
                 let mut system = sysinfo::System::new();
                 system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
-                // We can ignore clippy here since the type is different depending on the platform.
+                #[cfg(unix)]
+                let peer_pid_u32: u32 = peer_pid
+                    .try_into()
+                    .map_err(|_| Error::<E>::NoSuchPid(peer_pid))?;
+                #[cfg(windows)]
+                let peer_pid_u32: u32 = peer_pid;
+
                 let peer_path = system
-                    .process(sysinfo::Pid::from_u32(peer_pid.try_into().map_err(|_| Error::<E>::NoSuchPid(peer_pid))?))
+                    .process(sysinfo::Pid::from_u32(peer_pid_u32))
                     .and_then(|p| p.exe().map(|exe| exe.to_string_lossy().into_owned()))
                     .ok_or(Error::<E>::NoSuchPid(peer_pid))?;
 
@@ -281,6 +298,84 @@ where
     }
 }
 
+#[cfg(not(feature = "askpass"))]
+/// Directly execute the Git command without invoking the askpass pipe machinery. This is useful
+/// for the CLI, as the child process simply inherits stdin from the parent process and therefore
+/// doesn't need the askpass mechanism.
+///
+/// It's doubly useful in the sense that the CLI then does not need the askpass and setsid
+/// binaries.
+async fn execute_direct<P, E>(
+    harness_env: HarnessEnv<P>,
+    executor: &E,
+    args: &[&str],
+    envs: Option<HashMap<String, String>>,
+) -> Result<(usize, String, String), Error<E>>
+where
+    P: AsRef<Path>,
+    E: GitExecutor,
+{
+    let mut envs = envs.unwrap_or_default();
+    envs.insert("GIT_SSH_COMMAND".into(), resolve_git_ssh_command(&harness_env, &envs));
+
+    let cwd = match harness_env {
+        HarnessEnv::Repo(p) | HarnessEnv::Global(p) => p,
+    };
+
+    executor.execute(args, cwd, Some(envs)).await.map_err(Error::<E>::Exec)
+}
+
+fn resolve_git_ssh_command<P>(harness_env: &HarnessEnv<P>, envs: &HashMap<String, String>) -> String
+where
+    P: AsRef<Path>,
+{
+    let base_ssh_command = match envs
+        .get("GIT_SSH_COMMAND")
+        .cloned()
+        .or_else(|| envs.get("GIT_SSH").cloned())
+        .or_else(|| std::env::var("GIT_SSH_COMMAND").ok())
+        .or_else(|| std::env::var("GIT_SSH").ok())
+    {
+        Some(v) => v,
+        None => get_core_sshcommand(harness_env)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "ssh".into()),
+    };
+
+    let additional_options = {
+        // In test environments, we don't want to pollute the user's known hosts file.
+        // So, we just use /dev/null instead.
+        #[cfg(test)]
+        {
+            " -o UserKnownHostsFile=/dev/null"
+        }
+        #[cfg(not(test))]
+        {
+            ""
+        }
+    };
+
+    format!(
+        "{base_ssh_command} -o StrictHostKeyChecking=accept-new -o KbdInteractiveAuthentication=no{additional_options}"
+    )
+}
+
+fn get_core_sshcommand<P>(harness_env: &HarnessEnv<P>) -> anyhow::Result<Option<String>>
+where
+    P: AsRef<Path>,
+{
+    match harness_env {
+        HarnessEnv::Repo(repo_path) => Ok(gix::open(repo_path.as_ref())?
+            .config_snapshot()
+            .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
+            .map(|program| program.to_string_lossy().into_owned())),
+        HarnessEnv::Global(_) => Ok(gix::config::File::from_globals()?
+            .string(gix::config::tree::Core::SSH_COMMAND)
+            .map(|program| program.to_str_lossy().into_owned())),
+    }
+}
+
 /// Fetches the given refspec from the given remote in the repository
 /// at the given path. Any prompts for the user are passed to the asynchronous
 /// callback `on_prompt` which should return the user's response or `None` if the
@@ -309,7 +404,7 @@ where
     args.push(&refspec);
 
     let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
+        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         Ok(())
@@ -384,7 +479,7 @@ where
     }
 
     let (status, stdout, stderr) =
-        execute_with_auth_harness(repo_path, &executor, &args, None, on_prompt, extra).await?;
+        execute_with_auth_harness(HarnessEnv::Repo(repo_path), &executor, &args, None, on_prompt, extra).await?;
 
     if status == 0 {
         return Ok(stderr);
@@ -421,19 +516,20 @@ where
     Err(base_error.into())
 }
 
-/// Signs the given commit-ish in the repository at the given path.
-/// Returns the newly signed commit SHA.
-///
+/// Clones the given repository URL to the target directory.
 /// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
 /// which should return the user's response or `None` if the operation should be
 /// aborted, in which case an `Err` value is returned from this function.
-pub async fn sign_commit<P, E, F, Extra, Fut>(
-    repo_path: P,
+///
+/// Unlike fetch/push, this function always uses the Git CLI regardless of any
+/// backend selection, as it needs to work before a repository exists.
+pub async fn clone<P, F, Fut, E, Extra>(
+    repository_url: &str,
+    target_dir: P,
     executor: E,
-    base_commitish: String,
     on_prompt: F,
     extra: Extra,
-) -> Result<String, crate::Error<Error<E>>>
+) -> Result<(), crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
@@ -441,101 +537,45 @@ where
     Fut: std::future::Future<Output = Option<String>>,
     Extra: Send + Clone,
 {
-    let repo_path = repo_path.as_ref();
+    let target_dir = target_dir.as_ref();
 
-    // First, create a worktree to perform the commit.
-    let worktree_path = repo_path
-        .join(".git")
-        .join("gitbutler")
-        .join(".wt")
-        .join(uuid::Uuid::new_v4().to_string());
-    let args = [
-        "worktree",
-        "add",
-        "--detach",
-        "--no-checkout",
-        worktree_path.to_str().unwrap(),
-        base_commitish.as_str(),
-    ];
-    let (status, stdout, stderr) = executor
-        .execute(&args, repo_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
+    // For clone, we run from the parent directory of the target
+    let work_dir = target_dir.parent().unwrap_or(Path::new("."));
 
-    // Now, perform the commit.
-    let args = [
-        "commit",
-        "--amend",
-        "-S",
-        "-o",
-        "--no-edit",
-        "--no-verify",
-        "--no-post-rewrite",
-        "--allow-empty",
-        "--allow-empty-message",
-    ];
+    let target_dir_str = target_dir.to_string_lossy();
+    let args = vec!["clone", "--", repository_url, &target_dir_str];
+
     let (status, stdout, stderr) =
-        execute_with_auth_harness(&worktree_path, &executor, &args, None, on_prompt, extra).await?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
+        execute_with_auth_harness(HarnessEnv::Global(work_dir), &executor, &args, None, on_prompt, extra).await?;
+
+    if status == 0 {
+        Ok(())
+    } else if stderr.to_lowercase().contains("permission denied") {
+        Err(crate::Error::AuthorizationFailed(Error::<E>::Failed {
             status,
             args: args.into_iter().map(Into::into).collect(),
             stdout,
             stderr,
-        })?;
-    }
-
-    // Get the commit hash that was generated
-    let args = ["rev-parse", "--verify", "HEAD"];
-    let (status, stdout, stderr) = executor
-        .execute(&args, &worktree_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
+        }))?
+    } else if stderr
+        .to_lowercase()
+        .contains("already exists and is not an empty directory")
+    {
+        Err(crate::Error::RemoteExists(
+            target_dir.display().to_string(),
+            Error::<E>::Failed {
+                status,
+                args: args.into_iter().map(Into::into).collect(),
+                stdout,
+                stderr,
+            },
+        ))?
+    } else {
+        Err(Error::<E>::Failed {
             status,
             args: args.into_iter().map(Into::into).collect(),
             stdout,
             stderr,
-        })?;
+        })?
     }
-
-    let commit_hash = stdout.trim().to_string();
-
-    // Finally, remove the worktree
-    let args = [
-        "worktree",
-        "remove",
-        "--force",
-        worktree_path.to_str().unwrap(),
-    ];
-    let (status, stdout, stderr) = executor
-        .execute(&args, repo_path, None)
-        .await
-        .map_err(Error::<E>::Exec)?;
-    if status != 0 {
-        return Err(Error::<E>::Failed {
-            status,
-            args: args.into_iter().map(Into::into).collect(),
-            stdout,
-            stderr,
-        })?;
-    }
-
-    Ok(commit_hash)
-}
-
-fn get_core_sshcommand(cwd: impl AsRef<Path>) -> anyhow::Result<Option<String>> {
-    Ok(gix::open(cwd.as_ref())?
-        .config_snapshot()
-        .trusted_program(&gix::config::tree::Core::SSH_COMMAND)
-        .map(|program| program.to_string_lossy().into_owned()))
 }

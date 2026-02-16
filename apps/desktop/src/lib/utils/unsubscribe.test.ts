@@ -2,17 +2,17 @@ import { unsubscribe } from '$lib/utils/unsubscribe';
 import { expect, test, describe } from 'vitest';
 
 describe.concurrent('unsubscribe', () => {
-	test('When provided an undefined value, it resovles to undefined', async () => {
+	test('When provided an undefined value, it resolves to undefined', async () => {
 		expect(await unsubscribe(undefined)()).toEqual([undefined]);
 	});
 
-	test('When provided a function, it resovles to that functions return value', async () => {
+	test('When provided a function, it resolves to that functions return value', async () => {
 		// eslint-disable-next-line func-style
 		const subscription = () => 42;
 		expect(await unsubscribe(subscription)()).toEqual([42]);
 	});
 
-	test('When provided a promise of a function, it resovles to that functions return value', async () => {
+	test('When provided a promise of a function, it resolves to that functions return value', async () => {
 		const subscription = Promise.resolve(() => 42);
 		expect(await unsubscribe(subscription)()).toEqual([42]);
 	});

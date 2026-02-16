@@ -47,6 +47,7 @@ export default ts.config(
 			'@typescript-eslint/return-await': ['error', 'always'],
 			'@typescript-eslint/promise-function-async': 'error',
 			'@typescript-eslint/await-thenable': 'error',
+			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
 
 			eqeqeq: ['error', 'always'],
 			'import-x/no-cycle': 'error',

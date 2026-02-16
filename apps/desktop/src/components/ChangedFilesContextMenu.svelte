@@ -1,5 +1,6 @@
 <!-- This is a V3 replacement for `FileContextMenu.svelte` -->
 <script lang="ts">
+	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
 	import { AI_SERVICE } from '$lib/ai/service';
@@ -7,6 +8,7 @@
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import { changesToDiffSpec } from '$lib/commits/utils';
 	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
+	import { autoSelectBranchCreationFeature } from '$lib/config/uiFeatureFlags';
 	import { FILE_SERVICE } from '$lib/files/fileService';
 	import { isTreeChange, type TreeChange } from '$lib/hunks/change';
 	import { vscodePath } from '$lib/project/project';
@@ -18,7 +20,6 @@
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
-
 	import {
 		AsyncButton,
 		Button,
@@ -26,20 +27,30 @@
 		ContextMenuItem,
 		ContextMenuItemSubmenu,
 		ContextMenuSection,
+		CopyButton,
 		FileListItem,
 		Modal,
-		Textbox,
-		chipToasts
+		ModalHeader,
+		ScrollableContainer,
+		chipToasts,
+		Icon,
+		TestId
 	} from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
+	import { tick } from 'svelte';
 	import type { SelectionId } from '$lib/selection/key';
+	import type { HunkAssignment } from '@gitbutler/core/api';
+
+	const DEFAULT_MODEL = 'gpt-4';
 
 	type Props = {
 		projectId: string;
 		stackId: string | undefined;
 		selectionId: SelectionId;
 		trigger?: HTMLElement;
+		leftClickTrigger?: HTMLElement;
 		editMode?: boolean;
+		onopen?: () => void;
+		onclose?: () => void;
 	};
 
 	type ChangedFilesItem = {
@@ -64,7 +75,16 @@
 		return 'path' in item && typeof item.path === 'string';
 	}
 
-	const { trigger, selectionId, stackId, projectId, editMode = false }: Props = $props();
+	const {
+		trigger,
+		leftClickTrigger,
+		selectionId,
+		stackId,
+		projectId,
+		editMode = false,
+		onopen,
+		onclose
+	}: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -76,9 +96,9 @@
 	const backend = inject(BACKEND);
 	const [autoCommit, autoCommitting] = actionService.autoCommit;
 	const [branchChanges, branchingChanges] = actionService.branchChanges;
-	const [absorbChanges, absorbingChanges] = actionService.absorb;
 	const [splitOffChanges] = stackService.splitBranch;
 	const [splitBranchIntoDependentBranch] = stackService.splitBrancIntoDependentBranch;
+	const [absorb, absorbingChanges] = stackService.absorb;
 
 	const projectService = inject(PROJECTS_SERVICE);
 
@@ -103,6 +123,7 @@
 
 	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let stashConfirmationModal: ReturnType<typeof Modal> | undefined;
+	let absorbPlanModal = $state<ReturnType<typeof Modal> | undefined>();
 	let contextMenu: ReturnType<typeof ContextMenu>;
 	let aiConfigurationValid = $state(false);
 
@@ -147,7 +168,17 @@
 	}
 
 	let stashBranchName = $state<string>();
-	const slugifiedRefName = $derived(stashBranchName && slugify(stashBranchName));
+	let slugifiedRefName: string | undefined = $state();
+	let stashBranchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
+	let absorbPlan = $state<HunkAssignment.CommitAbsorption[]>([]);
+
+	function uniquePaths(files: HunkAssignment.FileAbsorption[]): string[] {
+		const pathSet = new Set<string>();
+		for (const file of files) {
+			pathSet.add(file.path);
+		}
+		return Array.from(pathSet);
+	}
 
 	async function confirmStashIntoBranch(item: ChangedFilesItem, branchName: string | undefined) {
 		if (!branchName) {
@@ -163,7 +194,7 @@
 		stashConfirmationModal?.close();
 	}
 
-	export function open(e: MouseEvent, item: ChangedFilesItem) {
+	export function open(e: MouseEvent | HTMLElement, item: ChangedFilesItem) {
 		contextMenu.open(e, item);
 		aiService.validateGitButlerAPIConfiguration().then((value) => {
 			aiConfigurationValid = value;
@@ -193,19 +224,22 @@
 	}
 
 	async function triggerAutoCommit(changes: TreeChange[]) {
-		if (!canUseGBAI) {
-			chipToasts.error('GitButler AI is not configured or enabled for this project.');
-			return;
-		}
-
 		try {
-			await chipToasts.promise(autoCommit({ projectId, changes }), {
-				loading: 'Started auto commit',
-				success: 'Auto commit succeeded',
-				error: 'Auto commit failed'
+			uiState.global.modal.set({
+				type: 'auto-commit',
+				projectId
+			});
+			await autoCommit({
+				projectId,
+				target: {
+					type: 'treeChanges',
+					subject: { changes, assigned_stack_id: stackId ?? null }
+				},
+				useAi: $aiGenEnabled
 			});
 		} catch (error) {
 			console.error('Auto commit failed:', error);
+			uiState.global.modal.set(undefined);
 		}
 	}
 
@@ -216,7 +250,7 @@
 		}
 
 		try {
-			await chipToasts.promise(branchChanges({ projectId, changes }), {
+			await chipToasts.promise(branchChanges({ projectId, changes, model: DEFAULT_MODEL }), {
 				loading: 'Creating a branch and committing changes',
 				success: 'Branching changes succeeded',
 				error: 'Branching changes failed'
@@ -227,20 +261,21 @@
 	}
 
 	async function triggerAbsorbChanges(changes: TreeChange[]) {
-		if (!canUseGBAI) {
-			chipToasts.error('GitButler AI is not configured or enabled for this project.');
+		const changesToAbsorb = $state.snapshot(changes);
+		const plan = await stackService.fetchAbsorbPlan(projectId, {
+			type: 'treeChanges',
+			subject: {
+				changes: changesToAbsorb,
+				assigned_stack_id: stackId ?? null
+			}
+		});
+		if (!plan || plan.length === 0) {
+			chipToasts.error('No suitable commits found to absorb changes into.');
 			return;
 		}
-
-		try {
-			await chipToasts.promise(absorbChanges({ projectId, changes }), {
-				loading: 'Looking for the best place to absorb the changes',
-				success: 'Absorbing changes succeeded',
-				error: 'Absorbing changes failed'
-			});
-		} catch (error) {
-			console.error('Absorbing changes failed:', error);
-		}
+		absorbPlan = plan;
+		await tick();
+		absorbPlanModal?.show(null);
 	}
 
 	async function split(changes: TreeChange[]) {
@@ -327,9 +362,17 @@
 			console.error('Failed to split into dependent branch:', error);
 		}
 	}
+
+	let isAbsorbModalScrollVisible = $state(true);
 </script>
 
-<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
+<ContextMenu
+	bind:this={contextMenu}
+	{leftClickTrigger}
+	rightClickTrigger={trigger}
+	{onopen}
+	{onclose}
+>
 	{#snippet children(item: unknown)}
 		{#if isChangedFilesItem(item)}
 			{@const deletion = isDeleted(item)}
@@ -340,24 +383,44 @@
 					{#if isUncommitted}
 						<ContextMenuItem
 							label="Discard changes…"
+							testId={TestId.FileListItemContextMenu_DiscardChanges}
 							icon="bin"
 							onclick={() => {
 								confirmationModal?.show(item);
 								contextMenu.close();
 							}}
 						/>
-					{/if}
-					{#if isUncommitted}
 						<ContextMenuItem
 							label="Stash into branch…"
 							icon="stash"
-							onclick={() => {
-								stackService.fetchNewBranchName(projectId).then((name) => {
-									stashBranchName = name || '';
-								});
+							onclick={async () => {
 								stashConfirmationModal?.show(item);
+								stashBranchName = await stackService.fetchNewBranchName(projectId);
+								// Select text after async value is loaded and DOM is updated
+								if ($autoSelectBranchCreationFeature) {
+									await stashBranchNameInput?.selectAll();
+								}
 								contextMenu.close();
 							}}
+						/>
+						<ContextMenuItem
+							label="Absorb changes"
+							icon="absorb"
+							testId={TestId.FileListItemContextMenu_Absorb}
+							onclick={() => {
+								triggerAbsorbChanges(item.changes);
+								contextMenu.close();
+							}}
+							disabled={absorbingChanges.current.isLoading}
+						/>
+						<ContextMenuItem
+							label="Auto commit"
+							icon="auto-commit"
+							onclick={async () => {
+								contextMenu.close();
+								triggerAutoCommit(changes);
+							}}
+							disabled={autoCommitting.current.isLoading}
 						/>
 					{/if}
 					{#if selectionId.type === 'commit' && stackId && !editMode}
@@ -490,34 +553,13 @@
 						{#snippet submenu({ close: closeSubmenu })}
 							<ContextMenuSection>
 								<ContextMenuItem
-									label="Auto commit"
-									tooltip="Try to figure out where to commit the changes. Can create new branches too."
-									onclick={async () => {
-										closeSubmenu();
-										contextMenu.close();
-										triggerAutoCommit(item.changes);
-									}}
-									disabled={autoCommitting.current.isLoading}
-								/>
-								<ContextMenuItem
 									label="Branch changes"
-									tooltip="Create a new branch and commit the changes into it."
 									onclick={() => {
 										closeSubmenu();
 										contextMenu.close();
 										triggerBranchChanges(item.changes);
 									}}
 									disabled={branchingChanges.current.isLoading}
-								/>
-								<ContextMenuItem
-									label="Absorb changes"
-									tooltip="Try to find the best place to absorb the changes into."
-									onclick={() => {
-										closeSubmenu();
-										contextMenu.close();
-										triggerAbsorbChanges(item.changes);
-									}}
-									disabled={absorbingChanges.current.isLoading}
 								/>
 							</ContextMenuSection>
 						{/snippet}
@@ -536,6 +578,7 @@
 	width="small"
 	type="warning"
 	title="Discard changes"
+	testId={TestId.DiscardFileChangesConfirmationModal}
 	bind:this={confirmationModal}
 	onSubmit={(_, item) => isChangedFilesItem(item) && confirmDiscard(item)}
 >
@@ -553,13 +596,12 @@
 						Are you sure you want to discard the changes<br />to the following files:
 					</p>
 					<ul class="file-list">
-						{#each changes as change, i}
+						{#each changes as change}
 							<FileListItem
 								filePath={change.path}
 								fileStatus={computeChangeStatus(change)}
 								clickable={false}
 								listMode="list"
-								hideBorder={i === changes.length - 1}
 							/>
 						{/each}
 					</ul>
@@ -576,8 +618,17 @@
 		{/if}
 	{/snippet}
 	{#snippet controls(close, item)}
-		<Button kind="outline" onclick={close}>Cancel</Button>
-		<AsyncButton style="error" type="submit" action={async () => await confirmDiscard(item)}>
+		<Button
+			testId={TestId.DiscardFileChangesConfirmationModal_Cancel}
+			kind="outline"
+			onclick={close}>Cancel</Button
+		>
+		<AsyncButton
+			testId={TestId.DiscardFileChangesConfirmationModal_Discard}
+			style="danger"
+			type="submit"
+			action={async () => await confirmDiscard(item)}
+		>
 			Confirm
 		</AsyncButton>
 	{/snippet}
@@ -588,20 +639,18 @@
 	type="info"
 	title="Stash changes into a new branch"
 	bind:this={stashConfirmationModal}
-	onSubmit={(_, item) => isChangedFilesItem(item) && confirmStashIntoBranch(item, stashBranchName)}
+	onSubmit={(_, item) => isChangedFilesItem(item) && confirmStashIntoBranch(item, slugifiedRefName)}
 >
 	{#snippet children(item)}
 		<div class="content-wrap">
-			<Textbox
+			<BranchNameTextbox
+				bind:this={stashBranchNameInput}
 				id="stashBranchName"
 				placeholder="Enter your branch name..."
 				bind:value={stashBranchName}
 				autofocus
-				helperText={slugifiedRefName && slugifiedRefName !== stashBranchName
-					? `Will be created as '${slugifiedRefName}'`
-					: undefined}
+				onslugifiedvalue={(value) => (slugifiedRefName = value)}
 			/>
-
 			<div class="explanation">
 				<p class="primary-text">
 					{#if isChangedFolderItem(item)}
@@ -626,12 +675,101 @@
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<AsyncButton
 			style="pop"
-			disabled={!stashBranchName}
+			disabled={!slugifiedRefName}
 			type="submit"
-			action={async () => await confirmStashIntoBranch(item, stashBranchName)}
+			action={async () => await confirmStashIntoBranch(item, slugifiedRefName)}
 		>
 			Stash into branch
 		</AsyncButton>
+	{/snippet}
+</Modal>
+
+<Modal
+	width={500}
+	noPadding
+	bind:this={absorbPlanModal}
+	testId={TestId.AbsobModal}
+	onSubmit={async () => {
+		try {
+			await chipToasts.promise(absorb({ projectId, absorptionPlan: absorbPlan }), {
+				loading: 'Absorbing changes',
+				success: 'Changes absorbed successfully',
+				error: 'Failed to absorb changes'
+			});
+			absorbPlanModal?.close();
+		} catch (error) {
+			console.error('Failed to absorb changes:', error);
+		}
+	}}
+>
+	<ModalHeader sticky={!isAbsorbModalScrollVisible}>Absorb Changes into Commits</ModalHeader>
+	<ScrollableContainer onscrollTop={(visible) => (isAbsorbModalScrollVisible = visible)}>
+		<div class="absorb-plan-content">
+			<p class="text-13 text-body clr-text-2">
+				The following changes will be absorbed into their respective commits:
+			</p>
+			<div class="commit-absorptions">
+				{#each absorbPlan as commitAbsorption}
+					{@const uniqueFilePaths = uniquePaths(commitAbsorption.files)}
+					<div class="commit-absorption" data-testid={TestId.AbsorbModal_CommitAbsorption}>
+						{#if commitAbsorption.reason !== 'default_stack'}
+							<div class="absorption__reason text-12 text-body clr-text-2">
+								{#if commitAbsorption.reason === 'hunk_dependency'}
+									📍 Files depend on the commit due to overlapping hunks
+								{:else if commitAbsorption.reason === 'stack_assignment'}
+									🔖 Files assigned to this stack
+								{/if}
+							</div>
+						{/if}
+
+						<div class="absorption__content">
+							<div class="commit-header">
+								<Icon name="commit" />
+
+								<div class="flex gap-8 overflow-hidden align-center full-width">
+									<p class="text-13 text-semibold truncate flex-1">
+										{commitAbsorption.commitSummary.split('\n')[0]}
+									</p>
+									<CopyButton
+										class="text-12 clr-text-2"
+										text={commitAbsorption.commitId}
+										onclick={() => {
+											clipboardService.write(commitAbsorption.commitId, {
+												message: 'Commit ID copied'
+											});
+										}}
+									/>
+								</div>
+							</div>
+
+							<ul class="file-list">
+								{#each uniqueFilePaths as filePath (filePath)}
+									<FileListItem
+										{filePath}
+										clickable={false}
+										listMode="list"
+										isLast={uniqueFilePaths.indexOf(filePath) === uniqueFilePaths.length - 1}
+									/>
+								{/each}
+							</ul>
+						</div>
+					</div>
+				{/each}
+			</div>
+		</div>
+	</ScrollableContainer>
+
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button
+			style="pop"
+			type="submit"
+			loading={absorbingChanges.current.isLoading}
+			disabled={absorbPlan.length === 0 || absorbingChanges.current.isLoading}
+			testId={TestId.AbsorbModal_ActionButton}
+		>
+			Absorb changes
+		</Button>
 	{/snippet}
 </Modal>
 
@@ -653,5 +791,41 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+	}
+	.absorb-plan-content {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+		padding-top: 0;
+		gap: 12px;
+	}
+	.commit-absorptions {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+	.commit-absorption {
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-ml);
+		background-color: var(--clr-bg-1);
+	}
+	.absorption__reason {
+		display: flex;
+		padding: 8px;
+		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
+	}
+	.absorption__content {
+		display: flex;
+		flex-direction: column;
+		padding: 12px;
+	}
+	.commit-header {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 	}
 </style>

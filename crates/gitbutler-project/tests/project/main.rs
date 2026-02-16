@@ -11,16 +11,12 @@ mod add {
     #[test]
     fn success() -> anyhow::Result<()> {
         let tmp = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
-        let project = gitbutler_project::add_with_path(tmp.path(), path)
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
+        let project = gitbutler_project::add_at_app_data_dir(tmp.path(), path)
             .unwrap()
             .unwrap_project();
-        assert_eq!(project.worktree_dir()?, path);
-        assert_eq!(
-            project.title,
-            path.iter().next_back().unwrap().to_str().unwrap()
-        );
+        assert_eq!(project.title, path.iter().next_back().unwrap().to_str().unwrap());
         Ok(())
     }
 
@@ -35,7 +31,7 @@ mod add {
         fn non_bare_without_worktree() {
             let tmp = paths::data_dir();
             let root = repo_path_at("non-bare-without-worktree");
-            let outcome = gitbutler_project::add_with_path(tmp.path(), root.as_path()).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(tmp.path(), root.as_path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NoWorkdir));
         }
 
@@ -43,7 +39,7 @@ mod add {
         fn submodule() {
             let tmp = paths::data_dir();
             let root = repo_path_at("with-submodule").join("submodule");
-            let outcome = gitbutler_project::add_with_path(tmp.path(), root.as_path()).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(tmp.path(), root.as_path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NoDotGitDirectory));
         }
 
@@ -51,9 +47,7 @@ mod add {
         fn missing() {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
-            let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), tmp.path().join("missing"))
-                    .unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path().join("missing")).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::PathNotFound));
         }
 
@@ -63,7 +57,7 @@ mod add {
             let tmp = tempfile::tempdir().unwrap();
             let path = tmp.path();
             std::fs::write(path.join("file.txt"), "hello world").unwrap();
-            let outcome = gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NotAGitRepository(_)));
         }
 
@@ -71,18 +65,18 @@ mod add {
         fn empty() {
             let data_dir = paths::data_dir();
             let tmp = tempfile::tempdir().unwrap();
-            let outcome = gitbutler_project::add_with_path(data_dir.path(), tmp.path()).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), tmp.path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NotAGitRepository(_)));
         }
 
         #[test]
         fn twice() {
             let data_dir = paths::data_dir();
-            let repository = gitbutler_testsupport::TestProject::default();
-            let path = repository.path();
-            gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
+            let repo = gitbutler_testsupport::TestProject::default();
+            let path = repo.path();
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
 
-            let outcome = gitbutler_project::add_with_path(data_dir.path(), path).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), path).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::AlreadyExists(_)));
         }
 
@@ -95,8 +89,7 @@ mod add {
             let repo = git2::Repository::init_bare(&repo_dir).unwrap();
             create_initial_commit(&repo);
 
-            let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), repo_dir.as_path()).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), repo_dir.as_path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::BareRepository));
         }
 
@@ -111,8 +104,7 @@ mod add {
             create_initial_commit(&repo);
 
             let worktree = repo.worktree("feature", &worktree_dir, None).unwrap();
-            let outcome =
-                gitbutler_project::add_with_path(data_dir.path(), worktree.path()).unwrap();
+            let outcome = gitbutler_project::add_at_app_data_dir(data_dir.path(), worktree.path()).unwrap();
             assert!(matches!(outcome, AddProjectOutcome::NonMainWorktree));
         }
 
@@ -134,11 +126,9 @@ mod add {
         }
 
         fn repo_path_at(name: &str) -> PathBuf {
-            gitbutler_testsupport::gix_testtools::scripted_fixture_read_only(
-                "various-repositories.sh",
-            )
-            .unwrap()
-            .join(name)
+            gitbutler_testsupport::gix_testtools::scripted_fixture_read_only("various-repositories.sh")
+                .unwrap()
+                .join(name)
         }
     }
 }
@@ -148,25 +138,26 @@ mod delete {
     #[test]
     fn success() {
         let data_dir = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
-        let project = gitbutler_project::add_with_path(data_dir.path(), path)
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
             .unwrap()
             .unwrap_project();
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok()); // idempotent
         assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
-        assert!(!project.gb_dir().exists());
+        assert!(repo.path().exists());
+        assert!(!repo.path().join("gitbutler").exists());
     }
 
     #[test]
     fn deletes_gitbutler_references() -> anyhow::Result<()> {
         let data_dir = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
-        let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
 
-        let repo = project.open_isolated()?;
+        let repo = project.open_isolated_repo()?;
         let head_id = repo.head_id()?;
 
         // Create references in both namespaces
@@ -220,11 +211,11 @@ mod delete {
     fn deletes_project_without_gitbutler_references() -> anyhow::Result<()> {
         // This test ensures that deletion works even when there are no gitbutler references
         let data_dir = paths::data_dir();
-        let repository = gitbutler_testsupport::TestProject::default();
-        let path = repository.path();
-        let project = gitbutler_project::add_with_path(data_dir.path(), path)?.unwrap_project();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let path = repo.path();
+        let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
 
-        let repo = project.open_isolated()?;
+        let repo = project.open_isolated_repo()?;
         let head_id = repo.head_id()?;
 
         repo.reference(
@@ -243,7 +234,8 @@ mod delete {
 
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
-        assert!(!project.gb_dir().exists());
+        assert!(repo.path().exists());
+        assert!(!repo.path().join("gitbutler").exists());
 
         // Nothing changed - no reference was touched.
         insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"

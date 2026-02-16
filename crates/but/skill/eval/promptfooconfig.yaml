@@ -1,0 +1,189 @@
+description: "Tier 4 integration tests for the GitButler but skill"
+
+prompts:
+  - "{{prompt}}"
+
+providers:
+  - id: file://dist/providers/but-integration.js
+    config:
+      claude_runner: "providers/claude-local.sh"
+      claude_bin: "claude"
+      model: "claude-sonnet-4-5-20250929"
+      claude_timeout_ms: 180000
+      min_claude_version: "1.0.88"
+      keep_fixtures: false
+
+defaultTest:
+  vars:
+    setup_commands: ""
+
+tests:
+  - description: "Basic commit flow: status then commit with required flags"
+    vars:
+      prompt: "Commit src/auth.rs with message 'Add auth skeleton'."
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOF' > src/auth.rs
+        pub fn auth() {}
+        EOF
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:basicCommitFlow
+
+  - description: "Branch workflow: create branch before committing"
+    vars:
+      prompt: "Create a branch called dark-mode and commit src/theme.rs with a clear message."
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOF' > src/theme.rs
+        pub fn dark_mode() {}
+        EOF
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:branchWorkflow
+
+  - description: "Git synonym redirect: user asks for git push, agent uses but push"
+    vars:
+      prompt: "Can you do a git push?"
+      setup_commands: |
+        mkdir -p .tmp
+        git init --bare .tmp/origin.git
+        git remote add origin .tmp/origin.git
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:gitSynonymRedirect
+
+  - description: "Ordering: but status happens before but commit"
+    vars:
+      prompt: "Commit src/main.rs with a useful commit message."
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOF' > src/main.rs
+        fn main() {}
+        EOF
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:orderingFlow
+
+  - description: "Specificity: commit uses --changes when only one file should be committed"
+    vars:
+      prompt: "Commit only src/a.rs, and do not include src/b.rs."
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOF' > src/a.rs
+        pub fn a() {}
+        EOF
+        cat <<'EOF' > src/b.rs
+        pub fn b() {}
+        EOF
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:specificityFlow
+
+  - description: "Amend flow: amend file into existing commit with but amend"
+    vars:
+      prompt: "Amend src/a.rs into the existing commit on branch amend-test. Use but amend."
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOF' > src/a.rs
+        pub fn a() {
+          println!("one");
+        }
+        EOF
+        but branch new amend-test
+        but commit amend-test -m "Add a.rs" --json --status-after
+        cat <<'EOF' > src/a.rs
+        pub fn a() {
+          println!("two");
+        }
+        EOF
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:amendFlow
+
+  - description: "Reorder flow: use but history editing to reorder commits"
+    vars:
+      prompt: "Reorder commits on branch reorder-test so the commit adding src/first.rs is before the one adding src/second.rs. Use GitButler commands, not git rebase."
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOF' > src/second.rs
+        pub fn second() {}
+        EOF
+        but branch new reorder-test
+        but commit reorder-test -m "Add second.rs" --json --status-after
+        cat <<'EOF' > src/first.rs
+        pub fn first() {}
+        EOF
+        but commit reorder-test -m "Add first.rs" --json --status-after
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:reorderFlow
+
+  - description: "Pull flow: check mergeability before updating applied branches"
+    vars:
+      prompt: "Check whether applied branches can merge cleanly first, then update branches using GitButler pull."
+      setup_commands: |
+        mkdir -p src .tmp
+        git init --bare .tmp/origin.git
+        git remote add origin .tmp/origin.git
+        git push -u origin main
+        but branch new pull-check-test
+        cat <<'EOF' > src/feature.rs
+        pub fn feature() {}
+        EOF
+        but commit pull-check-test -m "Add feature branch change" --json --status-after
+        git clone --branch main .tmp/origin.git .tmp/origin-work
+        git -C .tmp/origin-work config user.name "Tier4 Eval"
+        git -C .tmp/origin-work config user.email "tier4-eval@example.com"
+        mkdir -p .tmp/origin-work/src
+        cat <<'EOF' > .tmp/origin-work/src/base.rs
+        pub fn remote_hotfix() {}
+        EOF
+        git -C .tmp/origin-work add src/base.rs
+        git -C .tmp/origin-work commit -m "Remote hotfix on main"
+        git -C .tmp/origin-work push origin main
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:pullCheckThenPullFlow
+
+  - description: "Stacked PR flow: prefer but pr new for stacked branches with forge auth guidance"
+    vars:
+      prompt: "These are stacked branches: auth-stack is the base and profile-stack depends on it. Create PRs using GitButler PR commands (not gh/git), starting with profile-stack. If forge auth is missing, tell me to run but config forge auth."
+      setup_commands: |
+        mkdir -p .tmp src/auth src/profile
+        git init --bare .tmp/origin.git
+        git remote add origin .tmp/origin.git
+        git push -u origin main
+        cat <<'EOF' > src/auth/login.rs
+        pub fn login() {}
+        EOF
+        but branch new auth-stack
+        but commit auth-stack -m "Add auth login flow" --json --status-after
+        cat <<'EOF' > src/profile/ui.rs
+        pub fn profile_ui() {}
+        EOF
+        but branch new profile-stack -a auth-stack
+        but commit profile-stack -m "Add profile UI" --json --status-after
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:stackedPrCreationFlow
+
+  - description: "Stacked anchor flow: create anchored branch then commit only target file"
+    vars:
+      prompt: "Create a stacked branch named profile-ui anchored to auth-base, then commit only src/profile.rs with a clear message using GitButler commands."
+      setup_commands: |
+        mkdir -p src
+        cat <<'EOF' > src/auth.rs
+        pub fn auth_base() {}
+        EOF
+        but branch new auth-base
+        but commit auth-base -m "Add auth base" --json --status-after
+        cat <<'EOF' > src/profile.rs
+        pub fn profile_screen() {}
+        EOF
+        cat <<'EOF' > src/noise.rs
+        pub fn noise() {}
+        EOF
+    assert:
+      - type: javascript
+        value: file://assertions/but-assertions.ts:stackedAnchorCommitFlow

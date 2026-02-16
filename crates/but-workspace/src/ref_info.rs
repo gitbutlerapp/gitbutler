@@ -14,7 +14,7 @@ use gix::Repository;
 
 /// A commit with must useful information extracted from the Git commit itself.
 ///
-/// Note that additional information can be computed and placed in the [`LocalCommit`] and [`RemoteCommit`]
+/// Note that additional information can be computed and placed in the [`LocalCommit`].
 #[derive(Clone, Eq, PartialEq)]
 pub struct Commit {
     /// The hash of the commit.
@@ -40,7 +40,7 @@ pub struct Commit {
     pub has_conflicts: bool,
     /// The GitButler assigned change-id that we hold on to for convenience to avoid duplicate decoding of commits
     /// when trying to associate remote commits with local ones.
-    pub change_id: Option<but_core::commit::ChangeId>,
+    pub change_id: Option<but_core::ChangeId>,
 }
 
 impl std::fmt::Debug for Commit {
@@ -58,7 +58,7 @@ impl std::fmt::Debug for Commit {
 impl From<but_core::Commit<'_>> for Commit {
     fn from(value: but_core::Commit<'_>) -> Self {
         let has_conflicts = value.is_conflicted();
-        let change_id = value.headers().map(|hdr| hdr.change_id);
+        let change_id = value.headers().and_then(|hdr| hdr.change_id);
         Commit {
             id: value.id.into(),
             tree_id: value.tree,
@@ -79,20 +79,17 @@ impl Commit {
         commit: gix::objs::Commit,
         graph_commit: &but_graph::Commit,
     ) -> Self {
-        let hdr = but_core::commit::HeadersV2::try_from_commit(&commit);
+        let hdr = but_core::commit::Headers::try_from_commit(&commit);
         Commit {
             id: graph_commit.id,
             parent_ids: commit.parents.into_iter().collect(),
             tree_id: commit.tree,
             message: commit.message,
             has_conflicts: hdr.as_ref().is_some_and(|hdr| hdr.is_conflicted()),
-            author: commit
-                .author
-                .to_ref(&mut gix::date::parse::TimeBuf::default())
-                .into(),
+            author: commit.author.to_ref(&mut gix::date::parse::TimeBuf::default()).into(),
             refs: graph_commit.refs.clone(),
             flags: graph_commit.flags.into(),
-            change_id: hdr.map(|hdr| hdr.change_id),
+            change_id: hdr.and_then(|hdr| hdr.change_id),
         }
     }
 }
@@ -167,9 +164,7 @@ impl LocalCommitRelation {
                     format!("local/remote({})", remote_id.to_hex_with_len(7)).into()
                 }
             }
-            LocalCommitRelation::Integrated(id) => {
-                format!("integrated({})", id.to_hex_with_len(7)).into()
-            }
+            LocalCommitRelation::Integrated(id) => format!("integrated({})", id.to_hex_with_len(7)).into(),
         }
     }
 }
@@ -194,19 +189,13 @@ pub trait WorkspaceExt {
     fn has_workspace_commit_in_ancestry(&self, repo: &gix::Repository) -> bool;
 }
 
-impl WorkspaceExt for but_graph::projection::Workspace<'_> {
+impl WorkspaceExt for but_graph::projection::Workspace {
     fn has_workspace_commit_in_ancestry(&self, repo: &Repository) -> bool {
-        function::find_ancestor_workspace_commit(
-            self.graph,
-            repo,
-            self.id,
-            self.lower_bound_segment_id,
-        )
-        .is_some()
+        function::find_ancestor_workspace_commit(&self.graph, repo, self.id, self.lower_bound_segment_id).is_some()
     }
 }
 
-/// Options for the [`ref_info()`](crate::ref_info) call.
+/// Options for the [`ref_info()`](crate::ref_info()) call.
 #[derive(Default, Debug, Clone)]
 pub struct Options {
     /// Control how to traverse the commit-graph as the basis for the workspace conversion.
@@ -256,7 +245,7 @@ pub struct Segment {
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal())
     /// is this segment, and the surrounding workspace is provided for context.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
@@ -363,6 +352,11 @@ pub(crate) mod function {
         opts: super::Options,
     ) -> anyhow::Result<RefInfo> {
         let graph = Graph::from_head(repo, meta, opts.traversal.clone())?;
+        if graph.hard_limit_hit() {
+            tracing::warn!(hard_limit=?opts.traversal.hard_limit,
+                "Commit-graph traversal might be incorrect as it was stopped too early due to hard limit",
+            );
+        }
         graph_to_ref_info(graph, repo, opts)
     }
 
@@ -374,7 +368,7 @@ pub(crate) mod function {
     /// ### Performance
     ///
     /// Make sure the `repo` is initialized with a decently sized Object cache so querying the same commit multiple times will be cheap(er).
-    #[instrument(level = tracing::Level::DEBUG, skip(meta), err(Debug))]
+    #[instrument(level = "debug", skip(meta), err(Debug))]
     pub fn ref_info(
         mut existing_ref: gix::Reference<'_>,
         meta: &impl but_core::RefMetadata,
@@ -382,12 +376,7 @@ pub(crate) mod function {
     ) -> anyhow::Result<RefInfo> {
         let id = existing_ref.peel_to_id()?;
         let repo = id.repo;
-        let graph = Graph::from_commit_traversal(
-            id,
-            existing_ref.inner.name,
-            meta,
-            opts.traversal.clone(),
-        )?;
+        let graph = Graph::from_commit_traversal(id, existing_ref.inner.name, meta, opts.traversal.clone())?;
         graph_to_ref_info(graph, repo, opts)
     }
 
@@ -402,9 +391,7 @@ pub(crate) mod function {
         let mut commits_outside = Vec::new();
         let mut sidx_and_cidx = None;
         graph.visit_all_segments_excluding_start_until(workspace_id, Direction::Outgoing, |s| {
-            if sidx_and_cidx.is_some()
-                || lower_bound_generation.is_some_and(|max_gen| s.generation > max_gen)
-            {
+            if sidx_and_cidx.is_some() || lower_bound_generation.is_some_and(|max_gen| s.generation > max_gen) {
                 return true;
             }
             for (cidx, graph_commit) in s.commits.iter().enumerate() {
@@ -415,12 +402,10 @@ pub(crate) mod function {
                     sidx_and_cidx = Some((s.id, cidx));
                     return true;
                 }
-                commits_outside.push(
-                    crate::ref_info::Commit::from_commit_ahead_of_workspace_commit(
-                        commit.inner,
-                        graph_commit,
-                    ),
-                );
+                commits_outside.push(crate::ref_info::Commit::from_commit_ahead_of_workspace_commit(
+                    commit.inner,
+                    graph_commit,
+                ));
             }
             false
         });
@@ -431,28 +416,25 @@ pub(crate) mod function {
         })
     }
 
-    fn graph_to_ref_info(
-        graph: Graph,
-        repo: &gix::Repository,
-        opts: super::Options,
-    ) -> anyhow::Result<RefInfo> {
+    fn graph_to_ref_info(graph: Graph, repo: &gix::Repository, opts: super::Options) -> anyhow::Result<RefInfo> {
         let but_graph::projection::Workspace {
             graph,
             id,
             kind,
             stacks,
-            target,
+            target_ref,
+            target_commit,
             extra_target,
             metadata,
             lower_bound: _,
             lower_bound_segment_id,
-        } = graph.to_workspace()?;
+        } = graph.into_workspace()?;
 
         let (workspace_ref_info, is_managed_commit, ancestor_workspace_commit) = match kind {
             WorkspaceKind::Managed { ref_info } => (Some(ref_info), true, None),
             WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info: ref_name } => {
                 let maybe_ancestor_workspace_commit =
-                    find_ancestor_workspace_commit(graph, repo, id, lower_bound_segment_id);
+                    find_ancestor_workspace_commit(&graph, repo, id, lower_bound_segment_id);
                 (Some(ref_name), false, maybe_ancestor_workspace_commit)
             }
             WorkspaceKind::AdHoc => (graph[id].ref_info.clone(), false, None),
@@ -471,7 +453,8 @@ pub(crate) mod function {
                 .rev()
                 .map(|stack| branch::Stack::try_from_graph_stack(stack, repo))
                 .collect::<anyhow::Result<_>>()?,
-            target,
+            target_ref,
+            target_commit,
             is_managed_ref: metadata.is_some(),
             is_managed_commit,
             ancestor_workspace_commit,
@@ -485,9 +468,7 @@ pub(crate) mod function {
                 "Found {} commit(s) on top of the workspace commit.\n\n",
                 info.commits_outside.len()
             );
-            let ws_commit_id = graph[info.segment_with_managed_commit].commits
-                [info.commit_index_of_managed_commit]
-                .id;
+            let ws_commit_id = graph[info.segment_with_managed_commit].commits[info.commit_index_of_managed_commit].id;
             msg.push_str(
                     "Run the following command in your working directory to fix this while leaving your worktree unchanged.\n",
                 );
@@ -495,15 +476,12 @@ pub(crate) mod function {
             msg.push_str(&format!("    git reset --soft {ws_commit_id}"));
             bail!("{msg}");
         }
-        info.compute_similarity(graph, repo, opts.expensive_commit_info)?;
+        info.compute_similarity(&graph, repo, opts.expensive_commit_info)?;
         Ok(info)
     }
 
     impl branch::Stack {
-        fn try_from_graph_stack(
-            stack: but_graph::projection::Stack,
-            repo: &gix::Repository,
-        ) -> anyhow::Result<Self> {
+        fn try_from_graph_stack(stack: but_graph::projection::Stack, repo: &gix::Repository) -> anyhow::Result<Self> {
             let base = stack.base();
             let but_graph::projection::Stack { segments, id } = stack;
             Ok(branch::Stack {
@@ -525,6 +503,7 @@ pub(crate) mod function {
                 base_segment_id: _,
                 remote_tracking_ref_name,
                 sibling_segment_id: _,
+                remote_tracking_branch_segment_id: _,
                 id,
                 commits,
                 // TODO: make it visible in this this data structure.
@@ -542,17 +521,12 @@ pub(crate) mod function {
                 .collect::<anyhow::Result<_>>()?;
             let commits_on_remote: Vec<_> = commits_on_remote
                 .into_iter()
-                .map(|c| {
-                    but_core::Commit::from_id(c.id.attach(repo)).map(crate::ref_info::Commit::from)
-                })
+                .map(|c| but_core::Commit::from_id(c.id.attach(repo)).map(crate::ref_info::Commit::from))
                 .collect::<Result<_, _>>()?;
             let commits_outside = commits_outside
                 .map(|v| {
                     v.into_iter()
-                        .map(|c| {
-                            but_core::Commit::from_id(c.id.attach(repo))
-                                .map(crate::ref_info::Commit::from)
-                        })
+                        .map(|c| but_core::Commit::from_id(c.id.attach(repo)).map(crate::ref_info::Commit::from))
                         .collect::<Result<Vec<_>, _>>()
                 })
                 .transpose()?;
@@ -582,8 +556,7 @@ pub(crate) mod function {
                 refs,
             } = c;
             use but_graph::projection::StackCommitFlags;
-            let mut inner: crate::ref_info::Commit =
-                but_core::Commit::from_id(id.attach(repo))?.into();
+            let mut inner: crate::ref_info::Commit = but_core::Commit::from_id(id.attach(repo))?.into();
             inner.refs = refs;
             inner.flags = flags;
             Ok(LocalCommit {
@@ -609,11 +582,7 @@ pub(crate) mod function {
         }
 
         let md = meta.workspace(name)?;
-        Ok(if md.is_default() {
-            None
-        } else {
-            Some((*md).clone())
-        })
+        Ok(if md.is_default() { None } else { Some((*md).clone()) })
     }
 
     /// Like [`workspace_data_of_workspace_branch()`], but it will try the name of the default GitButler workspace branch.
@@ -622,9 +591,7 @@ pub(crate) mod function {
     ) -> anyhow::Result<Option<but_core::ref_metadata::Workspace>> {
         workspace_data_of_workspace_branch(
             meta,
-            "refs/heads/gitbutler/workspace"
-                .try_into()
-                .expect("statically known"),
+            "refs/heads/gitbutler/workspace".try_into().expect("statically known"),
         )
     }
 }

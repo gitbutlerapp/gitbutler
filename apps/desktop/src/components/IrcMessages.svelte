@@ -35,7 +35,12 @@
 			{log.from}: {log.message}
 			{#if change && diff.diff}
 				<div class="extra">
-					<FileListItem filePath={change.path} listMode="list" hideBorder />
+					<FileListItem
+						filePath={change.path}
+						pathFirst={$userSettings.pathFirst}
+						listMode="list"
+						isLast
+					/>
 					<div class="diff">
 						<HunkDiff
 							draggingDisabled={true}
@@ -46,7 +51,7 @@
 							tabSize={$userSettings.tabSize}
 							wrapText={$userSettings.wrapText}
 							diffFont={$userSettings.diffFont}
-							diffContrast={$userSettings.diffContrast}
+							strongContrast={$userSettings.strongContrast}
 							colorBlindFriendly={$userSettings.colorBlindFriendly}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 						/>
@@ -86,7 +91,7 @@
 		user-select: text;
 	}
 	.error {
-		background-color: var(--clr-scale-err-90);
+		background-color: var(--clr-theme-danger-bg);
 	}
 	.extra {
 		padding: 6px 0;

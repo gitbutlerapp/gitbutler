@@ -109,7 +109,7 @@ export class PromptService {
 									abortHandle.abort('timeout');
 									return null;
 								})
-							: <Promise<string | null>>new Promise(() => null)
+							: new Promise<string | null>(() => null)
 					])
 			)
 		);

@@ -126,7 +126,7 @@
 				<ContextMenuItem
 					label="Copy link"
 					onclick={() => {
-						clipboardService.write(pr.htmlUrl, { message: 'PR link copied' });
+						clipboardService.write(pr.htmlUrl, { message: `${abbr} link copied` });
 						contextMenuEl?.close();
 					}}
 				/>
@@ -179,7 +179,7 @@
 					icon="copy-small"
 					tooltip="Copy {abbr} link"
 					onclick={() => {
-						clipboardService.write(pr.htmlUrl, { message: 'PR link copied' });
+						clipboardService.write(pr.htmlUrl, { message: `${abbr} link copied` });
 					}}
 				/>
 				<Button
@@ -212,7 +212,7 @@
 						<span class="label italic">No reviewers</span>
 					{/if}
 				</div>
-				<span class="seperator">•</span>
+				<span class="separator">•</span>
 				<div class="factoid">
 					<span class="label">
 						<Icon name="chat-small" />
@@ -257,7 +257,7 @@
 		}
 	}
 
-	.seperator {
+	.separator {
 		transform: translateY(-1.5px);
 		color: var(--clr-text-3);
 	}

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, os::windows::io::AsRawHandle, path::Path, time::Duration};
+use std::{os::windows::io::AsRawHandle, path::Path, time::Duration};
 
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufStream},
@@ -45,7 +45,7 @@ impl Socket for BufStream<NamedPipeServer> {
 
 /// A server for the `askpass` protocol using Tokio.
 pub struct TokioAskpassServer {
-    server: Mutex<RefCell<NamedPipeServer>>,
+    server: Mutex<NamedPipeServer>,
     connection_string: String,
 }
 
@@ -53,12 +53,12 @@ impl TokioAskpassServer {
     pub(crate) fn new() -> Result<Self, std::io::Error> {
         let connection_string = format!("{ASKPASS_PIPE_PREFIX}{}", rand::random::<u64>());
 
-        let server = Mutex::new(RefCell::new(
+        let server = Mutex::new(
             ServerOptions::new()
                 .first_pipe_instance(true)
                 .max_instances(2)
                 .create(&connection_string)?,
-        ));
+        );
 
         Ok(TokioAskpassServer {
             server,
@@ -71,21 +71,19 @@ impl AskpassServer for TokioAskpassServer {
     type Error = std::io::Error;
     type SocketHandle = BufStream<NamedPipeServer>;
 
-    // We can ignore clippy here since we locked the mutex.
-    #[expect(clippy::await_holding_refcell_ref)]
     async fn accept(&self, timeout: Option<Duration>) -> Result<Self::SocketHandle, Self::Error> {
-        let server = self.server.lock().await;
+        let mut server = self.server.lock().await;
 
         if let Some(timeout) = timeout {
-            tokio::time::timeout(timeout, server.borrow().connect()).await??;
+            tokio::time::timeout(timeout, server.connect()).await??;
         } else {
-            server.borrow().connect().await?;
+            server.connect().await?;
         }
 
         // Windows is weird. The server becomes the peer connection,
         // and before we use the new connection, we first create
         // a new server to listen for the next connection.
-        let client = server.replace(ServerOptions::new().create(&self.connection_string)?);
+        let client = std::mem::replace(&mut *server, ServerOptions::new().create(&self.connection_string)?);
 
         Ok(tokio::io::BufStream::new(client))
     }
@@ -101,7 +99,7 @@ impl core::fmt::Display for TokioAskpassServer {
 impl Drop for TokioAskpassServer {
     fn drop(&mut self) {
         // Best effort
-        let _ = self.server.get_mut().get_mut().disconnect();
+        let _ = self.server.get_mut().disconnect();
     }
 }
 
@@ -109,8 +107,7 @@ pub async fn stat<P: AsRef<Path>>(path: P) -> Result<FileStat, std::io::Error> {
     use file_id::FileId;
     let path = path.as_ref().to_owned();
     let metadata = tokio::fs::symlink_metadata(&path).await?;
-    let file_id =
-        tokio::task::spawn_blocking(move || file_id::get_low_res_file_id_no_follow(path)).await??;
+    let file_id = tokio::task::spawn_blocking(move || file_id::get_low_res_file_id_no_follow(path)).await??;
 
     // NOTE(qix-): We can safely unwrap here since the docs say:
     // NOTE(qix-):

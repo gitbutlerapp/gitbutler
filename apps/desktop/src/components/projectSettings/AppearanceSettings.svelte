@@ -1,16 +1,11 @@
 <script lang="ts">
 	import ThemeSelector from '$components/ThemeSelector.svelte';
-	import {
-		autoSelectBranchNameFeature,
-		stagingBehaviorFeature,
-		type StagingBehavior
-	} from '$lib/config/uiFeatureFlags';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { inject } from '@gitbutler/core/context';
 	import {
+		CardGroup,
 		HunkDiff,
 		RadioButton,
-		SectionCard,
 		Select,
 		SelectItem,
 		Textbox,
@@ -43,23 +38,16 @@
 			scrollbarVisibilityState: selectedScrollbarVisibility
 		}));
 	}
-
-	function onStagingBehaviorFormChange(form: HTMLFormElement) {
-		const formData = new FormData(form);
-		const selectedStagingBehavior = formData.get('stagingBehaviorType') as StagingBehavior | null;
-		if (!selectedStagingBehavior) return;
-		stagingBehaviorFeature.set(selectedStagingBehavior);
-	}
 </script>
 
-<SectionCard>
+<CardGroup.Item standalone>
 	{#snippet title()}
 		Theme
 	{/snippet}
 	<ThemeSelector {userSettings} />
-</SectionCard>
+</CardGroup.Item>
 
-<SectionCard orientation="row" centerAlign>
+<CardGroup.Item alignment="center" standalone>
 	{#snippet title()}
 		Default file list mode
 	{/snippet}
@@ -88,10 +76,52 @@
 			{/snippet}
 		</Select>
 	{/snippet}
-</SectionCard>
+</CardGroup.Item>
 
-<div class="stack-v">
-	<SectionCard centerAlign roundedBottom={false}>
+<CardGroup.Item labelFor="pathFirst" standalone>
+	{#snippet title()}
+		File path first
+	{/snippet}
+	{#snippet caption()}
+		Display the full file path before the file name in file lists.
+	{/snippet}
+	{#snippet actions()}
+		<Toggle
+			id="pathFirst"
+			checked={$userSettings.pathFirst}
+			onclick={() => {
+				userSettings.update((s) => ({
+					...s,
+					pathFirst: !s.pathFirst
+				}));
+			}}
+		/>
+	{/snippet}
+</CardGroup.Item>
+
+<CardGroup.Item labelFor="singleDiffView" standalone>
+	{#snippet title()}
+		Single diff view
+	{/snippet}
+	{#snippet caption()}
+		Show only the selected file's diff instead of a scrollable list of all file diffs.
+	{/snippet}
+	{#snippet actions()}
+		<Toggle
+			id="singleDiffView"
+			checked={$userSettings.singleDiffView}
+			onclick={() => {
+				userSettings.update((s) => ({
+					...s,
+					singleDiffView: !s.singleDiffView
+				}));
+			}}
+		/>
+	{/snippet}
+</CardGroup.Item>
+
+<CardGroup>
+	<CardGroup.Item alignment="center">
 		{#snippet title()}
 			Diff preview
 		{/snippet}
@@ -102,41 +132,35 @@
 			wrapText={$userSettings.wrapText}
 			diffFont={$userSettings.diffFont}
 			diffLigatures={$userSettings.diffLigatures}
-			diffContrast={$userSettings.diffContrast}
+			strongContrast={$userSettings.strongContrast}
 			colorBlindFriendly={$userSettings.colorBlindFriendly}
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
 		/>
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard orientation="column" roundedTop={false} roundedBottom={false}>
+	<CardGroup.Item>
 		{#snippet title()}
 			Font family
 		{/snippet}
 		{#snippet caption()}
 			Sets the font for the diff view. The first font name is the default, others are fallbacks.
 		{/snippet}
-		{#snippet actions()}
-			<Textbox
-				wide
-				bind:value={$userSettings.diffFont}
-				required
-				onchange={(value: string) => {
-					userSettings.update((s) => ({
-						...s,
-						diffFont: value
-					}));
-				}}
-			/>
-		{/snippet}
-	</SectionCard>
 
-	<SectionCard
-		labelFor="allowDiffLigatures"
-		orientation="row"
-		roundedTop={false}
-		roundedBottom={false}
-	>
+		<Textbox
+			wide
+			bind:value={$userSettings.diffFont}
+			required
+			onchange={(value: string) => {
+				userSettings.update((s) => ({
+					...s,
+					diffFont: value
+				}));
+			}}
+		/>
+	</CardGroup.Item>
+
+	<CardGroup.Item labelFor="allowDiffLigatures">
 		{#snippet title()}
 			Allow font ligatures
 		{/snippet}
@@ -152,9 +176,9 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false}>
+	<CardGroup.Item alignment="center">
 		{#snippet title()}
 			Tab size
 		{/snippet}
@@ -180,9 +204,9 @@
 				placeholder={$userSettings.tabSize.toString()}
 			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
+	<CardGroup.Item labelFor="wrapText">
 		{#snippet title()}
 			Soft wrap
 		{/snippet}
@@ -202,46 +226,30 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
+	<CardGroup.Item labelFor="strongContrast">
 		{#snippet title()}
-			Lines contrast
+			Strong contrast
 		{/snippet}
 		{#snippet caption()}
-			The contrast for added, deleted, and context lines in diffs.
+			Use stronger contrast for added, deleted, and context lines in diffs.
 		{/snippet}
 		{#snippet actions()}
-			<Select
-				maxWidth={110}
-				value={$userSettings.diffContrast}
-				options={[
-					{ label: 'Light', value: 'light' },
-					{ label: 'Medium', value: 'medium' },
-					{ label: 'Strong', value: 'strong' }
-				]}
-				onselect={(value) => {
+			<Toggle
+				id="strongContrast"
+				checked={$userSettings.strongContrast}
+				onclick={() => {
 					userSettings.update((s) => ({
 						...s,
-						diffContrast: value as 'strong' | 'medium' | 'light'
+						strongContrast: !s.strongContrast
 					}));
 				}}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === $userSettings.diffContrast} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
+			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard
-		labelFor="colorBlindFriendly"
-		orientation="row"
-		roundedTop={false}
-		roundedBottom={false}
-	>
+	<CardGroup.Item labelFor="colorBlindFriendly">
 		{#snippet title()}
 			Color blind-friendly colors
 		{/snippet}
@@ -262,9 +270,9 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
+	<CardGroup.Item labelFor="inlineUnifiedDiffs">
 		{#snippet title()}
 			Display word diffs inline
 		{/snippet}
@@ -284,140 +292,57 @@
 				}}
 			/>
 		{/snippet}
-	</SectionCard>
-</div>
+	</CardGroup.Item>
+</CardGroup>
 
-<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
-		{#snippet title()}
-			Scrollbar-On-Scroll
-		{/snippet}
-		{#snippet caption()}
-			Only show the scrollbar when you are scrolling.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="scrollBarVisibilityType"
-				value="scroll"
-				id="scrollbar-on-scroll"
-				checked={$userSettings.scrollbarVisibilityState === 'scroll'}
-			/>
-		{/snippet}
-	</SectionCard>
+<CardGroup>
+	<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
+		<CardGroup.Item labelFor="scrollbar-on-scroll">
+			{#snippet title()}
+				Scrollbar-On-Scroll
+			{/snippet}
+			{#snippet caption()}
+				Only show the scrollbar when you are scrolling.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="scroll"
+					id="scrollbar-on-scroll"
+					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
+				/>
+			{/snippet}
+		</CardGroup.Item>
 
-	<SectionCard
-		roundedTop={false}
-		roundedBottom={false}
-		orientation="row"
-		labelFor="scrollbar-on-hover"
-	>
-		{#snippet title()}
-			Scrollbar-On-Hover
-		{/snippet}
-		{#snippet caption()}
-			Show the scrollbar only when you hover over the scrollable area.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="scrollBarVisibilityType"
-				value="hover"
-				id="scrollbar-on-hover"
-				checked={$userSettings.scrollbarVisibilityState === 'hover'}
-			/>
-		{/snippet}
-	</SectionCard>
+		<CardGroup.Item labelFor="scrollbar-on-hover">
+			{#snippet title()}
+				Scrollbar-On-Hover
+			{/snippet}
+			{#snippet caption()}
+				Show the scrollbar only when you hover over the scrollable area.
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="hover"
+					id="scrollbar-on-hover"
+					checked={$userSettings.scrollbarVisibilityState === 'hover'}
+				/>
+			{/snippet}
+		</CardGroup.Item>
 
-	<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
-		{#snippet title()}
-			Always show scrollbar
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="scrollBarVisibilityType"
-				value="always"
-				id="scrollbar-always"
-				checked={$userSettings.scrollbarVisibilityState === 'always'}
-			/>
-		{/snippet}
-	</SectionCard>
-</form>
-
-<SectionCard labelFor="branchLaneContents" orientation="row">
-	{#snippet title()}
-		Auto-select text on branch/lane rename
-	{/snippet}
-	{#snippet caption()}
-		Enable this option to automatically select the text when the input is focused.
-	{/snippet}
-	{#snippet actions()}
-		<Toggle
-			id="branchLaneContents"
-			checked={$autoSelectBranchNameFeature}
-			onclick={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
-		/>
-	{/snippet}
-</SectionCard>
-
-<form class="stack-v" onchange={(e) => onStagingBehaviorFormChange(e.currentTarget)}>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="stage-all">
-		{#snippet title()}
-			Stage all files
-		{/snippet}
-		{#snippet caption()}
-			Stage all files assigned to the stack on commit. If no files are staged, all unassinged files
-			will be staged.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="stagingBehaviorType"
-				value="all"
-				id="stage-all"
-				checked={$stagingBehaviorFeature === 'all'}
-			/>
-		{/snippet}
-	</SectionCard>
-
-	<SectionCard
-		roundedTop={false}
-		roundedBottom={false}
-		orientation="row"
-		labelFor="stage-selection"
-	>
-		{#snippet title()}
-			Stage selected files
-		{/snippet}
-		{#snippet caption()}
-			Stage the selected assigned files to the stack on commit. If no files are selected, stage all
-			files. If there are no assigned files, stage all selected unassigned files.
-			<br />
-			And if no files are selected, stage all unassigned files.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="stagingBehaviorType"
-				value="selection"
-				id="stage-selection"
-				checked={$stagingBehaviorFeature === 'selection'}
-			/>
-		{/snippet}
-	</SectionCard>
-
-	<SectionCard roundedTop={false} orientation="row" labelFor="stage-none">
-		{#snippet title()}
-			Don't stage files automatically
-		{/snippet}
-		{#snippet caption()}
-			Do not stage any files automatically.
-			<br />
-			You're more of a DIY developer in that way.
-		{/snippet}
-		{#snippet actions()}
-			<RadioButton
-				name="stagingBehaviorType"
-				value="none"
-				id="stage-none"
-				checked={$stagingBehaviorFeature === 'none'}
-			/>
-		{/snippet}
-	</SectionCard>
-</form>
+		<CardGroup.Item labelFor="scrollbar-always">
+			{#snippet title()}
+				Always show scrollbar
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton
+					name="scrollBarVisibilityType"
+					value="always"
+					id="scrollbar-always"
+					checked={$userSettings.scrollbarVisibilityState === 'always'}
+				/>
+			{/snippet}
+		</CardGroup.Item>
+	</form>
+</CardGroup>

@@ -1,7 +1,6 @@
 use anyhow::{Result, anyhow, bail};
 use bstr::{BString, ByteSlice};
-use but_core::commit::TreeKind;
-use but_oxidize::GixRepositoryExt;
+use but_core::{RepositoryExt, commit::TreeKind};
 use gix::prelude::ObjectIdExt;
 
 use crate::commit::DateMode;
@@ -12,7 +11,7 @@ use crate::commit::DateMode;
 /// If `target_merge_commit` only has two parents, it will be a normal merge.
 ///
 /// The specialty of the octopus merge is that the merge-base is calculated once using [`gix::Repository::merge_base_octopus()`]
-/// and then re-used when merging subsequent `parent-commit^{tree}` into each other in a three-way merge, reusing the previous
+/// and then reused when merging subsequent `parent-commit^{tree}` into each other in a three-way merge, reusing the previous
 /// result as *ours* until all parents are merged in.
 ///
 /// Conflicts will cause the operation to fail, there is no hiding of conflicts as merge commits typically are
@@ -28,21 +27,15 @@ use crate::commit::DateMode;
 pub fn octopus(
     repo: &gix::Repository,
     mut target_merge_commit: gix::objs::Commit,
-    graph: &mut gix::revwalk::Graph<
-        '_,
-        '_,
-        gix::revwalk::graph::Commit<gix::revision::plumbing::merge_base::Flags>,
-    >,
+    graph: &mut gix::revwalk::Graph<'_, '_, gix::revwalk::graph::Commit<gix::revision::plumbing::merge_base::Flags>>,
 ) -> Result<gix::ObjectId> {
     if target_merge_commit.parents.len() < 2 {
         bail!("An octopus merge commits must have at least two parents");
     }
     let parents_to_merge = target_merge_commit.parents.iter().copied();
-    let merge_base = but_core::Commit::from_id(
-        repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?,
-    )?
-    .tree_id_or_kind(TreeKind::Base)?
-    .detach();
+    let merge_base = but_core::Commit::from_id(repo.merge_base_octopus_with_graph(parents_to_merge.clone(), graph)?)?
+        .tree_id_or_kind(TreeKind::Base)?
+        .detach();
     let mut trees_to_merge = parents_to_merge
         .clone()
         .map(|commit_id| -> Result<_> {
@@ -83,30 +76,18 @@ pub fn octopus(
                 }
             )
             .context(ConflictErrorContext {
-                paths: merge
-                    .conflicts
-                    .iter()
-                    .map(|c| c.ours.location().to_owned())
-                    .collect(),
+                paths: merge.conflicts.iter().map(|c| c.ours.location().to_owned()).collect(),
             }));
         }
         successfully_merged.push(tree_to_merge);
         ours = merge.tree.write()?.detach();
     }
     target_merge_commit.tree = ours;
-    if but_core::commit::HeadersV2::try_from_commit(&target_merge_commit).is_none() {
-        but_core::commit::HeadersV2::default().set_in_commit(&mut target_merge_commit);
+    if but_core::commit::Headers::try_from_commit(&target_merge_commit).is_none() {
+        but_core::commit::Headers::from_config(&repo.config_snapshot()).set_in_commit(&mut target_merge_commit);
     }
-    if target_merge_commit
-        .extra_headers()
-        .pgp_signature()
-        .is_some()
-    {
-        crate::commit::create(
-            repo,
-            target_merge_commit,
-            DateMode::CommitterUpdateAuthorKeep,
-        )
+    if target_merge_commit.extra_headers().pgp_signature().is_some() {
+        crate::commit::create(repo, target_merge_commit, DateMode::CommitterUpdateAuthorKeep, true)
     } else {
         crate::commit::update_committer(repo, &mut target_merge_commit)?;
         Ok(repo.write_object(target_merge_commit)?.detach())

@@ -9,6 +9,14 @@
 	};
 
 	const { stackId, branchNames, projectId }: Props = $props();
+
+	let toggleFold: (() => void) | undefined = $state();
+
+	function handleDoubleClick() {
+		if (toggleFold) {
+			toggleFold();
+		}
+	}
 </script>
 
 <div
@@ -17,8 +25,9 @@
 	data-remove-from-panning
 	data-drag-handle
 	draggable="true"
+	ondblclick={handleDoubleClick}
 >
-	<CollapseStackButton {stackId} {projectId} isFolded />
+	<CollapseStackButton {stackId} {projectId} isFolded onToggle={(fn) => (toggleFold = fn)} />
 
 	<div class="drag-handle-icon">
 		<Icon name="draggable-wide" />
@@ -47,12 +56,9 @@
 		height: 100%;
 		padding: 2px 9px 18px;
 		border-right: 1px solid var(--clr-border-2);
-		background: linear-gradient(
-			90deg,
-			var(--clr-bg-2) 0%,
-			var(--clr-bg-2) 70%,
-			var(--clr-bg-3) 100%
-		);
+		background: var(--clr-bg-2);
+		--lighter-bg-drop-shadow: color-mix(in srgb, var(--clr-drop-shadow) 50%, var(--clr-bg-2));
+		box-shadow: inset -5px 0 10px var(--lighter-bg-drop-shadow);
 		color: var(--clr-text-3);
 		cursor: grab;
 	}

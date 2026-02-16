@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
 	import { keysStringToArr } from '$lib/utils/hotkeys';
 	import { getContext } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -20,7 +19,6 @@
 		caption?: string;
 		onclick: (e: MouseEvent) => void;
 		testId?: string;
-		tooltip?: string;
 	}
 
 	const {
@@ -33,8 +31,7 @@
 		control,
 		keyboardShortcut,
 		caption,
-		testId,
-		tooltip
+		testId
 	}: Props = $props();
 
 	// Get submenu coordination context if available
@@ -60,61 +57,51 @@
 	}
 </script>
 
-{#snippet button()}
-	<button
-		data-testid={testId}
-		type="button"
-		class="menu-item focus-state no-select"
-		style:--item-height={caption ? 'auto' : '1.625rem'}
-		class:disabled
-		{disabled}
-		onclick={handleClick}
-		onmouseenter={handleMouseEnter}
-	>
-		<div class="menu-item__content">
-			{#if emoji}
-				<div class="text-12">
-					{emoji}
-				</div>
-			{:else if icon}
-				<div class="menu-item__icon">
-					<Icon name={icon} />
-				</div>
-			{/if}
-
-			<span class="menu-item__label text-12">
-				{label}
-			</span>
-			{#if keyboardShortcut}
-				<span class="menu-item__shortcut text-12">
-					{#each keysStringToArr(keyboardShortcut) as key}
-						<span>{key}</span>
-					{/each}
-				</span>
-			{/if}
-			{#if control}
-				{@render control()}
-			{:else if selected}
-				<div class="menu-item__icon">
-					<Icon name="tick" />
-				</div>
-			{/if}
-		</div>
-		{#if caption}
-			<div class="text-11 text-body menu-item__caption">
-				{caption}
+<button
+	data-testid={testId}
+	type="button"
+	class="menu-item no-select"
+	style:--item-height={caption ? 'auto' : '1.625rem'}
+	class:disabled
+	{disabled}
+	onclick={handleClick}
+	onmouseenter={handleMouseEnter}
+>
+	<div class="menu-item__content">
+		{#if emoji}
+			<div class="text-12">
+				{emoji}
+			</div>
+		{:else if icon}
+			<div class="menu-item__icon">
+				<Icon name={icon} />
 			</div>
 		{/if}
-	</button>
-{/snippet}
 
-{#if tooltip}
-	<Tooltip text={tooltip}>
-		{@render button()}
-	</Tooltip>
-{:else}
-	{@render button()}
-{/if}
+		<span class="menu-item__label text-12">
+			{label}
+		</span>
+		{#if keyboardShortcut}
+			<span class="menu-item__shortcut text-12">
+				{#each keysStringToArr(keyboardShortcut) as key}
+					<span>{key}</span>
+				{/each}
+			</span>
+		{/if}
+		{#if control}
+			{@render control()}
+		{:else if selected}
+			<div class="menu-item__icon">
+				<Icon name="tick" />
+			</div>
+		{/if}
+	</div>
+	{#if caption}
+		<div class="text-11 text-body menu-item__caption">
+			{caption}
+		</div>
+	{/if}
+</button>
 
 <style lang="postcss">
 	.menu-item {
@@ -131,7 +118,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:not(.disabled):hover {
-			background-color: var(--clr-bg-2-muted);
+			background-color: var(--hover-bg-2);
 			transition: none;
 		}
 

@@ -214,7 +214,7 @@
 	.erectangle {
 		width: 10px;
 		height: 16px;
-		background-color: var(--clr-core-ntrl-70);
+		background-color: var(--clr-core-gray-70);
 		cursor: pointer;
 		transition: width var(--transition-medium);
 

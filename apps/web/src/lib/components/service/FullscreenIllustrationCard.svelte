@@ -1,5 +1,5 @@
 <script lang="ts">
-	import walkininSvg from '$lib/assets/splash-illustrations/walkin.svg?raw';
+	import walkingSvg from '$lib/assets/splash-illustrations/walkin.svg?raw';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -29,7 +29,7 @@
 		</div>
 
 		<div class="instruction-content__illustration">
-			{@html illustration ?? walkininSvg}
+			{@html illustration ?? walkingSvg}
 		</div>
 	</div>
 </div>
@@ -90,7 +90,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: 32px;
-		background-color: var(--clr-illustration-bg);
+		background-color: var(--clr-art-scene-bg);
 
 		:global(svg) {
 			max-width: 400px;

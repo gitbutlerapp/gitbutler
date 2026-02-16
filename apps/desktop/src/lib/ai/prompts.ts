@@ -141,7 +141,7 @@ ${prBodyTemplate}
 export const SHORT_DEFAULT_PR_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.System,
-		content: `You're a helpful coding assitant.
+		content: `You're a helpful coding assistant.
 Create a description for a pull request.
 Use the provided context, like the COMMIT_MESSAGES, PR_TEMPLATE, current TITLE and BODY.
 The list of commit messages is separated by this token: <###>.

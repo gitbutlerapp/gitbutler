@@ -1,5 +1,5 @@
 /**
- * Polling for "real time" updates, like new messages recieved.
+ * Polling for "real time" updates, like new messages received.
  * Should be used sparingly and only on light requests.
  */
 export const POLLING_FAST = 30 * 1000;

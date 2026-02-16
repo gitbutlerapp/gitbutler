@@ -18,28 +18,27 @@
 	.indent-wrapper {
 		display: flex;
 		align-items: center;
-		/* background-color: rgba(0, 0, 0, 0.1); */
-		/* height: 100%; */
+		height: 100%;
 		gap: 6px;
+		/* background-color: rgba(0, 0, 0, 0.1); */
 	}
 
 	.indent-wrapper__line {
 		position: relative;
 		width: 10px;
-		/* height: 100%; */
+		height: 100%;
 		/* background-color: rgba(0, 0, 0, 0.1); */
 
 		&:before {
 			position: absolute;
-			top: -50%;
+			top: 0;
 			left: 50%;
 			width: 1px;
-			/* height: 200%; */
+			height: 100%;
 			transform: translateX(-50%);
-			background-color: var(--clr-border-1);
+			background-color: var(--clr-text-2);
 			content: '';
-			opacity: 0.4;
-			/* background-color: rgba(0, 0, 0, 0.4); */
+			opacity: 0.2;
 		}
 	}
 </style>

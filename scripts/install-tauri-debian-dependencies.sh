@@ -3,8 +3,6 @@
 set -eu -o pipefail
 
 # Install the dependencies needed to build tauri, mainly.
-
-set -x
 apt update
 apt install libwebkit2gtk-4.1-dev \
             build-essential \

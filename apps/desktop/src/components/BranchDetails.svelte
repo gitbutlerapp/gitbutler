@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchBadge from '$components/BranchBadge.svelte';
-	import { AvatarGroup, TimeAgo, Button } from '@gitbutler/ui';
-	import type { BranchDetails } from '$lib/stacks/stack';
+	import { type BranchDetails } from '$lib/stacks/stack';
+	import { AvatarGroup, Button } from '@gitbutler/ui';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -30,14 +30,7 @@
 					srcUrl: a.gravatarUrl
 				}))}
 			/>
-			<span class="branch-view__details-divider">•</span>
 		</div>
-
-		{#if branch.lastUpdatedAt}
-			<div class="factoid-wrap">
-				<TimeAgo date={new Date(branch.lastUpdatedAt)} />
-			</div>
-		{/if}
 	</div>
 
 	{@render children?.()}
@@ -53,7 +46,7 @@
 						GitButler opens the earliest commit first, since later commits depend on it.
 					</p>
 				</div>
-				<Button onclick={onResolveConflicts} style="error">Start resolving</Button>
+				<Button onclick={onResolveConflicts} style="danger">Start resolving</Button>
 			</div>
 		</div>
 	{/if}

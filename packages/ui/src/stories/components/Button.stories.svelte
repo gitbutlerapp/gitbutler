@@ -11,7 +11,7 @@
 			loading: false,
 			activated: false,
 			size: 'button',
-			style: 'neutral',
+			style: 'gray',
 			kind: 'solid',
 			wide: false,
 			grow: false,

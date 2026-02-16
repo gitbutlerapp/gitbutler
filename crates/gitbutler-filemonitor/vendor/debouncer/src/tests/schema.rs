@@ -37,10 +37,7 @@ use file_id::FileId;
 use mock_instant::thread_local::Instant;
 use notify::{
     ErrorKind, EventKind,
-    event::{
-        AccessKind, AccessMode, CreateKind, DataChange, Flag, MetadataKind, ModifyKind, RemoveKind,
-        RenameMode,
-    },
+    event::{AccessKind, AccessMode, CreateKind, DataChange, Flag, MetadataKind, ModifyKind, RemoveKind, RenameMode},
 };
 use serde::Deserialize;
 
@@ -285,9 +282,7 @@ impl State {
             (event, file_id)
         });
 
-        let rescan_event = self
-            .rescan_event
-            .map(|e| e.into_debounced_event(time, None));
+        let rescan_event = self.rescan_event.map(|e| e.into_debounced_event(time, None));
 
         DebounceDataInner {
             queues,

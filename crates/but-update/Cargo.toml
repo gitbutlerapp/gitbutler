@@ -1,0 +1,25 @@
+[package]
+name = "but-update"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+description = "A crate with functionality for updating of the application itself"
+
+[lib]
+doctest = true
+
+[dependencies]
+but-settings.workspace = true
+but-secret.workspace = true
+but-db.workspace = true
+
+anyhow.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+sha2.workspace = true
+machine-uid = "0.5.4"
+chrono = { workspace = true, features = ["serde", "clock"] }

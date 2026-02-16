@@ -18,7 +18,7 @@ pub struct Outcome<'repo> {
     pub metadata: Option<MetadataEdits>,
 }
 
-/// Edits for application via [`but_core::RefMetadata`].
+/// Edits for application to the [reference metadata store](crate::RefMetadata).
 pub struct MetadataEdits {
     /// The workspace metadata stored in the snapshot.
     pub workspace: (gix::refs::FullName, crate::ref_metadata::Workspace),
@@ -38,14 +38,14 @@ pub struct Options {
 pub(super) mod function {
     use std::collections::BTreeSet;
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use bstr::ByteSlice;
-    use but_oxidize::GixRepositoryExt;
     use gix::index::entry::{Flags, Stage};
 
     use super::{Options, Outcome};
+    use crate::RepositoryExt;
 
-    /// Given the `snapshot_tree` as previously returned via [super::create_tree::Outcome::snapshot_tree], extract data and…
+    /// Given the `snapshot_tree` as previously returned via [`crate::snapshot::create_tree::Outcome::snapshot_tree`], extract data and…
     ///
     /// * …cherry-pick the worktree changes onto the `target_worktree_tree_id`, which is assumed to represent the future working directory state
     ///   and which either contains the worktree changes or *preferably* is the `HEAD^{tree}` as the working directory is clean.
@@ -141,9 +141,7 @@ pub(super) mod function {
                 continue;
             }
             let rela_path = &record.filepath;
-            let rslash_pos = rela_path
-                .rfind("/")
-                .context("BUG: expecting <path>/<stage>")?;
+            let rslash_pos = rela_path.rfind("/").context("BUG: expecting <path>/<stage>")?;
             let stage: usize = rela_path[rslash_pos + 1..]
                 .to_str()?
                 .parse()
@@ -167,9 +165,8 @@ pub(super) mod function {
 
             to_remove.insert(rela_path);
         }
-        index.remove_entries(|_idx, path, entry| {
-            entry.flags.stage() == Stage::Unconflicted && to_remove.contains(path)
-        });
+        index
+            .remove_entries(|_idx, path, entry| entry.flags.stage() == Stage::Unconflicted && to_remove.contains(path));
 
         index.sort_entries();
         Ok(())

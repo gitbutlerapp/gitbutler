@@ -4,17 +4,13 @@ use std::{
 };
 
 use but_core::ref_metadata::StackId;
+use but_ctx::Context;
 use but_workspace::legacy::ui::{StackEntry, StackEntryNoOpt};
-use gitbutler_command_context::CommandContext;
 use gix::ObjectId;
 use serde_json::json;
 
-use crate::emit::{Emittable, Emitter, ToolCall};
-
 pub struct WorkspaceToolset<'a> {
-    ctx: &'a mut CommandContext,
-    emitter: std::sync::Arc<crate::emit::Emitter>,
-    message_id: Option<String>,
+    ctx: &'a mut Context,
     tools: BTreeMap<String, Arc<dyn Tool>>,
     commit_mapping: HashMap<ObjectId, ObjectId>,
 }
@@ -27,36 +23,21 @@ pub trait Toolset {
 }
 
 impl<'a> WorkspaceToolset<'a> {
-    pub fn new(
-        ctx: &'a mut CommandContext,
-        emitter: std::sync::Arc<crate::emit::Emitter>,
-        message_id: Option<String>,
-    ) -> Self {
+    pub fn new(ctx: &'a mut Context) -> Self {
         WorkspaceToolset {
             ctx,
-            emitter,
-            message_id,
             tools: BTreeMap::new(),
             commit_mapping: HashMap::new(),
         }
     }
 
-    fn call_tool_inner(
-        &mut self,
-        name: &str,
-        parameters: &str,
-    ) -> anyhow::Result<serde_json::Value> {
+    fn call_tool_inner(&mut self, name: &str, parameters: &str) -> anyhow::Result<serde_json::Value> {
         let tool = self
             .get(name)
             .ok_or_else(|| anyhow::anyhow!("Tool '{}' not found", name))?;
-        let params: serde_json::Value = serde_json::from_str(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
-        tool.call(
-            params,
-            self.ctx,
-            self.emitter.clone(),
-            &mut self.commit_mapping,
-        )
+        let params: serde_json::Value =
+            serde_json::from_str(parameters).map_err(|e| anyhow::anyhow!("Failed to parse parameters: {}", e))?;
+        tool.call(params, self.ctx, &mut self.commit_mapping)
     }
 }
 
@@ -74,27 +55,11 @@ impl Toolset for WorkspaceToolset<'_> {
     }
 
     fn call_tool(&mut self, name: &str, parameters: &str) -> serde_json::Value {
-        let result = self.call_tool_inner(name, parameters).unwrap_or_else(|e| {
+        self.call_tool_inner(name, parameters).unwrap_or_else(|e| {
             serde_json::json!({
                 "error": format!("Failed to call tool '{}': {}", name, e.to_string())
             })
-        });
-
-        // Emit the tool call event if a message ID is provided
-        if let Some(message_id) = &self.message_id {
-            let project_id = self.ctx.project().id;
-            let tool_call = ToolCall {
-                project_id,
-                message_id: message_id.to_owned(),
-                name: name.to_string(),
-                parameters: parameters.to_string(),
-                result: result.to_string(),
-            };
-            let (name, payload) = tool_call.emittable();
-            (self.emitter)(&name, payload);
-        }
-
-        result
+        })
     }
 }
 
@@ -105,8 +70,7 @@ pub trait Tool: 'static + Send + Sync {
     fn call(
         self: Arc<Self>,
         parameters: serde_json::Value,
-        ctx: &mut CommandContext,
-        emitter: Arc<Emitter>,
+        ctx: &mut Context,
         commit_mapping: &mut HashMap<ObjectId, ObjectId>,
     ) -> anyhow::Result<serde_json::Value>;
 }
@@ -117,10 +81,7 @@ pub fn error_to_json(error: &anyhow::Error, action_identifier: &str) -> serde_js
     })
 }
 
-pub fn string_result_to_json(
-    result: &Result<String, &anyhow::Error>,
-    action_identifier: &str,
-) -> serde_json::Value {
+pub fn string_result_to_json(result: &Result<String, &anyhow::Error>, action_identifier: &str) -> serde_json::Value {
     match result {
         Ok(value) => json!({ "result": value }),
         Err(e) => error_to_json(e, action_identifier),

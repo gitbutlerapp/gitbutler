@@ -1,3 +1,14 @@
 /CODEOWNERS @krlvi @schacon
-/crates/but-core @krlvi @Byron
-/crates/gitbutler-edit-mode @krlvi @Caleb-T-Owens
+/Cargo.toml @krlvi @Byron @Caleb-T-Owens
+/crates/but-core @krlvi @Byron @Caleb-T-Owens
+/crates/but-ctx @krlvi @Byron @Caleb-T-Owens
+/crates/but-db @krlvi @Byron @Caleb-T-Owens
+/crates/but-error @krlvi @Byron @Caleb-T-Owens
+/crates/but-fs @krlvi @Byron @Caleb-T-Owens
+/crates/but-graph @krlvi @Byron @Caleb-T-Owens
+/crates/but-meta @krlvi @Byron @Caleb-T-Owens
+/crates/but-secret @krlvi @Byron @Caleb-T-Owens
+/crates/but-status @krlvi @Byron @Caleb-T-Owens
+/crates/but-update @krlvi @Byron @Caleb-T-Owens
+/crates/but-workspace @krlvi @Byron @Caleb-T-Owens
+/crates/gitbutler-edit-mode @krlvi @Byron @Caleb-T-Owens

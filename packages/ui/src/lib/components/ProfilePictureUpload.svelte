@@ -1,39 +1,19 @@
 <script lang="ts" module>
 	export interface Props {
-		/**
-		 * The URL of the current profile picture
-		 */
 		picture?: string;
-		/**
-		 * Alternative text for the image
-		 */
 		alt?: string;
-		/**
-		 * Array of accepted file types (e.g., ['image/jpeg', 'image/png'])
-		 * @default ['image/jpeg', 'image/png']
-		 */
 		acceptedFileTypes?: string[];
-		/**
-		 * Callback when a valid file is selected
-		 */
 		onFileSelect?: (file: File) => void;
-		/**
-		 * Callback when an invalid file type is selected
-		 */
 		onInvalidFileType?: () => void;
-		/**
-		 * Custom class for the wrapper
-		 */
 		class?: string;
-		/**
-		 * Size of the profile picture
-		 * @default 100
-		 */
-		size?: number;
+		size?: string;
 	}
 </script>
 
 <script lang="ts">
+	import SkeletonBone from '$components/SkeletonBone.svelte';
+	import { useImageLoading } from '$lib/utils/imageLoading.svelte';
+
 	let {
 		picture = $bindable(),
 		alt = '',
@@ -41,10 +21,11 @@
 		onFileSelect,
 		onInvalidFileType,
 		class: className,
-		size = 6.25
+		size = '6.25rem'
 	}: Props = $props();
 
 	let previewUrl = $derived(picture);
+	const imageLoadingState = useImageLoading();
 
 	function handleFileChange(e: Event) {
 		const target = e.target as HTMLInputElement;
@@ -60,9 +41,9 @@
 </script>
 
 <label
-	class="profile-pic-wrapper focus-state {className || ''}"
+	class="profile-pic-wrapper {className || ''}"
 	for="profile-picture-upload"
-	style="width: {size}rem; height: {size}rem;"
+	style:width={size}
 >
 	<input
 		onchange={handleFileChange}
@@ -73,8 +54,23 @@
 		class="hidden-input"
 	/>
 
-	{#if previewUrl}
-		<img class="profile-pic" src={previewUrl} {alt} referrerpolicy="no-referrer" />
+	{#if !previewUrl || !imageLoadingState.imageLoaded || imageLoadingState.hasError}
+		<div class="profile-pic-skeleton">
+			<SkeletonBone width="100%" height="100%" radius="var(--radius-m)" />
+		</div>
+	{/if}
+
+	{#if previewUrl && !imageLoadingState.hasError}
+		<img
+			bind:this={imageLoadingState.imgElement}
+			class="profile-pic"
+			class:loaded={imageLoadingState.imageLoaded}
+			src={previewUrl}
+			{alt}
+			referrerpolicy="no-referrer"
+			onload={imageLoadingState.handleImageLoad}
+			onerror={imageLoadingState.handleImageError}
+		/>
 	{/if}
 
 	<span class="profile-pic__edit-label text-11 text-semibold">Edit</span>
@@ -85,17 +81,26 @@
 		display: flex;
 		position: relative;
 		flex-shrink: 0;
+		aspect-ratio: 1 / 1;
+		height: max-content;
 		overflow: hidden;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-scale-pop-70);
+		border-radius: var(--radius-ml);
 		cursor: pointer;
 
 		&:hover,
 		&:focus-within {
 			& .profile-pic__edit-label {
+				transform: translateY(0);
 				opacity: 1;
 			}
 		}
+	}
+
+	.profile-pic-skeleton {
+		z-index: var(--z-ground);
+		position: absolute;
+		width: 100%;
+		height: 100%;
 	}
 
 	.hidden-input {
@@ -112,6 +117,12 @@
 		height: 100%;
 		object-fit: cover;
 		background-color: var(--clr-core-pop-70);
+		opacity: 0;
+		transition: opacity 0.2s ease-in;
+
+		&.loaded {
+			opacity: 1;
+		}
 	}
 
 	.profile-pic__edit-label {
@@ -119,11 +130,14 @@
 		bottom: 8px;
 		left: 8px;
 		padding: 4px 6px;
+		transform: translateY(2px);
 		border-radius: var(--radius-m);
-		outline: 1px solid color-mix(in srgb, var(--clr-core-ntrl-100) 40%, transparent);
-		background-color: var(--clr-core-ntrl-20);
-		color: var(--clr-core-ntrl-100);
+		outline: 1px solid color-mix(in srgb, var(--clr-core-gray-100) 40%, transparent);
+		background-color: var(--clr-core-gray-20);
+		color: var(--clr-core-gray-100);
 		opacity: 0;
-		transition: opacity var(--transition-fast);
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-medium);
 	}
 </style>

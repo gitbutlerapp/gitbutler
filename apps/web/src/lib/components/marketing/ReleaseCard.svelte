@@ -1,6 +1,6 @@
 <script lang="ts">
 	import osIcons from '$lib/data/os-icons.json';
-	import { marked } from '@gitbutler/ui/utils/marked';
+	import Markdown from 'svelte-exmarkdown';
 	import type { Release } from '$lib/types/releases';
 
 	interface Props {
@@ -70,7 +70,7 @@
 	<div class="stack-v gap-16">
 		{#if release.notes}
 			<div class="release-notes-content">
-				{@html marked(release.notes)}
+				<Markdown md={release.notes} />
 			</div>
 		{/if}
 

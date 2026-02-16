@@ -6,9 +6,14 @@ import {
 	type PullRequest
 } from '$lib/forge/interface/types';
 import { createSelectByIds } from '$lib/state/customSelectors';
-import { providesList, ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
+import {
+	createEntityAdapter,
+	type EntityState,
+	type ThunkDispatch,
+	type UnknownAction
+} from '@reduxjs/toolkit';
 import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { BackendApi, GitHubApi } from '$lib/state/clientState.svelte';
 
@@ -16,7 +21,11 @@ export class GitHubListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;
 	private backendApi: ReturnType<typeof injectBackendEndpoints>;
 
-	constructor(gitHubApi: GitHubApi, backendApi: BackendApi) {
+	constructor(
+		gitHubApi: GitHubApi,
+		backendApi: BackendApi,
+		private readonly dispatch: ThunkDispatch<any, any, UnknownAction>
+	) {
 		this.api = injectEndpoints(gitHubApi);
 		this.backendApi = injectBackendEndpoints(backendApi);
 	}
@@ -52,8 +61,8 @@ export class GitHubListingService implements ForgeListingService {
 		return results.filter(isDefined) ?? [];
 	}
 
-	async refresh(projectId: string): Promise<void> {
-		await this.backendApi.endpoints.listPrs.fetch(projectId, { forceRefetch: true });
+	async refresh(_projectId: string): Promise<void> {
+		this.dispatch(this.backendApi.util.invalidateTags([invalidatesList(ReduxTag.PullRequests)]));
 	}
 }
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Badge from '$components/Badge.svelte';
+	import Icon from '$components/Icon.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
 	import type { FileStatus } from '$components/file/types';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
@@ -8,9 +9,10 @@
 		status: FileStatus;
 		style?: 'dot' | 'full' | 'full-large';
 		tooltip?: string;
+		color?: string;
 	}
 
-	const { status, style = 'full', tooltip }: Props = $props();
+	const { status, style = 'full', tooltip, color }: Props = $props();
 
 	const TOOLTIP_MAX_WIDTH = 320;
 
@@ -32,15 +34,15 @@
 	function getStatusColor(status: FileStatus): ComponentColorType {
 		switch (status) {
 			case 'addition':
-				return 'success';
+				return 'safe';
 			case 'modification':
 				return 'warning';
 			case 'deletion':
-				return 'error';
+				return 'danger';
 			case 'rename':
 				return 'purple';
 			default:
-				return 'neutral';
+				return 'gray';
 		}
 	}
 </script>
@@ -49,31 +51,21 @@
 	<Tooltip text={!tooltip ? getFullStatusText(status) : tooltip} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<div
 			class="status-dot-wrap"
+			style:--custom-file-dot-color={color}
 			class:added={status === 'addition'}
 			class:modified={status === 'modification'}
 			class:deleted={status === 'deletion'}
 			class:renamed={status === 'rename'}
 		>
-			<svg viewBox="0 0 11 11" fill="none" class="status-dot">
-				<rect
-					x="0.5"
-					y="0.5"
-					width="10"
-					height="10"
-					rx="3.5"
-					stroke="var(--file-dot-color)"
-					stroke-width="1.2"
-				/>
-				{#if status === 'addition'}
-					<path d="M9 5.5H2M5.5 2V9" />
-				{:else if status === 'modification'}
-					<path d="M7.2626 3.73755L3.7374 7.26276" />
-				{:else if status === 'deletion'}
-					<path d="M8.5 5.5H2.5" />
-				{:else if status === 'rename'}
-					<path d="M7.5 5.5H0.5M7.5 5.5L4.5 2.5M7.5 5.5L4.5 8.5" />
-				{/if}
-			</svg>
+			{#if status === 'addition'}
+				<Icon name="file-added" />
+			{:else if status === 'modification'}
+				<Icon name="file-modified" />
+			{:else if status === 'deletion'}
+				<Icon name="file-deleted" />
+			{:else if status === 'rename'}
+				<Icon name="file-moved" />
+			{/if}
 		</div>
 	</Tooltip>
 {:else if style === 'full'}
@@ -93,30 +85,23 @@
 		align-items: center;
 		justify-content: center;
 		width: fit-content;
-	}
-
-	.status-dot {
-		width: 11px;
-		height: 11px;
-	}
-
-	.status-dot path {
-		stroke: var(--file-dot-color);
-		stroke-width: 1.5;
+		width: 16px;
+		height: 16px;
+		color: var(--custom-file-dot-color, var(--file-dot-color));
 	}
 
 	/* MODIFIERS */
 	.status-dot-wrap.added {
-		--file-dot-color: var(--clr-scale-succ-60);
+		--file-dot-color: var(--clr-change-icon-addition);
 	}
 	.status-dot-wrap.modified {
-		--file-dot-color: var(--clr-scale-warn-60);
+		--file-dot-color: var(--clr-change-icon-modification);
 	}
 	.status-dot-wrap.deleted {
-		--file-dot-color: var(--clr-scale-err-60);
+		--file-dot-color: var(--clr-change-icon-deletion);
 	}
 	.status-dot-wrap.renamed {
-		--file-dot-color: var(--clr-scale-purp-60);
+		--file-dot-color: var(--clr-change-icon-rename);
 	}
 
 	/* FULL-LARGE VARIANT */

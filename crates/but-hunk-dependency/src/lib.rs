@@ -127,63 +127,60 @@
 //! so in that case it should be fine to fallback to using the first parent.
 mod input;
 
-use anyhow::Context;
 use but_core::{TreeChange, UnifiedPatch};
-use but_oxidize::{ObjectIdExt, OidExt};
-use gitbutler_repo::logging::{LogUntil, RepositoryExt};
-use gix::{prelude::ObjectIdExt as _, trace};
+use gix::trace;
 pub use input::{InputCommit, InputDiffHunk, InputFile, InputStack};
 
 mod ranges;
 pub use ranges::{CalculationError, HunkRange, WorkspaceRanges};
+
+use crate::ui::HunkLockTarget;
 
 /// Types and conversions for use in `tauri`.
 pub mod ui;
 
 mod utils;
 
-/// Produce one [`InputStack`] instance for each [`but_workspace::StackEntry`] in `stacks` for use in [`WorkspaceRanges::try_from_stacks`].
-///
-/// `common_merge_base` is expected to be the merge base that all `stacks` have in common, as would be created with [gix::Repository::merge_base_octopus()].
-pub fn workspace_stacks_to_input_stacks(
+/// Produce one [`InputStack`] instance for each [`but_graph::projection::Stack`] for use in [`WorkspaceRanges::try_from_stacks`].
+pub fn new_stacks_to_input_stacks(
     repo: &gix::Repository,
-    stacks: &[but_workspace::legacy::ui::StackEntry],
-    common_merge_base: gix::ObjectId,
+    workspace: &but_graph::projection::Workspace,
 ) -> anyhow::Result<Vec<InputStack>> {
-    let mut out = Vec::new();
-    let git2_repo = git2::Repository::open(repo.path())?;
-    for stack in stacks {
-        let mut commits_from_base_to_tip = Vec::new();
-        let commit_ids = commits_in_stack_base_to_tip_without_merge_bases(
-            stack.tip.attach(repo),
-            &git2_repo,
-            common_merge_base,
-        )?;
-        for commit_id in commit_ids {
-            let commit = repo.find_commit(commit_id)?;
-            let (tree_changes, _) = but_core::diff::tree_changes(
-                repo,
-                commit.parent_ids().next().map(|id| id.detach()),
-                commit_id,
-            )?;
-            let files = tree_changes_to_input_files(repo, tree_changes)?;
-            commits_from_base_to_tip.push(InputCommit { commit_id, files });
-        }
-        out.push(InputStack {
-            stack_id: stack.id.context(
-                "BUG(opt-stack-id): stack-entry without stack-id can't become an input stack",
-            )?,
-            commits_from_base_to_tip,
-        });
-    }
-    Ok(out)
+    workspace
+        .stacks
+        .iter()
+        .map(|stack| {
+            let commits = stack
+                .segments
+                .iter()
+                .flat_map(|s| &s.commits)
+                .map(|commit| {
+                    let commit = repo.find_commit(commit.id)?;
+                    let tree_changes = but_core::diff::tree_changes(
+                        repo,
+                        commit.parent_ids().next().map(|id| id.detach()),
+                        commit.id,
+                    )?;
+                    let files = tree_changes_to_input_files(repo, tree_changes)?;
+
+                    Ok(InputCommit {
+                        commit_id: commit.id,
+                        files,
+                    })
+                })
+                .rev()
+                .collect::<anyhow::Result<Vec<_>>>()?;
+
+            Ok(InputStack {
+                target: stack.id.map_or(HunkLockTarget::Unidentified, HunkLockTarget::Stack),
+                commits_from_base_to_tip: commits,
+            })
+        })
+        .collect()
 }
 
 /// Turn `changes` with [`TreeChange`] instances into [`InputFile`], one for each input.
-pub fn tree_changes_to_input_files(
-    repo: &gix::Repository,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<Vec<InputFile>> {
+pub fn tree_changes_to_input_files(repo: &gix::Repository, changes: Vec<TreeChange>) -> anyhow::Result<Vec<InputFile>> {
     let mut files = Vec::new();
     for change in changes {
         let diff = change.unified_patch(repo, 0)?;
@@ -202,41 +199,4 @@ pub fn tree_changes_to_input_files(
         })
     }
     Ok(files)
-}
-
-/// Traverse all commits from `tip` down to `common_merge_base`, but omit merges.
-// TODO: the algorithm should be able to deal with merges, just like `jj absorb` or `git absorb`.
-// TODO: Needs ahead-behind in `gix` to remove `git2` completely.
-fn commits_in_stack_base_to_tip_without_merge_bases(
-    tip: gix::Id<'_>,
-    git2_repo: &git2::Repository,
-    common_merge_base: gix::ObjectId,
-) -> anyhow::Result<Vec<gix::ObjectId>> {
-    let commit_ids: Vec<_> = git2_repo
-        .l(
-            tip.to_git2(),
-            LogUntil::Commit(common_merge_base.to_git2()),
-            false, /* all parents */
-        )?
-        .into_iter()
-        .map(|oid| oid.to_gix().attach(tip.repo))
-        .collect();
-    let commit_ids = commit_ids.into_iter().rev().filter_map(|id| {
-        let commit = id.object().ok()?.into_commit();
-        let commit = commit.decode().ok()?;
-        if commit.parents.len() == 1 {
-            return Some(id.detach());
-        }
-
-        // TODO: probably to be reviewed as it basically doesn't give access to the
-        //       first (base) commit in a branch that forked off target-sha.
-        let has_integrated_parent = commit.parents().any(|id| {
-            git2_repo
-                .graph_ahead_behind(id.to_git2(), common_merge_base.to_git2())
-                .is_ok_and(|(number_commits_ahead, _)| number_commits_ahead == 0)
-        });
-
-        (!has_integrated_parent).then_some(id.detach())
-    });
-    Ok(commit_ids.collect())
 }

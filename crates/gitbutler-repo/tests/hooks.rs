@@ -47,11 +47,7 @@ fn pre_push_hook_success() -> anyhow::Result<()> {
     let input = std::fs::read_to_string(repo.workdir().expect("non-bare").join("hook.input"))
         .expect("test-hook to pipe its output");
     let expected_pattern = "refs/heads/master ???????????????????????????????????????? refs/remotes/origin/master ????????????????????????????????????????\n";
-    let is_required_format = gix::glob::wildmatch(
-        expected_pattern.into(),
-        input.as_str().into(),
-        Default::default(),
-    );
+    let is_required_format = gix::glob::wildmatch(expected_pattern.into(), input.as_str().into(), Default::default());
     assert!(is_required_format, "must match: {expected_pattern}");
     Ok(())
 }
@@ -67,7 +63,7 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
 
     fs::write(
         &hook_path,
-        "#!/bin/sh\necho Hook failed with args: $@\nexit 1\n",
+        "#!/bin/sh\nsleep 1\necho Hook failed with args: $@\nexit 1\n",
     )?;
 
     #[cfg(unix)]

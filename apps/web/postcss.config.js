@@ -10,12 +10,12 @@ const mediaQueriesCssPath = path.resolve('src/styles/media-queries.css');
 /** @type {import('postcss-load-config').Config} */
 const config = {
 	plugins: [
+		postcssNesting(),
 		autoprefixer(),
 		pxToRem({
 			rootValue: 16,
 			mediaQuery: true
 		}),
-		postcssNesting(),
 		postcssGlobalData({
 			files: [mediaQueriesCssPath]
 		}),

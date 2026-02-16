@@ -7,7 +7,7 @@ use gitbutler_stack::StackId;
 #[clap(name = "gitbutler-cli", about = "A CLI for GitButler", version = option_env!("GIX_VERSION"))]
 pub struct Args {
     /// Enable tracing for debug and performance information printed to stderr.
-    #[clap(short = 'd', long, action = clap::ArgAction::Count,)]
+    #[clap(short = 't', long, action = clap::ArgAction::Count)]
     pub trace: u8,
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
@@ -22,11 +22,6 @@ pub struct Args {
     /// The production version is used if unset.
     #[clap(short = 's', long)]
     pub app_suffix: Option<String>,
-    /// Turn on V3 mode for those subcommands that support it.
-    ///
-    /// This helps test the output of certain functions in V3 mode, and/or compare.
-    #[clap(short = '3', long, env = "BUT3")]
-    pub v3: bool,
     /// Whether to use JSON output format.
     #[clap(long, short = 'j')]
     pub json: bool,
@@ -135,7 +130,11 @@ pub enum Subcommands {
         #[clap(long, default_value_t = false)]
         simple: bool,
     },
-    Watch,
+    Watch {
+        /// How to watch the current working directory.
+        #[clap(long, short = 'm', value_parser = ["legacy", "modern", "auto"], env = "GITBUTLER_WATCH_MODE")]
+        mode: Option<String>,
+    },
     WatchDb,
     #[clap(visible_alias = "operating-mode", alias = "opmode")]
     OpMode,
@@ -188,6 +187,9 @@ pub enum Subcommands {
         /// The rev-spec of the extra target to provide for traversal.
         #[clap(long)]
         extra_target: Option<String>,
+        /// Disable post-processing of the graph, useful if that's failing.
+        #[clap(long)]
+        no_post: bool,
         /// Do not debug-print the workspace.
         ///
         /// If too large, it takes a long time or runs out of memory.

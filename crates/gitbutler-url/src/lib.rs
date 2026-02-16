@@ -29,17 +29,13 @@ pub struct Url {
 
 impl Url {
     pub fn is_github(&self) -> bool {
-        self.host
-            .as_ref()
-            .is_some_and(|host| host.contains("github.com"))
+        self.host.as_ref().is_some_and(|host| host.contains("github.com"))
     }
 }
 
 impl std::fmt::Display for Url {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if !(self.serialize_alternative_form
-            && (self.scheme == Scheme::File || self.scheme == Scheme::Ssh))
-        {
+        if !(self.serialize_alternative_form && (self.scheme == Scheme::File || self.scheme == Scheme::Ssh)) {
             f.write_str(self.scheme.as_str())?;
             f.write_str("://")?;
         }

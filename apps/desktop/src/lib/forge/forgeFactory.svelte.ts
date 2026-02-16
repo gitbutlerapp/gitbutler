@@ -22,7 +22,7 @@ export type ForgeConfig = {
 	pushRepo?: RepoInfo;
 	baseBranch?: string;
 	githubAuthenticated?: boolean;
-	githubIsLoading?: boolean;
+	forgeIsLoading?: boolean;
 	githubError?: { code: string; message: string };
 	gitlabAuthenticated?: boolean;
 	detectedForgeProvider: ForgeProvider | undefined;
@@ -73,6 +73,27 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		return this._canSetupIntegration;
 	}
 
+	/**
+	 * Get review unit abbreviation with fallback to 'PR'
+	 */
+	get reviewUnitAbbr(): string {
+		return this._forge.prService?.unit.abbr ?? 'PR';
+	}
+
+	/**
+	 * Get review unit name with fallback to 'Pull request'
+	 */
+	get reviewUnitName(): string {
+		return this._forge.prService?.unit.name ?? 'Pull request';
+	}
+
+	/**
+	 * Get review unit symbol with fallback to '#'
+	 */
+	get reviewUnitSymbol(): string {
+		return this._forge.prService?.unit.symbol ?? '#';
+	}
+
 	setConfig(config: ForgeConfig) {
 		if (deepCompare(config, this._config)) {
 			return;
@@ -83,7 +104,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			pushRepo,
 			baseBranch,
 			githubAuthenticated,
-			githubIsLoading,
+			forgeIsLoading,
 			githubError,
 			gitlabAuthenticated,
 			detectedForgeProvider,
@@ -97,12 +118,13 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				pushRepo,
 				baseBranch,
 				githubAuthenticated,
-				githubIsLoading,
+				forgeIsLoading,
 				gitlabAuthenticated,
 				detectedForgeProvider,
 				forgeOverride
 			});
 		} else {
+			this._determinedForgeType = 'default';
 			this._forge = this.default;
 		}
 	}
@@ -112,7 +134,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		pushRepo,
 		baseBranch,
 		githubAuthenticated,
-		githubIsLoading,
+		forgeIsLoading,
 		gitlabAuthenticated,
 		detectedForgeProvider,
 		forgeOverride
@@ -121,7 +143,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		pushRepo?: RepoInfo;
 		baseBranch: string;
 		githubAuthenticated?: boolean;
-		githubIsLoading?: boolean;
+		forgeIsLoading?: boolean;
 		gitlabAuthenticated?: boolean;
 		detectedForgeProvider: ForgeProvider | undefined;
 		forgeOverride: ForgeName | undefined;
@@ -141,25 +163,28 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		};
 
 		if (forgeType === 'github') {
-			const { gitHubClient, gitHubApi, posthog, backendApi } = this.params;
+			const { gitHubClient, gitHubApi, posthog, backendApi, dispatch } = this.params;
 			return new GitHub({
 				...baseParams,
+				dispatch,
 				api: gitHubApi,
 				backendApi,
 				client: gitHubClient,
 				posthog: posthog,
 				authenticated: !!githubAuthenticated,
-				isLoading: githubIsLoading ?? false
+				isLoading: forgeIsLoading ?? false
 			});
 		}
 		if (forgeType === 'gitlab') {
-			const { gitLabClient, gitLabApi, posthog } = this.params;
+			const { gitLabClient, gitLabApi, posthog, dispatch } = this.params;
 			return new GitLab({
 				...baseParams,
 				api: gitLabApi,
 				client: gitLabClient,
 				posthog: posthog,
-				authenticated: !!gitlabAuthenticated
+				authenticated: !!gitlabAuthenticated,
+				dispatch,
+				isLoading: forgeIsLoading ?? false
 			});
 		}
 		if (forgeType === 'bitbucket') {

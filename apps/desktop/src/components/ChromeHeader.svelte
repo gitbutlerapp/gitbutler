@@ -6,12 +6,13 @@
 	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { projectDisableCodegen } from '$lib/config/config';
 	import { ircEnabled } from '$lib/config/uiFeatureFlags';
 	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { handleAddProjectOutcome } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { ircPath, projectPath } from '$lib/routes/routes.svelte';
+	import { ircPath, isWorkspacePath, projectPath } from '$lib/routes/routes.svelte';
 	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
 	import { useCreateAiStack } from '$lib/stacks/createAiStack.svelte';
 	import { inject } from '@gitbutler/core/context';
@@ -50,8 +51,9 @@
 	const singleBranchMode = $derived($settingsStore?.featureFlags.singleBranch ?? false);
 	const useCustomTitleBar = $derived(!($settingsStore?.ui.useNativeTitleBar ?? false));
 	const backend = inject(BACKEND);
+	const codegenDisabled = $derived(projectDisableCodegen(projectId));
 
-	const mode = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeService.mode(projectId));
 	const currentMode = $derived(mode.response);
 	const currentBranchName = $derived.by(() => {
 		if (currentMode?.type === 'OpenWorkspace') {
@@ -67,13 +69,12 @@
 	const isNotInWorkspace = $derived(
 		currentMode?.type !== 'OpenWorkspace' && currentMode?.type !== 'Edit'
 	);
-	const [setBaseBranchTarget, targetBranchSwitch] = baseBranchService.setTarget;
+	const [switchBackToWorkspace, workspaceSwitch] = baseBranchService.switchBackToWorkspace;
 
 	async function switchToWorkspace() {
 		if (base) {
-			await setBaseBranchTarget({
-				projectId,
-				branch: base.branchName
+			await switchBackToWorkspace({
+				projectId
 			});
 		}
 	}
@@ -96,6 +97,8 @@
 
 	const unreadCount = $derived(ircService.unreadCount());
 	const isNotificationsUnread = $derived(unreadCount.current > 0);
+
+	const isOnWorkspacePage = $derived(!!isWorkspacePath());
 
 	function openModal() {
 		modal?.show();
@@ -222,9 +225,9 @@
 					<div class="chrome-current-branch">
 						<div class="chrome-current-branch__content">
 							<Icon name="branch-remote" color="var(--clr-text-2)" />
-							<span class="text-12 text-semibold clr-text-1 truncate">{currentBranchName}</span>
+							<span class="text-12 text-bold clr-text-2 truncate">{currentBranchName}</span>
 							{#if isNotInWorkspace}
-								<span class="text-12 text-semibold clr-text-2"> read-only </span>
+								<span class="text-12 text-bold clr-text-2 op-60"> read-only </span>
 							{/if}
 						</div>
 					</div>
@@ -236,11 +239,12 @@
 			<Tooltip text="Switch back to gitbutler/workspace">
 				<Button
 					kind="outline"
+					testId={TestId.ChromeHeaderSwitchBackToWorkspaceButton}
 					icon="undo"
 					style="warning"
 					onclick={switchToWorkspace}
 					reversedDirection
-					disabled={targetBranchSwitch.current.isLoading}
+					disabled={workspaceSwitch.current.isLoading}
 				>
 					Back to workspace
 				</Button>
@@ -257,25 +261,29 @@
 				}}
 			/>
 		{/if}
-		<Button
-			testId={TestId.ChromeHeaderCreateBranchButton}
-			kind="outline"
-			icon="plus-small"
-			hotkey="⌘B"
-			reversedDirection
-			onclick={() => createBranchModal?.show()}
-		>
-			Create branch
-		</Button>
-		<Button
-			testId={TestId.ChromeHeaderCreateCodegenSessionButton}
-			kind="outline"
-			tooltip="New Codegen Session"
-			icon="ai-new-session"
-			onclick={() => {
-				createAiStack();
-			}}
-		/>
+		{#if isOnWorkspacePage}
+			<Button
+				testId={TestId.ChromeHeaderCreateBranchButton}
+				kind="outline"
+				icon="plus-small"
+				hotkey="⌘B"
+				reversedDirection
+				onclick={() => createBranchModal?.show()}
+			>
+				Create branch
+			</Button>
+			{#if !$codegenDisabled}
+				<Button
+					testId={TestId.ChromeHeaderCreateCodegenSessionButton}
+					kind="outline"
+					tooltip="New Codegen Session"
+					icon="ai-new-session"
+					onclick={() => {
+						createAiStack();
+					}}
+				/>
+			{/if}
+		{/if}
 	</div>
 </div>
 
@@ -319,7 +327,6 @@
 		border-left: none;
 		border-top-right-radius: 100px;
 		border-bottom-right-radius: 100px;
-		background-color: var(--clr-bg-2-muted);
 	}
 
 	.chrome-current-branch__content {
@@ -328,7 +335,7 @@
 		overflow: hidden;
 		gap: 4px;
 		text-wrap: nowrap;
-		opacity: 0.7;
+		opacity: 0.8;
 	}
 
 	.chrome-left {

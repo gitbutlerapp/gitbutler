@@ -99,7 +99,7 @@
 		{/if}
 
 		{#if error}
-			<InfoMessage filled outlined={false} style="error">
+			<InfoMessage filled outlined={false} style="danger">
 				{#snippet content()}
 					{error}
 				{/snippet}

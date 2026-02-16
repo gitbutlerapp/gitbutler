@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_secret::Sensitive;
 use but_settings::AppSettings;
 use serde::{Deserialize, Serialize};
 
 mod client;
 pub mod pr;
-pub use client::{CreatePullRequestParams, GitHubPrLabel, GitHubUser, PullRequest};
+pub use client::{
+    CheckRun, CreatePullRequestParams, GitHubClient, GitHubPrLabel, GitHubUser, PullRequest, UpdatePullRequestParams,
+};
 mod token;
 pub use token::GithubAccountIdentifier;
 
@@ -17,9 +19,9 @@ pub struct Verification {
     pub device_code: String,
 }
 
-pub async fn init_device_oauth() -> Result<Verification> {
+pub async fn init_github_device_oauth() -> Result<Verification> {
     let mut req_body = HashMap::new();
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
     req_body.insert("client_id", client_id.as_str());
     req_body.insert("scope", "repo");
@@ -56,7 +58,7 @@ pub struct AuthStatusResponse {
     pub host: Option<String>,
 }
 
-pub async fn check_auth_status(
+pub async fn check_github_auth_status(
     device_code: String,
     storage: &but_forge_storage::Controller,
 ) -> Result<AuthStatusResponse> {
@@ -66,7 +68,7 @@ pub async fn check_auth_status(
     }
 
     let mut req_body = HashMap::new();
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let client_id = app_settings.github_oauth_app.oauth_client_id.clone();
     req_body.insert("client_id", client_id.as_str());
     req_body.insert("device_code", device_code.as_str());
@@ -150,12 +152,8 @@ async fn fetch_and_persist_pat_user_data(
         .get_authenticated()
         .await
         .context("Failed to get authenticated user")?;
-    token::persist_gh_access_token(
-        &token::GithubAccountIdentifier::pat(&user.login),
-        access_token,
-        storage,
-    )
-    .context("Failed to persist access token")?;
+    token::persist_gh_access_token(&token::GithubAccountIdentifier::pat(&user.login), access_token, storage)
+        .context("Failed to persist access token")?;
     Ok(user)
 }
 
@@ -181,8 +179,8 @@ async fn fetch_and_persist_enterprise_user_data(
     access_token: &Sensitive<String>,
     storage: &but_forge_storage::Controller,
 ) -> Result<client::AuthenticatedUser, anyhow::Error> {
-    let gh = client::GitHubClient::new_with_host_override(access_token, host)
-        .context("Failed to create GitHub client")?;
+    let gh =
+        client::GitHubClient::new_with_host_override(access_token, host).context("Failed to create GitHub client")?;
     let user = gh
         .get_authenticated()
         .await
@@ -223,18 +221,16 @@ pub async fn get_gh_user(
         let user = match gh.get_authenticated().await {
             Ok(user) => user,
             Err(client_err) => {
-                // Check if this is a network error before converting to anyhow
-                if is_network_error(&client_err) {
-                    return Err(anyhow::Error::from(client_err).context(
-                        but_error::Context::new_static(
-                            but_error::Code::NetworkError,
-                            "Unable to connect to GitHub.",
-                        ),
-                    ));
+                // Check if this is a network error
+                if let Some(reqwest_err) = client_err.downcast_ref::<reqwest::Error>()
+                    && is_network_error(reqwest_err)
+                {
+                    return Err(client_err.context(but_error::Context::new_static(
+                        but_error::Code::NetworkError,
+                        "Unable to connect to GitHub.",
+                    )));
                 }
-                return Err(
-                    anyhow::Error::from(client_err).context("Failed to get authenticated user")
-                );
+                return Err(client_err.context("Failed to get authenticated user"));
             }
         };
         Ok(Some(AuthenticatedUser {
@@ -252,12 +248,11 @@ pub async fn get_gh_user(
 /// Check if an error is a network connectivity error.
 ///
 /// This includes DNS resolution failures, connection timeouts, connection refused, etc.
-fn is_network_error(err: &octorust::ClientError) -> bool {
-    matches!(err, octorust::ClientError::ReqwestError(reqwest_err)
-        if reqwest_err.is_timeout() || reqwest_err.is_connect() || reqwest_err.is_request())
+fn is_network_error(err: &reqwest::Error) -> bool {
+    err.is_timeout() || err.is_connect() || err.is_request()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub enum CredentialCheckResult {
     Valid,
     Invalid,
@@ -285,26 +280,103 @@ pub async fn check_credentials(
 pub async fn list_known_github_accounts(
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<token::GithubAccountIdentifier>> {
-    let known_accounts = token::list_known_github_accounts(storage)
-        .context("Failed to list known GitHub usernames")?;
-    // Migrate the users from the previous storage method.
-    #[cfg(feature = "legacy")]
-    if let Some(stored_gh_access_token) = gitbutler_user::forget_github_login_for_user()?
-        && known_accounts.is_empty()
-    {
-        fetch_and_persist_oauth_user_data(&stored_gh_access_token, storage)
-            .await
-            .ok();
-
-        let known_accounts = token::list_known_github_accounts(storage)
-            .context("Failed to list known GitHub usernames")?;
-        return Ok(known_accounts);
-    }
-    Ok(known_accounts)
+    token::list_known_github_accounts(storage).context("Failed to list known GitHub usernames")
 }
 
 pub fn clear_all_github_tokens(storage: &but_forge_storage::Controller) -> Result<()> {
     token::clear_all_github_accounts(storage).context("Failed to clear all GitHub tokens")
+}
+
+/// JSON serialization types for GitHub API responses.
+///
+/// This module contains serializable versions of GitHub authentication types
+/// that expose sensitive data (like access tokens) as plain strings for API responses.
+pub mod json {
+    use crate::{AuthStatusResponse, AuthenticatedUser};
+    use serde::Serialize;
+
+    /// Serializable version of [`AuthStatusResponse`] with exposed access token.
+    ///
+    /// This struct is used for API responses where the access token needs to be
+    /// sent as a plain string. Field names are converted to camelCase for JSON.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./github/index.ts"))]
+    pub struct AuthStatusResponseSensitive {
+        /// The GitHub access token as a plain string (sensitive data).
+        pub access_token: String,
+        /// The GitHub username/login.
+        pub login: String,
+        /// The user's display name, if available.
+        pub name: Option<String>,
+        /// The user's email address, if available.
+        pub email: Option<String>,
+        /// The GitHub Enterprise host, if this is an enterprise account.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub host: Option<String>,
+    }
+
+    impl From<AuthStatusResponse> for AuthStatusResponseSensitive {
+        fn from(
+            AuthStatusResponse {
+                access_token,
+                login,
+                name,
+                email,
+                host,
+            }: AuthStatusResponse,
+        ) -> Self {
+            AuthStatusResponseSensitive {
+                access_token: access_token.0,
+                login,
+                name,
+                email,
+                host,
+            }
+        }
+    }
+
+    /// Serializable version of [`AuthenticatedUser`] with exposed access token.
+    ///
+    /// This struct represents an authenticated GitHub user with their credentials
+    /// exposed as plain strings for API responses. Field names are converted to camelCase for JSON.
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+    #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./github/index.ts"))]
+    pub struct AuthenticatedUserSensitive {
+        /// The GitHub access token as a plain string (sensitive data).
+        pub access_token: String,
+        /// The GitHub username/login.
+        pub login: String,
+        /// The URL to the user's avatar image, if available.
+        pub avatar_url: Option<String>,
+        /// The user's display name, if available.
+        pub name: Option<String>,
+        /// The user's email address, if available.
+        pub email: Option<String>,
+    }
+
+    impl From<AuthenticatedUser> for AuthenticatedUserSensitive {
+        fn from(
+            AuthenticatedUser {
+                access_token,
+                login,
+                avatar_url,
+                name,
+                email,
+            }: AuthenticatedUser,
+        ) -> Self {
+            AuthenticatedUserSensitive {
+                access_token: access_token.0,
+                login,
+                avatar_url,
+                name,
+                email,
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -323,9 +395,8 @@ mod tests {
         let result = client.get("http://192.0.2.1:80").send();
 
         if let Err(reqwest_err) = result {
-            let client_err = octorust::ClientError::ReqwestError(reqwest_err);
             assert!(
-                is_network_error(&client_err),
+                is_network_error(&reqwest_err),
                 "Should detect timeout/connection errors"
             );
         } else {
@@ -335,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_is_network_error_with_connection_error() {
-        // Create a reqwest error and wrap it in ClientError
+        // Create a reqwest error
         let client = reqwest::blocking::Client::builder()
             .timeout(std::time::Duration::from_millis(1))
             .build()
@@ -344,37 +415,9 @@ mod tests {
         let result = client.get("http://192.0.2.1:80").send();
 
         if let Err(reqwest_err) = result {
-            let client_err = octorust::ClientError::ReqwestError(reqwest_err);
-            assert!(
-                is_network_error(&client_err),
-                "Should detect ClientError wrapping reqwest network errors"
-            );
+            assert!(is_network_error(&reqwest_err), "Should detect reqwest network errors");
         } else {
             panic!("Expected a network error but request succeeded");
         }
-    }
-
-    #[test]
-    fn test_is_not_network_error_http_error() {
-        // HTTP errors (like 401) are not network errors
-        let client_err = octorust::ClientError::HttpError {
-            status: http::StatusCode::UNAUTHORIZED,
-            headers: reqwest::header::HeaderMap::new(),
-            error: "Unauthorized".to_string(),
-        };
-        assert!(
-            !is_network_error(&client_err),
-            "Should not detect HTTP status errors as network errors"
-        );
-    }
-
-    #[test]
-    fn test_is_not_network_error_rate_limit() {
-        // Rate limit errors are not network errors
-        let client_err = octorust::ClientError::RateLimited { duration: 60 };
-        assert!(
-            !is_network_error(&client_err),
-            "Should not detect rate limit errors as network errors"
-        );
     }
 }

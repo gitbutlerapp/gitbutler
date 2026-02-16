@@ -38,6 +38,14 @@ export async function clickByTestId(
 	return element;
 }
 
+export async function rightClickByTestId(page: Page, testId: TestIdValues): Promise<Locator> {
+	const element = await waitForTestId(page, testId);
+	await element.click({
+		button: 'right'
+	});
+	return element;
+}
+
 /**
  * Drag and drop an element onto another element by their test IDs.
  */

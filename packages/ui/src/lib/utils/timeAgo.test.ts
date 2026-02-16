@@ -79,13 +79,13 @@ describe.concurrent('timeAgo', () => {
 describe.concurrent('getAbsoluteTimestamp', () => {
 	it('should format a date correctly', () => {
 		const date = new Date('2024-01-15T15:45:30.000Z');
-		const result = getAbsoluteTimestamp(date);
+		const result = getAbsoluteTimestamp(date, 'en-US');
 		expect(result).toMatch(/January 15, 2024 at \d{1,2}:\d{2} [AP]M/);
 	});
 
 	it('should format a timestamp correctly', () => {
 		const timestamp = new Date('2024-12-25T09:30:00.000Z').getTime();
-		const result = getAbsoluteTimestamp(timestamp);
+		const result = getAbsoluteTimestamp(timestamp, 'en-US');
 		expect(result).toMatch(/December 25, 2024 at \d{1,2}:\d{2} [AP]M/);
 	});
 
@@ -93,8 +93,8 @@ describe.concurrent('getAbsoluteTimestamp', () => {
 		const morningDate = new Date('2024-03-10T08:15:00.000Z');
 		const eveningDate = new Date('2024-03-10T20:30:00.000Z');
 
-		const morningResult = getAbsoluteTimestamp(morningDate);
-		const eveningResult = getAbsoluteTimestamp(eveningDate);
+		const morningResult = getAbsoluteTimestamp(morningDate, 'en-US');
+		const eveningResult = getAbsoluteTimestamp(eveningDate, 'en-US');
 
 		expect(morningResult).toMatch(/March 10, 2024 at \d{1,2}:\d{2} [AP]M/);
 		expect(eveningResult).toMatch(/March 10, 2024 at \d{1,2}:\d{2} [AP]M/);

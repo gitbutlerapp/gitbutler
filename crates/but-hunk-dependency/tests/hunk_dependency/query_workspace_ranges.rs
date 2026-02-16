@@ -16,6 +16,13 @@ fn change_2_to_two_in_second_commit() -> anyhow::Result<()> {
                         "),
                         commit_intersections: [
                             StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
+                            StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
                                 start: 2,
@@ -73,6 +80,13 @@ fn change_2_to_two_in_second_commit_after_shift_by_two() -> anyhow::Result<()> {
                         "),
                         commit_intersections: [
                             StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
+                            StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ca5567e4be81f1ee69b3d5ac5410d5010bcea756),
                                 start: 4,
@@ -106,6 +120,13 @@ fn add_single_line() -> anyhow::Result<()> {
                         +5.5
                         "),
                         commit_intersections: [
+                            StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
                             StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),
@@ -141,6 +162,13 @@ fn remove_single_line() -> anyhow::Result<()> {
                         "),
                         commit_intersections: [
                             StableHunkRange {
+                                change_type: Addition,
+                                commit_id: Sha1(72623dc20d0c01a70a8c82b5d87f8989558c47cd),
+                                start: 1,
+                                lines: 1,
+                                line_shift: 1,
+                            },
+                            StableHunkRange {
                                 change_type: Modification,
                                 commit_id: Sha1(ab311c05e6ca309fb01bcba46e9ab6ba652e0012),
                                 start: 4,
@@ -160,23 +188,18 @@ fn remove_single_line() -> anyhow::Result<()> {
 
 mod util {
     use but_core::ref_metadata::StackId;
-    use but_hunk_dependency::{InputCommit, InputStack, tree_changes_to_input_files};
+    use but_hunk_dependency::{InputCommit, InputStack, tree_changes_to_input_files, ui::HunkLockTarget};
 
     use crate::{WorkspaceDigest, intersect_workspace_ranges};
 
     pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
-        let worktree_dir = gix_testtools::scripted_fixture_read_only("branch-states.sh")
+        let worktree_dir = but_testsupport::gix_testtools::scripted_fixture_read_only("branch-states.sh")
             .map_err(anyhow::Error::from_boxed)?
             .join(name);
-        Ok(gix::open_opts(
-            worktree_dir,
-            gix::open::Options::isolated(),
-        )?)
+        but_testsupport::open_repo(&worktree_dir)
     }
 
-    pub fn workspace_ranges_digest_for_worktree_changes(
-        repo: &gix::Repository,
-    ) -> anyhow::Result<WorkspaceDigest> {
+    pub fn workspace_ranges_digest_for_worktree_changes(repo: &gix::Repository) -> anyhow::Result<WorkspaceDigest> {
         let input_stack = branch_input_stack(repo, "HEAD")?;
         let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stack)?;
         let worktree_changes = but_core::diff::worktree_changes(repo)?.changes;
@@ -194,11 +217,8 @@ mod util {
                 commit.parent_ids().count() < 2,
                 "For now we probably can't handle the non-linear case correctly"
             );
-            let (commit_changes, _) = but_core::diff::tree_changes(
-                repo,
-                commit.parent_ids.iter().next().copied(),
-                commit.id,
-            )?;
+            let commit_changes =
+                but_core::diff::tree_changes(repo, commit.parent_ids.iter().next().copied(), commit.id)?;
 
             let files = tree_changes_to_input_files(repo, commit_changes)?;
             let commit = InputCommit {
@@ -209,7 +229,7 @@ mod util {
         }
         commits.reverse();
         let stack = InputStack {
-            stack_id: StackId::generate(),
+            target: HunkLockTarget::Stack(StackId::generate()),
             commits_from_base_to_tip: commits,
         };
         Ok(vec![stack])

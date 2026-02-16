@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice, ByteVec};
 use gix::reference::Category;
-use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference, visit::IntoEdgeReferences};
+use petgraph::{prelude::EdgeRef, stable_graph::EdgeReference};
 
 use crate::{Edge, Graph, Segment, SegmentIndex, SegmentMetadata, init::PetGraph};
 
@@ -58,9 +58,7 @@ impl Graph {
 
                     let short_name = short_name
                         .strip_prefix(b"/")
-                        .with_context(|| {
-                            format!("Couldn't *unambiguously* determine remote name in {rn}")
-                        })?
+                        .with_context(|| format!("Couldn't *unambiguously* determine remote name in {rn}"))?
                         .as_bstr();
 
                     let mut new_name: BString = "refs/remotes/".into();
@@ -126,6 +124,7 @@ impl Graph {
         is_entrypoint: bool,
         is_early_end: bool,
         hard_limit: bool,
+        max_goals: Option<usize>,
     ) -> String {
         format!(
             "{ep}{end}{kind}{hex}{flags}{refs}",
@@ -135,13 +134,9 @@ impl Graph {
             } else {
                 ""
             },
-            kind = if commit.flags.is_remote() {
-                "🟣"
-            } else {
-                "·"
-            },
+            kind = if commit.flags.is_remote() { "🟣" } else { "·" },
             flags = if !commit.flags.is_empty() {
-                format!(" ({})", commit.flags.debug_string())
+                format!(" ({})", commit.flags.debug_string(max_goals))
             } else {
                 "".to_string()
             },
@@ -165,10 +160,7 @@ impl Graph {
     }
 
     /// Shorten the given `name` so it's still clear if it is a special ref (like tag) or not.
-    pub fn ref_debug_string(
-        ref_name: &gix::refs::FullNameRef,
-        worktree: Option<&crate::Worktree>,
-    ) -> String {
+    pub fn ref_debug_string(ref_name: &gix::refs::FullNameRef, worktree: Option<&crate::Worktree>) -> String {
         let (cat, sn) = ref_name.category_and_short_name().expect("valid refs");
         // Only shorten those that look good and are unambiguous enough.
         format!(
@@ -182,18 +174,17 @@ impl Graph {
                     .map(|n| n.as_bstr())
                     .unwrap_or(ref_name.as_bstr())
             },
-            ws = worktree
-                .map(|ws| ws.debug_string(ref_name))
-                .unwrap_or_default()
+            ws = worktree.map(|ws| ws.debug_string(ref_name)).unwrap_or_default()
         )
     }
 
     /// Return a useful one-line string showing the relationship between `ref_name`, `remote_ref_name` and how
-    /// they are linked with `sibling_id`.
+    /// they are linked with `sibling_id` and `remote_tracking_branch_id`.
     pub fn ref_and_remote_debug_string(
         ref_info: Option<&crate::RefInfo>,
         remote_ref_name: Option<&gix::refs::FullName>,
         sibling_id: Option<SegmentIndex>,
+        remote_tracking_branch_id: Option<SegmentIndex>,
     ) -> String {
         format!(
             "{ref_name}{remote}",
@@ -209,16 +200,15 @@ impl Graph {
                 ))
                 .unwrap_or_else(|| format!(
                     "anon:{maybe_id}",
-                    maybe_id = sibling_id
-                        .map(|id| format!(" →:{}:", id.index()))
-                        .unwrap_or_default()
+                    maybe_id = sibling_id.map(|id| format!(" →:{}:", id.index())).unwrap_or_default()
                 )),
             remote = remote_ref_name
                 .as_ref()
                 .map(|remote_ref_name| format!(
                     " <> {remote_name}{maybe_id}",
                     remote_name = Graph::ref_debug_string(remote_ref_name.as_ref(), None),
-                    maybe_id = sibling_id
+                    maybe_id = remote_tracking_branch_id
+                        .or(sibling_id)
                         .map(|id| format!(" →:{}:", id.index()))
                         .unwrap_or_default()
                 ))
@@ -230,6 +220,7 @@ impl Graph {
     /// Mostly useful for debugging to stop early when a connection wasn't created correctly.
     #[cfg(unix)]
     pub fn validated_or_open_as_svg(self) -> anyhow::Result<Self> {
+        use petgraph::visit::IntoEdgeReferences;
         for edge in self.inner.edge_references() {
             let res = Self::check_edge(&self.inner, edge, false);
             if res.is_err() {
@@ -262,53 +253,63 @@ impl Graph {
         static SUFFIX: AtomicUsize = AtomicUsize::new(0);
         let suffix = SUFFIX.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         let svg_name = format!("debug-graph-{suffix:02}.svg");
+        let svg_path = std::env::var_os("CARGO_MANIFEST_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_default()
+            .join(svg_name);
         let mut dot = std::process::Command::new("dot")
-            .args(["-Tsvg", "-o", &svg_name])
+            .args(["-Tsvg", "-o"])
+            .arg(&svg_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .expect("'dot' (graphviz) must be installed on the system");
-        dot.stdin
-            .as_mut()
-            .unwrap()
-            .write_all(self.dot_graph().as_bytes())
-            .ok();
+        dot.stdin.as_mut().unwrap().write_all(self.dot_graph().as_bytes()).ok();
         let mut out = dot.wait_with_output().unwrap();
         out.stdout.extend(out.stderr);
-        assert!(
-            out.status.success(),
-            "dot failed: {out}",
-            out = out.stdout.as_bstr()
-        );
+        assert!(out.status.success(), "dot failed: {out}", out = out.stdout.as_bstr());
 
         assert!(
             std::process::Command::new("open")
-                .arg(&svg_name)
+                .arg(&svg_path)
                 .status()
                 .unwrap()
                 .success(),
-            "Opening of {svg_name} failed"
+            "Opening of {svg_path} failed",
+            svg_path = svg_path.display()
         );
+    }
+
+    /// Return the highest amount of goals that a commit has stored in its flags.
+    ///
+    /// This relates to the amount of commits who were tracked for reachability, i.e. allowing an ancestor to see
+    /// if a particular commit is in its future.
+    pub fn max_goals(&self) -> Option<usize> {
+        self.node_weights()
+            .filter_map(|s| s.commits.iter().map(|c| c.flags.num_goals()).max())
+            .max()
     }
 
     /// Produces a dot-version of the graph.
     pub fn dot_graph(&self) -> String {
         const HEX: usize = 7;
         let entrypoint = self.entrypoint;
+        let max_goals = self.max_goals();
         let node_attrs = |_: &PetGraph, (sidx, s): (SegmentIndex, &Segment)| {
             let name = format!(
                 "{ref_name_and_remote}{maybe_centering_newline}",
                 ref_name_and_remote = Self::ref_and_remote_debug_string(
                     s.ref_info.as_ref(),
                     s.remote_tracking_ref_name.as_ref(),
-                    s.sibling_segment_id
+                    s.sibling_segment_id,
+                    s.remote_tracking_branch_segment_id,
                 ),
                 maybe_centering_newline = if s.commits.is_empty() { "" } else { "\n" },
             );
             // Reduce noise by preferring ref-based entry-points.
-            let show_segment_entrypoint = s.ref_info.is_some()
-                && entrypoint.is_some_and(|(s, cidx)| s == sidx && matches!(cidx, None | Some(0)));
+            let show_segment_entrypoint =
+                s.ref_info.is_some() && entrypoint.is_some_and(|(s, cidx)| s == sidx && matches!(cidx, None | Some(0)));
             let mut commits = s
                 .commits
                 .iter()
@@ -323,6 +324,7 @@ impl Graph {
                             self.is_early_end_of_traversal(sidx)
                         },
                         self.hard_limit_hit,
+                        max_goals,
                     )
                 })
                 .collect::<Vec<_>>()

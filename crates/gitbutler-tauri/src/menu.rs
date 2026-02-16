@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use but_api::json::Error;
 use but_error::Code;
 use but_settings::AppSettingsWithDiskSync;
@@ -15,9 +15,7 @@ static SHORTCUT_EVENT: &str = "menu://shortcut";
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
 pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Result<(), Error> {
-    let window = handle
-        .get_window("main")
-        .expect("main window always present");
+    let window = handle.get_window("main").expect("main window always present");
 
     let menu_item = window
         .menu()
@@ -38,15 +36,11 @@ pub fn build<R: Runtime>(
     handle: &AppHandle<R>,
     #[cfg_attr(target_os = "linux", allow(unused_variables))] settings: &AppSettingsWithDiskSync,
 ) -> tauri::Result<Menu<R>> {
-    let check_for_updates =
-        MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
+    #[cfg(not(feature = "disable-auto-updates"))]
+    let check_for_updates = MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
 
     #[cfg(target_os = "macos")]
-    let app_name = handle
-        .config()
-        .product_name
-        .clone()
-        .context("App name not defined.")?;
+    let app_name = handle.config().product_name.clone().context("App name not defined.")?;
 
     #[cfg(target_os = "macos")]
     let settings_menu = MenuItemBuilder::with_id("global/settings", "Settings")
@@ -54,20 +48,27 @@ pub fn build<R: Runtime>(
         .build(handle)?;
 
     #[cfg(target_os = "macos")]
-    let mac_menu = &SubmenuBuilder::new(handle, app_name)
-        .about(Some(AboutMetadata::default()))
-        .separator()
-        .item(&settings_menu)
-        .item(&check_for_updates)
-        .separator()
-        .services()
-        .separator()
-        .hide()
-        .hide_others()
-        .show_all()
-        .separator()
-        .quit()
-        .build()?;
+    let mac_menu = {
+        #[cfg_attr(feature = "disable-auto-updates", allow(unused_mut))]
+        let mut menu = SubmenuBuilder::new(handle, app_name)
+            .about(Some(AboutMetadata::default()))
+            .separator()
+            .item(&settings_menu);
+
+        #[cfg(not(feature = "disable-auto-updates"))]
+        {
+            menu = menu.item(&check_for_updates);
+        }
+        menu.separator()
+            .services()
+            .separator()
+            .hide()
+            .hide_others()
+            .show_all()
+            .separator()
+            .quit()
+            .build()?
+    };
 
     let file_menu = &SubmenuBuilder::new(handle, "File")
         .items(&[
@@ -91,8 +92,11 @@ pub fn build<R: Runtime>(
     #[cfg(target_os = "macos")]
     file_menu.append(&PredefinedMenuItem::close_window(handle, None)?)?;
 
-    #[cfg(not(target_os = "macos"))]
-    file_menu.append_items(&[&PredefinedMenuItem::quit(handle, None)?, &check_for_updates])?;
+    if cfg!(not(target_os = "macos")) {
+        file_menu.append_items(&[&PredefinedMenuItem::quit(handle, None)?])?;
+        #[cfg(not(feature = "disable-auto-updates"))]
+        file_menu.append_items(&[&check_for_updates])?;
+    }
 
     #[cfg(not(target_os = "linux"))]
     let edit_menu = &Submenu::new(handle, "Edit", true)?;
@@ -165,20 +169,17 @@ pub fn build<R: Runtime>(
 
     #[cfg(target_os = "macos")]
     {
-        project_menu_builder =
-            project_menu_builder.text("project/show-in-finder", "Show in Finder");
+        project_menu_builder = project_menu_builder.text("project/show-in-finder", "Show in Finder");
     }
 
     #[cfg(target_os = "windows")]
     {
-        project_menu_builder =
-            project_menu_builder.text("project/show-in-finder", "Show in Explorer");
+        project_menu_builder = project_menu_builder.text("project/show-in-finder", "Show in Explorer");
     }
 
     #[cfg(target_os = "linux")]
     {
-        project_menu_builder =
-            project_menu_builder.text("project/show-in-finder", "Show in File Manager");
+        project_menu_builder = project_menu_builder.text("project/show-in-finder", "Show in File Manager");
     }
 
     let project_menu = &project_menu_builder
@@ -198,11 +199,16 @@ pub fn build<R: Runtime>(
 
     let help_menu = SubmenuBuilder::new(handle, "Help")
         .text("help/documentation", "Documentation")
+        .text("help/debugging-guide", "Debugging Guide")
         .text("help/github", "Source Code")
         .text("help/release-notes", "Release Notes")
         .separator()
         .text("help/share-debug-info", "Share Debug Info…")
-        .text("help/report-issue", "Report an Issue…")
+        .text("help/report-issue", "Create an Issue")
+        .separator()
+        .text("help/open-logs-folder", "Open Logs Folder")
+        .text("help/open-config-folder", "Open Config Folder")
+        .text("help/open-cache-folder", "Open Cache Folder")
         .separator()
         .text("help/discord", "Discord")
         .text("help/youtube", "YouTube")
@@ -210,12 +216,9 @@ pub fn build<R: Runtime>(
         .text("help/x", "X")
         .separator()
         .item(
-            &MenuItemBuilder::with_id(
-                "help/version",
-                format!("Version {}", handle.package_info().version),
-            )
-            .enabled(false)
-            .build(handle)?,
+            &MenuItemBuilder::with_id("help/version", format!("Version {}", handle.package_info().version))
+                .enabled(false)
+                .build(handle)?,
         )
         .build()?;
 
@@ -223,7 +226,7 @@ pub fn build<R: Runtime>(
         handle,
         &[
             #[cfg(target_os = "macos")]
-            mac_menu,
+            &mac_menu,
             file_menu,
             #[cfg(not(target_os = "linux"))]
             edit_menu,
@@ -236,12 +239,7 @@ pub fn build<R: Runtime>(
     )
 }
 
-/// `handle` is needed to access the undo queue, and buttons for that are only available when the `undo` feature is enabled.
-pub fn handle_event<R: Runtime>(
-    _handle: &AppHandle<R>,
-    webview: &WebviewWindow,
-    event: &MenuEvent,
-) {
+pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
     if event.id() == "edit/undo" {
         eprintln!("use app undo queue to undo.");
         return;
@@ -347,16 +345,34 @@ pub fn handle_event<R: Runtime>(
         return;
     }
 
+    if event.id() == "help/open-logs-folder" {
+        if let Err(err) = crate::debug::open_logs_folder() {
+            tracing::error!(error = ?err, "failed to open logs folder");
+        }
+        return;
+    }
+
+    if event.id() == "help/open-config-folder" {
+        if let Err(err) = crate::debug::open_config_folder() {
+            tracing::error!(error = ?err, "failed to open config folder");
+        }
+        return;
+    }
+
+    if event.id() == "help/open-cache-folder" {
+        if let Err(err) = crate::debug::open_cache_folder() {
+            tracing::error!(error = ?err, "failed to open cache folder");
+        }
+        return;
+    }
+
     'open_link: {
         let result = match event.id().0.as_str() {
             "help/documentation" => open::that("https://docs.gitbutler.com"),
+            "help/debugging-guide" => open::that("https://docs.gitbutler.com/development/debugging"),
             "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
-            "help/release-notes" => {
-                open::that("https://github.com/gitbutlerapp/gitbutler/releases")
-            }
-            "help/report-issue" => {
-                open::that("https://github.com/gitbutlerapp/gitbutler/issues/new/choose")
-            }
+            "help/release-notes" => open::that("https://github.com/gitbutlerapp/gitbutler/releases"),
+            "help/report-issue" => open::that("https://github.com/gitbutlerapp/gitbutler/issues/new/choose"),
             "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
             "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
             "help/bluesky" => open::that("https://bsky.app/profile/gitbutler.com"),

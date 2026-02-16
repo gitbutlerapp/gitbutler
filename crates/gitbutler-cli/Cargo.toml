@@ -1,10 +1,10 @@
 [package]
 name = "gitbutler-cli"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [[bin]]
 name = "gitbutler-cli"
@@ -16,20 +16,17 @@ doctest = false
 testing = ["dep:gitbutler-commit"]
 
 [dependencies]
-but-settings.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 but-workspace.workspace = true
-but-core = { workspace = true, features = ["testing"] }
-but-oxidize.workspace = true
+but-core.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 
 gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-branch-actions.workspace = true
-gitbutler-command-context.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true
 
-gix = { workspace = true, features = ["max-performance", "tracing"] }
+gix = { workspace = true, features = ["max-performance"] }
 dirs-next = "2.0.0"
 clap = { workspace = true, features = ["env"] }
 anyhow.workspace = true

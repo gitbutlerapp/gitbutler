@@ -1,10 +1,11 @@
 <script lang="ts" module>
-	export type MessageStyle = 'info' | 'warning' | 'error' | 'success';
+	export type MessageStyle = 'info' | 'warning' | 'danger' | 'success';
 </script>
 
 <script lang="ts">
-	import { Button, Icon } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+	import Button from '$components/Button.svelte';
+	import Icon from '$components/Icon.svelte';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
@@ -66,21 +67,21 @@
 	const iconMap: { [Key in MessageStyle]: IconName } = {
 		info: 'info',
 		warning: 'warning',
-		error: 'error',
+		danger: 'error',
 		success: 'success'
 	};
 
 	const iconColorMap: { [Key in MessageStyle]: IconColor } = {
 		info: 'pop',
 		warning: 'warning',
-		error: 'error',
-		success: 'success'
+		danger: 'danger',
+		success: 'safe'
 	};
 
 	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
 		info: 'pop',
 		warning: 'warning',
-		error: 'error',
+		danger: 'danger',
 		success: 'pop'
 	};
 
@@ -168,7 +169,7 @@
 		gap: 12px;
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		transition: background-color var(--transition-slow);
 	}
 	.info-message__inner {
@@ -195,6 +196,7 @@
 		gap: 6px;
 	}
 	.info-message__text {
+		opacity: 60%;
 		&:empty {
 			display: none;
 		}
@@ -204,14 +206,14 @@
 	.info {
 		border: 0 solid var(--clr-border-2);
 	}
-	.error {
-		border: 0 solid var(--clr-scale-err-60);
+	.danger {
+		border: 0 solid var(--clr-theme-danger-element);
 	}
 	.warning {
-		border: 0 solid var(--clr-scale-warn-60);
+		border: 0 solid var(--clr-theme-warn-element);
 	}
 	.success {
-		border: 0 solid var(--clr-scale-succ-60);
+		border: 0 solid var(--clr-theme-safe-element);
 	}
 	.shadow {
 		box-shadow: 0px 7px 14px 0px rgba(0, 0, 0, 0.1);
@@ -226,31 +228,32 @@
 		&.info {
 			background-color: var(--clr-bg-2);
 		}
-		&.error {
-			background-color: var(--clr-theme-err-bg-muted);
+		&.danger {
+			background-color: var(--clr-theme-danger-bg);
 		}
 		&.warning {
-			background-color: var(--clr-theme-warn-bg-muted);
+			background-color: var(--clr-theme-warn-bg);
 		}
 		&.success {
-			background-color: var(--clr-theme-succ-bg-muted);
+			background-color: var(--clr-theme-safe-bg);
 		}
 	}
 
 	/* ERROR BLOCK */
 	.info-message__error-block {
+		max-height: 350px;
 		padding: 10px 10px 0;
-		overflow-x: scroll;
+		overflow: auto;
 		border-radius: var(--radius-s);
-		background-color: var(--clr-scale-err-90);
-		color: var(--clr-scale-err-10);
+		background-color: var(--clr-theme-danger-bg);
+		color: var(--clr-theme-danger-text);
 		font-size: 12px;
 		white-space: pre;
 		user-select: text;
 
 		/* selection */
 		&::selection {
-			background-color: var(--clr-scale-err-80);
+			background-color: color-mix(in srgb, var(--clr-theme-danger-element) 20%, transparent);
 		}
 		/* empty */
 		&:empty {

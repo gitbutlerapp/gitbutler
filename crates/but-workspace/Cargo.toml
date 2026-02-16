@@ -1,10 +1,10 @@
 [package]
 name = "but-workspace"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
@@ -13,12 +13,13 @@ doctest = false
 legacy = [
     "dep:but-meta",
     "dep:gitbutler-stack",
-    "dep:gitbutler-command-context",
+    "dep:but-ctx",
     "dep:gitbutler-cherry-pick",
     "dep:gitbutler-project",
     "dep:gitbutler-commit",
     "dep:gitbutler-repo",
 ]
+export-ts = ["dep:ts-rs", "but-core/export-ts"]
 
 [dependencies]
 but-core.workspace = true
@@ -27,10 +28,10 @@ but-rebase.workspace = true
 but-error.workspace = true
 but-serde.workspace = true
 but-oxidize.workspace = true
-
 but-meta = { workspace = true, features = ["legacy"], optional = true}
+but-ctx = { workspace = true, optional = true}
+
 gitbutler-stack = { workspace = true, optional = true}
-gitbutler-command-context = { workspace = true, optional = true}
 gitbutler-cherry-pick = { workspace = true, optional = true}
 gitbutler-project = { workspace = true, optional = true}
 gitbutler-commit = { workspace = true, optional = true}
@@ -49,14 +50,14 @@ tracing.workspace = true
 # For SPMC channel
 flume = "0.11.1"
 tempfile.workspace = true
+ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 # We just want to test everything, with the goal that 'legacy' can one day go away.
 but-workspace = { workspace = true, features = ["legacy"] }
 but-meta = { workspace = true, features = ["legacy"] }
 but-testsupport.workspace = true
-insta = { version = "1.43.2", features = ["json"] }
-but-core = { workspace = true, features = ["testing"] }
+insta = { version = "1.45.1", features = ["json"] }
 # for stable hashes in `gitbuter-` crates while we use them.
 # TODO: remove once `gitbutler-repo` isn't needed anymore.
 gitbutler-commit = { workspace = true, features = ["testing"] }

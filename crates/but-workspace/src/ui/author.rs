@@ -3,13 +3,16 @@ use serde::Serialize;
 
 /// Represents the author of a commit.
 #[derive(Serialize, Hash, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Author {
     /// The name from the git commit signature
     pub name: String,
     /// The email from the git commit signature
     pub email: String,
     /// A URL to a gravatar image for the email from the commit signature
+    #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub gravatar_url: url::Url,
 }
 

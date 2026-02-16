@@ -11,7 +11,8 @@ import {
 	type UnknownAction
 } from '@reduxjs/toolkit';
 import type { ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
-import type { PullRequest } from '$lib/forge/interface/types';
+import type { GeneralSettingsPageId } from '$lib/settings/generalSettingsPages';
+import type { ProjectSettingsPageId } from '$lib/settings/projectSettingsPages';
 import type { StackDetails } from '$lib/stacks/stack';
 import type { RejectionReason } from '$lib/stacks/stackService.svelte';
 
@@ -41,17 +42,6 @@ export type StackState = {
 	addedDirs: string[];
 };
 
-type BranchesSelection = {
-	branchName?: string;
-	commitId?: string;
-	stackId?: string;
-	remote?: string;
-	hasLocal?: boolean;
-	isTarget?: boolean;
-	inWorkspace?: boolean;
-	prNumber?: number;
-};
-
 export type ExclusiveAction =
 	| {
 			type: 'commit';
@@ -76,15 +66,19 @@ export type ExclusiveAction =
 
 export type ProjectUiState = {
 	exclusiveAction: ExclusiveAction | undefined;
-	branchesSelection: BranchesSelection;
-	showActions: boolean;
 	branchesToPoll: string[];
 	selectedClaudeSession: { stackId: string; head: string } | undefined;
 	thinkingLevel: ThinkingLevel;
 	selectedModel: ModelType;
 };
 
-type GlobalModalType = 'commit-failed' | 'author-missing' | 'general-settings' | 'project-settings';
+type GlobalModalType =
+	| 'commit-failed'
+	| 'author-missing'
+	| 'general-settings'
+	| 'project-settings'
+	| 'login-confirmation'
+	| 'auto-commit';
 type BaseGlobalModalState = {
 	type: GlobalModalType;
 };
@@ -107,20 +101,31 @@ export type AuthorMissingModalState = BaseGlobalModalState & {
 
 export type GeneralSettingsModalState = BaseGlobalModalState & {
 	type: 'general-settings';
-	selectedId?: string;
+	selectedId?: GeneralSettingsPageId;
 };
 
 export type ProjectSettingsModalState = BaseGlobalModalState & {
 	type: 'project-settings';
 	projectId: string;
-	selectedId?: string;
+	selectedId?: ProjectSettingsPageId;
+};
+
+export type LoginConfirmationModalState = BaseGlobalModalState & {
+	type: 'login-confirmation';
+};
+
+export type AutoCommitModalState = BaseGlobalModalState & {
+	type: 'auto-commit';
+	projectId: string;
 };
 
 export type GlobalModalState =
 	| CommitFailedModalState
 	| AuthorMissingModalState
 	| GeneralSettingsModalState
-	| ProjectSettingsModalState;
+	| ProjectSettingsModalState
+	| LoginConfirmationModalState
+	| AutoCommitModalState;
 
 export type GlobalUiState = {
 	drawerHeight: number;
@@ -133,7 +138,7 @@ export type GlobalUiState = {
 		height: number;
 	};
 	floatingBoxPosition: SnapPositionName;
-	unassignedSidebaFolded: boolean;
+	unassignedSidebarFolded: boolean;
 	useRuler: boolean;
 	rulerCountValue: number;
 	aiSuggestionsOnType: boolean;
@@ -169,8 +174,6 @@ export class UiState {
 	/** Properties scoped to a specific project. */
 	readonly project = this.buildScopedProps<ProjectUiState>(this.scopesCache.projects, {
 		exclusiveAction: undefined,
-		branchesSelection: {},
-		showActions: false,
 		branchesToPoll: [],
 		selectedClaudeSession: undefined,
 		thinkingLevel: 'normal',
@@ -189,7 +192,7 @@ export class UiState {
 			height: 330
 		},
 		floatingBoxPosition: 'bottom-center',
-		unassignedSidebaFolded: false,
+		unassignedSidebarFolded: false,
 		useRuler: true,
 		rulerCountValue: 72,
 		aiSuggestionsOnType: false,
@@ -281,6 +284,19 @@ export class UiState {
 						this.update(`${id}:${key}`, mutableResult);
 					};
 				}
+				// If the value is an object, we add a method to update
+				if (
+					typeof mutableResult === 'object' &&
+					!Array.isArray(mutableResult) &&
+					mutableResult !== null
+				) {
+					(props[key] as GlobalProperty<Record<string, UiStateValue>>).update = (
+						value: Record<string, UiStateValue>
+					) => {
+						mutableResult = { ...(mutableResult as Record<string, UiStateValue>), ...value };
+						this.update(`${id}:${key}`, mutableResult);
+					};
+				}
 			}
 			scopeCache[id] = props as GlobalStore<T>;
 			return scopeCache[id];
@@ -332,12 +348,21 @@ type ArrayPropertyMethods<T> = T extends string[]
 		}
 	: // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 		{};
+type ObjectPropertyMethods<T> =
+	T extends Record<string, UiStateValue>
+		? {
+				/** Updates the object with the new values, keeps existing values. */
+				update(value: Record<string, UiStateValue>): void;
+			}
+		: // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+			{};
 
 /** Node type for global properties. */
 export type GlobalProperty<T> = {
 	set(value: T): void;
 } & Reactive<T> &
-	ArrayPropertyMethods<T>;
+	ArrayPropertyMethods<T> &
+	ObjectPropertyMethods<T>;
 
 /** Type returned by the build function for global properties. */
 export type GlobalStore<T extends DefaultConfig> = {
@@ -512,41 +537,5 @@ function updateExclusiveActionState(
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
-	}
-}
-
-export function updateStalePrSelection(uiState: UiState, projectId: string, prs: PullRequest[]) {
-	const projectState = uiState.project(projectId);
-	if (projectState.branchesSelection.current.prNumber === undefined) {
-		return;
-	}
-
-	const prNumber = projectState.branchesSelection.current.prNumber;
-	if (!prs.some((pr) => pr.number === prNumber)) {
-		projectState.branchesSelection.set({});
-	}
-}
-
-export function updateStaleBranchSelectionInBranchesView(
-	uiState: UiState,
-	projectId: string,
-	deletedBranches: string[]
-) {
-	const projectState = uiState.project(projectId);
-	const selection = projectState.branchesSelection.current;
-	if (selection.branchName && deletedBranches.includes(selection.branchName)) {
-		projectState.branchesSelection.set({});
-	}
-}
-
-export function retainBranchSelectionInBranchesView(
-	uiState: UiState,
-	projectId: string,
-	branches: string[]
-) {
-	const projectState = uiState.project(projectId);
-	const selection = projectState.branchesSelection.current;
-	if (selection.branchName && !branches.includes(selection.branchName)) {
-		projectState.branchesSelection.set({});
 	}
 }

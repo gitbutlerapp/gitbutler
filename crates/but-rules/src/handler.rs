@@ -1,23 +1,25 @@
-use std::str::FromStr;
+use std::{path::Path, str::FromStr};
 
-use but_core::{DiffSpec, ref_metadata::StackId};
-use but_hunk_assignment::{HunkAssignment, assign, assignments_to_requests};
+use anyhow::ensure;
+use but_core::{ChangeId, DiffSpec, ref_metadata::StackId, sync::RepoExclusive};
+use but_ctx::Context;
+use but_db::HunkAssignmentsHandleMut;
+use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::HunkDependencies;
-use but_meta::VirtualBranchesTomlMetadata;
-use but_workspace::legacy::{StacksFilter, commit_engine, ui::StackEntry};
-use gitbutler_command_context::CommandContext;
+use but_workspace::legacy::commit_engine;
 use itertools::Itertools;
 
 use crate::{Filter, StackTarget};
 
 pub fn process_workspace_rules(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     assignments: &[HunkAssignment],
     dependencies: &Option<HunkDependencies>,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<usize> {
     let mut updates = 0;
     if assignments.is_empty() {
-        // Dont create stacks if there are no changes to assign anywhere
+        // Don't create stacks if there are no changes to assign anywhere
         return Ok(updates);
     }
     let rules = super::list_rules(ctx)?
@@ -25,13 +27,8 @@ pub fn process_workspace_rules(
         .filter(|r| r.enabled)
         .filter(|r| matches!(r.trigger, super::Trigger::FileSytemChange))
         .filter(|r| {
-            matches!(
-                &r.action,
-                super::Action::Explicit(super::Operation::Assign { .. })
-            ) || matches!(
-                &r.action,
-                super::Action::Explicit(super::Operation::Amend { .. })
-            )
+            matches!(&r.action, super::Action::Explicit(super::Operation::Assign { .. }))
+                || matches!(&r.action, super::Action::Explicit(super::Operation::Amend { .. }))
         })
         .collect_vec();
 
@@ -39,20 +36,27 @@ pub fn process_workspace_rules(
         return Ok(updates);
     }
 
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let stacks_in_ws = if ctx.app_settings().feature_flags.ws3 {
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            ctx.project().gb_dir().join("virtual_branches.toml"),
-        )?;
-        but_workspace::legacy::stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)
-    } else {
-        but_workspace::legacy::stacks(ctx, &ctx.project().gb_dir(), &repo, StacksFilter::default())
-    }?;
+    let project_data_dir = ctx.project_data_dir();
+    let context_lines = ctx.settings.context_lines;
+    let mut meta = ctx.meta()?;
+    let (repo, mut ws, mut db) = ctx.workspace_mut_and_db_mut_with_perm(perm)?;
+
+    let stack_ids: Vec<_> = ws.stacks.iter().filter_map(|s| s.id).collect();
+    let mut new_ws = None;
 
     for rule in rules {
         match rule.action {
             super::Action::Explicit(super::Operation::Assign { target }) => {
-                if let Some(stack_id) = get_or_create_stack_id(ctx, target, &stacks_in_ws) {
+                if let Some((stack_id, maybe_new_ws)) =
+                    get_or_create_stack_id(&repo, &ws, &mut meta, target, &stack_ids, perm)
+                {
+                    if let Some(ws) = maybe_new_ws {
+                        ensure!(
+                            new_ws.is_none(),
+                            "BUG: new stacks are only created once if there are no stacks"
+                        );
+                        new_ws = Some(ws);
+                    }
                     let assignments = matching(assignments, rule.filters.clone())
                         .into_iter()
                         .filter(|e| e.stack_id != Some(stack_id))
@@ -61,60 +65,66 @@ pub fn process_workspace_rules(
                             e
                         })
                         .collect_vec();
-                    updates +=
-                        handle_assign(ctx, assignments, dependencies.as_ref()).unwrap_or_default();
+                    updates += handle_assign(
+                        db.hunk_assignments_mut()?,
+                        &repo,
+                        new_ws.as_ref().unwrap_or(&ws),
+                        assignments,
+                        dependencies.as_ref(),
+                        context_lines,
+                    )
+                    .unwrap_or_default();
                 }
             }
             super::Action::Explicit(super::Operation::Amend { change_id }) => {
                 let assignments = matching(assignments, rule.filters.clone());
-                handle_amend(ctx, assignments, change_id).unwrap_or_default();
+                handle_amend(
+                    &project_data_dir,
+                    &repo,
+                    new_ws.as_ref().unwrap_or(&ws),
+                    assignments,
+                    &change_id,
+                    perm,
+                    context_lines,
+                )
+                .unwrap_or_default();
             }
             _ => continue,
         };
     }
+
+    if let Some(new_ws) = new_ws {
+        *ws = new_ws;
+    }
+
     Ok(updates)
 }
 
 fn handle_amend(
-    ctx: &mut CommandContext,
+    project_data_dir: &Path,
+    repo: &gix::Repository,
+    ws: &but_graph::projection::Workspace,
     assignments: Vec<HunkAssignment>,
-    change_id: String,
+    change_id: &ChangeId,
+    perm: &mut RepoExclusive,
+    context_lines: u32,
 ) -> anyhow::Result<()> {
     let changes: Vec<DiffSpec> = assignments.into_iter().map(|a| a.into()).collect();
-    let project = ctx.project();
-    let mut guard = project.exclusive_worktree_access();
-    let repo = project.open_for_merging()?;
-
-    let meta = VirtualBranchesTomlMetadata::from_path(
-        ctx.project().gb_dir().join("virtual_branches.toml"),
-    )?;
-    let ref_info_options = but_workspace::ref_info::Options {
-        expensive_commit_info: true,
-        traversal: meta.to_graph_options(),
-    };
-    let info = but_workspace::head_info(&repo, &meta, ref_info_options)?;
     let mut commit_id: Option<gix::ObjectId> = None;
-    'outer: for stack in info.stacks {
-        for segment in stack.segments {
-            for commit in segment.commits {
-                if Some(change_id.clone()) == commit.change_id.map(|c| c.to_string()) {
-                    commit_id = Some(commit.id);
-                    break 'outer;
-                }
-            }
+    'outer: for commit in ws.commits() {
+        let commit_change_id = commit.attach(repo)?.headers().and_then(|hdr| hdr.change_id);
+        if commit_change_id.is_some_and(|cid| cid == *change_id) {
+            commit_id = Some(commit.id);
+            break 'outer;
         }
     }
 
-    let commit_id = commit_id.ok_or_else(|| {
-        anyhow::anyhow!(
-            "No commit with Change-Id {} found in the current workspace",
-            change_id
-        )
-    })?;
+    let commit_id = commit_id
+        .ok_or_else(|| anyhow::anyhow!("No commit with Change-Id {} found in the current workspace", change_id))?;
 
     commit_engine::create_commit_and_update_refs_with_project(
-        &repo,
-        project,
+        repo,
+        project_data_dir,
         None,
         but_workspace::commit_engine::Destination::AmendCommit {
             commit_id,
@@ -122,81 +132,94 @@ fn handle_amend(
             new_message: None,
         },
         changes,
-        ctx.app_settings().context_lines,
-        guard.write_permission(),
+        context_lines,
+        perm,
     )?;
     Ok(())
 }
 
 fn get_or_create_stack_id(
-    ctx: &CommandContext,
+    repo: &gix::Repository,
+    ws: &but_graph::projection::Workspace,
+    meta: &mut impl but_core::RefMetadata,
     target: StackTarget,
-    stacks_in_ws: &[StackEntry],
-) -> Option<StackId> {
-    let sorted_stack_ids = stacks_in_ws
-        .iter()
-        .sorted_by(|a, b| Ord::cmp(&a.order.unwrap_or_default(), &b.order.unwrap_or_default()))
-        .filter_map(|s| s.id)
-        .collect_vec();
+    stack_ids_in_ws: &[StackId],
+    perm: &mut RepoExclusive,
+) -> Option<(StackId, Option<but_graph::projection::Workspace>)> {
     match target {
         StackTarget::StackId(stack_id) => {
             if let Ok(stack_id) = StackId::from_str(&stack_id) {
-                if sorted_stack_ids.iter().any(|e| e == &stack_id) {
-                    Option::Some(stack_id)
+                if stack_ids_in_ws.iter().any(|e| e == &stack_id) {
+                    Some((stack_id, None))
                 } else {
-                    Option::None
+                    None
                 }
             } else {
-                Option::None
+                None
             }
         }
         StackTarget::Leftmost => {
-            if sorted_stack_ids.is_empty() {
-                create_stack(ctx).ok()
+            if stack_ids_in_ws.is_empty() {
+                create_stack(repo, ws, meta, perm).ok().map(|(id, ws)| (id, Some(ws)))
             } else {
-                sorted_stack_ids.first().cloned()
+                stack_ids_in_ws.first().copied().map(|id| (id, None))
             }
         }
         StackTarget::Rightmost => {
-            if sorted_stack_ids.is_empty() {
-                create_stack(ctx).ok()
+            if stack_ids_in_ws.is_empty() {
+                create_stack(repo, ws, meta, perm).ok().map(|(id, ws)| (id, Some(ws)))
             } else {
-                sorted_stack_ids.last().cloned()
+                stack_ids_in_ws.last().copied().map(|id| (id, None))
             }
         }
     }
 }
 
-fn create_stack(ctx: &CommandContext) -> anyhow::Result<StackId> {
-    let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
-    let vb_state = &gitbutler_stack::VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let branch_name =
-        gitbutler_stack::Stack::next_available_name(&ctx.gix_repo()?, vb_state, template, false)?;
-    let create_req = gitbutler_branch::BranchCreateRequest {
-        name: Some(branch_name),
-        ownership: None,
-        order: None,
-        selected_for_changes: None,
-    };
-
-    let mut guard = ctx.project().exclusive_worktree_access();
-    let perm = guard.write_permission();
-
-    let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
-    Ok(stack.id)
+fn create_stack(
+    repo: &gix::Repository,
+    ws: &but_graph::projection::Workspace,
+    meta: &mut impl but_core::RefMetadata,
+    _perm: &mut RepoExclusive,
+) -> anyhow::Result<(StackId, but_graph::projection::Workspace)> {
+    use anyhow::Context;
+    let branch_name = but_core::branch::unique_canned_refname(repo)?;
+    let new_ws = but_workspace::branch::create_reference(
+        branch_name.as_ref(),
+        None,
+        repo,
+        ws,
+        meta,
+        |_| StackId::generate(),
+        None,
+    )?;
+    let (stack, _) = new_ws
+        .find_segment_and_stack_by_refname(branch_name.as_ref())
+        .context("BUG: need to find stack that was just created")?;
+    stack
+        .id
+        .context("BUG: newly created stacks always have an ID")
+        .map(|id| (id, new_ws.into_owned()))
 }
 
 fn handle_assign(
-    ctx: &mut CommandContext,
+    db: HunkAssignmentsHandleMut,
+    repo: &gix::Repository,
+    workspace: &but_graph::projection::Workspace,
     assignments: Vec<HunkAssignment>,
     deps: Option<&HunkDependencies>,
+    context_lines: u32,
 ) -> anyhow::Result<usize> {
     let len = assignments.len();
-    if assign(ctx, assignments_to_requests(assignments), deps).is_ok() {
-        Ok(len)
-    } else {
-        Ok(0)
-    }
+    but_hunk_assignment::assign(
+        db,
+        repo,
+        workspace,
+        but_hunk_assignment::assignments_to_requests(assignments),
+        deps,
+        context_lines,
+    )
+    .map(|_| len)
+    .or_else(|_| Ok(0))
 }
 
 fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<HunkAssignment> {
@@ -217,8 +240,7 @@ fn matching(wt_assignments: &[HunkAssignment], filters: Vec<Filter>) -> Vec<Hunk
                 for change in wt_assignments.iter() {
                     if let Some(diff) = change.diff.clone() {
                         let diff = diff.to_string();
-                        let matching_lines: Vec<&str> =
-                            diff.lines().filter(|line| line.starts_with('+')).collect();
+                        let matching_lines: Vec<&str> = diff.lines().filter(|line| line.starts_with('+')).collect();
                         if matching_lines.iter().any(|line| regex.is_match(line)) {
                             assignments.push(change.clone());
                         }

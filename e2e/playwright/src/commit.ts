@@ -74,27 +74,3 @@ export async function verifyCommitPlaceholderPosition(page: Page) {
 	await expect(commitTargetPosition).toHaveCount(1);
 	await expect(commitTargetPosition).toContainClass('first');
 }
-
-/**
- * Unstage all files in the uncommitted changes list.
- */
-export async function unstageAllFiles(page: Page) {
-	const uncommittedFilesCheckbox = page
-		.getByTestId('uncommitted-changes-header')
-		.locator('input[type="checkbox"]');
-	await expect(uncommittedFilesCheckbox).toBeVisible();
-	await expect(uncommittedFilesCheckbox).toBeChecked();
-	await uncommittedFilesCheckbox.click();
-}
-
-/**
- * Stage the first file in the uncommitted changes list.
- */
-export async function stageFirstFile(page: Page) {
-	const fileItemCheckbox = getByTestId(page, 'uncommitted-changes-file-list')
-		.getByTestId('file-list-item')
-		.first()
-		.locator('input[type="checkbox"]');
-	await expect(fileItemCheckbox).toBeVisible();
-	await fileItemCheckbox.click();
-}

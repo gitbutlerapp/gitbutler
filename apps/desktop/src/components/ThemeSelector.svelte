@@ -115,11 +115,11 @@
 	/* MODIFIER */
 
 	.theme-card.selected .theme-card__preview {
-		border-color: var(--clr-core-pop-50);
+		border-color: var(--clr-theme-pop-element);
 	}
 
 	.theme-card.selected .theme-card__label {
-		background-color: var(--clr-scale-pop-80);
+		background-color: var(--clr-theme-pop-soft);
 	}
 
 	.theme-card.selected .theme-card__icon {

@@ -1,13 +1,12 @@
 use bstr::{BString, ByteSlice};
 use but_core::{DiffSpec, HunkHeader, UnifiedPatch};
-use but_testsupport::{git_status, visualize_disk_tree_skip_dot_git};
+use but_testsupport::{git_status, hunk_header, visualize_disk_tree_skip_dot_git};
 use but_workspace::discard_workspace_changes;
 
 use crate::{
     tree_manipulation::hunk::util::{changed_file_in_worktree_with_hunks, previous_change_text},
     utils::{
-        CONTEXT_LINES, hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks,
-        visualize_index, writable_scenario,
+        CONTEXT_LINES, read_only_in_memory_scenario, to_change_specs_all_hunks, visualize_index, writable_scenario,
     },
 };
 
@@ -70,11 +69,9 @@ fn non_modifications_trigger_error() -> anyhow::Result<()> {
             CONTEXT_LINES,
         )
         .unwrap_err();
-        assert!(
-            err.to_string().starts_with(
-                "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead"
-            ),
-        );
+        assert!(err.to_string().starts_with(
+            "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead"
+        ),);
     }
     Ok(())
 }
@@ -125,9 +122,7 @@ fn from_end() -> anyhow::Result<()> {
         17
         18
         "));
-        let Some(UnifiedPatch::Patch { mut hunks, .. }) =
-            change.unified_patch(&repo, CONTEXT_LINES)?
-        else {
+        let Some(UnifiedPatch::Patch { mut hunks, .. }) = change.unified_patch(&repo, CONTEXT_LINES)? else {
             unreachable!("We know there are hunks")
         };
         assert_ne!(
@@ -147,11 +142,7 @@ fn from_end() -> anyhow::Result<()> {
             hunk_headers: vec![last_hunk.into()],
         };
         let dropped = discard_workspace_changes(&repo, Some(discard_spec), CONTEXT_LINES)?;
-        assert_eq!(
-            dropped.len(),
-            0,
-            "the hunk could be found and was discarded"
-        );
+        assert_eq!(dropped.len(), 0, "the hunk could be found and was discarded");
         let after = file_content()?;
         hunk_info.push((before, discarded_patch, after));
     }
@@ -199,9 +190,7 @@ fn from_beginning() -> anyhow::Result<()> {
         .into_iter()
         .find(|change| change.path == filename)
     {
-        let Some(UnifiedPatch::Patch { mut hunks, .. }) =
-            change.unified_patch(&repo, CONTEXT_LINES)?
-        else {
+        let Some(UnifiedPatch::Patch { mut hunks, .. }) = change.unified_patch(&repo, CONTEXT_LINES)? else {
             unreachable!("We know there are hunks")
         };
         assert_ne!(
@@ -219,11 +208,7 @@ fn from_beginning() -> anyhow::Result<()> {
             hunk_headers: vec![first_hun_hunk.into()],
         };
         let dropped = discard_workspace_changes(&repo, Some(discard_spec), CONTEXT_LINES)?;
-        assert_eq!(
-            dropped.len(),
-            0,
-            "the hunk could be found and was discarded"
-        );
+        assert_eq!(dropped.len(), 0, "the hunk could be found and was discarded");
         let after = file_content()?;
         hunk_info.push((before, discarded_patch, after));
     }
@@ -524,9 +509,7 @@ fn hunk_removal_of_removal_single_line() -> anyhow::Result<()> {
     assert_eq!(dropped.len(), 0, "all sub-hunks could be associated");
 
     let file_content: BString = std::fs::read(repo.workdir().unwrap().join(filename))?.into();
-    insta::assert_snapshot!(file_content, @r"
-    5
-    ");
+    insta::assert_snapshot!(file_content, @"5");
 
     Ok(())
 }
@@ -724,12 +707,7 @@ fn deletion_modification_addition_of_hunks_mixed_discard_all_in_workspace() -> a
     └── file-renamed-in-index:100644
     ");
 
-    for filename in [
-        "file",
-        "file-in-index",
-        "file-renamed",
-        "file-renamed-in-index",
-    ] {
+    for filename in ["file", "file-in-index", "file-renamed", "file-renamed-in-index"] {
         let content = std::fs::read(workdir.join(filename))?;
         assert_eq!(
             content.as_bstr(),
@@ -826,10 +804,7 @@ mod util {
     use but_core::{TreeChange, UnifiedPatch, unified_diff::DiffHunk};
     use gix::prelude::ObjectIdExt;
 
-    pub fn previous_change_text(
-        repo: &gix::Repository,
-        change: &TreeChange,
-    ) -> anyhow::Result<BString> {
+    pub fn previous_change_text(repo: &gix::Repository, change: &TreeChange) -> anyhow::Result<BString> {
         Ok(change
             .status
             .previous_state_and_path()
@@ -854,8 +829,7 @@ mod util {
             .find(|change| change.path == filename)
             .expect("well-known fixture");
 
-        let Some(UnifiedPatch::Patch { hunks, .. }) = change.unified_patch(repo, context_lines)?
-        else {
+        let Some(UnifiedPatch::Patch { hunks, .. }) = change.unified_patch(repo, context_lines)? else {
             unreachable!("We know there are hunks")
         };
         Ok((change, hunks))

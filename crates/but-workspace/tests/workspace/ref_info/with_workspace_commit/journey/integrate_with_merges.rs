@@ -5,8 +5,7 @@ use but_testsupport::visualize_commit_graph_all;
 use crate::ref_info::{
     utils::standard_options,
     with_workspace_commit::{
-        journey::utils::standard_options_with_extra_target,
-        utils::named_read_only_in_memory_scenario_with_description,
+        journey::utils::standard_options_with_extra_target, utils::named_read_only_in_memory_scenario_with_description,
     },
 };
 
@@ -65,13 +64,19 @@ fn two_commits_require_force_push() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -141,13 +146,19 @@ fn two_commits_require_force_push_merged() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 2,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -221,13 +232,19 @@ fn remote_diverged() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -265,11 +282,7 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(
-        &repo,
-        &*meta,
-        standard_options_with_extra_target(&repo, "fafd9d0"),
-    );
+    let info = but_workspace::head_info(&repo, &*meta, standard_options_with_extra_target(&repo, "fafd9d0"));
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -307,13 +320,19 @@ fn remote_diverged_merge() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 2,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(085089cbf8a35fa549a5d50bd74930a7fddf970d),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: Some(
@@ -381,13 +400,19 @@ fn remote_behind() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -420,11 +445,7 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(
-        &repo,
-        &*meta,
-        standard_options_with_extra_target(&repo, "fafd9d0"),
-    );
+    let info = but_workspace::head_info(&repo, &*meta, standard_options_with_extra_target(&repo, "fafd9d0"));
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -462,13 +483,19 @@ fn remote_behind_merge_no_ff() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 1,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(a670cd571f1a6946a1a87d107e909445aa0fe90d),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: Some(
@@ -538,13 +565,19 @@ fn remote_ahead() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -573,11 +606,7 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
     * fafd9d0 init
     ");
 
-    let info = but_workspace::head_info(
-        &repo,
-        &*meta,
-        standard_options_with_extra_target(&repo, "fafd9d0"),
-    );
+    let info = but_workspace::head_info(&repo, &*meta, standard_options_with_extra_target(&repo, "fafd9d0"));
     insta::assert_debug_snapshot!(info, @r#"
     Ok(
         RefInfo {
@@ -614,13 +643,19 @@ fn remote_ahead_merge_ff() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 1,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(a62b0de7d50898e05c6cfa5b56d268aa5be17087),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: Some(

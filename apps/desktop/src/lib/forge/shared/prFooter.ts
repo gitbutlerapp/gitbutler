@@ -80,7 +80,7 @@ export async function updateStackPrs(
 }
 
 /**
- * Remove the PR description footer fromt the given PR numbers.
+ * Remove the PR description footer from the given PR numbers.
  */
 export async function unstackPRs(
 	prService: ForgePrService,

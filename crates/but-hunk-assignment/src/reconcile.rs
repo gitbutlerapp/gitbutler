@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 
-use anyhow::Result;
 use but_core::ref_metadata::StackId;
 use itertools::Itertools;
 
@@ -57,7 +56,7 @@ pub(crate) fn assignments(
     applied_stack_ids: &[StackId],
     multiple_overlapping_resolution: MultipleOverlapping,
     update_unassigned: bool,
-) -> Result<Vec<HunkAssignment>> {
+) -> Vec<HunkAssignment> {
     let mut reconciled = vec![];
     for new_assignment in new {
         let mut new_assignment = new_assignment.clone();
@@ -69,6 +68,13 @@ pub(crate) fn assignments(
         match intersecting.len().cmp(&1) {
             Ordering::Less => {
                 // No intersection - do nothing, the None assignment is kept
+                let matching_file = old
+                    .iter()
+                    .filter(|current_entry| current_entry.path == new_assignment.path)
+                    .collect::<Vec<_>>();
+                if let Some(matching_file) = matching_file.first() {
+                    new_assignment.hunk_locks = matching_file.hunk_locks.clone();
+                }
             }
             Ordering::Equal => {
                 new_assignment.set_from(intersecting[0], applied_stack_ids, update_unassigned);
@@ -84,14 +90,12 @@ pub(crate) fn assignments(
 
                 // If requested, reset stack_id to none on multiple overlapping
                 let unique_stack_ids = intersecting.iter().filter_map(|a| a.stack_id).unique();
-                if multiple_overlapping_resolution == MultipleOverlapping::SetNone
-                    && unique_stack_ids.count() > 1
-                {
+                if multiple_overlapping_resolution == MultipleOverlapping::SetNone && unique_stack_ids.count() > 1 {
                     new_assignment.stack_id = None;
                 }
             }
         }
         reconciled.push(new_assignment);
     }
-    Ok(reconciled)
+    reconciled
 }

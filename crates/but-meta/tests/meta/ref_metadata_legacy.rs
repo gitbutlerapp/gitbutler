@@ -1,4 +1,4 @@
-use std::{ops::Deref, path::PathBuf};
+use std::{ops::Deref, path::PathBuf, str::FromStr};
 
 use but_core::{
     RefMetadata,
@@ -30,11 +30,7 @@ fn journey() -> anyhow::Result<()> {
         "The file is deleted when the workspace is removed"
     );
     let store = VirtualBranchesTomlMetadata::from_path(&writable_toml_path)?;
-    assert_eq!(
-        store.iter().count(),
-        0,
-        "on drop we write the file immediately"
-    );
+    assert_eq!(store.iter().count(), 0, "on drop we write the file immediately");
     drop(store);
     assert!(
         !writable_toml_path.exists(),
@@ -157,9 +153,7 @@ fn read_only() -> anyhow::Result<()> {
             let b = store
                 .branch(branch.ref_name.as_ref())
                 .expect("branch is present for each refs mentioned in workspace");
-            let b_id = b
-                .stack_id()
-                .expect("each branch has the stack-id of the stack its in");
+            let b_id = b.stack_id().expect("each branch has the stack-id of the stack its in");
             (
                 uuids
                     .get(&b_id.to_string())
@@ -179,8 +173,7 @@ fn read_only() -> anyhow::Result<()> {
                 "refs/heads/A",
             ),
             Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:17 +0000" },
-                description: None,
+                ref_info: RefInfo { created_at: None, updated_at: None },
                 review: Review { pull_request: 12, review_id: None },
             },
         ),
@@ -189,143 +182,91 @@ fn read_only() -> anyhow::Result<()> {
             FullName(
                 "refs/heads/B-top",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             2,
             FullName(
                 "refs/heads/B",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             2,
             FullName(
                 "refs/heads/C-top-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             2,
             FullName(
                 "refs/heads/C-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:58:47 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/C-top",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/C-middle",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/C",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/D-top-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/D-middle-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             3,
             FullName(
                 "refs/heads/D-empty",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:57:50 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             4,
             FullName(
                 "refs/heads/D-top",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             4,
             FullName(
                 "refs/heads/D",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 10:59:48 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
         (
             5,
             FullName(
                 "refs/heads/E",
             ),
-            Branch {
-                ref_info: RefInfo { created_at: None, updated_at: "2025-02-24 11:00:01 +0000" },
-                description: None,
-                review: Review { pull_request: None, review_id: None },
-            },
+            Branch,
         ),
     ]
     "#);
@@ -337,17 +278,11 @@ fn read_only() -> anyhow::Result<()> {
     assert!(!toml_path.exists(), "implemented brutally by file deletion");
 
     // Asking for the workspace
-    let workspace = store.workspace("refs/heads/gitbutler/integration".try_into()?)?;
-    assert!(
-        workspace.is_default(),
-        "The workspace was deleted so it doesn't exist anymore"
-    );
+    let ws = store.workspace("refs/heads/gitbutler/integration".try_into()?)?;
+    assert!(ws.is_default(), "The workspace was deleted so it doesn't exist anymore");
 
     let was_deleted = store.remove("refs/heads/gitbutler/workspace".try_into()?)?;
-    assert!(
-        !was_deleted,
-        "and clearing out everything can only happen once"
-    );
+    assert!(!was_deleted, "and clearing out everything can only happen once");
     assert_eq!(
         store.iter().count(),
         0,
@@ -356,16 +291,12 @@ fn read_only() -> anyhow::Result<()> {
 
     drop(store);
 
-    assert!(
-        !toml_path.exists(),
-        "It won't recreate a previously deleted file"
-    );
+    assert!(!toml_path.exists(), "It won't recreate a previously deleted file");
     Ok(())
 }
 
 #[test]
-fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_unapply()
--> anyhow::Result<()> {
+fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_unapply() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     store.data_mut().default_target = None;
 
@@ -376,6 +307,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
         ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
         stacks: [],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -429,6 +361,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -464,6 +397,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -500,6 +434,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -550,6 +485,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch_with_workspace_and_una
             },
         ],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -569,7 +505,6 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     assert!(!toml_path.exists(), "file wasn't written yet");
     assert_eq!(branch.stack_id(), None, "default values have no stack-id");
 
-    branch.description = Some("mine".into());
     branch.review = but_core::ref_metadata::Review {
         pull_request: Some(42),
         review_id: Some("review-id".into()),
@@ -608,9 +543,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
             archived: false,
         }],
     });
-    store
-        .set_workspace(&ws)
-        .expect("This is the way to add branches");
+    store.set_workspace(&ws).expect("This is the way to add branches");
     assert_eq!(ws.stack_id(), None);
 
     // Assure `ws` is what we think it should be - a single stack with one branch.
@@ -630,10 +563,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         },
     ]
     "#);
-    assert!(
-        !uuids.contains_key(&ignored_id.to_string()),
-        "it really is ignore"
-    );
+    assert!(!uuids.contains_key(&ignored_id.to_string()), "it really is ignore");
     assert!(
         uuids.contains_key(&id.to_string()),
         "the generated branch id was present though, it's the id of the stack"
@@ -649,9 +579,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         },
     );
     assert_eq!(ws.stacks[0].ref_name(), Some(&stacked_branch_name));
-    store
-        .set_workspace(&ws)
-        .expect("This is the way to add branches");
+    store.set_workspace(&ws).expect("This is the way to add branches");
 
     let mut ws = store.workspace(workspace_name.as_ref())?;
     let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
@@ -681,28 +609,26 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     drop(store);
 
     assert!(toml_path.exists(), "file was written due to change");
-    let (actual, uuids) =
-        sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
+    let (actual, uuids) = sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
     insta::assert_snapshot!(actual, @r#"
     [branch_targets]
 
     [branches.1]
     id = "1"
-    name = "feat-on-top"
-    notes = ""
-    created_timestamp_ms = 12345
-    updated_timestamp_ms = 12345
-    tree = "0000000000000000000000000000000000000000"
-    head = "0000000000000000000000000000000000000000"
-    ownership = ""
     order = 0
-    allow_rebasing = true
     in_workspace = true
+    notes = ""
+    ownership = ""
+    allow_rebasing = true
     post_commits = false
+    tree = "0000000000000000000000000000000000000000"
+    created_timestamp_ms = "0"
+    updated_timestamp_ms = "0"
+    name = ""
+    head = "0000000000000000000000000000000000000000"
 
     [[branches.1.heads]]
     name = "feat"
-    description = "mine"
     pr_number = 42
     archived = false
     review_id = "review-id"
@@ -809,9 +735,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         "The workspace is automatically updated, as we see out-of-workspace stacks"
     );
     // insert it as archived just because.
-    let second_id = branch
-        .stack_id()
-        .expect("can also set a valid id, it doesn't matter");
+    let second_id = branch.stack_id().expect("can also set a valid id, it doesn't matter");
     ws.stacks.push(WorkspaceStack {
         id: second_id,
         workspacecommit_relation: Merged,
@@ -863,11 +787,7 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     ws.stacks.pop();
     store.set_workspace(&ws)?;
     let mut ws = store.workspace(ws.as_ref())?;
-    assert_eq!(
-        ws.stacks.len(),
-        1,
-        "The stack is still gone because we just removed it"
-    );
+    assert_eq!(ws.stacks.len(), 1, "The stack is still gone because we just removed it");
 
     // Add it again, then remove it by removing the branch.
     ws.stacks.push(WorkspaceStack {
@@ -899,30 +819,22 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
         store.remove(stacked_branch_name.as_ref())?,
         "there was something to remove"
     );
-    assert!(
-        !store.remove(stacked_branch_name.as_ref())?,
-        "nothing left to remove"
-    );
+    assert!(!store.remove(stacked_branch_name.as_ref())?, "nothing left to remove");
     assert!(
         store.remove(branch_name.as_ref())?,
         "there was something to remove, still"
     );
-    assert!(
-        !store.remove(branch_name.as_ref())?,
-        "nothing left to remove"
-    );
+    assert!(!store.remove(branch_name.as_ref())?, "nothing left to remove");
     assert!(store.remove(archived_branch.as_ref())?);
 
     let ws = store.workspace(workspace_name.as_ref())?;
-    assert!(
-        ws.is_default(),
-        "it's empty, so no difference to a default one"
-    );
+    assert!(ws.is_default(), "it's empty, so no difference to a default one");
     insta::assert_debug_snapshot!(ws.deref(), @r#"
     Workspace {
         ref_info: RefInfo { created_at: "2023-01-31 14:55:57 +0000", updated_at: None },
         stacks: [],
         target_ref: None,
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -940,14 +852,11 @@ fn create_workspace_and_stacks_with_branches_from_scratch() -> anyhow::Result<()
     let mut ws = store.workspace(workspace_name.as_ref())?;
 
     ws.push_remote = Some("push-remote".into());
-    ws.target_ref = Some(gix::refs::FullName::try_from(
-        "refs/remotes/new-origin/new-target",
-    )?);
+    ws.target_ref = Some(gix::refs::FullName::try_from("refs/remotes/new-origin/new-target")?);
     store.set_workspace(&ws)?;
 
     drop(store);
-    let (actual, _uuids) =
-        sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
+    let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(std::fs::read_to_string(&toml_path)?);
     insta::assert_snapshot!(actual, @r#"
     [default_target]
     branchName = "new-target"
@@ -969,10 +878,7 @@ fn target_journey() -> anyhow::Result<()> {
     let (mut store, _tmp) = empty_vb_store_rw()?;
     let ws_name = "refs/heads/gitbutler/workspace".try_into()?;
     let mut ws = store.workspace(ws_name)?;
-    assert_eq!(
-        ws.target_ref,
-        Some("refs/remotes/origin/sub-name/main".try_into()?)
-    );
+    assert_eq!(ws.target_ref, Some("refs/remotes/origin/sub-name/main".try_into()?));
 
     let expected_target: gix::refs::FullName = "refs/remotes/origin/main".try_into()?;
     ws.target_ref = Some(expected_target.clone());
@@ -1164,6 +1070,7 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             },
         ],
         target_ref: "refs/remotes/origin/sub-name/main",
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
@@ -1201,10 +1108,178 @@ fn create_workspace_from_scratch_workspace_first() -> anyhow::Result<()> {
             },
         ],
         target_ref: "refs/remotes/origin/sub-name/main",
+        target_commit_id: None,
         push_remote: None,
     }
     "#);
 
+    Ok(())
+}
+
+#[test]
+fn dlib_rs_auto_fix() -> anyhow::Result<()> {
+    let (store, _tmp) = vb_store_rw("non-unique-branches")?;
+
+    insta::assert_debug_snapshot!(store.data().default_target, @r#"
+    Some(
+        Target {
+            branch: Refname {
+                remote: "origin",
+                branch: "main",
+            },
+            remote_url: "https://github.com/A2va/dlib-rs",
+            sha: Sha1(39b41821d90a6445815f32777ec5dbebb716897f),
+            push_remote_name: Some(
+                "origin",
+            ),
+        },
+    )
+    "#);
+    let ws_ref_name = "refs/heads/gitbutler/workspace".try_into()?;
+    let ws = store.workspace(ws_ref_name)?;
+    let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
+    // The iteration order is fixed by sorting by order, and then by name as the order can't be trusted either.
+    // Also: `main` as target somehow made it into the workspace officially.
+    insta::assert_snapshot!(actual, @r#"
+    [
+        WorkspaceStack {
+            id: 1,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: true,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+        WorkspaceStack {
+            id: 2,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: false,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Outside,
+        },
+    ]
+    "#);
+
+    // The above being stable already fixes `dlib`.
+    let repo = but_testsupport::read_only_in_memory_scenario("dlib-standin")?;
+    let graph = but_graph::Graph::from_commit_traversal(
+        repo.find_reference(ws_ref_name)?.peel_to_id()?,
+        Some(ws_ref_name.to_owned()),
+        &store,
+        but_graph::init::Options::limited(),
+    )?;
+    // It looks very empty without reconciliation, as if it had not found any metadata (even though it's there).
+    // The problem is that StackId {1} refers to stack that is also marked as outside the workspace, so it's not really
+    // picked up. But… it also listed as stack (which shouldn't happen), which gets it the stack-id association.
+    // Finally, we end up with nothing as that one segment is also marked archived, which leads to it being truncated
+    // and fully empty stacks are removed. OMG.
+    // AND: all of the above was before the `name` field was removed which served to help with ordering, so maybe the whole
+    // test was tuned for a certain outcome and now this becomes more obvious. But whatever, it's legacy and
+    // it doesn't fail anymore.
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+    ├── ≡📙:5:main[🌳] <> origin/main →:1: on 3183e43 {1}
+    │   └── 📙:5:main[🌳] <> origin/main →:1:
+    │       └── ❄️bce0c5e (🏘️|✓)
+    └── ≡📙:4:confidence on 3183e43
+        └── 📙:4:confidence
+    ");
+
+    let path = store.path().to_owned();
+    store.write_reconciled(&repo)?;
+
+    let mut store = VirtualBranchesTomlMetadata::from_path(&path)?;
+    // The target was adjusted to fit the computed lower bound, which took the possibly stale
+    // stored value into consideration.
+    insta::assert_debug_snapshot!(store.data().default_target, @r#"
+    Some(
+        Target {
+            branch: Refname {
+                remote: "origin",
+                branch: "main",
+            },
+            remote_url: "https://github.com/A2va/dlib-rs",
+            sha: Sha1(3183e43ff482a2c4c8ff531d595453b64f58d90b),
+            push_remote_name: Some(
+                "origin",
+            ),
+        },
+    )
+    "#);
+
+    let ws = store.workspace(ws_ref_name)?;
+    let graph = but_graph::Graph::from_commit_traversal(
+        repo.find_reference(ws_ref_name)?.peel_to_id()?,
+        Some(ws_ref_name.to_owned()),
+        &store,
+        but_graph::init::Options::limited(),
+    )?;
+    insta::assert_snapshot!(but_testsupport::graph_workspace_determinisitcally(&graph.into_workspace()?), @"
+    📕🏘️:0:gitbutler/workspace <> ✓refs/remotes/origin/main on 3183e43
+    └── ≡📙:2:main[🌳] <> origin/main →:1: on 3183e43 {1}
+        └── 📙:2:main[🌳] <> origin/main →:1:
+            └── ❄️bce0c5e (🏘️|✓)
+    ");
+
+    let (actual, _uuids) = sanitize_uuids_and_timestamps_with_mapping(debug_str(&ws.stacks));
+    // Now both stacks are outside workspace, as is indicated by the workspace above.
+    // Also, their uniqueness constraint is enforced.
+    // AND: The above is no more and it's all just weird.
+    insta::assert_snapshot!(actual, @r#"
+    [
+        WorkspaceStack {
+            id: 1,
+            branches: [
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/main",
+                    archived: true,
+                },
+                WorkspaceStackBranch {
+                    ref_name: "refs/heads/confidence",
+                    archived: false,
+                },
+            ],
+            workspacecommit_relation: Merged,
+        },
+    ]
+    "#);
+
+    // Now that there is one stack left, we can manipulate it and look at vb.toml data directly.
+    // AND: this makes no sense with the lack of a `Stack::name` field.
+    store.data_mut().branches.values_mut().next().expect("exactly one").id = StackId::from_number_for_testing(8);
+    // Now the ID and the ID used for storage are out of sync.
+    snapbox::assert_data_eq!(
+        debug_str(&store.data().branches),
+        snapbox::str![[r#"
+{
+    1819a203-26ef-477c-ac56-2d07a034ddb8: Stack {
+...
+        id: 00000000-0000-0000-0000-000000000008,
+...
+}
+"#]]
+    );
+    store.write_reconciled(&repo)?;
+
+    let _store = VirtualBranchesTomlMetadata::from_path(path)?;
+
+    // now the ID is in sync again
+    // AND: this test makes no sense anymore… . Maybe the test was too tuned to a particular thing?
+    //      Now there are two branches here, because the names are all off and strange in this data.
+    //      Let's just hope we get to DB backed metadata soon so all this can go away.
     Ok(())
 }
 
@@ -1274,5 +1349,32 @@ fn roundtrip_journey(metadata: &mut impl RefMetadata) -> anyhow::Result<()> {
         metadata.remove(ref_name.as_ref())?;
     }
     assert_eq!(metadata.iter().count(), 0, "Nothing is left after deletion");
+    Ok(())
+}
+
+#[test]
+fn legacy_change_id_deserializes_as_null_sha() -> anyhow::Result<()> {
+    // The fixture contains a legacy ChangeId which should deserialize as a null SHA.
+    // This allows old toml files with ChangeId entries to be loaded without errors.
+    let (store, _tmp) = vb_store_rw("legacy-change-id")?;
+
+    // Use a valid UUID for the stack ID that matches the fixture
+    let test_stack_id = "12345678-1234-5678-1234-567812345678";
+
+    // Verify that the legacy ChangeId was deserialized as a null SHA
+    let stack = store
+        .data()
+        .branches
+        .get(&but_core::ref_metadata::StackId::from_str(test_stack_id).unwrap())
+        .expect("stack should exist");
+
+    assert_eq!(stack.heads.len(), 1, "should have deserialized one head");
+
+    assert_eq!(
+        stack.heads[0].head,
+        gix::hash::Kind::Sha1.null(),
+        "legacy ChangeId should deserialize as null SHA to allow loading old toml files"
+    );
+
     Ok(())
 }

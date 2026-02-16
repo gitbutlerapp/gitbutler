@@ -78,7 +78,7 @@
 			transform: translateY(-2px);
 
 			.show-chat__content {
-				background-color: var(--clr-bg-1-muted);
+				background-color: var(--clr-bg-muted);
 			}
 
 			.chat-image-wrap {
@@ -121,7 +121,7 @@
 		left: 0;
 		width: 100%;
 		height: 77px;
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 		transition: background-color 0.2s;
 	}
 

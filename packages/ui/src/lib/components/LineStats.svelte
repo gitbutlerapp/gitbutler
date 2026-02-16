@@ -9,7 +9,7 @@
 </script>
 
 {#if linesAdded > 0 || linesRemoved > 0}
-	<Tooltip text="Lines added/removed" delay={1200}>
+	<Tooltip text="Lines added/removed">
 		<div class="line-stats text-11 text-semibold">
 			{#if linesAdded > 0}
 				<span class="added">+{linesAdded}</span>
@@ -29,10 +29,10 @@
 		gap: 2px;
 
 		& .added {
-			color: var(--clr-theme-succ-element);
+			color: var(--clr-theme-safe-element);
 		}
 		& .removed {
-			color: var(--clr-theme-err-element);
+			color: var(--clr-theme-danger-element);
 		}
 	}
 </style>

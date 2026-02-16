@@ -36,7 +36,7 @@
 	</div>
 
 	{#if clearReply}
-		<Button icon="cross" style="neutral" kind="ghost" size="tag" onclick={clearReply} />
+		<Button icon="cross" style="gray" kind="ghost" size="tag" onclick={clearReply} />
 	{/if}
 </div>
 
@@ -52,7 +52,7 @@
 		background: var(--clr-bg-2);
 
 		&.clickable:hover {
-			background: var(--clr-bg-2-muted);
+			background: var(--hover-bg-2);
 		}
 	}
 
@@ -62,7 +62,7 @@
 		padding: 8px;
 		overflow: hidden;
 		gap: 8px;
-		border-left: 4px solid var(--clr-scale-ntrl-60);
+		border-left: 4px solid var(--clr-border-2);
 	}
 
 	.reply__text {

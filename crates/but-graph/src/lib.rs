@@ -201,7 +201,7 @@
 mod segment;
 /// Use this for basic types like [`petgraph::Direction`], and graph algorithms.
 pub use petgraph;
-pub use segment::{Commit, CommitFlags, RefInfo, Segment, SegmentMetadata, Worktree};
+pub use segment::{Commit, CommitFlags, RefInfo, Segment, SegmentFlags, SegmentMetadata, Worktree};
 
 mod api;
 /// Produce a graph from a Git repository.
@@ -237,7 +237,13 @@ pub struct Graph {
     hard_limit_hit: bool,
     /// The options used to create the graph, which allows it to regenerate itself after something
     /// possibly changed. This can also be used to simulate changes by injecting would-be information.
-    options: init::Options,
+    /// Public to be able to change it before calling [Graph::redo_traversal_with_overlay()].
+    pub options: init::Options,
+    /// All remote names that aren't URLs and that were retrieved during the traversal.
+    ///
+    /// They are useful to extract remote names from remote tracking refs like `refs/remotes/origin/master`,
+    /// which may have slashes in them.
+    pub symbolic_remote_names: Vec<String>,
 }
 
 /// A resolved entry point into the graph for easy access to the segment, commit,
@@ -261,7 +267,7 @@ pub struct EntryPoint<'graph> {
 /// the intent of an edge, which should always represent the connection of a commit to another.
 /// Sometimes, it represents the connection from a commit (or segment) to an empty segment which
 /// doesn't yet have a commit.
-/// The idea is to write code that keeps edge information consistent, and our visualization tools hightlights
+/// The idea is to write code that keeps edge information consistent, and our visualization tools highlights
 /// issues with the inherent invariants.
 #[derive(Debug, Copy, Clone)]
 pub struct Edge {
@@ -291,10 +297,7 @@ impl Edge {
         self.src = idx;
 
         let commits = &graph[dst_sidx].commits;
-        let (id, idx) = commits
-            .first()
-            .map(|c| (Some(c.id), Some(0)))
-            .unwrap_or_default();
+        let (id, idx) = commits.first().map(|c| (Some(c.id), Some(0))).unwrap_or_default();
         self.dst_id = id;
         self.dst = idx;
 

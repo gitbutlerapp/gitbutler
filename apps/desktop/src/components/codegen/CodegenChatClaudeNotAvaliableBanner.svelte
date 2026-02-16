@@ -20,12 +20,8 @@
 				Connect Claude Code to keep going with this session.
 			</p>
 		</div>
-		<Button
-			style="neutral"
-			icon="mixer"
-			type="button"
-			reversedDirection
-			onclick={onSettingsBtnClick}>Set up connection…</Button
+		<Button style="gray" icon="mixer" type="button" reversedDirection onclick={onSettingsBtnClick}
+			>Set up connection…</Button
 		>
 	</div>
 </div>

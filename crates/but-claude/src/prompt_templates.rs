@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::Result;
-use gitbutler_project::Project;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
@@ -49,7 +48,7 @@ pub struct PromptDir {
 ///
 /// The point of labeling these dirs is so we can also display where to find
 /// these directories in the frontend.
-pub fn prompt_dirs(project: &Project) -> Result<Vec<PromptDir>> {
+pub fn prompt_dirs(project_data_dir: &Path) -> Result<Vec<PromptDir>> {
     Ok(vec![
         PromptDir {
             label: "Global".into(),
@@ -58,25 +57,21 @@ pub fn prompt_dirs(project: &Project) -> Result<Vec<PromptDir>> {
         },
         PromptDir {
             label: "Project".into(),
-            path: project.gb_dir().join("prompt-templates"),
+            path: project_data_dir.join("prompt-templates"),
             filters: vec![".md".into(), ".local.md".into()],
         },
     ])
 }
 
-pub fn list_templates(project: &Project) -> Result<Vec<PromptTemplate>> {
-    let dirs = prompt_dirs(project)?;
+pub fn list_templates(project_data_dir: &Path) -> Result<Vec<PromptTemplate>> {
+    let dirs = prompt_dirs(project_data_dir)?;
     let mut out = HashMap::new();
 
     for dir in dirs {
         if dir.path.try_exists()? {
-            let entries = dir
-                .path
-                .read_dir()?
-                .filter_map(|entry| entry.ok())
-                .collect::<Vec<_>>();
+            let entries = dir.path.read_dir()?.filter_map(|entry| entry.ok()).collect::<Vec<_>>();
             // We could do the iteration the other way, which would be
-            // marginally faster, but this way we get the desired precidence.
+            // marginally faster, but this way we get the desired precedence.
             for filter in &dir.filters {
                 let longer_filters = dir
                     .filters
@@ -86,8 +81,8 @@ pub fn list_templates(project: &Project) -> Result<Vec<PromptTemplate>> {
                 for entry in &entries {
                     let file_name = entry.file_name();
                     let file_name = file_name.to_string_lossy();
-                    let captured_by_longer_filter = !longer_filters.is_empty()
-                        && longer_filters.iter().any(|f| file_name.ends_with(*f));
+                    let captured_by_longer_filter =
+                        !longer_filters.is_empty() && longer_filters.iter().any(|f| file_name.ends_with(*f));
                     if entry.file_type()?.is_file()
                         && let Some(label) = file_name.strip_suffix(filter)
                         && !captured_by_longer_filter
@@ -119,12 +114,12 @@ pub fn list_templates(project: &Project) -> Result<Vec<PromptTemplate>> {
     Ok(out)
 }
 
-pub fn maybe_create_dir(project: &Project, path: &str) -> Result<()> {
+pub fn maybe_create_dir(worktree_dir: &Path, path: &str) -> Result<()> {
     let path = Path::new(path);
     let path = if path.is_absolute() {
         path
     } else {
-        &project.worktree_dir()?.join(path)
+        &worktree_dir.join(path)
     };
 
     if path.try_exists()? {
@@ -141,10 +136,7 @@ fn write_global_defaults(path: &Path) -> Result<Vec<PromptTemplate>> {
     std::fs::create_dir_all(path)?;
 
     for default in &defaults {
-        std::fs::write(
-            path.join(format!("{}.md", default.file_name)),
-            &default.template,
-        )?;
+        std::fs::write(path.join(format!("{}.md", default.file_name)), &default.template)?;
     }
 
     Ok(defaults)

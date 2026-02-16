@@ -2,174 +2,81 @@
 
 use std::{
     fmt::{Debug, Display},
+    path::Path,
     str::FromStr,
-    sync::Arc,
 };
 
-use but_core::TreeChange;
+use but_core::{TreeChange, sync::RepoExclusiveGuard};
+use but_ctx::{Context, access::RepoExclusive};
+use but_hunk_assignment::CommitAbsorption;
 use but_oxidize::ObjectIdExt;
-use but_tools::emit::{Emittable, Emitter, TokenUpdate};
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::{Project, ProjectId, access::WorktreeWritePermission};
+use gitbutler_project::ProjectId;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
-pub use openai::{CredentialsKind, OpenAiProvider};
 use serde::{Deserialize, Serialize};
 
-mod absorb;
 mod action;
 mod auto_commit;
 mod branch_changes;
 pub mod cli;
+pub mod commit_format;
 mod generate;
-mod grouping;
-mod openai;
 pub mod rename_branch;
 pub mod reword;
 mod simple;
 mod workflow;
 pub use action::{ActionListing, Source, list_actions};
 use but_core::ref_metadata::StackId;
-use but_meta::VirtualBranchesTomlMetadata;
-pub use openai::{
-    ChatMessage, ToolCallContent, ToolResponseContent, structured_output_blocking,
-    tool_calling_loop, tool_calling_loop_stream,
-};
 use strum::EnumString;
 use uuid::Uuid;
 pub use workflow::{WorkflowList, list_workflows};
 
-pub fn freestyle(
-    project_id: ProjectId,
-    message_id: String,
-    emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
-    openai: &OpenAiProvider,
-    chat_messages: Vec<openai::ChatMessage>,
-    model: Option<String>,
-) -> anyhow::Result<String> {
-    let repo = ctx.gix_repo()?;
-
-    let project_status = but_tools::workspace::get_project_status(ctx, &repo, None)?;
-    let serialized_status = serde_json::to_string_pretty(&project_status)
-        .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
-
-    let mut toolset =
-        but_tools::workspace::workspace_toolset(ctx, emitter.clone(), message_id.clone());
-
-    let system_message ="
-    You are a GitButler agent that can perform various actions on a Git project.
-    Your name is ButBot. Your main goal is to help the user with handling file changes in the project.
-    Use the tools provided to you to perform the actions and respond with a summary of the action you've taken.
-    Don't be too verbose, but be thorough and outline everything you did.
-
-    ### Core concepts
-    - **Project**: A Git repository that has been initialized with GitButler.
-    - **Stack**: A collection of dependent branches that are used to manage changes in the project. With GitButler (as opposed to normal Git), multiple stacks can be applied at the same time.
-    - **Branch**: A pointer to a specific commit in the project. Branches can contain multiple commits. Commits are always listed newest to oldest.
-    - **Commit**: A snapshot of the project at a specific point in time.
-    - **File changes**: A set of changes made to the files in the project. This can include additions, deletions, and modifications of files. The user can assign these changes to stacks to keep things ordering.
-    - **Lock**: A lock or dependency on a file change. This refers to the fact that certain uncommitted file changes can only be committed to a specific stack.
-        This is because the uncommitted changes were done on top of previously committed file changes that are part of the stack.
-
-    ### Main task
-    Please, take a look at the provided prompt and the project status below, and perform the actions you think are necessary.
-    In order to do that, please follow these steps:
-        1. Take a look at the prompt and reflect on what the intention of the user is.
-        2. Take a look at the project status and see what changes are present in the project. It's important to understand what stacks and branche are present, and what the file changes are.
-        3. Try to correlate the prompt with the project status and determine what actions you can take to help the user.
-        4. Use the tools provided to you to perform the actions.
-
-    ### Capabilities
-    You can generally perform the normal Git operations, such as creating branches and committing to them.
-    You can also perform more advanced operations, such as:
-    - `absorb`: Take a set of file changes and amend them into the existing commits in the project.
-      This requires you to figure out where the changes should go based on the locks, assingments and any other user provided information.
-    - `split a commit`: Take an existing commit and split it into multiple commits based on the the user directive.
-        This can be achieved by using the `split_commit` tool.
-    - `split a branch`: Take an existing branch and split it into two branches. This basically takes a set of committed file changes and moves them to a new branch, removing them from the original branch.
-        This is useful when you want to separate the changes into a new branch for further work.
-        In order to do this, you will need to get the branch changes for the intended source branch (call the `get_branch_changes` tool), and then call the split branch tool with the changes you want to split off.
-
-    ### Important notes
-    - Only perform the action on the file changes specified in the prompt.
-    - If the prompt is not clear, ask the user for clarification.
-    - When told to commit to the existing branch, commit to the applied stack-branch. Don't create a new branch unless explicitly asked to do so.
-    ";
-
-    let mut internal_chat_messages = chat_messages;
-
-    // Add the project status to the chat messages.
-    internal_chat_messages.push(ChatMessage::ToolCall(ToolCallContent {
-        id: "project_status".to_string(),
-        name: "get_project_status".to_string(),
-        arguments: "{\"filterChanges\": null}".to_string(),
-    }));
-
-    internal_chat_messages.push(ChatMessage::ToolResponse(ToolResponseContent {
-        id: "project_status".to_string(),
-        result: serialized_status,
-    }));
-
-    // Now we trigger the tool calling loop.
-    let message_id_cloned = message_id.clone();
-    let project_id_cloned = project_id;
-    let on_token_cb: Arc<dyn Fn(&str) + Send + Sync + 'static> = Arc::new({
-        let emitter = emitter.clone();
-        let message_id = message_id_cloned;
-        let project_id = project_id_cloned;
-        move |token: &str| {
-            let token_update = TokenUpdate {
-                token: token.to_string(),
-                project_id,
-                message_id: message_id.clone(),
-            };
-            let (name, payload) = token_update.emittable();
-            (emitter)(&name, payload);
-        }
-    });
-    let (response, _) = crate::openai::tool_calling_loop_stream(
-        openai,
-        system_message,
-        internal_chat_messages,
-        &mut toolset,
-        model,
-        on_token_cb,
-    )?;
-
-    Ok(response)
-}
-
-pub fn absorb(
-    emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
-    openai: &OpenAiProvider,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<()> {
-    absorb::absorb(emitter, ctx, openai, changes)
-}
-
 pub fn branch_changes(
-    emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
-    openai: &OpenAiProvider,
+    ctx: &mut Context,
+    llm: &but_llm::LLMProvider,
     changes: Vec<TreeChange>,
+    model: String,
 ) -> anyhow::Result<()> {
-    branch_changes::branch_changes(emitter, ctx, openai, changes)
+    branch_changes::branch_changes(ctx, llm, changes, model)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn auto_commit(
-    emitter: Arc<Emitter>,
-    ctx: &mut CommandContext,
-    openai: &OpenAiProvider,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<()> {
-    auto_commit::auto_commit(emitter, ctx, openai, changes)
+    project_id: ProjectId,
+    repo: &gix::Repository,
+    project_data_dir: &Path,
+    context_lines: u32,
+    llm: Option<&but_llm::LLMProvider>,
+    emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
+    absorption_plan: Vec<CommitAbsorption>,
+    guard: &mut RepoExclusiveGuard,
+) -> anyhow::Result<usize> {
+    auto_commit::auto_commit(
+        project_id,
+        repo,
+        project_data_dir,
+        context_lines,
+        llm,
+        emitter,
+        absorption_plan,
+        guard,
+    )
+}
+
+pub fn auto_commit_simple(
+    repo: &gix::Repository,
+    project_data_dir: &Path,
+    context_lines: u32,
+    llm: Option<&but_llm::LLMProvider>,
+    absorption_plan: Vec<CommitAbsorption>,
+    guard: &mut RepoExclusiveGuard,
+) -> anyhow::Result<usize> {
+    auto_commit::auto_commit_simple(repo, project_data_dir, context_lines, llm, absorption_plan, guard)
 }
 
 pub fn handle_changes(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     change_summary: &str,
     external_prompt: Option<String>,
     handler: ActionHandler,
@@ -177,29 +84,22 @@ pub fn handle_changes(
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<(Uuid, Outcome)> {
     match handler {
-        ActionHandler::HandleChangesSimple => simple::handle_changes(
-            ctx,
-            change_summary,
-            external_prompt,
-            source,
-            exclusive_stack,
-        ),
+        ActionHandler::HandleChangesSimple => {
+            simple::handle_changes(ctx, change_summary, external_prompt, source, exclusive_stack)
+        }
     }
 }
 
-fn default_target_setting_if_none(
-    ctx: &CommandContext,
-    vb_state: &VirtualBranchesHandle,
-) -> anyhow::Result<Target> {
+fn default_target_setting_if_none(ctx: &Context, vb_state: &VirtualBranchesHandle) -> anyhow::Result<Target> {
     if let Ok(default_target) = vb_state.get_default_target() {
         return Ok(default_target);
     }
     // Lets do the equivalent of `git symbolic-ref refs/remotes/origin/HEAD --short` to guess the default target.
 
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let remote_name = repo
         .remote_default_name(gix::remote::Direction::Push)
-        .ok_or_else(|| anyhow::anyhow!("No push remote set"))?
+        .ok_or_else(|| anyhow::anyhow!("No push remote set or more than one remote"))?
         .to_string();
 
     let mut head_ref = repo
@@ -208,8 +108,7 @@ fn default_target_setting_if_none(
 
     let head_commit = head_ref.peel_to_commit()?;
 
-    let remote_refname =
-        gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
+    let remote_refname = gitbutler_reference::RemoteRefname::from_str(&head_ref.name().as_bstr().to_string())?;
 
     let target = Target {
         branch: remote_refname,
@@ -222,51 +121,21 @@ fn default_target_setting_if_none(
     Ok(target)
 }
 
-fn stacks(ctx: &CommandContext, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
-    let project = ctx.project();
-    if ctx.app_settings().feature_flags.ws3 {
-        let meta = ref_metadata_toml(ctx.project())?;
-        but_workspace::legacy::stacks_v3(
-            repo,
-            &meta,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-            None,
-        )
-    } else {
-        but_workspace::legacy::stacks(
-            ctx,
-            &project.gb_dir(),
-            repo,
-            but_workspace::legacy::StacksFilter::InWorkspace,
-        )
-    }
-}
-
-fn ref_metadata_toml(project: &Project) -> anyhow::Result<VirtualBranchesTomlMetadata> {
-    VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))
+fn stacks(ctx: &Context, repo: &gix::Repository) -> anyhow::Result<Vec<StackEntry>> {
+    let meta = ctx.legacy_meta()?;
+    but_workspace::legacy::stacks_v3(repo, &meta, but_workspace::legacy::StacksFilter::InWorkspace, None)
 }
 
 /// Returns the currently applied stacks, creating one if none exists.
-fn stacks_creating_if_none(
-    ctx: &CommandContext,
-    vb_state: &VirtualBranchesHandle,
-    repo: &gix::Repository,
-    perm: &mut WorktreeWritePermission,
-) -> anyhow::Result<Vec<StackEntry>> {
+fn stacks_creating_if_none(ctx: &Context, perm: &mut RepoExclusive) -> anyhow::Result<Vec<StackEntry>> {
+    let repo = &*ctx.repo.get()?;
     let stacks = stacks(ctx, repo)?;
     if stacks.is_empty() {
-        let template = gitbutler_stack::canned_branch_name(ctx.repo())?;
-        let branch_name = gitbutler_stack::Stack::next_available_name(
-            &ctx.gix_repo()?,
-            vb_state,
-            template,
-            false,
-        )?;
+        let template = but_core::branch::canned_refname(repo)?;
+        let branch_name = but_core::branch::find_unique_refname(repo, template.as_ref())?;
         let create_req = BranchCreateRequest {
-            name: Some(branch_name),
-            ownership: None,
+            name: Some(branch_name.shorten().to_string()),
             order: None,
-            selected_for_changes: None,
         };
         let stack = gitbutler_branch_actions::create_virtual_branch(ctx, &create_req, perm)?;
         Ok(vec![stack.into()])

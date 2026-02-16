@@ -31,13 +31,16 @@
 	class="bubble-wrap"
 	class:editing
 	class:bubble-wrap_user={role === MessageRole.User}
-	class:bubble-wrap_assistant={role === MessageRole.Assistant}
+	class:bubble-wrap_assistant={role === MessageRole.Assistant || role === MessageRole.System}
 >
 	<div class="bubble">
 		<div class="bubble__header text-13 text-bold">
 			{#if role === MessageRole.User}
 				<Icon name="profile" />
 				<span>User</span>
+			{:else if role === MessageRole.System}
+				<Icon name="robot" />
+				<span>System</span>
 			{:else}
 				<Icon name="robot" />
 				<span>Assistant</span>
@@ -65,7 +68,12 @@
 	{#if isLast && editing}
 		<div class="bubble-actions">
 			{#if !disableRemove}
-				<Button icon="bin-small" kind="outline" style="error" onclick={() => onRemoveLastExample()}>
+				<Button
+					icon="bin-small"
+					kind="outline"
+					style="danger"
+					onclick={() => onRemoveLastExample()}
+				>
 					Remove example
 				</Button>
 			{/if}
@@ -78,7 +86,6 @@
 	.bubble-wrap {
 		display: flex;
 		flex-direction: column;
-
 		width: 100%;
 		padding: 0 16px;
 
@@ -93,7 +100,6 @@
 	.bubble {
 		width: 100%;
 		max-width: 90%;
-		/* overflow: hidden; */
 	}
 
 	.bubble-wrap_user {
@@ -110,7 +116,7 @@
 
 		& .bubble__header,
 		& .bubble-message {
-			background-color: var(--clr-theme-pop-bg-muted);
+			background-color: var(--clr-theme-pop-bg);
 		}
 	}
 
@@ -119,8 +125,6 @@
 		align-items: center;
 		padding: 12px;
 		gap: 8px;
-		/* border: 1px solid var(--clr-border-2); */
-
 		border-bottom: none;
 		border-radius: var(--radius-l) var(--radius-l) 0 0;
 	}
@@ -129,8 +133,6 @@
 		padding: 12px;
 		overflow-x: auto;
 		border-top: 1px solid var(--clr-border-2);
-		/* border: 1px solid var(--clr-border-2); */
-
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
 		color: var(--clr-text-1);
 	}
@@ -145,6 +147,7 @@
 
 	.textarea {
 		width: 100%;
+		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
 		background-color: var(--clr-bg-1);
@@ -172,15 +175,15 @@
 		}
 		50% {
 			transform: translateX(5px);
-			border: 1px solid var(--clr-theme-err-element);
+			border: 1px solid var(--clr-theme-danger-element);
 		}
 		75% {
 			transform: translateX(-5px);
-			border: 1px solid var(--clr-theme-err-element);
+			border: 1px solid var(--clr-theme-danger-element);
 		}
 		100% {
 			transform: translateX(0);
-			border: 1px solid var(--clr-theme-err-element);
+			border: 1px solid var(--clr-theme-danger-element);
 		}
 	}
 </style>

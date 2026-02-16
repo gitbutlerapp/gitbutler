@@ -1,11 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use but_core::{TreeStatusKind, ref_metadata::StackId};
+use but_core::TreeStatusKind;
 use gix::bstr::BString;
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::{InputCommit, InputDiffHunk, InputStack};
+use crate::{InputCommit, InputDiffHunk, InputStack, ui::HunkLockTarget};
 
 mod hunk;
 pub use hunk::HunkRange;
@@ -22,12 +22,12 @@ pub struct WorkspaceRanges {
 }
 
 /// An error that can say what went wrong when computing the hunk ranges for a commit in a stack at a given path.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[expect(missing_docs)]
 pub struct CalculationError {
     pub error_message: String,
-    pub stack_id: StackId,
+    pub target: HunkLockTarget,
     #[serde(serialize_with = "but_serde::object_id::serialize")]
     pub commit_id: gix::ObjectId,
     pub path: BString,
@@ -43,7 +43,7 @@ struct StackRanges {
 impl StackRanges {
     fn add(
         &mut self,
-        stack_id: StackId,
+        target: HunkLockTarget,
         commit_id: gix::ObjectId,
         path: BString,
         change_type: TreeStatusKind,
@@ -52,7 +52,7 @@ impl StackRanges {
         self.paths
             .entry(path)
             .or_default()
-            .add(stack_id, commit_id, change_type, diffs)?;
+            .add(target, commit_id, change_type, diffs)?;
 
         Ok(())
     }
@@ -82,29 +82,21 @@ impl WorkspaceRanges {
         let mut stacks = vec![];
         let mut errors = vec![];
         for input_stack in input_stacks {
-            let mut stack_ranges = StackRanges {
-                ..Default::default()
-            };
+            let mut stack_ranges = StackRanges { ..Default::default() };
             let InputStack {
-                stack_id,
+                target: stack_id,
                 commits_from_base_to_tip: commits,
             } = input_stack;
             for commit in commits {
                 let InputCommit { commit_id, files } = commit;
                 for file in files {
                     if let Some(error) = stack_ranges
-                        .add(
-                            stack_id,
-                            commit_id,
-                            file.path.clone(),
-                            file.change_type,
-                            file.hunks,
-                        )
+                        .add(stack_id, commit_id, file.path.clone(), file.change_type, file.hunks)
                         .err()
                     {
                         errors.push(CalculationError {
                             error_message: error.to_string(),
-                            stack_id,
+                            target: stack_id,
                             commit_id,
                             path: file.path,
                         });
@@ -113,11 +105,7 @@ impl WorkspaceRanges {
             }
             stacks.push(stack_ranges);
         }
-        let paths = stacks
-            .iter()
-            .flat_map(StackRanges::unique_paths)
-            .unique()
-            .collect_vec();
+        let paths = stacks.iter().flat_map(StackRanges::unique_paths).unique().collect_vec();
         Ok(WorkspaceRanges {
             paths: paths
                 .iter()
@@ -132,7 +120,14 @@ impl WorkspaceRanges {
         if let Some(hunk_range) = self.paths.get(path) {
             let intersection = hunk_range
                 .iter()
-                .filter(|hunk| hunk.intersects(start, lines).unwrap_or(false))
+                .filter(|hunk| {
+                    if hunk.change_type == TreeStatusKind::Modification {
+                        hunk.intersects(start, lines).unwrap_or(false)
+                    } else {
+                        // For additions and deletions, we consider the hunk to always intersect.
+                        true
+                    }
+                })
                 .collect_vec();
             if !intersection.is_empty() {
                 return Some(intersection);
@@ -147,17 +142,14 @@ impl WorkspaceRanges {
     }
 }
 
-/// Combines ranges from muiltiple branches/stacks into a single vector
+/// Combines ranges from multiple branches/stacks into a single vector
 /// with adjusted line numbers. For this to work it is required that changes
 /// between stacks are not overlapping, which is already a hard requirement.
 fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange> {
     let mut result: Vec<HunkRange> = vec![];
 
     // Only process stacks that contain the path.
-    let filtered_paths = stacks
-        .iter()
-        .filter_map(|stack| stack.paths.get(path))
-        .collect_vec();
+    let filtered_paths = stacks.iter().filter_map(|stack| stack.paths.get(path)).collect_vec();
 
     // Tracks the cumulative lines added/removed.
     let mut line_shifts = vec![0i32; filtered_paths.len()];
@@ -178,9 +170,7 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
             .iter()
             .enumerate() // We want to filter out None values, but keep their index.
             .filter(|(_, start_line)| start_line.is_some())
-            .min_by_key(|&(index, &start_line)| {
-                start_line.unwrap() + start_lines[index].unwrap_or(0)
-            })
+            .min_by_key(|&(index, &start_line)| start_line.unwrap() + start_lines[index].unwrap_or(0))
             .map(|(index, _)| index);
 
         if next_index.is_none() {
@@ -195,9 +185,7 @@ fn combine_path_ranges(path: &BString, stacks: &[StackRanges]) -> Vec<HunkRange>
         let hunk_dep = &path_dep.hunk_ranges[hunk_index];
 
         result.push(HunkRange {
-            start: hunk_dep
-                .start
-                .saturating_add_signed(line_shifts[next_index]),
+            start: hunk_dep.start.saturating_add_signed(line_shifts[next_index]),
             ..*hunk_dep
         });
 

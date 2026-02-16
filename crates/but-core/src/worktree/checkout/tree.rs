@@ -133,7 +133,7 @@ mod tests {
 
         lut.get_intersecting("d".into(), &mut out);
         // This one could not be found.
-        insta::assert_debug_snapshot!(out, @r"{}");
+        insta::assert_debug_snapshot!(out, @"{}");
 
         lut.get_intersecting("a".into(), &mut out);
         // Perfect match
@@ -148,16 +148,16 @@ mod tests {
         lut.get_intersecting("b".into(), &mut out);
         // indirect match, suffix/leafs
         insta::assert_debug_snapshot!(out, @r#"
-            {
-                "b/c",
-                "b/d",
-            }
-            "#);
+        {
+            "b/c",
+            "b/d",
+        }
+        "#);
 
         out.clear();
         lut.get_intersecting("b/x/y".into(), &mut out);
         // No match, nothing in the way.
-        insta::assert_debug_snapshot!(out, @r#"{}"#);
+        insta::assert_debug_snapshot!(out, @"{}");
     }
 
     #[test]
@@ -179,27 +179,27 @@ mod tests {
 
         lut.get_intersecting("a".into(), &mut out);
         insta::assert_debug_snapshot!(out, @r#"
-            {
-                "a/1/2/3",
-                "a/1/2/4/5",
-                "a/2/3",
-                "a/3",
-            }
-            "#);
+        {
+            "a/1/2/3",
+            "a/1/2/4/5",
+            "a/2/3",
+            "a/3",
+        }
+        "#);
 
         // It's additive
         lut.get_intersecting("b".into(), &mut out);
         insta::assert_debug_snapshot!(out, @r#"
-            {
-                "a/1/2/3",
-                "a/1/2/4/5",
-                "a/2/3",
-                "a/3",
-                "b/1",
-                "b/2/3",
-                "b/3/2/1",
-                "b/3/4/5",
-            }
-            "#);
+        {
+            "a/1/2/3",
+            "a/1/2/4/5",
+            "a/2/3",
+            "a/3",
+            "b/1",
+            "b/2/3",
+            "b/3/2/1",
+            "b/3/4/5",
+        }
+        "#);
     }
 }

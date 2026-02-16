@@ -1,4 +1,4 @@
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::ByteSlice;
 use but_core::{ChangeState, DiffSpec, TreeStatus};
 
@@ -47,14 +47,14 @@ pub fn discard_workspace_changes(
     let (mut pipeline, _) = repo.filter_pipeline(Some(repo.empty_tree().id))?;
     let head_tree = repo.head_tree_id_or_empty()?.object()?.into_tree();
 
-    let mut path_check = gix::status::plumbing::SymlinkCheck::new(
-        repo.workdir().context("non-bare repository")?.into(),
-    );
+    let mut path_check =
+        gix::status::plumbing::SymlinkCheck::new(repo.workdir().context("non-bare repository")?.into());
     for mut spec in changes {
-        let Some(wt_change) = wt_changes.changes.iter().find(|c| {
-            c.path == spec.path
-                && c.previous_path() == spec.previous_path.as_ref().map(|p| p.as_bstr())
-        }) else {
+        let Some(wt_change) = wt_changes
+            .changes
+            .iter()
+            .find(|c| c.path == spec.path && c.previous_path() == spec.previous_path.as_ref().map(|p| p.as_bstr()))
+        else {
             dropped.push(spec);
             continue;
         };
@@ -64,15 +64,9 @@ pub fn discard_workspace_changes(
                 TreeStatus::Addition { is_untracked, .. } => {
                     std::fs::remove_file(path_check.verified_path(&wt_change.path)?)?;
                     if !is_untracked {
-                        file::index::mark_entry_for_deletion(
-                            &mut index,
-                            wt_change.path.as_bstr(),
-                            initial_entries_len,
-                        );
+                        file::index::mark_entry_for_deletion(&mut index, wt_change.path.as_bstr(), initial_entries_len);
                     }
-                    if let Some(entry) =
-                        head_tree.lookup_entry(wt_change.path.split(|b| *b == b'/'))?
-                    {
+                    if let Some(entry) = head_tree.lookup_entry(wt_change.path.split(|b| *b == b'/'))? {
                         file::restore_state_to_worktree(
                             &mut pipeline,
                             &mut index,
@@ -140,19 +134,13 @@ pub fn discard_workspace_changes(
                     )
                 }
                 TreeStatus::Modification {
-                    previous_state,
-                    flags,
-                    ..
+                    previous_state, flags, ..
                 }
                 | TreeStatus::Rename {
-                    previous_state,
-                    flags,
-                    ..
+                    previous_state, flags, ..
                 } => {
                     if flags.is_some_and(|f| f.is_typechange()) {
-                        bail!(
-                            "Type-changed items can't be discard by hunks - use the whole-file mode instead"
-                        )
+                        bail!("Type-changed items can't be discard by hunks - use the whole-file mode instead")
                     }
                     hunk::restore_state_to_worktree(
                         wt_change,
@@ -179,7 +167,7 @@ pub fn discard_workspace_changes(
     if has_removals_or_updates {
         index.remove_tree();
         index.remove_resolve_undo();
-        // Always sort, we currently don't keep track of wether this is truly required
+        // Always sort, we currently don't keep track of whether this is truly required
         // and checking the amount of entries isn't safe in light of conflicts (that may get removed).
         index.sort_entries();
         index.write(Default::default())?;
@@ -190,7 +178,7 @@ pub fn discard_workspace_changes(
 mod file {
     use std::path::{Path, PathBuf};
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use bstr::{BStr, BString, ByteSlice, ByteVec};
     use but_core::ChangeState;
     use gix::{
@@ -219,9 +207,7 @@ mod file {
         num_sorted_entries: &mut usize,
     ) -> anyhow::Result<()> {
         if state.id.is_null() {
-            bail!(
-                "Change to discard at '{rela_path}' didn't have a last-known tracked state - this is a bug"
-            );
+            bail!("Change to discard at '{rela_path}' didn't have a last-known tracked state - this is a bug");
         }
 
         let mut update_index = |md| -> anyhow::Result<()> {
@@ -244,8 +230,7 @@ mod file {
             EntryKind::Blob | EntryKind::BlobExecutable => {
                 let mut tempfile = tempfile_in_root_with_permissions_at(wt_root, state.kind)?;
                 let obj_in_git = state.id.attach(repo).object()?;
-                let mut stream =
-                    pipeline.convert_to_worktree(&obj_in_git.data, rela_path, Delay::Forbid)?;
+                let mut stream = pipeline.convert_to_worktree(&obj_in_git.data, rela_path, Delay::Forbid)?;
                 std::io::copy(&mut stream, &mut tempfile)?;
                 gix::tempfile::create_dir::all(
                     file_path.parent().context("encountered strange filepath")?,
@@ -276,9 +261,7 @@ mod file {
                 if let Err(err) = gix::fs::symlink::create(&link_target, &link_path) {
                     // When directories are replaced, the user could undo everything. Then
                     // it's a matter of order if *we* have already created the directory content.
-                    if err.kind() != std::io::ErrorKind::AlreadyExists
-                        || !link_path.symlink_metadata()?.is_symlink()
-                    {
+                    if err.kind() != std::io::ErrorKind::AlreadyExists || !link_path.symlink_metadata()?.is_symlink() {
                         return Err(err.into());
                     }
                 }
@@ -290,11 +273,8 @@ mod file {
                     // Since `git2` doesn't support filters, it will save us some trouble to just use Git for that.
                     let submodule_repo_dir = &file_path;
                     let out = std::process::Command::from(
-                        gix::command::prepare(format!(
-                            "git reset --hard {id} && git clean -fxd",
-                            id = state.id
-                        ))
-                        .with_shell(),
+                        gix::command::prepare(format!("git reset --hard {id} && git clean -fxd", id = state.id))
+                            .with_shell(),
                     )
                     .current_dir(submodule_repo_dir)
                     .output()?;
@@ -314,13 +294,11 @@ mod file {
                         .find_map(|sm| {
                             let is_active = sm.is_active().ok()?;
                             is_active.then(|| -> anyhow::Result<_> {
-                                Ok(
-                                    if sm.path().ok().is_some_and(|sm_path| sm_path == rela_path) {
-                                        sm.open()?
-                                    } else {
-                                        None
-                                    },
-                                )
+                                Ok(if sm.path().ok().is_some_and(|sm_path| sm_path == rela_path) {
+                                    sm.open()?
+                                } else {
+                                    None
+                                })
                             })
                         })
                         .transpose()?
@@ -354,8 +332,7 @@ mod file {
                 mark_entry_for_deletion(index, rela_path, *num_sorted_entries);
                 let checkout_destination = file_path;
                 let mut sub_index = repo.index_from_tree(&state.id)?;
-                let mut opts = repo
-                    .checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
+                let mut opts = repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
                 // there may be situations where files already exist in that spot, likely because we put them
                 // there earlier as part of a sweeping 'discard'. Still, try not to mess with the user.
                 opts.overwrite_existing = false;
@@ -411,10 +388,7 @@ mod file {
         buf
     }
 
-    fn checkout_repo_worktree(
-        parent_worktree_dir: &Path,
-        mut repo: gix::Repository,
-    ) -> anyhow::Result<()> {
+    fn checkout_repo_worktree(parent_worktree_dir: &Path, mut repo: gix::Repository) -> anyhow::Result<()> {
         // No need to cache anything, it's just single-use for the most part.
         repo.object_cache_size(0);
         let mut index = repo.index_from_tree(&repo.head_tree_id_or_empty()?)?;
@@ -429,8 +403,7 @@ mod file {
             entry.flags.insert(gix::index::entry::Flags::SKIP_WORKTREE);
         }
 
-        let mut opts =
-            repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
+        let mut opts = repo.checkout_options(gix::worktree::stack::state::attributes::Source::IdMapping)?;
         opts.destination_is_initially_empty = true;
         opts.keep_going = true;
 
@@ -504,19 +477,12 @@ mod file {
         use bstr::BStr;
         use gix::index::entry::Stage;
 
-        pub fn mark_entry_for_deletion(
-            state: &mut gix::index::State,
-            rela_path: &BStr,
-            num_sorted_entries: usize,
-        ) {
+        pub fn mark_entry_for_deletion(state: &mut gix::index::State, rela_path: &BStr, num_sorted_entries: usize) {
             for stage in [Stage::Unconflicted, Stage::Base, Stage::Ours, Stage::Theirs] {
                 // TODO(perf): `gix` should offer a way to get the *first* index by path so the
                 //             binary search doesn't have to be repeated.
-                let Some(entry_idx) = state.entry_index_by_path_and_stage_bounded(
-                    rela_path,
-                    stage,
-                    num_sorted_entries,
-                ) else {
+                let Some(entry_idx) = state.entry_index_by_path_and_stage_bounded(rela_path, stage, num_sorted_entries)
+                else {
                     continue;
                 };
                 #[expect(clippy::indexing_slicing)]
@@ -527,10 +493,7 @@ mod file {
         }
     }
 
-    fn tempfile_in_root_with_permissions_at(
-        root: PathBuf,
-        kind: EntryKind,
-    ) -> anyhow::Result<tempfile::NamedTempFile> {
+    fn tempfile_in_root_with_permissions_at(root: PathBuf, kind: EntryKind) -> anyhow::Result<tempfile::NamedTempFile> {
         #[cfg_attr(not(unix), allow(unused_mut))]
         let mut builder = tempfile::Builder::new();
 
@@ -547,8 +510,7 @@ mod hunk {
     use anyhow::bail;
     use bstr::ByteSlice;
     use but_core::{
-        ChangeState, HunkHeader, TreeChange, UnifiedPatch, apply_hunks,
-        worktree::worktree_file_to_git_in_buf,
+        ChangeState, HunkHeader, TreeChange, UnifiedPatch, apply_hunks, worktree::worktree_file_to_git_in_buf,
     };
     use gix::{
         filter::plumbing::{
@@ -586,11 +548,8 @@ mod hunk {
             id: repo.object_hash().null(),
             kind: previous_state.kind,
         };
-        let mut diff_filter = but_core::unified_diff::filter_from_state(
-            repo,
-            Some(state_in_worktree),
-            UnifiedPatch::CONVERSION_MODE,
-        )?;
+        let mut diff_filter =
+            but_core::unified_diff::filter_from_state(repo, Some(state_in_worktree), UnifiedPatch::CONVERSION_MODE)?;
         let Some(UnifiedPatch::Patch {
             hunks: hunks_in_worktree,
             ..
@@ -649,17 +608,13 @@ mod hunk {
         let worktree_path = path_check.verified_path_allow_nonexisting(rela_path)?;
         let md = gix::index::fs::Metadata::from_path_no_follow(&worktree_path)?;
         if !md.is_file() {
-            bail!(
-                "Cannot discard lines in '{}' - invalid type",
-                worktree_path.display()
-            );
+            bail!("Cannot discard lines in '{}' - invalid type", worktree_path.display());
         }
         worktree_file_to_git_in_buf(&mut new, &md, rela_path, &worktree_path, pipeline, index)?;
 
         let base_with_patches = apply_hunks(old.as_bstr(), new.as_bstr(), &hunks_to_keep)?;
 
-        let to_worktree =
-            pipeline.convert_to_worktree(&base_with_patches, rela_path, Delay::Forbid)?;
+        let to_worktree = pipeline.convert_to_worktree(&base_with_patches, rela_path, Delay::Forbid)?;
         match to_worktree {
             ToWorktreeOutcome::Unchanged(buf) => {
                 std::fs::write(&worktree_path, buf)?;

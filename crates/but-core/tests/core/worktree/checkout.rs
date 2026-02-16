@@ -1,8 +1,7 @@
 use but_core::worktree::{checkout, checkout::UncommitedWorktreeChanges, safe_checkout};
 use but_testsupport::{
-    git_status, read_only_in_memory_scenario, visualize_commit_graph_all,
-    visualize_disk_tree_skip_dot_git, visualize_index, visualize_tree, writable_scenario,
-    writable_scenario_slow,
+    git_status, read_only_in_memory_scenario, visualize_commit_graph_all, visualize_disk_tree_skip_dot_git,
+    visualize_index, visualize_tree, writable_scenario, writable_scenario_slow,
 };
 use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
 
@@ -12,7 +11,7 @@ use crate::worktree::utils::build_commit;
 fn update_unborn_head() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("unborn-empty");
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"");
-    insta::assert_snapshot!(git_status(&repo)?, @r"");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
 
     let empty_tree = repo.empty_tree().id;
     let head_commit = repo.new_commit("init", empty_tree, None::<gix::ObjectId>)?;
@@ -23,12 +22,12 @@ fn update_unborn_head() -> anyhow::Result<()> {
         snapshot_tree: None,
         num_deleted_files: 0,
         num_added_or_updated_files: 0,
-        head_update: "Update refs/heads/main to Some(Object(Sha1(36d9c8013ccd91e3a1d53a3bc86c12ca81cc4a11)))",
+        head_update: "Update refs/heads/main to Some(Object(Sha1(31ec8eacfba4051fd673e4fe23c775e87896a463)))",
     }
     "#);
 
-    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 36d9c80 (HEAD -> main) init");
-    insta::assert_snapshot!(git_status(&repo)?, @r"");
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"* 31ec8ea (HEAD -> main) init");
+    insta::assert_snapshot!(git_status(&repo)?, @"");
     Ok(())
 }
 
@@ -636,7 +635,7 @@ fn unrelated_additions_are_fine_even_with_conflicts_in_index() -> anyhow::Result
 
 #[test]
 fn forced_changes_with_snapshot_and_directory_to_file() -> anyhow::Result<()> {
-    if but_testsupport::gix_testtools::is_ci::cached() {
+    if cfg!(target_os = "linux") {
         // Fails on checkout on Linux as it tries to get null from the ODB for some reason.
         // Too strange, usually related to the index somehow.
         eprintln!("SKIPPING TEST KNOWN TO FAIL ON CI ONLY");

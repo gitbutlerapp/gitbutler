@@ -1,10 +1,10 @@
 [package]
 name = "but-action"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
@@ -13,21 +13,19 @@ test = false
 [features]
 ## If enabled, we will let the current executable (gitbutler-tauri) be the source for the `but` link.
 builtin-but = []
+export-ts = ["dep:ts-rs", "but-core/export-ts"]
 
 [dependencies]
 but-serde.workspace = true
-but-settings.workspace = true
-but-secret.workspace = true
 but-db.workspace = true
 but-core.workspace = true
-but-meta = { workspace = true, features = ["legacy"] }
 but-workspace = { workspace = true, features = ["legacy"] }
 but-hunk-assignment.workspace = true
-but-hunk-dependency.workspace = true
 but-tools.workspace = true
 but-oxidize.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
+but-llm.workspace = true
 
-gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true
@@ -38,8 +36,6 @@ gitbutler-reference.workspace = true
 
 serde.workspace = true
 serde-error = "0.1.3"
-async-openai.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 schemars.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
@@ -47,8 +43,8 @@ chrono.workspace = true
 itertools.workspace = true
 uuid = { workspace = true }
 strum = { version = "0.27", features = ["derive"] }
-reqwest.workspace = true
 gix.workspace = true
 rmcp.workspace = true
-futures = "0.3.31"
 tracing.workspace = true
+bstr = { workspace = true }
+ts-rs = { workspace = true, optional = true }

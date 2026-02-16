@@ -34,10 +34,8 @@
 //!     b().map_err(|err| err.context("sometimes useful"))
 //! }
 //!
-//! fn main() {
-//!    assert_eq!(format!("{:#}", c().unwrap_err()),
-//!               "sometimes useful: an operation couldn't be performed: didn't get it at this time");
-//! }
+//!  assert_eq!(format!("{:#}", c().unwrap_err()),
+//!             "sometimes useful: an operation couldn't be performed: didn't get it at this time");
 //! ```
 //!
 //! ### Frontend Interactions
@@ -68,11 +66,11 @@
 //!         .context(Code::Unknown)
 //! }
 //!
-//! fn main() {
-//!    assert_eq!(format!("{:#}", a().unwrap_err()),
-//!              "errors.unknown: whatever comes before a `Code` context shows in frontend, so THIS: this didn't work",
-//!              "however, that Code also shows up in the error chain in logs - context is just like an Error for anyhow");
-//! }
+//!
+//! assert_eq!(format!("{:#}", a().unwrap_err()),
+//!            "errors.unknown: whatever comes before a `Code` context shows in frontend, so THIS: this didn't work",
+//!            "however, that Code also shows up in the error chain in logs - context is just like an Error for anyhow");
+//!
 //! ```
 //!
 //! #### Tuning error chains
@@ -89,15 +87,13 @@
 //! }
 //!
 //! fn a() -> Result<()> {
-//!     do_io().context(but_error::Context::new("This message is shown and only this meessage")
+//!     do_io().context(but_error::Context::new("This message is shown and only this message")
 //!                         .with_code(Code::Validation))
 //! }
 //!
-//! fn main() {
-//!    assert_eq!(format!("{:#}", a().unwrap_err()),
-//!              "This message is shown and only this meessage: this didn't work",
-//!              "now the added context just looks like an error, even though it also contains a `Code` which can be queried");
-//! }
+//! assert_eq!(format!("{:#}", a().unwrap_err()),
+//!            "This message is shown and only this message: this didn't work",
+//!            "now the added context just looks like an error, even though it also contains a `Code` which can be queried");
 //! ```
 //!
 //! ### Backtraces and `anyhow`
@@ -140,6 +136,7 @@ pub enum Code {
     MissingLoginKeychain,
     GitForcePushProtection,
     NetworkError,
+    ProjectDatabaseIncompatible,
 }
 
 impl std::fmt::Display for Code {
@@ -159,6 +156,7 @@ impl std::fmt::Display for Code {
             Code::MissingLoginKeychain => "errors.secret.missing_login_keychain",
             Code::GitForcePushProtection => "errors.git.force_push_protection",
             Code::NetworkError => "errors.network",
+            Code::ProjectDatabaseIncompatible => "errors.projectdb.migration",
         };
         f.write_str(code)
     }
@@ -184,10 +182,7 @@ impl std::fmt::Display for Context {
 
 impl From<Code> for Context {
     fn from(code: Code) -> Self {
-        Context {
-            code,
-            message: None,
-        }
+        Context { code, message: None }
     }
 }
 
@@ -227,8 +222,8 @@ pub trait AnyhowContextExt: private::Sealed {
     /// Note that it could not be named `context()` as this method already exists.
     fn custom_context(&self) -> Option<Context>;
 
-    /// Return our custom context or default it to the root-cause of the error.
-    fn custom_context_or_root_cause(&self) -> Context;
+    /// Return our custom context or, if none is attached, a context whose message contains the error chain.
+    fn custom_context_or_error_chain(&self) -> Context;
 }
 
 impl private::Sealed for anyhow::Error {}
@@ -241,12 +236,28 @@ impl AnyhowContextExt for anyhow::Error {
         }
     }
 
-    fn custom_context_or_root_cause(&self) -> Context {
+    fn custom_context_or_error_chain(&self) -> Context {
         self.custom_context().unwrap_or_else(|| Context {
             code: Code::Unknown,
-            message: Some(self.root_cause().to_string().into()),
+            message: Some(cause_chain(self.as_ref()).into()),
         })
     }
+}
+
+fn cause_chain(err: &(dyn std::error::Error + 'static)) -> String {
+    use std::fmt::Write;
+    let mut message = err.to_string();
+    let mut source = err.source();
+    let mut count = 1;
+    if source.is_some() {
+        message.push_str("\n\nCaused by:\n");
+        while let Some(err) = source {
+            writeln!(message, "    {count}: {err}").ok();
+            source = err.source();
+            count += 1;
+        }
+    }
+    message
 }
 
 /// A way to mark errors using `[anyhow::Context::context]` for later retrieval, e.g. to know

@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use bstr::{BStr, BString, ByteSlice};
 
 use crate::HunkHeader;
@@ -11,11 +11,7 @@ use crate::HunkHeader;
 /// Note that we assume that both images are human-readable because we assume lines to be present,
 /// either with Windows or Unix newlines, and we assume that the hunks match up with these lines.
 /// This constraint means that the tokens used for diffing are the same lines.
-pub fn apply_hunks(
-    old_image: &BStr,
-    new_image: &BStr,
-    hunks: &[HunkHeader],
-) -> anyhow::Result<BString> {
+pub fn apply_hunks(old_image: &BStr, new_image: &BStr, hunks: &[HunkHeader]) -> anyhow::Result<BString> {
     let mut old_cursor = 1; /* 1-based counting */
     let mut old_iter = old_image.lines_with_terminator();
     let mut new_cursor = 1; /* 1-based counting */
@@ -40,10 +36,7 @@ pub fn apply_hunks(
         for old_line in catchup_base_lines {
             result_image.extend_from_slice(old_line);
         }
-        let _consume_old_hunk_to_replace_with_new = old_iter
-            .by_ref()
-            .take(selected_hunk.old_lines as usize)
-            .count();
+        let _consume_old_hunk_to_replace_with_new = old_iter.by_ref().take(selected_hunk.old_lines as usize).count();
         old_cursor += old_skips + selected_hunk.old_lines as usize;
 
         let new_skips = (selected_hunk.new_start as usize)
@@ -52,10 +45,7 @@ pub fn apply_hunks(
         if selected_hunk.new_lines == 0 {
             let _explicit_skips = new_iter.by_ref().take(new_skips).count();
         } else {
-            let new_hunk_lines = new_iter
-                .by_ref()
-                .skip(new_skips)
-                .take(selected_hunk.new_lines as usize);
+            let new_hunk_lines = new_iter.by_ref().skip(new_skips).take(selected_hunk.new_lines as usize);
             for new_line in new_hunk_lines {
                 result_image.extend_from_slice(new_line);
             }
@@ -158,10 +148,7 @@ mod test {
 
         #[test]
         fn contains_returns_true_if_a_smaller_range_is_inside_a_larger_range() {
-            let larger = HunkRange {
-                start: 1,
-                lines: 10,
-            };
+            let larger = HunkRange { start: 1, lines: 10 };
             let smaller = HunkRange { start: 2, lines: 5 };
             assert!(larger.contains(smaller));
             assert!(!smaller.contains(larger));
@@ -169,10 +156,7 @@ mod test {
 
         #[test]
         fn contains_returns_true_if_two_equal_ranges() {
-            let range = HunkRange {
-                start: 1,
-                lines: 10,
-            };
+            let range = HunkRange { start: 1, lines: 10 };
             assert!(range.contains(range));
 
             let zero_range = HunkRange { start: 1, lines: 0 };
@@ -201,10 +185,7 @@ mod test {
 
         #[test]
         fn intersects_returns_true_if_a_smaller_range_is_inside_a_larger_range() {
-            let larger = HunkRange {
-                start: 1,
-                lines: 10,
-            };
+            let larger = HunkRange { start: 1, lines: 10 };
             let smaller = HunkRange { start: 2, lines: 5 };
             assert!(larger.intersects(smaller));
             assert!(smaller.intersects(larger));
@@ -212,10 +193,7 @@ mod test {
 
         #[test]
         fn intersects_returns_true_if_two_equal_ranges() {
-            let range = HunkRange {
-                start: 1,
-                lines: 10,
-            };
+            let range = HunkRange { start: 1, lines: 10 };
             assert!(range.intersects(range));
 
             let zero_range = HunkRange { start: 1, lines: 0 };
@@ -256,28 +234,16 @@ mod test {
 
         #[test]
         fn ranges_that_are_not_fully_contained_in_each_other_intersects() {
-            let left = HunkRange {
-                start: 1,
-                lines: 10,
-            };
-            let right = HunkRange {
-                start: 10,
-                lines: 10,
-            };
+            let left = HunkRange { start: 1, lines: 10 };
+            let right = HunkRange { start: 10, lines: 10 };
             assert!(left.intersects(right));
             assert!(right.intersects(left));
         }
 
         #[test]
         fn ranges_that_are_next_to_each_other_but_not_intersecting() {
-            let left = HunkRange {
-                start: 1,
-                lines: 10,
-            };
-            let right = HunkRange {
-                start: 11,
-                lines: 10,
-            };
+            let left = HunkRange { start: 1, lines: 10 };
+            let right = HunkRange { start: 11, lines: 10 };
             assert!(!left.intersects(right));
             assert!(!right.intersects(left));
         }

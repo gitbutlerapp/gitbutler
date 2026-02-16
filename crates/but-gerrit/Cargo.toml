@@ -1,24 +1,27 @@
 [package]
 name = "but-gerrit"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
 
 [dependencies]
-sha-1 = "0.10.1"
-uuid.workspace = true
-anyhow.workspace = true
-bstr.workspace = true
 but-core.workspace = true
 but-db.workspace = true
+but-ctx.workspace = true
+
 gitbutler-commit.workspace = true
-gitbutler-command-context.workspace = true
+
+anyhow.workspace = true
+bstr.workspace = true
 chrono.workspace = true
 serde.workspace = true
 gix = { workspace = true }
+
+[dev-dependencies]
+but-testsupport.workspace = true
+snapbox.workspace = true

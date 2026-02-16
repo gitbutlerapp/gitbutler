@@ -5,7 +5,7 @@ const colorMap = {
 	LocalAndRemote: 'var(--clr-commit-remote)',
 	Remote: 'var(--clr-commit-upstream)',
 	Integrated: 'var(--clr-commit-integrated)',
-	Error: 'var(--clr-theme-err-element)',
+	Error: 'var(--clr-theme-danger-element)',
 	Base: 'var(--clr-commit-upstream)'
 };
 

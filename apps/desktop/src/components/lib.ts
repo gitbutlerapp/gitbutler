@@ -9,7 +9,7 @@ const colorMap: Record<CommitStatusType, string> & { Error: string } = {
 	Integrated: 'var(--clr-commit-integrated)',
 	Remote: 'var(--clr-commit-upstream)', // TODO: rename Remote -> Upstream.
 	Base: 'var(--clr-commit-upstream)', // TODO: Introduce separate color for base.
-	Error: 'var(--clr-theme-err-element)'
+	Error: 'var(--clr-theme-danger-element)'
 };
 
 export function getIconFromCommitState(
@@ -31,7 +31,10 @@ export function getIconFromCommitState(
 	}
 }
 
-export function getColorFromCommitState(commitType: CommitStatusType, diverged: boolean): string {
+export function getColorFromCommitState(
+	commitType: CommitStatusType,
+	diverged: boolean = false
+): string {
 	if (diverged) {
 		return colorMap.LocalOnly;
 	}
@@ -57,7 +60,7 @@ export function getBranchStatusLabelAndColor(pushStatus: PushStatus): {
 } {
 	switch (pushStatus) {
 		case 'completelyUnpushed':
-			return { label: 'Unpushed', color: colorMap.LocalOnly };
+			return { label: 'Unpushed branch', color: colorMap.LocalOnly };
 		case 'nothingToPush':
 			return { label: 'Nothing to push', color: colorMap.LocalAndRemote };
 		case 'unpushedCommits':

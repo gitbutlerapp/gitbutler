@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use gitbutler_stack::StackId;
 use serde::Serialize;
@@ -26,11 +26,7 @@ pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 
 /// Will panic if [`init`] was not called before this function.
 #[expect(static_mut_refs)]
 pub fn get_broker() -> &'static AskpassBroker {
-    unsafe {
-        GLOBAL_ASKPASS_BROKER
-            .as_ref()
-            .expect("askpass broker not initialized")
-    }
+    unsafe { GLOBAL_ASKPASS_BROKER.as_ref().expect("askpass broker not initialized") }
 }
 
 pub struct AskpassRequest {
@@ -47,6 +43,7 @@ pub enum Context {
     Push { branch_id: Option<StackId> },
     Fetch { action: String },
     SignedCommit { branch_id: Option<StackId> },
+    Clone { url: String },
 }
 
 #[derive(Clone)]
@@ -75,11 +72,7 @@ impl AskpassBroker {
         let id = AskpassRequestId::generate();
         let request = AskpassRequest { sender };
         self.pending_requests.lock().await.insert(id, request);
-        (self.submit_prompt_event)(PromptEvent {
-            id,
-            prompt,
-            context,
-        });
+        (self.submit_prompt_event)(PromptEvent { id, prompt, context });
         receiver.await.unwrap()
     }
 
@@ -91,44 +84,4 @@ impl AskpassBroker {
             log::warn!("received response for unknown askpass request: {id}");
         }
     }
-}
-
-async fn handle_git_prompt_commit_sign_sync(
-    prompt: String,
-    branch_id: Option<StackId>,
-) -> Option<String> {
-    tracing::info!("received prompt for synchronous signed commit {branch_id:?}: {prompt:?}");
-    get_broker()
-        .submit_prompt(prompt, Context::SignedCommit { branch_id })
-        .await
-}
-
-/// Utility to synchronously sign a commit.
-/// Uses the Tokio runner to run the async function,
-/// and the global askpass broker to handle any prompts.
-pub fn sign_commit_sync(
-    repo_path: impl AsRef<Path>,
-    base_commitish: impl AsRef<str>,
-    branch_id: Option<StackId>,
-) -> Result<String, impl std::error::Error> {
-    let repo_path = repo_path.as_ref().to_path_buf();
-    let base_commitish: &str = base_commitish.as_ref();
-    let base_commitish = base_commitish.to_string();
-
-    // Run as sync
-    let handle = std::thread::spawn(move || {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-            .block_on(gitbutler_git::sign_commit(
-                &repo_path,
-                gitbutler_git::tokio::TokioExecutor,
-                base_commitish,
-                handle_git_prompt_commit_sign_sync,
-                branch_id,
-            ))
-    });
-
-    tokio::task::block_in_place(|| handle.join().unwrap())
 }

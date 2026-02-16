@@ -1,37 +1,49 @@
-<script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { Icon } from '@gitbutler/ui';
+<script lang="ts" module>
 	import iconsJson from '@gitbutler/ui/data/icons.json';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { type Snippet } from 'svelte';
-
-	type Page = {
+	// This module script is necessary to make Svelte recognize the generics in the component
+	export type Page = {
 		id: string;
 		label: string;
 		icon: keyof typeof iconsJson;
 		adminOnly?: boolean;
 		[key: string]: any; // Allow additional properties for flexibility
 	};
+</script>
+
+<script lang="ts" generics="T extends Page">
+	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import { Icon } from '@gitbutler/ui';
+	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import { type Snippet } from 'svelte';
+
+	type PageId = T['id'];
 
 	type Props = {
 		title: string;
-		pages: Page[];
-		selectedId?: string;
+		pages: readonly T[];
+		selectedId?: PageId;
 		isAdmin?: boolean;
-		onSelectPage: (pageId: string) => void;
+		onSelectPage: (pageId: PageId) => void;
 		content: Snippet<[{ currentPage: Page | undefined }]>;
 		footer?: Snippet;
 	};
 
 	const { title, pages, selectedId, isAdmin, onSelectPage, content, footer }: Props = $props();
 
-	let currentSelectedId = $state(selectedId || pages[0]?.id || '');
+	let currentSelectedId = $derived(selectedId || pages[0]?.id || '');
 	const currentPage = $derived(pages.find((p) => p.id === currentSelectedId));
+	let scrollableContainer: ConfigurableScrollableContainer;
 
 	function selectPage(pageId: string) {
 		currentSelectedId = pageId;
 		onSelectPage(pageId);
 	}
+
+	$effect(() => {
+		if (currentSelectedId) {
+			scrollableContainer?.scrollToTop();
+		}
+	});
 </script>
 
 <div class="modal-settings-wrapper">
@@ -64,7 +76,7 @@
 	</div>
 
 	<section class="page-view" use:focusable={{ vertical: true }}>
-		<ConfigurableScrollableContainer>
+		<ConfigurableScrollableContainer bind:this={scrollableContainer}>
 			<div class="page-view__content">
 				{@render content({ currentPage })}
 			</div>
@@ -154,7 +166,7 @@
 		}
 
 		&:not(.selected):hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 	}
 

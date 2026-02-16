@@ -24,13 +24,6 @@ pub enum UpdateMode {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
-    /// Update the local workspace against an updated remote or target branch.
-    #[clap(visible_alias = "update")]
-    IntegrateUpstream {
-        /// Specify how all branches should be merged in.
-        #[clap(value_enum)]
-        mode: UpdateMode,
-    },
     /// List and manipulate virtual branches.
     #[clap(visible_alias = "branches")]
     Branch(vbranch::Platform),
@@ -40,7 +33,6 @@ pub enum Subcommands {
 }
 
 pub mod vbranch {
-    use gitbutler_branch::BranchIdentity;
 
     #[derive(Debug, clap::Parser)]
     pub struct Platform {
@@ -50,35 +42,11 @@ pub mod vbranch {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum SubCommands {
-        /// List all branches that aren't GitButler specific.
-        List,
-        /// Provide the current state of all applied virtual branches.
-        Status,
-        /// Switch to the GitButler workspace.
-        SetBase {
-            /// The name of the remote branch to integrate with, like `origin/main`.
-            short_tracking_branch_name: String,
-        },
-        /// List all changes of a commit, along with their patches.
-        ListCommitFiles {
-            /// The hex-id of the commit to produce information for.
-            commit_id: String,
-        },
-        /// Make the named branch the default so all worktree or index changes are associated with it automatically.
-        SetDefault {
-            /// The name of the new default virtual branch.
-            name: String,
-        },
-        /// Remove a branch from the workspace.
-        Unapply {
-            /// The name of the virtual branch to unapply.
-            name: String,
-        },
         /// Add a branch to the workspace.
         Apply {
             /// Whether it's a branch that we're applying.
             ///
-            /// If a stack create from the given brach is not found a new stack is created.
+            /// If a stack create from the given branch is not found a new stack is created.
             #[clap(short = 'b', long, default_value_t = false)]
             branch: bool,
             /// The name of the stack to apply.
@@ -110,13 +78,6 @@ pub mod vbranch {
             /// The name of the virtual branch to create
             name: String,
         },
-        /// Provide details about given branches.
-        Details {
-            /// The short-name/identity of branches to list.
-            names: Vec<BranchIdentity>,
-        },
-        /// List all branches that can be relevant.
-        ListAll,
     }
 }
 
@@ -153,11 +114,6 @@ pub mod project {
             #[clap(default_value = ".", value_name = "REPOSITORY")]
             path: PathBuf,
         },
-        /// Switch back to the workspace branch for use of virtual branches.
-        SwitchToWorkspace {
-            /// The long name of the remote reference to track, like `refs/remotes/origin/main`.
-            remote_ref_name: RemoteRefname,
-        },
     }
 }
 
@@ -170,7 +126,7 @@ pub mod snapshot {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum SubCommands {
-        /// Restores the state of the working direcory as well as virtual branches to a given snapshot.
+        /// Restores the state of the working directory as well as virtual branches to a given snapshot.
         Restore {
             /// The snapshot to restore
             snapshot_id: String,

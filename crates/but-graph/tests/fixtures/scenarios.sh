@@ -15,10 +15,12 @@ function setup_remote_tracking() {
   local mode=${3:-"cp"}
   mkdir -p .git/refs/remotes/origin
 
+  local dst=".git/refs/remotes/origin/$remote_branch_name";
+  mkdir -p "${dst%/*}"
   if [[ "$mode" == "cp" ]]; then
-    cp ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/$remote_branch_name"
+    cp ".git/refs/heads/$branch_name" $dst
   else
-    mv ".git/refs/heads/$branch_name" ".git/refs/remotes/origin/$remote_branch_name"
+    mv ".git/refs/heads/$branch_name" $dst
   fi
 }
 
@@ -104,6 +106,38 @@ git init detached
   commit init && git branch other
   commit first && git tag release/v1 && git tag -am "tag object" annotated
   git checkout -f "$(git rev-parse HEAD)"
+)
+
+git init main-advanced-remote-advanced-two-shared
+(cd main-advanced-remote-advanced-two-shared
+  commit init
+  commit M1
+  git checkout -b soon-origin-main
+    commit RM1
+  git checkout main
+    setup_remote_tracking soon-origin-main main "move"
+    commit M2
+  add_main_remote_setup
+)
+
+git init only-remote-advanced
+(cd only-remote-advanced
+  commit init
+  commit M1
+  commit M2
+  git checkout -b soon-origin-main
+    commit RM1
+    git branch soon-other-remote
+      setup_remote_tracking soon-other-remote split-segment "move"
+    commit RM2
+  git checkout main
+    setup_remote_tracking soon-origin-main main "move"
+  add_main_remote_setup
+)
+
+cp -R only-remote-advanced only-remote-advanced-with-special-branch-name
+(cd only-remote-advanced-with-special-branch-name
+  git branch gitbutler/target :/^M1
 )
 
 # A top-down split that is highly unusual, but good to assure we can handle it.
@@ -210,8 +244,110 @@ git init special-branches
   commit top
 )
 
+
 mkdir ws
 (cd ws
+  git init local-contained-and-target-ahead
+  (cd local-contained-and-target-ahead
+    commit init
+    commit M2
+    commit M3
+    create_workspace_commit_once main
+
+    git checkout -b soon-origin-main main
+      commit RM1
+    git checkout gitbutler/workspace
+    add_main_remote_setup
+    setup_remote_tracking soon-origin-main main "move"
+  )
+
+  git init local-target-and-stack
+  (cd local-target-and-stack
+      commit init
+      git checkout -b A
+        commit A1
+        commit A2
+      git checkout main
+        commit M2
+        commit M3
+    create_workspace_commit_once main A
+
+    git checkout -b soon-origin-main main~1
+      commit RM1
+    git checkout gitbutler/workspace
+    add_main_remote_setup
+    setup_remote_tracking soon-origin-main main "move"
+  )
+
+  git init reproduce-11483
+  (cd reproduce-11483
+      commit M1
+      git branch below
+      setup_target_to_match_main
+      git checkout -b A
+        commit A
+      git checkout -b B main
+        commit B
+    create_workspace_commit_once B A
+  )
+
+  git init reproduce-11459
+  (cd reproduce-11459
+    commit M1
+    git branch A
+    commit M2
+    commit M3
+      git branch one
+      git branch two
+      git branch feat-2
+      git branch remote
+      setup_target_to_match_main
+    git checkout -b soon-remote-two
+      commit T1
+      setup_remote_tracking soon-remote-two two "move"
+    git checkout -b soon-anon feat-2
+      commit W1
+      commit W2
+      git branch three
+      git branch four
+    git checkout -b X A
+      commit X1
+      setup_remote_tracking X
+      commit X2
+    git checkout soon-anon
+    create_workspace_commit_once soon-anon X
+    git branch -d soon-anon
+  )
+
+  git init duplicate-workspace-connection
+  (cd duplicate-workspace-connection
+    # this repo is for reproducing a real double-connection, which isn't always happening but causes issues downstream.
+    commit init
+    git branch A
+    git branch B
+    setup_target_to_match_main
+    create_workspace_commit_once main
+    commit_with_duplicate_parents=$(git cat-file -p  @ | sed '/parent/ { p; }' | git hash-object -t commit --stdin -w)
+    git update-ref refs/heads/gitbutler/workspace "${commit_with_duplicate_parents}"
+
+    git checkout -b soon-origin-main main
+      commit RM
+    git checkout gitbutler/workspace
+    mv .git/refs/heads/soon-origin-main .git/refs/remotes/origin/main
+  )
+
+  git init duplicate-workspace-connection-no-target
+  (cd duplicate-workspace-connection-no-target
+    # like above, but don't let the target be advanced.
+    commit init
+    git branch A
+    git branch B
+    setup_target_to_match_main
+    create_workspace_commit_once main
+    commit_with_duplicate_parents=$(git cat-file -p  @ | sed '/parent/ { p; }' | git hash-object -t commit --stdin -w)
+    git update-ref refs/heads/gitbutler/workspace "${commit_with_duplicate_parents}"
+  )
+
   git init ambiguous-worktrees
   (cd ambiguous-worktrees
     commit M1
@@ -607,6 +743,8 @@ EOF
   git init gitlab-case2
   (cd gitlab-case2
     commit M1
+      git branch A
+      git branch B
     # short link to the workspace, connects to 'main'
     git checkout -b main-to-workspace
       commit Ws1
@@ -709,8 +847,8 @@ EOF
     add_main_remote_setup
   )
 
-  git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
-  (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+  git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
+  (cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
     commit "init"
     setup_target_to_match_main
     git checkout -b lane main
@@ -719,14 +857,14 @@ EOF
     commit "change"
     # This works without an official remote setup as we go by name as fallback.
     remote_tracking_caught_up advanced-lane
-    git branch dependant
-    git branch on-top-of-dependant
+    git branch dependent
+    git branch on-top-of-dependent
 
     create_workspace_commit_once advanced-lane
   )
 
-  git init two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
-  (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
+  git init two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent
+  (cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent
     commit "init"
     setup_target_to_match_main
     git checkout -b lane main
@@ -737,7 +875,7 @@ EOF
     create_workspace_commit_aggressively lane advanced-lane
 
     remote_tracking_caught_up advanced-lane
-    git branch dependant advanced-lane
+    git branch dependent advanced-lane
   )
 
   # There are multiple stacked branches that could lead towards a shared stack.
@@ -1019,6 +1157,7 @@ EOF
     commit init
     commit M1
     git branch gitbutler/target
+    setup_remote_tracking "gitbutler/target"
     commit M2
     setup_target_to_match_main
     git checkout -b A
@@ -1263,5 +1402,109 @@ EOF
     git reset --hard @~1
     git branch gitbutler/workspace
   )
-)
 
+  # Complex merge history with origin/master as target, simulating a real-world
+  # GitButler workspace scenario with multiple merged PRs and a local stack.
+  # This models the git history:
+  #
+  # *   (origin/master) Merge pull request #11567
+  # |\
+  # | * Address Copilot review
+  # | * refactor
+  # | * rub: uncommitted hunk
+  # | * id: ensure branch IDs work
+  # * | (tag: nightly/0.5.1755) refactor-remove-unused-css-variables
+  # * |   Merge pull request #11571
+  # |\ \
+  # | * | Restrict visibility of some functions
+  # |/ /
+  # | | * (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+  # | | * (reimplement-insert-blank-commit) compatibility improvements
+  # | | * rename reword_commit
+  # | | * Reimplement insert blank commit
+  # | |/
+  # |/|
+  # * |   (tag: nightly/0.5.1754) Merge pull request #11574
+  # |\ \
+  # | * (Byron/fix) Adjust type...
+  # * |   Merge pull request #11573
+  git init reproduce-12146
+  (cd reproduce-12146
+      commit "add M"
+      setup_target_to_match_main
+      git checkout -b A
+        commit "add A"
+      git checkout -b B
+        commit "New commit on branch B"
+      git checkout A
+    create_workspace_commit_once A B
+  )
+
+  git init complex-merge-origin-main
+  (cd complex-merge-origin-main
+    # Start with initial history
+    commit init
+    commit base
+
+    # Create the Byron/fix branch for PR #11574
+    git checkout -b byron-fix
+      commit "Adjust type of ui.check_for_updates_interval_in_seconds"
+    git checkout main
+
+    # Create base for PR #11573
+    git checkout -b pr-11573
+      commit "fix kiril reword example"
+    git checkout main
+
+    # Merge PR #11573 into main
+    tick
+    git merge --no-ff pr-11573 -m "Merge pull request #11573"
+
+    # Merge PR #11574 (Byron/fix)
+    tick
+    git tag nightly/0.5.1754
+    git merge --no-ff byron-fix -m "Merge pull request #11574 from Byron/fix"
+
+    # Create PR #11571 branch
+    git checkout -b pr-11571
+      commit "Restrict visibility of some functions"
+    git checkout main
+
+    # Merge PR #11571
+    tick
+    git merge --no-ff pr-11571 -m "Merge pull request #11571"
+
+    # Create the refactor commit (PR #11576)
+    tick
+    commit "refactor-remove-unused-css-variables (#11576)"
+    git tag nightly/0.5.1755
+
+    # Create the jt/uhunk2 PR branch (#11567) from earlier point
+    git checkout -b jt-uhunk2 "HEAD~3"
+      commit "id: ensure that branch IDs work"
+      commit "rub: uncommitted hunk to unassigned area"
+      commit "refactor"
+      commit "Address Copilot review"
+    git checkout main
+
+    # Merge PR #11567 into main to create origin/main
+    tick
+    git merge --no-ff jt-uhunk2 -m "Merge pull request #11567 from gitbutlerapp/jt/uhunk2"
+
+    # Setup origin/main as remote tracking
+    setup_target_to_match_main
+
+    # Now create the workspace branch from an earlier point in history
+    # (branching off before the latest merges, simulating local work)
+    git checkout -b local-stack "nightly/0.5.1754"
+      commit "Reimplement insert blank commit"
+      commit "rename reword_commit to commit_reword"
+      commit "composability improvements"
+      git branch reimplement-insert-blank-commit
+      git branch reconstructed-insert-blank-commit-branch
+
+    # Create the workspace commit
+    git checkout -b gitbutler/workspace
+    git commit --allow-empty -m "GitButler Workspace Commit"
+  )
+)

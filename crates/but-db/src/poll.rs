@@ -11,7 +11,6 @@ bitflags! {
         const Workflows = 1 << 1;
         const Assignments = 1 << 2;
         const Rules = 1 << 3;
-        const ClaudePermissionRequests = 1 << 4;
     }
 }
 
@@ -28,9 +27,9 @@ impl DbHandle {
         &self,
         kind: ItemKind,
         interval: std::time::Duration,
-    ) -> anyhow::Result<std::sync::mpsc::Receiver<anyhow::Result<ItemKind>>> {
+    ) -> anyhow::Result<std::sync::mpsc::Receiver<rusqlite::Result<ItemKind>>> {
         let (tx, rx) = std::sync::mpsc::channel();
-        let mut this = DbHandle::new_at_url(&self.url)?;
+        let db = DbHandle::new_at_path(&self.path)?;
         std::thread::Builder::new()
             .name("Gitbutler-DB-watcher".into())
             .spawn(move || {
@@ -38,12 +37,11 @@ impl DbHandle {
                 let mut prev_workflows = Vec::new();
                 let mut prev_actions = Vec::new();
                 let mut prev_rules = Vec::new();
-                let mut prev_claude_requests = Vec::new();
                 'outer: loop {
                     std::thread::sleep(interval);
                     for to_check in ItemKind::all().iter() {
                         let send_result = if kind & to_check == ItemKind::Actions {
-                            let res = this.butler_actions().list(0, i64::MAX);
+                            let res = db.butler_actions().list(0, i64::MAX);
                             match res {
                                 Ok((_num_items, items)) => {
                                     if items != prev_actions {
@@ -56,7 +54,7 @@ impl DbHandle {
                                 Err(e) => tx.send(Err(e)),
                             }
                         } else if kind & to_check == ItemKind::Workflows {
-                            let res = this.workflows().list(0, i64::MAX);
+                            let res = db.workflows().list(0, i64::MAX);
                             match res {
                                 Ok((_num_items, items)) => {
                                     if items != prev_workflows {
@@ -69,7 +67,7 @@ impl DbHandle {
                                 Err(e) => tx.send(Err(e)),
                             }
                         } else if kind & to_check == ItemKind::Assignments {
-                            let res = this.hunk_assignments().list_all();
+                            let res = db.hunk_assignments().list_all();
                             match res {
                                 Ok(items) => {
                                     if items != prev_assignments {
@@ -82,7 +80,7 @@ impl DbHandle {
                                 Err(e) => tx.send(Err(e)),
                             }
                         } else if kind & to_check == ItemKind::Rules {
-                            let res = this.workspace_rules().list();
+                            let res = db.workspace_rules().list();
                             match res {
                                 Ok(items) => {
                                     if items != prev_rules {
@@ -92,20 +90,7 @@ impl DbHandle {
                                         continue;
                                     }
                                 }
-                                Err(e) => tx.send(Err(anyhow::Error::from(e))),
-                            }
-                        } else if kind & to_check == ItemKind::ClaudePermissionRequests {
-                            let res = this.claude_permission_requests().list();
-                            match res {
-                                Ok(items) => {
-                                    if items != prev_claude_requests {
-                                        prev_claude_requests = items;
-                                        tx.send(Ok(ItemKind::ClaudePermissionRequests))
-                                    } else {
-                                        continue;
-                                    }
-                                }
-                                Err(e) => tx.send(Err(anyhow::Error::from(e))),
+                                Err(e) => tx.send(Err(e)),
                             }
                         } else {
                             eprintln!("BUG: didn't implement a branch for {to_check:?}");
@@ -128,9 +113,9 @@ impl DbHandle {
         interval: std::time::Duration,
     ) -> anyhow::Result<tokio::sync::mpsc::Receiver<anyhow::Result<ItemKind>>> {
         let (tx, rx) = tokio::sync::mpsc::channel(8);
-        let url = self.url.clone();
+        let url = self.path.clone();
         tokio::spawn(async move {
-            let mut this = match DbHandle::new_at_url(&url) {
+            let this = match DbHandle::new_at_path(&url) {
                 Ok(db) => db,
                 Err(e) => {
                     let _ = tx.send(Err(e)).await;
@@ -141,7 +126,6 @@ impl DbHandle {
             let mut prev_workflows = Vec::new();
             let mut prev_actions = Vec::new();
             let mut prev_rules = Vec::new();
-            let mut prev_claude_requests = Vec::new();
             let mut ticker = tokio::time::interval(interval);
             loop {
                 ticker.tick().await;
@@ -157,7 +141,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else if kind & to_check == ItemKind::Workflows {
                         let res = this.workflows().list(0, i64::MAX);
@@ -170,7 +154,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else if kind & to_check == ItemKind::Assignments {
                         let res = this.hunk_assignments().list_all();
@@ -183,7 +167,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(e)).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else if kind & to_check == ItemKind::Rules {
                         let res = this.workspace_rules().list();
@@ -196,20 +180,7 @@ impl DbHandle {
                                     continue;
                                 }
                             }
-                            Err(e) => tx.send(Err(anyhow::Error::from(e))).await,
-                        }
-                    } else if kind & to_check == ItemKind::ClaudePermissionRequests {
-                        let res = this.claude_permission_requests().list();
-                        match res {
-                            Ok(items) => {
-                                if items != prev_claude_requests {
-                                    prev_claude_requests = items;
-                                    tx.send(Ok(ItemKind::ClaudePermissionRequests)).await
-                                } else {
-                                    continue;
-                                }
-                            }
-                            Err(e) => tx.send(Err(anyhow::Error::from(e))).await,
+                            Err(e) => tx.send(Err(e.into())).await,
                         }
                     } else {
                         eprintln!("BUG: didn't implement a branch for {to_check:?}");
@@ -241,15 +212,11 @@ impl Drop for DBWatcherHandle {
 }
 
 pub fn watch_in_background(
-    db: &mut DbHandle,
+    db: &DbHandle,
     send_event: impl Fn(ItemKind) -> anyhow::Result<()> + Send + Sync + 'static,
 ) -> anyhow::Result<DBWatcherHandle, anyhow::Error> {
     let mut rx = db.poll_changes_async(
-        ItemKind::Actions
-            | ItemKind::Workflows
-            | ItemKind::Assignments
-            | ItemKind::Rules
-            | ItemKind::ClaudePermissionRequests,
+        ItemKind::Actions | ItemKind::Workflows | ItemKind::Assignments | ItemKind::Rules,
         std::time::Duration::from_millis(500),
     )?;
 

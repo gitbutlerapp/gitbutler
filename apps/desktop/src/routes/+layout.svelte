@@ -78,6 +78,9 @@
 	backend.initDeepLinking({
 		open: (path: string) => {
 			projectsService.handleDeepLinkOpen(path);
+		},
+		login: (accessToken: string) => {
+			userService.setUserAccessToken(accessToken);
 		}
 	});
 
@@ -125,12 +128,25 @@
 	const uiState = inject(UI_STATE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
+	function handleKeyDown(e: KeyboardEvent) {
+		// Explicitly detect cmd/ctrl + A since Tauri gets in the way of default behavior.
+		// To get default behavior you can add a "Select All" predefined menu item to the
+		// Edit menu, but that prevents the event from reaching the webview.
+		if (
+			(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) &&
+			(e.metaKey || e.ctrlKey) &&
+			e.key === 'a' &&
+			e.target
+		) {
+			e.target.select();
+			e.preventDefault();
+		} else {
+			handleKeyBind(e);
+		}
+	}
+
 	// Debug keyboard shortcuts
-	const handleKeyDown = createKeybind({
-		// Toggle v3 workspace APIs on/off
-		'w s 3': () => {
-			settingsService.updateFeatureFlags({ ws3: !$settingsStore?.featureFlags.ws3 });
-		},
+	const handleKeyBind = createKeybind({
 		// Toggle next-gen safe checkout.
 		'c o 3': () => {
 			settingsService.updateFeatureFlags({ cv3: !$settingsStore?.featureFlags.cv3 });

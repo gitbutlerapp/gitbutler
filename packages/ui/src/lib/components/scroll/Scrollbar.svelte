@@ -300,6 +300,7 @@
 	bind:this={track}
 	data-remove-from-panning
 	data-no-drag
+	data-drag-clone-ignore
 	class="scrollbar-track"
 	class:horz
 	class:vert
@@ -345,7 +346,7 @@
 		/* variable props */
 		width: var(--thumb-width);
 		height: var(--thumb-height);
-		background-color: var(--clr-scale-ntrl-0);
+		background-color: var(--clr-text-1);
 		opacity: 0;
 		will-change: transform, opacity;
 	}
@@ -374,8 +375,7 @@
 			transition:
 				opacity 0.2s,
 				transform 0.15s,
-				height 0.15s,
-				top 0.05s;
+				height 0.15s;
 		}
 	}
 

@@ -1,36 +1,23 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 
 pub trait RepositoryExt {
-    fn l(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool)
-    -> Result<Vec<git2::Oid>>;
+    fn l(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool) -> Result<Vec<git2::Oid>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit<'_>>>;
-    fn log(
-        &self,
-        from: git2::Oid,
-        to: LogUntil,
-        include_all_parents: bool,
-    ) -> Result<Vec<git2::Commit<'_>>>;
+    fn log(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool) -> Result<Vec<git2::Commit<'_>>>;
 }
 
 impl RepositoryExt for git2::Repository {
     // returns a list of commit oids from the first oid to the second oid
     // if `include_all_parents` is true it will include commits from all sides of merge commits,
     // otherwise, only the first parent of each commit is considered
-    fn l(
-        &self,
-        from: git2::Oid,
-        to: LogUntil,
-        include_all_parents: bool,
-    ) -> Result<Vec<git2::Oid>> {
+    fn l(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool) -> Result<Vec<git2::Oid>> {
         match to {
             LogUntil::Commit(oid) => {
                 let mut revwalk = self.revwalk().context("failed to create revwalk")?;
                 if !include_all_parents {
                     revwalk.simplify_first_parent()?;
                 }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {from}"))?;
+                revwalk.push(from).context(format!("failed to push {from}"))?;
                 revwalk.hide(oid).context(format!("failed to hide {oid}"))?;
                 revwalk.collect::<Result<Vec<_>, _>>()
             }
@@ -39,9 +26,7 @@ impl RepositoryExt for git2::Repository {
                 if !include_all_parents {
                     revwalk.simplify_first_parent()?;
                 }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {from}"))?;
+                revwalk.push(from).context(format!("failed to push {from}"))?;
                 revwalk.take(n).collect::<Result<Vec<_>, _>>()
             }
             LogUntil::When(cond) => {
@@ -49,9 +34,7 @@ impl RepositoryExt for git2::Repository {
                 if !include_all_parents {
                     revwalk.simplify_first_parent()?;
                 }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {from}"))?;
+                revwalk.push(from).context(format!("failed to push {from}"))?;
                 let mut oids: Vec<git2::Oid> = vec![];
                 for oid in revwalk {
                     let oid = oid.context("failed to get oid")?;
@@ -70,9 +53,7 @@ impl RepositoryExt for git2::Repository {
                 if !include_all_parents {
                     revwalk.simplify_first_parent()?;
                 }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {from}"))?;
+                revwalk.push(from).context(format!("failed to push {from}"))?;
                 revwalk.collect::<Result<Vec<_>, _>>()
             }
         }
@@ -88,12 +69,7 @@ impl RepositoryExt for git2::Repository {
     }
 
     // returns a list of commits from the first oid to the second oid
-    fn log(
-        &self,
-        from: git2::Oid,
-        to: LogUntil,
-        include_all_parents: bool,
-    ) -> Result<Vec<git2::Commit<'_>>> {
+    fn log(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool) -> Result<Vec<git2::Commit<'_>>> {
         self.l(from, to, include_all_parents)?
             .into_iter()
             .map(|oid| self.find_commit(oid))

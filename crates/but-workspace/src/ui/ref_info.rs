@@ -1,6 +1,9 @@
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{ref_metadata, ref_metadata::StackId};
+use but_core::{
+    extract_remote_name_and_short_name,
+    ref_metadata::{self, StackId},
+};
 use gix::refs::Category;
 
 use crate::{
@@ -11,9 +14,12 @@ use crate::{
 
 /// A reference in `refs/heads`.
 #[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct BranchReference {
     /// The full ref name, like `refs/heads/feat`, for usage with the backend.
+    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     pub full_name_bytes: BString,
     /// The short version of `full_name_bytes` for display.
     pub display_name: String,
@@ -30,9 +36,12 @@ impl From<gix::refs::FullName> for BranchReference {
 
 /// A reference in `refs/remotes`.
 #[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct RemoteTrackingReference {
     /// The full ref name, like `refs/remotes/origin/on-remote`, for usage with the backend.
+    #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
     pub full_name_bytes: BString,
     /// The short version of `full_name_bytes` for display, like `on-remote`, without the remote name.
     pub display_name: String,
@@ -43,41 +52,20 @@ pub struct RemoteTrackingReference {
 impl RemoteTrackingReference {
     /// Create a new instance from `ref_name` and `remote_names`, essentially splitting the remote
     /// name off the short name.
-    pub fn for_ui(
-        ref_name: gix::refs::FullName,
-        remote_names: &gix::remote::Names,
-    ) -> anyhow::Result<Self> {
-        let (category, short_name) = ref_name.category_and_short_name().with_context(|| {
-            format!("Failed to categorize presume remote reference '{ref_name}'")
-        })?;
+    pub fn for_ui(ref_name: gix::refs::FullName, remote_names: &gix::remote::Names) -> anyhow::Result<Self> {
+        let (category, _short_name) = ref_name
+            .category_and_short_name()
+            .with_context(|| format!("Failed to categorize presumed remote reference '{ref_name}'"))?;
         if category != Category::RemoteBranch {
             bail!("Expected '{ref_name}' to be a remote tracking branch, but was {category:?}");
         }
-        let (longest_remote, short_name) = remote_names
-            .iter()
-            .rev()
-            .find_map(|remote_name| {
-                short_name
-                    .strip_prefix(remote_name.as_bytes())
-                    .and_then(|stripped| {
-                        if stripped.first() == Some(&b'/') {
-                            #[allow(clippy::indexing_slicing)]
-                            Some((remote_name, stripped[1..].as_bstr()))
-                        } else {
-                            None
-                        }
-                    })
-            })
-            .ok_or(anyhow::anyhow!(
-                "Failed to find remote branch's corresponding remote"
-            ))
-            .with_context(|| {
-                format!("Remote reference '{ref_name}' couldn't be matched with any known remote")
-            })?;
+        let (longest_remote, short_name) = extract_remote_name_and_short_name(ref_name.as_ref(), remote_names)
+            .ok_or(anyhow::anyhow!("Failed to find remote branch's corresponding remote"))
+            .with_context(|| format!("Remote reference '{ref_name}' couldn't be matched with any known remote"))?;
 
         Ok(RemoteTrackingReference {
             display_name: short_name.to_str_lossy().into_owned(),
-            remote_name: longest_remote.to_str_lossy().into_owned(),
+            remote_name: longest_remote,
             full_name_bytes: ref_name.into_inner(),
         })
     }
@@ -85,9 +73,11 @@ impl RemoteTrackingReference {
 
 /// Information about the target reference, the one we want to integrate with.
 #[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct Target {
-    /// The remote tracking branch of the traget to integrate with, like `refs/remotes/origin/main`.
+    /// The remote tracking branch of the target to integrate with, like `refs/remotes/origin/main`.
     pub remote_tracking_ref: RemoteTrackingReference,
     /// The amount of commits that aren't reachable by any segment in the workspace, they are in its future.
     pub commits_ahead: usize,
@@ -95,11 +85,11 @@ pub struct Target {
 
 impl Target {
     fn for_ui(
-        but_graph::projection::Target {
+        but_graph::projection::TargetRef {
             ref_name,
             segment_index: _,
             commits_ahead,
-        }: but_graph::projection::Target,
+        }: but_graph::projection::TargetRef,
         remote_names: &gix::remote::Names,
     ) -> anyhow::Result<Self> {
         Ok(Target {
@@ -115,7 +105,9 @@ pub(crate) mod inner {
     /// The UI-clone of [`crate::RefInfo`].
     /// TODO: should also include base-branch data, see `get_base_branch_data()`.
     #[derive(serde::Serialize, Debug, Clone)]
+    #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
     #[serde(rename_all = "camelCase")]
+    #[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
     pub struct RefInfo {
         /// The name of the ref that points to a workspace commit,
         /// *or* the name of the first stack segment.
@@ -150,8 +142,7 @@ pub(crate) mod inner {
             if self.is_entrypoint {
                 return self;
             }
-            self.stacks
-                .retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
+            self.stacks.retain(|s| s.segments.iter().any(|s| s.is_entrypoint));
             if let Some(only_stack) = self.stacks.first_mut() {
                 let mut found_entrypoint = false;
                 only_stack.segments.retain(|s| {
@@ -170,7 +161,8 @@ impl inner::RefInfo {
         crate::RefInfo {
             workspace_ref_info,
             stacks,
-            target,
+            target_ref,
+            target_commit: _,
             extra_target: _,
             lower_bound: _,
             is_managed_ref,
@@ -188,9 +180,7 @@ impl inner::RefInfo {
         Ok(inner::RefInfo {
             workspace_ref: workspace_ref_info.map(|ri| ri.ref_name.into()),
             stacks,
-            target: target
-                .map(|t| Target::for_ui(t, &remote_names))
-                .transpose()?,
+            target: target_ref.map(|t| Target::for_ui(t, &remote_names)).transpose()?,
             is_managed_ref,
             is_managed_commit,
             is_entrypoint,
@@ -198,18 +188,21 @@ impl inner::RefInfo {
     }
 }
 
-/// The UI-clone of [`branch::Stack`].
+/// The UI-clone of `branch::Stack`.
 #[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct Stack {
-    /// If the stack belongs to a managed workspace, the `id` will be set and persist.
     /// Otherwise, it is `None`.
+    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub id: Option<StackId>,
     /// If there is an integration branch, we know a base commit shared with the integration branch from
     /// which we branched off.
     /// Otherwise, it's the merge-base of all stacks in the current workspace.
     /// It is `None` if this is a stack derived from a branch without relation to any other branch.
     #[serde(with = "but_serde::object_id_opt")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub base: Option<gix::ObjectId>,
     /// The branch-name denoted segments of the stack from its tip to the point of reference, typically a merge-base.
     /// This array is never empty.
@@ -231,9 +224,10 @@ impl Stack {
 
 /// A segment of a commit graph, representing a set of commits exclusively.
 #[derive(serde::Serialize, Debug, Clone)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/refInfo/index.ts"))]
 pub struct Segment {
-    /// The unambiguous or disambiguated name of the branch at the tip of the segment, i.e. at the first commit.
     ///
     /// It is `None` if this branch is the top-most stack segment and the `ref_name` wasn't pointing to
     /// a commit anymore that was reached by our rev-walk.
@@ -265,7 +259,7 @@ pub struct Segment {
     /// Read-only metadata with additional information about the branch naming the segment,
     /// or `None` if nothing was present.
     pub metadata: Option<ref_metadata::Branch>,
-    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](Graph::from_commit_traversal())
+    /// This is `true` a segment in a workspace if the entrypoint of [the traversal](but_graph::Graph::from_commit_traversal)
     /// is this segment, and the surrounding workspace is provided for context.
     ///
     /// This means one will see the entire workspace, while knowing the focus is on one specific segment.
@@ -280,6 +274,7 @@ pub struct Segment {
     /// It is `None` if the stack segment contains the first commit in the history, an orphan without ancestry,
     /// or if the history traversal was stopped early.
     #[serde(with = "but_serde::object_id_opt")]
+    #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub base: Option<gix::ObjectId>,
 }
 

@@ -1,23 +1,27 @@
 [package]
 name = "but-bot"
 version = "0.1.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
 test = false
 
 [dependencies]
+but-tools.workspace = true
+but-ctx.workspace = true
+but-forge.workspace = true
+but-llm.workspace = true
+
+gitbutler-project.workspace = true
+
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 uuid.workspace = true
 gix.workspace = true
-but-tools.workspace = true
-but-action.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
+chrono.workspace = true

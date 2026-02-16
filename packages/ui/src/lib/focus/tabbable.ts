@@ -4,24 +4,22 @@ export type FocusOptions = {
 	trap?: boolean;
 };
 
-export function focusNextTabIndex(options: FocusOptions): boolean {
-	const { container, forward, trap } = options;
+const focusableSelectors: string[] = [
+	'a[href]',
+	'button:not([disabled])',
+	'input:not([disabled]):not([type="hidden"])',
+	'select:not([disabled])',
+	'textarea:not([disabled])',
+	'[tabindex]:not([tabindex="-1"])',
+	'[contenteditable="true"]'
+];
 
-	const focusableSelectors: string[] = [
-		'a[href]',
-		'button:not([disabled])',
-		'input:not([disabled]):not([type="hidden"])',
-		'select:not([disabled])',
-		'textarea:not([disabled])',
-		'[tabindex]:not([tabindex="-1"])',
-		'[contenteditable="true"]'
-	];
-
+export function getFocusableElements(container: HTMLElement): HTMLElement[] {
 	const focusableElements: NodeListOf<Element> = container.querySelectorAll(
 		focusableSelectors.join(',')
 	);
 
-	const focusableArray: Element[] = Array.from(focusableElements)
+	return Array.from(focusableElements)
 		.filter((el): el is HTMLElement => {
 			if (!(el instanceof HTMLElement)) return false;
 
@@ -43,10 +41,16 @@ export function focusNextTabIndex(options: FocusOptions): boolean {
 			const position: number = a.compareDocumentPosition(b);
 			return position & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
 		});
+}
 
-	const indexOf = document.activeElement
-		? focusableArray.indexOf(document.activeElement)
-		: undefined;
+export function focusNextTabIndex(options: FocusOptions): boolean {
+	const { container, forward, trap } = options;
+	const focusableArray = getFocusableElements(container);
+
+	const indexOf =
+		document.activeElement instanceof HTMLElement
+			? focusableArray.indexOf(document.activeElement)
+			: undefined;
 
 	let nextIndex = forward
 		? indexOf === undefined
@@ -68,15 +72,6 @@ export function focusNextTabIndex(options: FocusOptions): boolean {
 
 	if (nextElement instanceof HTMLElement) {
 		nextElement.focus();
-		// :focus-visible isn't triggered when programmatically focusing, need explicit class
-		nextElement.classList.add('focus-visible');
-		nextElement.addEventListener(
-			'focusout',
-			() => {
-				nextElement.classList.remove('focus-visible');
-			},
-			{ once: true }
-		);
 		return true;
 	}
 

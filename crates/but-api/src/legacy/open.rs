@@ -1,15 +1,14 @@
 //! In place of commands.rs
 use std::env;
 
-use anyhow::{Context, bail};
-use but_api_macros::api_cmd;
+#[allow(unused_imports)]
+use anyhow::anyhow;
+use anyhow::{Context as _, Result, bail};
+use but_api_macros::but_api;
 use tracing::instrument;
 use url::Url;
 
-use crate::json::Error;
-
-pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
-    let target_url = Url::parse(path).with_context(|| format!("Invalid path format: '{path}'"))?;
+pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
     if ![
         "http",
         "https",
@@ -27,9 +26,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         bail!("Invalid path scheme: {}", target_url.scheme());
     }
 
-    fn clean_env_vars<'a, 'b>(
-        var_names: &'a [&'b str],
-    ) -> impl Iterator<Item = (&'b str, String)> + 'a {
+    fn clean_env_vars<'a, 'b>(var_names: &'a [&'b str]) -> impl Iterator<Item = (&'b str, String)> + 'a {
         var_names
             .iter()
             .filter_map(|name| env::var(name).map(|value| (*name, value)).ok())
@@ -38,9 +35,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
                     name,
                     value
                         .split(':')
-                        .filter(|path| {
-                            !path.contains("appimage-run") && !path.contains("/tmp/.mount")
-                        })
+                        .filter(|path| !path.contains("appimage-run") && !path.contains("/tmp/.mount"))
                         .collect::<Vec<_>>()
                         .join(":"),
                 )
@@ -49,7 +44,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
 
     let mut cmd_errors = Vec::new();
 
-    for mut cmd in open::commands(path) {
+    for mut cmd in open::commands(target_url.path()) {
         let cleaned_vars = clean_env_vars(&[
             "APPDIR",
             "GDK_PIXBUF_MODULE_FILE",
@@ -85,17 +80,16 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn open_url(url: String) -> Result<(), Error> {
-    Ok(open_that(&url)?)
+pub fn open_url(url: String) -> Result<()> {
+    let url = Url::parse(&url).with_context(|| format!("Invalid path format: '{url}'"))?;
+    open_that(&url)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn show_in_finder(path: String) -> Result<(), Error> {
+pub fn show_in_finder(path: String) -> Result<()> {
     // Cross-platform implementation to open file/directory in the default file manager
     // macOS: Opens in Finder (with -R flag to reveal the item)
     // Windows: Opens in File Explorer
@@ -125,17 +119,15 @@ pub fn show_in_finder(path: String) -> Result<(), Error> {
     {
         // For directories, open the directory directly
         if std::path::Path::new(&path).is_dir() {
-            open_that(&path)
+            open_that(&Url::from_file_path(&path).map_err(|_| anyhow!("Failed to parse URL"))?)
                 .with_context(|| format!("Failed to open directory '{path}' in file manager"))?;
         } else {
             // For files, try to open the parent directory
             if let Some(parent) = std::path::Path::new(&path).parent() {
-                let parent_str = parent.to_string_lossy();
-                open_that(&parent_str).with_context(|| {
-                    format!("Failed to open parent directory of '{path}' in file manager",)
-                })?;
+                open_that(&Url::from_file_path(parent).map_err(|_| anyhow!("Failed to parse URL"))?)
+                    .with_context(|| format!("Failed to open parent directory of '{path}' in file manager",))?;
             } else {
-                open_that(&path)
+                open_that(&Url::from_file_path(&path).map_err(|_| anyhow!("Failed to parse URL"))?)
                     .with_context(|| format!("Failed to open '{path}' in file manager"))?;
             }
         }

@@ -51,7 +51,7 @@
 
 	async function createCommit(message: string) {
 		if (isCooking) {
-			showToast({ message: 'Commit is already in progress', style: 'error' });
+			showToast({ message: 'Commit is already in progress', style: 'danger' });
 			return;
 		}
 
@@ -71,7 +71,7 @@
 					projectId,
 					branch: { name: finalBranchName, order: 0 }
 				});
-				finalStackId = stack.id;
+				finalStackId = stack.id ?? undefined;
 				finalBranchName = stack.heads[0]?.name; // Updated to access the name property
 				uiState.global.draftBranchName.set(undefined);
 			}
@@ -175,7 +175,7 @@
 
 		const message = description ? title + '\n\n' + description : title;
 		if (!message) {
-			showToast({ message: 'Commit message is required', style: 'error' });
+			showToast({ message: 'Commit message is required', style: 'danger' });
 			return;
 		}
 

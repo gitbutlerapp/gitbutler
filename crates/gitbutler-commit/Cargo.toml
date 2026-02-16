@@ -1,10 +1,10 @@
 [package]
 name = "gitbutler-commit"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
@@ -17,4 +17,4 @@ testing = []
 git2.workspace = true
 gix.workspace = true
 bstr.workspace = true
-uuid.workspace = true
+but-core.workspace = true

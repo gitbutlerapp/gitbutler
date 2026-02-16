@@ -1,7 +1,7 @@
 <script lang="ts">
 	/**
 	 * NOTE: This component MOST only ever be rendered ONCE on the page at one
-	 * time. This is because it is working directly with the query paramaters
+	 * time. This is because it is working directly with the query parameters
 	 * and has no idea if it will conflict or not.
 	 */
 	import SectionComponent from '$lib/components/review/Section.svelte';
@@ -11,51 +11,20 @@
 		getBeforeVersion,
 		getAfterVersion
 	} from '$lib/interdiffRangeQuery.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import {
-		Button,
-		Select,
-		SelectItem,
-		type LineClickParams,
-		type SelectItemType
-	} from '@gitbutler/ui';
+	import { Button, Select, SelectItem, type SelectItemType } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
-	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
 		branchUuid: string;
 		changeId: string;
 		patchCommit: PatchCommit;
-		selectedSha: string | undefined;
-		selectedLines: LineSelector[];
 		commitPageHeaderHeight: number;
-		clearLineSelection: (fileName: string) => void;
-		toggleDiffLine: (fileName: string, diffSha: string, params: LineClickParams) => void;
-		onCopySelection: (contentSections: ContentSection[]) => void;
-		onQuoteSelection: () => void;
 	}
 
-	const {
-		branchUuid,
-		changeId,
-		patchCommit,
-		selectedSha,
-		selectedLines,
-		commitPageHeaderHeight,
-		clearLineSelection,
-		toggleDiffLine,
-		onCopySelection,
-		onQuoteSelection
-	}: Props = $props();
-
-	const userService = inject(USER_SERVICE);
-	const user = $derived(userService.user);
-
-	const isLoggedIn = $derived(!!$user);
+	const { branchUuid, changeId, patchCommit, commitPageHeaderHeight }: Props = $props();
 
 	let isInterdiffBarVisible = $state(false);
 
@@ -218,17 +187,7 @@
 		<Loading loadable={patchSections?.current}>
 			{#snippet children(patchSections)}
 				{#each patchSections || [] as section}
-					<SectionComponent
-						{isLoggedIn}
-						{section}
-						{toggleDiffLine}
-						{selectedSha}
-						{selectedLines}
-						{commitPageHeaderHeight}
-						{onCopySelection}
-						{onQuoteSelection}
-						{clearLineSelection}
-					/>
+					<SectionComponent {section} {commitPageHeaderHeight} />
 				{/each}
 			{/snippet}
 		</Loading>
@@ -274,11 +233,11 @@
 	}
 
 	.statistic-added {
-		color: var(--clr-scale-succ-30);
+		color: var(--clr-theme-safe-element);
 	}
 
 	.statistic-deleted {
-		color: var(--clr-scale-err-30);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.review-sections-diffs {
@@ -289,19 +248,15 @@
 	}
 
 	/* INTERDIFF */
-
 	.interdiff-bar {
 		display: flex;
 		align-items: center;
 		width: 100%;
-
 		padding: 14px;
 		gap: 12px;
-
 		border: 1px solid var(--clr-border-2);
 		border-top: none;
-
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 
 		@container (max-width: 500px) {
 			flex-direction: column;

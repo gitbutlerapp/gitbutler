@@ -1,16 +1,12 @@
 use anyhow::{Result, bail};
-use but_core::DiffSpec;
-use but_oxidize::GixRepositoryExt;
+use but_core::{DiffSpec, RepositoryExt, sync::RepoExclusive};
+use but_ctx::Context;
 use but_rebase::{Rebase, RebaseStep, replace_commit_tree};
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
 use super::{
     MoveChangesResult,
-    utils::{
-        ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides,
-        replace_pick_with_commit,
-    },
+    utils::{ChangesSource, create_tree_without_diff, rebase_mapping_with_overrides, replace_pick_with_commit},
 };
 use crate::legacy::stack_ext::StackExt;
 
@@ -20,7 +16,7 @@ use crate::legacy::stack_ext::StackExt;
 ///
 /// ## Limitations / Assumptions
 ///
-/// Currently this function does not take into consideration the possiblity
+/// Currently this function does not take into consideration the possibility
 /// that the commit _might_ be part of two different stacks. As such, the
 /// other stacks may end up referring to stale commits and potentially cause
 /// a merge conflict when combining them in the workspace.
@@ -52,17 +48,17 @@ use crate::legacy::stack_ext::StackExt;
 ///    re-based version if needed
 /// 4. Re-rebase the branch with the diff applied to the destination commit.
 ///
-/// This implementation does a three way merge to update the destionation commit. This gives
+/// This implementation does a three way merge to update the destination commit. This gives
 /// us the potential to handle the case where the patch doesn't apply well to
-/// destionation commit well.
+/// destination commit well.
 pub fn move_changes_between_commits(
-    ctx: &CommandContext,
+    ctx: &mut Context,
     source_stack_id: StackId,
     source_commit_id: gix::ObjectId,
     destination_stack_id: StackId,
     destination_commit_id: gix::ObjectId,
     changes_to_remove_from_source: impl IntoIterator<Item = DiffSpec>,
-    context_lines: u32,
+    perm: &mut RepoExclusive,
 ) -> Result<MoveChangesResult> {
     if source_commit_id == destination_commit_id {
         return Ok(MoveChangesResult {
@@ -70,48 +66,34 @@ pub fn move_changes_between_commits(
         });
     }
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let repository = ctx.gix_repo()?;
-    let git2_repository = ctx.gix_repo()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let repo = ctx.repo.get()?;
 
-    let source_commit = repository.find_commit(source_commit_id)?;
-    let source_tree_id = source_commit.tree_id()?;
+    let source_tree_id = repo.find_commit(source_commit_id)?.tree_id()?;
 
     let (source_tree_without_changes_id, dropped_diffs) = create_tree_without_diff(
-        &repository,
-        ChangesSource::Commit {
-            id: source_commit_id,
-        },
+        &repo,
+        ChangesSource::Commit { id: source_commit_id },
         changes_to_remove_from_source,
-        context_lines,
+        ctx.settings.context_lines,
     )?;
     if !dropped_diffs.is_empty() {
         bail!("Failed to extract described changes from source commit");
     }
 
     let source_stack = vb_state.get_stack_in_workspace(source_stack_id)?;
-    let mut source_stack_steps = source_stack.as_rebase_steps(ctx, &git2_repository)?;
+    let mut source_stack_steps = source_stack.as_rebase_steps(ctx)?;
 
-    let rewritten_source_commit = replace_commit_tree(
-        &repository,
-        source_commit_id,
-        source_tree_without_changes_id,
-    )?;
-    replace_pick_with_commit(
-        &mut source_stack_steps,
-        source_commit_id,
-        rewritten_source_commit,
-    )?;
+    let rewritten_source_commit = replace_commit_tree(&repo, source_commit_id, source_tree_without_changes_id)?;
+    replace_pick_with_commit(&mut source_stack_steps, source_commit_id, rewritten_source_commit)?;
 
-    let mut rebase = Rebase::new(&git2_repository, source_stack.merge_base(ctx)?, None)?;
+    let mut rebase = Rebase::new(&repo, source_stack.merge_base(ctx)?, None)?;
     rebase.steps(source_stack_steps.clone())?;
     rebase.rebase_noops(false);
     let source_stack_result = rebase.rebase()?;
 
-    let source_stack_mapping = rebase_mapping_with_overrides(
-        &source_stack_result,
-        [(source_commit_id, rewritten_source_commit)],
-    );
+    let source_stack_mapping =
+        rebase_mapping_with_overrides(&source_stack_result, [(source_commit_id, rewritten_source_commit)]);
 
     let destination_commit_id: gix::ObjectId = if source_stack_id == destination_stack_id {
         *source_stack_mapping
@@ -121,11 +103,11 @@ pub fn move_changes_between_commits(
         destination_commit_id
     };
 
-    let destination_tree_id = repository.find_commit(destination_commit_id)?.tree_id()?;
+    let destination_tree_id = repo.find_commit(destination_commit_id)?.tree_id()?;
 
     // For now, we shall just fail fast and not worry about creating conflicted commits.
-    let (fail_fast_options, conflict_kind) = repository.merge_options_fail_fast()?;
-    let mut final_destination = repository.merge_trees(
+    let (fail_fast_options, conflict_kind) = repo.merge_options_fail_fast()?;
+    let mut final_destination = repo.merge_trees(
         source_tree_without_changes_id,
         source_tree_id,
         destination_tree_id,
@@ -137,15 +119,12 @@ pub fn move_changes_between_commits(
     }
     let final_destination_tree = final_destination.tree.write()?;
 
-    if source_stack_id == destination_stack_id {
+    let res = if source_stack_id == destination_stack_id {
         // We need to rebase the source stack a second time. This loop both
         // updates the steps to consider the first rebase, and also injects the
         // new destination commit's tree.
-        let rewritten_destination_commit = replace_commit_tree(
-            &repository,
-            destination_commit_id,
-            final_destination_tree.detach(),
-        )?;
+        let rewritten_destination_commit =
+            replace_commit_tree(&repo, destination_commit_id, final_destination_tree.detach())?;
         for step in &mut source_stack_steps {
             let RebaseStep::Pick { commit_id, .. } = step else {
                 continue;
@@ -158,24 +137,22 @@ pub fn move_changes_between_commits(
             }
         }
 
-        let mut rebase = Rebase::new(&git2_repository, source_stack.merge_base(ctx)?, None)?;
+        let mut rebase = Rebase::new(&repo, source_stack.merge_base(ctx)?, None)?;
         rebase.steps(source_stack_steps.clone())?;
         rebase.rebase_noops(false);
         let result = rebase.rebase()?;
 
         // Create the output mapping
         let mut output_commit_mapping = source_stack_mapping.clone();
-        let mut after_destionation_commit_mapping = rebase_mapping_with_overrides(
-            &result,
-            [(destination_commit_id, rewritten_destination_commit)],
-        );
+        let mut after_destination_commit_mapping =
+            rebase_mapping_with_overrides(&result, [(destination_commit_id, rewritten_destination_commit)]);
         for (before, after) in source_stack_mapping {
-            if let Some(value) = after_destionation_commit_mapping.get(&after) {
+            if let Some(value) = after_destination_commit_mapping.get(&after) {
                 output_commit_mapping.insert(before, *value);
-                after_destionation_commit_mapping.remove(&after);
+                after_destination_commit_mapping.remove(&after);
             }
         }
-        for (before, after) in after_destionation_commit_mapping {
+        for (before, after) in after_destination_commit_mapping {
             output_commit_mapping.entry(before).or_insert(after);
         }
 
@@ -187,21 +164,17 @@ pub fn move_changes_between_commits(
         })
     } else {
         let destination_stack = vb_state.get_stack_in_workspace(destination_stack_id)?;
-        let mut destination_stack_steps =
-            destination_stack.as_rebase_steps(ctx, &git2_repository)?;
+        let mut destination_stack_steps = destination_stack.as_rebase_steps(ctx)?;
 
-        let rewritten_destination_commit = replace_commit_tree(
-            &repository,
-            destination_commit_id,
-            final_destination_tree.detach(),
-        )?;
+        let rewritten_destination_commit =
+            replace_commit_tree(&repo, destination_commit_id, final_destination_tree.detach())?;
         replace_pick_with_commit(
             &mut destination_stack_steps,
             destination_commit_id,
             rewritten_destination_commit,
         )?;
 
-        let mut rebase = Rebase::new(&git2_repository, destination_stack.merge_base(ctx)?, None)?;
+        let mut rebase = Rebase::new(&repo, destination_stack.merge_base(ctx)?, None)?;
         rebase.steps(destination_stack_steps.clone())?;
         rebase.rebase_noops(false);
         let result = rebase.rebase()?;
@@ -221,5 +194,12 @@ pub fn move_changes_between_commits(
         Ok(MoveChangesResult {
             replaced_commits: output_commit_mapping,
         })
-    }
+    };
+
+    drop(repo);
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    ws.refresh_from_head(&repo, &meta)?;
+
+    res
 }

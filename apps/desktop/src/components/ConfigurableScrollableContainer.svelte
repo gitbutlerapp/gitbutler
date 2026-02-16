@@ -18,6 +18,13 @@
 			scrollableContainer.scrollToBottom();
 		}
 	}
+
+	// Export method to scroll to top
+	export function scrollToTop() {
+		if (scrollableContainer?.scrollToTop) {
+			scrollableContainer.scrollToTop();
+		}
+	}
 </script>
 
 <ScrollableContainer

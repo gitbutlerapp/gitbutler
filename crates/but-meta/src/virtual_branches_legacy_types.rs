@@ -26,7 +26,7 @@ pub struct VirtualBranches {
 mod stack {
     use std::{fmt, fmt::Display, path, str::FromStr};
 
-    use anyhow::{Context, anyhow};
+    use anyhow::{Context as _, anyhow};
     use but_core::ref_metadata::StackId;
     use gitbutler_reference::{Refname, RemoteRefname};
     use serde::{Deserialize, Serialize, Serializer};
@@ -38,55 +38,56 @@ mod stack {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     pub struct Stack {
         pub id: StackId,
-        /// A user-specified name with no restrictions.
-        /// It will be normalized except to be a valid ref-name if named `refs/gitbutler/<normalize(name)>`.
-        pub name: String,
-        pub notes: String,
         /// If set, this means this virtual branch was originally created from `Some(branch)`.
         /// It can be *any* branch.
         pub source_refname: Option<Refname>,
         /// Upstream tracking branch reference, added when creating a stack from a branch.
         /// Used e.g. when listing commits from a fork.
         pub upstream: Option<RemoteRefname>,
-        // upstream_head is the last commit on we've pushed to the upstream branch
-        #[serde(with = "but_serde::object_id_opt", default)]
-        pub upstream_head: Option<gix::ObjectId>,
-        #[serde(
-            serialize_with = "serialize_u128",
-            deserialize_with = "deserialize_u128"
-        )]
-        pub created_timestamp_ms: u128,
-        #[serde(
-            serialize_with = "serialize_u128",
-            deserialize_with = "deserialize_u128"
-        )]
-        pub updated_timestamp_ms: u128,
-        /// tree is the last git tree written to a session, or merge base tree if this is new. use this for delta calculation from the session data
-        #[serde(with = "but_serde::object_id")]
-        pub tree: gix::ObjectId,
-        /// head is id of the last "virtual" commit in this branch
-        #[serde(with = "but_serde::object_id")]
-        pub head: gix::ObjectId,
-        pub ownership: BranchOwnershipClaims,
         // order is the number by which UI should sort branches
         pub order: usize,
-        // is Some(timestamp), the branch is considered a default destination for new changes.
-        // if more than one branch is selected, the branch with the highest timestamp wins.
-        pub selected_for_changes: Option<i64>,
-        #[serde(default = "default_true")]
-        pub allow_rebasing: bool,
         /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
         /// and its effects are available to the user.
         #[serde(default = "default_true")]
         pub in_workspace: bool,
-        #[serde(default)]
-        pub not_in_workspace_wip_change_id: Option<String>,
         /// Represents the Stack state of pseudo-references ("heads").
         /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
         #[serde(default)]
         pub heads: Vec<StackBranch>,
+
+        // For serialization backwards compatibility
+        // These should not be read, it's just to satisfy past versions of the app
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default)]
+        pub notes: String,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default)]
+        pub ownership: BranchOwnershipClaims,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default = "default_true")]
+        pub allow_rebasing: bool,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
         #[serde(default = "default_false")]
         pub post_commits: bool,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(with = "but_serde::object_id")]
+        #[serde(default = "default_null_object_id")]
+        pub tree: gix::ObjectId,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(serialize_with = "serialize_u128", deserialize_with = "deserialize_u128")]
+        #[serde(default)]
+        pub created_timestamp_ms: u128,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(serialize_with = "serialize_u128", deserialize_with = "deserialize_u128")]
+        #[serde(default)]
+        pub updated_timestamp_ms: u128,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(default)]
+        pub name: String,
+        #[deprecated(note = "Legacy field, do not use. Kept for backwards compatibility.")]
+        #[serde(with = "but_serde::object_id")]
+        #[serde(default = "default_null_object_id")]
+        pub head: gix::ObjectId,
     }
 
     impl Stack {
@@ -96,14 +97,17 @@ mod stack {
             self.heads
                 .last()
                 .map(|head| head.name.clone())
-                .ok_or_else(|| anyhow!("Stack is uninitialized"))
+                .ok_or_else(|| anyhow!("but_meta::Stack::derived_name: Stack is uninitialized"))
         }
+    }
+
+    fn default_null_object_id() -> gix::ObjectId {
+        gix::hash::Kind::Sha1.null()
     }
 
     fn default_true() -> bool {
         true
     }
-
     fn default_false() -> bool {
         false
     }
@@ -125,39 +129,39 @@ mod stack {
     }
 
     impl Stack {
-        pub fn new_with_just_heads(
-            heads: Vec<StackBranch>,
-            created_ms: u128,
-            order: usize,
-            in_workspace: bool,
-        ) -> Self {
+        pub fn new_with_just_heads(heads: Vec<StackBranch>, order: usize, in_workspace: bool) -> Self {
             Stack {
                 id: StackId::generate(),
-                created_timestamp_ms: created_ms,
-                updated_timestamp_ms: created_ms,
                 order,
-                allow_rebasing: true, //  default in V2
                 in_workspace,
                 heads,
 
                 // Don't keep redundant information
-                tree: gix::hash::Kind::Sha1.null(),
-                head: gix::hash::Kind::Sha1.null(),
                 source_refname: None,
                 upstream: None,
-                upstream_head: None,
 
                 // Unused - everything is defined by the top-most branch name.
-                name: "".to_string(),
-                notes: "".to_string(),
-
-                // Related to ownership, obsolete.
-                selected_for_changes: None,
                 // unclear, obsolete
-                not_in_workspace_wip_change_id: None,
-                // unclear
+
+                // For serialization backwards compatibility
+                #[expect(deprecated)]
+                notes: String::new(),
+                #[expect(deprecated)]
+                ownership: BranchOwnershipClaims::default(),
+                #[expect(deprecated)]
+                allow_rebasing: true,
+                #[expect(deprecated)]
                 post_commits: false,
-                ownership: Default::default(),
+                #[expect(deprecated)]
+                tree: gix::hash::Kind::Sha1.null(),
+                #[expect(deprecated)]
+                created_timestamp_ms: 0,
+                #[expect(deprecated)]
+                updated_timestamp_ms: 0,
+                #[expect(deprecated)]
+                name: String::default(),
+                #[expect(deprecated)]
+                head: gix::hash::Kind::Sha1.null(),
             }
         }
     }
@@ -170,12 +174,11 @@ mod stack {
     pub struct StackBranch {
         /// The target of the reference - this can be a commit or a change that points to a commit.
         #[serde(alias = "target")]
-        pub head: CommitOrChangeId, // needs to stay private
+        #[serde(with = "commit_id_serde")]
+        pub head: gix::ObjectId,
         /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
         /// The name must be unique within the repository.
         pub name: String,
-        /// Optional description of the series. This could be markdown or anything our hearts desire.
-        pub description: Option<String>,
         /// The pull request associated with the branch, or None if a pull request has not been created.
         #[serde(default)]
         pub pr_number: Option<usize>,
@@ -191,30 +194,71 @@ mod stack {
     impl StackBranch {
         pub fn new_with_zero_head(
             name: String,
-            description: Option<String>,
             pr_number: Option<usize>,
             review_id: Option<String>,
             archived: bool,
         ) -> Self {
             StackBranch {
                 name,
-                description,
                 pr_number,
                 archived,
                 review_id,
-                head: CommitOrChangeId::CommitId(gix::hash::Kind::Sha1.null().to_string()),
+                head: gix::hash::Kind::Sha1.null(),
+            }
+        }
+    }
+
+    /// Custom serde module for handling the legacy CommitOrChangeId format.
+    /// This deserializes the old enum format but stores it as a gix::ObjectId.
+    /// If a ChangeId is encountered during deserialization, it returns a null ObjectId.
+    mod commit_id_serde {
+        use std::str::FromStr;
+
+        use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+        #[derive(Deserialize)]
+        enum CommitOrChangeIdHelper {
+            CommitId(String),
+            #[allow(dead_code)]
+            ChangeId(String),
+        }
+
+        pub fn serialize<S>(value: &gix::ObjectId, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            #[derive(Serialize)]
+            enum CommitOrChangeId {
+                CommitId(String),
+            }
+            CommitOrChangeId::CommitId(value.to_string()).serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<gix::ObjectId, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            match CommitOrChangeIdHelper::deserialize(deserializer)? {
+                CommitOrChangeIdHelper::CommitId(id) => gix::ObjectId::from_str(&id).map_err(serde::de::Error::custom),
+                CommitOrChangeIdHelper::ChangeId(_) => {
+                    // To find the commit id from a change ID, it would require to scan all applicable commits.
+                    // Change IDs are deprecated anyway, so we return null here. For the most part, the app will use the reference anyways.
+                    Ok(gix::hash::Kind::Sha1.null())
+                }
             }
         }
     }
 
     /// A patch identifier which is either `CommitId` or a `ChangeId`.
     /// ChangeId should always be used if available.
+    ///
+    /// DEPRECATED: This enum is kept only for backwards compatibility during deserialization.
+    /// New code should use `gix::ObjectId` directly.
     #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+    #[deprecated(note = "Use gix::ObjectId directly instead")]
     pub enum CommitOrChangeId {
         /// A reference that points directly to a commit.
         CommitId(String),
-        /// A reference that points to a change (patch) through which a valid commit can be derived.
-        ChangeId(String),
     }
 
     #[derive(Debug, PartialEq, Default, Clone)]
@@ -272,11 +316,7 @@ mod stack {
             let mut file_path_parts = vec![];
             let mut ranges = vec![];
             for part in value.split(':').rev() {
-                match part
-                    .split(',')
-                    .map(str::parse)
-                    .collect::<anyhow::Result<Vec<Hunk>>>()
-                {
+                match part.split(',').map(str::parse).collect::<anyhow::Result<Vec<Hunk>>>() {
                     Ok(rr) => ranges.extend(rr),
                     Err(_) => {
                         file_path_parts.insert(0, part);
@@ -461,8 +501,7 @@ mod target {
                 sha: String,
             }
             let target_data: TargetData = serde::Deserialize::deserialize(d)?;
-            let sha = gix::ObjectId::from_str(&target_data.sha)
-                .map_err(|x| serde::de::Error::custom(x.to_string()))?;
+            let sha = gix::ObjectId::from_str(&target_data.sha).map_err(|x| serde::de::Error::custom(x.to_string()))?;
 
             let target = Target {
                 branch: RemoteRefname::new(&target_data.remote_name, &target_data.branch_name),

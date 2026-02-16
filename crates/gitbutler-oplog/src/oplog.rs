@@ -1,25 +1,22 @@
 use std::{
     collections::{HashMap, hash_map::Entry},
     fs,
+    path::Path,
     str::{FromStr, from_utf8},
-    time::Duration,
 };
 
-use anyhow::{Context, Result, anyhow, bail};
-use but_core::{TreeChange, diff::tree_changes};
+use anyhow::{Context as _, Result, anyhow, bail};
+use but_core::{RepositoryExt, TreeChange, diff::tree_changes};
+use but_ctx::{
+    Context,
+    access::{RepoExclusive, RepoShared},
+};
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{
-    GixRepositoryExt, ObjectIdExt as _, OidExt, RepoExt, git2_to_gix_object_id, gix_time_to_git2,
-    gix_to_git2_oid,
-};
+use but_oxidize::{ObjectIdExt as _, OidExt, gix_time_to_git2};
 use git2::FileMode;
-use gitbutler_command_context::{CommandContext, RepositoryExtLite};
-use gitbutler_project::{
-    AUTO_TRACK_LIMIT_BYTES, Project,
-    access::{WorktreeReadPermission, WorktreeWritePermission},
-};
-use gitbutler_repo::{RepositoryExt, SignaturePurpose};
-use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
+use gitbutler_cherry_pick::RepositoryExtLite;
+use gitbutler_repo::{RepositoryExt as _, SignaturePurpose};
+use gitbutler_stack::{VirtualBranchesHandle, VirtualBranchesState};
 use gix::{ObjectId, bstr::ByteSlice, prelude::ObjectIdExt};
 use tracing::instrument;
 
@@ -29,6 +26,10 @@ use super::{
     state::OplogHandle,
 };
 use crate::{entry::Version, reflog::ReflogCommits};
+
+/// The maximum size of files to automatically start tracking, i.e. untracked files we pick up for tree-creation.
+/// **Inactive for now** while it's hard to tell if it's safe *not* to pick up everything.
+const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
 
 /// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g. virtual branches, conflict state).
@@ -54,7 +55,7 @@ pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
-    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid>;
+    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<git2::Oid>;
 
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
@@ -69,7 +70,7 @@ pub trait OplogExt {
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<git2::Oid>;
 
     /// Creates a snapshot of the current state of the working directory as well as GitButler data.
@@ -80,11 +81,7 @@ pub trait OplogExt {
     /// commit and the current one (after comparing trees).
     ///
     /// Note that errors in snapshot creation is typically ignored, so we want to learn about them.
-    fn create_snapshot(
-        &self,
-        details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
-    ) -> Result<git2::Oid>;
+    fn create_snapshot(&self, details: SnapshotDetails, perm: &mut RepoExclusive) -> Result<git2::Oid>;
 
     /// Lists the snapshots that have been created for the given repository, up to the given limit,
     /// and with the most recent snapshot first, and at the end of the vec.
@@ -101,6 +98,7 @@ pub trait OplogExt {
         limit: usize,
         oplog_commit_id: Option<git2::Oid>,
         exclude_kind: Vec<OperationKind>,
+        include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>>;
 
     /// Reverts to a previous state of the working directory, virtual branches and commits.
@@ -114,27 +112,7 @@ pub trait OplogExt {
     ///
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
-    fn restore_snapshot(
-        &self,
-        snapshot_commit_id: git2::Oid,
-        guard: &mut WorktreeWritePermission,
-    ) -> Result<git2::Oid>;
-
-    /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
-    /// The needs for the automatic snapshotting are:
-    ///  - It needs to facilitate backup of work in progress code
-    ///  - The snapshots should not be too frequent or small - both for UX and performance reasons
-    ///  - Checking if an automatic snapshot is needed should be fast and efficient since it is called on filesystem events
-    ///
-    /// Use `check_if_last_snapshot_older_than` as a way to control if the check should be performed at all, i.e.
-    /// if this is 10s but the last snapshot was done 9s ago, no check if performed and the return value is `false`.
-    ///
-    /// This implementation returns `true` on the following conditions:
-    ///  - Head is pointing to the workspace branch.
-    ///  - If it's been more than 5 minutes since the last snapshot,
-    ///    check the sum of added and removed lines since the last snapshot, otherwise return `false`.
-    ///      * If the sum of added and removed lines is greater than a configured threshold, return `true`, otherwise return `false`.
-    fn should_auto_snapshot(&self, check_if_last_snapshot_older_than: Duration) -> Result<bool>;
+    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid, guard: &mut RepoExclusive) -> Result<git2::Oid>;
 
     /// Returns the diff of the snapshot and it's parent. It only includes the workdir changes.
     ///
@@ -148,8 +126,8 @@ pub trait OplogExt {
     fn oplog_head(&self) -> Result<Option<git2::Oid>>;
 }
 
-impl OplogExt for CommandContext {
-    fn prepare_snapshot(&self, perm: &WorktreeReadPermission) -> Result<git2::Oid> {
+impl OplogExt for Context {
+    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<git2::Oid> {
         prepare_snapshot(self, perm)
     }
 
@@ -157,24 +135,32 @@ impl OplogExt for CommandContext {
         &self,
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
     ) -> Result<git2::Oid> {
-        commit_snapshot(self.project(), snapshot_tree_id, details, perm)
+        commit_snapshot(
+            &self.project_data_dir(),
+            &*self.git2_repo.get()?,
+            snapshot_tree_id,
+            details,
+            perm,
+        )
     }
 
     #[instrument(skip(self, details, perm), err(Debug))]
-    fn create_snapshot(
-        &self,
-        details: SnapshotDetails,
-        perm: &mut WorktreeWritePermission,
-    ) -> Result<git2::Oid> {
+    fn create_snapshot(&self, details: SnapshotDetails, perm: &mut RepoExclusive) -> Result<git2::Oid> {
         let tree_id = prepare_snapshot(self, perm.read_permission())?;
-        commit_snapshot(self.project(), tree_id, details, perm)
+        commit_snapshot(
+            &self.project_data_dir(),
+            &*self.git2_repo.get()?,
+            tree_id,
+            details,
+            perm,
+        )
     }
 
     #[instrument(skip(self), err(Debug))]
     fn get_snapshot(&self, sha: git2::Oid) -> Result<Snapshot> {
-        let repo = self.project().open_for_merging()?;
+        let repo = self.repo.get()?;
         let commit = repo.find_commit(sha.to_gix())?;
         let commit_time = gix_time_to_git2(commit.time()?);
         let details = commit
@@ -198,19 +184,21 @@ impl OplogExt for CommandContext {
         limit: usize,
         oplog_commit_id: Option<git2::Oid>,
         exclude_kind: Vec<OperationKind>,
+        include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>> {
-        let repo = self.project().open_for_merging()?;
-        let traversal_root_id = git2_to_gix_object_id(match oplog_commit_id {
+        let repo = self.repo.get()?;
+        let traversal_root_id = match oplog_commit_id {
             Some(id) => id,
             None => {
-                let oplog_state = OplogHandle::new(&self.project().gb_dir());
+                let oplog_state = OplogHandle::new(&self.project_data_dir());
                 if let Some(id) = oplog_state.oplog_head()? {
                     id
                 } else {
                     return Ok(vec![]);
                 }
             }
-        })
+        }
+        .to_gix()
         .attach(&repo);
 
         let mut snapshots = Vec::new();
@@ -231,25 +219,32 @@ impl OplogExt for CommandContext {
             }
 
             let tree = commit.tree()?;
-            if tree
-                .lookup_entry_by_path("virtual_branches.toml")?
-                .is_none()
-            {
+            if tree.lookup_entry_by_path("virtual_branches.toml")?.is_none() {
                 // We reached a tree that is not a snapshot
                 tracing::warn!("Commit {commit_id} didn't seem to be an oplog commit - skipping");
                 continue;
             }
 
-            let commit_id = gix_to_git2_oid(commit_id);
+            let commit_id = commit_id.to_git2();
             let details = commit
                 .message_raw()?
                 .to_str()
                 .ok()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
             let commit_time = gix_time_to_git2(commit.time()?);
-            if let Some(details) = &details
-                && exclude_kind.contains(&details.operation)
-            {
+            if let Some(details) = &details {
+                // Skip if this kind is excluded
+                if exclude_kind.contains(&details.operation) {
+                    continue;
+                }
+                // Skip if include filter is set and this kind is not included
+                if let Some(ref include) = include_kind
+                    && !include.contains(&details.operation)
+                {
+                    continue;
+                }
+            } else if include_kind.is_some() {
+                // If we require specific kinds but have no details, skip
                 continue;
             }
 
@@ -266,32 +261,14 @@ impl OplogExt for CommandContext {
         Ok(snapshots)
     }
 
-    fn restore_snapshot(
-        &self,
-        snapshot_commit_id: git2::Oid,
-        guard: &mut WorktreeWritePermission,
-    ) -> Result<git2::Oid> {
+    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid, guard: &mut RepoExclusive) -> Result<git2::Oid> {
         // let mut guard = self.exclusive_worktree_access();
         restore_snapshot(self, snapshot_commit_id, guard)
     }
 
-    #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
-    fn should_auto_snapshot(&self, check_if_last_snapshot_older_than: Duration) -> Result<bool> {
-        let last_snapshot_time = OplogHandle::new(&self.project().gb_dir()).modified_at()?;
-        if last_snapshot_time.elapsed()? <= check_if_last_snapshot_older_than {
-            return Ok(false);
-        }
-
-        let repo = self.project().open_git2()?;
-        if repo.workspace_ref_from_head().is_err() {
-            return Ok(false);
-        }
-        Ok(lines_since_snapshot(self, &repo)? > self.project().snapshot_lines_threshold())
-    }
-
     fn snapshot_diff(&self, sha: git2::Oid) -> Result<Vec<TreeChange>> {
-        let gix_repo = self.project().open_for_merging()?;
-        let repo = self.project().open_git2()?;
+        let gix_repo = self.clone_repo_for_merging()?;
+        let repo = self.git2_repo.get()?;
 
         let commit = repo.find_commit(sha)?;
 
@@ -306,12 +283,11 @@ impl OplogExt for CommandContext {
             None
         };
 
-        let (tree_changes, _) = tree_changes(&gix_repo, old_wd_tree_id, wd_tree.id().to_gix())?;
-        Ok(tree_changes)
+        tree_changes(&gix_repo, old_wd_tree_id, wd_tree.id().to_gix())
     }
 
     fn snapshot_workspace_tree(&self, sha: gix::ObjectId) -> Result<gix::ObjectId> {
-        let repo = self.gix_repo()?;
+        let repo = self.repo.get()?;
         let tree = repo.find_commit(sha)?.tree()?;
         let workspace = tree
             .find_entry("worktree")
@@ -321,7 +297,7 @@ impl OplogExt for CommandContext {
 
     /// Gets the sha of the last snapshot commit if present.
     fn oplog_head(&self) -> Result<Option<git2::Oid>> {
-        let oplog_state = OplogHandle::new(&self.project().gb_dir());
+        let oplog_state = OplogHandle::new(&self.project_data_dir());
         oplog_state.oplog_head()
     }
 }
@@ -331,7 +307,7 @@ fn get_workdir_tree(
     wd_trees_cache: Option<&mut HashMap<gix::ObjectId, gix::ObjectId>>,
     commit_id: impl Into<gix::ObjectId>,
     repo: &gix::Repository,
-    ctx: &CommandContext,
+    ctx: &Context,
 ) -> Result<ObjectId, anyhow::Error> {
     let snapshot_commit = repo.find_commit(commit_id.into())?;
     let details = snapshot_commit
@@ -357,36 +333,27 @@ fn get_workdir_tree(
     match wd_trees_cache {
         Some(cache) => {
             if let Entry::Vacant(entry) = cache.entry(snapshot_commit.id)
-                && let Ok(tree_id) =
-                    tree_from_applied_vbranches(repo, gix_to_git2_oid(snapshot_commit.id), ctx)
+                && let Ok(tree_id) = tree_from_applied_vbranches(repo, snapshot_commit.id.to_git2(), ctx)
             {
-                entry.insert(git2_to_gix_object_id(tree_id));
+                entry.insert(tree_id.to_gix());
             }
-            cache.get(&snapshot_commit.id).copied().ok_or_else(|| {
-                anyhow!("Could not get a tree of all applied virtual branches merged")
-            })
+            cache
+                .get(&snapshot_commit.id)
+                .copied()
+                .ok_or_else(|| anyhow!("Could not get a tree of all applied virtual branches merged"))
         }
-        None => tree_from_applied_vbranches(repo, gix_to_git2_oid(snapshot_commit.id), ctx)
-            .map(|x| x.to_gix()),
+        None => tree_from_applied_vbranches(repo, snapshot_commit.id.to_git2(), ctx).map(|x| x.to_gix()),
     }
 }
 
-fn prepare_snapshot(
-    ctx: &CommandContext,
-    _shared_access: &WorktreeReadPermission,
-) -> Result<git2::Oid> {
-    let repo = ctx.project().open_git2()?;
+pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<git2::Oid> {
+    let repo = ctx.git2_repo.get()?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     // grab the target commit
     let default_target_commit = repo.find_commit(vb_state.get_default_target()?.sha)?;
     let target_tree_id = default_target_commit.tree_id();
-
-    // Create a blob out of `.git/gitbutler/virtual_branches.toml`
-    let vb_path = repo.path().join("gitbutler").join("virtual_branches.toml");
-    let vb_content = fs::read(vb_path)?;
-    let vb_blob_id = repo.blob(&vb_content)?;
 
     // Create a tree out of the conflicts state if present
     let conflicts_tree_id = write_conflicts_tree(&repo)?;
@@ -400,14 +367,12 @@ fn prepare_snapshot(
     tree_builder.insert("index", index_tree_oid, FileMode::Tree.into())?;
     tree_builder.insert("target_tree", target_tree_id, FileMode::Tree.into())?;
     tree_builder.insert("conflicts", conflicts_tree_id, FileMode::Tree.into())?;
-    tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
 
     // go through all virtual branches and create a subtree for each with the tree and any commits encoded
     let mut branches_tree_builder = repo.treebuilder(None)?;
     let mut head_tree_ids = Vec::new();
 
-    let r = &repo;
-    let gix_repo = r.to_gix()?;
+    let gix_repo = ctx.repo.get()?;
 
     for mut stack in vb_state.list_stacks_in_workspace()? {
         head_tree_ids.push(stack.tree(ctx)?);
@@ -419,7 +384,7 @@ fn prepare_snapshot(
 
         // let's get all the commits between the branch head and the target
         let mut revwalk = repo.revwalk()?;
-        revwalk.push(stack.head_oid(&gix_repo)?.to_git2())?;
+        revwalk.push(stack.head_oid(ctx)?.to_git2())?;
         revwalk.hide(default_target_commit.id())?;
 
         // If the references are out of sync, now is a good time to update them
@@ -437,24 +402,24 @@ fn prepare_snapshot(
             commit_tree_builder.insert("tree", commit_tree.id(), FileMode::Tree.into())?;
             let commit_tree_id = commit_tree_builder.write()?;
 
-            commits_tree_builder.insert(
-                commit_id.to_string(),
-                commit_tree_id,
-                FileMode::Tree.into(),
-            )?;
+            commits_tree_builder.insert(commit_id.to_string(), commit_tree_id, FileMode::Tree.into())?;
         }
 
         let commits_tree_id = commits_tree_builder.write()?;
         branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
 
         let branch_tree_id = branch_tree_builder.write()?;
-        branches_tree_builder.insert(
-            stack.id.to_string(),
-            branch_tree_id,
-            FileMode::Tree.into(),
-        )?;
+        branches_tree_builder.insert(stack.id.to_string(), branch_tree_id, FileMode::Tree.into())?;
     }
 
+    // The loop above may update the toml file in the stack.sync_heads_with_references call so write the virtual_branches.toml after
+    // It may be the case that with the refactoring through `but-meta` the head value is no longer in sync so sync_heads_with_references is the final attempt to sync it
+    // This is relevant only for snapshot restore.
+    // Create a blob out of `.git/gitbutler/virtual_branches.toml`
+    let vb_path = ctx.project_data_dir().join("virtual_branches.toml");
+    let vb_content = fs::read(vb_path)?;
+    let vb_blob_id = repo.blob(&vb_content)?;
+    tree_builder.insert("virtual_branches.toml", vb_blob_id, FileMode::Blob.into())?;
     // Add the worktree tree
     let worktree = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
     tree_builder.insert("worktree", worktree.id(), FileMode::Tree.into())?;
@@ -476,11 +441,7 @@ fn prepare_snapshot(
 
         // have to make a subtree to match
         let mut commits_tree_builder = repo.treebuilder(None)?;
-        commits_tree_builder.insert(
-            head_commit.id().to_string(),
-            head_commit_tree_id,
-            FileMode::Tree.into(),
-        )?;
+        commits_tree_builder.insert(head_commit.id().to_string(), head_commit_tree_id, FileMode::Tree.into())?;
         let commits_tree_id = commits_tree_builder.write()?;
 
         let mut branch_tree_builder = repo.treebuilder(None)?;
@@ -499,15 +460,15 @@ fn prepare_snapshot(
 }
 
 fn commit_snapshot(
-    project: &Project,
+    project_data_dir: &Path,
+    repo: &git2::Repository,
     snapshot_tree_id: git2::Oid,
     details: SnapshotDetails,
-    _exclusive_access: &mut WorktreeWritePermission,
+    _exclusive_access: &mut RepoExclusive,
 ) -> Result<git2::Oid> {
-    let repo = project.open_git2()?;
     let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
 
-    let oplog_state = OplogHandle::new(&project.gb_dir());
+    let oplog_state = OplogHandle::new(project_data_dir);
     let oplog_head_commit = oplog_state
         .oplog_head()?
         .and_then(|head_id| repo.find_commit(head_id).ok());
@@ -515,10 +476,7 @@ fn commit_snapshot(
     // Construct a new commit
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
-    let parents = oplog_head_commit
-        .as_ref()
-        .map(|head| vec![head])
-        .unwrap_or_default();
+    let parents = oplog_head_commit.as_ref().map(|head| vec![head]).unwrap_or_default();
     let snapshot_commit_id = repo.commit(
         None,
         &author,
@@ -530,31 +488,33 @@ fn commit_snapshot(
 
     oplog_state.set_oplog_head(snapshot_commit_id)?;
 
-    set_reference_to_oplog(project.git_dir(), ReflogCommits::new(project)?)?;
+    set_reference_to_oplog(repo.path(), ReflogCommits::new(project_data_dir)?)?;
 
     Ok(snapshot_commit_id)
 }
 
 fn restore_snapshot(
-    ctx: &CommandContext,
+    ctx: &Context,
     snapshot_commit_id: git2::Oid,
-    exclusive_access: &mut WorktreeWritePermission,
+    exclusive_access: &mut RepoExclusive,
 ) -> Result<git2::Oid> {
-    let repo = ctx.project().open_git2()?;
+    let git2_repo = ctx.git2_repo.get()?;
+    // Use a separate repo without caching so we are sure the 'has commit' checks pick up all changes.
+    let repo = ctx.repo.get()?;
 
     let before_restore_snapshot_result = prepare_snapshot(ctx, exclusive_access.read_permission());
-    let snapshot_commit = repo.find_commit(snapshot_commit_id)?;
+    let snapshot_commit = git2_repo.find_commit(snapshot_commit_id)?;
 
     let snapshot_tree = snapshot_commit.tree()?;
     let vb_toml_entry = snapshot_tree
         .get_name("virtual_branches.toml")
         .context("failed to get virtual_branches.toml blob")?;
     // virtual_branches.toml blob
-    let vb_toml_blob = repo
+    let vb_toml_blob = git2_repo
         .find_blob(vb_toml_entry.id())
         .context("failed to convert virtual_branches tree entry to blob")?;
 
-    if let Err(err) = restore_conflicts_tree(&snapshot_tree, &repo) {
+    if let Err(err) = restore_conflicts_tree(&snapshot_tree, &git2_repo) {
         tracing::warn!("failed to restore conflicts tree - ignoring: {err}")
     }
 
@@ -563,14 +523,14 @@ fn restore_snapshot(
     let vb_tree_entry = snapshot_tree
         .get_name("virtual_branches")
         .context("failed to get virtual_branches tree entry")?;
-    let vb_tree = repo
+    let vb_tree = git2_repo
         .find_tree(vb_tree_entry.id())
         .context("failed to convert virtual_branches tree entry to tree")?;
 
     // walk through all the entries (branches by id)
     let walker = vb_tree.iter();
     for branch_entry in walker {
-        let branch_tree = repo
+        let branch_tree = git2_repo
             .find_tree(branch_entry.id())
             .context("failed to convert virtual_branches tree entry to tree")?;
         let branch_name = branch_entry.name();
@@ -578,7 +538,7 @@ fn restore_snapshot(
         let commits_tree_entry = branch_tree
             .get_name("commits")
             .context("failed to get commits tree entry")?;
-        let commits_tree = repo
+        let commits_tree = git2_repo
             .find_tree(commits_tree_entry.id())
             .context("failed to convert commits tree entry to tree")?;
 
@@ -588,9 +548,9 @@ fn restore_snapshot(
             if let Some(commit_id) = commit_entry.name() {
                 // check for the oid in the repo
                 let commit_oid = git2::Oid::from_str(commit_id)?;
-                if repo.find_commit(commit_oid).is_err() {
+                if !repo.has_object(commit_oid.to_gix()) {
                     // commit is not in the repo, let's build it from our data
-                    let new_commit_oid = deserialize_commit(&repo, &commit_entry)?;
+                    let new_commit_oid = deserialize_commit(&git2_repo, &commit_entry)?;
                     if new_commit_oid != commit_oid {
                         bail!("commit id mismatch: failed to recreate a commit from its parts");
                     }
@@ -603,37 +563,36 @@ fn restore_snapshot(
                     //           Then a missing workspace branch also doesn't have to be
                     //           fatal, but we wouldn't want to `set_head()` if we are
                     //           not already on the workspace branch.
-                    let mut workspace_ref = repo.workspace_ref_from_head()?;
+                    let mut workspace_ref = git2_repo.workspace_ref_from_head()?;
 
                     // reset the branch if it's there, otherwise bail as we don't meddle with other branches
                     // need to detach the head for just a moment.
-                    repo.set_head_detached(commit_oid)?;
+                    git2_repo.set_head_detached(commit_oid)?;
                     workspace_ref.delete()?;
 
                     // ok, now we set the branch to what it was and update HEAD
-                    let workspace_commit = repo.find_commit(commit_oid)?;
-                    repo.branch("gitbutler/workspace", &workspace_commit, true)?;
+                    let workspace_commit = git2_repo.find_commit(commit_oid)?;
+                    git2_repo.branch("gitbutler/workspace", &workspace_commit, true)?;
                     // make sure head is gitbutler/workspace
-                    repo.set_head("refs/heads/gitbutler/workspace")?;
+                    git2_repo.set_head("refs/heads/gitbutler/workspace")?;
                 }
             }
         }
     }
 
-    repo.workspace_ref_from_head().context(
-        "We will not change a worktree which for some reason isn't on the workspace branch",
-    )?;
+    git2_repo
+        .workspace_ref_from_head()
+        .context("We will not change a worktree which for some reason isn't on the workspace branch")?;
 
-    let gix_repo = ctx.project().open_for_merging()?;
+    let gix_repo = ctx.clone_repo_for_merging()?;
 
-    let workdir_tree = repo.find_tree(
-        get_workdir_tree(None, snapshot_commit_id.to_gix(), &gix_repo, ctx)?.to_git2(),
-    )?;
+    let workdir_tree =
+        git2_repo.find_tree(get_workdir_tree(None, snapshot_commit_id.to_gix(), &gix_repo, ctx)?.to_git2())?;
 
-    repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
+    git2_repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
     // Define the checkout builder
-    if ctx.app_settings().feature_flags.cv3 {
+    if ctx.settings.feature_flags.cv3 {
         but_core::worktree::safe_checkout_from_head(
             workdir_tree.id().to_gix(),
             &gix_repo,
@@ -644,17 +603,17 @@ fn restore_snapshot(
         checkout_builder.remove_untracked(true);
         checkout_builder.force();
         // Checkout the tree
-        repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
+        git2_repo.checkout_tree(workdir_tree.as_object(), Some(&mut checkout_builder))?;
     }
 
     // Update virtual_branches.toml with the state from the snapshot
     fs::write(
-        repo.path().join("gitbutler").join("virtual_branches.toml"),
+        ctx.project_data_dir().join("virtual_branches.toml"),
         vb_toml_blob.content(),
     )?;
 
     // Now that the toml file has been restored, update references to reflect the the values from virtual_branches.toml
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = vb_state.list_stacks_in_workspace()?;
     for stack in stacks {
         for branch in stack.heads {
@@ -666,10 +625,10 @@ fn restore_snapshot(
     let index_tree_entry = snapshot_tree
         .get_name("index")
         .context("failed to get virtual_branches.toml blob")?;
-    let index_tree = repo
+    let index_tree = git2_repo
         .find_tree(index_tree_entry.id())
         .context("failed to convert index tree entry to tree")?;
-    let mut index = repo.index()?;
+    let mut index = git2_repo.index()?;
     index.read_tree(&index_tree)?;
 
     let restored_operation = snapshot_commit
@@ -702,7 +661,8 @@ fn restore_snapshot(
         ],
     };
     commit_snapshot(
-        ctx.project(),
+        &ctx.project_data_dir(),
+        &*ctx.git2_repo.get()?,
         before_restore_snapshot_tree_id,
         details,
         exclusive_access,
@@ -758,80 +718,14 @@ fn write_conflicts_tree(repo: &git2::Repository) -> Result<git2::Oid> {
         None
     };
     let mut tree_builder = repo.treebuilder(None)?;
-    if merge_parent_blob.is_some() {
-        tree_builder.insert(
-            "base_merge_parent",
-            merge_parent_blob.unwrap(),
-            FileMode::Blob.into(),
-        )?;
+    if let Some(merge_parent_blob) = merge_parent_blob {
+        tree_builder.insert("base_merge_parent", merge_parent_blob, FileMode::Blob.into())?;
     }
-    if conflicts_blob.is_some() {
-        tree_builder.insert("conflicts", conflicts_blob.unwrap(), FileMode::Blob.into())?;
+    if let Some(conflicts_blob) = conflicts_blob {
+        tree_builder.insert("conflicts", conflicts_blob, FileMode::Blob.into())?;
     }
     let conflicts_tree = tree_builder.write()?;
     Ok(conflicts_tree)
-}
-
-/// Returns the number of lines of code (added + removed) since the last snapshot in `project`.
-/// Includes untracked files.
-/// `repo` is an already opened project repository.
-///
-/// If there are no snapshots, 0 is returned.
-fn lines_since_snapshot(ctx: &CommandContext, repo: &git2::Repository) -> Result<usize> {
-    // This looks at the diff between the tree of the currently selected as 'default' branch (where new changes go)
-    // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
-    // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
-    repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
-
-    let oplog_state = OplogHandle::new(&ctx.project().gb_dir());
-    let Some(oplog_commit_id) = oplog_state.oplog_head()? else {
-        return Ok(0);
-    };
-
-    let stacks = VirtualBranchesHandle::new(ctx.project().gb_dir()).list_stacks_in_workspace()?;
-    let mut lines_changed = 0;
-    let dirty_branches = stacks.iter().filter(|b| !b.ownership.claims.is_empty());
-    for branch in dirty_branches {
-        lines_changed += branch_lines_since_snapshot(branch, repo, oplog_commit_id, ctx)?;
-    }
-    Ok(lines_changed)
-}
-
-#[instrument(level = tracing::Level::DEBUG, skip(stack, repo, ctx), err(Debug))]
-fn branch_lines_since_snapshot(
-    stack: &Stack,
-    repo: &git2::Repository,
-    head_sha: git2::Oid,
-    ctx: &CommandContext,
-) -> Result<usize> {
-    let active_branch_tree = repo.find_tree(stack.tree(ctx)?)?;
-
-    let commit = repo.find_commit(head_sha)?;
-    let head_tree = commit.tree()?;
-    let virtual_branches = head_tree
-        .get_name("virtual_branches")
-        .ok_or_else(|| anyhow!("failed to get virtual_branches tree entry"))?;
-    let virtual_branches = repo.find_tree(virtual_branches.id())?;
-    let old_active_branch = virtual_branches
-        .get_name(stack.id.to_string().as_str())
-        .ok_or_else(|| anyhow!("failed to get active branch from tree entry"))?;
-    let old_active_branch = repo.find_tree(old_active_branch.id())?;
-    let old_active_branch_tree = old_active_branch
-        .get_name("tree")
-        .ok_or_else(|| anyhow!("failed to get workspace tree entry"))?;
-    let old_active_branch_tree = repo.find_tree(old_active_branch_tree.id())?;
-
-    let mut opts = git2::DiffOptions::new();
-    opts.include_untracked(true);
-    opts.ignore_submodules(true);
-
-    let diff = repo.diff_tree_to_tree(
-        Some(&active_branch_tree),
-        Some(&old_active_branch_tree),
-        Some(&mut opts),
-    );
-    let stats = diff?.stats()?;
-    Ok(stats.deletions() + stats.insertions())
 }
 
 fn serialize_commit(commit: &git2::Commit<'_>) -> Vec<u8> {
@@ -842,10 +736,7 @@ fn serialize_commit(commit: &git2::Commit<'_>) -> Vec<u8> {
 
 /// we get the data from the blob entry and re-create a commit object from it,
 /// whose returned id should match the one we stored.
-fn deserialize_commit(
-    repo: &git2::Repository,
-    commit_entry: &git2::TreeEntry,
-) -> Result<git2::Oid> {
+fn deserialize_commit(repo: &git2::Repository, commit_entry: &git2::TreeEntry) -> Result<git2::Oid> {
     let commit_tree = repo
         .find_tree(commit_entry.id())
         .context("failed to convert commit tree entry to tree")?;
@@ -855,9 +746,7 @@ fn deserialize_commit(
     let commit_blob = repo
         .find_blob(commit_blob_entry.id())
         .context("failed to convert commit tree entry to blob")?;
-    let new_commit_oid = repo
-        .odb()?
-        .write(git2::ObjectType::Commit, commit_blob.content())?;
+    let new_commit_oid = repo.odb()?.write(git2::ObjectType::Commit, commit_blob.content())?;
     Ok(new_commit_oid)
 }
 
@@ -866,9 +755,9 @@ fn deserialize_commit(
 fn tree_from_applied_vbranches(
     repo: &gix::Repository,
     snapshot_commit_id: git2::Oid,
-    ctx: &CommandContext,
+    ctx: &Context,
 ) -> Result<git2::Oid> {
-    let snapshot_commit = repo.find_commit(git2_to_gix_object_id(snapshot_commit_id))?;
+    let snapshot_commit = repo.find_commit(snapshot_commit_id.to_gix())?;
     let snapshot_tree = snapshot_commit.tree()?;
 
     // If the `worktree` subtree is available, we should return that instead
@@ -888,10 +777,8 @@ fn tree_from_applied_vbranches(
         .find_blob(vb_toml_entry.id())
         .context("failed to convert virtual_branches tree entry to blob")?;
 
-    let vbs_from_toml: VirtualBranchesState = toml::from_str::<
-        virtual_branches_legacy_types::VirtualBranches,
-    >(from_utf8(&vb_toml_blob.data)?)?
-    .into();
+    let vbs_from_toml: VirtualBranchesState =
+        toml::from_str::<virtual_branches_legacy_types::VirtualBranches>(from_utf8(&vb_toml_blob.data)?)?.into();
     let applied_branch_trees: Vec<_> = vbs_from_toml
         .list_stacks_in_workspace()?
         .iter()
@@ -922,5 +809,5 @@ fn tree_from_applied_vbranches(
         }
     }
 
-    Ok(gix_to_git2_oid(workdir_tree_id))
+    Ok(workdir_tree_id.to_git2())
 }

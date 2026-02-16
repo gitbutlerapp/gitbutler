@@ -6,6 +6,11 @@ function remote_tracking_caught_up() {
   setup_remote_tracking "$1"
 }
 
+function git-init-frozen() {
+  git init
+  git config gitbutler.testing.changeId 1
+}
+
 function setup_remote_tracking() {
   local branch_name="${1:?}"
   local remote_branch_name=${2:-"$branch_name"}
@@ -125,7 +130,7 @@ function add_change_id_to_given_commit() {
   local b="${1:?first argument is the single-digit number of the change-id}"
   local change_id="${a:0:${#a}-${#b}}${b}"
 
-   # Insert the Change-ID header lines after the committer line.
+   # Insert the GitButler header lines at the first blank line (before the commit message).
    git cat-file -p "${2:?second argument is the commit to add a changeid to}" \
    | awk -v cid="$change_id" '
      BEGIN { injected = 0 }

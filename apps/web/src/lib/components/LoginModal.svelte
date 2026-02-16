@@ -53,7 +53,7 @@
 	.login-modal__illustration {
 		width: 240px;
 		height: 300px;
-		background-color: var(--clr-illustration-bg);
+		background-color: var(--clr-art-scene-bg);
 
 		@media (--tablet-viewport) {
 			display: none;

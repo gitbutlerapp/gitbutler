@@ -6,7 +6,7 @@ use but_core::ui;
 //       that way computations of merge-bases/commits don't have to be aligned.
 pub fn changes_in_branch(
     repo: &gix::Repository,
-    workspace: &but_graph::projection::Workspace<'_>,
+    workspace: &but_graph::projection::Workspace,
     branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<ui::TreeChanges> {
     let commits = if let Some((_, segment)) = workspace.find_segment_and_stack_by_refname(branch) {
@@ -15,22 +15,17 @@ pub fn changes_in_branch(
     } else {
         // TODO: this should be (kept) in sync with branch-listing!
         let tip = repo.find_reference(branch)?.peel_to_commit()?.id;
-        workspace.target.as_ref().and_then(|target| {
+        workspace.target_ref.as_ref().and_then(|target| {
             // NOTE: Can't do merge-base computation in graph as `branch` might not be contained in it.
-            let base = workspace
-                .graph
-                .tip_skip_empty(target.segment_index)
-                .map(|c| c.id)?;
+            let base = workspace.graph.tip_skip_empty(target.segment_index).map(|c| c.id)?;
             // This works because the lower-bound itself is the merge-base
             // between all applicable targets and the workspace branches.
-            repo.merge_base(tip, base)
-                .ok()
-                .map(|base| (tip, base.detach()))
+            repo.merge_base(tip, base).ok().map(|base| (tip, base.detach()))
         })
     };
 
     let Some((tip, base)) = commits else {
         return Ok(ui::TreeChanges::default());
     };
-    but_core::diff::ui::changes_in_range(repo, tip, base)
+    but_core::diff::ui::changes_with_line_stats_in_range(repo, tip, base)
 }

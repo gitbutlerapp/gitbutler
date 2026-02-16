@@ -8,7 +8,6 @@
 	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
 	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
 	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
-	import DiffLineSelection from '$lib/diff/lineSelection.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { updateFavIcon } from '$lib/utils/faviconUtils';
 	import { inject } from '@gitbutler/core/context';
@@ -41,7 +40,6 @@
 	const userService = inject(USER_SERVICE);
 	const user = $derived(userService.user);
 	const chatMinimizer = new ChatMinimize();
-	const diffLineSelection = new DiffLineSelection(chatMinimizer);
 
 	const chatTabletModeBreakpoint = 1024;
 	let isChatTabletMode = $state(window.innerWidth < chatTabletModeBreakpoint);
@@ -284,15 +282,6 @@
 						{patchCommit}
 						changeId={data.changeId}
 						commitPageHeaderHeight={headerHeight}
-						toggleDiffLine={(f, s, p) => diffLineSelection.toggle(f, s, p)}
-						selectedSha={diffLineSelection.selectedSha}
-						selectedLines={diffLineSelection.selectedLines}
-						onCopySelection={(sections) => diffLineSelection.copy(sections)}
-						onQuoteSelection={() => {
-							diffLineSelection.quote();
-							chatComponent?.focus();
-						}}
-						clearLineSelection={(fileName) => diffLineSelection.clear(fileName)}
 					/>
 				</div>
 
@@ -317,8 +306,6 @@
 							changeId={data.changeId}
 							minimized={chatMinimizer.value}
 							onMinimizeToggle={() => chatMinimizer.toggle()}
-							diffSelection={diffLineSelection.diffSelection}
-							clearDiffSelection={() => diffLineSelection.clear()}
 						/>
 					</div>
 				{/if}

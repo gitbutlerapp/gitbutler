@@ -1,10 +1,10 @@
 [package]
 name = "but-feedback"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 test = false
@@ -12,10 +12,7 @@ doctest = false
 
 [dependencies]
 but-graph.workspace = true
-but-settings.workspace = true
-
-gitbutler-command-context.workspace = true
-gitbutler-project.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 
 anyhow.workspace = true
 # Version must match the one in `tauri plugin updater` to avoid duplication.

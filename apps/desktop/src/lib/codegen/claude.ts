@@ -57,6 +57,10 @@ export class ClaudeCodeService {
 		return this.api.endpoints.updatePermissionRequest.mutate;
 	}
 
+	get answerAskUserQuestion() {
+		return this.api.endpoints.answerAskUserQuestion.mutate;
+	}
+
 	get cancelSession() {
 		return this.api.endpoints.cancelSession.mutate;
 	}
@@ -182,13 +186,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					await lifecycleApi.cacheDataLoaded;
 
 					const unsubscribe = listen<ClaudeMessage>(
-						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,
+						`project://${arg.projectId}/claude/${arg.stackId}/message_received`,
 						async (event) => {
 							const { payload } = event.payload;
 							if (payload.source === 'gitButler' && payload.type === 'commitCreated') {
-								lifecycleApi.dispatch(
-									api.util.invalidateTags([invalidatesItem(ReduxTag.StackDetails, arg.stackId)])
-								);
+								lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.HeadSha)]));
 							}
 							lifecycleApi.updateCachedData((events) => {
 								events.push(event.payload);
@@ -245,6 +247,20 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					invalidatesItem(ReduxTag.ClaudePermissionRequests, args.projectId)
 				]
 			}),
+			answerAskUserQuestion: build.mutation<
+				boolean,
+				{
+					projectId: string;
+					stackId: string;
+					answers: Record<string, string>;
+				}
+			>({
+				extraOptions: {
+					command: 'claude_answer_ask_user_question',
+					actionName: 'Answer Question'
+				},
+				query: (args) => args
+			}),
 			cancelSession: build.mutation<
 				boolean,
 				{
@@ -280,7 +296,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					await lifecycleApi.cacheDataLoaded;
 
 					const unsubscribe = listen<ClaudeMessage>(
-						`project://${arg.projectId}/claude/${arg.stackId}/message_recieved`,
+						`project://${arg.projectId}/claude/${arg.stackId}/message_received`,
 						async () => {
 							const active = await invoke<boolean>('claude_is_stack_active', arg);
 							lifecycleApi.updateCachedData(() => active);

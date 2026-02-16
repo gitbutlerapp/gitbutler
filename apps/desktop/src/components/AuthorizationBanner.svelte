@@ -1,6 +1,6 @@
 <script lang="ts">
 	import LoginButtons from '$components/LoginButtons.svelte';
-	import { Icon, SectionCard } from '@gitbutler/ui';
+	import { CardGroup, Icon } from '@gitbutler/ui';
 
 	interface Props {
 		title?: string;
@@ -13,17 +13,19 @@
 	}: Props = $props();
 </script>
 
-<SectionCard orientation="row">
-	{#snippet iconSide()}
-		<Icon name="warning" color="warning" />
-	{/snippet}
-	{#snippet title()}
-		{titleLabel}
-	{/snippet}
-	{#snippet caption()}
-		{message}
-	{/snippet}
-	{#snippet actions()}
-		<LoginButtons />
-	{/snippet}
-</SectionCard>
+<CardGroup>
+	<CardGroup.Item>
+		{#snippet iconSide()}
+			<Icon name="warning" color="warning" />
+		{/snippet}
+		{#snippet title()}
+			{titleLabel}
+		{/snippet}
+		{#snippet caption()}
+			{message}
+		{/snippet}
+		{#snippet actions()}
+			<LoginButtons />
+		{/snippet}
+	</CardGroup.Item>
+</CardGroup>

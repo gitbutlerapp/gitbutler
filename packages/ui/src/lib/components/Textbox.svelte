@@ -31,7 +31,6 @@
 		disabled?: boolean;
 		readonly?: boolean;
 		required?: boolean;
-		selectall?: boolean;
 		spellcheck?: boolean;
 		autocorrect?: boolean;
 		autocomplete?: boolean;
@@ -68,7 +67,6 @@
 		disabled,
 		readonly,
 		required,
-		selectall,
 		spellcheck,
 		autocorrect,
 		autocomplete,
@@ -109,23 +107,28 @@
 		| 'time';
 
 	onMount(() => {
-		if (selectall) htmlInput.select();
-		else if (autofocus) {
+		if (autofocus) {
 			tick().then(() => {
-				htmlInput.focus();
+				if (htmlInput && !htmlInput.disabled) {
+					htmlInput.focus();
+				}
 			});
 		}
 	});
 
-	function handleKeydown(e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) {
-		// Handle cmd+a (Mac) or ctrl+a (Windows/Linux) to select all text
-		if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-			e.preventDefault();
-			e.currentTarget.select();
-		}
+	function handleBlur(e: FocusEvent & { currentTarget: EventTarget & HTMLInputElement }) {
+		onblur?.(e);
+	}
 
-		// Call the original onkeydown handler if provided
-		onkeydown?.(e);
+	export async function selectAll() {
+		await tick();
+
+		if (htmlInput && !htmlInput.disabled) {
+			if (htmlInput !== htmlInput.ownerDocument?.activeElement) {
+				htmlInput.focus();
+			}
+			htmlInput.select();
+		}
 	}
 </script>
 
@@ -194,7 +197,7 @@
 			bind:value
 			bind:this={htmlInput}
 			use:focusable={{ button: true }}
-			{onblur}
+			onblur={handleBlur}
 			{onclick}
 			{onmousedown}
 			oninput={(e) => {
@@ -204,7 +207,7 @@
 			onchange={(e) => {
 				onchange?.(e.currentTarget.value);
 			}}
-			onkeydown={handleKeydown}
+			{onkeydown}
 		/>
 
 		{#if type === 'number' && showCountActions}
@@ -285,7 +288,7 @@
 
 		&.disabled {
 			& .textbox__icon {
-				color: var(--clr-scale-ntrl-60);
+				opacity: 0.6;
 			}
 		}
 	}
@@ -306,15 +309,15 @@
 	}
 
 	.textbox__label {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.textbox__helper-text {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.textbox__error-text {
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 
 	.textbox__icon {
@@ -323,7 +326,7 @@
 		position: absolute;
 		top: 50%;
 		transform: translateY(-50%);
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 		pointer-events: none;
 	}
 
@@ -336,26 +339,19 @@
 		padding: 2px 4px;
 		transform: translateY(-50%);
 		border-radius: var(--radius-s);
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 		transition: background-color var(--transition-fast);
 
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: var(--clr-bg-2);
-			color: var(--clr-scale-ntrl-40);
+			background-color: var(--hover-bg-1);
+			color: var(--hover-text-2);
 		}
 
 		&:disabled {
-			color: var(--clr-scale-ntrl-60);
 			cursor: not-allowed;
-			opacity: 0.5;
-
-			&:hover,
-			&:focus {
-				background-color: transparent;
-				color: var(--clr-scale-ntrl-60);
-			}
+			opacity: 0.6;
 		}
 	}
 
@@ -408,26 +404,19 @@
 		justify-content: center;
 		padding: 2px 4px;
 		border-radius: var(--radius-s);
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 		transition: background-color var(--transition-fast);
 
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: var(--clr-bg-1-muted);
-			color: var(--clr-scale-ntrl-40);
+			background-color: var(--hover-bg-1);
+			color: var(--hover-text-2);
 		}
 
 		&:disabled {
-			color: var(--clr-scale-ntrl-60);
 			cursor: not-allowed;
-			opacity: 0.5;
-
-			&:hover,
-			&:focus {
-				background-color: transparent;
-				color: var(--clr-scale-ntrl-60);
-			}
+			opacity: 0.6;
 		}
 	}
 

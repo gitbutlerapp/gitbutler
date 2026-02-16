@@ -9,15 +9,43 @@
 	--z-lifted: 2;
 	--z-floating: 3;
 	--z-modal: 4;
-	--z-blocker: calc(infinity);
+	--z-tooltip: 5;
+	--z-blocker: 9999;
 
 	/* TODO: add focus color */
-	--focus-color: var(--clr-scale-pop-50);
-	--resizer-color: var(--clr-scale-pop-50);
+	--focus-color: var(--clr-theme-pop-element);
+
+	/* THEME COLOR INTERACTIONS */
+	--hover-pop: color-mix(
+		in srgb,
+		var(--clr-theme-pop-element),
+		var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
+	);
+	--hover-bg-1: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-0) 4%);
+	--hover-bg-muted: color-mix(in srgb, var(--clr-bg-muted), var(--clr-core-gray-0) 4%);
+	--hover-bg-2: color-mix(in srgb, var(--clr-bg-2), var(--clr-core-gray-0) 4%);
+	--hover-bg-3: color-mix(in srgb, var(--clr-bg-3), var(--clr-core-gray-0) 4%);
+	--hover-danger-bg: color-mix(in srgb, var(--clr-theme-danger-bg), var(--clr-core-danger-40) 4%);
+	--hover-safe-bg: color-mix(in srgb, var(--clr-theme-safe-bg), var(--clr-core-safe-40) 4%);
+	--hover-warn-bg: color-mix(in srgb, var(--clr-theme-warn-bg), var(--clr-core-warn-40) 4%);
+	--hover-purple-bg: color-mix(in srgb, var(--clr-theme-purple-bg), var(--clr-core-purple-40) 4%);
+	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-gray-0) 20%);
 
 	/* LEXICAL */
 	--lexical-input-background: var(--clr-bg-1);
 	--lexical-input-client-padding: 12px;
 	--lexical-input-client-toolbar-height: 48px;
 	--lexical-input-font-size: 13px;
+}
+
+:root.dark {
+	--hover-bg-1: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-100) 6%);
+	--hover-bg-muted: color-mix(in srgb, var(--clr-bg-muted), var(--clr-core-gray-100) 6%);
+	--hover-bg-2: color-mix(in srgb, var(--clr-bg-2), var(--clr-core-gray-100) 6%);
+	--hover-bg-3: color-mix(in srgb, var(--clr-bg-3), var(--clr-core-gray-100) 6%);
+	--hover-danger-bg: color-mix(in srgb, var(--clr-theme-danger-bg), var(--clr-core-danger-60) 6%);
+	--hover-safe-bg: color-mix(in srgb, var(--clr-theme-safe-bg), var(--clr-core-safe-60) 6%);
+	--hover-warn-bg: color-mix(in srgb, var(--clr-theme-warn-bg), var(--clr-core-warn-60) 6%);
+	--hover-purple-bg: color-mix(in srgb, var(--clr-theme-purple-bg), var(--clr-core-purple-60) 6%);
+	--hover-text-2: color-mix(in srgb, var(--clr-text-2), var(--clr-core-gray-100) 30%);
 }

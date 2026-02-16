@@ -8,7 +8,7 @@
 	import { USER_SERVICE } from '$lib/users/userService';
 	import { getUserByLogin } from '$lib/users/usersPreview.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, SectionCard, Textbox, Avatar } from '@gitbutler/ui';
+	import { Avatar, Button, CardGroup, Modal, Textbox } from '@gitbutler/ui';
 
 	type Props = {
 		slug: string;
@@ -45,15 +45,11 @@
 			{#if organization.memberLogins}
 				<h5 class="text-15 text-bold">Users:</h5>
 
-				<div>
-					{#each organization.memberLogins as login, index}
+				<CardGroup>
+					{#each organization.memberLogins as login}
 						{@const user = getUserByLogin(appState, userService, login)}
 
-						<SectionCard
-							roundedBottom={index + 1 === organization.memberLogins.length}
-							roundedTop={index === 0}
-							orientation="row"
-						>
+						<CardGroup.Item>
 							<Loading loadable={user.current}>
 								{#snippet children(user)}
 									<Avatar
@@ -64,30 +60,26 @@
 									<p>{user?.name}</p>
 								{/snippet}
 							</Loading>
-						</SectionCard>
+						</CardGroup.Item>
 					{/each}
-				</div>
+				</CardGroup>
 			{/if}
 
 			{#if organization.projectRepositoryIds}
 				<h5 class="text-15 text-bold">Projects:</h5>
-				<div>
-					{#each organization.projectRepositoryIds as repositoryId, index}
+				<CardGroup>
+					{#each organization.projectRepositoryIds as repositoryId}
 						{@const project = getProjectByRepositoryId(repositoryId)}
 
-						<SectionCard
-							roundedBottom={index + 1 === organization.projectRepositoryIds.length}
-							roundedTop={index === 0}
-							orientation="row"
-						>
+						<CardGroup.Item>
 							<Loading loadable={project.current}>
 								{#snippet children(project)}
 									<p>{project.name}</p>
 								{/snippet}
 							</Loading>
-						</SectionCard>
+						</CardGroup.Item>
 					{/each}
-				</div>
+				</CardGroup>
 			{/if}
 		{/snippet}
 	</Loading>

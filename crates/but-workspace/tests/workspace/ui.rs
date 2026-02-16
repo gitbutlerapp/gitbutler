@@ -17,7 +17,7 @@ mod changes_in_branch {
         ");
 
         let graph = but_graph::Graph::from_head(&repo, &*meta, Options::limited())?;
-        let ws = graph.to_workspace()?;
+        let ws = graph.into_workspace()?;
 
         insta::assert_debug_snapshot!(ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/A"))?, @r#"
         TreeChanges {
@@ -129,19 +129,15 @@ mod changes_in_branch {
         }
         ");
 
-        let err =
-            ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/does-not-exist")).unwrap_err();
+        let err = ui::diff::changes_in_branch(&repo, &ws, r("refs/heads/does-not-exist")).unwrap_err();
         assert_eq!(
             err.to_string(),
             "The reference 'refs/heads/does-not-exist' did not exist",
             "passing strange ref-names still causes an error - they must exist"
         );
 
-        let mut ref_info = ui::RefInfo::for_ui(
-            but_workspace::head_info(&repo, &*meta, Default::default())?,
-            &repo,
-        )?
-        .pruned_to_entrypoint();
+        let mut ref_info = ui::RefInfo::for_ui(but_workspace::head_info(&repo, &*meta, Default::default())?, &repo)?
+            .pruned_to_entrypoint();
         insta::assert_json_snapshot!(&ref_info, @r#"
         {
           "workspaceRef": {
@@ -312,9 +308,7 @@ mod changes_in_branch {
 
         // Forcefully set another entrypoint to simulate the real deal.
         ref_info.is_entrypoint = false;
-        ref_info
-            .stacks
-            .push(ref_info.stacks.first().unwrap().clone());
+        ref_info.stacks.push(ref_info.stacks.first().unwrap().clone());
         ref_info
             .stacks
             .first_mut()

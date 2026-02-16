@@ -76,7 +76,6 @@ fn updates() -> Vec<EnvOp> {
             ("GIT_CONFIG_VALUE_2", "main"),
             ("GIT_CONFIG_KEY_3", "protocol.file.allow"),
             ("GIT_CONFIG_VALUE_3", "always"),
-            ("CLICOLOR_FORCE", "1"),
             ("RUST_BACKTRACE", "0"),
         ]
         .into_iter()

@@ -3,10 +3,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, bail};
-use but_api::json::Error;
-use but_settings::{AppSettings, AppSettingsWithDiskSync};
-use gitbutler_command_context::CommandContext;
+use anyhow::{Context as _, bail};
+use but_api::json;
+use but_ctx::Context;
+use but_settings::AppSettingsWithDiskSync;
 use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
 use tauri::{State, Window};
@@ -18,9 +18,9 @@ use crate::{WindowState, window, window::state::ProjectAccessMode};
 #[instrument(skip(window_state), err(Debug))]
 pub fn list_projects(
     window_state: State<'_, WindowState>,
-) -> Result<Vec<but_api::legacy::projects::ProjectForFrontend>, Error> {
+) -> Result<Vec<but_api::legacy::projects::ProjectForFrontend>, json::Error> {
     let open_projects = window_state.open_projects();
-    but_api::legacy::projects::list_projects(open_projects)
+    but_api::legacy::projects::list_projects(open_projects).map_err(Into::into)
 }
 
 /// Additional information to help the user interface communicate what happened with the project.
@@ -45,7 +45,7 @@ pub fn set_project_active(
     app_settings_sync: tauri::State<'_, AppSettingsWithDiskSync>,
     window: Window,
     id: ProjectId,
-) -> Result<Option<ProjectInfo>, Error> {
+) -> Result<Option<ProjectInfo>, json::Error> {
     let project = match gitbutler_project::get_validated(id).ok() {
         Some(project) => project,
         None => {
@@ -65,24 +65,22 @@ pub fn set_project_active(
                 err
             }
         })?;
-    let ctx = &mut CommandContext::open_from(
-        &project,
-        AppSettings::load_from_default_path_creating()?,
-        repo,
-    )?;
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
+    let mut ctx = Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
 
-    but_api::legacy::fixup::reconcile_in_workspace_state_of_vb_toml(ctx);
+    {
+        let mut guard = ctx.exclusive_worktree_access();
+        but_api::legacy::meta::reconcile_in_workspace_state_of_vb_toml(&mut ctx, guard.write_permission()).ok();
+    }
 
-    let db_error = assure_database_valid(project.gb_dir())?;
-    let filter_error = warn_about_filters_and_git_lfs(ctx.gix_repo_local_only()?)?;
+    let db_error = assure_database_valid(ctx.project_data_dir())?;
+    let filter_error = warn_about_filters_and_git_lfs(&*ctx.repo.get()?)?;
     for err in [&db_error, &filter_error] {
         if let Some(err) = &err {
             tracing::error!("{err}");
         }
     }
-    let mode =
-        window_state.set_project_to_window(window.label(), &project, &app_settings_sync, ctx)?;
+    let mode = window_state.set_project_to_window(window.label(), &app_settings_sync, &mut ctx)?;
     let is_exclusive = match mode {
         ProjectAccessMode::First => true,
         ProjectAccessMode::Shared => false,
@@ -97,10 +95,10 @@ pub fn set_project_active(
 /// Open the project with the given ID in a new Window, or focus an existing one.
 ///
 /// Note that this command is blocking the main thread just to prevent the chance for races
-/// without haveing to lock explicitly.
+/// without having to lock explicitly.
 #[tauri::command]
 #[instrument(skip(handle), err(Debug))]
-pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), Error> {
+pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), json::Error> {
     let label = std::time::UNIX_EPOCH
         .elapsed()
         .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))
@@ -111,14 +109,31 @@ pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result
 }
 
 /// Fatal errors are returned as error, fixed errors for tracing will be `Some(err)`
-#[instrument(level = tracing::Level::DEBUG)]
-fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
-    if let Err(err) = but_db::DbHandle::new_in_directory(&gb_dir) {
-        let db_path = but_db::DbHandle::db_file_path(&gb_dir);
+#[instrument(level = "debug")]
+fn assure_database_valid(data_dir: PathBuf) -> anyhow::Result<Option<String>> {
+    use rusqlite::ErrorCode;
+    if let Err(err) = but_db::DbHandle::new_in_directory(&data_dir) {
+        let db_path = but_db::DbHandle::db_file_path(&data_dir);
+        if let Some(but_db::migration::Error::Permanent(sql_err)) = err.downcast_ref::<but_db::migration::Error>()
+            && (!matches!(
+                sql_err.sqlite_error_code(),
+                Some(ErrorCode::DatabaseCorrupt | ErrorCode::NotADatabase)
+            ) || matches!(sql_err, rusqlite::Error::ToSqlConversionFailure(_)))
+        {
+            return Err(err)
+                .with_context(|| {
+                    format!(
+                        "Cannot recover from this error - probably a more recent version of\n\
+                         this app was used to open the project. '{}' is incompatible",
+                        db_path.display()
+                    )
+                })
+                .context(but_error::Code::ProjectDatabaseIncompatible);
+        }
         let db_filename = db_path.file_name().unwrap();
         let max_attempts = 255;
         for round in 1..max_attempts {
-            let backup_path = gb_dir.join(format!(
+            let backup_path = data_dir.join(format!(
                 "{db_name}.maybe-broken-{round:02}",
                 db_name = Path::new(db_filename).display()
             ));
@@ -149,7 +164,7 @@ fn assure_database_valid(gb_dir: PathBuf) -> anyhow::Result<Option<String>> {
 }
 
 /// Return an error message that
-fn warn_about_filters_and_git_lfs(repo: gix::Repository) -> anyhow::Result<Option<String>> {
+fn warn_about_filters_and_git_lfs(repo: &gix::Repository) -> anyhow::Result<Option<String>> {
     let index = repo.index_or_empty()?;
     let mut cache = repo.attributes_only(
         &index,
@@ -196,10 +211,7 @@ Ensure these aren't touched by GitButler or avoid using it in this repository.",
     msg.push_str("\n\n");
     msg.push_str(&files_with_filter[..files_with_filter.len().min(max_files)].join("\n"));
     if files_with_filter.len() > max_files {
-        msg.push_str(&format!(
-            "\n[and {} more]",
-            files_with_filter.len() - max_files
-        ));
+        msg.push_str(&format!("\n[and {} more]", files_with_filter.len() - max_files));
     }
     Ok(Some(msg))
 }

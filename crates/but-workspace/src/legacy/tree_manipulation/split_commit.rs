@@ -1,6 +1,7 @@
 use anyhow::Result;
+use but_core::sync::RepoExclusive;
+use but_ctx::Context;
 use but_rebase::Rebase;
-use gitbutler_command_context::CommandContext;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
 
 use crate::legacy::{
@@ -21,40 +22,42 @@ use crate::legacy::{
 /// 2. Replace the original commit in the stack with the new commits.
 /// 3. Update the stack to reflect the new commits.
 pub fn split_commit(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     stack_id: StackId,
     source_commit_id: gix::ObjectId,
     pieces: &[CommitFiles],
-    context_lines: u32,
+    perm: &mut RepoExclusive,
 ) -> Result<CommmitSplitOutcome> {
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
 
-    let mut steps = source_stack.as_rebase_steps(ctx, &repository)?;
-    let commit_pieces = new_commits(ctx, source_commit_id, pieces, context_lines)?;
+    let mut steps = source_stack.as_rebase_steps(ctx)?;
+    let commit_pieces = new_commits(ctx, source_commit_id, pieces, perm)?;
     replace_pick_with_multiple_commits(&mut steps, source_commit_id, &commit_pieces)?;
     let base = source_stack.merge_base(ctx)?;
-    let mut rebase = Rebase::new(&repository, base, None)?;
-    rebase.steps(steps)?;
-    rebase.rebase_noops(false);
-    let result = rebase.rebase()?;
+    let result = {
+        let repo = ctx.repo.get()?;
+        let mut rebase = Rebase::new(&repo, base, None)?;
+        rebase.steps(steps)?;
+        rebase.rebase_noops(false);
+        rebase.rebase()?
+    };
 
     let commit_mapping = result
         .commit_mapping
         .iter()
-        .filter_map(
-            |(_, old, new)| {
-                if old == new { None } else { Some((*old, *new)) }
-            },
-        )
+        .filter_map(|(_, old, new)| if old == new { None } else { Some((*old, *new)) })
         .collect();
 
     let mut source_stack = source_stack;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;
 
     let new_commits = commit_pieces.iter().map(|(id, _)| *id).collect::<Vec<_>>();
+
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    ws.refresh_from_head(&repo, &meta)?;
 
     Ok(CommmitSplitOutcome {
         new_commits,
@@ -65,20 +68,16 @@ pub fn split_commit(
 }
 
 fn new_commits(
-    ctx: &CommandContext,
+    ctx: &Context,
     source_commit_id: gix::ObjectId,
     pieces: &[CommitFiles],
-    context_lines: u32,
+    perm: &mut RepoExclusive,
 ) -> Result<Vec<(gix::ObjectId, Option<String>)>> {
     let mut new_commits = Vec::new();
     for piece in pieces {
-        if let Some(rewritten_commit) = keep_only_file_changes_in_commit(
-            ctx,
-            source_commit_id,
-            &piece.files,
-            context_lines,
-            false,
-        )? {
+        if let Some(rewritten_commit) =
+            keep_only_file_changes_in_commit(ctx, source_commit_id, &piece.files, false, perm)?
+        {
             new_commits.push((rewritten_commit, Some(piece.message.clone())));
         }
     }

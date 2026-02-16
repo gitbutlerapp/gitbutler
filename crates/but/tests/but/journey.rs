@@ -1,73 +1,91 @@
-use snapbox::{file, str};
+//! Tests for various nice user-journeys, from different starting points, performing multiple common steps in sequence.
+use snapbox::str;
 
-use crate::utils::{Sandbox, setup_metadata};
+use crate::utils::Sandbox;
 
+#[cfg(not(feature = "legacy"))]
 #[test]
-fn nice_help() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
-    env.but(None)
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
+fn from_unborn() -> anyhow::Result<()> {
+    let env = Sandbox::open_with_default_settings("unborn")?;
+    insta::assert_snapshot!(env.git_log()?, @r"");
 
-    env.but("-h")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
-
-    env.but("--help")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/no-arg.stdout.term.svg"]);
-
-    // The help should be nice, as it's a complex command.
-    env.but("rub --help")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/rub-long-help.stdout.term.svg"]);
-    env.but("rub -h")
-        .assert()
-        .success()
-        .stdout_eq(file!["snapshots/rub-short-help.stdout.term.svg"]);
-    Ok(())
-}
-
-#[test]
-fn from_scratch_needs_work() -> anyhow::Result<()> {
-    let env = Sandbox::empty()?;
-
-    env.but("status").assert().failure().stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
+    env.but("branch apply main").assert().failure().stderr_eq(str![[r#"
+Error: The reference 'main' did not exist
 
 "#]]);
 
-    // Init doesn't work without a Git repository
-    env.but("init")
-        .assert()
-        .failure()
-        .stderr_eq(str![
-            r#"
-Error: Failed to initialize GitButler project.
+    // TODO: we should be able to use the CLI to create a commit
+    Ok(())
+}
 
-Caused by:
-    0: You can run `but init --repo` to initialize a new Git repository
-    1: "." does not appear to be a git repository
-    2: Missing HEAD at '.git/HEAD'
+// TODO: maybe this should be a non-legacy journey only as we start out without workspace?
+#[cfg(feature = "legacy")]
+#[test]
+fn from_empty() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
 
-"#
-        ])
-        .stdout_eq(str![]);
+    env.but("status").assert().failure().stderr_eq(str![[r#"
+Error: No git repository found at .
+Please run 'but setup' to initialize the project.
+
+"#]]);
+
+    // Setup doesn't work without a Git repository
+    env.but("setup").assert().failure().stderr_eq(str![[r#"
+Error: No git repository found - run `but setup --init` to initialize a new repository.
+
+"#]]);
 
     // TODO: this should work, but we still have requirements and can't deal with any repo.
-    env.but("init --repo")
-        .assert()
-        .failure()
-        .stdout_eq(str![])
-        .stderr_eq(str![[r#"
-Error: Failed to initialize GitButler project.
+    env.but("setup --init").assert().success().stdout_eq(str![[r#"
+No git repository found. Initializing new repository...
+✓ Initialized repository with empty commit
 
-Caused by:
-    No push remote set
+Setting up GitButler project...
+
+→ Adding repository to GitButler project registry
+  ✓ Repository added to project registry
+
+→ Configuring default target branch
+  No push remote found, creating gb-local remote...
+  ✓ Created gb-local remote tracking main
+  ✓ Set default target to: gb-local/main
+
+GitButler project setup complete!
+Target branch: gb-local/main
+Remote: gb-local
+
+
+Setting up your project for GitButler tooling. Some things to note:
+
+- Switching you to a special `gitbutler/workspace` branch to enable parallel branches
+- Installing Git hooks to help manage commits on the workspace branch
+
+To undo these changes and return to normal Git mode, either:
+
+    - Directly checkout a branch (`git checkout main`)
+    - Run `but teardown`
+
+More info: https://docs.gitbutler.com/workspace-branch
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
+
 
 "#]]);
 
@@ -82,49 +100,64 @@ Caused by:
     "#,
         );
 
-        // Doing it again also doesn't work, we need a proper remote.
-        env.but("init --repo")
+        env.but("setup")
             .assert()
-            .failure()
-            .stdout_eq(str![])
-            .stderr_eq(str![[r#"
-Error: Failed to initialize GitButler project.
+            .success()
+            .stderr_eq(str![])
+            .stdout_eq(str![[r#"
+Setting up GitButler project...
 
-Caused by:
-    No HEAD reference found for remote origin
+→ Adding repository to GitButler project registry
+  ✓ Repository already in project registry
+
+GitButler project is already set up!
+Target branch: gb-local/main
+
+
+
+ █████      █████    ██████╗ ██╗   ██╗████████╗
+   █████  █████      ██╔══██╗██║   ██║╚══██╔══╝
+     ████████        ██████╔╝██║   ██║   ██║
+   █████  █████      ██╔══██╗██║   ██║   ██║
+ █████      █████    ██████╔╝╚██████╔╝   ██║
+
+The command-line interface for GitButler
+
+$ but branch new <name>                       Create a new branch
+$ but status                                  View workspace status
+$ but commit -m <message>                     Commit changes to current branch
+$ but push                                    Push all branches
+$ but teardown                                Return to normal Git mode
+
+Learn more at https://docs.gitbutler.com/cli-overview
+
 
 "#]]);
     }
 
-    // Status really wants the target, still.
     env.but("status")
         .assert()
-        .failure()
-        .stdout_eq(str![])
-        .stderr_eq(str![[r#"
-Error: errors.projects.default_target.not_found
+        .success()
+        .stdout_eq(str![[r#"
+╭┄zz [unstaged changes] 
+┊     no changes
+┊
+┴ 6f66116 (common base) [gb-local/main] 2000-01-02 Initial empty commit 
 
-Caused by:
-    there is no default target
+Hint: run `but branch new` to create a new branch to work on
 
-"#]]);
-
-    // Single branch mode, does it work?
-    // TODO: make this work to get further into a typical workflow.
-    env.but("branch new feat")
-        .assert()
-        .failure()
-        .stdout_eq(str![])
-        .stderr_eq(str![[r#"
-Error: workspace at refs/heads/main is missing a base
-
-"#]]);
+"#]])
+        .stderr_eq(str![""]);
 
     Ok(())
 }
 
+#[cfg(feature = "legacy")]
 #[test]
 fn from_workspace() -> anyhow::Result<()> {
+    use snapbox::file;
+
+    use crate::utils::CommandExt;
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
     insta::assert_snapshot!(env.git_log()?, @r"
     *   c128bce (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -137,85 +170,34 @@ fn from_workspace() -> anyhow::Result<()> {
     insta::assert_snapshot!(env.git_status()?, @r"");
 
     // Must set metadata to match the scenario, or else the old APIs used here won't deliver.
-    setup_metadata(&env, &["A", "B"])?;
+    env.setup_metadata(&["A", "B"])?;
 
     env.but("status")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/status01.stdout.term.svg"]);
 
-    env.but("status -v").assert().success().stdout_eq(file![
-        "snapshots/from-workspace/status01-verbose.stdout.term.svg"
-    ]);
+    env.but("status -v")
+        .with_color_for_svg()
+        .assert()
+        .success()
+        .stdout_eq(file!["snapshots/from-workspace/status01-verbose.stdout.term.svg"]);
 
     // List is the default
     env.but("branch")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
 
     // But list is also explicit.
     env.but("branch list")
+        .with_color_for_svg()
         .assert()
         .success()
         .stdout_eq(file!["snapshots/from-workspace/branch01.stdout.term.svg"]);
 
     // TODO: more operations on the repository!
-    Ok(())
-}
-
-#[test]
-fn json_flag_can_be_placed_before_or_after_subcommand() -> anyhow::Result<()> {
-    // TODO: use an actual repository here, but single-branch mode isn't really supported yet
-    //       so everything fails anyway.
-    let env = Sandbox::empty()?;
-
-    // Test that --json flag works in both positions with help command (doesn't need a valid repo)
-    env.but("--json completions --help").assert().success();
-
-    env.but("completions --help --json").assert().success();
-
-    // Test with actual commands that need a repo (they'll fail but should accept the flag)
-    // Before subcommand
-    env.but("--json status")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
-    // After subcommand
-    env.but("status --json")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
-    // Test with log command as well
-    // Before subcommand
-    env.but("--json log")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
-    // After subcommand
-    env.but("log --json")
-        .env_remove("BUT_OUTPUT_FORMAT")
-        .assert()
-        .failure()
-        .stderr_eq(str![[r#"
-Error: Could not find a git repository in '.' or in any of its parents[..]
-
-"#]]);
-
     Ok(())
 }

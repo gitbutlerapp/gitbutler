@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 
@@ -87,10 +87,7 @@ pub struct Transcript {
 }
 
 impl Transcript {
-    pub async fn current_valid_session_id(
-        path: &Path,
-        session: &ClaudeSession,
-    ) -> Result<Option<uuid::Uuid>> {
+    pub async fn current_valid_session_id(path: &Path, session: &ClaudeSession) -> Result<Option<uuid::Uuid>> {
         let mut session_ids = session.session_ids.clone();
         let mut current_id = None;
 
@@ -120,15 +117,14 @@ impl Transcript {
     }
 
     pub fn from_file_raw(path: &Path) -> Result<Vec<serde_json::Value>> {
-        let file =
-            std::fs::File::open(path).map_err(|e| anyhow::anyhow!("Failed to open file: {}", e))?;
+        let file = std::fs::File::open(path).map_err(|e| anyhow::anyhow!("Failed to open file: {}", e))?;
         let reader = std::io::BufReader::new(file);
         let mut records = Vec::new();
         for line in reader.lines() {
             let line = line.map_err(|e| anyhow::anyhow!("Failed to read line: {}", e))?;
             if !line.trim().is_empty() {
-                let record: serde_json::Value = serde_json::from_str(&line)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse JSON line: {}", e))?;
+                let record: serde_json::Value =
+                    serde_json::from_str(&line).map_err(|e| anyhow::anyhow!("Failed to parse JSON line: {}", e))?;
                 records.push(record);
             }
         }
@@ -148,7 +144,7 @@ impl Transcript {
     /// non-alphanumeric characters removed. and where the session is the uuid
     /// printed out in hex.
     ///
-    /// https://github.com/anthropics/claude-code/issues/5165 could remove any
+    /// <https://github.com/anthropics/claude-code/issues/5165> could remove any
     /// need for this speculation.
     pub fn get_transcript_path(project_cwd: &Path, session_id: uuid::Uuid) -> Result<PathBuf> {
         let formatted_cwd = project_cwd
@@ -165,10 +161,7 @@ impl Transcript {
 
         let home_dir = dirs::home_dir().context("Failed to find home dir")?;
 
-        Ok(home_dir
-            .join(".claude/projects")
-            .join(formatted_cwd)
-            .join(file_name))
+        Ok(home_dir.join(".claude/projects").join(formatted_cwd).join(file_name))
     }
 
     pub fn dir(&self) -> Result<String> {
@@ -191,9 +184,7 @@ impl Transcript {
 
     pub fn prompt(&self) -> Option<String> {
         for record in self.records.iter().rev() {
-            if let Record::User {
-                message: Some(msg), ..
-            } = record
+            if let Record::User { message: Some(msg), .. } = record
                 && let Some(content) = &msg.content
                 && let Some(text) = content.as_str()
             {
@@ -203,10 +194,7 @@ impl Transcript {
         None
     }
 
-    async fn transcript_exists_and_likely_valid(
-        project_path: &Path,
-        session_id: uuid::Uuid,
-    ) -> Result<bool> {
+    async fn transcript_exists_and_likely_valid(project_path: &Path, session_id: uuid::Uuid) -> Result<bool> {
         let path = Self::get_transcript_path(project_path, session_id)?;
         if fs::try_exists(&path).await? {
             let file = fs::read_to_string(&path).await?;

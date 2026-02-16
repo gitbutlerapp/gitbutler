@@ -11,10 +11,7 @@ use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
 /// Create a zip file from the *contents* of `src_dir` and write the zip file out to `dst_file`,
 /// possibly overwriting it if it exists.
-pub fn create_zip_file_from_dir(
-    src_dir: impl AsRef<Path>,
-    dst_file: impl AsRef<Path>,
-) -> anyhow::Result<PathBuf> {
+pub fn create_zip_file_from_dir(src_dir: impl AsRef<Path>, dst_file: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
     let src_dir = src_dir.as_ref();
     let dst_file = dst_file.as_ref();
     if !src_dir.is_dir() {
@@ -48,11 +45,7 @@ pub fn create_zip_file_from_content(
     Ok(dst_file.to_owned())
 }
 
-fn zip_dir<T>(
-    it: &mut dyn Iterator<Item = DirEntry>,
-    prefix: &path::Path,
-    writer: T,
-) -> anyhow::Result<()>
+fn zip_dir<T>(it: &mut dyn Iterator<Item = DirEntry>, prefix: &path::Path, writer: T) -> anyhow::Result<()>
 where
     T: io::Write + io::Seek,
 {

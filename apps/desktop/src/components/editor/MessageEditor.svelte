@@ -61,6 +61,7 @@
 		forceSansFont?: boolean;
 		useRuler?: boolean;
 		messageType: 'commit' | 'pr';
+		reviewUnitAbbr?: string;
 	}
 
 	let {
@@ -80,7 +81,8 @@
 		testId,
 		forceSansFont,
 		useRuler,
-		messageType
+		messageType,
+		reviewUnitAbbr
 	}: Props = $props();
 
 	const MIN_RULER_VALUE = 30;
@@ -230,17 +232,17 @@
 		medium: 320
 	};
 
-	const GENERATE_MESSAGES: Record<typeof messageType, string> = {
+	const generateMessages = $derived.by(() => ({
 		commit: 'Generate commit message',
-		pr: 'Generate PR description'
-	};
+		pr: `Generate ${reviewUnitAbbr ?? 'PR'} description`
+	}));
 
 	function getTooltipText(): string | undefined {
 		if (!canUseAI) {
 			return 'You need to enable AI in the project settings to use this feature';
 		}
 		if (currentEditorWidth <= DROPDOWN_BTN_BREAKPOINTS.medium) {
-			return GENERATE_MESSAGES[messageType];
+			return generateMessages[messageType];
 		}
 		return undefined;
 	}
@@ -329,13 +331,11 @@
 					namespace="CommitMessageEditor"
 					{placeholder}
 					bind:this={composer}
-					plaintext={true}
 					onError={(e) => console.warn('Editor error', e)}
 					initialText={initialValue}
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
 					{disabled}
-					{wrapCountValue}
 					useMonospaceFont={useRuler && !forceSansFont}
 					monospaceFont={$userSettings.diffFont}
 					tabSize={$userSettings.tabSize}
@@ -543,7 +543,7 @@
 		padding: 2px 0;
 		text-align: center;
 
-		/* remove numver arrows */
+		/* remove number arrows */
 		&::-webkit-inner-spin-button,
 		&::-webkit-outer-spin-button {
 			-webkit-appearance: none;

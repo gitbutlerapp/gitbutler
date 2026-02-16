@@ -60,7 +60,7 @@
 		/>
 		<ContextMenuItem
 			icon="tag"
-			label="Work catergory (coming soon)"
+			label="Work category (coming soon)"
 			disabled={filterHasBeenAdded('semanticType') || true}
 			onclick={() => {
 				handleAddFilter('semanticType');
@@ -69,7 +69,7 @@
 	</ContextMenuSection>
 	{#if addEmpty}
 		<ContextMenuSection>
-			<ContextMenuItem icon="arrow-right" label="Assign all to branch" onclick={handleAddEmpty} />
+			<ContextMenuItem icon="arrow-right" label="Stage all to branch" onclick={handleAddEmpty} />
 		</ContextMenuSection>
 	{/if}
 </ContextMenu>

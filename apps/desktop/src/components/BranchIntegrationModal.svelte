@@ -3,6 +3,7 @@
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
 	import {
+		commitCreatedAtDate,
 		extractUpstreamCommitId,
 		isCommit,
 		type Commit,
@@ -276,7 +277,7 @@
 	<div class="branch-integration__commit-content">
 		<SimpleCommitRow
 			author={commit.author.name}
-			date={new Date(commit.createdAt)}
+			date={commitCreatedAtDate(commit)}
 			title={commit.message}
 			sha={commit.id}
 			{upstreamSha}
@@ -502,12 +503,12 @@
 	{#if isCommit(commit) && !overrideIsRemote}
 		<CommitLine
 			commitStatus={commit.state.type}
-			alignDot="start"
+			dotOnTop
 			hideDot={hideCommitDot}
 			diverged={commit.state.type === 'LocalAndRemote' && commit.state.subject !== commit.id}
 		/>
 	{:else}
-		<CommitLine hideDot={hideCommitDot} alignDot="start" commitStatus="Remote" diverged={false} />
+		<CommitLine hideDot={hideCommitDot} dotOnTop commitStatus="Remote" diverged={false} />
 	{/if}
 {/snippet}
 

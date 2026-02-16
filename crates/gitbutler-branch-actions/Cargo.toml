@@ -1,42 +1,40 @@
 [package]
 name = "gitbutler-branch-actions"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
 
 [dependencies]
 but-error.workspace = true
-but-serde = { workspace = true, features = ["legacy"]}
-but-meta = { workspace = true, features = ["legacy"]}
+but-serde = { workspace = true, features = ["legacy"] }
+but-meta = { workspace = true, features = ["legacy"] }
 but-settings.workspace = true
 but-gerrit.workspace = true
 but-workspace = { workspace = true, features = ["legacy"] }
 but-rebase.workspace = true
-but-core.workspace = true
+but-core = { workspace = true, features = ["legacy"] }
 but-graph.workspace = true
 but-oxidize.workspace = true
 but-forge.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
+chrono.workspace = true
 
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-repo-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
-gitbutler-time.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
-gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-stack.workspace = true
-gitbutler-hunk-dependency.workspace = true
 gitbutler-workspace.workspace = true
-gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 
 tracing.workspace = true
@@ -61,6 +59,4 @@ glob = "0.3.3"
 tempfile.workspace = true
 but-hunk-assignment.workspace = true
 # Needed to make tests work with stable change ids
-gitbutler-git = { workspace = true, features = [
-    "test-askpass-path",
-] }
+gitbutler-git = { workspace = true }

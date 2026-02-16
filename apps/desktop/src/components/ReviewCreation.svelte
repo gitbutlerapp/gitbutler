@@ -21,7 +21,6 @@
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
-	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
 	import { type PullRequest } from '$lib/forge/interface/types';
 	import { PrPersistedStore } from '$lib/forge/prContents';
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
@@ -63,9 +62,6 @@
 	const uiState = inject(UI_STATE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
-
-	const gitLabState = inject(GITLAB_STATE);
-	const gitLabConfigured = $derived(gitLabState.configured);
 
 	const [pushStack, stackPush] = stackService.pushStack;
 
@@ -193,13 +189,6 @@
 
 	export async function createReview() {
 		if (isExecuting) return;
-
-		if (forge.determinedForgeType === 'gitlab' && !gitLabConfigured) {
-			chipToasts.error(
-				'You must configure the GitLab integration before creating a Merge Request.'
-			);
-			return;
-		}
 
 		const effectivePRBody = (await messageEditor?.getPlaintext()) ?? '';
 		// Declare early to have them inside the function closure, in case
@@ -423,7 +412,7 @@
 					onClose();
 				}
 			})}
-			placeholder="PR title"
+			placeholder="{forge.reviewUnitAbbr} title"
 			showCount={false}
 			oninput={imeHandler.handleInput((e: Event) => {
 				const target = e.target as HTMLInputElement;
@@ -439,8 +428,9 @@
 			initialValue={$prBody}
 			enableFileUpload
 			enableSmiles
-			placeholder="PR Description"
+			placeholder="{forge.reviewUnitAbbr} Description"
 			messageType="pr"
+			reviewUnitAbbr={forge.reviewUnitAbbr}
 			{onAiButtonClick}
 			{canUseAI}
 			{aiIsLoading}

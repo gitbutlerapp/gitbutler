@@ -1,3 +1,4 @@
+import { createNewBranch, deleteBranch, unapplyStack } from '../src/branch.ts';
 import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
 import {
 	clickByTestId,
@@ -36,7 +37,7 @@ test('should be able to apply a remote branch', async ({ page, context }, testIn
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -83,7 +84,7 @@ test('should be able to apply a remote branch and integrate the remote changes -
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -340,7 +341,7 @@ test('should be able gracefully handle adding a branch that is ahead of our targ
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -394,7 +395,7 @@ test('should be able gracefully handle adding a branch that is behind of our tar
 
 	// Should navigate to the branches page when clicking the branches button
 	await clickByTestId(page, 'navigation-branches-button');
-	const header = await waitForTestId(page, 'target-commit-list-header');
+	const header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -594,7 +595,7 @@ test('should update the stale selection of an unexisting branch', async ({
 
 	// Navigate to branches page
 	await clickByTestId(page, 'navigation-branches-button');
-	let header = await waitForTestId(page, 'target-commit-list-header');
+	let header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 
@@ -632,7 +633,7 @@ test('should update the stale selection of an unexisting branch', async ({
 	await clickByTestId(page, 'navigation-branches-button');
 	await waitForTestId(page, 'branches-view');
 
-	header = await waitForTestId(page, 'target-commit-list-header');
+	header = await waitForTestId(page, 'branch-header');
 
 	await expect(header).toContainText('origin/master');
 	// The previously selected branch1 should not be selected anymore
@@ -640,4 +641,106 @@ test('should update the stale selection of an unexisting branch', async ({
 	await expect(branchListCards).toHaveCount(2);
 	firstBranchCard = branchListCards.filter({ hasText: 'branch1' });
 	await expect(firstBranchCard).not.toBeVisible();
+});
+
+test('should be able to delete a local branch', async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch3', 'local-clone']);
+	await gitbutler.runScript('move-branch.sh', ['branch3', 'branch1', 'local-clone']);
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be one stack with two branches applied
+	let stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+	let branchHeaders = getByTestId(page, 'branch-header');
+	await expect(branchHeaders).toHaveCount(2);
+
+	// Right click on the branch header to open the branch menu
+	await deleteBranch(page, 'branch1');
+
+	// Should be back in the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be one stack with only one branch
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+
+	branchHeaders = getByTestId(page, 'branch-header');
+	await expect(branchHeaders).toHaveCount(1);
+	await expect(branchHeaders.first()).toContainText('branch3');
+});
+
+test('should be able to delete an empty local branch', async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// Create a new branch
+	await createNewBranch(page, 'new-branch');
+
+	// There should be one stack applied
+	let stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+
+	// Right click on the branch header to open the branch menu
+	await deleteBranch(page, 'new-branch');
+
+	// Should be back in the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be no stacks
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(0);
+
+	const branchHeaders = getByTestId(page, 'branch-header');
+	await expect(branchHeaders).toHaveCount(0);
+});
+
+test('should be able to unapply a stack', async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath('workdir');
+	const configdir = testInfo.outputPath('config');
+	gitbutler = await startGitButler(workdir, configdir, context);
+
+	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+
+	await page.goto('/');
+
+	// Should load the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be one stack applied
+	let stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(1);
+	let branchHeaders = getByTestId(page, 'branch-header').filter({ hasText: 'branch1' });
+	await expect(branchHeaders).toBeVisible();
+
+	// Unapply the stack
+	await unapplyStack(page, 'branch1');
+
+	// Should be back in the workspace
+	await waitForTestId(page, 'workspace-view');
+
+	// There should be no stacks
+	stacks = getByTestId(page, 'stack');
+	await expect(stacks).toHaveCount(0);
+
+	branchHeaders = getByTestId(page, 'branch-header').filter({ hasText: 'branch1' });
+	await expect(branchHeaders).toHaveCount(0);
 });

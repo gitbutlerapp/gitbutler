@@ -1,11 +1,14 @@
 <div align="center">
-  <img align="center" width="100%" src="./readme-preview.webp" />
-
+  
+  <img align="center" width="100px" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/md-logo.png" alt="GitButler logo" />
   <br />
-  <br />
 
-  <p align="center" >
-    Version Control tool built from the ground up for modern, AI-powered workflows.
+  <h1 align="center">GitButler</h1>
+  
+  <p align="center">
+   <b>Git, <i>but</i> better</b>.
+   <br/>
+   GitButler is a modern Git-based version control interface with both a GUI and CLI built from the ground up for AI-powered workflows.
     <br />
     <br />
     <a href="https://gitbutler.com">Website</a>
@@ -17,8 +20,18 @@
     <a href="https://gitbutler.com/downloads">Downloads</a>
   </p>
 
+  <br/>
+
+  <img width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/app-preview-light.png" alt="GitButler desktop app preview" />
+  <p align="center"><i>Our beautiful GUI</i></p>
+
+  <img width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/cli-preview.png" alt="GitButler CLI preview" />
+  <p align="center"><i>Our amazing <code>but</code> CLI</i></p>
+
+  <br/>
+
 [![TWEET][s1]][l1] [
-![BLUESKY][s8]][l8 ] [![DISCORD][s2]][l2]
+![BLUESKY][s8]][l8] [![DISCORD][s2]][l2]
 
 [![CI][s0]][l0] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5] [![DEEPWIKI][s7]][l7]
 
@@ -41,71 +54,37 @@
 
 <br/>
 
-![Alt](https://repobeats.axiom.co/api/embed/fb23382bcf57c609832661874d3019a43555d6ae.svg 'Repobeats analytics for GitButler')
+GitButler is a powerful new Git-based version control system, designed from scratch to be simple, powerful and flexible. It is designed for ease of use and modern agentic workflows.
 
-GitButler is a git client that lets you work on multiple branches at the same time.
-It allows you to quickly organize file changes into separate branches while still having them applied to your working directory.
-You can then push branches individually to your remote, or directly create pull requests.
+It features stacked branches, parallel branches, unlimited undo, easy commit mutations, forge integrations and more.
 
-In a nutshell, it's a more flexible version of `git add -p` and `git rebase -i`, allowing you to efficiently multitask across branches.
-
-## How Does It Work?
-
-GitButler keeps track of uncommitted changes in a layer on top of Git. Changes to files or parts of files can be grouped into what we call virtual branches. Whenever you are happy with the contents of a virtual branch, you can push it to a remote. GitButler makes sure that the state of other virtual branches is kept separate.
-
-## How Do GB's Virtual Branches Differ From Git Branches?
-
-The branches that we know and love in Git are separate universes, and switching between them is a full context switch. GitButler allows you to work with multiple branches in parallel in the same working directory. This effectively means having the content of multiple branches available at the same time.
-
-GitButler is aware of changes before they are committed. This allows it to keep a record of which virtual branch each individual diff belongs to. Effectively, this means that you can separate out individual branches with their content at any time to push them to a remote or to unapply them from your working directory.
-
-And finally, while in Git it is preferable that you create your desired branch ahead of time, using GitButler you can move changes between virtual branches at any point during development.
-
-## Why GitButler?
-
-We love Git. Our own [@schacon](https://github.com/schacon) has even published the [Pro Git](https://git-scm.com/book/en/v2) book. At the same time, Git's user interface hasn't been fundamentally changed for 15 years. While it was written for Linux kernel devs sending patches to each other over mailing lists, most developers today have different workflows and needs.
-
-Instead of trying to fit the semantics of the Git CLI into a graphical interface, we are starting with the developer workflow and mapping it back to Git.
-
-## Tech
-
-GitButler is a [Tauri](https://tauri.app/)-based application. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org) and its backend is written in [Rust](https://www.rust-lang.org/).
+Works instantly in any existing Git repo as a friendlier and more powerful drop-in Git user interface replacement - for you and your agents.
 
 ## Main Features
 
-- **Virtual Branches**
-  - Organize work on multiple branches simultaneously, rather than constantly switching branches
-  - Automatically create new branches when needed
-- **Easy Commit Management**
-  - Undo, Amend and Squash commits by dragging and dropping
-- **Undo Timeline**
-  - Logs all operations and changes and allows you to easily undo or revert any operation
-- **GitHub Integration**
-  - Authenticate to GitHub to open Pull Requests, list branches and statuses and more
-- **Easy SSH Key Management**
-  - GitButler can generate an SSH key to upload to GitHub automatically
-- **AI Tooling**
-  - Automatically write commit messages based on your work in progress
-  - Automatically create descriptive branch names
-- **Commit Signing**
-  - Easy commit signing with GPG or SSH
+Why use GitButler instead of vanilla Git? What a great question.
 
-## Example Uses
+- **Stacked Branches** ([gui](https://docs.gitbutler.com/features/branch-management/stacked-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#stacked-branches))
+  - Effortlessly create branches stacked on other branches. Amend or edit any commit easily with automatic restacking.
+- **Parallel Branches** ([gui](https://docs.gitbutler.com/features/branch-management/virtual-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#parallel-branches))
+  - Organize work on multiple branches simultaneously, rather than constantly switching branches.
+- **Easy Commit Management** ([gui](https://docs.gitbutler.com/features/branch-management/commits), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/rubbing))
+  - Uncommit, reword, amend, move, split and squash commits by dragging and dropping or simple CLI commands. Forget about `rebase -i`, you don't need it anymore.
+- **Undo Timeline** ([gui](https://docs.gitbutler.com/features/timeline), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/operations-log))
+  - Logs all operations and changes and allows you to easily undo or revert any operation.
+- **First Class Conflicts** ([gui](https://docs.gitbutler.com/overview#conflicting-branches), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/conflict-resolution))
+  - Rebases always succeed. Commits can be marked as conflicted and resolved at any time, in any order.
+- **Forge Integration** ([gui](https://docs.gitbutler.com/features/forge-integration/github-integration), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/forges))
+  - Authenticate to GitHub or GitLab to easily open and update Pull Requests, list branches, get CI statuses and more. No other tools required.
+- **AI Tooling** ([gui](https://docs.gitbutler.com/features/ai-integration/ai-overview), [cli](https://docs.gitbutler.com/cli-guides/cli-tutorial/ai-stuff))
+  - Use built-in AI handlers to help create commit messages, branch names, PR descriptions and more.
+  - Easily install hooks or skills for all modern agent systems to level up their Git management.
 
-### Fixing a Bug While Working on a Feature
+## Tech
 
-> Say that while developing a feature, you encounter a bug that you wish to fix. It's often desirable that you ship the fix as a separate contribution (Pull request).
+The GitButler desktop app is a [Tauri](https://tauri.app/)-based application. Its UI is written in [Svelte](https://svelte.dev/) using [TypeScript](https://www.typescriptlang.org) and its backend is written in [Rust](https://www.rust-lang.org/).
 
-Using Git you can stash your changes and switch to another branch, where you can commit, and push your fix.
-
-_With GitButler_ you simply assign your fix to a separate virtual branch, which you can individually push (or directly create a PR). An additional benefit is that you can retain the fix in your working directory while waiting for CI and/or code review.
-
-### Trying Someone Else's Branch Together With My Work in Progress
-
-> Say you want to test a branch from someone else for the purpose of code review.
-
-Using Git trying out someone else's branch is a full context switch away from your own work.
-_With GitButler_ you can apply and unapply (add / remove) any remote branch directly into your working directory.
+The `but` CLI is the same Rust backend engine with a Rust command line UI.
 
 ## Documentation
 
@@ -116,13 +95,9 @@ You can find our end user documentation at: <https://docs.gitbutler.com>
 If you have a bug or feature request, feel free to open an [issue](https://github.com/gitbutlerapp/gitbutler/issues/new),
 or [join our Discord server](https://discord.gg/MmFkmaJ42D).
 
-## AI Commit Message Generation
+## License
 
-Commit message generation is an opt-in feature. You can enable it while adding your repository for the first time or later in the project settings.
-
-Currently, GitButler uses OpenAI's API for diff summarization, which means that if enabled, code diffs would be sent to OpenAI's servers.
-
-Our goal is to make this feature more modular such that in the future you can modify the prompt as well as plug a different LLM endpoints (including local ones).
+The TLDR is that GitButler is under a [Fair Source](https://fair.io/) software license, meaning that you can use it, view the source, contribute, etc. You just can't build a competitor with it. It also becomes MIT after 2 years. So, MIT with an expiring non-compete clause.
 
 ## Contributing
 

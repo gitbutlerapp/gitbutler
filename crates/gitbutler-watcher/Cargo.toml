@@ -1,28 +1,33 @@
 [package]
 name = "gitbutler-watcher"
 version = "0.0.0"
-edition = "2024"
+edition.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 test = false
 doctest = false
 
 [dependencies]
-anyhow.workspace = true
-tokio = { workspace = true, features = ["macros", "sync"] }
-tokio-util = "0.7.16"
-tracing.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-filemonitor.workspace = true
-gitbutler-operating-modes.workspace = true
-gitbutler-project.workspace = true
+but-ctx.workspace = true
+but-db.workspace = true
 but-core.workspace = true
+but-graph.workspace = true
 but-rules.workspace = true
 but-settings.workspace = true
 but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
+
+gitbutler-filemonitor.workspace = true
+gitbutler-operating-modes.workspace = true
+gitbutler-project.workspace = true
+
+gix.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "sync"] }
+tokio-util = "0.7.16"
+tracing.workspace = true
 serde-error = "0.1.3"
 
 [lints.clippy]

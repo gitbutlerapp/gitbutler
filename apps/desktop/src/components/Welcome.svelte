@@ -109,7 +109,7 @@
 	}
 
 	.welcome-title {
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		line-height: 1;
 	}
 
@@ -131,7 +131,7 @@
 		padding: 28px;
 		gap: 56px;
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-1-muted);
+		background: var(--clr-bg-muted);
 	}
 
 	.links__section {

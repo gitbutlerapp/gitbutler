@@ -1,11 +1,22 @@
 /**
  * It's easier to understand a hierarchical structure than a flat list.
  *
- * This module provides support for tranforming a list of files into a
+ * This module provides support for transforming a list of files into a
  * hirerarchical structure for easy rendering.
  */
 
 import type { TreeChange } from '$lib/hunks/change';
+
+/**
+ * Sort configuration for file lists.
+ */
+const FILE_SORT_CONFIG: Intl.CollatorOptions = {
+	numeric: true,
+	caseFirst: 'lower',
+	sensitivity: 'base'
+} as const;
+
+const FILE_SORT_LOCALE = 'en';
 
 export type TreeNode = {
 	kind: 'dir' | 'file';
@@ -52,7 +63,7 @@ export function sortChildren(node: TreeNode) {
 		} else if (a.kind === 'dir' && b.kind === 'file') {
 			return -1;
 		} else {
-			return a.name < b.name ? -1 : 1;
+			return a.name.localeCompare(b.name, FILE_SORT_LOCALE, FILE_SORT_CONFIG);
 		}
 	});
 	for (const child of node.children) {
@@ -75,16 +86,7 @@ export function changesToFileTree(files: TreeChange[]): TreeNode {
 }
 
 export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
-	const caseSensitive = false;
-	const locale = 'en';
-	const numeric = true;
 	const separator = '/';
-
-	const compareOptions: Intl.CollatorOptions = {
-		sensitivity: caseSensitive ? 'case' : 'base',
-		numeric: numeric,
-		caseFirst: 'lower'
-	};
 
 	return changes.sort((a, b) => {
 		const partsA = a.path.split(separator);
@@ -94,7 +96,7 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
 		const minLength = Math.min(partsA.length, partsB.length);
 
 		for (let i = 0; i < minLength - 1; i++) {
-			const comparison = partsA[i]!.localeCompare(partsB[i]!, locale, compareOptions);
+			const comparison = partsA[i]!.localeCompare(partsB[i]!, FILE_SORT_LOCALE, FILE_SORT_CONFIG);
 			if (comparison !== 0) {
 				return comparison;
 			}
@@ -108,8 +110,8 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
 		// Same depth, compare final component
 		return partsA[partsA.length - 1]!.localeCompare(
 			partsB[partsB.length - 1]!,
-			locale,
-			compareOptions
+			FILE_SORT_LOCALE,
+			FILE_SORT_CONFIG
 		);
 	});
 }

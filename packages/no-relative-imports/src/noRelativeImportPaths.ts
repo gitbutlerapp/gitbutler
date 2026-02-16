@@ -21,21 +21,21 @@ type TsConfig = {
  * Takes a file or directory path and tries to find the nearest tsconfig.json.
  */
 function findTsConfigDirectory(absolutePath: string): string | undefined {
-	const pathSegments = absolutePath.split('/').slice(1);
+	let current = path.resolve(absolutePath);
 
-	while (pathSegments.length > 0) {
-		const configPath = '/' + path.join(...pathSegments, 'tsconfig.json');
+	while (true) {
+		const configPath = path.join(current, 'tsconfig.json');
 		try {
 			const configStat = statSync(configPath);
-			if (configStat.isFile()) break;
+			if (configStat.isFile()) return current;
 		} catch (_) {
 			/* empty */
 		}
 
-		pathSegments.pop();
+		const parent = path.dirname(current);
+		if (parent === current) return;
+		current = parent;
 	}
-	if (pathSegments.length === 0) return;
-	return '/' + path.join(...pathSegments);
 }
 
 /**

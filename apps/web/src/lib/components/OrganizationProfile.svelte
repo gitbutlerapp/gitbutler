@@ -243,7 +243,7 @@
 									{#if localOrganization.inviteCode && !isOwner(member)}
 										<Button
 											kind="outline"
-											style="neutral"
+											style="gray"
 											onclick={() => confirmMakeOwnerDialog(member.login)}
 										>
 											Make Owner
@@ -253,7 +253,7 @@
 									{#if localOrganization.inviteCode || member.login === currentUserLogin}
 										<Button
 											kind="outline"
-											style="error"
+											style="danger"
 											onclick={() => confirmRemoveUserDialog(member.login)}
 										>
 											Remove
@@ -274,7 +274,7 @@
 	<p>Are you sure you want to remove this user from the organization?</p>
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" loading={isRemoving}>Remove</Button>
+		<Button style="danger" type="submit" loading={isRemoving}>Remove</Button>
 	{/snippet}
 </Modal>
 

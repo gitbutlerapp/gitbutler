@@ -6,14 +6,18 @@
 	import GeneralSettings from '$components/profileSettings/GeneralSettings.svelte';
 	import GitSettings from '$components/profileSettings/GitSettings.svelte';
 	import IntegrationsSettings from '$components/profileSettings/IntegrationsSettings.svelte';
+	import LanesAndBranchesSettings from '$components/profileSettings/LanesAndBranchesSettings.svelte';
 	import OrganisationSettings from '$components/profileSettings/OrganisationSettings.svelte';
 	import TelemetrySettings from '$components/profileSettings/TelemetrySettings.svelte';
 	import AppearanceSettings from '$components/projectSettings/AppearanceSettings.svelte';
+	import {
+		generalSettingsPages,
+		type GeneralSettingsPageId
+	} from '$lib/settings/generalSettingsPages';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 	import { Icon } from '@gitbutler/ui';
-	import iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { GeneralSettingsModalState } from '$lib/state/uiState.svelte';
 
 	type Props = {
@@ -26,61 +30,17 @@
 	const user = userService.user;
 	const urlService = inject(URL_SERVICE);
 
-	const pages = [
-		{
-			id: 'general',
-			label: 'General',
-			icon: 'settings' as keyof typeof iconsJson
-		},
-		{
-			id: 'appearance',
-			label: 'Appearance',
-			icon: 'appearance' as keyof typeof iconsJson
-		},
-		{
-			id: 'git',
-			label: 'Git stuff',
-			icon: 'git' as keyof typeof iconsJson
-		},
-		{
-			id: 'integrations',
-			label: 'Integrations',
-			icon: 'integrations' as keyof typeof iconsJson
-		},
-		{
-			id: 'ai',
-			label: 'AI Options',
-			icon: 'ai' as keyof typeof iconsJson
-		},
-		{
-			id: 'telemetry',
-			label: 'Telemetry',
-			icon: 'stat' as keyof typeof iconsJson
-		},
-		{
-			id: 'experimental',
-			label: 'Experimental',
-			icon: 'idea' as keyof typeof iconsJson
-		},
-		{
-			id: 'organizations',
-			label: 'Organizations',
-			icon: 'idea' as keyof typeof iconsJson,
-			adminOnly: true
-		}
-	];
+	let currentSelectedId = $derived(data.selectedId || generalSettingsPages[0]!.id);
 
-	let currentSelectedId = $state(data.selectedId || pages[0]!.id);
-
-	function selectPage(pageId: string) {
+	function selectPage(pageId: GeneralSettingsPageId) {
 		currentSelectedId = pageId;
 	}
 </script>
 
 <SettingsModalLayout
 	title="Global settings"
-	{pages}
-	selectedId={data.selectedId}
+	pages={generalSettingsPages}
+	selectedId={currentSelectedId}
 	isAdmin={$user?.role === 'admin'}
 	onSelectPage={selectPage}
 >
@@ -90,6 +50,8 @@
 				<GeneralSettings />
 			{:else if currentPage.id === 'appearance'}
 				<AppearanceSettings />
+			{:else if currentPage.id === 'lanes-and-branches'}
+				<LanesAndBranchesSettings />
 			{:else if currentPage.id === 'git'}
 				<GitSettings />
 			{:else if currentPage.id === 'integrations'}
@@ -118,10 +80,8 @@
 				onclick={async () => await urlService.openExternalUrl('https://docs.gitbutler.com/')}
 			>
 				<Icon name="docs" />
-				<span class="text-13 text-bold full-width">Docs</span>
-				<div class="open-link-icon">
-					<Icon name="open-link" />
-				</div>
+				<span class="text-13 text-bold">Docs</span>
+				<div class="text-13 open-link-icon">↗</div>
 			</button>
 			<button
 				type="button"
@@ -129,10 +89,8 @@
 				onclick={async () => await urlService.openExternalUrl('https://discord.gg/MmFkmaJ42D')}
 			>
 				<Icon name="discord" />
-				<span class="text-13 text-bold full-width">Our Discord</span>
-				<div class="open-link-icon">
-					<Icon name="open-link" />
-				</div>
+				<span class="text-13 text-bold">Our Discord</span>
+				<div class="text-13 open-link-icon">↗</div>
 			</button>
 		</div>
 	{/snippet}
@@ -158,15 +116,12 @@
 		transition: all var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
-
-			.open-link-icon {
-				display: flex;
-			}
+			background-color: var(--hover-bg-1);
 		}
 	}
 
 	.open-link-icon {
-		display: none;
+		transform: translateY(-2px) translateX(-4px);
+		color: var(--clr-text-3);
 	}
 </style>

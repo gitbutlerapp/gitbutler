@@ -190,7 +190,7 @@
 	{#if isStreaming || result || error}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage
-				style={error ? 'error' : 'success'}
+				style={error ? 'danger' : 'success'}
 				icon={error ? 'error' : isStreaming ? 'robot' : 'success'}
 				filled
 				outlined={false}

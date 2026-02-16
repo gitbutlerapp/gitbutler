@@ -1,31 +1,34 @@
 [package]
 name = "but-db"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
+
+[features]
+## Support for polling for changes in the database
+poll = ["dep:tokio"]
 
 [dependencies]
-diesel = { version = "2.2.12", features = [
-    "sqlite",
-    "returning_clauses_for_sqlite_3_35",
-    "chrono",
-] }
-# Bundled libsqlite3 for Windows, and exactly this version to match the one of `diesel`!
-libsqlite3-sys = { version = "0.29", features = ["bundled"] }
+rusqlite = { workspace = true, features = ["chrono"] }
 bitflags.workspace = true
 serde.workspace = true
 anyhow.workspace = true
-diesel_migrations = { version = "2.3.0", features = ["sqlite"] }
 chrono = { workspace = true, features = ["serde"] }
 # other things
-tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"] }
 tracing.workspace = true
+backoff.workspace = true
+
+tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot", "time", "sync", "macros"], optional = true }
 
 [dev-dependencies]
-tempfile = "3.23.0"
+tempfile = "3.24.0"
+insta.workspace = true
+
+# for multi-process migration testing.
+[target."cfg(unix)".dev-dependencies]
+libc = "0.2.180"

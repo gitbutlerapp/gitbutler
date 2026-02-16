@@ -1,20 +1,16 @@
 use anyhow::Result;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use uuid::Uuid;
 
 use crate::{ClaudePermissionRequest, ClaudeSession};
 
 /// Creates a new ClaudeSession with the session_id provided and saves it to the database.
-pub fn save_new_session(ctx: &mut CommandContext, id: Uuid) -> anyhow::Result<ClaudeSession> {
+pub fn save_new_session(ctx: &mut Context, id: Uuid) -> anyhow::Result<ClaudeSession> {
     save_new_session_with_gui_flag(ctx, id, false)
 }
 
 /// Creates a new ClaudeSession with the session_id provided and saves it to the database.
-pub fn save_new_session_with_gui_flag(
-    ctx: &mut CommandContext,
-    id: Uuid,
-    in_gui: bool,
-) -> anyhow::Result<ClaudeSession> {
+pub fn save_new_session_with_gui_flag(ctx: &mut Context, id: Uuid, in_gui: bool) -> anyhow::Result<ClaudeSession> {
     let now = chrono::Utc::now().naive_utc();
     let session = ClaudeSession {
         id,
@@ -26,18 +22,15 @@ pub fn save_new_session_with_gui_flag(
         approved_permissions: vec![],
         denied_permissions: vec![],
     };
-    ctx.db()?
-        .claude_sessions()
-        .insert(session.clone().try_into()?)?;
+    ctx.db
+        .get_mut()?
+        .claude_mut()
+        .insert_session(session.clone().try_into()?)?;
     Ok(session)
 }
 
 /// Adds a session ID to the list of session IDs for a given session.
-pub fn add_session_id(
-    ctx: &mut CommandContext,
-    session_id: Uuid,
-    new_session_id: Uuid,
-) -> anyhow::Result<()> {
+pub fn add_session_id(ctx: &mut Context, session_id: Uuid, new_session_id: Uuid) -> anyhow::Result<()> {
     if let Some(mut session) = get_session_by_id(ctx, session_id)?
         && !session.session_ids.contains(&new_session_id)
     {
@@ -46,74 +39,58 @@ pub fn add_session_id(
 
         let json = serde_json::to_string(&session.session_ids)?;
 
-        ctx.db()?
-            .claude_sessions()
+        ctx.db
+            .get_mut()?
+            .claude_mut()
             .update_session_ids(&session_id.to_string(), &json)?;
-        ctx.db()?
-            .claude_sessions()
-            .update_current_id(&session_id.to_string(), &new_session_id.to_string())?;
+        ctx.db
+            .get_mut()?
+            .claude_mut()
+            .update_session_current_id(&session_id.to_string(), &new_session_id.to_string())?;
     }
     Ok(())
 }
 
 /// Updates the current session ID for a given session in the database.
-pub fn set_session_in_gui(
-    ctx: &mut CommandContext,
-    session_id: Uuid,
-    in_gui: bool,
-) -> anyhow::Result<()> {
-    ctx.db()?
-        .claude_sessions()
-        .update_in_gui(&session_id.to_string(), in_gui)?;
+pub fn set_session_in_gui(ctx: &mut Context, session_id: Uuid, in_gui: bool) -> anyhow::Result<()> {
+    ctx.db
+        .get_mut()?
+        .claude_mut()
+        .update_session_in_gui(&session_id.to_string(), in_gui)?;
     Ok(())
 }
 
 /// Updates the permissions for a given session in the database.
 pub fn update_session_permissions(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
     approved_permissions: &[crate::Permission],
     denied_permissions: &[crate::Permission],
 ) -> anyhow::Result<()> {
     let approved_json = serde_json::to_string(approved_permissions)?;
     let denied_json = serde_json::to_string(denied_permissions)?;
-    ctx.db()?.claude_sessions().update_permissions(
-        &session_id.to_string(),
-        &approved_json,
-        &denied_json,
-    )?;
+    ctx.db
+        .get_mut()?
+        .claude_mut()
+        .update_session_permissions(&session_id.to_string(), &approved_json, &denied_json)?;
     Ok(())
 }
 
-/// Lists all known Claude sessions
-pub fn list_all_sessions(ctx: &mut CommandContext) -> anyhow::Result<Vec<ClaudeSession>> {
-    let sessions = ctx.db()?.claude_sessions().list()?;
-    sessions
-        .into_iter()
-        .map(|s| s.try_into())
-        .collect::<Result<_, _>>()
-}
-
 /// Retrieves a Claude session by its ID from the database.
-pub fn get_session_by_id(
-    ctx: &mut CommandContext,
-    session_id: Uuid,
-) -> anyhow::Result<Option<ClaudeSession>> {
-    let session = ctx.db()?.claude_sessions().get(&session_id.to_string())?;
+pub fn get_session_by_id(ctx: &Context, session_id: Uuid) -> anyhow::Result<Option<ClaudeSession>> {
+    let session = ctx.db.get()?.claude().get_session(&session_id.to_string())?;
     match session {
         Some(s) => Ok(Some(s.try_into()?)),
         None => Ok(None),
     }
 }
 
-pub fn get_session_by_current_id(
-    ctx: &mut CommandContext,
-    current_id: Uuid,
-) -> anyhow::Result<Option<ClaudeSession>> {
+pub fn get_session_by_current_id(ctx: &Context, current_id: Uuid) -> anyhow::Result<Option<ClaudeSession>> {
     let session = ctx
-        .db()?
-        .claude_sessions()
-        .get_by_current_id(&current_id.to_string())?;
+        .db
+        .get()?
+        .claude()
+        .get_session_by_current_id(&current_id.to_string())?;
     match session {
         Some(s) => Ok(Some(s.try_into()?)),
         None => Ok(None),
@@ -121,18 +98,17 @@ pub fn get_session_by_current_id(
 }
 
 /// Deletes a Claude session and all associated messages from the database. This is what we want to use when we want to delete a session completely.
-pub fn delete_session_and_messages_by_id(
-    ctx: &mut CommandContext,
-    session_id: Uuid,
-) -> anyhow::Result<()> {
-    ctx.db()?
+pub fn delete_session_and_messages_by_id(ctx: &mut Context, session_id: Uuid) -> anyhow::Result<()> {
+    ctx.db
+        .get_mut()?
+        .claude_mut()
         .delete_session_and_messages(&session_id.to_string())?;
     Ok(())
 }
 
 /// Creates a new ClaudeMessage with the provided session_id and payload, and saves it to the database.
 pub fn save_new_message(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     session_id: Uuid,
     payload: crate::MessagePayload,
 ) -> anyhow::Result<crate::ClaudeMessage> {
@@ -142,37 +118,31 @@ pub fn save_new_message(
         created_at: chrono::Utc::now().naive_utc(),
         payload,
     };
-    ctx.db()?
-        .claude_messages()
-        .insert(message.clone().try_into()?)?;
+    ctx.db
+        .get_mut()?
+        .claude_mut()
+        .insert_message(message.clone().try_into()?)?;
     Ok(message)
 }
 
 /// Lists all messages associated with a given session ID from the database.
 /// Messages that fail to deserialize are skipped and logged as warnings.
-pub fn list_messages_by_session(
-    ctx: &mut CommandContext,
-    session_id: Uuid,
-) -> anyhow::Result<Vec<crate::ClaudeMessage>> {
+pub fn list_messages_by_session(ctx: &Context, session_id: Uuid) -> anyhow::Result<Vec<crate::ClaudeMessage>> {
     let messages = ctx
-        .db()?
-        .claude_messages()
-        .list_by_session(&session_id.to_string())?;
-    messages
-        .into_iter()
-        .map(|m| m.try_into())
-        .collect::<Result<_, _>>()
+        .db
+        .get()?
+        .claude()
+        .list_messages_by_session(&session_id.to_string())?;
+    messages.into_iter().map(|m| m.try_into()).collect::<Result<_, _>>()
 }
 
 /// Gets the most recent user input message
 /// Optionally an offset may be provided. The offset must be a positive integer
-pub fn get_user_message(
-    ctx: &mut CommandContext,
-    offset: Option<i64>,
-) -> anyhow::Result<Option<crate::ClaudeMessage>> {
+pub fn get_user_message(ctx: &Context, offset: Option<i64>) -> anyhow::Result<Option<crate::ClaudeMessage>> {
     let message = ctx
-        .db()?
-        .claude_messages()
+        .db
+        .get()?
+        .claude()
         .get_message_of_type(MessagePayloadDbType::User.to_string(), offset)?;
 
     match message {
@@ -182,38 +152,75 @@ pub fn get_user_message(
 }
 
 /// Lists all Permission Requests
-pub fn list_all_permission_requests(
-    ctx: &mut CommandContext,
-) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
-    let requests = ctx.db()?.claude_permission_requests().list()?;
-    requests
-        .into_iter()
-        .map(|s| s.try_into())
-        .collect::<Result<_, _>>()
+pub fn list_all_permission_requests(_ctx: &Context) -> anyhow::Result<Vec<ClaudePermissionRequest>> {
+    Ok(crate::pending_requests::pending_requests().list_permissions())
 }
 
-/// Update permission request decision
+/// Update permission request decision.
+/// This sends the decision to the waiting in-memory request.
 pub fn update_permission_request(
-    ctx: &mut CommandContext,
+    _ctx: &mut Context,
     id: &str,
     decision: crate::PermissionDecision,
     use_wildcard: bool,
 ) -> anyhow::Result<()> {
-    let decision_str = serde_json::to_string(&decision)?;
-    ctx.db()?
-        .claude_permission_requests()
-        .set_decision_and_wildcard(id, Some(decision_str), use_wildcard)?;
-    Ok(())
+    crate::pending_requests::pending_requests().respond_permission(id, decision, use_wildcard)
+}
+
+// AskUserQuestion request functions
+// Note: AskUserQuestion requests are stored in-memory only (no database persistence)
+// since they are ephemeral and tied to active Claude sessions.
+
+/// Lists all pending (unanswered) AskUserQuestion requests.
+pub fn list_pending_ask_user_question_requests(
+    _ctx: &Context,
+) -> anyhow::Result<Vec<crate::ClaudeAskUserQuestionRequest>> {
+    Ok(crate::pending_requests::pending_requests().list_questions())
+}
+
+/// Updates the answers for an AskUserQuestion request.
+/// This sends the answers to the waiting in-memory request.
+pub fn set_ask_user_question_answers(
+    _ctx: &mut Context,
+    id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<()> {
+    crate::pending_requests::pending_requests().respond_question(id, answers)
+}
+
+/// Alias for set_ask_user_question_answers for API compatibility.
+pub fn answer_ask_user_question(
+    ctx: &mut Context,
+    id: &str,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<()> {
+    set_ask_user_question_answers(ctx, id, answers)
+}
+
+/// Updates the answers for the pending AskUserQuestion request for a specific stack.
+/// Returns true if an update was made, false if no pending request was found for the stack.
+pub fn set_ask_user_question_answers_by_stack(
+    _ctx: &mut Context,
+    stack_id: gitbutler_stack::StackId,
+    answers: std::collections::HashMap<String, String>,
+) -> anyhow::Result<bool> {
+    let pending = crate::pending_requests::pending_requests();
+
+    // Find the pending question for this stack
+    if let Some(request) = pending.get_question_by_stack(&stack_id) {
+        pending.respond_question(&request.id, answers)?;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
 }
 
 impl TryFrom<but_db::ClaudeSession> for crate::ClaudeSession {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudeSession) -> Result<Self, Self::Error> {
         let session_ids: Vec<Uuid> = serde_json::from_str(&value.session_ids)?;
-        let approved_permissions: Vec<crate::Permission> =
-            serde_json::from_str(&value.approved_permissions)?;
-        let denied_permissions: Vec<crate::Permission> =
-            serde_json::from_str(&value.denied_permissions)?;
+        let approved_permissions: Vec<crate::Permission> = serde_json::from_str(&value.approved_permissions)?;
+        let denied_permissions: Vec<crate::Permission> = serde_json::from_str(&value.denied_permissions)?;
         Ok(crate::ClaudeSession {
             id: Uuid::parse_str(&value.id)?,
             current_id: Uuid::parse_str(&value.current_id)?,
@@ -268,29 +275,18 @@ impl TryFrom<but_db::ClaudeMessage> for crate::ClaudeMessage {
                 crate::MessagePayload::Claude(crate::ClaudeOutput { data })
             }
             MessagePayloadDbType::ClaudeOutput => {
-                crate::legacy::ClaudeMessageContent::ClaudeOutput(serde_json::from_str(
-                    &value.content,
-                )?)
-                .into()
+                crate::legacy::ClaudeMessageContent::ClaudeOutput(serde_json::from_str(&value.content)?).into()
             }
-            MessagePayloadDbType::User => {
-                crate::MessagePayload::User(serde_json::from_str(&value.content)?)
+            MessagePayloadDbType::User => crate::MessagePayload::User(serde_json::from_str(&value.content)?),
+            MessagePayloadDbType::UserInput => {
+                crate::legacy::ClaudeMessageContent::UserInput(serde_json::from_str(&value.content)?).into()
             }
-            MessagePayloadDbType::UserInput => crate::legacy::ClaudeMessageContent::UserInput(
-                serde_json::from_str(&value.content)?,
-            )
-            .into(),
-            MessagePayloadDbType::System => {
-                crate::MessagePayload::System(serde_json::from_str(&value.content)?)
-            }
+            MessagePayloadDbType::System => crate::MessagePayload::System(serde_json::from_str(&value.content)?),
             MessagePayloadDbType::GitButlerUpdate => {
                 crate::MessagePayload::GitButler(serde_json::from_str(&value.content)?)
             }
             MessagePayloadDbType::GitButlerMessage => {
-                crate::legacy::ClaudeMessageContent::GitButlerMessage(serde_json::from_str(
-                    &value.content,
-                )?)
-                .into()
+                crate::legacy::ClaudeMessageContent::GitButlerMessage(serde_json::from_str(&value.content)?).into()
             }
         };
         Ok(crate::ClaudeMessage {
@@ -337,11 +333,7 @@ impl TryFrom<crate::ClaudeMessage> for but_db::ClaudeMessage {
 impl TryFrom<but_db::ClaudePermissionRequest> for crate::ClaudePermissionRequest {
     type Error = anyhow::Error;
     fn try_from(value: but_db::ClaudePermissionRequest) -> Result<Self, Self::Error> {
-        let decision = value
-            .decision
-            .as_ref()
-            .map(|s| serde_json::from_str(s))
-            .transpose()?;
+        let decision = value.decision.as_ref().map(|s| serde_json::from_str(s)).transpose()?;
         Ok(crate::ClaudePermissionRequest {
             id: value.id.to_string(),
             created_at: value.created_at,
@@ -357,10 +349,7 @@ impl TryFrom<but_db::ClaudePermissionRequest> for crate::ClaudePermissionRequest
 impl TryFrom<crate::ClaudePermissionRequest> for but_db::ClaudePermissionRequest {
     type Error = anyhow::Error;
     fn try_from(value: crate::ClaudePermissionRequest) -> Result<Self, Self::Error> {
-        let decision = value
-            .decision
-            .map(|s| serde_json::to_string(&s))
-            .transpose()?;
+        let decision = value.decision.map(|s| serde_json::to_string(&s)).transpose()?;
         Ok(but_db::ClaudePermissionRequest {
             id: value.id,
             created_at: value.created_at,
@@ -382,9 +371,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440000".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "GitButlerMessage".to_string(),
             content: r#"{
                 "subject": {
@@ -423,9 +410,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440001".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440001".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "GitButlerMessage".to_string(),
             content: r#"{
                 "type": "userAbort"
@@ -448,9 +433,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440002".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440002".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "UserInput".to_string(),
             content: r#"{
                 "message": "Okay but i need a test where `attachments` is not set at all"
@@ -479,9 +462,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440003".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440003".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "UserInput".to_string(),
             content: r#"{
                 "attachments": [],
@@ -509,9 +490,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440004".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440004".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "UserInput".to_string(),
             content: r#"{
                 "attachments": [
@@ -552,9 +531,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440005".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440005".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "ClaudeOutput".to_string(),
             content: r#"{
                 "message": {
@@ -600,10 +577,7 @@ mod tests {
                 assert!(claude_output.data.is_object());
                 assert!(claude_output.data.get("message").is_some());
                 assert!(claude_output.data.get("type").is_some());
-                assert_eq!(
-                    claude_output.data.get("type").unwrap().as_str().unwrap(),
-                    "assistant"
-                );
+                assert_eq!(claude_output.data.get("type").unwrap().as_str().unwrap(), "assistant");
             }
             _ => panic!("Expected MessagePayload::Claude"),
         }
@@ -614,9 +588,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440006".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440006".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "Claude".to_string(),
             content: r#"{
                 "content": [
@@ -649,9 +621,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440007".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440007".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "User".to_string(),
             content: r#"{
                 "message": "Test user message",
@@ -678,9 +648,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440008".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440008".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "System".to_string(),
             content: r#"{
                 "type": "userAbort"
@@ -703,9 +671,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440000".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "InvalidType".to_string(),
             content: r#"{"message": "test"}"#.to_string(),
         };
@@ -719,9 +685,7 @@ mod tests {
         let db_message = but_db::ClaudeMessage {
             id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
             session_id: "650e8400-e29b-41d4-a716-446655440000".to_string(),
-            created_at: chrono::DateTime::from_timestamp(1234567890, 0)
-                .unwrap()
-                .naive_utc(),
+            created_at: chrono::DateTime::from_timestamp(1234567890, 0).unwrap().naive_utc(),
             content_type: "User".to_string(),
             content: "not valid json".to_string(),
         };

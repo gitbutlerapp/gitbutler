@@ -1,31 +1,20 @@
 use but_core::{DiffSpec, HunkHeader};
-use but_testsupport::assure_stable_env;
+use but_testsupport::read_only_in_memory_scenario;
 use but_workspace::commit_engine::Destination;
 
 use crate::utils::{
-    CONTEXT_LINES, cat_commit, commit_from_outcome,
-    commit_whole_files_and_all_hunks_from_workspace,
-    read_only_in_memory_scenario_non_isolated_keep_env, visualize_commit, visualize_tree,
-    writable_scenario, writable_scenario_with_ssh_key, write_local_config, write_sequence,
+    CONTEXT_LINES, cat_commit, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace, visualize_commit,
+    visualize_tree, writable_scenario, writable_scenario_with_ssh_key, write_sequence,
 };
 
 #[test]
 fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
-    assure_stable_env();
-
-    let mut repo =
-        read_only_in_memory_scenario_non_isolated_keep_env("all-file-types-renamed-and-modified")?;
+    let mut repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     // Change the committer and author dates to be able to tell what it changes.
     {
         let mut config = repo.config_snapshot_mut();
-        config.set_value(
-            &gix::config::tree::gitoxide::Commit::COMMITTER_DATE,
-            "946771266 +0600",
-        )?;
-        config.set_value(
-            &gix::config::tree::gitoxide::Commit::AUTHOR_DATE,
-            "946684866 +0600",
-        )?;
+        config.set_value(&gix::config::tree::gitoxide::Commit::COMMITTER_DATE, "946771266 +0600")?;
+        config.set_value(&gix::config::tree::gitoxide::Commit::AUTHOR_DATE, "946684866 +0600")?;
     }
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -54,7 +43,7 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(e69a4dfd9ef6d55fd4e49f801612fbe061677adb),
+            Sha1(040c4f1b81c90d596fded5e13245cc75dee4fb87),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(e56fc9bacdd11ebe576b5d96d21127c423698126),
@@ -77,8 +66,8 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
     // which thus should never be removed.
     insta::assert_snapshot!(visualize_commit(&repo, &outcome)?, @r"
     tree e56fc9bacdd11ebe576b5d96d21127c423698126
-    author author <author@example.com> 946684866 +0600
-    committer committer (From Env) <committer@example.com> 946771266 +0600
+    author author <author@example.com> 946684800 +0000
+    committer Committer (Memory Override) <committer@example.com> 946771266 +0600
     gitbutler-headers-version 2
     gitbutler-change-id 00000000-0000-0000-0000-000000003333
 
@@ -90,8 +79,6 @@ fn all_changes_and_renames_to_topmost_commit_no_parent() -> anyhow::Result<()> {
 
 #[test]
 fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "file", [(40, 70)])?;
@@ -113,7 +100,7 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
     parent 91ef6f6fc0a8b97fb456886c1cc3b2a3536ea2eb
     parent 7f389eda1b366f3d56ecc1300b3835727c3309b6
     author author <author@example.com> 946684800 +0000
-    committer committer (From Env) <committer@example.com> 946771200 +0000
+    committer Committer (Memory Override) <committer@example.com> 946771200 +0000
 
     Merge branch 'A' into merge
     ");
@@ -122,8 +109,6 @@ fn all_aspects_of_amended_commit_are_copied() -> anyhow::Result<()> {
 
 #[test]
 fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
@@ -146,8 +131,6 @@ fn new_file_and_deletion_onto_merge_commit() -> anyhow::Result<()> {
 
 #[test]
 fn make_a_file_empty() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Empty the file
     std::fs::write(repo.workdir_path("file").expect("non-bare"), "")?;
@@ -168,8 +151,6 @@ fn make_a_file_empty() -> anyhow::Result<()> {
 
 #[test]
 fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
     // Rewrite the entire file, which is fine as we rewrite/amend the base-commit itself.
     write_sequence(&repo, "new-file", [(10, None)])?;
@@ -211,12 +192,10 @@ fn new_file_and_deletion_onto_merge_commit_with_hunks() -> anyhow::Result<()> {
 
 #[test]
 fn signatures_are_redone() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (mut repo, _tmp) = writable_scenario_with_ssh_key("two-signed-commits-with-line-offset");
 
     let head_id = repo.head_id()?;
-    let head_commit = head_id.object()?.into_commit().decode()?.to_owned();
+    let head_commit = head_id.object()?.into_commit().decode()?.to_owned()?;
     let head_id = head_id.detach();
     let previous_signature = head_commit
         .extra_headers()
@@ -253,7 +232,6 @@ fn signatures_are_redone() -> anyhow::Result<()> {
 
     repo.config_snapshot_mut()
         .set_raw_value(&"gitbutler.signCommits", "false")?;
-    write_local_config(&repo)?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::AmendCommit {

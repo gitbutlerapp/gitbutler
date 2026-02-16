@@ -1,10 +1,10 @@
 [package]
 name = "gitbutler-edit-mode"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
@@ -14,12 +14,11 @@ but-workspace.workspace = true
 but-rebase.workspace = true
 but-core.workspace = true
 but-oxidize.workspace = true
+but-ctx.workspace = true
 
 gitbutler-commit.workspace = true
 gitbutler-repo.workspace = true
-gitbutler-command-context.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-project.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-stack.workspace = true

@@ -98,7 +98,7 @@ export default class AIMacros {
 
 		if (!branchName) {
 			showToast({
-				style: 'error',
+				style: 'danger',
 				message: 'Failed to generate branch name.'
 			});
 			return { branchName, commitMessage: undefined };
@@ -108,7 +108,7 @@ export default class AIMacros {
 
 		if (!commitMessage) {
 			showToast({
-				style: 'error',
+				style: 'danger',
 				message: 'Failed to generate commit message.'
 			});
 			return { branchName, commitMessage };

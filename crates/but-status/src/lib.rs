@@ -1,15 +1,12 @@
 use gix::status::index_worktree;
 
-/// Creates a tree containing the uncommited changes in the project.
+/// Creates a tree containing the uncommitted changes in the project.
 /// This includes files in the index that are considered conflicted.
 ///
 /// TODO: This is a copy of `create_wd_tree` from the old world. Ideally we
 ///       should share between the old and new worlds to prevent duplication between
 ///       these.
-pub fn create_wd_tree(
-    repo: &gix::Repository,
-    untracked_limit_in_bytes: u64,
-) -> anyhow::Result<gix::ObjectId> {
+pub fn create_wd_tree(repo: &gix::Repository, untracked_limit_in_bytes: u64) -> anyhow::Result<gix::ObjectId> {
     use std::collections::HashSet;
 
     use bstr::ByteSlice;
@@ -20,19 +17,18 @@ pub fn create_wd_tree(
     };
 
     let (mut pipeline, index) = repo.filter_pipeline(None)?;
-    let mut added_worktree_file = |rela_path: &BStr,
-                                   head_tree_editor: &mut gix::object::tree::Editor<'_>|
-     -> anyhow::Result<bool> {
-        let Some((id, kind, md)) = pipeline.worktree_file_to_object(rela_path, &index)? else {
-            head_tree_editor.remove(rela_path)?;
-            return Ok(false);
+    let mut added_worktree_file =
+        |rela_path: &BStr, head_tree_editor: &mut gix::object::tree::Editor<'_>| -> anyhow::Result<bool> {
+            let Some((id, kind, md)) = pipeline.worktree_file_to_object(rela_path, &index)? else {
+                head_tree_editor.remove(rela_path)?;
+                return Ok(false);
+            };
+            if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
+                return Ok(false);
+            }
+            head_tree_editor.upsert(rela_path, kind, id)?;
+            Ok(true)
         };
-        if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
-            return Ok(false);
-        }
-        head_tree_editor.upsert(rela_path, kind, id)?;
-        Ok(true)
-    };
     let head_tree = repo.head_tree_id_or_empty()?;
     let mut head_tree_editor = repo.edit_tree(head_tree)?;
     let status_changes = get_status(repo)?;

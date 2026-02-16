@@ -33,7 +33,7 @@ pub mod tokio;
 /// These invariants are not enforced by the typesystem, and while
 /// we have some loose checks to ensure that the invariants are upheld,
 /// we cannot guarantee that they are upheld in all cases. Thus, it is
-/// up to the implementor to ensure that the invariants are upheld.
+/// up to the implementer to ensure that the invariants are upheld.
 #[expect(unsafe_code)]
 pub unsafe trait GitExecutor {
     /// The error type returned by this executor,
@@ -128,7 +128,7 @@ pub unsafe trait GitExecutor {
     /// These invariants are not enforced by the typesystem, and while
     /// we have some loose checks to ensure that the invariants are upheld,
     /// we cannot guarantee that they are upheld in all cases. Thus, it is
-    /// up to the implementor to ensure that the invariants are upheld.
+    /// up to the implementer to ensure that the invariants are upheld.
     ///
     /// If for some reason these invariants are not possible to uphold,
     /// please open an issue on the repository to discuss this issue.

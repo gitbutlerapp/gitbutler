@@ -2,7 +2,7 @@
 	--markdown-generic-bottom-margin: 16px;
 }
 
-.lexical-container.plain-text {
+.lexical-container {
 	--font-default: var(--code-block-font, var(--font-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);
 }
@@ -45,7 +45,7 @@
 }
 
 /* Remove paragraph margins in plain-text mode */
-.lexical-container.plain-text .StandardTheme__paragraph {
+.lexical-container .StandardTheme__paragraph {
 	margin-bottom: 0;
 }
 
@@ -114,7 +114,7 @@
 .StandardTheme__textCode {
 	padding: 2px 3px;
 	border-radius: var(--radius-s);
-	background-color: var(--clr-theme-ntrl-soft);
+	background-color: var(--clr-theme-gray-soft);
 	font-size: 96%;
 	font-family: var(--code-block-font, var(--font-mono));
 	font-variant-ligatures: var(--code-block-ligatures, normal);

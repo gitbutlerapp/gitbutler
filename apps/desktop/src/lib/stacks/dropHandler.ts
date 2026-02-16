@@ -3,6 +3,7 @@ import { changesToDiffSpec } from '$lib/commits/utils';
 import {
 	FileChangeDropData,
 	FolderChangeDropData,
+	HunkDropDataV3,
 	type ChangeDropData
 } from '$lib/dragging/draggables';
 import { unstackPRs, updateStackPrs } from '$lib/forge/shared/prFooter';
@@ -39,6 +40,13 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		return true;
 	}
 
+	private acceptsHunkDropData(data: unknown): data is HunkDropDataV3 {
+		if (!(data instanceof HunkDropDataV3)) return false;
+		if (data.selectionId.type === 'commit' && data.stackId === undefined) return false;
+		if (data.selectionId.type === 'branch') return false;
+		return true;
+	}
+
 	private acceptsBranchDropData(data: unknown): data is BranchDropData {
 		if (!(data instanceof BranchDropData)) return false;
 		if (data.hasConflicts) return false;
@@ -48,7 +56,11 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	}
 
 	accepts(data: unknown) {
-		return this.acceptsChangeDropData(data) || this.acceptsBranchDropData(data);
+		return (
+			this.acceptsChangeDropData(data) ||
+			this.acceptsBranchDropData(data) ||
+			this.acceptsHunkDropData(data)
+		);
 	}
 
 	async ondropChangeData(data: ChangeDropData) {
@@ -135,6 +147,72 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		}
 	}
 
+	async ondropHunkData(data: HunkDropDataV3) {
+		switch (data.selectionId.type) {
+			case 'commit': {
+				if (!data.stackId || !data.commitId) {
+					throw new Error('Hunk drop data must specify the source stackId and commitId');
+				}
+
+				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
+
+				if (!outcome.newCommit) {
+					throw new Error('Failed to create a new commit');
+				}
+
+				const previousPathBytes =
+					data.change.status.type === 'Rename'
+						? data.change.status.subject.previousPathBytes
+						: null;
+
+				await this.macros.moveChangesToNewCommit(
+					ensureValue(stack.id),
+					outcome.newCommit,
+					data.stackId,
+					data.commitId,
+					branchName,
+					[
+						{
+							previousPathBytes,
+							pathBytes: data.change.pathBytes,
+							hunkHeaders: [
+								{
+									oldStart: data.hunk.oldStart,
+									oldLines: data.hunk.oldLines,
+									newStart: data.hunk.newStart,
+									newLines: data.hunk.newLines
+								}
+							]
+						}
+					]
+				);
+				break;
+			}
+			case 'worktree': {
+				const stack = await this.stackService.newStackMutation({
+					projectId: this.projectId,
+					branch: { name: undefined }
+				});
+
+				const assignmentReactive = this.uncommittedService.getAssignmentByHeader(
+					data.stackId,
+					data.change.path,
+					data.hunk
+				);
+				const assignment = assignmentReactive.current;
+				if (!assignment) {
+					throw new Error('No hunk assignment found for the dropped worktree hunk');
+				}
+
+				await this.diffService.assignHunk({
+					projectId: this.projectId,
+					assignments: [{ ...assignment, stackId: ensureValue(stack.id) }]
+				});
+				break;
+			}
+		}
+	}
+
 	async ondropBranchData(data: BranchDropData) {
 		await this.stackService
 			.tearOffBranch({
@@ -167,6 +245,11 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 	async ondrop(data: unknown): Promise<void> {
 		if (this.acceptsChangeDropData(data)) {
 			await this.ondropChangeData(data);
+			return;
+		}
+
+		if (this.acceptsHunkDropData(data)) {
+			await this.ondropHunkData(data);
 			return;
 		}
 

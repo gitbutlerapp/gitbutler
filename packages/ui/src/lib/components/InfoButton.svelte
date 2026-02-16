@@ -149,7 +149,7 @@
 
 		&::before,
 		&::after {
-			background-color: var(--clr-scale-ntrl-100);
+			background-color: var(--clr-theme-gray-on-element);
 		}
 	}
 
@@ -205,7 +205,7 @@
 	}
 
 	.tooltip-description {
-		color: var(--clr-scale-ntrl-40);
+		color: var(--clr-text-2);
 		user-select: text;
 	}
 </style>

@@ -188,7 +188,7 @@ export class AIService {
 	}
 
 	/**
-	 * Returns the diff length limit with a specificed upper bound of characers in order to not inundate the API.
+	 * Returns the diff length limit with a specified upper bound of characters in order to not inundate the API.
 	 */
 	async getDiffLengthLimitConsideringAPI() {
 		const diffLengthLimit = await this.getDiffLengthLimit();

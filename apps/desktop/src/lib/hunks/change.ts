@@ -1,5 +1,6 @@
 import type { DependencyError, HunkDependencies } from '$lib/dependencies/dependencies';
 import type { HunkAssignment, HunkAssignmentError } from '$lib/hunks/hunk';
+import type { CoreUI } from '@gitbutler/core/api';
 
 /** Contains the changes that are in the worktree */
 export type WorktreeChanges = {
@@ -20,17 +21,7 @@ export type WorktreeChanges = {
  * An entry in the worktree that changed and thus is eligible to being committed.
  * It either lives (or lived) in the in `.git/index`, or in the `worktree`.
  */
-export type TreeChange = {
-	/** The *relative* path in the worktree where the entry can be found.*/
-	readonly path: string;
-	/**
-	 * Something silently carried back and forth between the frontend and the backend.
-	 * This is neccessary because the path string conversion is lossy.
-	 */
-	readonly pathBytes: number[];
-	/** The specific information about this change.*/
-	readonly status: Status;
-};
+export type TreeChange = CoreUI.TreeChange;
 
 export type TreeStats = {
 	/** The total amount of lines added. */
@@ -64,19 +55,9 @@ export function isTreeChange(something: unknown): something is TreeChange {
 	);
 }
 
-export type Flags =
-	| 'ExecutableBitAdded'
-	| 'ExecutableBitRemoved'
-	| 'TypeChangeFileToLink'
-	| 'TypeChangeLinkToFile'
-	| 'TypeChange';
+export type Flags = CoreUI.ModeFlags;
 
-export type Status =
-	| { readonly type: 'Addition'; readonly subject: Addition }
-	| { readonly type: 'Deletion'; readonly subject: Deletion }
-	| { readonly type: 'Modification'; readonly subject: Modification }
-	| { readonly type: 'Rename'; readonly subject: Rename };
-/** Something was added or scheduled to be added.*/
+export type Status = CoreUI.TreeStatus;
 
 export function isExecutableStatus(status: Status): boolean {
 	switch (status.type) {
@@ -92,6 +73,23 @@ export function isExecutableStatus(status: Status): boolean {
 	}
 }
 
+export function isSubmoduleStatus(status: Status): boolean {
+	switch (status.type) {
+		case 'Addition':
+			return status.subject.state.kind === 'Commit';
+		case 'Deletion':
+			return status.subject.previousState.kind === 'Commit';
+		case 'Modification':
+			return (
+				status.subject.state.kind === 'Commit' || status.subject.previousState.kind === 'Commit'
+			);
+		case 'Rename':
+			return (
+				status.subject.state.kind === 'Commit' || status.subject.previousState.kind === 'Commit'
+			);
+	}
+}
+
 function isChangeStatus(something: unknown): something is Status {
 	return (
 		typeof something === 'object' &&
@@ -100,49 +98,6 @@ function isChangeStatus(something: unknown): something is Status {
 		typeof something['type'] === 'string'
 	);
 }
-
-type Addition = {
-	/** @private */
-	readonly state: ChangeState;
-	readonly isUntracked: boolean;
-};
-/** Something was deleted.*/
-
-type Deletion = {
-	/** @private */
-	readonly previousState: ChangeState;
-};
-/** A tracked entry was modified, i.e. content change, type change (eg. it is now a symlink), executable bit change.*/
-
-export type Modification = {
-	/** @private */
-	readonly previousState: ChangeState;
-	readonly state: ChangeState;
-	readonly flags: Flags | null;
-};
-/**
- * An entry was renamed from `previous_path` to its current location.
- * Note that this may include a content change, as well as a change of the executable bit.
- */
-export type Rename = {
-	readonly previousPath: string;
-	readonly previousPathBytes: number[];
-	/** @private */
-	readonly previousState: ChangeState;
-	/** @private */
-	readonly state: ChangeState;
-	readonly flags: Flags | null;
-};
-
-/**
- * Something that fully identifies the state of a [`TreeChange`] in the backend.
- * The fontend does not need to interact with this, but when requesting the UniDiff of a TreeChange,
- * this information allows for efficient retrieval of the content.
- */
-type ChangeState = {
-	readonly id: string;
-	readonly kind: string;
-};
 
 /** A way to indicate that a path in the index isn't suitable for committing and needs to be dealt with.*/
 export type IgnoredChange = {

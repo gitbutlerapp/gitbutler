@@ -162,7 +162,6 @@
 		height: 32px;
 		padding: 6px 8px 6px 6px;
 		overflow: hidden;
-
 		gap: 10px;
 		outline: none;
 		text-align: left;
@@ -175,7 +174,7 @@
 
 		&.selected {
 			border-radius: var(--radius-m);
-			background: var(--clr-bg-1-muted);
+			background: var(--clr-bg-muted);
 		}
 	}
 

@@ -15,6 +15,7 @@ export type PromptAttachment =
  */
 export type ClaudeCheckResult =
 	| { status: 'available'; version: string }
+	| { status: 'execution_failed'; stdout: string; stderr: string }
 	| { status: 'not_available' };
 
 /**
@@ -214,6 +215,26 @@ export type ClaudePermissionRequest = {
 	decision?: PermissionDecision;
 	/** Whether to use wildcard permissions (optional, for backward compatibility) */
 	useWildcard?: boolean;
+};
+
+/** A single option in an AskUserQuestion question */
+export type AskUserQuestionOption = {
+	/** Display label for the option */
+	label: string;
+	/** Description of what this option means */
+	description: string;
+};
+
+/** A single question in an AskUserQuestion request */
+export type AskUserQuestion = {
+	/** The question text to display */
+	question: string;
+	/** Short header label (max 12 chars) */
+	header: string;
+	/** Available answers. */
+	options: AskUserQuestionOption[];
+	/** Whether multiple selections are allowed */
+	multiSelect: boolean;
 };
 
 export type ClaudeTodo = {

@@ -2,7 +2,7 @@
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
-	import { Icon, Textbox, AsyncButton } from '@gitbutler/ui';
+	import { Icon, Textbox, AsyncButton, Codeblock } from '@gitbutler/ui';
 	import { fromStore } from 'svelte/store';
 
 	type Props = {
@@ -82,7 +82,8 @@
 	const isClaudeNotAvailable = $derived(
 		recheckedAvailability === 'recheck-failed' ||
 			(recheckedAvailability === undefined &&
-				availabilityQuery.response?.status === 'not_available')
+				(availabilityQuery.response?.status === 'not_available' ||
+					availabilityQuery.response?.status === 'execution_failed'))
 	);
 </script>
 
@@ -93,7 +94,7 @@
 				<Icon name="warning" color="warning" />
 				<h4 class="text-16 text-semibold text-body">Claude Code can't be found</h4>
 			{:else}
-				<Icon name="success" color="success" />
+				<Icon name="success" color="safe" />
 				<h4 class="text-16 text-semibold text-body">Claude code is connected</h4>
 			{/if}
 		</div>
@@ -107,9 +108,20 @@
 		placeholder="Path to the Claude Code executable"
 		onchange={updateClaudeExecutable}
 		error={recheckedAvailability === 'recheck-failed'
-			? "Couldn't connect. Check the path and try again"
+			? 'Claude exited with a non 0 code'
 			: undefined}
 	/>
+
+	{#if availabilityQuery.response?.status === 'execution_failed' && (availabilityQuery.response.stdout || availabilityQuery.response.stderr)}
+		<div class="stack-v gap-8">
+			{#if availabilityQuery.response.stdout}
+				<Codeblock label="Stdout" content={availabilityQuery.response.stdout} />
+			{/if}
+			{#if availabilityQuery.response.stderr}
+				<Codeblock label="Stderr" content={availabilityQuery.response.stderr} />
+			{/if}
+		</div>
+	{/if}
 
 	{#if showSuccess}
 		<div
@@ -121,12 +133,7 @@
 			<Icon name="tick" />
 		</div>
 	{:else}
-		<AsyncButton
-			style="neutral"
-			action={handleCheckAvailability}
-			icon="update"
-			loading={isChecking}
-		>
+		<AsyncButton style="gray" action={handleCheckAvailability} icon="update" loading={isChecking}>
 			Check Connection
 		</AsyncButton>
 	{/if}
@@ -151,8 +158,8 @@
 		color: var(--clr-text-2);
 
 		&.success {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
+			background-color: var(--clr-theme-safe-soft);
+			color: var(--clr-theme-safe-on-soft);
 		}
 	}
 </style>

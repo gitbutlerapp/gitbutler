@@ -13,6 +13,7 @@
 		extractLastMessage,
 		formatMessages,
 		getTodos,
+		hasPendingAskUserQuestion,
 		userFeedbackStatus
 	} from '$lib/codegen/messages';
 	import { combineResults } from '$lib/state/helpers';
@@ -31,7 +32,7 @@
 		branchName?: string;
 		selected?: boolean;
 		status?: ClaudeStatus;
-		onselect?: () => void;
+		onclick?: () => void;
 		draft?: boolean;
 	};
 
@@ -41,7 +42,7 @@
 		branchName,
 		selected = false,
 		status,
-		onselect,
+		onclick,
 		draft = false
 	}: Props = $props();
 
@@ -91,7 +92,7 @@
 		laneState.selection.set(
 			selected ? undefined : { branchName, codegen: true, previewOpen: true }
 		);
-		onselect?.();
+		onclick?.();
 	}
 </script>
 
@@ -103,7 +104,7 @@
 	{#if draft}
 		<!-- Draft mode: simple placeholder -->
 		<div class="codegen-row">
-			<Icon name="ai" color="var(--clr-theme-purp-element)" />
+			<Icon name="ai" color="var(--clr-theme-purple-element)" />
 			<h3 class="text-13 text-semibold truncate codegen-row__title">AI session will start here</h3>
 		</div>
 	{:else if projectId && messages && permissionRequests}
@@ -116,14 +117,16 @@
 				{@const totalCount = todos.length}
 				{@const formattedMessages = formatMessages(messages, permissionReqs, status === 'running')}
 				{@const feedbackStatus = userFeedbackStatus(formattedMessages)}
+				{@const hasPendingQuestion = hasPendingAskUserQuestion(formattedMessages)}
 				{@const hasPendingApproval = feedbackStatus.waitingForFeedback}
+				{@const hasPendingAction = hasPendingApproval || hasPendingQuestion}
 
 				<button
 					type="button"
 					class="codegen-row"
 					class:selected
 					class:active
-					class:codegen-row--wiggle={hasPendingApproval && !selected}
+					class:codegen-row--wiggle={hasPendingAction && !selected}
 					onclick={toggleSelection}
 					use:focusable={{
 						onAction: toggleSelection,
@@ -141,20 +144,20 @@
 					{/if}
 
 					<Icon
-						name={getCurrentIconName(hasPendingApproval)}
-						color="var(--clr-theme-purp-element)"
+						name={getCurrentIconName(hasPendingAction)}
+						color="var(--clr-theme-purple-element)"
 					/>
 					<h3 class="text-13 text-semibold truncate codegen-row__title">{lastSummary}</h3>
 
-					{#if hasPendingApproval}
-						<Badge style="pop" tooltip="Waiting for approval">Action needed</Badge>
+					{#if hasPendingAction}
+						<Badge style="pop" tooltip="Waiting for action">Action needed</Badge>
 					{/if}
 
 					{#if totalCount > 1}
 						<span class="text-12 codegen-row__todos">Todos ({completedCount}/{totalCount})</span>
 
 						{#if completedCount === totalCount}
-							<Icon name="success-outline" color="success" />
+							<Icon name="success-outline" color="safe" />
 						{/if}
 					{/if}
 				</button>
@@ -175,14 +178,14 @@
 		gap: 8px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-theme-purp-bg);
+		background-color: var(--clr-theme-purple-bg);
 		text-align: left;
 
 		transition: background-color var(--transition-fast);
 
 		&.active.selected,
 		&[type='button']:hover {
-			background-color: var(--clr-theme-purp-bg-muted);
+			background-color: var(--hover-purple-bg);
 		}
 	}
 
@@ -190,21 +193,14 @@
 		animation: row-wiggle 5s ease-in-out infinite;
 	}
 
-	.codegen-row__icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 16px;
-	}
-
 	.codegen-row__title {
 		flex: 1;
-		color: var(--clr-theme-purp-on-soft);
+		color: var(--clr-theme-purple-on-soft);
 	}
 
 	.codegen-row__todos {
 		flex-shrink: 0;
-		color: var(--clr-theme-purp-on-soft);
+		color: var(--clr-theme-purple-on-soft);
 		opacity: 0.7;
 	}
 
@@ -216,7 +212,7 @@
 		height: 45%;
 		transform: translateY(-50%);
 		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--clr-theme-purp-element);
+		background-color: var(--clr-theme-purple-element);
 		transition: transform var(--transition-fast);
 	}
 </style>

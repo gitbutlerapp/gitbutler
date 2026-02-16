@@ -1,12 +1,11 @@
 use anyhow::{Result, bail};
+use but_ctx::{Context, access::RepoExclusive};
 use but_meta::VirtualBranchesTomlMetadata;
 use but_oxidize::ObjectIdExt;
 use but_rebase::{Rebase, RebaseStep};
 use but_workspace::{legacy::stack_ext::StackExt, ui::CommitState};
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{StackId, VirtualBranchesHandle};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::ObjectId;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -44,27 +43,19 @@ pub enum InteractiveIntegrationStep {
 /// This basically just lists the upstream and local commits in the display order (child to parent) and creates a `Pick` step for each.
 /// The user can then modify this in the UI.
 pub fn get_initial_integration_steps_for_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: Option<StackId>,
     branch_name: String,
 ) -> Result<Vec<InteractiveIntegrationStep>> {
-    let repo = ctx.gix_repo()?;
-    let project = ctx.project();
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+    let repo = ctx.repo.get()?;
+    let meta = VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))?;
     let stack_details = but_workspace::legacy::stack_details_v3(stack_id, &repo, &meta)?;
 
     let branch_details = stack_details
         .branch_details
         .into_iter()
         .find(|b| b.name == branch_name)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Series '{}' not found in stack '{:?}'",
-                branch_name,
-                stack_id
-            )
-        })?;
+        .ok_or_else(|| anyhow::anyhow!("Series '{}' not found in stack '{:?}'", branch_name, stack_id))?;
 
     let mut initial_steps = vec![];
 
@@ -99,27 +90,25 @@ pub fn get_initial_integration_steps_for_branch(
 
 /// Integrate a branch with the given steps.
 pub fn integrate_branch_with_steps(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     branch_name: String,
     steps: Vec<InteractiveIntegrationStep>,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<()> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repo = ctx.repo.get()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let mut source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
 
-    let original_rebase_steps = source_stack.as_rebase_steps_rev(ctx, &repository)?;
+    let original_rebase_steps = source_stack.as_rebase_steps_rev(ctx)?;
     let mut new_rebase_steps = vec![];
 
-    let branch_ref = repository
+    let branch_ref = repo
         .try_find_reference(&branch_name)?
-        .ok_or_else(|| {
-            anyhow::anyhow!("Source branch '{}' not found in repository", branch_name)
-        })?;
+        .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", branch_name))?;
     let branch_ref_name = branch_ref.name().to_owned();
 
     let mut inside_branch = false;
@@ -165,15 +154,15 @@ pub fn integrate_branch_with_steps(
 
     new_rebase_steps.reverse();
 
-    let mut rebase = Rebase::new(&repository, merge_base, None)?;
+    let mut rebase = Rebase::new(&repo, merge_base, None)?;
     rebase.steps(new_rebase_steps)?;
     rebase.rebase_noops(false);
     let result = rebase.rebase()?;
     let head = result.top_commit.to_git2();
 
-    source_stack.set_stack_head(&vb_state, &repository, head, None)?;
+    source_stack.set_stack_head(&vb_state, &repo, head)?;
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+    update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     source_stack.set_heads_from_rebase_output(ctx, result.references)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx, false)?;
@@ -182,9 +171,7 @@ pub fn integrate_branch_with_steps(
 }
 
 /// Turn the integration steps into rebase steps.
-fn integration_steps_to_rebase_steps(
-    steps: &[InteractiveIntegrationStep],
-) -> Result<Vec<RebaseStep>> {
+fn integration_steps_to_rebase_steps(steps: &[InteractiveIntegrationStep]) -> Result<Vec<RebaseStep>> {
     let mut rebase_steps = vec![];
     for step in steps {
         match step {
@@ -206,13 +193,9 @@ fn integration_steps_to_rebase_steps(
             InteractiveIntegrationStep::Skip { .. } => {
                 // Skip steps are simply not added to the rebase steps
             }
-            InteractiveIntegrationStep::Squash {
-                commits, message, ..
-            } => {
+            InteractiveIntegrationStep::Squash { commits, message, .. } => {
                 if commits.len() < 2 {
-                    return Err(anyhow::anyhow!(
-                        "Squash step must have at least two commits"
-                    ));
+                    return Err(anyhow::anyhow!("Squash step must have at least two commits"));
                 }
 
                 if let Some((last_commit, all_but_last)) = commits.split_last() {
@@ -235,9 +218,9 @@ fn integration_steps_to_rebase_steps(
 }
 
 pub fn integrate_upstream_commits_for_series(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
     series_name: String,
     integration_strategy: Option<IntegrationStrategy>,
 ) -> Result<()> {
@@ -248,11 +231,7 @@ pub fn integrate_upstream_commits_for_series(
             bail!("Merge strategy is not supported yet. Please use Rebase strategy.");
         }
         IntegrationStrategy::Rebase => {
-            let steps = get_initial_integration_steps_for_branch(
-                ctx,
-                Some(stack_id),
-                series_name.to_owned(),
-            )?;
+            let steps = get_initial_integration_steps_for_branch(ctx, Some(stack_id), series_name.to_owned())?;
             integrate_branch_with_steps(ctx, stack_id, series_name, steps, perm)
         }
     }

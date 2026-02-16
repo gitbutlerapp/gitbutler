@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
+	import { getPrStatus } from '$lib/forge/interface/prUtils';
 	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from '@gitbutler/ui';
 	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
 	type basePrData = {
@@ -14,6 +15,8 @@
 		};
 
 		modifiedAt?: string;
+		mergedAt?: string;
+		closedAt?: string;
 	};
 
 	interface Props extends basePrData {
@@ -33,10 +36,14 @@
 		sourceBranch,
 		author,
 		modifiedAt,
+		mergedAt,
+		closedAt,
 		onclick
 	}: Props = $props();
 
 	const unknownName = 'Unknown Author';
+
+	const prStatus = $derived(getPrStatus({ mergedAt, closedAt, draft: isDraft }));
 </script>
 
 <BranchesCardTemplate
@@ -49,7 +56,9 @@
 			title,
 			sourceBranch,
 			author,
-			modifiedAt
+			modifiedAt,
+			mergedAt,
+			closedAt
 		})}
 >
 	{#snippet content()}
@@ -61,12 +70,7 @@
 		</div>
 
 		<div class="text-12 sidebar-entry__about">
-			<ReviewBadge
-				type={reviewUnit?.abbr}
-				status={isDraft ? 'draft' : 'unknown'}
-				{title}
-				{number}
-			/>
+			<ReviewBadge type={reviewUnit?.abbr} status={prStatus} {title} {number} />
 			<span class="sidebar-entry__divider">•</span>
 
 			{#if noRemote || !sourceBranch}

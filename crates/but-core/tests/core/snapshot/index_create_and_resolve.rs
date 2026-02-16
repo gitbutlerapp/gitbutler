@@ -44,13 +44,9 @@ fn unborn_added_to_index() -> anyhow::Result<()> {
         out.head_tree,
         snapshot::resolve_tree::Options::default(),
     )?;
-    let mut cherry_pick = res_out
-        .worktree_cherry_pick
-        .expect("a worktree change was applied");
+    let mut cherry_pick = res_out.worktree_cherry_pick.expect("a worktree change was applied");
     assert_eq!(cherry_pick.tree.write()?, out.worktree.unwrap());
-    let index = res_out
-        .index
-        .expect("the index was altered with many added files");
+    let index = res_out.index.expect("the index was altered with many added files");
     insta::assert_snapshot!(visualize_index(&index), @r"
     120000:faf96c1 link
     100644:d95f3ad untracked
@@ -58,10 +54,7 @@ fn unborn_added_to_index() -> anyhow::Result<()> {
     ");
 
     assert!(res_out.metadata.is_none());
-    assert!(
-        res_out.workspace_references.is_none(),
-        "didn't ask to store this"
-    );
+    assert!(res_out.workspace_references.is_none(), "didn't ask to store this");
 
     state.selection.clear();
     let out = snapshot::create_tree(head_tree_id, state)?;
@@ -110,13 +103,9 @@ fn with_conflicts() -> anyhow::Result<()> {
         out.head_tree,
         snapshot::resolve_tree::Options::default(),
     )?;
-    let mut cherry_pick = res_out
-        .worktree_cherry_pick
-        .expect("a worktree change was applied");
+    let mut cherry_pick = res_out.worktree_cherry_pick.expect("a worktree change was applied");
     assert_eq!(cherry_pick.tree.write()?, out.worktree.unwrap());
-    let index = res_out
-        .index
-        .expect("the index was altered with many added files");
+    let index = res_out.index.expect("the index was altered with many added files");
     insta::assert_snapshot!(visualize_index(&index), @r"
     100644:e69de29 file:1
     100644:e6c4914 file:2
@@ -124,10 +113,7 @@ fn with_conflicts() -> anyhow::Result<()> {
     ");
 
     assert!(res_out.metadata.is_none());
-    assert!(
-        res_out.workspace_references.is_none(),
-        "didn't ask to store this"
-    );
+    assert!(res_out.workspace_references.is_none(), "didn't ask to store this");
 
     state.selection.clear();
     let out = snapshot::create_tree(head_tree_id, state)?;
@@ -177,9 +163,6 @@ fn index_added_modified_deleted() -> anyhow::Result<()> {
     ");
 
     assert!(res_out.metadata.is_none());
-    assert!(
-        res_out.workspace_references.is_none(),
-        "didn't ask to store this"
-    );
+    assert!(res_out.workspace_references.is_none(), "didn't ask to store this");
     Ok(())
 }

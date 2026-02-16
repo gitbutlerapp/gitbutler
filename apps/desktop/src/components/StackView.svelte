@@ -1,24 +1,34 @@
 <script lang="ts">
 	import BranchList from '$components/BranchList.svelte';
 	import BranchView from '$components/BranchView.svelte';
-	import ChangedFiles from '$components/ChangedFiles.svelte';
+	import CardOverlay from '$components/CardOverlay.svelte';
 	import CommitView from '$components/CommitView.svelte';
 	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Drawer from '$components/Drawer.svelte';
+	import Dropzone from '$components/Dropzone.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
+	import MultiDiffView from '$components/MultiDiffView.svelte';
 	import NewCommitView from '$components/NewCommitView.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import Resizer from '$components/Resizer.svelte';
-	import SelectionView from '$components/SelectionView.svelte';
 	import StackDragHandle from '$components/StackDragHandle.svelte';
 	import WorktreeChanges from '$components/WorktreeChanges.svelte';
 	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
 	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
 	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
+	import {
+		AmendCommitWithChangeDzHandler,
+		AmendCommitWithHunkDzHandler,
+		createCommitDropHandlers,
+		type DzCommitData
+	} from '$lib/commits/dropHandler';
+	import { projectRunCommitHooks } from '$lib/config/config';
 	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
 	import { isParsedError } from '$lib/error/parser';
-	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
+	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
+	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import {
 		createBranchSelection,
@@ -29,24 +39,22 @@
 	} from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { mapResult } from '$lib/state/helpers';
+	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 
-	import { createBranchRef } from '$lib/utils/branch';
-	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
 	import { persistWithExpiration } from '@gitbutler/shared/persisted';
 
 	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Button, FileViewHeader, TestId } from '@gitbutler/ui';
+	import { Button, TestId } from '@gitbutler/ui';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { fly } from 'svelte/transition';
-	import type { Commit } from '$lib/branches/v3';
 
 	type Props = {
 		projectId: string;
-		stackId?: string;
+		stackId: string | undefined;
 		laneId: string;
 		topBranchName?: string;
 		onVisible: (visible: boolean) => void;
@@ -66,12 +74,15 @@
 
 	const stableStackId = $derived(stackId);
 	const stableProjectId = $derived(projectId);
-	let lanesSrollableEl = $state<HTMLDivElement>();
+	let lanesScrollableEl = $state<HTMLDivElement>();
+
+	let dropzoneActivated = $state(false);
+	let dropzoneHovered = $state(false);
 
 	const stackService = inject(STACK_SERVICE);
-	const diffService = inject(DIFF_SERVICE);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const uiState = inject(UI_STATE);
+	const hooksService = inject(HOOKS_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 
 	// Component is read-only when stackId is undefined
@@ -85,67 +96,11 @@
 	// If the user is making a commit to a different lane we dim this one.
 	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stableStackId);
 
-	// Get the default width from global state, but don't make it reactive during initialization
-	const defaultStackWidth = uiState.global.stackWidth.current;
-	const persistedStackWidth = $derived(
-		persistWithExpiration(defaultStackWidth, `ui-stack-width-${stableStackId}`, 1440)
-	);
-
-	const branchesQuery = $derived(stackService.branches(stableProjectId, stableStackId));
-
-	let active = $state(false);
-
-	let dropzoneActivated = $state(false);
-
-	const laneState = $derived(uiState.lane(laneId));
-	const selection = $derived(laneState.selection);
-	const assignedSelection = $derived(
-		idSelection.getById(createWorktreeSelection({ stackId: stableStackId }))
-	);
-	const lastAddedAssigned = $derived(assignedSelection.lastAdded);
-	const assignedKey = $derived(
-		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
-	);
-	const assignedStackId = $derived(
-		assignedKey?.type === 'worktree' ? assignedKey.stackId : undefined
-	);
-
-	const commitId = $derived(selection.current?.commitId);
-	const branchName = $derived(selection.current?.branchName);
-	const upstream = $derived(selection.current?.upstream);
-	const previewOpen = $derived(selection.current?.previewOpen);
-
-	const activeSelectionId: SelectionId | undefined = $derived.by(() => {
-		if (commitId) {
-			return createCommitSelection({ commitId, stackId: stableStackId });
-		} else if (branchName) {
-			return createBranchSelection({ stackId: stableStackId, branchName, remote: undefined });
-		}
-	});
-
-	const activeLastAdded = $derived.by(() => {
-		if (activeSelectionId) {
-			return idSelection.getById(activeSelectionId).lastAdded;
-		}
-	});
-
-	const selectedFile = $derived($activeLastAdded?.key ? readKey($activeLastAdded.key) : undefined);
-
-	const previewKey = $derived(assignedKey || selectedFile);
-	const previewChangeQuery = $derived(
-		previewKey ? idSelection.changeByKey(stableProjectId, previewKey) : undefined
-	);
-
-	const changes = $derived(uncommittedService.changesByStackId(stableStackId || null));
-
-	let stackViewEl = $state<HTMLDivElement>();
-	let compactDiv = $state<HTMLDivElement>();
-
-	const defaultBranchQuery = $derived(stackService.defaultBranch(stableProjectId, stableStackId));
-	const defaultBranch = $derived(defaultBranchQuery?.response);
-
 	// Resizer configuration for stack panels and details view
-	const RESIZER_CONFIG = {
+	const RESIZER_CONFIG: {
+		panel1: { minWidth: number; maxWidth: number; defaultValue: number };
+		panel2: { minWidth: number; maxWidth: number; defaultValue: number };
+	} = {
 		panel1: {
 			minWidth: 20,
 			maxWidth: 64,
@@ -156,7 +111,65 @@
 			maxWidth: 64,
 			defaultValue: 32
 		}
-	} as const;
+	};
+
+	const persistedStackWidth = $derived(
+		persistWithExpiration(
+			RESIZER_CONFIG.panel1.defaultValue,
+			`ui-stack-width-${stableStackId}`,
+			1440
+		)
+	);
+
+	const branchesQuery = $derived(stackService.branches(stableProjectId, stableStackId));
+
+	let active = $state(false);
+
+	const laneState = $derived(uiState.lane(laneId));
+	const selection = $derived(laneState.selection);
+	const assignedSelection = $derived(
+		idSelection.getById(createWorktreeSelection({ stackId: stableStackId }))
+	);
+	const lastAddedAssigned = $derived(assignedSelection.lastAdded);
+	const assignedKey = $derived(
+		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
+	);
+
+	const commitId = $derived(selection.current?.commitId);
+	const branchName = $derived(selection.current?.branchName);
+	const upstream = $derived(selection.current?.upstream);
+	const previewOpen = $derived(selection.current?.previewOpen);
+
+	// Get commit data for drop handlers when viewing a commit
+	const commitQuery = $derived(
+		commitId ? stackService.commitById(stableProjectId, stableStackId, commitId) : undefined
+	);
+	const runHooks = $derived(projectRunCommitHooks(stableProjectId));
+	const isCommitView = $derived(!!(branchName && commitId));
+
+	const activeSelectionId: SelectionId | undefined = $derived.by(() => {
+		if (commitId) {
+			return createCommitSelection({ commitId, stackId: stableStackId });
+		} else if (branchName) {
+			return createBranchSelection({ stackId: stableStackId, branchName, remote: undefined });
+		}
+		return createWorktreeSelection({ stackId });
+	});
+
+	const activeLastAdded = $derived.by(() => {
+		if (activeSelectionId) {
+			return idSelection.getById(activeSelectionId).lastAdded;
+		}
+	});
+
+	const selectedFile = $derived($activeLastAdded?.key ? readKey($activeLastAdded.key) : undefined);
+	const changes = $derived(uncommittedService.changesByStackId(stableStackId || null));
+
+	let stackViewEl = $state<HTMLDivElement>();
+	let compactDiv = $state<HTMLDivElement>();
+
+	const defaultBranchQuery = $derived(stackService.defaultBranch(stableProjectId, stableStackId));
+	const defaultBranch = $derived(defaultBranchQuery?.response);
 
 	function checkSelectedFilesForCommit() {
 		const stackAssignments = stableStackId
@@ -255,17 +268,6 @@
 		}
 	}
 
-	function getAncestorMostConflicted(commits: Commit[]): Commit | undefined {
-		if (!commits.length) return undefined;
-		for (let i = commits.length - 1; i >= 0; i--) {
-			const commit = commits[i]!;
-			if (commit.hasConflicts) {
-				return commit;
-			}
-		}
-		return undefined;
-	}
-
 	// Details view can be opened in two ways:
 	// 1. User selects a branch/commit/file and opens preview
 	// 2. Files are assigned to this stack (assignedKey exists)
@@ -310,10 +312,9 @@
 		};
 	});
 
-	let selectionPreviewScrollContainer: HTMLDivElement | undefined = $state();
-
 	// Codegen related services and state
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const rulesService = inject(RULES_SERVICE);
 	const attachmentService = inject(ATTACHMENT_SERVICE);
 
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
@@ -322,6 +323,8 @@
 	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
 	const isStackActive = $derived(isStackActiveQuery?.response || false);
 	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
+	const sessionId = $derived(rulesService.aiSessionId(projectId, stackId));
+	const hasRulesToClear = $derived(rulesService.hasRulesToClear(projectId, stackId));
 	const permissionRequests = $derived(claudeCodeService.permissionRequests({ projectId }));
 	const attachments = $derived(attachmentService.getByBranch(branchName));
 
@@ -352,153 +355,25 @@
 		await messageSender?.sendMessage(prompt, attachments);
 		attachmentService.clearByBranch(branchName);
 	}
+
+	async function handleAnswerQuestion(answers: Record<string, string>) {
+		if (!stackId) return;
+		await claudeCodeService.answerAskUserQuestion({
+			projectId,
+			stackId,
+			answers
+		});
+	}
+
+	const assignedFiles = $derived(uncommittedService.getChangesByStackId(stackId || null));
+
+	let multiDiffView = $state<MultiDiffView>();
 </script>
-
-<!-- ATTENTION -->
-<!--
-	This file is growing complex, and should be simplified where possible.  It
-	is also intentionally intriciate, as it allows us to render the components
-	in two different configurations.
-
-	While tedious to maintain, it is also a good forcing function for making
-	components that compose better. Be careful when changing, especially since
-	integration tests only covers the default layout.
--->
-
-{#snippet assignedChangePreview(stackId?: string)}
-	<SelectionView
-		testId={TestId.WorktreeSelectionView}
-		projectId={stableProjectId}
-		scrollContainer={selectionPreviewScrollContainer}
-		selectionId={createWorktreeSelection({ stackId })}
-		onclose={() => {
-			idSelection.clearPreview(createWorktreeSelection({ stackId: stackId }));
-		}}
-		draggableFiles
-	/>
-{/snippet}
-
-{#snippet otherChangePreview(selectionId: SelectionId)}
-	<SelectionView
-		testId={TestId.StackSelectionView}
-		projectId={stableProjectId}
-		{selectionId}
-		diffOnly={true}
-		draggableFiles={selectionId.type === 'commit'}
-	/>
-{/snippet}
-
-{#snippet branchView(branchName: string)}
-	<BranchView
-		stackId={stableStackId}
-		{laneId}
-		projectId={stableProjectId}
-		{branchName}
-		{onerror}
-		onclose={onclosePreview}
-	/>
-{/snippet}
-
-{#snippet commitView(branchName: string, commitId: string)}
-	<CommitView
-		projectId={stableProjectId}
-		stackId={stableStackId}
-		{laneId}
-		commitKey={{
-			stackId: stableStackId,
-			branchName,
-			commitId,
-			upstream: !!upstream
-		}}
-		draggableFiles
-		{onerror}
-		onclose={onclosePreview}
-	/>
-{/snippet}
-
-{#snippet commitChangedFiles(commitId: string)}
-	{@const changesQuery = stackService.commitChanges(stableProjectId, commitId)}
-	<ReduxResult
-		projectId={stableProjectId}
-		stackId={stableStackId}
-		result={mapResult(changesQuery.result, (changes) => ({ changes, commitId }))}
-	>
-		{#snippet children({ changes, commitId }, { projectId, stackId })}
-			{@const commitsQuery = branchName
-				? stackService.commits(projectId, stackId, branchName)
-				: undefined}
-			{@const commits = commitsQuery?.response || []}
-			{@const ancestorMostConflictedCommitId = getAncestorMostConflicted(commits)?.id}
-
-			<ChangedFiles
-				title="Changed files"
-				{projectId}
-				{stackId}
-				draggableFiles
-				selectionId={createCommitSelection({ commitId, stackId: stackId })}
-				noshrink={!!previewKey}
-				grow={!previewKey}
-				persistId={`commit-${commitId}`}
-				changes={changes.changes.filter(
-					(change) => !(change.path in (changes.conflictEntries?.entries ?? {}))
-				)}
-				stats={changes.stats}
-				conflictEntries={changes.conflictEntries}
-				{ancestorMostConflictedCommitId}
-				resizer={previewKey
-					? {
-							persistId: `changed-files-${stackId}`,
-							direction: 'down',
-							minHeight: 8,
-							maxHeight: 32,
-							defaultValue: 16
-						}
-					: undefined}
-				autoselect
-				allowUnselect={false}
-			/>
-		{/snippet}
-	</ReduxResult>
-{/snippet}
-
-{#snippet branchChangedFiles(branchName: string)}
-	{@const changesQuery = stackService.branchChanges({
-		projectId: stableProjectId,
-		stackId: stableStackId,
-		branch: createBranchRef(branchName, undefined)
-	})}
-	<ReduxResult projectId={stableProjectId} stackId={stableStackId} result={changesQuery.result}>
-		{#snippet children(changes, { projectId, stackId })}
-			<ChangedFiles
-				title="Combined Changes"
-				{projectId}
-				{stackId}
-				draggableFiles
-				autoselect
-				selectionId={createBranchSelection({ stackId: stackId, branchName, remote: undefined })}
-				noshrink={!!previewKey}
-				grow={!previewKey}
-				persistId={`branch-${branchName}`}
-				changes={changes.changes}
-				stats={changes.stats}
-				resizer={previewKey
-					? {
-							persistId: `changed-files-${stackId}`,
-							direction: 'down',
-							minHeight: 8,
-							maxHeight: 32,
-							defaultValue: 16
-						}
-					: undefined}
-				allowUnselect={false}
-			/>
-		{/snippet}
-	</ReduxResult>
-{/snippet}
 
 <div
 	bind:clientWidth
 	bind:clientHeight
+	data-scrollable-for-dragging
 	class="stack-view-wrapper"
 	role="presentation"
 	class:dimmed
@@ -513,7 +388,7 @@
 		},
 		options: {
 			threshold: 0.5,
-			root: lanesSrollableEl
+			root: lanesScrollableEl
 		}
 	}}
 	use:focusable={{
@@ -527,17 +402,25 @@
 		}
 	}}
 >
-	<ConfigurableScrollableContainer childrenWrapHeight="100%">
-		<div
-			class="stack-view"
-			class:details-open={isDetailsViewOpen}
-			style:width="{$persistedStackWidth}rem"
-			use:focusable={{ vertical: true, onActive: (value) => (active = value) }}
-			bind:this={stackViewEl}
-		>
-			<ReduxResult projectId={stableProjectId} result={branchesQuery.result}>
-				{#snippet children(branches)}
-					<div class="stack-v">
+	<ReduxResult
+		projectId={stableProjectId}
+		result={combineResults(branchesQuery.result, hasRulesToClear.result)}
+	>
+		{#snippet loading()}
+			<div style:width="{$persistedStackWidth}rem" class="lane-skeleton">
+				<FullviewLoading />
+			</div>
+		{/snippet}
+		{#snippet children([branches, hasRulesToClear])}
+			<ConfigurableScrollableContainer childrenWrapHeight="100%" enableDragScroll>
+				<div
+					class="stack-view"
+					class:details-open={isDetailsViewOpen}
+					style:width="{$persistedStackWidth}rem"
+					use:focusable={{ vertical: true, onActive: (value) => (active = value) }}
+					bind:this={stackViewEl}
+				>
+					<div class="stack-v" data-fade-on-reorder>
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
 						<StackDragHandle stackId={stableStackId} {projectId} disabled={isCommitting} />
 
@@ -550,26 +433,30 @@
 								class:remove-border-bottom={(isCommitting && changes.current.length === 0) ||
 									!startCommitVisible.current}
 								class:dropzone-activated={dropzoneActivated && changes.current.length === 0}
+								class:dropzone-hovered={dropzoneHovered && changes.current.length === 0}
 							>
 								<WorktreeChanges
-									title="Assigned"
+									title="Staged"
 									projectId={stableProjectId}
 									stackId={stableStackId}
 									mode="assigned"
-									dropzoneVisible={changes.current.length === 0 && !isCommitting}
 									onDropzoneActivated={(activated) => {
 										dropzoneActivated = activated;
 									}}
-									onselect={() => {
+									onDropzoneHovered={(hovered) => {
+										dropzoneHovered = hovered;
+									}}
+									onFileClick={(index) => {
 										// Clear one selection when you modify the other.
 										laneState?.selection.set(undefined);
+										multiDiffView?.jumpToIndex(index);
 									}}
 								>
 									{#snippet emptyPlaceholder()}
 										{#if !isCommitting}
 											<div class="assigned-changes-empty">
 												<p class="text-12 text-body assigned-changes-empty__text">
-													Drop files to assign or commit directly
+													Drop files to stage or commit directly
 												</p>
 											</div>
 										{/if}
@@ -583,7 +470,7 @@
 										<Button
 											testId={TestId.StartCommitButton}
 											kind={changes.current.length > 0 ? 'solid' : 'outline'}
-											style={changes.current.length > 0 ? 'pop' : 'neutral'}
+											style={changes.current.length > 0 ? 'pop' : 'gray'}
 											type="button"
 											wide
 											disabled={isReadOnly ||
@@ -609,9 +496,12 @@
 							{laneId}
 							stackId={stableStackId}
 							{active}
-							onselect={() => {
+							onclick={() => {
 								// Clear one selection when you modify the other.
 								idSelection.clear({ type: 'worktree', stackId: stableStackId });
+							}}
+							onFileClick={(index) => {
+								multiDiffView?.jumpToIndex(index);
 							}}
 						/>
 					</div>
@@ -619,14 +509,14 @@
 					<!-- RESIZE PANEL 1 -->
 					{#if stackViewEl}
 						<Resizer
-							persistId="resizer-panel1-${stableStackId}"
+							persistId="ui-stack-width-${stableStackId}"
 							viewport={stackViewEl}
 							zIndex="var(--z-lifted)"
 							direction="right"
 							showBorder={!isDetailsViewOpen}
 							minWidth={RESIZER_CONFIG.panel1.minWidth}
 							maxWidth={RESIZER_CONFIG.panel1.maxWidth}
-							defaultValue={RESIZER_CONFIG.panel1.defaultValue}
+							defaultValue={$persistedStackWidth ?? RESIZER_CONFIG.panel1.defaultValue}
 							syncName="panel1"
 							onWidth={(newWidth) => {
 								// Update the persisted stack width when panel1 resizer changes
@@ -634,115 +524,192 @@
 							}}
 						/>
 					{/if}
-				{/snippet}
-			</ReduxResult>
-		</div>
-	</ConfigurableScrollableContainer>
+				</div>
+			</ConfigurableScrollableContainer>
 
-	<!-- PREVIEW -->
-	{#if isDetailsViewOpen}
-		{@const selection = laneState.selection.current}
-		<div
-			in:fly={{ y: 20, duration: 200 }}
-			class="details-view deep-shadow"
-			bind:this={compactDiv}
-			data-details={stableStackId}
-			style:right="{DETAILS_RIGHT_PADDING_REM}rem"
-			use:focusable={{ vertical: true }}
-		>
-			{#if stableStackId && selection?.branchName && selection?.codegen}
-				<CodegenMessages
-					projectId={stableProjectId}
-					stackId={stableStackId}
-					{laneId}
-					branchName={selection.branchName}
-					onclose={onclosePreview}
-					onMcpSettings={() => {
-						mcpConfigModal?.open();
-					}}
-					{onAbort}
-					{initialPrompt}
-					events={events.response || []}
-					permissionRequests={permissionRequests.response || []}
-					onSubmit={sendMessage}
-					onChange={(prompt) => messageSender?.setPrompt(prompt)}
-					{isStackActive}
-				/>
-			{:else}
-				<div class="details-view__inner">
-					<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
-					{#if branchName && commitId}
-						{@render commitView(branchName, commitId)}
-					{:else if branchName}
-						{@render branchView(branchName)}
-					{/if}
-
-					<!-- MIDDLE SECTION: Changed Files (with resizer) -->
-					<div class="changed-files-section" class:expand={!(assignedStackId || selectedFile)}>
+			<!-- PREVIEW -->
+			{#if isDetailsViewOpen}
+				{@const selection = laneState.selection.current}
+				<div
+					in:fly={{ y: 20, duration: 200 }}
+					class="details-view"
+					class:codegen-view={selection?.codegen}
+					bind:this={compactDiv}
+					data-details={stableStackId}
+					style:right="{DETAILS_RIGHT_PADDING_REM}rem"
+					use:focusable={{ vertical: true }}
+					data-testid={TestId.StackPreview}
+				>
+					{#if stableStackId && selection?.branchName && selection?.codegen}
+						<CodegenMessages
+							projectId={stableProjectId}
+							stackId={stableStackId}
+							{laneId}
+							branchName={selection.branchName}
+							onclose={onclosePreview}
+							onMcpSettings={() => {
+								mcpConfigModal?.open();
+							}}
+							{onAbort}
+							{initialPrompt}
+							events={events.response || []}
+							permissionRequests={permissionRequests.response || []}
+							onSubmit={sendMessage}
+							onChange={(prompt) => messageSender?.setPrompt(prompt)}
+							sessionId={sessionId.response}
+							{isStackActive}
+							{hasRulesToClear}
+							onAnswerQuestion={handleAnswerQuestion}
+						/>
+					{:else}
+						{@const commit = commitQuery?.response}
+						{@const dzCommit: DzCommitData | undefined = commit
+							? {
+									id: commit.id,
+									isRemote: isUpstreamCommit(commit),
+									isIntegrated:
+										isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated',
+									hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts
+								}
+							: undefined}
+						{@const { amendHandler, squashHandler, hunkHandler } =
+							isCommitView && dzCommit
+								? createCommitDropHandlers({
+										projectId: stableProjectId,
+										stackId: stableStackId,
+										stackService,
+										hooksService,
+										uiState,
+										commit: dzCommit,
+										runHooks: $runHooks,
+										okWithForce: true,
+										onCommitIdChange: (newId) => {
+											if (stableStackId && branchName && selection) {
+												const previewOpen = selection.previewOpen ?? true;
+												uiState
+													.lane(stableStackId)
+													.selection.set({ branchName, commitId: newId, previewOpen });
+											}
+										}
+									})
+								: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
 						{#if branchName && commitId}
-							{@render commitChangedFiles(commitId)}
-						{:else if branchName}
-							{@render branchChangedFiles(branchName)}
-						{/if}
-					</div>
-
-					<!-- BOTTOM SECTION: File Preview (no resizer) -->
-					{#if assignedStackId || selectedFile}
-						<ReduxResult projectId={stableProjectId} result={previewChangeQuery?.result}>
-							{#snippet children(previewChange)}
-								{@const diffQuery = diffService.getDiff(stableProjectId, previewChange)}
-								{@const diffData = diffQuery.response}
-
-								<div class="file-preview-section">
-									{#if assignedStackId}
-										<ConfigurableScrollableContainer
-											zIndex="var(--z-lifted)"
-											bind:viewport={selectionPreviewScrollContainer}
-										>
-											{@render assignedChangePreview(assignedStackId)}
-										</ConfigurableScrollableContainer>
-									{:else if selectedFile}
-										<Drawer persistId="file-preview-drawer-{stableStackId}">
-											{#snippet header()}
-												<FileViewHeader
-													noPaddings
-													transparent
-													filePath={previewChange.path}
-													fileStatus={computeChangeStatus(previewChange)}
-													linesAdded={diffData?.type === 'Patch'
-														? diffData.subject.linesAdded
-														: undefined}
-													linesRemoved={diffData?.type === 'Patch'
-														? diffData.subject.linesRemoved
-														: undefined}
-												/>
-											{/snippet}
-											{@render otherChangePreview(selectedFile)}
-										</Drawer>
+							{@const commitFiles = stackService.commitChanges(projectId, commitId)}
+							<Dropzone
+								handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
+								fillHeight
+								overflow
+							>
+								{#snippet overlay({ hovered, activated, handler })}
+									{@const label =
+										handler instanceof AmendCommitWithChangeDzHandler ||
+										handler instanceof AmendCommitWithHunkDzHandler
+											? 'Amend'
+											: 'Squash'}
+									<CardOverlay {hovered} {activated} {label} />
+								{/snippet}
+								<div class="details-view__inner">
+									<CommitView
+										projectId={stableProjectId}
+										stackId={stableStackId}
+										{laneId}
+										commitKey={{
+											stackId: stableStackId,
+											branchName,
+											commitId,
+											upstream: !!upstream
+										}}
+										draggableFiles
+										rounded
+										{onerror}
+										onclose={onclosePreview}
+									/>
+									{#if commitFiles}
+										{@const commitResult = commitFiles?.result}
+										{#if commitResult}
+											<ReduxResult {projectId} {stackId} result={commitResult}>
+												{#snippet children(commit)}
+													<MultiDiffView
+														{stackId}
+														selectionId={{ type: 'commit', commitId }}
+														bind:this={multiDiffView}
+														projectId={stableProjectId}
+														changes={commit.changes}
+														draggable={true}
+														selectable={false}
+														startIndex={$activeLastAdded?.index}
+													/>
+												{/snippet}
+											</ReduxResult>
+										{/if}
 									{/if}
 								</div>
-							{/snippet}
-						</ReduxResult>
+							</Dropzone>
+						{:else if branchName}
+							{@const changesQuery = stackService.branchChanges({
+								projectId: stableProjectId,
+								stackId: stableStackId,
+								branch: branchName
+							})}
+							<div class="details-view__inner">
+								<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
+								<BranchView
+									stackId={stableStackId}
+									{laneId}
+									projectId={stableProjectId}
+									{branchName}
+									{onerror}
+									onclose={onclosePreview}
+									rounded
+								/>
+								<ReduxResult {projectId} {stackId} result={changesQuery.result}>
+									{#snippet children(result)}
+										<MultiDiffView
+											{stackId}
+											selectionId={{ type: 'branch', branchName, remote: undefined }}
+											changes={result.changes}
+											bind:this={multiDiffView}
+											projectId={stableProjectId}
+											draggable={true}
+											selectable={false}
+											startIndex={$activeLastAdded?.index}
+										/>
+									{/snippet}
+								</ReduxResult>
+							</div>
+						{:else if $activeLastAdded}
+							<MultiDiffView
+								{stackId}
+								selectionId={{ type: 'worktree', stackId }}
+								changes={assignedFiles}
+								bind:this={multiDiffView}
+								projectId={stableProjectId}
+								draggable={true}
+								selectable={isCommitting}
+								onclose={onclosePreview}
+								startIndex={$activeLastAdded.index}
+							/>
+						{/if}
 					{/if}
 				</div>
-			{/if}
-		</div>
 
-		<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
-		{#if compactDiv}
-			<Resizer
-				viewport={compactDiv}
-				persistId="resizer-panel2-${stableStackId}"
-				direction="right"
-				showBorder
-				minWidth={RESIZER_CONFIG.panel2.minWidth}
-				maxWidth={RESIZER_CONFIG.panel2.maxWidth}
-				defaultValue={RESIZER_CONFIG.panel2.defaultValue}
-				syncName="panel2"
-				onWidth={updateDetailsViewWidth}
-			/>
-		{/if}
-	{/if}
+				<!-- DETAILS VIEW WIDTH RESIZER - Only show when details view is open -->
+				{#if compactDiv}
+					<Resizer
+						viewport={compactDiv}
+						persistId="resizer-panel2-${stableStackId}"
+						direction="right"
+						showBorder
+						minWidth={RESIZER_CONFIG.panel2.minWidth}
+						maxWidth={RESIZER_CONFIG.panel2.maxWidth}
+						defaultValue={RESIZER_CONFIG.panel2.defaultValue}
+						syncName="panel2"
+						onWidth={updateDetailsViewWidth}
+					/>
+				{/if}
+			{/if}
+		{/snippet}
+	</ReduxResult>
 </div>
 
 <ReduxResult result={mcpConfigQuery.result} {projectId} {stackId} hideError>
@@ -773,7 +740,6 @@
 		flex-shrink: 0;
 		height: 100%;
 		overflow: hidden;
-		/* border-right: 1px solid var(--clr-border-2); */
 		transition: opacity 0.15s;
 
 		&.dimmed {
@@ -836,11 +802,19 @@
 			& .assigned-changes-empty {
 				padding: 20px 8px 20px;
 				background-color: var(--clr-bg-1);
-				will-change: padding;
+				transition:
+					background-color var(--transition-fast),
+					padding var(--transition-fast);
 			}
 
 			& .assigned-changes-empty__text {
 				color: var(--clr-theme-pop-on-soft);
+			}
+		}
+
+		&.dropzone-hovered {
+			& .assigned-changes-empty__text {
+				opacity: 1;
 			}
 		}
 	}
@@ -855,38 +829,21 @@
 		height: 100%;
 		max-height: calc(100% - 24px);
 		margin-right: 2px;
+	}
+	.codegen-view {
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
 	}
 
-	/* Needed for `focusCursor.svelte` to work correctly on `Drawer` components . */
 	.details-view__inner {
 		display: flex;
 		position: relative;
 		flex: 1;
 		flex-direction: column;
-		overflow: hidden;
-	}
-
-	.changed-files-section {
-		display: flex;
-		flex-direction: column;
-		overflow: hidden;
-
-		&.expand {
-			flex: 1;
-			min-height: 0; /* Allow shrinking */
-		}
-	}
-
-	.file-preview-section {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		min-height: 0; /* Allow shrinking */
-		overflow: hidden;
+		height: 100%;
+		gap: 8px;
 	}
 
 	.start-commit {

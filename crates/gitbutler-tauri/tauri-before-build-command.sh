@@ -9,5 +9,11 @@ else
   pnpm build:desktop -- --mode "$fe_mode"
 fi
 
+set -x
 cargo build --release -p gitbutler-git
+if [ "${OS:-}" == "windows" ] || [ "${OS:-}" == "linux" ]; then
+  # NOTE: Should run either if the builtin-but feature is *not* selected in `release.sh` (case for Windows), OR if we
+  # need the standalone CLI for separate publishing (case for Linux)
+  cargo build --release -p but
+fi
 bash ./crates/gitbutler-tauri/inject-git-binaries.sh

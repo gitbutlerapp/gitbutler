@@ -1,102 +1,128 @@
-use std::path::{Path, PathBuf};
+//! # VORM - a vibe-code friendly ORM
+//!
+//! There are a couple of layers that work together to make this possible.
+//!
+//! ## `rusqlite` - sqlite for Rust
+//!
+//! It leverages the borrow-checker to respect mutability rules, while also allowing to bypass them if one wants to,
+//! i.e. using `&Connection` to execute SQL.
+//! And thanks to Rusts mutability rules and transactions, generally everything is possible and safe.
+//!
+//! ## Migrations - simple and safe
+//!
+//! Migrations are in-module and colocated with the ORM abstraction. That way the LLM can imagine the
+//! final shape of the data, along with the shape of the corresponding Rust structure, which helps with
+//! precision and type-safety.
+//!
+//! ## ORM Types - for `Connection` and `Transaction`
+//!
+//! All ORM types are split into read-only and mutating versions, and they are thin wrappers around a
+//! [`Connection`](rusqlite::Connection) or a [`SavePoint`](rusqlite::Savepoint).
+//! A *savepoint* is only used when changes need the transaction-like ability to be committed all at once.
+//!
+//! Read-only methods are implemented on read-only ORM types, and mutating methods
+//! of any complexity are implemented on mutating types. Tests exists for each method just for basic
+//! insurance they actually work.
+//!
+//! Mutating types can always turn themselves into the read-only counterparts, but not vice versa.
+//!
+//! # How to make changes
+//!
+//! Just ask your favorite LLM to make the changes for you, and they usually figure out how to do it
+//! based on the existing tables.
+//!
+//! All of these have been proven to work perfectly, including migrations and tests.
+//!
+//! #### Add a new table
+//!
+//! ```text
+//! Use @crates/but-db/src/lib.rs as starting point to add a new table with all information
+//! one would need to list, insert, update and delete TODO list items. Do write tests.
+//! ```
+//!
+//! #### Add a new field
+//!
+//! ```text
+//! Add a new optional string named 'note' to ClaudePermissionRequest in @crates/but-db/tests/db/table/claude.rs
+//! ```
+#![expect(clippy::inconsistent_digit_grouping)]
 
-use anyhow::Result;
-use diesel::{Connection, SqliteConnection, connection::SimpleConnection};
-
-const FILE_NAME: &str = "but.sqlite";
-
-mod hunk_assignments;
-pub use hunk_assignments::HunkAssignment;
-mod butler_actions;
-pub use butler_actions::ButlerAction;
-mod schema;
-mod workflows;
-pub use workflows::Workflow;
-mod claude;
-pub use claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession};
-mod file_write_locks;
-pub use file_write_locks::FileWriteLock;
-mod workspace_rules;
-pub use workspace_rules::WorkspaceRule;
-mod gerrit_metadata;
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
-pub use gerrit_metadata::GerritMeta;
-pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("./migrations");
-
-pub struct DbHandle {
-    conn: SqliteConnection,
-    /// The URL at which the connection was opened, mainly for debugging.
-    url: String,
-}
-
-impl std::fmt::Debug for DbHandle {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DbHandle").field("db", &self.url).finish()
-    }
-}
-
-/// A handle to the database connection.
-impl DbHandle {
-    /// Create a new instance connecting to a file-based database contained in `db_dir`.
-    /// It will be created or updated automatically.
-    pub fn new_in_directory(db_dir: impl AsRef<Path>) -> Result<Self> {
-        let mut db_dir = db_dir.as_ref().to_owned();
-        let cwd = std::env::current_dir()?;
-        if db_dir.is_relative() {
-            db_dir = cwd.join(db_dir);
-        }
-        let db_file_path = Self::db_file_path(&db_dir);
-        if let Some(parent_dir_to_create) = db_file_path.parent().filter(|dir| !dir.exists()) {
-            std::fs::create_dir_all(parent_dir_to_create)?;
-        }
-        let db_file_path = db_file_path
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 in database file path"))?;
-        Self::new_at_url(db_file_path)
-    }
-
-    /// A new instance connecting to the database at the given `url`.
-    pub fn new_at_url(url: impl Into<String>) -> Result<Self> {
-        let url = url.into();
-        let mut conn = SqliteConnection::establish(&url)?;
-        improve_concurrency(&mut conn)?;
-        run_migrations(&mut conn)?;
-        Ok(DbHandle { conn, url })
-    }
-
-    /// Return the path to the standard database file.
-    pub fn db_file_path(db_dir: impl AsRef<Path>) -> PathBuf {
-        db_dir.as_ref().join(FILE_NAME)
-    }
-}
-
-/// Improve parallelism and make it non-fatal.
-/// Blanket setting from https://github.com/the-lean-crate/criner/discussions/5, maybe needs tuning.
-/// Also, it's a known issue, maybe order matters?
-/// https://github.com/diesel-rs/diesel/issues/2365#issuecomment-2899347817
-/// TODO: the busy_timeout doesn't seem to be effective.
-fn improve_concurrency(conn: &mut SqliteConnection) -> anyhow::Result<()> {
-    // For safety, execute them one by one. Otherwise, they can individually fail, silently (at least the `busy_timeout`.
-    for query in [
-        "PRAGMA busy_timeout = 30000;        -- wait X milliseconds, but not all at once, before for timing out with error.",
-        "PRAGMA journal_mode = WAL;          -- better write-concurrency",
-        "PRAGMA synchronous = NORMAL;        -- fsync only in critical moments",
-        "PRAGMA wal_autocheckpoint = 1000;   -- write WAL changes back every 1000 pages, for an in average 1MB WAL file.",
-        "PRAGMA wal_checkpoint(TRUNCATE);    -- free some space by truncating possibly massive WAL files from the last run.",
-    ] {
-        conn.batch_execute(query)?;
-    }
-    Ok(())
-}
-
-fn run_migrations(
-    connection: &mut SqliteConnection,
-) -> Result<Vec<diesel::migration::MigrationVersion<'_>>> {
-    match connection.run_pending_migrations(MIGRATIONS) {
-        Ok(migrations) => Ok(migrations),
-        Err(e) => anyhow::bail!("Failed to run migrations: {}", e),
-    }
-}
-
-/// polling primitives
+#[cfg(feature = "poll")]
 pub mod poll;
+
+mod handle;
+mod table;
+mod transaction;
+
+pub mod cache;
+pub mod migration;
+
+use std::path::PathBuf;
+#[rustfmt::skip]
+pub use table::{
+    hunk_assignments::{HunkAssignmentsHandleMut, HunkAssignmentsHandle, HunkAssignment},
+    butler_actions::ButlerAction,
+    workflows::Workflow,
+    claude::{ClaudeMessage, ClaudePermissionRequest, ClaudeSession},
+    file_write_locks::FileWriteLock,
+    workspace_rules::WorkspaceRule,
+    gerrit_metadata::GerritMeta,
+    forge_reviews::ForgeReview,
+    ci_checks::CiCheck,
+};
+
+/// The migrations to run, in any order, as ordering is maintained by their date number.
+pub const MIGRATIONS: &[&[M<'static>]] = &[
+    table::M_FULLY_REMOVED,
+    table::hunk_assignments::M,
+    table::butler_actions::M,
+    table::workflows::M,
+    table::claude::M,
+    table::file_write_locks::M,
+    table::workspace_rules::M,
+    table::gerrit_metadata::M,
+    table::forge_reviews::M,
+    table::ci_checks::M,
+];
+
+/// A migration and all the necessary data associated with it to perform it once.
+///
+/// Note that it's `diesel_migrations` compatible as it uses its database and schema
+/// for historical reasons.
+#[derive(Copy, Clone, Debug)]
+pub struct M<'a> {
+    /// The SQL statement to execute for this migration.
+    up: &'a str,
+    /// The creation time of the `up` field, in a format like `20250529110746`, so it's suitable for sorting
+    up_created_at: u64,
+}
+
+/// A structure to receive an application-wide cache.
+pub struct AppCacheHandle {
+    /// The open connection to the cache.
+    conn: rusqlite::Connection,
+    /// The path to the application cache.
+    path: PathBuf,
+}
+
+/// An abstraction over an open database connection, and for access to the ORM layer and [transactions](DbHandle::transaction()).
+///
+/// The underlying sqlite database is set up to use Rusts borrow-checker,
+/// so a mutable borrow is required to start transactions or to make changes to any data.
+pub struct DbHandle {
+    /// The opened db connection with migrations applied.
+    conn: rusqlite::Connection,
+    /// The path at which the connection was opened, mainly for debugging.
+    path: PathBuf,
+}
+
+/// A wrapper for a [`rusqlite::Transaction`] to allow ORM handles to be created more easily,
+/// and make sure multiple dependent calls to the ORM can be consistent.
+pub struct Transaction<'conn> {
+    /// The actual transaction as holder of the database connection.
+    /// It's always set.
+    inner: Option<rusqlite::Transaction<'conn>>,
+    /// If `true`, on drop we will reset the busy timeout to the default value, as previously the connection
+    /// was changed to non-blocking.
+    reset_to_blocking_on_drop: bool,
+}

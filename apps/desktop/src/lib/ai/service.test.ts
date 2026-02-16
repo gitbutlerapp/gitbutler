@@ -21,12 +21,13 @@ import {
 	type AIClient,
 	type Prompt
 } from '$lib/ai/types';
-import { type GbConfig, GitConfigService } from '$lib/config/gitConfigService';
+import { GitConfigService } from '$lib/config/gitConfigService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { expect, test, describe, vi } from 'vitest';
 import type { SecretsService } from '$lib/secrets/secretsService';
+import type { GitConfigSettings } from '@gitbutler/core/api';
 
 const defaultGitConfig = Object.freeze({
 	[GitAIConfigKey.ModelProvider]: ModelKind.OpenAI,
@@ -52,10 +53,10 @@ class DummyGitConfigService extends GitConfigService {
 		const mockClientState = new MockClientState();
 		super(mockClientState, backend);
 	}
-	async getGbConfig(_projectId: string): Promise<GbConfig> {
+	async getGbConfig(_projectId: string): Promise<GitConfigSettings> {
 		throw new Error('Method not implemented.');
 	}
-	async setGbConfig(_projectId: string, _config: GbConfig): Promise<void> {
+	async setGbConfig(_projectId: string, _config: GitConfigSettings): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 	async get<T extends string>(key: string): Promise<T | undefined> {
@@ -152,7 +153,7 @@ const exampleDiffs: DiffInput[] = [hunk1, hunk2];
 function buildDefaultServices() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
 	const secretsService = new DummySecretsService(structuredClone(defaultSecretsConfig));
-	const tokenMemoryService = new TokenMemoryService(secretsService);
+	const tokenMemoryService = new TokenMemoryService();
 	const fetchMock = vi.fn();
 	const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 	return {
@@ -186,7 +187,7 @@ describe('AIService', () => {
 				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService({ [AISecretHandle.OpenAIKey]: 'sk-asdfasdf' });
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
@@ -200,7 +201,7 @@ describe('AIService', () => {
 				[GitAIConfigKey.OpenAIKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService();
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
@@ -221,7 +222,7 @@ describe('AIService', () => {
 			const secretsService = new DummySecretsService({
 				[AISecretHandle.AnthropicKey]: 'test-key'
 			});
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);
@@ -236,7 +237,7 @@ describe('AIService', () => {
 				[GitAIConfigKey.AnthropicKeyOption]: KeyOption.BringYourOwn
 			});
 			const secretsService = new DummySecretsService();
-			const tokenMemoryService = new TokenMemoryService(secretsService);
+			const tokenMemoryService = new TokenMemoryService();
 			const fetchMock = vi.fn();
 			const cloud = new HttpClient(fetchMock, 'https://www.example.com', tokenMemoryService.token);
 			const aiService = new AIService(gitConfig, secretsService, cloud, tokenMemoryService);

@@ -3,7 +3,6 @@
 		disabled: boolean;
 		label: string;
 		pushStatus: PushStatus | undefined;
-		viewportId: string;
 		data: BranchDropData | undefined;
 	};
 </script>
@@ -15,10 +14,8 @@
 	import { BranchDropData } from '$lib/branches/dropHandler';
 	import { draggableBranch, type DraggableConfig } from '$lib/dragging/draggable';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-
 	import { inject } from '@gitbutler/core/context';
-	import { Badge } from '@gitbutler/ui';
-	import { TestId } from '@gitbutler/ui';
+	import { Badge, TestId, Icon } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { focusable } from '@gitbutler/ui/focus/focusable';
 	import { slide } from 'svelte/transition';
@@ -42,6 +39,7 @@
 		iconName: keyof typeof iconsJson;
 		roundedBottom?: boolean;
 		onclick?: () => void;
+		disableClick?: boolean;
 		updateBranchName: (name: string) => void;
 		isUpdatingName: boolean;
 		failedMisserablyToUpdateBranchName: boolean;
@@ -50,6 +48,7 @@
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
 		prCreation?: Snippet;
+		changedFiles?: Snippet;
 		showPrCreation?: boolean;
 		dragArgs?: DragableBranchData;
 	};
@@ -72,12 +71,14 @@
 		iconName,
 		roundedBottom,
 		onclick,
+		disableClick,
 		updateBranchName,
 		emptyState,
 		content,
 		menu,
 		buttons,
 		prCreation,
+		changedFiles,
 		showPrCreation,
 		dragArgs
 	}: Props = $props();
@@ -130,24 +131,31 @@
 		class="branch-header"
 		class:selected
 		class:active
-		class:commiting={isCommitting}
+		class:committing={isCommitting}
+		class:disable-hover={disableClick}
 		{onclick}
 		onkeypress={onclick}
 		tabindex="0"
 		data-remove-from-panning
 		use:draggableBranch={draggableBranchConfig}
 	>
-		{#if selected && !draft}
-			<div
-				class="branch-header__select-indicator"
-				in:slide={{ axis: 'x', duration: 150 }}
-				class:active
-			></div>
+		{#if dragArgs && !dragArgs.disabled && !conflicts}
+			<div class="branch-header__drag-handle" data-no-drag>
+				<Icon name="draggable-narrow" />
+			</div>
 		{/if}
 
 		<div class="branch-header__content">
+			{#if selected && !draft}
+				<div
+					class="branch-header__select-indicator"
+					in:slide={{ axis: 'x', duration: 150 }}
+					class:active
+				></div>
+			{/if}
+
 			<div class="branch-header__title text-14 text-bold">
-				<div class="branch-header__title-content flex gap-6">
+				<div class="branch-header__title-content">
 					<BranchHeaderIcon color={lineColor} {iconName} />
 					<BranchLabel
 						name={branchName}
@@ -161,7 +169,7 @@
 
 				{#if conflicts}
 					<div class="branch-header__top-badges">
-						<Badge style="error">Conflicts</Badge>
+						<Badge style="danger">Conflicts</Badge>
 					</div>
 				{/if}
 			</div>
@@ -177,6 +185,12 @@
 			{/if}
 		</div>
 	</div>
+
+	{#if changedFiles && selected}
+		<div class="changed-files-container">
+			{@render changedFiles()}
+		</div>
+	{/if}
 
 	{#if showCommitGoesHere}
 		<CommitGoesHere
@@ -212,6 +226,7 @@
 <style lang="postcss">
 	.header-wrapper {
 		display: flex;
+		flex-shrink: 0;
 		flex-direction: column;
 		width: 100%;
 		overflow: hidden;
@@ -228,31 +243,40 @@
 	.branch-header {
 		--branch-selected-bg: var(--clr-bg-1);
 		--branch-selected-element-bg: var(--clr-selected-not-in-focus-element);
+		--branch-side-padding: 12px;
 		display: flex;
-
 		position: relative;
 		flex-direction: column;
 		align-items: center;
 		justify-content: flex-start;
-		padding-right: 12px;
-		padding-left: 12px;
+		padding-right: 10px;
+		padding-left: var(--branch-side-padding);
 		overflow: hidden;
 		border-bottom: none;
 		background-color: var(--branch-selected-bg);
+		cursor: pointer;
+
+		&.disable-hover {
+			cursor: default;
+		}
 
 		/* Selected but NOT in focus */
-		&:hover {
-			--branch-selected-bg: var(--clr-bg-1-muted);
+		&:not(.disable-hover):hover {
+			--branch-selected-bg: var(--hover-bg-1);
+
+			& .branch-header__drag-handle {
+				width: 16px;
+				opacity: 0.4;
+			}
 		}
 
-		&:focus-within,
-		&:not(:focus-within).selected {
+		/* &:not(:focus-within).selected {
 			--branch-selected-bg: var(--clr-selected-not-in-focus-bg);
-		}
+		} */
 
 		/* Selected in focus */
 		&.active.selected {
-			--branch-selected-bg: var(--clr-selected-in-focus-bg);
+			/* --branch-selected-bg: var(--clr-selected-in-focus-bg); */
 			--branch-selected-element-bg: var(--clr-selected-in-focus-element);
 		}
 	}
@@ -260,6 +284,7 @@
 	.branch-header__details {
 		display: flex;
 		align-items: center;
+		padding-right: var(--branch-side-padding);
 		overflow: hidden;
 		gap: 6px;
 		color: var(--clr-text-2);
@@ -269,34 +294,21 @@
 		}
 	}
 
-	.branch-header__select-indicator {
-		position: absolute;
-		top: 14px;
-		left: 0;
-		width: 4px;
-		height: calc(100% - 28px);
-		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
-		background-color: var(--branch-selected-element-bg);
-		transition: transform var(--transition-fast);
-
-		&.active {
-			background-color: var(--clr-selected-in-focus-element);
-		}
-	}
-
 	.branch-header__title {
 		display: flex;
 		flex-grow: 1;
 		align-items: center;
 		justify-content: space-between;
 		min-width: 0;
-		gap: 4px;
 	}
 
 	.branch-header__title-content {
+		display: flex;
 		flex-grow: 1;
 		align-items: center;
 		min-width: 0;
+		padding-right: 8px;
+		gap: 6px;
 	}
 
 	.branch-header__top-badges {
@@ -308,16 +320,57 @@
 
 	.branch-header__content {
 		display: flex;
+		position: relative;
 		flex: 1;
 		flex-direction: column;
 		width: 100%;
 		padding: 14px 0;
-		overflow: hidden;
 		gap: 8px;
-		text-overflow: ellipsis;
+	}
+
+	.branch-header__select-indicator {
+		position: absolute;
+		top: 14px;
+		left: calc(var(--branch-side-padding) * -1);
+		width: 4px;
+		height: calc(100% - 28px);
+		border-radius: 0 var(--radius-ml) var(--radius-ml) 0;
+		background-color: var(--branch-selected-element-bg);
+		transition: transform var(--transition-fast);
+
+		&.active {
+			background-color: var(--clr-selected-in-focus-element);
+		}
+	}
+
+	.branch-header__drag-handle {
+		display: flex;
+		position: absolute;
+		top: 6px;
+		right: 4px;
+		align-items: center;
+		justify-content: flex-end;
+		width: 10px;
+		color: var(--clr-text-1);
+		opacity: 0;
+		transition:
+			width var(--transition-fast),
+			opacity var(--transition-fast);
+	}
+
+	.changed-files-container {
+		display: flex;
+		z-index: 1;
+		width: 100%;
+		margin-top: -6px;
+		padding-top: 6px;
+		padding-bottom: 14px;
+		overflow: hidden;
+		background-color: var(--clr-bg-1);
 	}
 
 	.branch-header__empty-state {
+		padding-right: var(--branch-side-padding);
 		color: var(--clr-text-2);
 		opacity: 0.8;
 	}

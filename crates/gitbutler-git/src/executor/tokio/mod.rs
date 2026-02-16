@@ -75,16 +75,6 @@ unsafe impl super::GitExecutor for TokioExecutor {
 
         debug_log_sanitised_git_cmd(&mut cmd);
 
-        #[cfg(test)]
-        {
-            eprintln!(
-                "\n\n GIT STDOUT:\n\n{}\n\nGIT STDERR:\n\n{}\n\nGIT EXIT CODE: {}\n",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr),
-                output.status.code().unwrap_or(127) as usize
-            );
-        }
-
         if !output.status.success() {
             tracing::error!(
                 ?cmd,

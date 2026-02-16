@@ -4,7 +4,7 @@ import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
 
 export const OPLOG_SERVICE = new InjectionToken<OplogService>('OplogService');
 
-/** Supercedes the HistoryService */
+/** Supersedes the HistoryService */
 export class OplogService {
 	private api: ReturnType<typeof injectEndpoints>;
 

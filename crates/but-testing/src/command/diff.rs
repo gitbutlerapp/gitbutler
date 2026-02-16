@@ -1,12 +1,12 @@
 use std::path::Path;
 
+use but_core::RepositoryExt;
+use but_ctx::Context;
 use but_hunk_dependency::ui::HunkDependencies;
-use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gix::bstr::BString;
 use itertools::Itertools;
 
-use crate::command::{UI_CONTEXT_LINES, debug_print, project_from_path, project_repo};
+use crate::command::{UI_CONTEXT_LINES, debug_print};
 
 pub fn commit_changes(
     current_dir: &Path,
@@ -14,13 +14,12 @@ pub fn commit_changes(
     previous_commit: Option<&str>,
     unified_diff: bool,
 ) -> anyhow::Result<()> {
-    let repo = project_repo(current_dir)?;
+    let repo = gix::discover(current_dir)?.for_tree_diffing()?;
     let previous_commit = previous_commit
         .map(|revspec| repo.rev_parse_single(revspec))
         .transpose()?;
     let commit = repo.rev_parse_single(current_commit)?;
-    let (changes, _) =
-        but_core::diff::tree_changes(&repo, previous_commit.map(Into::into), commit.into())?;
+    let changes = but_core::diff::tree_changes(&repo, previous_commit.map(Into::into), commit.into())?;
 
     if unified_diff {
         debug_print(unified_diff_for_changes(&repo, changes, UI_CONTEXT_LINES)?)
@@ -29,13 +28,8 @@ pub fn commit_changes(
     }
 }
 
-pub fn status(
-    current_dir: &Path,
-    unified_diff: bool,
-    context_lines: u32,
-    use_json: bool,
-) -> anyhow::Result<()> {
-    let repo = project_repo(current_dir)?;
+pub fn status(current_dir: &Path, unified_diff: bool, context_lines: u32, use_json: bool) -> anyhow::Result<()> {
+    let repo = gix::discover(current_dir)?.for_tree_diffing()?;
     let worktree = but_core::diff::worktree_changes(&repo)?;
     if unified_diff {
         handle_unified_diff(&repo, worktree, context_lines, use_json)?;
@@ -74,25 +68,16 @@ fn handle_normal_diff(worktree: but_core::WorktreeChanges, use_json: bool) -> an
 }
 
 pub fn locks(current_dir: &Path, simple: bool, use_json: bool) -> anyhow::Result<()> {
-    let project = project_from_path(current_dir)?;
-    let ctx = CommandContext::open(&project, AppSettings::default())?;
-    let repo = project.open()?;
+    let ctx = Context::discover(current_dir)?;
+    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
-    let input_stacks = but_hunk_dependency::workspace_stacks_to_input_stacks(
-        &repo,
-        &but_workspace::legacy::stacks(&ctx, &project.gb_dir(), &repo, Default::default())?,
-        but_workspace::legacy::common_merge_base_with_target_branch(&project.gb_dir())?,
-    )?;
+    let input_stacks = but_hunk_dependency::new_stacks_to_input_stacks(&repo, &ws)?;
     let ranges = but_hunk_dependency::WorkspaceRanges::try_from_stacks(input_stacks)?;
 
     if simple {
         process_simple_dependencies(use_json, &repo, worktree_changes, ranges)
     } else {
-        debug_print(intersect_workspace_ranges(
-            &repo,
-            ranges,
-            worktree_changes.changes,
-        )?)
+        debug_print(intersect_workspace_ranges(&repo, ranges, worktree_changes.changes)?)
     }
 }
 
@@ -102,8 +87,7 @@ fn process_simple_dependencies(
     worktree_changes: but_core::WorktreeChanges,
     ranges: but_hunk_dependency::WorkspaceRanges,
 ) -> Result<(), anyhow::Error> {
-    let dependencies =
-        HunkDependencies::try_from_workspace_ranges(repo, ranges, worktree_changes.changes)?;
+    let dependencies = HunkDependencies::try_from_workspace_ranges(repo, ranges, worktree_changes.changes)?;
     if use_json {
         let json = serde_json::to_string_pretty(&dependencies)?;
         println!("{json}");
@@ -142,12 +126,10 @@ fn intersect_workspace_ranges(
         };
         let mut intersections = Vec::new();
         for hunk in hunks {
-            if let Some(hunk_ranges) =
-                ranges.intersection(&change.path, hunk.old_start, hunk.old_lines)
-            {
+            if let Some(hunk_ranges) = ranges.intersection(&change.path, hunk.old_start, hunk.old_lines) {
                 intersections.push(HunkIntersection {
                     hunk,
-                    commit_intersections: hunk_ranges.into_iter().copied().collect(),
+                    commit_intersections: hunk_ranges.into_iter().cloned().collect(),
                 });
             } else {
                 missed_hunks.push((change.path.clone(), hunk));

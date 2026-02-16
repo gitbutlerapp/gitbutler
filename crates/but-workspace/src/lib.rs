@@ -9,7 +9,7 @@
 //!   - Currently, there is only one workspace per repository, but this is something we intend to change
 //!     in the future to facilitate new use cases.
 //! * **Workspace Ref**
-//!   - The reference that points to the merge-commit which integrates all *workspace* *stacks*.
+//!   - The reference that points to the merge-ommit which integrates all *workspace* *stacks*.
 //! * **Stack**
 //!   - GitButler implements the concept of a branch stack. This is essentially a collection of "heads"
 //!     (pseudo branches) that contain each other.
@@ -47,7 +47,7 @@ pub mod branch;
 mod changeset;
 
 /// Utility types for the [`WorkspaceCommit`].
-pub(crate) mod commit;
+pub mod commit;
 
 /// Types used only when obtaining head-information.
 ///
@@ -57,7 +57,7 @@ pub use ref_info::function::{head_info, ref_info};
 
 mod branch_details;
 pub use branch_details::{branch_details, local_commits_for_branch};
-use but_graph::SegmentIndex;
+use but_graph::{SegmentIndex, projection::TargetCommit};
 
 /// Information about refs, as seen from within or outsie of a workspace.
 ///
@@ -79,7 +79,12 @@ pub struct RefInfo {
     ///
     /// If `None`, this is a local workspace that doesn't know when possibly pushed branches are considered integrated.
     /// This happens when there is a local branch checked out without a remote tracking branch.
-    pub target: Option<but_graph::projection::Target>,
+    pub target_ref: Option<but_graph::projection::TargetRef>,
+    /// A commit reachable by [`Self::target_ref`] which we chose to keep as base. That way we can extend the workspace
+    /// past its computed lower bound.
+    ///
+    /// Indeed, it's valid to not set the reference, and to only set the commit which should act as an integration base.
+    pub target_commit: Option<TargetCommit>,
     /// The segment index of the extra target as provided for traversal,
     /// useful for AdHoc workspaces, but generally applicable to all workspaces to keep the lower bound lower than it
     /// otherwise would be.
@@ -143,10 +148,7 @@ pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
         let key = format!(
             "{}:{}",
             spec.path,
-            spec.previous_path
-                .clone()
-                .map(|p| p.to_string())
-                .unwrap_or_default()
+            spec.previous_path.clone().map(|p| p.to_string()).unwrap_or_default()
         );
         output
             .entry(key)
@@ -158,19 +160,9 @@ pub fn flatten_diff_specs(input: Vec<DiffSpec>) -> Vec<DiffSpec> {
 
 #[cfg(test)]
 pub(crate) mod utils {
-    use but_core::{HunkHeader, HunkRange};
+    use but_core::HunkRange;
 
     pub fn range(start: u32, lines: u32) -> HunkRange {
         HunkRange { start, lines }
-    }
-    pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-        let ((old_start, old_lines), (new_start, new_lines)) =
-            but_testsupport::hunk_header(old, new);
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
     }
 }

@@ -85,8 +85,17 @@ export function parseHunk(hunkStr: string): Hunk {
 	return hunk;
 }
 
+export type DependencyLockTarget =
+	| {
+			type: 'stack';
+			subject: string;
+	  }
+	| {
+			type: 'unidentified';
+	  };
+
 export type DependencyLock = {
-	stackId: string;
+	target: DependencyLockTarget;
 	commitId: string;
 };
 
@@ -94,7 +103,11 @@ export type LineLock = LineId & {
 	locks: DependencyLock[];
 };
 
-export type Row = {
+/**
+ * Base row without selection/lock state - this is the expensive part to compute
+ * and can be cached since it only depends on the diff content.
+ */
+type BaseRow = {
 	encodedLineId: DiffFileLineId;
 	beforeLineNumber?: number;
 	afterLineNumber?: number;
@@ -102,11 +115,17 @@ export type Row = {
 	type: SectionType;
 	size: number;
 	isLast: boolean;
+	isDeltaLine: boolean;
+};
+
+/**
+ * Full row with selection and lock state applied.
+ */
+export type Row = BaseRow & {
 	isSelected?: boolean;
 	isFirstOfSelectionGroup?: boolean;
 	isLastOfSelectionGroup?: boolean;
 	isLastSelected?: boolean;
-	isDeltaLine: boolean;
 	locks: DependencyLock[] | undefined;
 };
 
@@ -164,7 +183,7 @@ type Hunk = {
 	readonly contentSections: ContentSection[];
 };
 
-type DiffRows = { prevRows: Row[]; nextRows: Row[] };
+type BaseDiffRows = { prevRows: BaseRow[]; nextRows: BaseRow[] };
 
 const headerRegex =
 	/@@ -(?<beforeStart>\d+),?(?<beforeCount>\d+)? \+(?<afterStart>\d+),?(?<afterCount>\d+)? @@(?<comment>.+)?/;
@@ -254,6 +273,9 @@ export function parserFromExtension(extension: string): Parser | undefined {
 			return javascript({ typescript: true }).language.parser;
 		case 'tsx':
 			return javascript({ typescript: true, jsx: true }).language.parser;
+		case 'jsonc':
+		case 'json5':
+			return javascript().language.parser;
 
 		case 'ahk':
 			return StreamLanguage.define(powerShell).parser;
@@ -307,6 +329,7 @@ export function parserFromExtension(extension: string): Parser | undefined {
 			return StreamLanguage.define(kotlin).parser;
 
 		case 'json':
+		case 'jsonl':
 			return json().language.parser;
 
 		case 'lisp':
@@ -516,12 +539,12 @@ export type DiffLine = {
 export function encodeDiffLineRange(lineSelection: DiffLine[]): DiffLineRange | undefined {
 	if (lineSelection.length === 0) return undefined;
 	if (lineSelection.length === 1)
-		return encodeSingleDiffLine(lineSelection[0]!.oldLine, lineSelection[0]!.newLine);
+		return encodeSingleDiffLine(lineSelection[0].oldLine, lineSelection[0].newLine);
 
-	const firstLine = encodeSingleDiffLine(lineSelection[0]!.oldLine, lineSelection[0]!.newLine);
+	const firstLine = encodeSingleDiffLine(lineSelection[0].oldLine, lineSelection[0].newLine);
 	const lastLine = encodeSingleDiffLine(
-		lineSelection[lineSelection.length - 1]!.oldLine,
-		lineSelection[lineSelection.length - 1]!.newLine
+		lineSelection[lineSelection.length - 1].oldLine,
+		lineSelection[lineSelection.length - 1].newLine
 	);
 
 	if (firstLine === undefined || lastLine === undefined) {
@@ -569,58 +592,21 @@ type SelectionParams = {
 	isLastSelected?: boolean;
 };
 
-function getSelectionParams(
-	line: Line,
-	selectedLines: LineSelector[] | undefined
-): SelectionParams {
-	if (!selectedLines) {
-		return {};
-	}
-
-	const selectedLine = selectedLines.find(
-		(selectedLine) =>
-			selectedLine.oldLine === line.beforeLineNumber &&
-			selectedLine.newLine === line.afterLineNumber
-	);
-
-	if (!selectedLine) {
-		return {};
-	}
-
-	return {
-		isSelected: true,
-		isFirstOfSelectionGroup: selectedLine.isFirstOfGroup,
-		isLastOfSelectionGroup: selectedLine.isLastOfGroup,
-		isLastSelected: selectedLine.isLast
-	};
-}
-
-function createRowData(
+function createBaseRowData(
 	fileName: string,
 	section: ContentSection,
-	parser: Parser | undefined,
-	selectedLines: LineSelector[] | undefined,
-	lineLocks: LineLock[] | undefined
-): Row[] {
-	return section.lines.map((line) => {
-		// if (line.content === '') {
-		// 	// Add extra \n for empty lines for correct copy/pasting output
-		// 	line.content = '\n';
-		// }
-
-		return {
-			encodedLineId: encodeDiffFileLine(fileName, line.beforeLineNumber, line.afterLineNumber),
-			beforeLineNumber: line.beforeLineNumber,
-			afterLineNumber: line.afterLineNumber,
-			tokens: toTokens(line.content, parser),
-			type: section.sectionType,
-			size: line.content.length,
-			isLast: false,
-			isDeltaLine: isDeltaLine(section.sectionType),
-			locks: getLocks(line.beforeLineNumber, line.afterLineNumber, lineLocks),
-			...getSelectionParams(line, selectedLines)
-		};
-	});
+	parser: Parser | undefined
+): BaseRow[] {
+	return section.lines.map((line) => ({
+		encodedLineId: encodeDiffFileLine(fileName, line.beforeLineNumber, line.afterLineNumber),
+		beforeLineNumber: line.beforeLineNumber,
+		afterLineNumber: line.afterLineNumber,
+		tokens: toTokens(line.content, parser),
+		type: section.sectionType,
+		size: line.content.length,
+		isLast: false,
+		isDeltaLine: isDeltaLine(section.sectionType)
+	}));
 }
 
 function sanitize(text: string) {
@@ -629,7 +615,75 @@ function sanitize(text: string) {
 	return element.innerHTML;
 }
 
+/**
+ * Simple LRU cache for memoizing toTokens results.
+ * Uses a Map which maintains insertion order, allowing efficient LRU eviction.
+ */
+class LRUCache<V> {
+	private cache = new Map<string, V>();
+
+	constructor(private maxSize: number) {}
+
+	get(key: string): V | undefined {
+		const value = this.cache.get(key);
+		if (value !== undefined) {
+			// Move to end (most recently used) by re-inserting
+			this.cache.delete(key);
+			this.cache.set(key, value);
+		}
+		return value;
+	}
+
+	set(key: string, value: V): void {
+		// If key exists, delete it first to update insertion order
+		if (this.cache.has(key)) {
+			this.cache.delete(key);
+		} else if (this.cache.size >= this.maxSize) {
+			// Evict oldest entry (first key in Map)
+			const firstKey = this.cache.keys().next().value;
+			if (firstKey !== undefined) {
+				this.cache.delete(firstKey);
+			}
+		}
+		this.cache.set(key, value);
+	}
+}
+
+/**
+ * Helper to get or create a cache for a given parser.
+ * Uses WeakMap for parsers (auto-cleanup) and a fallback cache for undefined parser.
+ */
+function getParserCache<V>(
+	cachesByParser: WeakMap<Parser, LRUCache<V>>,
+	noParsersCache: LRUCache<V>,
+	parser: Parser | undefined,
+	cacheSize: number
+): LRUCache<V> {
+	if (parser === undefined) {
+		return noParsersCache;
+	}
+
+	let cache = cachesByParser.get(parser);
+	if (!cache) {
+		cache = new LRUCache<V>(cacheSize);
+		cachesByParser.set(parser, cache);
+	}
+	return cache;
+}
+
+// Two-level cache: WeakMap by parser (auto-cleans when parser is GC'd),
+// then LRU cache by line content (bounded size prevents memory leaks).
+const tokenCacheByParser = new WeakMap<Parser, LRUCache<string[]>>();
+const tokenCacheNoParser = new LRUCache<string[]>(2000);
+
 function toTokens(inputLine: string, parser: Parser | undefined): string[] {
+	const cache = getParserCache(tokenCacheByParser, tokenCacheNoParser, parser, 2000);
+
+	const cached = cache.get(inputLine);
+	if (cached !== undefined) {
+		return cached;
+	}
+
 	const highlighter = create(inputLine, parser);
 	const tokens: string[] = [];
 	highlighter.highlight((text, classNames) => {
@@ -640,6 +694,7 @@ function toTokens(inputLine: string, parser: Parser | undefined): string[] {
 		tokens.push(token);
 	});
 
+	cache.set(inputLine, tokens);
 	return tokens;
 }
 
@@ -648,16 +703,14 @@ export function codeContentToTokens(content: string, parser: Parser | undefined)
 	return lines.map((line) => toTokens(line, parser));
 }
 
-function computeWordDiff(
-	filenName: string,
+function computeBaseWordDiff(
+	filename: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined,
-	selectedLines: LineSelector[] | undefined,
-	lineLocks: LineLock[] | undefined
-): DiffRows {
+	parser: Parser | undefined
+): BaseDiffRows {
 	const numberOfLines = nextSection.lines.length;
-	const returnRows: DiffRows = {
+	const returnRows: BaseDiffRows = {
 		prevRows: [],
 		nextRows: []
 	};
@@ -665,39 +718,35 @@ function computeWordDiff(
 	// Loop through every line in the section
 	// We're only bothered with prev/next sections with equal # of lines changes
 	for (let i = 0; i < numberOfLines; i++) {
-		const oldLine = prevSection.lines[i] as Line;
-		const newLine = nextSection.lines[i] as Line;
-		const prevSectionRow = {
+		const oldLine = prevSection.lines[i];
+		const newLine = nextSection.lines[i];
+		const prevSectionRow: BaseRow = {
 			encodedLineId: encodeDiffFileLine(
-				filenName,
+				filename,
 				oldLine.beforeLineNumber,
 				oldLine.afterLineNumber
 			),
 			beforeLineNumber: oldLine.beforeLineNumber,
 			afterLineNumber: oldLine.afterLineNumber,
-			tokens: [] as string[],
+			tokens: [],
 			type: prevSection.sectionType,
 			size: oldLine.content.length,
 			isLast: false,
-			isDeltaLine: isDeltaLine(prevSection.sectionType),
-			locks: getLocks(oldLine.beforeLineNumber, oldLine.afterLineNumber, lineLocks),
-			...getSelectionParams(oldLine, selectedLines)
+			isDeltaLine: isDeltaLine(prevSection.sectionType)
 		};
-		const nextSectionRow = {
+		const nextSectionRow: BaseRow = {
 			encodedLineId: encodeDiffFileLine(
-				filenName,
+				filename,
 				newLine.beforeLineNumber,
 				newLine.afterLineNumber
 			),
 			beforeLineNumber: newLine.beforeLineNumber,
 			afterLineNumber: newLine.afterLineNumber,
-			tokens: [] as string[],
+			tokens: [],
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
-			isDeltaLine: isDeltaLine(nextSection.sectionType),
-			locks: getLocks(newLine.beforeLineNumber, newLine.afterLineNumber, lineLocks),
-			...getSelectionParams(newLine, selectedLines)
+			isDeltaLine: isDeltaLine(nextSection.sectionType)
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -726,25 +775,22 @@ function computeWordDiff(
 	return returnRows;
 }
 
-function computeInlineWordDiff(
+function computeBaseInlineWordDiff(
 	fileName: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined,
-	selectedLines: LineSelector[] | undefined,
-	lineLocks: LineLock[] | undefined
-): Row[] {
+	parser: Parser | undefined
+): BaseRow[] {
 	const numberOfLines = nextSection.lines.length;
-
-	const rows = [];
+	const rows: BaseRow[] = [];
 
 	// Loop through every line in the section
 	// We're only bothered with prev/next sections with equal # of lines changes
 	for (let i = 0; i < numberOfLines; i++) {
-		const oldLine = prevSection.lines[i] as Line;
-		const newLine = nextSection.lines[i] as Line;
+		const oldLine = prevSection.lines[i];
+		const newLine = nextSection.lines[i];
 
-		const sectionRow = {
+		const sectionRow: BaseRow = {
 			encodedLineId: encodeDiffFileLine(
 				fileName,
 				newLine.beforeLineNumber,
@@ -752,13 +798,11 @@ function computeInlineWordDiff(
 			),
 			beforeLineNumber: newLine.beforeLineNumber,
 			afterLineNumber: newLine.afterLineNumber,
-			tokens: [] as string[],
+			tokens: [],
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
-			isDeltaLine: isDeltaLine(nextSection.sectionType),
-			locks: getLocks(newLine.beforeLineNumber, newLine.afterLineNumber, lineLocks),
-			...getSelectionParams(newLine, selectedLines)
+			isDeltaLine: isDeltaLine(nextSection.sectionType)
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -811,35 +855,37 @@ export interface LineSelector extends LineId {
 	isLast: boolean;
 }
 
-export function generateRows(
+/**
+ * Generate base rows without selection/lock state (the expensive computation).
+ * This is cached to avoid re-computing when only selection changes.
+ */
+function generateBaseRows(
 	filePath: string,
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
-	parser: Parser | undefined,
-	selectedLines: LineSelector[] | undefined,
-	lineLocks: LineLock[] | undefined
-) {
+	parser: Parser | undefined
+): BaseRow[] {
 	const rows = subsections.reduce((acc, nextSection, i) => {
 		const prevSection = subsections[i - 1];
 
 		// Filter out section for which we don't need to compute word diffs
 		if (!prevSection || nextSection.sectionType === SectionType.Context) {
-			acc.push(...createRowData(filePath, nextSection, parser, selectedLines, lineLocks));
+			acc.push(...createBaseRowData(filePath, nextSection, parser));
 			return acc;
 		}
 
 		if (prevSection.sectionType === SectionType.Context) {
-			acc.push(...createRowData(filePath, nextSection, parser, selectedLines, lineLocks));
+			acc.push(...createBaseRowData(filePath, nextSection, parser));
 			return acc;
 		}
 
 		if (prevSection.lines.length !== nextSection.lines.length) {
-			acc.push(...createRowData(filePath, nextSection, parser, selectedLines, lineLocks));
+			acc.push(...createBaseRowData(filePath, nextSection, parser));
 			return acc;
 		}
 
 		if (isLineEmpty(prevSection.lines)) {
-			acc.push(...createRowData(filePath, nextSection, parser, selectedLines, lineLocks));
+			acc.push(...createBaseRowData(filePath, nextSection, parser));
 			return acc;
 		}
 
@@ -848,32 +894,23 @@ export function generateRows(
 			prevSection.lines.some((line) => line.content.length > 300) ||
 			nextSection.lines.some((line) => line.content.length > 300)
 		) {
-			acc.push(...createRowData(filePath, nextSection, parser, selectedLines, lineLocks));
+			acc.push(...createBaseRowData(filePath, nextSection, parser));
 			return acc;
 		}
 
 		if (inlineUnifiedDiffs) {
-			const rows = computeInlineWordDiff(
-				filePath,
-				prevSection,
-				nextSection,
-				parser,
-				selectedLines,
-				lineLocks
-			);
+			const rows = computeBaseInlineWordDiff(filePath, prevSection, nextSection, parser);
 
 			acc.splice(-prevSection.lines.length);
 
 			acc.push(...rows);
 			return acc;
 		} else {
-			const { prevRows, nextRows } = computeWordDiff(
+			const { prevRows, nextRows } = computeBaseWordDiff(
 				filePath,
 				prevSection,
 				nextSection,
-				parser,
-				selectedLines,
-				lineLocks
+				parser
 			);
 
 			// Insert returned row datastructures into the correct place
@@ -886,7 +923,7 @@ export function generateRows(
 
 			return acc;
 		}
-	}, [] as Row[]);
+	}, [] as BaseRow[]);
 
 	const last = rows.at(-1);
 	if (last) {
@@ -894,6 +931,110 @@ export function generateRows(
 	}
 
 	return rows;
+}
+
+/**
+ * Simple string hash function (djb2 algorithm).
+ * Fast and produces reasonably distributed values for cache keys.
+ */
+function hashString(str: string): number {
+	let hash = 5381;
+	for (let i = 0; i < str.length; i++) {
+		hash = (hash * 33) ^ str.charCodeAt(i);
+	}
+	return hash >>> 0; // Convert to unsigned 32-bit integer
+}
+
+/**
+ * Create a stable cache key hash from subsections content.
+ * Uses hashing to avoid storing large strings as cache keys.
+ */
+function hashSubsections(subsections: ContentSection[]): number {
+	let hash = 5381;
+	for (const section of subsections) {
+		hash = (hash * 33) ^ section.sectionType;
+		for (const line of section.lines) {
+			hash = (hash * 33) ^ (line.beforeLineNumber ?? 0);
+			hash = (hash * 33) ^ (line.afterLineNumber ?? 0);
+			hash = (hash * 33) ^ hashString(line.content);
+		}
+	}
+	return hash >>> 0;
+}
+
+// Cache for base rows: keyed by content, bounded by LRU eviction
+const baseRowsCacheByParser = new WeakMap<Parser, LRUCache<BaseRow[]>>();
+const baseRowsCacheNoParser = new LRUCache<BaseRow[]>(100);
+
+function getCachedBaseRows(
+	filePath: string,
+	subsections: ContentSection[],
+	inlineUnifiedDiffs: boolean,
+	parser: Parser | undefined
+): BaseRow[] {
+	const cache = getParserCache(baseRowsCacheByParser, baseRowsCacheNoParser, parser, 100);
+
+	const cacheKey = `${filePath}|${inlineUnifiedDiffs}|${hashSubsections(subsections)}`;
+	const cached = cache.get(cacheKey);
+	if (cached !== undefined) {
+		return cached;
+	}
+
+	const baseRows = generateBaseRows(filePath, subsections, inlineUnifiedDiffs, parser);
+	cache.set(cacheKey, baseRows);
+	return baseRows;
+}
+
+/**
+ * Apply selection and lock state to base rows.
+ * This is a fast O(n) operation that runs on each render.
+ */
+function applyRowState(
+	baseRows: BaseRow[],
+	selectedLines: LineSelector[] | undefined,
+	lineLocks: LineLock[] | undefined
+): Row[] {
+	return baseRows.map((baseRow) => {
+		const selectionParams = selectedLines ? getSelectionParamsForRow(baseRow, selectedLines) : {};
+
+		return {
+			...baseRow,
+			locks: getLocks(baseRow.beforeLineNumber, baseRow.afterLineNumber, lineLocks),
+			...selectionParams
+		};
+	});
+}
+
+function getSelectionParamsForRow(row: BaseRow, selectedLines: LineSelector[]): SelectionParams {
+	const selectedLine = selectedLines.find(
+		(sel) => sel.oldLine === row.beforeLineNumber && sel.newLine === row.afterLineNumber
+	);
+
+	if (!selectedLine) {
+		return {};
+	}
+
+	return {
+		isSelected: true,
+		isFirstOfSelectionGroup: selectedLine.isFirstOfGroup,
+		isLastOfSelectionGroup: selectedLine.isLastOfGroup,
+		isLastSelected: selectedLine.isLast
+	};
+}
+
+export function generateRows(
+	filePath: string,
+	subsections: ContentSection[],
+	inlineUnifiedDiffs: boolean,
+	parser: Parser | undefined,
+	selectedLines: LineSelector[] | undefined,
+	lineLocks: LineLock[] | undefined
+): Row[] {
+	// Get cached base rows (expensive computation)
+	const baseRows = getCachedBaseRows(filePath, subsections, inlineUnifiedDiffs, parser);
+
+	// Apply selection/lock state (cheap computation)
+	return applyRowState(baseRows, selectedLines, lineLocks);
 }
 
 interface DiffHunkLineInfo {

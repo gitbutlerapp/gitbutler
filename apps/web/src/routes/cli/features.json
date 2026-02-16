@@ -1,0 +1,38 @@
+[
+	{
+		"title": "Stacked Branches",
+		"description": "Build features on top of features without merge conflicts. Review and land changes independently.",
+		"link": "https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#stacked-branches",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 26 24\"><path fill=\"currentColor\" d=\"M21.822 2.402a3 3 0 0 1 2.846 2.996v13.48a3 3 0 0 1-2.846 2.997l-.154.004H4.332a3 3 0 0 1-3-3V5.399a3 3 0 0 1 3-3h17.336l.154.003Zm-18.99 15.59v.887a1.5 1.5 0 0 0 1.5 1.5h17.336a1.5 1.5 0 0 0 1.5-1.5v-.887H2.832Zm0-5.566v4.066h20.336v-4.066H2.832Zm1.5-8.528a1.5 1.5 0 0 0-1.5 1.5v5.528h20.336V5.398a1.5 1.5 0 0 0-1.5-1.5H4.332Z\"/></svg>"
+	},
+	{
+		"title": "Parallel Branches",
+		"description": "Work on multiple branches simultaneously without switching. Context-switch freely between different features.",
+		"link": "https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#parallel-branches",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 28 24\"><path fill=\"currentColor\" d=\"M23.875 3a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3h-20a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h20ZM10.75 19.5h6.5v-15h-6.5v15Zm8 0h5.125a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H18.75v15ZM3.875 4.5a1.5 1.5 0 0 0-1.5 1.5v12a1.5 1.5 0 0 0 1.5 1.5H9.25v-15H3.875Z\"/></svg>"
+	},
+	{
+		"title": "Unlimited Undo",
+		"description": "Made a mistake? No problem. Undo and redo any operation, even after commits.",
+		"link": "https://docs.gitbutler.com/cli-guides/cli-tutorial/operations-log",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M9.228 4.78 5.51 8.496h9.857a5.75 5.75 0 0 1 0 11.5h-5v-1.5h5a4.25 4.25 0 0 0 0-8.5H5.506l3.722 3.722-1.061 1.06-5.53-5.53 5.53-5.53 1.06 1.06Z\"/></svg>"
+	},
+	{
+		"title": "Powerful Smartlog",
+		"description": "Easily see what is on your active branches without wrestling with complicated git log commands",
+		"link": "https://docs.gitbutler.com/cli-guides/cli-tutorial/branching-and-commiting#status",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M16.668 14.01A2 2 0 0 1 18.464 16v.05h3.657a2 2 0 0 1 2 2V21a2 2 0 0 1-2 2h-9l-.204-.01a2 2 0 0 1-1.785-1.786l-.01-.204v-5a2 2 0 0 1 1.795-1.99l.204-.01h3.343l.204.01ZM2.418 8.95h5.84v1.5h-5.84v6.678a3.25 3.25 0 0 0 3.25 3.25h2.59v1.5h-2.59a4.75 4.75 0 0 1-4.75-4.75V3.272h1.5V8.95Zm10.703 6.55a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-2.95a.5.5 0 0 0-.5-.5h-5.157V16a.5.5 0 0 0-.5-.5H13.12Zm3.547-12.49A2 2 0 0 1 18.464 5v.307h3.657a2 2 0 0 1 2 2V10l-.01.204a2 2 0 0 1-1.786 1.785l-.204.011h-9l-.204-.01A2 2 0 0 1 11.121 10V5a2 2 0 0 1 1.796-1.99l.204-.01h3.343l.204.01ZM13.121 4.5a.5.5 0 0 0-.5.5v5a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V7.307a.5.5 0 0 0-.5-.5h-5.157V5a.5.5 0 0 0-.5-.5H13.12Z\"/></svg>"
+	},
+	{
+		"title": "Simple history editing",
+		"description": "Move changes between commits. Absorb, reorder, amend with simple commands.",
+		"link": "https://docs.gitbutler.com/cli-guides/cli-tutorial/rubbing",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M14.01 15.674c1.99 0 3.646 1.429 3.998 3.316h4.66v1.5h-4.661a4.067 4.067 0 0 1-7.991 0H1.668v-1.5h8.348a4.067 4.067 0 0 1 3.995-3.316Zm0 1.5a2.566 2.566 0 1 0 .002 5.132 2.566 2.566 0 0 0-.001-5.132ZM10.534 1.48a1.75 1.75 0 0 1 2.475 0l3.409 3.408a1.75 1.75 0 0 1 0 2.475L7.902 15.88H2.02V9.995l8.513-8.514ZM3.52 10.617v3.762H7.28l5.912-5.912-3.762-3.763-5.912 5.913Z\"/></svg>"
+	},
+	{
+		"title": "Agent-Optimized",
+		"description": "Built for the AI era. Structured output, predictable commands, and perfect for automated workflows.",
+		"link": "https://docs.gitbutler.com/cli-guides/cli-tutorial/scripting",
+		"icon": "<svg xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\"><path fill=\"currentColor\" d=\"M11.832 2c1.222 0 1.833 0 2.323.176a3 3 0 0 1 1.814 1.813c.096.27.137.575.157.997.66.08 1.178.214 1.636.452a5.003 5.003 0 0 1 2.133 2.132c.235.454.371.968.45 1.621.189.005.327.013.452.033a3 3 0 0 1 2.499 2.499c.036.23.036.507.036 1.058 0 .552 0 .828-.036 1.059a3 3 0 0 1-2.5 2.499 3.016 3.016 0 0 1-.357.028c-.038 1.415-.158 2.319-.544 3.063l-.19.335a5.002 5.002 0 0 1-1.943 1.797l-.207.1c-.777.34-1.747.43-3.262.454l-1.886.009h-1.15c-2.67 0-4.088 0-5.148-.464l-.207-.099A5.003 5.003 0 0 1 3.77 19.43c-.387-.744-.507-1.648-.545-3.063a3.021 3.021 0 0 1-.358-.028 3 3 0 0 1-2.499-2.5c-.036-.23-.036-.506-.036-1.058 0-.551 0-.828.036-1.058a3 3 0 0 1 2.5-2.5 3.39 3.39 0 0 1 .45-.032c.067-.556.176-1.01.353-1.414l.099-.207a5.002 5.002 0 0 1 1.797-1.942l.335-.19c.458-.238.975-.375 1.635-.455.02-.42.062-.725.158-.994A3 3 0 0 1 9.51 2.176C9.999 2 10.61 2 11.832 2Zm-.575 4.375c-1.449 0-2.444.001-3.215.065-.753.063-1.156.178-1.448.33-.64.332-1.16.853-1.492 1.492-.152.292-.267.695-.33 1.448-.064.77-.065 1.766-.065 3.215v1.15c0 1.449.001 2.444.065 3.215.063.753.178 1.156.33 1.448a3.5 3.5 0 0 0 1.492 1.492c.292.152.695.267 1.448.33.77.064 1.766.065 3.215.065h1.15c1.449 0 2.444-.001 3.215-.065.753-.063 1.156-.178 1.448-.33a3.5 3.5 0 0 0 1.492-1.492c.152-.292.267-.695.33-1.448.064-.77.065-1.766.065-3.215v-1.15c0-1.449-.001-2.444-.065-3.215-.063-.753-.178-1.156-.33-1.448A3.5 3.5 0 0 0 17.07 6.77c-.292-.152-.695-.267-1.448-.33-.77-.064-1.766-.065-3.215-.065h-1.15Zm3.483 8.679a.75.75 0 0 1 .75 1.298c-2.44 1.41-5.078 1.292-7.314 0a.75.75 0 1 1 .75-1.298c1.796 1.036 3.861 1.127 5.814 0Zm-5.783-4.742a1.437 1.437 0 1 1 0 2.875 1.437 1.437 0 0 1 0-2.874Zm5.75 0a1.438 1.438 0 1 1 0 2.876 1.438 1.438 0 0 1 0-2.876Z\"/></svg>"
+	}
+]

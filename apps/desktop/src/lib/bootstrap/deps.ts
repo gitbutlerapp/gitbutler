@@ -15,7 +15,6 @@ import { CherryApplyService, CHERRY_APPLY_SERVICE } from '$lib/cherryApply/cherr
 import CLIManager, { CLI_MANAGER } from '$lib/cli/cli';
 import { ATTACHMENT_SERVICE, AttachmentService } from '$lib/codegen/attachmentService.svelte';
 import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
-import { AppSettings, APP_SETTINGS } from '$lib/config/appSettings';
 import { SETTINGS_SERVICE, SettingsService } from '$lib/config/appSettingsV2';
 import { GIT_CONFIG_SERVICE, GitConfigService } from '$lib/config/gitConfigService';
 import DependencyService, { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
@@ -24,13 +23,12 @@ import {
 	REORDER_DROPZONE_FACTORY,
 	ReorderDropzoneFactory
 } from '$lib/dragging/stackingReorderDropzoneManager';
-import FeedFactory, { FEED_FACTORY } from '$lib/feed/feed';
 import { FILE_SERVICE, FileService } from '$lib/files/fileService';
 import { DefaultForgeFactory, DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 import { GITHUB_CLIENT, GitHubClient } from '$lib/forge/github/githubClient';
 import { GitHubUserService, GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
 import { GITLAB_CLIENT, GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
-import { GITLAB_STATE, GitLabState } from '$lib/forge/gitlab/gitlabState.svelte';
+import { GITLAB_USER_SERVICE, GitLabUserService } from '$lib/forge/gitlab/gitlabUserService.svelte';
 import { GitService, GIT_SERVICE } from '$lib/git/gitService';
 import { HISTORY_SERVICE, HistoryService } from '$lib/history/history';
 import { OplogService, OPLOG_SERVICE } from '$lib/history/oplogService.svelte';
@@ -90,11 +88,12 @@ import {
 	type ExternalLinkService
 } from '@gitbutler/ui/utils/externalLinkService';
 import { IMECompositionHandler, IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
+import type { Settings } from '@gitbutler/core/api';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 export function initDependencies(args: {
 	backend: IBackend;
-	appSettings: AppSettings;
+	appSettings: Settings.AppSettings;
 	settingsService: SettingsService;
 	posthog: PostHogWrapper;
 	eventContext: EventContext;
@@ -118,17 +117,15 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const secretsService = new RustSecretService(backend);
-	const tokenMemoryService = new TokenMemoryService(secretsService);
+	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
-	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog);
 
 	// ============================================================================
 	// FORGE CLIENTS & INTEGRATIONS
 	// ============================================================================
 
 	const gitHubClient = new GitHubClient();
-	const gitLabState = new GitLabState(secretsService);
-	const gitLabClient = new GitLabClient(gitLabState);
+	const gitLabClient = new GitLabClient();
 
 	// ============================================================================
 	// EXPERIMENTAL STUFF
@@ -143,16 +140,14 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const clientState = new ClientState(backend, gitHubClient, gitLabClient, ircClient, posthog);
-	const githubUserService = new GitHubUserService(
-		backend,
-		clientState.backendApi,
-		clientState['githubApi']
-	);
+	const githubUserService = new GitHubUserService(clientState.backendApi);
+	const gitlabUserService = new GitLabUserService(clientState.backendApi, secretsService);
 
 	const uiState = new UiState(
 		reactive(() => clientState.uiState ?? uiStateSlice.getInitialState()),
 		clientState.dispatch
 	);
+	const userService = new UserService(backend, httpClient, tokenMemoryService, posthog, uiState);
 	const ircService = new IrcService(clientState, clientState.dispatch, ircClient);
 	const attachmentService = new AttachmentService(clientState);
 
@@ -191,7 +186,7 @@ export function initDependencies(args: {
 
 	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
-	const branchService = new BranchService(clientState['backendApi'], uiState);
+	const branchService = new BranchService(clientState['backendApi']);
 	const cherryApplyService = new CherryApplyService(clientState.backendApi);
 	const remotesService = new RemotesService(backend);
 	const hooksService = new HooksService(clientState.backendApi);
@@ -258,18 +253,13 @@ export function initDependencies(args: {
 	// ACTIONS & WORKFLOWS
 	// ============================================================================
 
-	const actionService = new ActionService(clientState['backendApi']);
-	const upstreamIntegrationService = new UpstreamIntegrationService(
-		clientState,
-		stackService,
-		uiState
-	);
+	const actionService = new ActionService(clientState['backendApi'], backend);
+	const upstreamIntegrationService = new UpstreamIntegrationService(clientState, stackService);
 
 	// ============================================================================
 	// FEEDS & NOTIFICATIONS
 	// ============================================================================
 
-	const feedFactory = new FeedFactory(backend, stackService);
 	const feedService = new FeedService(httpClient, appState.appDispatch);
 
 	// ============================================================================
@@ -298,7 +288,12 @@ export function initDependencies(args: {
 	const cliManager = new CLIManager(clientState['backendApi']);
 	const dataSharingService = new DataSharingService(clientState['backendApi']);
 	const promptService = new PromptService(backend);
-	const updaterService = new UpdaterService(backend, posthog, shortcutService);
+	const updaterService = new UpdaterService(
+		backend,
+		posthog,
+		shortcutService,
+		Number(appSettings.ui.checkForUpdatesIntervalInSeconds) * 1000
+	);
 
 	// ============================================================================
 	// UTILITIES
@@ -319,7 +314,6 @@ export function initDependencies(args: {
 		[AI_PROMPT_SERVICE, aiPromptService],
 		[AI_SERVICE, aiService],
 		[APP_DISPATCH, appState.appDispatch],
-		[APP_SETTINGS, appSettings],
 		[APP_STATE, appState],
 		[BACKEND, backend],
 		[BASE_BRANCH_SERVICE, baseBranchService],
@@ -339,14 +333,13 @@ export function initDependencies(args: {
 		[DRAG_STATE_SERVICE, dragStateService],
 		[DROPZONE_REGISTRY, dropzoneRegistry],
 		[EVENT_CONTEXT, eventContext],
-		[FEED_FACTORY, feedFactory],
 		[FEED_SERVICE, feedService],
 		[FILE_SERVICE, fileService],
 		[FOCUS_MANAGER, focusManager],
 		[GITHUB_CLIENT, gitHubClient],
 		[GITHUB_USER_SERVICE, githubUserService],
+		[GITLAB_USER_SERVICE, gitlabUserService],
 		[GITLAB_CLIENT, gitLabClient],
-		[GITLAB_STATE, gitLabState],
 		[GIT_CONFIG_SERVICE, gitConfig],
 		[GIT_SERVICE, gitService],
 		[HISTORY_SERVICE, historyService],

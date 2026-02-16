@@ -15,6 +15,26 @@ pub mod bstring_lossy {
     }
 }
 
+pub mod fullname_lossy {
+    use bstr::ByteSlice;
+    use serde::{Deserialize, Deserializer, Serialize};
+
+    pub fn serialize<S>(v: &gix::refs::FullName, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.as_bstr().to_str_lossy().serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<gix::refs::FullName, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let string = <String as Deserialize>::deserialize(d)?;
+        gix::refs::FullName::try_from(string).map_err(|err| serde::de::Error::custom(err.to_string()))
+    }
+}
+
 pub mod bstring_vec_lossy {
     use bstr::{BString, ByteSlice};
     use serde::Serialize;
@@ -40,10 +60,7 @@ pub mod bstring_opt_lossy {
     }
 }
 
-pub fn as_string_lossy_vec_remote_name<S>(
-    v: &[gix::remote::Name<'static>],
-    s: S,
-) -> Result<S::Ok, S::Error>
+pub fn as_string_lossy_vec_remote_name<S>(v: &[gix::remote::Name<'static>], s: S) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -152,10 +169,7 @@ pub mod object_id_vec {
         let hex = <Vec<String> as Deserialize>::deserialize(d)?;
         let hex: Result<Vec<gix::ObjectId>, D::Error> = hex
             .into_iter()
-            .map(|v| {
-                gix::ObjectId::from_str(v.as_ref())
-                    .map_err(|err| serde::de::Error::custom(err.to_string()))
-            })
+            .map(|v| gix::ObjectId::from_str(v.as_ref()).map_err(|err| serde::de::Error::custom(err.to_string())))
             .collect();
         hex
     }
@@ -181,8 +195,7 @@ pub mod oid_vec {
         let hex: Result<Vec<git2::Oid>, D::Error> = hex
             .into_iter()
             .map(|v| {
-                git2::Oid::from_str(v.as_str())
-                    .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
+                git2::Oid::from_str(v.as_str()).map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
             })
             .collect();
         hex

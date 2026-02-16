@@ -40,3 +40,21 @@ export function getFilePathInfo(filePath: string): FilePathInfo | undefined {
 
 	return { fileName, extension, directoryPath };
 }
+
+const IMAGE_EXTENSIONS = [
+	'.png',
+	'.jpg',
+	'.jpeg',
+	'.gif',
+	'.webp',
+	'.bmp',
+	'.ico',
+	'.heic',
+	'.heif',
+	'.avif'
+];
+
+export function isImageFile(path: string): boolean {
+	const lowerPath = path.toLowerCase();
+	return IMAGE_EXTENSIONS.some((ext) => lowerPath.endsWith(ext));
+}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { type Commit, type UpstreamCommit } from '$lib/branches/v3';
+	import { commitCreatedAtDate, type Commit, type UpstreamCommit } from '$lib/branches/v3';
 	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { USER_SERVICE } from '$lib/user/userService';
@@ -8,7 +8,7 @@
 	import { rejoinParagraphs, truncate } from '$lib/utils/string';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Icon, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
+	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	type Props = {
@@ -43,14 +43,14 @@
 
 	let expanded = $state(false);
 
-	function getGravatarUrl(email: string, existingGravatarUrl: string): string {
+	function getGravatarUrl(email: string, existingravatarUrl: string): string {
 		if ($user?.email === undefined) {
-			return existingGravatarUrl;
+			return existingravatarUrl;
 		}
 		if (email === $user.email) {
-			return $user.picture ?? existingGravatarUrl;
+			return $user.picture ?? existingravatarUrl;
 		}
-		return existingGravatarUrl;
+		return existingravatarUrl;
 	}
 </script>
 
@@ -63,23 +63,18 @@
 			srcUrl={getGravatarUrl(commit.author.email, commit.author.gravatarUrl)}
 		/>
 		<span class="divider">•</span>
-		<TimeAgo date={new Date(commit.createdAt)} />
+		<TimeAgo date={commitCreatedAtDate(commit)} />
 		<span class="divider">•</span>
 		<Tooltip text="Copy commit SHA">
-			<button
-				type="button"
-				class="copy-sha underline-dotted"
+			<CopyButton
+				class="copy-sha"
+				text={commit.id}
 				onclick={() => {
 					clipboardService.write(commit.id, {
 						message: 'Commit SHA copied'
 					});
 				}}
-			>
-				<span>
-					{commit.id.substring(0, 7)}
-				</span>
-				<Icon name="copy-small" />
-			</button>
+			/>
 		</Tooltip>
 	</div>
 
@@ -92,6 +87,7 @@
 				: 'var(--font-mono)'}
 			bind:clientWidth={messageWidth}
 			data-testid={TestId.CommitDrawerDescription}
+			data-remove-from-panning
 		>
 			{#if expanded}
 				{description}
@@ -135,18 +131,12 @@
 		}
 	}
 
-	.copy-sha {
-		display: flex;
-		align-items: center;
-		gap: 2px;
-		font-family: var(--font-mono);
-	}
-
 	.description {
 		font-size: 13px;
 		line-height: var(--text-lineheight-body);
 		font-family: var(--commit-message-font);
 		white-space: pre-line;
+		user-select: text;
 	}
 
 	.readmore {

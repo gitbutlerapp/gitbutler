@@ -1,4 +1,4 @@
-import { getBaseURL, type GitButler, setCookie, startGitButler } from '../src/setup.ts';
+import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
 import { clickByTestId, sleep, waitForTestId, waitForTestIdToNotExist } from '../src/util.ts';
 import { test } from '@playwright/test';
 
@@ -15,10 +15,9 @@ test.afterEach(async () => {
 test('should be able to delete the last project gracefuly', async ({ page, context }, testInfo) => {
 	const workdir = testInfo.outputPath('workdir');
 	const configdir = testInfo.outputPath('config');
-	gitbutler = await startGitButler(workdir, configdir, context);
-
-	// Override the analytics confirmation so we don't see the page later
-	await setCookie('disk-store-override:appAnalyticsConfirmed', 'true', context);
+	gitbutler = await startGitButler(workdir, configdir, context, undefined, {
+		onboardingComplete: true
+	});
 
 	await gitbutler.runScript('project-with-remote-branches.sh');
 
@@ -51,10 +50,9 @@ test('should be able to delete a project when multiple exist', async ({
 }, testInfo) => {
 	const workdir = testInfo.outputPath('workdir');
 	const configdir = testInfo.outputPath('config');
-	gitbutler = await startGitButler(workdir, configdir, context);
-
-	// Override the analytics confirmation so we don't see the page later
-	await setCookie('disk-store-override:appAnalyticsConfirmed', 'true', context);
+	gitbutler = await startGitButler(workdir, configdir, context, undefined, {
+		onboardingComplete: true
+	});
 
 	await gitbutler.runScript('two-projects-with-remote-branches.sh');
 

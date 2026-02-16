@@ -1,21 +1,18 @@
 use but_core::DiffSpec;
-use but_testsupport::assure_stable_env;
+use but_testsupport::hunk_header;
 use but_workspace::{commit_engine, commit_engine::Destination};
 use gix::prelude::ObjectIdExt;
 
 use crate::utils::{
     CONTEXT_LINES, commit_from_outcome, commit_whole_files_and_all_hunks_from_workspace, diff_spec,
-    hunk_header, read_only_in_memory_scenario, to_change_specs_all_hunks_with_context_lines,
-    to_change_specs_whole_file, visualize_tree, writable_scenario, writable_scenario_with_ssh_key,
-    write_sequence,
+    read_only_in_memory_scenario, to_change_specs_all_hunks_with_context_lines, to_change_specs_whole_file,
+    visualize_tree, writable_scenario, writable_scenario_with_ssh_key, write_sequence,
 };
 
 mod with_refs_update {}
 
 #[test]
 fn from_unborn_head() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -29,7 +26,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(b7cb7efa62f48dfc60e4db44837121d3b3eab4e0),
+            Sha1(8ed1f7f564dfb270910b8ef42fb82133aeb4c72a),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(861d6e23ee6a2d7276618bb78700354a3506bd71),
@@ -56,10 +53,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     └── not-yet-tracked:100644:d95f3ad "content\n"
     "#);
 
-    std::fs::write(
-        repo.workdir_path("new-untracked").expect("non-bare"),
-        "new-content",
-    )?;
+    std::fs::write(repo.workdir_path("new-untracked").expect("non-bare"), "new-content")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
@@ -73,7 +67,7 @@ fn from_unborn_head() -> anyhow::Result<()> {
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(b7cd2309cbac81a85596b3e39756230943cfd8e5),
+            Sha1(4280736c7a1d53d0c032b0e16b8bcd4969312b66),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(a0044697412bfa8432298d6bd6a2ad0dbd655c9f),
@@ -94,8 +88,6 @@ fn from_unborn_head() -> anyhow::Result<()> {
 
 #[test]
 fn from_unborn_head_with_selection() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked");
     let destination = Destination::NewCommit {
         parent_commit_id: None,
@@ -136,11 +128,7 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         }],
         CONTEXT_LINES,
     )?;
-    assert_eq!(
-        outcome.rejected_specs,
-        [],
-        "hunk-ranges can also be applied"
-    );
+    assert_eq!(outcome.rejected_specs, [], "hunk-ranges can also be applied");
 
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
@@ -164,11 +152,7 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
         }],
         CONTEXT_LINES,
     )?;
-    assert_eq!(
-        outcome.rejected_specs,
-        [],
-        "hunk-ranges can also be applied"
-    );
+    assert_eq!(outcome.rejected_specs, [], "hunk-ranges can also be applied");
 
     let tree = visualize_tree(&repo, &outcome)?;
     insta::assert_snapshot!(tree, @r#"
@@ -182,22 +166,15 @@ fn from_unborn_head_with_selection() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("unborn-untracked-all-file-types")?;
     let new_commit_from_unborn = Destination::NewCommit {
         parent_commit_id: None,
         message: "the commit message".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_unborn.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_unborn.clone())?;
 
-    assert_eq!(
-        outcome.rejected_specs,
-        Vec::new(),
-        "everything was committed"
-    );
+    assert_eq!(outcome.rejected_specs, Vec::new(), "everything was committed");
     let new_commit_id = outcome.new_commit.expect("a new commit was created");
 
     let new_commit = new_commit_id.attach(&repo).object()?.peel_to_commit()?;
@@ -230,8 +207,6 @@ fn from_unborn_head_all_file_types() -> anyhow::Result<()> {
 #[test]
 #[cfg(unix)]
 fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("all-file-types-changed")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -255,18 +230,15 @@ fn from_first_commit_all_file_types_changed() -> anyhow::Result<()> {
 
 #[test]
 fn unborn_with_added_submodules() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("unborn-with-submodules");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     let outcome = commit_engine::create_commit(
         &repo,
         Destination::NewCommit {
             parent_commit_id: None,
-            message:
-                "submodules have to be given as whole files but can then be handled correctly \
+            message: "submodules have to be given as whole files but can then be handled correctly \
             (but without Git's special handling)"
-                    .into(),
+                .into(),
             stack_segment: None,
         },
         to_change_specs_whole_file(worktree_changes),
@@ -290,8 +262,6 @@ fn unborn_with_added_submodules() -> anyhow::Result<()> {
 
 #[test]
 fn deletions() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("delete-all-file-types")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -308,8 +278,7 @@ fn deletions() -> anyhow::Result<()> {
         message: "deletions maybe a bit special".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_deletions.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_deletions.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     c15318d
@@ -343,8 +312,6 @@ fn deletions() -> anyhow::Result<()> {
 
 #[test]
 fn modifications() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("all-file-types-modified")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -358,8 +325,7 @@ fn modifications() -> anyhow::Result<()> {
         message: "modifications of content and symlinks".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     db51146
@@ -386,8 +352,6 @@ fn modifications() -> anyhow::Result<()> {
 
 #[test]
 fn renames() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     let head_commit = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
@@ -401,8 +365,7 @@ fn renames() -> anyhow::Result<()> {
         message: "renames need special care to delete the source".into(),
         stack_segment: None,
     };
-    let outcome =
-        commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
+    let outcome = commit_whole_files_and_all_hunks_from_workspace(&repo, new_commit_from_rename.clone())?;
 
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
     e56fc9b
@@ -482,11 +445,7 @@ fn renames() -> anyhow::Result<()> {
         &repo,
         new_commit_from_rename,
         // Links are never considered renamed, so this is only the addition part.
-        vec![diff_spec(
-            None,
-            "link-renamed",
-            Some(hunk_header("-1,0", "+1,1")),
-        )],
+        vec![diff_spec(None, "link-renamed", Some(hunk_header("-1,0", "+1,1")))],
         CONTEXT_LINES,
     )?;
     insta::assert_snapshot!(visualize_tree(&repo, &outcome)?, @r#"
@@ -501,8 +460,6 @@ fn renames() -> anyhow::Result<()> {
 
 #[test]
 fn renames_with_selections() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("all-file-types-renamed-and-modified")?;
     let head_commit_id = repo.rev_parse_single("HEAD")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit_id.object()?.peel_to_tree()?.id()), @r#"
@@ -623,8 +580,6 @@ fn renames_with_selections() -> anyhow::Result<()> {
 
 #[test]
 fn modification_with_complex_selection() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("plain-modifications")?;
     insta::assert_snapshot!(but_testsupport::visualize_tree(repo.head_tree_id()?), @r#"
     db299ef
@@ -754,8 +709,6 @@ fn modification_with_complex_selection() -> anyhow::Result<()> {
 
 #[test]
 fn submodule_typechanges() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("submodule-typechanges");
     let worktree_changes = but_core::diff::worktree_changes(&repo)?;
     insta::assert_debug_snapshot!(worktree_changes.changes, @r#"
@@ -812,10 +765,9 @@ fn submodule_typechanges() -> anyhow::Result<()> {
         &repo,
         Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("HEAD")?.into()),
-            message:
-                "submodules have to be given as whole files but can then be handled correctly \
+            message: "submodules have to be given as whole files but can then be handled correctly \
             (but without Git's special handling)"
-                    .into(),
+                .into(),
             stack_segment: None,
         },
         to_change_specs_whole_file(worktree_changes),
@@ -840,14 +792,13 @@ fn submodule_typechanges() -> anyhow::Result<()> {
 
 #[test]
 fn commit_to_one_below_tip() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
     // Repeat the file, but replace the last 20 lines with 30-50
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
     let first_commit = Destination::NewCommit {
         parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
-        message: "we apply a change with line offsets on top of the first commit, so a cherry-pick is necessary.".into(),
+        message: "we apply a change with line offsets on top of the first commit, so a cherry-pick is necessary."
+            .into(),
         stack_segment: None,
     };
 
@@ -863,15 +814,12 @@ fn commit_to_one_below_tip() -> anyhow::Result<()> {
 
 #[test]
 fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("two-commits-with-line-offset");
     write_sequence(&repo, "file", [(20, Some(40)), (80, None), (30, Some(50))])?;
     for context_lines in [0, 3, 5] {
         let first_commit = Destination::NewCommit {
             parent_commit_id: Some(repo.rev_parse_single("first-commit")?.into()),
-            message: "When using context lines, we'd still think this works just like before"
-                .into(),
+            message: "When using context lines, we'd still think this works just like before".into(),
             stack_segment: None,
         };
 
@@ -888,7 +836,7 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
 
         assert_eq!(
             outcome.new_commit.map(|id| id.to_string()),
-            Some("215719d87875599c931d04a6e9b87dd2b6ef9885".to_string())
+            Some("dcc7c98cc8cac39ac57ce03ac6da1f98c92d9bd5".to_string())
         );
         let tree = visualize_tree(&repo, &outcome)?;
         assert_eq!(
@@ -916,8 +864,6 @@ fn commit_to_one_below_tip_with_three_context_lines() -> anyhow::Result<()> {
 
 #[test]
 fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
     write_sequence(&repo, "file", [(1, 20), (40, 50)])?;
@@ -961,8 +907,6 @@ fn commit_to_branches_below_merge_commit() -> anyhow::Result<()> {
 
 #[test]
 fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset");
 
     // rewrite all lines so changes cover both branches
@@ -1017,10 +961,7 @@ fn commit_whole_file_to_conflicting_position() -> anyhow::Result<()> {
 }
 
 #[test]
-fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() -> anyhow::Result<()>
-{
-    assure_stable_env();
-
+fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() -> anyhow::Result<()> {
     let (repo, _tmp) = writable_scenario("merge-with-two-branches-line-offset-two-files");
 
     // rewrite all lines so changes cover both branches
@@ -1039,10 +980,7 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
                 stack_segment: None,
             },
         )?;
-        assert_ne!(
-            outcome.new_commit, None,
-            "Not everything fails, so there is a commit"
-        );
+        assert_ne!(outcome.new_commit, None, "Not everything fails, so there is a commit");
         // The hunks are never present, as they always match, further clarifying that the hunks aren't the problem.
         insta::allow_duplicates! {
         insta::assert_debug_snapshot!(outcome.rejected_specs, @r#"
@@ -1100,8 +1038,6 @@ fn commit_whole_file_to_conflicting_position_one_unconflicting_file_remains() ->
 
 #[test]
 fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario("unborn-untracked-crlf");
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
@@ -1115,7 +1051,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(81dee909affdf17107ffdee354d682fb36c82f78),
+            Sha1(1b6d426d8b5c564ffb73609f05647e0bf7c6d5dc),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(d5949f12727c8e89e1351b89e8e510dfa1e2adc9),
@@ -1137,10 +1073,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     └── not-yet-tracked:100644:1191247 "1\n2\n"
     "#);
 
-    std::fs::write(
-        repo.workdir_path("new-untracked").expect("non-bare"),
-        "one\r\ntwo\r\n",
-    )?;
+    std::fs::write(repo.workdir_path("new-untracked").expect("non-bare"), "one\r\ntwo\r\n")?;
     let outcome = commit_whole_files_and_all_hunks_from_workspace(
         &repo,
         Destination::NewCommit {
@@ -1154,7 +1087,7 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
     CreateCommitOutcome {
         rejected_specs: [],
         new_commit: Some(
-            Sha1(d736d5adfcad413d89d99c0f30f03a0dde606ab1),
+            Sha1(0f01e9105d77663831f3b95cf9c5f64de19d515e),
         ),
         changed_tree_pre_cherry_pick: Some(
             Sha1(cef74127e0e9f4c46b5ff360d6208ee0cc839eba),
@@ -1177,12 +1110,10 @@ fn unborn_untracked_worktree_filters_are_applied_to_whole_files() -> anyhow::Res
 
 #[test]
 fn signatures_are_redone() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let (repo, _tmp) = writable_scenario_with_ssh_key("two-signed-commits-with-line-offset");
 
     let head_id = repo.head_id()?;
-    let head_commit = head_id.object()?.into_commit().decode()?.to_owned();
+    let head_commit = head_id.object()?.into_commit().decode()?.to_owned()?;
     let head_id = head_id.detach();
     let previous_signature = head_commit
         .extra_headers()
@@ -1228,8 +1159,6 @@ fn signatures_are_redone() -> anyhow::Result<()> {
 
 #[test]
 fn validate_no_change_on_noop() -> anyhow::Result<()> {
-    assure_stable_env();
-
     let repo = read_only_in_memory_scenario("two-commits-with-line-offset")?;
     let specs = vec![DiffSpec {
         path: "file".into(),

@@ -1,8 +1,7 @@
 use std::vec;
 
-use async_openai::{Client, config::OpenAIConfig};
-use but_core::ref_metadata::StackId;
-use gitbutler_command_context::CommandContext;
+use but_core::{branch, ref_metadata::StackId};
+use but_ctx::Context;
 
 use crate::workflow::{self, Workflow};
 
@@ -13,9 +12,9 @@ pub struct RenameBranchParams {
     pub current_branch_name: String,
 }
 
-pub async fn rename_branch(
-    ctx: &mut CommandContext,
-    client: &Client<OpenAIConfig>,
+pub fn rename_branch(
+    ctx: &mut Context,
+    llm: &but_llm::LLMProvider,
     parameters: RenameBranchParams,
     trigger_id: uuid::Uuid,
 ) -> anyhow::Result<String> {
@@ -26,23 +25,19 @@ pub async fn rename_branch(
         current_branch_name,
     } = parameters;
 
-    let repo = &ctx.gix_repo_for_merging_non_persisting()?;
+    let repo = &ctx.clone_repo_for_merging_non_persisting()?;
     let stacks = crate::stacks(ctx, repo)?;
     let existing_branch_names = stacks
         .iter()
         .flat_map(|s| s.heads.iter().map(|h| h.name.clone().to_string()))
         .collect::<Vec<_>>();
-    let changes = but_core::diff::ui::commit_changes_by_worktree_dir(repo, commit_id)?;
-    let diff = changes
-        .try_to_unidiff(repo, ctx.app_settings().context_lines)?
-        .to_string();
+    let changes = but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(repo, commit_id)?;
+    let diff = changes.try_to_unidiff(repo, ctx.settings.context_lines)?.to_string();
     let diffs = vec![diff];
 
     let commit_messages = vec![commit_message];
-    let branch_name =
-        crate::generate::branch_name(client, &commit_messages, &diffs, &existing_branch_names)
-            .await?;
-    let normalized_branch_name = gitbutler_reference::normalize_branch_name(&branch_name)?;
+    let branch_name = crate::generate::branch_name(llm, &commit_messages, &diffs, &existing_branch_names)?;
+    let normalized_branch_name = branch::normalize_short_name(branch_name.as_str())?.to_string();
 
     let update = gitbutler_branch_actions::stack::update_branch_name(
         ctx,

@@ -15,12 +15,13 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { FEED_FACTORY } from '$lib/feed/feed';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
 	import { useGitHubAccessToken } from '$lib/forge/github/hooks.svelte';
+	import { createGitLabProjectId } from '$lib/forge/gitlab/gitlab';
 	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
-	import { GITLAB_STATE } from '$lib/forge/gitlab/gitlabState.svelte';
+	import { GITLAB_USER_SERVICE } from '$lib/forge/gitlab/gitlabUserService.svelte';
+	import { useGitLabAccessToken } from '$lib/forge/gitlab/hooks.svelte';
 	import { GIT_SERVICE } from '$lib/git/gitService';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
 	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
@@ -83,37 +84,65 @@
 	const stackService = inject(STACK_SERVICE);
 	const worktreeService = inject(WORKTREE_SERVICE);
 
-	const modeQuery = $derived(modeService.mode({ projectId }));
-	const mode = $derived(modeQuery.response);
-
-	// Invalidate stacks when switching branches outside workspace
-	$effect(() => {
-		if (mode?.type === 'OutsideWorkspace' && mode.subject.branchName) {
-			stackService.invalidateStacks();
-		}
-	});
+	const modeQuery = $derived(modeService.mode(projectId));
 
 	// =============================================================================
 	// FORGE INTEGRATION (GitHub & GitLab)
 	// =============================================================================
 
 	const gitHubClient = inject(GITHUB_CLIENT);
-	const gitLabState = inject(GITLAB_STATE);
 	const gitLabClient = inject(GITLAB_CLIENT);
+	const gitlabUserService = inject(GITLAB_USER_SERVICE);
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 
 	const githubAccessToken = useGitHubAccessToken(reactive(() => projectId));
+	const gitlabAccessToken = useGitLabAccessToken(reactive(() => projectId));
 
 	// GitHub setup
 	$effect.pre(() => gitHubClient.setToken(githubAccessToken.accessToken.current));
 	$effect.pre(() => gitHubClient.setHost(githubAccessToken.host.current));
 	$effect.pre(() => gitHubClient.setRepo({ owner: repoInfo?.owner, repo: repoInfo?.name }));
 
+	const forkInfoOwner = $derived(forkInfo?.owner);
+	const forkInfoName = $derived(forkInfo?.name);
+	const gitlabForkProjectId = $derived(
+		forkInfoOwner !== undefined && forkInfoName !== undefined
+			? createGitLabProjectId(forkInfoOwner, forkInfoName)
+			: undefined
+	);
+	const repoInfoOwner = $derived(repoInfo?.owner);
+	const repoInfoName = $derived(repoInfo?.name);
+	const gitlabUpstreamProjectId = $derived(
+		repoInfoOwner !== undefined && repoInfoName !== undefined
+			? createGitLabProjectId(repoInfoOwner, repoInfoName)
+			: undefined
+	);
+
+	const gitlabTokenIsLoading = $derived(gitlabAccessToken.isLoading.current);
+
+	const gitlabIsLoading = $derived(
+		gitlabTokenIsLoading && !gitlabForkProjectId && !gitlabUpstreamProjectId
+	);
+
 	// GitLab setup
-	const gitlabConfigured = $derived(gitLabState.configured);
 	$effect.pre(() => {
-		gitLabState.init(projectId, repoInfo);
-		gitLabClient.set(); // Temporary fix, will refactor.
+		const accessToken = gitlabAccessToken.accessToken.current;
+		if (accessToken && gitlabForkProjectId && gitlabUpstreamProjectId) {
+			gitLabClient.set(
+				gitlabAccessToken.host.current,
+				accessToken,
+				gitlabForkProjectId,
+				gitlabUpstreamProjectId
+			);
+		}
+	});
+
+	// GitLab migration
+	// Migrate the stored access token from the old location to the new one on app load
+	$effect(() => {
+		if (projectId) {
+			gitlabUserService.migrate(projectId);
+		}
 	});
 
 	// Forge factory configuration
@@ -123,9 +152,9 @@
 			pushRepo: forkInfo,
 			baseBranch: baseBranchName,
 			githubAuthenticated: !!githubAccessToken.accessToken.current,
-			githubIsLoading: githubAccessToken.isLoading.current,
+			forgeIsLoading: githubAccessToken.isLoading.current || gitlabIsLoading,
 			githubError: githubAccessToken.error.current,
-			gitlabAuthenticated: !!$gitlabConfigured,
+			gitlabAuthenticated: !!gitlabAccessToken.accessToken.current,
 			detectedForgeProvider: baseBranch?.forgeRepoInfo?.forge ?? undefined,
 			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
 		});
@@ -211,16 +240,19 @@
 	// FEED & UPDATES MANAGEMENT
 	// =============================================================================
 
-	const feedFactory = inject(FEED_FACTORY);
+	const headResponse = $derived(modeService.head(projectId));
+	const head = $derived(headResponse.response);
 
-	// Listen for stack details updates
+	// If the head changes, invalidate stacks and details
+	// We need to track the previous head value to avoid infinite loops
+	let previousHead = $state<string | undefined>(undefined);
 	$effect(() => {
-		stackService.stackDetailsUpdateListener(projectId);
-	});
-
-	// Listen for feed updates
-	$effect(() => {
-		feedFactory.getFeed(projectId);
+		if (head && head !== previousHead) {
+			untrack(() => {
+				previousHead = head;
+				stackService.invalidateStacksAndDetails();
+			});
+		}
 	});
 
 	// =============================================================================

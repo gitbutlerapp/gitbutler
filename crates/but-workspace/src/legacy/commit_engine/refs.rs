@@ -19,14 +19,11 @@ pub fn rewrite(
     updated_refs: &mut Vec<UpdatedReference>,
     stack_segment: Option<&StackSegmentId>,
 ) -> anyhow::Result<()> {
+    let ctx = but_ctx::Context::try_from(repo.clone())?;
     let mut ref_edits = Vec::new();
     let changed_commits: Vec<_> = changed_commits.into_iter().collect();
-    let mut stacks_ordered: Vec<_> = state
-        .branches
-        .values_mut()
-        .filter(|stack| stack.in_workspace)
-        .collect();
-    stacks_ordered.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut stacks_ordered: Vec<_> = state.branches.values_mut().filter(|stack| stack.in_workspace).collect();
+    stacks_ordered.sort_by_key(|a| a.name());
     for (old, new) in changed_commits {
         let mut already_updated_refs = Vec::<BString>::new();
         for stack in &mut stacks_ordered {
@@ -35,26 +32,23 @@ pub fn rewrite(
             {
                 continue; // Dont rewrite refs for other stacks
             }
-            if stack.head_oid(repo)? == old {
+            if stack.head_oid(&ctx)? == old {
                 // The actual head will be updated later.
                 updated_refs.push(UpdatedReference {
                     old_commit_id: old,
                     new_commit_id: new,
-                    reference: but_core::Reference::Virtual(stack.name.clone()),
+                    reference: but_core::Reference::Virtual(stack.name()),
                 });
             }
-            let update_up_to_idx =
-                stack_segment
-                    .map(|s| s.segment_ref.as_ref())
-                    .and_then(|up_to_ref| {
-                        let short_name = up_to_ref.shorten();
-                        stack
-                            .heads
-                            .iter()
-                            .rev()
-                            .enumerate()
-                            .find_map(|(idx, h)| (h.name == short_name).then_some(idx))
-                    });
+            let update_up_to_idx = stack_segment.map(|s| s.segment_ref.as_ref()).and_then(|up_to_ref| {
+                let short_name = up_to_ref.shorten();
+                stack
+                    .heads
+                    .iter()
+                    .rev()
+                    .enumerate()
+                    .find_map(|(idx, h)| (h.name == short_name).then_some(idx))
+            });
             for (idx, branch) in stack.heads.iter_mut().rev().enumerate() {
                 let id = branch.head_oid(repo)?;
                 if id != old {

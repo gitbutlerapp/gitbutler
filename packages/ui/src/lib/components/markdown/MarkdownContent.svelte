@@ -14,6 +14,7 @@
 	import Paragraph from '$components/markdown/markdownRenderers/Paragraph.svelte';
 	import Separator from '$components/markdown/markdownRenderers/Separator.svelte';
 	import Strong from '$components/markdown/markdownRenderers/Strong.svelte';
+	import Table from '$components/markdown/markdownRenderers/Table.svelte';
 	import Text from '$components/markdown/markdownRenderers/Text.svelte';
 	import type { Token } from 'marked';
 	import type { Component } from 'svelte';
@@ -36,10 +37,14 @@
 		br: Br,
 		strong: Strong,
 		em: Em,
-		hr: Separator
+		hr: Separator,
+		table: Table
 	};
 
+	type TableToken = Extract<Token, { type: 'table' }>;
 	const { type, ...rest }: Props = $props();
+
+	type ListToken = Extract<Token, { type: 'list' }>;
 </script>
 
 {#if type === 'init' && 'tokens' in rest && rest.tokens}
@@ -47,18 +52,41 @@
 		<Self {...token} />
 	{/each}
 {:else if renderers[type as keyof typeof renderers]}
-	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component<
-		Omit<Props, 'type'>
-	>}
+	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component}
 	{#if type === 'list'}
-		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
+		{@const listItems = (rest as ListToken).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
-				{@const ChildComponent = renderers[item.type]}
-				<ChildComponent {...item}>
-					<Self type="init" tokens={item.tokens} />
-				</ChildComponent>
+				<Self {...item} />
 			{/each}
+		</CurrentComponent>
+	{:else if type === 'table'}
+		{@const tableToken = rest as TableToken}
+		<CurrentComponent {...rest}>
+			<thead>
+				<tr>
+					{#each tableToken.header as headerCell}
+						<th>
+							{#each headerCell.tokens as header}
+								<Self {...header} />
+							{/each}
+						</th>
+					{/each}
+				</tr>
+			</thead>
+			<tbody>
+				{#each tableToken.rows as row}
+					<tr>
+						{#each row as cell}
+							<td>
+								{#each cell.tokens as cellToken}
+									<Self {...cellToken} />
+								{/each}
+							</td>
+						{/each}
+					</tr>
+				{/each}
+			</tbody>
 		</CurrentComponent>
 	{:else}
 		<CurrentComponent {...rest}>

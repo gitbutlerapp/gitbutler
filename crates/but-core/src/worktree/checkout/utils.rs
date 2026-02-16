@@ -95,37 +95,36 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
                         worktree_cherry_pick: None,
                     },
                 )?;
-                let new_destination_id =
-                    if let Some(mut worktree_cherry_pick) = resolve.worktree_cherry_pick {
-                        // re-apply snapshot of just what we need and see if they apply cleanly.
-                        match uncommitted_changes {
-                            UncommitedWorktreeChanges::KeepAndAbortOnConflict => {
-                                let unresolved = TreatAsUnresolved::git();
-                                if worktree_cherry_pick.has_unresolved_conflicts(unresolved) {
-                                    let mut paths = worktree_cherry_pick
-                                        .conflicts
-                                        .iter()
-                                        .filter(|c| c.is_unresolved(unresolved))
-                                        .map(|c| format!("{:?}", c.ours.location()))
-                                        .collect::<Vec<_>>();
-                                    paths.sort();
-                                    paths.dedup();
-                                    bail!(
-                                        "Worktree changes would be overwritten by checkout: {}",
-                                        paths.join(", ")
-                                    );
-                                }
+                let new_destination_id = if let Some(mut worktree_cherry_pick) = resolve.worktree_cherry_pick {
+                    // re-apply snapshot of just what we need and see if they apply cleanly.
+                    match uncommitted_changes {
+                        UncommitedWorktreeChanges::KeepAndAbortOnConflict => {
+                            let unresolved = TreatAsUnresolved::git();
+                            if worktree_cherry_pick.has_unresolved_conflicts(unresolved) {
+                                let mut paths = worktree_cherry_pick
+                                    .conflicts
+                                    .iter()
+                                    .filter(|c| c.is_unresolved(unresolved))
+                                    .map(|c| format!("{:?}", c.ours.location()))
+                                    .collect::<Vec<_>>();
+                                paths.sort();
+                                paths.dedup();
+                                bail!(
+                                    "Worktree changes would be overwritten by checkout: {}",
+                                    paths.join(", ")
+                                );
                             }
-                            UncommitedWorktreeChanges::KeepConflictingInSnapshotAndOverwrite => {}
                         }
-                        let res = Some(worktree_cherry_pick.tree.write()?.detach());
-                        if let Some(memory) = repo_in_memory.objects.take_object_memory() {
-                            memory.persist(repo_in_memory)?;
-                        }
-                        res
-                    } else {
-                        None
-                    };
+                        UncommitedWorktreeChanges::KeepConflictingInSnapshotAndOverwrite => {}
+                    }
+                    let res = Some(worktree_cherry_pick.tree.write()?.detach());
+                    if let Some(memory) = repo_in_memory.objects.take_object_memory() {
+                        memory.persist(repo_in_memory)?;
+                    }
+                    res
+                } else {
+                    None
+                };
                 return Ok(Some((out.snapshot_tree, new_destination_id)));
                 // TODO: deal with index, but to do that it needs to be merged with destination tree!
             }
@@ -164,10 +163,7 @@ impl Delegate {
 
 impl gix::diff::tree::Visit for Delegate {
     fn pop_front_tracked_path_and_set_current(&mut self) {
-        self.path = self
-            .path_deque
-            .pop_front()
-            .expect("every parent is set only once");
+        self.path = self.path_deque.pop_front().expect("every parent is set only once");
     }
 
     fn push_back_tracked_path_component(&mut self, component: &BStr) {
@@ -187,7 +183,7 @@ impl gix::diff::tree::Visit for Delegate {
         if change.entry_mode().is_no_tree() {
             self.changed_files.push((change.kind(), self.path.clone()));
         }
-        visit::Action::Continue
+        std::ops::ControlFlow::Continue(())
     }
 }
 
@@ -209,9 +205,7 @@ impl std::fmt::Debug for Outcome {
                     None => "None".to_string(),
                     Some(edits) => edits
                         .last()
-                        .map(|edit| {
-                            format!("Update {} to {:?}", edit.name, edit.change.new_value())
-                        })
+                        .map(|edit| format!("Update {} to {:?}", edit.name, edit.change.new_value()))
                         .unwrap_or_default(),
                 },
             )

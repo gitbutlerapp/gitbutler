@@ -128,7 +128,7 @@
 					{#if !disabled && !readonly}
 						<button
 							type="button"
-							class="tag-remove focus-state"
+							class="tag-remove"
 							onclick={(e) => {
 								e.stopPropagation();
 								removeTag(tag.id);
@@ -214,10 +214,6 @@
 		background-color: var(--clr-bg-2);
 		color: var(--clr-text-1);
 		transition: background-color var(--transition-fast);
-
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
-		}
 	}
 
 	.tag-label {
@@ -266,14 +262,14 @@
 	}
 
 	.tag-input-label {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.tag-input-helper {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 	}
 
 	.tag-input-error {
-		color: var(--clr-theme-err-element);
+		color: var(--clr-theme-danger-element);
 	}
 </style>

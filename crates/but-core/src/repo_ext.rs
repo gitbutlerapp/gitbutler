@@ -1,22 +1,23 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use but_error::Code;
-use gix::prelude::ObjectIdExt;
+use gix::{
+    merge::tree::{Options, TreatAsUnresolved},
+    prelude::ObjectIdExt,
+};
 
 use crate::{GitConfigSettings, commit::TreeKind};
 
 /// Easy access of settings relevant to GitButler for retrieval and storage in Git settings.
-pub trait RepositoryExt {
+pub trait RepositoryExt: Sized {
     /// Returns a bundle of settings by querying the git configuration itself, assuring fresh data is loaded.
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings>;
     /// Set all fields in `config` that are not `None` to disk into local repository configuration, or none of them.
     fn set_git_settings(&self, config: &GitConfigSettings) -> anyhow::Result<()>;
     /// Return all signatures that would be needed to perform a commit as configured in Git: `(author, committer)`.
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)>;
-    /// Return labels that would be written into the conflict markers when merging blobs.
-    fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static>;
 
     /// Return the configuration freshly loaded from `.git/config` so that it can be changed in memory,
-    /// and possibly written back with [Self::write_local_config()].
+    /// and possibly written back with [`Self::write_local_common_config()`].
     fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>>;
     /// Write the given `local_config` to `.git/config` of the common repository.
     /// Note that we never write linked worktree-local configuration.
@@ -33,6 +34,44 @@ pub trait RepositoryExt {
         to_rebase_commit_id: gix::ObjectId,
         merge_options: gix::merge::tree::Options,
     ) -> anyhow::Result<gix::merge::tree::Outcome<'_>>;
+
+    /// Configure the repository for diff operations between trees.
+    /// This means it needs an object cache relative to the amount of files in the repository.
+    fn for_tree_diffing(self) -> anyhow::Result<Self>;
+
+    /// Just like the above, but with `gix` types.
+    fn merges_cleanly(
+        &self,
+        ancestor_tree: gix::ObjectId,
+        our_tree: gix::ObjectId,
+        their_tree: gix::ObjectId,
+    ) -> anyhow::Result<bool>;
+
+    /// Return default label names when merging trees.
+    ///
+    /// Note that these should probably rather be branch names, but that's for another day.
+    fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static> {
+        gix::merge::blob::builtin_driver::text::Labels {
+            ancestor: Some("base".into()),
+            current: Some("ours".into()),
+            other: Some("theirs".into()),
+        }
+    }
+
+    /// Tree merge options that enforce undecidable conflicts to be forcefully resolved
+    /// to favor ours, both when dealing with content merges and with tree merges.
+    fn merge_options_force_ours(&self) -> anyhow::Result<gix::merge::tree::Options>;
+
+    /// Return options suitable for merging so that the merge stops immediately after the first conflict.
+    /// It also returns the conflict kind to use when checking for unresolved conflicts.
+    fn merge_options_fail_fast(
+        &self,
+    ) -> anyhow::Result<(gix::merge::tree::Options, gix::merge::tree::TreatAsUnresolved)>;
+
+    /// Just like [`Self::merge_options_fail_fast()`], but additionally don't perform rename tracking.
+    /// This is useful if the merge result isn't going to be used, and we are only interested in knowing
+    /// if a merge would succeed.
+    fn merge_options_no_rewrites_fail_fast(&self) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)>;
 }
 
 impl RepositoryExt for gix::Repository {
@@ -58,8 +97,7 @@ impl RepositoryExt for gix::Repository {
         } else {
             to_rebase_commit.tree_id_or_kind(TreeKind::Base)?.detach()
         };
-        let ours = crate::Commit::from_id(new_base_commit_id.attach(self))?
-            .tree_id_or_auto_resolution()?;
+        let ours = crate::Commit::from_id(new_base_commit_id.attach(self))?.tree_id_or_auto_resolution()?;
         let theirs = to_rebase_commit.tree_id_or_kind(TreeKind::Theirs)?;
 
         self.merge_trees(
@@ -72,18 +110,8 @@ impl RepositoryExt for gix::Repository {
         .context("failed to merge trees for cherry pick")
     }
 
-    fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static> {
-        gix::merge::blob::builtin_driver::text::Labels {
-            ancestor: Some("base".into()),
-            current: Some("ours".into()),
-            other: Some("theirs".into()),
-        }
-    }
-
     fn commit_signatures(&self) -> anyhow::Result<(gix::actor::Signature, gix::actor::Signature)> {
-        let repo = gix::open(self.path())?;
-
-        let author = repo
+        let author = self
             .author()
             .transpose()?
             .context("No author is configured in Git")
@@ -96,7 +124,7 @@ impl RepositoryExt for gix::Repository {
         let committer = if commit_as_gitbutler {
             committer_signature()
         } else {
-            repo.committer()
+            self.committer()
                 .transpose()?
                 .and_then(|s| s.to_owned().ok())
                 .unwrap_or_else(committer_signature)
@@ -106,11 +134,7 @@ impl RepositoryExt for gix::Repository {
     }
 
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings> {
-        // TODO: Make it easy to load the latest configuration in `gix`.
-        // Re-open just the local configuration to be sure it's fresh before writing it.
-        let repo = gix::open_opts(self.path(), self.open_options().clone())?;
-        let config = repo.config_snapshot();
-        GitConfigSettings::try_from_snapshot(&config)
+        GitConfigSettings::try_from_snapshot(&self.config_snapshot())
     }
 
     fn set_git_settings(&self, settings: &GitConfigSettings) -> anyhow::Result<()> {
@@ -119,10 +143,7 @@ impl RepositoryExt for gix::Repository {
 
     fn local_common_config_for_editing(&self) -> anyhow::Result<gix::config::File<'static>> {
         let local_config_path = self.common_dir().join("config");
-        let config = gix::config::File::from_path_no_includes(
-            local_config_path.clone(),
-            gix::config::Source::Local,
-        )?;
+        let config = gix::config::File::from_path_no_includes(local_config_path.clone(), gix::config::Source::Local)?;
         Ok(config)
     }
 
@@ -146,6 +167,43 @@ impl RepositoryExt for gix::Repository {
         local_config.write_to(&mut config_file)?;
         config_file.flush()?;
         Ok(())
+    }
+
+    fn for_tree_diffing(mut self) -> anyhow::Result<Self> {
+        let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
+        self.object_cache_size_if_unset(bytes);
+        Ok(self)
+    }
+
+    fn merges_cleanly(
+        &self,
+        ancestor_tree: gix::ObjectId,
+        our_tree: gix::ObjectId,
+        their_tree: gix::ObjectId,
+    ) -> anyhow::Result<bool> {
+        let (options, conflict_kind) = self.merge_options_no_rewrites_fail_fast()?;
+        let merge_outcome = self
+            .merge_trees(ancestor_tree, our_tree, their_tree, Default::default(), options)
+            .context("failed to merge trees")?;
+        Ok(!merge_outcome.has_unresolved_conflicts(conflict_kind))
+    }
+
+    fn merge_options_force_ours(&self) -> anyhow::Result<Options> {
+        Ok(self
+            .tree_merge_options()?
+            .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours))
+            .with_file_favor(Some(gix::merge::tree::FileFavor::Ours)))
+    }
+
+    fn merge_options_fail_fast(&self) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)> {
+        let conflict_kind = TreatAsUnresolved::forced_resolution();
+        let options = self.tree_merge_options()?.with_fail_on_conflict(Some(conflict_kind));
+        Ok((options, conflict_kind))
+    }
+
+    fn merge_options_no_rewrites_fail_fast(&self) -> anyhow::Result<(gix::merge::tree::Options, TreatAsUnresolved)> {
+        let (options, conflict_kind) = self.merge_options_fail_fast()?;
+        Ok((options.with_rewrites(None), conflict_kind))
     }
 }
 

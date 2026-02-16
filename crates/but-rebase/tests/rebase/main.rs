@@ -1,14 +1,13 @@
 use anyhow::Result;
 use bstr::ByteSlice;
 use but_rebase::{Rebase, RebaseStep};
-use but_testsupport::{assure_stable_env, visualize_commit_graph};
+use but_testsupport::visualize_commit_graph;
 use gix::prelude::ObjectIdExt;
 
-use crate::utils::{
-    assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree,
-};
+use crate::utils::{assure_nonconflicting, conflicted, fixture_writable, four_commits_writable, visualize_tree};
 
 mod error_handling;
+mod graph_rebase;
 
 mod commit {
     mod store_author_globally_if_unset {
@@ -18,19 +17,14 @@ mod commit {
 
         #[test]
         fn fail_if_nothing_can_be_written() -> anyhow::Result<()> {
-            let mut repo = fixture("four-commits")?;
+            let (mut repo, _) = fixture("four-commits")?;
             {
                 let mut config = repo.config_snapshot_mut();
                 config.set_raw_value(&"user.name", "name")?;
                 config.set_raw_value(&"user.email", "email")?;
             }
-            let err = commit::save_author_if_unset_in_repo(
-                &repo,
-                gix::config::Source::Local,
-                "user",
-                "email",
-            )
-            .unwrap_err();
+            let err =
+                commit::save_author_if_unset_in_repo(&repo, gix::config::Source::Local, "user", "email").unwrap_err();
             assert_eq!(
                 err.to_string(),
                 "Refusing to overwrite an existing user.name and user.email"
@@ -40,22 +34,14 @@ mod commit {
 
         #[test]
         fn keep_comments_and_customizations() -> anyhow::Result<()> {
-            let (repo, _tmp) = fixture_writable("four-commits")?;
+            let (repo, _tmp, _meta) = fixture_writable("four-commits")?;
             let local_config_path = repo.path().join("config");
-            std::fs::write(
-                &local_config_path,
-                b"# a comment\n[special] \nvalue=foo #value comment",
-            )?;
+            std::fs::write(&local_config_path, b"# a comment\n[special] \nvalue=foo #value comment")?;
 
-            commit::save_author_if_unset_in_repo(
-                &repo,
-                gix::config::Source::Local,
-                "user",
-                "email",
-            )?;
+            commit::save_author_if_unset_in_repo(&repo, gix::config::Source::Local, "user", "email")?;
 
             // New values are written and everything else is still contained.
-            insta::assert_snapshot!(std::fs::read_to_string(local_config_path)?, @r"
+            insta::assert_snapshot!(std::fs::read_to_string(local_config_path)?, @"
             # a comment
             [special] 
             value=foo #value comment
@@ -70,7 +56,6 @@ mod commit {
 
 #[test]
 fn single_stack_journey() -> Result<()> {
-    assure_stable_env();
     let (repo, commits, _tmp) = four_commits_writable()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
     let out = builder
@@ -86,7 +71,7 @@ fn single_stack_journey() -> Result<()> {
             RebaseStep::Reference(but_core::Reference::Virtual("anchor".into())),
         ])?
         .rebase()?;
-    insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
+    insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @"
     * 120e3a9 (HEAD -> main) c
     * a96434e b
     * d591dfe a
@@ -94,21 +79,21 @@ fn single_stack_journey() -> Result<()> {
     ");
     // The base remains unchanged, and two commits remain: a squash commit and a merge with
     // the original `c` commit.
-    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    * b036cfe second step: squash b into a
+    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"
+    * 0fce812 second step: squash b into a
     * 35b8235 base
     ");
 
     // The reference points to the commit and correctly refers to the one that was fixed up.
     insta::assert_debug_snapshot!(out, @r#"
     RebaseOutput {
-        top_commit: Sha1(b036cfe2b7250396114e433883a48271a90ebe4d),
+        top_commit: Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
         references: [
             ReferenceSpec {
                 reference: Virtual(
                     "anchor",
                 ),
-                commit_id: Sha1(b036cfe2b7250396114e433883a48271a90ebe4d),
+                commit_id: Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
                 previous_commit_id: Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
             },
         ],
@@ -118,21 +103,21 @@ fn single_stack_journey() -> Result<()> {
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-                Sha1(1975d0213524434c3c7470404e3165a3d13bce06),
+                Sha1(8ccdf30390de9029cb5726a046783992c5f67067),
             ),
             (
                 Some(
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-                Sha1(b036cfe2b7250396114e433883a48271a90ebe4d),
+                Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
             ),
             (
                 Some(
                     Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
                 ),
                 Sha1(a96434e2505c2ea0896cf4f58fec0778e074d3da),
-                Sha1(b036cfe2b7250396114e433883a48271a90ebe4d),
+                Sha1(0fce812ca0874f04f883a2a91191175535cac1c5),
             ),
         ],
     }
@@ -149,8 +134,7 @@ fn single_stack_journey() -> Result<()> {
 
 #[test]
 fn amended_commit() -> Result<()> {
-    assure_stable_env();
-    let (repo, _tmp) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -182,9 +166,9 @@ fn amended_commit() -> Result<()> {
         .rebase()?;
     // Note how the `C` isn't visible anymore as we don't rewrite reference here.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   cc1d6d5 Merge branches 'A', 'B' and 'C' - rewritten
+    *-.   6a38e67 Merge branches 'A', 'B' and 'C' - rewritten
     |\ \  
-    | | * b24c308 C: add another 10 lines to new file - amended
+    | | * 806db8c C: add another 10 lines to new file - amended
     | | * 68a2fc3 C: add 10 lines to new file
     | | * 984fd1c C: new file with 10 lines
     | * | a748762 (B) B: another 10 lines at the bottom
@@ -195,9 +179,9 @@ fn amended_commit() -> Result<()> {
     * 8f0d338 (tag: base) base
     ");
     // This time without anchor.
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
-        top_commit: Sha1(cc1d6d57b45f1967b8ee333941a6d6d6d512da13),
+        top_commit: Sha1(6a38e6718b008686a81969c07f8654dd68f7b824),
         references: [],
         commit_mapping: [
             (
@@ -205,14 +189,14 @@ fn amended_commit() -> Result<()> {
                     Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
                 ),
                 Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-                Sha1(b24c30842ff50512edff72f5d89cafdea5be99d8),
+                Sha1(806db8cb9559776b351f5dd222755793a465fe87),
             ),
             (
                 Some(
                     Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
                 ),
                 Sha1(134887021e06909021776c023a608f8ef179e859),
-                Sha1(cc1d6d57b45f1967b8ee333941a6d6d6d512da13),
+                Sha1(6a38e6718b008686a81969c07f8654dd68f7b824),
             ),
         ],
     }
@@ -223,8 +207,7 @@ fn amended_commit() -> Result<()> {
 
 #[test]
 fn reorder_merge_in_reverse() -> Result<()> {
-    assure_stable_env();
-    let (repo, _tmp) = fixture_writable("merge-in-the-middle")?;
+    let (repo, _tmp, _meta) = fixture_writable("merge-in-the-middle")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "with-inner-merge")?, @r"
     * e8ee978 (HEAD -> with-inner-merge) on top of inner merge
     *   2fc288c Merge branch 'B' into with-inner-merge
@@ -259,17 +242,17 @@ fn reorder_merge_in_reverse() -> Result<()> {
         .expect("the first parent of a merge is replaced unconditionally");
     // Note that we don't rewrite references here.
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    * 5949b5b was dd59d2 below merge
-    * 24494dc was e8ee978 on top
-    *   5b2cbb3 was merge 2fc288c one below top
+    * eb90e58 was dd59d2 below merge
+    * 5d38e6f was e8ee978 on top
+    *   418a03b was merge 2fc288c one below top
     |\  
     | * 984fd1c (B) C: new file with 10 lines
     |/  
     * 8f0d338 (tag: base, main) base
     ");
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
-        top_commit: Sha1(5949b5b6f3de27a6f8db16c3ae2bdda155220e6a),
+        top_commit: Sha1(eb90e584f71ba2b0f122d9778abd0225bde3c669),
         references: [],
         commit_mapping: [
             (
@@ -277,21 +260,21 @@ fn reorder_merge_in_reverse() -> Result<()> {
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b),
-                Sha1(5b2cbb31707d3362c461eeb117393c6d5420372f),
+                Sha1(418a03b1f9da47d9c4cbb3aeea0222899dc0c9c4),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(e8ee978dac10e6a85006543ef08be07c5824b4f7),
-                Sha1(24494dcbc1aeea776c5ac427f7ca720bd6cc640a),
+                Sha1(5d38e6f5ca16c627bb1f45485dda9b7012287f13),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(add59d26b2ffd7468fcb44c2db48111dd8f481e5),
-                Sha1(5949b5b6f3de27a6f8db16c3ae2bdda155220e6a),
+                Sha1(eb90e584f71ba2b0f122d9778abd0225bde3c669),
             ),
         ],
     }
@@ -302,8 +285,7 @@ fn reorder_merge_in_reverse() -> Result<()> {
 
 #[test]
 fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
-    assure_stable_env();
-    let (repo, _tmp) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, "@")?, @r"
     *-.   1348870 (HEAD -> main) Merge branches 'A', 'B' and 'C'
     |\ \  
@@ -341,9 +323,9 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
             },
         ])?
         .rebase()?;
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
-        top_commit: Sha1(555c076b0434c148991fc6be55cafbcdde37f8eb),
+        top_commit: Sha1(3ccc6a6db258bc7deed5a08efc892de13ba21746),
         references: [],
         commit_mapping: [
             (
@@ -351,38 +333,38 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(984fd1c6d3975901147b1f02aae6ef0a16e5904e),
-                Sha1(f1add68a71f4dbc2d142e2a7b12afccef9159f9d),
+                Sha1(a037d4a2c1313b991c91f8bd0086643f8f39f0ea),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(930563a048351f05b14cc7b9c0a48640e5a306b0),
-                Sha1(93e675006a90be2c95f722ef9dd40f426331f4b9),
+                Sha1(eebaa8b32984736d7a835f805724c66a3988f01b),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(68a2fc349e13a186e6d65871a31bad244d25e6f4),
-                Sha1(189f8c4dd7a5b2029c902257ae1cdbacc3cdd688),
+                Sha1(c4a99d5da6b9e2c434563ae56ab51b85f03587d5),
             ),
             (
                 Some(
                     Sha1(8f0d33828e5c859c95fb9e9fc063374fdd482536),
                 ),
                 Sha1(134887021e06909021776c023a608f8ef179e859),
-                Sha1(555c076b0434c148991fc6be55cafbcdde37f8eb),
+                Sha1(3ccc6a6db258bc7deed5a08efc892de13ba21746),
             ),
         ],
     }
     ");
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   555c076 Re-merge branches 'A', 'B' and 'C'
+    *-.   3ccc6a6 Re-merge branches 'A', 'B' and 'C'
     |\ \  
-    | | * 189f8c4 C~1
-    | | * 93e6750 C
-    | | * f1add68 C~2
+    | | * c4a99d5 C~1
+    | | * eebaa8b C
+    | | * a037d4a C~2
     | * | a748762 (B) B: another 10 lines at the bottom
     | * | 62e05ba B: 10 lines at the bottom
     | |/  
@@ -423,47 +405,47 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
     "#);
 
     // gitbutler headers were added here to indicate conflict (change-id is frozen for testing)
-    insta::assert_snapshot!(conflict_commit_id.object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(conflict_commit_id.object()?.data.as_bstr(), @"
     tree db4a5b82b209e5165cdf8d04ff4328ec1fc2526d
-    parent 93e675006a90be2c95f722ef9dd40f426331f4b9
+    parent eebaa8b32984736d7a835f805724c66a3988f01b
     author author <author@example.com> 946684800 +0000
-    committer Committer (Memory Override) <committer@example.com> 946684800 +0000
+    committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
     gitbutler-conflicted 1
 
     C~1
     ");
 
     // And they are added to merge commits.
-    insta::assert_snapshot!(out.top_commit.attach(&repo).object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(out.top_commit.attach(&repo).object()?.data.as_bstr(), @"
     tree 6abc3da6f1642bfd5543ef97f98b924f4f232a96
     parent add59d26b2ffd7468fcb44c2db48111dd8f481e5
     parent a7487625f079bedf4d20e48f052312c010117b38
-    parent 189f8c4dd7a5b2029c902257ae1cdbacc3cdd688
+    parent c4a99d5da6b9e2c434563ae56ab51b85f03587d5
     author author <author@example.com> 946684800 +0000
-    committer Committer (Memory Override) <committer@example.com> 946684800 +0000
+    committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
 
     Re-merge branches 'A', 'B' and 'C'
     ");
 
     // And they are also added to other cherry-picked commits that don't conflict.
     let (_base, original, cherry_picked_no_conflict) = out.commit_mapping.first().unwrap();
-    insta::assert_snapshot!(cherry_picked_no_conflict.attach(&repo).object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(cherry_picked_no_conflict.attach(&repo).object()?.data.as_bstr(), @"
     tree fa799da5c8300f1e8f8d89f1c5989a8f03ccd852
     parent 8f0d33828e5c859c95fb9e9fc063374fdd482536
     author author <author@example.com> 946684800 +0000
-    committer Committer (Memory Override) <committer@example.com> 946684800 +0000
+    committer Committer (Memory Override) <committer@example.com> 946771200 +0000
     gitbutler-headers-version 2
-    gitbutler-change-id 00000000-0000-0000-0000-000000000001
+    change-id 1
 
     C~2
     ");
 
     // The original commit might not have had these extra headers.
-    insta::assert_snapshot!(original.attach(&repo).object()?.data.as_bstr(), @r"
+    insta::assert_snapshot!(original.attach(&repo).object()?.data.as_bstr(), @"
     tree fa799da5c8300f1e8f8d89f1c5989a8f03ccd852
     parent 8f0d33828e5c859c95fb9e9fc063374fdd482536
     author author <author@example.com> 946684800 +0000
@@ -504,9 +486,8 @@ fn reorder_with_conflict_and_remerge_and_pick_from_conflicts() -> Result<()> {
 
 #[test]
 fn reversible_conflicts() -> anyhow::Result<()> {
-    assure_stable_env();
     // If conflicts are created one way, putting them back the other way auto-resolves them.
-    let (repo, _tmp) = fixture_writable("three-branches-merged")?;
+    let (repo, _tmp, _meta) = fixture_writable("three-branches-merged")?;
 
     let mut builder = Rebase::new(&repo, repo.rev_parse_single("base")?.detach(), None)?;
     // Re-order commits with conflict, and trigger a re-merge.
@@ -589,11 +570,11 @@ fn reversible_conflicts() -> anyhow::Result<()> {
 
     let conflict_tip = repo.rev_parse_single(format!("{}^3", out.top_commit).as_str())?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @r"
-    *-.   555c076 Re-merge branches 'A', 'B' and 'C'
+    *-.   3ccc6a6 Re-merge branches 'A', 'B' and 'C'
     |\ \  
-    | | * 189f8c4 C~1
-    | | * 93e6750 C
-    | | * f1add68 C~2
+    | | * c4a99d5 C~1
+    | | * eebaa8b C
+    | | * a037d4a C~2
     | * | a748762 (B) B: another 10 lines at the bottom
     | * | 62e05ba B: 10 lines at the bottom
     | |/  
@@ -609,9 +590,7 @@ fn reversible_conflicts() -> anyhow::Result<()> {
     let out = builder
         .steps([
             RebaseStep::Pick {
-                commit_id: repo
-                    .rev_parse_single(format!("{conflict_tip}~2").as_str())?
-                    .into(),
+                commit_id: repo.rev_parse_single(format!("{conflict_tip}~2").as_str())?.into(),
                 new_message: Some("C~2 is first".into()),
             },
             RebaseStep::Pick {
@@ -644,7 +623,6 @@ fn reversible_conflicts() -> anyhow::Result<()> {
 
 #[test]
 fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
-    assure_stable_env();
     let (repo, commits, _tmp) = four_commits_writable()?;
     let mut builder = Rebase::new(&repo, None, None)?;
     let out = builder
@@ -659,21 +637,21 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
             },
         ])?
         .rebase()?;
-    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* 9c68471 reworded base after squash");
-    insta::assert_debug_snapshot!(out, @r"
+    insta::assert_snapshot!(visualize_commit_graph(&repo, out.top_commit)?, @"* e380582 reworded base after squash");
+    insta::assert_debug_snapshot!(out, @"
     RebaseOutput {
-        top_commit: Sha1(9c68471968e68ffe5df832a4cb850e8c3e7b7cd0),
+        top_commit: Sha1(e3805829c98eb212c529d5e853a94283ed32747c),
         references: [],
         commit_mapping: [
             (
                 None,
                 Sha1(35b8235197020a417e9405ab5d4db6f204e8d84b),
-                Sha1(12381f6556a7a8cf9f132a5f930ca9f109f3d0f2),
+                Sha1(a7b93ef41a8efade0eb3fe98dbc8e21c34cd16df),
             ),
             (
                 None,
                 Sha1(d591dfed1777b8f00f5b7b6f427537eeb5878178),
-                Sha1(9c68471968e68ffe5df832a4cb850e8c3e7b7cd0),
+                Sha1(e3805829c98eb212c529d5e853a94283ed32747c),
             ),
         ],
     }
@@ -684,28 +662,47 @@ fn pick_the_first_commit_with_no_parents_for_squashing() -> Result<()> {
 
 pub mod utils {
     use anyhow::Result;
+    use but_meta::VirtualBranchesTomlMetadata;
     use but_rebase::RebaseOutput;
-    use but_testsupport::gix_testtools;
     use gix::{ObjectId, prelude::ObjectIdExt};
 
     /// Returns a fixture that may not be written to, objects will never touch disk either.
-    pub fn fixture(fixture_name: &str) -> Result<gix::Repository> {
-        let root = gix_testtools::scripted_fixture_read_only("rebase.sh")
-            .map_err(anyhow::Error::from_boxed)?;
-        let worktree_root = root.join(fixture_name);
-        let repo =
-            gix::open_opts(worktree_root, gix::open::Options::isolated())?.with_object_memory();
-        Ok(repo)
+    pub fn fixture(
+        fixture_name: &str,
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
+        let repo = but_testsupport::read_only_in_memory_scenario(fixture_name)?;
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
+        Ok((repo, std::mem::ManuallyDrop::new(meta)))
     }
 
     /// Returns a fixture that may be written to.
-    pub fn fixture_writable(fixture_name: &str) -> Result<(gix::Repository, tempfile::TempDir)> {
+    pub fn fixture_writable(
+        fixture_name: &str,
+    ) -> Result<(
+        gix::Repository,
+        tempfile::TempDir,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    )> {
         // TODO: remove the need for this, impl everything in `gitoxide`, allowing this to be in-memory entirely.
-        let tmp = gix_testtools::scripted_fixture_writable("rebase.sh")
-            .map_err(anyhow::Error::from_boxed)?;
-        let worktree_root = tmp.path().join(fixture_name);
-        let repo = but_testsupport::open_repo(&worktree_root)?;
-        Ok((repo, tmp))
+        let (repo, tmp) = but_testsupport::writable_scenario(fixture_name);
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
+        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
+    }
+
+    /// Returns a fixture that may be written to.
+    pub fn fixture_writable_with_signing(
+        fixture_name: &str,
+    ) -> Result<(
+        gix::Repository,
+        tempfile::TempDir,
+        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
+    )> {
+        let (repo, tmp) = but_testsupport::writable_scenario_with_ssh_key(fixture_name);
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
+        Ok((repo, tmp, std::mem::ManuallyDrop::new(meta)))
     }
 
     #[derive(Debug)]
@@ -722,7 +719,7 @@ pub mod utils {
 
     /// The commits in the fixture repo, starting from the oldest
     pub fn four_commits() -> Result<(gix::Repository, Commits)> {
-        let repo = fixture("four-commits")?;
+        let (repo, _) = fixture("four-commits")?;
         let commits: Vec<_> = repo
             .head_id()?
             .ancestors()
@@ -743,7 +740,7 @@ pub mod utils {
     }
 
     pub fn four_commits_writable() -> Result<(gix::Repository, Commits, tempfile::TempDir)> {
-        let (repo, tmp) = fixture_writable("four-commits")?;
+        let (repo, tmp, _meta) = fixture_writable("four-commits")?;
         let commits: Vec<_> = repo
             .head_id()?
             .ancestors()
@@ -783,11 +780,18 @@ pub mod utils {
     pub fn conflicted(repo: &gix::Repository, out: &RebaseOutput) -> Vec<bool> {
         out.commit_mapping
             .iter()
-            .map(|t| {
-                but_core::Commit::from_id(t.2.attach(repo))
-                    .unwrap()
-                    .is_conflicted()
-            })
+            .map(|t| but_core::Commit::from_id(t.2.attach(repo)).unwrap().is_conflicted())
             .collect()
+    }
+
+    pub fn standard_options() -> but_graph::init::Options {
+        but_graph::init::Options {
+            collect_tags: true,
+            commits_limit_hint: None,
+            commits_limit_recharge_location: vec![],
+            hard_limit: None,
+            extra_target_commit_id: None,
+            dangerously_skip_postprocessing_for_debugging: false,
+        }
     }
 }

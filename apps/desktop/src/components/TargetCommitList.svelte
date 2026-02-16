@@ -1,35 +1,35 @@
 <script lang="ts">
-	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
+	import BranchCard from '$components/BranchCard.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
+	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
+	import { createCommitSelection } from '$lib/selection/key';
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
-	import { TestId, TimeAgo } from '@gitbutler/ui';
 	import VirtualList from '@gitbutler/ui/components/VirtualList.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { onMount } from 'svelte';
-	import type { Commit } from '$lib/branches/v3';
 
 	type Props = {
 		projectId: string;
+		onclick: (commitId: string) => void;
+		onFileClick: (index: number) => void;
 	};
 
-	const { projectId }: Props = $props();
+	const { projectId, onclick, onFileClick }: Props = $props();
 
-	const uiState = inject(UI_STATE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const stackService = inject(STACK_SERVICE);
 	const userSettings = inject(SETTINGS);
 
-	const projectState = $derived(uiState.project(projectId));
-	const branchesState = $derived(projectState.branchesSelection);
 	const baseBranchQuery = $derived(baseBranchService.baseBranch(projectId));
 	const baseSha = $derived(baseBranchQuery.response?.baseSha);
 
+	let selectedCommitId = $state<string | undefined>();
 	let loadedIds = $state<string[]>([]);
 	let commits = $state<Commit[]>([]);
 	let loading = $state(false);
@@ -53,16 +53,17 @@
 				commits = commits.concat(await getPage(nextId));
 				loadedIds.push(nextId);
 			}
-			if (throttled) {
-				loadMore();
-			}
 		} finally {
 			loading = false;
+			if (throttled) {
+				throttled = false;
+				loadMore();
+			}
 		}
 	}
 
 	async function getPage(commitId: string | undefined) {
-		const result = await stackService.targetCommits(projectId, commitId, 20);
+		const result = await stackService.targetCommits(projectId, commitId, 50);
 		return result || [];
 	}
 
@@ -72,88 +73,89 @@
 </script>
 
 <ReduxResult {projectId} result={baseBranchQuery.result}>
-	{#snippet children(baseBranch)}
-		{@const lastUpdate = baseBranch.recentCommits.at(0)?.createdAt.getTime() || 0}
-
-		<div data-testid={TestId.TargetCommitListHeader} class="target-branch-header">
-			<div class="target-branch-header__content">
-				<div class="flex gap-8">
-					<BranchHeaderIcon
-						color={getColorFromBranchType('LocalAndRemote')}
-						iconName="home-small"
-					/>
-					<h3 class="text-15 text-bold truncate">{baseBranch.branchName}</h3>
-				</div>
-
-				<div class="target-branch-header__content-details">
-					<p class="text-12 target-branch-header__caption truncate">Current workspace target</p>
-					<p class="text-12 target-branch-header__caption">
-						<TimeAgo date={new Date(lastUpdate)} />
-					</p>
-				</div>
-			</div>
-		</div>
-		<VirtualList
-			items={commits}
-			batchSize={10}
-			defaultHeight={45}
-			visibility={$userSettings.scrollbarVisibilityState}
-			onloadmore={async () => await loadMore()}
+	{#snippet children(branch)}
+		<BranchCard
+			type="normal-branch"
+			first
+			lineColor={getColorFromBranchType('LocalAndRemote')}
+			{projectId}
+			branchName={branch.branchName}
+			isTopBranch
+			iconName="home-small"
+			trackingBranch={branch.remoteName || undefined}
+			readonly
+			selected={false}
+			disableClick
+			overflowHidden
 		>
-			{#snippet chunkTemplate(commits)}
-				{#each commits as commit}
-					{@const selected = commit.id === branchesState?.current.commitId}
-					<CommitRow
-						disableCommitActions
-						type="LocalAndRemote"
-						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
-						{selected}
-						commitId={commit.id}
-						branchName={baseBranch.branchName}
-						commitMessage={commit.message}
-						gerritReviewUrl={commit.gerritReviewUrl}
-						createdAt={commit.createdAt}
-						author={commit.author}
-						onclick={() => {
-							branchesState.set({
-								commitId: commit.id,
-								branchName: baseBranch.shortName,
-								remote: baseBranch.remoteName
-							});
-						}}
-					/>
-				{/each}
+			{#snippet branchContent()}
+				<div class="commit-list">
+					<VirtualList
+						items={commits}
+						defaultHeight={40}
+						visibility={$userSettings.scrollbarVisibilityState}
+						onloadmore={async () => await loadMore()}
+						renderDistance={100}
+					>
+						{#snippet template(commit, index)}
+							<CommitRow
+								disableCommitActions
+								type="LocalAndRemote"
+								diverged={commit.state.type === 'LocalAndRemote' &&
+									commit.id !== commit.state.subject}
+								commitId={commit.id}
+								branchName={branch.branchName}
+								commitMessage={commit.message}
+								gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
+								createdAt={commitCreatedAt(commit)}
+								author={commit.author}
+								selected={commit.id === selectedCommitId}
+								lastCommit={index === commits.length - 1}
+								onclick={() => {
+									selectedCommitId = commit.id;
+									onclick(commit.id);
+								}}
+							>
+								{#snippet changedFiles()}
+									{@const changesQuery = stackService.commitChanges(projectId, commit.id)}
+
+									<ReduxResult {projectId} result={changesQuery.result}>
+										{#snippet children(changesResult)}
+											<NestedChangedFiles
+												title="Changed files"
+												{projectId}
+												draggableFiles
+												selectionId={createCommitSelection({ commitId: commit.id })}
+												changes={changesResult.changes.filter(
+													(change) =>
+														!(change.path in (changesResult.conflictEntries?.entries ?? {}))
+												)}
+												stats={changesResult.stats}
+												conflictEntries={changesResult.conflictEntries}
+												autoselect
+												allowUnselect={false}
+												{onFileClick}
+											/>
+										{/snippet}
+									</ReduxResult>
+								{/snippet}
+							</CommitRow>
+						{/snippet}
+					</VirtualList>
+				</div>
 			{/snippet}
-		</VirtualList>
+		</BranchCard>
 	{/snippet}
 </ReduxResult>
 
 <style lang="postcss">
-	.target-branch-header {
+	.commit-list {
 		display: flex;
-		padding: 14px;
-		border-bottom: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-ml) var(--radius-ml) 0 0;
-		background-color: var(--clr-bg-2);
-	}
-
-	.target-branch-header__content {
-		display: flex;
-		flex: 1;
+		position: relative;
 		flex-direction: column;
 		overflow: hidden;
-		gap: 8px;
-	}
-
-	.target-branch-header__content-details {
-		display: flex;
-		justify-content: space-between;
-		gap: 6px;
-	}
-
-	.target-branch-header__caption {
-		color: var(--clr-text-2);
-
-		white-space: nowrap;
+		border: 1px solid var(--clr-border-2);
+		border-radius: 0 0 var(--radius-ml) var(--radius-ml);
+		background-color: var(--clr-bg-1);
 	}
 </style>

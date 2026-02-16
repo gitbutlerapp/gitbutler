@@ -1,29 +1,29 @@
-use anyhow::{Context, Result};
-use but_core::DiffSpec;
-use but_oxidize::{GixRepositoryExt as _, ObjectIdExt, OidExt};
+use anyhow::{Context as _, Result};
+use but_core::{DiffSpec, RepositoryExt};
+use but_ctx::access::RepoExclusive;
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::GixRepositoryExt as _;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::RepositoryExt;
+use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 use gitbutler_workspace::workspace_base;
 use tracing::instrument;
 
 use super::{BranchManager, checkout_remerged_head};
-use crate::{VirtualBranchesExt, r#virtual as vbranch};
+use crate::VirtualBranchesExt;
 
 impl BranchManager<'_> {
-    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
+    #[instrument(level = "debug", skip(self, perm), err(Debug))]
     pub fn unapply(
         &self,
         stack_id: StackId,
-        perm: &mut WorktreeWritePermission,
+        perm: &mut RepoExclusive,
         delete_vb_state: bool,
         assigned_diffspec: Vec<DiffSpec>,
         safe_checkout: bool,
     ) -> Result<String> {
-        let vb_state = self.ctx.project().virtual_branches();
+        let vb_state = self.ctx.virtual_branches();
         let mut stack = vb_state.get_stack(stack_id)?;
 
         // We don't want to try unapplying branches which are marked as not in workspace by the new metric
@@ -36,9 +36,9 @@ impl BranchManager<'_> {
                 .to_string());
         }
 
-        _ = self.ctx.snapshot_branch_deletion(stack.name.clone(), perm);
+        _ = self.ctx.snapshot_branch_deletion(stack.name(), perm);
 
-        let repo = self.ctx.repo();
+        let git2_repo = self.ctx.git2_repo.get()?;
 
         // Commit any assigned diffspecs if such exist so that it will be part of the unapplied branch.
         if !assigned_diffspec.is_empty()
@@ -59,10 +59,10 @@ impl BranchManager<'_> {
         stack.in_workspace = false;
         vb_state.set_stack(stack.clone())?;
 
-        let gix_repo = self.ctx.gix_repo_for_merging()?;
+        let repo = self.ctx.clone_repo_for_merging()?;
         if safe_checkout {
             // This reads the just stored data and re-merges it all stacks, excluding the unapplied one.
-            let res = checkout_remerged_head(self.ctx, &gix_repo);
+            let res = checkout_remerged_head(self.ctx, &repo);
             // Undo the removal, stack is still there officially now.
             if res.is_err() {
                 stack.in_workspace = true;
@@ -85,29 +85,28 @@ impl BranchManager<'_> {
             // keep any locked changes in the cwdt.
 
             // dump current assignments into a WIP commit
-            let merge_options = gix_repo
+            let merge_options = repo
                 .tree_merge_options()?
                 .with_file_favor(Some(gix::merge::tree::FileFavor::Ours))
                 .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours));
 
-            let cwdt = repo.create_wd_tree(0)?.id().to_gix();
-            let workspace_base = gix_repo
+            let cwdt = git2_repo.create_wd_tree(0)?.id().to_gix();
+            let workspace_base = repo
                 .find_commit(workspace_base(self.ctx, perm.read_permission())?)?
                 .tree_id()?;
-            let stack_head =
-                gix_repo.find_real_tree(&stack.head_oid(&gix_repo)?, Default::default())?;
+            let stack_head = repo.find_real_tree(&stack.head_oid(self.ctx)?, Default::default())?;
 
-            let mut merge = gix_repo.merge_trees(
+            let mut merge = repo.merge_trees(
                 stack_head,
                 cwdt,
                 workspace_base,
-                gix_repo.default_merge_labels(),
+                repo.default_merge_labels(),
                 merge_options,
             )?;
-            let new_workspace_tree_with_worktree_changes =
-                repo.find_tree(merge.tree.write()?.to_git2())?;
+            let new_workspace_tree_with_worktree_changes = git2_repo.find_tree(merge.tree.write()?.to_git2())?;
 
-            repo.checkout_tree_builder(&new_workspace_tree_with_worktree_changes)
+            git2_repo
+                .checkout_tree_builder(&new_workspace_tree_with_worktree_changes)
                 .force()
                 .checkout()
                 .context("failed to checkout tree")?;
@@ -119,9 +118,6 @@ impl BranchManager<'_> {
         }
 
         vb_state.update_ordering()?;
-
-        vbranch::ensure_selected_for_changes(&vb_state)
-            .context("failed to ensure selected for changes")?;
 
         crate::integration::update_workspace_commit(&vb_state, self.ctx, false)
             .context("failed to update gitbutler workspace")?;

@@ -4,8 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use but_ctx::Context;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_repo::RepositoryExt;
 use tempfile::{TempDir, tempdir};
 
@@ -42,31 +42,22 @@ impl Suite {
     pub fn sign_in(&self) -> gitbutler_user::User {
         crate::secrets::setup_blackhole_store();
         let user: gitbutler_user::User =
-            serde_json::from_str(include_str!("fixtures/user/minimal.v1"))
-                .expect("valid v1 user file");
+            serde_json::from_str(include_str!("fixtures/user/minimal.v1")).expect("valid v1 user file");
         gitbutler_user::set_user(&user).expect("failed to add user");
         user
     }
 
     fn project(&self, fs: HashMap<PathBuf, &str>) -> (gitbutler_project::Project, TempDir) {
-        let (repository, tmp) = test_repository();
+        let (repo, tmp) = test_repository();
         for (path, contents) in fs {
             if let Some(parent) = path.parent() {
-                fs::create_dir_all(repository.path().parent().unwrap().join(parent))
-                    .expect("failed to create dir");
+                fs::create_dir_all(repo.path().parent().unwrap().join(parent)).expect("failed to create dir");
             }
-            fs::write(
-                repository.path().parent().unwrap().join(&path),
-                contents.as_bytes(),
-            )
-            .expect("failed to write file");
+            fs::write(repo.path().parent().unwrap().join(&path), contents.as_bytes()).expect("failed to write file");
         }
-        commit_all(&repository);
+        commit_all(&repo);
 
-        let outcome = gitbutler_project::add_with_path(
-            self.local_app_data(),
-            repository.path().parent().unwrap(),
-        );
+        let outcome = gitbutler_project::add_at_app_data_dir(self.local_app_data(), repo.path().parent().unwrap());
 
         let project = outcome.expect("failed to add project").unwrap_project();
 
@@ -85,7 +76,7 @@ impl Suite {
 
 pub struct Case {
     pub project: gitbutler_project::Project,
-    pub ctx: CommandContext,
+    pub ctx: Context,
     /// The directory containing the `ctx`
     pub project_tmp: Option<TempDir>,
 }
@@ -104,8 +95,7 @@ impl Drop for Case {
 
 impl Case {
     fn new(project: gitbutler_project::Project, project_tmp: TempDir) -> Case {
-        let ctx = CommandContext::open(&project, AppSettings::default())
-            .expect("failed to create project repository");
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         Case {
             project,
             ctx,
@@ -115,8 +105,7 @@ impl Case {
 
     pub fn refresh(mut self, _suite: &Suite) -> Self {
         let project = gitbutler_project::get(self.project.id).expect("failed to get project");
-        let ctx = CommandContext::open(&project, AppSettings::default())
-            .expect("failed to create project repository");
+        let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         Self {
             ctx,
             project,
@@ -139,24 +128,23 @@ pub fn empty_bare_repository() -> (git2::Repository, TempDir) {
 
 pub fn test_repository() -> (git2::Repository, TempDir) {
     let tmp = temp_dir();
-    let repository =
-        git2::Repository::init_opts(&tmp, &init_opts()).expect("failed to init repository");
-    setup_config(&repository.config().unwrap()).unwrap();
-    let mut index = repository.index().expect("failed to get index");
+    let git2_repo = git2::Repository::init_opts(&tmp, &init_opts()).expect("failed to init repository");
+    setup_config(&git2_repo.config().unwrap()).unwrap();
+    let mut index = git2_repo.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
-    let repo: &git2::Repository = &repository;
-    repo.commit_with_signature(
-        Some(&"refs/heads/master".parse().unwrap()),
-        &signature,
-        &signature,
-        "Initial commit",
-        &repository.find_tree(oid).expect("failed to find tree"),
-        &[],
-        None,
-    )
-    .expect("failed to commit");
-    (repository, tmp)
+    git2_repo
+        .commit_with_signature(
+            Some(&"refs/heads/master".parse().unwrap()),
+            &signature,
+            &signature,
+            "Initial commit",
+            &git2_repo.find_tree(oid).expect("failed to find tree"),
+            &[],
+            None,
+        )
+        .expect("failed to commit");
+    (git2_repo, tmp)
 }
 
 pub fn commit_all(repository: &git2::Repository) -> git2::Oid {
@@ -177,11 +165,7 @@ pub fn commit_all(repository: &git2::Repository) -> git2::Oid {
         "some commit",
         &repository.find_tree(oid).expect("failed to find tree"),
         &[&repository
-            .find_commit(
-                repository
-                    .refname_to_id("HEAD")
-                    .expect("failed to get head"),
-            )
+            .find_commit(repository.refname_to_id("HEAD").expect("failed to get head"))
             .expect("failed to find commit")],
         None,
     )

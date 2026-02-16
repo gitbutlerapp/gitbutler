@@ -6,11 +6,7 @@ mod extract_login_shell_environment {
         // cannot expect anything, except that invoking it shouldn't panic.
         let res = extract_interactive_login_shell_environment();
         if let Some(vars) = res {
-            assert_ne!(
-                vars.len(),
-                0,
-                "There is never 'no' variables, or else there is `None`"
-            );
+            assert_ne!(vars.len(), 0, "There is never 'no' variables, or else there is `None`");
         }
     }
 }

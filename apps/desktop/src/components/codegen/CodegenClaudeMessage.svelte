@@ -3,7 +3,7 @@
 	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
 	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
 	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
-	import CodegenToolCalls from '$components/codegen/CodegenToolCalls.svelte';
+	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
 	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
 	import { type Message } from '$lib/codegen/messages';
 	import { Icon, Markdown } from '@gitbutler/ui';
@@ -31,29 +31,57 @@
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
 {:else if message.source === 'claude'}
 	{#if 'subtype' in message && message.subtype === 'compaction'}
-		<CodegenServiceMessage style="neutral" face="compacted">
+		<CodegenServiceMessage style="info" face="compacted">
 			{#snippet extraContent()}
 				{@render compactionSummary(message.message)}
 			{/snippet}
 		</CodegenServiceMessage>
+	{:else if 'subtype' in message && message.subtype === 'askUserQuestion'}
+		{#if message.answered}
+			{@const toolCall = {
+				name: 'AskUserQuestion',
+				id: message.toolUseId,
+				input: { questions: message.questions },
+				result: message.resultText ?? 'Answered',
+				requestAt: new Date(message.createdAt)
+			}}
+			<CodegenToolCall
+				{projectId}
+				{toolCall}
+				toolCallKey={message.toolUseId}
+				{toolCallExpandedState}
+				firstInGroup={true}
+				lastInGroup={true}
+			/>
+		{/if}
 	{:else}
-		<CodegenAssistantMessage content={message.message} />
-		<CodegenToolCalls
-			{projectId}
-			toolCalls={message.toolCalls}
-			messageId={message.createdAt}
-			{toolCallExpandedState}
-		/>
-		{#if message.toolCallsPendingApproval.length > 0}
-			{#each message.toolCallsPendingApproval as toolCall}
+		{#each message.contentBlocks as block, index}
+			{@const prevBlock = message.contentBlocks[index - 1]}
+			{@const nextBlock = message.contentBlocks[index + 1]}
+			{@const firstInGroup = block.type === 'toolCall' && prevBlock?.type !== 'toolCall'}
+			{@const lastInGroup = block.type === 'toolCall' && nextBlock?.type !== 'toolCall'}
+			{#if block.type === 'text'}
+				<CodegenAssistantMessage content={block.text} />
+			{:else if block.type === 'toolCall'}
+				{#if block.toolCall.name !== 'TodoWrite'}
+					<CodegenToolCall
+						{projectId}
+						toolCall={block.toolCall}
+						toolCallKey="{message.createdAt}-{index}"
+						{toolCallExpandedState}
+						{firstInGroup}
+						{lastInGroup}
+					/>
+				{/if}
+			{:else if block.type === 'toolCallPendingApproval'}
 				<CodegenApprovalToolCall
 					{projectId}
-					{toolCall}
+					toolCall={block.toolCall}
 					onPermissionDecision={async (id, decision, useWildcard) =>
 						await onPermissionDecision?.(id, decision, useWildcard)}
 				/>
-			{/each}
-		{/if}
+			{/if}
+		{/each}
 	{/if}
 {:else if message.source === 'gitButler'}
 	<CodegenGitButlerMessage {projectId} {message} />
@@ -113,7 +141,7 @@
 		transition: background-color var(--transition-fast);
 
 		&:hover {
-			background-color: var(--clr-bg-2-muted);
+			background-color: var(--hover-bg-2);
 
 			.compaction-summary__arrow {
 				color: var(--clr-text-2);

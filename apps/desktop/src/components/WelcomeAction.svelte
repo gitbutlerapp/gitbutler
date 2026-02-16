@@ -77,7 +77,7 @@
 		&:hover,
 		&:focus {
 			outline: none;
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 	}
 
@@ -111,7 +111,7 @@
 	}
 
 	.action__title {
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 	}
 
 	.action__message {

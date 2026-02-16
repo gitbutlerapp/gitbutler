@@ -1,7 +1,5 @@
 mod workspace {
-    use but_core::ref_metadata::{
-        StackId, StackKind::AppliedAndUnapplied, Workspace, WorkspaceCommitRelation::Merged,
-    };
+    use but_core::ref_metadata::{StackId, StackKind::AppliedAndUnapplied, Workspace, WorkspaceCommitRelation::Merged};
 
     #[test]
     fn add_new_stack_if_not_present_journey() {
@@ -24,10 +22,7 @@ mod workspace {
             ws.add_or_insert_new_stack_if_not_present(b_ref, Some(0), Merged, new_stack_id),
             (0, 0)
         );
-        assert_eq!(
-            ws.stack_names(AppliedAndUnapplied).collect::<Vec<_>>(),
-            [b_ref, a_ref]
-        );
+        assert_eq!(ws.stack_names(AppliedAndUnapplied).collect::<Vec<_>>(), [b_ref, a_ref]);
 
         let c_ref = r("refs/heads/C");
         assert_eq!(
@@ -51,6 +46,7 @@ mod workspace {
             ref_info: RefInfo { created_at: None, updated_at: None },
             stacks: [],
             target_ref: None,
+            target_commit_id: None,
             push_remote: None,
         }
         ");
@@ -119,6 +115,7 @@ mod workspace {
                 },
             ],
             target_ref: None,
+            target_commit_id: None,
             push_remote: None,
         }
         "#);
@@ -133,6 +130,7 @@ mod workspace {
             ref_info: RefInfo { created_at: None, updated_at: None },
             stacks: [],
             target_ref: None,
+            target_commit_id: None,
             push_remote: None,
         }
         ");

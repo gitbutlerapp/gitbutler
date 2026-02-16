@@ -8,8 +8,9 @@
 
 <script lang="ts">
 	import { getEditor } from '$lib/richText/context';
-	import { getCurrentText } from '$lib/richText/getText';
 	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
+	import { exportPlaintext } from '$lib/richText/utils/export';
+	import { $getRoot as getRoot } from 'lexical';
 	import {
 		BLUR_COMMAND,
 		COMMAND_PRIORITY_NORMAL,
@@ -18,12 +19,10 @@
 	} from 'lexical';
 
 	type Props = {
-		markdown: boolean;
-		maxLength?: number;
 		onChange?: OnChangeCallback;
 	};
 
-	const { markdown, maxLength, onChange }: Props = $props();
+	const { onChange }: Props = $props();
 
 	const editor = getEditor();
 
@@ -34,12 +33,10 @@
 			BLUR_COMMAND,
 			() => {
 				editor.read(() => {
-					const currentText = getCurrentText(markdown, maxLength);
-					if (currentText === text) {
-						return;
-					}
-
+					const currentText = exportPlaintext(getRoot());
+					if (currentText === text) return;
 					text = currentText;
+
 					const selection = getSelection();
 					if (!isRangeSelection(selection)) {
 						return;
@@ -47,15 +44,11 @@
 
 					const textUpToAnchor = getEditorTextUpToAnchor(selection);
 					const textAfterAnchor = getEditorTextAfterAnchor(selection);
-					onChange?.(text, textUpToAnchor, textAfterAnchor);
+					onChange?.(exportPlaintext(getRoot()), textUpToAnchor, textAfterAnchor);
 				});
 				return false;
 			},
 			COMMAND_PRIORITY_NORMAL
 		);
 	});
-
-	export function getText(): string | undefined {
-		return text;
-	}
 </script>

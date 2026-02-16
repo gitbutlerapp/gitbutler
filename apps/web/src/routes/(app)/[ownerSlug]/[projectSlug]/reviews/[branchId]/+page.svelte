@@ -125,7 +125,7 @@
 
 	function editSummary() {
 		if (!isFound(branch?.current)) return;
-		// Make sure we're not dealing with a reference to the origional
+		// Make sure we're not dealing with a reference to the original
 		summary = structuredClone(branch.current.value.description || '');
 		title = structuredClone(branch.current.value.title || '');
 		editingSummary = true;
@@ -240,7 +240,7 @@
 								>
 							{:else}
 								<AsyncButton
-									style="error"
+									style="danger"
 									kind="outline"
 									action={async () => updateStatus(BranchStatus.Closed)}>Close review</AsyncButton
 								>
@@ -283,7 +283,6 @@
 							<div class="summary-wrapper">
 								<RichTextEditor
 									namespace="review-description"
-									plaintext={true}
 									onError={console.error}
 									styleContext="chat-input"
 									initialText={branch.description}

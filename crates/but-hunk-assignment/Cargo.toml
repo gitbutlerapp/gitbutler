@@ -1,21 +1,25 @@
 [package]
 name = "but-hunk-assignment"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
 
+[features]
+export-ts = ["dep:ts-rs", "but-core/export-ts"]
+
 [dependencies]
 but-core.workspace = true
+but-graph.workspace = true
 but-hunk-dependency.workspace = true
 but-db.workspace = true
+but-serde.workspace = true
 
-gitbutler-command-context.workspace = true
-gitbutler-stack.workspace = true
+gix.workspace = true
 
 anyhow.workspace = true
 itertools.workspace = true
@@ -25,6 +29,7 @@ serde_json.workspace = true
 uuid.workspace = true
 bstr.workspace = true
 tracing.workspace = true
+ts-rs = { workspace = true, optional = true }
 
 [dev-dependencies]
 uuid.workspace = true

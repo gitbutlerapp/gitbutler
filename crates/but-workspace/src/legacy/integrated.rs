@@ -2,12 +2,13 @@
 //!
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
-use anyhow::{Context, Result, anyhow};
-use but_oxidize::{GixRepositoryExt, OidExt, git2_to_gix_object_id, gix_to_git2_oid};
+use anyhow::{Context as _, Result, anyhow};
+use but_core::RepositoryExt;
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
     RepositoryExt as _,
-    logging::{LogUntil, RepositoryExt},
+    logging::{LogUntil, RepositoryExt as _},
 };
 use gitbutler_stack::Target;
 use itertools::Itertools;
@@ -36,11 +37,15 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         let remote_head = remote_branch.get().peel_to_commit()?;
         let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
 
-        let upstream_commits =
-            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_commits = git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
         let upstream_change_ids = upstream_commits
             .iter()
-            .filter_map(|commit| commit.change_id())
+            .filter_map(|commit| {
+                repo.find_commit(commit.id().to_gix())
+                    .ok()
+                    .and_then(|c| c.change_id())
+                    .map(|cid| cid.to_string())
+            })
             .sorted()
             .collect();
         let upstream_commits = upstream_commits
@@ -51,15 +56,15 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         Ok(Self {
             repo,
             graph,
-            target_commit_id: git2_to_gix_object_id(target.sha),
-            upstream_tree_id: git2_to_gix_object_id(upstream_tree_id),
+            target_commit_id: target.sha.to_gix(),
+            upstream_tree_id: upstream_tree_id.to_gix(),
             upstream_commits,
             upstream_change_ids,
         })
     }
 
     pub(crate) fn is_integrated(&mut self, commit: &git2::Commit<'_>) -> Result<bool> {
-        if self.target_commit_id == git2_to_gix_object_id(commit.id()) {
+        if self.target_commit_id == commit.id().to_gix() {
             // could not be integrated if heads are the same.
             return Ok(false);
         }
@@ -74,26 +79,22 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(false);
         }
 
-        if let Some(change_id) = commit.change_id()
-            && self.upstream_change_ids.binary_search(&change_id).is_ok()
+        let gix_commit = self.repo.find_commit(commit.id().to_gix())?;
+
+        if let Some(change_id) = gix_commit.change_id()
+            && self.upstream_change_ids.binary_search(&change_id.to_string()).is_ok()
         {
             return Ok(true);
         }
 
-        if self
-            .upstream_commits
-            .binary_search(&commit.id().to_gix())
-            .is_ok()
-        {
+        if self.upstream_commits.binary_search(&commit.id().to_gix()).is_ok() {
             return Ok(true);
         }
 
-        let merge_base_id = self.repo.merge_base_with_graph(
-            self.target_commit_id,
-            git2_to_gix_object_id(commit.id()),
-            self.graph,
-        )?;
-        if gix_to_git2_oid(merge_base_id).eq(&commit.id()) {
+        let merge_base_id = self
+            .repo
+            .merge_base_with_graph(self.target_commit_id, commit.id().to_gix(), self.graph)?;
+        if merge_base_id.to_git2().eq(&commit.id()) {
             // if merge branch is the same as branch head and there are upstream commits
             // then it's integrated
             return Ok(true);
@@ -115,7 +116,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .repo
             .merge_trees(
                 merge_base_tree_id,
-                git2_to_gix_object_id(commit.tree_id()),
+                commit.tree_id().to_gix(),
                 self.upstream_tree_id,
                 Default::default(),
                 merge_options,

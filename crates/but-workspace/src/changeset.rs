@@ -58,11 +58,7 @@ impl RefInfo {
         repo: &gix::Repository,
         expensive: bool,
     ) -> anyhow::Result<()> {
-        let topmost_target_sidx = self
-            .target
-            .as_ref()
-            .map(|t| t.segment_index)
-            .or(self.extra_target);
+        let topmost_target_sidx = self.target_ref.as_ref().map(|t| t.segment_index).or(self.extra_target);
         let mut upstream_commits = Vec::new();
         let Some(target_tip) = topmost_target_sidx else {
             // Without any notion of 'target' we can't do anything here.
@@ -70,27 +66,20 @@ impl RefInfo {
             return Ok(());
         };
         let lower_bound_generation = self.lower_bound.map(|sidx| graph[sidx].generation);
-        graph.visit_all_segments_including_start_until(
-            target_tip,
-            but_graph::petgraph::Direction::Outgoing,
-            |s| {
-                let prune = true;
-                if Some(s.id) == self.lower_bound
-                    || lower_bound_generation.is_some_and(|generation| s.generation > generation)
-                {
-                    return prune;
-                }
-                for c in &s.commits {
-                    upstream_commits.push(c.id);
-                }
-                !prune
-            },
-        );
+        graph.visit_all_segments_including_start_until(target_tip, but_graph::petgraph::Direction::Outgoing, |s| {
+            let prune = true;
+            if Some(s.id) == self.lower_bound
+                || lower_bound_generation.is_some_and(|generation| s.generation > generation)
+            {
+                return prune;
+            }
+            for c in &s.commits {
+                upstream_commits.push(c.id);
+            }
+            !prune
+        });
 
-        let cost_info = (
-            upstream_commits.len(),
-            repo.index_or_empty()?.entries().len(),
-        );
+        let cost_info = (upstream_commits.len(), repo.index_or_empty()?.entries().len());
         let upstream_lut = create_similarity_lut(
             repo,
             upstream_commits.iter().filter_map(|id| {
@@ -108,12 +97,7 @@ impl RefInfo {
         'next_stack: for stack in &mut self.stacks {
             for segment in &mut stack.segments {
                 // At first, these are all commits that aren't also available by identity as local commits.
-                let remote_lut = create_similarity_lut(
-                    repo,
-                    segment.commits_on_remote.iter(),
-                    cost_info,
-                    expensive,
-                )?;
+                let remote_lut = create_similarity_lut(repo, segment.commits_on_remote.iter(), cost_info, expensive)?;
 
                 for local in segment
                     // top-to-bottom
@@ -131,8 +115,7 @@ impl RefInfo {
                         )
                     })
                 {
-                    let expensive =
-                        changeset_identifier(repo, expensive.then_some(local), &mut time_used)?;
+                    let expensive = changeset_identifier(repo, expensive.then_some(local), &mut time_used)?;
                     if let Some(upstream_commit_id) =
                         lookup_similar(&upstream_lut, local, expensive.as_ref(), ChangeId::Skip)
                     {
@@ -177,15 +160,13 @@ impl RefInfo {
                 else {
                     continue;
                 };
-                let Some(changeset_id) =
-                    id_for_tree_diff(repo, base_commit_id, topmost_unintegrated_commit.tree_id)?
+                let Some(changeset_id) = id_for_tree_diff(repo, base_commit_id, topmost_unintegrated_commit.tree_id)?
                 else {
                     continue;
                 };
 
                 let identity_of_tip_to_base = Identifier::ChangesetId(changeset_id);
-                let Some(squashed_commit_id) = upstream_lut.get(&identity_of_tip_to_base).cloned()
-                else {
+                let Some(squashed_commit_id) = upstream_lut.get(&identity_of_tip_to_base).cloned() else {
                     continue;
                 };
 
@@ -203,11 +184,7 @@ impl RefInfo {
 
     /// Recalculate everything that depends on these values and the exact set of remote commits.
     fn compute_pushstatus(&mut self) {
-        for segment in self
-            .stacks
-            .iter_mut()
-            .flat_map(|stack| stack.segments.iter_mut())
-        {
+        for segment in self.stacks.iter_mut().flat_map(|stack| stack.segments.iter_mut()) {
             segment.push_status = PushStatus::derive_from_commits(
                 segment.remote_tracking_ref_name.is_some(),
                 &segment.commits,
@@ -225,11 +202,7 @@ impl PushStatus {
     ///       * It doesn't deal with diverged local/remote branches.
     ///       * Special cases of remote is merged, and remote tracking branch is deleted after fetch
     ///         if it was deleted on the remote?
-    fn derive_from_commits(
-        has_remote_tracking_ref: bool,
-        commits: &[LocalCommit],
-        remote_has_commits: bool,
-    ) -> Self {
+    fn derive_from_commits(has_remote_tracking_ref: bool, commits: &[LocalCommit], remote_has_commits: bool) -> Self {
         if !has_remote_tracking_ref {
             // Generally, don't do anything if no remote relationship is set up (anymore).
             // There may be better ways to deal with this.
@@ -239,14 +212,12 @@ impl PushStatus {
         let first_commit = commits.first();
         let everything_integrated_locally =
             first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::Integrated(_)));
-        let first_commit_is_local =
-            first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
+        let first_commit_is_local = first_commit.is_some_and(|c| matches!(c.relation, LocalCommitRelation::LocalOnly));
         if everything_integrated_locally {
             PushStatus::Integrated
         } else if commits.iter().any(|c| {
             matches!(c.relation, LocalCommitRelation::LocalAndRemote(id) if c.id != id)
-                || (first_commit_is_local
-                    && matches!(c.relation, LocalCommitRelation::Integrated(_)))
+                || (first_commit_is_local && matches!(c.relation, LocalCommitRelation::Integrated(_)))
         }) {
             PushStatus::UnpushedCommitsRequiringForce
         } else if remote_has_commits {
@@ -305,12 +276,12 @@ fn lookup_similar<'a>(
         .change_id
         .as_ref()
         .filter(|_| matches!(change_id, ChangeId::Use))
-        .and_then(|cid| map.get(&Identifier::ChangeId(*cid)))
+        .and_then(|cid| map.get(&Identifier::ChangeId(cid.clone())))
         .or_else(|| commit_data_id(commit).ok().and_then(|id| map.get(&id)))
         .or_else(|| map.get(expensive?))
 }
 
-/// Returns the fully-loaded commits suitable to be passed to UI, to have better re-use.
+/// Returns the fully-loaded commits suitable to be passed to UI, to have better reuse.
 fn create_similarity_lut(
     repo: &gix::Repository,
     commits: impl Iterator<Item = impl Borrow<crate::ref_info::Commit>>,
@@ -339,7 +310,7 @@ fn create_similarity_lut(
                     // so just keep the (typically top-most/first) commit with a changeset ID instead.
                     return;
                 }
-                ambiguous_commits.insert(*ambiguous.key());
+                ambiguous_commits.insert(ambiguous.key().clone());
                 ambiguous.remove();
             }
             Entry::Vacant(entry) => {
@@ -353,14 +324,12 @@ fn create_similarity_lut(
         for (idx, commit) in commits.enumerate() {
             let commit = commit.borrow();
             if let Some(change_id) = &commit.change_id {
-                insert_or_expell_ambiguous(Identifier::ChangeId(*change_id), commit.id);
+                insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
             }
             insert_or_expell_ambiguous(commit_data_id(commit)?, commit.id);
 
             if let Some(start) = expensive {
-                let Some(changeset_id) =
-                    id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)?
-                else {
+                let Some(changeset_id) = id_for_tree_diff(repo, commit.parent_ids.first().cloned(), commit.id)? else {
                     continue;
                 };
                 insert_or_expell_ambiguous(Identifier::ChangesetId(changeset_id), commit.id);
@@ -384,13 +353,11 @@ fn create_similarity_lut(
                         move || -> anyhow::Result<()> {
                             let mut repo = repo.to_thread_local();
                             repo.object_cache_size_if_unset(
-                                repo.compute_object_cache_size_for_tree_diffs(
-                                    &*repo.index_or_empty()?,
-                                ),
+                                repo.compute_object_cache_size_for_tree_diffs(&*repo.index_or_empty()?),
                             );
                             for (idx, lhs, rhs) in in_rx {
-                                let res = id_for_tree_diff(&repo, lhs, rhs)
-                                    .map(|opt| opt.map(|cs_id| (idx, cs_id, rhs)));
+                                let res =
+                                    id_for_tree_diff(&repo, lhs, rhs).map(|opt| opt.map(|cs_id| (idx, cs_id, rhs)));
                                 if out_tx.send(res).is_err() {
                                     break;
                                 }
@@ -402,20 +369,15 @@ fn create_similarity_lut(
             (in_tx, out_rx)
         };
 
-        assert!(
-            expensive,
-            "BUG: multi-threading is only for expensive checks"
-        );
+        assert!(expensive, "BUG: multi-threading is only for expensive checks");
         for (idx, commit) in commits.enumerate() {
             let commit = commit.borrow();
             if let Some(change_id) = &commit.change_id {
-                insert_or_expell_ambiguous(Identifier::ChangeId(*change_id), commit.id);
+                insert_or_expell_ambiguous(Identifier::ChangeId(change_id.clone()), commit.id);
             }
             insert_or_expell_ambiguous(commit_data_id(commit)?, commit.id);
 
-            in_tx
-                .send((idx, commit.parent_ids.first().cloned(), commit.id))
-                .ok();
+            in_tx.send((idx, commit.parent_ids.first().cloned(), commit.id)).ok();
         }
         drop(in_tx);
 
@@ -466,9 +428,7 @@ fn id_for_tree_diff(
 
     let no_changes = lhs_tree
         .as_ref()
-        .map_or(rhs_tree.id.is_empty_tree(), |lhs_tree| {
-            lhs_tree.id == rhs_tree.id
-        });
+        .map_or(rhs_tree.id.is_empty_tree(), |lhs_tree| lhs_tree.id == rhs_tree.id);
     if no_changes {
         return Ok(None);
     }
@@ -502,10 +462,7 @@ fn id_for_tree_diff(
 
     impl Visit for Delegate {
         fn pop_front_tracked_path_and_set_current(&mut self) {
-            self.path = self
-                .path_deque
-                .pop_front()
-                .expect("every parent is set only once");
+            self.path = self.path_deque.pop_front().expect("every parent is set only once");
         }
 
         fn push_back_tracked_path_component(&mut self, component: &BStr) {
@@ -529,15 +486,13 @@ fn id_for_tree_diff(
             });
 
             if change.entry_mode().is_tree() {
-                return visit::Action::Continue;
+                return std::ops::ControlFlow::Continue(());
             }
 
             // must hash all fields, even if None for unambiguous hashes.
             hash.update(self.path.as_ref());
             match change {
-                visit::Change::Addition {
-                    entry_mode, oid, ..
-                } => {
+                visit::Change::Addition { entry_mode, oid, .. } => {
                     hash.update(b"A");
                     hash_change_state(
                         hash,
@@ -547,9 +502,7 @@ fn id_for_tree_diff(
                         },
                     )
                 }
-                visit::Change::Deletion {
-                    entry_mode, oid, ..
-                } => {
+                visit::Change::Deletion { entry_mode, oid, .. } => {
                     hash.update(b"D");
                     hash_change_state(
                         hash,
@@ -583,7 +536,7 @@ fn id_for_tree_diff(
                     );
                 }
             }
-            visit::Action::Continue
+            std::ops::ControlFlow::Continue(())
         }
     }
 
@@ -627,9 +580,9 @@ fn hash_change_state(h: &mut gix::hash::Hasher, ChangeState { id, kind }: Change
     }]);
 }
 
-#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Hash, Clone, Eq, PartialEq)]
 enum Identifier {
-    ChangeId(but_core::commit::ChangeId),
+    ChangeId(but_core::ChangeId),
     CommitData(CommitDataId),
     ChangesetId(ChangesetID),
 }

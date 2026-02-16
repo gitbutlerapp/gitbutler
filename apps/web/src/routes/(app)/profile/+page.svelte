@@ -8,12 +8,14 @@
 	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
+	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
 	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
 	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
-	import { Button, chipToasts, Icon, Modal, SectionCard, Spacer } from '@gitbutler/ui';
+	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from '@gitbutler/ui';
+	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
 	import { env } from '$env/dynamic/public';
 
 	const userService = inject(USER_SERVICE);
@@ -21,6 +23,7 @@
 	const notificationSettingsService = inject(NOTIFICATION_SETTINGS_SERVICE);
 	const sshKeyService = inject(SSH_KEY_SERVICE);
 	const recentProjects = getRecentlyPushedProjects();
+	const loginService = inject(LOGIN_SERVICE);
 
 	const notificationSettings = getNotificationSettingsInterest(
 		appState,
@@ -75,6 +78,15 @@
 		await userService.deleteAccount();
 		logout();
 	}
+
+	async function copyAccessToken() {
+		const response = await loginService.token();
+		if (response.type === 'success' && response.data) {
+			copyToClipboard(response.data);
+		} else {
+			chipToasts.error('Failed to get token');
+		}
+	}
 </script>
 
 <svelte:head>
@@ -108,7 +120,7 @@
 			{/if}
 
 			{#if $user}
-				<SectionCard orientation="row">
+				<CardGroup.Item standalone>
 					{#snippet title()}
 						Signing out
 					{/snippet}
@@ -118,41 +130,60 @@
 					{#snippet actions()}
 						<Button kind="outline" icon="signout" onclick={logout}>Log out</Button>
 					{/snippet}
-				</SectionCard>
+				</CardGroup.Item>
 
-				<SectionCard orientation="row">
-					{#snippet title()}
-						Refresh access token
-					{/snippet}
-					{#snippet caption()}
-						If you suspect any unusual activity, it's a good idea to refresh your access token to
-						keep your account secure. This will log you out of all active sessions including on the
-						desktop application.
-					{/snippet}
-					{#snippet actions()}
-						<Button kind="outline" icon="update" onclick={refreshAccessToken}>Refresh</Button>
-					{/snippet}
-				</SectionCard>
+				<CardGroup>
+					<CardGroup.Item>
+						{#snippet title()}
+							Access token
+						{/snippet}
+						{#snippet caption()}
+							Your access token is used to authenticate the GitButler clients with our API.
+							<br />
+							Keep it secure and refresh it periodically for enhanced security.
+						{/snippet}
+					</CardGroup.Item>
+					<CardGroup.Item alignment="center">
+						{#snippet caption()}
+							Copy your token to use with the desktop app or CLI.
+						{/snippet}
+						{#snippet actions()}
+							<Button kind="outline" icon="copy-small" onclick={copyAccessToken}>Copy token</Button>
+						{/snippet}
+					</CardGroup.Item>
+					<CardGroup.Item>
+						{#snippet caption()}
+							Refresh your token if you notice unusual activity.
+							<br />
+							This logs you out everywhere, including the desktop app.
+						{/snippet}
+						{#snippet actions()}
+							<Button kind="outline" icon="update" onclick={refreshAccessToken}
+								>Refresh token</Button
+							>
+						{/snippet}
+					</CardGroup.Item>
+				</CardGroup>
 
 				<Spacer />
 
-				<div class="stack-v">
-					<SectionCard orientation="row" roundedBottom={false}>
+				<CardGroup>
+					<CardGroup.Item>
 						{#snippet title()}
 							Danger zone
 						{/snippet}
-					</SectionCard>
-					<SectionCard orientation="row" roundedTop={false}>
+					</CardGroup.Item>
+					<CardGroup.Item>
 						{#snippet caption()}
 							Permanently delete your account and all data.
 							<br />
 							This action cannot be undone.
 						{/snippet}
 						{#snippet actions()}
-							<Button style="error" onclick={initiateDeleteAccount}>Delete my account…</Button>
+							<Button style="danger" onclick={initiateDeleteAccount}>Delete my account…</Button>
 						{/snippet}
-					</SectionCard>
-				</div>
+					</CardGroup.Item>
+				</CardGroup>
 			{/if}
 		</div>
 
@@ -171,7 +202,7 @@
 						</p>
 					</div>
 
-					<Button style="neutral" wide onclick={() => window.open(downloadLink, '_blank')}>
+					<Button style="gray" wide onclick={() => window.open(downloadLink, '_blank')}>
 						{downloadButtonText}
 					</Button>
 
@@ -247,7 +278,7 @@
 	{#snippet controls(close)}
 		<div class="flex flex-row gap-8 justify-end">
 			<Button style="pop" onclick={close}>Cancel</Button>
-			<Button style="error" icon="bin" kind="outline" onclick={deleteAccount}
+			<Button style="danger" icon="bin" kind="outline" onclick={deleteAccount}
 				>Delete permanently</Button
 			>
 		</div>
@@ -314,7 +345,7 @@
 		}
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 
 			& .tip-link__arrow-icon {
 				transform: translateX(0);

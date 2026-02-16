@@ -21,12 +21,15 @@
  *     <div class="item" ondrop={() => updateOrder(sortedStacks)}>...</div>
  * </div>
  */
+import ReorderClone from '$lib/dragging/ReorderClone.svelte';
 import { cloneElement } from '$lib/dragging/draggable';
+import { mount } from 'svelte';
 import type { Stack } from '$lib/stacks/stack';
 
 let dragHandle: HTMLElement | null;
 let dragged: HTMLDivElement | undefined;
-let clone: any;
+let draggedFadeElement: HTMLElement | null = null;
+let clone: HTMLElement | undefined;
 let draggedId: string | undefined;
 
 export function onReorderMouseDown(e: MouseEvent) {
@@ -49,46 +52,49 @@ export function onReorderStart(
 
 	callback?.();
 
-	clone = cloneElement(e.currentTarget);
+	const clonedElement = cloneElement(e.currentTarget);
+
+	// Create the Svelte component container
+	const container = document.createElement('div');
+	mount(ReorderClone, {
+		target: container,
+		props: {
+			element: clonedElement,
+			preserveOriginalSize,
+			originalHeight: preserveOriginalSize ? e.currentTarget.offsetHeight : undefined,
+			originalWidth: preserveOriginalSize ? e.currentTarget.offsetWidth : undefined
+		}
+	});
+
+	clone = container.firstElementChild as HTMLElement;
 	document.body.appendChild(clone);
+
 	// Get chromium to fire dragover & drop events
 	// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
 	e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
 	e.dataTransfer?.setDragImage(clone, e.offsetX, e.offsetY); // Adds the padding
 	dragged = e.currentTarget;
-	draggedId = stackId;
-	dragged.style.opacity = '0.6';
+	draggedFadeElement = dragged.querySelector('[data-fade-on-reorder]');
 
-	// additional styles to the clone to make background and border visible
-	clone.style.position = 'absolute';
-	clone.style.maxHeight = `${window.innerHeight - 100}px`;
-
-	if (preserveOriginalSize) {
-		// Preserve original dimensions (e.g., for collapsed lanes)
-		const originalHeight = e.currentTarget.offsetHeight;
-		const originalWidth = e.currentTarget.offsetWidth;
-		clone.style.height = `${originalHeight}px`;
-		clone.style.width = `${originalWidth}px`;
-	} else {
-		// For regular stacks, use auto height (existing behavior)
-		clone.style.height = 'auto';
+	if (draggedFadeElement) {
+		draggedFadeElement.style.opacity = '0.5';
 	}
-	clone.style.zIndex = '-1';
-	clone.style.top = '-10000px'; // Move it out of the way
-	clone.style.left = '-10000px';
-	clone.style.pointerEvents = 'none';
-	clone.style.backgroundColor = 'var(--clr-bg-2)';
-	clone.style.border = '1px solid var(--clr-border-2)';
-	clone.style.borderRadius = 'var(--radius-ml)';
-	clone.style.overflow = 'hidden';
+
+	draggedId = stackId;
 }
 
 export function onReorderEnd() {
 	if (dragged) {
-		dragged.style.opacity = '1';
 		dragged = undefined;
 		draggedId = undefined;
 	}
+
+	if (draggedFadeElement) {
+		draggedFadeElement.style.opacity = '1';
+	}
+
+	draggedFadeElement = null;
+
 	clone?.remove();
 }
 

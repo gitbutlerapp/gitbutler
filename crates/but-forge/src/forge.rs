@@ -26,35 +26,43 @@ impl PartialEq for ForgeRepoInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(tag = "provider", rename_all = "lowercase", content = "details")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./forge/user.ts"))]
 pub enum ForgeUser {
     GitHub(but_github::GithubAccountIdentifier),
+    GitLab(but_gitlab::GitlabAccountIdentifier),
 }
 
 impl ForgeUser {
     pub fn github(&self) -> Option<&but_github::GithubAccountIdentifier> {
         match self {
             ForgeUser::GitHub(id) => Some(id),
+            _ => None,
+        }
+    }
+    pub fn gitlab(&self) -> Option<&but_gitlab::GitlabAccountIdentifier> {
+        match self {
+            ForgeUser::GitLab(id) => Some(id),
+            _ => None,
         }
     }
 }
 
 // Custom deserializer for Option<ForgeUser> that accepts either a string or ForgeUser
-pub fn deserialize_preferred_forge_user_opt<'de, D>(
-    deserializer: D,
-) -> Result<Option<ForgeUser>, D::Error>
+pub fn deserialize_preferred_forge_user_opt<'de, D>(deserializer: D) -> Result<Option<ForgeUser>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     use serde::de::Error;
-    Ok(
-        match Option::<serde_json::Value>::deserialize(deserializer)? {
-            // Handle the deprecated string case
-            Some(serde_json::Value::String(s)) => Some(ForgeUser::GitHub(
-                but_github::GithubAccountIdentifier::OAuthUsername { username: s },
-            )),
-            Some(other) => Some(ForgeUser::deserialize(other).map_err(D::Error::custom)?),
-            None => None,
-        },
-    )
+    Ok(match Option::<serde_json::Value>::deserialize(deserializer)? {
+        // Handle the deprecated string case
+        Some(serde_json::Value::String(s)) => {
+            Some(ForgeUser::GitHub(but_github::GithubAccountIdentifier::OAuthUsername {
+                username: s,
+            }))
+        }
+        Some(other) => Some(ForgeUser::deserialize(other).map_err(D::Error::custom)?),
+        None => None,
+    })
 }

@@ -8,24 +8,13 @@ mod stacks {
     };
 
     #[test]
-    fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
-    -> anyhow::Result<()> {
+    fn multiple_branches_with_shared_segment_automatically_know_containing_workspace() -> anyhow::Result<()> {
         let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
 
         add_stack(&mut meta, 1, "B-on-A", StackState::InWorkspace);
         add_stack(&mut meta, 2, "C-on-A", StackState::Inactive);
-        add_stack(
-            &mut meta,
-            3,
-            "does-not-exist-inactive",
-            StackState::Inactive,
-        );
-        add_stack(
-            &mut meta,
-            4,
-            "does-not-exist-active",
-            StackState::InWorkspace,
-        );
+        add_stack(&mut meta, 3, "does-not-exist-inactive", StackState::Inactive);
+        add_stack(&mut meta, 4, "does-not-exist-active", StackState::InWorkspace);
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
         *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
         |\  
@@ -49,11 +38,13 @@ mod stacks {
                     StackHeadInfo {
                         name: "C-on-A",
                         tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        review_id: None,
                         is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
                         is_checked_out: false,
                     },
                 ],
@@ -69,11 +60,13 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        review_id: None,
                         is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
                         is_checked_out: false,
                     },
                 ],
@@ -96,11 +89,13 @@ mod stacks {
                     StackHeadInfo {
                         name: "C-on-A",
                         tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
+                        review_id: None,
                         is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
                         is_checked_out: false,
                     },
                 ],
@@ -116,11 +111,13 @@ mod stacks {
                     StackHeadInfo {
                         name: "B-on-A",
                         tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
+                        review_id: None,
                         is_checked_out: false,
                     },
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
                         is_checked_out: false,
                     },
                 ],
@@ -148,6 +145,7 @@ mod stacks {
                     StackHeadInfo {
                         name: "A",
                         tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
+                        review_id: None,
                         is_checked_out: true,
                     },
                 ],
@@ -169,17 +167,17 @@ mod stacks {
             branch_details: [
                 BranchDetails {
                     name: "C-on-A",
+                    reference: FullName(
+                        "refs/heads/C-on-A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
@@ -192,11 +190,13 @@ mod stacks {
                 },
                 BranchDetails {
                     name: "A",
+                    reference: FullName(
+                        "refs/heads/A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
@@ -238,6 +238,7 @@ mod stacks {
                     StackHeadInfo {
                         name: "main",
                         tip: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                        review_id: None,
                         is_checked_out: false,
                     },
                 ],
@@ -263,40 +264,34 @@ mod stack_details {
     #[test]
     fn simple_fully_pushed() -> anyhow::Result<()> {
         let (repo, mut meta) = read_only_in_memory_scenario(
-            "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant",
+            "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent",
         )?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
-    * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * cbc6713 (origin/advanced-lane, on-top-of-dependant, dependant, advanced-lane) change
-    * fafd9d0 (origin/main, main, lane) init
-    ");
+        * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+        * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
+        * fafd9d0 (origin/main, main, lane) init
+        ");
 
-        let stack_id = add_stack_with_segments(
-            &mut meta,
-            1,
-            "dependant",
-            StackState::InWorkspace,
-            &["advanced-lane"],
-        );
+        let stack_id = add_stack_with_segments(&mut meta, 1, "dependent", StackState::InWorkspace, &["advanced-lane"]);
         let actual = stack_details_v3(stack_id.into(), &repo, &meta)?;
         insta::assert_debug_snapshot!(actual, @r#"
         StackDetails {
-            derived_name: "dependant",
+            derived_name: "dependent",
             push_status: CompletelyUnpushed,
             branch_details: [
                 BranchDetails {
-                    name: "dependant",
+                    name: "dependent",
+                    reference: FullName(
+                        "refs/heads/dependent",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                     base_commit: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [],
                     is_conflicted: false,
                     commits: [],
@@ -305,19 +300,19 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "advanced-lane",
+                    reference: FullName(
+                        "refs/heads/advanced-lane",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/advanced-lane",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(cbc6713ccfc78aa9a3c9cf8305a6fadce0bbe1a4),
                     base_commit: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
                     push_status: NothingToPush,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
@@ -336,8 +331,7 @@ mod stack_details {
     }
 
     #[test]
-    fn multiple_branches_with_shared_segment_automatically_know_containing_workspace()
-    -> anyhow::Result<()> {
+    fn multiple_branches_with_shared_segment_automatically_know_containing_workspace() -> anyhow::Result<()> {
         let (repo, mut meta) = read_only_in_memory_scenario("multiple-stacks-with-shared-segment")?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
         *   820f2b3 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -361,17 +355,17 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "B-on-A",
+                    reference: FullName(
+                        "refs/heads/B-on-A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(4e5484ac0f1da1909414b1e16bd740c1a3599509),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
@@ -384,11 +378,13 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "A",
+                    reference: FullName(
+                        "refs/heads/A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
@@ -420,17 +416,17 @@ mod stack_details {
             branch_details: [
                 BranchDetails {
                     name: "C-on-A",
+                    reference: FullName(
+                        "refs/heads/C-on-A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: None,
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(5f37dbfd4b1c3d2ee75f216665ab4edf44c843cb),
                     base_commit: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),
                     push_status: CompletelyUnpushed,
-                    last_updated_at: Some(
-                        0,
-                    ),
+                    last_updated_at: None,
                     authors: [
                         author <author@example.com>,
                     ],
@@ -443,11 +439,13 @@ mod stack_details {
                 },
                 BranchDetails {
                     name: "A",
+                    reference: FullName(
+                        "refs/heads/A",
+                    ),
                     linked_worktree_id: None,
                     remote_tracking_branch: Some(
                         "refs/remotes/origin/A",
                     ),
-                    description: None,
                     pr_number: None,
                     review_id: None,
                     tip: Sha1(d79bba960b112dbd25d45921c47eeda22288022b),

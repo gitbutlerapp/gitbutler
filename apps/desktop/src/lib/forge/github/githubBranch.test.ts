@@ -27,7 +27,8 @@ describe('GitHubBranch', () => {
 			repo,
 			baseBranch,
 			authenticated: true,
-			isLoading: false
+			isLoading: false,
+			dispatch: () => {}
 		});
 		const branch = gh.branch(name);
 		expect(branch?.url).toMatch(new RegExp(`...${name}$`));
@@ -43,7 +44,8 @@ describe('GitHubBranch', () => {
 			baseBranch,
 			forkStr,
 			authenticated: true,
-			isLoading: false
+			isLoading: false,
+			dispatch: () => {}
 		});
 		const branch = gh.branch(name);
 		expect(branch?.url).toMatch(new RegExp(`...${forkStr}:${name}$`));

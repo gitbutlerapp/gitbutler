@@ -1,7 +1,10 @@
+//! # Feature Flags
 #![cfg_attr(
-    all(windows, not(test), not(debug_assertions)),
-    windows_subsystem = "windows"
+    not(feature = "document-features"),
+    doc = "Activate the `document-features` cargo feature to see feature docs here, i.e. `cargo doc -p gitbutler-tauri --features document-features`"
 )]
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
+#![cfg_attr(all(windows, not(test), not(debug_assertions)), windows_subsystem = "windows")]
 // FIXME(qix-): Stuff we want to fix but don't have a lot of time for.
 // FIXME(qix-): PRs welcome!
 #![allow(
@@ -21,6 +24,7 @@ pub use window::state::{WindowState, event::ChangeForFrontend};
 pub mod action;
 pub mod askpass;
 pub mod bot;
+pub mod debug;
 pub mod projects;
 
 pub mod settings;

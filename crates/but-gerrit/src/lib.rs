@@ -1,12 +1,10 @@
 use std::fmt::Display;
 
 use bstr::{BString, ByteSlice};
-use but_core::commit::HeadersV2;
-use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
+use but_core::{ChangeId, commit::Headers};
+use but_ctx::Context;
+use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr as _};
 use serde::{Deserialize, Serialize};
-use sha1::{Digest, Sha1};
-use uuid::Uuid;
 
 use crate::parse::PushOutput;
 
@@ -36,11 +34,14 @@ impl Display for PushFlag {
 #[derive(Clone, Debug)]
 pub struct GerritChangeId(String);
 
-impl From<Uuid> for GerritChangeId {
-    fn from(value: Uuid) -> Self {
-        let mut hasher = Sha1::new();
-        hasher.update(value);
-        Self(format!("I{:x}", hasher.finalize()))
+impl From<&ChangeId> for GerritChangeId {
+    fn from(value: &ChangeId) -> Self {
+        let mut hash = gix::hash::hasher(gix::hash::Kind::Sha1);
+        hash.update((*value).as_bytes());
+        Self(format!(
+            "I{hex_hash_of_change_id}",
+            hex_hash_of_change_id = hash.try_finalize().expect("no SHATTERED attack").to_hex()
+        ))
     }
 }
 impl Display for GerritChangeId {
@@ -50,13 +51,15 @@ impl Display for GerritChangeId {
 }
 
 pub fn set_trailers(commit: &mut gix::objs::Commit) {
-    if let Some(headers) = HeadersV2::try_from_commit(commit) {
-        commit.message = with_change_id_trailer(commit.message.clone(), headers.change_id.into());
+    if let Some(headers) = Headers::try_from_commit(commit)
+        && let Some(change_id) = headers.change_id
+    {
+        commit.message = with_change_id_trailer(commit.message.clone(), change_id);
     }
 }
 
-fn with_change_id_trailer(msg: BString, change_id: Uuid) -> BString {
-    let change_id = GerritChangeId::from(change_id);
+fn with_change_id_trailer(msg: BString, change_id: ChangeId) -> BString {
+    let change_id = GerritChangeId::from(&change_id);
     let change_id_line = format!("Change-Id: {change_id}");
     let msg_bytes = msg.as_slice();
 
@@ -144,16 +147,17 @@ fn with_change_id_trailer(msg: BString, change_id: Uuid) -> BString {
 }
 
 pub fn record_push_metadata(
-    ctx: &mut CommandContext,
-    repo: &gix::Repository,
+    ctx: &mut Context,
     candidate_ids: Vec<gix::ObjectId>,
     push_output: PushOutput,
 ) -> anyhow::Result<()> {
-    let mappings = mappings(repo, candidate_ids, push_output)?;
-    let mut db = ctx.db()?.gerrit_metadata();
+    let repo = ctx.repo.get()?;
+    let mappings = mappings(&repo, candidate_ids, push_output)?;
+    let mut db = ctx.db.get_mut()?;
+    let mut trans = db.transaction()?;
 
     for mapping in mappings {
-        let existing = db.get(&mapping.change_id)?;
+        let existing = trans.gerrit_metadata().get(&mapping.change_id)?;
         let now = chrono::Utc::now().naive_utc();
         let commit_id_str = mapping.commit_id.to_string();
 
@@ -169,7 +173,7 @@ pub fn record_push_metadata(
                         created_at: existing_meta.created_at, // Keep original creation time
                         updated_at: now,
                     };
-                    db.update(updated_meta)?;
+                    trans.gerrit_metadata_mut().update(updated_meta)?;
                 }
                 // If commit_id matches, do nothing
             }
@@ -182,10 +186,11 @@ pub fn record_push_metadata(
                     created_at: now,
                     updated_at: now,
                 };
-                db.insert(new_meta)?;
+                trans.gerrit_metadata_mut().insert(new_meta)?;
             }
         }
     }
+    trans.commit()?;
 
     Ok(())
 }
@@ -202,6 +207,7 @@ fn mappings(
     push_output: PushOutput,
 ) -> anyhow::Result<Vec<ChangeIdMapping>> {
     let mut mappings = vec![];
+    let host = gerrit_host(repo);
     for id in candidate_ids {
         let commit = repo.find_commit(id)?;
         let msg = commit.message_bstr().to_string();
@@ -211,15 +217,21 @@ fn mappings(
             .changes
             .iter()
             .find(|c| c.commit_title == title)
-            .and_then(|c| {
-                commit
-                    .change_id()
-                    .map(|change_id| (change_id, c.url.clone()))
-            });
+            .and_then(|c| commit.change_id().map(|change_id| (change_id, c.url.clone())));
+
         if let Some((change_id, review_url)) = change_id_review_url {
             mappings.push(ChangeIdMapping {
                 commit_id: id,
-                change_id,
+                change_id: change_id.to_string(),
+                review_url,
+            });
+        } else if let (Some(change_id), Some(host)) = (commit.change_id(), host.as_ref()) {
+            // Fallback: generate review URL if we have a change ID and a host
+            let gerrit_change_id = GerritChangeId::from(&change_id);
+            let review_url = format!("https://{}/q/{}", host, gerrit_change_id);
+            mappings.push(ChangeIdMapping {
+                commit_id: id,
+                change_id: change_id.to_string(),
                 review_url,
             });
         }
@@ -227,13 +239,24 @@ fn mappings(
     Ok(mappings)
 }
 
+fn gerrit_host(repo: &gix::Repository) -> Option<String> {
+    let name = repo.remote_default_name(gix::remote::Direction::Push);
+    let name = name.as_ref().map(|n| n.as_ref()).unwrap_or(b"origin".as_bstr());
+    let remote = repo.find_remote(name).ok()?;
+    let url = remote
+        .url(gix::remote::Direction::Push)
+        .or_else(|| remote.url(gix::remote::Direction::Fetch))?;
+    url.host().map(|h| h.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn output_is_41_characters_long() {
-        let uuid = Uuid::new_v4();
-        let change_id = GerritChangeId::from(uuid);
+        let commit_change_id = ChangeId::generate();
+        let change_id = GerritChangeId::from(&commit_change_id);
         let output = format!("{change_id}");
         assert_eq!(output.len(), 41); // "I" + 40 hex chars
         assert!(output.starts_with('I'));
@@ -241,12 +264,12 @@ mod tests {
 
     #[test]
     fn test_add_trailer_no_existing_trailers() {
-        let uuid = Uuid::new_v4();
-        let change_id = GerritChangeId::from(uuid);
+        let commit_change_id = ChangeId::generate();
+        let change_id = GerritChangeId::from(&commit_change_id);
         let change_id_line = format!("Change-Id: {change_id}\n");
 
         let msg = BString::from("Initial commit\n");
-        let updated_msg = with_change_id_trailer(msg.clone(), uuid);
+        let updated_msg = with_change_id_trailer(msg.clone(), commit_change_id);
         assert!(
             updated_msg
                 .as_slice()
@@ -257,24 +280,23 @@ mod tests {
 
     #[test]
     fn test_add_trailer_already_has_change_id() {
-        let uuid = Uuid::new_v4();
-        let change_id = GerritChangeId::from(uuid);
+        let commit_change_id = ChangeId::generate();
+        let change_id = GerritChangeId::from(&commit_change_id);
         let change_id_line = format!("Change-Id: {change_id}\n");
 
         let msg_with_change_id = BString::from(format!("Initial commit\n{change_id_line}"));
-        let updated_msg = with_change_id_trailer(msg_with_change_id.clone(), uuid);
+        let updated_msg = with_change_id_trailer(msg_with_change_id.clone(), commit_change_id);
         assert_eq!(updated_msg, msg_with_change_id);
     }
 
     #[test]
     fn test_add_trailer_with_signed_off_by() {
-        let uuid = Uuid::new_v4();
-        let change_id = GerritChangeId::from(uuid);
+        let commit_change_id = ChangeId::generate();
+        let change_id = GerritChangeId::from(&commit_change_id);
         let change_id_line = format!("Change-Id: {change_id}\n");
 
-        let msg_with_signed_off =
-            BString::from("Initial commit\n\nSigned-off-by: User <alice@example.com>\n");
-        let updated_msg = with_change_id_trailer(msg_with_signed_off.clone(), uuid);
+        let msg_with_signed_off = BString::from("Initial commit\n\nSigned-off-by: User <alice@example.com>\n");
+        let updated_msg = with_change_id_trailer(msg_with_signed_off.clone(), commit_change_id.clone());
         let updated_msg_str = updated_msg.as_bstr();
         let change_id_index = updated_msg_str.find(&change_id_line).unwrap();
         let signed_off_index = updated_msg_str.find("Signed-off-by:").unwrap();
@@ -288,7 +310,7 @@ mod tests {
              \n\
              Pick-to: 6.10\n",
         );
-        let updated_msg = with_change_id_trailer(msg_with_pick_to.clone(), uuid);
+        let updated_msg = with_change_id_trailer(msg_with_pick_to.clone(), commit_change_id.clone());
         let updated_msg_str = updated_msg.to_string();
 
         assert!(updated_msg_str.contains(&format!("Pick-to: 6.10\n{change_id_line}")));
@@ -306,7 +328,7 @@ mod tests {
              Acked-by: Reviewer <reviewer@example.com>\n\
              Signed-off-by: Author <author@example.com>\n",
         );
-        let updated_msg = with_change_id_trailer(msg_with_multiple.clone(), uuid);
+        let updated_msg = with_change_id_trailer(msg_with_multiple.clone(), commit_change_id);
         let updated_msg_str = updated_msg.to_string();
 
         let acked_by_idx = updated_msg_str.find("Acked-by:").unwrap();

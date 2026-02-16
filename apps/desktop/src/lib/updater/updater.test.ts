@@ -4,7 +4,7 @@ import { type Update } from '$lib/backend';
 import { ShortcutService } from '$lib/shortcuts/shortcutService';
 import { mockCreateBackend } from '$lib/testing/mockBackend';
 import { getSettingsdServiceMock } from '$lib/testing/mockSettingsdService';
-import { UPDATE_INTERVAL_MS, UpdaterService } from '$lib/updater/updater';
+import { UpdaterService } from '$lib/updater/updater';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 
@@ -20,10 +20,11 @@ describe('Updater', () => {
 	const settingsService = new MockSettingsService();
 	const eventContext = new EventContext();
 	const posthog = new PostHogWrapper(settingsService, backend, eventContext);
+	const updateIntervalMs = 3600 * 1000;
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		updater = new UpdaterService(backend, posthog, shortcuts);
+		updater = new UpdaterService(backend, posthog, shortcuts, updateIntervalMs);
 		vi.spyOn(backend, 'listen').mockReturnValue(async () => {});
 	});
 
@@ -101,7 +102,7 @@ describe('Updater', () => {
 		expect(mock).toHaveBeenCalledOnce();
 
 		for (let i = 2; i < 12; i++) {
-			await vi.advanceTimersByTimeAsync(UPDATE_INTERVAL_MS);
+			await vi.advanceTimersByTimeAsync(updateIntervalMs);
 			expect(mock).toHaveBeenCalledTimes(i);
 		}
 		unsubscribe();
@@ -123,6 +124,40 @@ describe('Updater', () => {
 		// Try to check for updates (should work when enabled)
 		await updater.checkForUpdate();
 		expect(mock).toHaveBeenCalledOnce();
+	});
+
+	test('should ignore disableAutoChecks setting when manual update', async () => {
+		const mock = vi.spyOn(backend, 'checkUpdate').mockReturnValue(mockUpdate(null));
+		const manualCheck = true;
+
+		updater.disableAutoChecks.set(true);
+
+		await updater.checkForUpdate(manualCheck);
+		expect(mock).toHaveBeenCalledOnce();
+
+		updater.disableAutoChecks.set(false);
+
+		await updater.checkForUpdate(manualCheck);
+		expect(mock).toHaveBeenCalledTimes(2);
+	});
+
+	test('should disable updater when updateIntervalMs is 0', async () => {
+		const mock = vi.spyOn(backend, 'checkUpdate').mockReturnValue(mockUpdate(null));
+
+		// Create updater with updateIntervalMs = 0
+		const disabledUpdater = new UpdaterService(backend, posthog, shortcuts, 0);
+
+		// Subscribe to the update store (this triggers start())
+		const unsubscribe = disabledUpdater.update.subscribe(() => {});
+
+		// checkUpdate should not be called when updateIntervalMs is 0
+		expect(mock).not.toHaveBeenCalled();
+
+		// Verify that even after time passes, no automatic checks happen (no timer was set)
+		await vi.advanceTimersByTimeAsync(3600 * 1000);
+		expect(mock).not.toHaveBeenCalled();
+
+		unsubscribe();
 	});
 });
 

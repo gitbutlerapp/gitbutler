@@ -1,8 +1,9 @@
-use but_action::OpenAiProvider;
 use but_api::json::Error;
 use but_core::ui::TreeChange;
+use but_ctx::Context;
+use but_hunk_assignment::AbsorptionTarget;
+use but_llm::LLMProvider;
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use tauri::Emitter;
 use tracing::instrument;
@@ -15,8 +16,8 @@ pub fn list_actions(
     limit: i64,
 ) -> anyhow::Result<but_action::ActionListing, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    but_action::list_actions(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    but_action::list_actions(&ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
 #[tauri::command(async)]
@@ -27,9 +28,9 @@ pub fn handle_changes(
     handler: but_action::ActionHandler,
 ) -> anyhow::Result<but_action::Outcome, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
     but_action::handle_changes(
-        ctx,
+        &mut ctx,
         &change_summary,
         None,
         handler,
@@ -48,8 +49,8 @@ pub fn list_workflows(
     limit: i64,
 ) -> anyhow::Result<but_action::WorkflowList, Error> {
     let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    but_action::list_workflows(ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    but_action::list_workflows(&ctx, offset, limit).map_err(|e| Error::from(anyhow::anyhow!(e)))
 }
 
 #[tauri::command(async)]
@@ -57,115 +58,60 @@ pub fn list_workflows(
 pub fn auto_commit(
     app_handle: tauri::AppHandle,
     project_id: ProjectId,
-    changes: Vec<TreeChange>,
+    target: AbsorptionTarget,
+    use_ai: bool,
 ) -> anyhow::Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
-    let changes: Vec<but_core::TreeChange> =
-        changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let absorption_plan = but_api::legacy::absorb::absorption_plan(&mut ctx, target)?;
 
-    let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
+    let llm = if use_ai {
+        let git_config = gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+        LLMProvider::from_git_config(&git_config)
+    } else {
+        None
+    };
+
+    let emitter = move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
             tracing::error!("Failed to emit event '{}': {}", name, e);
         });
-    });
-
-    match openai {
-        Some(openai) => but_action::auto_commit(emitter, ctx, &openai, changes)
-            .map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => Err(Error::from(anyhow::anyhow!(
-            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-        ))),
-    }
+    };
+    let mut guard = ctx.exclusive_worktree_access();
+    let repo = ctx.repo.get()?;
+    let project_data_dir = ctx.project_data_dir();
+    let settings = AppSettings::load_from_default_path_creating_without_customization()?;
+    but_action::auto_commit(
+        project_id,
+        &repo,
+        &project_data_dir,
+        settings.context_lines,
+        llm.as_ref(),
+        emitter,
+        absorption_plan,
+        &mut guard,
+    )
+    .map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    Ok(())
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app_handle), err(Debug))]
+#[instrument(err(Debug))]
 pub fn auto_branch_changes(
-    app_handle: tauri::AppHandle,
     project_id: ProjectId,
     changes: Vec<TreeChange>,
+    model: String,
 ) -> anyhow::Result<(), Error> {
     let project = gitbutler_project::get(project_id)?;
-    let changes: Vec<but_core::TreeChange> =
-        changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
+    let changes: Vec<but_core::TreeChange> = changes.into_iter().map(|change| change.into()).collect();
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let git_config = gix::config::File::from_globals().map_err(|e| Error::from(anyhow::anyhow!(e)))?;
+    let llm = LLMProvider::from_git_config(&git_config);
 
-    let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
-        app_handle.emit(name, payload).unwrap_or_else(|e| {
-            tracing::error!("Failed to emit event '{}': {}", name, e);
-        });
-    });
-
-    match openai {
-        Some(openai) => but_action::branch_changes(emitter, ctx, &openai, changes)
-            .map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => Err(Error::from(anyhow::anyhow!(
-            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-        ))),
-    }
-}
-
-#[tauri::command(async)]
-#[instrument(skip(app_handle), err(Debug))]
-pub fn absorb(
-    app_handle: tauri::AppHandle,
-    project_id: ProjectId,
-    changes: Vec<TreeChange>,
-) -> anyhow::Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let changes: Vec<but_core::TreeChange> =
-        changes.into_iter().map(|change| change.into()).collect();
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
-
-    let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
-        app_handle.emit(name, payload).unwrap_or_else(|e| {
-            tracing::error!("Failed to emit event '{}': {}", name, e);
-        });
-    });
-
-    match openai {
-        Some(openai) => but_action::absorb(emitter, ctx, &openai, changes)
-            .map_err(|e| Error::from(anyhow::anyhow!(e))),
-        None => Err(Error::from(anyhow::anyhow!(
-            "No valid credentials found for AI provider. Please configure your GitButler account credentials."
-        ))),
-    }
-}
-
-#[tauri::command(async)]
-#[instrument(skip(app_handle), err(Debug))]
-pub fn freestyle(
-    app_handle: tauri::AppHandle,
-    project_id: ProjectId,
-    message_id: String,
-    chat_messages: Vec<but_action::ChatMessage>,
-    model: Option<String>,
-) -> anyhow::Result<String, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let ctx = &mut CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-
-    let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
-        app_handle.emit(name, payload).unwrap_or_else(|e| {
-            tracing::error!("Failed to emit event '{}': {}", name, e);
-        });
-    });
-
-    let openai = OpenAiProvider::with(Some(but_action::CredentialsKind::GitButlerProxied));
-    match openai {
-        Some(openai) => but_action::freestyle(
-            project_id,
-            message_id,
-            emitter,
-            ctx,
-            &openai,
-            chat_messages,
-            model,
-        )
-        .map_err(|e| Error::from(anyhow::anyhow!(e))),
+    match llm {
+        Some(llm) => {
+            but_action::branch_changes(&mut ctx, &llm, changes, model).map_err(|e| Error::from(anyhow::anyhow!(e)))
+        }
         None => Err(Error::from(anyhow::anyhow!(
             "No valid credentials found for AI provider. Please configure your GitButler account credentials."
         ))),

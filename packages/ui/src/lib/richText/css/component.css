@@ -256,7 +256,7 @@
 	padding: 0px 4px;
 	gap: 10px;
 	border-radius: var(--radius-s);
-	background: var(--clr-theme-pop-bg-muted);
+	background: var(--clr-theme-pop-soft);
 	color: var(--clr-theme-pop-on-soft);
 }
 

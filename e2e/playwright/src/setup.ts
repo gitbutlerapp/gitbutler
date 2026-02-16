@@ -1,3 +1,4 @@
+import { setConfig } from './config.ts';
 import { BUT_SERVER_PORT, BUT_TESTING, DESKTOP_PORT, GIT_CONFIG_GLOBAL } from './env.ts';
 import { type BrowserContext } from '@playwright/test';
 import { ChildProcess, spawn } from 'node:child_process';
@@ -12,9 +13,10 @@ export function getBaseURL() {
 }
 
 export function getButlerPort(): string {
-	const parallelId = process.env.TEST_PARALLEL_INDEX ?? '0';
-	const id = parseInt(parallelId, 10);
-	return `${parseInt(BUT_SERVER_PORT, 10) + id}`;
+	// Zero based parallel counter
+	const id = parseInt(process.env.TEST_PARALLEL_INDEX ?? '0', 10);
+	// Start from default + 1 to avoid interfering with dev server
+	return `${parseInt(BUT_SERVER_PORT, 10) + id + 1}`;
 }
 
 export interface GitButler {
@@ -31,7 +33,12 @@ class GitButlerManager implements GitButler {
 	private butServerProcess: ChildProcess;
 	private env: Record<string, string> | undefined;
 
-	constructor(workdir: string, configDir: string, env?: Record<string, string>) {
+	constructor(
+		workdir: string,
+		configDir: string,
+		env?: Record<string, string>,
+		config?: Record<string, unknown>
+	) {
 		this.workdir = workdir;
 		this.configDir = configDir;
 		this.rootDir = path.resolve(import.meta.dirname, '../../..');
@@ -44,12 +51,16 @@ class GitButlerManager implements GitButler {
 
 		if (!existsSync(this.configDir)) {
 			mkdirSync(this.configDir, { recursive: true });
+			if (config) {
+				setConfig(config, this.configDir);
+			}
 		}
 
 		const serverEnv = {
 			E2E_TEST_APP_DATA_DIR: this.configDir,
 			BUTLER_PORT: getButlerPort(),
 			GIT_CONFIG_GLOBAL,
+			RUST_LOG: 'error',
 			...this.env
 		};
 
@@ -109,7 +120,26 @@ class GitButlerManager implements GitButler {
 }
 
 function createButServerProcess(rootDir: string, serverEnv: Record<string, string>): ChildProcess {
-	return spawnProcess('cargo', ['run', '-p', 'but-server'], rootDir, serverEnv);
+	const child = spawn('cargo', ['run', '-p', 'but-server'], {
+		cwd: rootDir,
+		stdio: 'pipe',
+		env: {
+			...process.env,
+			...serverEnv
+		}
+	});
+
+	// Reprint stdout in green
+	child.stdout?.on('data', (data) => {
+		process.stdout.write(`BUT-SERVER: ${colors.green}${data}${colors.reset}`);
+	});
+
+	// Reprint stderr in green
+	child.stderr?.on('data', (data) => {
+		process.stderr.write(`BUT-SERVER: ${colors.red}${data}${colors.reset}`);
+	});
+
+	return child;
 }
 
 function getButlerDataDir(configDir: string): string {
@@ -269,9 +299,10 @@ export async function startGitButler(
 	workdir: string,
 	configDir: string,
 	context: BrowserContext,
-	env?: Record<string, string>
+	env?: Record<string, string>,
+	config?: Record<string, unknown>
 ): Promise<GitButler> {
-	const manager = new GitButlerManager(workdir, configDir, env);
+	const manager = new GitButlerManager(workdir, configDir, env, config);
 	await manager.init();
 	await setProjectPathCookie(context, workdir);
 	await setButlerServerPort(context);

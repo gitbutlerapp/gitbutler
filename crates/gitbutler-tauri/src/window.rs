@@ -2,15 +2,14 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
+    use but_ctx::Context;
     use but_settings::AppSettingsWithDiskSync;
-    use gitbutler_command_context::CommandContext;
-    use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use tauri::AppHandle;
     use tracing::instrument;
 
     pub(crate) mod event {
-        use anyhow::{Context, Result};
+        use anyhow::{Context as _, Result};
         use but_db::poll::ItemKind;
         use but_settings::AppSettings;
         use gitbutler_project::ProjectId;
@@ -42,15 +41,14 @@ pub(crate) mod state {
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
                         project_id,
                     },
-                    Change::GitActivity(project_id) => ChangeForFrontend {
+                    Change::GitActivity { project_id, head_sha } => ChangeForFrontend {
                         name: format!("project://{project_id}/git/activity"),
-                        payload: serde_json::json!({}),
+                        payload: serde_json::json!({
+                            "headSha": head_sha,
+                        }),
                         project_id,
                     },
-                    Change::WorktreeChanges {
-                        project_id,
-                        changes,
-                    } => ChangeForFrontend {
+                    Change::WorktreeChanges { project_id, changes } => ChangeForFrontend {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
                         project_id,
@@ -74,7 +72,7 @@ pub(crate) mod state {
             fn from(project_item: (ProjectId, ItemKind)) -> Self {
                 let (project_id, item) = project_item;
                 // Use the shared conversion function from but_broadcaster
-                let event = but_broadcaster::FrontendEvent::from_db_item(project_id, item);
+                let event = but_claude::broadcaster::FrontendEvent::from_db_item(project_id, item);
                 ChangeForFrontend {
                     name: event.name,
                     payload: event.payload,
@@ -85,9 +83,7 @@ pub(crate) mod state {
 
         impl ChangeForFrontend {
             pub fn send(&self, app_handle: &tauri::AppHandle) -> Result<()> {
-                app_handle
-                    .emit(&self.name, Some(&self.payload))
-                    .context("emit event")?;
+                app_handle.emit(&self.name, Some(&self.payload)).context("emit event")?;
                 tracing::trace!(event_name = self.name);
                 Ok(())
             }
@@ -157,17 +153,17 @@ pub(crate) mod state {
         /// uniquely identified by `window`.
         ///
         /// The previous state will be removed and its resources cleaned up.
-        #[instrument(skip(self, project, app_settings, ctx), err(Debug))]
+        #[instrument(skip_all, err(Debug))]
         pub fn set_project_to_window(
             &self,
             window: &WindowLabelRef,
-            project: &projects::Project,
             app_settings: &AppSettingsWithDiskSync,
-            ctx: &mut CommandContext,
+            ctx: &mut Context,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
+            let project_id = ctx.legacy_project.id;
             if let Some(state) = state_by_label.get(window)
-                && state.project_id == project.id
+                && state.project_id == project_id
             {
                 return Ok(state
                     .exclusive_access
@@ -175,19 +171,21 @@ pub(crate) mod state {
                     .map(|_| ProjectAccessMode::First)
                     .unwrap_or(ProjectAccessMode::Shared));
             }
-            let exclusive_access = project.try_exclusive_access().ok();
+            let exclusive_access = ctx.try_exclusive_access().ok();
             let handler = handler_from_app(&self.app_handle)?;
-            let worktree_dir = project.worktree_dir()?;
-            let project_id = project.id;
+            let worktree_dir = ctx.workdir_or_fail()?;
+            let watch_mode =
+                gitbutler_watcher::WatchMode::from_env_or_settings(&app_settings.get()?.feature_flags.watch_mode);
             let watcher = gitbutler_watcher::watch_in_background(
                 handler,
                 worktree_dir,
                 project_id,
                 app_settings.clone(),
+                watch_mode,
             )?;
 
-            let db = ctx.db()?;
-            let db_watcher = but_db::poll::watch_in_background(db, {
+            let db = ctx.db.get()?;
+            let db_watcher = but_db::poll::watch_in_background(&db, {
                 let app_handle = self.app_handle.clone();
                 move |item| ChangeForFrontend::from((project_id, item)).send(&app_handle)
             })?;
@@ -230,10 +228,7 @@ pub(crate) mod state {
         /// Return the list of project ids that are currently open.
         pub fn open_projects(&self) -> Vec<ProjectId> {
             let state_by_label = self.state.lock();
-            state_by_label
-                .values()
-                .map(|state| state.project_id)
-                .collect()
+            state_by_label.values().map(|state| state.project_id).collect()
         }
     }
 }
@@ -245,17 +240,13 @@ pub fn create(
     window_relative_url: String,
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
-    let window = tauri::WebviewWindowBuilder::new(
-        handle,
-        label,
-        tauri::WebviewUrl::App(window_relative_url.into()),
-    )
-    .resizable(true)
-    .title(handle.package_info().name.clone())
-    .disable_drag_drop_handler()
-    .min_inner_size(1000.0, 600.0)
-    .inner_size(1160.0, 720.0)
-    .build()?;
+    let window = tauri::WebviewWindowBuilder::new(handle, label, tauri::WebviewUrl::App(window_relative_url.into()))
+        .resizable(true)
+        .title(handle.package_info().name.clone())
+        .disable_drag_drop_handler()
+        .min_inner_size(1000.0, 600.0)
+        .inner_size(1160.0, 720.0)
+        .build()?;
     Ok(window)
 }
 
@@ -267,28 +258,24 @@ pub fn create(
 ) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
 
-    let use_native_title_bar = but_settings::AppSettings::load_from_default_path_creating()
+    let use_native_title_bar = but_settings::AppSettings::load_from_default_path_creating_without_customization()
         .ok()
         .map(|settings| settings.ui.use_native_title_bar)
         .unwrap_or(false);
 
-    let window = tauri::WebviewWindowBuilder::new(
-        handle,
-        label,
-        tauri::WebviewUrl::App(window_relative_url.into()),
-    )
-    .resizable(true)
-    .title(handle.package_info().name.clone())
-    .min_inner_size(1000.0, 600.0)
-    .inner_size(1160.0, 720.0)
-    .disable_drag_drop_handler()
-    .hidden_title(!use_native_title_bar)
-    .title_bar_style(if use_native_title_bar {
-        tauri::TitleBarStyle::Visible
-    } else {
-        tauri::TitleBarStyle::Overlay
-    })
-    .build()?;
+    let window = tauri::WebviewWindowBuilder::new(handle, label, tauri::WebviewUrl::App(window_relative_url.into()))
+        .resizable(true)
+        .title(handle.package_info().name.clone())
+        .min_inner_size(1000.0, 600.0)
+        .inner_size(1160.0, 720.0)
+        .disable_drag_drop_handler()
+        .hidden_title(!use_native_title_bar)
+        .title_bar_style(if use_native_title_bar {
+            tauri::TitleBarStyle::Visible
+        } else {
+            tauri::TitleBarStyle::Overlay
+        })
+        .build()?;
 
     if !use_native_title_bar {
         use tauri::{LogicalPosition, Manager};
@@ -300,10 +287,7 @@ pub fn create(
             //       create a build script that makes it clear which MacOS version we are using
             //       to conditionally compile the right value.
             let y_offset_for_small_dots_in_pre_tahoe = 25.0;
-            window.setup_traffic_lights_inset(LogicalPosition::new(
-                16.0,
-                y_offset_for_small_dots_in_pre_tahoe,
-            ))?;
+            window.setup_traffic_lights_inset(LogicalPosition::new(16.0, y_offset_for_small_dots_in_pre_tahoe))?;
         }
     }
 

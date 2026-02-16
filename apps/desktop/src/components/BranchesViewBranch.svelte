@@ -3,10 +3,12 @@
 	import BranchesViewCommitContextMenu from '$components/BranchesViewCommitContextMenu.svelte';
 	import CherryApplyModal from '$components/CherryApplyModal.svelte';
 	import CommitRow from '$components/CommitRow.svelte';
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
+	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
+	import { createCommitSelection } from '$lib/selection/key';
 	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 
 	type Props = {
@@ -15,10 +17,27 @@
 		branchName: string;
 		remote?: string;
 		isTopBranch?: boolean;
+		isTarget?: boolean;
+		inWorkspace?: boolean;
+		selectedCommitId?: string;
+		onCommitClick: (commitId: string) => void;
+		onFileClick: (index: number) => void;
 		onerror?: (error: unknown) => void;
 	};
 
-	const { projectId, stackId, branchName, remote, isTopBranch = true, onerror }: Props = $props();
+	const {
+		projectId,
+		stackId,
+		branchName,
+		remote,
+		isTopBranch = true,
+		inWorkspace,
+		isTarget,
+		selectedCommitId,
+		onCommitClick,
+		onFileClick,
+		onerror
+	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const branchQuery = $derived(
@@ -27,36 +46,81 @@
 			: stackService.unstackedBranchDetails(projectId, branchName, remote)
 	);
 
-	const uiState = inject(UI_STATE);
-	const projectState = $derived(uiState.project(projectId));
-	const branchesState = $derived(projectState.branchesSelection);
-
 	let cherryApplyModal = $state<CherryApplyModal>();
-	let selectedCommitId = $state<string>();
 </script>
 
 <ReduxResult result={branchQuery.result} {projectId} {stackId} {onerror}>
 	{#snippet children(branch, env)}
-		{#if stackId}
-			{@render branchCard(branch, env)}
-		{:else}
-			{@render branchCard(branch, env)}
-		{/if}
+		{@render branchCard(branch, env)}
 	{/snippet}
 </ReduxResult>
 
-{#snippet commitMenu(rightClickTrigger: HTMLElement, commitId: string)}
+{#snippet commitMenu(rightClickTrigger: HTMLElement)}
 	<BranchesViewCommitContextMenu
 		{rightClickTrigger}
 		onCherryPick={() => {
-			selectedCommitId = commitId;
 			cherryApplyModal?.open();
 		}}
 	/>
 {/snippet}
 
+{#snippet renderCommitRow(commit: Commit, idx: number, totalLocal: number)}
+	{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
+		{@render commitMenu(rightClickTrigger)}
+	{/snippet}
+	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = commit.state.type}
+	{@const isDiverged = commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
+	{@const shouldShowMenu = !(inWorkspace || isTarget)}
+	{@const isLastCommit = idx === totalLocal - 1}
+	<CommitRow
+		disableCommitActions={false}
+		{stackId}
+		type={commitType}
+		diverged={isDiverged}
+		commitMessage={commit.message}
+		gerritReviewUrl={commit?.gerritReviewUrl ?? undefined}
+		createdAt={commitCreatedAt(commit)}
+		commitId={commit.id}
+		{branchName}
+		selected={commit.id === selectedCommitId}
+		active={commit.id === selectedCommitId}
+		lastCommit={isLastCommit}
+		onclick={() => {
+			onCommitClick(commit.id);
+		}}
+		{...shouldShowMenu && { menu }}
+	>
+		{#snippet changedFiles()}
+			{@const changesQuery = stackService.commitChanges(projectId, commit.id)}
+
+			<ReduxResult {projectId} {stackId} result={changesQuery.result}>
+				{#snippet children(changesResult)}
+					<NestedChangedFiles
+						title="Changed files"
+						{projectId}
+						{stackId}
+						draggableFiles
+						selectionId={createCommitSelection({ commitId: commit.id, stackId })}
+						changes={changesResult.changes.filter(
+							(change) => !(change.path in (changesResult.conflictEntries?.entries ?? {}))
+						)}
+						stats={changesResult.stats}
+						conflictEntries={changesResult.conflictEntries}
+						autoselect
+						allowUnselect={false}
+						{onFileClick}
+					/>
+				{/snippet}
+			</ReduxResult>
+		{/snippet}
+	</CommitRow>
+{/snippet}
+
 {#snippet branchCard(branch: BranchDetails, env: { projectId: string; stackId?: string })}
 	{@const commitColor = getColorFromPushStatus(branch.pushStatus)}
+	{@const localCount = branch.commits?.length ?? 0}
+	{@const hasCommits = localCount > 0}
+
 	<BranchCard
 		type="normal-branch"
 		first={isTopBranch}
@@ -64,82 +128,22 @@
 		projectId={env.projectId}
 		branchName={branch.name}
 		{isTopBranch}
-		isNewBranch={branch.commits?.length === 0}
+		isNewBranch={localCount === 0}
 		iconName={pushStatusToIcon(branch.pushStatus)}
 		trackingBranch={branch.remoteTrackingBranch || undefined}
 		readonly
-		selected={branchesState.current.branchName === branch.name &&
-			branchesState.current.stackId === env.stackId &&
-			!branchesState.current.commitId}
-		onclick={() => {
-			branchesState.set({
-				branchName,
-				stackId: env.stackId,
-				remote
-			});
-		}}
+		roundedBottom={!hasCommits}
+		selected={false}
+		disableClick
 	>
 		{#snippet branchContent()}
-			<div class="branch-commits hide-when-empty">
-				{#each branch.upstreamCommits || [] as commit, idx}
-					{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
-						{@render commitMenu(rightClickTrigger, commit.id)}
-					{/snippet}
-					<CommitRow
-						disableCommitActions={false}
-						stackId={env.stackId}
-						type="Remote"
-						active
-						commitMessage={commit.message}
-						createdAt={commit.createdAt}
-						commitId={commit.id}
-						branchName={branch.name}
-						selected={commit.id === branchesState?.current.commitId}
-						onclick={() => {
-							branchesState.set({
-								stackId: env.stackId,
-								branchName: branchName,
-								commitId: commit.id,
-								remote
-							});
-						}}
-						lastCommit={idx === branch.upstreamCommits.length - 1 && branch.commits.length === 0}
-						menu={branchesState.current.inWorkspace || branchesState.current.isTarget
-							? undefined
-							: menu}
-					></CommitRow>
-				{/each}
-				{#each branch.commits || [] as commit, idx}
-					{#snippet menu({ rightClickTrigger }: { rightClickTrigger: HTMLElement })}
-						{@render commitMenu(rightClickTrigger, commit.id)}
-					{/snippet}
-					<CommitRow
-						disableCommitActions={false}
-						stackId={env.stackId}
-						type={branch.commits.at(0)?.state.type || 'LocalOnly'}
-						diverged={commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
-						commitMessage={commit.message}
-						gerritReviewUrl={commit.gerritReviewUrl}
-						createdAt={commit.createdAt}
-						commitId={commit.id}
-						branchName={branch.name}
-						selected={commit.id === branchesState?.current.commitId}
-						onclick={() => {
-							branchesState.set({
-								stackId: env.stackId,
-								branchName: branchName,
-								commitId: commit.id,
-								remote
-							});
-						}}
-						lastCommit={idx === branch.commits.length - 1}
-						active
-						menu={branchesState.current.inWorkspace || branchesState.current.isTarget
-							? undefined
-							: menu}
-					></CommitRow>
-				{/each}
-			</div>
+			{#if hasCommits}
+				<div class="branch-commits">
+					{#each branch.commits ?? [] as commit, idx}
+						{@render renderCommitRow(commit, idx, localCount)}
+					{/each}
+				</div>
+			{/if}
 		{/snippet}
 	</BranchCard>
 {/snippet}

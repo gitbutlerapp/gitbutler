@@ -77,7 +77,7 @@
 			}
 
 			.link-container {
-				background-color: var(--clr-theme-pop-bg-muted);
+				background-color: var(--clr-theme-pop-bg);
 			}
 
 			.icon {

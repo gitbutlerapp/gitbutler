@@ -15,18 +15,3 @@ export function keysStringToArr(keys: string): string[] {
 		return key;
 	});
 }
-
-export enum KeyName {
-	Space = ' ',
-	Meta = 'Meta',
-	Alt = 'Alt',
-	Ctrl = 'Ctrl',
-	Enter = 'Enter',
-	Escape = 'Escape',
-	Tab = 'Tab',
-	Up = 'ArrowUp',
-	Down = 'ArrowDown',
-	Left = 'ArrowLeft',
-	Right = 'ArrowRight',
-	Delete = 'Backspace'
-}

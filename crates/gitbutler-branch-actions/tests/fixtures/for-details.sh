@@ -53,7 +53,7 @@ git clone remote complex-repo
 
   # pretend the remote is at the same state as our local `main`
   # This previously wanted to update the remote to match the local main, we no
-  # longer have a "main" virutal branch, so this has been changed to the canned
+  # longer have a "main" virtual branch, so this has been changed to the canned
   # branch.
   git update-ref refs/remotes/origin/main a-branch-1
 )

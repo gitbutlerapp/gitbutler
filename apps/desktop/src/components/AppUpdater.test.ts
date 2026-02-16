@@ -21,7 +21,7 @@ describe('AppUpdater', () => {
 
 	beforeEach(() => {
 		vi.useFakeTimers();
-		updater = new UpdaterService(backend, posthog, shortcuts);
+		updater = new UpdaterService(backend, posthog, shortcuts, 3600 * 1000);
 		context = new Map([[UPDATER_SERVICE._key, updater]]);
 		vi.spyOn(backend, 'listen').mockReturnValue(async () => {});
 		vi.mock('$env/dynamic/public', () => {

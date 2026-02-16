@@ -1,22 +1,20 @@
 [package]
 name = "gitbutler-filemonitor"
 version = "0.0.0"
-edition = "2024"
+edition.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
-test = false
 doctest = false
 
 [dependencies]
-thiserror.workspace = true
 anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["excludes"] }
 
-backoff = "0.4.0"
+backoff.workspace = true
 notify.workspace = true
 gitbutler-notify-debouncer.path = "vendor/debouncer"
 gitbutler-project.workspace = true
@@ -25,3 +23,7 @@ gitbutler-project.workspace = true
 all = "deny"
 perf = "deny"
 correctness = "deny"
+
+[dev-dependencies]
+but-testsupport.workspace = true
+insta = "1.46.0"

@@ -1,8 +1,13 @@
 <script lang="ts">
+	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
 	import dependentBranchSvg from '$components/stackTabs/assets/dependent-branch.svg?raw';
-	import newStackSvg from '$components/stackTabs/assets/new-stack.svg?raw';
+	import newStackLefttSvg from '$components/stackTabs/assets/new-stack-left.svg?raw';
+	import newStackRightSvg from '$components/stackTabs/assets/new-stack-right.svg?raw';
+	import { autoSelectBranchCreationFeature } from '$lib/config/uiFeatureFlags';
+	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 
 	import {
 		Button,
@@ -13,10 +18,8 @@
 		RadioButton,
 		Select,
 		SelectItem,
-		TestId,
-		Textbox
+		TestId
 	} from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	type Props = {
@@ -28,14 +31,18 @@
 	const stackService = inject(STACK_SERVICE);
 	const [createNewStack, stackCreation] = stackService.newStack;
 	const [createNewBranch, branchCreation] = stackService.newBranch;
+	const { openGeneralSettings } = useSettingsModal();
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
 	let createRefType = $state<'stack' | 'dependent'>('stack');
 	let selectedStackId = $state<string>();
+	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 
-	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
-	const generatedNameDiverges = $derived(!!createRefName && slugifiedRefName !== createRefName);
+	// Persisted preference for branch placement
+	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
+
+	let slugifiedRefName: string | undefined = $state();
 
 	// Get all stacks in the workspace
 	const allStacksQuery = $derived(stackService.stacks(projectId));
@@ -83,7 +90,12 @@
 		if (createRefType === 'stack') {
 			await createNewStack({
 				projectId,
-				branch: { name: slugifiedRefName }
+				branch: {
+					name: slugifiedRefName,
+					// If addToLeftmost is true, place at position 0 (leftmost)
+					// Otherwise, leave undefined to append to the right
+					order: $addToLeftmost ? 0 : undefined
+				}
 			});
 			createRefModal?.close();
 		} else {
@@ -109,6 +121,11 @@
 	export async function show(initialType?: 'stack' | 'dependent') {
 		createRefModal?.show();
 		createRefName = await stackService.fetchNewBranchName(projectId);
+
+		// Select text after async value is loaded and DOM is updated
+		if ($autoSelectBranchCreationFeature) {
+			await branchNameInput?.selectAll();
+		}
 		// Reset selected stack to default
 		selectedStackId = undefined;
 		// Set branch type - default to 'stack' unless explicitly provided
@@ -122,15 +139,16 @@
 
 <Modal bind:this={createRefModal} width={500} testId={TestId.CreateNewBranchModal}>
 	<div class="content-wrap">
-		<Textbox
+		<BranchNameTextbox
+			bind:this={branchNameInput}
 			label="New branch"
 			id={ElementId.NewBranchNameInput}
-			bind:value={createRefName}
+			value={createRefName}
 			autofocus
-			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
+			onslugifiedvalue={(value) => (slugifiedRefName = value)}
 		/>
 
-		<div class="options-wrap">
+		<div class="options-wrap" role="radiogroup" aria-label="Branch type selection">
 			<!-- Option 1 -->
 			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === 'stack'}>
 				<div class="radio-btn">
@@ -143,13 +161,17 @@
 				</div>
 
 				<div class="radio-content">
-					<h3 class="text-13 text-bold text-body radio-title">Independent branch</h3>
+					<h3 class="text-14 text-bold text-body radio-title">Independent branch</h3>
 					<p class="text-12 text-body radio-caption">
 						Create an independent branch<br />in a new stack.
 					</p>
 
 					<div class="radio-illustration">
-						{@html newStackSvg}
+						{#if $addToLeftmost}
+							{@html newStackLefttSvg}
+						{:else}
+							{@html newStackRightSvg}
+						{/if}
 					</div>
 				</div>
 			</label>
@@ -171,7 +193,7 @@
 				</div>
 
 				<div class="radio-content">
-					<h3 class="text-13 text-bold text-body radio-title">Dependent branch</h3>
+					<h3 class="text-14 text-bold text-body radio-title">Dependent branch</h3>
 					<p class="text-12 text-body radio-caption">
 						{#if allStacks.length === 0}
 							Create a branch that depends<br />on another stack (none available).
@@ -210,6 +232,18 @@
 			<p>
 				{#if createRefType === 'stack'}
 					The new branch will be applied in parallel with other stacks in the workspace.
+					<br />
+					Adjust branch placement and preferences in
+					<button
+						type="button"
+						class="settings-link underline-dotted"
+						onclick={() => {
+							createRefModal?.close();
+							openGeneralSettings('lanes-and-branches');
+						}}
+					>
+						Settings → Lanes & branches
+					</button>
 				{:else}
 					Creates a branch that depends on a selected stack.
 					<br />
@@ -260,19 +294,33 @@
 		gap: 8px;
 	}
 
+	.settings-link {
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--clr-link);
+		font: inherit;
+		cursor: pointer;
+
+		&:hover {
+			color: var(--clr-link-hover);
+		}
+	}
+
 	.radio-label {
-		--btn-bg: var(--clr-btn-ntrl-outline-bg);
+		/* variables */
+		--btn-bg: var(--clr-btn-gray-outline-bg);
 		--btn-bg-opacity: 0;
-		--btn-border-clr: var(--clr-btn-ntrl-outline);
+		--btn-border-clr: var(--clr-btn-gray-outline);
 		--btn-border-opacity: var(--opacity-btn-outline);
 		--content-opacity: 1;
 		/* illustration */
-		--illustration-outline: var(--clr-border-2);
-		--illustration-text: var(--clr-text-3);
-		--illustration-accent-outline: var(--clr-text-3);
-		--illustration-accent-bg: var(--clr-bg-2);
+		--image-outline: var(--clr-border-2);
+		--image-text: var(--clr-text-3);
+		--image-accent-outline: var(--clr-text-3);
+		--image-accent-bg: var(--clr-bg-2);
+		/*  */
 		display: flex;
-
 		position: relative;
 		flex: 1;
 		flex-direction: column;
@@ -300,14 +348,13 @@
 		}
 
 		&.disabled {
-			--btn-bg: var(--clr-btn-ntrl-outline-bg);
+			--btn-bg: var(--clr-btn-gray-outline-bg);
 			--btn-bg-opacity: 0.1;
-			--btn-border-clr: var(--clr-btn-ntrl-outline);
+			--btn-border-clr: var(--clr-btn-gray-outline);
 			--btn-border-opacity: 0.1;
-			--illustration-outline: var(--clr-text-3);
-			--illustration-text: var(--clr-text-3);
-			--illustration-accent-outline: var(--clr-text-3);
-			--illustration-accent-bg: var(--clr-bg-2);
+			--image-outline: var(--clr-border-1);
+			--image-accent-outline: var(--clr-text-3);
+			--image-accent-bg: var(--clr-bg-2);
 			--content-opacity: 0.5;
 			cursor: not-allowed;
 		}
@@ -318,6 +365,7 @@
 		flex-direction: column;
 		justify-content: space-between;
 		height: 100%;
+		gap: 4px;
 		opacity: var(--content-opacity);
 	}
 
@@ -336,7 +384,7 @@
 		display: flex;
 		align-items: flex-end;
 		height: 100%;
-		margin-top: 20px;
+		margin-top: 16px;
 	}
 
 	.radio-aditional-info {
@@ -358,10 +406,9 @@
 		--btn-border-clr: var(--clr-btn-pop-outline);
 		--btn-border-opacity: 0.6;
 		/* illustration */
-		--illustration-outline: var(--clr-text-3);
-		--illustration-text: var(--clr-text-2);
-		--illustration-accent-outline: var(--clr-theme-pop-element);
-		--illustration-accent-bg: var(--clr-theme-pop-bg);
+		--image-outline: var(--clr-border-1);
+		--image-accent-outline: var(--clr-theme-pop-element);
+		--image-accent-bg: var(--clr-theme-pop-bg);
 	}
 
 	/* FOOTER */

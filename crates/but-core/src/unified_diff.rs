@@ -4,12 +4,12 @@ use gix::diff::blob::{
     platform::prepare_diff::Operation,
     unified_diff::{ConsumeBinaryHunk, ContextSize, HunkHeader},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{ChangeState, UnifiedPatch};
 
 /// A hunk as used in a [UnifiedPatch], which also contains all added and removed lines.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffHunk {
     /// The 1-based line number at which the previous version of the file started.
@@ -116,11 +116,7 @@ impl UnifiedPatch {
         match diff_filter.set_resource(
             current_state.map_or(repo.object_hash().null(), |state| state.id),
             current_state.map_or_else(
-                || {
-                    previous_state
-                        .expect("BUG: at least one non-none state")
-                        .kind
-                },
+                || previous_state.expect("BUG: at least one non-none state").kind,
                 |state| state.kind,
             ),
             path.as_bstr(),
@@ -129,36 +125,31 @@ impl UnifiedPatch {
         ) {
             Ok(()) => {}
             Err(
-                blob::platform::set_resource::Error::InvalidMode { .. }
-                | blob::platform::set_resource::Error::ConvertToDiffable(
-                    blob::pipeline::convert_to_diffable::Error::InvalidEntryKind { .. },
-                ),
+                err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
             ) => {
+                tracing::warn!(?err, %path, "ignoring diff processing failure");
                 return Ok(None);
             }
             Err(err) => return Err(err.into()),
         };
+        let actual_previous_path = previous_path.unwrap_or(path.as_bstr());
         match diff_filter.set_resource(
             previous_state.map_or(repo.object_hash().null(), |state| state.id),
             previous_state.map_or_else(
-                || {
-                    current_state
-                        .expect("BUG: at least one non-none state")
-                        .kind
-                },
+                || current_state.expect("BUG: at least one non-none state").kind,
                 |state| state.kind,
             ),
-            previous_path.unwrap_or(path.as_bstr()),
+            actual_previous_path,
             ResourceKind::OldOrSource,
             repo,
         ) {
             Ok(()) => {}
             Err(
-                blob::platform::set_resource::Error::InvalidMode { .. }
-                | blob::platform::set_resource::Error::ConvertToDiffable(
-                    blob::pipeline::convert_to_diffable::Error::InvalidEntryKind { .. },
-                ),
+                err @ blob::platform::set_resource::Error::InvalidMode { .. }
+                | err @ blob::platform::set_resource::Error::ConvertToDiffable(_),
             ) => {
+                tracing::warn!(?err, %actual_previous_path, "ignoring diff processing failure");
                 return Ok(None);
             }
             Err(err) => return Err(err.into()),
@@ -229,9 +220,7 @@ impl UnifiedPatch {
                     .expect("BUG: one of the resources must have been binary/too big");
                 let big_file_size = repo.big_file_threshold()?;
                 if size > big_file_size {
-                    UnifiedPatch::TooLarge {
-                        size_in_bytes: size,
-                    }
+                    UnifiedPatch::TooLarge { size_in_bytes: size }
                 } else {
                     UnifiedPatch::Binary
                 }

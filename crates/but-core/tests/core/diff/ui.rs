@@ -1,12 +1,11 @@
 use but_testsupport::gix_testtools;
 
+use crate::diff::worktree_changes::repo_in;
+
 #[test]
 fn worktree_changes() -> anyhow::Result<()> {
-    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
-        .map_err(anyhow::Error::from_boxed)?;
-    let actual = serde_json::to_string_pretty(
-        &but_core::diff::ui::worktree_changes_by_worktree_dir(root.join("many-in-worktree"))?,
-    )?;
+    let repo = repo_in("status-repo", "many-in-worktree")?;
+    let actual = serde_json::to_string_pretty(&but_core::diff::ui::worktree_changes(&repo)?)?;
     insta::assert_snapshot!(actual, @r#"
     {
       "changes": [
@@ -372,15 +371,13 @@ fn worktree_changes() -> anyhow::Result<()> {
 
 #[test]
 fn commit_to_commit() -> anyhow::Result<()> {
-    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
-        .map_err(anyhow::Error::from_boxed)?;
+    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh").map_err(anyhow::Error::from_boxed)?;
     let worktree_dir = root.join("many-in-tree");
     let repo = &gix::open_opts(&worktree_dir, gix::open::Options::isolated())?;
-    let actual =
-        serde_json::to_string_pretty(&but_core::diff::ui::commit_changes_by_worktree_dir(
-            repo,
-            repo.rev_parse_single("@")?.into(),
-        )?)?;
+    let actual = serde_json::to_string_pretty(&but_core::diff::ui::commit_changes_with_line_stats_by_worktree_dir(
+        repo,
+        repo.rev_parse_single("@")?.into(),
+    )?)?;
     insta::assert_snapshot!(actual, @r#"
     {
       "changes": [
@@ -732,10 +729,6 @@ fn worktree_changes_unified_diffs_json_example() -> anyhow::Result<()> {
 }
 
 pub fn repo(name: &str) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh")
-        .map_err(anyhow::Error::from_boxed)?;
-    Ok(gix::open_opts(
-        root.join(name),
-        gix::open::Options::isolated(),
-    )?)
+    let root = gix_testtools::scripted_fixture_read_only("status-repo.sh").map_err(anyhow::Error::from_boxed)?;
+    Ok(gix::open_opts(root.join(name), gix::open::Options::isolated())?)
 }

@@ -1,8 +1,9 @@
 use std::fmt::Formatter;
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use bitflags::bitflags;
 use but_core::{ref_metadata, ref_metadata::StackId};
+use gix::prelude::ObjectIdExt;
 use petgraph::Direction;
 
 use crate::{CommitFlags, Graph, SegmentIndex, SegmentMetadata, init::PetGraph};
@@ -22,9 +23,7 @@ pub struct Stack {
 impl Stack {
     /// Return the first commit of the first segment, or `None` this stack is completely empty, or has only empty segments.
     pub fn tip(&self) -> Option<gix::ObjectId> {
-        self.segments
-            .first()
-            .and_then(|s| s.commits.first().map(|c| c.id))
+        self.segments.first().and_then(|s| s.commits.first().map(|c| c.id))
     }
 
     /// Return the name of the first segment of the stack.
@@ -85,8 +84,7 @@ impl Stack {
                         .then_some(c.id)
                 })
             });
-            last_segment.base_segment_id =
-                first_parent_sidx.filter(|_| last_segment.base.is_some());
+            last_segment.base_segment_id = first_parent_sidx.filter(|_| last_segment.base.is_some());
         }
 
         Stack { id, segments }
@@ -95,7 +93,10 @@ impl Stack {
 
 impl Stack {
     /// A one-line string representing the stack itself, without its contents.
-    pub fn debug_string(&self) -> String {
+    ///
+    /// Use `id_override` to have it use this (usually controlled) id instead of what otherwise
+    /// would be a generated one.
+    pub fn debug_string(&self, id_override: Option<StackId>) -> String {
         let mut dbg = self
             .segments
             .first()
@@ -105,15 +106,11 @@ impl Stack {
             dbg.push_str(&base.to_hex_with_len(7).to_string());
         }
         dbg.insert(0, '≡');
-        if let Some(id) = self.id {
+        if let Some(id) = id_override.or(self.id) {
             let id_string = id.to_string().replace("0", "").replace("-", "");
             dbg.push_str(&format!(
                 " {{{}}}",
-                if id_string.is_empty() {
-                    "0".into()
-                } else {
-                    id_string
-                }
+                if id_string.is_empty() { "0".into() } else { id_string }
             ));
         }
         dbg
@@ -122,7 +119,7 @@ impl Stack {
 
 impl std::fmt::Debug for Stack {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let mut s = f.debug_struct(&format!("Stack({})", self.debug_string()));
+        let mut s = f.debug_struct(&format!("Stack({})", self.debug_string(None)));
         s.field("segments", &self.segments);
         if let Some(stack_id) = self.id {
             s.field("id", &stack_id);
@@ -152,15 +149,17 @@ pub struct StackSegment {
     /// named segment.
     pub ref_info: Option<crate::RefInfo>,
     /// The name of the remote tracking branch of this segment, if present, i.e. `refs/remotes/origin/main`.
-    /// Its presence means [`commits_unique_in_remote_tracking_branch`] are possibly available.
+    /// Its presence means [`commits_outside`](Self::commits_outside) are possibly available.
     pub remote_tracking_ref_name: Option<gix::refs::FullName>,
-    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
-    /// avoiding a search through the entire graph.
     /// If `remote_tracking_ref_name` is `None`, and `ref_name` is a remote tracking branch, then this is set to be
     /// the segment id of the local tracking branch, effectively doubly-linking them for ease of traversal.
     /// If `ref_name` is `None` and this segment is the ancestor of a named segment that is known to a workspace,
     /// this id is pointing to that named segment to allow the reconstruction of the originally desired workspace.
     pub sibling_segment_id: Option<SegmentIndex>,
+    /// If `remote_tracking_ref_name` is set, this field is also set to make accessing the respective segment easy,
+    /// avoiding a search through the entire graph.
+    /// It *only* ever points to the remote tracking branch segment.
+    pub remote_tracking_branch_segment_id: Option<SegmentIndex>,
     /// An ID which uniquely identifies the [first graph segment](crate::Segment) that is contained
     /// in this instance.
     /// This is always the first id in the `commits_by_segment`.
@@ -228,15 +227,19 @@ impl StackSegment {
     /// Returns an iterator over all reachable reference names, that is the name of the segment if present
     /// and all ref-names pointing to/stored in local commits.
     pub fn ref_names(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> {
-        self.ref_info
-            .as_ref()
-            .map(|ri| ri.ref_name.as_ref())
-            .into_iter()
-            .chain(
-                self.commits
-                    .iter()
-                    .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
-            )
+        self.ref_info.as_ref().map(|ri| ri.ref_name.as_ref()).into_iter().chain(
+            self.commits
+                .iter()
+                .flat_map(|c| c.refs.iter().map(|ri| ri.ref_name.as_ref())),
+        )
+    }
+
+    /// Return `true` if this segment *would* be anonymous if it wasn't for the out-of-workspace segment to be projected onto this one.
+    ///
+    /// This is signaled by its underlying graph segment being unnamed, with a sybling set.
+    pub fn is_projected_from_outside(&self, graph: &Graph) -> bool {
+        let segment = &graph[self.id];
+        segment.ref_info.is_none() && segment.sibling_segment_id.is_some()
     }
 }
 
@@ -245,6 +248,7 @@ impl std::fmt::Debug for StackSegment {
         f.debug_struct(&format!("StackSegment({})", self.debug_string()))
             .field("commits", &self.commits)
             .field("commits_on_remote", &self.commits_on_remote)
+            .field("commits_outside", &self.commits_outside)
             .finish()
     }
 }
@@ -258,10 +262,7 @@ impl StackSegment {
     /// is an unambiguous ref pointing to a commit, or when it splits a segment by incoming connection.
     ///
     /// `graph` is used to look up the remote segment and find its commits.
-    pub fn from_graph_segments(
-        segments: &[&crate::Segment],
-        graph: &Graph,
-    ) -> anyhow::Result<Self> {
+    pub(crate) fn from_graph_segments(segments: &[&crate::Segment], graph: &Graph) -> anyhow::Result<Self> {
         let mut segments_iter = segments.iter();
         let &&crate::Segment {
             id,
@@ -269,44 +270,32 @@ impl StackSegment {
             ref_info: ref ref_name,
             ref remote_tracking_ref_name,
             sibling_segment_id,
+            remote_tracking_branch_segment_id,
             commits: _,
             ref metadata,
-        } = segments_iter
-            .next()
-            .context("BUG: need one or more segments")?;
+        } = segments_iter.next().context("BUG: need one or more segments")?;
 
         let mut commits_by_segment = Vec::new();
         let mut is_first = true;
-        let (mut ref_name, mut metadata, mut remote_tracking_ref_name) =
-            (ref_name, metadata, remote_tracking_ref_name);
+        let (mut ref_name, mut metadata, mut remote_tracking_ref_name) = (ref_name, metadata, remote_tracking_ref_name);
         let mut commits_outside = None::<Vec<_>>;
         for s in segments {
             let mut stack_commits = Vec::new();
-            if let Some(sibling_sidx) = s
-                .sibling_segment_id
-                .filter(|_| is_first && ref_name.is_none())
-            {
+            if let Some(sibling_sidx) = s.sibling_segment_id.filter(|_| is_first && ref_name.is_none()) {
                 let sibling = &graph[sibling_sidx];
                 ref_name = &sibling.ref_info;
                 metadata = &sibling.metadata;
                 remote_tracking_ref_name = &sibling.remote_tracking_ref_name;
-                graph.visit_all_segments_including_start_until(
-                    sibling_sidx,
-                    Direction::Outgoing,
-                    |s| {
-                        let prune = true;
-                        if s.commits
-                            .iter()
-                            .any(|c| c.flags.contains(CommitFlags::InWorkspace))
-                        {
-                            return prune;
-                        }
-                        commits_outside
-                            .get_or_insert_default()
-                            .extend(s.commits.iter().map(StackCommit::from_graph_commit));
-                        !prune
-                    },
-                );
+                graph.visit_all_segments_including_start_until(sibling_sidx, Direction::Outgoing, |s| {
+                    let prune = true;
+                    if s.commits.iter().any(|c| c.flags.contains(CommitFlags::InWorkspace)) {
+                        return prune;
+                    }
+                    commits_outside
+                        .get_or_insert_default()
+                        .extend(s.commits.iter().map(StackCommit::from_graph_commit));
+                    !prune
+                });
             }
             for commit in &s.commits {
                 stack_commits.push(StackCommit::from_graph_commit(commit));
@@ -328,6 +317,7 @@ impl StackSegment {
             id,
             remote_tracking_ref_name: remote_tracking_ref_name.clone(),
             sibling_segment_id,
+            remote_tracking_branch_segment_id,
             // `base` is set later in the context of the entire stack.
             base: None,
             base_segment_id: None,
@@ -371,9 +361,8 @@ impl StackSegment {
             self.commits
                 .iter()
                 .filter(|c| {
-                    !c.flags.intersects(
-                        StackCommitFlags::ReachableByRemote | StackCommitFlags::Integrated,
-                    )
+                    !c.flags
+                        .intersects(StackCommitFlags::ReachableByRemote | StackCommitFlags::Integrated)
                 })
                 .count()
         } else {
@@ -387,7 +376,8 @@ impl StackSegment {
             ref_name_remote = Graph::ref_and_remote_debug_string(
                 self.ref_info.as_ref(),
                 self.remote_tracking_ref_name.as_ref(),
-                self.sibling_segment_id
+                self.sibling_segment_id,
+                self.remote_tracking_branch_segment_id,
             ),
             local_commits = if num_local_commits == 0 {
                 "".into()
@@ -403,7 +393,7 @@ impl StackSegment {
     }
 }
 
-/// A combination of [Commits](crate::Commit).
+/// The same as [Commits](crate::Commit), but with [StackCommitFlags].
 #[derive(Clone, Eq, PartialEq)]
 pub struct StackCommit {
     /// The hash of the commit.
@@ -417,7 +407,19 @@ pub struct StackCommit {
     pub refs: Vec<crate::RefInfo>,
 }
 
+/// Utilities
 impl StackCommit {
+    /// Attach this commit to `repo` for more detailed access of the commit itself
+    /// via [`but_core::Commit`].
+    ///
+    /// # Performance Warning
+    ///
+    /// Don't do this light-heartedly as it decodes the commit, parses it, *and* copies
+    /// all fields into an owned instance. This is expensive.
+    pub fn attach<'repo>(&self, repo: &'repo gix::Repository) -> anyhow::Result<but_core::Commit<'repo>> {
+        but_core::Commit::from_id(self.id.attach(repo))
+    }
+
     /// Return an iterator over all reference names that point to this commit.
     pub fn ref_iter(&self) -> impl Iterator<Item = &gix::refs::FullNameRef> + Clone {
         self.refs.iter().map(|ri| ri.ref_name.as_ref())
@@ -449,10 +451,7 @@ impl StackCommit {
             },
             kind = if flags.contains(F::RemoteOnly) {
                 "🟣"
-            } else if self
-                .flags
-                .contains(StackCommitFlags::ReachableByMatchingRemote)
-            {
+            } else if self.flags.contains(StackCommitFlags::ReachableByMatchingRemote) {
                 "❄️"
             } else if self.flags.contains(StackCommitFlags::ReachableByRemote) {
                 "❄"
@@ -566,8 +565,6 @@ impl StackCommitFlags {
 /// Convert only matching bits
 impl From<CommitFlags> for StackCommitFlags {
     fn from(value: CommitFlags) -> Self {
-        StackCommitFlags::from_bits_retain(
-            (value & (CommitFlags::Integrated | CommitFlags::InWorkspace)).bits() as u8,
-        )
+        StackCommitFlags::from_bits_retain((value & (CommitFlags::Integrated | CommitFlags::InWorkspace)).bits() as u8)
     }
 }

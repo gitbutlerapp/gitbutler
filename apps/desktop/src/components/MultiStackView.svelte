@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CollapsedLane from '$components/CollapsedLane.svelte';
+	import CreateBranchModal from '$components/CreateBranchModal.svelte';
 	import MultiStackOfflaneDropzone from '$components/MultiStackOfflaneDropzone.svelte';
 	import MultiStackPagination, { scrollToLane } from '$components/MultiStackPagination.svelte';
 	import Scrollbar from '$components/Scrollbar.svelte';
@@ -58,6 +59,8 @@
 
 	/** Used to offset content shift from opening an unassigned change preview. */
 	let lastWidth = $state<number>();
+
+	let createBranchModal = $state<CreateBranchModal>();
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
@@ -146,6 +149,7 @@
 <div
 	class="scrollbar-container hide-native-scrollbar"
 	role="presentation"
+	data-scrollable-for-dragging
 	bind:this={lanesScrollableEl}
 	bind:clientWidth={lanesScrollableWidth}
 	bind:clientHeight={lanesScrollableHeight}
@@ -161,7 +165,7 @@
 	use:resizeObserver={(data) => {
 		// An experiment in prevent content shift. Currently this mechanism
 		// allows content shift if the main viewport is scrolled to the left,
-		// because the content shift is most annoyin when there are many
+		// because the content shift is most annoying when there are many
 		// lanes and you are e.g. making a commit to one of them.
 		if (lastWidth && lanesScrollableEl) {
 			// Only offset for sudden large changes.
@@ -190,9 +194,9 @@
 		{#each mutableStacks as stack, i (stack.id)}
 			<div
 				bind:this={stackElements[stack.id || 'branchless']}
-				class="reorderable-stack"
+				class="reorderable-stack dotted-pattern"
 				role="presentation"
-				animate:flip={{ duration: 150 }}
+				animate:flip={{ duration: draggingStack ? 200 : 0 }}
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
 					if (!stack.id) return;
@@ -225,7 +229,7 @@
 					<StackView
 						{projectId}
 						laneId={stack.id || 'banana'}
-						stackId={stack.id}
+						stackId={stack.id ?? undefined}
 						topBranchName={stack.heads.at(0)?.name}
 						bind:clientWidth={laneWidths[i]}
 						bind:clientHeight={lineHights[i]}
@@ -257,19 +261,34 @@
 				{#if stacks.length === 0}
 					Drop files to start a branch,
 					<br />
-					or apply from the
+					apply from the
 					<a
-						class="pointer-events underline"
+						class="pointer-events underline-dotted clr-text-2 link-hover-2"
 						aria-label="Branches view"
-						href={branchesPath(projectId)}>Branches view</a
+						href={branchesPath(projectId)}>branches view</a
 					>
-				{:else}
-					Drag changes here to
+					↗
 					<br />
-					branch off your changes
+					or
+					<button
+						type="button"
+						class="underline-dotted pointer-events clr-text-2 link-hover-2"
+						onclick={() => createBranchModal?.show()}>create a new branch</button
+					> +
+				{:else}
+					Drop files to start a branch,
+					<br />
+					or
+					<button
+						type="button"
+						class="underline-dotted pointer-events clr-text-2 link-hover-2"
+						onclick={() => createBranchModal?.show()}>create a new branch</button
+					> +
 				{/if}
 			{/snippet}
 		</MultiStackOfflaneDropzone>
+
+		<div class="dotted-pattern"></div>
 	</div>
 
 	{#if lanesScrollableEl}
@@ -277,12 +296,14 @@
 	{/if}
 </div>
 
+<CreateBranchModal bind:this={createBranchModal} {projectId} />
+
 <style lang="postcss">
 	.scrollbar-container {
 		display: flex;
 		flex: 1;
 		height: 100%;
-		margin: 0 -1px;
+		margin-right: -1px; /* to hide vertical lane border gap */
 		overflow-x: auto;
 		overflow-y: hidden;
 	}
@@ -290,6 +311,12 @@
 	.lanes-scrollable {
 		display: flex;
 		position: relative;
+		min-width: stretch;
+		height: 100%;
+	}
+
+	.dotted-pattern {
+		width: stretch;
 		height: 100%;
 	}
 
@@ -303,13 +330,13 @@
 
 	.reorderable-stack {
 		display: flex;
+		z-index: var(--z-ground);
 		flex-shrink: 0;
 		flex-direction: column;
 		width: fit-content;
 		height: 100%;
-
-		&:first-child {
-			border-left: 1px solid var(--clr-border-2);
-		}
+		margin-left: -1px;
+		border-left: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 	}
 </style>

@@ -1,0 +1,21 @@
+[package]
+name = "but-clap"
+version = "0.1.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+name = "but_clap"
+path = "src/lib.rs"
+
+[[bin]]
+name = "but-clap"
+path = "src/main.rs"
+doctest = false
+
+[dependencies]
+but.workspace = true
+clap.workspace = true
+anyhow.workspace = true

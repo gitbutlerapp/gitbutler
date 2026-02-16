@@ -146,10 +146,18 @@ function injectEndpoints(api: GitLabApi) {
 				invalidatesTags: (result) => [invalidatesItem(ReduxTag.GitLabPullRequests, result?.number)]
 			}),
 			mergePr: build.mutation<undefined, { number: number; method: MergeMethod }>({
-				queryFn: async ({ number }, query) => {
+				queryFn: async ({ number, method }, query) => {
 					try {
 						const { api, upstreamProjectId } = gitlab(query.extra);
-						await api.MergeRequests.merge(upstreamProjectId, number);
+
+						// Note: GitLab's rebase is not supported here as it requires a two-step async process.
+						// See: https://github.com/gitbutlerapp/gitbutler/pull/11611
+
+						// For 'merge' and 'squash' methods, use the merge API directly
+						await api.MergeRequests.merge(upstreamProjectId, number, {
+							squash: method === 'squash',
+							shouldRemoveSourceBranch: true
+						});
 						return { data: undefined };
 					} catch (e: unknown) {
 						return { error: toSerializable(e) };

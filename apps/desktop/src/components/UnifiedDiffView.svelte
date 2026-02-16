@@ -1,5 +1,6 @@
 <script lang="ts">
 	import HunkContextMenu from '$components/HunkContextMenu.svelte';
+	import ImageDiff from '$components/ImageDiff.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import LineLocksWarning from '$components/LineLocksWarning.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
@@ -21,8 +22,8 @@
 	import { SETTINGS } from '$lib/settings/userSettings';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
-
-	import { EmptyStatePlaceholder, HunkDiff, TestId } from '@gitbutler/ui';
+	import { isImageFile } from '@gitbutler/shared/utils/file';
+	import { EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
 	import type { FileDependencies } from '$lib/dependencies/dependencies';
@@ -30,7 +31,7 @@
 	import type { UnifiedDiff } from '$lib/hunks/diff';
 	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
 
-	const LARGE_DIFF_THRESHOLD = 2500;
+	const LARGE_DIFF_THRESHOLD = 1000;
 
 	type Props = {
 		projectId: string;
@@ -67,7 +68,7 @@
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
-	const isCommiting = $derived(
+	const isCommitting = $derived(
 		exclusiveAction?.type === 'commit' && selectionId.type === 'worktree'
 	);
 
@@ -191,9 +192,10 @@
 					}}
 				/>
 			{:else}
-				{#each filter(diff.subject.hunks) as hunk}
+				{#each filter(diff.subject.hunks) as hunk, hunkIndex}
 					{@const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk)}
 					{@const [_, lineLocks] = getLineLocks(hunk, fileDependencies?.dependencies ?? [])}
+					{@const hunkId = generateHunkId(change.path, hunkIndex)}
 					<div
 						class="hunk-content"
 						use:draggableChips={{
@@ -213,8 +215,9 @@
 						}}
 					>
 						<HunkDiff
+							id={hunkId}
 							draggingDisabled={!draggable}
-							hideCheckboxes={!isCommiting}
+							hideCheckboxes={!isCommitting}
 							filePath={change.path}
 							hunkStr={hunk.diff}
 							staged={selection.current.selected}
@@ -224,9 +227,10 @@
 							tabSize={$userSettings.tabSize}
 							wrapText={$userSettings.wrapText}
 							diffFont={$userSettings.diffFont}
-							diffContrast={$userSettings.diffContrast}
+							strongContrast={$userSettings.strongContrast}
 							colorBlindFriendly={$userSettings.colorBlindFriendly}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+							selectable={isUncommittedChange}
 							onLineClick={(p) => {
 								if (!canBePartiallySelected(diff.subject)) {
 									uncommittedService.checkHunk(stackId || null, change.path, hunk);
@@ -317,13 +321,17 @@
 				</EmptyStatePlaceholder>
 			</div>
 		{:else if diff.type === 'Binary'}
-			<div class="hunk-placehoder">
-				<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
-					{#snippet caption()}
-						Binary! Not for human eyes
-					{/snippet}
-				</EmptyStatePlaceholder>
-			</div>
+			{#if isImageFile(change.path)}
+				<ImageDiff {projectId} {change} {commitId} />
+			{:else}
+				<div class="hunk-placehoder">
+					<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
+						{#snippet caption()}
+							Binary! Not for human eyes
+						{/snippet}
+					</EmptyStatePlaceholder>
+				</div>
+			{/if}
 		{/if}
 	</div>
 {/snippet}

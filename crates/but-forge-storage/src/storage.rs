@@ -72,25 +72,16 @@ impl Storage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum DeprecatedSerializableGitHubAccount {
-    OAuth {
-        username: String,
-        access_token: String,
-    },
-    Pat {
-        username: String,
-        access_token: String,
-    },
+    OAuth { username: String, access_token: String },
+    Pat { username: String, access_token: String },
 }
 
-fn read_deprecated_github_secret(
-    account_secret_handle: &str,
-) -> Result<Option<DeprecatedSerializableGitHubAccount>> {
+fn read_deprecated_github_secret(account_secret_handle: &str) -> Result<Option<DeprecatedSerializableGitHubAccount>> {
     static FAIR_QUEUE: Mutex<()> = Mutex::new(());
     let _one_at_a_time_to_prevent_races = FAIR_QUEUE.lock().unwrap();
-    if let Some(secret_value) = but_secret::secret::retrieve(
-        account_secret_handle,
-        but_secret::secret::Namespace::BuildKind,
-    )? {
+    if let Some(secret_value) =
+        but_secret::secret::retrieve(account_secret_handle, but_secret::secret::Namespace::BuildKind)?
+    {
         let account: DeprecatedSerializableGitHubAccount = serde_json::from_str(&secret_value)?;
         Ok(Some(account))
     } else {
@@ -111,15 +102,9 @@ fn store_access_token_in_secret(account_secret_handle: &str, access_token: &str)
 fn migrate_account(account_secret_handle: &str) -> Result<Option<GitHubAccount>> {
     // Read the deprecated account structure.
     // If it fails to parse it we assume there is nothing to migrate.
-    if let Some(deprecated_account) = read_deprecated_github_secret(account_secret_handle)
-        .ok()
-        .flatten()
-    {
+    if let Some(deprecated_account) = read_deprecated_github_secret(account_secret_handle).ok().flatten() {
         let new_account = match deprecated_account {
-            DeprecatedSerializableGitHubAccount::OAuth {
-                username,
-                access_token,
-            } => {
+            DeprecatedSerializableGitHubAccount::OAuth { username, access_token } => {
                 // Store the plain access token in the same secret
                 store_access_token_in_secret(account_secret_handle, &access_token)?;
                 GitHubAccount::OAuth {
@@ -127,10 +112,7 @@ fn migrate_account(account_secret_handle: &str) -> Result<Option<GitHubAccount>>
                     access_token_key: account_secret_handle.to_string(),
                 }
             }
-            DeprecatedSerializableGitHubAccount::Pat {
-                username,
-                access_token,
-            } => {
+            DeprecatedSerializableGitHubAccount::Pat { username, access_token } => {
                 // Store the plain access token in the same secret
                 store_access_token_in_secret(account_secret_handle, &access_token)?;
                 GitHubAccount::Pat {

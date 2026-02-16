@@ -18,7 +18,7 @@
 <div class="formatting-button" class:formatting-button--activated={activated}>
 	<Button
 		type="button"
-		style="neutral"
+		style="gray"
 		kind="ghost"
 		{size}
 		{icon}
@@ -40,8 +40,8 @@
 		&.formatting-button--activated {
 			&::after {
 				position: absolute;
-				top: 0;
-				right: 0;
+				top: 1px;
+				right: 1px;
 				width: 6px;
 				height: 6px;
 				border-radius: 50%;

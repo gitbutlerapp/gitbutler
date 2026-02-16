@@ -74,7 +74,7 @@ export class PostHogWrapper {
 			email,
 			name
 		});
-		this.settingsService.updateTelemetryDistinctId(distinctId);
+		await this.settingsService.updateTelemetryDistinctId(distinctId);
 	}
 
 	setAnonymousPostHogUser() {
@@ -148,10 +148,14 @@ export enum OnboardingEvent {
 	CancelLoginGitButler = 'onboarding_cancel_login_gitbutler',
 	GitHubInitiateOAuth = 'onboarding_github_initiate_oauth',
 	GitHubStorePat = 'onboarding_github_store_pat',
+	GitLabStorePat = 'onboarding_gitlab_store_pat',
 	GitHubStoreGHEPat = 'onboarding_github_store_ghe_pat',
+	GitLabStoreSelfHostedPat = 'onboarding_gitlab_store_self_hosted_pat',
 	GitHubOAuthFailed = 'onboarding_github_oauth_failed',
 	GitHubStorePatFailed = 'onboarding_github_store_pat_failed',
+	GitLabStorePatFailed = 'onboarding_gitlab_store_pat_failed',
 	GitHubStoreGHEPatFailed = 'onboarding_github_store_ghe_pat_failed',
+	GitLabStoreSelfHostedPatFailed = 'onboarding_gitlab_store_self_hosted_pat_failed',
 	GitCheckCredentials = 'onboarding_git_check_credentials',
 	GitCheckCredentialsFailed = 'onboarding_git_check_credentials_failed',
 	GitAuthenticationContinue = 'onboarding_git_authentication_continue'

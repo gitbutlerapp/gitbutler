@@ -263,6 +263,7 @@
 								<div class="file">
 									<FileListItem
 										filePath={file.path}
+										pathFirst={$userSettings.pathFirst}
 										fileStatus={file.status}
 										{conflicted}
 										clickable={false}
@@ -347,7 +348,7 @@
 	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" {loading}>Save and exit</Button>
+		<Button style="danger" type="submit" {loading}>Save and exit</Button>
 	{/snippet}
 </Modal>
 

@@ -3,6 +3,7 @@
 	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
+	import { getPrStatus } from '$lib/forge/interface/prUtils';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 
@@ -124,7 +125,7 @@
 			{#if pr}
 				<ReviewBadge
 					type={reviewUnit?.abbr}
-					status={pr.draft ? 'draft' : 'unknown'}
+					status={getPrStatus(pr)}
 					title={pr.title}
 					number={pr.number}
 				/>
@@ -137,16 +138,17 @@
 			{/if}
 
 			{#each branchListing.remotes as remote}
-				<span>{remote}</span>
+				<span class="truncate">{remote}</span>
 				<span class="sidebar-entry__divider">•</span>
 			{/each}
+
 			{#if branchListing.hasLocal}
-				<span>local</span>
+				<span class="truncate">local</span>
 				<span class="sidebar-entry__divider">•</span>
 			{/if}
+
 			{#if branchListing.remotes.length === 0 && !branchListing.hasLocal}
-				<span class="sidebar-entry__divider">•</span>
-				<span>No remotes</span>
+				<span class="truncate">No remotes</span>
 			{/if}
 		</div>
 	{/snippet}
@@ -218,8 +220,8 @@
 		display: flex;
 		padding: 2px 4px;
 		border-radius: 10px;
-		background-color: var(--clr-scale-ntrl-50);
-		color: var(--clr-theme-ntrl-on-element);
+		background-color: var(--clr-theme-gray-element);
+		color: var(--clr-theme-gray-on-element);
 	}
 
 	.sidebar-entry__details {

@@ -27,6 +27,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             ref_info: Default::default(),
             stacks: vec![],
             target_ref: None,
+            target_commit_id: None,
             push_remote: None,
         })),
         ..Default::default()
@@ -68,7 +69,8 @@ fn post_graph_traversal() -> anyhow::Result<()> {
             worktree: None,
         }),
         remote_tracking_ref_name: Some("refs/remotes/origin/A".try_into()?),
-        sibling_segment_id: Some(SegmentIndex::from(1)),
+        sibling_segment_id: None,
+        remote_tracking_branch_segment_id: Some(SegmentIndex::from(1)),
         commits: vec![
             commit(id("a"), Some(init_commit_id), CommitFlags::InWorkspace),
             commit(init_commit_id, None, CommitFlags::InWorkspace),
@@ -95,6 +97,7 @@ fn post_graph_traversal() -> anyhow::Result<()> {
     graph.connect_new_segment(branch, 1, remote_to_root_branch, 0, None);
 
     insta::assert_snapshot!(graph_tree(&graph), @r"
+
     └── 👉📕►►►:0[0]:main <> origin/main
         ├── ►:1[0]:new-stack
         ├── ►:2[0]:origin/main
@@ -117,6 +120,7 @@ fn detached_head() {
         ..Default::default()
     });
     insta::assert_snapshot!(graph_tree(&graph), @r"
+
     └── 👉►:0[0]:anon:
         └── 🟣aaaaaaa
     ");
@@ -136,11 +140,7 @@ fn id(hex: &str) -> ObjectId {
     .unwrap()
 }
 
-fn commit(
-    id: ObjectId,
-    parent_ids: impl IntoIterator<Item = ObjectId>,
-    flags: CommitFlags,
-) -> Commit {
+fn commit(id: ObjectId, parent_ids: impl IntoIterator<Item = ObjectId>, flags: CommitFlags) -> Commit {
     Commit {
         id,
         parent_ids: parent_ids.into_iter().collect(),

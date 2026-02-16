@@ -1,7 +1,6 @@
 <script lang="ts">
 	import HunkDiffRow, { type ContextMenuParams } from '$components/hunkDiff/HunkDiffRow.svelte';
 	import LineSelection from '$components/hunkDiff/lineSelection.svelte';
-	import { clickOutside } from '$lib/utils/clickOutside';
 	import {
 		type ContentSection,
 		type DependencyLock,
@@ -9,34 +8,28 @@
 		type LineId,
 		lineIdKey,
 		type LineLock,
-		type LineSelector,
 		parserFromFilename,
 		type Row,
 		SectionType
 	} from '$lib/utils/diffParsing';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import type { LineSelectionParams } from '$components/hunkDiff/lineSelection.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		filePath: string;
+		selectable?: boolean;
 		content: ContentSection[];
 		tabSize?: number;
 		wrapText?: boolean;
 		diffFont?: string;
 		inlineUnifiedDiffs?: boolean;
-		selectedLines?: LineSelector[];
 		lineLocks?: LineLock[];
 		onLineClick?: (params: LineSelectionParams) => void;
-		clearLineSelection?: () => void;
-		onQuoteSelection?: () => void;
-		onCopySelection?: () => void;
 		numberHeaderWidth?: number;
 		staged?: boolean;
 		stagedLines?: LineId[];
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
-		clickOutsideExcludeElements?: HTMLElement[];
 		comment?: string;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 	}
@@ -44,32 +37,28 @@
 	const {
 		comment,
 		filePath,
+		selectable: isSelectable,
 		content,
 		onLineClick,
-		clearLineSelection,
 		wrapText = true,
 		diffFont,
 		tabSize = 4,
 		inlineUnifiedDiffs = false,
-		selectedLines,
 		lineLocks,
 		numberHeaderWidth,
-		onCopySelection,
-		onQuoteSelection,
 		staged,
 		stagedLines,
 		hideCheckboxes,
 		handleLineContextMenu,
-		clickOutsideExcludeElements,
 		lockWarning
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
 	const parser = $derived(parserFromFilename(filePath));
 	const renderRows = $derived(
-		generateRows(filePath, content, inlineUnifiedDiffs, parser, selectedLines, lineLocks)
+		generateRows(filePath, content, inlineUnifiedDiffs, parser, undefined, lineLocks)
 	);
-	const clickable = $derived(!!onLineClick);
+	const clickable = $derived(!!isSelectable);
 	const maxLineNumber = $derived.by(() => {
 		if (renderRows.length === 0) return 0;
 
@@ -106,14 +95,6 @@
 	$effect(() => lineSelection.setRows(renderRows));
 	$effect(() => lineSelection.setOnLineClick(onLineClick));
 
-	const hasSelectedLines = $derived(renderRows.filter((row) => row.isSelected).length > 0);
-
-	let hoveringOverTable = $state(false);
-	function handleClearSelection() {
-		if (hasSelectedLines) clearLineSelection?.();
-		lineSelection.onEnd();
-	}
-
 	function getStageState(row: Row): boolean | undefined {
 		if (staged === undefined) return undefined;
 		if (stagedLines === undefined || stagedLines.length === 0) return staged;
@@ -144,46 +125,13 @@
 
 	const commentRow = $derived(commentRows?.[0]);
 
-	/* TODO: Move utility function from `apps/desktop` into this UI library. */
-	function chunk<T>(arr: T[], size: number) {
-		return Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
-			arr.slice(i * size, i * size + size)
+	function divideIntoChunks<T>(array: T[], size: number): T[][] {
+		return Array.from({ length: Math.ceil(array.length / size) }, (_v, i) =>
+			array.slice(i * size, size * (i + 1))
 		);
 	}
 
-	/* Number of lines grouped together for intersection observer purposes. */
-	const chunkLength = 25;
-	/* The assumed height of a row, used to set height before rows have rendered. */
-	const defaultChunkHeight = 18;
-
-	const { firstRow, restRows } = $derived.by(() => {
-		if (renderRows.length === 0) return { firstRow: undefined, restRows: [] };
-		const [firstRow, ...restRows] = renderRows;
-		return { firstRow, restRows };
-	});
-
-	const chunkedRows = $derived(chunk(restRows, chunkLength));
-
-	/* Bound array of booleans used to control rendering of rows. */
-	let chunkVisibility = $state<boolean[]>([]);
-	/* Bound array of chunk heights, for accurate scrolling. */
-	let chunkHeight = $state<number[]>([]);
-
-	$effect(() => {
-		if (chunkedRows) {
-			chunkVisibility.length = chunkedRows.length;
-			chunkHeight.length = chunkedRows.length;
-		}
-	});
-
-	/**
-	 * Get the index of a row in the full list of rows.
-	 *
-	 * Take into account the the chunk index, the row index within the chunk, and the first row that's rendered separately.
-	 */
-	function getRowIndex(chunkIndex: number, rowIndex: number) {
-		return chunkIndex * chunkLength + rowIndex + 1;
-	}
+	const renderChunks = $derived(divideIntoChunks(renderRows, 10));
 </script>
 
 {#if commentRow}
@@ -197,92 +145,26 @@
 	</tbody>
 {/if}
 
-<!-- Render always the first row if there's any. -->
-<!-- This is needed in order for the header dimensions to be calculated correctly -->
-{#if firstRow}
-	<tbody
-		onmouseenter={() => (hoveringOverTable = true)}
-		onmouseleave={() => (hoveringOverTable = false)}
-		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
-		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
-		ontouchend={() => lineSelection.onEnd()}
-	>
-		<HunkDiffRow
-			{minWidth}
-			idx={0}
-			row={firstRow}
-			{clickable}
-			{lineSelection}
-			{tabSize}
-			{wrapText}
-			{diffFont}
-			{numberHeaderWidth}
-			{onQuoteSelection}
-			{onCopySelection}
-			clearLineSelection={handleClearSelection}
-			{hoveringOverTable}
-			staged={getStageState(firstRow)}
-			{hideCheckboxes}
-			{handleLineContextMenu}
-			{lockWarning}
-			hunkHasLocks={lineLocks && lineLocks.length > 0}
-		/>
-	</tbody>
-{/if}
-
-{#each chunkedRows as chunk, chunkIdx}
-	<tbody
-		onmouseenter={() => (hoveringOverTable = true)}
-		onmouseleave={() => (hoveringOverTable = false)}
-		ontouchstart={(ev) => lineSelection.onTouchStart(ev)}
-		ontouchmove={(ev) => lineSelection.onTouchMove(ev)}
-		ontouchend={() => lineSelection.onEnd()}
-		bind:clientHeight={chunkHeight[chunkIdx]}
-		use:clickOutside={{
-			handler: handleClearSelection,
-			excludeElement: clickOutsideExcludeElements
-		}}
-		use:intersectionObserver={{
-			callback: (entries) => {
-				chunkVisibility[chunkIdx] = !!entries?.isIntersecting;
-			},
-			options: { threshold: 0 }
-		}}
-	>
-		{#if chunkVisibility[chunkIdx]}
-			{#each chunk as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
-				{@const rowIdx = getRowIndex(chunkIdx, idx)}
-				<HunkDiffRow
-					{minWidth}
-					idx={rowIdx}
-					{row}
-					{clickable}
-					{lineSelection}
-					{tabSize}
-					{wrapText}
-					{diffFont}
-					{numberHeaderWidth}
-					{onQuoteSelection}
-					{onCopySelection}
-					clearLineSelection={handleClearSelection}
-					{hoveringOverTable}
-					staged={getStageState(row)}
-					{hideCheckboxes}
-					{handleLineContextMenu}
-					{lockWarning}
-					hunkHasLocks={lineLocks && lineLocks.length > 0}
-				/>
-			{/each}
-		{:else}
-			<tr>
-				<td
-					style:height={chunkHeight[chunkIdx]
-						? chunkHeight[chunkIdx] + 'px'
-						: chunkLength * defaultChunkHeight + 'px'}
-				>
-				</td>
-			</tr>
-		{/if}
+{#each renderChunks as chunkRows}
+	<tbody>
+		{#each chunkRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
+			<HunkDiffRow
+				{minWidth}
+				{idx}
+				{row}
+				{clickable}
+				{lineSelection}
+				{tabSize}
+				{wrapText}
+				{diffFont}
+				{numberHeaderWidth}
+				staged={getStageState(row)}
+				{hideCheckboxes}
+				{handleLineContextMenu}
+				{lockWarning}
+				hunkHasLocks={lineLocks && lineLocks.length > 0}
+			/>
+		{/each}
 	</tbody>
 {/each}
 
@@ -290,10 +172,11 @@
 	tbody {
 		z-index: var(--z-lifted);
 	}
+
 	.diff-comment {
 		width: 100%;
 		padding-left: 4px;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		font-size: 12px;
 		line-height: 1.25;
@@ -306,7 +189,7 @@
 
 	.diff-comment__number-column {
 		padding: 4px 4px;
-		border-right: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-diff-count-border);
 		border-bottom: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);

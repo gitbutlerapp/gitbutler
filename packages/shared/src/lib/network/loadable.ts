@@ -133,7 +133,7 @@ export function combine<A extends [...unknown[]]>(loadables: {
 	if (loadables.every((loadable) => isFound(loadable))) {
 		return {
 			status: 'found',
-			// @ts-expect-error I'm sure this could be typed propperly, but this is fine
+			// @ts-expect-error I'm sure this could be typed properly, but this is fine
 			value: loadables.map((loadable) => loadable.value)
 		};
 	}

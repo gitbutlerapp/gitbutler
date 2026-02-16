@@ -2,7 +2,7 @@
 	type T = any | unknown | undefined;
 
 	export type ModalSize = 'medium' | 'large' | 'small' | 'xsmall' | number;
-	export type ModalType = 'info' | 'warning' | 'error' | 'success';
+	export type ModalType = 'info' | 'warning' | 'danger' | 'success';
 
 	export type ModalProps = {
 		width?: ModalSize;
@@ -184,7 +184,7 @@
 		width: 100%;
 		height: 100%;
 		padding: 24px;
-		background-color: var(--clr-overlay-bg);
+		background-color: var(--clr-bg-overlay);
 	}
 
 	.modal-container.open {

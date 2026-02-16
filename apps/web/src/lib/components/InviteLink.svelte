@@ -87,7 +87,7 @@
 
 		<div class="invite-url-container">
 			<Textbox readonly value={inviteCode} />
-			<Button onclick={copyToClipboard} style={copied ? 'success' : 'pop'}>copy url</Button>
+			<Button onclick={copyToClipboard} style={copied ? 'safe' : 'pop'}>copy url</Button>
 		</div>
 
 		<p class="info-text">

@@ -28,10 +28,12 @@ export interface Settings {
 	diffFont: string;
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
-	diffContrast: 'light' | 'medium' | 'strong';
+	strongContrast: boolean;
 	colorBlindFriendly: boolean;
 	defaultCodeEditor: CodeEditorSettings;
 	defaultFileListMode: 'tree' | 'list';
+	pathFirst: boolean;
+	singleDiffView: boolean;
 }
 
 const defaults: Settings = {
@@ -51,10 +53,12 @@ const defaults: Settings = {
 	diffFont: 'Geist Mono, Menlo, monospace',
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
-	diffContrast: 'light',
+	strongContrast: false,
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
-	defaultFileListMode: 'list'
+	defaultFileListMode: 'list',
+	pathFirst: true,
+	singleDiffView: false
 };
 
 export function loadUserSettings(): Writable<Settings> {

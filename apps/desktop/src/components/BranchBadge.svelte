@@ -22,7 +22,7 @@
 	{label}
 </span>
 
-<style class="postcss">
+<style lang="postcss">
 	.branch-badge {
 		display: flex;
 		align-items: center;

@@ -22,11 +22,9 @@ pub fn upsert_index_entry(
         &[Stage::Base, Stage::Ours, Stage::Theirs],
     );
 
-    let needs_sort = if let Some(pos) = index.entry_index_by_path_and_stage_bounded(
-        rela_path,
-        Stage::Unconflicted,
-        *num_sorted_entries,
-    ) {
+    let needs_sort = if let Some(pos) =
+        index.entry_index_by_path_and_stage_bounded(rela_path, Stage::Unconflicted, *num_sorted_entries)
+    {
         #[expect(clippy::indexing_slicing)]
         let entry = &mut index.entries_mut()[pos];
         // NOTE: it's needed to set the values to 0 here or else 1 in 40 times or so
@@ -62,9 +60,7 @@ pub(crate) fn delete_entry_by_path_bounded_stages(
     stages: &[gix::index::entry::Stage],
 ) {
     for stage in stages {
-        if let Some(pos) =
-            index.entry_index_by_path_and_stage_bounded(rela_path, *stage, *num_sorted_entries)
-        {
+        if let Some(pos) = index.entry_index_by_path_and_stage_bounded(rela_path, *stage, *num_sorted_entries) {
             index.remove_entry_at_index(pos);
             *num_sorted_entries -= 1;
         }

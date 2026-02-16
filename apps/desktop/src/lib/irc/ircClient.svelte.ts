@@ -58,7 +58,7 @@ export class IrcClient {
 	/**
 	 * Connect to an IRC server.
 	 *
-	 * Throws if identity not avaialable, the server otherwise disconnects
+	 * Throws if identity not available, the server otherwise disconnects
 	 * after some timeout.
 	 */
 	connect(config: { server: string; nick: string }) {

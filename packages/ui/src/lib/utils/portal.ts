@@ -1,5 +1,5 @@
-export function portal(node: HTMLElement, to: string) {
-	const target = document.querySelector(to);
+export function portal(node: HTMLElement, to: string | Element) {
+	const target = typeof to === 'string' ? document.querySelector(to) : to;
 	if (target) {
 		target.appendChild(node);
 	}

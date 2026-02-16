@@ -1,7 +1,7 @@
 use but_core::{TreeStatusKind, ref_metadata::StackId};
 
 use crate::{
-    HunkRange, InputDiffHunk,
+    HunkLockTarget, HunkRange, InputDiffHunk,
     ranges::{
         paths::PathRanges,
         tests::{id_from_hex_char, input_hunk_from_unified_diff},
@@ -22,15 +22,10 @@ fn stack_simple() -> anyhow::Result<()> {
 ",
     )?;
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
     let commit_id = id_from_hex_char('a');
 
-    stack_ranges.add(
-        stack_id,
-        commit_id,
-        TreeStatusKind::Modification,
-        vec![diff],
-    )?;
+    stack_ranges.add(stack_id, commit_id, TreeStatusKind::Modification, vec![diff])?;
 
     let intersection = intersect(stack_ranges, 4, 1);
     assert_eq!(intersection.len(), 1);
@@ -48,15 +43,10 @@ fn stack_simple_update() -> anyhow::Result<()> {
     };
 
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
     let commit_id = id_from_hex_char('a');
 
-    stack_ranges.add(
-        stack_id,
-        commit_id,
-        TreeStatusKind::Modification,
-        vec![diff],
-    )?;
+    stack_ranges.add(stack_id, commit_id, TreeStatusKind::Modification, vec![diff])?;
 
     let intersection = intersect(stack_ranges, 4, 1);
     assert_eq!(intersection.len(), 1);
@@ -102,21 +92,16 @@ a
 ",
     )?;
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
     let commit_a_id = id_from_hex_char('a');
-    stack_ranges.add(
-        stack_id,
-        commit_a_id,
-        TreeStatusKind::Addition,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit_a_id, TreeStatusKind::Addition, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks[0],
         HunkRange {
             change_type: TreeStatusKind::Addition,
-            stack_id,
+            target,
             commit_id: commit_a_id,
             start: 1,
             lines: 7,
@@ -125,12 +110,7 @@ a
     );
 
     let commit_b_id = id_from_hex_char('b');
-    stack_ranges.add(
-        stack_id,
-        commit_b_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit_b_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 3);
     assert_eq!(
@@ -138,45 +118,40 @@ a
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Addition,
-                stack_id,
+                target,
                 commit_id: commit_a_id,
                 start: 1,
                 lines: 3,
-                line_shift: 7
+                line_shift: 3
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit_b_id,
                 start: 4,
                 lines: 1,
-                line_shift: 0
+                line_shift: 1
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
-                stack_id,
+                target,
                 commit_id: commit_a_id,
                 start: 5,
                 lines: 3,
-                line_shift: 7
+                line_shift: 3
             }
         ]
     );
 
     let commit_c_id = id_from_hex_char('c');
-    stack_ranges.add(
-        stack_id,
-        commit_c_id,
-        TreeStatusKind::Deletion,
-        vec![diff_3],
-    )?;
+    stack_ranges.add(target, commit_c_id, TreeStatusKind::Deletion, vec![diff_3])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Deletion,
-            stack_id,
+            target,
             commit_id: commit_c_id,
             start: 0,
             lines: 0,
@@ -240,38 +215,18 @@ a
 ",
     )?;
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
     let commit_a_id = id_from_hex_char('a');
-    stack_ranges.add(
-        stack_id,
-        commit_a_id,
-        TreeStatusKind::Addition,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(stack_id, commit_a_id, TreeStatusKind::Addition, vec![diff_1])?;
 
     let commit_b_id = id_from_hex_char('b');
-    stack_ranges.add(
-        stack_id,
-        commit_b_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(stack_id, commit_b_id, TreeStatusKind::Modification, vec![diff_2])?;
 
     let commit_c_id = id_from_hex_char('c');
-    stack_ranges.add(
-        stack_id,
-        commit_c_id,
-        TreeStatusKind::Deletion,
-        vec![diff_3],
-    )?;
+    stack_ranges.add(stack_id, commit_c_id, TreeStatusKind::Deletion, vec![diff_3])?;
 
     let commit_d_id = id_from_hex_char('d');
-    stack_ranges.add(
-        stack_id,
-        commit_d_id,
-        TreeStatusKind::Addition,
-        vec![diff_4],
-    )?;
+    stack_ranges.add(stack_id, commit_d_id, TreeStatusKind::Addition, vec![diff_4])?;
 
     // The file is deleted in the second commit.
     // If we recreate it, it should intersect.
@@ -297,7 +252,7 @@ fn uncommitted_file_deletion() -> anyhow::Result<()> {
 ",
     )?;
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
     let commit_id = id_from_hex_char('a');
     stack_ranges.add(stack_id, commit_id, TreeStatusKind::Addition, vec![diff_1])?;
 
@@ -341,22 +296,12 @@ fn stack_overwrite_file() -> anyhow::Result<()> {
 ",
     )?;
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
     let commit_a_id = id_from_hex_char('a');
-    stack_ranges.add(
-        stack_id,
-        commit_a_id,
-        TreeStatusKind::Addition,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(stack_id, commit_a_id, TreeStatusKind::Addition, vec![diff_1])?;
 
     let commit_b_id = id_from_hex_char('b');
-    stack_ranges.add(
-        stack_id,
-        commit_b_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(stack_id, commit_b_id, TreeStatusKind::Modification, vec![diff_2])?;
 
     let intersection = intersect(stack_ranges, 1, 1);
     assert_eq!(intersection.len(), 1);
@@ -391,22 +336,12 @@ fn stack_overwrite_line() -> anyhow::Result<()> {
 ",
     )?;
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
     let commit_a_id = id_from_hex_char('a');
-    stack_ranges.add(
-        stack_id,
-        commit_a_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(stack_id, commit_a_id, TreeStatusKind::Modification, vec![diff_1])?;
 
     let commit_b_id = id_from_hex_char('b');
-    stack_ranges.add(
-        stack_id,
-        commit_b_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(stack_id, commit_b_id, TreeStatusKind::Modification, vec![diff_2])?;
 
     let intersection = intersect(stack_ranges, 3, 3);
     assert_eq!(intersection.len(), 1);
@@ -441,23 +376,13 @@ fn stack_complex() -> anyhow::Result<()> {
     )?;
 
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
 
     let commit_id = id_from_hex_char('a');
-    stack_ranges.add(
-        stack_id,
-        commit_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(stack_id, commit_id, TreeStatusKind::Modification, vec![diff_1])?;
 
     let commit_id = id_from_hex_char('b');
-    stack_ranges.add(
-        stack_id,
-        commit_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(stack_id, commit_id, TreeStatusKind::Modification, vec![diff_2])?;
 
     let intersection = intersect(stack_ranges, 4, 1);
     assert_eq!(intersection.len(), 1);
@@ -492,22 +417,17 @@ a
     )?;
 
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit_a_id = id_from_hex_char('a');
-    stack_ranges.add(
-        stack_id,
-        commit_a_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit_a_id, TreeStatusKind::Modification, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit_a_id,
             start: 2,
             lines: 1,
@@ -516,12 +436,7 @@ a
     );
 
     let commit_b_id = id_from_hex_char('b');
-    stack_ranges.add(
-        stack_id,
-        commit_b_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit_b_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 2);
     assert_eq!(
@@ -529,7 +444,7 @@ a
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit_b_id,
                 start: 1,
                 lines: 1,
@@ -537,7 +452,7 @@ a
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit_a_id,
                 start: 3,
                 lines: 1,
@@ -556,7 +471,7 @@ a
 #[test]
 fn stack_complex_line_shift() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff1 = input_hunk_from_unified_diff(
@@ -625,19 +540,14 @@ a
     };
 
     // commit 1
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff1],
-    )?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Modification, vec![diff1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 2,
             lines: 1,
@@ -646,12 +556,7 @@ a
     );
 
     // commit 2
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 2);
     assert_eq!(
@@ -659,7 +564,7 @@ a
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 1,
                 lines: 1,
@@ -667,7 +572,7 @@ a
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 3,
                 lines: 1,
@@ -677,12 +582,7 @@ a
     );
 
     // commit 3
-    stack_ranges.add(
-        stack_id,
-        commit3_id,
-        TreeStatusKind::Modification,
-        vec![diff3],
-    )?;
+    stack_ranges.add(target, commit3_id, TreeStatusKind::Modification, vec![diff3])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 2);
     assert_eq!(
@@ -690,15 +590,15 @@ a
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 2,
                 lines: 1,
@@ -708,12 +608,7 @@ a
     );
 
     // commit 4
-    stack_ranges.add(
-        stack_id,
-        commit4_id,
-        TreeStatusKind::Modification,
-        vec![diff4],
-    )?;
+    stack_ranges.add(target, commit4_id, TreeStatusKind::Modification, vec![diff4])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 3);
     assert_eq!(
@@ -721,15 +616,15 @@ a
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 2,
                 lines: 1,
@@ -737,7 +632,7 @@ a
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit4_id,
                 start: 3,
                 lines: 2,
@@ -747,12 +642,7 @@ a
     );
 
     // commit 5
-    stack_ranges.add(
-        stack_id,
-        commit5_id,
-        TreeStatusKind::Modification,
-        vec![diff5],
-    )?;
+    stack_ranges.add(target, commit5_id, TreeStatusKind::Modification, vec![diff5])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 3);
     assert_eq!(
@@ -760,45 +650,40 @@ a
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit5_id,
                 start: 2,
                 lines: 3,
-                line_shift: 1
+                line_shift: 3
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit4_id,
                 start: 5,
                 lines: 1,
-                line_shift: 2
+                line_shift: 1
             }
         ]
     );
 
     // commit 6
-    stack_ranges.add(
-        stack_id,
-        commit6_id,
-        TreeStatusKind::Modification,
-        vec![diff6],
-    )?;
+    stack_ranges.add(target, commit6_id, TreeStatusKind::Modification, vec![diff6])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit6_id,
                 start: 1,
                 lines: 0,
@@ -806,19 +691,19 @@ a
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit5_id,
                 start: 1,
                 lines: 3,
-                line_shift: 1
+                line_shift: 3
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit4_id,
                 start: 4,
                 lines: 1,
-                line_shift: 2
+                line_shift: 1
             }
         ]
     );
@@ -845,7 +730,7 @@ a
 #[test]
 fn stack_multiple_overwrites() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -872,12 +757,7 @@ a
 a
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff2],
-    )?;
+    stack_ranges.add(stack_id, commit2_id, TreeStatusKind::Modification, vec![diff2])?;
 
     let commit3_id = id_from_hex_char('c');
     let diff3 = input_hunk_from_unified_diff(
@@ -892,12 +772,7 @@ a
 a
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit3_id,
-        TreeStatusKind::Modification,
-        vec![diff3],
-    )?;
+    stack_ranges.add(stack_id, commit3_id, TreeStatusKind::Modification, vec![diff3])?;
 
     let commit4_id = id_from_hex_char('d');
     let diff4 = input_hunk_from_unified_diff(
@@ -910,12 +785,7 @@ a
 a
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit4_id,
-        TreeStatusKind::Modification,
-        vec![diff4],
-    )?;
+    stack_ranges.add(stack_id, commit4_id, TreeStatusKind::Modification, vec![diff4])?;
 
     let result = intersect(stack_ranges, 1, 1);
     assert_eq!(result.len(), 1);
@@ -939,7 +809,7 @@ a
 #[test]
 fn stack_detect_deletion() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -954,12 +824,7 @@ a
 ",
     )?;
 
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(stack_id, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
 
     let result = intersect(stack_ranges, 3, 2);
     assert_eq!(result.len(), 1);
@@ -971,7 +836,7 @@ a
 #[test]
 fn stack_offset_and_split() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let stack_id = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -987,12 +852,7 @@ a
 a
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(stack_id, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
 
     let commit2_id = id_from_hex_char('b');
     let diff_2 = input_hunk_from_unified_diff(
@@ -1008,12 +868,7 @@ a
 a
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(stack_id, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
 
     let commit3_id = id_from_hex_char('c');
     let diff_3 = input_hunk_from_unified_diff(
@@ -1028,12 +883,7 @@ a
 a
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit3_id,
-        TreeStatusKind::Modification,
-        vec![diff_3],
-    )?;
+    stack_ranges.add(stack_id, commit3_id, TreeStatusKind::Modification, vec![diff_3])?;
 
     assert_eq!(intersect(stack_ranges, 4, 3)[0].commit_id, commit2_id);
     assert_eq!(intersect(stack_ranges, 15, 1).len(), 0);
@@ -1048,7 +898,7 @@ a
 #[test]
 fn create_file_update_and_trim() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1063,13 +913,13 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
 +h
 +i",
     )?;
-    stack_ranges.add(stack_id, commit1_id, TreeStatusKind::Addition, vec![diff_1])?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Addition, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Addition,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 1,
             lines: 9,
@@ -1084,40 +934,27 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
 -h
 -i",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Addition,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 1,
                 lines: 6,
-                line_shift: 9
+                line_shift: 6
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 7,
                 lines: 0,
-                line_shift: -3
+                line_shift: 0
             },
-            HunkRange {
-                change_type: TreeStatusKind::Addition,
-                stack_id,
-                commit_id: commit1_id,
-                start: 7,
-                lines: 0,
-                line_shift: 9
-            }
         ]
     );
 
@@ -1127,48 +964,35 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
 -a
 +1",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit3_id,
-        TreeStatusKind::Modification,
-        vec![diff_3],
-    )?;
+    stack_ranges.add(target, commit3_id, TreeStatusKind::Modification, vec![diff_3])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit3_id,
                 start: 1,
                 lines: 1,
-                line_shift: 0
+                line_shift: 1
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 2,
                 lines: 5,
-                line_shift: 0
+                line_shift: 5
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 7,
                 lines: 0,
-                line_shift: -3
+                line_shift: 0
             },
-            HunkRange {
-                change_type: TreeStatusKind::Addition,
-                stack_id,
-                commit_id: commit1_id,
-                start: 7,
-                lines: 0,
-                line_shift: 9
-            }
         ]
     );
 
@@ -1178,7 +1002,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
 #[test]
 fn adding_line_splits_range() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1189,18 +1013,13 @@ fn adding_line_splits_range() -> anyhow::Result<()> {
 +c
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 2,
             lines: 2,
@@ -1214,19 +1033,14 @@ fn adding_line_splits_range() -> anyhow::Result<()> {
 +b
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 2,
                 lines: 1,
@@ -1234,7 +1048,7 @@ fn adding_line_splits_range() -> anyhow::Result<()> {
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 3,
                 lines: 1,
@@ -1242,7 +1056,7 @@ fn adding_line_splits_range() -> anyhow::Result<()> {
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 4,
                 lines: 1,
@@ -1257,7 +1071,7 @@ fn adding_line_splits_range() -> anyhow::Result<()> {
 #[test]
 fn adding_line_before_shifts_range() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1268,18 +1082,13 @@ fn adding_line_before_shifts_range() -> anyhow::Result<()> {
 +c
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 2,
             lines: 2,
@@ -1293,19 +1102,14 @@ fn adding_line_before_shifts_range() -> anyhow::Result<()> {
 +b
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 2,
                 lines: 1,
@@ -1313,7 +1117,7 @@ fn adding_line_before_shifts_range() -> anyhow::Result<()> {
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 3,
                 lines: 2,
@@ -1328,7 +1132,7 @@ fn adding_line_before_shifts_range() -> anyhow::Result<()> {
 #[test]
 fn adding_line_after_shifts_range() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1339,18 +1143,13 @@ fn adding_line_after_shifts_range() -> anyhow::Result<()> {
 +c
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 2,
             lines: 2,
@@ -1364,19 +1163,14 @@ fn adding_line_after_shifts_range() -> anyhow::Result<()> {
 +b
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 2,
                 lines: 2,
@@ -1384,7 +1178,7 @@ fn adding_line_after_shifts_range() -> anyhow::Result<()> {
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 4,
                 lines: 1,
@@ -1399,7 +1193,7 @@ fn adding_line_after_shifts_range() -> anyhow::Result<()> {
 #[test]
 fn removing_line_updates_range() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1411,18 +1205,13 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
 +c
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 2,
             lines: 3,
@@ -1436,39 +1225,34 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
 -b
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 2,
-                lines: 0,
-                line_shift: 1
+                lines: 1,
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 2,
                 lines: 0,
-                line_shift: -1
+                line_shift: 0
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
-                start: 2,
-                lines: 2,
-                line_shift: 1
+                start: 3,
+                lines: 1,
+                line_shift: 0
             }
         ]
     );
@@ -1479,7 +1263,7 @@ fn removing_line_updates_range() -> anyhow::Result<()> {
 #[test]
 fn removing_line_before_shifts_range() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1491,18 +1275,13 @@ fn removing_line_before_shifts_range() -> anyhow::Result<()> {
 +c
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 2,
             lines: 3,
@@ -1516,19 +1295,14 @@ fn removing_line_before_shifts_range() -> anyhow::Result<()> {
 -start
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 1,
                 lines: 0,
@@ -1536,7 +1310,7 @@ fn removing_line_before_shifts_range() -> anyhow::Result<()> {
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 1,
                 lines: 3,
@@ -1551,7 +1325,7 @@ fn removing_line_before_shifts_range() -> anyhow::Result<()> {
 #[test]
 fn removing_line_after_is_ignored() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1563,18 +1337,13 @@ fn removing_line_after_is_ignored() -> anyhow::Result<()> {
 +c
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit1_id,
-        TreeStatusKind::Modification,
-        vec![diff_1],
-    )?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Modification, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Modification,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 2,
             lines: 3,
@@ -1588,19 +1357,14 @@ fn removing_line_after_is_ignored() -> anyhow::Result<()> {
 -end
 ",
     )?;
-    stack_ranges.add(
-        stack_id,
-        commit2_id,
-        TreeStatusKind::Modification,
-        vec![diff_2],
-    )?;
+    stack_ranges.add(target, commit2_id, TreeStatusKind::Modification, vec![diff_2])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 2,
                 lines: 3,
@@ -1608,7 +1372,7 @@ fn removing_line_after_is_ignored() -> anyhow::Result<()> {
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 4,
                 lines: 0,
@@ -1623,7 +1387,7 @@ fn removing_line_after_is_ignored() -> anyhow::Result<()> {
 #[test]
 fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
     let stack_ranges = &mut PathRanges::default();
-    let stack_id = StackId::generate();
+    let target = HunkLockTarget::Stack(StackId::generate());
 
     let commit1_id = id_from_hex_char('a');
     let diff_1 = input_hunk_from_unified_diff(
@@ -1640,13 +1404,13 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
 +10
 ",
     )?;
-    stack_ranges.add(stack_id, commit1_id, TreeStatusKind::Addition, vec![diff_1])?;
+    stack_ranges.add(target, commit1_id, TreeStatusKind::Addition, vec![diff_1])?;
     let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
             change_type: TreeStatusKind::Addition,
-            stack_id,
+            target,
             commit_id: commit1_id,
             start: 1,
             lines: 10,
@@ -1688,7 +1452,7 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
     )?;
 
     stack_ranges.add(
-        stack_id,
+        target,
         commit2_id,
         TreeStatusKind::Modification,
         vec![diff_2, diff_3, diff_4, diff_5],
@@ -1699,63 +1463,63 @@ fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
         &vec![
             HunkRange {
                 change_type: TreeStatusKind::Addition,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 1,
                 lines: 2,
-                line_shift: 10
+                line_shift: 2
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
                 commit_id: commit2_id,
                 start: 3,
                 lines: 4,
-                line_shift: 3
+                line_shift: 4
             },
             HunkRange {
                 change_type: TreeStatusKind::Addition,
-                stack_id,
+                target,
                 commit_id: commit1_id,
                 start: 7,
-                lines: 0,
-                line_shift: 10
-            },
-            HunkRange {
-                change_type: TreeStatusKind::Modification,
-                stack_id,
-                commit_id: commit2_id,
-                start: 7,
-                lines: 0,
-                line_shift: -1
-            },
-            HunkRange {
-                change_type: TreeStatusKind::Addition,
-                stack_id,
-                commit_id: commit1_id,
-                start: 7,
-                lines: 2,
-                line_shift: 10
-            },
-            HunkRange {
-                change_type: TreeStatusKind::Modification,
-                stack_id,
-                commit_id: commit2_id,
-                start: 9,
-                lines: 2,
+                lines: 1,
                 line_shift: 1
             },
             HunkRange {
+                change_type: TreeStatusKind::Modification,
+                target,
+                commit_id: commit2_id,
+                start: 7,
+                lines: 0,
+                line_shift: 0,
+            },
+            HunkRange {
                 change_type: TreeStatusKind::Addition,
-                stack_id,
+                target,
                 commit_id: commit1_id,
-                start: 11,
-                lines: 3,
-                line_shift: 10
+                start: 8,
+                lines: 1,
+                line_shift: 1,
             },
             HunkRange {
                 change_type: TreeStatusKind::Modification,
-                stack_id,
+                target,
+                commit_id: commit2_id,
+                start: 9,
+                lines: 2,
+                line_shift: 2
+            },
+            HunkRange {
+                change_type: TreeStatusKind::Addition,
+                target,
+                commit_id: commit1_id,
+                start: 11,
+                lines: 3,
+                line_shift: 3
+            },
+            HunkRange {
+                change_type: TreeStatusKind::Modification,
+                target,
                 commit_id: commit2_id,
                 start: 14,
                 lines: 3,

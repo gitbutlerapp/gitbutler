@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use gix::tempfile::{AutoRemove, ContainingDirectory, create_dir::Retries};
 use serde::de::DeserializeOwned;
 use walkdir::WalkDir;
@@ -111,10 +111,7 @@ pub fn list_files<P: AsRef<Path>>(
             };
 
             let path = path.to_path_buf();
-            if ignore_prefixes
-                .iter()
-                .any(|prefix| path.starts_with(prefix.as_ref()))
-            {
+            if ignore_prefixes.iter().any(|prefix| path.starts_with(prefix.as_ref())) {
                 continue;
             }
             files.push(path);
@@ -138,10 +135,7 @@ pub fn write<P: AsRef<Path>>(file_path: P, contents: impl AsRef<[u8]>) -> anyhow
 
 /// Write a single file so that the write either fully succeeds, or fully fails,
 /// and create all leading directories.
-pub fn create_dirs_then_write<P: AsRef<Path>>(
-    file_path: P,
-    contents: impl AsRef<[u8]>,
-) -> std::io::Result<()> {
+pub fn create_dirs_then_write<P: AsRef<Path>>(file_path: P, contents: impl AsRef<[u8]>) -> std::io::Result<()> {
     let mut temp_file = gix::tempfile::new(
         file_path.as_ref().parent().unwrap(),
         ContainingDirectory::CreateAllRaceProof(Retries::default()),
@@ -157,9 +151,9 @@ fn persist_tempfile(
 ) -> std::io::Result<()> {
     match tempfile.persist(to_path) {
         Ok(Some(_opened_file)) => Ok(()),
-        Ok(None) => unreachable!(
-            "BUG: a signal has caused the tempfile to be removed, but we didn't install a handler"
-        ),
+        Ok(None) => {
+            unreachable!("BUG: a signal has caused the tempfile to be removed, but we didn't install a handler")
+        }
         Err(err) => Err(err.error),
     }
 }
@@ -175,7 +169,6 @@ pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> 
     };
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let value: T =
-        toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
+    let value: T = toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
     Ok(value)
 }

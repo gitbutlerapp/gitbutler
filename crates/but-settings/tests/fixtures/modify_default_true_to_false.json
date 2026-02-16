@@ -1,5 +1,6 @@
 {
 	"telemetry": {
-		"appMetricsEnabled": false
+		"appMetricsEnabled": false,
+		"migratedFromLegacy": true
 	}
 }

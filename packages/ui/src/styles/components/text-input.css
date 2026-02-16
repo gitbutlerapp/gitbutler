@@ -28,24 +28,24 @@
 		&:invalid,
 		&.invalid,
 		&.error {
-			border-color: var(--clr-theme-err-element);
+			border-color: var(--clr-theme-danger-element);
 		}
 
 		&.error {
-			background-color: var(--clr-theme-err-bg);
+			background-color: var(--clr-theme-danger-bg);
 		}
 
 		&:disabled,
 		&.disabled {
 			border-color: var(--clr-border-3);
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--clr-bg-muted);
 			color: var(--clr-text-2);
 			cursor: default;
 		}
 
 		&.readonly {
 			border-color: var(--clr-border-2);
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--clr-bg-muted);
 		}
 	}
 }

@@ -3,7 +3,6 @@ use std::path::Path;
 use anyhow::Result;
 use but_fs::write;
 use but_oxidize::OidExt as _;
-use gitbutler_project::Project;
 use gitbutler_repo::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::{config::tree::Key, date::parse::TimeBuf};
@@ -12,7 +11,7 @@ use crate::state::OplogHandle;
 
 /// A collection of commits that we want to protect from `git GC`.
 ///
-/// It can easily be produced from a [`Project`] to get the status quo to update the reflog after the project changed.
+/// It can easily be produced from a project to get the status quo to update the reflog after the project changed.
 #[derive(Debug, Clone, Copy)]
 pub struct ReflogCommits {
     target: gix::ObjectId,
@@ -22,11 +21,11 @@ pub struct ReflogCommits {
 
 impl ReflogCommits {
     /// Collect the current state of all relevant commits that we want to protect in the reflog to prevent them from being GC'd.
-    pub fn new(project: &Project) -> Result<Self> {
-        let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+    pub fn new(project_data_dir: &Path) -> Result<Self> {
+        let vb_state = VirtualBranchesHandle::new(project_data_dir);
         let target = vb_state.get_default_target()?.sha.to_gix();
         let last_pushed_base = vb_state.last_pushed_base()?;
-        let oplog_state = OplogHandle::new(&project.gb_dir());
+        let oplog_state = OplogHandle::new(project_data_dir);
         let oplog = oplog_state.oplog_head()?.map(|commit| commit.to_gix());
 
         Ok(ReflogCommits {
@@ -150,9 +149,7 @@ fn build_reflog_content(commits: &[gix::ObjectId]) -> String {
 
 fn serialize_line(line: gix::refs::file::log::LineRef<'_>) -> String {
     let mut sig = Vec::new();
-    line.signature
-        .write_to(&mut sig)
-        .expect("write to memory succeeds");
+    line.signature.write_to(&mut sig).expect("write to memory succeeds");
 
     format!(
         "{} {} {}\t{}",
@@ -172,10 +169,7 @@ mod set_target_ref {
     use pretty_assertions::assert_eq;
     use tempfile::tempdir;
 
-    use super::{
-        GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME, ReflogCommits,
-        set_reference_to_oplog,
-    };
+    use super::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME, ReflogCommits, set_reference_to_oplog};
 
     #[test]
     fn reflog_present_but_empty() -> anyhow::Result<()> {
@@ -250,8 +244,7 @@ mod set_target_ref {
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         std::fs::remove_file(&log_file_path)?;
 
-        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog))
-            .expect("missing reflog files are recreated");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, oplog)).expect("missing reflog files are recreated");
         assert!(log_file_path.is_file(), "the file was recreated");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
@@ -308,8 +301,7 @@ mod set_target_ref {
         // Update the oplog head only
         let another_oplog_hex = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
         let another_oplog = git2::Oid::from_str(another_oplog_hex)?;
-        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, another_oplog))
-            .expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(commit_id, another_oplog)).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines: Vec<_> = reflog_lines(&contents);
@@ -338,8 +330,7 @@ mod set_target_ref {
         // Update the target head only
         let new_target_hex = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         let new_target = git2::Oid::from_str(new_target_hex)?;
-        set_reference_to_oplog(&git_dir, reflog_commits(new_target, another_oplog))
-            .expect("success");
+        set_reference_to_oplog(&git_dir, reflog_commits(new_target, another_oplog)).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines: Vec<_> = reflog_lines(&contents);
@@ -381,7 +372,7 @@ mod set_target_ref {
         assert_ne!(
             sig.seconds(),
             0,
-            "we don't accidentally use the default time as it would caues GC as well"
+            "we don't accidentally use the default time as it would causes GC as well"
         );
     }
 

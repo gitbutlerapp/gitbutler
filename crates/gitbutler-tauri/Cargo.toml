@@ -1,10 +1,10 @@
 [package]
 name = "gitbutler-tauri"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
@@ -23,7 +23,6 @@ but = { workspace = true, optional = true }
 but-feedback.workspace = true
 but-error.workspace = true
 but-secret.workspace = true
-but-broadcaster.workspace = true
 but-db.workspace = true
 but-settings.workspace = true
 but-core.workspace = true
@@ -31,13 +30,17 @@ but-action.workspace = true
 but-bot.workspace = true
 but-api = { workspace = true, features = ["tauri", "path-bytes", "legacy"] }
 but-claude.workspace = true
+but-ctx.workspace = true
+but-forge.workspace = true
+but-llm.workspace = true
+but-hunk-assignment.workspace = true
 
-gitbutler-watcher.workspace = true
 gitbutler-repo-actions.workspace = true
-gitbutler-command-context.workspace = true
+gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
+gitbutler-git = { workspace = true, features = ["askpass"] }
 
-tauri = { version = "^2.9.2", features = ["unstable"] }
+tauri = { version = "^2.9.5", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 tauri-plugin-dialog = "2.4.2"
 tauri-plugin-fs = "2.4.2"
@@ -53,9 +56,13 @@ tauri-plugin-clipboard-manager = "2.3.2"
 
 
 anyhow.workspace = true
+
+# For error casting
+rusqlite.workspace = true
+
 backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.5.0"
-gix = { workspace = true, features = ["max-performance", "worktree-mutation" ] }
+gix = { workspace = true, features = ["max-performance", "worktree-mutation"] }
 serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 
@@ -65,14 +72,18 @@ git2.workspace = true
 # The features here optimize for performance.
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
 tracing.workspace = true
-tracing-appender = "0.2.3"
+tracing-appender = "0.2.4"
 tracing-subscriber.workspace = true
 tracing-forest.workspace = true
 open.workspace = true
+## This is only used on macOS when it's the stable build to open `com.gitbutler.app` folders.
+## Ideally, we could only use the dependency then.
+opener = { version = "0.8.3", features = ["reveal"] }
 url = "2.5.4"
 but-path.workspace = true
 uuid.workspace = true
 tauri-plugin-deep-link = "2"
+document-features = { version = "0.2", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-plugin-trafficlights-positioner = { git = "https://github.com/gitbutlerapp/tauri-plugin-trafficlights-positioner", branch = "v2" }
@@ -84,14 +95,24 @@ correctness = "deny"
 
 [features]
 default = ["custom-protocol", "devtools"]
-## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
-windows = []
+#! ## Build- and package-related Options
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]
+## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
+packaged-but-distribution = []
+## Disable the auto-updater in the frontend.
+##
+## Note that it will still be compiled into the backend, so the technical capability of auto-updates remains.
+disable-auto-updates = []
+## A forwarding to all crates that have windows-specific adjustments for testing on non-Windows.
+windows = []
+## Allow dev-tools to appear to help debugging the frontend.
 devtools = ["tauri/devtools"]
 
-# this feature is used for production builds where `devPath` points to the filesystem
+#! ## Development
+## This feature is used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
 
+## Add support for backtraces on any error.
 error-context = ["dep:backtrace"]

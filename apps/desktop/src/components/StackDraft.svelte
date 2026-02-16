@@ -108,7 +108,7 @@
 </script>
 
 {#if visible}
-	<div data-testid={TestId.StackDraft} class="draft-stack">
+	<div data-testid={TestId.StackDraft} class="draft-stack dotted-pattern">
 		<ConfigurableScrollableContainer childrenWrapHeight="100%">
 			<div
 				class="draft-stack__scroll-wrap"

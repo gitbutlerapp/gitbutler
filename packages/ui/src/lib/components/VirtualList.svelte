@@ -5,37 +5,19 @@
 	currently visible in the viewport, making it ideal for displaying thousands of
 	items without performance degradation.
 
-	## Features
-	- **Batched rendering**: Groups items into configurable chunks for optimal performance
-	- **Dynamic height measurement**: Automatically measures and caches row heights
-	- **Virtual positioning**: Uses padding offsets to maintain scroll position
-	- **Infinite scrolling**: Triggers callback when nearing bottom for lazy loading
-	- **Auto-layout updates**: Recalculates on resize and item changes
-	- **Chat-like behavior**: Optional tail mode and sticky bottom scrolling
-	- **User notifications**: Shows "new unread" and "scroll to bottom" buttons
-
 	## Usage Example
 	```svelte
 	<VirtualList
 		items={messages}
-		batchSize={10}
 		defaultHeight={50}
 		stickToBottom={true}
 		onloadmore={loadMoreMessages}
 	>
-		{#snippet chunkTemplate(chunk)}
-			{#each chunk as message}
-				<MessageRow {message} />
-			{/each}
+		{#snippet template(message)}
+			<MessageRow {message} />
 		{/snippet}
 	</VirtualList>
 	```
-
-	## Performance Considerations
-	- Set `batchSize` based on average item height and viewport size
-	- Provide accurate `defaultHeight` to minimize layout shifts
-	- Keep item rendering lightweight for smooth scrolling
-	- Use the `onloadmore` callback for pagination with large datasets
 
 	@component
 -->
@@ -63,16 +45,9 @@
 		 */
 		children?: Snippet<[]>;
 		/**
-		 * Snippet template for rendering a chunk of items.
-		 * Receives an array of items to render as a batch.
+		 * Snippet template for rendering an item.
 		 */
-		chunkTemplate: Snippet<[T[]]>;
-		/**
-		 * Number of items to group together in a single chunk.
-		 * Larger values improve performance but may cause jumpier scrolling.
-		 * Recommended: 5-20 items depending on item height.
-		 */
-		batchSize: number;
+		template: Snippet<[T, number]>;
 		/**
 		 * Async callback triggered when scroll approaches the bottom.
 		 * Fires when within 200px of bottom or when content is shorter than viewport.
@@ -96,7 +71,7 @@
 		 */
 		visibility: ScrollbarVisilitySettings;
 		/**
-		 * Default height in pixels for each chunk before actual measurement.
+		 * Default height in pixels for each item before actual measurement.
 		 * Used for initial layout calculation. More accurate values reduce layout shift.
 		 */
 		defaultHeight: number;
@@ -110,88 +85,144 @@
 			top?: number;
 			bottom?: number;
 		};
+		/**
+		 * The initial index to start rendering from when the list first loads.
+		 * If provided, the list will initialize at this position instead of top or bottom.
+		 * Takes precedence over stickToBottom for initial render.
+		 */
+		startIndex?: number;
+		renderDistance?: number;
+		/**
+		 * Whether to show the "Scroll to bottom" button when user scrolls up.
+		 * Defaults to false.
+		 */
+		showBottomButton?: boolean;
 	};
+
+	const SCROLL_DOWN_THRESHOLD = 600;
+	const STICKY_DISTANCE = 40;
+	const LOAD_MORE_THRESHOLD = 300;
+	const DEBOUNCE_DELAY = 50;
+	const HEIGHT_LOCK_DURATION = 250;
 
 	const {
 		items,
 		children,
-		chunkTemplate,
-		batchSize,
+		template,
 		onloadmore,
 		grow,
 		padding,
 		visibility,
 		defaultHeight,
-		stickToBottom = false
+		stickToBottom,
+		startIndex,
+		renderDistance = 0,
+		showBottomButton = false
 	}: Props = $props();
 
-	// Tuning constants
-	/** Distance from bottom (px) before showing "scroll to bottom" button. */
-	const SCROLL_DOWN_THRESHOLD = 600;
-	/** Distance from bottom (px) considered "near bottom" for sticky scroll. */
-	const STICKY_DISTANCE = 40;
-	/** Distance from bottom (px) before triggering onloadmore callback. */
-	const LOAD_MORE_THRESHOLD = 200;
-	/** Debounce delay (ms) for onloadmore to prevent rapid firing. */
-	const DEBOUNCE_DELAY = 50;
-
-	// Debounce load more callback to prevent rapid consecutive triggers
-	const debouncedLoadMore = $derived(debounce(() => onloadmore?.(), DEBOUNCE_DELAY));
-
-	// DOM references
-	/** The scrollable viewport element. */
 	let viewport = $state<HTMLDivElement>();
-	/** Live collection of rendered row elements. */
+	let container = $state<HTMLDivElement>();
 	let visibleRowElements = $state<HTMLCollectionOf<Element>>();
-	/** Observes size changes of visible rows. */
-	let itemObserver: ResizeObserver | null = null;
-	/** Current height of the viewport. */
+
+	let heightMap: number[] = $state([]);
+	let lockedHeights = $state<number[]>([]);
+	let heightUnlockTimeouts: number[] = [];
 	let viewportHeight = $state(0);
-	/** Previous viewport height to detect resize. */
 	let previousViewportHeight = 0;
 
-	// Virtual scrolling state
-	/**
-	 * Range of visible chunk indices.
-	 * Initialized to Infinity when stickToBottom=true to defer calculation until DOM ready.
-	 */
-	let visibleRange = $state({
-		start: stickToBottom ? Infinity : 0,
-		end: stickToBottom ? Infinity : 0
-	});
-	/** Cache of measured heights for each chunk. */
-	let heightMap: number[] = $state([]);
-	/** Top and bottom padding to simulate off-screen content. */
+	let visibleRange = $state({ start: 0, end: 0 });
 	let offset = $state({ top: 0, bottom: 0 });
-	/** Distance from bottom during last calculation (used for sticky scroll). */
 	let previousDistance = $state(0);
-	/** Whether initial range calculation has completed. */
-	let isTailInitialized = $state(false);
-	/** Previous item count to detect additions. */
 	let previousCount = $state(items.length);
-	/** Whether to show "new unread" notification. */
 	let hasNewItemsAtBottom = $state(false);
-	/** Prevents concurrent recalculation runs. */
 	let isRecalculating = false;
 
-	// Derived state
-	/** Items divided into batches based on batchSize. */
-	const itemChunks = $derived(divideIntoChunks(items, batchSize));
-	/** Currently visible chunks with their data and IDs. */
-	const visibleChunks = $derived.by(() =>
-		itemChunks
+	let lastScrollTop: number | undefined = undefined;
+	let lastScrollDirection: 'up' | 'down' | undefined;
+	let lastJumpToIndex: number | undefined;
+	let skipNextScrollEvent = false;
+
+	const debouncedLoadMore = $derived(debounce(() => onloadmore?.(), DEBOUNCE_DELAY));
+
+	const visible = $derived.by(() =>
+		items
 			.slice(visibleRange.start, visibleRange.end)
 			.map((data, i) => ({ id: i + visibleRange.start, data }))
 	);
 
-	// ============================================================================
-	// Helper functions
-	// ============================================================================
+	const itemObserver = new ResizeObserver((entries) => {
+		if (!viewport) return;
+		let shouldRecalculate = false;
+		for (const entry of entries) {
+			const { target } = entry;
+			if (!target.isConnected) continue;
+			if (!(target instanceof HTMLElement)) continue;
 
-	function divideIntoChunks<T>(array: T[], size: number): T[][] {
-		return Array.from({ length: Math.ceil(array.length / size) }, (_v, i) =>
-			array.slice(i * size, size * (i + 1))
-		);
+			shouldRecalculate = true;
+
+			const indexAttr = target.dataset.index;
+			const index = indexAttr ? parseInt(indexAttr) : undefined;
+			if (index !== undefined) {
+				const oldHeight = heightMap[index] || defaultHeight;
+				if (target.clientHeight !== heightMap[index]) {
+					heightMap[index] = target.clientHeight;
+				}
+
+				if (
+					lastScrollDirection === 'up' &&
+					calculateHeightSum(0, visibleRange.start) !== viewport.scrollTop &&
+					visibleRange.start === index
+				) {
+					// When scrolling up, compensate for the height change of the topmost
+					// visible element to prevent content from jumping downward.
+					viewport.scrollBy({ top: heightMap[index] - oldHeight });
+				} else if (
+					(lastJumpToIndex !== undefined || startIndex) &&
+					lastScrollDirection === undefined
+				) {
+					// After jumping to an index, maintain position as off-viewport elements
+					// resize. Scroll direction is undefined during jumps.
+					viewport.scrollTop = calculateHeightSum(0, lastJumpToIndex || startIndex || 0);
+					skipNextScrollEvent = true;
+				} else if (stickToBottom && previousDistance < STICKY_DISTANCE) {
+					// Maintain bottom position when near bottom and `stickToBottom` is true
+					skipNextScrollEvent = true;
+					scrollToBottom();
+				} else if (
+					previousDistance < STICKY_DISTANCE &&
+					index === items.length - 1 &&
+					viewport.scrollTop !== 0
+				) {
+					// When we are not at the scrollTop, but near the bottom, if the last
+					// element resizes we scroll to bottom
+					skipNextScrollEvent = true;
+					scrollToBottom();
+				}
+			}
+		}
+
+		if (shouldRecalculate) {
+			recalculateVisibleRange();
+		}
+	});
+
+	const mutationObserver = new MutationObserver((mutations) => {
+		for (const mutation of mutations) {
+			for (const node of mutation.addedNodes) {
+				if (node instanceof HTMLElement && node.matches('[data-index]')) {
+					itemObserver.observe(node);
+				}
+			}
+			for (const node of mutation.removedNodes) {
+				if (node instanceof HTMLElement) {
+					itemObserver.unobserve(node);
+				}
+			}
+		}
+	});
+
+	function isInitialized() {
+		return visibleRange.end !== 0;
 	}
 
 	function calculateHeightSum(startIndex: number, endIndex: number): number {
@@ -207,281 +238,227 @@
 		return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
 	}
 
-	function saveDistanceFromBottom(): void {
-		if (viewport) {
-			previousDistance = getDistanceFromBottom();
-		}
-	}
-
 	function shouldTriggerLoadMore(): boolean {
 		if (!viewport) return false;
 		if (viewport.scrollHeight <= viewport.clientHeight) return true;
 		const distance = getDistanceFromBottom();
-		return distance > 0 && distance < LOAD_MORE_THRESHOLD;
+		return distance >= 0 && distance < LOAD_MORE_THRESHOLD;
 	}
-
-	function wasNearBottom(): boolean {
-		return previousDistance < STICKY_DISTANCE;
-	}
-
-	// ============================================================================
-	// Range calculation functions
-	// ============================================================================
 
 	/**
-	 * Calculates which chunk should be at the top of the visible range.
-	 * Iterates from top until accumulated height exceeds scroll position.
-	 * @returns Index of first visible chunk
+	 * Locks an element to its previous height such that it has time to resume
+	 * its proper height.
 	 */
+	function lockRowHeight(index: number): void {
+		const cachedHeight = heightMap[index];
+		if (!cachedHeight) return;
+
+		lockedHeights[index] = cachedHeight;
+		clearTimeout(heightUnlockTimeouts[index]);
+		heightUnlockTimeouts[index] = window.setTimeout(() => {
+			delete lockedHeights[index];
+			delete heightUnlockTimeouts[index];
+		}, HEIGHT_LOCK_DURATION);
+	}
+
+	/**
+	 * Adjusts the top and bottom padding based on the height map and visible indices.
+	 */
+	function updateOffsets() {
+		offset = {
+			top: calculateHeightSum(0, visibleRange.start),
+			bottom: calculateHeightSum(visibleRange.end, heightMap.length)
+		};
+	}
+
+	/**
+	 * Returns newly vsisible indices based on old and new ranges. This is
+	 * primarily used for locking elements coming into view to their
+	 * previously measured heights.
+	 */
+	function getNewIndices(oldStart: number, oldEnd: number, newStart: number, newEnd: number) {
+		const result: number[] = [];
+		for (let i = newStart; i < Math.min(newEnd, oldStart); i++) result.push(i);
+		for (let i = Math.max(newStart, oldEnd); i < newEnd; i++) result.push(i);
+		return result;
+	}
+
 	function calculateVisibleStartIndex(): number {
-		if (itemChunks.length === 0 || !viewport) return 0;
+		if (items.length === 0 || !viewport) return 0;
 
 		let accumulatedHeight = 0;
-		for (let i = 0; i < itemChunks.length; i++) {
+		for (let i = 0; i < items.length; i++) {
 			const rowHeight = visibleRowElements?.[i - visibleRange.start]?.clientHeight;
-			accumulatedHeight += rowHeight || heightMap[i] || defaultHeight;
-			if (accumulatedHeight > viewport.scrollTop) {
+			const heightToUse = rowHeight || heightMap[i] || defaultHeight;
+			accumulatedHeight += heightToUse;
+			if (accumulatedHeight > viewport.scrollTop - renderDistance) {
 				return i;
 			}
 		}
-		return itemChunks.length - 1;
+		return items.length - 1;
 	}
 
-	/**
-	 * Calculates which chunk should be at the bottom of the visible range.
-	 * Iterates from visible start until accumulated height exceeds viewport height.
-	 * @returns Index after last visible chunk (exclusive)
-	 */
 	function calculateVisibleEndIndex(): number {
-		if (!viewport) return itemChunks.length;
+		if (!viewport) return items.length;
 
 		let accumulatedHeight = offset.top - viewport.scrollTop;
-		for (let i = visibleRange.start; i < itemChunks.length; i++) {
+		for (let i = visibleRange.start; i < items.length; i++) {
 			accumulatedHeight += heightMap[i] || defaultHeight;
-			if (accumulatedHeight > viewport.clientHeight) {
+			if (accumulatedHeight > viewport.clientHeight + renderDistance) {
 				return i + 1;
 			}
 		}
-		return itemChunks.length;
+		return items.length;
 	}
 
-	/**
-	 * Calculates visible start index when initializing from bottom (stickToBottom).
-	 * Works backwards from the end to fill viewport height.
-	 * @returns Index of first chunk that should be visible
-	 */
-	function calculateStartIndexFromBottom(): number {
-		if (!viewport) return 0;
-
-		let accumulated = 0;
-		for (let i = visibleRange.end - 1; i >= 0; i--) {
-			accumulated += heightMap[i] || defaultHeight;
-			if (accumulated > viewport.clientHeight) {
-				return i;
-			}
-		}
-		return 0;
-	}
-
-	/**
-	 * Initializes visible range from the top.
-	 * Measures chunks starting from the first item until viewport is filled.
-	 */
-	async function initialize() {
+	async function initializeAt(startingAt: number): Promise<void> {
 		if (!viewport) return;
-		visibleRange.start = 0;
+		// Save viewport height, it might be unset after `tick()`.
+		const viewportHeight = viewport.clientHeight;
 
-		const end = calculateVisibleEndIndex();
-		for (let i = 0; i < end; i++) {
+		// Initialize from start position downwards
+		visibleRange.start = startingAt;
+		for (let i = startingAt; i < items.length; i++) {
+			if (heightMap[i] !== undefined) {
+				lockRowHeight(i);
+			}
 			visibleRange.end = i + 1;
-			await tick();
-			const element = visibleRowElements?.item(i);
-			if (element?.clientHeight) {
-				heightMap[i] = element.clientHeight;
+			await tick(); // Wait for element to be added
+			const element = visibleRowElements?.[i - startingAt];
+			if (!element) {
+				// Most likely cause for this is that something else made `visibleRange.end = 0`
+				// during the tick(). This needs debugging, but is not severe enough to warrant
+				// immediate attention.
+				console.warn('Invariant violation - root cause not yet determined.');
+				return;
 			}
-			if (calculateHeightSum(0, i + 1) > viewport.clientHeight) {
+			heightMap[i] = element.clientHeight;
+			if (calculateHeightSum(startingAt, visibleRange.end) > viewportHeight + renderDistance) {
 				break;
 			}
 		}
-		offset = { top: 0, bottom: calculateHeightSum(visibleRange.end, itemChunks.length) };
-		isTailInitialized = true;
-	}
 
-	/**
-	 * Initializes visible range in tail mode.
-	 * Sets range to show last items and scrolls to bottom.
-	 */
-	async function initializeTail() {
-		if (!viewport) return;
-		const end = itemChunks.length;
-		visibleRange.end = end;
-		offset.bottom = 0;
-
-		const start = calculateStartIndexFromBottom();
-		for (let i = end; i >= start; i--) {
-			visibleRange.start = i - 1;
-			await tick();
-			const element = visibleRowElements?.item(0);
-			if (element?.clientHeight) {
-				heightMap[i - 1] = element.clientHeight;
+		// Continues upwards if there is space.
+		for (let i = startingAt - 1; i >= 0; i--) {
+			if (heightMap[i] !== undefined) {
+				lockRowHeight(i);
 			}
-			if (calculateHeightSum(i - 1, end) > viewport.clientHeight) {
+			visibleRange.start = i;
+			await tick(); // Wait for element to be added
+			const element = visibleRowElements?.[0];
+			if (!element) {
+				console.warn('Invariant violation - root cause not yet determined.');
+				return;
+			}
+			const heightDiff = element.clientHeight - (lockedHeights[i] || defaultHeight);
+			if (heightDiff !== 0) {
+				viewport.scrollTop += heightDiff;
+			}
+			heightMap[i] = element.clientHeight;
+			if (calculateHeightSum(visibleRange.start, startingAt) > renderDistance) {
 				break;
 			}
 		}
-		offset.top = calculateHeightSum(0, visibleRange.start);
-		isTailInitialized = true;
-	}
 
-	/**
-	 * Updates the visible range based on current scroll position.
-	 * Recalculates which chunks should be rendered and updates offsets.
-	 */
-	function updateRange(): void {
-		if (!viewport || !visibleRowElements) return;
-		visibleRange = {
-			start: calculateVisibleStartIndex(),
-			end: calculateVisibleEndIndex()
-		};
-		offset = {
-			bottom: calculateHeightSum(visibleRange.end, heightMap.length),
-			top: calculateHeightSum(0, visibleRange.start)
-		};
-	}
-
-	/**
-	 * Main layout calculation function.
-	 * Determines which chunks should be visible, sets up resize observers,
-	 * and triggers onloadmore if needed. Called on scroll and item changes.
-	 */
-	async function recalculateVisibleRange(): Promise<void> {
-		if (!viewport || !visibleRowElements || isRecalculating) return;
-
-		isRecalculating = true;
-		heightMap.length = itemChunks.length;
-
-		const distance = getDistanceFromBottom();
-		let scrollTop = viewport.scrollTop;
-
-		// First-time initialization for tail mode
-		if (!isTailInitialized) {
-			if (stickToBottom) {
-				await initializeTail();
-				scrollTop = viewport!.scrollHeight;
-				scrollToBottom();
-			} else {
-				await initialize();
-			}
-		} else {
-			updateRange();
+		if (!isInitialized()) {
+			return;
 		}
 
-		// Content, sizes, and scroll are affected by this tick.
+		updateOffsets();
 		await tick();
 
-		if (stickToBottom && distance === 0 && distance !== getDistanceFromBottom()) {
-			// A difference in viewport scrollHeight is occasionally observed
-			// before and after the `await tick()` call just above. It could
-			// be the result of an incorrect height/offset calculation, or it
-			// could be content shifting in place after render. If that happens,
-			// we can lose touch with the bottom.
-			scrollToBottom();
-		} else {
-			if (viewport.scrollTop !== scrollTop) {
-				// Strange scroll motion appears out of thin air, so we reset
-				// it here to keep things smooth. It could have something to do
-				// with content shrink is offset by padding. Would be great
-				// to understand it better.
-				viewport.scrollTop = scrollTop;
+		// Based on anecdotal evidence the type for `viewport` seems incorrect. It's likely
+		// that during some kind of unmount event it can become `undefined` due to a subtle
+		// reactivity condition.
+		if (viewport) viewport.scrollTop = calculateHeightSum(0, startingAt);
+	}
+
+	async function recalculateVisibleRange(): Promise<void> {
+		if (!viewport || !visibleRowElements || !isInitialized() || isRecalculating) return;
+
+		isRecalculating = true;
+
+		const oldStart = visibleRange.start;
+		const oldEnd = visibleRange.end;
+		const bottomDistance = getDistanceFromBottom();
+
+		const newStartIndex = calculateVisibleStartIndex();
+		const newEndIndex = calculateVisibleEndIndex();
+		if (newStartIndex !== visibleRange.start || newEndIndex !== visibleRange.end) {
+			visibleRange = {
+				start: calculateVisibleStartIndex(),
+				end: calculateVisibleEndIndex()
+			};
+			updateOffsets();
+
+			const newIndices = getNewIndices(oldStart, oldEnd, visibleRange.start, visibleRange.end);
+			for (const index of newIndices) {
+				if (heightMap[index]) {
+					lockRowHeight(index);
+				}
 			}
+
+			await tick();
 		}
+
+		if (stickToBottom && bottomDistance === 0 && bottomDistance !== getDistanceFromBottom()) {
+			scrollToBottom();
+		}
+
+		previousDistance = getDistanceFromBottom();
+		isRecalculating = false;
 
 		if (shouldTriggerLoadMore()) {
 			debouncedLoadMore();
 		}
-
-		for (const rowElement of visibleRowElements) {
-			// It seems unnecessary to track duplicates and removals, so
-			// not doing it to keep things concise.
-			itemObserver?.observe(rowElement);
-		}
-
-		// Saved distance is necessary when sticking to bottom.
-		saveDistanceFromBottom();
-		isRecalculating = false;
 	}
 
-	// ============================================================================
-	// Reactive effects
-	// ============================================================================
-
-	/**
-	 * Sets up ResizeObserver to track size changes of visible rows.
-	 * Updates heightMap when rows are measured and handles scroll adjustments.
-	 */
-	$effect(() => {
+	export function scrollToBottom(): void {
 		if (!viewport) return;
+		viewport.scrollTo({
+			top: viewport.scrollHeight - viewport.clientHeight,
+			behavior: 'instant'
+		});
+	}
 
-		visibleRowElements = viewport.getElementsByClassName('list-row');
-		itemObserver = new ResizeObserver((entries) =>
-			untrack(() => {
-				let shouldRecalculate = false;
-				for (const entry of entries) {
-					const { target } = entry;
-					if (!target.isConnected) continue;
+	export async function jumpToIndex(index: number) {
+		// Based on anecdotal evidence the type for `items` seems incorrect. It's likely
+		// that during some kind of unmount event it can become `undefined` due to
+		// some subtle reactivity condition.
+		if (!items || index < 0 || index > items.length - 1) {
+			return;
+		}
+		lastScrollDirection = undefined;
+		skipNextScrollEvent = true;
+		lastJumpToIndex = index;
+		lockRowHeight(index);
+		initializeAt(index);
+	}
 
-					const indexStr = target.getAttribute('data-index');
-					const index = indexStr ? parseInt(indexStr, 10) : undefined;
-					if (index !== undefined) {
-						const firstRender = !(index in heightMap);
-						if (heightMap[index] !== target.clientHeight) {
-							heightMap[index] = target.clientHeight;
-						}
-
-						if (firstRender) {
-							// In tail mode, adjust scroll when top item's height is measured
-							if (stickToBottom && index === visibleRange.start) {
-								const heightDiff = target.clientHeight - defaultHeight;
-								if (heightDiff !== 0 && viewport && target.clientTop <= viewport.scrollTop) {
-									viewport.scrollBy({ top: heightDiff });
-								}
-							}
-							// Scroll to bottom when last item resizes during initialization or sticky mode
-							if (stickToBottom && index === visibleRange.end - 1) {
-								scrollToBottom();
-							}
-						}
-					}
-					if (index !== undefined) {
-						shouldRecalculate = true;
-					}
-				}
-
-				// Auto-scroll if content grew while user is near bottom
-				if (viewport && stickToBottom && wasNearBottom()) {
-					const hasGrown = getDistanceFromBottom() > previousDistance;
-					if (hasGrown) {
-						scrollToBottom();
-					}
-				}
-				if (shouldRecalculate) {
-					recalculateVisibleRange();
-				}
-			})
-		);
-
-		return () => itemObserver?.disconnect();
+	$effect(() => {
+		if (container) {
+			mutationObserver.observe(container, { childList: true });
+			for (const el of container.querySelectorAll(':scope > [data-index]')) {
+				itemObserver.observe(el);
+			}
+		}
+		return () => {
+			mutationObserver.disconnect();
+			itemObserver.disconnect();
+		};
 	});
 
-	/**
-	 * Recalculates layout when viewport height changes (e.g., window resize).
-	 * Maintains sticky bottom behavior if enabled.
-	 */
 	$effect(() => {
-		if (viewportHeight && previousViewportHeight !== viewportHeight) {
+		if (!viewport) return;
+		visibleRowElements = viewport.getElementsByClassName('list-row');
+	});
+
+	$effect(() => {
+		if (viewportHeight && viewportHeight < previousViewportHeight) {
+			const nearBottom = previousDistance < STICKY_DISTANCE;
 			untrack(async () => {
 				await recalculateVisibleRange();
-				if (stickToBottom && wasNearBottom()) {
+				if (stickToBottom && nearBottom) {
 					scrollToBottom();
 				}
 				previousViewportHeight = viewportHeight;
@@ -489,75 +466,89 @@
 		}
 	});
 
-	/**
-	 * Handles new items being added to the list.
-	 * Auto-scrolls if sticky bottom is enabled, otherwise shows notification.
-	 */
 	$effect(() => {
-		if (items) {
+		if (items && viewport) {
 			untrack(async () => {
-				if (stickToBottom && wasNearBottom()) {
-					// User is at the bottom, auto-scroll
-					await recalculateVisibleRange();
-					scrollToBottom();
-				} else {
-					// Check if there are new items at the bottom
-					if (stickToBottom) {
+				heightMap.length = items.length;
+				if (!isInitialized() && items.length > 0) {
+					const index = stickToBottom ? items.length - 1 : startIndex || 0;
+					await initializeAt(index);
+					if (!isInitialized()) {
+						return;
+					}
+				}
+
+				if (stickToBottom) {
+					if (previousDistance < STICKY_DISTANCE) {
+						await recalculateVisibleRange();
+						if (getDistanceFromBottom() !== 0) {
+							scrollToBottom();
+						}
+					} else {
 						const count = items.length;
 						hasNewItemsAtBottom = count > previousCount && count > visibleRange.end;
 					}
-					recalculateVisibleRange();
 				}
+				updateOffsets();
 			});
 		}
 		previousCount = items.length;
 	});
 
-	/**
-	 * Clears "new items" indicator when user scrolls to see all items.
-	 */
 	$effect(() => {
-		if (hasNewItemsAtBottom && visibleRange.end === itemChunks.length) {
+		if (hasNewItemsAtBottom && visibleRange.end === items.length) {
 			hasNewItemsAtBottom = false;
 		}
 	});
-
-	export function scrollToBottom(): void {
-		if (!viewport) return;
-		viewport.scrollTop = viewport.scrollHeight - viewport.clientHeight;
-	}
 </script>
 
 <ScrollableContainer
 	bind:viewportHeight
 	bind:viewport
-	onscroll={recalculateVisibleRange}
+	zIndex="3"
+	onscroll={() => {
+		if (!viewport) return;
+		if (skipNextScrollEvent) {
+			skipNextScrollEvent = false;
+			return;
+		}
+		const scrollTop = viewport?.scrollTop;
+		if (lastScrollTop && lastScrollTop > scrollTop) {
+			lastScrollDirection = 'up';
+		} else if (lastScrollTop && lastScrollTop < scrollTop) {
+			lastScrollDirection = 'down';
+		} else {
+			lastScrollDirection = undefined;
+		}
+		recalculateVisibleRange();
+		lastScrollTop = viewport.scrollTop;
+	}}
 	wide={grow}
 	whenToShow={visibility}
 	{padding}
 >
 	<div
+		bind:this={container}
 		data-remove-from-panning
 		class="padded-contents"
 		style:padding-top={offset.top + 'px'}
 		style:padding-bottom={offset.bottom + 'px'}
 	>
-		{#each visibleChunks as chunk, i (chunk.id)}
-			<div class="list-row" data-index={i + visibleRange.start}>
-				{@render chunkTemplate(chunk.data)}
+		{#each visible as item, i (item.id)}
+			<div
+				class="list-row"
+				data-index={i + visibleRange.start}
+				style:height={lockedHeights[i + visibleRange.start]
+					? `${lockedHeights[i + visibleRange.start]}px`
+					: undefined}
+			>
+				{@render template(item.data, visibleRange.start + i)}
 			</div>
 		{/each}
 		<div
 			class="children"
-			use:resizeObserver={({ frame: { height } }) => {
-				const distance = getDistanceFromBottom();
-				if (wasNearBottom()) {
-					scrollToBottom();
-				} else if (distance <= height * 1.2) {
-					// It is sometimes the case that `previousDistance` has already
-					// updated to include children height, and therefore `wasNearBottom`
-					// is false. Also, the value seems to be off by one, but we can
-					// generously give this condition a bit of margin.
+			use:resizeObserver={() => {
+				if (stickToBottom && previousDistance < STICKY_DISTANCE) {
 					scrollToBottom();
 				}
 			}}
@@ -573,18 +564,24 @@
 				type="button"
 				class="text-12 feed-actions__new-messages"
 				transition:fade={{ duration: 150 }}
-				onclick={scrollToBottom}
+				onclick={() => {
+					jumpToIndex(items.length - 1);
+				}}
 			>
 				New unread
 			</button>
 		{/if}
-		{#if previousDistance > SCROLL_DOWN_THRESHOLD}
+		{#if showBottomButton && previousDistance > SCROLL_DOWN_THRESHOLD}
 			<div class="feed-actions__scroll-to-bottom" transition:fade={{ duration: 150 }}>
 				<Button
 					kind="outline"
 					icon="arrow-down"
 					tooltip="Scroll to bottom"
-					onclick={scrollToBottom}
+					onclick={() => {
+						if (items && items.length > 0) {
+							initializeAt(items.length - 1);
+						}
+					}}
 				/>
 			</div>
 		{/if}
@@ -594,7 +591,6 @@
 <style>
 	.list-row {
 		display: block;
-		overflow: hidden;
 		background-color: var(--clr-bg-1);
 	}
 

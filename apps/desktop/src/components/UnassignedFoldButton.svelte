@@ -7,7 +7,7 @@
 	const { active, onclick }: Props = $props();
 </script>
 
-<button type="button" class="fold-btn focus-state" class:active {onclick} aria-label="Toggle fold">
+<button type="button" class="fold-btn" class:active {onclick} aria-label="Toggle fold">
 	<div class="fold-icon__frame"></div>
 </button>
 

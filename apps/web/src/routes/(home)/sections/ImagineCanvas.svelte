@@ -154,7 +154,7 @@
 
 <canvas bind:this={canvas}></canvas>
 
-<style lang="scss">
+<style lang="postcss">
 	canvas {
 		position: absolute;
 		top: 0;

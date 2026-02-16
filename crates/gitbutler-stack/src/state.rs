@@ -45,10 +45,7 @@ impl From<virtual_branches_legacy_types::VirtualBranches> for VirtualBranches {
     ) -> Self {
         VirtualBranches {
             default_target: default_target.map(Into::into),
-            branch_targets: branch_targets
-                .into_iter()
-                .map(|(k, v)| (k, v.into()))
-                .collect(),
+            branch_targets: branch_targets.into_iter().map(|(k, v)| (k, v.into())).collect(),
             branches: branches.into_iter().map(|(k, v)| (k, v.into())).collect(),
             last_pushed_base,
         }
@@ -66,10 +63,7 @@ impl From<VirtualBranches> for virtual_branches_legacy_types::VirtualBranches {
     ) -> Self {
         virtual_branches_legacy_types::VirtualBranches {
             default_target: default_target.map(Into::into),
-            branch_targets: branch_targets
-                .into_iter()
-                .map(|(k, v)| (k, v.into()))
-                .collect(),
+            branch_targets: branch_targets.into_iter().map(|(k, v)| (k, v.into())).collect(),
             branches: branches.into_iter().map(|(k, v)| (k, v.into())).collect(),
             last_pushed_base,
         }
@@ -89,12 +83,8 @@ impl VirtualBranches {
     ///
     /// Errors if the file cannot be read or written.
     pub fn list_stacks_in_workspace(&self) -> Result<Vec<Stack>> {
-        self.list_all_stacks().map(|stacks| {
-            stacks
-                .into_iter()
-                .filter(|stack| stack.in_workspace)
-                .collect()
-        })
+        self.list_all_stacks()
+            .map(|stacks| stacks.into_iter().filter(|stack| stack.in_workspace).collect())
     }
 }
 
@@ -171,10 +161,7 @@ impl VirtualBranchesHandle {
         Ok(())
     }
 
-    pub fn find_by_source_refname_where_not_in_workspace(
-        &self,
-        refname: &Refname,
-    ) -> Result<Option<Stack>> {
+    pub fn find_by_source_refname_where_not_in_workspace(&self, refname: &Refname) -> Result<Option<Stack>> {
         let stacks = self.list_all_stacks()?;
         Ok(stacks.into_iter().find(|branch| {
             if branch.in_workspace {
@@ -189,10 +176,7 @@ impl VirtualBranchesHandle {
         }))
     }
 
-    pub fn find_by_top_reference_name_where_not_in_workspace(
-        &self,
-        refname: &str,
-    ) -> Result<Option<Stack>> {
+    pub fn find_by_top_reference_name_where_not_in_workspace(&self, refname: &str) -> Result<Option<Stack>> {
         let stacks = self.list_all_stacks()?;
         Ok(stacks.into_iter().find(|stack| {
             if stack.in_workspace {
@@ -253,20 +237,15 @@ impl VirtualBranchesHandle {
     ///
     /// Errors if the file cannot be read or written.
     pub fn list_stacks_in_workspace(&self) -> Result<Vec<Stack>> {
-        self.list_all_stacks().map(|branches| {
-            branches
-                .into_iter()
-                .filter(|branch| branch.in_workspace)
-                .collect()
-        })
+        self.list_all_stacks()
+            .map(|branches| branches.into_iter().filter(|branch| branch.in_workspace).collect())
     }
 
     /// Reads and parses the state file.
     ///
     /// If the file does not exist, it will be created.
     pub fn read_file(&self) -> Result<VirtualBranches> {
-        let data: virtual_branches_legacy_types::VirtualBranches =
-            read_toml_file_or_default(&self.file_path)?;
+        let data: virtual_branches_legacy_types::VirtualBranches = read_toml_file_or_default(&self.file_path)?;
         Ok(data.into())
     }
 
@@ -327,14 +306,12 @@ impl VirtualBranchesHandle {
             .filter(|b| !b.in_workspace)
             .collect_vec();
         let mut to_remove: Vec<StackId> = vec![];
-        let gix_repo = repo.to_gix()?;
+        let gix_repo = repo.to_gix_repo()?;
+        let ctx = but_ctx::Context::try_from(gix_repo)?;
         for branch in stacks_not_in_workspace {
-            if branch.not_in_workspace_wip_change_id.is_some() {
-                continue; // Skip branches that have a WIP commit
-            }
-            if let Ok(branch_head) = branch.head_oid(&gix_repo).map(|h| h.to_git2()) {
+            if let Ok(branch_head) = branch.head_oid(&ctx).map(|h| h.to_git2()) {
                 if repo.find_commit(branch_head).is_err() {
-                    // if the head commit cant be found, we can GC the branch
+                    // if the head commit can't be found, we can GC the branch
                     to_remove.push(branch.id);
                 } else {
                     // if there are no commits between the head and the merge base,
@@ -365,25 +342,16 @@ impl VirtualBranchesHandle {
     /// `default_target.sha`.
     ///
     /// This function will return `Ok(None)` if there is no default target.
-    pub fn upsert_last_pushed_base(
-        &self,
-        repository: &gix::Repository,
-    ) -> Result<Option<gix::ObjectId>> {
+    pub fn upsert_last_pushed_base(&self, repository: &gix::Repository) -> Result<Option<gix::ObjectId>> {
         let mut virtual_branches = self.read_file()?;
         let Some(default_target) = &virtual_branches.default_target else {
             return Ok(None);
         };
 
-        let base_tree_id = repository
-            .find_commit(default_target.sha.to_gix())?
-            .tree_id()?
-            .detach();
+        let base_tree_id = repository.find_commit(default_target.sha.to_gix())?.tree_id()?.detach();
 
         if let Some(last_pushed_base) = virtual_branches.last_pushed_base {
-            let last_pushed_tree = repository
-                .find_commit(last_pushed_base)?
-                .tree_id()?
-                .detach();
+            let last_pushed_tree = repository.find_commit(last_pushed_base)?.tree_id()?.detach();
 
             let up_to_date = repository
                 .find_commit(last_pushed_base)?
@@ -407,11 +375,7 @@ impl VirtualBranchesHandle {
         } else {
             // There was no previous last_pushed_base to point to, so we create
             // the first base which doesn't have any parents.
-            virtual_branches.last_pushed_base = Some(alter_parentage(
-                repository,
-                default_target.sha.to_gix(),
-                &[],
-            )?);
+            virtual_branches.last_pushed_base = Some(alter_parentage(repository, default_target.sha.to_gix(), &[])?);
         }
 
         self.write_file(&virtual_branches)?;
@@ -444,14 +408,13 @@ fn alter_parentage(
     message
         .trailers
         .push(("Base-Commit".into(), to_rewrite.to_hex().to_string().into()));
-    let mut to_rewrite: gix::objs::Commit = decoded.into();
+    let mut to_rewrite: gix::objs::Commit = decoded.try_into()?;
     to_rewrite.parents = new_parents.into();
     to_rewrite.message = message.to_bstring();
     to_rewrite.extra_headers.retain(|entry| entry.0 != "gpgsig");
-    to_rewrite.extra_headers.push((
-        LAST_PUSHED_BASE_VERSION_HEADER.into(),
-        LAST_PUSHED_BASE_VERSION.into(),
-    ));
+    to_rewrite
+        .extra_headers
+        .push((LAST_PUSHED_BASE_VERSION_HEADER.into(), LAST_PUSHED_BASE_VERSION.into()));
     Ok(repository.write_object(to_rewrite)?.into())
 }
 

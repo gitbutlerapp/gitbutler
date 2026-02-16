@@ -10,8 +10,15 @@ import type {
 	ClaudeTodo,
 	PromptAttachment,
 	GitButlerUpdate,
-	SystemMessage
+	SystemMessage,
+	AskUserQuestion
 } from '$lib/codegen/types';
+
+/** A content block that can be either text or a tool call, preserving original order */
+export type ContentBlock =
+	| { type: 'text'; text: string }
+	| { type: 'toolCall'; toolCall: ToolCall }
+	| { type: 'toolCallPendingApproval'; toolCall: ToolCall };
 
 export type Message = { createdAt: string } &
 	/* This is strictly only things that the real fleshy human has said */
@@ -20,12 +27,17 @@ export type Message = { createdAt: string } &
 				message: string;
 				attachments?: PromptAttachment[];
 		  }
-		/* Output from claude. This is grouped as: A claude message with a bunch of tool calls. */
+		/* Output from claude. Content blocks preserve original ordering of text and tool calls. */
 		| {
 				source: 'claude';
+				/** @deprecated Use contentBlocks instead for proper ordering */
 				message: string;
+				/** @deprecated Use contentBlocks instead for proper ordering */
 				toolCalls: ToolCall[];
+				/** @deprecated Use contentBlocks instead for proper ordering */
 				toolCallsPendingApproval: ToolCall[];
+				/** Content blocks in their original order from the API response */
+				contentBlocks: ContentBlock[];
 		  }
 		| {
 				source: 'claude';
@@ -33,6 +45,20 @@ export type Message = { createdAt: string } &
 				message: string;
 				toolCalls: ToolCall[];
 				toolCallsPendingApproval: ToolCall[];
+				contentBlocks: ContentBlock[];
+		  }
+		/* Claude is asking the user a question */
+		| {
+				source: 'claude';
+				subtype: 'askUserQuestion';
+				/** The tool_use_id from the AskUserQuestion tool call */
+				toolUseId: string;
+				/** The questions to ask the user */
+				questions: AskUserQuestion[];
+				/** Whether the question has been answered */
+				answered: boolean;
+				/** Optional tool result text when answered */
+				resultText?: string;
 		  }
 		| ({
 				source: 'system';
@@ -87,9 +113,20 @@ export function formatMessages(
 	const out: Message[] = [];
 	// A mapping to better handle tool call responses when they come in.
 	let toolCalls: Record<string, ToolCall> = {};
-	let lastAssistantMessage: Message | undefined = undefined;
+	// Track AskUserQuestion tool calls by their tool_use_id
+	const askUserQuestionToolCalls: Record<string, Message> = {};
 
-	for (const [_idx, message] of events.entries()) {
+	// Type for standard claude messages (not askUserQuestion)
+	type StandardClaudeMessage = { createdAt: string } & {
+		source: 'claude';
+		message: string;
+		toolCalls: ToolCall[];
+		toolCallsPendingApproval: ToolCall[];
+		contentBlocks: ContentBlock[];
+	};
+	let lastAssistantMessage: StandardClaudeMessage | undefined = undefined;
+
+	for (const message of events) {
 		const payload = message.payload;
 		if (payload.source === 'user') {
 			wrapUpAgentSide();
@@ -104,53 +141,118 @@ export function formatMessages(
 			// We've either triggered a tool call, or sent a message
 			if (payload.data.type === 'assistant') {
 				const claudeOutput = payload.data.message;
-				if (claudeOutput.content[0]!.type === 'text') {
-					if (claudeOutput.content[0]!.text === loginRequiredMessage) {
-						continue;
-					}
-					lastAssistantMessage = {
-						createdAt: message.createdAt,
-						source: 'claude',
-						message: claudeOutput.content[0]!.text,
-						toolCalls: [],
-						toolCallsPendingApproval: []
-					};
-					out.push(lastAssistantMessage);
-				} else if (claudeOutput.content[0]!.type === 'tool_use') {
-					const content = claudeOutput.content[0]!;
-					const toolCall: ToolCall = {
-						id: content.id,
-						name: content.name,
-						input: content.input as object,
-						result: undefined,
-						requestAt: normalizeDate(new Date(message.createdAt))
-					};
-					if (!lastAssistantMessage) {
-						lastAssistantMessage = {
-							source: 'claude',
-							createdAt: message.createdAt,
-							message: '',
-							toolCalls: [],
-							toolCallsPendingApproval: []
-						};
-						out.push(lastAssistantMessage);
-					}
 
-					const permReq = permReqsById[toolCall.id];
-					if (permReq && !isDefined(permReq.decision)) {
-						lastAssistantMessage.toolCallsPendingApproval.push(toolCall);
-					} else {
-						if (permReq) {
-							toolCall.approvedAt = new Date(permReq.updatedAt);
+				// Process all content blocks in the message
+				for (const contentBlock of claudeOutput.content) {
+					if (contentBlock.type === 'text') {
+						if (contentBlock.text === loginRequiredMessage) {
+							continue;
 						}
-						lastAssistantMessage.toolCalls.push(toolCall);
+						if (!lastAssistantMessage) {
+							lastAssistantMessage = {
+								createdAt: message.createdAt,
+								source: 'claude',
+								message: contentBlock.text,
+								toolCalls: [],
+								toolCallsPendingApproval: [],
+								contentBlocks: [{ type: 'text', text: contentBlock.text }]
+							};
+							out.push(lastAssistantMessage);
+						} else {
+							// Append text to existing message
+							lastAssistantMessage.message += contentBlock.text;
+							// Add to content blocks preserving order
+							lastAssistantMessage.contentBlocks.push({ type: 'text', text: contentBlock.text });
+						}
+					} else if (contentBlock.type === 'tool_use') {
+						const content = contentBlock;
+
+						if (content.name === 'AskUserQuestion') {
+							const input = content.input as { questions: AskUserQuestion[] };
+							const askMessage: Message = {
+								createdAt: message.createdAt,
+								source: 'claude',
+								subtype: 'askUserQuestion',
+								toolUseId: content.id,
+								questions: input.questions,
+								answered: false,
+								resultText: undefined
+							};
+							out.push(askMessage);
+							askUserQuestionToolCalls[content.id] = askMessage;
+							// Clear lastAssistantMessage since AskUserQuestion is not a standard message
+							lastAssistantMessage = undefined;
+							continue;
+						}
+
+						const toolCall: ToolCall = {
+							id: content.id,
+							name: content.name,
+							input: content.input as object,
+							result: undefined,
+							requestAt: normalizeDate(new Date(message.createdAt))
+						};
+						if (!lastAssistantMessage) {
+							lastAssistantMessage = {
+								source: 'claude',
+								createdAt: message.createdAt,
+								message: '',
+								toolCalls: [],
+								toolCallsPendingApproval: [],
+								contentBlocks: []
+							};
+							out.push(lastAssistantMessage);
+						}
+
+						const permReq = permReqsById[toolCall.id];
+						if (permReq && !isDefined(permReq.decision)) {
+							lastAssistantMessage.toolCallsPendingApproval.push(toolCall);
+							// Add to content blocks preserving order
+							lastAssistantMessage.contentBlocks.push({
+								type: 'toolCallPendingApproval',
+								toolCall
+							});
+						} else {
+							if (permReq) {
+								toolCall.approvedAt = new Date(permReq.updatedAt);
+							}
+							lastAssistantMessage.toolCalls.push(toolCall);
+							// Add to content blocks preserving order
+							lastAssistantMessage.contentBlocks.push({ type: 'toolCall', toolCall });
+						}
+						toolCalls[toolCall.id] = toolCall;
 					}
-					toolCalls[toolCall.id] = toolCall;
 				}
 			} else if (payload.data.type === 'user') {
 				const content = payload.data.message.content;
 				if (Array.isArray(content) && content[0]!.type === 'tool_result') {
-					const result = content[0]!;
+					const result = content[0];
+
+					// Check if this is a response to an AskUserQuestion
+					const askMessage = askUserQuestionToolCalls[result.tool_use_id];
+					if (
+						askMessage &&
+						askMessage.source === 'claude' &&
+						'subtype' in askMessage &&
+						askMessage.subtype === 'askUserQuestion'
+					) {
+						askMessage.answered = true;
+						if (!isDefined(result.content)) {
+							askMessage.resultText = 'User answered the question';
+						} else if (typeof result.content === 'string') {
+							askMessage.resultText = result.content;
+						} else if (
+							Array.isArray(result.content) &&
+							result.content.length > 0 &&
+							result.content[0]!.type === 'text'
+						) {
+							askMessage.resultText = result.content[0]!.text;
+						} else {
+							askMessage.resultText = 'User answered the question';
+						}
+						continue;
+					}
+
 					const foundToolCall = toolCalls[result.tool_use_id];
 					if (!foundToolCall) {
 						// This should never happen
@@ -159,8 +261,14 @@ export function formatMessages(
 						foundToolCall.result = 'Tool completed with no output';
 					} else if (typeof result.content === 'string') {
 						foundToolCall.result = result.content;
-					} else if (result.content[0]!.type === 'text') {
+					} else if (
+						Array.isArray(result.content) &&
+						result.content.length > 0 &&
+						result.content[0]!.type === 'text'
+					) {
 						foundToolCall.result = result.content[0]!.text;
+					} else {
+						foundToolCall.result = 'Tool completed with no output';
 					}
 				}
 			}
@@ -177,49 +285,59 @@ export function formatMessages(
 
 			if (payload.type === 'claudeExit' && payload.code !== 0) {
 				if (previousEventLoginFailureQuery(events, message)) {
+					const msg = `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`;
 					out.push({
 						source: 'claude',
 						createdAt: message.createdAt,
-						message: `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`,
-						toolCalls: [],
-						toolCallsPendingApproval: []
-					});
-				} else {
-					out.push({
-						source: 'claude',
-						message: `Claude exited with non 0 error code \n\n\`\`\`\n${payload.message}\n\`\`\``,
+						message: msg,
 						toolCalls: [],
 						toolCallsPendingApproval: [],
-						createdAt: message.createdAt
+						contentBlocks: [{ type: 'text', text: msg }]
+					});
+				} else {
+					const msg = `Claude exited with non 0 error code \n\n\`\`\`\n${payload.message}\n\`\`\``;
+					out.push({
+						source: 'claude',
+						message: msg,
+						toolCalls: [],
+						toolCallsPendingApproval: [],
+						createdAt: message.createdAt,
+						contentBlocks: [{ type: 'text', text: msg }]
 					});
 				}
 			}
 			if (payload.type === 'unhandledException') {
+				const msg = `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${payload.message}\n\`\`\``;
 				out.push({
 					source: 'claude',
-					message: `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${payload.message}\n\`\`\``,
+					message: msg,
 					toolCalls: [],
 					toolCallsPendingApproval: [],
-					createdAt: message.createdAt
+					createdAt: message.createdAt,
+					contentBlocks: [{ type: 'text', text: msg }]
 				});
 			}
 			if (payload.type === 'userAbort') {
+				const msg = `I've stopped! What can I help you with next?`;
 				out.push({
 					source: 'claude',
 					createdAt: message.createdAt,
-					message: `I've stopped! What can I help you with next?`,
+					message: msg,
 					toolCalls: [],
-					toolCallsPendingApproval: []
+					toolCallsPendingApproval: [],
+					contentBlocks: [{ type: 'text', text: msg }]
 				});
 			}
 			if (payload.type === 'compactFinished') {
+				const msg = `Context compaction completed: ${payload.summary}`;
 				out.push({
 					source: 'claude',
 					createdAt: message.createdAt,
 					subtype: 'compaction',
-					message: `Context compaction completed: ${payload.summary}`,
+					message: msg,
 					toolCalls: [],
-					toolCallsPendingApproval: []
+					toolCallsPendingApproval: [],
+					contentBlocks: [{ type: 'text', text: msg }]
 				});
 			}
 		} else if (payload.source === 'gitButler') {
@@ -245,7 +363,11 @@ export function formatMessages(
 		}
 		toolCalls = {};
 		// Move pending approval tool calls to completed tool calls
-		if (lastAssistantMessage?.source === 'claude') {
+		// Skip AskUserQuestion messages as they don't have toolCalls
+		if (
+			lastAssistantMessage?.source === 'claude' &&
+			!('subtype' in lastAssistantMessage && lastAssistantMessage.subtype === 'askUserQuestion')
+		) {
 			lastAssistantMessage.toolCalls = [
 				...lastAssistantMessage.toolCalls,
 				...lastAssistantMessage.toolCallsPendingApproval
@@ -281,9 +403,23 @@ type UserFeedbackStatus =
 			msSpentWaiting: number;
 	  };
 
+export function hasPendingAskUserQuestion(messages: Message[]): boolean {
+	return messages.some(
+		(message) =>
+			message.source === 'claude' &&
+			'subtype' in message &&
+			message.subtype === 'askUserQuestion' &&
+			!message.answered
+	);
+}
+
 export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
 	const lastMessage = messages.filter((m) => m.source !== 'gitButler')?.at(-1);
 	if (!lastMessage || lastMessage.source === 'user' || lastMessage.source === 'system') {
+		return { waitingForFeedback: false, msSpentWaiting: 0 };
+	}
+	// AskUserQuestion messages don't have toolCallsPendingApproval
+	if ('subtype' in lastMessage && lastMessage.subtype === 'askUserQuestion') {
 		return { waitingForFeedback: false, msSpentWaiting: 0 };
 	}
 	if (lastMessage.toolCallsPendingApproval.length > 0) {
@@ -346,7 +482,7 @@ const webRequestCost = 10;
  * because the "assistant" ones come in more frequently.
  *
  * For some reason the final quantity of tokens ends up slightly greater than if
- * you were using the result. I'm not entirly sure where the discrepency is.
+ * you were using the result. I'm not entirely sure where the discrepancy is.
  */
 export function usageStats(events: ClaudeMessage[]): {
 	tokens: number;

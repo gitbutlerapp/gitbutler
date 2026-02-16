@@ -1,4 +1,4 @@
-//! After looking into this and seeing false positives in token numbers ect...,
+//! After looking into this and seeing false positives in token numbers etc...,
 //! I've determined that it is currently just not possible to use the real
 //! /compact command from CC.
 //!
@@ -14,10 +14,9 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
-use but_broadcaster::Broadcaster;
+use anyhow::{Context as _, Result};
 use but_core::ref_metadata::StackId;
-use gitbutler_command_context::CommandContext;
+use but_ctx::ThreadSafeContext;
 use gix::bstr::ByteSlice;
 use serde::Deserialize;
 use tokio::{
@@ -26,11 +25,10 @@ use tokio::{
 };
 
 use crate::{
-    ClaudeSession, MessagePayload, SystemMessage, Transcript,
-    bridge::{Claude, Claudes},
-    db,
+    Broadcaster, ClaudeSession, MessagePayload, SystemMessage, Transcript, db,
     rules::list_claude_assignment_rules,
     send_claude_message,
+    session::{Claude, Claudes},
 };
 
 #[derive(Deserialize, Debug, Clone)]
@@ -77,40 +75,42 @@ const MODELS: &[Model<'static>] = &[
 impl Claudes {
     pub(crate) async fn compact(
         &self,
-        ctx: Arc<Mutex<CommandContext>>,
-        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        sync_ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
-    ) -> () {
+    ) {
         let res = self
-            .compact_inner(ctx.clone(), broadcaster.clone(), stack_id)
+            .compact_inner(sync_ctx.clone(), broadcaster.clone(), stack_id)
             .await;
         self.requests.lock().await.remove(&stack_id);
         if let Err(res) = res {
-            let mut ctx = ctx.lock().await;
-
-            let rule = list_claude_assignment_rules(&mut ctx)
-                .ok()
-                .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id));
+            let rule = {
+                let ctx = sync_ctx.clone().into_thread_local();
+                list_claude_assignment_rules(&ctx)
+                    .ok()
+                    .and_then(|rules| rules.into_iter().find(|rule| rule.stack_id == stack_id))
+            };
 
             if let Some(rule) = rule {
+                let broadcaster = broadcaster.lock().await;
+                let mut ctx = sync_ctx.into_thread_local();
                 let _ = send_claude_message(
                     &mut ctx,
-                    broadcaster.clone(),
+                    &broadcaster,
                     rule.session_id,
                     stack_id,
                     MessagePayload::System(crate::SystemMessage::UnhandledException {
                         message: format!("{res}"),
                     }),
-                )
-                .await;
+                );
             }
         };
     }
 
     pub async fn compact_inner(
         &self,
-        ctx: Arc<Mutex<CommandContext>>,
-        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        sync_ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
     ) -> Result<()> {
         let (send_kill, mut _recv_kill) = unbounded_channel();
@@ -119,43 +119,44 @@ impl Claudes {
             .await
             .insert(stack_id, Arc::new(Claude { kill: send_kill }));
 
-        let rule = {
-            let mut ctx = ctx.lock().await;
-            list_claude_assignment_rules(&mut ctx)?
-                .into_iter()
-                .find(|rule| rule.stack_id == stack_id)
-        };
-        let Some(rule) = rule else {
-            return Ok(());
-        };
+        let (rule, session) = {
+            let ctx = sync_ctx.clone().into_thread_local();
+            let rule = {
+                list_claude_assignment_rules(&ctx)?
+                    .into_iter()
+                    .find(|rule| rule.stack_id == stack_id)
+            };
+            let Some(rule) = rule else {
+                return Ok(());
+            };
 
-        let session = {
-            let mut ctx = ctx.lock().await;
-            db::get_session_by_id(&mut ctx, rule.session_id)?.context("Failed to find session")?
+            let session = { db::get_session_by_id(&ctx, rule.session_id)?.context("Failed to find session")? };
+            (rule, session)
         };
 
         {
-            let mut ctx = ctx.lock().await;
+            let broadcaster = broadcaster.lock().await;
+            let mut ctx = sync_ctx.clone().into_thread_local();
             send_claude_message(
                 &mut ctx,
-                broadcaster.clone(),
+                &broadcaster,
                 rule.session_id,
                 stack_id,
                 MessagePayload::System(SystemMessage::CompactStart),
-            )
-            .await?;
+            )?;
         }
-        let summary = generate_summary(ctx.clone(), &session).await?;
+
+        let summary = generate_summary(sync_ctx.clone(), &session).await?;
         {
-            let mut ctx = ctx.lock().await;
+            let broadcaster = broadcaster.lock().await;
+            let mut ctx = sync_ctx.into_thread_local();
             send_claude_message(
                 &mut ctx,
-                broadcaster.clone(),
+                &broadcaster,
                 rule.session_id,
                 stack_id,
                 MessagePayload::System(SystemMessage::CompactFinished { summary }),
-            )
-            .await?;
+            )?;
         }
 
         Ok(())
@@ -163,23 +164,22 @@ impl Claudes {
 
     pub(crate) async fn maybe_compact_context(
         &self,
-        ctx: Arc<Mutex<CommandContext>>,
-        broadcaster: Arc<tokio::sync::Mutex<Broadcaster>>,
+        sync_ctx: ThreadSafeContext,
+        broadcaster: Arc<Mutex<Broadcaster>>,
         stack_id: StackId,
     ) -> Result<()> {
-        let rule = {
-            let mut ctx = ctx.lock().await;
-            list_claude_assignment_rules(&mut ctx)?
-                .into_iter()
-                .find(|rule| rule.stack_id == stack_id)
-        };
-        let Some(rule) = rule else {
-            return Ok(());
-        };
-
         let messages = {
-            let mut ctx = ctx.lock().await;
-            db::list_messages_by_session(&mut ctx, rule.session_id)?
+            let ctx = sync_ctx.clone().into_thread_local();
+            let rule = {
+                list_claude_assignment_rules(&ctx)?
+                    .into_iter()
+                    .find(|rule| rule.stack_id == stack_id)
+            };
+            let Some(rule) = rule else {
+                return Ok(());
+            };
+
+            db::list_messages_by_session(&ctx, rule.session_id)?
         };
 
         // Find the last result message
@@ -208,8 +208,7 @@ impl Claudes {
                 + usage.input_tokens
                 + usage.output_tokens;
             if total > (model.context - COMPACTION_BUFFER) {
-                self.compact(ctx.clone(), broadcaster.clone(), stack_id)
-                    .await;
+                self.compact(sync_ctx.clone(), broadcaster.clone(), stack_id).await;
             }
         };
 
@@ -223,31 +222,30 @@ fn find_model(name: String) -> Option<&'static Model<'static>> {
         .find(|&m| name.contains(m.name) && m.subtype.map(|s| name.contains(s)).unwrap_or(true))
 }
 
-pub async fn generate_summary(
-    ctx: Arc<Mutex<CommandContext>>,
-    session: &ClaudeSession,
-) -> Result<String> {
-    let app_settings = ctx.lock().await.app_settings().clone();
-    let claude_executable = app_settings.claude.executable.clone();
-    let session_id =
-        Transcript::current_valid_session_id(ctx.lock().await.project().worktree_dir()?, session)
+pub async fn generate_summary(sync_ctx: ThreadSafeContext, session: &ClaudeSession) -> Result<String> {
+    let mut command = {
+        let worktree_dir = sync_ctx.clone().into_thread_local().workdir_or_fail()?;
+        let session_id = Transcript::current_valid_session_id(&worktree_dir, session)
             .await?
-            .context("Cant find current session id")?;
+            .context("Cannot find current session id")?;
+        let app_settings = sync_ctx.settings.clone();
+        let claude_executable = app_settings.claude.executable.clone();
 
-    let mut command = Command::new(claude_executable);
+        let mut cmd = Command::new(claude_executable);
 
-    /// Don't create a terminal window on windows.
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
+        // Don't create a terminal window on windows.
+        #[cfg(windows)]
+        {
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
 
-    command.current_dir(ctx.lock().await.project().worktree_dir()?);
-    command.args(["--resume", &format!("{session_id}")]);
-    command.arg("-p");
-    command.arg(SUMMARY_PROMPT);
+        cmd.current_dir(worktree_dir);
+        cmd.args(["--resume", &format!("{session_id}")]);
+        cmd.arg("-p");
+        cmd.arg(SUMMARY_PROMPT);
+        cmd
+    };
 
     let output = command.output().await?.stdout.to_str_lossy().into_owned();
     Ok(output)
@@ -261,7 +259,7 @@ Please include the following in your report if they are relevant:
 - The end goal
 - The steps we are taking and the steps we have taken so far
 - Key points in the conversation
-- Important implmentation details
+- Important implementation details
 - Key files that are being worked on
 - In depth summary of design goals
 - Other context that would help another developer continue this work

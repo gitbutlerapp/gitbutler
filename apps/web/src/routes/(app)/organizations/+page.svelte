@@ -8,7 +8,7 @@
 	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
 	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { Button, EmptyStatePlaceholder, Icon, SectionCard } from '@gitbutler/ui';
+	import { Button, CardGroup, EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 	const appState = inject(APP_STATE);
@@ -60,20 +60,16 @@
 					>
 				</div>
 
-				<div class="organizations-list">
-					{#each organizations as organization, index (organization.id)}
+				<CardGroup>
+					{#each organizations as organization}
 						<Loading loadable={organization}>
 							{#snippet children(organization)}
-								<SectionCard
-									roundedTop={index === 0}
-									roundedBottom={index === organizations.length - 1}
-									orientation="row"
-								>
+								<CardGroup.Item>
 									<div class="organization-card">
 										<div
 											class="organization-avatar"
-											style:background-color="var(--clr-scale-ntrl-20)"
-											style:color="var(--clr-scale-ntrl-80)"
+											style:background-color="var(--clr-bg-2)"
+											style:color="var(--clr-text-1)"
 										>
 											<span>{(organization.name || organization.slug)[0].toUpperCase()}</span>
 										</div>
@@ -109,11 +105,11 @@
 											</Button>
 										</div>
 									{/snippet}
-								</SectionCard>
+								</CardGroup.Item>
 							{/snippet}
 						</Loading>
 					{/each}
-				</div>
+				</CardGroup>
 			{:else}
 				<div class="empty-state-wrapper">
 					<EmptyStatePlaceholder>
@@ -201,12 +197,6 @@
 		color: var(--clr-text-1);
 		font-weight: 500;
 		font-size: 18px;
-	}
-
-	.organizations-list {
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
 	}
 
 	.organization-card {

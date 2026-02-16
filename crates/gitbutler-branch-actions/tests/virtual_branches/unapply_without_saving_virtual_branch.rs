@@ -4,29 +4,32 @@ use super::*;
 
 #[test]
 fn should_unapply_diff() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // write some
     std::fs::write(repo.path().join("file.txt"), "content").unwrap();
 
-    let _stack_entry = gitbutler_branch_actions::create_virtual_branch(
-        ctx,
-        &BranchCreateRequest::default(),
-        ctx.project().exclusive_worktree_access().write_permission(),
-    )
-    .unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    let _stack_entry =
+        gitbutler_branch_actions::create_virtual_branch(ctx, &BranchCreateRequest::default(), guard.write_permission())
+            .unwrap();
+    drop(guard);
     let stacks = stack_details(ctx);
-    let c = gitbutler_branch_actions::create_commit(ctx, stacks[0].0, "asdf", None);
+    let c = super::create_commit(ctx, stacks[0].0, "asdf");
     assert!(c.is_ok());
 
-    gitbutler_branch_actions::unapply_stack(ctx, stacks[0].0, Vec::new()).unwrap();
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::unapply_stack(ctx, guard.write_permission(), stacks[0].0, Vec::new()).unwrap();
+    drop(guard);
 
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 0);

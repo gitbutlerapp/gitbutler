@@ -45,7 +45,7 @@ body {
 
 /* selection change */
 body::selection {
-	background: color-mix(in srgb, var(--clr-scale-pop-60) 40%, transparent);
+	background: color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
 }
 
 body:has(.marketing-page)::-webkit-scrollbar {
@@ -54,7 +54,7 @@ body:has(.marketing-page)::-webkit-scrollbar {
 }
 
 body:has(.marketing-page)::-webkit-scrollbar-thumb {
-	background: var(--clr-scale-ntrl-60);
+	background: var(--clr-border-1);
 }
 
 /* Global release notes content styles */
@@ -132,4 +132,22 @@ body:has(.marketing-page)::-webkit-scrollbar-thumb {
 	padding-left: 1rem;
 	border-left: 3px solid var(--color-primary);
 	font-style: italic;
+}
+
+/* Grainy background effect */
+.grainy-bg {
+	position: absolute;
+	width: 1000px;
+	height: 950px;
+	transform: rotate(30deg);
+	background-image: url('/images/grainy-gradient-light.png');
+	background-size: 100%;
+	background-repeat: no-repeat;
+	opacity: 0.08;
+	pointer-events: none;
+}
+
+.dark .grainy-bg {
+	background-image: url('/images/grainy-gradient-dark.png');
+	opacity: 0.08;
 }

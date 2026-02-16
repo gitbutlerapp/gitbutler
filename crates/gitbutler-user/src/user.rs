@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_secret::{Sensitive, secret};
 use serde::{Deserialize, Serialize};
 
@@ -39,8 +39,7 @@ impl User {
             return Ok(token.clone());
         }
         let err_msg = "access token for user was deleted from keychain - login is now invalid";
-        let secret = secret::retrieve(Self::ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?
-            .context(err_msg)?;
+        let secret = secret::retrieve(Self::ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?.context(err_msg)?;
         *self.access_token.borrow_mut() = Some(secret.clone());
         Ok(secret)
     }
@@ -52,10 +51,7 @@ impl User {
         if let Some(token) = self.github_access_token.borrow().as_ref() {
             return Ok(Some(token.clone()));
         }
-        let secret = secret::retrieve(
-            Self::GITHUB_ACCESS_TOKEN_HANDLE,
-            secret::Namespace::BuildKind,
-        )?;
+        let secret = secret::retrieve(Self::GITHUB_ACCESS_TOKEN_HANDLE, secret::Namespace::BuildKind)?;
         self.github_access_token.borrow_mut().clone_from(&secret);
         Ok(secret)
     }

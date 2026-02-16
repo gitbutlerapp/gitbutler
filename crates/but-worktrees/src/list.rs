@@ -1,6 +1,5 @@
 use anyhow::Result;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeReadPermission;
+use but_ctx::{Context, access::RepoShared};
 use serde::Serialize;
 
 use crate::{Worktree, WorktreeId, db::list_worktree_meta};
@@ -13,13 +12,10 @@ pub struct ListWorktreeOutcome {
 }
 
 /// Lists worktrees
-pub fn worktree_list(
-    ctx: &mut CommandContext,
-    _perm: &WorktreeReadPermission,
-) -> Result<ListWorktreeOutcome> {
-    let repo = ctx.gix_repo_for_merging()?;
+pub fn worktree_list(ctx: &mut Context, _perm: &RepoShared) -> Result<ListWorktreeOutcome> {
+    let repo = &*ctx.repo.get()?;
 
-    let metas = list_worktree_meta(&repo)?;
+    let metas = list_worktree_meta(repo)?;
 
     let entries = repo
         .worktrees()?

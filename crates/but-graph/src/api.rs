@@ -1,9 +1,10 @@
 use std::{
-    collections::{BTreeSet, VecDeque},
+    cmp::Reverse,
+    collections::{BTreeSet, BinaryHeap, HashMap, VecDeque},
     ops::{Deref, Index, IndexMut},
 };
 
-use anyhow::{Context, bail};
+use anyhow::{Context as _, bail};
 use petgraph::{
     Direction,
     prelude::EdgeRef,
@@ -11,7 +12,10 @@ use petgraph::{
     visit::{IntoEdgeReferences, Visitable},
 };
 
-use crate::{Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentIndex, init::PetGraph};
+use crate::{
+    Commit, CommitIndex, Edge, EntryPoint, Graph, Segment, SegmentFlags, SegmentIndex, init::PetGraph,
+    projection::commit::is_managed_workspace_by_message,
+};
 
 /// Mutation
 impl Graph {
@@ -35,7 +39,7 @@ impl Graph {
     }
 
     /// Put `dst` on top of `src`, connecting it from the `src_commit` specifically,
-    /// an index valid for [`Segment::commits_unique_from_tip`] in `src` to the commit at `dst_commit` in `dst`.
+    /// an index valid for [`Segment::commits`] in `src` to the commit at `dst_commit` in `dst`.
     ///
     /// If `src_commit` is `None`, there must be no commit in `base` and it's connected directly,
     /// something that can happen for the root base of the graph which is usually empty.
@@ -56,62 +60,216 @@ impl Graph {
     ) -> SegmentIndex {
         let dst = self.inner.add_node(dst);
         self.inner[dst].id = dst;
-        self.connect_segments_with_ids(
-            src,
-            src_commit,
-            None,
-            dst,
-            dst_commit,
-            dst_commit_id.into(),
-        );
+        self.connect_segments_with_ids(src, src_commit, None, dst, dst_commit, dst_commit_id.into());
         dst
     }
 }
 
 /// Merge-base computation
 impl Graph {
-    /// Compute the lowest merge-base between two segments.
-    /// Such a merge-base is reachable from all possible paths from `a` and `b`.
+    /// Compute the merge-base just like Git would between segments `a` and `b`, but finding all possible merge-bases of a walk,
+    /// which are then truncated to the highest merge-base that includes all the other merge-bases.
     ///
-    /// The segment representing the merge-base is expected to not be empty, as its first commit
-    /// is usually what one is interested in.
-    // TODO: should be multi, with extra segments as third parameter
-    // TODO: actually find the lowest merge-base, right now it just finds the first merge-base, but that's not
-    //       the lowest.
-    pub fn first_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
-        // TODO(perf): improve this by allowing to set bitflags on the segments themselves, to allow
-        //       marking them accordingly, just like Git does.
-        //       Right now we 'emulate' bitflags on pre-allocated data with two data sets, expensive
-        //       in comparison.
-        //       And yes, let's avoid `gix::Repository::merge_base` as we have free
-        //       generation numbers here and can avoid work duplication.
-        let mut segments_reachable_by_b = BTreeSet::new();
-        self.visit_all_segments_including_start_until(b, Direction::Outgoing, |s| {
-            segments_reachable_by_b.insert(s.id);
-            // Collect everything, keep it simple.
-            // This is fast* as completely in memory.
-            // *means slow compared to an array traversal with memory locality.
-            false
-        });
-
-        let mut candidate = None;
-        self.visit_all_segments_including_start_until(a, Direction::Outgoing, |s| {
-            if candidate.is_some() {
-                return true;
-            }
-            let prune = segments_reachable_by_b.contains(&s.id);
-            if prune {
-                candidate = Some(s.id);
-            }
-            prune
-        });
-        if candidate.is_none() {
-            // TODO: improve this - workspaces shouldn't be like this but if they are, do we deal with it well?
-            tracing::warn!(
-                "Couldn't find merge-base between segments {a:?} and {b:?} - this might lead to unexpected results"
-            )
+    /// Note that this implementation isn't 'stable' and different orders of inputs can change the outcome.
+    ///
+    /// Returns `None` if there is no merge-base as `a` and `b` don't share history.
+    /// If `a == b`, `Some(a)` is returned immediately.
+    pub fn find_git_merge_base(&self, a: SegmentIndex, b: SegmentIndex) -> Option<SegmentIndex> {
+        if a == b {
+            return Some(a);
         }
-        candidate
+
+        let mut flags: HashMap<SegmentIndex, SegmentFlags> = Default::default();
+        let bases = self.paint_down_to_common(a, b, &mut flags);
+
+        if bases.is_empty() {
+            return None;
+        }
+
+        let result = self.remove_redundant(&bases, &mut flags);
+        result.first().copied()
+    }
+
+    /// Paint segments reachable from `first` with SEGMENT1 and from `second` with SEGMENT2.
+    /// When a segment has both flags, it's a potential merge-base.
+    /// Returns all potential merge-bases with their generation numbers.
+    fn paint_down_to_common(
+        &self,
+        first: SegmentIndex,
+        second: SegmentIndex,
+        flags: &mut HashMap<SegmentIndex, SegmentFlags>,
+    ) -> Vec<(SegmentIndex, usize)> {
+        // Priority queue ordered by generation (higher generation = closer to root = lower priority).
+        // We use Reverse because BinaryHeap is a max-heap and we want segments with *lower* generation
+        // (i.e. closer to tips) to be processed first.
+        let mut queue: BinaryHeap<(Reverse<usize>, SegmentIndex)> = BinaryHeap::new();
+
+        // Initialize first segment
+        let first_flags = flags.entry(first).or_insert(SegmentFlags::empty());
+        *first_flags |= SegmentFlags::SEGMENT1;
+        queue.push((Reverse(self[first].generation), first));
+
+        // Initialize second segment
+        let second_flags = flags.entry(second).or_insert(SegmentFlags::empty());
+        *second_flags |= SegmentFlags::SEGMENT2;
+        queue.push((Reverse(self[second].generation), second));
+
+        let mut out = Vec::new();
+
+        // Continue while there are non-stale segments in the queue
+        while queue
+            .iter()
+            .any(|(_, sidx)| !flags.get(sidx).is_some_and(|f| f.contains(SegmentFlags::STALE)))
+        {
+            let Some((Reverse(generation), segment_id)) = queue.pop() else {
+                break;
+            };
+
+            let segment_flags = *flags.get(&segment_id).unwrap_or(&SegmentFlags::empty());
+            let mut flags_without_result =
+                segment_flags & (SegmentFlags::SEGMENT1 | SegmentFlags::SEGMENT2 | SegmentFlags::STALE);
+
+            // If reachable from both sides, it's a merge-base candidate
+            if flags_without_result == (SegmentFlags::SEGMENT1 | SegmentFlags::SEGMENT2) {
+                if !segment_flags.contains(SegmentFlags::RESULT) {
+                    flags.entry(segment_id).or_default().insert(SegmentFlags::RESULT);
+                    out.push((segment_id, generation));
+                }
+                flags_without_result |= SegmentFlags::STALE;
+            }
+
+            // Propagate flags to parents (outgoing direction = towards history)
+            for parent_id in self.inner.neighbors_directed(segment_id, Direction::Outgoing) {
+                let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
+                if (*parent_flags & flags_without_result) != flags_without_result {
+                    *parent_flags |= flags_without_result;
+                    queue.push((Reverse(self[parent_id].generation), parent_id));
+                }
+            }
+        }
+
+        out
+    }
+
+    /// Remove all those segments from `segments` if they are in the history of another segment in `segments`.
+    /// That way, we return only the topologically most recent segments in `segments`.
+    fn remove_redundant(
+        &self,
+        segments: &[(SegmentIndex, usize)],
+        flags: &mut HashMap<SegmentIndex, SegmentFlags>,
+    ) -> Vec<SegmentIndex> {
+        if segments.is_empty() {
+            return Vec::new();
+        }
+
+        // Clear flags for the redundancy check
+        flags.clear();
+
+        let sorted_segments = {
+            let mut v = segments.to_vec();
+            // Sort by generation ascending (lower generation first = closer to tips)
+            v.sort_by_key(|(_, generation)| *generation);
+            v
+        };
+
+        let mut min_gen_pos = 0;
+        let mut min_gen = sorted_segments[min_gen_pos].1;
+
+        let mut walk_start: Vec<(SegmentIndex, usize)> = Vec::with_capacity(segments.len());
+
+        // Mark all input segments with RESULT and collect their parents for walking
+        for (sidx, _) in segments {
+            flags.entry(*sidx).or_default().insert(SegmentFlags::RESULT);
+
+            for parent_id in self.inner.neighbors_directed(*sidx, Direction::Outgoing) {
+                let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
+                // Prevent double-addition
+                if !parent_flags.contains(SegmentFlags::STALE) {
+                    parent_flags.insert(SegmentFlags::STALE);
+                    walk_start.push((parent_id, self[parent_id].generation));
+                }
+            }
+        }
+
+        walk_start.sort_by_key(|(sidx, _)| sidx.index());
+
+        // Allow walking everything at first (remove STALE from walk_start entries)
+        for (sidx, _) in &walk_start {
+            if let Some(f) = flags.get_mut(sidx) {
+                f.remove(SegmentFlags::STALE);
+            }
+        }
+
+        let mut count_still_independent = segments.len();
+        let mut stack: Vec<(SegmentIndex, usize)> = Vec::new();
+
+        while let Some((segment_id, segment_gen)) = walk_start.pop() {
+            if count_still_independent <= 1 {
+                break;
+            }
+
+            stack.clear();
+            flags.entry(segment_id).or_default().insert(SegmentFlags::STALE);
+            stack.push((segment_id, segment_gen));
+
+            while let Some((current_id, current_gen)) = stack.last().copied() {
+                let current_flags = *flags.get(&current_id).unwrap_or(&SegmentFlags::empty());
+
+                if current_flags.contains(SegmentFlags::RESULT) {
+                    if let Some(f) = flags.get_mut(&current_id) {
+                        f.remove(SegmentFlags::RESULT);
+                    }
+                    count_still_independent -= 1;
+
+                    if count_still_independent <= 1 {
+                        break;
+                    }
+
+                    // Update min_gen if we just removed the minimum
+                    if current_id == sorted_segments[min_gen_pos].0 {
+                        while min_gen_pos < segments.len() - 1
+                            && flags
+                                .get(&sorted_segments[min_gen_pos].0)
+                                .is_some_and(|f| f.contains(SegmentFlags::STALE))
+                        {
+                            min_gen_pos += 1;
+                        }
+                        min_gen = sorted_segments[min_gen_pos].1;
+                    }
+                }
+
+                // Skip if generation is below minimum
+                if current_gen > min_gen {
+                    stack.pop();
+                    continue;
+                }
+
+                let previous_len = stack.len();
+
+                for parent_id in self.inner.neighbors_directed(current_id, Direction::Outgoing) {
+                    let parent_flags = flags.entry(parent_id).or_insert(SegmentFlags::empty());
+                    if !parent_flags.contains(SegmentFlags::STALE) {
+                        parent_flags.insert(SegmentFlags::STALE);
+                        stack.push((parent_id, self[parent_id].generation));
+                    }
+                }
+
+                if previous_len == stack.len() {
+                    stack.pop();
+                }
+            }
+        }
+
+        // Return segments that are not marked as STALE
+        segments
+            .iter()
+            .filter_map(|(sidx, _)| {
+                flags
+                    .get(sidx)
+                    .filter(|f| !f.contains(SegmentFlags::STALE))
+                    .map(|_| *sidx)
+            })
+            .collect()
     }
 }
 
@@ -128,20 +286,14 @@ impl Graph {
     /// ### Performance
     ///
     /// This is a brute-force search through all nodes and all data in the graph - beware of hot-loop usage.
-    pub fn segment_and_commit_by_ref_name(
-        &self,
-        name: &gix::refs::FullNameRef,
-    ) -> Option<(&Segment, &Commit)> {
+    pub fn segment_and_commit_by_ref_name(&self, name: &gix::refs::FullNameRef) -> Option<(&Segment, &Commit)> {
         self.inner.node_weights().find_map(|s| {
             if s.ref_name().is_some_and(|rn| rn == name) {
                 self.tip_skip_empty(s.id).map(|c| (s, c))
             } else {
-                s.commits.iter().find_map(|c| {
-                    c.refs
-                        .iter()
-                        .any(|ri| ri.ref_name.as_ref() == name)
-                        .then_some((s, c))
-                })
+                s.commits
+                    .iter()
+                    .find_map(|c| c.refs.iter().any(|ri| ri.ref_name.as_ref() == name).then_some((s, c)))
             }
         })
     }
@@ -187,6 +339,22 @@ impl Graph {
         self.tip_skip_empty(self.entrypoint?.0)
     }
 
+    /// Return the entry-point commit of this graph if it is a
+    /// [managed](is_managed_workspace_by_message) workspace commit.
+    ///
+    /// The entry-point commit is obtained via [`Self::entrypoint_commit()`].
+    /// Note that managed workspace commits are owned by GitButler.
+    /// The `repo` is used to look up the entrypoint commit and to obtain its message.
+    pub fn managed_entrypoint_commit(&self, repo: &gix::Repository) -> anyhow::Result<Option<&Commit>> {
+        let Some(ec) = self.entrypoint_commit() else {
+            return Ok(None);
+        };
+
+        let commit = repo.find_commit(ec.id)?;
+        let message = commit.message_raw()?;
+        Ok(is_managed_workspace_by_message(message).then_some(ec))
+    }
+
     /// Visit the ancestry of `start` along the first parents, itself excluded, until `stop` returns `true`.
     /// Also return the segment that we stopped at.
     /// **Important**: `stop` is not called with `start`, this is a feature.
@@ -205,10 +373,7 @@ impl Graph {
                 break;
             }
             if seen.insert(next.id) {
-                edge = self
-                    .inner
-                    .edges_directed(next.id, Direction::Outgoing)
-                    .last();
+                edge = self.inner.edges_directed(next.id, Direction::Outgoing).last();
             }
         }
     }
@@ -234,17 +399,22 @@ impl Graph {
             .node_weight(self.inner.node_weight(sidx)?.sibling_segment_id?)
     }
 
+    /// Lookup the segment of `sidx` and then find its remote tracking branch segment, if it has one.
+    pub fn lookup_remote_tracking_branch_segment(&self, sidx: SegmentIndex) -> Option<&Segment> {
+        self.inner
+            .node_weight(self.inner.node_weight(sidx)?.remote_tracking_branch_segment_id?)
+    }
+
     /// Return the entry-point of the graph as configured during traversal.
     /// It's useful for when one wants to know which commit was used to discover the entire graph.
     ///
     /// Note that this method only fails if the entrypoint wasn't set correctly due to a bug.
     pub fn lookup_entrypoint(&self) -> anyhow::Result<EntryPoint<'_>> {
-        let (segment_index, commit_index) = self
-            .entrypoint
-            .context("BUG: must always set the entrypoint")?;
-        let segment = &self.inner.node_weight(segment_index).with_context(|| {
-            format!("BUG: entrypoint segment at {segment_index:?} wasn't present")
-        })?;
+        let (segment_index, commit_index) = self.entrypoint.context("BUG: must always set the entrypoint")?;
+        let segment = &self
+            .inner
+            .node_weight(segment_index)
+            .with_context(|| format!("BUG: entrypoint segment at {segment_index:?} wasn't present"))?;
         Ok(EntryPoint {
             segment_index,
             commit_index,
@@ -277,18 +447,11 @@ impl Graph {
     /// isn't fully defined as traversal stopped due to some abort condition.
     /// Valid partial segments always have at least one commit.
     fn is_partial_segment(&self, sidx: SegmentIndex) -> bool {
-        let has_outgoing = self
-            .inner
-            .edges_directed(sidx, Direction::Outgoing)
-            .next()
-            .is_some();
+        let has_outgoing = self.inner.edges_directed(sidx, Direction::Outgoing).next().is_some();
         if has_outgoing {
             return false;
         }
-        self[sidx]
-            .commits
-            .last()
-            .is_none_or(|c| !c.parent_ids.is_empty())
+        self[sidx].commits.last().is_none_or(|c| !c.parent_ids.is_empty())
     }
 
     /// Return all segments that sit on top of the `sidx` segment as `(source_commit_index(of sidx), destination_segment_index)`,
@@ -298,7 +461,7 @@ impl Graph {
     ///
     /// Thus, a [`CommitIndex`] of `0` indicates the paired segment sits directly on top of `sidx`, probably as part of
     /// a merge commit that is the last commit in the respective segment. The index is always valid in the
-    /// [`Segment::commits_unique_from_tip`] field of `sidx`.
+    /// [`Segment::commits`] field of `sidx`.
     pub fn segments_below_in_order(
         &self,
         sidx: SegmentIndex,
@@ -329,18 +492,10 @@ impl Graph {
     /// Return `true` if commit `sidx` is 'cut off', i.e. the traversal finished at
     /// its last commit due to an abort condition.
     pub fn is_early_end_of_traversal(&self, sidx: SegmentIndex) -> bool {
-        if self
-            .inner
-            .edges_directed(sidx, Direction::Outgoing)
-            .next()
-            .is_some()
-        {
+        if self.inner.edges_directed(sidx, Direction::Outgoing).next().is_some() {
             return false;
         }
-        self[sidx]
-            .commits
-            .last()
-            .is_some_and(|c| !c.parent_ids.is_empty())
+        self[sidx].commits.last().is_some_and(|c| !c.parent_ids.is_empty())
     }
 
     /// Return the number of segments stored within the graph.
@@ -355,10 +510,7 @@ impl Graph {
 
     /// Return the number of commits in all segments.
     pub fn num_commits(&self) -> usize {
-        self.inner
-            .node_indices()
-            .map(|n| self[n].commits.len())
-            .sum::<usize>()
+        self.inner.node_indices().map(|n| self[n].commits.len()).sum::<usize>()
     }
 
     /// Return an iterator over all indices of segments in the graph.
@@ -445,11 +597,7 @@ impl Graph {
     }
 
     /// Fail with an error if the `edge` isn't consistent.
-    pub(crate) fn check_edge(
-        graph: &PetGraph,
-        edge: EdgeReference<'_, Edge>,
-        weight_only: bool,
-    ) -> anyhow::Result<()> {
+    pub(crate) fn check_edge(graph: &PetGraph, edge: EdgeReference<'_, Edge>, weight_only: bool) -> anyhow::Result<()> {
         let e = edge;
         let src = &graph[e.source()];
         let dst = &graph[e.target()];
@@ -472,15 +620,11 @@ impl Graph {
 
         let seg_cidx = src.commit_id_by_index(w.src);
         if w.src_id != seg_cidx {
-            bail!(
-                "{display:?}: the desired source index didn't match the one in the segment {seg_cidx:?}"
-            );
+            bail!("{display:?}: the desired source index didn't match the one in the segment {seg_cidx:?}");
         }
         let seg_cidx = dst.commit_id_by_index(w.dst);
         if w.dst_id != seg_cidx {
-            bail!(
-                "{display:?}: the desired destination index didn't match the one in the segment {seg_cidx:?}"
-            );
+            bail!("{display:?}: the desired destination index didn't match the one in the segment {seg_cidx:?}");
         }
         Ok(())
     }

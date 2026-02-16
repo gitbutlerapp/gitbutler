@@ -84,7 +84,7 @@
 	</section>
 </section>
 
-<style lang="scss">
+<style lang="postcss">
 	.reviews-wrapper {
 		display: flex;
 		flex-direction: column;
@@ -114,7 +114,7 @@
 		font-family: var(--font-accent);
 
 		@media (max-width: 600px) {
-			// csslint ignore
+			/* csslint ignore */
 			font-size: 16cqw;
 		}
 	}
@@ -136,13 +136,13 @@
 			scroll-snap-type: x mandatory;
 		}
 
-		// hide scrollbar
+		/* hide scrollbar */
 		&::-webkit-scrollbar {
 			display: none;
 		}
 	}
 
-	.reviews-column {
+	/* .reviews-column {
 		display: flex;
 		flex-direction: column;
 		gap: 20px;
@@ -152,5 +152,5 @@
 			align-items: flex-start;
 			min-width: 600px;
 		}
-	}
+	} */
 </style>

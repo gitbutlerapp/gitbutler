@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
+	import SkeletonBone from '$components/SkeletonBone.svelte';
 	import Tooltip from '$components/Tooltip.svelte';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColorType } from '$lib/utils/colorTypes';
@@ -13,6 +14,8 @@
 		class?: string;
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
+		skeleton?: boolean;
+		skeletonWidth?: string;
 		children?: Snippet;
 		onclick?: (e: MouseEvent) => void;
 		reversedDirection?: boolean;
@@ -20,38 +23,46 @@
 
 	const {
 		testId,
-		style = 'neutral',
+		style = 'gray',
 		kind = 'solid',
 		size = 'icon',
 		class: className = '',
 		icon,
 		tooltip,
+		skeleton,
+		skeletonWidth,
 		children,
 		onclick,
-		reversedDirection = false
+		reversedDirection
 	}: Props = $props();
 </script>
 
-<Tooltip text={tooltip}>
-	<!-- A badge is not a clickable UI element, but with exceptions. No button styling desired. -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<div
-		data-testid={testId}
-		class="badge {style} {kind} {size}-size {className}"
-		class:reversed={reversedDirection}
-		{onclick}
-	>
-		{#if children}
-			<span class="badge__label text-11 text-semibold">{@render children()}</span>
-		{/if}
-		{#if icon}
-			<i class="badge__icon">
-				<Icon name={icon} />
-			</i>
-		{/if}
-	</div>
-</Tooltip>
+{#if skeleton}
+	<SkeletonBone
+		radius="3rem"
+		width={skeletonWidth ?? (size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)')}
+		height={size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)'}
+	/>
+{:else}
+	<Tooltip text={tooltip}>
+		<div
+			role="presentation"
+			data-testid={testId}
+			class="badge {style} {kind} {size}-size {className}"
+			class:reversed={reversedDirection}
+			{onclick}
+		>
+			{#if children}
+				<span class="badge__label text-11 text-semibold">{@render children()}</span>
+			{/if}
+			{#if icon}
+				<i class="badge__icon">
+					<Icon name={icon} />
+				</i>
+			{/if}
+		</div>
+	</Tooltip>
+{/if}
 
 <style lang="postcss">
 	.badge {
@@ -64,9 +75,9 @@
 		text-align: center;
 
 		/* SOLID */
-		&.neutral.solid {
-			background-color: var(--clr-scale-ntrl-40);
-			color: var(--clr-scale-ntrl-100);
+		&.gray.solid {
+			background-color: var(--clr-theme-gray-element);
+			color: var(--clr-theme-gray-on-element);
 		}
 
 		&.pop.solid {
@@ -74,9 +85,9 @@
 			color: var(--clr-theme-pop-on-element);
 		}
 
-		&.success.solid {
-			background-color: var(--clr-theme-succ-element);
-			color: var(--clr-theme-succ-on-element);
+		&.safe.solid {
+			background-color: var(--clr-theme-safe-element);
+			color: var(--clr-theme-safe-on-element);
 		}
 
 		&.warning.solid {
@@ -84,20 +95,20 @@
 			color: var(--clr-theme-warn-on-element);
 		}
 
-		&.error.solid {
-			background-color: var(--clr-theme-err-element);
-			color: var(--clr-theme-err-on-element);
+		&.danger.solid {
+			background-color: var(--clr-theme-danger-element);
+			color: var(--clr-theme-danger-on-element);
 		}
 
 		&.purple.solid {
-			background-color: var(--clr-theme-purp-element);
-			color: var(--clr-theme-purp-on-element);
+			background-color: var(--clr-theme-purple-element);
+			color: var(--clr-theme-purple-on-element);
 		}
 
 		/* SOFT */
-		&.neutral.soft {
-			background-color: var(--clr-scale-ntrl-80);
-			color: var(--clr-text-1);
+		&.gray.soft {
+			background-color: var(--clr-theme-gray-soft);
+			color: var(--clr-theme-gray-on-soft);
 		}
 
 		&.pop.soft {
@@ -105,9 +116,9 @@
 			color: var(--clr-theme-pop-on-soft);
 		}
 
-		&.success.soft {
-			background-color: var(--clr-theme-succ-soft);
-			color: var(--clr-theme-succ-on-soft);
+		&.safe.soft {
+			background-color: var(--clr-theme-safe-soft);
+			color: var(--clr-theme-safe-on-soft);
 		}
 
 		&.warning.soft {
@@ -115,14 +126,14 @@
 			color: var(--clr-theme-warn-on-soft);
 		}
 
-		&.error.soft {
-			background-color: var(--clr-theme-err-soft);
-			color: var(--clr-theme-err-on-soft);
+		&.danger.soft {
+			background-color: var(--clr-theme-danger-soft);
+			color: var(--clr-theme-danger-on-soft);
 		}
 
 		&.purple.soft {
-			background-color: var(--clr-theme-purp-soft);
-			color: var(--clr-theme-purp-on-soft);
+			background-color: var(--clr-theme-purple-soft);
+			color: var(--clr-theme-purple-on-soft);
 		}
 
 		/* SIZE */
@@ -173,6 +184,11 @@
 					padding-right: 0;
 					padding-left: 2px;
 				}
+
+				/* When no icon, use equal padding */
+				&:not(:has(.badge__icon)) .badge__label {
+					padding: 0 5px;
+				}
 			}
 
 			&.tag-size {
@@ -183,6 +199,11 @@
 				& .badge__icon {
 					padding-right: 0;
 					padding-left: 4px;
+				}
+
+				/* When no icon, use equal padding */
+				&:not(:has(.badge__icon)) .badge__label {
+					padding: 0 8px;
 				}
 			}
 		}

@@ -144,13 +144,13 @@ cp -R two-branches-one-advanced-two-parent-ws-commit two-branches-one-advanced-t
   remote_tracking_caught_up advanced-lane
 )
 
-cp -R two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
-(cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant
-  git branch dependant advanced-lane
+cp -R two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent
+(cd two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent
+  git branch dependent advanced-lane
 )
 
-git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
-(cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant
+git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
+(cd three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent
   git commit -m "init" --allow-empty
   setup_target_to_match_main
   git checkout -b lane main
@@ -159,8 +159,8 @@ git init three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-depen
   git commit -m "change" --allow-empty
   # This works without an official remote setup as we go by name as fallback.
   remote_tracking_caught_up advanced-lane
-  git branch dependant
-  git branch on-top-of-dependant
+  git branch dependent
+  git branch on-top-of-dependent
 
   create_workspace_commit_once advanced-lane
 )

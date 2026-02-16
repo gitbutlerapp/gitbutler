@@ -24,13 +24,14 @@
 
 <input
 	type="radio"
-	class="focus-state radio {className}"
+	class="radio {className}"
 	class:small
 	{id}
 	{value}
 	{name}
 	{disabled}
 	{checked}
+	tabindex={disabled ? -1 : 0}
 	{onchange}
 	onkeydown={(e) => {
 		if (e.key === 'Enter') {
@@ -67,8 +68,12 @@
 			}
 		}
 
+		&:not(:disabled):not(:checked):focus-visible {
+			outline: 2px solid var(--clr-theme-pop-element);
+			outline-offset: -2px;
+		}
 		&:disabled {
-			background-color: var(--clr-scale-ntrl-70);
+			background-color: var(--clr-border-2);
 			cursor: not-allowed;
 			opacity: 0.4;
 		}
@@ -80,12 +85,15 @@
 
 			&::after {
 				transform: scale(1);
-				background-color: var(--clr-core-ntrl-100);
+				background-color: var(--clr-core-gray-100);
 				opacity: 1;
 			}
 		}
 
-		/* tick element */
+		&:checked:focus-visible {
+			outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 60%, var(--clr-text-1));
+			outline-offset: -2px;
+		} /* tick element */
 		&::after {
 			position: absolute;
 			top: 4px;
@@ -94,14 +102,13 @@
 			height: calc(100% - 8px);
 			transform: scale(0.5);
 			border-radius: 16px;
-			background-color: var(--clr-scale-ntrl-0);
+			background-color: var(--clr-text-1);
 			content: '';
 			opacity: 0;
 			transition: background-color var(--transition-fast);
 		}
 
 		/* modifiers */
-
 		&.small {
 			width: 14px;
 			height: 14px;

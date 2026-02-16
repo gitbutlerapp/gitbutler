@@ -11,7 +11,10 @@
 		// Whether non-anonymous metrics are enabled.
 		"appNonAnonMetricsEnabled": false,
 		/// Distinct ID, if reporting is enabled.
-		"appDistinctId": null
+		"appDistinctId": null,
+		// Whether settings have been migrated from the legacy Tauri store.
+		// This flag is set to true after the one-time migration and prevents repeated migration attempts.
+		"migratedFromLegacy": false
 	},
 	"githubOauthApp": {
 		// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.
@@ -26,19 +29,20 @@
 		"ws3": true,
 		/// Enable undo/redo support.
 		"undo": false,
-		/// Enable the usage of GitButler Actions.
-		"actions": false,
-		/// Enable the usage of the butbot chat.
-		"butbot": false,
 		/// Enable processing of workspace rules.
 		"rules": false,
 		/// Enable single branch mode.
-		"singleBranch": false
+		"singleBranch": false,
+		/// Control how the filesystem watch should be established.
+		/// Possible values: "auto", "legacy", "modern".
+		"watchMode": "auto"
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {
 		// Additional hosts that the application can connect to.
-		"hosts": []
+		"hosts": [],
+		// Additional hosts for img-src that the application can load images from.
+		"imgSrc": []
 	},
 	// Settings related to fetching.
 	"fetch": {
@@ -68,6 +72,18 @@
 	// UI settings.
 	"ui": {
 		// Whether to use the native system title bar.
-		"useNativeTitleBar": false
-	}
+		"useNativeTitleBar": false,
+		// Whether the `but` CLI is managed by a package manager.
+		// When true, the UI should show a specific message instead of installation options.
+		"cliIsManagedByPackageManager": false,
+		// LEGACY: The duration between UI update checks in seconds. If `0`, no update checks will be performed.
+		// This controls Tauri's built-in update mechanism for the desktop application.
+		// DEPRECATED: This field will be replaced by the top-level `appUpdatesCheckIntervalSec` setting.
+		// New code should use `appUpdatesCheckIntervalSec` instead.
+		"checkForUpdatesIntervalInSeconds": 3600
+	},
+	// The duration between application update checks in seconds. If `0`, no update checks will be performed.
+	// This controls background update checks for both CLI and GUI.
+	// In the future, this will replace the legacy `ui.checkForUpdatesIntervalInSeconds` setting.
+	"appUpdatesCheckIntervalSec": 3600
 }

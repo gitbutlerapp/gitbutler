@@ -1,11 +1,10 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result, bail};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{RebaseOutput, RebaseStep};
 use git2::Oid;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{Stack, StackId};
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -23,27 +22,24 @@ use crate::VirtualBranchesExt;
 /// - The number of commits in the reorder request must match the number of commits in the stack
 /// - The commit ids in the reorder request must be in the stack
 pub fn reorder_stack(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     new_order: StackOrder,
-    perm: &mut WorktreeWritePermission,
+    perm: &mut RepoExclusive,
 ) -> Result<RebaseOutput> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-    let state = ctx.project().virtual_branches();
-    let repo = ctx.repo();
+    let state = ctx.virtual_branches();
+    let repo = &*ctx.git2_repo.get()?;
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;
     new_order.validate(current_order.clone())?;
 
-    let gix_repo = ctx.gix_repo()?;
+    let gix_repo = ctx.repo.get()?;
     let default_target = state.get_default_target()?;
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?
         .peel_to_commit()?;
-    let merge_base = repo.merge_base(
-        default_target_commit.id(),
-        stack.head_oid(&gix_repo)?.to_git2(),
-    )?;
+    let merge_base = repo.merge_base(default_target_commit.id(), stack.head_oid(ctx)?.to_git2())?;
 
     let mut steps: Vec<RebaseStep> = Vec::new();
     for series in new_order.series.iter().rev() {
@@ -53,9 +49,7 @@ pub fn reorder_stack(
                 new_message: None,
             });
         }
-        steps.push(RebaseStep::Reference(but_core::Reference::Virtual(
-            series.name.clone(),
-        )));
+        steps.push(RebaseStep::Reference(but_core::Reference::Virtual(series.name.clone())));
     }
     let mut builder = but_rebase::Rebase::new(&gix_repo, merge_base.to_gix(), None)?;
     let builder = builder.steps(steps)?;
@@ -65,15 +59,14 @@ pub fn reorder_stack(
     let new_head = output.top_commit.to_git2();
 
     // Ensure the stack head is set to the new oid after rebasing
-    stack.set_stack_head(&state, &gix_repo, new_head, None)?;
+    stack.set_stack_head(&state, &gix_repo, new_head)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references.clone())?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     // Even if this fails, it's not actionable
-    let _ = update_uncommited_changes(ctx, old_workspace, new_workspace, perm);
-    crate::integration::update_workspace_commit(&state, ctx, false)
-        .context("failed to update gitbutler workspace")?;
+    let _ = update_uncommitted_changes(ctx, old_workspace, new_workspace, perm);
+    crate::integration::update_workspace_commit(&state, ctx, false).context("failed to update gitbutler workspace")?;
 
     Ok(output)
 }
@@ -93,7 +86,7 @@ pub struct SeriesOrder {
     /// Unique name of the series (branch). Must already exist in the stack.
     pub name: String,
     /// This is the desired commit order for the series. Because the commits will be rabased,
-    /// naturally, the the commit ids will be different afte updating.
+    /// naturally, the the commit ids will be different after updating.
     /// The changes are ordered from newest to oldest (most recent changes go first)
     #[serde(with = "but_serde::oid_vec")]
     pub commit_ids: Vec<Oid>,
@@ -111,11 +104,7 @@ impl StackOrder {
         }
         // Ensure that the names in the reorder update request match the names in the stack
         for series_order in &self.series {
-            if !current_order
-                .series
-                .iter()
-                .any(|s| s.name == series_order.name)
-            {
+            if !current_order.series.iter().any(|s| s.name == series_order.name) {
                 bail!("Series '{}' does not exist in the stack", series_order.name);
             }
         }
@@ -159,16 +148,8 @@ impl StackOrder {
         }
 
         // Ensure the new order is not a noop
-        if self
-            .series
-            .iter()
-            .map(|s| s.commit_ids.clone())
-            .collect_vec()
-            == current_order
-                .series
-                .iter()
-                .map(|s| s.commit_ids.clone())
-                .collect_vec()
+        if self.series.iter().map(|s| s.commit_ids.clone()).collect_vec()
+            == current_order.series.iter().map(|s| s.commit_ids.clone()).collect_vec()
         {
             bail!("The new order is the same as the current order");
         }
@@ -177,7 +158,8 @@ impl StackOrder {
     }
 }
 
-pub fn commits_order(ctx: &CommandContext, stack: &Stack) -> Result<StackOrder> {
+pub fn commits_order(ctx: &Context, stack: &Stack) -> Result<StackOrder> {
+    let git2_repo = &*ctx.git2_repo.get()?;
     let order: Result<Vec<SeriesOrder>> = stack
         .branches()
         .iter()
@@ -187,7 +169,7 @@ pub fn commits_order(ctx: &CommandContext, stack: &Stack) -> Result<StackOrder> 
             Ok(SeriesOrder {
                 name: b.name().to_owned(),
                 commit_ids: b
-                    .commits(ctx, stack)?
+                    .commits(git2_repo, ctx, stack)?
                     .local_commits
                     .iter()
                     .rev()

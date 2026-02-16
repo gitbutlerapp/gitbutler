@@ -131,7 +131,7 @@
 	<ImagineCanvas />
 </a>
 
-<style lang="scss">
+<style lang="postcss">
 	.download-btn {
 		display: flex;
 		position: relative;
@@ -140,10 +140,10 @@
 		overflow: hidden;
 		gap: 4px;
 		transform-style: preserve-3d;
-		border: 1px solid var(--clr-scale-pop-60);
+		border: 1px solid color-mix(in srgb, var(--clr-theme-pop-element) 50%, transparent);
 		border-radius: var(--radius-xl);
 		background-color: var(--clr-theme-pop-soft);
-		color: var(--clr-theme-pop-on-soft);
+		color: var(--clr-theme-pop-text);
 		transition:
 			transform 0.15s ease-out,
 			color 0.15s ease,
@@ -152,11 +152,11 @@
 			box-shadow 0.2s ease;
 		will-change: transform;
 
-		@media (pointer: fine) {
-			&:hover {
-				background-color: var(--clr-theme-pop-soft-hover);
-				box-shadow: 0 12px 26px color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
-			}
+		&:hover {
+			background-color: hsl(
+				from var(--clr-theme-pop-soft) h s calc(l - (var(--opacity-btn-solid-hover) * 50))
+			);
+			box-shadow: 0 12px 26px color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
 		}
 	}
 
@@ -196,14 +196,6 @@
 		pointer-events: none;
 	}
 
-	.canvas-container {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-	}
-
 	.download-btn__canvas-cover {
 		z-index: 1;
 		position: absolute;
@@ -213,7 +205,7 @@
 		height: 100%;
 		background: radial-gradient(
 			ellipse at center,
-			var(--clr-scale-pop-90) 40%,
+			var(--clr-theme-pop-bg) 40%,
 			rgba(255, 255, 255, 0) 100%
 		);
 		pointer-events: none;

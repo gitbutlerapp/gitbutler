@@ -40,12 +40,7 @@ impl keyring::credential::CredentialApi for BlackholeCredential {
 }
 
 impl keyring::credential::CredentialBuilderApi for BlackholeBuilder {
-    fn build(
-        &self,
-        _target: Option<&str>,
-        _service: &str,
-        _user: &str,
-    ) -> keyring::Result<Box<keyring::Credential>> {
+    fn build(&self, _target: Option<&str>, _service: &str, _user: &str) -> keyring::Result<Box<keyring::Credential>> {
         Ok(Box::new(BlackholeCredential))
     }
 

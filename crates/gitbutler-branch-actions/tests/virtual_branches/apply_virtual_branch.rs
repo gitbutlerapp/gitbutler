@@ -10,7 +10,7 @@ use super::*;
 
 #[test]
 fn rebase_commit() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // make sure we have an undiscovered commit in the remote branch
     {
@@ -23,25 +23,28 @@ fn rebase_commit() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     let mut stack_1_id = {
-        // create a branch with some commited work
+        // create a branch with some committed work
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry_1 = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest::default(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
         fs::write(repo.path().join("another_file.txt"), "virtual").unwrap();
 
-        gitbutler_branch_actions::create_commit(ctx, stack_entry_1.id, "virtual commit", None)
-            .unwrap();
+        super::create_commit(ctx, stack_entry_1.id, "virtual commit").unwrap();
 
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 1);
@@ -53,17 +56,13 @@ fn rebase_commit() {
 
     let unapplied_branch = {
         // unapply first vbranch
+        let mut guard = ctx.exclusive_worktree_access();
         let unapplied_branch =
-            gitbutler_branch_actions::unapply_stack(ctx, stack_1_id, Vec::new()).unwrap();
+            gitbutler_branch_actions::unapply_stack(ctx, guard.write_permission(), stack_1_id, Vec::new()).unwrap();
+        drop(guard);
 
-        assert_eq!(
-            fs::read_to_string(repo.path().join("another_file.txt")).unwrap(),
-            ""
-        );
-        assert_eq!(
-            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
-            "one"
-        );
+        assert_eq!(fs::read_to_string(repo.path().join("another_file.txt")).unwrap(), "");
+        assert_eq!(fs::read_to_string(repo.path().join("file.txt")).unwrap(), "one");
 
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 0);
@@ -75,29 +74,18 @@ fn rebase_commit() {
         // fetch remote
         gitbutler_branch_actions::integrate_upstream(ctx, &[], None, &Default::default()).unwrap();
 
-        // branch is stil unapplied
+        // branch is still unapplied
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 0);
 
-        assert_eq!(
-            fs::read_to_string(repo.path().join("another_file.txt")).unwrap(),
-            ""
-        );
-        assert_eq!(
-            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
-            "two"
-        );
+        assert_eq!(fs::read_to_string(repo.path().join("another_file.txt")).unwrap(), "");
+        assert_eq!(fs::read_to_string(repo.path().join("file.txt")).unwrap(), "two");
     }
 
     {
         // apply first vbranch again
-        let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
-            ctx,
-            &unapplied_branch,
-            None,
-            None,
-        )
-        .unwrap();
+        let outcome =
+            gitbutler_branch_actions::create_virtual_branch_from_branch(ctx, &unapplied_branch, None, None).unwrap();
 
         stack_1_id = outcome.0;
 
@@ -113,16 +101,13 @@ fn rebase_commit() {
             "virtual"
         );
 
-        assert_eq!(
-            fs::read_to_string(repo.path().join("file.txt")).unwrap(),
-            "two"
-        );
+        assert_eq!(fs::read_to_string(repo.path().join("file.txt")).unwrap(), "two");
     }
 }
 
 #[test]
 fn upstream_integration_status_without_review_map() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -134,36 +119,37 @@ fn upstream_integration_status_without_review_map() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit", None)
-            .unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
 
     let empty_review_map = HashMap::new();
-    let statuses =
-        gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &empty_review_map)
-            .unwrap();
+    let statuses = gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &empty_review_map).unwrap();
 
     match statuses {
         StackStatuses::UpdatesRequired {
@@ -175,10 +161,7 @@ fn upstream_integration_status_without_review_map() {
             assert_eq!(statuses[0].1.tree_status, TreeStatus::Empty);
             assert_eq!(statuses[0].1.branch_statuses.len(), 1);
             assert_eq!(statuses[0].1.branch_statuses[0].name, "feature-branch");
-            assert_eq!(
-                statuses[0].1.branch_statuses[0].status,
-                BranchStatus::SaflyUpdatable
-            );
+            assert_eq!(statuses[0].1.branch_statuses[0].status, BranchStatus::SaflyUpdatable);
             assert!(worktree_conflicts.is_empty());
         }
         StackStatuses::UpToDate => panic!("Expected UpdatesRequired status"),
@@ -187,7 +170,7 @@ fn upstream_integration_status_without_review_map() {
 
 #[test]
 fn upstream_integration_status_with_merged_pr() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -199,29 +182,31 @@ fn upstream_integration_status_with_merged_pr() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let (stack_id, commit_id) = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        let commit_id =
-            gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit", None)
-                .unwrap();
+        let commit_id = super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         (stack_entry.id, commit_id)
     };
@@ -249,11 +234,11 @@ fn upstream_integration_status_with_merged_pr() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str("2024-01-04 23:56:04", "%Y-%m-%d %H:%M:%S").unwrap(),
         },
     );
 
-    let statuses =
-        gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
+    let statuses = gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
 
     match statuses {
         StackStatuses::UpdatesRequired {
@@ -265,10 +250,7 @@ fn upstream_integration_status_with_merged_pr() {
             assert_eq!(statuses[0].1.tree_status, TreeStatus::Empty);
             assert_eq!(statuses[0].1.branch_statuses.len(), 1);
             assert_eq!(statuses[0].1.branch_statuses[0].name, "feature-branch");
-            assert_eq!(
-                statuses[0].1.branch_statuses[0].status,
-                BranchStatus::Integrated
-            );
+            assert_eq!(statuses[0].1.branch_statuses[0].status, BranchStatus::Integrated);
             assert!(worktree_conflicts.is_empty());
         }
         StackStatuses::UpToDate => panic!("Expected UpdatesRequired status"),
@@ -277,7 +259,7 @@ fn upstream_integration_status_with_merged_pr() {
 
 #[test]
 fn upstream_integration_status_with_merged_pr_mismatched_head() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -289,28 +271,31 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit", None)
-            .unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
@@ -338,11 +323,11 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str("2024-01-04 23:56:04", "%Y-%m-%d %H:%M:%S").unwrap(),
         },
     );
 
-    let statuses =
-        gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
+    let statuses = gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
 
     match statuses {
         StackStatuses::UpdatesRequired {
@@ -354,10 +339,7 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
             assert_eq!(statuses[0].1.tree_status, TreeStatus::Empty);
             assert_eq!(statuses[0].1.branch_statuses.len(), 1);
             assert_eq!(statuses[0].1.branch_statuses[0].name, "feature-branch");
-            assert_eq!(
-                statuses[0].1.branch_statuses[0].status,
-                BranchStatus::SaflyUpdatable
-            );
+            assert_eq!(statuses[0].1.branch_statuses[0].status, BranchStatus::SaflyUpdatable);
             assert!(worktree_conflicts.is_empty());
         }
         StackStatuses::UpToDate => panic!("Expected UpdatesRequired status"),
@@ -366,7 +348,7 @@ fn upstream_integration_status_with_merged_pr_mismatched_head() {
 
 #[test]
 fn upstream_integration_status_with_closed_but_not_merged_pr() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -378,28 +360,31 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit", None)
-            .unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
@@ -427,11 +412,11 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str("2024-01-04 23:56:04", "%Y-%m-%d %H:%M:%S").unwrap(),
         },
     );
 
-    let statuses =
-        gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
+    let statuses = gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
 
     match statuses {
         StackStatuses::UpdatesRequired {
@@ -443,10 +428,7 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
             assert_eq!(statuses[0].1.tree_status, TreeStatus::Empty);
             assert_eq!(statuses[0].1.branch_statuses.len(), 1);
             assert_eq!(statuses[0].1.branch_statuses[0].name, "feature-branch");
-            assert_eq!(
-                statuses[0].1.branch_statuses[0].status,
-                BranchStatus::SaflyUpdatable
-            );
+            assert_eq!(statuses[0].1.branch_statuses[0].status, BranchStatus::SaflyUpdatable);
             assert!(worktree_conflicts.is_empty());
         }
         StackStatuses::UpToDate => panic!("Expected UpdatesRequired status"),
@@ -455,7 +437,7 @@ fn upstream_integration_status_with_closed_but_not_merged_pr() {
 
 #[test]
 fn upstream_integration_status_with_different_branch_pr() {
-    let Test { repo, ctx, .. } = &Test::default();
+    let Test { repo, ctx, .. } = &mut Test::default();
 
     // Setup: Create a remote branch with commits
     {
@@ -467,28 +449,31 @@ fn upstream_integration_status_with_different_branch_pr() {
         repo.reset_hard(Some(first_commit_oid));
     }
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
+    drop(guard);
 
     // Create a virtual branch with a commit
     let stack_id = {
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest {
                 name: Some("feature-branch".to_string()),
                 ..Default::default()
             },
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         fs::write(repo.path().join("feature-file.txt"), "feature work").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "feature commit", None)
-            .unwrap();
+        super::create_commit(ctx, stack_entry.id, "feature commit").unwrap();
 
         stack_entry.id
     };
@@ -516,11 +501,11 @@ fn upstream_integration_status_with_different_branch_pr() {
             repo_owner: None,
             reviewers: vec![],
             unit_symbol: "#".to_string(),
+            last_sync_at: chrono::NaiveDateTime::parse_from_str("2024-01-04 23:56:04", "%Y-%m-%d %H:%M:%S").unwrap(),
         },
     );
 
-    let statuses =
-        gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
+    let statuses = gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &review_map).unwrap();
 
     match statuses {
         StackStatuses::UpdatesRequired {
@@ -532,10 +517,7 @@ fn upstream_integration_status_with_different_branch_pr() {
             assert_eq!(statuses[0].1.tree_status, TreeStatus::Empty);
             assert_eq!(statuses[0].1.branch_statuses.len(), 1);
             assert_eq!(statuses[0].1.branch_statuses[0].name, "feature-branch");
-            assert_eq!(
-                statuses[0].1.branch_statuses[0].status,
-                BranchStatus::SaflyUpdatable
-            );
+            assert_eq!(statuses[0].1.branch_statuses[0].status, BranchStatus::SaflyUpdatable);
             assert!(worktree_conflicts.is_empty());
         }
         StackStatuses::UpToDate => panic!("Expected UpdatesRequired status"),

@@ -1,23 +1,17 @@
-use std::sync::Arc;
-
-use anyhow::Context;
-use but_api_macros::api_cmd;
+use anyhow::{Context as _, Result};
+use but_api_macros::but_api;
 use but_claude::{
-    ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
+    Claude, ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
     claude_mcp::{ClaudeMcpConfig, McpConfig},
     claude_settings::ClaudeSettings,
     prompt_templates,
 };
 use but_core::ref_metadata::StackId;
+use but_ctx::{Context, ThreadSafeContext};
 use but_settings::AppSettings;
-use gitbutler_command_context::CommandContext;
 use gitbutler_project::ProjectId;
 use serde::Deserialize;
-use tokio::sync::Mutex;
 use tracing::instrument;
-
-use crate::json::Error;
-use but_claude::Claude;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,16 +22,13 @@ pub struct SendMessageParams {
     pub user_params: ClaudeUserParams,
 }
 
-pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> Result<(), Error> {
+pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> Result<()> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Arc::new(Mutex::new(CommandContext::open(
-        &project,
-        AppSettings::load_from_default_path_creating()?,
-    )?));
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     claude
         .instance_by_stack
         .send_message(
-            ctx,
+            ctx.into_sync(),
             claude.broadcaster.clone(),
             params.stack_id,
             params.user_params,
@@ -49,38 +40,34 @@ pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetMessagesParams {
+    // TODO(ctx): make this `ProjectHandle`.
     pub project_id: ProjectId,
     pub stack_id: StackId,
 }
 
-pub fn claude_get_messages(
-    claude: &Claude,
-    params: GetMessagesParams,
-) -> Result<Vec<ClaudeMessage>, Error> {
+pub fn claude_get_messages(claude: &Claude, params: GetMessagesParams) -> Result<Vec<ClaudeMessage>> {
     let project = gitbutler_project::get(params.project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let messages = claude
-        .instance_by_stack
-        .get_messages(&mut ctx, params.stack_id)?;
+    let ctx = Context::new_from_legacy_project(project.clone())?;
+    let messages = claude.instance_by_stack.get_messages(&ctx, params.stack_id)?;
     Ok(messages)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
 pub async fn claude_get_session_details(
-    project_id: ProjectId,
+    ctx: ThreadSafeContext,
     session_id: String,
-) -> Result<but_claude::ClaudeSessionDetails, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
-    let session = but_claude::db::get_session_by_id(&mut ctx, session_id)?
-        .context("Could not find session")?;
-    let worktree_dir = project.worktree_dir()?;
-    let current_id = Transcript::current_valid_session_id(worktree_dir, &session).await?;
+) -> Result<but_claude::ClaudeSessionDetails> {
+    let (worktree_dir, session) = {
+        let ctx = ctx.into_thread_local();
+        let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
+        let session = but_claude::db::get_session_by_id(&ctx, session_id)?.context("Could not find session")?;
+        let worktree_dir = ctx.workdir_or_fail()?;
+        (worktree_dir, session)
+    };
+    let current_id = Transcript::current_valid_session_id(&worktree_dir, &session).await?;
     if let Some(current_id) = current_id {
-        let transcript_path =
-            but_claude::Transcript::get_transcript_path(worktree_dir, current_id)?;
+        let transcript_path = but_claude::Transcript::get_transcript_path(&worktree_dir, current_id)?;
         let transcript = but_claude::Transcript::from_file(&transcript_path)?;
         Ok(but_claude::ClaudeSessionDetails {
             summary: transcript.summary(),
@@ -96,45 +83,39 @@ pub async fn claude_get_session_details(
     }
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn claude_get_user_message(
-    project_id: ProjectId,
-    offset: Option<i64>,
-) -> Result<Option<ClaudeMessage>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    Ok(but_claude::db::get_user_message(&mut ctx, offset)?)
+pub fn claude_get_user_message(ctx: &but_ctx::Context, offset: Option<i64>) -> Result<Option<ClaudeMessage>> {
+    but_claude::db::get_user_message(ctx, offset)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn claude_list_permission_requests(
-    project_id: ProjectId,
-) -> Result<Vec<but_claude::ClaudePermissionRequest>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    Ok(but_claude::db::list_all_permission_requests(&mut ctx)?)
+pub fn claude_list_permission_requests(ctx: &but_ctx::Context) -> Result<Vec<but_claude::ClaudePermissionRequest>> {
+    but_claude::db::list_all_permission_requests(ctx)
 }
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+
+#[but_api]
 #[instrument(err(Debug))]
 pub fn claude_update_permission_request(
-    project_id: ProjectId,
+    ctx: &mut but_ctx::Context,
     request_id: String,
     decision: but_claude::PermissionDecision,
     use_wildcard: bool,
-) -> Result<(), Error> {
+) -> Result<()> {
+    but_claude::db::update_permission_request(ctx, &request_id, decision, use_wildcard)
+}
+
+#[but_api]
+#[instrument(err(Debug))]
+pub fn claude_answer_ask_user_question(
+    project_id: ProjectId,
+    stack_id: StackId,
+    answers: std::collections::HashMap<String, String>,
+) -> Result<bool> {
     let project = gitbutler_project::get(project_id)?;
-    let mut ctx = CommandContext::open(&project, AppSettings::load_from_default_path_creating()?)?;
-    Ok(but_claude::db::update_permission_request(
-        &mut ctx,
-        &request_id,
-        decision,
-        use_wildcard,
-    )?)
+    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    but_claude::db::set_ask_user_question_answers_by_stack(&mut ctx, stack_id, answers)
 }
 
 #[derive(Deserialize)]
@@ -144,23 +125,17 @@ pub struct CancelSessionParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_cancel_session(
-    claude: &Claude,
-    params: CancelSessionParams,
-) -> Result<bool, Error> {
-    let cancelled = claude
-        .instance_by_stack
-        .cancel_session(params.stack_id)
-        .await?;
+pub async fn claude_cancel_session(claude: &Claude, params: CancelSessionParams) -> Result<bool> {
+    let cancelled = claude.instance_by_stack.cancel_session(params.stack_id).await?;
     Ok(cancelled)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_check_available() -> Result<ClaudeCheckResult, Error> {
-    let app_settings = AppSettings::load_from_default_path_creating()?;
+pub async fn claude_check_available() -> Result<ClaudeCheckResult> {
+    let app_settings = AppSettings::load_from_default_path_creating_without_customization()?;
     let claude_executable = app_settings.claude.executable.clone();
-    Ok(but_claude::bridge::check_claude_available(&claude_executable).await)
+    Ok(but_claude::session::check_claude_available(&claude_executable).await)
 }
 
 #[derive(Deserialize)]
@@ -170,103 +145,76 @@ pub struct IsStackActiveParams {
     pub stack_id: StackId,
 }
 
-pub async fn claude_is_stack_active(
-    claude: &Claude,
-    params: IsStackActiveParams,
-) -> Result<bool, Error> {
-    let is_active = claude
-        .instance_by_stack
-        .is_stack_active(params.stack_id)
-        .await;
+pub async fn claude_is_stack_active(claude: &Claude, params: IsStackActiveParams) -> Result<bool> {
+    let is_active = claude.instance_by_stack.is_stack_active(params.stack_id).await;
     Ok(is_active)
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactHistoryParams {
+    // TODO(ctx): turn into `ProjectHandle`
     pub project_id: ProjectId,
     pub stack_id: StackId,
 }
 
-pub async fn claude_compact_history(
-    claude: &Claude,
-    params: CompactHistoryParams,
-) -> Result<(), Error> {
+pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParams) -> Result<()> {
     let project = gitbutler_project::get(params.project_id)?;
-    let ctx = Arc::new(Mutex::new(CommandContext::open(
-        &project,
-        AppSettings::load_from_default_path_creating()?,
-    )?));
+    let ctx = Context::new_from_legacy_project(project.clone())?;
     claude
         .instance_by_stack
-        .compact_history(ctx, claude.broadcaster.clone(), params.stack_id)
+        .compact_history(ctx.into_sync(), claude.broadcaster.clone(), params.stack_id)
         .await?;
     Ok(())
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn claude_list_prompt_templates(
-    project_id: ProjectId,
-) -> Result<Vec<prompt_templates::PromptTemplate>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let templates = prompt_templates::list_templates(&project)?;
+pub fn claude_list_prompt_templates(ctx: &but_ctx::Context) -> Result<Vec<prompt_templates::PromptTemplate>> {
+    let templates = prompt_templates::list_templates(&ctx.project_data_dir())?;
     Ok(templates)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn claude_get_prompt_dirs(
-    project_id: ProjectId,
-) -> Result<Vec<prompt_templates::PromptDir>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let dirs = prompt_templates::prompt_dirs(&project)?;
+pub fn claude_get_prompt_dirs(ctx: &but_ctx::Context) -> Result<Vec<prompt_templates::PromptDir>> {
+    let dirs = prompt_templates::prompt_dirs(&ctx.project_data_dir())?;
     Ok(dirs)
 }
 
-#[api_cmd]
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub fn claude_maybe_create_prompt_dir(project_id: ProjectId, path: String) -> Result<(), Error> {
-    let project = gitbutler_project::get(project_id)?;
-    prompt_templates::maybe_create_dir(&project, &path)?;
+pub fn claude_maybe_create_prompt_dir(ctx: &but_ctx::Context, path: String) -> Result<()> {
+    prompt_templates::maybe_create_dir(&ctx.workdir_or_fail()?, &path)?;
     Ok(())
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_mcp_config(project_id: ProjectId) -> Result<McpConfig, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let worktree_dir = project.worktree_dir()?;
-    let settings = ClaudeSettings::open(worktree_dir).await;
-    let mcp_config = ClaudeMcpConfig::open(&settings, worktree_dir).await;
+pub async fn claude_get_mcp_config(ctx: ThreadSafeContext) -> Result<McpConfig> {
+    let worktree_dir = ctx.into_thread_local().workdir_or_fail()?;
+    let settings = ClaudeSettings::open(&worktree_dir).await;
+    let mcp_config = ClaudeMcpConfig::open(&settings, &worktree_dir).await;
     Ok(mcp_config.mcp_servers())
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_sub_agents(
-    project_id: ProjectId,
-) -> Result<Vec<but_claude::SubAgent>, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let sub_agents =
-        but_claude::claude_sub_agents::read_claude_sub_agents(project.worktree_dir()?).await;
+pub async fn claude_get_sub_agents(ctx: ThreadSafeContext) -> Result<Vec<but_claude::SubAgent>> {
+    let workdir = ctx.into_thread_local().workdir_or_fail()?;
+    let sub_agents = but_claude::claude_sub_agents::read_claude_sub_agents(&workdir).await;
     Ok(sub_agents)
 }
 
-#[cfg_attr(feature = "tauri", tauri::command(async))]
+#[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_verify_path(project_id: ProjectId, path: String) -> Result<bool, Error> {
-    let project = gitbutler_project::get(project_id)?;
-
+pub async fn claude_verify_path(ctx: ThreadSafeContext, path: String) -> Result<bool> {
     // Check if it's an absolute path first
     let path = if std::path::Path::new(&path).is_absolute() {
         std::path::PathBuf::from(&path)
     } else {
         // If relative, make it relative to project path
-        project.worktree_dir()?.join(&path)
+        ctx.into_thread_local().workdir_or_fail()?.join(&path)
     };
 
     // Check if the path exists and is a directory

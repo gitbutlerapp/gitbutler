@@ -2,7 +2,7 @@ use std::{fmt::Display, path::PathBuf};
 
 use gitbutler_project::ProjectId;
 
-/// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
+/// An event for internal use, representing file system changes.
 #[derive(Debug)]
 pub enum InternalEvent {
     // From file monitor
@@ -14,20 +14,10 @@ impl Display for InternalEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InternalEvent::GitFilesChange(project_id, paths) => {
-                write!(
-                    f,
-                    "GitFileChange({}, {})",
-                    project_id,
-                    comma_separated_paths(paths)
-                )
+                write!(f, "GitFileChange({}, {})", project_id, comma_separated_paths(paths))
             }
             InternalEvent::ProjectFilesChange(project_id, paths) => {
-                write!(
-                    f,
-                    "ProjectFileChange({}, {})",
-                    project_id,
-                    comma_separated_paths(paths)
-                )
+                write!(f, "ProjectFileChange({}, {})", project_id, comma_separated_paths(paths))
             }
         }
     }

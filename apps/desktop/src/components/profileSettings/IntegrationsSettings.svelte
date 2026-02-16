@@ -1,8 +1,9 @@
 <script lang="ts">
 	import GithubIntegration from '$components/GithubIntegration.svelte';
+	import GitlabIntegration from '$components/GitlabIntegration.svelte';
 	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Spacer, Toggle } from '@gitbutler/ui';
+	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
@@ -15,22 +16,22 @@
 </script>
 
 <GithubIntegration />
-
+<GitlabIntegration />
 <Spacer />
-
-<SectionCard labelFor="autoFillPrDescription" orientation="row">
-	{#snippet title()}
-		Auto-fill PR descriptions from commit
-	{/snippet}
-	{#snippet caption()}
-		When creating a pull request for a branch with just one commit, automatically use that commit's
-		message as the PR title and description.
-	{/snippet}
-	{#snippet actions()}
-		<Toggle
-			id="autoFillPrDescription"
-			checked={$appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true}
-			onclick={toggleAutoFillPrDescription}
-		/>
-	{/snippet}
-</SectionCard>
+<CardGroup>
+	<CardGroup.Item labelFor="autoFillPrDescription">
+		{#snippet title()}
+			Auto-fill PR/MR descriptions from commit
+		{/snippet}
+		{#snippet caption()}
+			Set the title and description from the commit for single-commit branches.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="autoFillPrDescription"
+				checked={$appSettings?.reviews.autoFillPrDescriptionFromCommit ?? true}
+				onclick={toggleAutoFillPrDescription}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+</CardGroup>

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Codeblock from '$components/codegen/Codeblock.svelte';
-	import { Modal, Segment, SegmentControl, Button } from '@gitbutler/ui';
+	import { Codeblock } from '@gitbutler/ui';
+	import { Modal, SegmentControl, Button } from '@gitbutler/ui';
 	import type { PromptDir } from '$lib/codegen/types';
 
 	type Props = {
@@ -31,18 +31,16 @@
 			in <code class="code-string">.local.md</code> override regular project prompts.
 		</p>
 
-		<SegmentControl defaultIndex={0}>
+		<SegmentControl selected={selectedSegment} onselect={(id) => (selectedSegment = id)}>
 			{#each promptDirs as dir}
-				<Segment
-					onselect={() => (selectedSegment = dir.label)}
+				<SegmentControl.Item
 					id={dir.label}
 					icon={dir.label === 'Global' ? 'global-small' : 'folder'}
 				>
 					{dir.label}
-				</Segment>
+				</SegmentControl.Item>
 			{/each}
 		</SegmentControl>
-
 		{#if selectedSegment === 'Global'}
 			{@render pathContent({
 				path: promptDirs.find((d) => d.label === 'Global')?.path || '',
@@ -66,38 +64,3 @@
 		>
 	</div>
 </Modal>
-
-<style lang="postcss">
-	.prompt-path {
-		display: flex;
-		position: relative;
-		flex-direction: column;
-		padding: 10px;
-		gap: 4px;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-2);
-		font-family: var(--font-mono);
-	}
-
-	.prompt-path__copy {
-		position: absolute;
-		top: 12px;
-		right: 12px;
-		color: var(--clr-text-3);
-		transition: color var(--transition-fast);
-
-		&:hover {
-			color: var(--clr-text-2);
-		}
-	}
-
-	.prompt-path__label {
-		color: var(--clr-text-2);
-		font-size: 12px;
-	}
-
-	.prompt-path__path {
-		color: var(--clr-text-1);
-		font-size: 13px;
-	}
-</style>

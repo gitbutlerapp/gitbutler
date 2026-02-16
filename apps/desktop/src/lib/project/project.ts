@@ -2,8 +2,8 @@ import { goto } from '$app/navigation';
 import { showToast } from '$lib/notifications/toasts';
 import { projectPath } from '$lib/routes/routes.svelte';
 import { TestId } from '@gitbutler/ui';
-import type { GitHubAccountIdentifier } from '$lib/forge/github/githubUserService.svelte';
 import type { ForgeName } from '$lib/forge/interface/forge';
+import type { ForgeUser } from '@gitbutler/core/api';
 
 export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
 export type LocalKey = {
@@ -11,11 +11,6 @@ export type LocalKey = {
 };
 
 export type AuthKey = Exclude<KeyType, 'local'> | LocalKey;
-
-export type ForgeUserIdentifier = {
-	provider: 'github';
-	details: GitHubAccountIdentifier;
-};
 
 export type Project = {
 	id: string;
@@ -36,7 +31,7 @@ export type Project = {
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open: boolean;
 	forge_override: ForgeName | undefined;
-	preferred_forge_user: ForgeUserIdentifier | null;
+	preferred_forge_user: ForgeUser | null;
 	// Gerrit mode enabled for this project, derived from git configuration
 	gerrit_mode: boolean;
 	/**
@@ -146,7 +141,7 @@ export function handleAddProjectOutcome(
 		case 'bareRepository':
 			showToast({
 				testId: TestId.AddProjectBareRepoModal,
-				style: 'error',
+				style: 'danger',
 				title: 'Bare repository',
 				message: 'The specified path appears to be a bare Git repository and cannot be added.'
 			});

@@ -74,7 +74,7 @@ export default class Tauri implements IBackend {
 	}
 
 	async loadDiskStore(fileName: string): Promise<DiskStore> {
-		const store = await Store.load(fileName, { autoSave: true });
+		const store = await Store.load(fileName, { autoSave: true, defaults: {} });
 		return new TauriDiskStore(store);
 	}
 
@@ -94,14 +94,43 @@ export default class Tauri implements IBackend {
 }
 
 const LAST_PROCESSED_DEEP_LINK_URL_KEY = 'lastProcessedDeepLinkUrl';
+const STORAGE_LOGIN_PREFIX = 'login|';
 
-function alreadyProcessedDeepLinkUrl(url: string): boolean {
-	const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
-	return lastProcessedUrl === url;
+function alreadyProcessedDeepLinkUrl(
+	topLevel: DeepLinkTopLevelPath,
+	url: string,
+	timestamp: string
+): boolean {
+	switch (topLevel) {
+		case 'open': {
+			const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
+			return lastProcessedUrl === url;
+		}
+		case 'login': {
+			const value = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
+			if (!value) return false;
+			if (!value.startsWith(STORAGE_LOGIN_PREFIX)) return false;
+			const storedTimestamp = value.replace(STORAGE_LOGIN_PREFIX, '').trim();
+			return storedTimestamp === timestamp;
+		}
+	}
 }
 
-function markDeepLinkUrlAsProcessed(url: string): void {
-	localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
+function markDeepLinkUrlAsProcessed(
+	topLevel: DeepLinkTopLevelPath,
+	url: string,
+	timestamp: string
+): true {
+	switch (topLevel) {
+		case 'open':
+			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
+			return true;
+		case 'login': {
+			const value = `${STORAGE_LOGIN_PREFIX}${timestamp}`;
+			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, value);
+			return true;
+		}
+	}
 }
 
 function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
@@ -127,19 +156,47 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 		return;
 	}
 
-	if (alreadyProcessedDeepLinkUrl(url)) {
+	if (alreadyProcessedDeepLinkUrl(topLevel, url, timestamp)) {
 		// Already processed this URL.
 		return;
 	}
 
-	markDeepLinkUrlAsProcessed(url);
+	markDeepLinkUrlAsProcessed(topLevel, url, timestamp);
 
-	switch (topLevel) {
+	handleTopLevel(topLevel, params, handlers);
+}
+
+const LOGIN_LINK_EXPIRATION_MS = 30 * 1000; // 30 seconds
+
+function handleTopLevel(
+	path: DeepLinkTopLevelPath,
+	params: URLSearchParams,
+	handlers: DeepLinkHandlers
+): true {
+	switch (path) {
 		case 'open': {
-			const path = params.get('path');
-			if (path) {
-				handlers.open(path);
+			const filePath = params.get('path');
+			if (filePath) {
+				handlers.open(filePath);
 			}
+			return true;
+		}
+		case 'login': {
+			const accessToken = params.get('access_token');
+			const timestampStr = params.get('t');
+			if (!timestampStr) {
+				return true;
+			}
+			const timestamp = Number(timestampStr);
+			const now = Date.now();
+			if (isNaN(timestamp) || now - timestamp > LOGIN_LINK_EXPIRATION_MS) {
+				console.warn('Ignoring expired login deep link');
+				return true;
+			}
+			if (accessToken) {
+				handlers.login(accessToken);
+			}
+			return true;
 		}
 	}
 }
@@ -147,7 +204,7 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 const DEEP_LINK_SCHMES = ['but', 'but-dev', 'but-nightly'] as const;
 type DeepLinkScheme = (typeof DEEP_LINK_SCHMES)[number];
 
-const DEEP_LINK_TOP_LEVEL_PATHS = ['open'] as const;
+const DEEP_LINK_TOP_LEVEL_PATHS = ['open', 'login'] as const;
 type DeepLinkTopLevelPath = (typeof DEEP_LINK_TOP_LEVEL_PATHS)[number];
 
 type DeepLinkUrl = `${DeepLinkScheme}://${DeepLinkTopLevelPath}${string}`;

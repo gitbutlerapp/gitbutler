@@ -13,9 +13,8 @@ pub struct Options {
 }
 
 pub(crate) mod function {
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use but_core::RefMetadata;
-    use but_graph::Graph;
     use gix::refs::transaction::PreviousValue;
 
     use super::Options;
@@ -30,31 +29,21 @@ pub(crate) mod function {
     pub fn remove_reference(
         ref_name: &gix::refs::FullNameRef,
         repo: &gix::Repository,
-        workspace: &but_graph::projection::Workspace<'_>,
+        workspace: &but_graph::projection::Workspace,
         meta: &mut impl RefMetadata,
         Options {
             avoid_anonymous_stacks,
             keep_metadata,
         }: Options,
-    ) -> anyhow::Result<Option<Graph>> {
+    ) -> anyhow::Result<Option<but_graph::projection::Workspace>> {
         // We assume the stack-idx can't change by deleting
         let Some((stack, _segment)) = workspace.find_segment_and_stack_by_refname(ref_name) else {
             return Ok(None);
         };
 
         if avoid_anonymous_stacks
-            && (stack
-                .segments
-                .iter()
-                .map(|s| s.commits.len())
-                .sum::<usize>()
-                > 0
-                && stack
-                    .segments
-                    .iter()
-                    .filter(|s| s.ref_info.is_some())
-                    .count()
-                    < 2)
+            && (stack.segments.iter().map(|s| s.commits.len()).sum::<usize>() > 0
+                && stack.segments.iter().filter(|s| s.ref_info.is_some()).count() < 2)
         {
             bail!(
                 "Refusing to delete last named segment '{}' as it would leave an anonymous segment",
@@ -73,11 +62,7 @@ pub(crate) mod function {
             false
         };
 
-        let deleted_meta = if keep_metadata {
-            false
-        } else {
-            meta.remove(ref_name)?
-        };
+        let deleted_meta = if keep_metadata { false } else { meta.remove(ref_name)? };
 
         // Unlikely, hard to test, but can happen.
         if !deleted_ref && !deleted_meta {
@@ -85,15 +70,14 @@ pub(crate) mod function {
         }
 
         let stack_id = stack.id;
-        let mut graph =
-            workspace
-                .graph
-                .redo_traversal_with_overlay(repo, meta, Default::default())?;
+        let mut graph = workspace
+            .graph
+            .redo_traversal_with_overlay(repo, meta, Default::default())?;
+        let ws = graph.into_workspace()?;
         if avoid_anonymous_stacks {
-            let workspace = graph.to_workspace()?;
-            let Some(stack) = workspace.stacks.iter().find(|s| s.id == stack_id) else {
+            let Some(stack) = ws.stacks.iter().find(|s| s.id == stack_id) else {
                 // The whole stack is gone, so nothing that could be anonymous.
-                return Ok(Some(graph));
+                return Ok(Some(ws));
             };
             if avoid_anonymous_stacks
                 && let Some(commit) = stack
@@ -106,7 +90,7 @@ pub(crate) mod function {
                     .iter()
                     .find_map(|s| {
                         let rn = s.ref_name()?;
-                        workspace.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
+                        ws.graph.tip_skip_empty(s.id).map(|c| (rn, c.id))
                     })
                     .with_context(|| {
                         "BUG: should not try to delete branch if anon \
@@ -119,10 +103,13 @@ pub(crate) mod function {
                     PreviousValue::MustExistAndMatch(gix::refs::Target::Object(target_id)),
                     "move segment reference up to avoid anonymous stack",
                 )?;
-                graph = graph.redo_traversal_with_overlay(repo, meta, Default::default())?;
+                graph = ws.graph.redo_traversal_with_overlay(repo, meta, Default::default())?;
+                Ok(Some(graph.into_workspace()?))
+            } else {
+                Ok(Some(ws))
             }
+        } else {
+            Ok(Some(ws))
         }
-
-        Ok(Some(graph))
     }
 }

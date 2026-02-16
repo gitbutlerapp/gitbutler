@@ -1,14 +1,14 @@
 [package]
 name = "but"
 version = "0.0.0"
-edition = "2024"
-repository = "https://github.com/gitbutlerapp/gitbutler"
+edition.workspace = true
+repository.workspace = true
 license-file = "../../LICENSE.md"
 description = "A GitButler CLI tool"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+authors.workspace = true
 readme = "../../README.md"
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [[bin]]
 name = "but"
@@ -16,44 +16,83 @@ path = "src/main.rs"
 doctest = false
 
 [features]
+default = ["legacy"]
+legacy = [
+    "but-workspace/legacy",
+    "but-api/legacy",
+    "but-ctx/legacy",
+    "dep:but-action",
+    "dep:but-hunk-dependency",
+    "dep:but-claude",
+    "dep:but-cursor",
+    "dep:but-tools",
+    "dep:but-rules",
+    "dep:but-gerrit",
+    "dep:but-worktrees",
+    "dep:but-cherry-apply",
+    "dep:gitbutler-project",
+    "dep:gitbutler-commit",
+    "dep:gitbutler-stack",
+    "dep:gitbutler-branch-actions",
+    "dep:gitbutler-branch",
+    "dep:gitbutler-reference",
+    "dep:gitbutler-oplog",
+    "dep:gitbutler-edit-mode",
+    "dep:gitbutler-operating-modes",
+    "dep:gitbutler-repo",
+]
 
 [dependencies]
 but-core.workspace = true
-but-ctx = { workspace = true, features = ["legacy"] }
-but-workspace = { workspace = true, features = ["legacy"] }
-but-meta = { workspace = true, features = ["legacy"] }
-but-api = { workspace = true, features = ["legacy"] }
-but-action.workspace = true
-but-graph.workspace = true
 but-settings.workspace = true
-but-hunk-assignment.workspace = true
-but-hunk-dependency.workspace = true
-but-claude.workspace = true
-but-cursor.workspace = true
-but-tools.workspace = true
-but-rules.workspace = true
-but-gerrit.workspace = true
-but-worktrees.workspace = true
 but-serde.workspace = true
-but-github.workspace = true
 but-secret.workspace = true
+but-update.workspace = true
+but-installer.workspace = true
 but-oxidize.workspace = true
 but-path.workspace = true
+but-db.workspace = true
+but-ctx.workspace = true
+but-rebase.workspace = true
+but-github.workspace = true
+but-gitlab.workspace = true
 but-forge.workspace = true
+but-forge-storage.workspace = true
+but-workspace = { workspace = true }
+but-api = { workspace = true, features = ["path-bytes"] }
+but-graph.workspace = true
+but-llm.workspace = true
 
-gitbutler-project.workspace = true
-gitbutler-commit.workspace = true
-gitbutler-stack.workspace = true
-gitbutler-branch-actions.workspace = true
-gitbutler-branch.workspace = true
-gitbutler-command-context.workspace = true
-gitbutler-reference.workspace = true
-gitbutler-oplog.workspace = true
+# What follows is *basically* newly written crates that are built on top of legacy,
+# so need some refactoring/rethinking to become usable.
+but-action = { workspace = true, optional = true }
+# Still uses `gitbutler-stack`, but otherwise it is non-legacy.
+but-hunk-assignment.workspace = true
+but-hunk-dependency = { workspace = true, optional = true }
+but-claude = { workspace = true, optional = true }
+but-cursor = { workspace = true, optional = true }
+but-tools = { workspace = true, optional = true }
+but-rules = { workspace = true, optional = true }
+but-gerrit = { workspace = true, optional = true }
+but-worktrees = { workspace = true, optional = true }
+but-cherry-apply = { workspace = true, optional = true }
+
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-commit = { workspace = true, optional = true }
+gitbutler-stack = { workspace = true, optional = true }
+gitbutler-branch-actions = { workspace = true, optional = true }
+gitbutler-branch = { workspace = true, optional = true }
+gitbutler-reference = { workspace = true, optional = true }
+gitbutler-oplog = { workspace = true, optional = true }
+gitbutler-edit-mode = { workspace = true, optional = true }
+gitbutler-operating-modes = { workspace = true, optional = true }
+gitbutler-repo = { workspace = true, optional = true }
 
 git2.workspace = true
-async-openai.workspace = true
+schemars.workspace = true
 posthog-rs = { version = "0.3.7" }
 serde.workspace = true
+shell-words.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "io-std"] }
 strum = { version = "0.27", features = ["derive"] }
 clap = { workspace = true, features = [
@@ -64,14 +103,14 @@ clap = { workspace = true, features = [
     "usage",
     "suggestions",
 ] }
-clap_complete = "4.5.60"
+clap_complete = "4.5.64"
 chrono.workspace = true
 bstr.workspace = true
 regex.workspace = true
 anyhow.workspace = true
 rmcp.workspace = true
 command-group = { version = "5.0.1", features = ["with-tokio"] }
-gix.workspace = true
+gix = { workspace = true, features = ["tracing", "tracing-detail"] }
 colored = "3.0.0"
 serde_json.workspace = true
 terminal_size = "0.4.3"
@@ -82,19 +121,27 @@ tracing-subscriber = { workspace = true, features = [
     "fmt",
 ] }
 tracing-forest.workspace = true
-ratatui = "0.29.0"
-crossterm = "0.29.0"
 cli-prompts = "0.1.0"
+dirs.workspace = true
 minus = { version = "5.6.1", default-features = false, features = [
     "static_output",
     "search",
 ] }
-unicode-width = "0.1"
+unicode-width = "0.2"
+cfg-if = "1.0.4"
+ratatui.workspace = true
+crossterm.workspace = true
+sha2.workspace = true
+machine-uid = "0.5.4"
+tempfile.workspace = true
+nonempty.workspace = true
+itertools.workspace = true
+self_cell.workspace = true
 
 [dev-dependencies]
-but-core = { workspace = true, features = ["testing"] }
+but-graph.workspace = true
 serde_json = { workspace = true, features = ["preserve_order"] }
-but-testsupport = { workspace = true, features = ["snapbox"] }
-snapbox = { workspace = true, features = ["term-svg", "regex"] }
-shell-words = "1.1.0"
+but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
+snapbox = { workspace = true, features = ["term-svg"] }
+shell-words.workspace = true
 insta.workspace = true

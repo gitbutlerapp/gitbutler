@@ -1,7 +1,7 @@
 use anyhow::{Result, anyhow, bail};
 use itertools::Itertools;
 
-use crate::{StackBranch, stack_branch::CommitOrChangeId};
+use crate::StackBranch;
 
 pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, StackBranch)> {
     let (idx, head) = heads
@@ -48,14 +48,14 @@ pub fn add_head(
     existing_heads: Vec<StackBranch>,
     new_head: StackBranch,
     preceding_head: Option<StackBranch>,
-    patches: Vec<CommitOrChangeId>,
+    patches: Vec<gix::ObjectId>,
     repo: &gix::Repository,
 ) -> Result<Vec<StackBranch>> {
-    let existing_heads: Vec<(StackBranch, CommitOrChangeId)> = existing_heads
+    let existing_heads: Vec<(StackBranch, gix::ObjectId)> = existing_heads
         .iter()
         .map(|h| {
             let head = h.head_oid(repo)?;
-            Ok((h.clone(), head.into()))
+            Ok((h.clone(), head))
         })
         .collect::<Result<_>>()?;
 
@@ -69,14 +69,9 @@ pub fn add_head(
                 "Preceding head needs to be one that point to the same patch as new_head"
             ));
         }
-        let preceding_head: (StackBranch, CommitOrChangeId) = (
-            preceding_head.clone(),
-            preceding_head.head_oid(repo)?.into(),
-        );
+        let preceding_head: (StackBranch, gix::ObjectId) = (preceding_head.clone(), preceding_head.head_oid(repo)?);
         if !existing_heads.contains(&preceding_head) {
-            return Err(anyhow!(
-                "Preceding head is set but does not exist for specified patch"
-            ));
+            return Err(anyhow!("Preceding head is set but does not exist for specified patch"));
         }
     }
     let archived_heads = existing_heads
@@ -89,7 +84,7 @@ pub fn add_head(
         .filter(|h| patches.contains(&h.1))
         .cloned()
         .collect_vec();
-    let mut updated_heads: Vec<(StackBranch, CommitOrChangeId)> = vec![];
+    let mut updated_heads: Vec<(StackBranch, gix::ObjectId)> = vec![];
     updated_heads.extend(archived_heads); // add any heads that are below the merge base (archived)
     let mut new_head = Some(new_head);
     for patch in &patches {
@@ -98,16 +93,13 @@ pub fn add_head(
             match (existing_head, &new_head) {
                 // Both the new head and the next existing head reference the patch as a target
                 (Some(existing_head), Some(new_head_ref))
-                    if &existing_head.1 == patch
-                        && patch == &new_head_ref.head_oid(repo)?.into() =>
+                    if &existing_head.1 == patch && patch == &new_head_ref.head_oid(repo)? =>
                 {
                     if preceding_head.is_none() {
-                        updated_heads
-                            .push((new_head_ref.clone(), new_head_ref.head_oid(repo)?.into())); // no preceding head specified, so add the new head first
+                        updated_heads.push((new_head_ref.clone(), new_head_ref.head_oid(repo)?)); // no preceding head specified, so add the new head first
                         new_head = None; // the `new_head` is now consumed
                     } else if preceding_head.as_ref() == updated_heads.last().map(|(h, _)| h) {
-                        updated_heads
-                            .push((new_head_ref.clone(), new_head_ref.head_oid(repo)?.into())); // preceding_head matches the last entry, so add the new_head next
+                        updated_heads.push((new_head_ref.clone(), new_head_ref.head_oid(repo)?)); // preceding_head matches the last entry, so add the new_head next
                         new_head = None; // the `new_head` is now consumed
                     } else {
                         updated_heads.push(existing_head.clone()); // add the next existing head as the next entry
@@ -120,8 +112,8 @@ pub fn add_head(
                     existing_heads.remove(0); // consume the next in line from the existing heads
                 }
                 // Only the new head matches the patch as a target
-                (_, Some(new_head_ref)) if patch == &new_head_ref.head_oid(repo)?.into() => {
-                    updated_heads.push((new_head_ref.clone(), new_head_ref.head_oid(repo)?.into())); // add the new head as the next entry
+                (_, Some(new_head_ref)) if patch == &new_head_ref.head_oid(repo)? => {
+                    updated_heads.push((new_head_ref.clone(), new_head_ref.head_oid(repo)?)); // add the new head as the next entry
                     new_head = None; // the `new_head` is now consumed
                 }
                 // Neither the next existing head nor the new head match the patch as a target so continue to the next patch
@@ -153,8 +145,5 @@ pub fn add_head(
         // error - invalid state (an initialized stack must have at least one head)
         bail!("Error while adding head - there must be at least one head in an initialized stack");
     }
-    Ok(updated_heads
-        .iter()
-        .map(|(h, _)| h.clone())
-        .collect::<Vec<_>>())
+    Ok(updated_heads.iter().map(|(h, _)| h.clone()).collect::<Vec<_>>())
 }

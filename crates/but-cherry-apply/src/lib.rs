@@ -1,7 +1,7 @@
 //! Cherry Apply - Applying individual commits into the workspace.
 //!
-//! For now this doesn't consider the single branch mode, but it hopfully
-//! shouldn't be too much of a strech to adapt it to work.
+//! For now this doesn't consider the single branch mode, but it hopefully
+//! shouldn't be too much of a stretch to adapt it to work.
 //!
 //! We want to have two steps:
 //! - cherry_apply_status: Returns a list of stack IDs where a given commit can
@@ -22,17 +22,18 @@
 //!
 //!   - otherwise, it can be applied anywhere
 
-use anyhow::{Context, Result, bail};
-use but_core::ref_metadata::StackId;
+use anyhow::{Context as _, Result, bail};
+use but_core::{RepositoryExt, ref_metadata::StackId};
+use but_ctx::{
+    Context,
+    access::{RepoExclusive, RepoShared},
+};
 use but_meta::VirtualBranchesTomlMetadata;
-use but_oxidize::GixRepositoryExt;
 use but_rebase::Rebase;
 use but_workspace::legacy::{StacksFilter, stack_ext::StackExt, stacks_v3};
 use gitbutler_branch_actions::update_workspace_commit;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommited_changes};
+use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes};
 use gix::{ObjectId, Repository};
 use serde::Serialize;
 
@@ -46,15 +47,10 @@ pub enum CherryApplyStatus {
     NoStacks,
 }
 
-pub fn cherry_apply_status(
-    ctx: &CommandContext,
-    _perm: &WorktreeReadPermission,
-    subject: ObjectId,
-) -> Result<CherryApplyStatus> {
-    let repo = ctx.gix_repo_for_merging_non_persisting()?;
-    let project = ctx.project();
-    let meta =
-        VirtualBranchesTomlMetadata::from_path(project.gb_dir().join("virtual_branches.toml"))?;
+pub fn cherry_apply_status(ctx: &Context, _perm: &RepoShared, subject: ObjectId) -> Result<CherryApplyStatus> {
+    let repo = ctx.repo.get()?.clone().for_tree_diffing()?.with_object_memory();
+
+    let meta = VirtualBranchesTomlMetadata::from_path(ctx.project_data_dir().join("virtual_branches.toml"))?;
     let stacks = stacks_v3(&repo, &meta, StacksFilter::InWorkspace, None)?;
 
     if stacks.is_empty() {
@@ -63,11 +59,7 @@ pub fn cherry_apply_status(
 
     let mut locked_stack = None;
     for stack in stacks {
-        let tip = stack
-            .heads
-            .first()
-            .context("Stacks always have a head")?
-            .tip;
+        let tip = stack.heads.first().context("Stacks always have a head")?.tip;
         if cherry_pick_conflicts(&repo, subject, tip)? {
             if locked_stack.is_some() {
                 // Locked stack has already been set to another stack. Now there
@@ -91,12 +83,7 @@ pub fn cherry_apply_status(
     }
 }
 
-pub fn cherry_apply(
-    ctx: &CommandContext,
-    perm: &mut WorktreeWritePermission,
-    subject: ObjectId,
-    target: StackId,
-) -> Result<()> {
+pub fn cherry_apply(ctx: &Context, perm: &mut RepoExclusive, subject: ObjectId, target: StackId) -> Result<()> {
     let old_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
     let status = cherry_apply_status(ctx, perm.read_permission(), subject)?;
     // Has the frontend told us to do something naughty?
@@ -110,17 +97,15 @@ pub fn cherry_apply(
         }
         CherryApplyStatus::LockedToStack(stack) => {
             if stack != target {
-                bail!(
-                    "Attempting to cherry pick into a different branch that which it is locked to"
-                )
+                bail!("Attempting to cherry pick into a different branch that which it is locked to")
             }
         }
     };
 
-    let repo = ctx.gix_repo_for_merging()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let repo = ctx.repo.get()?.clone().for_tree_diffing()?;
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let mut stack = vb_state.get_stack(target)?;
-    let mut steps = stack.as_rebase_steps(ctx, &repo)?;
+    let mut steps = stack.as_rebase_steps(ctx)?;
     // Insert before the head references (len - 1)
     steps.insert(
         steps.len() - 1,
@@ -137,7 +122,7 @@ pub fn cherry_apply(
 
     {
         let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
-        update_uncommited_changes(ctx, old_workspace, new_workspace, perm)?;
+        update_uncommitted_changes(ctx, old_workspace, new_workspace, perm)?;
     }
 
     update_workspace_commit(&vb_state, ctx, false)?;

@@ -1,7 +1,7 @@
-<!-- This is a V3 replacement for `FileListItemWrapper.svelte` -->
 <script lang="ts">
 	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import { targetEqual, type HunkLockTarget } from '$lib/dependencies/dependencies';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { FileChangeDropData } from '$lib/dragging/draggables';
 	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
@@ -10,91 +10,75 @@
 	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
 	import { key, type SelectionId } from '$lib/selection/key';
 	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { SETTINGS } from '$lib/settings/userSettings';
+	import { getStackName } from '$lib/stacks/stack';
+	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { computeChangeStatus } from '$lib/utils/fileStatus';
 	import { inject } from '@gitbutler/core/context';
-	import { FileListItem, FileViewHeader, TestId } from '@gitbutler/ui';
+	import { FileListItem, TestId } from '@gitbutler/ui';
 	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
 	import { type FocusableOptions } from '@gitbutler/ui/focus/focusManager';
-	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
 	import type { ConflictEntriesObj } from '$lib/files/conflicts';
-	import type { Rename } from '$lib/hunks/change';
-	import type { UnifiedDiff } from '$lib/hunks/diff';
 
 	interface Props {
 		projectId: string;
 		stackId?: string;
 		change: TreeChange;
-		diff?: UnifiedDiff | null;
 		selectionId: SelectionId;
 		selected?: boolean;
-		isHeader?: boolean;
 		listMode: 'list' | 'tree';
-		linesAdded?: number;
-		linesRemoved?: number;
 		depth?: number;
 		executable?: boolean;
 		focusableOpts?: FocusableOptions;
 		showCheckbox?: boolean;
 		draggable?: boolean;
-		transparent?: boolean;
-		sticky?: boolean;
 		active?: boolean;
+		locked?: boolean;
+		lockedCommitIds?: string[];
+		lockedTargets?: HunkLockTarget[];
+		isLast?: boolean;
 		onclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
-		onCloseClick?: () => void;
 		conflictEntries?: ConflictEntriesObj;
-		scrollContainer?: HTMLDivElement;
-		hideBorder?: boolean;
 	}
 
 	const {
 		change,
-		diff,
 		selectionId,
 		projectId,
 		stackId,
 		selected,
-		isHeader,
 		listMode,
 		depth,
 		executable,
 		showCheckbox,
 		conflictEntries,
 		draggable,
-		transparent,
 		focusableOpts,
 		active,
+		locked,
+		lockedCommitIds = [],
+		lockedTargets = [],
+		isLast = false,
 		onclick,
-		onkeydown,
-		onCloseClick,
-		hideBorder,
-		scrollContainer
+		onkeydown
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
+	const stackService = inject(STACK_SERVICE);
+	const userSettings = inject(SETTINGS);
 
 	let contextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let draggableEl: HTMLDivElement | undefined = $state();
-	let isStuck = $state(false);
 
 	const previousTooltipText = $derived(
-		(change.status.subject as Rename).previousPath
-			? `${(change.status.subject as Rename).previousPath} →\n${change.path}`
+		change.status.type === 'Rename' && change.status.subject.previousPath
+			? `${change.status.subject.previousPath} →\n${change.path}`
 			: undefined
 	);
-
-	const lineChangesStat = $derived.by(() => {
-		if (diff && diff.type === 'Patch') {
-			return {
-				added: diff.subject.linesAdded,
-				removed: diff.subject.linesRemoved
-			};
-		}
-		return undefined;
-	});
 
 	function onCheck(checked: boolean) {
 		if (checked) {
@@ -119,32 +103,58 @@
 
 	const conflict = $derived(conflictEntries ? conflictEntries.entries[change.path] : undefined);
 	const draggableDisabled = $derived(!draggable || showCheckbox);
+
+	const lockText = $derived.by(() => {
+		if (!locked || lockedTargets.length === 0) return undefined;
+
+		const stacks = stackService.stacks(projectId).result.data ?? [];
+		const stackNames = stacks
+			.filter(
+				(stack) =>
+					stack.id &&
+					lockedTargets.some((t) => targetEqual(t, { type: 'stack', subject: stack.id! }))
+			)
+			.map(getStackName);
+
+		if (stackNames.length === 0) {
+			return 'Depends on changes in an unidentified stack';
+		} else if (stackNames.length === 1) {
+			return `Depends on changes in:\n '${stackNames[0]}'`;
+		} else {
+			return `Depends on changes in:\n ${stackNames.join(', ')}`;
+		}
+	});
+
+	function handleLockHover() {
+		lockedCommitIds.forEach((commitId) => {
+			const commitRows = document.querySelectorAll(`[data-commit-id="${commitId}"]`);
+			commitRows.forEach((row) => {
+				row.classList.add('dependency-highlighted');
+			});
+		});
+	}
+
+	function handleLockUnhover() {
+		const highlighted = document.querySelectorAll('.dependency-highlighted');
+		highlighted.forEach((row) => {
+			row.classList.remove('dependency-highlighted');
+		});
+	}
 </script>
 
 <div
 	data-testid={TestId.FileListItem}
 	class="filelistitem-wrapper"
 	data-remove-from-panning
-	class:filelistitem-header={isHeader}
-	class:transparent
-	class:stuck={isHeader && isStuck}
 	bind:this={draggableEl}
 	use:draggableChips={{
 		label: getFilename(change.path),
 		filePath: change.path,
 		data: new FileChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
-		viewportId: 'board-viewport',
 		disabled: draggableDisabled,
 		chipType: 'file',
 		dropzoneRegistry,
 		dragStateService
-	}}
-	use:stickyAction={{
-		enabled: isHeader,
-		scrollContainer,
-		onStuck: (stuck) => {
-			isStuck = stuck;
-		}
 	}}
 >
 	<ChangedFilesContextMenu
@@ -154,49 +164,34 @@
 		trigger={draggableEl}
 		{selectionId}
 	/>
-
-	{#if isHeader}
-		<FileViewHeader
-			filePath={change.path}
-			fileStatus={computeChangeStatus(change)}
-			draggable={!showCheckbox && draggable}
-			linesAdded={lineChangesStat?.added}
-			linesRemoved={lineChangesStat?.removed}
-			fileStatusTooltip={previousTooltipText}
-			{executable}
-			oncontextmenu={(e) => {
-				e.stopPropagation();
-				e.preventDefault();
-				onContextMenu(e);
-			}}
-			oncloseclick={onCloseClick}
-		/>
-	{:else}
-		<FileListItem
-			id={key({ ...selectionId, path: change.path })}
-			filePath={change.path}
-			fileStatus={computeChangeStatus(change)}
-			{selected}
-			{showCheckbox}
-			fileStatusTooltip={previousTooltipText}
-			{listMode}
-			checked={checkStatus.current === 'checked' || checkStatus.current === 'indeterminate'}
-			{active}
-			indeterminate={checkStatus.current === 'indeterminate'}
-			{depth}
-			{executable}
-			draggable={!draggableDisabled}
-			{onkeydown}
-			{hideBorder}
-			locked={false}
-			conflicted={!!conflict}
-			conflictHint={conflict ? conflictEntryHint(conflict) : undefined}
-			{onclick}
-			oncheck={(e) => onCheck(e.currentTarget.checked)}
-			oncontextmenu={onContextMenu}
-			actionOpts={focusableOpts}
-		/>
-	{/if}
+	<FileListItem
+		id={key({ ...selectionId, path: change.path })}
+		filePath={change.path}
+		fileStatus={computeChangeStatus(change)}
+		{selected}
+		{showCheckbox}
+		fileStatusTooltip={previousTooltipText}
+		pathFirst={$userSettings.pathFirst}
+		{listMode}
+		checked={checkStatus.current === 'checked' || checkStatus.current === 'indeterminate'}
+		{active}
+		indeterminate={checkStatus.current === 'indeterminate'}
+		{depth}
+		{executable}
+		draggable={!draggableDisabled}
+		{onkeydown}
+		locked={locked || false}
+		{lockText}
+		{isLast}
+		onlockhover={handleLockHover}
+		onlockunhover={handleLockUnhover}
+		conflicted={!!conflict}
+		conflictHint={conflict ? conflictEntryHint(conflict) : undefined}
+		{onclick}
+		oncheck={(e) => onCheck(e.currentTarget.checked)}
+		oncontextmenu={onContextMenu}
+		actionOpts={focusableOpts}
+	/>
 </div>
 
 <style lang="postcss">
@@ -206,18 +201,5 @@
 		   makes any :hover css trigger excessive layout passes, thus making
 		   the interface super slow. */
 		display: block;
-
-		&.transparent {
-			background-color: transparent;
-		}
-
-		&.stuck {
-			border-bottom: 1px solid var(--clr-border-2);
-			background-color: var(--clr-bg-1);
-			box-shadow: 0 1px 8px rgba(0, 0, 0, 0.1);
-		}
-	}
-	.filelistitem-header {
-		z-index: var(--z-lifted);
 	}
 </style>

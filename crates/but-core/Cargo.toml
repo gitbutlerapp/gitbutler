@@ -1,18 +1,19 @@
 [package]
 name = "but-core"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 description = "A leaf-crate with core algorithms and types"
 
 [lib]
 doctest = false
 
 [features]
-# Set when building in test-mode to enable features that help with generating repeatable tests.
-testing = []
+export-ts = ["dep:ts-rs"]
+## Make legacy functionality available.
+legacy = []
 
 [dependencies]
 but-error.workspace = true
@@ -26,13 +27,14 @@ serde.workspace = true
 bstr.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
+unicode-segmentation.workspace = true
 gix = { workspace = true, features = [
     "dirwalk",
     "credentials",
     "parallel",
     "serde",
     "status",
-    "merge"
+    "merge",
 ] }
 # for V1 conflict commits
 toml.workspace = true
@@ -44,6 +46,10 @@ uuid.workspace = true
 # for `sync`
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
+ts-rs = { workspace = true, optional = true }
+
+# For generating change-ids
+rand.workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

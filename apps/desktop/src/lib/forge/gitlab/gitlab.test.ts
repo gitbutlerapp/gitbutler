@@ -30,7 +30,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo: baseRepo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -49,7 +51,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -68,7 +72,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -87,7 +93,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -106,7 +114,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		const branch = gitlab.branch('feature-branch');
@@ -126,7 +136,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -145,7 +157,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		const branch = gitlab.branch('feature-branch');
@@ -165,7 +179,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(
@@ -186,7 +202,9 @@ describe('GitLab', () => {
 			client: gitLabClient,
 			repo,
 			baseBranch,
-			authenticated: true
+			authenticated: true,
+			dispatch: () => {},
+			isLoading: false
 		});
 
 		expect(gitlab.commitUrl('abc123')).toBe(

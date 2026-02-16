@@ -2,10 +2,8 @@
 	import MessageHandler from '$lib/chat/message.svelte';
 	import RichText from '$lib/chat/richText.svelte';
 	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
-	import ChatDiffLineSelection from '$lib/components/chat/ChatDiffLineSelection.svelte';
 	import ChatInReplyTo, { type ReplyToMessage } from '$lib/components/chat/ChatInReplyTo.svelte';
 	import MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
-	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { USER_SERVICE } from '$lib/user/userService';
 	import { inject } from '@gitbutler/core/context';
 	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
@@ -43,8 +41,6 @@
 		patchCommit: PatchCommit;
 		isPatchAuthor: boolean | undefined;
 		isUserLoggedIn: boolean | undefined;
-		diffSelection: DiffSelection | undefined;
-		clearDiffSelection: () => void;
 		replyingTo: ReplyToMessage | undefined;
 		clearReply: () => void;
 	}
@@ -57,8 +53,6 @@
 		patchCommit,
 		isPatchAuthor,
 		isUserLoggedIn,
-		diffSelection,
-		clearDiffSelection,
 		replyingTo,
 		clearReply
 	}: Props = $props();
@@ -102,11 +96,10 @@
 		if (isSendingMessage) return;
 		isSendingMessage = true;
 		try {
-			await messageHandler.send({ issue, diffSelection, inReplyTo: replyingTo?.uuid });
+			await messageHandler.send({ issue, inReplyTo: replyingTo?.uuid });
 		} finally {
 			richText.clearEditor();
 			isSendingMessage = false;
-			clearDiffSelection();
 			clearReply();
 		}
 	}
@@ -118,8 +111,6 @@
 			return suggestions.onSuggestionKeyDown(event);
 		}
 
-		const metaKey = event.metaKey || event.ctrlKey;
-
 		if (event.key === 'Enter' && !event.shiftKey && suggestions.suggestions === undefined) {
 			event.preventDefault();
 			event.stopPropagation();
@@ -128,28 +119,12 @@
 		}
 
 		if (event.key === 'Escape') {
-			if (!diffSelection || metaKey) {
-				// Clear reply only if the diff selection is not open
-				// or if the meta key is pressed
-				clearReply();
-			}
-
-			// Clear diff selection on escape only if the mention suggestions
-			// are not open
-			clearDiffSelection();
+			clearReply();
 			return false;
 		}
 
 		if (event.key === 'Backspace' && !messageHandler.message) {
-			if (!diffSelection || metaKey) {
-				// Clear reply only if the diff selection is not open
-				// or if the meta key is pressed
-				clearReply();
-			}
-
-			// Clear diff selection on delete only if the mention suggestions
-			// are not open and the input is empty
-			clearDiffSelection();
+			clearReply();
 			return false;
 		}
 
@@ -268,15 +243,10 @@
 				</div>
 			{/if}
 
-			{#if diffSelection}
-				<ChatDiffLineSelection {diffSelection} {clearDiffSelection} />
-			{/if}
-
 			<RichTextEditor
 				styleContext="chat-input"
 				placeholder="Write your message"
 				bind:this={richText.richTextEditor}
-				plaintext={true}
 				namespace="ChatInput"
 				onError={console.error}
 				onInput={(text) => messageHandler.update(text)}
@@ -315,7 +285,7 @@
 						<DropdownButton
 							bind:this={dropDownButton}
 							loading={isSendingMessage || isExecuting}
-							style="neutral"
+							style="gray"
 							kind="outline"
 							onclick={handleActionClick}
 						>

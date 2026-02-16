@@ -27,8 +27,7 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
         let user_json_path = app_data.path().join("user.json");
         std::fs::write(&user_json_path, &buf)?;
 
-        let user = gitbutler_user::get_user_with_path(app_data.path())?
-            .expect("previous v1 user was read");
+        let user = gitbutler_user::get_user_with_path(app_data.path())?.expect("previous v1 user was read");
         let expected_secrets = if has_github_token { 2 } else { 1 };
         assert_eq!(
             count_secrets(),
@@ -70,8 +69,7 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
         };
         assert_no_secret_in_plain_text()?;
 
-        let user =
-            gitbutler_user::get_user_with_path(app_data.path())?.expect("stored user can be read");
+        let user = gitbutler_user::get_user_with_path(app_data.path())?.expect("stored user can be read");
         assert_access_token_values(&user)?;
 
         gitbutler_user::delete_user_with_path(app_data.path())?;
@@ -114,9 +112,6 @@ fn auto_migration_of_secrets_on_when_getting_and_setting_user() -> anyhow::Resul
 
 fn user_fixture(name: &str) -> PathBuf {
     let fixture = Path::new("tests/fixtures/users").join(name);
-    assert!(
-        fixture.exists(),
-        "BUG: fixture at {fixture:?} ought to exist"
-    );
+    assert!(fixture.exists(), "BUG: fixture at {fixture:?} ought to exist");
     fixture
 }

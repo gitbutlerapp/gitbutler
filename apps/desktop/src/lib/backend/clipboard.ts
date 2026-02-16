@@ -11,7 +11,7 @@ export default class ClipboardService {
 	 * information about the success of this operation.
 	 *
 	 * @param text text to be copied into the system clipboard.
-	 * @param errorMessage optional custom error message which will be displayed if the operation failes. If this is
+	 * @param errorMessage optional custom error message which will be displayed if the operation fails. If this is
 	 *                     not provided, a default generic message will be used.
 	 */
 	async write(

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use serde::Deserialize;
 
 use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
@@ -128,9 +128,7 @@ impl Storage {
                     .into_iter()
                     .map(|mut p| {
                         // backwards compatibility for description field
-                        if let Some(api_description) =
-                            p.api.as_ref().and_then(|api| api.description.as_ref())
-                        {
+                        if let Some(api_description) = p.api.as_ref().and_then(|api| api.description.as_ref()) {
                             p.description = Some(api_description.to_string());
                         }
                         p
@@ -145,8 +143,7 @@ impl Storage {
     }
 
     pub fn get(&self, id: ProjectId) -> Result<Project> {
-        self.try_get(id)?
-            .with_context(|| format!("project {id} not found"))
+        self.try_get(id)?.with_context(|| format!("project {id} not found"))
     }
 
     pub fn try_get(&self, id: ProjectId) -> Result<Option<Project>> {
@@ -196,8 +193,8 @@ impl Storage {
             project.git_dir = path;
         }
 
-        if let Some(path) = path {
-            project.set_worktree_dir(path.clone())?;
+        if let Some(repo_path) = path {
+            project.set_worktree_dir(repo_path.clone())?;
         }
 
         if let Some(api) = api {

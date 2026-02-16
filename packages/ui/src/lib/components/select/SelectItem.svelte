@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '$components/Icon.svelte';
+	import { focusable } from '$lib/focus/focusable';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -28,15 +29,19 @@
 		onClick,
 		children
 	}: Props = $props();
+
+	let self = $state<HTMLButtonElement>();
 </script>
 
 <button
+	bind:this={self}
 	data-testid={testId}
 	type="button"
 	{disabled}
 	class="select-button"
 	class:selected
 	class:highlighted
+	use:focusable={{ button: true, onAction: () => self?.click() }}
 	onclick={() => onClick?.(value)}
 >
 	{#if iconSnippet}
@@ -66,15 +71,12 @@
 		padding: 8px;
 		gap: 10px;
 		border-radius: var(--radius-m);
-		color: var(--clr-scale-ntrl-10);
+		color: var(--clr-text-1);
 		white-space: nowrap;
 		user-select: none;
 		&:not(.selected):hover:enabled,
 		&:not(.selected):focus:enabled {
-			background-color: var(--clr-bg-1-muted);
-			& .icon {
-				color: var(--clr-scale-ntrl-40);
-			}
+			background-color: var(--hover-bg-1);
 		}
 		&:disabled {
 			opacity: 0.4;
@@ -103,7 +105,7 @@
 		}
 	}
 
-	.highlighted {
-		background-color: var(--clr-bg-1-muted);
+	.highlighted:not(.selected) {
+		background-color: var(--hover-bg-1);
 	}
 </style>

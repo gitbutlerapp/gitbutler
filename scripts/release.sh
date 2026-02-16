@@ -91,6 +91,9 @@ ARCH="$(arch)"
 OS="$(os)"
 DIST="release"
 
+# the OS is used for certain build decisions and signing
+export OS
+
 function tauri() {
 	(cd "$PWD/.." && pnpm tauri-for-release "$@")
 }
@@ -157,8 +160,7 @@ if [ "$DO_SIGN" = "true" ]; then
 		export SIGN_KEY="$APPIMAGE_KEY_ID"
 		export APPIMAGETOOL_SIGN_PASSPHRASE="$APPIMAGE_KEY_PASSPHRASE"
 	elif [ "$OS" == "windows" ]; then
-		# Nothing to do on windows
-		:
+		: # nothing to do on windows
 	else
 		error "signing is not supported on $(uname -s)"
 	fi
@@ -178,17 +180,25 @@ trap 'rm -rf "$TMP_DIR"' exit
 
 CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.json")
 
-# update the version in the tauri release config
-jq '.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
-
 if [ "$OS" = "windows" ]; then
-  # WARNING: when removing `builtin-but` just must ensure that `but` is built
+  # WARNING: `builtin-but` doesn't work on Windows, see https://github.com/gitbutlerapp/gitbutler/issues/11461.
+  #          Should it be re-added, please ensure that `but` is built
   #          as part of the 'beforeBuildCommand' in tauri.conf AND it must be injected
   #          via 'inject-git-binaries.sh'.
-	FEATURES="builtin-but,windows"
+  EXTERNAL_BIN='["gitbutler-git-setsid", "gitbutler-git-askpass", "but"]'
+	FEATURES="windows"
 else
+  EXTERNAL_BIN='["gitbutler-git-setsid", "gitbutler-git-askpass"]'
 	FEATURES="builtin-but"
 fi
+
+# update the version in the tauri release config
+jq  --arg version "$VERSION"\
+    --argjson externalBin "$EXTERNAL_BIN"\
+  '.version = $version | .bundle.externalBin = $externalBin' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+
+# Useful for understanding exactly what goes into the tauri build/bundle.
+cat "$TMP_DIR/tauri.conf.json"
 
 # set the VERSION and CHANNEL as an environment variables so that they available in the but CLI
 export VERSION
@@ -209,6 +219,7 @@ if [ -n "$TARGET" ]; then
 		--target "$TARGET"
 
   BUNDLE_DIR=$(readlink -f "$PWD/../target/$TARGET/release/bundle")
+  BUILD_DIR=$(readlink -f "$PWD/../target/$TARGET/release")
 else
 	# Build with default target
 	tauri build \
@@ -217,6 +228,7 @@ else
 		--config "$TMP_DIR/tauri.conf.json"
 
 	BUNDLE_DIR=$(readlink -f "$PWD/../target/release/bundle")
+	BUILD_DIR=$(readlink -f "$PWD/../target/release")
 fi
 
 RELEASE_DIR="$DIST/$OS/$ARCH"
@@ -241,12 +253,14 @@ elif [ "$OS" = "linux" ]; then
 	APPIMAGE_UPDATER_SIG="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage.tar.gz.sig)"
 	DEB="$(find "$BUNDLE_DIR/deb" -name \*.deb)"
 	RPM="$(find "$BUNDLE_DIR/rpm" -name \*.rpm)"
+	BUT_CLI="$(readlink -f "$BUILD_DIR/but")"
 
 	cp "$APPIMAGE" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER_SIG" "$RELEASE_DIR"
 	cp "$DEB" "$RELEASE_DIR"
 	cp "$RPM" "$RELEASE_DIR"
+	cp "$BUT_CLI" "$RELEASE_DIR"
 
 	info "built:"
 	info "	- $RELEASE_DIR/$(basename "$APPIMAGE")"
@@ -254,6 +268,7 @@ elif [ "$OS" = "linux" ]; then
 	info "	- $RELEASE_DIR/$(basename "$APPIMAGE_UPDATER_SIG")"
 	info "	- $RELEASE_DIR/$(basename "$DEB")"
 	info "	- $RELEASE_DIR/$(basename "$RPM")"
+	info "	- $RELEASE_DIR/$(basename "$BUT_CLI")"
 elif [ "$OS" = "windows" ]; then
 	WINDOWS_INSTALLER="$(find "$BUNDLE_DIR/msi" -name \*.msi)"
 	WINDOWS_UPDATER="$(find "$BUNDLE_DIR/msi" -name \*.msi.zip)"

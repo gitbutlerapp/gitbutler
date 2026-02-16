@@ -4,10 +4,7 @@ use crate::virtual_branches::list;
 
 #[test]
 fn one_vbranch_in_workspace_empty_details() -> anyhow::Result<()> {
-    let list = branch_details(
-        &list::project_ctx("one-vbranch-in-workspace")?,
-        Some("virtual"),
-    )?;
+    let list = branch_details(&list::project_ctx("one-vbranch-in-workspace")?, Some("virtual"))?;
     assert_eq!(list.len(), 1);
     assert_eq!(
         list[0],
@@ -77,18 +74,18 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
             authors: vec![default_author()],
             stack: None
         },
-        "This is a non-virtual brnach, so it sees the local tracking branch as well"
+        "This is a non-virtual branch, so it sees the local tracking branch as well"
     );
     Ok(())
 }
 
 mod util {
+    use but_ctx::Context;
     use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{Author, BranchListingDetails};
-    use gitbutler_command_context::CommandContext;
 
     pub fn branch_details(
-        ctx: &CommandContext,
+        ctx: &Context,
         branch_names: impl IntoIterator<Item = impl TryInto<BranchIdentity>>,
     ) -> anyhow::Result<Vec<BranchListingDetails>> {
         let mut details = gitbutler_branch_actions::get_branch_listing_details(ctx, branch_names)?;
@@ -100,11 +97,13 @@ mod util {
         Author {
             name: Some("author".into()),
             email: Some("author@example.com".into()),
-            gravatar_url: Some("https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro".into()),
+            gravatar_url: Some(
+                "https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro".into(),
+            ),
         }
     }
 
-    pub fn project_ctx(name: &str) -> anyhow::Result<CommandContext> {
+    pub fn project_ctx(name: &str) -> anyhow::Result<Context> {
         gitbutler_testsupport::read_only::fixture("for-details.sh", name)
     }
 }

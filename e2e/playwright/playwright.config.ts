@@ -42,7 +42,9 @@ export default defineConfig({
 	projects: projects(),
 
 	/* Run your local dev server before starting the tests */
-	webServer: webServers()
+	webServer: webServers(),
+
+	snapshotPathTemplate: '{testDir}/__snapshots__/{testFilePath}/{arg}{ext}'
 });
 
 function projects() {
@@ -59,7 +61,7 @@ function projects() {
 		name: 'Chrome',
 		use: {
 			...devices['Desktop Chrome'],
-			headless: false,
+			headless: process.env.PLAYWRIGHT_UI === '1' ? false : true,
 			channel: 'chrome'
 		}
 	});

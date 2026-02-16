@@ -1,26 +1,19 @@
-use anyhow::Context;
-use but_tools::{emit::Emitter, workspace::commit_toolset};
-use gitbutler_command_context::CommandContext;
+use anyhow::Context as _;
+use but_ctx::Context;
+use but_tools::workspace::commit_toolset;
 
-use crate::OpenAiProvider;
-
-pub fn branch_changes(
-    emitter: std::sync::Arc<Emitter>,
-    ctx: &mut CommandContext,
-    openai: &OpenAiProvider,
+pub(crate) fn branch_changes(
+    ctx: &mut Context,
+    llm: &but_llm::LLMProvider,
     changes: Vec<but_core::TreeChange>,
+    model: String,
 ) -> anyhow::Result<()> {
-    let repo = ctx.gix_repo()?;
+    let paths = changes.iter().map(|change| change.path.clone()).collect::<Vec<_>>();
+    let project_status = but_tools::workspace::get_project_status(ctx, Some(paths))?;
+    let serialized_status =
+        serde_json::to_string_pretty(&project_status).context("Failed to serialize project status")?;
 
-    let paths = changes
-        .iter()
-        .map(|change| change.path.clone())
-        .collect::<Vec<_>>();
-    let project_status = but_tools::workspace::get_project_status(ctx, &repo, Some(paths))?;
-    let serialized_status = serde_json::to_string_pretty(&project_status)
-        .context("Failed to serialize project status")?;
-
-    let mut toolset = commit_toolset(ctx, emitter.clone());
+    let mut toolset = commit_toolset(ctx);
 
     let system_message ="
         You are an expert in grouping and committing file changes into logical units for version control.
@@ -31,7 +24,7 @@ pub fn branch_changes(
         Please, figure out how to group the file changes into logical units for version control and commit them.
         Follow these steps:
         1. Create a new branch for the change. All commits should be made to this branch.
-        1. Take a look at the exisiting branches and the file changes. You can see all this information in the **project status** below.
+        1. Take a look at the existing branches and the file changes. You can see all this information in the **project status** below.
         2. Determine which are the related changes that should be grouped together. You can do this by looking at the diffs, assignments, and dependency locks, if any.
         3. For each group of changes, create a commit (using the provided tool) with a detailed summary of the changes in the group (not the intention, but an overview of the actual changes made and why they are related).
         4. When you're done, only send the message 'done'
@@ -50,13 +43,7 @@ pub fn branch_changes(
         </project_status>
     ");
 
-    crate::openai::tool_calling_loop(
-        openai,
-        system_message,
-        vec![prompt.into()],
-        &mut toolset,
-        None,
-    )?;
+    llm.tool_calling_loop(system_message, vec![prompt.into()], &mut toolset, &model)?;
 
     Ok(())
 }

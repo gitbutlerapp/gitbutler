@@ -6,7 +6,7 @@ import './stories-styles.css';
 
 const preview: Preview = {
 	parameters: {
-		backgrounds: { disable: true },
+		backgrounds: { disabled: true },
 		controls: {
 			matchers: {
 				// matches "background" and "color" but not "solidBackground" as that is a boolean arg

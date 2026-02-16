@@ -1,13 +1,12 @@
 import {
 	isAiRule,
-	type AiRule,
 	type CreateRuleRequest,
 	type UpdateRuleRequest,
 	type WorkspaceRule,
 	type WorkspaceRuleId
 } from '$lib/rules/rule';
 import { hasBackendExtra } from '$lib/state/backendQuery';
-import { invalidatesItem, invalidatesList, providesItems, ReduxTag } from '$lib/state/tags';
+import { invalidatesList, providesItems, ReduxTag } from '$lib/state/tags';
 import { InjectionToken } from '@gitbutler/core/context';
 import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
 import type { BackendApi } from '$lib/state/clientState.svelte';
@@ -42,42 +41,36 @@ export default class RulesService {
 	}
 
 	workspaceRules(projectId: string) {
-		return this.api.endpoints.listWorkspaceRules.useQuery(
-			{ projectId },
-			{ transform: (result) => workspaceRulesSelectors.selectAll(result) }
-		);
+		return this.api.endpoints.listWorkspaceRules.useQuery({ projectId });
 	}
 
-	aiRules({ projectId }: { projectId: string }) {
+	hasRulesToClear(projectId: string, stackId?: string) {
 		return this.api.endpoints.listWorkspaceRules.useQuery(
 			{ projectId },
 			{
-				transform: (result): AiRule[] => {
+				transform: (result) => {
 					const allRules = workspaceRulesSelectors.selectAll(result);
-					const rules = allRules.filter(isAiRule);
-					return rules;
+					return allRules.some(
+						(r) => isAiRule(r) && r.action.subject.subject.target.subject === stackId
+					);
 				}
 			}
 		);
 	}
 
-	/**
-	 * Finds all the Codegen rules for a given stack id and returns just the first one.
-	 *
-	 * Currently we only have one session per branch, but we _could_ have more in
-	 * the future.
-	 */
-	aiRuleForStack({ projectId, stackId }: { projectId: string; stackId: string }) {
+	aiSessionId(projectId: string, stackId?: string) {
 		return this.api.endpoints.listWorkspaceRules.useQuery(
 			{ projectId },
 			{
-				transform: (result): AiRule | null => {
+				transform: (result) => {
 					const allRules = workspaceRulesSelectors.selectAll(result);
-
-					const rules = allRules.filter(
-						(r): r is AiRule => isAiRule(r) && r.action.subject.subject.target.subject === stackId
+					const rule = allRules.find(
+						(r) => isAiRule(r) && r.action.subject.subject.target.subject === stackId
 					);
-					return rules[0] || null;
+					const sessionId = rule?.filters.at(0)?.subject;
+					if (typeof sessionId === 'string') {
+						return sessionId;
+					}
 				}
 			}
 		);
@@ -100,17 +93,19 @@ function injectEndpoints(api: BackendApi) {
 			>({
 				extraOptions: { command: 'create_workspace_rule' },
 				query: (args) => args,
+				// Note: We don't invalidate WorkspaceRules here - the backend listener handles it
+				// This prevents double-invalidation which causes cache to blink
 				invalidatesTags: () => [
-					invalidatesList(ReduxTag.WorkspaceRules),
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.Stacks)
+					invalidatesList(ReduxTag.Stacks) // Probably this is still needed??
 				]
 			}),
-			deleteWorkspaceRule: build.mutation<void, { projectId: string; id: WorkspaceRuleId }>({
+			deleteWorkspaceRule: build.mutation<void, { projectId: string; ruleId: WorkspaceRuleId }>({
 				extraOptions: { command: 'delete_workspace_rule' },
 				query: (args) => args,
+				// Note: We don't invalidate WorkspaceRules here - the backend listener handles it
+				// This prevents double-invalidation which causes cache to blink
 				invalidatesTags: [
-					invalidatesList(ReduxTag.WorkspaceRules),
 					invalidatesList(ReduxTag.ClaudeCodeTranscript),
 					invalidatesList(ReduxTag.ClaudePermissionRequests),
 					invalidatesList(ReduxTag.ClaudeSessionDetails),
@@ -123,15 +118,12 @@ function injectEndpoints(api: BackendApi) {
 			>({
 				extraOptions: { command: 'update_workspace_rule' },
 				query: (args) => args,
-				invalidatesTags: (result) =>
-					result
-						? [
-								invalidatesItem(ReduxTag.WorkspaceRules, result.id),
-								invalidatesList(ReduxTag.WorkspaceRules),
-								invalidatesList(ReduxTag.WorktreeChanges),
-								invalidatesList(ReduxTag.Stacks)
-							]
-						: []
+				// Note: We don't invalidate WorkspaceRules here - the backend listener handles it
+				// This prevents double-invalidation which causes cache to blink
+				invalidatesTags: () => [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.Stacks) // Probably this is still needed??
+				]
 			}),
 			listWorkspaceRules: build.query<
 				EntityState<WorkspaceRule, WorkspaceRuleId>,
@@ -170,4 +162,4 @@ const workspaceRulesAdapter = createEntityAdapter<WorkspaceRule, WorkspaceRuleId
 	selectId: (rule) => rule.id
 });
 
-const workspaceRulesSelectors = workspaceRulesAdapter.getSelectors();
+export const workspaceRulesSelectors = workspaceRulesAdapter.getSelectors();

@@ -1,9 +1,14 @@
 import { fileIcons } from '$components/file/fileIcons';
 import { symbolFileExtensionsToIcons, symbolFileNamesToIcons } from '$components/file/typeMap';
-import { convertToBase64 } from '$lib/utils/convertToBase64';
 
 export function getFileIcon(fileName: string) {
 	fileName = fileName.toLowerCase();
+
+	// Check if fileName is directly an icon name
+	if (fileIcons[fileName]) {
+		return fileIcons[fileName];
+	}
+
 	const splitName = fileName.split('.');
 	let iconName = '';
 
@@ -26,7 +31,7 @@ export function getFileIcon(fileName: string) {
 	}
 	let icon = fileIcons[iconName];
 	if (!icon) {
-		icon = fileIcons['document'] as string;
+		icon = fileIcons['document'];
 	}
-	return `data:image/svg+xml;base64,${convertToBase64(icon)}`;
+	return icon;
 }

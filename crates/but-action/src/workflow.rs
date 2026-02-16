@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use but_core::ref_metadata::StackId;
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use gix::ObjectId;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -56,9 +56,7 @@ impl<'de> Deserialize<'de> for Kind {
     {
         match KindCompat::deserialize(deserializer)? {
             KindCompat::String(s) if s == "Reword" => Ok(Kind::Reword(None)),
-            KindCompat::KindRewordObj { kind_type, subject }
-                if kind_type == "reword" || kind_type == "Reword" =>
-            {
+            KindCompat::KindRewordObj { kind_type, subject } if kind_type == "reword" || kind_type == "Reword" => {
                 Ok(Kind::Reword(subject))
             }
             KindCompat::KindRenameBranchObj { kind_type, subject }
@@ -77,7 +75,7 @@ impl<'de> Deserialize<'de> for Kind {
 pub enum Status {
     Completed,
     Failed(String),
-    Interupted(Uuid),
+    Interrupted(Uuid),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -120,18 +118,16 @@ impl TryFrom<but_db::Workflow> for Workflow {
         let kind = serde_json::from_str(&value.kind)?;
         let triggered_by = serde_json::from_str(&value.triggered_by)?;
         let status = serde_json::from_str(&value.status)?;
-        let input_commits: Vec<ObjectId> =
-            serde_json::from_str::<Vec<String>>(&value.input_commits)?
-                .iter()
-                .map(|c| ObjectId::from_str(c))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| anyhow::anyhow!("Failed to parse input commits: {}", e))?;
-        let output_commits: Vec<ObjectId> =
-            serde_json::from_str::<Vec<String>>(&value.output_commits)?
-                .iter()
-                .map(|c| ObjectId::from_str(c))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| anyhow::anyhow!("Failed to parse output commits: {}", e))?;
+        let input_commits: Vec<ObjectId> = serde_json::from_str::<Vec<String>>(&value.input_commits)?
+            .iter()
+            .map(|c| ObjectId::from_str(c))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| anyhow::anyhow!("Failed to parse input commits: {}", e))?;
+        let output_commits: Vec<ObjectId> = serde_json::from_str::<Vec<String>>(&value.output_commits)?
+            .iter()
+            .map(|c| ObjectId::from_str(c))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| anyhow::anyhow!("Failed to parse output commits: {}", e))?;
         let summary = value.summary.as_deref().map(|s| s.to_string());
         Ok(Self {
             id: Uuid::parse_str(&value.id)?,
@@ -153,20 +149,8 @@ impl TryFrom<Workflow> for but_db::Workflow {
         let kind = serde_json::to_string(&value.kind)?;
         let triggered_by = serde_json::to_string(&value.triggered_by)?;
         let status = serde_json::to_string(&value.status)?;
-        let input_commits = serde_json::to_string(
-            &value
-                .input_commits
-                .iter()
-                .map(|c| c.to_string())
-                .collect_vec(),
-        )?;
-        let output_commits = serde_json::to_string(
-            &value
-                .output_commits
-                .iter()
-                .map(|c| c.to_string())
-                .collect_vec(),
-        )?;
+        let input_commits = serde_json::to_string(&value.input_commits.iter().map(|c| c.to_string()).collect_vec())?;
+        let output_commits = serde_json::to_string(&value.output_commits.iter().map(|c| c.to_string()).collect_vec())?;
         let summary = value.summary.as_deref().map(|s| s.to_string());
         Ok(Self {
             id: value.id.to_string(),
@@ -202,22 +186,20 @@ impl Workflow {
         }
     }
 
-    pub(crate) fn persist(self, ctx: &mut CommandContext) -> anyhow::Result<()> {
-        ctx.db()?
-            .workflows()
+    pub(crate) fn persist(self, ctx: &mut Context) -> anyhow::Result<()> {
+        ctx.db
+            .get_mut()?
+            .workflows_mut()
             .insert(self.try_into()?)
             .map_err(|e| anyhow::anyhow!("Failed to persist workflow: {}", e))?;
         Ok(())
     }
 }
 
-pub fn list_workflows(
-    ctx: &mut CommandContext,
-    offset: i64,
-    limit: i64,
-) -> anyhow::Result<WorkflowList> {
+pub fn list_workflows(ctx: &Context, offset: i64, limit: i64) -> anyhow::Result<WorkflowList> {
     let (total, workflows) = ctx
-        .db()?
+        .db
+        .get()?
         .workflows()
         .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list workflows: {}", e))?;

@@ -69,22 +69,13 @@ mod extract_login_shell_command {
     #[test]
     fn parse_key_value_pairs_various_inputs() {
         let one_line_missing_newline = "a=b";
-        assert_eq!(
-            parse_key_value_pairs(one_line_missing_newline),
-            osvec(Some(("a", "b")))
-        );
+        assert_eq!(parse_key_value_pairs(one_line_missing_newline), osvec(Some(("a", "b"))));
 
         let value_with_equal_sign = "a=b=c";
-        assert_eq!(
-            parse_key_value_pairs(value_with_equal_sign),
-            osvec(Some(("a", "b=c")))
-        );
+        assert_eq!(parse_key_value_pairs(value_with_equal_sign), osvec(Some(("a", "b=c"))));
 
         let multi_line = "a=b\nkey=value\n";
-        assert_eq!(
-            parse_key_value_pairs(multi_line),
-            osvec([("a", "b"), ("key", "value")])
-        );
+        assert_eq!(parse_key_value_pairs(multi_line), osvec([("a", "b"), ("key", "value")]));
 
         let multi_line_missing_trailing_newline = "a=b\nkey=value";
         assert_eq!(
@@ -93,12 +84,7 @@ mod extract_login_shell_command {
         );
     }
 
-    fn osvec(
-        pairs: impl IntoIterator<Item = (&'static str, &'static str)>,
-    ) -> Vec<(OsString, OsString)> {
-        pairs
-            .into_iter()
-            .map(|(k, v)| (k.into(), v.into()))
-            .collect()
+    fn osvec(pairs: impl IntoIterator<Item = (&'static str, &'static str)>) -> Vec<(OsString, OsString)> {
+        pairs.into_iter().map(|(k, v)| (k.into(), v.into())).collect()
     }
 }

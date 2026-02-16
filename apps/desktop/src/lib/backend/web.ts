@@ -101,7 +101,7 @@ async function webHomeDirectory(): Promise<string> {
 }
 
 async function webJoinPath(pathSegment: string, ...paths: string[]): Promise<string> {
-	// TODO: We might want to expose some endpoint in the backedn to handle path joining in the right way.
+	// TODO: We might want to expose some endpoint in the backend to handle path joining in the right way.
 	// This will break on windows
 	return await Promise.resolve([pathSegment, ...paths].join(webPathSeparator()));
 }
@@ -183,12 +183,12 @@ async function webRelaunch(): Promise<void> {
  */
 async function webInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
 	try {
-		const response = await fetch(`http://${getWebUrl()}`, {
+		const response = await fetch(`http://${getWebUrl()}/${command}`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
 			},
-			body: JSON.stringify({ command, params })
+			body: JSON.stringify(params)
 		});
 		const out: ServerResonse<T> = await response.json();
 		if (out.type === 'success') {

@@ -333,12 +333,12 @@ fn submodule_changes_ignored_in_configuration() -> Result<()> {
 fn submodule_changes_set_to_all_in_config_but_has_uncommittable_changes() -> Result<()> {
     let repo = repo("submodule-changed-worktree-ignore-none")?;
     let actual = diff::worktree_changes(&repo)?;
-    insta::assert_debug_snapshot!(actual, @r#"
+    insta::assert_debug_snapshot!(actual, @r"
     WorktreeChanges {
         changes: [],
         ignored_changes: [],
     }
-    "#);
+    ");
     Ok(())
 }
 
@@ -1375,8 +1375,7 @@ fn modified_in_index_and_worktree_mod_mod_symlink() -> Result<()> {
     +nonexisting-wt-change
     ");
 
-    let repo =
-        crate::diff::worktree_changes::repo("modified-in-index-and-worktree-mod-mod-symlink-noop")?;
+    let repo = crate::diff::worktree_changes::repo("modified-in-index-and-worktree-mod-mod-symlink-noop")?;
     insta::assert_debug_snapshot!(diff::worktree_changes(&repo)?, @r#"
     WorktreeChanges {
         changes: [],
@@ -1767,12 +1766,8 @@ fn modified_in_index_and_worktree_rename_add() -> Result<()> {
     "#);
 
     let [
-        UnifiedPatch::Patch {
-            hunks: ref hunks1, ..
-        },
-        UnifiedPatch::Patch {
-            hunks: ref hunks2, ..
-        },
+        UnifiedPatch::Patch { hunks: ref hunks1, .. },
+        UnifiedPatch::Patch { hunks: ref hunks2, .. },
     ] = unified_patches(actual, &repo)?[..]
     else {
         unreachable!("need hunks")
@@ -1824,29 +1819,19 @@ fn modified_in_index_and_worktree_add_rename() -> Result<()> {
     let [UnifiedPatch::Patch { ref hunks, .. }] = unified_patches(actual, &repo)?[..] else {
         unreachable!("need hunks")
     };
-    assert_eq!(
-        hunks.len(),
-        0,
-        "the file didn't actually change, it's just renamed"
-    );
+    assert_eq!(hunks.len(), 0, "the file didn't actually change, it's just renamed");
     Ok(())
 }
 
-fn unified_patches(
-    worktree: WorktreeChanges,
-    repo: &gix::Repository,
-) -> anyhow::Result<Vec<UnifiedPatch>> {
+fn unified_patches(worktree: WorktreeChanges, repo: &gix::Repository) -> anyhow::Result<Vec<UnifiedPatch>> {
     super::unified_patches(&worktree.changes, repo)
 }
 
 pub fn repo_in(fixture_name: &str, name: &str) -> anyhow::Result<gix::Repository> {
-    let root = gix_testtools::scripted_fixture_read_only(format!("{fixture_name}.sh"))
-        .map_err(anyhow::Error::from_boxed)?;
+    let root =
+        gix_testtools::scripted_fixture_read_only(format!("{fixture_name}.sh")).map_err(anyhow::Error::from_boxed)?;
     let worktree_root = root.join(name);
-    Ok(gix::open_opts(
-        worktree_root,
-        gix::open::Options::isolated(),
-    )?)
+    Ok(gix::open_opts(worktree_root, gix::open::Options::isolated())?)
 }
 
 pub fn repo(fixture_name: &str) -> anyhow::Result<gix::Repository> {

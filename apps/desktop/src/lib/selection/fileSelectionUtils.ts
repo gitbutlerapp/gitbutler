@@ -6,7 +6,6 @@
  */
 import { type SelectedFile, type SelectionId } from '$lib/selection/key';
 import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
-import { KeyName } from '@gitbutler/ui/utils/hotkeys';
 import { get } from 'svelte/store';
 import type { TreeChange } from '$lib/hunks/change';
 import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
@@ -54,6 +53,7 @@ function getBottomFile(
 
 interface UpdateSelectionParams {
 	allowMultiple: boolean;
+	ctrlKey: boolean;
 	metaKey: boolean;
 	shiftKey: boolean;
 	key: string;
@@ -67,6 +67,7 @@ interface UpdateSelectionParams {
 
 export function updateSelection({
 	allowMultiple,
+	ctrlKey,
 	metaKey,
 	shiftKey,
 	key,
@@ -76,8 +77,8 @@ export function updateSelection({
 	fileIdSelection,
 	selectionId,
 	preventDefault
-}: UpdateSelectionParams): boolean | undefined {
-	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
+}: UpdateSelectionParams): boolean {
+	if (!selectedFileIds[0] || selectedFileIds.length === 0) return false;
 
 	const firstFileId = selectedFileIds[0].path;
 	const lastFileId = selectedFileIds.at(-1)!.path;
@@ -114,9 +115,11 @@ export function updateSelection({
 		}
 	}
 
-	switch (key.toLowerCase()) {
+	switch (key) {
+		// Cmd+A on Mac, Ctrl+A on Windows/Linux
 		case 'a':
-			if (allowMultiple && metaKey) {
+		case 'A':
+			if (allowMultiple && (metaKey || ctrlKey)) {
 				preventDefault();
 
 				for (let i = 0; i < files.length; i++) {
@@ -129,7 +132,7 @@ export function updateSelection({
 			}
 			break;
 		case 'k':
-		case KeyName.Up:
+		case 'ArrowUp':
 			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
@@ -154,7 +157,7 @@ export function updateSelection({
 			break;
 
 		case 'j':
-		case KeyName.Down:
+		case 'ArrowDown':
 			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
@@ -178,12 +181,15 @@ export function updateSelection({
 				}
 			}
 			break;
-		case KeyName.Escape:
+		case 'Escape':
 			preventDefault();
 			fileIdSelection.clearPreview(selectionId);
 			targetElement.blur();
-			break;
+			return false;
+		default:
+			return false;
 	}
+	return true;
 }
 
 export function selectFilesInList(
@@ -197,7 +203,6 @@ export function selectFilesInList(
 	selectionId: SelectionId,
 	allowUnselect?: boolean
 ) {
-	// e.stopPropagation();
 	const isAlreadySelected = idSelection.has(change.path, selectionId);
 	const isTheOnlyOneSelected = idSelection.collectionSize(selectionId) === 1 && isAlreadySelected;
 	const lastAdded = get(idSelection.getById(selectionId).lastAdded);

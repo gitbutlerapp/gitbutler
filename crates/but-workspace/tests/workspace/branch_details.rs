@@ -40,12 +40,12 @@ mod with_workspace {
             but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(),
             @r#"
         BranchDetails {
-            name: "refs/heads/A",
+            name: "A",
+            reference: FullName(
+                "refs/heads/A",
+            ),
             linked_worktree_id: None,
             remote_tracking_branch: None,
-            description: Some(
-                "A: description",
-            ),
             pr_number: Some(
                 42,
             ),
@@ -76,8 +76,7 @@ mod with_workspace {
 
     #[test]
     fn nothing_to_push() -> anyhow::Result<()> {
-        let repo =
-            read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
+        let repo = read_only_in_memory_scenario_named("with-remotes-no-workspace", "nothing-to-push")?;
 
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
         * 89cc2d3 (HEAD -> A, origin/A) change in A
@@ -89,13 +88,13 @@ mod with_workspace {
             .with_named_branch("A");
         insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
-            name: "refs/heads/A",
+            name: "A",
+            reference: FullName(
+                "refs/heads/A",
+            ),
             linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
-            ),
-            description: Some(
-                "A: description",
             ),
             pr_number: Some(
                 42,
@@ -127,10 +126,7 @@ mod with_workspace {
 
     #[test]
     fn remote_tracking_advanced_ff() -> anyhow::Result<()> {
-        let repo = read_only_in_memory_scenario_named(
-            "with-remotes-no-workspace",
-            "remote-tracking-advanced-ff",
-        )?;
+        let repo = read_only_in_memory_scenario_named("with-remotes-no-workspace", "remote-tracking-advanced-ff")?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
         * 89cc2d3 (origin/A) change in A
         * d79bba9 (HEAD -> A) new file in A
@@ -142,13 +138,13 @@ mod with_workspace {
             .with_named_branch("A");
         insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
-            name: "refs/heads/A",
+            name: "A",
+            reference: FullName(
+                "refs/heads/A",
+            ),
             linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
-            ),
-            description: Some(
-                "A: description",
             ),
             pr_number: Some(
                 42,
@@ -180,10 +176,12 @@ mod with_workspace {
         // Remote tracking branches are OK to use as well.
         insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("origin/A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
-            name: "refs/remotes/origin/A",
+            name: "origin/A",
+            reference: FullName(
+                "refs/remotes/origin/A",
+            ),
             linked_worktree_id: None,
             remote_tracking_branch: None,
-            description: None,
             pr_number: None,
             review_id: None,
             tip: Sha1(89cc2d303514654e9cab2d05b9af08b420a740c1),
@@ -208,8 +206,7 @@ mod with_workspace {
 
     #[test]
     fn remote_tracking_diverged() -> anyhow::Result<()> {
-        let repo =
-            read_only_in_memory_scenario_named("with-remotes-no-workspace", "remote-diverged")?;
+        let repo = read_only_in_memory_scenario_named("with-remotes-no-workspace", "remote-diverged")?;
         insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
         * 1a265a4 (HEAD -> A) local change in A
         | * 89cc2d3 (origin/A) change in A
@@ -223,13 +220,13 @@ mod with_workspace {
             .with_named_branch("A");
         insta::assert_debug_snapshot!(but_workspace::branch_details(&repo, refname("A").as_ref(), &store).unwrap(), @r#"
         BranchDetails {
-            name: "refs/heads/A",
+            name: "A",
+            reference: FullName(
+                "refs/heads/A",
+            ),
             linked_worktree_id: None,
             remote_tracking_branch: Some(
                 "refs/remotes/origin/A",
-            ),
-            description: Some(
-                "A: description",
             ),
             pr_number: Some(
                 42,
@@ -265,15 +262,16 @@ mod with_workspace {
     #[derive(Default)]
     struct WorkspaceRefMetadataStore {
         workspace: Workspace,
-        branches: Vec<(FullName, but_core::ref_metadata::Branch)>,
+        branches: Vec<(FullName, Branch)>,
     }
 
     impl WorkspaceRefMetadataStore {
         pub fn with_target(mut self, short_name: &str) -> Self {
-            self.workspace = but_core::ref_metadata::Workspace {
+            self.workspace = Workspace {
                 ref_info: Default::default(),
                 stacks: vec![],
                 target_ref: Some(refname(short_name)),
+                target_commit_id: None,
                 push_remote: None,
             };
             self
@@ -290,7 +288,6 @@ mod with_workspace {
                     created_at: None,
                     updated_at: Some(gix::date::Time::new(56, 0)),
                 },
-                description: Some(format!("{short_name}: description")),
                 review: Review {
                     pull_request: Some(42),
                     review_id: Some("uuid".into()),

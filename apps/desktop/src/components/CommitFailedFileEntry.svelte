@@ -63,7 +63,7 @@
 								wrapText={$userSettings.wrapText}
 								diffFont={$userSettings.diffFont}
 								diffLigatures={$userSettings.diffLigatures}
-								diffContrast={$userSettings.diffContrast}
+								strongContrast={$userSettings.strongContrast}
 								colorBlindFriendly={$userSettings.colorBlindFriendly}
 								inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 								hunkStr={dependency.hunk.diff}
@@ -77,28 +77,38 @@
 								</div>
 								<div class="commit-failed__file-entry__dependency-locks__content">
 									{#each dependency.locks as lock}
-										{@const brnachesQuery = stackService.branches(projectId, lock.stackId)}
-										{@const branch = brnachesQuery.response}
-										{@const commitBranch = branch?.find((b) =>
-											b.commits.some((c) => c.id === lock.commitId)
-										)}
-										{@const branchName = commitBranch?.name || 'Unknown branch'}
-										{@const commitMessage = commitBranch?.commits.find(
-											(c) => c.id === lock.commitId
-										)}
-										{@const commitTitle =
-											commitMessage?.message.split('\n')[0] || 'No commit message provided'}
-										<p class="text-body commit-failed__file-entry-dependency-lock">
-											<i class="commit-failed__text-icon"><Icon name="branch-small" /></i>
-											<span class="text-semibold">{branchName}</span>
-											<i class="clr-text-2">in commit</i>
-											<i class="commit-failed__text-icon"><Icon name="commit" /></i>
-											<Tooltip text={commitTitle}>
-												<span class="commit-failed__tooltip-text text-semibold h-dotted-underline"
-													>{lock.commitId.substring(0, 7)}</span
-												>
-											</Tooltip>
-										</p>
+										{#if lock.target.type === 'stack'}
+											{@const branchesQuery = stackService.branches(projectId, lock.target.subject)}
+											{@const branch = branchesQuery.response}
+											{@const commitBranch = branch?.find((b) =>
+												b.commits.some((c) => c.id === lock.commitId)
+											)}
+											{@const branchName = commitBranch?.name || 'Unknown branch'}
+											{@const commitMessage = commitBranch?.commits.find(
+												(c) => c.id === lock.commitId
+											)}
+											{@const commitTitle =
+												commitMessage?.message.split('\n')[0] || 'No commit message provided'}
+											<p class="text-body commit-failed__file-entry-dependency-lock">
+												<i class="commit-failed__text-icon"><Icon name="branch-small" /></i>
+												<span class="text-semibold">{branchName}</span>
+												<i class="clr-text-2">in commit</i>
+												<i class="commit-failed__text-icon"><Icon name="commit" /></i>
+												<Tooltip text={commitTitle}>
+													<span class="commit-failed__tooltip-text text-semibold h-dotted-underline"
+														>{lock.commitId.substring(0, 7)}</span
+													>
+												</Tooltip>
+											</p>
+										{:else}
+											<p class="text-body commit-failed__file-entry-dependency-lock">
+												<i class="commit-failed__text-icon"><Icon name="branch-small" /></i>
+												<span class="text-semibold">Unknown stack</span>
+												<i class="clr-text-2">in commit</i>
+												<i class="commit-failed__text-icon"><Icon name="commit" /></i>
+												<span class="text-semibold">{lock.commitId.substring(0, 7)}</span>
+											</p>
+										{/if}
 									{/each}
 								</div>
 							</div>

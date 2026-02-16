@@ -18,7 +18,7 @@
 	<Features items={featuresContent} />
 </div>
 
-<style lang="scss">
+<style lang="postcss">
 	.features-wrap {
 		grid-column: full-start / full-end;
 	}

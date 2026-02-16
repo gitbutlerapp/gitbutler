@@ -1,5 +1,6 @@
 <script lang="ts">
 	interface Props {
+		noMargin?: boolean;
 		items: {
 			title: string;
 			description: string;
@@ -8,7 +9,7 @@
 		}[];
 	}
 
-	const { items }: Props = $props();
+	const { noMargin, items }: Props = $props();
 </script>
 
 {#snippet cardContent(title: string, description: string, icon?: string)}
@@ -25,7 +26,7 @@
 	</div>
 {/snippet}
 
-<section class="features">
+<section class="features" class:no-margins={noMargin}>
 	{#each items as item}
 		{#if item.link}
 			<a class="feature-item" href={item.link} target="_blank" rel="noopener noreferrer">
@@ -56,6 +57,10 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-xl);
+
+		&.no-margins {
+			margin-top: 0;
+		}
 	}
 
 	.features::before {
@@ -135,27 +140,27 @@
 			line-height: 1.5;
 			opacity: 0.8;
 		}
+	}
 
-		&:hover {
-			background-color: var(--clr-bg-1-muted);
+	a.feature-item:hover {
+		background-color: var(--clr-bg-muted);
 
-			p,
-			h3 {
-				background-color: var(--clr-bg-1-muted);
-			}
+		p,
+		h3 {
+			background-color: var(--clr-bg-muted);
+		}
 
-			& .features__link-indicator-text {
-				max-width: 200px;
-				margin-right: 4px;
-			}
+		& .features__link-indicator-text {
+			max-width: 200px;
+			margin-right: 4px;
+		}
 
-			& .features__link-indicator-brakets {
-				opacity: 0;
-			}
+		& .features__link-indicator-brakets {
+			opacity: 0;
+		}
 
-			& .features__link-indicator-arrow {
-				transform: translate(2px, -2px) scale(1.2);
-			}
+		& .features__link-indicator-arrow {
+			transform: translate(2px, -2px) scale(1.2);
 		}
 	}
 

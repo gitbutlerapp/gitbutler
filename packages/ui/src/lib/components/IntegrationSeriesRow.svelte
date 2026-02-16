@@ -174,11 +174,11 @@
 			}
 
 			&.integrated {
-				background-color: var(--clr-bg-1-muted);
+				background-color: var(--clr-bg-muted);
 
 				.status-badge {
-					background-color: var(--clr-theme-purp-element);
-					color: var(--clr-theme-purp-on-element);
+					background-color: var(--clr-theme-purple-element);
+					color: var(--clr-theme-purple-on-element);
 				}
 			}
 		}
@@ -230,7 +230,7 @@
 		height: 100%;
 		padding: 3px 6px;
 		border-radius: 100px;
-		color: var(--clr-core-ntrl-100);
+		color: var(--clr-core-gray-100);
 	}
 
 	/* INTEGRATED LABEL */
@@ -268,11 +268,11 @@
 		}
 
 		&.integrated {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--clr-bg-muted);
 
 			.status-badge {
-				background-color: var(--clr-theme-purp-element);
-				color: var(--clr-theme-purp-on-element);
+				background-color: var(--clr-theme-purple-element);
+				color: var(--clr-theme-purple-on-element);
 			}
 		}
 

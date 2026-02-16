@@ -7,11 +7,7 @@ use crate::commit_engine::index::{delete_entry_by_path_bounded_stages, upsert_in
 /// Turn `rhs` into `lhs` by modifying `rhs`. This will leave `rhs` intact as much as possible.
 /// Note that conflicting entries will be replaced by an addition or edit automatically.
 /// extensions that might be affected by these changes, for a lack of finesse with our edits.
-pub fn apply_lhs_to_rhs(
-    workdir: &Path,
-    lhs: &gix::index::State,
-    rhs: &mut gix::index::State,
-) -> anyhow::Result<()> {
+pub fn apply_lhs_to_rhs(workdir: &Path, lhs: &gix::index::State, rhs: &mut gix::index::State) -> anyhow::Result<()> {
     let mut num_sorted_entries = rhs.entries().len();
     let mut needs_sorting = false;
 
@@ -21,7 +17,7 @@ pub fn apply_lhs_to_rhs(
         rhs,
         |change| -> Result<_, std::convert::Infallible> {
             changes.push(change.into_owned());
-            Ok(gix::diff::index::Action::Continue)
+            Ok(std::ops::ControlFlow::Continue(()))
         },
         None::<gix::diff::index::RewriteOptions<'_, gix::Repository>>,
         &mut gix::pathspec::Search::from_specs(None, None, workdir)?,
@@ -72,11 +68,7 @@ pub fn apply_lhs_to_rhs(
     Ok(())
 }
 
-fn delete_entry_by_path_bounded(
-    index: &mut gix::index::State,
-    rela_path: &BStr,
-    num_sorted_entries: &mut usize,
-) {
+fn delete_entry_by_path_bounded(index: &mut gix::index::State, rela_path: &BStr, num_sorted_entries: &mut usize) {
     use gix::index::entry::Stage;
     delete_entry_by_path_bounded_stages(
         index,

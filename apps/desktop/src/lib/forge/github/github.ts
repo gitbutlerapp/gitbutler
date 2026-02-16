@@ -12,6 +12,7 @@ import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeArguments } from '$lib/forge/interface/types';
 import type { BackendApi, GitHubApi } from '$lib/state/clientState.svelte';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
+import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export const GITHUB_DOMAIN = 'github.com';
@@ -26,6 +27,7 @@ export class GitHub implements Forge {
 
 	constructor(
 		private params: ForgeArguments & {
+			dispatch: ThunkDispatch<any, any, UnknownAction>;
 			posthog?: PostHogWrapper;
 			client: GitHubClient;
 			api: GitHubApi;
@@ -59,8 +61,8 @@ export class GitHub implements Forge {
 
 	get listService() {
 		if (!this.authenticated) return;
-		const { api: gitHubApi, backendApi } = this.params;
-		return new GitHubListingService(gitHubApi, backendApi);
+		const { api: gitHubApi, backendApi, dispatch } = this.params;
+		return new GitHubListingService(gitHubApi, backendApi, dispatch);
 	}
 
 	get prService() {

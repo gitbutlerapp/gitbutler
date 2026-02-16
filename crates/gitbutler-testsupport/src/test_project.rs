@@ -1,6 +1,6 @@
 use std::{fs, path, path::PathBuf};
 
-use but_oxidize::{GixRepositoryExt, git2_to_gix_object_id, gix_to_git2_oid};
+use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use tempfile::TempDir;
@@ -30,8 +30,8 @@ impl Drop for TestProject {
 impl Default for TestProject {
     fn default() -> Self {
         let local_tmp = temp_dir();
-        let local_repository = git2::Repository::init_opts(local_tmp.path(), &init_opts())
-            .expect("failed to init repository");
+        let local_repository =
+            git2::Repository::init_opts(local_tmp.path(), &init_opts()).expect("failed to init repository");
         setup_config(&local_repository.config().unwrap()).unwrap();
         let mut index = local_repository.index().expect("failed to get index");
         let oid = index.write_tree().expect("failed to write tree");
@@ -42,9 +42,7 @@ impl Default for TestProject {
             &signature,
             &signature,
             "Initial commit",
-            &local_repository
-                .find_tree(oid)
-                .expect("failed to find tree"),
+            &local_repository.find_tree(oid).expect("failed to find tree"),
             &[],
             None,
         )
@@ -53,9 +51,7 @@ impl Default for TestProject {
         let remote_tmp = temp_dir();
         let remote_repository = git2::Repository::init_opts(
             remote_tmp.path(),
-            git2::RepositoryInitOptions::new()
-                .bare(true)
-                .external_template(false),
+            git2::RepositoryInitOptions::new().bare(true).external_template(false),
         )
         .expect("failed to init repository");
         setup_config(&remote_repository.config().unwrap()).unwrap();
@@ -102,9 +98,7 @@ impl TestProject {
 
     pub fn push(&self) {
         let mut origin = self.local_repo.find_remote("origin").unwrap();
-        origin
-            .push(&["refs/heads/master:refs/heads/master"], None)
-            .unwrap();
+        origin.push(&["refs/heads/master:refs/heads/master"], None).unwrap();
     }
 
     /// ```text
@@ -145,17 +139,12 @@ impl TestProject {
             Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse().unwrap(),
             _ => "INVALID".parse().unwrap(), // todo
         };
-        let branch = self
-            .remote_repo
-            .maybe_find_branch_by_refname(&branch_name)
-            .unwrap();
+        let branch = self.remote_repo.maybe_find_branch_by_refname(&branch_name).unwrap();
         let branch_commit = branch.unwrap().get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: Refname = "refs/heads/master".parse().unwrap();
-            self.remote_repo
-                .maybe_find_branch_by_refname(&name)
-                .unwrap()
+            self.remote_repo.maybe_find_branch_by_refname(&name).unwrap()
         };
         let master_branch_commit = master_branch.unwrap().get().peel_to_commit().unwrap();
 
@@ -166,12 +155,7 @@ impl TestProject {
         let mut rebase = self
             .remote_repo
             .rebase(
-                Some(
-                    &self
-                        .remote_repo
-                        .find_annotated_commit(branch_commit.id())
-                        .unwrap(),
-                ),
+                Some(&self.remote_repo.find_annotated_commit(branch_commit.id()).unwrap()),
                 Some(
                     &self
                         .remote_repo
@@ -240,20 +224,19 @@ impl TestProject {
 
         let gix_repo = gix::open_opts(self.remote_repo.path(), gix::open::Options::isolated())?;
         let merge_tree = {
+            use but_core::RepositoryExt;
             let mut merge_result = gix_repo.merge_commits(
-                git2_to_gix_object_id(master_branch_commit.id()),
-                git2_to_gix_object_id(branch.get().peel_to_commit()?.id()),
+                master_branch_commit.id().to_gix(),
+                branch.get().peel_to_commit()?.id().to_gix(),
                 gix_repo.default_merge_labels(),
                 gix::merge::commit::Options::default(),
             )?;
             assert!(
-                !merge_result
-                    .tree_merge
-                    .has_unresolved_conflicts(Default::default()),
+                !merge_result.tree_merge.has_unresolved_conflicts(Default::default()),
                 "test-merges should have non-conflicting trees"
             );
             let tree_id = merge_result.tree_merge.tree.write()?;
-            self.remote_repo.find_tree(gix_to_git2_oid(tree_id))?
+            self.remote_repo.find_tree(tree_id.to_git2())?
         };
 
         let repo: &git2::Repository = &self.remote_repo;
@@ -308,11 +291,7 @@ impl TestProject {
             Err(error) => panic!("{error:?}"),
         };
         self.local_repo.set_head(&refname.to_string()).unwrap();
-        self.local_repo
-            .checkout_tree_builder(&tree)
-            .force()
-            .checkout()
-            .unwrap();
+        self.local_repo.checkout_tree_builder(&tree).force().checkout().unwrap();
     }
 
     /// takes all changes in the working directory and commits them into local
@@ -335,11 +314,7 @@ impl TestProject {
             &self.local_repo.find_tree(oid).expect("failed to find tree"),
             &[&self
                 .local_repo
-                .find_commit(
-                    self.local_repo
-                        .refname_to_id("HEAD")
-                        .expect("failed to get head"),
-                )
+                .find_commit(self.local_repo.refname_to_id("HEAD").expect("failed to get head"))
                 .expect("failed to find commit")],
             None,
         )

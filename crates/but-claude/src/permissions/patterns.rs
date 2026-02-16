@@ -38,10 +38,7 @@ pub struct BashPattern {
 
 impl BashPattern {
     pub fn new(command: String, exact: bool) -> Self {
-        Self {
-            base: command,
-            exact,
-        }
+        Self { base: command, exact }
     }
 
     pub fn serialize(&self) -> String {
@@ -104,15 +101,10 @@ impl PathPattern {
         match self.kind {
             PathPatternKind::Absolute => Ok(format!(
                 "/{}",
-                self.pattern
-                    .to_str()
-                    .context("Path contains invalid UTF-8")?
+                self.pattern.to_str().context("Path contains invalid UTF-8")?
             )),
             PathPatternKind::HomeRelative => {
-                let stripped = self
-                    .pattern
-                    .strip_prefix(&ctx.home_path)
-                    .context("Can't strip home")?;
+                let stripped = self.pattern.strip_prefix(&ctx.home_path).context("Can't strip home")?;
                 Ok(format!(
                     "~/{}",
                     stripped.to_str().context("Path contains invalid UTF-8")?
@@ -134,14 +126,8 @@ impl PathPattern {
                 ))
             }
             PathPatternKind::CwdRelative => {
-                let stripped = self
-                    .pattern
-                    .strip_prefix(&ctx.home_path)
-                    .context("Can't strip home")?;
-                Ok(stripped
-                    .to_str()
-                    .context("Path contains invalid UTF-8")?
-                    .to_owned())
+                let stripped = self.pattern.strip_prefix(&ctx.home_path).context("Can't strip home")?;
+                Ok(stripped.to_str().context("Path contains invalid UTF-8")?.to_owned())
             }
         }
     }
@@ -179,32 +165,34 @@ impl PathPattern {
 }
 
 /// CC specifies in their documentation two types of permission for "WebFetch".
-/// This is either a full match, or just the "domain". It's not entirly clear
+/// This is either a full match, or just the "domain". It's not entirely clear
 /// what constitutes the "domain", so I've let a 3rd party library decide.
 ///
-/// In practice, I'm not entirly sure if WebFetch actually requires
+/// In practice, I'm not entirely sure if WebFetch actually requires
 /// permissions...
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum UrlPattern {
-    FullMatch(String),
     Domain(String),
 }
 
 impl UrlPattern {
-    pub fn full_match(url: String) -> Self {
-        Self::FullMatch(url)
+    pub fn domain(target: &str) -> Result<UrlPattern> {
+        Ok(UrlPattern::Domain(
+            url::Url::parse(target)?
+                .domain()
+                .context("Failed to get domain from url")?
+                .to_string(),
+        ))
     }
 
     pub fn serialize(&self) -> String {
         match self {
-            Self::FullMatch(a) => a.to_owned(),
             Self::Domain(a) => format!("domain:{a}"),
         }
     }
 
     pub fn matches(&self, url: &str) -> Result<bool> {
         match self {
-            Self::FullMatch(pattern) => Ok(url == pattern),
             Self::Domain(pattern) => {
                 let parsed = url::Url::parse(url)?;
                 Ok(parsed.domain() == Some(pattern))
@@ -289,16 +277,6 @@ mod test {
         use anyhow::Result;
 
         use crate::permissions::UrlPattern;
-
-        #[test]
-        fn full_matches() -> Result<()> {
-            let pattern = UrlPattern::FullMatch("https://asdfasdf.example.com?foo=2".into());
-
-            assert!(pattern.matches("https://asdfasdf.example.com?foo=2")?);
-            assert!(!pattern.matches("https://asdfasdf.example.com?foo=3")?);
-
-            Ok(())
-        }
 
         #[test]
         fn domain_matches() -> Result<()> {

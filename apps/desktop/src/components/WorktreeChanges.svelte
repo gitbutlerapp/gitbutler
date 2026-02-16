@@ -26,12 +26,11 @@
 		stackId?: string;
 		title: string;
 		mode?: 'unassigned' | 'assigned';
-		dropzoneVisible?: boolean;
-		overflow?: boolean;
 		onDropzoneActivated?: (activated: boolean) => void;
+		onDropzoneHovered?: (hovered: boolean) => void;
 		emptyPlaceholder?: Snippet;
 		foldButton?: Snippet;
-		onselect?: () => void;
+		onFileClick?: (index: number) => void;
 		onscrollexists?: (exists: boolean) => void;
 	};
 
@@ -40,12 +39,11 @@
 		stackId,
 		title,
 		mode = 'unassigned',
-		dropzoneVisible,
-		overflow,
 		onDropzoneActivated,
+		onDropzoneHovered,
 		emptyPlaceholder,
 		foldButton,
-		onselect,
+		onFileClick,
 		onscrollexists
 	}: Props = $props();
 
@@ -84,43 +82,42 @@
 
 	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
 		if (handler instanceof UncommitDzHandler) {
-			return 'Uncommit changes';
+			return 'Uncommit';
 		} else if (mode === 'assigned') {
-			return 'Assign changes';
+			return 'Assign';
 		} else {
-			return 'Unassign changes';
+			return 'Unassign';
 		}
 	}
 </script>
 
 {#snippet fileList()}
-	<div data-testid={TestId.UncommittedChanges_FileList} class="uncommitted-changes">
-		<FileList
-			draggableFiles
-			{selectionId}
-			showCheckboxes={isCommitting}
-			changes={changes.current}
-			{projectId}
-			{listMode}
-			{stackId}
-			hideLastFileBorder={mode !== 'unassigned'}
-			{onselect}
-		/>
-	</div>
+	<FileList
+		dataTestId={TestId.UncommittedChanges_FileList}
+		draggableFiles
+		{selectionId}
+		showCheckboxes={isCommitting}
+		changes={changes.current}
+		{projectId}
+		{listMode}
+		{stackId}
+		{onFileClick}
+		showLockedIndicator
+	/>
 {/snippet}
 
 <Dropzone
 	handlers={[uncommitDzHandler, assignmentDZHandler].filter(isDefined)}
 	maxHeight
 	onActivated={onDropzoneActivated}
-	{overflow}
+	onHovered={onDropzoneHovered}
 >
 	{#snippet overlay({ hovered, activated, handler })}
 		<CardOverlay
-			visible={dropzoneVisible}
 			{hovered}
 			{activated}
 			label={getDropzoneLabel(handler)}
+			visible={mode === 'assigned' && changes.current.length === 0 && !activated}
 		/>
 	{/snippet}
 
@@ -158,6 +155,7 @@
 				onscrollTop={(visible) => {
 					scrollTopIsVisible = visible;
 				}}
+				enableDragScroll={mode === 'assigned'}
 			>
 				{@render fileList()}
 			</ScrollableContainer>
@@ -179,9 +177,10 @@
 	/* HEADER */
 	.worktree-header {
 		display: flex;
+		flex-shrink: 0;
 		align-items: center;
 		width: 100%;
-		min-height: 42px;
+		height: 42px;
 		padding: 0 10px 0 14px;
 		gap: 6px;
 		border-bottom: 1px solid var(--clr-border-2);
@@ -200,10 +199,6 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-	}
-
-	.uncommitted-changes {
-		display: block;
 	}
 
 	/* MODIFIERS */

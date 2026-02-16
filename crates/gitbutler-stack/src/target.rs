@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use but_meta::virtual_branches_legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_reference::RemoteRefname;
@@ -37,10 +37,7 @@ impl Target {
     /// Returns the head sha of the remote branch this target is tracking.
     pub fn remote_head(&self, repo: &git2::Repository) -> Result<git2::Oid> {
         let branch = repo.find_branch_by_refname(&self.branch.clone().into())?;
-        let oid = branch
-            .get()
-            .target()
-            .context("failed to get default commit")?;
+        let oid = branch.get().target().context("failed to get default commit")?;
         Ok(oid)
     }
 }

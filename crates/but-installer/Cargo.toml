@@ -1,0 +1,46 @@
+[package]
+name = "but-installer"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+description = "GitButler installation binary"
+
+[lib]
+doctest = true
+
+[[bin]]
+name = "but-installer"
+path = "src/main.rs"
+
+# This binary is currently 1MB in size. Since this is an installer, let's keep it slim.
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+dirs.workspace = true
+url.workspace = true
+
+# HTTP client using system libcurl (zero binary size impact)
+curl = { version = "0.4.49", default-features = false }
+
+# For archive extraction
+flate2 = "1.0"
+tar = "0.4"
+
+# For colored terminal output
+owo-colors = { version = "4.1.0", features = ["supports-colors"] }
+
+# For signature verification
+minisign-verify = "0.2.1"
+base64 = "0.22.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# For removing quarantine attribute on macOS
+xattr = "1.6.1"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+# I couldn't make it work without the ssl feature enabled, it doesn't dynamically link to libssl without it so https just doesn't work
+curl = { version = "0.4.49", default-features = false, features = ["ssl"] }

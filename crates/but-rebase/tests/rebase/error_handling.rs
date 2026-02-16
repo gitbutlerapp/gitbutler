@@ -11,7 +11,7 @@ fn non_existing_commit() -> gix::ObjectId {
 
 #[test]
 fn base_non_existing() -> anyhow::Result<()> {
-    let repo = fixture("four-commits")?;
+    let (repo, _) = fixture("four-commits")?;
     let result = Rebase::new(&repo, non_existing_commit(), None);
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -180,10 +180,7 @@ fn fixup_is_first_step() -> anyhow::Result<()> {
         commit_id: commits.a,
         new_message: None,
     }]);
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        "Fixup must have a commit to work on"
-    );
+    assert_eq!(result.unwrap_err().to_string(), "Fixup must have a commit to work on");
     Ok(())
 }
 
@@ -209,9 +206,7 @@ fn fixup_is_only_preceeded_by_a_reference_step() -> anyhow::Result<()> {
 fn empty_reference_step() -> anyhow::Result<()> {
     let (repo, commits) = four_commits()?;
     let mut builder = Rebase::new(&repo, commits.base, None)?;
-    let result = builder.steps([RebaseStep::Reference(but_core::Reference::Virtual(
-        "".into(),
-    ))]);
+    let result = builder.steps([RebaseStep::Reference(but_core::Reference::Virtual("".into()))]);
     assert_eq!(
         result.unwrap_err().to_string(),
         "Reference step must have a non-empty virtual branch name"

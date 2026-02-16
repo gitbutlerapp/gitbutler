@@ -71,8 +71,6 @@
 		display: grid;
 		grid-template-columns: subgrid;
 		grid-column: full-start / full-end;
-		border-radius: var(--radius-xl);
-		background-color: var(--clr-bg-2);
 	}
 
 	.ai-features__video {

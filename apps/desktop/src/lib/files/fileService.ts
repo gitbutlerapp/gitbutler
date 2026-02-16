@@ -26,6 +26,22 @@ export class FileService {
 		};
 	}
 
+	async readFromCommit(filePath: string, projectId: string, commitId: string): Promise<FileInfo> {
+		return await this.backend.invoke('get_commit_file', {
+			relativePath: filePath,
+			projectId: projectId,
+			commitId: commitId
+		});
+	}
+
+	async readFromBlob(filePath: string, projectId: string, blobId: string): Promise<FileInfo> {
+		return await this.backend.invoke('get_blob_file', {
+			relativePath: filePath,
+			projectId: projectId,
+			blobId: blobId
+		});
+	}
+
 	async readFile(path: string): Promise<Uint8Array> {
 		return await this.backend.readFile(path);
 	}

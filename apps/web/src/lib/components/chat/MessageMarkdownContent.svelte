@@ -43,6 +43,8 @@
 
 	const { type, ...rest }: Props = $props();
 	const mentions = $derived('mentions' in rest ? rest.mentions : []);
+
+	type ListToken = Extract<Token, { type: 'list' }>;
 </script>
 
 {#if type === 'init' && 'tokens' in rest && rest.tokens}
@@ -50,17 +52,12 @@
 		<Self {...token} {mentions} />
 	{/each}
 {:else if renderers[type as keyof typeof renderers]}
-	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component<
-		Omit<Props, 'type'>
-	>}
+	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component}
 	{#if type === 'list'}
-		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
+		{@const listItems = (rest as ListToken).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
-				{@const ChildComponent = renderers[item.type]}
-				<ChildComponent {...item}>
-					<Self type="init" tokens={item.tokens} {mentions} />
-				</ChildComponent>
+				<Self {...item} {mentions} />
 			{/each}
 		</CurrentComponent>
 	{:else if type === 'text' && 'raw' in rest}

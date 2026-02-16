@@ -1,7 +1,7 @@
-pub use error::{Error, ToError, UnmarkedError};
+//! JSON types and utilities to produce decent JSON from API types.
+pub use error::{Error, ToJsonError, UnmarkedError};
 use gix::refs::Target;
-use schemars;
-use schemars::JsonSchema;
+use schemars::{self, JsonSchema};
 use serde::Serialize;
 
 mod hex_hash {
@@ -55,9 +55,10 @@ mod hex_hash {
     }
 
     mod stringy {
+        use std::str::FromStr;
+
         use schemars::JsonSchema;
         use serde::{Deserialize, Deserializer, Serialize, Serializer};
-        use std::str::FromStr;
 
         /// A type that deserializes a hexadecimal hash into a string, unchanged.
         /// This is to workaround `schemars` which doesn't (always) work with transformations.
@@ -109,15 +110,11 @@ mod hex_hash {
         fn hex_hash() {
             let hex_str = "5c69907b1244089142905dba380371728e2e8160";
             let expected = gix::ObjectId::from_str(hex_str).expect("valid SHA1 hex-string");
-            let actual =
-                serde_json::from_str::<HexHash>(&format!("\"{hex_str}\"")).expect("input is valid");
+            let actual = serde_json::from_str::<HexHash>(&format!("\"{hex_str}\"")).expect("input is valid");
             assert_eq!(actual.0, expected);
 
             let actual = serde_json::to_string(&actual);
-            assert_eq!(
-                actual.unwrap(),
-                "\"5c69907b1244089142905dba380371728e2e8160\""
-            );
+            assert_eq!(actual.unwrap(), "\"5c69907b1244089142905dba380371728e2e8160\"");
         }
     }
 }
@@ -135,7 +132,7 @@ mod error {
     //!
     //! `tauri` serializes backend errors and makes these available as JSON objects to the frontend. The format
     //! is an implementation detail, but here it's implemented to turn each `Error` into a dict with `code`
-    //! and `messsage` fields.
+    //! and `message` fields.
     //!
     //! The values in these fields are controlled by attaching context, please [see the `error` docs](gitbutler_error::error))
     //! on how to do this.
@@ -163,7 +160,7 @@ mod error {
         where
             S: serde::Serializer,
         {
-            let ctx = self.0.custom_context_or_root_cause();
+            let ctx = self.0.custom_context_or_error_chain();
 
             let mut map = serializer.serialize_map(Some(2))?;
             map.serialize_entry("code", &ctx.code.to_string())?;
@@ -195,12 +192,14 @@ mod error {
         }
     }
 
-    pub trait ToError<T> {
-        fn to_error(self) -> Result<T, Error>;
+    /// A utility to convert any `Result<T, impl std::error::Error>` into a [JSON-Error](Error).
+    pub trait ToJsonError<T> {
+        /// Convert this instance into a Result<T, [JSON-Error](Error)>.
+        fn to_json_error(self) -> Result<T, Error>;
     }
 
-    impl<T, E: std::error::Error + Send + Sync + 'static> ToError<T> for Result<T, E> {
-        fn to_error(self) -> Result<T, Error> {
+    impl<T, E: std::error::Error + Send + Sync + 'static> ToJsonError<T> for Result<T, E> {
+        fn to_json_error(self) -> Result<T, Error> {
             self.map_err(|e| Error(e.into()))
         }
     }
@@ -210,7 +209,7 @@ mod error {
         where
             S: serde::Serializer,
         {
-            let ctx = self.0.custom_context_or_root_cause();
+            let ctx = self.0.custom_context_or_error_chain();
 
             let mut map = serializer.serialize_map(Some(2))?;
             map.serialize_entry("code", &ctx.code.to_string())?;
@@ -239,15 +238,11 @@ mod error {
         #[test]
         fn no_context_or_code_shows_root_error() {
             let err = anyhow!("err msg");
-            assert_eq!(
-                format!("{err:#}"),
-                "err msg",
-                "just one error on display here"
-            );
+            assert_eq!(format!("{err:#}"), "err msg", "just one error on display here");
             assert_eq!(
                 json(err),
                 "{\"code\":\"errors.unknown\",\"message\":\"err msg\"}",
-                "if there is no explicit error code or context, the original error message is shown"
+                "if there is no explicit error code or context, the original error message is shown (and chain)"
             );
         }
 
@@ -264,6 +259,19 @@ mod error {
                 "{\"code\":\"errors.validation\",\"message\":\"err msg\"}",
                 "the 'code' is available as string, but the message is taken from the source error"
             );
+        }
+
+        #[test]
+        fn error_chain_display_without_context_or_code() {
+            let original_err = std::io::Error::other("actual cause");
+            let err = anyhow::Error::from(original_err).context("err msg");
+
+            insta::assert_json_snapshot!(Error(err), @r#"
+            {
+              "code": "errors.unknown",
+              "message": "err msg\n\nCaused by:\n    1: actual cause\n"
+            }
+            "#);
         }
 
         #[test]
@@ -313,9 +321,7 @@ mod error {
 
         #[test]
         fn find_nested_code() {
-            let err = anyhow!("bottom msg")
-                .context("top msg")
-                .context(Code::Validation);
+            let err = anyhow!("bottom msg").context("top msg").context(Code::Validation);
             assert_eq!(
                 format!("{err:#}"),
                 "errors.validation: top msg: bottom msg",
@@ -411,4 +417,12 @@ impl From<gix::refs::Reference> for Reference {
             },
         }
     }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// UI type for a move changes between commits result
+pub struct UIMoveChangesResult {
+    /// Commits that have been mapped from one thing to another
+    pub replaced_commits: Vec<(HexHash, HexHash)>,
 }

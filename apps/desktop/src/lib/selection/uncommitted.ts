@@ -53,8 +53,8 @@ export const uncommittedSlice = createSlice({
 			);
 		},
 		// We want to go over all the existing hunk assignments and
-		// - Remove any that don't have a cooresponding id in the new assignments.
-		// - Update the selections in those that have a cooresponding id in the new assignments.
+		// - Remove any that don't have a corresponding id in the new assignments.
+		// - Update the selections in those that have a corresponding id in the new assignments.
 		// - Add any new assignments
 		update(state, action: PayloadAction<{ assignments: HunkAssignment[]; changes: TreeChange[] }>) {
 			return updateAssignments(state, action);
@@ -497,7 +497,7 @@ export const uncommittedSelectors = {
 };
 
 /**
- * Replaces the old tree changes and hunk assignments entirly.
+ * Replaces the old tree changes and hunk assignments entirely.
  * Then for the selections, it will loop over the old selections and:
  * - If there is a new assignment with the same stable ID, it will add the
  *   assignment, with updated header information.

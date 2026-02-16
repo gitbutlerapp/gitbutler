@@ -154,7 +154,7 @@
 		// handling of this event.
 		if (resizeGroup) {
 			const subtracted = resizeGroup.resize(resizerId, offsetRem);
-			// The initial offset needs to be adjusted if an adjustement
+			// The initial offset needs to be adjusted if an adjustment
 			// means the whole resizer has moved.
 			initial = initial - remToPx(subtracted, zoom);
 			return;

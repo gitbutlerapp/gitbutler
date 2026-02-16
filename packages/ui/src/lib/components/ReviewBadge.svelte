@@ -18,44 +18,26 @@
 
 	const badgeDetails = $derived.by(() => {
 		if (title) {
-			return {
-				text: title,
-				color: undefined
-			};
+			return title;
 		}
 
 		switch (status) {
 			case 'open':
-				return {
-					text: `${reviewUnit} ${id} is open`,
-					color: 'var(--clr-theme-succ-element)'
-				};
+				return `${reviewUnit} ${id} is open`;
 			case 'closed':
-				return {
-					text: `${reviewUnit} ${id} is closed`,
-					color: 'var(--clr-theme-err-element)'
-				};
+				return `${reviewUnit} ${id} is closed`;
 			case 'draft':
-				return {
-					text: `${reviewUnit} ${id} is a draft`,
-					color: undefined
-				};
+				return `${reviewUnit} ${id} is a draft`;
 			case 'merged':
-				return {
-					text: `${reviewUnit} ${id} is merged`,
-					color: 'var(--clr-theme-purp-element)'
-				};
+				return `${reviewUnit} ${id} is merged`;
 			default:
-				return {
-					text: `${reviewUnit} ${id}`,
-					color: undefined
-				};
+				return `${reviewUnit} ${id}`;
 		}
 	});
 </script>
 
-<Tooltip text={badgeDetails.text}>
-	<div class="review-badge" class:pr-type={status}>
+<Tooltip text={badgeDetails}>
+	<div class="review-badge pr-{status}">
 		<div class="review-badge__icon">
 			{#if type === 'MR'}
 				{@html glLogo}
@@ -66,15 +48,11 @@
 
 		<span class="text-11 text-semibold review-badge-text">
 			{#if status === 'draft'}
-				Draft
+				Draft {reviewUnit}
 			{:else}
 				{reviewUnit} {id}
 			{/if}
 		</span>
-
-		{#if badgeDetails.color}
-			<div class="pr-status" style:--pr-color={badgeDetails.color}></div>
-		{/if}
 	</div>
 </Tooltip>
 
@@ -85,13 +63,10 @@
 		justify-content: center;
 		width: fit-content;
 		height: var(--size-icon);
-		padding-right: 3px;
-		padding-left: 2px;
+		padding-right: 5px;
+		padding-left: 4px;
 		gap: 3px;
-		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background-color: var(--clr-bg-1-muted);
-		color: var(--clr-text-1);
 		line-height: 1;
 	}
 
@@ -104,10 +79,27 @@
 		white-space: nowrap;
 	}
 
-	.pr-status {
-		width: 8px;
-		height: 8px;
-		border-radius: 100%;
-		background-color: var(--pr-color);
+	.pr-open,
+	.pr-unknown {
+		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-muted);
+		color: var(--clr-text-1);
+	}
+
+	.pr-closed {
+		background-color: var(--clr-theme-danger-soft);
+		color: var(--clr-theme-danger-on-soft);
+	}
+
+	.pr-draft {
+		border: 1px solid var(--clr-border-1);
+		border-style: dotted;
+		background-color: var(--clr-bg-muted);
+		color: var(--clr-text-1);
+	}
+
+	.pr-merged {
+		background-color: var(--clr-theme-purple-soft);
+		color: var(--clr-theme-purple-on-soft);
 	}
 </style>

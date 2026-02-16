@@ -43,8 +43,10 @@ impl From<TreeChange> for DiffSpec {
 }
 
 /// The header of a hunk that represents a change to a file.
-#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/diffTypes.ts"))]
 pub struct HunkHeader {
     /// The 1-based line number at which the previous version of the file started.
     pub old_start: u32,
@@ -118,7 +120,7 @@ impl std::fmt::Debug for HunkHeader {
     }
 }
 
-/// Computed using the file kinds/modes of two [`ChangeState`] instances to represent
+/// Computed using the file kinds/modes of two [`crate::ChangeState`] instances to represent
 /// the *dominant* change to display. Note that it can stack with a content change,
 /// but *should not only in case of a `TypeChange*`*.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

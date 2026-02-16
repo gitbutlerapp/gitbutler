@@ -9,7 +9,7 @@ use crate::{DiffSpec, HunkHeader, HunkRange, RepositoryExt, UnifiedPatch, apply_
 /// Utility types for the [`create_tree()`] function
 pub mod create_tree {
 
-    /// Provide a description of why a [`DiffSpec`] was rejected for application to the tree of a commit.
+    /// Provide a description of why a [`crate::DiffSpec`] was rejected for application to the tree of a commit.
     #[derive(Default, Debug, Copy, Clone, PartialEq, serde::Serialize)]
     #[serde(rename_all = "camelCase")]
     pub enum RejectionReason {
@@ -51,7 +51,7 @@ use create_tree::RejectionReason;
 
 use crate::worktree::worktree_file_to_git_in_buf;
 
-/// Additional information about the outcome of a [`super::create_tree()`] call.
+/// Additional information about the outcome of a [`create_tree()`] call.
 #[derive(Debug)]
 pub struct CreateTreeOutcome {
     /// Changes that were removed from `new_tree` because they caused conflicts when rebasing dependent commits,
@@ -67,7 +67,7 @@ pub struct CreateTreeOutcome {
     pub changed_tree_pre_cherry_pick: Option<gix::ObjectId>,
 }
 
-/// Like [`create_commit()`], but lower-level and only returns a new tree, without finally associating it with a commit.
+/// A lower-level function that only returns a new tree, without finally associating it with a commit.
 pub fn create_tree(
     repo: &gix::Repository,
     target_tree: gix::ObjectId,
@@ -83,16 +83,7 @@ pub fn create_tree(
                 let changes_base_tree = repo
                     .head()?
                     .id()
-                    .and_then(|id| {
-                        id.object()
-                            .ok()?
-                            .peel_to_commit()
-                            .ok()?
-                            .tree_id()
-                            .ok()?
-                            .detach()
-                            .into()
-                    })
+                    .and_then(|id| id.object().ok()?.peel_to_commit().ok()?.tree_id().ok()?.detach().into())
                     .unwrap_or(target_tree);
                 apply_worktree_changes(changes_base_tree, repo, &mut changes, context_lines)?
             };
@@ -115,9 +106,8 @@ pub fn create_tree(
             };
             let tree_with_changes_without_cherry_pick = tree_with_changes.detach();
             let mut tree_with_changes = tree_with_changes.detach();
-            let needs_cherry_pick = actual_base_tree
-                != gix::ObjectId::empty_tree(repo.object_hash())
-                && actual_base_tree != target_tree;
+            let needs_cherry_pick =
+                actual_base_tree != gix::ObjectId::empty_tree(repo.object_hash()) && actual_base_tree != target_tree;
             if needs_cherry_pick {
                 let base = actual_base_tree;
                 let ours = target_tree;
@@ -132,16 +122,13 @@ pub fn create_tree(
                 let unresolved_conflicts: Vec<_> = merge_result
                     .conflicts
                     .iter()
-                    .filter_map(|c| {
-                        c.is_unresolved(TreatAsUnresolved::git())
-                            .then_some(c.theirs.location())
-                    })
+                    .filter_map(|c| c.is_unresolved(TreatAsUnresolved::git()).then_some(c.theirs.location()))
                     .collect();
                 if !unresolved_conflicts.is_empty() {
                     for change in changes.iter_mut().filter(|c| {
-                        c.as_ref().ok().is_some_and(|change| {
-                            unresolved_conflicts.contains(&change.path.as_bstr())
-                        })
+                        c.as_ref()
+                            .ok()
+                            .is_some_and(|change| unresolved_conflicts.contains(&change.path.as_bstr()))
                     }) {
                         into_err_spec(change, RejectionReason::CherryPickMergeConflict);
                     }
@@ -149,10 +136,7 @@ pub fn create_tree(
                 }
                 tree_with_changes = merge_result.tree.write()?.detach();
             }
-            break 'retry (
-                Some(tree_with_changes),
-                Some(tree_with_changes_without_cherry_pick),
-            );
+            break 'retry (Some(tree_with_changes), Some(tree_with_changes_without_cherry_pick));
         }
     };
     Ok(CreateTreeOutcome {
@@ -221,16 +205,12 @@ pub fn apply_worktree_changes<'repo>(
                 Some((id, kind, _fs_metadata)) => {
                     base_tree_editor.upsert(rela_path, kind, id)?;
                 }
-                None => into_err_spec(
-                    possible_change,
-                    RejectionReason::WorktreeFileMissingForObjectConversion,
-                ),
+                None => into_err_spec(possible_change, RejectionReason::WorktreeFileMissingForObjectConversion),
             }
         } else if let Some(worktree_changes) = &worktree_changes {
             let Some(worktree_change) = worktree_changes.iter().find(|c| {
                 c.path == change_request.path
-                    && c.previous_path()
-                        == change_request.previous_path.as_ref().map(|p| p.as_bstr())
+                    && c.previous_path() == change_request.previous_path.as_ref().map(|p| p.as_bstr())
             }) else {
                 into_err_spec(possible_change, RejectionReason::NoEffectiveChanges);
                 continue;
@@ -317,19 +297,8 @@ pub fn apply_worktree_changes<'repo>(
                 }
             };
 
-            worktree_file_to_git_in_buf(
-                &mut current_worktree,
-                &md,
-                base_rela_path,
-                &path,
-                &mut pipeline,
-                &index,
-            )?;
-            let base_with_patches = apply_hunks(
-                worktree_base.as_bstr(),
-                current_worktree.as_bstr(),
-                &hunks_to_commit,
-            )?;
+            worktree_file_to_git_in_buf(&mut current_worktree, &md, base_rela_path, &path, &mut pipeline, &index)?;
+            let base_with_patches = apply_hunks(worktree_base.as_bstr(), current_worktree.as_bstr(), &hunks_to_commit)?;
             let blob_with_selected_patches = repo.write_blob(base_with_patches.as_slice())?;
             base_tree_editor.upsert(
                 change_request.path.as_bstr(),
@@ -425,10 +394,7 @@ fn to_additive_hunks(
     }
 
     fn in_order(hunks: &[HunkHeader]) -> bool {
-        hunks
-            .iter()
-            .zip(hunks.iter().skip(1))
-            .all(|(prev, next)| prev < next)
+        hunks.iter().zip(hunks.iter().skip(1)).all(|(prev, next)| prev < next)
     }
 
     let res = if !in_order(&hunks_to_commit) {
@@ -464,8 +430,7 @@ fn to_additive_hunks(
                 },
             )
             .collect::<Result<_, _>>()?;
-        let (hunks_to_commit, rejected) =
-            to_additive_hunks_fallback(hunks, worktree_hunks, worktree_hunks_no_context);
+        let (hunks_to_commit, rejected) = to_additive_hunks_fallback(hunks, worktree_hunks, worktree_hunks_no_context);
         if !in_order(&hunks_to_commit) {
             bail!(
                 "Alternative hunks algorithms still didn't produce properly ordered hunks or saw duplicate inputs: {hunks_to_commit:?}"

@@ -2,12 +2,13 @@ use super::*;
 
 #[test]
 fn success() {
-    let Test { ctx, .. } = &Test::default();
+    let Test { ctx, .. } = &mut Test::default();
 
+    let mut guard = ctx.exclusive_worktree_access();
     gitbutler_branch_actions::set_base_branch(
         ctx,
         &"refs/remotes/origin/master".parse().unwrap(),
-        ctx.project().exclusive_worktree_access().write_permission(),
+        guard.write_permission(),
     )
     .unwrap();
 }
@@ -19,13 +20,14 @@ mod error {
 
     #[test]
     fn missing() {
-        let Test { ctx, .. } = &Test::default();
+        let Test { ctx, .. } = &mut Test::default();
 
+        let mut guard = ctx.exclusive_worktree_access();
         assert_eq!(
             gitbutler_branch_actions::set_base_branch(
                 ctx,
                 &RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
-                ctx.project().exclusive_worktree_access().write_permission(),
+                guard.write_permission(),
             )
             .unwrap_err()
             .to_string(),
@@ -43,7 +45,7 @@ mod go_back_to_workspace {
 
     #[test]
     fn should_preserve_applied_vbranches() {
-        let Test { repo, ctx, .. } = &Test::default();
+        let Test { repo, ctx, .. } = &mut Test::default();
 
         std::fs::write(repo.path().join("file.txt"), "one").unwrap();
         let oid_one = repo.commit_all("one");
@@ -51,32 +53,37 @@ mod go_back_to_workspace {
         repo.commit_all("two");
         repo.push();
 
+        let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
+        let mut guard = ctx.exclusive_worktree_access();
         let stack_entry = gitbutler_branch_actions::create_virtual_branch(
             ctx,
             &BranchCreateRequest::default(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         std::fs::write(repo.path().join("another file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(ctx, stack_entry.id, "one", None).unwrap();
+        super::create_commit(ctx, stack_entry.id, "one").unwrap();
 
         let stacks = stack_details(ctx);
         assert_eq!(stacks.len(), 1);
 
         repo.checkout_commit(oid_one);
 
+        let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
 
@@ -87,7 +94,7 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_index_conflicts() {
-        let Test { repo, ctx, .. } = &Test::default();
+        let Test { repo, ctx, .. } = &mut Test::default();
 
         std::fs::write(repo.path().join("file.txt"), "one").unwrap();
         let oid_one = repo.commit_all("one");
@@ -95,12 +102,14 @@ mod go_back_to_workspace {
         repo.commit_all("two");
         repo.push();
 
+        let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         let stacks = stack_details(ctx);
         assert!(stacks.is_empty());
@@ -108,11 +117,12 @@ mod go_back_to_workspace {
         repo.checkout_commit(oid_one);
         std::fs::write(repo.path().join("file.txt"), "tree").unwrap();
 
+        let mut guard = ctx.exclusive_worktree_access();
         assert!(matches!(
             gitbutler_branch_actions::set_base_branch(
                 ctx,
                 &"refs/remotes/origin/master".parse().unwrap(),
-                ctx.project().exclusive_worktree_access().write_permission(),
+                guard.write_permission(),
             )
             .unwrap_err()
             .downcast_ref(),
@@ -122,7 +132,7 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_with_uncommited_conflicting() {
-        let Test { repo, ctx, .. } = &Test::default();
+        let Test { repo, ctx, .. } = &mut Test::default();
 
         std::fs::write(repo.path().join("file.txt"), "one").unwrap();
         let oid_one = repo.commit_all("one");
@@ -130,12 +140,14 @@ mod go_back_to_workspace {
         repo.commit_all("two");
         repo.push();
 
+        let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         let stacks = stack_details(ctx);
         assert!(stacks.is_empty());
@@ -143,11 +155,12 @@ mod go_back_to_workspace {
         repo.checkout_commit(oid_one);
         std::fs::write(repo.path().join("file.txt"), "tree").unwrap();
 
+        let mut guard = ctx.exclusive_worktree_access();
         assert!(matches!(
             gitbutler_branch_actions::set_base_branch(
                 ctx,
                 &"refs/remotes/origin/master".parse().unwrap(),
-                ctx.project().exclusive_worktree_access().write_permission(),
+                guard.write_permission(),
             )
             .unwrap_err()
             .downcast_ref(),
@@ -157,7 +170,7 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_with_commit() {
-        let Test { repo, ctx, .. } = &Test::default();
+        let Test { repo, ctx, .. } = &mut Test::default();
 
         std::fs::write(repo.path().join("file.txt"), "one").unwrap();
         let oid_one = repo.commit_all("one");
@@ -165,12 +178,14 @@ mod go_back_to_workspace {
         repo.commit_all("two");
         repo.push();
 
+        let mut guard = ctx.exclusive_worktree_access();
         let base = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         let stacks = stack_details(ctx);
         assert!(stacks.is_empty());
@@ -179,10 +194,11 @@ mod go_back_to_workspace {
         std::fs::write(repo.path().join("another file.txt"), "tree").unwrap();
         repo.commit_all("three");
 
+        let mut guard = ctx.exclusive_worktree_access();
         let base_two = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
 
@@ -193,7 +209,7 @@ mod go_back_to_workspace {
 
     #[test]
     fn from_target_branch_without_any_changes() {
-        let Test { repo, ctx, .. } = &Test::default();
+        let Test { repo, ctx, .. } = &mut Test::default();
 
         std::fs::write(repo.path().join("file.txt"), "one").unwrap();
         let oid_one = repo.commit_all("one");
@@ -201,22 +217,25 @@ mod go_back_to_workspace {
         repo.commit_all("two");
         repo.push();
 
+        let mut guard = ctx.exclusive_worktree_access();
         let base = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
+        drop(guard);
 
         let stacks = stack_details(ctx);
         assert!(stacks.is_empty());
 
         repo.checkout_commit(oid_one);
 
+        let mut guard = ctx.exclusive_worktree_access();
         let base_two = gitbutler_branch_actions::set_base_branch(
             ctx,
             &"refs/remotes/origin/master".parse().unwrap(),
-            ctx.project().exclusive_worktree_access().write_permission(),
+            guard.write_permission(),
         )
         .unwrap();
 

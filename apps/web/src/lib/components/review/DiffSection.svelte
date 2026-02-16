@@ -2,32 +2,14 @@
 	import { splitDiffIntoHunks } from '$lib/diffParsing';
 	import { isLockfile } from '@gitbutler/shared/lockfiles';
 	import { getFilePathInfo } from '@gitbutler/shared/utils/file';
-	import { Button, FileIcon, HunkDiff, type LineClickParams } from '@gitbutler/ui';
+	import { Button, FileIcon, HunkDiff } from '@gitbutler/ui';
 	import type { DiffSection } from '@gitbutler/shared/patches/types';
-	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
-		isLoggedIn: boolean;
 		section: DiffSection;
-		selectedSha: string | undefined;
-		selectedLines: LineSelector[];
 		commitPageHeaderHeight: number;
-		clearLineSelection: (fileName: string) => void;
-		toggleDiffLine: (fileName: string, diffSha: string, params: LineClickParams) => void;
-		onCopySelection: (contentSections: ContentSection[]) => void;
-		onQuoteSelection: () => void;
 	}
-	const {
-		isLoggedIn,
-		section,
-		toggleDiffLine,
-		selectedSha,
-		selectedLines: lines,
-		commitPageHeaderHeight,
-		onCopySelection,
-		onQuoteSelection,
-		clearLineSelection
-	}: Props = $props();
+	const { section, commitPageHeaderHeight }: Props = $props();
 
 	const lockFile = $derived.by(() => {
 		if (!section.newPath) return false;
@@ -42,12 +24,6 @@
 	});
 	const filePath = $derived(section.newPath || 'unknown');
 	const filePathInfo = $derived(getFilePathInfo(filePath));
-
-	function handleLineClick(params: LineClickParams) {
-		toggleDiffLine(section.newPath || 'unknown', section.diffSha, params);
-	}
-
-	const selectedLines = $derived(selectedSha === section.diffSha ? lines : []);
 
 	let diffFolded = $state(false);
 
@@ -78,8 +54,6 @@
 			observer.disconnect();
 		};
 	});
-
-	const chatPanel = $derived(document.getElementById('chat-panel') ?? undefined);
 </script>
 
 <svelte:window bind:innerHeight={windowHeight} />
@@ -90,7 +64,7 @@
 	class:diff-section__header_sticked={isHeaderSticked}
 >
 	<div class="diff-section__header__file-info">
-		<FileIcon fileName={filePath} size={16} />
+		<FileIcon fileName={filePath} />
 		<p title={filePath} class="text-12 text-body file-path">
 			{#if filePathInfo}
 				<span class="directory-path">{filePathInfo.directoryPath}/</span>{filePathInfo.fileName}
@@ -121,17 +95,7 @@
 			</div>
 		{:else}
 			{#each hunks as hunkStr}
-				<HunkDiff
-					filePath={section.newPath || 'unknown'}
-					{hunkStr}
-					diffLigatures={false}
-					{selectedLines}
-					onLineClick={handleLineClick}
-					{onCopySelection}
-					onQuoteSelection={isLoggedIn ? onQuoteSelection : undefined}
-					{clearLineSelection}
-					clickOutsideExcludeElement={chatPanel}
-				/>
+				<HunkDiff filePath={section.newPath || 'unknown'} {hunkStr} diffLigatures={false} />
 			{/each}
 		{/if}
 	</div>
@@ -224,7 +188,7 @@
 		gap: 14px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
-		background: var(--clr-bg-1-muted);
+		background: var(--clr-bg-muted);
 	}
 
 	.hidden-lock-file-message {

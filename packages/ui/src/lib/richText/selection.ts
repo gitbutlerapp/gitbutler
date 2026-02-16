@@ -1,13 +1,12 @@
-import { INLINE_CODE_TRANSFORMER } from '$lib/richText/customTransforers';
-import { $convertFromMarkdownString } from '@lexical/markdown';
-import { CODE } from '@lexical/markdown';
 import {
 	$isRangeSelection,
 	$getSelection,
 	TextNode,
 	type LexicalEditor,
 	type RangeSelection,
-	$nodesOfType
+	$getRoot,
+	$createParagraphNode,
+	$createTextNode
 } from 'lexical';
 import { ImageNode } from 'svelte-lexical';
 
@@ -58,7 +57,7 @@ export function getEditorTextUpToAnchor(selection: RangeSelection): string | und
 		return undefined;
 	}
 	const buffer: string[] = [];
-	const textNodes = $nodesOfType(TextNode);
+	const textNodes = $getRoot().getAllTextNodes();
 	for (const node of textNodes) {
 		if (anchor.key === node.getKey()) {
 			break;
@@ -86,7 +85,7 @@ export function getEditorTextAfterAnchor(selection: RangeSelection): string | un
 		return undefined;
 	}
 	const buffer: string[] = [];
-	const textNodes = $nodesOfType(TextNode);
+	const textNodes = $getRoot().getAllTextNodes();
 	let found = false;
 	for (const node of textNodes) {
 		if (found) {
@@ -225,7 +224,23 @@ export function insertTextAtCaret(editor: LexicalEditor, text: string) {
 export function setEditorText(editor: LexicalEditor, text: string) {
 	editor.update(
 		() => {
-			$convertFromMarkdownString(text, [INLINE_CODE_TRANSFORMER, CODE]);
+			const root = $getRoot();
+			root.clear();
+
+			// Split text into lines and create a paragraph for each line
+			// This preserves blank lines unlike markdown conversion
+			const lines = text.split('\n');
+
+			for (const line of lines) {
+				const paragraph = $createParagraphNode();
+				// Only create a text node if the line is not empty
+				// Empty paragraphs represent blank lines
+				if (line.length > 0) {
+					const textNode = $createTextNode(line);
+					paragraph.append(textNode);
+				}
+				root.append(paragraph);
+			}
 		},
 		{ discrete: true }
 	);

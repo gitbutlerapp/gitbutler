@@ -309,12 +309,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
             .rename_event
             .as_ref()
             .and_then(|(e, _)| e.tracker())
-            .and_then(|from_tracker| {
-                event
-                    .attrs
-                    .tracker()
-                    .map(|to_tracker| from_tracker == to_tracker)
-            })
+            .and_then(|from_tracker| event.attrs.tracker().map(|to_tracker| from_tracker == to_tracker))
             .unwrap_or_default();
 
         let file_ids_match = self
@@ -356,10 +351,7 @@ impl<T: FileIdCache> DebounceDataInner<T> {
             .iter()
             .enumerate()
             .find_map(|(index, e)| {
-                if matches!(
-                    e.kind,
-                    EventKind::Modify(ModifyKind::Name(RenameMode::Both))
-                ) {
+                if matches!(e.kind, EventKind::Modify(ModifyKind::Name(RenameMode::Both))) {
                     Some((Some(index), e.paths[0].clone(), e.time))
                 } else {
                     None
@@ -375,12 +367,8 @@ impl<T: FileIdCache> DebounceDataInner<T> {
         if source_queue.was_removed() {
             let event = source_queue.events.pop_front().unwrap();
 
-            self.queues.insert(
-                event.paths[0].clone(),
-                Queue {
-                    events: [event].into(),
-                },
-            );
+            self.queues
+                .insert(event.paths[0].clone(), Queue { events: [event].into() });
         }
 
         // update paths
@@ -449,8 +437,9 @@ impl<T: FileIdCache> DebounceDataInner<T> {
         if let Some(queue) = self.queues.get_mut(path) {
             // skip duplicate create events and modifications right after creation
             if match event.kind {
-                EventKind::Modify(ModifyKind::Data(_) | ModifyKind::Metadata(_))
-                | EventKind::Create(_) => !queue.was_created(),
+                EventKind::Modify(ModifyKind::Data(_) | ModifyKind::Metadata(_)) | EventKind::Create(_) => {
+                    !queue.was_created()
+                }
                 _ => true,
             } {
                 queue.events.push_back(DebouncedEvent::new(event, time));
@@ -654,13 +643,12 @@ fn sort_events(events: Vec<DebouncedEvent>) -> Vec<DebouncedEvent> {
     let mut sorted = Vec::with_capacity(events.len());
 
     // group events by path
-    let mut events_by_path: HashMap<_, VecDeque<_>> =
-        events.into_iter().fold(HashMap::new(), |mut acc, event| {
-            acc.entry(event.paths.last().cloned().unwrap_or_default())
-                .or_default()
-                .push_back(event);
-            acc
-        });
+    let mut events_by_path: HashMap<_, VecDeque<_>> = events.into_iter().fold(HashMap::new(), |mut acc, event| {
+        acc.entry(event.paths.last().cloned().unwrap_or_default())
+            .or_default()
+            .push_back(event);
+        acc
+    });
 
     // push events for different paths in chronological order and keep the order of events with the same path
 
@@ -677,7 +665,7 @@ fn sort_events(events: Vec<DebouncedEvent>) -> Vec<DebouncedEvent> {
         let mut push_next = false;
 
         while events.front().is_some_and(|event| event.time <= min_time) {
-            // unwrap is safe beause `pop_front` mus return some in order to enter the loop
+            // unwrap is safe because `pop_front` mus return some in order to enter the loop
             let event = events.pop_front().unwrap();
             sorted.push(event);
             push_next = true;

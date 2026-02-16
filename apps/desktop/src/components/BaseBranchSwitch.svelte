@@ -2,7 +2,7 @@
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, InfoMessage, SectionCard, Select, SelectItem } from '@gitbutler/ui';
+	import { Button, CardGroup, InfoMessage, Select, SelectItem } from '@gitbutler/ui';
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -20,10 +20,12 @@
 	const stackCount = $derived(stacksQuery.response?.length);
 	const targetChangeDisabled = $derived(!!(stackCount && stackCount > 0));
 
-	function uniqueRemotes(remoteBranches: { name: string }[]) {
-		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
-			name: r
-		}));
+	function uniqueRemotes(remoteBranches: { name: string }[]): { name: string }[] {
+		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0])))
+			.filter((name): name is string => !!name)
+			.map((r) => ({
+				name: r
+			}));
 	}
 
 	async function switchTarget(branch: string, pushRemote?: string) {
@@ -50,77 +52,82 @@
 {:else if remoteBranchesQuery.result.isSuccess}
 	{@const remoteBranches = remoteBranchesQuery.response}
 	{#if remoteBranches && remoteBranches.length > 0}
-		<SectionCard>
-			{#snippet title()}
-				Remote configuration
-			{/snippet}
-			{#snippet caption()}
-				Lets you choose where to push code and set the target branch for contributions. The target
-				branch is usually the "production" branch like 'origin/master' or 'upstream/main.' This
-				section helps ensure your code goes to the correct remote and branch for integration.
-			{/snippet}
-
-			<Select
-				value={selectedBranch}
-				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
-				wide
-				onselect={(value) => {
-					selectedBranch = value;
-				}}
-				disabled={targetChangeDisabled}
-				label="Current target branch"
-				searchable
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === selectedBranch} {highlighted}>
-						{item.label}
-					</SelectItem>
+		{@const remotes = uniqueRemotes(remoteBranches)}
+		<CardGroup>
+			<CardGroup.Item>
+				{#snippet title()}
+					Remote configuration
 				{/snippet}
-			</Select>
+				{#snippet caption()}
+					Lets you choose where to push code and set the target branch for contributions. The target
+					branch is usually the "production" branch like 'origin/master' or 'upstream/main.' This
+					section helps ensure your code goes to the correct remote and branch for integration.
+				{/snippet}
 
-			{#if uniqueRemotes(remoteBranches).length > 1}
 				<Select
-					value={selectedRemote}
-					options={uniqueRemotes(remoteBranches).map((r) => ({ label: r.name!, value: r.name! }))}
+					value={selectedBranch}
+					options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
 					wide
 					onselect={(value) => {
-						selectedRemote = value;
+						selectedBranch = value;
 					}}
 					disabled={targetChangeDisabled}
-					label="Create branches on remote"
+					label="Current target branch"
+					searchable
 				>
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === selectedRemote} {highlighted}>
+						<SelectItem selected={item.value === selectedBranch} {highlighted}>
 							{item.label}
 						</SelectItem>
 					{/snippet}
 				</Select>
-			{/if}
 
-			{#if targetChangeDisabled}
-				<InfoMessage filled outlined={false} icon="info">
-					{#snippet content()}
-						You have {stackCount === 1 ? '1 active branch' : `${stackCount} active branches`} in your
-						workspace. Please clear the workspace before switching the base branch.
-					{/snippet}
-				</InfoMessage>
-			{:else}
-				<Button
-					kind="outline"
-					onclick={onSetBaseBranchClick}
-					id="set-base-branch"
-					loading={targetBranchSwitch.current.isLoading}
-					disabled={(selectedBranch === baseBranch?.branchName &&
-						selectedRemote === baseBranch?.actualPushRemoteName()) ||
-						targetChangeDisabled}
-				>
-					{targetBranchSwitch.current.isLoading ? 'Switching branches...' : 'Update configuration'}
-				</Button>
-			{/if}
-		</SectionCard>
+				{#if remotes.length > 1}
+					<Select
+						value={selectedRemote}
+						options={remotes.map((r) => ({ label: r.name, value: r.name }))}
+						wide
+						onselect={(value) => {
+							selectedRemote = value;
+						}}
+						disabled={targetChangeDisabled}
+						label="Create branches on remote"
+					>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === selectedRemote} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
+					</Select>
+				{/if}
+
+				{#if targetChangeDisabled}
+					<InfoMessage filled outlined={false} icon="info">
+						{#snippet content()}
+							You have {stackCount === 1 ? '1 active branch' : `${stackCount} active branches`} in your
+							workspace. Please clear the workspace before switching the base branch.
+						{/snippet}
+					</InfoMessage>
+				{:else}
+					<Button
+						kind="outline"
+						onclick={onSetBaseBranchClick}
+						id="set-base-branch"
+						loading={targetBranchSwitch.current.isLoading}
+						disabled={(selectedBranch === baseBranch?.branchName &&
+							selectedRemote === baseBranch?.actualPushRemoteName()) ||
+							targetChangeDisabled}
+					>
+						{targetBranchSwitch.current.isLoading
+							? 'Switching branches...'
+							: 'Update configuration'}
+					</Button>
+				{/if}
+			</CardGroup.Item>
+		</CardGroup>
 	{/if}
 {:else if remoteBranchesQuery.result.isError}
-	<InfoMessage filled outlined={true} style="error" icon="error">
+	<InfoMessage filled outlined={true} style="danger">
 		{#snippet title()}
 			We got an error trying to list your remote branches
 		{/snippet}

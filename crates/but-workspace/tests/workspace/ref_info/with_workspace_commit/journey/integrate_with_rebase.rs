@@ -3,8 +3,7 @@ use but_meta::VirtualBranchesTomlMetadata;
 use but_testsupport::visualize_commit_graph_all;
 
 use crate::ref_info::{
-    utils::standard_options,
-    with_workspace_commit::utils::named_read_only_in_memory_scenario_with_description,
+    utils::standard_options, with_workspace_commit::utils::named_read_only_in_memory_scenario_with_description,
 };
 
 #[test]
@@ -66,13 +65,19 @@ fn two_commits_rebased_onto_target() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 5,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(eabf2989a998260c7fbe181b33d5772705d62907),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -149,13 +154,19 @@ fn two_commits_rebased_onto_target_one_amended_afterwards() -> anyhow::Result<()
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 5,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(d89aadb67d5c32e6a63cad3d36020b5e8e192a91),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -229,13 +240,19 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 0,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,
@@ -254,8 +271,7 @@ fn two_rewritten_commits_track_as_local_and_remote() -> anyhow::Result<()> {
 
 #[test]
 fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> {
-    let (repo, meta, description) =
-        scenario("01-one-rewritten-one-local-after-push-author-date-change")?;
+    let (repo, meta, description) = scenario("01-one-rewritten-one-local-after-push-author-date-change")?;
     insta::assert_snapshot!(description, @r"
     two local commits pushed to a remote, then rebased onto target, but with the author date adjusted.
 
@@ -312,13 +328,19 @@ fn two_commits_rebased_onto_target_with_changeset_check() -> anyhow::Result<()> 
                     ],
                 },
             ],
-            target: Some(
-                Target {
+            target_ref: Some(
+                TargetRef {
                     ref_name: FullName(
                         "refs/remotes/origin/main",
                     ),
                     segment_index: NodeIndex(1),
                     commits_ahead: 5,
+                },
+            ),
+            target_commit: Some(
+                TargetCommit {
+                    commit_id: Sha1(7a2d071f19ec7551996099943167460ff2c2dd9d),
+                    segment_index: NodeIndex(2),
                 },
             ),
             extra_target: None,

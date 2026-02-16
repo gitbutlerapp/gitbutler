@@ -73,7 +73,7 @@ export class CommitAnalytics {
 				branchCount: this.getBranchCount(stack),
 				// Number of commits in the stack we are committing to
 				laneCommitCount: this.getLaneCommitCount(branches),
-				// Number of commits in the branch in the stack that we are comitting to
+				// Number of commits in the branch in the stack that we are committing to
 				branchCommitCount: this.getBranchCommitCount(commits),
 				// Whether this commit is the last/top commit in the branch
 				isLastCommit: this.getIsLastCommit(stack, args.parentId),

@@ -11,7 +11,10 @@ pub enum Change {
         head: String,
         operating_mode: OperatingMode,
     },
-    GitActivity(ProjectId),
+    GitActivity {
+        project_id: ProjectId,
+        head_sha: String,
+    },
     WorktreeChanges {
         project_id: ProjectId,
         changes: but_hunk_assignment::WorktreeChanges,

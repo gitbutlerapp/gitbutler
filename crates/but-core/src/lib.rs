@@ -50,16 +50,13 @@ use std::{
     path::PathBuf,
 };
 
-use bstr::BString;
-use gix::{
-    object::tree::EntryKind, refs::FullNameRef,
-    status::plumbing::index_as_worktree::ConflictIndexEntry,
-};
+use bstr::{BString, ByteSlice};
+use gix::{object::tree::EntryKind, refs::FullNameRef, status::plumbing::index_as_worktree::ConflictIndexEntry};
 use serde::Serialize;
 
 /// Functions to obtain changes between various items.
 pub mod diff;
-/// Fundamental data types for re-use
+/// Fundamental data types for reuse
 mod diff_types;
 pub use diff_types::{DiffSpec, HunkHeader, ModeFlags};
 
@@ -78,6 +75,9 @@ pub mod ui;
 mod id;
 pub use id::Id;
 
+mod change_id;
+pub use change_id::ChangeId;
+
 /// utility types
 pub mod unified_diff;
 
@@ -87,9 +87,6 @@ pub mod cmd;
 /// Various settings
 pub mod settings;
 pub use settings::git::types::GitConfigSettings;
-
-mod repo_ext;
-pub use repo_ext::RepositoryExt;
 
 pub mod snapshot;
 
@@ -109,6 +106,9 @@ pub mod sync;
 mod ext;
 pub use ext::ObjectStorageExt;
 
+mod repo_ext;
+pub use repo_ext::RepositoryExt;
+
 /// Return `true` if `ref_name` looks like the standard GitButler workspace.
 ///
 /// Note that in the future, ideally we won't rely on the name at all, but instead
@@ -116,30 +116,45 @@ pub use ext::ObjectStorageExt;
 ///
 /// TODO: no special handling by branch-name should be needed, it's all in the ref-metadata.
 pub fn is_workspace_ref_name(ref_name: &FullNameRef) -> bool {
-    ref_name.as_bstr() == "refs/heads/gitbutler/workspace"
-        || ref_name.as_bstr() == "refs/heads/gitbutler/integration"
+    ref_name.as_bstr() == "refs/heads/gitbutler/workspace" || ref_name.as_bstr() == "refs/heads/gitbutler/integration"
 }
 
-/// A utility to extra the name of the remote from a remote tracking ref with `ref_name`.
+/// A utility to extract the name of the remote from a remote tracking ref with `ref_name`,
+/// along with the short name of the branch that remains after stripping the remote name.
 /// If it's not a remote tracking ref, or no remote in `remote_names` (like `origin`) matches,
 /// `None` is returned.
-pub fn extract_remote_name(
+/// `remote_names` are expected to be returned by [`gix::Repository::remote_names()`],
+/// and as such are sorted in ascending order by length.
+pub fn extract_remote_name_and_short_name(
     ref_name: &gix::refs::FullNameRef,
     remote_names: &gix::remote::Names<'_>,
-) -> Option<String> {
+) -> Option<(String, BString)> {
     let (category, shorthand_name) = ref_name.category_and_short_name()?;
     if !matches!(category, gix::refs::Category::RemoteBranch) {
         return None;
     }
 
-    let longest_remote = remote_names
+    let (longest_remote, short_name) = remote_names
         .iter()
-        .rfind(|reference_name| shorthand_name.starts_with(reference_name))
-        .ok_or(anyhow::anyhow!(
-            "Failed to find remote branch's corresponding remote"
-        ))
-        .ok()?;
-    Some(longest_remote.to_string())
+        .rev()
+        .filter_map(|remote_name| {
+            let stripped = shorthand_name.strip_prefix(remote_name.iter().as_slice())?;
+            let short_name = stripped.strip_prefix(b"/")?;
+            Some((remote_name.as_bstr(), short_name.as_bstr()))
+        })
+        .next()
+        .or_else(|| {
+            // it's a stray RTB, without registered remote name. Let's not risk it and assume a name without slashes.
+            let rtb_short_name = ref_name.shorten();
+            let pos = rtb_short_name.find_byte(b'/')?;
+            let remote_name = rtb_short_name[..pos].as_bstr();
+            let short_name = rtb_short_name[pos + 1..].as_bstr();
+            if short_name.find_byte(b'/').is_some() {
+                return None;
+            }
+            Some((remote_name, short_name))
+        })?;
+    Some((longest_remote.to_string(), short_name.to_owned()))
 }
 
 /// A trait to associate arbitrary metadata with any *Git reference name*.
@@ -153,21 +168,13 @@ pub trait RefMetadata {
     ///
     /// If not, they are dangling, and can then be downcast to their actual type to deal with them in some way,
     /// either by [removing](Self::remove) them, or by re-associating them with an existing reference.
-    fn iter(
-        &self,
-    ) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> + '_;
+    fn iter(&self) -> impl Iterator<Item = anyhow::Result<(gix::refs::FullName, Box<dyn Any>)>> + '_;
 
     /// Retrieve workspace metadata for `ref_name` or create it if it wasn't present yet.
-    fn workspace(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>>;
+    fn workspace(&self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<Self::Handle<ref_metadata::Workspace>>;
 
     /// Retrieve branch metadata for `ref_name` or create it if it wasn't present yet.
-    fn branch(
-        &self,
-        ref_name: &gix::refs::FullNameRef,
-    ) -> anyhow::Result<Self::Handle<ref_metadata::Branch>>;
+    fn branch(&self, ref_name: &gix::refs::FullNameRef) -> anyhow::Result<Self::Handle<ref_metadata::Branch>>;
 
     /// Like [`branch()`](Self::branch()), but instead of possibly returning default values, return an
     /// optional branch instead.
@@ -178,11 +185,7 @@ pub trait RefMetadata {
         ref_name: &gix::refs::FullNameRef,
     ) -> anyhow::Result<Option<Self::Handle<ref_metadata::Branch>>> {
         let branch = self.branch(ref_name)?;
-        Ok(if branch.is_default() {
-            None
-        } else {
-            Some(branch)
-        })
+        Ok(if branch.is_default() { None } else { Some(branch) })
     }
 
     /// Like [`workspace()`](Self::workspace()), but instead of possibly returning default values, return an
@@ -198,10 +201,7 @@ pub trait RefMetadata {
     }
 
     /// Set workspace metadata to match `value`.
-    fn set_workspace(
-        &mut self,
-        value: &Self::Handle<ref_metadata::Workspace>,
-    ) -> anyhow::Result<()>;
+    fn set_workspace(&mut self, value: &Self::Handle<ref_metadata::Workspace>) -> anyhow::Result<()>;
 
     /// Set branch metadata to match `value`.
     fn set_branch(&mut self, value: &Self::Handle<ref_metadata::Branch>) -> anyhow::Result<()>;
@@ -213,9 +213,19 @@ pub trait RefMetadata {
 }
 
 /// A decoded commit object with easy access to additional GitButler information.
+#[derive(Debug, Clone)]
 pub struct Commit<'repo> {
     /// The id of the commit itself.
     pub id: gix::Id<'repo>,
+    /// The decoded commit for direct access.
+    pub inner: gix::objs::Commit,
+}
+
+/// A decoded commit object with easy access to additional GitButler information, without repo reference.
+#[derive(Debug, Clone)]
+pub struct CommitOwned {
+    /// The id of the commit itself.
+    pub id: gix::ObjectId,
     /// The decoded commit for direct access.
     pub inner: gix::objs::Commit,
 }
@@ -278,15 +288,6 @@ pub fn open_repo_for_merging(path: impl Into<PathBuf>) -> anyhow::Result<gix::Re
     let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
     repo.object_cache_size_if_unset(bytes);
     Ok(repo)
-}
-
-/// A central place for opening a standard repository at `path` configured for any operation.
-/// Note that there may be more specialized versions of `open_repo_*` that might be more suitable for
-/// specific use-cases.
-///
-/// Note that the repository isn't discovered, but must exist at `path`.
-pub fn open_repo(path: impl Into<PathBuf>) -> anyhow::Result<gix::Repository> {
-    Ok(gix::open(path)?)
 }
 
 /// An entry in the worktree that changed and thus is eligible to being committed.
@@ -412,20 +413,4 @@ pub struct WorktreeChanges {
     pub index_changes: Vec<gix::diff::index::Change>,
     /// The conflicting index entries, along with their relative path `(rela_path, [Entries(base, ours, theirs)])`.
     pub index_conflicts: Vec<(BString, Box<[Option<ConflictIndexEntry>; 3]>)>,
-}
-
-#[cfg(test)]
-pub(crate) mod utils {
-    use crate::HunkHeader;
-
-    pub fn hunk_header(old: &str, new: &str) -> HunkHeader {
-        let ((old_start, old_lines), (new_start, new_lines)) =
-            but_testsupport::hunk_header(old, new);
-        HunkHeader {
-            old_start,
-            old_lines,
-            new_start,
-            new_lines,
-        }
-    }
 }

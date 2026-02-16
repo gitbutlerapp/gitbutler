@@ -1,6 +1,6 @@
 use std::{borrow::Cow, collections::BTreeSet};
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use bstr::{BStr, ByteSlice};
 use gix::refs::Category;
 use itertools::Itertools;
@@ -35,17 +35,13 @@ pub trait ReferenceExtGix {
 impl ReferenceExt for git2::Reference<'_> {
     fn given_name(&self, remotes: &[&str]) -> Result<String> {
         if self.is_remote() {
-            let shorthand_name = self
-                .shorthand()
-                .ok_or(anyhow::anyhow!("Branch name was not utf-8"))?;
+            let shorthand_name = self.shorthand().ok_or(anyhow::anyhow!("Branch name was not utf-8"))?;
 
             let longest_remote = remotes
                 .iter()
                 .sorted_by_key(|remote_name| -(remote_name.len() as i32))
                 .find(|reference_name| shorthand_name.starts_with(*reference_name))
-                .ok_or(anyhow::anyhow!(
-                    "Failed to find remote branch's corresponding remote"
-                ))?;
+                .ok_or(anyhow::anyhow!("Failed to find remote branch's corresponding remote"))?;
 
             let shorthand_name = shorthand_name
                 .strip_prefix(longest_remote)
@@ -77,9 +73,7 @@ impl ReferenceExtGix for &gix::refs::FullNameRef {
         let longest_remote = remotes
             .iter()
             .rfind(|reference_name| shorthand_name.starts_with(reference_name))
-            .ok_or(anyhow::anyhow!(
-                "Failed to find remote branch's corresponding remote"
-            ))?;
+            .ok_or(anyhow::anyhow!("Failed to find remote branch's corresponding remote"))?;
 
         let shorthand_name: &BStr = shorthand_name
             .strip_prefix(longest_remote.as_bytes())

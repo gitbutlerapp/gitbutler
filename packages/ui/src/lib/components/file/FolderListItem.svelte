@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Checkbox from '$components/Checkbox.svelte';
 	import Icon from '$components/Icon.svelte';
+	import FileIcon from '$components/file/FileIcon.svelte';
 	import FileIndent from '$components/file/FileIndent.svelte';
 
 	interface Props {
@@ -29,7 +30,7 @@
 		showCheckbox,
 		checked = $bindable(),
 		indeterminate,
-		isExpanded = true,
+		isExpanded = $bindable(true),
 		depth,
 		transparent,
 		draggable = false,
@@ -40,8 +41,6 @@
 		oncontextmenu,
 		testId
 	}: Props = $props();
-
-	let isFolderExpanded = $derived(isExpanded);
 </script>
 
 <div
@@ -76,12 +75,12 @@
 		<button
 			type="button"
 			aria-label="Toggle folder"
-			class="folder-list-item__arrow focus-state"
-			class:expanded={isFolderExpanded}
+			class="folder-list-item__arrow"
+			class:expanded={isExpanded}
 			onclick={(e) => {
 				e.stopPropagation();
-				isFolderExpanded = !isFolderExpanded;
-				ontoggle?.(isFolderExpanded);
+				isExpanded = !isExpanded;
+				ontoggle?.(isExpanded);
 			}}
 		>
 			<svg
@@ -103,7 +102,9 @@
 			<Checkbox small bind:checked {indeterminate} onchange={oncheck} />
 		{/if}
 
-		<Icon name="folder" />
+		<div class="folder-list-item__icon">
+			<FileIcon fileName={isExpanded ? 'folder-open' : 'folder-close'} />
+		</div>
 	</div>
 	<p class="text-12 text-semibold truncate">{name}</p>
 </div>
@@ -111,36 +112,36 @@
 <style lang="postcss">
 	.folder-list-item {
 		display: flex;
+		position: relative;
 		align-items: center;
-		height: 32px;
-		padding: 8px 8px 8px 14px;
+		height: 30px;
+		padding: 0 8px 0 14px;
 		gap: 8px;
 		background-color: var(--clr-bg-1);
 		cursor: pointer;
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 		&.transparent {
 			background-color: transparent;
 		}
 
 		.draggable-handle {
-			display: flex;
+			display: none;
 			position: absolute;
-			left: 0;
+			left: 4px;
 			align-items: center;
 			justify-content: center;
-			height: 24px;
-			color: var(--clr-text-3);
-			opacity: 0;
-			transition: opacity var(--transition-fast);
+			width: 6px;
+			color: var(--clr-text-2);
+			opacity: 0.6;
 		}
 
 		&.draggable {
 			&:hover {
 				& .draggable-handle {
-					opacity: 1;
+					display: flex;
 				}
 			}
 		}
@@ -149,6 +150,7 @@
 	.folder-list-item__indicators {
 		display: flex;
 		align-items: center;
+		height: 100%;
 		gap: 6px;
 		color: var(--clr-text-2);
 	}
@@ -160,6 +162,7 @@
 		width: 14px;
 		height: 14px;
 		margin: 0 -2px;
+
 		transform: rotate(-90deg);
 		border-radius: var(--radius-s);
 
@@ -171,5 +174,13 @@
 			transform: rotate(0);
 			transition: transform var(--transition-fast);
 		}
+	}
+
+	.folder-list-item__icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		margin-left: 2px;
+		color: var(--clr-text-2);
 	}
 </style>

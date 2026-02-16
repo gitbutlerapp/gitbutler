@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use anyhow::Context;
+use anyhow::Context as _;
 
 /// For use in [`Anchor`].
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -109,12 +109,12 @@ pub(super) mod function {
 
     use std::borrow::{Borrow, Cow};
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use but_core::{
         RefMetadata, ref_metadata,
         ref_metadata::{
-            StackId, StackKind::AppliedAndUnapplied, WorkspaceCommitRelation::Merged,
-            WorkspaceStack, WorkspaceStackBranch,
+            StackId, StackKind::AppliedAndUnapplied, WorkspaceCommitRelation::Merged, WorkspaceStack,
+            WorkspaceStackBranch,
         },
     };
     use gix::refs::transaction::PreviousValue;
@@ -136,15 +136,15 @@ pub(super) mod function {
     ///  - if there is a workspace, we store the order in workspace metadata and expect an `anchor` that names a segment.
     ///
     /// Return a regenerated Graph that contains the new reference, and from which a new workspace can be derived.
-    pub fn create_reference<'name, T: RefMetadata>(
+    pub fn create_reference<'ws, 'name, T: RefMetadata>(
         ref_name: impl Borrow<gix::refs::FullNameRef>,
         anchor: impl Into<Option<Anchor<'name>>>,
         repo: &gix::Repository,
-        workspace: &but_graph::projection::Workspace<'_>,
+        workspace: &'ws but_graph::projection::Workspace,
         meta: &mut T,
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
         order: impl Into<Option<usize>>,
-    ) -> anyhow::Result<but_graph::Graph> {
+    ) -> anyhow::Result<Cow<'ws, but_graph::projection::Workspace>> {
         let anchor = anchor.into();
         let order = order.into();
 
@@ -156,26 +156,15 @@ pub(super) mod function {
             .transpose()?;
         let ref_name = ref_name.borrow();
 
-        let (check_if_id_in_workspace, ref_target_id, instruction): (
-            _,
-            _,
-            Option<Instruction<'_>>,
-        ) = {
+        let (check_if_id_in_workspace, ref_target_id, instruction): (_, _, Option<Instruction<'_>>) = {
             match anchor {
                 None => {
                     // The new ref exists already in the workspace, do nothing.
-                    if workspace
-                        .find_segment_and_stack_by_refname(ref_name)
-                        .is_some()
-                    {
-                        return Ok(workspace.graph.clone());
+                    if workspace.find_segment_and_stack_by_refname(ref_name).is_some() {
+                        return Ok(Cow::Borrowed(workspace));
                     }
-                    let base = ws_base.with_context(|| {
-                        format!(
-                            "workspace at {} is missing a base",
-                            workspace.ref_name_display()
-                        )
-                    })?;
+                    let base = ws_base
+                        .with_context(|| format!("workspace at {} is missing a base", workspace.ref_name_display()))?;
                     (
                         // do not validate, as the base is expectedly outside of workspace
                         false,
@@ -183,14 +172,10 @@ pub(super) mod function {
                         Some(Instruction::Independent),
                     )
                 }
-                Some(Anchor::AtCommit {
-                    commit_id,
-                    position,
-                }) => {
+                Some(Anchor::AtCommit { commit_id, position }) => {
                     let mut validate_id = true;
                     let indexes = workspace.try_find_owner_indexes_by_commit_id(commit_id)?;
-                    let ref_target_id = position
-                        .resolve_commit(workspace.lookup_commit(indexes).into(), ws_base)?;
+                    let ref_target_id = position.resolve_commit(workspace.lookup_commit(indexes).into(), ws_base)?;
                     let id_out_of_workspace = Some(ref_target_id) == ws_base;
                     if id_out_of_workspace {
                         validate_id = false
@@ -214,29 +199,23 @@ pub(super) mod function {
                 Some(Anchor::AtSegment { ref_name, position }) => {
                     let mut validate_id = true;
                     let ref_target_id = if workspace.has_metadata() {
-                        let (stack_idx, seg_idx) = workspace
-                            .try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
+                        let (stack_idx, seg_idx) =
+                            workspace.try_find_segment_owner_indexes_by_refname(ref_name.as_ref())?;
                         let segment = &workspace.stacks[stack_idx].segments[seg_idx];
 
                         let id = workspace
                             .graph
                             .tip_skip_empty(segment.id)
                             .map(|commit| position.resolve_commit(commit.into(), ws_base))
-                            .context(
-                                "BUG: we should always see through to the base or eligible commits",
-                            )??;
+                            .context("BUG: we should always see through to the base or eligible commits")??;
                         if Some(id) == ws_base {
                             validate_id = false
                         }
                         id
                     } else {
-                        let Some((_stack, segment)) =
-                            workspace.find_segment_and_stack_by_refname(ref_name.as_ref())
+                        let Some((_stack, segment)) = workspace.find_segment_and_stack_by_refname(ref_name.as_ref())
                         else {
-                            bail!(
-                                "Could not find a segment named '{}' in workspace",
-                                ref_name.shorten()
-                            );
+                            bail!("Could not find a segment named '{}' in workspace", ref_name.shorten());
                         };
                         position.resolve_commit(
                             segment
@@ -260,8 +239,7 @@ pub(super) mod function {
             .take()
             .zip(instruction)
             .map(|(mut existing, instruction)| {
-                update_workspace_metadata(&mut existing, ref_name, instruction, new_stack_id, order)
-                    .map(|()| existing)
+                update_workspace_metadata(&mut existing, ref_name, instruction, new_stack_id, order).map(|()| existing)
             })
             .transpose()?;
         // Assure this commit is in the workspace as well.
@@ -283,10 +261,7 @@ pub(super) mod function {
                         target: gix::refs::Target::Object(ref_target_id),
                         peeled: None,
                     }))
-                    .with_branch_metadata_override(Some((
-                        branch_md.as_ref().to_owned(),
-                        (*branch_md).clone(),
-                    )))
+                    .with_branch_metadata_override(Some((branch_md.as_ref().to_owned(), (*branch_md).clone())))
                     .with_workspace_metadata_override(
                         updated_ws_meta
                             .as_ref()
@@ -295,10 +270,8 @@ pub(super) mod function {
             )?
         };
 
-        let updated_workspace = graph_with_new_ref.to_workspace()?;
-        let has_new_ref_as_standalone_segment = updated_workspace
-            .find_segment_and_stack_by_refname(ref_name)
-            .is_some();
+        let updated_workspace = graph_with_new_ref.into_workspace()?;
+        let has_new_ref_as_standalone_segment = updated_workspace.find_segment_and_stack_by_refname(ref_name).is_some();
         if !has_new_ref_as_standalone_segment {
             // TODO: this should probably be easier to understand for the UI, with error codes maybe?
             bail!(
@@ -324,11 +297,7 @@ pub(super) mod function {
                 _ => None,
             };
             let err = anyhow::Error::from(err);
-            if let Some(code) = code {
-                err.context(code)
-            } else {
-                err
-            }
+            if let Some(code) = code { err.context(code) } else { err }
         })?;
         // Important to first update the workspace so we have the correct stack setup.
         if let Some(ws_meta) = updated_ws_meta {
@@ -345,7 +314,7 @@ pub(super) mod function {
         update_branch_metadata(ref_name, repo, &mut branch_md)?;
         meta.set_branch(&branch_md)?;
 
-        Ok(graph_with_new_ref)
+        Ok(Cow::Owned(updated_workspace))
     }
 
     fn update_branch_metadata(
@@ -365,9 +334,7 @@ pub(super) mod function {
         new_stack_id: impl FnOnce(&gix::refs::FullNameRef) -> StackId,
         order: Option<usize>,
     ) -> anyhow::Result<()> {
-        if let Some((stack_idx, _)) =
-            ws_meta.find_owner_indexes_by_name(new_ref, AppliedAndUnapplied)
-        {
+        if let Some((stack_idx, _)) = ws_meta.find_owner_indexes_by_name(new_ref, AppliedAndUnapplied) {
             // Just pretend its applied, and if it really is reachable, this will assure the
             // created ref name can be found.
             ws_meta.stacks[stack_idx].workspacecommit_relation = Merged;
@@ -448,13 +415,12 @@ pub(super) mod function {
     /// `position` indicates where, in relation to `anchor_id`, the ref name should be inserted.
     /// The first name that is also in `ws_meta` will be used.
     fn instruction_by_named_anchor_for_commit(
-        ws: &but_graph::projection::Workspace<'_>,
+        ws: &but_graph::projection::Workspace,
         anchor_id: gix::ObjectId,
     ) -> anyhow::Result<Instruction<'static>> {
         use Position::*;
-        let (anchor_stack_idx, anchor_seg_idx, _anchor_commit_idx) = ws
-            .find_owner_indexes_by_commit_id(anchor_id)
-            .with_context(|| {
+        let (anchor_stack_idx, anchor_seg_idx, _anchor_commit_idx) =
+            ws.find_owner_indexes_by_commit_id(anchor_id).with_context(|| {
                 format!(
                     "No segment in workspace at '{}' that holds {anchor_id}",
                     ws.ref_name_display()
@@ -467,16 +433,12 @@ pub(super) mod function {
             .rev()
             .find_map(|seg_idx| {
                 let s = &stack.segments[seg_idx];
-                s.ref_name()
-                    .map(|rn| (rn, Below))
-                    .filter(|_| s.metadata.is_some())
+                s.ref_name().map(|rn| (rn, Below)).filter(|_| s.metadata.is_some())
             })
             .or_else(|| {
                 (anchor_seg_idx + 1..stack.segments.len()).find_map(|seg_idx| {
                     let s = &stack.segments[seg_idx];
-                    s.ref_name()
-                        .map(|rn| (rn, Above))
-                        .filter(|_| s.metadata.is_some())
+                    s.ref_name().map(|rn| (rn, Above)).filter(|_| s.metadata.is_some())
                 })
             })
             .map(|(anchor_ref, position)| Instruction::Dependent {

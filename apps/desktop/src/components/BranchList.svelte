@@ -5,15 +5,15 @@
 	import BranchCard from '$components/BranchCard.svelte';
 	import BranchCommitList from '$components/BranchCommitList.svelte';
 	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
+	import BranchInsertion from '$components/BranchInsertion.svelte';
 	import CodegenRow from '$components/CodegenRow.svelte';
 	import ConflictResolutionConfirmModal from '$components/ConflictResolutionConfirmModal.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import LineOverlay from '$components/LineOverlay.svelte';
+	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
 	import PushButton from '$components/PushButton.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import { getColorFromCommitState, getIconFromCommitState } from '$components/lib';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
+	import { StartCommitDzHandler } from '$lib/branches/dropHandler';
 	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
 	import { focusClaudeInput } from '$lib/codegen/focusClaudeInput';
 	import { currentStatus } from '$lib/codegen/messages';
@@ -22,19 +22,20 @@
 	import { editPatch } from '$lib/editMode/editPatchUtils';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
 	import { MODE_SERVICE } from '$lib/mode/modeService';
+	import { createBranchSelection } from '$lib/selection/key';
+	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
+	import { type BranchDetails } from '$lib/stacks/stack';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { combineResults } from '$lib/state/helpers';
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { URL_SERVICE } from '$lib/utils/url';
 	import { ensureValue } from '$lib/utils/validation';
 	import { inject } from '@gitbutler/core/context';
-
 	import { Button, Modal, TestId } from '@gitbutler/ui';
 	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
 	import { QueryStatus } from '@reduxjs/toolkit/query';
 	import { tick } from 'svelte';
 	import type { CommitStatusType } from '$lib/commits/commit';
-	import type { BranchDetails } from '$lib/stacks/stack';
 
 	type Props = {
 		projectId: string;
@@ -42,18 +43,19 @@
 		laneId: string;
 		branches: BranchDetails[];
 		active: boolean;
-		onselect?: () => void;
+		onclick?: () => void;
+		onFileClick?: (index: number) => void;
 	};
 
-	const { projectId, branches, stackId, laneId, active, onselect }: Props = $props();
+	const { projectId, branches, stackId, laneId, active, onclick, onFileClick }: Props = $props();
 	const stackService = inject(STACK_SERVICE);
 	const uiState = inject(UI_STATE);
 	const modeService = inject(MODE_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const prService = $derived(forge.current.prService);
 	const urlService = inject(URL_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
+	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(!stackId);
@@ -139,26 +141,6 @@
 	const baseBranchName = $derived(baseBranchNameResponse.response);
 </script>
 
-{#snippet branchInsertionDz(branchName: string)}
-	{#if !isCommitting && stackId}
-		{@const moveBranchHandler = new MoveBranchDzHandler(
-			stackService,
-			prService,
-			projectId,
-			stackId,
-			branchName,
-			baseBranchName
-		)}
-		<Dropzone handlers={[moveBranchHandler]}>
-			{#snippet overlay({ hovered, activated })}
-				<div data-testid={TestId.BranchListInsertionDropzone}>
-					<LineOverlay advertize {hovered} {activated} />
-				</div>
-			{/snippet}
-		</Dropzone>
-	{/if}
-{/snippet}
-
 <div class="branches-wrapper">
 	{#each branches as branch, i}
 		{@const branchName = branch.name}
@@ -180,7 +162,10 @@
 				commitQuery.result
 			)}
 		>
-			{#snippet children([localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit])}
+			{#snippet children(
+				[localAndRemoteCommits, upstreamOnlyCommits, branchDetails, commit],
+				{ projectId, stackId }
+			)}
 				{@const firstBranch = i === 0}
 				{@const lastBranch = i === branches.length - 1}
 				{@const iconName = getIconFromCommitState(commit?.id, commit?.state)}
@@ -198,7 +183,6 @@
 					!selection?.current.codegen}
 				{@const pushStatus = branchDetails.pushStatus}
 				{@const isConflicted = branchDetails.isConflicted}
-				{@const lastUpdatedAt = branchDetails.lastUpdatedAt}
 				{@const reviewId = branch.reviewId || undefined}
 				{@const prNumber = branch.prNumber || undefined}
 				{@const allOtherPrNumbersInStack = branches
@@ -208,11 +192,30 @@
 				{@const codegenSelected =
 					selection?.current?.branchName === branchName &&
 					selection?.current.commitId === undefined &&
-					!!selection?.current.codegen}
+					selection?.current.codegen}
 				{@const codegenQuery = stackId
 					? claudeCodeService.messages({ projectId, stackId })
 					: undefined}
-				{@render branchInsertionDz(branchName)}
+				{@const startCommittingDz = new StartCommitDzHandler(
+					uiState,
+					uncommittedService,
+					projectId,
+					stackId,
+					branchName
+				)}
+				{#if stackId}
+					<BranchInsertion
+						{projectId}
+						{stackId}
+						{branchName}
+						{lineColor}
+						{isCommitting}
+						{baseBranchName}
+						{stackService}
+						prService={forge.current.prService}
+						isFirst={firstBranch}
+					/>
+				{/if}
 				<BranchCard
 					type="stack-branch"
 					{projectId}
@@ -231,7 +234,6 @@
 						stackId !== undefined &&
 						codegenQuery?.response &&
 						codegenQuery.response.length > 0}
-					{lastUpdatedAt}
 					{reviewId}
 					{prNumber}
 					{allOtherPrNumbersInStack}
@@ -239,7 +241,7 @@
 					numberOfUpstreamCommits={upstreamOnlyCommits.length}
 					numberOfBranchesInStack={branches.length}
 					baseCommit={branchDetails.baseCommit}
-					dropzones={[stackingReorderDropzoneManager.top(branchName)]}
+					dropzones={[stackingReorderDropzoneManager.top(branchName), startCommittingDz]}
 					trackingBranch={branch.remoteTrackingBranch ?? undefined}
 					readonly={!!branch.remoteTrackingBranch}
 					onclick={() => {
@@ -254,7 +256,7 @@
 						} else {
 							uiState.lane(laneId).selection.set({ branchName, previewOpen: true });
 						}
-						onselect?.();
+						onclick?.();
 					}}
 				>
 					{#snippet buttons()}
@@ -326,8 +328,9 @@
 						{#if !$codegenDisabled && first && codegenQuery?.response?.length === 0}
 							<Button
 								icon="ai-small"
-								style="neutral"
+								style="gray"
 								size="tag"
+								tooltip="New Codegen Session"
 								onclick={async () => {
 									if (!stackId) return;
 									laneState?.selection.set({ branchName, codegen: true, previewOpen: true });
@@ -367,9 +370,57 @@
 									{stackId}
 									{status}
 									selected={codegenSelected}
-									{onselect}
+									{onclick}
 								/>
 							{/if}
+						{/if}
+					{/snippet}
+
+					{#snippet changedFiles()}
+						<!--
+							Based on anecdotal evidence the type for `items` seems incorrect. It's
+							likely that during some kind of unmount event items can become `undefined`
+							due to some subtle reactivity condition, causing `branchChanges` to be
+							called without a branch name.
+						-->
+						{#if selected && branchName}
+							{@const changesQuery = stackService.branchChanges({
+								projectId,
+								stackId,
+								branch: branchName
+							})}
+							<ReduxResult {projectId} {stackId} result={changesQuery.result}>
+								{#snippet children(result, { projectId, stackId })}
+									<NestedChangedFiles
+										title="All Changes"
+										{projectId}
+										{stackId}
+										draggableFiles
+										autoselect
+										foldedByDefault
+										selectionId={createBranchSelection({
+											stackId: stackId,
+											branchName,
+											remote: undefined
+										})}
+										persistId={`branch-${branchName}`}
+										changes={result.changes}
+										stats={result.stats}
+										allowUnselect={false}
+										onFileClick={(index) => {
+											// Ensure the branch is selected so the preview shows it
+											const currentSelection = laneState.selection.current;
+											if (
+												currentSelection?.branchName !== branchName ||
+												currentSelection?.commitId !== undefined
+											) {
+												laneState.selection.set({ branchName, previewOpen: true });
+											}
+											onFileClick?.(index);
+										}}
+									/>
+								{/snippet}
+							</ReduxResult>
 						{/if}
 					{/snippet}
 
@@ -389,7 +440,8 @@
 							{active}
 							{handleUncommit}
 							{startEditingCommitMessage}
-							{onselect}
+							{onclick}
+							{onFileClick}
 						/>
 					{/snippet}
 				</BranchCard>

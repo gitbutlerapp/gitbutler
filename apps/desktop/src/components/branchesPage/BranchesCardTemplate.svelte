@@ -33,7 +33,7 @@
 	</div>
 </div>
 
-<style class="postcss">
+<style lang="postcss">
 	/* TARGET CARD */
 	.branches-list-card {
 		display: flex;
@@ -62,7 +62,7 @@
 		}
 
 		&:not(.selected):hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 	}
 
@@ -99,7 +99,7 @@
 	}
 
 	.selected {
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--clr-bg-muted);
 
 		&::after {
 			transform: translateX(0);

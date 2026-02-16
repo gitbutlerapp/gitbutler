@@ -2,7 +2,7 @@ mod bash;
 mod patterns;
 mod settings;
 
-use anyhow::{Context, Result};
+use anyhow::{Context as _, Result};
 use bash::split_bash_commands;
 pub use patterns::SerializationContext;
 use patterns::*;
@@ -103,9 +103,7 @@ impl Permission {
                 if let Some(terms) = terms
                     && let Some(url) = terms.first()
                 {
-                    return Ok(vec![Self::WebFetch(Some(UrlPattern::full_match(
-                        url.clone(),
-                    )))]);
+                    return Ok(vec![Self::WebFetch(Some(UrlPattern::domain(url)?))]);
                 }
                 Ok(vec![Self::WebFetch(None)])
             }
@@ -217,15 +215,9 @@ fn matches_pattern_rule(permissions: &[Permission], tool_name: &str, term: &str)
     for perm in permissions {
         let matches = match perm {
             Permission::Bash(Some(pattern)) => tool_name == "Bash" && pattern.matches(term),
-            Permission::Edit(Some(pattern)) => {
-                tool_name == "Edit" && pattern.matches(std::path::Path::new(term))
-            }
-            Permission::Write(Some(pattern)) => {
-                tool_name == "Write" && pattern.matches(std::path::Path::new(term))
-            }
-            Permission::WebFetch(Some(pattern)) => {
-                tool_name == "WebFetch" && pattern.matches(term).unwrap_or(false)
-            }
+            Permission::Edit(Some(pattern)) => tool_name == "Edit" && pattern.matches(std::path::Path::new(term)),
+            Permission::Write(Some(pattern)) => tool_name == "Write" && pattern.matches(std::path::Path::new(term)),
+            Permission::WebFetch(Some(pattern)) => tool_name == "WebFetch" && pattern.matches(term).unwrap_or(false),
             _ => false,
         };
 
@@ -350,17 +342,11 @@ mod test {
 
         #[test]
         fn absolute_path() {
-            let pattern = PathPattern::new(
-                PathBuf::from("/home/testuser/file.txt"),
-                PathPatternKind::Absolute,
-            );
+            let pattern = PathPattern::new(PathBuf::from("/home/testuser/file.txt"), PathPatternKind::Absolute);
             let perm = Permission::Write(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Write(//home/testuser/file.txt)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Write(//home/testuser/file.txt)");
         }
 
         #[test]
@@ -408,10 +394,7 @@ mod test {
             let perm = Permission::Write(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Write(projects/myproject/README.md)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Write(projects/myproject/README.md)");
         }
 
         #[test]
@@ -440,8 +423,7 @@ mod test {
 
         #[test]
         fn absolute_path() {
-            let pattern =
-                PathPattern::new(PathBuf::from("/etc/config.conf"), PathPatternKind::Absolute);
+            let pattern = PathPattern::new(PathBuf::from("/etc/config.conf"), PathPatternKind::Absolute);
             let perm = Permission::Edit(Some(pattern));
             let ctx = create_test_context(false);
 
@@ -457,10 +439,7 @@ mod test {
             let perm = Permission::Edit(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Edit(~/.config/app/settings.json)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Edit(~/.config/app/settings.json)");
         }
 
         #[test]
@@ -472,10 +451,7 @@ mod test {
             let perm = Permission::Edit(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "Edit(/.agents/memories/index.md)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "Edit(/.agents/memories/index.md)");
         }
     }
 
@@ -491,41 +467,12 @@ mod test {
         }
 
         #[test]
-        fn full_match_url() {
-            let pattern = UrlPattern::full_match("https://example.com/api/v1".to_string());
-            let perm = Permission::WebFetch(Some(pattern));
-            let ctx = create_test_context(false);
-
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "WebFetch(https://example.com/api/v1)"
-            );
-        }
-
-        #[test]
         fn domain_match() {
             let pattern = UrlPattern::Domain("example.com".to_string());
             let perm = Permission::WebFetch(Some(pattern));
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "WebFetch(domain:example.com)"
-            );
-        }
-
-        #[test]
-        fn url_with_query_params() {
-            let pattern = UrlPattern::full_match(
-                "https://api.github.com/repos/owner/repo?per_page=100".to_string(),
-            );
-            let perm = Permission::WebFetch(Some(pattern));
-            let ctx = create_test_context(false);
-
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "WebFetch(https://api.github.com/repos/owner/repo?per_page=100)"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "WebFetch(domain:example.com)");
         }
     }
 
@@ -534,23 +481,20 @@ mod test {
 
         #[test]
         fn mcp_server_pattern() {
-            let pattern = McpPattern::new("mcp__but-security".to_string());
+            let pattern = McpPattern::new("mcp__example-server".to_string());
             let perm = Permission::Mcp(pattern);
             let ctx = create_test_context(false);
 
-            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__but-security");
+            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__example-server");
         }
 
         #[test]
         fn mcp_tool_pattern() {
-            let pattern = McpPattern::new("mcp__but-security__approval_prompt".to_string());
+            let pattern = McpPattern::new("mcp__example-server__some_tool".to_string());
             let perm = Permission::Mcp(pattern);
             let ctx = create_test_context(false);
 
-            assert_eq!(
-                perm.serialize(&ctx).unwrap(),
-                "mcp__but-security__approval_prompt"
-            );
+            assert_eq!(perm.serialize(&ctx).unwrap(), "mcp__example-server__some_tool");
         }
     }
 

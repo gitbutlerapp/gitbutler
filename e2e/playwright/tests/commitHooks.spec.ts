@@ -17,7 +17,7 @@ test.afterEach(async () => {
 test('should show commit-msg hook rejection error', async ({ page, context }, testInfo) => {
 	const workdir = testInfo.outputPath('workdir');
 	const configdir = testInfo.outputPath('config');
-	gitbutler = await startGitButler(workdir, configdir, context);
+	gitbutler = await startGitButler(workdir, configdir, context, { RUST_LOG: 'debug' });
 
 	await gitbutler.runScript('project-with-commit-hooks.sh');
 

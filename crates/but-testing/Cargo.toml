@@ -1,10 +1,10 @@
 [package]
 name = "but-testing"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [[bin]]
 name = "but-testing"
@@ -18,14 +18,14 @@ testing = ["dep:gitbutler-commit"]
 [dependencies]
 but-settings.workspace = true
 but-core.workspace = true
-but-db.workspace = true
+but-db = { workspace = true, features = ["poll"] }
 but-workspace = {workspace = true, features = ["legacy"]}
 but-graph.workspace = true
 but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-meta = { workspace = true, features = ["legacy"] }
+but-ctx = { workspace = true, features = ["legacy"] }
 
-gitbutler-command-context.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 gitbutler-filemonitor.workspace = true

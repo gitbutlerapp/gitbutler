@@ -1,17 +1,15 @@
+#![deny(unsafe_code)]
 use std::sync::Arc;
 
 use anyhow::Result;
-use but_broadcaster::{Broadcaster, FrontendEvent};
-use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
 use uuid::Uuid;
-pub mod bridge;
-pub use bridge::ClaudeCheckResult;
+pub mod session;
 use but_core::ref_metadata::StackId;
+pub use session::ClaudeCheckResult;
 
-pub(crate) mod claude_config;
 pub mod claude_mcp;
 pub mod claude_settings;
 pub mod claude_sub_agents;
@@ -22,14 +20,19 @@ pub use claude_transcript::Transcript;
 pub mod db;
 pub mod hooks;
 pub(crate) mod legacy;
-pub mod mcp;
 pub mod notifications;
+pub mod pending_requests;
 pub mod permissions;
 pub mod prompt_templates;
 mod rules;
 
-use crate::bridge::Claudes;
 pub use permissions::Permission;
+
+use crate::session::Claudes;
+
+pub mod broadcaster;
+use broadcaster::FrontendEvent;
+pub use broadcaster::types::Broadcaster;
 
 /// Various in-memory state that is required for calling most claude functions.
 // TODO: There are UI concepts like broadcasting tied into this type.
@@ -250,23 +253,20 @@ impl PermissionDecision {
     pub fn handle(
         &self,
         request: &ClaudePermissionRequest,
-        project_path: &std::path::Path,
         runtime_permissions: &mut crate::permissions::Permissions,
-        ctx: Option<&mut gitbutler_command_context::CommandContext>,
-        session_id: Option<uuid::Uuid>,
+        ctx: &mut but_ctx::Context,
+        session_id: uuid::Uuid,
     ) -> anyhow::Result<()> {
-        use crate::permissions::{
-            Permission, SerializationContext, SettingsKind, add_permission_to_settings,
-        };
+        use crate::permissions::{Permission, SerializationContext, SettingsKind, add_permission_to_settings};
 
         // Extract permissions from the request (may be multiple for bash with && or ||)
         let permissions = Permission::from_request(request)?;
 
         // Build serialization context
-        let home_path = dirs::home_dir()
-            .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
+        let home_path = dirs::home_dir().ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?;
         let global_claude_dir = home_path.join(".claude");
-
+        let worktree_dir = ctx.workdir_or_fail()?;
+        let settings_path = worktree_dir.join(".claude/settings.local.json");
         match self {
             PermissionDecision::AllowOnce => {
                 // Single request - no persistence needed
@@ -279,20 +279,17 @@ impl PermissionDecision {
                 }
 
                 // Also save to session database if available
-                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
-                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
-                {
+                if let Ok(Some(session)) = db::get_session_by_current_id(ctx, session_id) {
                     let mut approved = session.approved_permissions().to_vec();
                     approved.extend(permissions);
                     let denied = session.denied_permissions().to_vec();
-                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
+                    db::update_session_permissions(ctx, session.id, &approved, &denied)?;
                 }
                 Ok(())
             }
             PermissionDecision::AllowProject => {
-                let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
-                let settings_path = project_path.join(".claude/settings.local.json");
+                let claude_ctx = SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
+                let settings_path = worktree_dir.join(".claude/settings.local.json");
 
                 // Ensure .claude directory exists
                 if let Some(parent) = settings_path.parent() {
@@ -300,19 +297,13 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Allow,
-                        &permission,
-                        &ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Allow, &permission, &claude_ctx, &settings_path)?;
                     runtime_permissions.add_approved(permission);
                 }
                 Ok(())
             }
             PermissionDecision::AllowAlways => {
-                let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                let ctx = SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
                 let settings_path = home_path.join(".claude/settings.json");
 
                 // Ensure .claude directory exists
@@ -321,12 +312,7 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Allow,
-                        &permission,
-                        &ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Allow, &permission, &ctx, &settings_path)?;
                     runtime_permissions.add_approved(permission);
                 }
                 Ok(())
@@ -342,20 +328,16 @@ impl PermissionDecision {
                 }
 
                 // Also save to session database if available
-                if let (Some(ctx), Some(sess_id)) = (ctx, session_id)
-                    && let Ok(Some(session)) = crate::db::get_session_by_current_id(ctx, sess_id)
-                {
+                if let Ok(Some(session)) = db::get_session_by_current_id(ctx, session_id) {
                     let approved = session.approved_permissions().to_vec();
                     let mut denied = session.denied_permissions().to_vec();
                     denied.extend(permissions);
-                    crate::db::update_session_permissions(ctx, session.id, &approved, &denied)?;
+                    db::update_session_permissions(ctx, session.id, &approved, &denied)?;
                 }
                 Ok(())
             }
             PermissionDecision::DenyProject => {
-                let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, false);
-                let settings_path = project_path.join(".claude/settings.local.json");
+                let ctx = SerializationContext::new(&home_path, &worktree_dir, &global_claude_dir, false);
 
                 // Ensure .claude directory exists
                 if let Some(parent) = settings_path.parent() {
@@ -363,19 +345,13 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Deny,
-                        &permission,
-                        &ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Deny, &permission, &ctx, &settings_path)?;
                     runtime_permissions.add_denied(permission);
                 }
                 Ok(())
             }
             PermissionDecision::DenyAlways => {
-                let ctx =
-                    SerializationContext::new(&home_path, project_path, &global_claude_dir, true);
+                let ctx = SerializationContext::new(&home_path, worktree_dir, &global_claude_dir, true);
                 let settings_path = home_path.join(".claude/settings.json");
 
                 // Ensure .claude directory exists
@@ -384,12 +360,7 @@ impl PermissionDecision {
                 }
 
                 for permission in permissions {
-                    add_permission_to_settings(
-                        &SettingsKind::Deny,
-                        &permission,
-                        &ctx,
-                        &settings_path,
-                    )?;
+                    add_permission_to_settings(&SettingsKind::Deny, &permission, &ctx, &settings_path)?;
                     runtime_permissions.add_denied(permission);
                 }
                 Ok(())
@@ -404,7 +375,7 @@ impl PermissionDecision {
 pub struct ClaudePermissionRequest {
     /// Maps to the tool_use_id from the MCP request
     pub id: String,
-    /// When the requst was made.
+    /// When the request was made.
     pub created_at: chrono::NaiveDateTime,
     /// When the request was updated.
     pub updated_at: chrono::NaiveDateTime,
@@ -416,6 +387,49 @@ pub struct ClaudePermissionRequest {
     pub decision: Option<PermissionDecision>,
     /// Whether to use wildcard permissions for this request
     pub use_wildcard: bool,
+}
+
+/// A single option in an AskUserQuestion question.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AskUserQuestionOption {
+    /// Display label for the option
+    pub label: String,
+    /// Description of what this option means
+    pub description: String,
+}
+
+/// A single question in an AskUserQuestion request.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AskUserQuestion {
+    /// The question text to display
+    pub question: String,
+    /// Short header label (max 12 chars)
+    pub header: String,
+    /// Available options (2-4 choices)
+    pub options: Vec<AskUserQuestionOption>,
+    /// Whether multiple selections are allowed
+    pub multi_select: bool,
+}
+
+/// Represents a request from Claude to ask the user clarifying questions.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaudeAskUserQuestionRequest {
+    /// Maps to the tool_use_id from the MCP request
+    pub id: String,
+    /// When the request was made.
+    pub created_at: chrono::NaiveDateTime,
+    /// When the request was updated.
+    pub updated_at: chrono::NaiveDateTime,
+    /// The questions to ask the user
+    pub questions: Vec<AskUserQuestion>,
+    /// The user's answers, keyed by question text
+    /// None if not yet answered
+    pub answers: Option<std::collections::HashMap<String, String>>,
+    /// The stack ID this question is associated with
+    pub stack_id: Option<gitbutler_stack::StackId>,
 }
 
 /// Represents the thinking level for Claude Code.
@@ -476,18 +490,18 @@ pub struct ClaudeUserParams {
     pub attachments: Option<Vec<PromptAttachment>>,
 }
 
-pub async fn send_claude_message(
-    ctx: &mut CommandContext,
-    broadcaster: Arc<Mutex<Broadcaster>>,
+pub fn send_claude_message(
+    ctx: &mut but_ctx::Context,
+    broadcaster: &Broadcaster,
     session_id: uuid::Uuid,
     stack_id: StackId,
     content: MessagePayload,
 ) -> Result<()> {
     let message = db::save_new_message(ctx, session_id, content.clone())?;
-    let project_id = ctx.project().id;
+    let project_id = ctx.legacy_project.id;
 
-    broadcaster.lock().await.send(FrontendEvent {
-        name: format!("project://{project_id}/claude/{stack_id}/message_recieved"),
+    broadcaster.send(FrontendEvent {
+        name: format!("project://{project_id}/claude/{stack_id}/message_received"),
         payload: json!(message),
     });
     Ok(())

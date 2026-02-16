@@ -1,12 +1,9 @@
-use anyhow::{Context as _, Result, bail};
+use anyhow::{Context as _, Result};
+use but_ctx::{Context, access::RepoExclusive};
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
-use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_diff::Hunk;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::{OwnershipClaim, Stack, StackId};
+use gitbutler_stack::{Stack, StackId};
 use tracing::instrument;
 
 use crate::VirtualBranchesExt as _;
@@ -22,21 +19,21 @@ use crate::VirtualBranchesExt as _;
 ///
 /// This may create conflicted commits above the commit that is getting
 /// undone.
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, _perm))]
+#[instrument(level = "debug", skip(ctx, _perm))]
 pub(crate) fn undo_commit(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     commit_to_remove: git2::Oid,
-    _perm: &mut WorktreeWritePermission,
+    _perm: &mut RepoExclusive,
 ) -> Result<Stack> {
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.virtual_branches();
 
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
     let merge_base = stack.merge_base(ctx)?;
-    let repo = ctx.gix_repo()?;
+    let repo = ctx.repo.get()?;
     let steps = stack
-        .as_rebase_steps(ctx, &repo)?
+        .as_rebase_steps(ctx)?
         .into_iter()
         .filter(|s| match s {
             RebaseStep::Pick {
@@ -52,12 +49,8 @@ pub(crate) fn undo_commit(
     rebase.steps(steps)?;
     let output = rebase.rebase()?;
 
-    for ownership in ownership_update(ctx.repo(), commit_to_remove)? {
-        stack.ownership.put(ownership);
-    }
-
     let new_head = output.top_commit.to_git2();
-    stack.set_stack_head(&vb_state, &repo, new_head, None)?;
+    stack.set_stack_head(&vb_state, &repo, new_head)?;
 
     stack.set_heads_from_rebase_output(ctx, output.references)?;
 
@@ -65,41 +58,4 @@ pub(crate) fn undo_commit(
         .context("failed to update gitbutler workspace")?;
 
     Ok(stack)
-}
-
-fn ownership_update(
-    repo: &git2::Repository,
-    commit_to_remove: git2::Oid,
-) -> Result<Vec<OwnershipClaim>> {
-    let commit_to_remove = repo.find_commit(commit_to_remove)?;
-
-    if commit_to_remove.is_conflicted() {
-        bail!("Can not undo a conflicted commit");
-    }
-    let commit_tree = commit_to_remove
-        .tree()
-        .context("failed to get commit tree")?;
-    let commit_to_remove_parent = commit_to_remove.parent(0)?;
-    let commit_parent_tree = commit_to_remove_parent
-        .tree()
-        .context("failed to get parent tree")?;
-
-    let diff = gitbutler_diff::trees(repo, &commit_parent_tree, &commit_tree, true)?;
-    let ownership_update = diff
-        .iter()
-        .filter_map(|(file_path, file_diff)| {
-            let file_path = file_path.clone();
-            let hunks = file_diff
-                .hunks
-                .iter()
-                .map(Into::into)
-                .filter(|hunk: &Hunk| !hunk.is_null())
-                .collect::<Vec<_>>();
-            if hunks.is_empty() {
-                return None;
-            }
-            Some(OwnershipClaim { file_path, hunks })
-        })
-        .collect::<Vec<_>>();
-    Ok(ownership_update)
 }

@@ -67,9 +67,8 @@
 		padding-left: 12px;
 		gap: 12px;
 		border-bottom: 1px solid var(--clr-border-3);
-
 		border-left: 4px solid var(--clr-theme-pop-element);
-		background: var(--clr-bg-1-muted);
+		background: var(--clr-bg-muted);
 	}
 
 	.patch-version__icon {

@@ -212,7 +212,7 @@
 
 		&.selected {
 			border-radius: var(--radius-m);
-			background: var(--clr-bg-1-muted);
+			background: var(--hover-bg-1);
 		}
 	}
 

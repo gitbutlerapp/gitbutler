@@ -8,7 +8,7 @@
 	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
 	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
 
-	import { Button, Modal, SectionCard, chipToasts } from '@gitbutler/ui';
+	import { Button, CardGroup, Modal, chipToasts } from '@gitbutler/ui';
 	import type { Project } from '@gitbutler/shared/organizations/types';
 
 	type Props = {
@@ -147,16 +147,11 @@
 	{#if !selectedOrgSlug}
 		<!-- Organization Selection Step -->
 		{#if organizations.current && organizations.current.length > 0}
-			<div class="organizations-list">
-				{#each organizations.current as organization, index}
+			<CardGroup>
+				{#each organizations.current as organization}
 					<Loading loadable={organization}>
 						{#snippet children(organization)}
-							<SectionCard
-								roundedTop={index === 0}
-								roundedBottom={index === organizations.current.length - 1}
-								orientation="row"
-								centerAlign
-							>
+							<CardGroup.Item>
 								<div class="org-info">
 									<h5 class="text-15 text-bold">{organization.name || organization.slug}</h5>
 									{#if organization.description}
@@ -166,11 +161,11 @@
 								<Button style="pop" onclick={() => selectOrganization(organization.slug)}>
 									Select
 								</Button>
-							</SectionCard>
+							</CardGroup.Item>
 						{/snippet}
 					</Loading>
 				{/each}
-			</div>
+			</CardGroup>
 		{:else}
 			<div class="empty-state">
 				<p>You don't belong to any organizations yet.</p>
@@ -181,8 +176,7 @@
 		<!-- Project Selection Step -->
 		<div class="selection-header">
 			<h4>Select a project in {selectedOrgSlug}</h4>
-			<Button style="neutral" onclick={() => (selectedOrgSlug = null)}>Back to Organizations</Button
-			>
+			<Button style="gray" onclick={() => (selectedOrgSlug = null)}>Back to Organizations</Button>
 		</div>
 
 		{#if isLoadingProjects}
@@ -190,17 +184,11 @@
 				<p>Loading projects...</p>
 			</div>
 		{:else}
-			<div class="projects-list">
+			<CardGroup>
 				{#if organizationProjects.length > 0}
-					{#each organizationProjects as orgProject, index}
+					{#each organizationProjects as orgProject}
 						<div class={selectedProjectSlug === orgProject.slug ? 'selected' : ''}>
-							<SectionCard
-								roundedTop={index === 0}
-								roundedBottom={index === organizationProjects.length - 1 && !isCreatingNew}
-								orientation="row"
-								centerAlign
-								onclick={() => selectProject(orgProject.slug)}
-							>
+							<CardGroup.Item onclick={() => selectProject(orgProject.slug)}>
 								<div class="project-info">
 									<h5 class="text-15 text-bold">{orgProject.name}</h5>
 									{#if orgProject.description}
@@ -216,20 +204,14 @@
 										onclick={() => selectProject(orgProject.slug)}
 									/>
 								</div>
-							</SectionCard>
+							</CardGroup.Item>
 						</div>
 					{/each}
 				{/if}
 
 				<!-- Create New Project Option -->
 				<div class={isCreatingNew ? 'selected create-new' : 'create-new'}>
-					<SectionCard
-						roundedTop={organizationProjects.length === 0}
-						roundedBottom={true}
-						orientation="row"
-						centerAlign
-						onclick={toggleCreateNew}
-					>
+					<CardGroup.Item onclick={toggleCreateNew}>
 						<div class="project-info">
 							<h5 class="text-15 text-bold">Create New Project</h5>
 							{#if isCreatingNew}
@@ -255,9 +237,9 @@
 								onclick={toggleCreateNew}
 							/>
 						</div>
-					</SectionCard>
+					</CardGroup.Item>
 				</div>
-			</div>
+			</CardGroup>
 
 			<div class="action-buttons">
 				<Button style="pop" onclick={() => connectToOrganization(selectedOrgSlug || '')}>
@@ -269,13 +251,6 @@
 </Modal>
 
 <style lang="postcss">
-	.organizations-list,
-	.projects-list {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
 	.org-info,
 	.project-info {
 		flex: 1;
@@ -283,19 +258,19 @@
 
 	.description {
 		margin-top: 4px;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 0.9rem;
 	}
 
 	.slug {
 		margin-top: 2px;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		font-size: 0.8rem;
 	}
 
 	.empty-state {
 		padding: 24px 0;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		text-align: center;
 	}
 
@@ -308,7 +283,7 @@
 
 	.loading-container {
 		padding: 32px 0;
-		color: var(--text-muted, #666);
+		color: var(--clr-text-2);
 		text-align: center;
 	}
 

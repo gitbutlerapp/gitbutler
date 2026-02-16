@@ -1,6 +1,7 @@
 // TODO: Refactor this enum into an object conataining invalidation rules.
 export enum ReduxTag {
 	HeadMetadata = 'HeadMetadata',
+	HeadSha = 'HeadSha',
 	Diff = 'Diff',
 	Stacks = 'Stacks',
 	StackDetails = 'StackDetails',
@@ -14,6 +15,7 @@ export enum ReduxTag {
 	BranchChanges = 'BranchChanges',
 	ForgeUser = 'ForgeUser',
 	GitHubUserList = 'GitHubUserList',
+	GitLabUserList = 'GitLabUserList',
 	PullRequests = 'PullRequests',
 	GitLabPullRequests = 'GitLabPullRequests',
 	Checks = 'Checks',

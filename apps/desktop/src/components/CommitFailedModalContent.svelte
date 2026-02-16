@@ -69,7 +69,7 @@
 <div class="commit-failed__wrapper">
 	<ModalHeader
 		sticky={!isScrollTopVisible}
-		type={data.newCommitId ? 'warning' : 'error'}
+		type={data.newCommitId ? 'warning' : 'danger'}
 		closeButton
 		{oncloseclick}
 		closeButtonTestId={TestId.GlobalModalActionButton}
@@ -116,7 +116,6 @@
 	.commit-failed__wrapper {
 		display: flex;
 		flex-direction: column;
-		/* max-height: 620px; */
 		overflow: hidden;
 	}
 

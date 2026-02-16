@@ -1,11 +1,11 @@
 use anyhow::Result;
-use but_core::Reference;
+use but_core::{Reference, sync::RepoExclusive};
+use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_rebase::{Rebase, RebaseStep, ReferenceSpec};
-use gitbutler_cherry_pick::GixRepositoryExt;
-use gitbutler_command_context::CommandContext;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
-use gitbutler_stack::{CommitOrChangeId, StackBranch, StackId, VirtualBranchesHandle};
+use gitbutler_stack::{StackBranch, StackId, VirtualBranchesHandle};
+use gix::prelude::ReferenceExt;
 
 use crate::legacy::{
     MoveChangesResult,
@@ -29,15 +29,14 @@ use crate::legacy::{
 /// 3. Remove all but the specified changes from the new branch.
 /// 4. Create a stack from out of the new branch.
 pub fn split_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: &[String],
-    context_lines: u32,
+    perm: &mut RepoExclusive,
 ) -> Result<(ReferenceSpec, MoveChangesResult)> {
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -47,26 +46,28 @@ pub fn split_branch(
 
     // Create a new branch from the source branch's head
     let new_branch_ref_name = format!("refs/heads/{new_branch_name}");
-    let new_branch_log_message = format!(
-        "Split off changes from branch '{source_branch_name}' into new branch '{new_branch_name}'"
-    );
+    let new_branch_log_message =
+        format!("Split off changes from branch '{source_branch_name}' into new branch '{new_branch_name}'");
 
-    let mut new_ref = repository.reference(
-        new_branch_ref_name.clone(),
-        branch_head.to_gix(),
-        gix::refs::transaction::PreviousValue::Any,
-        new_branch_log_message.clone(),
-    )?;
+    let new_ref = ctx
+        .repo
+        .get()?
+        .reference(
+            new_branch_ref_name.clone(),
+            branch_head.to_gix(),
+            gix::refs::transaction::PreviousValue::Any,
+            new_branch_log_message.clone(),
+        )?
+        .detach();
 
     // Remove all the specified changes from the source branch, dropping empty rewritten commits
     let source_result = filter_file_changes_in_branch(
         ctx,
-        &repository,
         file_changes_to_split_off,
         source_stack,
         source_branch_name,
         merge_base,
-        context_lines,
+        perm,
     )?;
 
     let replaced_commits = source_result
@@ -79,25 +80,22 @@ pub fn split_branch(
     let move_changes_result = MoveChangesResult { replaced_commits };
 
     // Remove all but the specified changes from the new branch
-    let new_branch_commits =
-        ctx.repo()
-            .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
+    let new_branch_commits = ctx
+        .git2_repo
+        .get()?
+        .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
 
     // Branch as rebase steps
     let mut steps: Vec<RebaseStep> = Vec::new();
 
-    let reference_step = RebaseStep::Reference(but_core::Reference::Git(new_ref.name().to_owned()));
+    let reference_step = RebaseStep::Reference(but_core::Reference::Git(new_ref.name.clone()));
     steps.push(reference_step);
 
     for commit in new_branch_commits {
         let commit_id = commit.to_gix();
-        if let Some(new_commit_id) = keep_only_file_changes_in_commit(
-            ctx,
-            commit_id,
-            file_changes_to_split_off,
-            context_lines,
-            true,
-        )? {
+        if let Some(new_commit_id) =
+            keep_only_file_changes_in_commit(ctx, commit_id, file_changes_to_split_off, true, perm)?
+        {
             let pick_step = RebaseStep::Pick {
                 commit_id: new_commit_id,
                 new_message: None,
@@ -107,10 +105,13 @@ pub fn split_branch(
     }
     steps.reverse();
 
-    let mut rebase = Rebase::new(&repository, merge_base, None)?;
-    rebase.steps(steps)?;
-    rebase.rebase_noops(false);
-    let result = rebase.rebase()?;
+    let result = {
+        let repo = ctx.repo.get()?;
+        let mut rebase = Rebase::new(&repo, merge_base, None)?;
+        rebase.steps(steps)?;
+        rebase.rebase_noops(false);
+        rebase.rebase()?
+    };
 
     let new_branch_full_name: gix::refs::FullName = new_branch_ref_name.try_into()?;
 
@@ -123,7 +124,13 @@ pub fn split_branch(
         })
         .ok_or_else(|| anyhow::anyhow!("New branch reference not found in rebase output"))?;
 
-    new_ref.set_target_id(new_branch_ref.commit_id, new_branch_log_message)?;
+    new_ref
+        .attach(&*ctx.repo.get()?)
+        .set_target_id(new_branch_ref.commit_id, new_branch_log_message)?;
+
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    ws.refresh_from_head(&repo, &meta)?;
 
     Ok((new_branch_ref, move_changes_result))
 }
@@ -141,15 +148,14 @@ pub fn split_branch(
 /// 4. Insert the new branch as a dependent branch in the stack.
 /// 5. Update the stack
 pub fn split_into_dependent_branch(
-    ctx: &CommandContext,
+    ctx: &Context,
     stack_id: StackId,
     source_branch_name: String,
     new_branch_name: String,
     file_changes_to_split_off: &[String],
-    context_lines: u32,
+    perm: &mut RepoExclusive,
 ) -> Result<MoveChangesResult> {
-    let repository = ctx.gix_repo()?;
-    let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     let source_stack = vb_state.get_stack_in_workspace(stack_id)?;
     let merge_base = source_stack.merge_base(ctx)?;
@@ -160,37 +166,37 @@ pub fn split_into_dependent_branch(
 
     // Create a new branch reference
     let new_branch_ref_name = format!("refs/heads/{new_branch_name}");
-    let new_branch_log_message = format!(
-        "Split off changes from branch '{source_branch_name}' into new dependent branch '{new_branch_name}'"
-    );
+    let new_branch_log_message =
+        format!("Split off changes from branch '{source_branch_name}' into new dependent branch '{new_branch_name}'");
 
-    let new_ref = repository.reference(
-        new_branch_ref_name.clone(),
-        branch_head.to_gix(),
-        gix::refs::transaction::PreviousValue::Any,
-        new_branch_log_message.clone(),
-    )?;
+    let new_ref = ctx
+        .repo
+        .get()?
+        .reference(
+            new_branch_ref_name.clone(),
+            branch_head.to_gix(),
+            gix::refs::transaction::PreviousValue::Any,
+            new_branch_log_message.clone(),
+        )?
+        .detach();
 
     // Remove all but the specified changes from the new branch
-    let new_branch_commits =
-        ctx.repo()
-            .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
+    let new_branch_commits = ctx
+        .git2_repo
+        .get()?
+        .l(branch_head, LogUntil::Commit(merge_base.to_git2()), false)?;
 
     // Branch as rebase steps
     let mut dependent_branch_steps: Vec<RebaseStep> = Vec::new();
 
-    let reference_step = RebaseStep::Reference(but_core::Reference::Git(new_ref.name().to_owned()));
+    let reference_step = RebaseStep::Reference(but_core::Reference::Git(new_ref.name));
     dependent_branch_steps.push(reference_step);
 
     for commit in new_branch_commits {
         let commit_id = commit.to_gix();
-        if let Some(new_commit_id) = keep_only_file_changes_in_commit(
-            ctx,
-            commit_id,
-            file_changes_to_split_off,
-            context_lines,
-            true,
-        )? {
+        if let Some(new_commit_id) =
+            keep_only_file_changes_in_commit(ctx, commit_id, file_changes_to_split_off, true, perm)?
+        {
             let pick_step = RebaseStep::Pick {
                 commit_id: new_commit_id,
                 new_message: None,
@@ -201,43 +207,30 @@ pub fn split_into_dependent_branch(
 
     let steps = construct_source_steps(
         ctx,
-        &repository,
         file_changes_to_split_off,
         &source_stack,
         source_branch_name.clone(),
-        context_lines,
         Some(&dependent_branch_steps),
+        perm,
     )?;
 
-    let mut source_rebase = Rebase::new(&repository, merge_base, None)?;
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let mut source_rebase = Rebase::new(&repo, merge_base, None)?;
     source_rebase.steps(steps)?;
     source_rebase.rebase_noops(false);
     let source_result = source_rebase.rebase()?;
-    let new_head = repository.find_commit(source_result.top_commit)?;
+    let new_head = repo.find_commit(source_result.top_commit)?;
 
     let mut source_stack = source_stack;
 
     source_stack.add_series(
         ctx,
-        StackBranch::new(
-            CommitOrChangeId::CommitId(branch_head.to_string()),
-            new_branch_name,
-            None,
-            &repository,
-        )?,
+        StackBranch::new(branch_head.to_gix(), new_branch_name, &repo)?,
         Some(source_branch_name),
     )?;
 
-    source_stack.set_stack_head(
-        &vb_state,
-        &repository,
-        new_head.id().to_git2(),
-        Some(
-            repository
-                .find_real_tree(&new_head.id(), Default::default())?
-                .to_git2(),
-        ),
-    )?;
+    source_stack.set_stack_head(&vb_state, &repo, new_head.id().to_git2())?;
     source_stack.set_heads_from_rebase_output(ctx, source_result.clone().references)?;
 
     let move_changes_result = MoveChangesResult {
@@ -249,6 +242,7 @@ pub fn split_into_dependent_branch(
             .collect(),
     };
 
+    ws.refresh_from_head(&repo, &meta)?;
     Ok(move_changes_result)
 }
 
@@ -256,28 +250,29 @@ pub fn split_into_dependent_branch(
 ///
 /// All commits that end up empty after removing the specified file changes will be dropped.
 fn filter_file_changes_in_branch(
-    ctx: &CommandContext,
-    repository: &gix::Repository,
+    ctx: &Context,
     file_changes_to_split_off: &[String],
     source_stack: gitbutler_stack::Stack,
     source_branch_name: String,
     merge_base: gix::ObjectId,
-    context_lines: u32,
+    perm: &mut RepoExclusive,
 ) -> Result<but_rebase::RebaseOutput, anyhow::Error> {
     let source_steps = construct_source_steps(
         ctx,
-        repository,
         file_changes_to_split_off,
         &source_stack,
         source_branch_name,
-        context_lines,
         None,
+        perm,
     )?;
 
-    let mut source_rebase = Rebase::new(repository, merge_base, None)?;
-    source_rebase.steps(source_steps)?;
-    source_rebase.rebase_noops(false);
-    let source_result = source_rebase.rebase()?;
+    let source_result = {
+        let repo = ctx.repo.get()?;
+        let mut source_rebase = Rebase::new(&repo, merge_base, None)?;
+        source_rebase.steps(source_steps)?;
+        source_rebase.rebase_noops(false);
+        source_rebase.rebase()?
+    };
 
     let mut source_stack = source_stack;
 
@@ -287,26 +282,23 @@ fn filter_file_changes_in_branch(
 }
 
 fn construct_source_steps(
-    ctx: &CommandContext,
-    repository: &gix::Repository,
+    ctx: &Context,
     file_changes_to_split_off: &[String],
     source_stack: &gitbutler_stack::Stack,
     source_branch_name: String,
-    context_lines: u32,
     steps_to_insert: Option<&[RebaseStep]>,
+    perm: &mut RepoExclusive,
 ) -> Result<Vec<RebaseStep>, anyhow::Error> {
-    let source_steps = source_stack.as_rebase_steps_rev(ctx, repository)?;
+    let source_steps = source_stack.as_rebase_steps_rev(ctx)?;
     let mut new_source_steps = Vec::new();
     let mut inside_branch = false;
-    let branch_ref = repository
+    let branch_ref = ctx
+        .repo
+        .get()?
         .try_find_reference(&source_branch_name)?
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Source branch '{}' not found in repository",
-                source_branch_name
-            )
-        })?;
-    let branch_ref_name = branch_ref.name().to_owned();
+        .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", source_branch_name))?
+        .detach();
+    let branch_ref_name = branch_ref.name;
 
     let mut inserted_steps = false;
     for step in source_steps {
@@ -339,13 +331,7 @@ fn construct_source_steps(
         }
 
         if let RebaseStep::Pick { commit_id, .. } = &step {
-            match remove_file_changes_from_commit(
-                ctx,
-                *commit_id,
-                file_changes_to_split_off,
-                context_lines,
-                true,
-            )? {
+            match remove_file_changes_from_commit(ctx, *commit_id, file_changes_to_split_off, true, perm)? {
                 Some(rewritten_commit_id) if *commit_id != rewritten_commit_id => {
                     // Commit was rewritten, add updated step
                     let mut new_step = step.clone();

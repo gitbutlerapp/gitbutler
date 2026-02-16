@@ -36,9 +36,7 @@ pub fn main() {
     writer.flush().expect("flush():");
 
     // Clear the timeout (it's now time for the user to provide a response)
-    raw_stream
-        .set_read_timeout(None)
-        .expect("set_read_timeout(None):");
+    raw_stream.set_read_timeout(None).expect("set_read_timeout(None):");
 
     // Wait for the response.
     let mut password = String::new();

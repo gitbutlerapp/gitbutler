@@ -1,4 +1,6 @@
-use anyhow::{Context, Result, bail};
+use anyhow::{Context as _, Result};
+
+use crate::client::GitHubClient;
 
 pub async fn list(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
@@ -6,16 +8,25 @@ pub async fn list(
     repo: &str,
     storage: &but_forge_storage::Controller,
 ) -> Result<Vec<crate::client::PullRequest>> {
-    let account_id = resolve_account(preferred_account, storage)?;
-    if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
-        let gh = account_id
-            .client(&access_token)
-            .context("Failed to create GitHub client")?;
-        let pulls = gh
-            .list_open_pulls(owner, repo)
+    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
+        gh.list_open_pulls(owner, repo)
             .await
-            .context("Failed to list open pull requests")?;
-        Ok(pulls)
+            .context("Failed to list open pull requests")
+    } else {
+        Ok(vec![])
+    }
+}
+pub async fn list_all_for_branch(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    owner: &str,
+    repo: &str,
+    branch: &str,
+    storage: &but_forge_storage::Controller,
+) -> Result<Vec<crate::client::PullRequest>> {
+    if let Ok(gh) = GitHubClient::from_storage(storage, preferred_account) {
+        gh.list_pulls_for_base(owner, repo, branch)
+            .await
+            .context("Failed to list pull requests for branch")
     } else {
         Ok(vec![])
     }
@@ -26,22 +37,11 @@ pub async fn create(
     params: crate::client::CreatePullRequestParams<'_>,
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::client::PullRequest> {
-    let account_id = resolve_account(preferred_account, storage)?;
-    if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
-        let gh = account_id
-            .client(&access_token)
-            .context("Failed to create GitHub client")?;
-        let pr = gh
-            .create_pull_request(&params)
-            .await
-            .context("Failed to create pull request")?;
-        Ok(pr)
-    } else {
-        bail!(
-            "No GitHub access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
-            account_id
-        );
-    }
+    let pr = GitHubClient::from_storage(storage, preferred_account)?
+        .create_pull_request(&params)
+        .await
+        .context("Failed to create pull request")?;
+    Ok(pr)
 }
 
 pub async fn get(
@@ -51,45 +51,22 @@ pub async fn get(
     pr_number: usize,
     storage: &but_forge_storage::Controller,
 ) -> Result<crate::client::PullRequest> {
-    let account_id = resolve_account(preferred_account, storage)?;
-    if let Some(access_token) = crate::token::get_gh_access_token(&account_id, storage)? {
-        let gh = account_id
-            .client(&access_token)
-            .context("Failed to create GitHub client")?;
-        let pr_number = pr_number.try_into().context("PR number is too large")?;
-        let pr = gh
-            .get_pull_request(owner, repo, pr_number)
-            .await
-            .context("Failed to get pull request")?;
-        Ok(pr)
-    } else {
-        bail!(
-            "No GitHub access token found for account '{}'.\nPlease, try to re-authenticate with this account.",
-            account_id
-        );
-    }
+    let pr_number = pr_number.try_into().context("PR number is too large")?;
+    let pr = GitHubClient::from_storage(storage, preferred_account)?
+        .get_pull_request(owner, repo, pr_number)
+        .await
+        .context("Failed to get pull request")?;
+    Ok(pr)
 }
 
-fn resolve_account(
+pub async fn update(
     preferred_account: Option<&crate::GithubAccountIdentifier>,
+    params: crate::client::UpdatePullRequestParams<'_>,
     storage: &but_forge_storage::Controller,
-) -> Result<crate::GithubAccountIdentifier, anyhow::Error> {
-    let known_accounts = crate::token::list_known_github_accounts(storage)?;
-    let Some(default_account) = known_accounts.first() else {
-        bail!("No authenticated GitHub users found. Please authenticate with GitHub first.");
-    };
-    let account = if let Some(account) = preferred_account {
-        if known_accounts.contains(account) {
-            account
-        } else {
-            bail!(
-                "Preferred GitHub account '{}' has not authenticated yet. Please choose another account or authenticate with the desired account first.",
-                account
-            );
-        }
-    } else {
-        default_account
-    };
-
-    Ok(account.to_owned())
+) -> Result<crate::client::PullRequest> {
+    let pr = GitHubClient::from_storage(storage, preferred_account)?
+        .update_pull_request(&params)
+        .await
+        .context("Failed to update pull request")?;
+    Ok(pr)
 }

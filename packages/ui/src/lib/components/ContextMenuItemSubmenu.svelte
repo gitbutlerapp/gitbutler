@@ -15,7 +15,6 @@
 		disabled?: boolean;
 		keyboardShortcut?: string;
 		testId?: string;
-		tooltip?: string;
 		submenu: Snippet<[{ close: () => void }]>;
 		submenuSide?: 'left' | 'right';
 		submenuVerticalAlign?: 'top' | 'bottom';
@@ -27,7 +26,6 @@
 		disabled = false,
 		keyboardShortcut,
 		testId,
-		tooltip,
 		submenu,
 		submenuSide = 'right',
 		submenuVerticalAlign = 'top'
@@ -157,15 +155,7 @@
 	aria-expanded={isSubmenuOpen}
 	tabindex="-1"
 >
-	<ContextMenuItem
-		{icon}
-		{label}
-		{disabled}
-		{keyboardShortcut}
-		{testId}
-		{tooltip}
-		onclick={handleClick}
-	>
+	<ContextMenuItem {icon} {label} {disabled} {keyboardShortcut} {testId} onclick={handleClick}>
 		{#snippet control()}
 			<div class="submenu-chevron">
 				<Icon name="chevron-right-small" />
@@ -195,7 +185,7 @@
 		flex-direction: column;
 
 		&.active :global(.menu-item) {
-			background-color: var(--clr-bg-2-muted);
+			background-color: var(--hover-bg-2);
 		}
 	}
 

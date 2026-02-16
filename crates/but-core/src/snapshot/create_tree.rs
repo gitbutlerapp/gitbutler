@@ -7,7 +7,7 @@ use crate::WorktreeChanges;
 /// A way to determine what should be included in the snapshot when calling [create_tree()](function::create_tree).
 #[derive(Debug, Clone)]
 pub struct State {
-    /// The result of a previous worktree changes call, but [the one **without** renames](but_core::diff::worktree_changes_no_renames()).
+    /// The result of a previous worktree changes call, but [the one **without** renames](crate::diff::worktree_changes_no_renames()).
     ///
     /// It contains detailed information about the complete set of possible changes to become part of the worktree.
     pub changes: WorktreeChanges,
@@ -54,7 +54,7 @@ impl Outcome {
 pub(super) mod function {
     use std::collections::BTreeSet;
 
-    use anyhow::{Context, bail};
+    use anyhow::{Context as _, bail};
     use bstr::{BString, ByteSlice};
     use gix::{diff::index::Change, object::tree::EntryKind};
     use tracing::instrument;
@@ -141,10 +141,7 @@ pub(super) mod function {
             0, /* context lines don't matter */
         )?;
 
-        let rejected = changes_to_apply
-            .into_iter()
-            .filter_map(Result::err)
-            .collect::<Vec<_>>();
+        let rejected = changes_to_apply.into_iter().filter_map(Result::err).collect::<Vec<_>>();
         if !rejected.is_empty() {
             bail!(
                 "It should be impossible to fail to apply changes that are in the tree that was provided as HEAD^{{tree}} - {rejected:?}"

@@ -31,6 +31,7 @@
 		grow?: boolean;
 		clientHeight?: number;
 		resizer?: Partial<ComponentProps<typeof Resizer>>;
+		rounded?: boolean;
 		ontoggle?: (collapsed: boolean) => void;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
@@ -44,6 +45,7 @@
 		grow,
 		clientHeight = $bindable(),
 		resizer,
+		rounded,
 		ontoggle,
 		onerror,
 		onclose
@@ -106,7 +108,7 @@
 			throw new Error('No branch selected!');
 		}
 		if (!commitMessage) {
-			showToast({ message: 'Commit message is required', style: 'error' });
+			showToast({ message: 'Commit message is required', style: 'danger' });
 			return;
 		}
 
@@ -150,6 +152,7 @@
 			persistId="commit-view-drawer-{projectId}-{stackId}-{commitKey.commitId}"
 			{resizer}
 			{grow}
+			{rounded}
 			{ontoggle}
 			onclose={() => {
 				// When the commit view is closed, we also want to unset the
@@ -159,7 +162,7 @@
 				cancelEdit();
 				onclose?.();
 			}}
-			bottomBorder
+			bottomBorder={false}
 			noshrink
 		>
 			{#snippet header()}
@@ -171,7 +174,7 @@
 				/>
 			{/snippet}
 
-			{#snippet actions(header)}
+			{#snippet actions()}
 				{#if canEdit()}
 					<Button
 						testId={TestId.CommitDrawerActionEditMessage}
@@ -195,7 +198,7 @@
 						}
 					: undefined}
 				{#if data}
-					<CommitContextMenu {projectId} rightClickTrigger={header} contextData={data} />
+					<CommitContextMenu {projectId} contextData={data} />
 				{/if}
 			{/snippet}
 

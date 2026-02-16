@@ -13,11 +13,12 @@
 		"wdio-video-reporter": "^6.0.0"
 	},
 	"scripts": {
+		"install-playwright": "pnpm exec playwright install",
 		"test:e2e": "pnpm test:e2e:not-tauri",
 		"test:e2e:not-tauri": "wdio run ./web/wdio.web.conf.ts",
 		"test:e2e:blackbox": "wdio run ./blackbox/wdio.blackbox.conf.ts",
 		"test:e2e:playwright": "pnpm exec playwright test --config ./playwright/playwright.config.ts --tsconfig ./playwright/tsconfig.json",
-		"test:e2e:playwright:open": "pnpm exec playwright test --config ./playwright/playwright.config.ts --tsconfig ./playwright/tsconfig.json --ui"
+		"test:e2e:playwright:open": "PLAYWRIGHT_UI=1 pnpm exec playwright test --config ./playwright/playwright.config.ts --tsconfig ./playwright/tsconfig.json --ui"
 	},
 	"dependencies": {
 		"@gitbutler/ui": "workspace:*",

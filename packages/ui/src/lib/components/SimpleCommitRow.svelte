@@ -2,71 +2,93 @@
 	// import type { Snippet } from 'svelte';
 	export interface Props {
 		title: string;
+		aiMessage?: string;
 		sha: string;
 		upstreamSha?: string;
 		date: Date;
 		author?: string;
 		url?: string;
 		onlyContent?: boolean;
+		isDone?: boolean;
 		onCopy?: () => void;
 		onCopyUpstream?: () => void;
 		onOpen?: (url: string) => void;
+		loading?: boolean;
 	}
 </script>
 
 <script lang="ts">
+	import CopyButton from '$components/CopyButton.svelte';
 	import Icon from '$components/Icon.svelte';
+	import SimpleCommitRowSkeleton from '$components/SimpleCommitRowSkeleton.svelte';
 	import { getTimeAndAuthor } from '$lib/utils/getTimeAndAuthor';
 
 	const {
 		title,
+		aiMessage,
 		sha,
 		author,
 		date,
 		url,
 		onlyContent,
 		upstreamSha,
+		isDone,
 		onCopy,
 		onCopyUpstream,
-		onOpen
+		onOpen,
+		loading
 	}: Props = $props();
 </script>
 
-<div class="simple-commit-item no-select" class:content-only={onlyContent}>
-	{#if !onlyContent}
-		<Icon name="commit" />
-	{/if}
-	<div class="content">
-		<span class="title text-13 text-semibold">
-			{title}
-		</span>
-		<div class="details text-11">
-			<button type="button" class="details-btn copy-btn" onclick={onCopy}>
-				<span>{sha.substring(0, 7)}</span>
-				<Icon name="copy-small" />
-			</button>
+{#if loading}
+	<SimpleCommitRowSkeleton {onlyContent} />
+{:else}
+	<div class="simple-commit-item no-select" class:content-only={onlyContent}>
+		{#if !onlyContent}
+			{#if isDone}
+				<Icon name="success" color="safe" />
+			{:else}
+				<Icon name="commit" />
+			{/if}
+		{/if}
+		<div class="content">
+			<span class="title text-13 text-semibold">
+				{title}
+			</span>
 
-			{#if upstreamSha}
-				<span class="details-divider">•</span>
-				<button type="button" class="details-btn copy-btn" onclick={onCopyUpstream}>
-					<span> upstream {upstreamSha.substring(0, 7)}</span>
-					<Icon name="copy-small" />
-				</button>
+			{#if aiMessage}
+				<div class="ai-message text-12 text-body">
+					<p>{aiMessage}</p>
+				</div>
 			{/if}
 
-			{#if url && onOpen}
-				<span class="details-divider">•</span>
-				<button type="button" class="details-btn link-btn" onclick={() => onOpen(url)}>
-					<span>Open</span>
-					<Icon name="open-link" />
-				</button>
-			{/if}
+			<div class="details text-11">
+				<CopyButton class="details-btn" text={sha} onclick={onCopy} />
 
-			<span class="details-divider">•</span>
-			<span class="truncate">{getTimeAndAuthor(date, author)}</span>
+				{#if upstreamSha}
+					<span class="details-divider">•</span>
+					<CopyButton
+						class="details-btn"
+						text={upstreamSha}
+						prefix="upstream"
+						onclick={onCopyUpstream}
+					/>
+				{/if}
+
+				{#if url && onOpen}
+					<span class="details-divider">•</span>
+					<button type="button" class="details-btn link-btn" onclick={() => onOpen(url)}>
+						<span>Open</span>
+						<Icon name="open-link" />
+					</button>
+				{/if}
+
+				<span class="details-divider">•</span>
+				<span class="truncate">{getTimeAndAuthor(date, author)}</span>
+			</div>
 		</div>
 	</div>
-</div>
+{/if}
 
 <style lang="postcss">
 	.simple-commit-item {
@@ -83,8 +105,9 @@
 			}
 		}
 
-		.content {
+		& .content {
 			display: flex;
+			flex: 1;
 			flex-direction: column;
 			overflow: hidden;
 			gap: 6px;
@@ -95,13 +118,33 @@
 			}
 		}
 
-		.title {
+		& .title {
 			overflow: hidden;
 			text-overflow: ellipsis;
 			white-space: nowrap;
 		}
 
-		.details {
+		& .ai-message {
+			display: flex;
+			position: relative;
+			align-items: flex-end;
+			max-height: 8cap;
+			overflow: hidden;
+			color: var(--clr-text-2);
+			animation: fadeInOut 0.6s ease-in-out infinite alternate;
+
+			&::before {
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				width: 100%;
+				height: 3rem;
+				background: linear-gradient(to bottom, rgba(255, 210, 202, 0) 0%, var(--clr-bg-1) 100%);
+				content: '';
+			}
+		}
+
+		& .details {
 			display: flex;
 			align-items: center;
 			overflow: hidden;
@@ -109,7 +152,7 @@
 			color: var(--clr-text-2);
 		}
 
-		.details-btn {
+		& .details-btn {
 			display: flex;
 			align-items: center;
 			transition: color var(--transition-fast);
@@ -123,24 +166,25 @@
 			}
 		}
 
-		.copy-btn {
-			& span {
-				text-decoration: underline;
-				text-decoration-style: dotted;
-				text-underline-offset: 3px;
-			}
-		}
-
-		.link-btn {
+		& .link-btn {
 			& span {
 				text-decoration: underline;
 				text-underline-offset: 3px;
 			}
 		}
 
-		.details-divider {
+		& .details-divider {
 			color: var(--clr-text-3);
 			line-height: 150%;
+		}
+	}
+
+	@keyframes fadeInOut {
+		0% {
+			opacity: 0.6;
+		}
+		100% {
+			opacity: 1;
 		}
 	}
 </style>

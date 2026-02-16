@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
-use but_core::commit::ConflictEntries;
-use but_oxidize::{GixRepositoryExt as _, ObjectIdExt as _, OidExt as _};
-use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
-use gitbutler_command_context::gix_repo_for_merging;
-use gitbutler_commit::commit_headers::CommitHeadersV2;
+use anyhow::{Context as _, Result};
+use but_core::{
+    RepositoryExt,
+    commit::{ConflictEntries, Headers},
+};
+use but_oxidize::{ObjectIdExt as _, OidExt as _};
+use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 
 use crate::RepositoryExt as _;
 
@@ -22,8 +23,7 @@ fn extract_conflicted_files(
         treat_as_unresolved,
         gix::merge::tree::apply_index_entries::RemovalMode::Mark,
     );
-    let (mut ancestor_entries, mut our_entries, mut their_entries) =
-        (Vec::new(), Vec::new(), Vec::new());
+    let (mut ancestor_entries, mut our_entries, mut their_entries) = (Vec::new(), Vec::new(), Vec::new());
     for entry in index.entries() {
         let stage = entry.stage();
         let storage = match stage {
@@ -100,7 +100,7 @@ pub fn merge_commits(
 
     let target_merge_tree = repo.find_real_tree(&target_commit, Default::default())?;
     let incoming_merge_tree = repo.find_real_tree(&incoming_commit, Default::default())?;
-    let gix_repo = gix_repo_for_merging(repo.path())?;
+    let gix_repo = but_core::open_repo_for_merging(repo.path())?;
     let mut merge_result = gix_repo.merge_trees(
         base_tree.id().to_gix(),
         incoming_merge_tree.id().to_gix(),
@@ -113,8 +113,7 @@ pub fn merge_commits(
     let tree_oid;
     let forced_resolution = gix::merge::tree::TreatAsUnresolved::forced_resolution();
     let commit_headers = if merge_result.has_unresolved_conflicts(forced_resolution) {
-        let conflicted_files =
-            extract_conflicted_files(merged_tree_id, merge_result, forced_resolution)?;
+        let conflicted_files = extract_conflicted_files(merged_tree_id, merge_result, forced_resolution)?;
 
         // convert files into a string and save as a blob
         let conflicted_files_string = toml::to_string(&conflicted_files)?;
@@ -127,16 +126,8 @@ pub fn merge_commits(
         tree_writer.insert(&*ConflictedTreeKey::Ours, incoming_tree.id(), 0o040000)?;
         tree_writer.insert(&*ConflictedTreeKey::Theirs, target_tree.id(), 0o040000)?;
         tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
-        tree_writer.insert(
-            &*ConflictedTreeKey::AutoResolution,
-            merged_tree_id.to_git2(),
-            0o040000,
-        )?;
-        tree_writer.insert(
-            &*ConflictedTreeKey::ConflictFiles,
-            conflicted_files_blob,
-            0o100644,
-        )?;
+        tree_writer.insert(&*ConflictedTreeKey::AutoResolution, merged_tree_id.to_git2(), 0o040000)?;
+        tree_writer.insert(&*ConflictedTreeKey::ConflictFiles, conflicted_files_blob, 0o100644)?;
 
         // in case someone checks this out with vanilla Git, we should warn why it looks like this
         let readme_content =
@@ -148,7 +139,7 @@ pub fn merge_commits(
         conflicted_files.to_headers()
     } else {
         tree_oid = merged_tree_id.to_git2();
-        CommitHeadersV2::default()
+        Headers::new_with_random_change_id()
     };
 
     let (author, committer) = repo.signatures()?;
@@ -190,17 +181,17 @@ trait ToHeaders {
     /// removed the path that would otherwise be conflicting.
     /// In other words: conflicting index entries aren't reliable when conflicts were resolved
     /// with the 'ours' strategy.
-    fn to_headers(&self) -> CommitHeadersV2;
+    fn to_headers(&self) -> Headers;
 }
 
 impl ToHeaders for ConflictEntries {
-    fn to_headers(&self) -> CommitHeadersV2 {
-        CommitHeadersV2 {
+    fn to_headers(&self) -> Headers {
+        Headers {
             conflicted: Some({
                 let entries = self.total_entries();
                 if entries > 0 { entries as u64 } else { 1 }
             }),
-            ..Default::default()
+            ..Headers::new_with_random_change_id()
         }
     }
 }

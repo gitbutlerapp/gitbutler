@@ -1,27 +1,32 @@
 [package]
 name = "but-ctx"
 version = "0.0.0"
-edition = "2024"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
+edition.workspace = true
+authors.workspace = true
 publish = false
 description = "A context implementation specific to a repository"
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
+test = true
 
 [features]
 # Support for a built-in legacy project.
-legacy = ["dep:gitbutler-project", "dep:gitbutler-command-context"]
+legacy = ["dep:gitbutler-project"]
 
 [dependencies]
+but-path.workspace = true
 but-core.workspace = true
 but-settings.workspace = true
+# Legacy is needed here for our only RefMetadata implementation that adapts `virtual-branches.toml`.
 but-meta = { workspace = true, features = ["legacy"] }
+but-db.workspace = true
+but-graph.workspace = true
 
 gitbutler-project = { workspace = true, optional = true }
-gitbutler-command-context = { workspace = true, optional = true }
 
+tracing.workspace = true
 anyhow.workspace = true
 gix.workspace = true
+git2.workspace = true

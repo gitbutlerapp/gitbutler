@@ -9,9 +9,10 @@
 </script>
 
 <script lang="ts">
+	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
 	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
 	import { inject } from '@gitbutler/core/context';
-	import { Button, ElementId, Modal, TestId, Textbox } from '@gitbutler/ui';
+	import { Button, ElementId, Modal, TestId } from '@gitbutler/ui';
 
 	const { projectId, stackId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
@@ -19,11 +20,16 @@
 	const [renameBranch, renameQuery] = stackService.updateBranchName;
 
 	let newName: string | undefined = $state();
+	let slugifiedRefName: string | undefined = $state();
 	let modal: Modal | undefined = $state();
 
-	export function show() {
+	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
+
+	export async function show() {
 		newName = branchName;
 		modal?.show();
+		// Select text after async value is set
+		await branchNameInput?.selectAll();
 	}
 </script>
 
@@ -34,17 +40,19 @@
 	type={isPushed ? 'warning' : 'info'}
 	bind:this={modal}
 	onSubmit={async (close) => {
-		if (newName) {
-			renameBranch({ projectId, stackId, laneId, branchName, newName });
+		if (slugifiedRefName) {
+			renameBranch({ projectId, stackId, laneId, branchName, newName: slugifiedRefName });
 		}
 		close();
 	}}
 >
-	<Textbox
+	<BranchNameTextbox
+		bind:this={branchNameInput}
 		placeholder="New name"
 		id={ElementId.NewBranchNameInput}
 		bind:value={newName}
 		autofocus
+		onslugifiedvalue={(value) => (slugifiedRefName = value)}
 	/>
 
 	{#if isPushed}
@@ -60,7 +68,7 @@
 			testId={TestId.BranchHeaderRenameModal_ActionButton}
 			style="pop"
 			type="submit"
-			disabled={!newName}
+			disabled={!slugifiedRefName}
 			loading={renameQuery.current.isLoading}>Rename</Button
 		>
 	{/snippet}
@@ -69,7 +77,7 @@
 <style lang="postcss">
 	.helper-text {
 		margin-top: 1rem;
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 		line-height: 1.5;
 	}
 </style>

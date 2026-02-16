@@ -1,9 +1,9 @@
 [package]
 name = "gitbutler-testsupport"
 version = "0.0.0"
-edition = "2024"
+edition.workspace = true
 publish = false
-rust-version = "1.89"
+rust-version.workspace = true
 
 [lib]
 path = "src/lib.rs"
@@ -11,21 +11,20 @@ doctest = false
 test = false
 
 [dependencies]
+but-core = { workspace = true, features = ["legacy"] }
 but-settings.workspace = true
 but-oxidize.workspace = true
-but-meta = {workspace = true, features = ["legacy"]}
 but-workspace.workspace = true
 but-fs = {workspace = true, features = ["legacy"]}
+but-ctx.workspace = true
 
 gitbutler-branch-actions = { path = "../gitbutler-branch-actions" }
 gitbutler-repo = { path = "../gitbutler-repo" }
-gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 gitbutler-user.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-url.workspace = true
 gitbutler-stack.workspace = true
-gitbutler-commit.workspace = true
 
 anyhow.workspace = true
 once_cell = "1.20"

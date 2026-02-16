@@ -31,14 +31,23 @@ export type CalculationError = {
 	path: string;
 };
 
+export type HunkLockTarget =
+	| {
+			type: 'stack';
+			subject: string;
+	  }
+	| {
+			type: 'unidentified';
+	  };
+
 /**
- * Represents the depdendency of a diff hunk on a stack and commit.
+ * Represents the dependency of a diff hunk on a stack and commit.
  */
 export type HunkLock = {
 	/**
-	 * The stack ID that this hunk is dependent on.
+	 * The stack that this hunk is dependent on.
 	 */
-	stackId: string;
+	target: HunkLockTarget;
 	/**
 	 * The commit ID that this hunk is dependent on.
 	 */
@@ -52,7 +61,7 @@ export type DiffDependency = [string, DiffHunk, HunkLock[]];
 
 export type HunkDependencies = {
 	/**
-	 * The dependecies of the hunks in the diff.
+	 * The dependencies of the hunks in the diff.
 	 */
 	diffs: DiffDependency[];
 	/**
@@ -161,4 +170,72 @@ export function aggregateFileDependencies(
 	);
 
 	return [filePaths, fileDependencies];
+}
+
+/**
+ * Checks if a file has any locked dependencies.
+ *
+ * @param filePath - The path of the file to check.
+ * @param fileDependencies - Array of file dependencies to search through.
+ * @returns `true` if the file has any locks, `false` otherwise.
+ */
+export function isFileLocked(filePath: string, fileDependencies: FileDependencies[]): boolean {
+	const deps = fileDependencies.find((dep) => dep.path === filePath);
+	return deps ? deps.dependencies.some((dep) => dep.locks.length > 0) : false;
+}
+
+/**
+ * Extracts unique commit IDs from a file's dependencies.
+ *
+ * @param filePath - The path of the file to get commit IDs for.
+ * @param fileDependencies - Array of file dependencies to search through.
+ * @returns Array of unique commit IDs that the file depends on.
+ */
+export function getLockedCommitIds(
+	filePath: string,
+	fileDependencies: FileDependencies[]
+): string[] {
+	const deps = fileDependencies.find((dep) => dep.path === filePath);
+	if (!deps) return [];
+
+	const commitIds = new Set<string>();
+	deps.dependencies.forEach((dep) => {
+		dep.locks.forEach((lock) => commitIds.add(lock.commitId));
+	});
+	return Array.from(commitIds);
+}
+
+/**
+ * Extracts unique stack IDs from a file's dependencies.
+ *
+ * @param filePath - The path of the file to get stack IDs for.
+ * @param fileDependencies - Array of file dependencies to search through.
+ * @returns Array of unique stack IDs that the file depends on.
+ */
+export function getLockedTargets(
+	filePath: string,
+	fileDependencies: FileDependencies[]
+): HunkLockTarget[] {
+	const deps = fileDependencies.find((dep) => dep.path === filePath);
+	if (!deps) return [];
+
+	const targets: HunkLockTarget[] = [];
+	deps.dependencies.forEach((dep) => {
+		dep.locks.forEach((lock) => {
+			if (!targets.some((t) => targetEqual(t, lock.target))) {
+				targets.push(lock.target);
+			}
+		});
+	});
+	return targets;
+}
+
+export function targetEqual(a: HunkLockTarget, b: HunkLockTarget) {
+	if (a.type === 'stack' && a.type === b.type) {
+		return a.subject === b.subject;
+	} else if (a.type === 'unidentified' && a.type === b.type) {
+		return true;
+	} else {
+		return false;
+	}
 }

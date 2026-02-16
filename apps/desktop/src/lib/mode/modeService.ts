@@ -32,6 +32,10 @@ interface HeadAndMode {
 	operatingMode?: Mode;
 }
 
+interface HeadSha {
+	headSha?: string;
+}
+
 export const MODE_SERVICE = new InjectionToken<ModeService>('ModeService');
 
 export class ModeService {
@@ -69,8 +73,18 @@ export class ModeService {
 		return this.api.endpoints.changesSinceInitialEditState.useQuery;
 	}
 
-	get mode() {
-		return this.api.endpoints.mode.useQuery;
+	mode(projectId: string) {
+		return this.api.endpoints.headAndMode.useQuery(
+			{ projectId },
+			{ transform: (response) => response.operatingMode }
+		);
+	}
+
+	head(projectId: string) {
+		return this.api.endpoints.headSha.useQuery(
+			{ projectId },
+			{ transform: (response) => response.headSha }
+		);
 	}
 }
 
@@ -98,7 +112,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesList(ReduxTag.WorktreeChanges),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.HeadSha),
 					invalidatesList(ReduxTag.HeadMetadata)
 				]
 			}),
@@ -136,7 +150,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					unsubscribe();
 				}
 			}),
-			mode: build.query<Mode, { projectId: string }>({
+			headAndMode: build.query<HeadAndMode, { projectId: string }>({
 				extraOptions: { command: 'operating_mode' },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.HeadMetadata)],
@@ -148,7 +162,26 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					const unsubscribe = lifecycleApi.extra.backend.listen<HeadAndMode>(
 						`project://${arg.projectId}/git/head`,
 						(event) => {
-							lifecycleApi.updateCachedData(() => event.payload.operatingMode);
+							lifecycleApi.updateCachedData(() => event.payload);
+						}
+					);
+					await lifecycleApi.cacheEntryRemoved;
+					unsubscribe();
+				}
+			}),
+			headSha: build.query<HeadSha, { projectId: string }>({
+				extraOptions: { command: 'head_sha' },
+				query: (args) => args,
+				providesTags: [providesList(ReduxTag.HeadSha)],
+				async onCacheEntryAdded(arg, lifecycleApi) {
+					if (!hasBackendExtra(lifecycleApi.extra)) {
+						throw new Error('Redux dependency Backend not found!');
+					}
+					await lifecycleApi.cacheDataLoaded;
+					const unsubscribe = lifecycleApi.extra.backend.listen<HeadSha>(
+						`project://${arg.projectId}/git/activity`,
+						(event) => {
+							lifecycleApi.updateCachedData(() => event.payload);
 						}
 					);
 					await lifecycleApi.cacheEntryRemoved;

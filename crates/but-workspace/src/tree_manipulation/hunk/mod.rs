@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::Context as _;
 use but_core::{HunkHeader, HunkRange};
 
 #[derive(Debug, Copy, Clone)]
@@ -73,12 +73,7 @@ pub(crate) fn subtract_hunks(
     }
 
     /// This works if `hdr` at `idx` in `out` fully contains `subtrahend`.
-    fn adjust_boundary_or_split_equally(
-        out: &mut Vec<HunkHeader>,
-        idx: usize,
-        mut hdr: Header,
-        subtrahend: HunkRange,
-    ) {
+    fn adjust_boundary_or_split_equally(out: &mut Vec<HunkHeader>, idx: usize, mut hdr: Header, subtrahend: HunkRange) {
         if hdr.edit.start == subtrahend.start {
             hdr.edit.start += subtrahend.lines;
             hdr.edit.lines -= subtrahend.lines;

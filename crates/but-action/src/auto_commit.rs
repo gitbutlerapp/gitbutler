@@ -1,66 +1,285 @@
-use anyhow::Context;
-use but_tools::{emit::Emitter, workspace::commit_toolset};
-use gitbutler_command_context::CommandContext;
+use std::path::Path;
 
-use crate::OpenAiProvider;
+use bstr::BString;
+use but_core::sync::RepoExclusiveGuard;
+use but_hunk_assignment::{CommitMap, convert_assignments_to_diff_specs};
+use but_workspace::commit_engine;
+use gitbutler_project::ProjectId;
+use serde::Serialize;
 
-pub fn auto_commit(
-    emitter: std::sync::Arc<Emitter>,
-    ctx: &mut CommandContext,
-    openai: &OpenAiProvider,
-    changes: Vec<but_core::TreeChange>,
-) -> anyhow::Result<()> {
-    let repo = ctx.gix_repo()?;
+type AutoCommitEmitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;
 
-    let paths = changes
-        .iter()
-        .map(|change| change.path.clone())
-        .collect::<Vec<_>>();
-    let project_status = but_tools::workspace::get_project_status(ctx, &repo, Some(paths))?;
-    let serialized_status = serde_json::to_string_pretty(&project_status)
-        .context("Failed to serialize project status")?;
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[cfg_attr(feature = "export-ts", ts(export, export_to = "./action/autoCommit.ts"))]
+enum AutoCommitEvent {
+    /// Emitted when the auto-commit process has started.
+    ///
+    /// `steps_length`: The total number of steps in the auto-commit process.
+    Started { steps_length: usize },
+    /// Emitted when a commit message is being generated.
+    ///
+    /// `parent_commit_id`: The ID of the parent commit for which the message is being generated.
+    /// `token`: A token representing the progress of the commit message generation.
+    CommitGeneration {
+        #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+        #[serde(with = "but_serde::object_id")]
+        parent_commit_id: gix::ObjectId,
+        token: String,
+    },
+    /// Emitted when a commit has been successfully created.
+    ///
+    /// `commit_id`: The ID of the newly created commit.
+    CommitSuccess {
+        #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+        #[serde(with = "but_serde::object_id")]
+        commit_id: gix::ObjectId,
+    },
+    /// Emitted when an error occurs during the auto-commit process.
+    ///
+    /// `error_message`: A message describing the error.
+    CommitError { error_message: String },
+    /// Emitted when the auto-commit process has completed.
+    Completed,
+}
 
-    let mut toolset = commit_toolset(ctx, emitter.clone());
+impl AutoCommitEvent {
+    fn event_name(&self, project_id: ProjectId) -> String {
+        format!("project://{}/auto-commit", project_id)
+    }
 
-    let system_message ="
-        You are an expert in grouping and committing file changes into logical units for version control.
-        When given the status of a project, you should be able to identify related changes and suggest how they should be grouped into commits.
-        It's also important to suggest a branch for each group of changes.
-        The branch can be either an existing branch or a new one.
-        In order to determine the branch, you should consider diffs, the assignments and the dependency locks, if any.
-        Before committing, you should create the branches that are needed for the changes, if they don't already exist.
-        ";
+    fn emit_payload(&self) -> serde_json::Value {
+        serde_json::to_value(self)
+            .unwrap_or_else(|e| serde_json::json!({"error": format!("Failed to serialize event payload: {}", e)}))
+    }
+}
 
-    let prompt = format!("
-        Please, figure out how to group the file changes into logical units for version control and commit them.
-        Follow these steps:
-        1. Take a look at the exisiting branches and the file changes. You can see all this information in the **project status** below.
-        2. Determine which are the related changes that should be grouped together. You can do this by looking at the diffs, assignments, and dependency locks, if any.
-        3. Determine if any new branches need to be created. If so, create them using the provided tool. Most of the time, all commits should be made to the same branch. Prefer that, but if you find that the changes are unrelated, commit to separate branches.
-        4. For each group of changes, create a commit (using the provided tool) with a detailed summary of the changes in the group (not the intention, but an overview of the actual changes made and why they are related).
-        5. When you're done, only send the message 'done'
-        
-        Grouping rules:
-        - Group changes that modify files within the same feature, module, or directory.
-        - If multiple files are changed together to implement a single feature or fix, group them in one commit.
-        - Dependency updates (e.g., lockfiles or package manifests) should be grouped separately from code changes unless they are tightly coupled.
-        - Refactoring or formatting changes that affect many files but do not change functionality should be grouped together.
-        - Avoid grouping unrelated changes in the same commit.
-        - Aim to keep commits small and focused, but don't go overboard with tiny commits that don't add value.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn auto_commit(
+    project_id: ProjectId,
+    repo: &gix::Repository,
+    project_data_dir: &Path,
+    context_lines: u32,
+    llm: Option<&but_llm::LLMProvider>,
+    emitter: impl Fn(&str, serde_json::Value) + Send + Sync + 'static,
+    absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
+    guard: &mut RepoExclusiveGuard,
+) -> anyhow::Result<usize> {
+    let commit_map = CommitMap::default();
 
-        Here is the project status:
-        <project_status>
-                {serialized_status}
-        </project_status>
-    ");
+    let emitter: std::sync::Arc<AutoCommitEmitter> = std::sync::Arc::new(emitter);
 
-    crate::openai::tool_calling_loop(
-        openai,
-        system_message,
-        vec![prompt.into()],
-        &mut toolset,
+    // Emit the started event
+    let event = AutoCommitEvent::Started {
+        steps_length: absorption_plan.len(),
+    };
+    let event_name = event.event_name(project_id);
+    emitter(&event_name, event.emit_payload());
+
+    match apply_commit_changes(
+        Some(project_id),
+        repo,
+        project_data_dir,
+        context_lines,
+        llm,
+        absorption_plan,
+        guard,
+        commit_map,
+        Some(emitter.clone()),
+    ) {
+        Err(e) => {
+            tracing::error!("Auto-commit failed: {}", e);
+            let event = AutoCommitEvent::CommitError {
+                error_message: e.to_string(),
+            };
+            let event_name = event.event_name(project_id);
+            let emitter = emitter.clone();
+            emitter(&event_name, event.emit_payload());
+            Err(e)
+        }
+        Ok(number_of_rejections) => {
+            let event = AutoCommitEvent::Completed;
+            let event_name = event.event_name(project_id);
+            let emitter = emitter.clone();
+            emitter(&event_name, event.emit_payload());
+            Ok(number_of_rejections)
+        }
+    }
+}
+
+pub(crate) fn auto_commit_simple(
+    repo: &gix::Repository,
+    project_data_dir: &Path,
+    context_lines: u32,
+    llm: Option<&but_llm::LLMProvider>,
+    absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
+    guard: &mut RepoExclusiveGuard,
+) -> anyhow::Result<usize> {
+    let commit_map = CommitMap::default();
+
+    apply_commit_changes(
         None,
-    )?;
+        repo,
+        project_data_dir,
+        context_lines,
+        llm,
+        absorption_plan,
+        guard,
+        commit_map,
+        None,
+    )
+}
 
-    Ok(())
+#[allow(clippy::too_many_arguments)]
+fn apply_commit_changes(
+    project_id: Option<ProjectId>,
+    repo: &gix::Repository,
+    project_data_dir: &Path,
+    context_lines: u32,
+    llm: Option<&but_llm::LLMProvider>,
+    absorption_plan: Vec<but_hunk_assignment::CommitAbsorption>,
+    guard: &mut RepoExclusiveGuard,
+    mut commit_map: CommitMap,
+    emitter: Option<std::sync::Arc<AutoCommitEmitter>>,
+) -> anyhow::Result<usize> {
+    let mut total_rejected = 0;
+    for absorption in absorption_plan {
+        let diff_specs = convert_assignments_to_diff_specs(
+            &absorption
+                .files
+                .iter()
+                .map(|f| f.assignment.clone())
+                .collect::<Vec<_>>(),
+        )?;
+        let diff_infos = absorption_files_to_diff_infos(&absorption.files);
+        let commit_id = commit_map.find_mapped_id(absorption.commit_id);
+        let stack_id = absorption.stack_id;
+        let commit_message = commit_message_generation(project_id, commit_id, llm, emitter.as_ref(), &diff_infos)?;
+        let outcome = but_workspace::legacy::commit_engine::create_commit_and_update_refs_with_project(
+            repo,
+            project_data_dir,
+            Some(stack_id),
+            commit_engine::Destination::NewCommit {
+                message: commit_message,
+                parent_commit_id: Some(commit_id),
+                stack_segment: None,
+            },
+            diff_specs,
+            context_lines,
+            guard.write_permission(),
+        )?;
+
+        if let Some(new_commit_id) = outcome.new_commit
+            && let Some(project_id) = project_id
+            && let Some(emitter) = &emitter
+        {
+            let event = AutoCommitEvent::CommitSuccess {
+                commit_id: new_commit_id,
+            };
+            let event_name = event.event_name(project_id);
+            emitter(&event_name, event.emit_payload());
+        }
+
+        if let Some(rebase_output) = &outcome.rebase_output {
+            for mapping in &rebase_output.commit_mapping {
+                commit_map.add_mapping(mapping.1, mapping.2);
+            }
+        }
+
+        total_rejected += outcome.rejected_specs.len();
+    }
+
+    Ok(total_rejected)
+}
+
+#[derive(Debug, Clone)]
+struct DiffInfo {
+    /// The file path of the diff.
+    path: String,
+    /// The diff content.
+    diff: BString,
+}
+
+impl std::fmt::Display for DiffInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "file: {}\n{}", self.path, self.diff)
+    }
+}
+
+fn absorption_files_to_diff_infos(absorption_files: &[but_hunk_assignment::FileAbsorption]) -> Vec<DiffInfo> {
+    absorption_files
+        .iter()
+        .filter_map(|f| {
+            f.assignment.diff.as_ref().map(|diff| DiffInfo {
+                path: f.path.clone(),
+                diff: diff.clone(),
+            })
+        })
+        .collect()
+}
+
+/// Generate a commit message using the LLM provider, if available.
+///
+/// If no project and no emitter are provided, the function will not stream tokens.
+fn commit_message_generation(
+    project_id: Option<ProjectId>,
+    parent_commit_id: gix::ObjectId,
+    llm: Option<&but_llm::LLMProvider>,
+    emitter: Option<&std::sync::Arc<AutoCommitEmitter>>,
+    hunk_diffs: &[DiffInfo],
+) -> anyhow::Result<String> {
+    if let Some(llm) = llm
+        && let Some(model) = llm.model()
+    {
+        let system_message = "
+<tone>
+    You are an expert git commit message generator.
+    Your task is to create clear, concise, and descriptive commit messages (title and body) based on the provided diffs.
+    The response is intended to be used directly as a git commit message.
+</tone>
+
+<instructions>
+    - Summarize the changes made in the diff.
+    - Use imperative mood (e.g., 'Fix bug', 'Add feature').
+    - Generate a title and a body if necessary.
+    - Keep the message title concise, ideally under 50 characters for the subject line.
+    - The body should provide additional context, but not be overly verbose.
+    - If multiple changes are present, provide a brief overview.
+</instructions>
+
+<format>
+    - Return only the commit message text without any additional formatting or explanations.
+    - Ensure the title and body are separated by a blank line.
+</format>
+    ";
+
+        let changes = hunk_diffs.iter().map(|diff| diff.to_string()).collect::<Vec<_>>();
+
+        let prompt = format!(
+            "Please generate a concise and descriptive git commit message for the following changes:\n\n{}",
+            changes.join("\n")
+        );
+
+        let commit_message = match (project_id, emitter) {
+            (Some(project_id), Some(emitter)) => llm.stream_response(system_message, vec![prompt.into()], &model, {
+                let emitter = std::sync::Arc::clone(emitter);
+                move |token| {
+                    let event = AutoCommitEvent::CommitGeneration {
+                        parent_commit_id,
+                        token: token.to_string(),
+                    };
+                    let event_name = event.event_name(project_id);
+                    emitter(&event_name, event.emit_payload());
+                }
+            })?,
+            _ => llm.response(system_message, vec![prompt.into()], &model)?,
+        };
+
+        if let Some(message) = commit_message {
+            return Ok(message);
+        }
+    }
+
+    Ok("[AUTO-COMMIT] Generated commit message".to_string())
 }

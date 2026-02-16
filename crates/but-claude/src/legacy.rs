@@ -11,22 +11,16 @@ pub enum ClaudeMessageContent {
     ClaudeOutput(serde_json::Value),
     /// Inserted via  GitButler (what the user typed)
     UserInput(UserInput),
-    /// Metadata provided by GitButler around the Claude Code statuts
+    /// Metadata provided by GitButler around the Claude Code status
     GitButlerMessage(GitButlerMessage),
 }
 
 impl From<ClaudeMessageContent> for crate::MessagePayload {
     fn from(value: ClaudeMessageContent) -> Self {
         match value {
-            ClaudeMessageContent::ClaudeOutput(data) => {
-                crate::MessagePayload::Claude(crate::ClaudeOutput { data })
-            }
-            ClaudeMessageContent::UserInput(user_input) => {
-                crate::MessagePayload::User(user_input.into())
-            }
-            ClaudeMessageContent::GitButlerMessage(gb_message) => {
-                crate::MessagePayload::System(gb_message.into())
-            }
+            ClaudeMessageContent::ClaudeOutput(data) => crate::MessagePayload::Claude(crate::ClaudeOutput { data }),
+            ClaudeMessageContent::UserInput(user_input) => crate::MessagePayload::User(user_input.into()),
+            ClaudeMessageContent::GitButlerMessage(gb_message) => crate::MessagePayload::System(gb_message.into()),
         }
     }
 }
@@ -56,17 +50,11 @@ pub enum GitButlerMessage {
 impl From<GitButlerMessage> for crate::SystemMessage {
     fn from(value: GitButlerMessage) -> Self {
         match value {
-            GitButlerMessage::ClaudeExit { code, message } => {
-                crate::SystemMessage::ClaudeExit { code, message }
-            }
+            GitButlerMessage::ClaudeExit { code, message } => crate::SystemMessage::ClaudeExit { code, message },
             GitButlerMessage::UserAbort => crate::SystemMessage::UserAbort,
-            GitButlerMessage::UnhandledException { message } => {
-                crate::SystemMessage::UnhandledException { message }
-            }
+            GitButlerMessage::UnhandledException { message } => crate::SystemMessage::UnhandledException { message },
             GitButlerMessage::CompactStart => crate::SystemMessage::CompactStart,
-            GitButlerMessage::CompactFinished { summary } => {
-                crate::SystemMessage::CompactFinished { summary }
-            }
+            GitButlerMessage::CompactFinished { summary } => crate::SystemMessage::CompactFinished { summary },
         }
     }
 }

@@ -13,7 +13,7 @@
 			"icons/release/icon.icns",
 			"icons/release/icon.ico"
 		],
-		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass"]
+		"externalBin": ["to be replaced by `release.sh`"]
 	},
 	"plugins": {
 		"updater": {

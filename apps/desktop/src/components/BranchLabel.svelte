@@ -60,10 +60,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
-			e.stopPropagation();
-			inputEl?.select();
-		} else if (e.key === 'Enter' || e.key === 'Escape') {
+		if (e.key === 'Enter' || e.key === 'Escape') {
 			e.stopPropagation();
 			inputEl?.blur();
 		}
@@ -176,13 +173,13 @@
 
 		/* not readonly */
 		&:not([readonly]):not([disabled]):not(:focus):hover {
-			border: 1px solid color-mix(in srgb, var(--clr-scale-ntrl-40), transparent 70%);
+			border: 1px solid color-mix(in srgb, var(--clr-text-1), transparent 80%);
 		}
 
 		&:not([readonly]):not([disabled]):focus {
-			border: 1px solid color-mix(in srgb, var(--clr-scale-ntrl-40), transparent 60%);
+			border: 1px solid color-mix(in srgb, var(--clr-text-1), transparent 70%);
 			outline: none;
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 		}
 
 		&[disabled] {
@@ -193,5 +190,6 @@
 
 	.branch-name-input[readonly] {
 		cursor: default;
+		pointer-events: none;
 	}
 </style>

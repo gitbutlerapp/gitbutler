@@ -1,6 +1,5 @@
 use anyhow::Result;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
+use but_ctx::{Context, access::RepoExclusive};
 use serde::Serialize;
 
 use crate::{WorktreeId, git::git_worktree_remove, list::worktree_list};
@@ -14,12 +13,12 @@ pub struct DestroyWorktreeOutcome {
 
 /// Destroys a worktree by its ID.
 pub fn worktree_destroy_by_id(
-    ctx: &mut CommandContext,
-    _perm: &WorktreeWritePermission,
+    ctx: &mut Context,
+    _perm: &RepoExclusive,
     id: &WorktreeId,
 ) -> Result<DestroyWorktreeOutcome> {
     // Remove the git worktree (force=true to handle uncommitted changes)
-    git_worktree_remove(&ctx.project().common_git_dir()?, id, true)?;
+    git_worktree_remove(ctx.repo.get()?.common_dir(), id, true)?;
 
     Ok(DestroyWorktreeOutcome {
         destroyed_ids: vec![id.clone()],
@@ -28,8 +27,8 @@ pub fn worktree_destroy_by_id(
 
 /// Destroys all worktrees created from a given reference.
 pub fn worktree_destroy_by_reference(
-    ctx: &mut CommandContext,
-    perm: &WorktreeWritePermission,
+    ctx: &mut Context,
+    perm: &RepoExclusive,
     reference: &gix::refs::FullNameRef,
 ) -> Result<DestroyWorktreeOutcome> {
     // Use the existing list function to get all worktrees
@@ -52,7 +51,7 @@ pub fn worktree_destroy_by_reference(
     // Destroy each matching worktree
     for worktree in worktrees_to_destroy {
         // Remove the git worktree (force=true to handle uncommitted changes)
-        git_worktree_remove(&ctx.project().common_git_dir()?, &worktree.id, true)?;
+        git_worktree_remove(ctx.repo.get()?.common_dir(), &worktree.id, true)?;
 
         destroyed_ids.push(worktree.id);
     }

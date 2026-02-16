@@ -28,7 +28,9 @@ fn unborn_untracked() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
@@ -45,7 +47,8 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: None,
         lower_bound: None,
         is_managed_ref: false,
@@ -66,6 +69,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(0000000000000000000000000000000000000000),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],
@@ -85,9 +89,11 @@ fn unborn_untracked() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                reference: FullName(
+                    "refs/heads/main",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(0000000000000000000000000000000000000000),
@@ -118,7 +124,9 @@ fn detached() -> anyhow::Result<()> {
         workspace_ref_info: None,
         stacks: [
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
@@ -137,7 +145,8 @@ fn detached() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: None,
         lower_bound: None,
         is_managed_ref: false,
@@ -178,7 +187,9 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
@@ -198,7 +209,8 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: None,
         lower_bound: None,
         is_managed_ref: false,
@@ -217,6 +229,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],
@@ -236,9 +249,11 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                reference: FullName(
+                    "refs/heads/main",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
@@ -269,11 +284,7 @@ fn single_branch() -> anyhow::Result<()> {
     let (repo, meta) = read_only_in_memory_scenario("single-branch-10-commits")?;
     let info = but_workspace::head_info(&repo, &*meta, standard_options())?;
 
-    assert_eq!(
-        info.stacks[0].segments.len(),
-        1,
-        "a single branch, a single segment"
-    );
+    assert_eq!(info.stacks[0].segments.len(), 1, "a single branch, a single segment");
     insta::assert_debug_snapshot!(&info, @r#"
     RefInfo {
         workspace_ref_info: Some(
@@ -288,7 +299,9 @@ fn single_branch() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
@@ -316,7 +329,8 @@ fn single_branch() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: None,
         lower_bound: None,
         is_managed_ref: false,
@@ -335,6 +349,7 @@ fn single_branch() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],
@@ -353,9 +368,11 @@ fn single_branch() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                reference: FullName(
+                    "refs/heads/main",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
@@ -407,7 +424,9 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
@@ -483,7 +502,8 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: None,
         lower_bound: None,
         is_managed_ref: false,
@@ -504,26 +524,31 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "nine",
                     tip: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "six",
                     tip: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "three",
                     tip: Sha1(281da9454d5b41844d28e453e80b24925a7c8c7a),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "one",
                     tip: Sha1(3d57fc18d679a1ba45bc7f79e394a5e2606719ee),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],
@@ -543,9 +568,11 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
         branch_details: [
             BranchDetails {
                 name: "main",
+                reference: FullName(
+                    "refs/heads/main",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
@@ -564,9 +591,11 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "nine",
+                reference: FullName(
+                    "refs/heads/nine",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
@@ -587,9 +616,11 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "six",
+                reference: FullName(
+                    "refs/heads/six",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
@@ -610,9 +641,11 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "three",
+                reference: FullName(
+                    "refs/heads/three",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(281da9454d5b41844d28e453e80b24925a7c8c7a),
@@ -632,9 +665,11 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
             },
             BranchDetails {
                 name: "one",
+                reference: FullName(
+                    "refs/heads/one",
+                ),
                 linked_worktree_id: None,
                 remote_tracking_branch: None,
-                description: None,
                 pr_number: None,
                 review_id: None,
                 tip: Sha1(3d57fc18d679a1ba45bc7f79e394a5e2606719ee),
@@ -665,40 +700,26 @@ mod utils {
 
     pub fn read_only_in_memory_scenario(
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
         named_read_only_in_memory_scenario(name, "")
     }
 
     pub fn named_read_only_in_memory_scenario(
         script: &str,
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
         let repo = crate::utils::read_only_in_memory_scenario_named(script, name)?;
-        let meta = VirtualBranchesTomlMetadata::from_path(
-            repo.path()
-                .join(".git")
-                .join("should-never-be-written.toml"),
-        )?;
+        let meta =
+            VirtualBranchesTomlMetadata::from_path(repo.path().join(".git").join("should-never-be-written.toml"))?;
         Ok((repo, std::mem::ManuallyDrop::new(meta)))
     }
 
     pub fn named_writable_scenario_with_args(
         name: &str,
         args: impl IntoIterator<Item = impl Into<String>>,
-    ) -> anyhow::Result<(
-        tempfile::TempDir,
-        gix::Repository,
-        VirtualBranchesTomlMetadata,
-    )> {
+    ) -> anyhow::Result<(tempfile::TempDir, gix::Repository, VirtualBranchesTomlMetadata)> {
         let (repo, tmp) = crate::utils::writable_scenario_with_args(name, args);
-        let meta =
-            VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
+        let meta = VirtualBranchesTomlMetadata::from_path(repo.path().join("virtual-branches.toml"))?;
         Ok((tmp, repo, meta))
     }
 

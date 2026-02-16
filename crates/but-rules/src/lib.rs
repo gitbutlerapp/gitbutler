@@ -1,5 +1,6 @@
+use but_core::{ChangeId, sync::RepoExclusive};
+use but_ctx::Context;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
-use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
 
 pub mod db;
@@ -46,7 +47,7 @@ impl WorkspaceRule {
         }
     }
 
-    pub fn target_commit_id(&self) -> Option<String> {
+    pub fn target_change_id(&self) -> Option<ChangeId> {
         if let Action::Explicit(Operation::Amend { change_id }) = &self.action {
             Some(change_id.clone())
         } else {
@@ -112,7 +113,7 @@ pub enum TreeStatus {
 }
 
 /// Represents a semantic type of change that was inferred for the change.
-/// Typically this means a heuristic or an LLM determinded that a change represents a refactor, a new feature, a bug fix, or documentation update.
+/// Typically this means a heuristic or an LLM determined that a change represents a refactor, a new feature, a bug fix, or documentation update.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum SemanticType {
@@ -129,8 +130,8 @@ pub enum SemanticType {
 }
 
 /// Represents an action that can be taken based on the rule evaluation.
-/// An action can be either explicit, meaning the user defined something like "Assign in Lane A" or "Ammend into Commit X"
-/// or it is implicit, meaning the action was determined by heuristics or AI, such as "Assign to appropriate branch" or "Absorb in dependent commit".
+/// An action can be either explicit, meaning the user defined something like "Stage to Lane A" or "Amend into Commit X"
+/// or it is implicit, meaning the action was determined by heuristics or AI, such as "Stage to appropriate branch" or "Absorb in dependent commit".
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum Action {
@@ -147,7 +148,7 @@ pub enum Operation {
     /// Assign the matched changes to a specific stack ID.
     Assign { target: StackTarget },
     /// Amend the matched changes into a specific commit.
-    Amend { change_id: String },
+    Amend { change_id: ChangeId },
     /// Create a new commit with the matched changes on a specific branch.
     NewCommit { branch_name: String },
 }
@@ -187,8 +188,9 @@ pub struct CreateRuleRequest {
 
 /// Creates a new workspace rule
 pub fn create_rule(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     req: CreateRuleRequest,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
     let rule = WorkspaceRule {
         id: uuid::Uuid::new_v4().to_string(),
@@ -199,20 +201,16 @@ pub fn create_rule(
         action: req.action,
     };
 
-    ctx.db()?
-        .workspace_rules()
-        .insert(rule.clone().try_into()?)
-        .map_err(|e| anyhow::anyhow!("Failed to insert workspace rule: {}", e))?;
-    process_rules(ctx).ok(); // Reevaluate rules after creating
+    ctx.db
+        .get_mut()?
+        .workspace_rules_mut()
+        .insert(rule.clone().try_into()?)?;
+    process_rules(ctx, perm).ok(); // Reevaluate rules after creating
     Ok(rule)
 }
 
-/// Deletes an existing workspace rule by its ID.
-pub fn delete_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<()> {
-    ctx.db()?
-        .workspace_rules()
-        .delete(id)
-        .map_err(|e| anyhow::anyhow!("Failed to delete workspace rule: {}", e))?;
+pub fn delete_rule(ctx: &mut Context, id: &str) -> anyhow::Result<()> {
+    ctx.db.get_mut()?.workspace_rules_mut().delete(id)?;
     Ok(())
 }
 
@@ -246,15 +244,17 @@ impl From<WorkspaceRule> for UpdateRuleRequest {
 
 /// Updates an existing workspace rule with the provided request data.
 pub fn update_rule(
-    ctx: &mut CommandContext,
+    ctx: &mut Context,
     req: UpdateRuleRequest,
+    perm: &mut RepoExclusive,
 ) -> anyhow::Result<WorkspaceRule> {
-    let mut rule: WorkspaceRule = ctx
-        .db()?
-        .workspace_rules()
-        .get(&req.id)?
-        .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", req.id))?
-        .try_into()?;
+    let mut rule: WorkspaceRule = {
+        let db = ctx.db.get_mut()?;
+        db.workspace_rules()
+            .get(&req.id)?
+            .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", req.id))?
+            .try_into()?
+    };
 
     if let Some(enabled) = req.enabled {
         rule.enabled = enabled;
@@ -269,18 +269,19 @@ pub fn update_rule(
         rule.action = action;
     }
 
-    ctx.db()?
-        .workspace_rules()
-        .update(&req.id, rule.clone().try_into()?)
-        .map_err(|e| anyhow::anyhow!("Failed to update workspace rule: {}", e))?;
-    process_rules(ctx).ok(); // Reevaluate rules after updating
+    ctx.db
+        .get_mut()?
+        .workspace_rules_mut()
+        .update(&req.id, rule.clone().try_into()?)?;
+    process_rules(ctx, perm).ok(); // Reevaluate rules after updating
     Ok(rule)
 }
 
 /// Retrieves a workspace rule by its ID.
-pub fn get_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<WorkspaceRule> {
+pub fn get_rule(ctx: &Context, id: &str) -> anyhow::Result<WorkspaceRule> {
     let rule = ctx
-        .db()?
+        .db
+        .get()?
         .workspace_rules()
         .get(id)?
         .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", id))?
@@ -289,9 +290,10 @@ pub fn get_rule(ctx: &mut CommandContext, id: &str) -> anyhow::Result<WorkspaceR
 }
 
 /// Lists all workspace rules in the database.
-pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>> {
+pub fn list_rules(ctx: &Context) -> anyhow::Result<Vec<WorkspaceRule>> {
     let rules = ctx
-        .db()?
+        .db
+        .get()?
         .workspace_rules()
         .list()?
         .into_iter()
@@ -300,24 +302,29 @@ pub fn list_rules(ctx: &mut CommandContext) -> anyhow::Result<Vec<WorkspaceRule>
     Ok(rules)
 }
 
-pub fn process_rules(ctx: &mut CommandContext) -> anyhow::Result<()> {
-    let wt_changes = but_core::diff::worktree_changes(&ctx.gix_repo()?)?;
+/// NOTE: may create an empty branch!
+pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Result<()> {
+    let (assignments, dependencies) = {
+        let context_lines = ctx.settings.context_lines;
+        let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
+        let wt_changes = but_core::diff::worktree_changes(&repo)?;
 
-    let dependencies = hunk_dependencies_for_workspace_changes_by_worktree_dir(
-        ctx,
-        ctx.project().worktree_dir()?,
-        &ctx.project().gb_dir(),
-        Some(wt_changes.changes.clone()),
-    )?;
+        let dependencies =
+            hunk_dependencies_for_workspace_changes_by_worktree_dir(&repo, &ws, Some(wt_changes.changes.clone()))?;
 
-    let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
-        ctx,
-        false,
-        Some(wt_changes.changes),
-        Some(&dependencies),
-    )
-    .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
+        let (assignments, _) = but_hunk_assignment::assignments_with_fallback(
+            db.hunk_assignments_mut()?,
+            &repo,
+            &ws,
+            false,
+            Some(wt_changes.changes),
+            Some(&dependencies),
+            context_lines,
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
+        (assignments, dependencies)
+    };
 
-    handler::process_workspace_rules(ctx, &assignments, &Some(dependencies))?;
+    handler::process_workspace_rules(ctx, &assignments, &Some(dependencies), perm)?;
     Ok(())
 }

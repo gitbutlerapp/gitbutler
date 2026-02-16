@@ -168,7 +168,7 @@
 	const operation = mapOperation(entry.details);
 
 	const modeService = inject(MODE_SERVICE);
-	const mode = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeService.mode(projectId));
 
 	const historyService = inject(HISTORY_SERVICE);
 	const snapshotDiff = $derived(historyService.snapshotDiff({ projectId, snapshotId: entry.id }));
@@ -234,8 +234,12 @@
 								stackId={undefined}
 								changes={files}
 								listMode="list"
-								hideLastFileBorder={false}
-								onselect={(change) => onDiffClick(change.path)}
+								onFileClick={(index) => {
+									const change = files[index];
+									if (change) {
+										onDiffClick(change.path);
+									}
+								}}
 								allowUnselect={false}
 							/>
 						</ScrollableContainer>
@@ -288,11 +292,10 @@
 
 	.show-restore-on-hover {
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
+			background-color: var(--hover-bg-1);
 			& .restore-btn {
 				display: flex;
 			}
-
 			& .snapshot-time {
 				display: none;
 			}
@@ -300,7 +303,7 @@
 	}
 
 	.show-restore-on-hover:global(.focused) {
-		background-color: var(--clr-bg-1-muted);
+		background-color: var(--hover-bg-1);
 		& .restore-btn {
 			display: flex;
 		}
@@ -411,7 +414,7 @@
 		width: 100%;
 		padding: 6px 10px;
 		border-radius: var(--radius-m);
-		background-color: var(--clr-theme-err-bg-muted);
-		color: var(--clr-scale-err-40);
+		background-color: var(--clr-theme-danger-bg);
+		color: var(--clr-theme-danger-element);
 	}
 </style>

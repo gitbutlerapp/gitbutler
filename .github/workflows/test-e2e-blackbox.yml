@@ -1,6 +1,4 @@
 name: E2E Blackbox Tests
-env:
-  RUSTUP_TOOLCHAIN: stable
 on:
   push:
     branches:
@@ -25,12 +23,12 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
         if: ${{ github.event_name != 'workflow_dispatch' }}
         name: Checkout
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         name: Checkout (specific commit from manual dispatch)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         with:
@@ -41,7 +39,7 @@ jobs:
         run: apt update && apt install -y webkit2gtk-driver ffmpeg xvfb
         if: ${{ github.ref != 'refs/heads/master' }}
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.1
+        uses: Swatinem/rust-cache@v2.8.2
         with:
           shared-key: e2e-blackbox-rust-binaries
           save-if: ${{ github.ref == 'refs/heads/master' }}
@@ -66,7 +64,7 @@ jobs:
         if: ${{ github.ref != 'refs/heads/master' }}
         run: xvfb-run pnpm test:e2e:blackbox
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: failure()
         with:
           name: WebdriverIO Artifacts

@@ -6,7 +6,7 @@ source "${BASH_SOURCE[0]%/*}/shared.sh"
 
 ### General Description
 
-# A target branch along with a stack and a depdendent branch at the same tip, without workspace commit.
+# A target branch along with a stack and a dependent branch at the same tip, without workspace commit.
 git init
 commit M
 setup_target_to_match_main

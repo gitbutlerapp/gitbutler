@@ -8,7 +8,7 @@
 	import CreateReviewBox from '$components/CreateReviewBox.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
-	import { BranchDropData } from '$lib/branches/dropHandler';
+	import { BranchDropData, StartCommitDzHandler } from '$lib/branches/dropHandler';
 	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
 	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
@@ -16,7 +16,6 @@
 	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import { ReviewBadge, TestId } from '@gitbutler/ui';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { DropzoneHandler } from '$lib/dragging/handler';
 	import type { PushStatus } from '$lib/stacks/stack';
@@ -31,6 +30,7 @@
 		lineColor: string;
 		readonly: boolean;
 		first?: boolean;
+		overflowHidden?: boolean;
 	}
 
 	interface NormalBranchProps extends BranchCardProps {
@@ -38,10 +38,11 @@
 		iconName: keyof typeof iconsJson;
 		selected: boolean;
 		trackingBranch?: string;
-		lastUpdatedAt?: number;
 		isTopBranch?: boolean;
 		isNewBranch?: boolean;
-		onclick: () => void;
+		roundedBottom?: boolean;
+		onclick?: () => void;
+		disableClick?: boolean;
 		branchContent: Snippet;
 		codegenRow?: Snippet;
 	}
@@ -58,8 +59,8 @@
 		allOtherPrNumbersInStack: number[];
 		reviewId?: string;
 		pushStatus: PushStatus;
-		lastUpdatedAt?: number;
 		isConflicted: boolean;
+		applied?: boolean;
 		contextMenu?: typeof BranchHeaderContextMenu;
 		dropzones: DropzoneHandler[];
 		numberOfCommits: number;
@@ -68,22 +69,23 @@
 		hasCodegenRow?: boolean;
 		baseCommit?: string;
 		onclick: () => void;
+		disableClick?: boolean;
 		menu?: Snippet<[{ rightClickTrigger: HTMLElement }]>;
 		buttons?: Snippet;
 		branchContent: Snippet;
 		codegenRow?: Snippet;
+		changedFiles?: Snippet;
 	}
 
 	interface PrBranchProps extends BranchCardProps {
 		type: 'pr-branch';
 		selected: boolean;
 		trackingBranch: string;
-		lastUpdatedAt: number;
 	}
 
 	type Props = NormalBranchProps | StackBranchProps | PrBranchProps;
 
-	let { projectId, branchName, lineColor, readonly, ...args }: Props = $props();
+	let { projectId, branchName, lineColor, readonly, overflowHidden, ...args }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const stackService = inject(STACK_SERVICE);
@@ -128,7 +130,8 @@
 		// For stack branches not committing, check if actions are visible and structural conditions
 		if (args.type === 'stack-branch' && !args.isCommitting) {
 			const hasActions = args.buttons !== undefined || args.menu !== undefined;
-			const structurallyRounded = args.hasCodegenRow || args.numberOfCommits === 0;
+			const structurallyRounded =
+				args.hasCodegenRow || (args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0);
 			return hasActions && structurallyRounded;
 		}
 
@@ -147,17 +150,21 @@
 			});
 		}
 	}
-</script>
 
-{#if ((args.type === 'stack-branch' && !args.first) || (args.type === 'normal-branch' && !args.first)) && lineColor}
-	<BranchDividerLine {lineColor} />
-{/if}
+	function getCardOverlayLabel(handler: DropzoneHandler | undefined): string {
+		if (handler instanceof MoveCommitDzHandler) return 'Move here';
+		if (handler instanceof ReorderCommitDzHandler) return 'Reorder here';
+		if (handler instanceof StartCommitDzHandler) return 'Start commit';
+		return 'Drop here';
+	}
+</script>
 
 <div
 	class="branch-card"
 	class:selected
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
+	style:overflow={overflowHidden ? 'hidden' : undefined}
 >
 	{#if args.type === 'stack-branch'}
 		{@const moveHandler = args.stackId
@@ -171,12 +178,7 @@
 			handlers={args.first ? [moveHandler, ...args.dropzones].filter(isDefined) : args.dropzones}
 		>
 			{#snippet overlay({ hovered, activated, handler })}
-				{@const label =
-					handler instanceof MoveCommitDzHandler
-						? 'Move here'
-						: handler instanceof ReorderCommitDzHandler
-							? 'Reorder here'
-							: 'Start commit'}
+				{@const label = getCardOverlayLabel(handler)}
 				<CardOverlay {hovered} {activated} {label} />
 			{/snippet}
 
@@ -205,15 +207,16 @@
 				roundedBottom={isRoundedBottom}
 				{readonly}
 				{isPushed}
-				onclick={args.onclick}
+				onclick={args.disableClick ? undefined : args.onclick}
+				disableClick={args.disableClick}
 				menu={args.menu}
 				conflicts={args.isConflicted}
 				{showPrCreation}
+				changedFiles={args.changedFiles}
 				dragArgs={{
-					disabled: args.isConflicted,
+					disabled: args.isConflicted || (args.type === 'stack-branch' && args.applied === false),
 					label: branchName,
 					pushStatus: args.pushStatus,
-					viewportId: 'board-viewport',
 					data:
 						args.type === 'stack-branch' && args.stackId
 							? new BranchDropData(
@@ -244,21 +247,20 @@
 				{#snippet content()}
 					<BranchBadge pushStatus={args.pushStatus} unstyled />
 
-					<span class="branch-header__divider">•</span>
-
-					{#if args.lastUpdatedAt}
-						<span class="branch-header__item">
-							{getTimeAgo(new Date(args.lastUpdatedAt))}
-						</span>
-					{/if}
-
 					{#if args.reviewId || args.prNumber}
 						<span class="branch-header__divider">•</span>
 						<div class="branch-header__review-badges">
 							{#if args.prNumber}
 								{@const prQuery = prService?.get(args.prNumber, { forceRefetch: true })}
 								{@const pr = prQuery?.response}
-								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status="unknown" />
+								{@const prStatus = (() => {
+									if (!pr) return 'unknown';
+									if (pr.mergedAt) return 'merged';
+									if (pr.closedAt) return 'closed';
+									if (pr.draft) return 'draft';
+									return 'open';
+								})()}
+								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status={prStatus} />
 								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
 									<ChecksPolling
 										{projectId}
@@ -299,18 +301,13 @@
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 			readonly
 			{isPushed}
-			onclick={args.onclick}
+			onclick={args.disableClick ? undefined : args.onclick}
+			disableClick={args.disableClick}
+			roundedBottom={args.roundedBottom}
 		>
 			{#snippet emptyState()}
 				<span class="branch-header__empty-state-span">There are no commits yet on this branch.</span
 				>
-			{/snippet}
-			{#snippet content()}
-				{#if args.lastUpdatedAt}
-					<span class="branch-header__item">
-						{getTimeAgo(new Date(args.lastUpdatedAt))}
-					</span>
-				{/if}
 			{/snippet}
 		</BranchHeader>
 	{:else if args.type === 'pr-branch'}
@@ -326,15 +323,7 @@
 			failedMisserablyToUpdateBranchName={nameUpdate.current.isError}
 			readonly
 			isPushed
-		>
-			{#snippet content()}
-				{#if args.lastUpdatedAt}
-					<span class="branch-header__item">
-						{getTimeAgo(new Date(args.lastUpdatedAt))}
-					</span>
-				{/if}
-			{/snippet}
-		</BranchHeader>
+		/>
 	{/if}
 
 	{#if args.type === 'stack-branch' && args.hasCodegenRow && args.codegenRow}
@@ -358,11 +347,6 @@
 		position: relative;
 		flex-direction: column;
 		width: 100%;
-	}
-
-	.branch-header__item {
-		color: var(--clr-text-2);
-		white-space: nowrap;
 	}
 
 	.branch-header__divider {

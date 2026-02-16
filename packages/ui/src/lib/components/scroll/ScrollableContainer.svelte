@@ -24,12 +24,14 @@
 		viewport?: HTMLDivElement;
 		viewportHeight?: number;
 		childrenWrapHeight?: string;
-		childrenWrapDisplay?: 'block' | 'content' | 'flex'; // 'content' is used for virtual lists to avoid unnecessary height calculations
+		childrenWrapDisplay?: 'block' | 'contents' | 'flex'; // 'contents' is used for virtual lists to avoid unnecessary height calculations
+		enableDragScroll?: boolean; // Enable auto-scroll when dragging elements
 	}
 </script>
 
 <script lang="ts">
 	import Scrollbar from '$components/scroll/Scrollbar.svelte';
+	import { passiveScroll } from '$lib/utils/scroll';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 
@@ -52,7 +54,8 @@
 		viewport = $bindable(),
 		viewportHeight = $bindable(),
 		childrenWrapHeight,
-		childrenWrapDisplay = 'block'
+		childrenWrapDisplay = 'block',
+		enableDragScroll = false
 	}: ScrollableProps = $props();
 
 	let scrollTopVisible = $state<boolean>(true);
@@ -138,13 +141,14 @@
 		bind:this={viewport}
 		bind:offsetHeight={viewportHeight}
 		style:flex-grow={wide ? 1 : 0}
-		onscroll={handleScroll}
+		use:passiveScroll={handleScroll}
 		class="viewport hide-native-scrollbar"
 		style:padding-left={padding?.left ? padding.left + 'px' : undefined}
 		style:padding-right={padding?.right ? padding.right + 'px' : undefined}
 		style:--overflow-x={horz ? 'auto' : 'hidden'}
 		style:--overflow-y={horz ? 'hidden' : 'auto'}
 		style:--flex-direction={horz ? 'row' : 'column'}
+		data-scrollable-for-dragging={enableDragScroll || undefined}
 	>
 		<div
 			style:min-height={childrenWrapHeight}

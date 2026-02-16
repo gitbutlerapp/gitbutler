@@ -8,6 +8,8 @@ import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { Forge, ForgeName } from '$lib/forge/interface/forge';
 import type { ForgeArguments, ForgeUser } from '$lib/forge/interface/types';
 import type { GitLabApi } from '$lib/state/clientState.svelte';
+import type { Branded } from '@gitbutler/shared/utils/branding';
+import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
 import type { TagDescription } from '@reduxjs/toolkit/query';
 
 export const GITLAB_DOMAIN = 'gitlab.com';
@@ -33,9 +35,11 @@ export class GitLab implements Forge {
 			posthog?: PostHogWrapper;
 			api: GitLabApi;
 			client: GitLabClient;
+			dispatch: ThunkDispatch<any, any, UnknownAction>;
+			isLoading: boolean;
 		}
 	) {
-		const { api, client, baseBranch, forkStr, authenticated, repo } = this.params;
+		const { api, baseBranch, forkStr, authenticated, repo, isLoading } = this.params;
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
 		let protocol = repo.protocol?.endsWith(':')
@@ -51,13 +55,9 @@ export class GitLab implements Forge {
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 		this.authenticated = authenticated;
-		// TODO: Set this correctly based on whether we're waiting for the credentials to be loaded or not.
-		this.isLoading = false;
+		this.isLoading = isLoading;
 
 		this.api = injectEndpoints(api);
-
-		// Reset the API when the token changes.
-		client.onReset(() => api.util.resetApiState());
 	}
 
 	branch(name: string) {
@@ -74,8 +74,8 @@ export class GitLab implements Forge {
 
 	get listService() {
 		if (!this.authenticated) return;
-		const { api: gitLabApi } = this.params;
-		return new GitLabListingService(gitLabApi);
+		const { api: gitLabApi, dispatch } = this.params;
+		return new GitLabListingService(gitLabApi, dispatch);
 	}
 
 	get issueService() {
@@ -126,4 +126,10 @@ function injectEndpoints(api: GitLabApi) {
 			})
 		})
 	});
+}
+
+export type GitLabProjectId = Branded<string, 'GitLabProjectId'>;
+
+export function createGitLabProjectId(owner: string, name: string): GitLabProjectId {
+	return encodeURI(`${owner}/${name}`) as GitLabProjectId;
 }

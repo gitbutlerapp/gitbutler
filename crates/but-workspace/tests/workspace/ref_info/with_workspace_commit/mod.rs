@@ -79,13 +79,19 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -143,13 +149,19 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -211,13 +223,19 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -237,8 +255,7 @@ fn remote_ahead_fast_forwardable() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-rebased-with-remotes")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-rebased-with-remotes")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 3ba6995 (B-on-A) change in B
@@ -304,13 +321,19 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -330,9 +353,8 @@ fn two_dependent_branches_rebased_with_remotes() -> anyhow::Result<()> {
 
 #[test]
 fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-dependent-branches-rebased-explicit-remote-in-extra-segment",
-    )?;
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-rebased-explicit-remote-in-extra-segment")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * d909178 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 3ba6995 (B-on-A) change in B
@@ -412,13 +434,19 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -439,8 +467,7 @@ fn two_dependent_branches_rebased_explicit_remote_in_extra_segment() -> anyhow::
 
 #[test]
 fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-first-merge-no-ff")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-first-merge-no-ff")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   a455fe7 (origin/main) Merge branch 'A' into new-origin-main
     |\  
@@ -506,13 +533,19 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -534,9 +567,8 @@ fn two_dependent_branches_first_merged_no_ff() -> anyhow::Result<()> {
 #[test]
 fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_branch_integration_caught_up()
 -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-remote",
-    )?;
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-dependent-branches-first-merge-no-ff-second-merge-into-first-on-remote")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   059cc4f (origin/A) Merge branch 'B-on-A' into new-origin-A
     |\  
@@ -596,13 +628,19 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(a455fe761e758d0b6c0aa8966d91f2de32fa7bfc),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -619,11 +657,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
     "#);
 
     // If we set a reasonably old extra target, then the A segment, despite integrated, is shown.
-    meta.data_mut()
-        .default_target
-        .as_mut()
-        .expect("target setup")
-        .sha = repo.rev_parse_single("fafd9d0")?.detach();
+    meta.data_mut().default_target.as_mut().expect("target setup").sha = repo.rev_parse_single("fafd9d0")?.detach();
     let info = head_info(&repo, &meta, opts)?;
     insta::assert_debug_snapshot!(info, @r#"
     RefInfo {
@@ -677,13 +711,19 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -703,8 +743,7 @@ fn two_dependent_branches_first_merged_no_ff_second_merged_on_remote_into_base_b
 
 #[test]
 fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Result<()> {
-    let (mut repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-first-rebased-and-merged")?;
+    let (mut repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-first-rebased-and-merged")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 0b6b861 (origin/main, origin/A) A
     | * 4f08b8d (HEAD -> gitbutler/workspace) GitButler Workspace Commit
@@ -766,13 +805,19 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -828,26 +873,32 @@ fn two_dependent_branches_first_rebased_and_merged_into_target() -> anyhow::Resu
                     ref_info::ui::Segment {
                         id: NodeIndex(4),
                         ref_name: "►A",
-                        remote_tracking_ref_name: "None",
+                        remote_tracking_ref_name: "refs/remotes/origin/A",
                         commits: [
                             LocalCommit(1818c17, "A\n", integrated(0b6b861)),
                         ],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: "None",
-                        push_status: CompletelyUnpushed,
+                        push_status: Integrated,
                         base: "281456a",
                     },
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(281456a55524d78e1e0ecab946032423aec1abe8),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -928,13 +979,19 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -954,8 +1011,7 @@ fn target_ahead_remote_rewritten() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-branches-one-advanced-one-parent-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-one-parent-ws-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   7f3248e (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -965,10 +1021,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main, lane) init
     ");
 
-    for (idx, name) in ["lane", "advanced-lane-2", "advanced-lane"]
-        .into_iter()
-        .enumerate()
-    {
+    for (idx, name) in ["lane", "advanced-lane-2", "advanced-lane"].into_iter().enumerate() {
         add_stack(&mut meta, idx as u128, name, StackState::InWorkspace);
     }
 
@@ -1055,13 +1108,19 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1081,8 +1140,7 @@ fn single_commit_but_two_branches_one_in_ws_commit() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("multiple-dependent-branches-per-stack-without-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("multiple-dependent-branches-per-stack-without-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * cbc6713 (HEAD -> gitbutler/workspace, lane) change
     * fafd9d0 (origin/main, main, lane-segment-02, lane-segment-01, lane-2-segment-02, lane-2-segment-01, lane-2) init
@@ -1210,13 +1268,19 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -1353,13 +1417,19 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -1379,8 +1449,7 @@ fn single_commit_but_two_branches_one_in_ws_commit_with_virtual_segments() -> an
 
 #[test]
 fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -1453,13 +1522,19 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1479,9 +1554,8 @@ fn single_commit_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed",
-    )?;
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -1529,13 +1603,19 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1554,25 +1634,19 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit() -> anyhow::Result<(
 }
 
 #[test]
-fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> anyhow::Result<()> {
+fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependent() -> anyhow::Result<()> {
     let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependant",
+        "two-branches-one-advanced-two-parent-ws-commit-advanced-fully-pushed-empty-dependent",
     )?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   335d6f2 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
-    | * cbc6713 (origin/advanced-lane, dependant, advanced-lane) change
+    | * cbc6713 (origin/advanced-lane, dependent, advanced-lane) change
     |/  
     * fafd9d0 (origin/main, main, lane) init
     ");
 
-    add_stack_with_segments(
-        &mut meta,
-        0,
-        "dependant",
-        StackState::InWorkspace,
-        &["advanced-lane"],
-    );
+    add_stack_with_segments(&mut meta, 0, "dependent", StackState::InWorkspace, &["advanced-lane"]);
 
     let opts = standard_options();
     let info = head_info(&repo, &meta, opts.clone())?;
@@ -1599,7 +1673,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1624,13 +1698,19 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1647,13 +1727,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
     "#);
 
     // Put it below - this is fine, new commits will the placed onto `base`.
-    add_stack_with_segments(
-        &mut meta,
-        0,
-        "advanced-lane",
-        StackState::InWorkspace,
-        &["dependant"],
-    );
+    add_stack_with_segments(&mut meta, 0, "advanced-lane", StackState::InWorkspace, &["dependent"]);
 
     // Even though we *could* special-case this to keep the commit in the branch that has a remote,
     // we just keep it below at all times. The frontend currently only creates them on top, for good reason.
@@ -1692,7 +1766,7 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [
                             LocalCommit(cbc6713, "change\n", local/remote(identity)),
@@ -1706,13 +1780,19 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1731,22 +1811,21 @@ fn single_commit_pushed_but_two_branches_both_in_ws_commit_empty_dependant() -> 
 }
 
 #[test]
-fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependant",
-    )?;
+fn single_commit_pushed_ws_commit_empty_dependent() -> anyhow::Result<()> {
+    let (repo, mut meta) =
+        read_only_in_memory_scenario("three-branches-one-advanced-ws-commit-advanced-fully-pushed-empty-dependent")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * f8f33a7 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
-    * cbc6713 (origin/advanced-lane, on-top-of-dependant, dependant, advanced-lane) change
+    * cbc6713 (origin/advanced-lane, on-top-of-dependent, dependent, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
     ");
 
     add_stack_with_segments(
         &mut meta,
         0,
-        "on-top-of-dependant",
+        "on-top-of-dependent",
         StackState::InWorkspace,
-        &["dependant", "advanced-lane"],
+        &["dependent", "advanced-lane"],
     );
 
     let opts = standard_options();
@@ -1774,7 +1853,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "►on-top-of-dependant",
+                        ref_name: "►on-top-of-dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1785,7 +1864,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1810,13 +1889,19 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1836,9 +1921,9 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
     add_stack_with_segments(
         &mut meta,
         0,
-        "dependant",
+        "dependent",
         StackState::InWorkspace,
-        &["on-top-of-dependant", "advanced-lane"],
+        &["on-top-of-dependent", "advanced-lane"],
     );
 
     let info = head_info(&repo, &meta, opts.clone())?;
@@ -1865,7 +1950,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(5),
-                        ref_name: "►dependant",
+                        ref_name: "►dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1876,7 +1961,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                     },
                     ref_info::ui::Segment {
                         id: NodeIndex(6),
-                        ref_name: "►on-top-of-dependant",
+                        ref_name: "►on-top-of-dependent",
                         remote_tracking_ref_name: "None",
                         commits: [],
                         commits_on_remote: [],
@@ -1901,13 +1986,19 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -1927,8 +2018,7 @@ fn single_commit_pushed_ws_commit_empty_dependant() -> anyhow::Result<()> {
 
 #[test]
 fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-with-one-commit-with-remotes")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-with-one-commit-with-remotes")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 9b3cfd4 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * 788ad06 (origin/on-top-of-lane, on-top-of-lane) change on top
@@ -1936,13 +2026,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
     * fafd9d0 (origin/main, main) init
     ");
 
-    add_stack_with_segments(
-        &mut meta,
-        0,
-        "on-top-of-lane",
-        StackState::InWorkspace,
-        &["lane"],
-    );
+    add_stack_with_segments(&mut meta, 0, "on-top-of-lane", StackState::InWorkspace, &["lane"]);
 
     let opts = standard_options();
     let info = head_info(&repo, &meta, opts)?;
@@ -1996,13 +2080,19 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2022,8 +2112,7 @@ fn two_branches_stacked_with_remotes() -> anyhow::Result<()> {
 
 #[test]
 fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-dependent-branches-with-interesting-remote-setup")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-dependent-branches-with-interesting-remote-setup")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * a221221 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     * aadad9d (A) shared by name
@@ -2093,13 +2182,19 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -2119,8 +2214,7 @@ fn two_branches_stacked_with_interesting_remote_setup() -> anyhow::Result<()> {
 
 #[test]
 fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<()> {
-    let (repo, mut meta) =
-        read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-ws-commit-on-top-of-stack")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * cbc6713 (HEAD -> gitbutler/workspace, advanced-lane) change
     * fafd9d0 (origin/main, main, lane) init
@@ -2191,13 +2285,19 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2272,13 +2372,19 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -2298,11 +2404,8 @@ fn single_commit_but_two_branches_stack_on_top_of_ws_commit() -> anyhow::Result<
 }
 
 #[test]
-fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branch()
--> anyhow::Result<()> {
-    let (repo, mut meta) = read_only_in_memory_scenario(
-        "two-branches-one-advanced-two-parent-ws-commit-diverged-ttb",
-    )?;
+fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branch() -> anyhow::Result<()> {
+    let (repo, mut meta) = read_only_in_memory_scenario("two-branches-one-advanced-two-parent-ws-commit-diverged-ttb")?;
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     *   873d056 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
     |\  
@@ -2376,13 +2479,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2458,13 +2567,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -2539,13 +2654,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(0),
             },
         ),
         extra_target: Some(
@@ -2626,13 +2747,19 @@ fn two_branches_one_advanced_two_parent_ws_commit_diverged_remote_tracking_branc
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 1,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(fafd9d08a839d99db60b222cd58e2e0bfaf1f7b2),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2678,16 +2805,16 @@ fn disjoint() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
                         id: NodeIndex(0),
                         ref_name: "►disjoint[🌳]",
                         remote_tracking_ref_name: "None",
-                        commits: [
-                            LocalCommit(32791d2, "disjoint init\n", local),
-                        ],
+                        commits: [],
                         commits_on_remote: [],
                         commits_outside: None,
                         metadata: Branch,
@@ -2697,11 +2824,14 @@ fn disjoint() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: Some(
             NodeIndex(1),
         ),
-        lower_bound: None,
+        lower_bound: Some(
+            NodeIndex(0),
+        ),
         is_managed_ref: false,
         is_managed_commit: false,
         ancestor_workspace_commit: None,
@@ -2821,13 +2951,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -2934,13 +3070,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -3047,13 +3189,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -3161,13 +3309,19 @@ fn multiple_branches_with_shared_segment() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(3),
             },
         ),
         extra_target: Some(
@@ -3234,13 +3388,19 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -3293,13 +3453,19 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(2),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(0),
             },
         ),
         extra_target: Some(
@@ -3333,13 +3499,19 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
             },
         ),
         stacks: [],
-        target: Some(
-            Target {
+        target_ref: Some(
+            TargetRef {
                 ref_name: FullName(
                     "refs/remotes/origin/main",
                 ),
                 segment_index: NodeIndex(1),
                 commits_ahead: 0,
+            },
+        ),
+        target_commit: Some(
+            TargetCommit {
+                commit_id: Sha1(c166d42d4ef2e5e742d33554d03805cfb0b24d11),
+                segment_index: NodeIndex(2),
             },
         ),
         extra_target: Some(
@@ -3370,7 +3542,9 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
         ),
         stacks: [
             Stack {
-                id: None,
+                id: Some(
+                    00000000-0000-0000-0000-000000000001,
+                ),
                 base: None,
                 segments: [
                     ref_info::ui::Segment {
@@ -3389,7 +3563,8 @@ fn empty_workspace_with_branch_below() -> anyhow::Result<()> {
                 ],
             },
         ],
-        target: None,
+        target_ref: None,
+        target_commit: None,
         extra_target: Some(
             NodeIndex(2),
         ),
@@ -3486,22 +3661,15 @@ pub(crate) mod utils {
 
     pub fn read_only_in_memory_scenario(
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
         named_read_only_in_memory_scenario("with-remotes-and-workspace", name)
     }
 
     pub fn named_read_only_in_memory_scenario(
         script: &str,
         name: &str,
-    ) -> anyhow::Result<(
-        gix::Repository,
-        std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>,
-    )> {
-        let (repo, mut meta) =
-            crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)?;
+    ) -> anyhow::Result<(gix::Repository, std::mem::ManuallyDrop<VirtualBranchesTomlMetadata>)> {
+        let (repo, mut meta) = crate::ref_info::utils::named_read_only_in_memory_scenario(script, name)?;
         let vb = meta.data_mut();
         vb.default_target = Some(Target {
             // For simplicity, we stick to the defaults.
@@ -3521,12 +3689,7 @@ pub(crate) mod utils {
 
     pub fn named_writable_scenario_with_description(
         name: &str,
-    ) -> anyhow::Result<(
-        TempDir,
-        gix::Repository,
-        VirtualBranchesTomlMetadata,
-        String,
-    )> {
+    ) -> anyhow::Result<(TempDir, gix::Repository, VirtualBranchesTomlMetadata, String)> {
         named_writable_scenario_with_args_and_description(name, None::<String>)
     }
 
@@ -3546,14 +3709,8 @@ pub(crate) mod utils {
     pub fn named_writable_scenario_with_args_and_description(
         name: &str,
         args: impl IntoIterator<Item = impl Into<String>>,
-    ) -> anyhow::Result<(
-        TempDir,
-        gix::Repository,
-        VirtualBranchesTomlMetadata,
-        String,
-    )> {
-        let (tmp, repo, mut meta) =
-            crate::ref_info::utils::named_writable_scenario_with_args(name, args)?;
+    ) -> anyhow::Result<(TempDir, gix::Repository, VirtualBranchesTomlMetadata, String)> {
+        let (tmp, repo, mut meta) = crate::ref_info::utils::named_writable_scenario_with_args(name, args)?;
         let vb = meta.data_mut();
         vb.default_target = Some(Target {
             // For simplicity, we stick to the defaults.
@@ -3584,8 +3741,7 @@ pub(crate) mod utils {
         VirtualBranchesTomlMetadata,
         String,
     )> {
-        let (tmp, repo, mut meta, desc) =
-            named_writable_scenario_with_args_and_description(name, args)?;
+        let (tmp, repo, mut meta, desc) = named_writable_scenario_with_args_and_description(name, args)?;
 
         init_meta(&mut meta);
         let graph = but_graph::Graph::from_head(
@@ -3654,18 +3810,14 @@ pub(crate) mod utils {
             segments
                 .iter()
                 .rev()
-                .map(|stack_name| {
-                    StackBranch::new_with_zero_head((*stack_name).into(), None, None, None, false)
-                })
+                .map(|stack_name| StackBranch::new_with_zero_head((*stack_name).into(), None, None, false))
                 .chain(std::iter::once(StackBranch::new_with_zero_head(
                     stack_name.into(),
-                    None,
                     None,
                     None,
                     false,
                 )))
                 .collect(),
-            0,
             meta.data().branches.len(),
             match state {
                 StackState::InWorkspace => true,

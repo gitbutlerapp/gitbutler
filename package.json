@@ -31,13 +31,15 @@
 		"tauri-for-release": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
 		"globallint": "prettier --check . && eslint .",
-		"prettier": "prettier --check",
+		"prettier": "prettier --check .",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
 		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
 		"rustfmt": "cargo +nightly fmt -- --config-path rustfmt-nightly.toml",
+		"rustdoc": "cargo +nightly doc -Zrustdoc-mergeable-info --open",
 		"isgood": "pnpm check && pnpm lint",
-		"begood": "pnpm format && pnpm fix"
+		"begood": "pnpm format && pnpm fix",
+		"generate-ts-definitions": "scripts/generate-ts-definitions-from-rust.sh"
 	},
 	"devDependencies": {
 		"@eslint/js": "9.33.0",
@@ -52,7 +54,7 @@
 		"eslint-import-resolver-next": "^0.6.0",
 		"eslint-import-resolver-typescript": "^4.4.4",
 		"eslint-plugin-import-x": "4.16.1",
-		"eslint-plugin-storybook": "10.0.2",
+		"eslint-plugin-storybook": "10.1.8",
 		"eslint-plugin-svelte": "3.11.0",
 		"globals": "^15.15.0",
 		"postcss": "catalog:postcss",

@@ -1,12 +1,11 @@
 <script lang="ts">
-	import Codeblock from '$components/codegen/Codeblock.svelte';
 	import ExpandableSection from '$components/codegen/ExpandableSection.svelte';
 	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
-	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
+	import { formatToolCall, getToolIcon, getToolLabel } from '$lib/utils/codegenTools';
+	import { Codeblock } from '@gitbutler/ui';
 
 	type Props = {
 		projectId: string;
-		style?: 'nested' | 'standalone';
 		toolCall: ToolCall;
 		fullWidth?: boolean;
 		toolCallKey?: string;
@@ -14,8 +13,17 @@
 			groups: Map<string, boolean>;
 			individual: Map<string, boolean>;
 		};
+		firstInGroup: boolean;
+		lastInGroup: boolean;
 	};
-	const { toolCall, style, fullWidth, toolCallKey, toolCallExpandedState }: Props = $props();
+	const {
+		toolCall,
+		firstInGroup,
+		lastInGroup,
+		fullWidth,
+		toolCallKey,
+		toolCallExpandedState
+	}: Props = $props();
 
 	// Initialize expanded state from map, default to false (collapsed)
 	const initialExpanded =
@@ -31,21 +39,29 @@
 	}
 </script>
 
-<div class="tool-call {style}" class:full-width={fullWidth}>
+<div
+	class="tool-call"
+	class:first-in-group={firstInGroup}
+	class:last-in-group={lastInGroup}
+	class:full-width={fullWidth}
+>
 	<ExpandableSection
-		label={toolCall.name}
+		label={getToolLabel(toolCall.name)}
 		icon={getToolIcon(toolCall.name)}
 		loading={toolCallLoading(toolCall)}
 		expanded={initialExpanded}
 		onToggle={handleToggle}
 	>
 		{#snippet summary()}
-			<span class="summary truncate">{formatToolCall(toolCall)}</span>
+			{@const formattedCall = formatToolCall(toolCall)}
+			<span class="summary truncate">{formattedCall}</span>
 		{/snippet}
 
 		{#snippet content()}
 			<div class="stack-v gap-6 m-b-8">
-				<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
+				{#if toolCall.name !== 'AskUserQuestion'}
+					<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
+				{/if}
 				{#if toolCall.result}
 					<Codeblock content={toolCall.result.slice(0, 65536)} />
 				{/if}
@@ -56,6 +72,8 @@
 
 <style lang="postcss">
 	.tool-call {
+		padding-bottom: 8px;
+
 		&:not(.full-width) {
 			max-width: var(--message-max-width);
 		}
@@ -63,8 +81,11 @@
 		&.full-width {
 			width: 100%;
 		}
-		&.standalone {
-			padding: 12px 0;
+		&.first-in-group {
+			padding-top: 12px;
+		}
+		&.last-in-group {
+			padding-bottom: 12px;
 		}
 	}
 

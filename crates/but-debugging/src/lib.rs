@@ -53,7 +53,7 @@ impl LogOptions {
 }
 
 /// Runs `git log` and passes the output to println!
-#[deprecated = "git_log should not be used in production code or testing infastructure"]
+#[deprecated = "git_log should not be used in production code or testing infrastructure"]
 pub fn git_log(path: &Path, options: &LogOptions) {
     let path = if path.ends_with(".git") {
         path.parent().unwrap()
@@ -111,7 +111,7 @@ impl LsTreeOptions {
 }
 
 /// Runs `git ls-tree` and passes the output to println!
-#[deprecated = "git_ls_tree should not be used in production code or testing infastructure"]
+#[deprecated = "git_ls_tree should not be used in production code or testing infrastructure"]
 pub fn git_ls_tree(path: &Path, options: &LsTreeOptions) {
     let path = if path.ends_with(".git") {
         path.parent().unwrap()
@@ -131,7 +131,7 @@ pub fn git_ls_tree(path: &Path, options: &LsTreeOptions) {
 }
 
 /// Runs `git status` and passes the output to println!
-#[deprecated = "git_status should not be used in production code or testing infastructure"]
+#[deprecated = "git_status should not be used in production code or testing infrastructure"]
 pub fn git_status(path: &Path) {
     let path = if path.ends_with(".git") {
         path.parent().unwrap()

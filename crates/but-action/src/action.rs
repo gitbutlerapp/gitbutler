@@ -1,6 +1,6 @@
 use std::{fmt::Debug, str::FromStr};
 
-use gitbutler_command_context::CommandContext;
+use but_ctx::Context;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -64,10 +64,7 @@ impl TryFrom<but_db::ButlerAction> for ButlerAction {
     type Error = anyhow::Error;
 
     fn try_from(value: but_db::ButlerAction) -> Result<Self, Self::Error> {
-        let response = value
-            .response
-            .as_ref()
-            .and_then(|o| serde_json::from_str(o).ok());
+        let response = value.response.as_ref().and_then(|o| serde_json::from_str(o).ok());
         let source = value
             .source
             .as_deref()
@@ -95,10 +92,7 @@ impl TryFrom<ButlerAction> for but_db::ButlerAction {
     type Error = anyhow::Error;
 
     fn try_from(value: ButlerAction) -> Result<Self, Self::Error> {
-        let response = value
-            .response
-            .as_ref()
-            .and_then(|o| serde_json::to_string(o).ok());
+        let response = value.response.as_ref().and_then(|o| serde_json::to_string(o).ok());
         let source = serde_json::to_string(&value.source).ok();
         Ok(Self {
             id: value.id.to_string(),
@@ -146,21 +140,19 @@ impl ButlerAction {
     }
 }
 
-pub(crate) fn persist_action(ctx: &mut CommandContext, action: ButlerAction) -> anyhow::Result<()> {
-    ctx.db()?
-        .butler_actions()
+pub(crate) fn persist_action(ctx: &mut Context, action: ButlerAction) -> anyhow::Result<()> {
+    ctx.db
+        .get_mut()?
+        .butler_actions_mut()
         .insert(action.try_into()?)
         .map_err(|e| anyhow::anyhow!("Failed to persist action: {}", e))?;
     Ok(())
 }
 
-pub fn list_actions(
-    ctx: &mut CommandContext,
-    offset: i64,
-    limit: i64,
-) -> anyhow::Result<ActionListing> {
+pub fn list_actions(ctx: &Context, offset: i64, limit: i64) -> anyhow::Result<ActionListing> {
     let (total, actions) = ctx
-        .db()?
+        .db
+        .get()?
         .butler_actions()
         .list(offset, limit)
         .map_err(|e| anyhow::anyhow!("Failed to list actions: {}", e))?;

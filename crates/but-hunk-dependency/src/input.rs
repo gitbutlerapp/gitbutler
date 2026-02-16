@@ -1,15 +1,19 @@
 use anyhow::anyhow;
-use but_core::{TreeStatusKind, ref_metadata::StackId};
+use but_core::TreeStatusKind;
 use gix::bstr::BString;
+
+use crate::ui::HunkLockTarget;
 
 /// A whole stack for the purpose of generating hunk locking information from it, for use in [`WorkspaceRanges::try_from_stacks()`](crate::WorkspaceRanges::try_from_stacks()) .
 #[derive(Debug, Clone)]
 pub struct InputStack {
     /// The stack that contains [commits](InputStack::commits_from_base_to_tip).
-    pub stack_id: StackId,
+    pub target: HunkLockTarget,
     /// The commits in the stack.
     ///
     /// **The commits are ordered from the base to the tip of the stack (application order)**.
+    ///
+    /// TODO: Why? This is inconsistent with the rest of the codebase.
     pub commits_from_base_to_tip: Vec<InputCommit>,
 }
 
@@ -47,7 +51,7 @@ pub struct InputDiffHunk {
 }
 
 impl InputDiffHunk {
-    /// Compute the amount of lines that are left when substracting old-lines from new-lines.
+    /// Compute the amount of lines that are left when subtracting old-lines from new-lines.
     pub fn net_lines(&self) -> anyhow::Result<i32> {
         // TODO: use `checked_signed_diff` instead when stable.
         (self.new_lines as i64)

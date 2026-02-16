@@ -112,6 +112,6 @@ mod commit {
     }
 }
 pub use commit::{
-    Commit, CommitMetadata, CommitTrailer, create_stash_commit, list_stash_commits,
-    list_stash_references, pop_stash_commit,
+    Commit, CommitMetadata, CommitTrailer, create_stash_commit, list_stash_commits, list_stash_references,
+    pop_stash_commit,
 };

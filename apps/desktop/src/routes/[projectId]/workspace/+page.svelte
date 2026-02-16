@@ -9,7 +9,7 @@
 	const modeService = inject(MODE_SERVICE);
 
 	const projectId = $derived(page.params.projectId!);
-	const mode = $derived(modeService.mode({ projectId }));
+	const mode = $derived(modeService.mode(projectId));
 	const stackService = inject(STACK_SERVICE);
 
 	// Check for stackId in URL query parameters

@@ -6,8 +6,7 @@
 		title: 'Basic / FileIcon',
 		component: FileIcon,
 		args: {
-			fileName: 'file.txt',
-			size: 16
+			fileName: 'file.txt'
 		},
 		argTypes: {}
 	});

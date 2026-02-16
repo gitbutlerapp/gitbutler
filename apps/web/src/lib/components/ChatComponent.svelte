@@ -4,7 +4,6 @@
 	import ShowChatButton from '$lib/components/ShowChatButton.svelte';
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
 	import Event from '$lib/components/chat/Event.svelte';
-	import { type DiffSelection } from '$lib/diff/lineSelection.svelte';
 	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { isFound } from '@gitbutler/shared/network/loadable';
@@ -27,8 +26,6 @@
 		isUserLoggedIn: boolean | undefined;
 		isTabletMode: boolean;
 		onMinimizeToggle: () => void;
-		diffSelection: DiffSelection | undefined;
-		clearDiffSelection: () => void;
 	};
 
 	let {
@@ -43,9 +40,7 @@
 		isPatchAuthor,
 		isUserLoggedIn,
 		isTabletMode,
-		onMinimizeToggle,
-		diffSelection,
-		clearDiffSelection
+		onMinimizeToggle
 	}: Props = $props();
 
 	const appState = inject(APP_STATE);
@@ -154,8 +149,6 @@
 				{changeId}
 				{patchCommit}
 				{isPatchAuthor}
-				{diffSelection}
-				{clearDiffSelection}
 				replyingTo={replyToHandler.inReplyTo}
 				clearReply={() => replyToHandler.clear()}
 			/>

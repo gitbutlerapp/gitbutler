@@ -1,10 +1,9 @@
 <script lang="ts">
-	import ChunkyList from '$components/ChunkyList.svelte';
 	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
+	import LazyList from '$components/LazyList.svelte';
 	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import {
-		BRANCH_FILTER_OPTIONS,
 		combineBranchesAndPrs,
 		groupBranches,
 		isBranchFilterOption,
@@ -13,14 +12,11 @@
 	} from '$lib/branches/branchListing';
 	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
 	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import prList from '$lib/forge/prPolling.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { inject } from '@gitbutler/core/context';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Badge, Button, EmptyStatePlaceholder, Segment, SegmentControl } from '@gitbutler/ui';
-
+	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from '@gitbutler/ui';
 	import Fuse from 'fuse.js';
+	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import type { ForgeUser } from '$lib/forge/interface/types';
 	import type { Snippet } from 'svelte';
 
@@ -29,8 +25,15 @@
 		forgeUser: ForgeUser | undefined;
 		selectedOption: BranchFilterOption;
 		sidebarEntry: Snippet<[SidebarEntrySubject]>;
+		baseBranch?: BaseBranch;
 	};
-	let { projectId, forgeUser, selectedOption = $bindable(), sidebarEntry }: Props = $props();
+	let {
+		projectId,
+		forgeUser,
+		selectedOption = $bindable(),
+		sidebarEntry,
+		baseBranch
+	}: Props = $props();
 
 	const searchEngine = new Fuse([] as SidebarEntrySubject[], {
 		keys: [
@@ -64,18 +67,13 @@
 	let searching = $state(false);
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const uiState = inject(UI_STATE);
 	const branchService = inject(BRANCH_SERVICE);
 
-	const prs = prList(
-		reactive(() => projectId),
-		forge,
-		uiState
-	);
+	const prs = $derived(forge.current.listService?.list(projectId, 15 * 60 * 1000));
 
 	const branchesQuery = $derived(branchService.list(projectId));
 	const combined = $derived(
-		combineBranchesAndPrs(prs.current, branchesQuery.response || [], selectedOption)
+		combineBranchesAndPrs(prs?.response || [], branchesQuery.response || [], selectedOption)
 	);
 
 	const groupedBranches = $derived(groupBranches(combined, forgeUser));
@@ -128,12 +126,6 @@
 		}
 	});
 
-	const selectedFilterIndex = $derived.by(() => {
-		const index = BRANCH_FILTER_OPTIONS.findIndex((item) => selectedOption === item);
-		if (index === -1) return 0;
-		return index;
-	});
-
 	function setFilter(id: string) {
 		if (isBranchFilterOption(id)) {
 			selectedOption = id;
@@ -143,12 +135,34 @@
 	const debounceSearchInput = debounce(() => {
 		searchTerm = searchEl!.value;
 	}, 250);
+
+	// Mapping for forge type to display name
+	const FORGE_NAME_MAP: Record<string, string> = {
+		github: 'GitHub',
+		gitlab: 'GitLab',
+		bitbucket: 'Bitbucket',
+		azure: 'Azure DevOps'
+	};
+
+	// Increased from 180 to accommodate longer contextual messages
+	const EMPTY_STATE_WIDTH = 280;
+
+	// Helper to get a user-friendly forge name
+	const forgeName = $derived(FORGE_NAME_MAP[forge.determinedForgeType] ?? 'your forge');
+
+	// Helper to determine if authentication message should be shown
+	// Show auth message when:
+	// 1. User is not authenticated, AND
+	// 2. Either viewing PRs filter OR forge has PR listing capability
+	const shouldShowAuthMessage = $derived(
+		!forge.current.authenticated && (selectedOption === 'pullRequest' || forge.current.listService)
+	);
 </script>
 
 {#snippet branchGroup(props: { title: string; children: SidebarEntrySubject[] })}
 	{#if props.children.length > 0}
 		<BranchesListGroup title={props.title}>
-			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
+			<LazyList items={props.children} template={sidebarEntry}></LazyList>
 		</BranchesListGroup>
 	{/if}
 {/snippet}
@@ -183,9 +197,9 @@
 			</div>
 		</div>
 
-		<SegmentControl fullWidth defaultIndex={selectedFilterIndex} onselect={setFilter}>
+		<SegmentControl fullWidth selected={selectedOption} onselect={setFilter}>
 			{#each Object.entries(filterOptions) as [segmentId, segmentCopy]}
-				<Segment id={segmentId}>{segmentCopy}</Segment>
+				<SegmentControl.Item id={segmentId}>{segmentCopy}</SegmentControl.Item>
 			{/each}
 		</SegmentControl>
 	</div>
@@ -227,9 +241,28 @@
 		{/if}
 	{:else}
 		<div class="branches__empty-state">
-			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
+			<EmptyStatePlaceholder image={noBranchesSvg} width={EMPTY_STATE_WIDTH} bottomMargin={48}>
+				{#snippet title()}
+					{#if selectedOption === 'local'}
+						No local branches found
+					{:else}
+						No branches or {forge.reviewUnitAbbr}s found
+					{/if}
+				{/snippet}
 				{#snippet caption()}
-					You have no branches
+					{#if selectedOption === 'pullRequest'}
+						No {forge.reviewUnitAbbr}s found {#if baseBranch}
+							from <strong>{baseBranch.remoteName}</strong>{/if}.
+					{:else if selectedOption === 'local'}
+						Create a new branch or fetch from your remote.
+					{:else if baseBranch}
+						Branches and {forge.reviewUnitAbbr}s from
+						<strong>{baseBranch.remoteName}/{baseBranch.shortName}</strong>
+						will appear here.
+					{/if}
+					{#if shouldShowAuthMessage}
+						Authenticate with {forgeName} to see {forge.reviewUnitAbbr}s.
+					{/if}
 				{/snippet}
 			</EmptyStatePlaceholder>
 		</div>
@@ -317,7 +350,7 @@
 		}
 
 		&::placeholder {
-			color: var(--clr-scale-ntrl-60);
+			color: var(--clr-text-3);
 		}
 	}
 

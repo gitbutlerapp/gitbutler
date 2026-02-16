@@ -71,7 +71,17 @@ fn annotate_linux_keychain(err: anyhow::Error) -> anyhow::Error {
 
 /// Delete the secret at `handle` permanently from `namespace`.
 pub fn delete(handle: &str, namespace: Namespace) -> Result<()> {
-    Ok(entry_for(handle, namespace)?.delete_credential()?)
+    match entry_for(handle, namespace)
+        .map_err(annotate_linux_keychain)?
+        .delete_credential()
+    {
+        Ok(_) => Ok(()),
+        Err(keyring::Error::NoEntry) => {
+            // Fail silently if it doesn't exist.
+            Ok(())
+        }
+        Err(err) => Err(annotate_linux_keychain(err.into())),
+    }
 }
 
 /// Use this `identifier` as 'namespace' for identifying secrets.
@@ -252,12 +262,7 @@ pub mod git_credentials {
     }
 
     impl CredentialBuilderApi for Builder {
-        fn build(
-            &self,
-            _target: Option<&str>,
-            service: &str,
-            _user: &str,
-        ) -> keyring::Result<Box<Credential>> {
+        fn build(&self, _target: Option<&str>, service: &str, _user: &str) -> keyring::Result<Box<Credential>> {
             let credential = Entry {
                 handle: service.to_string(),
                 store: self.store.clone(),

@@ -125,6 +125,10 @@ export default class BaseBranchService {
 		return this.api.endpoints.setTarget.useMutation();
 	}
 
+	get switchBackToWorkspace() {
+		return this.api.endpoints.switchBackToWorkspace.useMutation();
+	}
+
 	get push() {
 		return this.api.endpoints.push.useMutation();
 	}
@@ -151,8 +155,8 @@ function injectEndpoints(api: BackendApi) {
 				invalidatesTags: [
 					// No need to invalidate base branch, we should be listening
 					// for all FETCH events, and refreshing manually.
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails),
+					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
+					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
 				]
 			}),
@@ -164,8 +168,17 @@ function injectEndpoints(api: BackendApi) {
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
-					invalidatesList(ReduxTag.Stacks),
-					invalidatesList(ReduxTag.StackDetails)
+					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
+					invalidatesList(ReduxTag.StackDetails) // Probably this is still needed??
+				]
+			}),
+			switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({
+				extraOptions: { command: 'switch_back_to_workspace' },
+				query: (args) => args,
+				invalidatesTags: [
+					invalidatesType(ReduxTag.BaseBranchData),
+					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
+					invalidatesList(ReduxTag.StackDetails) // Probably this is still needed??
 				]
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({

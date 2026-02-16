@@ -32,6 +32,15 @@
 		onclick?.(e);
 	}}
 	onchange={(e) => onchange?.(e.currentTarget.checked)}
+	onkeydown={(e) => {
+		// Prevent Enter key from submitting forms, but manually toggle the checkbox
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			const target = e.currentTarget;
+			target.checked = !target.checked;
+			onchange?.(target.checked);
+		}
+	}}
 	type="checkbox"
 	class="toggle"
 	class:small
@@ -63,11 +72,15 @@
 			background-color: var(--clr-border-1);
 		}
 
+		&:focus-visible {
+			outline: 2px solid var(--clr-theme-pop-element);
+			outline-offset: -2px;
+		}
+
 		&:disabled {
 			border-color: none;
-			background-color: var(--clr-scale-ntrl-60);
 			cursor: not-allowed;
-			opacity: 0.3;
+			opacity: 0.6;
 			pointer-events: none;
 		}
 
@@ -76,7 +89,12 @@
 			background-color: var(--clr-theme-pop-element);
 
 			&:hover {
-				background-color: var(--clr-theme-pop-element-hover);
+				background-color: var(--hover-pop);
+			}
+
+			&:focus-visible {
+				outline: 2px solid color-mix(in srgb, var(--clr-theme-pop-element) 60%, var(--clr-text-1));
+				outline-offset: -2px;
 			}
 
 			&:disabled {
@@ -98,7 +116,7 @@
 			width: 12px;
 			height: 12px;
 			border-radius: 12px;
-			background-color: var(--clr-core-ntrl-100);
+			background-color: var(--clr-core-gray-100);
 			content: '';
 			transition:
 				background-color var(--transition-fast),

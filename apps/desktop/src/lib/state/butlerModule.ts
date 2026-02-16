@@ -222,7 +222,7 @@ type DefaultTransformer<T extends CustomQuery<any>> = (
 ) => ResultTypeFrom<T>;
 
 /**
- * A custom defintion of our queries since it needs to be referenced in a few
+ * A custom definition of our queries since it needs to be referenced in a few
  * different places.
  */
 export type CustomQuery<T> = QueryDefinition<CustomArgs, TauriBaseQueryFn, string, T>;

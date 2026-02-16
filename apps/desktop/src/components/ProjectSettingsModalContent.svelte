@@ -6,7 +6,10 @@
 	import AgentSettings from '$components/projectSettings/AgentSettings.svelte';
 	import GeneralSettings from '$components/projectSettings/GeneralSettings.svelte';
 	import { projectDisableCodegen } from '$lib/config/config';
-	import iconsJson from '@gitbutler/ui/data/icons.json';
+	import {
+		projectSettingsPages,
+		type ProjectSettingsPageId
+	} from '$lib/settings/projectSettingsPages';
 	import type { ProjectSettingsModalState } from '$lib/state/uiState.svelte';
 
 	type Props = {
@@ -16,41 +19,13 @@
 	const { data }: Props = $props();
 
 	const codegenDisabled = $derived(projectDisableCodegen(data.projectId));
+	const pages = $derived(
+		projectSettingsPages.filter((page) => page.id !== 'agent' || !$codegenDisabled)
+	);
 
-	const allPages = [
-		{
-			id: 'project',
-			label: 'Project',
-			icon: 'profile' as keyof typeof iconsJson
-		},
-		{
-			id: 'git',
-			label: 'Git stuff',
-			icon: 'git' as keyof typeof iconsJson
-		},
-		{
-			id: 'ai',
-			label: 'AI options',
-			icon: 'ai' as keyof typeof iconsJson
-		},
-		{
-			id: 'agent',
-			label: 'Agent settings',
-			icon: 'mixer' as keyof typeof iconsJson,
-			requireCodegen: true
-		},
-		{
-			id: 'experimental',
-			label: 'Experimental',
-			icon: 'idea' as keyof typeof iconsJson
-		}
-	];
+	let currentSelectedId = $derived(data.selectedId || pages.at(0)?.id);
 
-	const pages = $derived(allPages.filter((page) => !page.requireCodegen || !$codegenDisabled));
-
-	let currentSelectedId = $state(data.selectedId || pages[0]!.id);
-
-	function selectPage(pageId: string) {
+	function selectPage(pageId: ProjectSettingsPageId) {
 		currentSelectedId = pageId;
 	}
 </script>
@@ -58,7 +33,7 @@
 <SettingsModalLayout
 	title="Project settings"
 	{pages}
-	selectedId={data.selectedId}
+	selectedId={currentSelectedId}
 	onSelectPage={selectPage}
 >
 	{#snippet content({ currentPage })}

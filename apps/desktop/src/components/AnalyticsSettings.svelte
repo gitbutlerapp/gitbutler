@@ -1,12 +1,13 @@
 <script lang="ts">
-	import { APP_SETTINGS } from '$lib/config/appSettings';
+	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
 	import { inject } from '@gitbutler/core/context';
-	import { SectionCard, Toggle, Link, TestId } from '@gitbutler/ui';
+	import { CardGroup, Link, TestId, Toggle } from '@gitbutler/ui';
 
-	const appSettings = inject(APP_SETTINGS);
-	const errorReportingEnabled = appSettings.appErrorReportingEnabled;
-	const metricsEnabled = appSettings.appMetricsEnabled;
-	const nonAnonMetricsEnabled = appSettings.appNonAnonMetricsEnabled;
+	const settingsService = inject(SETTINGS_SERVICE);
+	const appSettings = $derived(settingsService.appSettings);
+	const errorReportingEnabled = $derived($appSettings?.telemetry.appErrorReportingEnabled);
+	const metricsEnabled = $derived($appSettings?.telemetry.appMetricsEnabled);
+	const nonAnonMetricsEnabled = $derived($appSettings?.telemetry.appNonAnonMetricsEnabled);
 </script>
 
 <div class="analytics-settings__content">
@@ -26,8 +27,8 @@
 	</p>
 </div>
 
-<div class="analytics-settings__actions" data-testid={TestId.OnboardingPageAnalyticsSettings}>
-	<SectionCard labelFor="errorReportingToggle" orientation="row">
+<CardGroup testId={TestId.OnboardingPageAnalyticsSettings}>
+	<CardGroup.Item labelFor="errorReportingToggle">
 		{#snippet title()}
 			Error reporting
 		{/snippet}
@@ -38,13 +39,16 @@
 			<Toggle
 				id="errorReportingToggle"
 				testId={TestId.OnboardingPageAnalyticsSettingsErrorReportingToggle}
-				checked={$errorReportingEnabled}
-				onclick={() => ($errorReportingEnabled = !$errorReportingEnabled)}
+				checked={errorReportingEnabled}
+				onclick={() =>
+					settingsService.updateTelemetry({
+						appErrorReportingEnabled: !errorReportingEnabled
+					})}
 			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard labelFor="metricsEnabledToggle" orientation="row">
+	<CardGroup.Item labelFor="metricsEnabledToggle">
 		{#snippet title()}
 			Usage metrics
 		{/snippet}
@@ -55,13 +59,16 @@
 			<Toggle
 				id="metricsEnabledToggle"
 				testId={TestId.OnboardingPageAnalyticsSettingsTelemetryToggle}
-				checked={$metricsEnabled}
-				onclick={() => ($metricsEnabled = !$metricsEnabled)}
+				checked={metricsEnabled}
+				onclick={() =>
+					settingsService.updateTelemetry({
+						appMetricsEnabled: !metricsEnabled
+					})}
 			/>
 		{/snippet}
-	</SectionCard>
+	</CardGroup.Item>
 
-	<SectionCard labelFor="nonAnonMetricsEnabledToggle" orientation="row">
+	<CardGroup.Item labelFor="nonAnonMetricsEnabledToggle">
 		{#snippet title()}
 			Non-anonymous usage metrics
 		{/snippet}
@@ -72,12 +79,15 @@
 			<Toggle
 				id="nonAnonMetricsEnabledToggle"
 				testId={TestId.OnboardingPageAnalyticsSettingsNonAnonymousToggle}
-				checked={$nonAnonMetricsEnabled}
-				onclick={() => ($nonAnonMetricsEnabled = !$nonAnonMetricsEnabled)}
+				checked={nonAnonMetricsEnabled}
+				onclick={() =>
+					settingsService.updateTelemetry({
+						appNonAnonMetricsEnabled: !nonAnonMetricsEnabled
+					})}
 			/>
 		{/snippet}
-	</SectionCard>
-</div>
+	</CardGroup.Item>
+</CardGroup>
 
 <style lang="postcss">
 	.analytics-settings__content {
@@ -89,11 +99,5 @@
 	.analytics-settings__text {
 		margin-bottom: 10px;
 		color: var(--clr-text-2);
-	}
-
-	.analytics-settings__actions {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
 	}
 </style>

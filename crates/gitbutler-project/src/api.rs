@@ -16,7 +16,7 @@ pub struct Project {
 
 impl From<crate::Project> for Project {
     fn from(project: crate::Project) -> Self {
-        let gerrit_mode = match project.open_isolated() {
+        let gerrit_mode = match project.open_isolated_repo() {
             Ok(repo) => repo
                 .git_settings()
                 .ok()
@@ -25,7 +25,7 @@ impl From<crate::Project> for Project {
             Err(_) => false,
         };
 
-        let forge_review_template_path = match project.open_isolated() {
+        let forge_review_template_path = match project.open_isolated_repo() {
             Ok(repo) => repo
                 .git_settings()
                 .ok()

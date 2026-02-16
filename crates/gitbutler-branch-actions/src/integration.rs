@@ -1,15 +1,14 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context as _, Result, anyhow};
 use bstr::ByteSlice;
 use but_core::worktree::checkout::UncommitedWorktreeChanges;
+use but_ctx::{Context, access::RepoExclusive};
 use but_error::Marker;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt};
 use gitbutler_branch::{self, BranchCreateRequest, GITBUTLER_WORKSPACE_REFERENCE};
-use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_ext::CommitMessageBstr as _;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
-use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     RepositoryExt, SignaturePurpose,
     logging::{LogUntil, RepositoryExt as _},
@@ -50,18 +49,16 @@ fn write_workspace_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
     std::fs::write(path, format!(":{sha}"))?;
     Ok(())
 }
-#[instrument(level = tracing::Level::DEBUG, skip(vb_state, ctx), err(Debug))]
+#[instrument(level = "debug", skip(vb_state, ctx), err(Debug))]
 pub fn update_workspace_commit(
     vb_state: &VirtualBranchesHandle,
-    ctx: &CommandContext,
+    ctx: &Context,
     checkout_new_worktree: bool,
 ) -> Result<git2::Oid> {
-    let target = vb_state
-        .get_default_target()
-        .context("failed to get target")?;
+    let target = vb_state.get_default_target().context("failed to get target")?;
 
-    let repo: &git2::Repository = ctx.repo();
-    let gix_repo = repo.to_gix()?;
+    let repo: &git2::Repository = &*ctx.git2_repo.get()?;
+    let gix_repo = repo.to_gix_repo()?;
 
     // get current repo head for reference
     let head_ref = repo.head()?;
@@ -80,15 +77,14 @@ pub fn update_workspace_commit(
     }
     let prev_head_id = head_ref.target();
 
-    let vb_state = ctx.project().virtual_branches();
+    let vb_state = ctx.virtual_branches();
 
     // get all virtual branches, we need to try to update them all
     let virtual_branches: Vec<Stack> = vb_state
         .list_stacks_in_workspace()
         .context("failed to list virtual branches")?;
 
-    let workspace_head =
-        repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?)?;
+    let workspace_head = repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?)?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
@@ -99,9 +95,7 @@ pub fn update_workspace_commit(
         message.push_str("This is placeholder commit and will be replaced by a merge of your ");
         message.push_str("virtual branches.\n\n");
     }
-    message.push_str(
-        "Due to GitButler managing multiple virtual branches, you cannot switch back and\n",
-    );
+    message.push_str("Due to GitButler managing multiple virtual branches, you cannot switch back and\n");
     message.push_str("forth between git branches and virtual branches easily. \n\n");
 
     message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
@@ -110,18 +104,13 @@ pub fn update_workspace_commit(
         message.push_str("Here are the branches that are currently applied:\n");
         for branch in &virtual_branches {
             message.push_str(" - ");
-            message.push_str(branch.name.as_str());
+            message.push_str(&branch.name());
             message.push_str(format!(" ({})", &branch.refname()?).as_str());
             message.push('\n');
 
-            if branch.head_oid(&gix_repo)? != target.sha.to_gix() {
+            if branch.head_oid(ctx)? != target.sha.to_gix() {
                 message.push_str("   branch head: ");
-                message.push_str(&branch.head_oid(&gix_repo)?.to_string());
-                message.push('\n');
-            }
-            for file in &branch.ownership.claims {
-                message.push_str("   - ");
-                message.push_str(&file.file_path.display().to_string());
+                message.push_str(&branch.head_oid(ctx)?.to_string());
                 message.push('\n');
             }
         }
@@ -179,6 +168,11 @@ pub fn update_workspace_commit(
     )?;
     repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
+    // Install managed hooks to prevent accidental git commits on workspace branch
+    if let Err(e) = gitbutler_repo::managed_hooks::install_managed_hooks(repo) {
+        tracing::warn!("Failed to install managed hooks: {}", e);
+    }
+
     let mut index = repo.index()?;
     index.read_tree(&workspace_tree)?;
     index.write()?;
@@ -192,7 +186,7 @@ pub fn update_workspace_commit(
     Ok(final_commit)
 }
 
-pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
+pub fn verify_branch(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     verify_current_branch_name(ctx)
         .and_then(verify_head_is_set)
         .and_then(|()| verify_head_is_clean(ctx, perm))
@@ -200,8 +194,8 @@ pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -
     Ok(())
 }
 
-fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
-    match ctx.repo().head().context("failed to get head")?.name() {
+fn verify_head_is_set(ctx: &Context) -> Result<()> {
+    match ctx.git2_repo.get()?.head().context("failed to get head")?.name() {
         Some(refname) if OPEN_WORKSPACE_REFS.contains(&refname) => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
         None => Err(anyhow!(
@@ -212,8 +206,8 @@ fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
 }
 
 // Returns an error if repo head is not pointing to the workspace branch.
-fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
-    match ctx.repo().head()?.name() {
+fn verify_current_branch_name(ctx: &Context) -> Result<&Context> {
+    match ctx.git2_repo.get()?.head()?.name() {
         Some(head) => {
             let head_name = head.to_string();
             if !OPEN_WORKSPACE_REFS.contains(&head_name.as_str()) {
@@ -226,26 +220,19 @@ fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
 }
 
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
-fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
-    let head_commit = ctx
-        .repo()
+fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let head_commit = git2_repo
         .head()
         .context("failed to get head")?
         .peel_to_commit()
         .context("failed to peel to commit")?;
 
-    let vb_handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let default_target = vb_handle
-        .get_default_target()
-        .context("failed to get default target")?;
+    let vb_handle = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let default_target = vb_handle.get_default_target().context("failed to get default target")?;
 
-    let commits = ctx
-        .repo()
-        .log(
-            head_commit.id(),
-            LogUntil::Commit(default_target.sha),
-            false,
-        )
+    let commits = git2_repo
+        .log(head_commit.id(), LogUntil::Commit(default_target.sha), false)
         .context("failed to get log")?;
 
     let workspace_index = commits
@@ -266,7 +253,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         return Ok(());
     }
 
-    ctx.repo()
+    git2_repo
         .reset(workspace_commit.as_object(), git2::ResetType::Soft, None)
         .context("failed to reset to workspace commit")?;
 
@@ -274,9 +261,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
     let mut new_branch = branch_manager
         .create_virtual_branch(
             &BranchCreateRequest {
-                name: extra_commits
-                    .last()
-                    .map(|commit| commit.message_bstr().to_string()),
+                name: extra_commits.last().map(|commit| commit.message_bstr().to_string()),
                 ..Default::default()
             },
             perm,
@@ -284,16 +269,12 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         .context("failed to create virtual branch")?;
 
     // rebasing the extra commits onto the new branch
-    let gix_repo = ctx.repo().to_gix()?;
-    let mut head = new_branch.head_oid(&gix_repo)?.to_git2();
+    let gix_repo = git2_repo.to_gix_repo()?;
+    let mut head = new_branch.head_oid(ctx)?.to_git2();
     for commit in extra_commits {
-        let new_branch_head = ctx
-            .repo()
-            .find_commit(head)
-            .context("failed to find new branch head")?;
+        let new_branch_head = git2_repo.find_commit(head).context("failed to find new branch head")?;
 
-        let rebased_commit_oid = ctx
-            .repo()
+        let rebased_commit_oid = git2_repo
             .commit_with_signature(
                 None,
                 &commit.author(),
@@ -303,21 +284,13 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
                 &[&new_branch_head],
                 None,
             )
-            .context(format!(
-                "failed to rebase commit {} onto new branch",
-                commit.id()
-            ))?;
+            .context(format!("failed to rebase commit {} onto new branch", commit.id()))?;
 
-        let rebased_commit = ctx.repo().find_commit(rebased_commit_oid).context(format!(
-            "failed to find rebased commit {rebased_commit_oid}"
-        ))?;
+        let rebased_commit = git2_repo
+            .find_commit(rebased_commit_oid)
+            .context(format!("failed to find rebased commit {rebased_commit_oid}"))?;
 
-        new_branch.set_stack_head(
-            &vb_handle,
-            &gix_repo,
-            rebased_commit.id(),
-            Some(rebased_commit.tree_id()),
-        )?;
+        new_branch.set_stack_head(&vb_handle, &gix_repo, rebased_commit.id())?;
 
         head = rebased_commit.id();
     }
