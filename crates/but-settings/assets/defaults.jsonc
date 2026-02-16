@@ -34,8 +34,8 @@
 		/// Enable single branch mode.
 		"singleBranch": false,
 		/// Control how the filesystem watch should be established.
-		/// Possible values: "auto", "legacy", "modern".
-		"watchMode": "auto"
+		/// Possible values: "legacy", "modern".
+		"watchMode": "modern"
 	},
 	// Allows for additional "connect-src" hosts to be included. Requires app restart.
 	"extraCsp": {

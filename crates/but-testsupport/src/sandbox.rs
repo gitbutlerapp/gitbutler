@@ -370,7 +370,7 @@ impl Sandbox {
                 undo: true,
                 rules: true,
                 single_branch: true,
-                watch_mode: "auto".into(),
+                watch_mode: "modern".into(),
             },
             extra_csp: ExtraCsp {
                 hosts: vec![],
