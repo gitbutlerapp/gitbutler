@@ -19,8 +19,9 @@ ARCH=$(uname -m)
 # Map OS to installer format
 case "$OS" in
     "darwin") INSTALLER_OS="macos" ;;
+    "linux") INSTALLER_OS="linux" ;;
     *)
-        echo "Error: This installer currently only supports macOS. Your OS: $OS" >&2
+        echo "Error: This installer currently only supports macOS and Linux. Your OS: $OS" >&2
         exit 1
         ;;
 esac
