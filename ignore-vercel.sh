@@ -8,10 +8,16 @@
 echo "🔍 Checking for changes in monitored directories..."
 
 # Directories to monitor for changes
-MONITORED_DIRS=(
+MONITORED_PATHS=(
+  # webapp source
   "apps/web"
   "packages/shared" 
   "packages/core"
+  # dependency changes that may affect webapp
+  "package.json"
+  "pnpm-lock.yaml"
+  # the install script is bundled in the webapp
+  "scripts/install.sh"
 )
 
 # Check if we're in a git repository
@@ -40,37 +46,19 @@ fi
 
 echo "📊 Comparing $PREVIOUS_COMMIT with HEAD"
 
-# Check each monitored directory for changes
+# Check each monitored path for changes
 HAS_CHANGES=false
 
-for dir in "${MONITORED_DIRS[@]}"; do
-  if [ -d "$dir" ]; then
-    # Check if there are any changes in this directory
-    if ! git diff --quiet "$PREVIOUS_COMMIT" HEAD -- "$dir"; then
-      echo "✅ Changes detected in: $dir"
+for path in "${MONITORED_PATHS[@]}"; do
+  if [ -d "$path" ] || [ -f "$path" ]; then
+    if ! git diff --quiet "$PREVIOUS_COMMIT" HEAD -- "$path"; then
+      echo "✅ Changes detected in: $path"
       HAS_CHANGES=true
     else
-      echo "➖ No changes in: $dir"
+      echo "➖ No changes in: $path"
     fi
   else
-    echo "⚠️  Directory not found: $dir"
-  fi
-done
-
-# Also check for changes to package.json files that might affect dependencies
-ROOT_FILES=(
-  "package.json"
-  "package-lock.json"
-  "yarn.lock"
-  "pnpm-lock.yaml"
-)
-
-for file in "${ROOT_FILES[@]}"; do
-  if [ -f "$file" ]; then
-    if ! git diff --quiet "$PREVIOUS_COMMIT" HEAD -- "$file"; then
-      echo "✅ Changes detected in root: $file"
-      HAS_CHANGES=true
-    fi
+    echo "⚠️  No such file or directory: $path"
   fi
 done
 
