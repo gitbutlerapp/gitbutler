@@ -1175,10 +1175,11 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 				],
 				transformResponse(rsp: CommitDetails) {
 					const changes = changesAdapter.addMany(changesAdapter.getInitialState(), rsp.changes);
+					const stats = rsp.stats;
 					return {
 						changes: changes,
 						details: rsp.commit,
-						stats: rsp.stats,
+						stats,
 						conflictEntries: rsp.conflictEntries
 							? new ConflictEntries(
 									rsp.conflictEntries.ancestorEntries,
