@@ -1,5 +1,6 @@
 use anyhow::bail;
 use branch::Subcommands;
+use but_api::json::HexHash;
 use but_core::ref_metadata::StackId;
 use colored::Colorize;
 
@@ -83,7 +84,7 @@ pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut Ou
                 match anchor_id {
                     CliId::Commit { commit_id: oid, .. } => {
                         Some(but_api::legacy::stack::create_reference::Anchor::AtCommit {
-                            commit_id: (*oid),
+                            commit_id: HexHash(*oid),
                             position: but_workspace::branch::create_reference::Position::Above,
                         })
                     }
