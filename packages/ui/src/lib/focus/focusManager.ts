@@ -398,7 +398,7 @@ export class FocusManager {
 
 	private handleFModeInput(event: KeyboardEvent): boolean {
 		if (event.key === 'f' || event.key === 'F' || this.fModeManager.active) {
-			return this.fModeManager.handleKeypress(event, this.nodeMap, this.currentNode!);
+			return this.fModeManager.handleKeypress(event, this.nodeMap, this.currentNode);
 		}
 		return false;
 	}

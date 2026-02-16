@@ -539,12 +539,12 @@ export type DiffLine = {
 export function encodeDiffLineRange(lineSelection: DiffLine[]): DiffLineRange | undefined {
 	if (lineSelection.length === 0) return undefined;
 	if (lineSelection.length === 1)
-		return encodeSingleDiffLine(lineSelection[0]!.oldLine, lineSelection[0]!.newLine);
+		return encodeSingleDiffLine(lineSelection[0].oldLine, lineSelection[0].newLine);
 
-	const firstLine = encodeSingleDiffLine(lineSelection[0]!.oldLine, lineSelection[0]!.newLine);
+	const firstLine = encodeSingleDiffLine(lineSelection[0].oldLine, lineSelection[0].newLine);
 	const lastLine = encodeSingleDiffLine(
-		lineSelection[lineSelection.length - 1]!.oldLine,
-		lineSelection[lineSelection.length - 1]!.newLine
+		lineSelection[lineSelection.length - 1].oldLine,
+		lineSelection[lineSelection.length - 1].newLine
 	);
 
 	if (firstLine === undefined || lastLine === undefined) {
@@ -718,8 +718,8 @@ function computeBaseWordDiff(
 	// Loop through every line in the section
 	// We're only bothered with prev/next sections with equal # of lines changes
 	for (let i = 0; i < numberOfLines; i++) {
-		const oldLine = prevSection.lines[i] as Line;
-		const newLine = nextSection.lines[i] as Line;
+		const oldLine = prevSection.lines[i];
+		const newLine = nextSection.lines[i];
 		const prevSectionRow: BaseRow = {
 			encodedLineId: encodeDiffFileLine(
 				filename,
@@ -787,8 +787,8 @@ function computeBaseInlineWordDiff(
 	// Loop through every line in the section
 	// We're only bothered with prev/next sections with equal # of lines changes
 	for (let i = 0; i < numberOfLines; i++) {
-		const oldLine = prevSection.lines[i] as Line;
-		const newLine = nextSection.lines[i] as Line;
+		const oldLine = prevSection.lines[i];
+		const newLine = nextSection.lines[i];
 
 		const sectionRow: BaseRow = {
 			encodedLineId: encodeDiffFileLine(
