@@ -252,7 +252,7 @@ fn get_base_dir(ctx: Option<&mut Context>, global: bool) -> Result<PathBuf> {
     }
 }
 
-/// Replace version in SKILL.md content
+/// Replace version in SKILL.md content (in metadata.version field)
 fn inject_version(content: &str, version: &str) -> String {
     // Handle different line endings (Unix \n, Windows \r\n, or old Mac \r)
     let frontmatter_end = content
@@ -263,11 +263,12 @@ fn inject_version(content: &str, version: &str) -> String {
     if let Some(end_pos) = frontmatter_end {
         let frontmatter = &content[..end_pos];
         let rest = &content[end_pos..];
-        let updated_frontmatter = frontmatter.replace("version: 0.0.0", &format!("version: {}", version));
+        // Replace version in metadata section: version: "0.0.0" -> version: "{version}"
+        let updated_frontmatter = frontmatter.replace("version: \"0.0.0\"", &format!("version: \"{}\"", version));
         format!("{}{}", updated_frontmatter, rest)
     } else {
         // Fallback if frontmatter format is unexpected
-        content.replace("version: 0.0.0", &format!("version: {}", version))
+        content.replace("version: \"0.0.0\"", &format!("version: \"{}\"", version))
     }
 }
 
@@ -311,7 +312,7 @@ fn extract_installed_version(skill_md_path: &std::path::Path) -> Option<String> 
     extract_installed_version_from_content(&content)
 }
 
-/// Extract the version from YAML frontmatter content.
+/// Extract the version from YAML frontmatter content (from metadata.version field).
 /// Returns None if the content has no frontmatter or no version entry.
 fn extract_installed_version_from_content(content: &str) -> Option<String> {
     let mut lines = content.lines();
@@ -321,13 +322,29 @@ fn extract_installed_version_from_content(content: &str) -> Option<String> {
         return None;
     }
 
-    // Find the version line in frontmatter
+    // Find the metadata section and then the version line within it
+    let mut in_metadata = false;
     for line in lines {
         if line == "---" {
             break;
         }
-        if let Some(value) = line.strip_prefix("version:") {
-            return Some(parse_yaml_value(value));
+        
+        // Detect metadata section (no indentation)
+        if line.trim() == "metadata:" {
+            in_metadata = true;
+            continue;
+        }
+        
+        // If we hit another top-level key, we're out of metadata
+        if !line.starts_with(' ') && !line.is_empty() && in_metadata {
+            in_metadata = false;
+        }
+        
+        // Look for version within metadata (indented)
+        if in_metadata {
+            if let Some(value) = line.trim_start().strip_prefix("version:") {
+                return Some(parse_yaml_value(value));
+            }
         }
     }
 
@@ -972,38 +989,38 @@ mod tests {
 
     #[test]
     fn inject_version_replaces_in_frontmatter() {
-        let content = "---\nname: Test\nversion: 0.0.0\n---\n\nContent here with version: 0.0.0";
+        let content = "---\nname: Test\nmetadata:\n  version: \"0.0.0\"\n---\n\nContent here with version: 0.0.0";
         let result = inject_version(content, "1.2.3");
 
-        // Should replace the first occurrence in frontmatter
-        assert!(result.contains("version: 1.2.3"));
-        // The second occurrence should NOT be replaced
+        // Should replace the version in metadata section
+        assert!(result.contains("version: \"1.2.3\""));
+        // The occurrence in body should NOT be replaced
         assert!(result.contains("Content here with version: 0.0.0"));
     }
 
     #[test]
     fn inject_version_handles_windows_line_endings() {
-        let content = "---\r\nname: Test\r\nversion: 0.0.0\r\n---\r\n\r\nContent here";
+        let content = "---\r\nname: Test\r\nmetadata:\r\n  version: \"0.0.0\"\r\n---\r\n\r\nContent here";
         let result = inject_version(content, "1.2.3");
 
-        assert!(result.contains("version: 1.2.3"));
+        assert!(result.contains("version: \"1.2.3\""));
     }
 
     #[test]
     fn inject_version_handles_old_mac_line_endings() {
-        let content = "---\rname: Test\rversion: 0.0.0\r---\r\rContent here";
+        let content = "---\rname: Test\rmetadata:\r  version: \"0.0.0\"\r---\r\rContent here";
         let result = inject_version(content, "1.2.3");
 
-        assert!(result.contains("version: 1.2.3"));
+        assert!(result.contains("version: \"1.2.3\""));
     }
 
     #[test]
     fn inject_version_fallback_without_frontmatter() {
-        let content = "Just some content with version: 0.0.0 in it";
+        let content = "Just some content with version: \"0.0.0\" in it";
         let result = inject_version(content, "2.0.0");
 
-        assert!(result.contains("version: 2.0.0"));
-        assert!(!result.contains("version: 0.0.0"));
+        assert!(result.contains("version: \"2.0.0\""));
+        assert!(!result.contains("version: \"0.0.0\""));
     }
 
     #[test]
@@ -1027,7 +1044,7 @@ mod tests {
     #[test]
     fn prepare_skill_content_injects_version() {
         let result = prepare_skill_content("9.9.9").unwrap();
-        assert!(result.contains("version: 9.9.9"));
+        assert!(result.contains("version: \"9.9.9\""));
     }
 
     #[test]
@@ -1143,7 +1160,7 @@ mod tests {
         let skill_path = temp_dir.path().join("SKILL.md");
 
         // Test with valid GitButler skill content (frontmatter)
-        fs::write(&skill_path, "---\nname: but\nversion: 1.0.0\n---\n# Content").unwrap();
+        fs::write(&skill_path, "---\nname: but\nmetadata:\n  version: \"1.0.0\"\n---\n# Content").unwrap();
         assert!(
             is_gitbutler_skill(&skill_path),
             "Should recognize valid GitButler skill with frontmatter"
@@ -1181,21 +1198,27 @@ mod tests {
 
     #[test]
     fn extract_installed_version_parses_frontmatter() {
-        let version = extract_installed_version_from_content("---\nname: but\nversion: 1.2.3\n---\n# Content");
+        let version = extract_installed_version_from_content("---\nname: but\nmetadata:\n  version: \"1.2.3\"\n---\n# Content");
         assert_eq!(version, Some("1.2.3".to_string()));
     }
 
     #[test]
     fn extract_installed_version_handles_different_order() {
-        // version is not the first field
+        // version is not the first field in metadata
         let version =
-            extract_installed_version_from_content("---\nname: but\nauthor: Test\nversion: 2.0.0\n---\n# Content");
+            extract_installed_version_from_content("---\nname: but\nmetadata:\n  author: Test\n  version: \"2.0.0\"\n---\n# Content");
         assert_eq!(version, Some("2.0.0".to_string()));
     }
 
     #[test]
     fn extract_installed_version_returns_none_for_missing_version() {
         let version = extract_installed_version_from_content("---\nname: but\n---\n# Content");
+        assert_eq!(version, None);
+    }
+
+    #[test]
+    fn extract_installed_version_returns_none_for_metadata_without_version() {
+        let version = extract_installed_version_from_content("---\nname: but\nmetadata:\n  author: Test\n---\n# Content");
         assert_eq!(version, None);
     }
 
@@ -1252,14 +1275,14 @@ mod tests {
     #[test]
     fn extract_installed_version_trims_whitespace() {
         // Version with extra whitespace
-        let version = extract_installed_version_from_content("---\nversion:   1.0.0   \n---\n# Content");
+        let version = extract_installed_version_from_content("---\nmetadata:\n  version:   \"1.0.0\"   \n---\n# Content");
         assert_eq!(version, Some("1.0.0".to_string()));
     }
 
     #[test]
     fn extract_installed_version_handles_empty_version() {
         // Empty version value
-        let version = extract_installed_version_from_content("---\nversion:\n---\n# Content");
+        let version = extract_installed_version_from_content("---\nmetadata:\n  version:\n---\n# Content");
         assert_eq!(version, Some("".to_string()));
     }
 
@@ -1274,13 +1297,13 @@ mod tests {
         // Create a Claude Code skill installation
         let claude_skill_dir = temp_dir.path().join(".claude/skills/gitbutler");
         fs::create_dir_all(&claude_skill_dir).unwrap();
-        let claude_skill_content = "---\nname: but\nversion: 1.0.0\n---\n# GitButler CLI Skill";
+        let claude_skill_content = "---\nname: but\nmetadata:\n  version: \"1.0.0\"\n---\n# GitButler CLI Skill";
         fs::write(claude_skill_dir.join("SKILL.md"), claude_skill_content).unwrap();
 
         // Create a Cursor skill installation
         let cursor_skill_dir = temp_dir.path().join(".cursor/skills/gitbutler");
         fs::create_dir_all(&cursor_skill_dir).unwrap();
-        let cursor_skill_content = "---\nname: but\nversion: 0.9.0\n---\n# GitButler CLI Skill";
+        let cursor_skill_content = "---\nname: but\nmetadata:\n  version: \"0.9.0\"\n---\n# GitButler CLI Skill";
         fs::write(cursor_skill_dir.join("SKILL.md"), cursor_skill_content).unwrap();
 
         // Create a non-GitButler skill (should be ignored)
@@ -1405,7 +1428,7 @@ mod tests {
     #[test]
     fn extract_installed_version_stops_at_frontmatter_end() {
         // Version appears both in frontmatter and body - should only get frontmatter version
-        let version = extract_installed_version_from_content("---\nversion: 1.0.0\n---\n\nversion: 2.0.0 in the body");
+        let version = extract_installed_version_from_content("---\nmetadata:\n  version: \"1.0.0\"\n---\n\nversion: 2.0.0 in the body");
         assert_eq!(version, Some("1.0.0".to_string()));
     }
 
@@ -1441,13 +1464,13 @@ mod tests {
 
     #[test]
     fn extract_installed_version_handles_quoted_version() {
-        let version = extract_installed_version_from_content("---\nversion: \"1.2.3\"\n---\n# Content");
+        let version = extract_installed_version_from_content("---\nmetadata:\n  version: \"1.2.3\"\n---\n# Content");
         assert_eq!(version, Some("1.2.3".to_string()));
     }
 
     #[test]
     fn extract_installed_version_handles_version_with_comment() {
-        let version = extract_installed_version_from_content("---\nversion: 1.2.3 # installed version\n---\n# Content");
+        let version = extract_installed_version_from_content("---\nmetadata:\n  version: \"1.2.3\" # installed version\n---\n# Content");
         assert_eq!(version, Some("1.2.3".to_string()));
     }
 }
