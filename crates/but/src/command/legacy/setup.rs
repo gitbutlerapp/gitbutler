@@ -321,13 +321,11 @@ pub(crate) fn repo(
     let head_name = {
         let repo = ctx.repo.get()?;
         let head = repo.head()?;
-        head.referent_name()
-            .map(|n| n.shorten().to_string())
-            .unwrap_or_default()
+        head.referent_name().map(|n| n.shorten().to_owned()).unwrap_or_default()
     };
 
     // switch to gitbutler/workspace if not already there
-    if !head_name.starts_with("gitbutler/") {
+    if !head_name.starts_with(b"gitbutler/") {
         but_api::legacy::virtual_branches::switch_back_to_workspace_with_perm(ctx, perm)?;
     }
 
@@ -402,11 +400,8 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
 
     // check if we're on a gitbutler/* branch
     let head = repo.head()?;
-    let head_name = head
-        .referent_name()
-        .map(|n| n.shorten().to_string())
-        .unwrap_or_default();
-    if !head_name.starts_with("gitbutler/") {
+    let head_name = head.referent_name().map(|n| n.shorten().to_owned()).unwrap_or_default();
+    if !head_name.starts_with(b"gitbutler/") {
         anyhow::bail!("Not currently on a gitbutler/* branch.");
     }
 
@@ -414,7 +409,7 @@ pub fn check_project_setup(ctx: &Context, perm: &RepoShared) -> anyhow::Result<b
     // The workspace graph built from gitbutler/edit doesn't expose the target ref or
     // remote configuration, but both are still configured in virtual_branches.toml
     // and will be accessible when returning to gitbutler/workspace.
-    if head_name == "gitbutler/edit" {
+    if head_name == b"gitbutler/edit" {
         return Ok(true);
     }
 

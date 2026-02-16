@@ -19,17 +19,15 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     let head_name = {
         let repo = ctx.repo.get()?;
         let head = repo.head()?;
-        head.referent_name()
-            .map(|n| n.shorten().to_string())
-            .unwrap_or_default()
+        head.referent_name().map(|n| n.shorten().to_owned()).unwrap_or_default()
     };
 
-    if !head_name.starts_with("gitbutler/") {
+    if !head_name.starts_with(b"gitbutler/") {
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
                 "{}",
-                format!("Not currently on gitbutler/workspace branch (on: {}).", head_name).red()
+                format!("Not currently on gitbutler/workspace branch (on: {head_name}).").red()
             )?;
             writeln!(out)?;
             writeln!(
