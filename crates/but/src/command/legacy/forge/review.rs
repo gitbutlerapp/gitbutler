@@ -86,7 +86,7 @@ pub async fn create_review(
         Some(get_branch_names(&ctx.legacy_project, &branch_id)?)
     } else {
         // Find branches without PRs
-        let branches_without_prs = get_branches_without_prs(&review_map, &applied_stacks);
+        let branches_without_prs = get_branches_without_prs(&review_map, &applied_stacks)?;
 
         if branches_without_prs.is_empty() {
             if let Some(out) = out.for_human() {
@@ -182,19 +182,25 @@ async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Er
 fn get_branches_without_prs(
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
-) -> Vec<String> {
+) -> anyhow::Result<Vec<String>> {
     let mut branches_without_prs = Vec::new();
     for stack_entry in applied_stacks {
         for head in &stack_entry.heads {
-            let branch_name = head.name.to_string();
-            if !review_map.contains_key(&branch_name)
-                || review_map.get(&branch_name).map(|v| v.is_empty()).unwrap_or(true)
+            let branch_name = &head.name.to_string();
+            if !review_map.contains_key(branch_name)
+                || review_map.get(branch_name).map(|v| v.is_empty()).unwrap_or(true)
             {
-                branches_without_prs.push(branch_name);
+                // This means that there are no associated reviews that are open, but that doesn't mean that there are
+                // no associated reviews.
+                // Check whether there's an associated forge review.
+                if head.review_id.is_none() {
+                    // If there's no associated review, the append the branch
+                    branches_without_prs.push(branch_name.to_owned());
+                }
             }
         }
     }
-    branches_without_prs
+    Ok(branches_without_prs)
 }
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
@@ -789,7 +795,6 @@ pub fn get_review_map(
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config).unwrap_or_default();
-
     let branch_review_map = reviews
         .into_iter()
         .fold(std::collections::HashMap::new(), |mut acc, r| {
