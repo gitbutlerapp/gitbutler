@@ -119,7 +119,7 @@ impl GitHubClient {
                 ("state", "open"),
                 ("sort", "updated"),
                 ("direction", "desc"),
-                ("per_page", "20"),
+                ("per_page", "100"),
             ])
             .send()
             .await?;
