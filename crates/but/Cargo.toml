@@ -145,3 +145,6 @@ but-testsupport = { workspace = true, features = ["sandbox-but-api"] }
 snapbox = { workspace = true, features = ["term-svg"] }
 shell-words.workspace = true
 insta.workspace = true
+
+[lints]
+workspace = true

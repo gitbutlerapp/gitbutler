@@ -25,3 +25,6 @@ but-testsupport.workspace = true
 
 insta.workspace = true
 serde_json.workspace = true
+
+[lints]
+workspace = true

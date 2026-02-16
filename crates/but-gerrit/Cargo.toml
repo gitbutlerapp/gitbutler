@@ -25,3 +25,5 @@ gix = { workspace = true }
 [dev-dependencies]
 but-testsupport.workspace = true
 snapbox.workspace = true
+[lints]
+workspace = true

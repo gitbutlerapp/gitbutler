@@ -44,3 +44,6 @@ regex = { workspace = true }
 snapbox = { workspace = true, optional = true, features = ["regex"] }
 
 [dev-dependencies]
+
+[lints]
+workspace = true

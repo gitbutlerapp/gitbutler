@@ -27,3 +27,6 @@ path = "tests/mod.rs"
 serial_test = "3.2.0"
 tempfile.workspace = true
 keyring.workspace = true
+
+[lints]
+workspace = true

@@ -52,3 +52,6 @@ gitbutler-user.workspace = true
 but-settings.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 insta.workspace = true
+
+[lints]
+workspace = true

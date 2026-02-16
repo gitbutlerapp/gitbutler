@@ -24,3 +24,6 @@ name="secret"
 path = "tests/mod.rs"
 
 [dev-dependencies]
+
+[lints]
+workspace = true

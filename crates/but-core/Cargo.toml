@@ -56,3 +56,6 @@ but-testsupport.workspace = true
 gix = { workspace = true, features = ["revision"] }
 serde_json = "1.0"
 insta.workspace = true
+
+[lints]
+workspace = true

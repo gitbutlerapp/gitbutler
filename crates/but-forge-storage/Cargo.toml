@@ -20,3 +20,6 @@ but-fs = { workspace = true, features = ["legacy"] }
 serde.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
+
+[lints]
+workspace = true

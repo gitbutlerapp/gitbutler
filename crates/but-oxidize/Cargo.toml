@@ -14,3 +14,6 @@ doctest = false
 anyhow.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["merge"] }
+
+[lints]
+workspace = true

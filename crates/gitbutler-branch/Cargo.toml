@@ -25,3 +25,6 @@ lazy_static = "1.4.0"
 [[test]]
 name = "branch"
 path = "tests/mod.rs"
+
+[lints]
+workspace = true

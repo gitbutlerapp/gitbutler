@@ -28,3 +28,6 @@ but-testsupport.workspace = true
 
 gitbutler-reference.workspace = true
 insta = "1.45.1"
+
+[lints]
+workspace = true

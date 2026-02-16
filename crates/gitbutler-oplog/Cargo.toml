@@ -34,3 +34,6 @@ toml.workspace = true
 [dev-dependencies]
 pretty_assertions = "1.4"
 tempfile.workspace = true
+
+[lints]
+workspace = true

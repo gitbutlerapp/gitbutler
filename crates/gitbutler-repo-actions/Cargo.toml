@@ -32,3 +32,6 @@ tokio = { workspace = true, features = [
 log = "^0.4"
 anyhow.workspace = true
 tracing.workspace = true
+
+[lints]
+workspace = true

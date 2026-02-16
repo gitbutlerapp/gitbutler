@@ -28,3 +28,6 @@ uuid.workspace = true
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
+
+[lints]
+workspace = true

@@ -13,3 +13,6 @@ doctest = false
 gix.workspace = true
 anyhow.workspace = true
 bstr.workspace = true
+
+[lints]
+workspace = true
