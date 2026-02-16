@@ -137,23 +137,32 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
 
     // Unassigned files
     if !app.unassigned_files.is_empty() {
-        items.push(ListItem::new(Line::from(vec![Span::styled(
-            "── Unassigned ──",
-            Style::default()
-                .fg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD),
-        )])));
+        items.push(ListItem::new(Line::from(vec![
+            Span::styled("╭┄", Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                "zz",
+                Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                " [unstaged changes]",
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            ),
+        ])));
 
         for file in &app.unassigned_files {
             let path = file.path.to_str_lossy();
             items.push(ListItem::new(Line::from(vec![
-                Span::styled("  ", Style::default()),
+                Span::styled("┊   ", Style::default().fg(Color::DarkGray)),
                 Span::styled(
                     path.into_owned(),
                     Style::default().fg(Color::Yellow),
                 ),
             ])));
         }
+
+        items.push(ListItem::new(Line::from(vec![
+            Span::styled("┊", Style::default().fg(Color::DarkGray)),
+        ])));
     }
 
     // Stacks & branches
@@ -168,16 +177,7 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
             )])));
         }
         for (bi, branch) in stack.branches.iter().enumerate() {
-            // Branch header with tree connector
-            let connector = if bi == 0 && stack.branches.len() > 1 {
-                "┌"
-            } else if bi == stack.branches.len() - 1 && stack.branches.len() > 1 {
-                "└"
-            } else if stack.branches.len() > 1 {
-                "├"
-            } else {
-                "─"
-            };
+            let is_last_branch = bi == stack.branches.len() - 1;
 
             let no_commits_hint = if branch.commits.is_empty() {
                 " (no commits)"
@@ -185,9 +185,10 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
                 ""
             };
 
+            // Branch header: ┊╭┄xx [branch-name]
             items.push(ListItem::new(Line::from(vec![
                 Span::styled(
-                    format!("{connector}─ "),
+                    "┊╭┄",
                     Style::default().fg(Color::DarkGray),
                 ),
                 Span::styled(
@@ -206,7 +207,7 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
             for file in &branch.files {
                 let path = file.path.to_str_lossy();
                 items.push(ListItem::new(Line::from(vec![
-                    Span::styled("│ ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("┊   ", Style::default().fg(Color::DarkGray)),
                     Span::styled(
                         path.into_owned(),
                         Style::default().fg(Color::Yellow),
@@ -219,9 +220,9 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
                 let dot = commit_status_dot(&commit.state);
                 let msg = commit.message.lines().next().unwrap_or("");
                 items.push(ListItem::new(Line::from(vec![
-                    Span::styled("│ ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("┊", Style::default().fg(Color::DarkGray)),
                     dot,
-                    Span::raw(" "),
+                    Span::raw("   "),
                     Span::styled(
                         commit.id.clone(),
                         Style::default().fg(Color::Green),
@@ -230,9 +231,25 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
                     Span::raw(msg.to_string()),
                 ])));
             }
+
+            // Branch footer: ├╯ or last item
+            if !is_last_branch {
+                items.push(ListItem::new(Line::from(vec![
+                    Span::styled("├╯", Style::default().fg(Color::DarkGray)),
+                ])));
+            } else {
+                items.push(ListItem::new(Line::from(vec![
+                    Span::styled("├╯", Style::default().fg(Color::DarkGray)),
+                ])));
+            }
+
+            // Separator line after each branch
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled("┊", Style::default().fg(Color::DarkGray)),
+            ])));
         }
 
-        // Separator between stacks
+        // Extra separator between stacks
         if si < app.stacks.len() - 1 {
             items.push(ListItem::new(Line::from("")));
         }
@@ -960,13 +977,16 @@ fn panel_border_style(active: bool) -> Style {
 fn commit_status_dot(state: &but_workspace::ui::CommitState) -> Span<'static> {
     match state {
         but_workspace::ui::CommitState::LocalOnly => {
-            Span::styled("●", Style::default().fg(Color::Yellow))
+            Span::styled("●", Style::default().fg(Color::White))
         }
-        but_workspace::ui::CommitState::LocalAndRemote(_) => {
+        but_workspace::ui::CommitState::LocalAndRemote(_remote_id) => {
+            // Check if local and remote match (pushed) vs modified
+            // For now, assume green ● for pushed, but we'd need the commit ID to compare
+            // Using green for pushed state
             Span::styled("●", Style::default().fg(Color::Green))
         }
         but_workspace::ui::CommitState::Integrated => {
-            Span::styled("●", Style::default().fg(Color::Blue))
+            Span::styled("●", Style::default().fg(Color::Magenta))
         }
     }
 }
