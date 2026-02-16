@@ -7,6 +7,7 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
+use but_error::Code;
 use but_oxidize::{ObjectIdExt, OidExt, RepoExt, gix_to_git2_index};
 use but_workspace::legacy::stack_ext::StackExt;
 use git2::build::CheckoutBuilder;
@@ -195,18 +196,20 @@ pub(crate) fn enter_edit_mode(
 
 pub(crate) fn abort_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclusive) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
+    let gix_repo = &*ctx.repo.get()?;
+
+    let current_tree = gix_repo.head_tree_id_or_empty()?;
+
+    let uncommited_changes = get_uncommited_changes(ctx)?.to_gix();
+    but_core::worktree::safe_checkout(current_tree.detach(), uncommited_changes, gix_repo, Default::default())
+        .context(but_error::Context::new_static(
+            Code::EditModeSafeCheckoutFailed,
+            "Could not safely return to workspace",
+        ))?;
 
     // Checkout gitbutler workspace branch
     repo.set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
-
-    let uncommited_changes = get_uncommited_changes(ctx)?;
-    let uncommited_changes = repo.find_tree(uncommited_changes)?;
-
-    repo.checkout_tree(
-        uncommited_changes.as_object(),
-        Some(CheckoutBuilder::new().force().remove_untracked(true)),
-    )?;
 
     Ok(())
 }

@@ -10,7 +10,8 @@ export enum Code {
 	MissingLoginKeychain = 'errors.secret.missing_login_keychain',
 	GitHubTokenExpired = 'errors.github.expired_token',
 	ProjectDatabaseIncompatible = 'errors.projectdb.migration',
-	DefaultTerminalNotFound = 'errors.terminal.not_found'
+	DefaultTerminalNotFound = 'errors.terminal.not_found',
+	EditModeSafeCheckoutFailed = 'errors.edit_mode.safe_checkout_failed'
 }
 
 export const KNOWN_ERRORS: Record<string, string> = {
@@ -42,5 +43,13 @@ The database was changed by a more recent version of GitButler - cannot safely o
 	`,
 	[Code.DefaultTerminalNotFound]: `
 Your default terminal was not found. Please select your preferred terminal in Settings > General.
+The database was changed by a more recent version of GitButler - cannot safely open it anymore. 
+	`,
+	[Code.EditModeSafeCheckoutFailed]: `
+GitButler couldn't safely return to the workspace because doing so would overwrite local changes.
+
+Please manually switch to \`gitbutler/workspace\` (or any other branch) with:
+
+    git checkout -f gitbutler/workspace
 	`
 };

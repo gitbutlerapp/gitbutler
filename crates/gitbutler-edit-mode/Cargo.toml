@@ -31,6 +31,7 @@ anyhow.workspace = true
 bstr.workspace = true
 serde.workspace = true
 tracing.workspace = true
+but-error.workspace = true
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true

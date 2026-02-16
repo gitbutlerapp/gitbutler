@@ -3788,6 +3788,7 @@ dependencies = [
  "bstr",
  "but-core",
  "but-ctx",
+ "but-error",
  "but-oxidize",
  "but-rebase",
  "but-workspace",

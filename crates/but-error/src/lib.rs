@@ -138,6 +138,7 @@ pub enum Code {
     NetworkError,
     ProjectDatabaseIncompatible,
     DefaultTerminalNotFound,
+    EditModeSafeCheckoutFailed,
 }
 
 impl std::fmt::Display for Code {
@@ -159,6 +160,7 @@ impl std::fmt::Display for Code {
             Code::NetworkError => "errors.network",
             Code::ProjectDatabaseIncompatible => "errors.projectdb.migration",
             Code::DefaultTerminalNotFound => "errors.terminal.not_found",
+            Code::EditModeSafeCheckoutFailed => "errors.edit_mode.safe_checkout_failed",
         };
         f.write_str(code)
     }
