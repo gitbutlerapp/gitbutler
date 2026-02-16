@@ -472,7 +472,7 @@ export function parseIRCMessage(line: string): IrcMessage {
 	}
 
 	return {
-		command: command as IrcMessage['command'],
+		command: command,
 		tags,
 		prefix,
 		params,

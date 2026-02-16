@@ -226,7 +226,7 @@ export function formatMessages(
 			} else if (payload.data.type === 'user') {
 				const content = payload.data.message.content;
 				if (Array.isArray(content) && content[0]!.type === 'tool_result') {
-					const result = content[0]!;
+					const result = content[0];
 
 					// Check if this is a response to an AskUserQuestion
 					const askMessage = askUserQuestionToolCalls[result.tool_use_id];

@@ -117,7 +117,7 @@ export class ConfigPaths {
 			for (const target of relativePaths) {
 				if (!isHandledGlob(target)) continue;
 				const entry = new PathEntry(configDirectory, key, target);
-				this.paths[key]!.push(entry);
+				this.paths[key].push(entry);
 			}
 		}
 	}

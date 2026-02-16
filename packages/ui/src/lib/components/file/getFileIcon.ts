@@ -6,7 +6,7 @@ export function getFileIcon(fileName: string) {
 
 	// Check if fileName is directly an icon name
 	if (fileIcons[fileName]) {
-		return fileIcons[fileName] as string;
+		return fileIcons[fileName];
 	}
 
 	const splitName = fileName.split('.');
@@ -31,7 +31,7 @@ export function getFileIcon(fileName: string) {
 	}
 	let icon = fileIcons[iconName];
 	if (!icon) {
-		icon = fileIcons['document'] as string;
+		icon = fileIcons['document'];
 	}
 	return icon;
 }
