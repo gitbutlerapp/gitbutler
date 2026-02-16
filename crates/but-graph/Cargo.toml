@@ -9,7 +9,6 @@ rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
 
 [dependencies]
 but-core.workspace = true
