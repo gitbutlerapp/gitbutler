@@ -20,7 +20,14 @@
 		projectId: string;
 	}
 
-	const { projectId, entry, isWithinRestore = true, restoring = false, onRestoreClick, onDiffClick }: Props = $props();
+	const {
+		projectId,
+		entry,
+		isWithinRestore = true,
+		restoring = false,
+		onRestoreClick,
+		onDiffClick
+	}: Props = $props();
 
 	function getShortSha(sha: string | undefined) {
 		if (!sha) return '';
