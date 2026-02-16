@@ -29,6 +29,7 @@ pub(super) enum Panel {
 // ---------------------------------------------------------------------------
 
 pub(super) struct StackInfo {
+    #[allow(dead_code)] // needed for future action modals
     pub id: Option<gitbutler_stack::StackId>,
     pub branches: Vec<BranchInfo>,
 }
