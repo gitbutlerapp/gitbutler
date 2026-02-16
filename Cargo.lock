@@ -751,6 +751,7 @@ dependencies = [
  "but-cursor",
  "but-db",
  "but-forge",
+ "but-forge-storage",
  "but-gerrit",
  "but-github",
  "but-gitlab",
