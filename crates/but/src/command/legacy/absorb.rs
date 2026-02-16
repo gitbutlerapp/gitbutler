@@ -10,6 +10,7 @@ use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
+use itertools::Itertools;
 
 use crate::{CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel};
 /// Amends changes into the appropriate commits where they belong.
@@ -188,7 +189,11 @@ fn display_absorption_plan(
     write_json: bool,
 ) -> anyhow::Result<Option<JsonAbsorbOutput>> {
     // Count total files
-    let total_files: usize = commit_absorptions.iter().map(|c| c.files.len()).sum();
+    let total_files: usize = commit_absorptions
+        .iter()
+        .flat_map(|c| c.files.iter().map(|f| &f.path))
+        .unique()
+        .count();
 
     // Handle empty case
     if commit_absorptions.is_empty() || total_files == 0 {
