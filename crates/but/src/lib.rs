@@ -48,6 +48,8 @@ pub use id::{CliId, IdMap};
 mod alias;
 /// A place for all command implementations.
 pub(crate) mod command;
+#[cfg(feature = "legacy")]
+mod lazy;
 mod tui;
 
 const CLI_DATE: CustomFormat = gix::date::time::format::ISO8601;
@@ -1088,6 +1090,18 @@ async fn match_subcommand(
                 .context("Failed to unapply branch.")
                 .emit_metrics(metrics_ctx)
                 .show_root_cause_error_then_exit_without_destructors(output)
+        }
+        #[cfg(feature = "legacy")]
+        Subcommands::Lazy => {
+            let mut ctx = setup::init_ctx(
+                &args,
+                InitCtxOptions {
+                    background_sync: BackgroundSync::Enabled,
+                    ..Default::default()
+                },
+                out,
+            )?;
+            lazy::run(&mut ctx).emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
         Subcommands::Apply { branch_name } => {
