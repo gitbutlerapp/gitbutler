@@ -18,6 +18,8 @@ pub struct StackHeadInfo {
     #[serde(with = "but_serde::object_id")]
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub tip: gix::ObjectId,
+    /// The associated forge review with this branch, e.g. GitHub PRs or GitLab MRs
+    pub review_id: Option<usize>,
     /// If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
     /// This is `false` if the worktree is checked out.
     pub is_checked_out: bool,
