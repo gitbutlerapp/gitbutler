@@ -29,7 +29,6 @@ pub(super) enum Panel {
 // ---------------------------------------------------------------------------
 
 pub(super) struct StackInfo {
-    #[allow(dead_code)] // needed for future action modals
     pub id: Option<gitbutler_stack::StackId>,
     pub branches: Vec<BranchInfo>,
 }
@@ -77,6 +76,30 @@ pub(super) struct OplogEntry {
 }
 
 // ---------------------------------------------------------------------------
+// Commit modal types
+// ---------------------------------------------------------------------------
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub(super) enum CommitModalFocus {
+    BranchSelect,
+    Files,
+    Subject,
+    Message,
+    CommitButton,
+}
+
+pub(super) struct CommitBranchOption {
+    pub stack_id: Option<but_core::ref_metadata::StackId>,
+    pub branch_name: String,
+    pub is_new_branch: bool,
+}
+
+pub(super) struct CommitFileOption {
+    pub path: String,
+    pub selected: bool,
+}
+
+// ---------------------------------------------------------------------------
 // Application state
 // ---------------------------------------------------------------------------
 
@@ -107,6 +130,17 @@ pub(super) struct App {
     pub command_log: Vec<String>,
     pub command_log_visible: bool,
 
+    // Commit modal
+    pub show_commit_modal: bool,
+    pub commit_focus: CommitModalFocus,
+    pub commit_branch_options: Vec<CommitBranchOption>,
+    pub commit_selected_branch: usize,
+    pub commit_files: Vec<CommitFileOption>,
+    pub commit_file_cursor: usize,
+    pub commit_subject: String,
+    pub commit_message: String,
+    pub commit_staged_only: bool,
+
     // Timers
     pub last_refresh: Instant,
     pub last_fetch: Instant,
@@ -134,6 +168,15 @@ impl App {
             help_scroll: 0,
             command_log: Vec::new(),
             command_log_visible: true,
+            show_commit_modal: false,
+            commit_focus: CommitModalFocus::BranchSelect,
+            commit_branch_options: Vec::new(),
+            commit_selected_branch: 0,
+            commit_files: Vec::new(),
+            commit_file_cursor: 0,
+            commit_subject: String::new(),
+            commit_message: String::new(),
+            commit_staged_only: false,
             last_refresh: now,
             last_fetch: now,
         };
