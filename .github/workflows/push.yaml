@@ -319,6 +319,59 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  fetch-published-versions:
+    needs: build-installer
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: none
+    outputs:
+      release_version: ${{ steps.fetch.outputs.release_version }}
+      nightly_version: ${{ steps.fetch.outputs.nightly_version }}
+    steps:
+      - name: Fetch latest release and nightly versions
+        id: fetch
+        run: |
+          echo "release_version=$(curl -s https://app.gitbutler.com/releases | jq -r .version)" >> $GITHUB_OUTPUT
+          echo "nightly_version=$(curl -s https://app.gitbutler.com/releases/nightly | jq -r .version)" >> $GITHUB_OUTPUT
+
+  validate-installer:
+    needs:
+      - build-installer
+      - fetch-published-versions
+    permissions:
+      contents: none
+    env:
+      LATEST_RELEASE_VERSION: ${{ needs.fetch-published-versions.outputs.release_version }}
+      LATEST_NIGHTLY_VERSION: ${{ needs.fetch-published-versions.outputs.nightly_version }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15 # [macOs, ARM64] - default target
+            artifact_id: macos-15-aarch64
+          - platform: macos-15 # [macOs, x64] - cross-compile
+            artifact_id: macos-15-x86_64
+          - platform: ubuntu-22.04 # [linux, x64]
+            artifact_id: linux-x86_64
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+            artifact_id: linux-aarch64
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Download ${{ matrix.artifact_id }} installer
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: 'but-installer-${{ matrix.artifact_id }}-${{ github.run_number }}'
+          path: .
+      - run: chmod +x ./but-installer
+      - name: Install release
+        run: ./but-installer
+      - name: Validate release version
+        run: but --version | grep "but $LATEST_RELEASE_VERSION"
+      - name: Install nightly
+        run: ./but-installer nightly
+      - name: Validate nightly version
+        run: but --version | grep "but $LATEST_NIGHTLY_VERSION"
+
   publish-installer:
     needs: build-installer
     if: ${{ github.ref == 'refs/heads/master' }}
