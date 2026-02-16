@@ -11,51 +11,20 @@
 		getBeforeVersion,
 		getAfterVersion
 	} from '$lib/interdiffRangeQuery.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import {
-		Button,
-		Select,
-		SelectItem,
-		type LineClickParams,
-		type SelectItemType
-	} from '@gitbutler/ui';
+	import { Button, Select, SelectItem, type SelectItemType } from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import type { PatchCommit } from '@gitbutler/shared/patches/types';
-	import type { ContentSection, LineSelector } from '@gitbutler/ui/utils/diffParsing';
 
 	interface Props {
 		branchUuid: string;
 		changeId: string;
 		patchCommit: PatchCommit;
-		selectedSha: string | undefined;
-		selectedLines: LineSelector[];
 		commitPageHeaderHeight: number;
-		clearLineSelection: (fileName: string) => void;
-		toggleDiffLine: (fileName: string, diffSha: string, params: LineClickParams) => void;
-		onCopySelection: (contentSections: ContentSection[]) => void;
-		onQuoteSelection: () => void;
 	}
 
-	const {
-		branchUuid,
-		changeId,
-		patchCommit,
-		selectedSha,
-		selectedLines,
-		commitPageHeaderHeight,
-		clearLineSelection,
-		toggleDiffLine,
-		onCopySelection,
-		onQuoteSelection
-	}: Props = $props();
-
-	const userService = inject(USER_SERVICE);
-	const user = $derived(userService.user);
-
-	const isLoggedIn = $derived(!!$user);
+	const { branchUuid, changeId, patchCommit, commitPageHeaderHeight }: Props = $props();
 
 	let isInterdiffBarVisible = $state(false);
 
@@ -218,17 +187,7 @@
 		<Loading loadable={patchSections?.current}>
 			{#snippet children(patchSections)}
 				{#each patchSections || [] as section}
-					<SectionComponent
-						{isLoggedIn}
-						{section}
-						{toggleDiffLine}
-						{selectedSha}
-						{selectedLines}
-						{commitPageHeaderHeight}
-						{onCopySelection}
-						{onQuoteSelection}
-						{clearLineSelection}
-					/>
+					<SectionComponent {section} {commitPageHeaderHeight} />
 				{/each}
 			{/snippet}
 		</Loading>
