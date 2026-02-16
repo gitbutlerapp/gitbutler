@@ -582,8 +582,7 @@ fn commit_empty_rejects_changes_flag() -> anyhow::Result<()> {
     let stderr = std::str::from_utf8(&output.get_output().stderr)?;
     assert!(
         stderr.contains("unexpected argument"),
-        "Expected clap to reject --changes with empty subcommand, got: {}",
-        stderr
+        "Expected clap to reject --changes with empty subcommand, got: {stderr}"
     );
 
     Ok(())
@@ -730,7 +729,7 @@ fn commit_with_specific_file_ids() -> anyhow::Result<()> {
         .expect("file1.txt should have a CLI ID");
 
     // Commit only file1.txt using its CLI ID
-    env.but(format!("commit -m 'Add file1 only' --changes {}", file1_id))
+    env.but(format!("commit -m 'Add file1 only' --changes {file1_id}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -785,7 +784,7 @@ fn commit_with_multiple_file_ids() -> anyhow::Result<()> {
         .expect("file2 should have ID");
 
     // Commit file1 and file2, leaving file3 uncommitted
-    env.but(format!("commit -m 'Add two files' --changes {},{}", file1_id, file2_id))
+    env.but(format!("commit -m 'Add two files' --changes {file1_id},{file2_id}"))
         .assert()
         .success();
 
@@ -832,7 +831,7 @@ fn commit_with_short_changes_flag() -> anyhow::Result<()> {
         .expect("file1.txt should have a CLI ID");
 
     // Use short flag -p instead of --changes
-    env.but(format!("commit -m 'Using short flag' -p {}", file1_id))
+    env.but(format!("commit -m 'Using short flag' -p {file1_id}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"
@@ -919,8 +918,7 @@ fn commit_with_file_assigned_to_different_stack_fails() -> anyhow::Result<()> {
     let stderr = std::str::from_utf8(&output.get_output().stderr)?;
     assert!(
         stderr.contains("is assigned to a different stack"),
-        "Expected error about different stack assignment, got: {}",
-        stderr
+        "Expected error about different stack assignment, got: {stderr}"
     );
 
     Ok(())
@@ -998,7 +996,7 @@ fn commit_with_multiple_hunk_ids_from_same_file() -> anyhow::Result<()> {
     // If we have multiple hunks, test that specifying both works
     if hunk_ids.len() >= 2 {
         let ids_arg = hunk_ids.join(",");
-        env.but(format!("commit -m 'Both hunks' --changes {}", ids_arg))
+        env.but(format!("commit -m 'Both hunks' --changes {ids_arg}"))
             .assert()
             .success();
 
@@ -1068,7 +1066,7 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
         let first_hunk_id = &change_ids[0];
 
         // Commit only the first hunk
-        env.but(format!("commit -m 'First hunk only' --changes {}", first_hunk_id))
+        env.but(format!("commit -m 'First hunk only' --changes {first_hunk_id}"))
             .assert()
             .success();
 
@@ -1080,8 +1078,7 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
         let remaining_changes = diff_after["changes"].as_array().map(|c| c.len()).unwrap_or(0);
         assert!(
             remaining_changes >= 1,
-            "Second hunk should still be uncommitted, found {} changes",
-            remaining_changes
+            "Second hunk should still be uncommitted, found {remaining_changes} changes"
         );
     }
 

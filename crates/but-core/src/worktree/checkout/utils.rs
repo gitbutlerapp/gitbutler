@@ -33,10 +33,7 @@ pub fn merge_worktree_changes_into_destination_or_keep_snapshot(
     if !changes.changes.is_empty() || !changes.ignored_changes.is_empty() {
         let actual_head_tree_id = repo.head_tree_id_or_empty()?;
         if actual_head_tree_id != source_tree_id {
-            bail!(
-                "Specified HEAD {source} didn't match actual HEAD^{{tree}} {actual_head_tree_id}",
-                source = source_tree_id
-            )
+            bail!("Specified HEAD {source_tree_id} didn't match actual HEAD^{{tree}} {actual_head_tree_id}")
         }
         // Figure out which added or modified files are actually touched. Deletions we ignore, and allow
         // these files to be recreated during checkout even if they were part in a rename

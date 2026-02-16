@@ -58,7 +58,7 @@ fn ci_checks_for_ref(
                     .block_on(gh.list_checks_for_ref(&owner, &repo, &reference))
             })
             .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))?;
             checks.map(|c| {
                 c.into_iter()
                     .map(|check| {
@@ -70,8 +70,7 @@ fn ci_checks_for_ref(
             })
         }
         _ => Err(anyhow::anyhow!(
-            "Listing ci checks for forge {:?} is not implemented yet.",
-            forge
+            "Listing ci checks for forge {forge:?} is not implemented yet."
         )),
     }
 }

@@ -143,7 +143,7 @@ pub fn get_default_alias(alias_name: &str) -> Option<String> {
 /// The alias value if found, or `None` if not found or on error
 fn read_git_config_alias(repo: &gix::Repository, alias_name: &str) -> Option<String> {
     // Get the config snapshot and look for but.alias.<name>
-    let config_key = format!("but.alias.{}", alias_name);
+    let config_key = format!("but.alias.{alias_name}");
     let config = repo.config_snapshot();
 
     // Try to read the string value from config

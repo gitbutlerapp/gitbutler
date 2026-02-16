@@ -17,9 +17,7 @@ pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path:
                 // Another session owns the lock, wait and retry, but not indefinitely
                 if start.elapsed() > max_wait_time {
                     return Err(anyhow::anyhow!(
-                        "Failed to obtain lock for {} after waiting for {:?}",
-                        file_path,
-                        max_wait_time
+                        "Failed to obtain lock for {file_path} after waiting for {max_wait_time:?}"
                     ));
                 }
                 std::thread::sleep(std::time::Duration::from_secs(1));
@@ -33,7 +31,7 @@ pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path:
             };
             locks_mut
                 .insert(lock)
-                .map_err(|e| anyhow::anyhow!("Failed to insert lock: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to insert lock: {e}"))?;
             return Ok(());
         }
     }

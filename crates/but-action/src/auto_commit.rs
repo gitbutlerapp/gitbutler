@@ -46,7 +46,7 @@ enum AutoCommitEvent {
 
 impl AutoCommitEvent {
     fn event_name(&self, project_id: ProjectId) -> String {
-        format!("project://{}/auto-commit", project_id)
+        format!("project://{project_id}/auto-commit")
     }
 
     fn emit_payload(&self) -> serde_json::Value {

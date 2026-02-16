@@ -135,7 +135,7 @@ pub fn find_or_initialize_repo(
                     Ok(repo) => Ok(repo),
                     Err(e) => {
                         if let Some(out) = out.for_human() {
-                            writeln!(out, "{}", format!("Failed to initialize repository: {}", e).red())?;
+                            writeln!(out, "{}", format!("Failed to initialize repository: {e}").red())?;
                         }
                         anyhow::bail!(
                             "No git repository found - run `but setup --init` to initialize a new repository."
@@ -241,7 +241,7 @@ pub(crate) fn repo(
         let remote_name = match repo.remote_default_name(gix::remote::Direction::Push) {
             Some(name) => {
                 if let Some(out) = out.for_human() {
-                    writeln!(out, "  {}", format!("✓ Using existing push remote: {}", name).green())?;
+                    writeln!(out, "  {}", format!("✓ Using existing push remote: {name}").green())?;
                 }
                 name.to_string()
             }
@@ -264,13 +264,13 @@ pub(crate) fn repo(
                         writeln!(
                             out,
                             "  {}",
-                            format!("✓ No remote HEAD found, using {}/{}", remote_name, branch).yellow()
+                            format!("✓ No remote HEAD found, using {remote_name}/{branch}").yellow()
                         )?;
                     }
                     format!("{remote_name}/{branch}")
                 }
                 None => {
-                    anyhow::bail!("No HEAD reference found for remote {}", remote_name);
+                    anyhow::bail!("No HEAD reference found for remote {remote_name}");
                 }
             }
         };
@@ -291,11 +291,11 @@ pub(crate) fn repo(
         });
 
         if let Some(out) = out.for_human() {
-            writeln!(out, "  {}", format!("✓ Set default target to: {}", name).green())?;
+            writeln!(out, "  {}", format!("✓ Set default target to: {name}").green())?;
             writeln!(out)?;
             writeln!(out, "{}", "GitButler project setup complete!".green().bold())?;
-            writeln!(out, "{}", format!("Target branch: {}", name).dimmed())?;
-            writeln!(out, "{}", format!("Remote: {}", remote_name).dimmed())?;
+            writeln!(out, "{}", format!("Target branch: {name}").dimmed())?;
+            writeln!(out, "{}", format!("Remote: {remote_name}").dimmed())?;
             writeln!(out)?;
         }
     } else {
@@ -337,7 +337,7 @@ pub(crate) fn repo(
         writeln!(
             out,
             "  {}",
-            format!("Warning: Failed to install GitButler managed hooks: {}", e).yellow()
+            format!("Warning: Failed to install GitButler managed hooks: {e}").yellow()
         )?;
     }
 
@@ -357,12 +357,11 @@ Setting up your project for GitButler tooling. Some things to note:
 
 To undo these changes and return to normal Git mode, either:
 
-    - Directly checkout a branch (`git checkout {}`)
+    - Directly checkout a branch (`git checkout {pre_head_name}`)
     - Run `but teardown`
 
 More info: https://docs.gitbutler.com/workspace-branch
-"#,
-                pre_head_name
+"#
             )
             .yellow()
         )?;
@@ -489,7 +488,7 @@ fn setup_local_remote(repo: &gix::Repository, out: &mut OutputChannel) -> anyhow
         writeln!(
             out,
             "  {}",
-            format!("✓ Created gb-local remote tracking {}", default_branch_name).green()
+            format!("✓ Created gb-local remote tracking {default_branch_name}").green()
         )?;
     }
 

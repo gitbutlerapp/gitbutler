@@ -263,11 +263,11 @@ fn inject_version(content: &str, version: &str) -> String {
     if let Some(end_pos) = frontmatter_end {
         let frontmatter = &content[..end_pos];
         let rest = &content[end_pos..];
-        let updated_frontmatter = frontmatter.replace("version: 0.0.0", &format!("version: {}", version));
-        format!("{}{}", updated_frontmatter, rest)
+        let updated_frontmatter = frontmatter.replace("version: 0.0.0", &format!("version: {version}"));
+        format!("{updated_frontmatter}{rest}")
     } else {
         // Fallback if frontmatter format is unexpected
-        content.replace("version: 0.0.0", &format!("version: {}", version))
+        content.replace("version: 0.0.0", &format!("version: {version}"))
     }
 }
 
@@ -625,9 +625,7 @@ fn detect_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBu
                     .join("\n");
 
                 anyhow::bail!(
-                    "Multiple skill installations found in {} scope. Please use --path to specify which one to update:\n{}",
-                    scope,
-                    installations_list
+                    "Multiple skill installations found in {scope} scope. Please use --path to specify which one to update:\n{installations_list}"
                 )
             }
         }
@@ -644,10 +642,7 @@ fn detect_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBu
         .collect::<Vec<_>>()
         .join("\n");
 
-    anyhow::bail!(
-        "Could not detect installation location. No existing skill found in:\n{}",
-        checked_locations
-    )
+    anyhow::bail!("Could not detect installation location. No existing skill found in:\n{checked_locations}")
 }
 
 fn prompt_for_install_scope(progress: &mut impl std::io::Write) -> Result<InstallScope> {

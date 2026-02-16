@@ -430,7 +430,7 @@ impl Claudes {
                 original_session_id,
                 stack_id,
                 MessagePayload::System(SystemMessage::UnhandledException {
-                    message: format!("Failed to connect to Claude SDK: {}", e),
+                    message: format!("Failed to connect to Claude SDK: {e}"),
                 }),
             )
             .await
@@ -469,7 +469,7 @@ impl Claudes {
                 original_session_id,
                 stack_id,
                 MessagePayload::System(SystemMessage::UnhandledException {
-                    message: format!("Failed to send query to Claude: {}", e),
+                    message: format!("Failed to send query to Claude: {e}"),
                 }),
             )
             .await?;
@@ -577,7 +577,7 @@ impl Claudes {
                                 original_session_id,
                                 stack_id,
                                 MessagePayload::System(SystemMessage::UnhandledException {
-                                    message: format!("SDK error: {}", e),
+                                    message: format!("SDK error: {e}"),
                                 }),
                             ).await?;
                             break;
@@ -771,14 +771,14 @@ CRITICAL: You are working on a project that is managed by GitButler.
 
 ## General Principle
 
-When working with commits (creating, modifying, or reorganizing), ALWAYS use the `{0}` CLI.
+When working with commits (creating, modifying, or reorganizing), ALWAYS use the `{but_path}` CLI.
 Only use git commands for READ-ONLY operations like viewing history, diffs, or logs.
 
 ## PROHIBITED Git Commands
 
 You MUST NOT run the following git commands:
 - git status (file change info is provided in <branch-info> below)
-- git commit (use `{0} commit` instead)
+- git commit (use `{but_path} commit` instead)
 - git checkout
 - git squash
 - git rebase
@@ -789,29 +789,29 @@ These commands modify branches or provide information already available to you.
 ## What You CAN Do
 
 - Run git commands that give read-only information about the repository (git log, git diff, etc.)
-- Use the GitButler CLI (`{0}`) to perform disallowed actions
+- Use the GitButler CLI (`{but_path}`) to perform disallowed actions
 - Reference file changes and uncommitted changes from the <branch-info> section provided below
 
 ## Using the GitButler CLI
 
-Disallowed actions can instead be performed using `{0}`.
-For help with available commands, consult `{0} --help`.
+Disallowed actions can instead be performed using `{but_path}`.
+For help with available commands, consult `{but_path} --help`.
 
 ### Common Commands
 
 **Viewing changes:**
-- `{0} status` - View changes assigned to this branch
+- `{but_path} status` - View changes assigned to this branch
 
 **Creating commits:**
-- `{0} commit -m \"message\"` - Commit changes to this branch
+- `{but_path} commit -m \"message\"` - Commit changes to this branch
 
 **Modifying commits:**
-- `{0} describe <commit>` - Edit a commit message
-- `{0} absorb` - Absorb uncommitted changes into existing commits automatically
-- `{0} rub <source> <target>` - Move changes between commits, squash, amend, or assign files
+- `{but_path} describe <commit>` - Edit a commit message
+- `{but_path} absorb` - Absorb uncommitted changes into existing commits automatically
+- `{but_path} rub <source> <target>` - Move changes between commits, squash, amend, or assign files
 
 **JSON Output:**
-Many `{0}` commands support the `--json` flag, which provides structured output that is easier to parse programmatically. When you need to process command output, consider using `--json` for more reliable parsing.
+Many `{but_path}` commands support the `--json` flag, which provides structured output that is easier to parse programmatically. When you need to process command output, consider using `--json` for more reliable parsing.
 
 ## Communication Guidelines
 
@@ -849,8 +849,7 @@ Uncommitted changes (assigned to this stack):
 [Lists files from the uncommitted files section]
 </response>
 </example>
-</git-usage>",
-        but_path
+</git-usage>"
     )
 }
 
@@ -904,8 +903,7 @@ fn append_stack_branches_info(output: &mut String, stack_id: StackId, ctx: &Cont
                 let first_branch_name = first_branch.name.to_str_lossy();
                 output.push_str(&format!(
                     "When running git commands that reference HEAD (e.g., `git diff origin/master...HEAD`),\n\
-                    replace HEAD with the current working branch name: `{}`\n\n",
-                    first_branch_name
+                    replace HEAD with the current working branch name: `{first_branch_name}`\n\n"
                 ));
             }
 
@@ -999,7 +997,7 @@ fn format_file_with_line_ranges(output: &mut String, file_path: &str, hunks: &[&
         .collect();
 
     if line_ranges.is_empty() {
-        output.push_str(&format!("- {}\n", file_path));
+        output.push_str(&format!("- {file_path}\n"));
     } else {
         output.push_str(&format!("- {} (lines: {})\n", file_path, line_ranges.join(", ")));
     }
@@ -1110,7 +1108,7 @@ fn validate_path(path: &str) -> Result<()> {
     // Reject: <, >, ", ', newlines, carriage returns, and null bytes
     let suspicious_chars = ['<', '>', '"', '\'', '\n', '\r', '\0'];
     if path.chars().any(|c| suspicious_chars.contains(&c)) {
-        bail!("Path contains invalid characters: {}", path);
+        bail!("Path contains invalid characters: {path}");
     }
 
     // Try to parse as a Path to ensure it's valid and can be converted back to a string
@@ -1136,7 +1134,7 @@ fn validate_commit_id(commit_id: &str) -> Result<()> {
 
     // Check that it only contains valid hex characters
     if !commit_id.chars().all(|c| c.is_ascii_hexdigit()) {
-        bail!("Commit ID contains non-hexadecimal characters: {}", commit_id);
+        bail!("Commit ID contains non-hexadecimal characters: {commit_id}");
     }
 
     Ok(())
@@ -1156,18 +1154,17 @@ async fn format_message_with_attachments(original_message: &str, attachments: &[
     let attachments_json = serde_json::to_string_pretty(&attachments)?;
 
     let message = format!(
-        "{}
+        "{original_message}
 
 <context-attachments>
 The following JSON of files, line ranges, and commits have been added as
 context. Please consider them if a question or reference to files, lines,
 or commits, is unspecified.
 <attachments>
-{}
+{attachments_json}
 </attachments>
 </context-attachments>
-",
-        original_message, attachments_json
+"
     );
 
     Ok(message)
@@ -1430,7 +1427,7 @@ async fn handle_ask_user_question(
             Err(e) => {
                 tracing::error!("Failed to parse AskUserQuestion questions: {}", e);
                 return PermissionResult::Deny(PermissionResultDeny {
-                    message: format!("Failed to parse AskUserQuestion: {}", e),
+                    message: format!("Failed to parse AskUserQuestion: {e}"),
                     interrupt: false,
                 });
             }

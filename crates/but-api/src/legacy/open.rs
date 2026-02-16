@@ -70,11 +70,11 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         if cmd.status().is_ok() {
             return Ok(());
         } else {
-            cmd_errors.push(anyhow::anyhow!("Failed to execute command {:?}", cmd));
+            cmd_errors.push(anyhow::anyhow!("Failed to execute command {cmd:?}"));
         }
     }
     if !cmd_errors.is_empty() {
-        bail!("Errors occurred: {:?}", cmd_errors);
+        bail!("Errors occurred: {cmd_errors:?}");
     }
     Ok(())
 }

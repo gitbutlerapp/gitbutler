@@ -6,7 +6,7 @@
 fn main() {
     #[cfg(unix)]
     if let Err(e) = but_installer::run_installation() {
-        but_installer::ui::error(&format!("{:#}", e));
+        but_installer::ui::error(&format!("{e:#}"));
         std::process::exit(1);
     }
     #[cfg(not(unix))]

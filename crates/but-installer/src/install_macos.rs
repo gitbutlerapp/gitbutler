@@ -37,7 +37,7 @@ pub fn download_and_install_app(
     })?;
 
     validate_download_url(download_url)?;
-    info(&format!("Download URL: {}", download_url));
+    info(&format!("Download URL: {download_url}"));
 
     let temp_dir = tempfile::Builder::new().prefix("gitbutler-install.").tempdir()?;
 
@@ -101,8 +101,7 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
     // Remove macOS quarantine attribute
     if let Err(e) = remove_quarantine_recursive(&install_app_new) {
         warn(&format!(
-            "Could not remove quarantine attribute: {} - macOS may show security warnings",
-            e
+            "Could not remove quarantine attribute: {e} - macOS may show security warnings"
         ));
         info("If macOS blocks the app, go to System Settings > Privacy & Security and allow it");
     }
@@ -121,8 +120,8 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let timestamp = format!("{}", now);
-        let but_backup = bin_dir.join(format!("but.backup.{}", timestamp));
+        let timestamp = format!("{now}");
+        let but_backup = bin_dir.join(format!("but.backup.{timestamp}"));
         warn(&format!(
             "A 'but' binary already exists at {} (not a symlink)",
             but_symlink.display()
@@ -151,8 +150,7 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
 
         if previous_channel.is_none() {
             warn(&format!(
-                "Found existing 'but' symlink pointing to: {}",
-                existing_target_str
+                "Found existing 'but' symlink pointing to: {existing_target_str}"
             ));
             warn("This will be replaced with GitButler's 'but' command");
             info(
@@ -213,13 +211,10 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
                     install_app_backup.display()
                 );
             }
-            bail!(
-                "Failed to install new version: {}. Previous installation restored successfully.",
-                e
-            );
+            bail!("Failed to install new version: {e}. Previous installation restored successfully.");
         }
         // No backup to restore, just fail
-        bail!("Failed to move new installation into place: {}", e);
+        bail!("Failed to move new installation into place: {e}");
     }
 
     // Update the symlink to point to the new installation
@@ -232,10 +227,7 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
 
     if let Err(e) = symlink_result {
         // Symlink creation failed - rollback to backup
-        warn(&format!(
-            "Failed to create symlink: {} - attempting to restore backup",
-            e
-        ));
+        warn(&format!("Failed to create symlink: {e} - attempting to restore backup"));
         if install_app_backup.exists() {
             if let Err(remove_err) = fs::remove_dir_all(&install_app) {
                 bail!(
@@ -250,9 +242,9 @@ pub(crate) fn install_app(app_dir: &Path, home_dir: &Path, channel: Option<Chann
             let _ = fs::remove_file(&but_symlink);
             let _ = unix_fs::symlink(&restored_target, &but_symlink);
 
-            bail!("Failed to create symlink: {}. Previous installation was restored.", e);
+            bail!("Failed to create symlink: {e}. Previous installation was restored.");
         } else {
-            bail!("Failed to create symlink: {}. No backup available to restore.", e);
+            bail!("Failed to create symlink: {e}. No backup available to restore.");
         }
     }
 
@@ -338,7 +330,7 @@ pub(crate) fn verify_app_structure(app_dir: &Path) -> Result<()> {
     for binary in &required_binaries {
         let binary_path = binaries_dir.join(binary);
         if !binary_path.exists() {
-            bail!("Missing required binary: {}", binary);
+            bail!("Missing required binary: {binary}");
         }
     }
 
@@ -424,7 +416,7 @@ fn verify_signature(tarball: &Path, signature_b64: &str, temp_dir: &Path) -> Res
     let mut file = File::open(tarball).context("Failed to open tarball for verification")?;
     let mut verifier = public_key
         .verify_stream(&signature)
-        .map_err(|e| anyhow!("Failed to initialize signature verifier: {}", e))?;
+        .map_err(|e| anyhow!("Failed to initialize signature verifier: {e}"))?;
 
     // Read and verify file in 64KB chunks
     let mut buffer = [0u8; 65536];
@@ -437,12 +429,9 @@ fn verify_signature(tarball: &Path, signature_b64: &str, temp_dir: &Path) -> Res
     }
 
     // Finalize verification
-    verifier.finalize().map_err(|e| {
-        anyhow!(
-            "Signature verification failed - the download may have been tampered with: {}",
-            e
-        )
-    })?;
+    verifier
+        .finalize()
+        .map_err(|e| anyhow!("Signature verification failed - the download may have been tampered with: {e}"))?;
 
     success("Signature verification passed");
     Ok(())

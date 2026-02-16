@@ -117,14 +117,14 @@ impl Transcript {
     }
 
     pub fn from_file_raw(path: &Path) -> Result<Vec<serde_json::Value>> {
-        let file = std::fs::File::open(path).map_err(|e| anyhow::anyhow!("Failed to open file: {}", e))?;
+        let file = std::fs::File::open(path).map_err(|e| anyhow::anyhow!("Failed to open file: {e}"))?;
         let reader = std::io::BufReader::new(file);
         let mut records = Vec::new();
         for line in reader.lines() {
-            let line = line.map_err(|e| anyhow::anyhow!("Failed to read line: {}", e))?;
+            let line = line.map_err(|e| anyhow::anyhow!("Failed to read line: {e}"))?;
             if !line.trim().is_empty() {
                 let record: serde_json::Value =
-                    serde_json::from_str(&line).map_err(|e| anyhow::anyhow!("Failed to parse JSON line: {}", e))?;
+                    serde_json::from_str(&line).map_err(|e| anyhow::anyhow!("Failed to parse JSON line: {e}"))?;
                 records.push(record);
             }
         }

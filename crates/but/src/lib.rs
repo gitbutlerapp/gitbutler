@@ -59,7 +59,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // Check if version is requested
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
         let version = option_env!("VERSION").unwrap_or("dev");
-        println!("but {}", version);
+        println!("but {version}");
         return Ok(());
     }
 
@@ -153,8 +153,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             // Check if the path exists before trying to open the GUI
             if !path.exists() {
                 anyhow::bail!(
-                    "\"but {}\" is not a command. Type \"but --help\" to see all available commands.",
-                    maybe_path
+                    "\"but {maybe_path}\" is not a command. Type \"but --help\" to see all available commands."
                 );
             }
 
@@ -360,7 +359,7 @@ async fn match_subcommand(
                             if args.json {
                                 println!("null");
                             } else {
-                                println!("No user message found at offset {}", offset);
+                                println!("No user message found at offset {offset}");
                             }
                         }
                     }

@@ -106,7 +106,7 @@ mod tests {
         // Body lines should not exceed 80 characters
         for line in output.lines().skip(2) {
             if !line.is_empty() {
-                assert!(line.len() <= 80, "Line too long: {}", line);
+                assert!(line.len() <= 80, "Line too long: {line}");
             }
         }
     }

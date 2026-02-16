@@ -50,11 +50,11 @@ pub(crate) fn show_commit(
         let repo = ctx.repo.get()?;
         let obj = repo
             .rev_parse_single(commit_id_str)
-            .map_err(|_| anyhow::anyhow!("Commit '{}' not found", commit_id_str))?;
+            .map_err(|_| anyhow::anyhow!("Commit '{commit_id_str}' not found"))?;
         let commit = obj
             .object()?
             .try_into_commit()
-            .map_err(|_| anyhow::anyhow!("'{}' is not a commit", commit_id_str))?;
+            .map_err(|_| anyhow::anyhow!("'{commit_id_str}' is not a commit"))?;
         commit.id
     } else if cli_ids.len() > 1 {
         bail!(
@@ -128,7 +128,7 @@ pub(crate) fn show_commit(
             "{}  {} {}",
             "Date:    ".bold(),
             date_str.green(),
-            format!("({})", relative).dimmed()
+            format!("({relative})").dimmed()
         )?;
 
         // Committer (only if different from author)
@@ -152,7 +152,7 @@ pub(crate) fn show_commit(
             writeln!(out, "{}", first_line.bold())?;
             // Print remaining lines without indentation
             for line in lines {
-                writeln!(out, "{}", line)?;
+                writeln!(out, "{line}")?;
             }
         }
 
@@ -441,7 +441,7 @@ fn find_branch_oid(ctx: &Context, branch_name: &str) -> Result<git2::Oid> {
         }
     }
 
-    anyhow::bail!("Branch '{}' not found", branch_name)
+    anyhow::bail!("Branch '{branch_name}' not found")
 }
 
 fn get_branch_commits(
@@ -689,8 +689,8 @@ fn show_branch_summary(out: &mut dyn std::fmt::Write, commits: &[BranchCommitInf
                 out,
                 "    {} ({}, {})",
                 path,
-                format!("+{}", insertions).green(),
-                format!("-{}", deletions).red()
+                format!("+{insertions}").green(),
+                format!("-{deletions}").red()
             )?;
         }
 

@@ -91,7 +91,7 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
             Some(Channel::Nightly)
         }
         VersionRequest::Specific(version) => {
-            info(&format!("Installing version: {}", version));
+            info(&format!("Installing version: {version}"));
             Some(Channel::Release)
         }
         VersionRequest::Release => {

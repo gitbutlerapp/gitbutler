@@ -69,12 +69,11 @@ pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut Ou
                 // Resolve the anchor string to a CliId
                 let anchor_ids = id_map.parse_using_context(&anchor_str, ctx)?;
                 if anchor_ids.is_empty() {
-                    return Err(anyhow::anyhow!("Could not find anchor: {}", anchor_str));
+                    return Err(anyhow::anyhow!("Could not find anchor: {anchor_str}"));
                 }
                 if anchor_ids.len() > 1 {
                     return Err(anyhow::anyhow!(
-                        "Ambiguous anchor '{}', matches multiple items",
-                        anchor_str
+                        "Ambiguous anchor '{anchor_str}', matches multiple items"
                     ));
                 }
                 let anchor_id = &anchor_ids[0];
@@ -159,7 +158,7 @@ pub fn handle(cmd: Option<Subcommands>, ctx: &mut but_ctx::Context, out: &mut Ou
             }
 
             if let Some(out) = out.for_human() {
-                writeln!(out, "Branch '{}' not found in any stack", branch_name)?;
+                writeln!(out, "Branch '{branch_name}' not found in any stack")?;
             }
             Ok(())
         }

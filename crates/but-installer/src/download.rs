@@ -9,7 +9,7 @@ use crate::http::create_client;
 pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     let mut easy = create_client()?;
 
-    easy.url(url).with_context(|| format!("Failed to set URL: {}", url))?;
+    easy.url(url).with_context(|| format!("Failed to set URL: {url}"))?;
 
     // Enable libcurl's built-in progress reporting
     easy.progress(true)?;
@@ -69,7 +69,7 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
         }
 
         // If perform failed for other reasons, propagate that error
-        perform_result.with_context(|| format!("Failed to download from {}", url))?;
+        perform_result.with_context(|| format!("Failed to download from {url}"))?;
     }
 
     // Clear progress line
@@ -81,7 +81,7 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
             "Download failed, the download artifact could not be found. Most likely, the but CLI has not been published for the requested version."
         )
     } else if response_code != 200 {
-        bail!("Download failed with HTTP status: {}", response_code);
+        bail!("Download failed with HTTP status: {response_code}");
     }
 
     // Validate the effective URL after following redirects
@@ -92,7 +92,7 @@ pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
         .ok_or_else(|| anyhow!("Effective URL is missing"))?;
 
     crate::release::validate_download_url(effective_url)
-        .with_context(|| format!("Download was redirected to an untrusted URL: {}", effective_url))?;
+        .with_context(|| format!("Download was redirected to an untrusted URL: {effective_url}"))?;
 
     Ok(())
 }

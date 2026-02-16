@@ -58,7 +58,7 @@ fn merge_first_branch_into_gb_local_and_verify_rebase() -> anyhow::Result<()> {
     let main_before_hash = String::from_utf8_lossy(&main_before.stdout).trim().to_string();
 
     // Merge the first branch
-    env.but(format!("merge {}", first_branch))
+    env.but(format!("merge {first_branch}"))
         .assert()
         .success()
         .stdout_eq(str![[r#"

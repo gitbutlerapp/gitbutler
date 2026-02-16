@@ -120,15 +120,11 @@ pub(crate) fn handle(
     let source_matches = id_map.parse_using_context(source_str, ctx)?;
     if source_matches.is_empty() {
         bail!(
-            "Source '{}' not found. If you just performed a Git operation, try running 'but status' to refresh.",
-            source_str
+            "Source '{source_str}' not found. If you just performed a Git operation, try running 'but status' to refresh."
         );
     }
     if source_matches.len() > 1 {
-        bail!(
-            "Source '{}' is ambiguous. Try using more characters to disambiguate.",
-            source_str
-        );
+        bail!("Source '{source_str}' is ambiguous. Try using more characters to disambiguate.");
     }
 
     let source_id = &source_matches[0];
@@ -137,15 +133,11 @@ pub(crate) fn handle(
     let target_matches = id_map.parse_using_context(target_str, ctx)?;
     if target_matches.is_empty() {
         bail!(
-            "Target '{}' not found. If you just performed a Git operation, try running 'but status' to refresh.",
-            target_str
+            "Target '{target_str}' not found. If you just performed a Git operation, try running 'but status' to refresh."
         );
     }
     if target_matches.len() > 1 {
-        bail!(
-            "Target '{}' is ambiguous. Try using more characters to disambiguate.",
-            target_str
-        );
+        bail!("Target '{target_str}' is ambiguous. Try using more characters to disambiguate.");
     }
 
     let target_id = &target_matches[0];
@@ -273,7 +265,7 @@ fn move_to_branch(
     target_branch_name: &str,
 ) -> anyhow::Result<()> {
     let target_stack_id = branch_name_to_stack_id(ctx, Some(target_branch_name))?
-        .ok_or_else(|| anyhow::anyhow!("Could not find stack for branch {}", target_branch_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Could not find stack for branch {target_branch_name}"))?;
     let source_stack_id = stack_id_by_commit_id(ctx, source_oid)?;
 
     if source_stack_id == target_stack_id {
@@ -292,7 +284,7 @@ fn move_to_branch(
         if let Some(series) = stack_order.series.iter_mut().find(|s| s.name == target_branch_name) {
             series.commit_ids.insert(0, git2_oid);
         } else {
-            bail!("Branch '{}' not found in stack", target_branch_name);
+            bail!("Branch '{target_branch_name}' not found in stack");
         }
 
         gitbutler_branch_actions::reorder_stack(ctx, source_stack_id, stack_order)?;
@@ -302,7 +294,7 @@ fn move_to_branch(
                 out,
                 "Moved {} → {}",
                 source_oid.to_string()[..7].blue(),
-                format!("[{}]", target_branch_name).green()
+                format!("[{target_branch_name}]").green()
             )?;
 
             // Check if target branch is not the topmost branch
@@ -350,8 +342,7 @@ fn move_to_branch(
                     gitbutler_branch_actions::MoveCommitIllegalAction::HasDependentUncommittedChanges => {
                         writeln!(
                             out,
-                            "Cannot move commit {} because it has dependent uncommitted changes",
-                            source_oid
+                            "Cannot move commit {source_oid} because it has dependent uncommitted changes"
                         )?;
                     }
                 }
@@ -366,7 +357,7 @@ fn move_to_branch(
                 out,
                 "Moved {} → {}",
                 source_oid.to_string()[..7].blue(),
-                format!("[{}]", target_branch_name).green()
+                format!("[{target_branch_name}]").green()
             )?;
 
             // Check if target branch is not the topmost branch

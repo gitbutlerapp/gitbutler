@@ -7,18 +7,18 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
     let title = format!("`but {}`", cmd.get_name());
     let (description, remaining_body) = get_description_and_body(cmd);
     output.push_str("---\n");
-    output.push_str(&format!("title: \"{}\"\n", title));
-    output.push_str(&format!("description: \"{}\"\n", description));
+    output.push_str(&format!("title: \"{title}\"\n"));
+    output.push_str(&format!("description: \"{description}\"\n"));
     output.push_str("---\n\n");
 
     // Add remaining long description if available (without the first line used as description)
     if let Some(body) = remaining_body {
-        output.push_str(&format!("{}\n\n", body));
+        output.push_str(&format!("{body}\n\n"));
     }
 
     // Add usage
     let usage = generate_usage(cmd);
-    output.push_str(&format!("**Usage:** `{}`\n\n", usage));
+    output.push_str(&format!("**Usage:** `{usage}`\n\n"));
 
     // Add subcommands section if there are any
     let subcommands: Vec<_> = cmd.get_subcommands().filter(|sub| !sub.is_hide_set()).collect();
@@ -32,14 +32,14 @@ pub fn generate_command_mdx(cmd: &Command) -> String {
 
             // Add subcommand long description
             if let Some(long_about) = subcmd.get_long_about() {
-                output.push_str(&format!("{}\n\n", long_about));
+                output.push_str(&format!("{long_about}\n\n"));
             } else if let Some(about) = subcmd.get_about() {
-                output.push_str(&format!("{}\n\n", about));
+                output.push_str(&format!("{about}\n\n"));
             }
 
             // Add subcommand usage
             let sub_usage = generate_usage_for_subcommand(cmd.get_name(), subcmd);
-            output.push_str(&format!("**Usage:** `{}`\n\n", sub_usage));
+            output.push_str(&format!("**Usage:** `{sub_usage}`\n\n"));
 
             // Add subcommand arguments
             let args: Vec<_> = subcmd.get_positionals().filter(|arg| !arg.is_hide_set()).collect();
@@ -123,9 +123,9 @@ fn generate_usage(cmd: &Command) -> String {
         }
         let arg_name = arg.get_id().as_str().to_uppercase();
         if arg.is_required_set() {
-            usage.push_str(&format!(" <{}>", arg_name));
+            usage.push_str(&format!(" <{arg_name}>"));
         } else {
-            usage.push_str(&format!(" [{}]", arg_name));
+            usage.push_str(&format!(" [{arg_name}]"));
         }
     }
 
@@ -147,9 +147,9 @@ fn generate_usage_for_subcommand(parent: &str, cmd: &Command) -> String {
         }
         let arg_name = arg.get_id().as_str().to_uppercase();
         if arg.is_required_set() {
-            usage.push_str(&format!(" <{}>", arg_name));
+            usage.push_str(&format!(" <{arg_name}>"));
         } else {
-            usage.push_str(&format!(" [{}]", arg_name));
+            usage.push_str(&format!(" [{arg_name}]"));
         }
     }
 
@@ -165,13 +165,13 @@ fn generate_argument_doc(arg: &Arg) -> String {
     let mut doc = String::new();
     let arg_name = arg.get_id().as_str().to_uppercase();
 
-    doc.push_str(&format!("* `<{}>` ", arg_name));
+    doc.push_str(&format!("* `<{arg_name}>` "));
 
     // Add help text, preferring long_help
     if let Some(long_help) = arg.get_long_help() {
-        doc.push_str(&format!("— {}", long_help));
+        doc.push_str(&format!("— {long_help}"));
     } else if let Some(help) = arg.get_help() {
-        doc.push_str(&format!("— {}", help));
+        doc.push_str(&format!("— {help}"));
     }
 
     // Add required indicator
@@ -190,14 +190,14 @@ fn generate_option_doc(opt: &Arg) -> String {
     let mut sig = String::new();
 
     if let Some(short) = opt.get_short() {
-        sig.push_str(&format!("`-{}`", short));
+        sig.push_str(&format!("`-{short}`"));
     }
 
     if let Some(long) = opt.get_long() {
         if !sig.is_empty() {
             sig.push_str(", ");
         }
-        sig.push_str(&format!("`--{}`", long));
+        sig.push_str(&format!("`--{long}`"));
     }
 
     // Add value name if it takes a value
@@ -207,23 +207,23 @@ fn generate_option_doc(opt: &Arg) -> String {
             .and_then(|names| names.first())
             .map(|n| n.as_str().to_string())
             .unwrap_or_else(|| opt.get_id().as_str().to_uppercase());
-        sig.push_str(&format!(" `<{}>`", value_name));
+        sig.push_str(&format!(" `<{value_name}>`"));
     }
 
-    doc.push_str(&format!("* {} ", sig));
+    doc.push_str(&format!("* {sig} "));
 
     // Add help text, preferring long_help
     if let Some(long_help) = opt.get_long_help() {
-        doc.push_str(&format!("— {}", long_help));
+        doc.push_str(&format!("— {long_help}"));
     } else if let Some(help) = opt.get_help() {
-        doc.push_str(&format!("— {}", help));
+        doc.push_str(&format!("— {help}"));
     }
 
     // Add default value
     let default_values = opt.get_default_values();
     if !default_values.is_empty() {
         let default_str = default_values[0].to_string_lossy();
-        doc.push_str(&format!(" (default: `{}`)", default_str));
+        doc.push_str(&format!(" (default: `{default_str}`)"));
     }
 
     // Add required indicator

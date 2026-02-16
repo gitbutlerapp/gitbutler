@@ -59,12 +59,12 @@ pub(crate) fn handle(
                 bail!("Need at least 2 commits to squash. To squash all commits in a branch, use the branch name.");
             }
 
-            bail!("'{}' must be a branch name or commit identifier", entity_str);
+            bail!("'{entity_str}' must be a branch name or commit identifier");
         }
 
         // If we get multiple matches, it's ambiguous
         if matches.len() > 1 {
-            bail!("'{}' is ambiguous - matches multiple entities", entity_str);
+            bail!("'{entity_str}' is ambiguous - matches multiple entities");
         }
 
         // No exact match found - try parsing as a range or list if it contains special characters
@@ -88,7 +88,7 @@ pub(crate) fn handle(
         // This case is already handled above by exact match, so we get here only if no match found
 
         // Nothing worked
-        bail!("No matching branch or commit found for '{}'", entity_str);
+        bail!("No matching branch or commit found for '{entity_str}'");
     }
 
     // Multiple separate commit arguments - resolve each one
@@ -96,10 +96,10 @@ pub(crate) fn handle(
     for commit_str in commits {
         let matches = id_map.parse_using_context(commit_str, ctx)?;
         if matches.is_empty() {
-            bail!("No matching commit found for '{}'", commit_str);
+            bail!("No matching commit found for '{commit_str}'");
         }
         if matches.len() > 1 {
-            bail!("'{}' is ambiguous - matches multiple entities", commit_str);
+            bail!("'{commit_str}' is ambiguous - matches multiple entities");
         }
         sources.push(matches[0].clone());
     }
@@ -279,8 +279,7 @@ fn squash_branch_commits(
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
     // Find the stack containing this branch
-    let stack_id =
-        stack_id.ok_or_else(|| anyhow::anyhow!("Branch '{}' is not associated with a stack", branch_name))?;
+    let stack_id = stack_id.ok_or_else(|| anyhow::anyhow!("Branch '{branch_name}' is not associated with a stack"))?;
 
     // Find all commits in this branch (segment)
     let mut branch_commits: Vec<gix::ObjectId> = Vec::new();
@@ -302,11 +301,11 @@ fn squash_branch_commits(
     }
 
     if branch_commits.is_empty() {
-        bail!("No commits found in branch '{}'", branch_name);
+        bail!("No commits found in branch '{branch_name}'");
     }
 
     if branch_commits.len() < 2 {
-        bail!("Branch '{}' has only one commit, nothing to squash", branch_name);
+        bail!("Branch '{branch_name}' has only one commit, nothing to squash");
     }
 
     // The commits are in order from newest (top) to oldest (bottom)
@@ -328,7 +327,7 @@ fn squash_branch_commits(
 fn parse_commit_range(ctx: &mut Context, id_map: &IdMap, range_str: &str) -> anyhow::Result<Vec<CliId>> {
     let parts: Vec<&str> = range_str.split("..").collect();
     if parts.len() != 2 {
-        bail!("Range format should be 'start..end', got '{}'", range_str);
+        bail!("Range format should be 'start..end', got '{range_str}'");
     }
 
     let start_str = parts[0];
@@ -339,10 +338,10 @@ fn parse_commit_range(ctx: &mut Context, id_map: &IdMap, range_str: &str) -> any
     let end_matches = id_map.parse_using_context(end_str, ctx)?;
 
     if start_matches.len() != 1 {
-        bail!("Start of range '{}' must match exactly one commit", start_str);
+        bail!("Start of range '{start_str}' must match exactly one commit");
     }
     if end_matches.len() != 1 {
-        bail!("End of range '{}' must match exactly one commit", end_str);
+        bail!("End of range '{end_str}' must match exactly one commit");
     }
 
     let start_id = &start_matches[0];
@@ -365,11 +364,7 @@ fn parse_commit_range(ctx: &mut Context, id_map: &IdMap, range_str: &str) -> any
     let start_stack = stack_id_by_commit_id(ctx, start_commit_oid)?;
     let end_stack = stack_id_by_commit_id(ctx, end_commit_oid)?;
     if start_stack != end_stack {
-        bail!(
-            "Range endpoints must be on the same stack. '{}' and '{}' are on different stacks.",
-            start_str,
-            end_str
-        );
+        bail!("Range endpoints must be on the same stack. '{start_str}' and '{end_str}' are on different stacks.");
     }
 
     // Get all commits in order from the SAME stack only
@@ -411,11 +406,7 @@ fn parse_commit_range(ctx: &mut Context, id_map: &IdMap, range_str: &str) -> any
             Ok(range.iter().map(|(_, cli_id)| cli_id.clone()).collect())
         }
         _ => {
-            bail!(
-                "Could not find range from '{}' to '{}'. Make sure both commits exist in the stack.",
-                start_str,
-                end_str
-            );
+            bail!("Could not find range from '{start_str}' to '{end_str}'. Make sure both commits exist in the stack.");
         }
     }
 }
@@ -433,10 +424,10 @@ fn parse_commit_list(ctx: &mut Context, id_map: &IdMap, list_str: &str) -> anyho
 
         let matches = id_map.parse_using_context(part, ctx)?;
         if matches.is_empty() {
-            bail!("Commit '{}' not found", part);
+            bail!("Commit '{part}' not found");
         }
         if matches.len() > 1 {
-            bail!("'{}' is ambiguous - matches multiple entities", part);
+            bail!("'{part}' is ambiguous - matches multiple entities");
         }
 
         // Verify it's a commit

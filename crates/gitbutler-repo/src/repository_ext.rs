@@ -173,7 +173,7 @@ impl RepositoryExt for git2::Repository {
                             gitbutler_sign_commits: Some(false),
                             ..Default::default()
                         })?;
-                        return Err(anyhow!("Failed to sign commit: {}", err).context(Code::CommitSigningFailed));
+                        return Err(anyhow!("Failed to sign commit: {err}").context(Code::CommitSigningFailed));
                     } else {
                         tracing::warn!(
                             "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"

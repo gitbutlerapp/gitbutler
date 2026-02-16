@@ -47,9 +47,7 @@ impl ReferenceExt for git2::Reference<'_> {
                 .strip_prefix(longest_remote)
                 .and_then(|str| str.strip_prefix("/"))
                 .ok_or(anyhow::anyhow!(
-                    "Failed to cut remote name {} off of shorthand name {}",
-                    longest_remote,
-                    shorthand_name
+                    "Failed to cut remote name {longest_remote} off of shorthand name {shorthand_name}"
                 ))?;
 
             Ok(shorthand_name.to_string())
@@ -79,9 +77,7 @@ impl ReferenceExtGix for &gix::refs::FullNameRef {
             .strip_prefix(longest_remote.as_bytes())
             .and_then(|str| str.strip_prefix(b"/"))
             .ok_or(anyhow::anyhow!(
-                "Failed to cut remote name {} off of shorthand name {}",
-                longest_remote,
-                shorthand_name
+                "Failed to cut remote name {longest_remote} off of shorthand name {shorthand_name}"
             ))?
             .into();
 

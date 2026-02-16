@@ -113,8 +113,7 @@ mod tests {
         let actual = get_editor_command_impl(no_env).unwrap();
         assert!(
             ["notepad", "vim", "vi"].contains(&actual.as_str()),
-            "Should fall back to vi/vim/notepad when nothing is set, got: {}",
-            actual
+            "Should fall back to vi/vim/notepad when nothing is set, got: {actual}"
         );
     }
 }

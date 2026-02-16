@@ -194,7 +194,7 @@ impl RepoCommands for Context {
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
-            bail!("Remote name '{}' already exists", name);
+            bail!("Remote name '{name}' already exists");
         }
 
         // Bail if remote with given url already exists.
@@ -204,7 +204,7 @@ impl RepoCommands for Context {
             .map(|name| repo.find_remote(name))
             .any(|result| result.is_ok_and(|remote| remote.url() == Some(url)))
         {
-            bail!("Remote with url '{}' already exists", url);
+            bail!("Remote with url '{url}' already exists");
         }
 
         repo.remote(name, url)?;
@@ -214,9 +214,7 @@ impl RepoCommands for Context {
     fn read_file_from_commit(&self, commit_id: Oid, relative_path: &Path) -> Result<FileInfo> {
         if !relative_path.is_relative() {
             bail!(
-                "Refusing to read '{:?}' from commit {:?} as it's not relative to the worktree",
-                relative_path,
-                commit_id
+                "Refusing to read '{relative_path:?}' from commit {commit_id:?} as it's not relative to the worktree"
             );
         }
 

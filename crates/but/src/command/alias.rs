@@ -179,9 +179,9 @@ fn get_all_aliases(repo: &gix::Repository) -> Result<Vec<AliasEntry>> {
             // Normalize to a dotted key we can prefix-test: "but.alias.<rest>"
             let dotted = match &subsection {
                 // [but "alias"] foo = bar  => but.alias.foo
-                Some(sub) => format!("{}.{}.{}", section_name, sub, vn),
+                Some(sub) => format!("{section_name}.{sub}.{vn}"),
                 // [but] alias.foo = bar    => but.alias.foo
-                None => format!("{}.{}", section_name, vn),
+                None => format!("{section_name}.{vn}"),
             };
 
             if !dotted.starts_with("but.alias.") {
@@ -234,11 +234,11 @@ fn get_default_aliases() -> Vec<(String, String)> {
 pub fn add(ctx: &mut Context, out: &mut OutputChannel, name: &str, value: &str, global: bool) -> Result<()> {
     // Validate alias name doesn't conflict with known commands
     if crate::alias::is_known_subcommand(name) {
-        anyhow::bail!("Cannot create alias '{}': it conflicts with a built-in command", name);
+        anyhow::bail!("Cannot create alias '{name}': it conflicts with a built-in command");
     }
 
     // ok, let's set the value in git config (using git2)
-    let key = format!("but.alias.{}", name);
+    let key = format!("but.alias.{name}");
     let repo = &*ctx.git2_repo.get()?;
     if global {
         let all = git2::Config::open_default()?;
@@ -276,7 +276,7 @@ pub fn add(ctx: &mut Context, out: &mut OutputChannel, name: &str, value: &str, 
 pub fn remove(ctx: &mut Context, out: &mut OutputChannel, name: &str, global: bool) -> Result<()> {
     // ok, let's try to remove the value in git config (using git2)
     let mut success = false;
-    let key = format!("but.alias.{}", name);
+    let key = format!("but.alias.{name}");
     let repo = &*ctx.git2_repo.get()?;
     if global {
         let all = git2::Config::open_default()?;

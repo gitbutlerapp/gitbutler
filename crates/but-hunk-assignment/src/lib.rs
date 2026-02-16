@@ -95,7 +95,7 @@ impl TryFrom<HunkAssignment> for but_db::HunkAssignment {
     fn try_from(value: HunkAssignment) -> Result<Self, Self::Error> {
         let header = value
             .hunk_header
-            .map(|h| serde_json::to_string(&h).map_err(|e| anyhow::anyhow!("Failed to serialize hunk_header: {}", e)))
+            .map(|h| serde_json::to_string(&h).map_err(|e| anyhow::anyhow!("Failed to serialize hunk_header: {e}")))
             .transpose()?;
         Ok(but_db::HunkAssignment {
             id: value.id.map(|id| id.to_string()),

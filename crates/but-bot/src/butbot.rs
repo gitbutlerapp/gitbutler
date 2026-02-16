@@ -159,7 +159,7 @@ Take a look at the conversation, specifically, the last user request below, and 
     pub fn update_state(&mut self) -> anyhow::Result<()> {
         let project_status = but_tools::workspace::get_project_status(self.ctx, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {e}"))?;
 
         let conversation = self
             .chat_messages
@@ -211,7 +211,7 @@ Reference relevant resources from the project status (e.g. branches, commits, fi
     pub fn update_todo_status(&mut self, todo: &Todo) -> anyhow::Result<()> {
         let project_status = but_tools::workspace::get_project_status(self.ctx, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {e}"))?;
 
         let conversation = self
             .chat_messages
@@ -262,7 +262,7 @@ Based on the conversation below and the project status, please update the status
     fn workspace_loop(&mut self) -> anyhow::Result<String> {
         let project_status = but_tools::workspace::get_project_status(self.ctx, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {e}"))?;
 
         let mut toolset = but_tools::workspace::workspace_toolset(self.ctx);
 
@@ -309,7 +309,7 @@ Based on the conversation below and the project status, please update the status
     fn execute_todo(&mut self, todo: &Todo) -> anyhow::Result<(String, Vec<but_llm::ChatMessage>)> {
         let project_status = but_tools::workspace::get_project_status(self.ctx, None)?;
         let serialized_status = serde_json::to_string_pretty(&project_status)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to serialize project status: {e}"))?;
 
         let mut toolset = but_tools::workspace::workspace_toolset(self.ctx);
 

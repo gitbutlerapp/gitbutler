@@ -61,23 +61,19 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     let matches = id_map.parse_using_context(commit_id_str, ctx)?;
 
     if matches.is_empty() {
-        bail!(
-            "Commit '{}' not found. Try running 'but status' to see available commits.",
-            commit_id_str
-        );
+        bail!("Commit '{commit_id_str}' not found. Try running 'but status' to see available commits.");
     }
 
     if matches.len() > 1 {
         bail!(
-            "Commit ID '{}' is ambiguous. Please provide more characters to uniquely identify the commit.",
-            commit_id_str
+            "Commit ID '{commit_id_str}' is ambiguous. Please provide more characters to uniquely identify the commit."
         );
     }
 
     // Extract the commit OID from the matched CliId
     let commit_gix_oid = match &matches[0] {
         CliId::Commit { commit_id, .. } => *commit_id,
-        _ => bail!("'{}' does not refer to a commit", commit_id_str),
+        _ => bail!("'{commit_id_str}' does not refer to a commit"),
     };
 
     // Get the commit and check if it's conflicted

@@ -89,7 +89,7 @@ impl AppSettingsWithDiskSync {
     pub fn get(&self) -> Result<RwLockReadGuard<'_, AppSettings>> {
         self.snapshot
             .read()
-            .map_err(|e| anyhow::anyhow!("Could not read settings: {:?}", e))
+            .map_err(|e| anyhow::anyhow!("Could not read settings: {e:?}"))
     }
 
     /// Allow changes only from within this crate to implement all possible settings updates [here](crate::api).
@@ -102,7 +102,7 @@ impl AppSettingsWithDiskSync {
                 saved: false,
                 customization: self.customization.clone(),
             })
-            .map_err(|e| anyhow::anyhow!("Could not write settings: {:?}", e))
+            .map_err(|e| anyhow::anyhow!("Could not write settings: {e:?}"))
     }
 
     /// The path from which application settings will be read from disk.

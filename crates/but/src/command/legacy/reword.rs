@@ -19,7 +19,7 @@ pub(crate) fn reword_target(
     let cli_ids = id_map.parse_using_context(target, ctx)?;
 
     if cli_ids.is_empty() {
-        bail!("ID '{}' not found", target);
+        bail!("ID '{target}' not found");
     }
 
     if cli_ids.len() > 1 {
@@ -65,13 +65,13 @@ fn edit_branch_name(
                 .unwrap_or_else(|| get_branch_name_from_editor(branch_name))?;
             but_api::legacy::stack::update_branch_name(ctx, sid, branch_name.to_owned(), new_name.clone())?;
             if let Some(out) = out.for_human() {
-                writeln!(out, "Renamed branch '{}' to '{}'", branch_name, new_name)?;
+                writeln!(out, "Renamed branch '{branch_name}' to '{new_name}'")?;
             }
             return Ok(());
         }
     }
 
-    bail!("Branch '{}' not found in any stack", branch_name)
+    bail!("Branch '{branch_name}' not found in any stack")
 }
 
 fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<String>> {

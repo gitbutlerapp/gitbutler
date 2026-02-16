@@ -16,7 +16,7 @@ pub(crate) fn to_branch(
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     let target_stack_id = branch_name_to_stack_id(ctx, Some(branch_name))?
-        .ok_or(anyhow::anyhow!("Could not find stack for branch {}", branch_name))?;
+        .ok_or(anyhow::anyhow!("Could not find stack for branch {branch_name}"))?;
     let source_stack_id = stack_id_by_commit_id(ctx, oid)?;
     if source_stack_id == target_stack_id {
         let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());

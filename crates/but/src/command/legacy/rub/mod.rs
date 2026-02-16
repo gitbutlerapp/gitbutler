@@ -324,10 +324,7 @@ fn prompt_for_disambiguation(
             .join("\n");
 
         return Err(anyhow::anyhow!(
-            "'{}' is ambiguous for {}. Cannot prompt in non-interactive mode. Matches:\n{}",
-            entity_str,
-            context,
-            options_str
+            "'{entity_str}' is ambiguous for {context}. Cannot prompt in non-interactive mode. Matches:\n{options_str}"
         ));
     }
 
@@ -344,7 +341,7 @@ fn prompt_for_disambiguation(
                     format!("{} - {} (commit {})", short_id, kind, &commit_id.to_string()[..7])
                 }
                 CliId::Branch { name, .. } => {
-                    format!("{} - {} (branch '{}')", short_id, kind, name)
+                    format!("{short_id} - {kind} (branch '{name}')")
                 }
                 CliId::CommittedFile { path, commit_id, .. } => {
                     format!(
@@ -360,25 +357,22 @@ fn prompt_for_disambiguation(
                         let first_hunk = uncommitted.hunk_assignments.first();
                         format!("{} - {} (file '{}')", short_id, kind, first_hunk.path)
                     } else {
-                        format!("{} - {} (hunk)", short_id, kind)
+                        format!("{short_id} - {kind} (hunk)")
                     }
                 }
-                _ => format!("{} - {}", short_id, kind),
+                _ => format!("{short_id} - {kind}"),
             }
         })
         .collect();
 
     let prompt = Selection::new(
-        &format!(
-            "'{}' matches multiple objects for {}. Which one did you mean?",
-            entity_str, context
-        ),
+        &format!("'{entity_str}' matches multiple objects for {context}. Which one did you mean?"),
         options.iter().cloned(),
     );
 
     let selection_str = prompt
         .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
 
     // Find the index of the selected option - more robust than parsing IDs from the string
     let selection_index = options
@@ -390,7 +384,7 @@ fn prompt_for_disambiguation(
     matches
         .into_iter()
         .nth(selection_index)
-        .ok_or_else(|| anyhow::anyhow!("Internal error: selection index {} out of bounds", selection_index))
+        .ok_or_else(|| anyhow::anyhow!("Internal error: selection index {selection_index} out of bounds"))
 }
 
 fn ids(
@@ -405,8 +399,7 @@ fn ids(
 
     if target_result.is_empty() {
         return Err(anyhow::anyhow!(
-            "Target '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-            target
+            "Target '{target}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
         ));
     }
 
@@ -441,9 +434,7 @@ fn ids(
             )
         };
         return Err(anyhow::anyhow!(
-            "Target '{}' matches multiple objects, but none would result in valid operations with all {}. Try using more characters or a different identifier.",
-            target,
-            source_summary
+            "Target '{target}' matches multiple objects, but none would result in valid operations with all {source_summary}. Try using more characters or a different identifier."
         ));
     }
 
@@ -482,8 +473,7 @@ fn parse_sources_with_disambiguation(
     let source_result = id_map.parse_using_context(source, ctx)?;
     if source_result.is_empty() {
         return Err(anyhow::anyhow!(
-            "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-            source
+            "Source '{source}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
         ));
     }
 
@@ -516,8 +506,7 @@ pub(crate) fn parse_sources(ctx: &mut Context, id_map: &IdMap, source: &str) -> 
     if source_result.len() != 1 {
         if source_result.is_empty() {
             return Err(anyhow::anyhow!(
-                "Source '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-                source
+                "Source '{source}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
             ));
         } else {
             let matches: Vec<String> = source_result
@@ -627,8 +616,7 @@ fn parse_list_with_disambiguation(
         let matches = id_map.parse_using_context(part, ctx)?;
         if matches.is_empty() {
             return Err(anyhow::anyhow!(
-                "Item '{}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-                part
+                "Item '{part}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
             ));
         }
 
@@ -636,14 +624,14 @@ fn parse_list_with_disambiguation(
             result.push(matches[0].clone());
         } else {
             // Ambiguous - prompt the user to disambiguate
-            let selected = prompt_for_disambiguation(part, matches, &format!("item '{}' in list", part), out)?;
+            let selected = prompt_for_disambiguation(part, matches, &format!("item '{part}' in list"), out)?;
             result.push(selected);
         }
     }
 
     // If all parts were empty, return an error
     if result.is_empty() {
-        return Err(anyhow::anyhow!("Source list '{}' contains no valid items", source));
+        return Err(anyhow::anyhow!("Source list '{source}' contains no valid items"));
     }
 
     Ok(result)
@@ -665,13 +653,11 @@ fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result
         if matches.len() != 1 {
             if matches.is_empty() {
                 return Err(anyhow::anyhow!(
-                    "Item '{}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-                    part
+                    "Item '{part}' in list not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
                 ));
             } else {
                 return Err(anyhow::anyhow!(
-                    "Item '{}' in list is ambiguous. Try using more characters to disambiguate.",
-                    part
+                    "Item '{part}' in list is ambiguous. Try using more characters to disambiguate."
                 ));
             }
         }
@@ -680,7 +666,7 @@ fn parse_list(ctx: &mut Context, id_map: &IdMap, source: &str) -> anyhow::Result
 
     // If all parts were empty, return an error
     if result.is_empty() {
-        return Err(anyhow::anyhow!("Source list '{}' contains no valid items", source));
+        return Err(anyhow::anyhow!("Source list '{source}' contains no valid items"));
     }
 
     Ok(result)
@@ -717,9 +703,7 @@ fn resolve_single_id(
 
     if matches.is_empty() {
         return Err(anyhow::anyhow!(
-            "{} '{}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state.",
-            context,
-            entity_str
+            "{context} '{entity_str}' not found. If you just performed a Git operation (squash, rebase, etc.), try running 'but status' to refresh the current state."
         ));
     }
 
@@ -892,7 +876,7 @@ pub(crate) fn handle_stage_tui(
                 },
             )?;
             if let Some(out) = out.for_human() {
-                writeln!(out, "Created new branch '{}'", branch_name)?;
+                writeln!(out, "Created new branch '{branch_name}'")?;
             }
             branch_name
         } else if stack_top_branches.len() == 1 {

@@ -296,7 +296,7 @@ fn construct_source_steps(
         .repo
         .get()?
         .try_find_reference(&source_branch_name)?
-        .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", source_branch_name))?
+        .ok_or_else(|| anyhow::anyhow!("Source branch '{source_branch_name}' not found in repository"))?
         .detach();
     let branch_ref_name = branch_ref.name;
 

@@ -108,7 +108,7 @@ impl PendingRequests {
         let mut permissions = self.permissions.lock().unwrap();
         let pending = permissions
             .remove(id)
-            .ok_or_else(|| anyhow::anyhow!("Permission request not found: {}", id))?;
+            .ok_or_else(|| anyhow::anyhow!("Permission request not found: {id}"))?;
 
         // Send the decision - ignore error if receiver was dropped (e.g., timeout)
         let _ = pending.sender.send((decision, use_wildcard));
@@ -173,7 +173,7 @@ impl PendingRequests {
         let mut questions = self.questions.lock().unwrap();
         let pending = questions
             .remove(id)
-            .ok_or_else(|| anyhow::anyhow!("Question request not found: {}", id))?;
+            .ok_or_else(|| anyhow::anyhow!("Question request not found: {id}"))?;
 
         let _ = pending.sender.send(answers);
         Ok(())

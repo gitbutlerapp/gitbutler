@@ -23,7 +23,7 @@ pub fn handle(ctx: &mut Context, out: &mut OutputChannel, id: &str) -> Result<()
     let id_map = IdMap::new_from_context(ctx, None)?;
 
     // Resolve the ID to get file information
-    let resolved_ids = parse_sources(ctx, &id_map, id).with_context(|| format!("Could not resolve ID '{}'", id))?;
+    let resolved_ids = parse_sources(ctx, &id_map, id).with_context(|| format!("Could not resolve ID '{id}'"))?;
 
     if resolved_ids.is_empty() {
         bail!("No entity found for the given ID");

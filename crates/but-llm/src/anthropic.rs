@@ -77,7 +77,7 @@ impl AnthropicClient {
         let api_base = self.api_base();
         let response = self
             .client
-            .post(format!("{}/messages", api_base))
+            .post(format!("{api_base}/messages"))
             .json(request)
             .send()
             .await?;
@@ -85,7 +85,7 @@ impl AnthropicClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await?;
-            anyhow::bail!("Anthropic API error ({}): {}", status, error_text);
+            anyhow::bail!("Anthropic API error ({status}): {error_text}");
         }
 
         Ok(response)

@@ -1068,7 +1068,7 @@ async fn handle_command(
             result.map(|r| json!(r))
         }
 
-        _ => Err(anyhow::anyhow!("Command {} not found!", command)),
+        _ => Err(anyhow::anyhow!("Command {command} not found!")),
     }
 }
 

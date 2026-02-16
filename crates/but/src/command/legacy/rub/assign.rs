@@ -53,7 +53,7 @@ pub(crate) fn assign_uncommitted_to_stack(
             out,
             "Staged {} → stack {}.",
             description,
-            format!("[{}]", stack_id).green()
+            format!("[{stack_id}]").green()
         )?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({"ok": true}))?;

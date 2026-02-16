@@ -154,7 +154,7 @@ fn setup_fish_config(fish_config: &Path, _bin_dir: &Path, already_in_path: bool)
         }
 
         if needs_completions {
-            ui::println(&format!("  {}", completion_cmd));
+            ui::println(&format!("  {completion_cmd}"));
         }
     } else {
         success("Fish shell configuration is already set up");
@@ -213,11 +213,11 @@ fn setup_posix_shell_config(
             writeln!(file, "# Added by GitButler installer")?;
 
             if needs_path_in_config {
-                writeln!(file, "{}", path_cmd)?;
+                writeln!(file, "{path_cmd}")?;
             }
 
             if needs_completions {
-                writeln!(file, "{}", completion_cmd)?;
+                writeln!(file, "{completion_cmd}")?;
             }
 
             let mut updated_items = Vec::new();
@@ -248,17 +248,17 @@ fn setup_posix_shell_config(
             let error_msg = match e.kind() {
                 ErrorKind::PermissionDenied => "permission denied".to_string(),
                 ErrorKind::NotFound => "file not found".to_string(),
-                _ => format!("{}", e),
+                _ => format!("{e}"),
             };
 
             warn(&format!("Cannot write to {} ({})", shell_config.display(), error_msg));
             info("Please add the following lines to your shell config file manually:");
 
             if needs_path_in_config {
-                ui::println(&format!("  {}", path_cmd));
+                ui::println(&format!("  {path_cmd}"));
             }
             if needs_completions {
-                ui::println(&format!("  {}", completion_cmd));
+                ui::println(&format!("  {completion_cmd}"));
             }
         }
     }
@@ -458,7 +458,7 @@ mod tests {
             // Verify no duplicate PATH line was added
             let content = std::fs::read_to_string(&zshrc).unwrap();
             let path_count = content.lines().filter(|l| l.contains("export PATH=")).count();
-            assert_eq!(path_count, 1, "Variation {} should not add duplicate PATH entry", i);
+            assert_eq!(path_count, 1, "Variation {i} should not add duplicate PATH entry");
         }
     }
 
@@ -503,7 +503,7 @@ mod tests {
 
         for (i, path_line) in variations.iter().enumerate() {
             // Create config with this variation plus completions
-            let config_content = format!("{}\nbut completions fish | source", path_line);
+            let config_content = format!("{path_line}\nbut completions fish | source");
             std::fs::write(&fish_config, &config_content).unwrap();
 
             // Try to setup - should detect existing PATH and completions
@@ -513,8 +513,7 @@ mod tests {
             let content = std::fs::read_to_string(&fish_config).unwrap();
             assert_eq!(
                 content, config_content,
-                "Variation {} should not modify already-configured Fish config",
-                i
+                "Variation {i} should not modify already-configured Fish config"
             );
         }
     }

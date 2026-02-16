@@ -37,7 +37,7 @@ pub(crate) fn show_oplog(
         let repo = ctx.repo.get()?;
         let resolved = repo
             .rev_parse_single(sha_prefix)
-            .map_err(|_| anyhow::anyhow!("No oplog entry found matching SHA: {}", sha_prefix))?;
+            .map_err(|_| anyhow::anyhow!("No oplog entry found matching SHA: {sha_prefix}"))?;
         Some(resolved.detach().to_string())
     } else {
         None
@@ -125,7 +125,7 @@ pub(crate) fn show_oplog(
                 // Truncate display_title to 80 characters
                 let display_title = if display_title.chars().count() > 80 {
                     let truncated: String = display_title.chars().take(77).collect();
-                    format!("{}...", truncated)
+                    format!("{truncated}...")
                 } else {
                     display_title
                 };

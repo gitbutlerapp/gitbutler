@@ -157,7 +157,7 @@ impl ToCommitSelector for Selector {
         let selector = editor.history.normalize_selector(*self)?;
         let step = &editor.graph[selector.id];
         if !matches!(step, Step::Pick(_)) {
-            bail!("Expected selector for {:?} to refer to a commit", step);
+            bail!("Expected selector for {step:?} to refer to a commit");
         }
 
         Ok(selector)
@@ -169,7 +169,7 @@ impl ToReferenceSelector for Selector {
         let selector = editor.history.normalize_selector(*self)?;
         let step = &editor.graph[selector.id];
         if !matches!(step, Step::Reference { .. }) {
-            bail!("Expected selector for {:?} to refer to a reference", step);
+            bail!("Expected selector for {step:?} to refer to a reference");
         }
 
         Ok(selector)

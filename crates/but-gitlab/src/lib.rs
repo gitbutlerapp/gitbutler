@@ -111,7 +111,7 @@ pub async fn get_gl_user(
         let user = match gl.get_authenticated().await {
             Ok(user) => user,
             Err(client_err) => {
-                println!("Error fetching authenticated user: {:?}", client_err);
+                println!("Error fetching authenticated user: {client_err:?}");
                 // Check if this is a network error
                 if let Some(reqwest_err) = client_err.downcast_ref::<reqwest::Error>()
                     && is_network_error(reqwest_err)

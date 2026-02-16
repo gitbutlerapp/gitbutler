@@ -88,14 +88,12 @@ pub(crate) fn create_claude_assignment_rule(
     let existing_rules = list_claude_assignment_rules(ctx)?;
     if existing_rules.iter().any(|rule| rule.stack_id == stack_id) {
         return Err(anyhow::anyhow!(
-            "There is an existing WorkspaceRule triggered on ClaudeCodeHook which references stack_id: {}",
-            stack_id
+            "There is an existing WorkspaceRule triggered on ClaudeCodeHook which references stack_id: {stack_id}"
         ));
     }
     if existing_rules.iter().any(|rule| rule.session_id == session_id) {
         return Err(anyhow::anyhow!(
-            "These is an existing WorkspaceRule triggered on ClaudeCodeHook with filter on session_id: {}",
-            session_id
+            "These is an existing WorkspaceRule triggered on ClaudeCodeHook with filter on session_id: {session_id}"
         ));
     }
 

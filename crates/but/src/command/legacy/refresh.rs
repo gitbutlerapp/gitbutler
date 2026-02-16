@@ -57,7 +57,7 @@ pub fn handle(
                 out.write_str(&format!("Latest: {:?}", status.latest_version))?;
             }
             Err(e) => {
-                out.write_str(&format!("Failed to check for updates: {}", e))?;
+                out.write_str(&format!("Failed to check for updates: {e}"))?;
             }
         }
     }

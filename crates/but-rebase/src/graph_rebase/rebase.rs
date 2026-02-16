@@ -136,7 +136,7 @@ impl Editor {
                                 }
                             }
                             gix::refs::TargetRef::Symbolic(name) => {
-                                bail!("Attempted to update the symbolic reference {}", name);
+                                bail!("Attempted to update the symbolic reference {name}");
                             }
                         }
                     } else {
@@ -336,12 +336,7 @@ fn format_base_merge_error(
     }
 
     let mut out = "".to_string();
-    writeln!(
-        &mut out,
-        "Failed to merge bases while cherry picking commit {}.",
-        target
-    )
-    .ok();
+    writeln!(&mut out, "Failed to merge bases while cherry picking commit {target}.").ok();
     fmt_side(&mut out, "original bases", base_merge_failed, bases);
     fmt_side(&mut out, "new bases", onto_merge_failed, ontos);
     writeln!(

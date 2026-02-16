@@ -114,7 +114,7 @@ pub fn check_status_with_url(
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|e| anyhow::anyhow!("Failed to create runtime: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to create runtime: {e}"))?;
 
         runtime.block_on(async {
             let response = client
@@ -122,14 +122,14 @@ pub fn check_status_with_url(
                 .json(&request_body)
                 .send()
                 .await
-                .map_err(|e| anyhow::anyhow!("Request failed: {}", e))?
+                .map_err(|e| anyhow::anyhow!("Request failed: {e}"))?
                 .error_for_status()
-                .map_err(|e| anyhow::anyhow!("Server returned error: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Server returned error: {e}"))?;
 
             let update_info = response
                 .json::<CheckUpdateStatus>()
                 .await
-                .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
+                .map_err(|e| anyhow::anyhow!("Failed to parse response: {e}"))?;
 
             Ok(update_info)
         })

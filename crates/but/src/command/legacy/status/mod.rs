@@ -306,7 +306,7 @@ pub(crate) async fn worktree(
         last_fetched_ms
             .map(|ms| {
                 let relative_time = format_relative_time_verbose(std::time::SystemTime::now(), ms);
-                format!("(checked {})", relative_time)
+                format!("(checked {relative_time})")
             })
             .unwrap_or_default()
     };
@@ -892,7 +892,7 @@ fn display_cli_commit_details(
         )
     } else {
         let message = CommitMessage(commit.message.clone()).display_cli(verbose);
-        format!("{}{} {}{}{}", start_id, end_id, message, no_changes, conflicted_str,)
+        format!("{start_id}{end_id} {message}{no_changes}{conflicted_str}",)
     }
 }
 
@@ -1011,7 +1011,7 @@ impl CliDisplay for but_update::AvailableUpdate {
             if let Some(url) = &self.url {
                 format!("Update available: {} {}", version_info, url.underline().blue())
             } else {
-                format!("Update available: {}", version_info)
+                format!("Update available: {version_info}")
             }
         } else {
             format!(

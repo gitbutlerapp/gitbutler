@@ -25,6 +25,6 @@ impl Display for GitLabProjectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let project_id = format!("{}/{}", self.username, self.project_name);
         let encoded = urlencoding::encode(&project_id);
-        write!(f, "{}", encoded)
+        write!(f, "{encoded}")
     }
 }

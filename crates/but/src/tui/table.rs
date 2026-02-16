@@ -91,7 +91,7 @@ impl Table {
 
             let width = column_widths.get(i).copied().unwrap_or(0);
             let formatted = format_cell(&cell.content, width, cell.align);
-            write!(out, "{}", formatted)?;
+            write!(out, "{formatted}")?;
         }
         Ok(())
     }

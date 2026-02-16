@@ -22,7 +22,7 @@ impl PathRanges {
         incoming_hunks: Vec<InputDiffHunk>,
     ) -> anyhow::Result<()> {
         if self.commit_ids.contains(&commit_id) {
-            bail!("Commit ID already in stack: {}", commit_id)
+            bail!("Commit ID already in stack: {commit_id}")
         }
 
         let mut existing_hunk_ranges_iter = itertools::put_back(std::mem::take(&mut self.hunk_ranges));

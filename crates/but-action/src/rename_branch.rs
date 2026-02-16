@@ -45,7 +45,7 @@ pub fn rename_branch(
         current_branch_name.clone(),
         normalized_branch_name.clone(),
     )
-    .map_err(|e| anyhow::anyhow!("Failed to rename branch: {}", e));
+    .map_err(|e| anyhow::anyhow!("Failed to rename branch: {e}"));
 
     let status = match &update {
         Ok(_) => workflow::Status::Completed,

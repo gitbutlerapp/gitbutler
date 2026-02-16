@@ -147,7 +147,7 @@ pub fn print_grouped(out: &mut dyn std::fmt::Write) -> std::fmt::Result {
     for (flag, desc) in option_descriptions {
         let available_width = terminal_width.saturating_sub(flag.len() + 2);
         let truncated_desc = truncate_text(desc, available_width);
-        writeln!(out, "{}  {}", flag, truncated_desc)?;
+        writeln!(out, "{flag}  {truncated_desc}")?;
     }
 
     Ok(())

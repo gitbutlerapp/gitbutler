@@ -156,8 +156,8 @@ impl Tool for Commit {
         ctx: &mut Context,
         _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: CommitParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: CommitParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let value = create_commit(ctx, params).to_json("create_commit");
         Ok(value)
@@ -284,8 +284,8 @@ impl Tool for CreateBranch {
         ctx: &mut Context,
         _: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: CreateBranchParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: CreateBranchParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let stack = create_branch(ctx, params).to_json("create branch");
         Ok(stack)
@@ -419,8 +419,8 @@ impl Tool for Amend {
         ctx: &mut Context,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: AmendParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: AmendParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let value = amend_commit(ctx, params, commit_mapping).to_json("amend_commit");
         Ok(value)
@@ -530,8 +530,8 @@ impl Tool for GetProjectStatus {
         ctx: &mut Context,
         _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: GetProjectStatusParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: GetProjectStatusParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let paths = params
             .filter_changes
@@ -640,8 +640,8 @@ impl Tool for MoveFileChanges {
         ctx: &mut Context,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: MoveFileChangesParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: MoveFileChangesParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         match move_file_changes(ctx, params, commit_mapping) {
             Ok(_) => Ok("Success".into()),
@@ -744,8 +744,8 @@ impl Tool for GetCommitDetails {
         ctx: &mut Context,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: GetCommitDetailsParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: GetCommitDetailsParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let file_changes = commit_details(ctx, params, commit_mapping).to_json("commit_details");
 
@@ -820,8 +820,8 @@ impl Tool for GetBranchChanges {
         ctx: &mut Context,
         _commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: GetBranchChangesParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: GetBranchChangesParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let file_changes = branch_changes(ctx, params).to_json("get_branch_changes");
 
@@ -944,8 +944,8 @@ impl Tool for SquashCommits {
         ctx: &mut Context,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: SquashCommitsParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: SquashCommitsParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let value = squash_commits(ctx, params, commit_mapping).to_json("squash_commits");
 
@@ -1063,8 +1063,8 @@ impl Tool for SplitBranch {
         ctx: &mut Context,
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
-        let params: SplitBranchParameters = serde_json::from_value(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+        let params: SplitBranchParameters =
+            serde_json::from_value(parameters).map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         Ok(split_branch(ctx, params, commit_mapping).to_json("split_branch"))
     }
@@ -1198,7 +1198,7 @@ impl Tool for SplitCommit {
         commit_mapping: &mut HashMap<gix::ObjectId, gix::ObjectId>,
     ) -> anyhow::Result<serde_json::Value> {
         let params = serde_json::from_value::<SplitCommitParameters>(parameters)
-            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to parse input parameters: {e}"))?;
 
         let value = split_commit(ctx, params, commit_mapping).to_json("split_commit");
         Ok(value)

@@ -716,8 +716,7 @@ fn validate_target(
     stack_commits.insert(0, merge_base);
     if !stack_commits.contains(&reference) {
         return Err(anyhow!(
-            "The commit {} is not between the stack head and the stack base",
-            reference
+            "The commit {reference} is not between the stack head and the stack base"
         ));
     }
     Ok(())
@@ -736,7 +735,7 @@ fn validate_name(name: &str, state: &VirtualBranchesHandle) -> Result<()> {
     name_partial(name.into()).context("Invalid branch name")?;
     // assert that there are no existing patch references with this name
     if patch_reference_exists(state, name)? {
-        return Err(anyhow!("A patch reference with the name {} exists", name));
+        return Err(anyhow!("A patch reference with the name {name} exists"));
     }
 
     Ok(())
