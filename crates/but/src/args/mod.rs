@@ -531,10 +531,10 @@ pub enum Subcommands {
         id: String,
     },
 
-    /// Commands for creating and managing pull requests on a forge.
+    /// Commands for creating and managing reviews on a forge, e.g. GitHub PRs or GitLab MRs.
     ///
     /// If you are authenticated with a forge using `but config forge auth`, you can use
-    /// the `but pr` commands to create pull requests (or merge requests) on
+    /// the `but pr` or `but mr` commands to create pull requests (or merge requests) on
     /// the remote repository for your branches.
     ///
     /// Running `but pr` without a subcommand defaults to `but pr new`, which
