@@ -15,7 +15,7 @@ export type UnknownObject = Record<string, unknown>;
  */
 export function isNonEmptyObject(something: unknown): something is UnknownObject {
 	return (
-		typeof something === 'object' &&
+		typeof something === "object" &&
 		something !== null &&
 		!Array.isArray(something) &&
 		(Object.keys(something).length > 0 || Object.getOwnPropertySymbols(something).length > 0)
@@ -42,10 +42,10 @@ export interface ErrorLike {
  */
 export function isErrorlike(target: unknown): target is ErrorLike {
 	return (
-		(typeof target === 'object' &&
+		(typeof target === "object" &&
 			target &&
-			'message' in target &&
-			typeof target.message === 'string') ||
+			"message" in target &&
+			typeof target.message === "string") ||
 		false
 	);
 }

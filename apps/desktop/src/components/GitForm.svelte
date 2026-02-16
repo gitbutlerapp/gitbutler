@@ -1,14 +1,14 @@
 <script lang="ts">
-	import CommitSigningForm from '$components/CommitSigningForm.svelte';
-	import GitHooksForm from '$components/GitHooksForm.svelte';
-	import KeysForm from '$components/KeysForm.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import { BACKEND } from '$lib/backend';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
-	import type { Project } from '$lib/project/project';
+	import CommitSigningForm from "$components/CommitSigningForm.svelte";
+	import GitHooksForm from "$components/GitHooksForm.svelte";
+	import KeysForm from "$components/KeysForm.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import { BACKEND } from "$lib/backend";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
+	import type { Project } from "$lib/project/project";
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -23,7 +23,7 @@
 <SettingsSection>
 	<GitHooksForm {projectId} />
 	<CommitSigningForm {projectId} />
-	{#if backend.platformName !== 'windows'}
+	{#if backend.platformName !== "windows"}
 		<Spacer />
 		<KeysForm {projectId} showProjectName={false} />
 	{/if}

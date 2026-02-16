@@ -1,23 +1,23 @@
 <script lang="ts">
-	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, Textbox } from '@gitbutler/ui';
+	import { ORGANIZATION_SERVICE } from "$lib/organizations/organizationService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Modal, Textbox } from "@gitbutler/ui";
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	let modal = $state<Modal>();
 
-	let organizationSlug = $state('');
-	let joinCode = $state('');
-	let joiningState = $state<'intert' | 'loading' | 'completed'>('intert');
+	let organizationSlug = $state("");
+	let joinCode = $state("");
+	let joiningState = $state<"intert" | "loading" | "completed">("intert");
 	const buttonEnabled = $derived(!!(joinCode && organizationSlug));
 
 	async function join(close: () => void) {
-		joiningState = 'loading';
+		joiningState = "loading";
 
 		await organizationService.joinOrganization(organizationSlug, joinCode);
 
-		joiningState = 'completed';
+		joiningState = "completed";
 		close();
 	}
 
@@ -36,7 +36,7 @@
 	{#snippet controls(close)}
 		<Button
 			disabled={!buttonEnabled}
-			loading={joiningState === 'loading'}
+			loading={joiningState === "loading"}
 			onclick={() => join(close)}>Join</Button
 		>
 	{/snippet}

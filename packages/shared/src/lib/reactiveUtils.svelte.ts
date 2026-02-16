@@ -1,5 +1,5 @@
-import { get, type Readable, type Writable } from 'svelte/store';
-import type { Reactive, WritableReactive } from '$lib/storeUtils';
+import { get, type Readable, type Writable } from "svelte/store";
+import type { Reactive, WritableReactive } from "$lib/storeUtils";
 
 /**
  * Helper function for passing reactive variables around.
@@ -14,7 +14,7 @@ export function reactive<T>(fn: () => T): Reactive<T> {
 	return {
 		get current() {
 			return fn();
-		}
+		},
 	};
 }
 
@@ -25,7 +25,7 @@ export function writableReactive<T>(get: () => T, set: (_: T) => void): Writable
 		},
 		set current(value: T) {
 			set(value);
-		}
+		},
 	};
 }
 
@@ -47,7 +47,7 @@ export function readableToReactive<T>(readable?: Readable<T>): Reactive<T | unde
 	return {
 		get current() {
 			return current;
-		}
+		},
 	};
 }
 
@@ -75,6 +75,6 @@ export function writableToReactive<T>(writable: Writable<T>): WritableReactive<T
 			if (value !== undefined) {
 				writable.set(value);
 			}
-		}
+		},
 	};
 }

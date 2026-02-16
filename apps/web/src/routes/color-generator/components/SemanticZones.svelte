@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SEMANTIC_ZONES } from '../constants/colorScales';
+	import { SEMANTIC_ZONES } from "../constants/colorScales";
 </script>
 
 <div class="semantic-zones">

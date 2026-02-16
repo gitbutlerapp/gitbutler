@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { getPollingInterval } from '$lib/forge/shared/progressivePolling';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { getPollingInterval } from "$lib/forge/shared/progressivePolling";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
 
-	import { Badge, TestId, type MessageStyle } from '@gitbutler/ui';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
+	import { Badge, TestId, type MessageStyle } from "@gitbutler/ui";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
+	import type { ComponentColorType } from "@gitbutler/ui/utils/colorTypes";
 
 	type Props = {
 		projectId: string;
@@ -48,7 +48,7 @@
 	const checksQuery = $derived(
 		enabled
 			? checksService?.get(branchName, { subscriptionOptions: { pollingInterval } })
-			: undefined
+			: undefined,
 	);
 
 	const loading = $derived(checksQuery?.result.isLoading);
@@ -57,50 +57,50 @@
 		const checks = checksQuery?.response;
 		if (!checksService && isFork) {
 			return {
-				style: 'gray',
+				style: "gray",
 				icon: undefined,
-				text: 'No PR checks',
-				reducedText: 'No checks',
-				tooltip: 'Checks for forked repos only available on the web.'
+				text: "No PR checks",
+				reducedText: "No checks",
+				tooltip: "Checks for forked repos only available on the web.",
 			};
 		}
 
 		if (checksQuery?.result.error) {
 			return {
-				style: 'danger',
-				icon: 'warning-small',
-				text: 'Failed to load',
-				reducedText: 'Failed'
+				style: "danger",
+				icon: "warning-small",
+				text: "Failed to load",
+				reducedText: "Failed",
 			};
 		}
 
 		if (checks) {
-			const style = checks.completed ? (checks.success ? 'safe' : 'danger') : 'warning';
+			const style = checks.completed ? (checks.success ? "safe" : "danger") : "warning";
 			const icon =
 				checks.completed && !loading
 					? checks.success
-						? 'success-small'
-						: 'error-small'
-					: 'spinner';
+						? "success-small"
+						: "error-small"
+					: "spinner";
 			const text = checks.completed
 				? checks.success
-					? 'Checks passed'
-					: 'Checks failed'
-				: 'Checks running';
+					? "Checks passed"
+					: "Checks failed"
+				: "Checks running";
 
 			const tooltip =
 				checks.completed && !checks.success
-					? `Checks failed: ${checks.failedChecks.join(', ')}`
+					? `Checks failed: ${checks.failedChecks.join(", ")}`
 					: undefined;
 
-			const reducedText = checks.completed ? (checks.success ? 'Passed' : 'Failed') : 'Running';
+			const reducedText = checks.completed ? (checks.success ? "Passed" : "Failed") : "Running";
 			return { style, icon, text, reducedText, tooltip };
 		}
 		if (loading) {
-			return { style: 'gray', icon: 'spinner', text: 'Checks', reducedText: 'Checks' };
+			return { style: "gray", icon: "spinner", text: "Checks", reducedText: "Checks" };
 		}
 
-		return { style: 'gray', icon: undefined, text: 'No PR checks', reducedText: 'No checks' };
+		return { style: "gray", icon: undefined, text: "No PR checks", reducedText: "No checks" };
 	});
 
 	// Track previous state to detect transitions.
@@ -151,7 +151,7 @@
 	size="icon"
 	icon={checksTagInfo.icon}
 	style={checksTagInfo.style}
-	kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+	kind={checksTagInfo.icon === "success-small" ? "solid" : "soft"}
 	tooltip={checksTagInfo.tooltip}
 	reversedDirection
 	onclick={(e) => {

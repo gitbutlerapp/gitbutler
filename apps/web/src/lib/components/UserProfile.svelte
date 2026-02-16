@@ -1,12 +1,12 @@
 <script lang="ts">
-	import ProjectsSection from '$lib/components/ProjectsSection.svelte';
-	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
-	import { UserService, USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
+	import ProjectsSection from "$lib/components/ProjectsSection.svelte";
+	import ReviewsSection from "$lib/components/ReviewsSection.svelte";
+	import { UserService, USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
 
-	import { AsyncButton, Button, Markdown, chipToasts } from '@gitbutler/ui';
-	import { get } from 'svelte/store';
-	import type { ExtendedUser } from '$lib/owner/types';
+	import { AsyncButton, Button, Markdown, chipToasts } from "@gitbutler/ui";
+	import { get } from "svelte/store";
+	import type { ExtendedUser } from "$lib/owner/types";
 
 	interface Props {
 		user: ExtendedUser;
@@ -21,12 +21,12 @@
 
 	// README editing state
 	let editingReadme = $state(false);
-	let readmeContent = $state('');
+	let readmeContent = $state("");
 	let isSavingReadme = $state(false);
 
 	// Start editing the README
 	function startEditingReadme(currentReadme: string | undefined) {
-		readmeContent = currentReadme || '';
+		readmeContent = currentReadme || "";
 		editingReadme = true;
 	}
 
@@ -44,14 +44,14 @@
 			// Update the local user data with the new README
 			user = {
 				...user,
-				readme: readmeContent
+				readme: readmeContent,
 			};
 
 			editingReadme = false;
-			chipToasts.success('README updated successfully');
+			chipToasts.success("README updated successfully");
 		} catch (error) {
 			chipToasts.error(
-				`Failed to update README: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Failed to update README: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		} finally {
 			isSavingReadme = false;
@@ -60,7 +60,7 @@
 
 	let patchStacksStore = $state(userService.getPatchStacks(ownerSlug));
 	let patchStacks = $derived($patchStacksStore);
-	let patchStacksData = $derived(patchStacks.status === 'found' ? patchStacks.value || [] : []);
+	let patchStacksData = $derived(patchStacks.status === "found" ? patchStacks.value || [] : []);
 
 	// State for projects
 	let projectsLoading = $state(true);
@@ -83,7 +83,7 @@
 					projectsLoading = false;
 				})
 				.catch((error: Error) => {
-					console.error('Failed to load recent projects:', error);
+					console.error("Failed to load recent projects:", error);
 					projectsLoading = false;
 				});
 		}
@@ -188,7 +188,7 @@
 							<div class="info-item">
 								<span class="info-icon">🌐</span>
 								<a href={user.website} target="_blank" rel="noopener noreferrer" class="info-value">
-									{user.website.replace(/^https?:\/\//, '')}
+									{user.website.replace(/^https?:\/\//, "")}
 								</a>
 							</div>
 						{/if}

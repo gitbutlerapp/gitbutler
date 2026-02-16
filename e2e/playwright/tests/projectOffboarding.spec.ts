@@ -1,83 +1,83 @@
-import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
-import { clickByTestId, sleep, waitForTestId, waitForTestIdToNotExist } from '../src/util.ts';
-import { test } from '@playwright/test';
+import { getBaseURL, type GitButler, startGitButler } from "../src/setup.ts";
+import { clickByTestId, sleep, waitForTestId, waitForTestIdToNotExist } from "../src/util.ts";
+import { test } from "@playwright/test";
 
 let gitbutler: GitButler;
 
 test.use({
-	baseURL: getBaseURL()
+	baseURL: getBaseURL(),
 });
 
 test.afterEach(async () => {
 	await gitbutler?.destroy();
 });
 
-test('should be able to delete the last project gracefuly', async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath('workdir');
-	const configdir = testInfo.outputPath('config');
+test("should be able to delete the last project gracefuly", async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context, undefined, {
-		onboardingComplete: true
+		onboardingComplete: true,
 	});
 
-	await gitbutler.runScript('project-with-remote-branches.sh');
+	await gitbutler.runScript("project-with-remote-branches.sh");
 
-	await page.goto('/');
+	await page.goto("/");
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
+	await waitForTestId(page, "workspace-view");
 
 	// Open project settings
-	await clickByTestId(page, 'chrome-sidebar-project-settings-button');
+	await clickByTestId(page, "chrome-sidebar-project-settings-button");
 
-	await waitForTestId(page, 'project-settings-modal');
+	await waitForTestId(page, "project-settings-modal");
 
-	const deleteProjectButton = await waitForTestId(page, 'project-delete-button');
+	const deleteProjectButton = await waitForTestId(page, "project-delete-button");
 	await deleteProjectButton.scrollIntoViewIfNeeded();
 	await deleteProjectButton.click();
 
-	await clickByTestId(page, 'project-delete-modal-confirm');
+	await clickByTestId(page, "project-delete-modal-confirm");
 
-	await waitForTestIdToNotExist(page, 'project-delete-modal-confirm');
-	await waitForTestIdToNotExist(page, 'project-delete-button');
-	await waitForTestIdToNotExist(page, 'project-settings-modal');
+	await waitForTestIdToNotExist(page, "project-delete-modal-confirm");
+	await waitForTestIdToNotExist(page, "project-delete-button");
+	await waitForTestIdToNotExist(page, "project-settings-modal");
 
-	await waitForTestId(page, 'welcome-page');
+	await waitForTestId(page, "welcome-page");
 });
 
-test('should be able to delete a project when multiple exist', async ({
+test("should be able to delete a project when multiple exist", async ({
 	page,
-	context
+	context,
 }, testInfo) => {
-	const workdir = testInfo.outputPath('workdir');
-	const configdir = testInfo.outputPath('config');
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context, undefined, {
-		onboardingComplete: true
+		onboardingComplete: true,
 	});
 
-	await gitbutler.runScript('two-projects-with-remote-branches.sh');
+	await gitbutler.runScript("two-projects-with-remote-branches.sh");
 
-	await page.goto('/');
+	await page.goto("/");
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
+	await waitForTestId(page, "workspace-view");
 
 	// Open project settings
-	await clickByTestId(page, 'chrome-sidebar-project-settings-button');
+	await clickByTestId(page, "chrome-sidebar-project-settings-button");
 
-	await waitForTestId(page, 'project-settings-modal');
+	await waitForTestId(page, "project-settings-modal");
 
-	const deleteProjectButton = await waitForTestId(page, 'project-delete-button');
+	const deleteProjectButton = await waitForTestId(page, "project-delete-button");
 	await deleteProjectButton.scrollIntoViewIfNeeded();
 	await deleteProjectButton.click();
 
-	await clickByTestId(page, 'project-delete-modal-confirm');
+	await clickByTestId(page, "project-delete-modal-confirm");
 
-	await waitForTestIdToNotExist(page, 'project-delete-modal-confirm');
-	await waitForTestIdToNotExist(page, 'project-delete-button');
-	await waitForTestIdToNotExist(page, 'project-settings-modal');
+	await waitForTestIdToNotExist(page, "project-delete-modal-confirm");
+	await waitForTestIdToNotExist(page, "project-delete-button");
+	await waitForTestIdToNotExist(page, "project-settings-modal");
 
 	// Should still be in the workspace
-	await waitForTestId(page, 'workspace-view');
+	await waitForTestId(page, "workspace-view");
 
 	await sleep(10000); // Wait for the project list to update
 });

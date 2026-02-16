@@ -1,10 +1,10 @@
-import { showToast } from '$lib/notifications/toasts';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { IBackend } from '$lib/backend';
+import { showToast } from "$lib/notifications/toasts";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { IBackend } from "$lib/backend";
 
-const SEPARATOR = '/';
+const SEPARATOR = "/";
 
-export const URL_SERVICE = new InjectionToken<URLService>('URLService');
+export const URL_SERVICE = new InjectionToken<URLService>("URLService");
 
 export default class URLService {
 	constructor(private backend: IBackend) {}
@@ -13,13 +13,13 @@ export default class URLService {
 		try {
 			await this.backend.openExternalUrl(href);
 		} catch (e) {
-			if (typeof e === 'string' || e instanceof String) {
+			if (typeof e === "string" || e instanceof String) {
 				const message = `
                 Failed to open link in external browser:
 
                 ${href}
             `;
-				showToast({ title: 'External URL error', message, style: 'danger' });
+				showToast({ title: "External URL error", message, style: "danger" });
 			}
 
 			// Rethrowing for sentry and posthog
@@ -41,7 +41,7 @@ export function getEditorUri(params: EditorUriParams): string {
 	// Separator is always a forward slash for editor paths, even on Windows
 	const pathString = params.path.join(SEPARATOR);
 
-	let positionSuffix = '';
+	let positionSuffix = "";
 	if (params.line !== undefined) {
 		positionSuffix += `:${params.line}`;
 		// Column is only valid if line is present
@@ -50,7 +50,7 @@ export function getEditorUri(params: EditorUriParams): string {
 		}
 	}
 
-	const searchSuffix = searchParamsString ? `?${searchParamsString}` : '';
+	const searchSuffix = searchParamsString ? `?${searchParamsString}` : "";
 
 	return `${params.schemeId}://file${pathString}${positionSuffix}${searchSuffix}`;
 }

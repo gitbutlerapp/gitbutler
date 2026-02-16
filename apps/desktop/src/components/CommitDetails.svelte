@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { commitCreatedAtDate, type Commit, type UpstreamCommit } from '$lib/branches/v3';
-	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { splitMessage } from '$lib/utils/commitMessage';
-	import { rejoinParagraphs, truncate } from '$lib/utils/string';
-	import { inject } from '@gitbutler/core/context';
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { commitCreatedAtDate, type Commit, type UpstreamCommit } from "$lib/branches/v3";
+	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { splitMessage } from "$lib/utils/commitMessage";
+	import { rejoinParagraphs, truncate } from "$lib/utils/string";
+	import { inject } from "@gitbutler/core/context";
 
-	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from '@gitbutler/ui';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { Avatar, CopyButton, TestId, TimeAgo, Tooltip } from "@gitbutler/ui";
+	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
 
 	type Props = {
 		commit: UpstreamCommit | Commit;
@@ -71,7 +71,7 @@
 				text={commit.id}
 				onclick={() => {
 					clipboardService.write(commit.id, {
-						message: 'Commit SHA copied'
+						message: "Commit SHA copied",
 					});
 				}}
 			/>
@@ -83,8 +83,8 @@
 			class="description"
 			class:expanded
 			style:--commit-message-font={$rewrapCommitMessage
-				? 'var(--font-default)'
-				: 'var(--font-mono)'}
+				? "var(--font-default)"
+				: "var(--font-mono)"}
 			bind:clientWidth={messageWidth}
 			data-testid={TestId.CommitDrawerDescription}
 			data-remove-from-panning

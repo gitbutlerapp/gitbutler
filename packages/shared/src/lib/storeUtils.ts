@@ -4,7 +4,7 @@
  * application code.
  */
 
-import { writable, type Readable, type Writable } from 'svelte/store';
+import { writable, type Readable, type Writable } from "svelte/store";
 
 export function combineLatest<T>(stores: Readable<T>[], initialValue: T): Readable<T> {
 	const store = writable(initialValue, (set) => {
@@ -38,7 +38,7 @@ export function combineLatest<T>(stores: Readable<T>[], initialValue: T): Readab
 export function writableDerived<A, B>(
 	store: Readable<B>,
 	initialValue: A,
-	startStopNotifier: (derivedValue: B, set: (value: A) => void) => (() => void) | undefined
+	startStopNotifier: (derivedValue: B, set: (value: A) => void) => (() => void) | undefined,
 ): Writable<A> {
 	const derivedStore = writable(initialValue, (set) => {
 		let startStopUnsubscribe: (() => void) | undefined = undefined;
@@ -99,7 +99,7 @@ export async function guardReadableTrue(target: Readable<boolean>): Promise<bool
  * happened while that subscribe or unsubscribe was still happening.
  */
 export function asyncToSyncSignals<Args extends [...unknown[]]>(
-	fn: (...args: Args) => Promise<void | (() => Promise<void>)>
+	fn: (...args: Args) => Promise<void | (() => Promise<void>)>,
 ): (...args: Args) => () => void {
 	let inUse = false;
 	let working = false;

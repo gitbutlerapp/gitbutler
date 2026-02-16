@@ -1,7 +1,7 @@
-import { polyfillAbortSignalTimeout } from '$lib/polyfills/abortSignal';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { polyfillAbortSignalTimeout } from "$lib/polyfills/abortSignal";
+import { describe, expect, it, beforeEach, afterEach } from "vitest";
 
-describe('polyfillAbortSignalTimeout', () => {
+describe("polyfillAbortSignalTimeout", () => {
 	let originalTimeout: typeof AbortSignal.timeout | undefined;
 
 	beforeEach(() => {
@@ -19,7 +19,7 @@ describe('polyfillAbortSignalTimeout', () => {
 		}
 	});
 
-	it('should add AbortSignal.timeout if it does not exist', () => {
+	it("should add AbortSignal.timeout if it does not exist", () => {
 		// Remove the timeout method to simulate an environment without it
 		// @ts-expect-error - Deleting a static method for testing
 		delete AbortSignal.timeout;
@@ -27,10 +27,10 @@ describe('polyfillAbortSignalTimeout', () => {
 		polyfillAbortSignalTimeout();
 
 		expect(AbortSignal.timeout).toBeDefined();
-		expect(typeof AbortSignal.timeout).toBe('function');
+		expect(typeof AbortSignal.timeout).toBe("function");
 	});
 
-	it('should not override existing AbortSignal.timeout', () => {
+	it("should not override existing AbortSignal.timeout", () => {
 		function mockTimeout() {
 			return new AbortController().signal;
 		}
@@ -41,7 +41,7 @@ describe('polyfillAbortSignalTimeout', () => {
 		expect(AbortSignal.timeout).toBe(mockTimeout);
 	});
 
-	it('should create an AbortSignal that aborts after the specified timeout', async () => {
+	it("should create an AbortSignal that aborts after the specified timeout", async () => {
 		// Remove the timeout method to test the polyfill implementation
 		// @ts-expect-error - Deleting a static method for testing
 		delete AbortSignal.timeout;
@@ -59,7 +59,7 @@ describe('polyfillAbortSignalTimeout', () => {
 		expect(signal.aborted).toBe(true);
 	});
 
-	it('should set the abort reason to TimeoutError', async () => {
+	it("should set the abort reason to TimeoutError", async () => {
 		// Remove the timeout method to test the polyfill implementation
 		// @ts-expect-error - Deleting a static method for testing
 		delete AbortSignal.timeout;
@@ -72,10 +72,10 @@ describe('polyfillAbortSignalTimeout', () => {
 		await new Promise((resolve) => setTimeout(resolve, 150));
 
 		expect(signal.reason).toBeInstanceOf(DOMException);
-		expect(signal.reason.name).toBe('TimeoutError');
+		expect(signal.reason.name).toBe("TimeoutError");
 	});
 
-	it('should allow listening to abort events', async () => {
+	it("should allow listening to abort events", async () => {
 		// Remove the timeout method to test the polyfill implementation
 		// @ts-expect-error - Deleting a static method for testing
 		delete AbortSignal.timeout;
@@ -85,7 +85,7 @@ describe('polyfillAbortSignalTimeout', () => {
 		const signal = AbortSignal.timeout(100);
 		let abortEventFired = false;
 
-		signal.addEventListener('abort', () => {
+		signal.addEventListener("abort", () => {
 			abortEventFired = true;
 		});
 

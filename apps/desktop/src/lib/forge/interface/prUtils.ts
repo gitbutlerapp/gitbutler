@@ -6,9 +6,9 @@ export function getPrStatus(pr: {
 	mergedAt?: string;
 	closedAt?: string;
 	draft: boolean;
-}): 'merged' | 'closed' | 'draft' | 'open' {
-	if (pr.mergedAt) return 'merged';
-	if (pr.closedAt) return 'closed';
-	if (pr.draft) return 'draft';
-	return 'open';
+}): "merged" | "closed" | "draft" | "open" {
+	if (pr.mergedAt) return "merged";
+	if (pr.closedAt) return "closed";
+	if (pr.draft) return "draft";
+	return "open";
 }

@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
-	import { inject } from '@gitbutler/core/context';
-	import { AsyncButton, Button, Modal, Textarea, Textbox } from '@gitbutler/ui';
+	import { SSH_KEY_SERVICE } from "$lib/sshKeyService";
+	import { inject } from "@gitbutler/core/context";
+	import { AsyncButton, Button, Modal, Textarea, Textbox } from "@gitbutler/ui";
 
 	const sshKeyService = inject(SSH_KEY_SERVICE);
-	let name = $state('');
-	let publicKey = $state('');
+	let name = $state("");
+	let publicKey = $state("");
 	let error = $state<string | null>(null);
 
 	const { onClose } = $props<{
@@ -14,7 +14,7 @@
 
 	async function handleSubmit() {
 		if (!name.trim() || !publicKey.trim()) {
-			error = 'Please fill in all fields';
+			error = "Please fill in all fields";
 			return;
 		}
 
@@ -23,13 +23,13 @@
 		try {
 			await sshKeyService.addSshKey(name.trim(), publicKey.trim());
 			// Close modal and reset form
-			name = '';
-			publicKey = '';
+			name = "";
+			publicKey = "";
 			modal?.close();
 			onClose();
 		} catch (err) {
-			console.error('Failed to add SSH key:', err);
-			error = 'Failed to add SSH key. Please try again.';
+			console.error("Failed to add SSH key:", err);
+			error = "Failed to add SSH key. Please try again.";
 		}
 	}
 

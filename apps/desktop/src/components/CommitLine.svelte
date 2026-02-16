@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { getColorFromCommitState } from '$components/lib';
-	import { type CommitStatusType } from '$lib/commits/commit';
+	import { getColorFromCommitState } from "$components/lib";
+	import { type CommitStatusType } from "$lib/commits/commit";
 
-	import { Tooltip } from '@gitbutler/ui';
+	import { Tooltip } from "@gitbutler/ui";
 
 	interface Props {
 		commitStatus: CommitStatusType;
@@ -25,16 +25,16 @@
 		dotOnTop,
 		hasConflicts,
 		hideDot,
-		height
+		height,
 	}: Props = $props();
 
 	const color = $derived(getColorFromCommitState(commitStatus, diverged));
 
-	const rhombus = $derived(commitStatus === 'LocalAndRemote');
+	const rhombus = $derived(commitStatus === "LocalAndRemote");
 
 	function getCommitColor() {
 		if (hasConflicts) {
-			return 'var(--clr-theme-danger-element)';
+			return "var(--clr-theme-danger-element)";
 		}
 		return color;
 	}
@@ -46,8 +46,8 @@
 	style:height
 	style:--commit-color={getCommitColor()}
 	style:--commit-local-color={hasConflicts
-		? 'var(--clr-theme-danger-element)'
-		: 'var(--clr-commit-local)'}
+		? "var(--clr-theme-danger-element)"
+		: "var(--clr-commit-local)"}
 >
 	{#if hideDot}
 		<div class="single-line" class:dashed={lastCommit && lastBranch}></div>

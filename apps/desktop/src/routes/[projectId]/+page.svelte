@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
 
 	const projectId = $derived(page.params.projectId);
 

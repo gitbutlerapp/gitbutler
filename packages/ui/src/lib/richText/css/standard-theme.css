@@ -73,7 +73,7 @@
 		width: 4px;
 		height: 100%;
 		background-color: var(--clr-border-1);
-		content: '';
+		content: "";
 	}
 }
 
@@ -146,7 +146,7 @@
 	top: -2px;
 	width: 20px;
 	border-top: 1px solid black;
-	content: '';
+	content: "";
 	animation: CursorBlink 1.1s steps(2, start) infinite;
 }
 
@@ -295,12 +295,12 @@
 	width: 14px;
 	height: 14px;
 	border-radius: var(--radius-s);
-	content: '';
+	content: "";
 	cursor: pointer;
 }
 
-.StandardTheme__listItemUnchecked[dir='rtl']:before,
-.StandardTheme__listItemChecked[dir='rtl']:before {
+.StandardTheme__listItemUnchecked[dir="rtl"]:before,
+.StandardTheme__listItemChecked[dir="rtl"]:before {
 	right: 0;
 	left: auto;
 }
@@ -333,7 +333,7 @@
 	border-width: 0 2px 2px 0;
 	border-bottom-right-radius: 2px;
 	border-color: #fff;
-	content: '';
+	content: "";
 	cursor: pointer;
 }
 
@@ -415,7 +415,7 @@
 	display: block;
 	height: 1px;
 	background-color: var(--clr-border-2);
-	content: '';
+	content: "";
 }
 
 .StandardTheme__hr.selected {

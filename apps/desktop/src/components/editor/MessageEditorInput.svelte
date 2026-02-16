@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Textarea } from '@gitbutler/ui';
+	import { Textarea } from "@gitbutler/ui";
 
 	interface Props {
 		ref: HTMLTextAreaElement | undefined;
@@ -20,7 +20,7 @@
 		oninput,
 		onchange,
 		onkeydown,
-		testId
+		testId,
 	}: Props = $props();
 
 	let charsCount = $derived(value.length);

@@ -1,8 +1,8 @@
-import { filterWithRest } from '$lib/utils/array';
-import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';
-import type { Branch } from '$lib/branches/types';
-import type { PatchCommit } from '$lib/patches/types';
-import type { UserMaybe } from '$lib/users/types';
+import { filterWithRest } from "$lib/utils/array";
+import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
+import type { Branch } from "$lib/branches/types";
+import type { PatchCommit } from "$lib/patches/types";
+import type { UserMaybe } from "$lib/users/types";
 
 export type Commenter = {
 	avatarUrl?: string;
@@ -16,34 +16,34 @@ async function getUsersWithAvatarsFromMails(userEmails: string[]) {
 		userEmails.map(async (user) => {
 			return {
 				srcUrl: await gravatarUrlFromEmail(user),
-				username: user
+				username: user,
 			};
-		})
+		}),
 	);
 }
 
 export async function getUsersWithAvatars(commenters: Commenter[]) {
 	return await Promise.all(
 		commenters.map(async (commenter) => {
-			const name = commenter.login ?? commenter.email ?? commenter.name ?? 'unknown';
-			const email = commenter.email ?? 'unknown';
+			const name = commenter.login ?? commenter.email ?? commenter.name ?? "unknown";
+			const email = commenter.email ?? "unknown";
 			return {
 				srcUrl: commenter.avatarUrl ?? (await gravatarUrlFromEmail(email)),
-				username: name
+				username: name,
 			};
-		})
+		}),
 	);
 }
 
 async function getAvatarsForContributors(contributors: UserMaybe[]) {
 	const [userContributors, emailContributors] = filterWithRest(
 		contributors,
-		(contributor) => !!contributor.user
+		(contributor) => !!contributor.user,
 	);
 
 	return await Promise.all([
 		getUsersWithAvatars(userContributors.map((contributor) => contributor.user!)),
-		getUsersWithAvatarsFromMails(emailContributors.map((contributor) => contributor.email))
+		getUsersWithAvatarsFromMails(emailContributors.map((contributor) => contributor.email)),
 	]).then((result) => result.flat());
 }
 

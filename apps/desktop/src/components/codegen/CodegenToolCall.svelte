@@ -1,8 +1,8 @@
 <script lang="ts">
-	import ExpandableSection from '$components/codegen/ExpandableSection.svelte';
-	import { toolCallLoading, type ToolCall } from '$lib/codegen/messages';
-	import { formatToolCall, getToolIcon, getToolLabel } from '$lib/utils/codegenTools';
-	import { Codeblock } from '@gitbutler/ui';
+	import ExpandableSection from "$components/codegen/ExpandableSection.svelte";
+	import { toolCallLoading, type ToolCall } from "$lib/codegen/messages";
+	import { formatToolCall, getToolIcon, getToolLabel } from "$lib/utils/codegenTools";
+	import { Codeblock } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -22,7 +22,7 @@
 		lastInGroup,
 		fullWidth,
 		toolCallKey,
-		toolCallExpandedState
+		toolCallExpandedState,
 	}: Props = $props();
 
 	// Initialize expanded state from map, default to false (collapsed)
@@ -59,7 +59,7 @@
 
 		{#snippet content()}
 			<div class="stack-v gap-6 m-b-8">
-				{#if toolCall.name !== 'AskUserQuestion'}
+				{#if toolCall.name !== "AskUserQuestion"}
 					<Codeblock label="Tool call input:" content={formatToolCall(toolCall)} />
 				{/if}
 				{#if toolCall.result}

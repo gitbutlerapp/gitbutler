@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Codeblock } from '@gitbutler/ui';
-	import { Modal, SegmentControl, Button } from '@gitbutler/ui';
-	import type { PromptDir } from '$lib/codegen/types';
+	import { Codeblock } from "@gitbutler/ui";
+	import { Modal, SegmentControl, Button } from "@gitbutler/ui";
+	import type { PromptDir } from "$lib/codegen/types";
 
 	type Props = {
 		promptDirs: PromptDir[];
@@ -16,7 +16,7 @@
 
 	const { promptDirs, openPromptConfigDir }: Props = $props();
 
-	let selectedSegment = $state<string>(promptDirs[0]?.label || '');
+	let selectedSegment = $state<string>(promptDirs[0]?.label || "");
 </script>
 
 {#snippet pathContent({ path, caption }: { path: string; caption: string })}
@@ -35,21 +35,21 @@
 			{#each promptDirs as dir}
 				<SegmentControl.Item
 					id={dir.label}
-					icon={dir.label === 'Global' ? 'global-small' : 'folder'}
+					icon={dir.label === "Global" ? "global-small" : "folder"}
 				>
 					{dir.label}
 				</SegmentControl.Item>
 			{/each}
 		</SegmentControl>
-		{#if selectedSegment === 'Global'}
+		{#if selectedSegment === "Global"}
 			{@render pathContent({
-				path: promptDirs.find((d) => d.label === 'Global')?.path || '',
-				caption: 'Contains global prompt templates available to all projects.'
+				path: promptDirs.find((d) => d.label === "Global")?.path || "",
+				caption: "Contains global prompt templates available to all projects.",
 			})}
-		{:else if selectedSegment === 'Project'}
+		{:else if selectedSegment === "Project"}
 			{@render pathContent({
-				path: promptDirs.find((d) => d.label === 'Project')?.path || '',
-				caption: 'Contains project-specific prompt templates that override global prompts.'
+				path: promptDirs.find((d) => d.label === "Project")?.path || "",
+				caption: "Contains project-specific prompt templates that override global prompts.",
 			})}
 		{/if}
 

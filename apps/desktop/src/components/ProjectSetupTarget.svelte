@@ -1,17 +1,17 @@
 <script lang="ts">
-	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import gerritLogoSvg from '$lib/assets/gerrit-logo.svg?raw';
-	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { combineResults } from '$lib/state/helpers';
-	import { unique } from '$lib/utils/array';
-	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, CardGroup, Icon, Link, Select, SelectItem, TestId, Toggle } from '@gitbutler/ui';
-	import { slide } from 'svelte/transition';
-	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
+	import ProjectNameLabel from "$components/ProjectNameLabel.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import gerritLogoSvg from "$lib/assets/gerrit-logo.svg?raw";
+	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { combineResults } from "$lib/state/helpers";
+	import { unique } from "$lib/utils/array";
+	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from "$lib/utils/branch";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, CardGroup, Icon, Link, Select, SelectItem, TestId, Toggle } from "@gitbutler/ui";
+	import { slide } from "svelte/transition";
+	import type { RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
 
 	interface Props {
 		projectId: string;
@@ -35,8 +35,8 @@
 	// then turn remotes into an array of objects with a 'name' and 'value' key
 	const remotes = $derived(
 		unique(remoteBranches.map((b) => getBranchRemoteFromRef(b.name))).filter(
-			(r): r is string => !!r
-		)
+			(r): r is string => !!r,
+		),
 	);
 
 	let selectedBranch = $state<RemoteBranchInfo | undefined>(undefined);
@@ -45,7 +45,7 @@
 
 	let selectedRemote = $state<string | undefined>(undefined);
 	const defaultRemote = $derived(
-		(branch && getBranchRemoteFromRef(branch.name)) ?? getBestRemote(remotes)
+		(branch && getBranchRemoteFromRef(branch.name)) ?? getBestRemote(remotes),
 	);
 	const remote = $derived(selectedRemote ?? defaultRemote);
 

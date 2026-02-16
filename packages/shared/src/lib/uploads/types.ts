@@ -18,7 +18,7 @@ export type Upload = {
 };
 
 export function isImage(contentType: string): boolean {
-	return contentType.startsWith('image/');
+	return contentType.startsWith("image/");
 }
 
 export function apiToUpload(apiUpload: ApiUpload): Upload {
@@ -29,6 +29,6 @@ export function apiToUpload(apiUpload: ApiUpload): Upload {
 		url: apiUpload.url,
 		public: apiUpload.public,
 		createdAt: apiUpload.created_at,
-		isImage: isImage(apiUpload.content_type)
+		isImage: isImage(apiUpload.content_type),
 	};
 }

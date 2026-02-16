@@ -1,10 +1,10 @@
 <script lang="ts">
-	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import FullscreenUtilityCard from '$lib/components/service/FullscreenUtilityCard.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, EmailTextbox, InfoMessage } from '@gitbutler/ui';
+	import RedirectIfLoggedIn from "$lib/auth/RedirectIfLoggedIn.svelte";
+	import FullscreenUtilityCard from "$lib/components/service/FullscreenUtilityCard.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, EmailTextbox, InfoMessage } from "@gitbutler/ui";
 
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
@@ -19,14 +19,14 @@
 
 	async function handleSubmit() {
 		if (!email) {
-			error = 'Email is required';
+			error = "Email is required";
 			return;
 		}
 
 		const response = await loginService.resetPassword(email);
-		if (response.type === 'error') {
+		if (response.type === "error") {
 			error = response.errorMessage;
-			console.error('Reset password failed:', response.raw ?? response.errorMessage);
+			console.error("Reset password failed:", response.raw ?? response.errorMessage);
 		} else {
 			error = undefined;
 			sentToEmail = email;
@@ -42,8 +42,8 @@
 <RedirectIfLoggedIn />
 
 <FullscreenUtilityCard
-	title={isLinkSent ? 'Link sent!' : 'Forgot password?'}
-	backlink={{ label: 'Login', href: routesService.loginPath() }}
+	title={isLinkSent ? "Link sent!" : "Forgot password?"}
+	backlink={{ label: "Login", href: routesService.loginPath() }}
 >
 	{#if isLinkSent}
 		<p class="text-13 text-body">

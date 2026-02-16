@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
+	import ClaudeCheck from "$components/codegen/ClaudeCheck.svelte";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { newlineOnEnter } from "$lib/config/uiFeatureFlags";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;

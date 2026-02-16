@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { dismissToast, toastStore } from '$lib/notifications/toasts';
-	import { InfoMessage, Markdown, TestId } from '@gitbutler/ui';
-	import { slide } from 'svelte/transition';
+	import { dismissToast, toastStore } from "$lib/notifications/toasts";
+	import { InfoMessage, Markdown, TestId } from "@gitbutler/ui";
+	import { slide } from "svelte/transition";
 </script>
 
 <div class="toast-controller hide-native-scrollbar">
@@ -11,12 +11,12 @@
 		<div transition:slide={{ duration: 170 }}>
 			<InfoMessage
 				testId={toast.testId ?? TestId.ToastInfoMessage}
-				style={toast.style ?? 'info'}
+				style={toast.style ?? "info"}
 				error={toast.error}
-				secondaryLabel={toast.extraAction ? toast.extraAction.label : 'Dismiss'}
+				secondaryLabel={toast.extraAction ? toast.extraAction.label : "Dismiss"}
 				secondaryTestId={toast.extraAction ? toast.extraAction.testId : undefined}
 				secondaryAction={toast.extraAction ? () => toast.extraAction?.onClick(dismiss) : dismiss}
-				tertiaryLabel={toast.extraAction ? 'Dismiss' : undefined}
+				tertiaryLabel={toast.extraAction ? "Dismiss" : undefined}
 				tertiaryAction={toast.extraAction ? dismiss : undefined}
 				shadow
 			>

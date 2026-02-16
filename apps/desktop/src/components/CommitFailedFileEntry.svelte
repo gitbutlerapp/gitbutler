@@ -1,11 +1,11 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { type RejectionReason } from '$lib/stacks/stackService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { FileName, HunkDiff, Icon, Tooltip } from '@gitbutler/ui';
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { type RejectionReason } from "$lib/stacks/stackService.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { FileName, HunkDiff, Icon, Tooltip } from "@gitbutler/ui";
 
 	type Props = {
 		path: string;
@@ -22,7 +22,7 @@
 	let isFolded = $state(true);
 
 	function reasonRelatedToDependencyInfo(reason: RejectionReason): boolean {
-		return reason === 'cherryPickMergeConflict' || reason === 'workspaceMergeConflict';
+		return reason === "cherryPickMergeConflict" || reason === "workspaceMergeConflict";
 	}
 </script>
 
@@ -40,7 +40,7 @@
 
 			<div class="commit-failed__file-entry__header__unfold-action">
 				<span class="text-12 text-semibold"
-					>{isFolded ? 'Show' : 'Hide'}
+					>{isFolded ? "Show" : "Hide"}
 					hunks ({#if fileDependencies.response}
 						{fileDependencies.response.dependencies.length}
 					{:else}
@@ -48,7 +48,7 @@
 					{/if})</span
 				>
 
-				<Icon name={isFolded ? 'chevron-down' : 'chevron-up'} />
+				<Icon name={isFolded ? "chevron-down" : "chevron-up"} />
 			</div>
 		</button>
 
@@ -77,18 +77,18 @@
 								</div>
 								<div class="commit-failed__file-entry__dependency-locks__content">
 									{#each dependency.locks as lock}
-										{#if lock.target.type === 'stack'}
+										{#if lock.target.type === "stack"}
 											{@const branchesQuery = stackService.branches(projectId, lock.target.subject)}
 											{@const branch = branchesQuery.response}
 											{@const commitBranch = branch?.find((b) =>
-												b.commits.some((c) => c.id === lock.commitId)
+												b.commits.some((c) => c.id === lock.commitId),
 											)}
-											{@const branchName = commitBranch?.name || 'Unknown branch'}
+											{@const branchName = commitBranch?.name || "Unknown branch"}
 											{@const commitMessage = commitBranch?.commits.find(
-												(c) => c.id === lock.commitId
+												(c) => c.id === lock.commitId,
 											)}
 											{@const commitTitle =
-												commitMessage?.message.split('\n')[0] || 'No commit message provided'}
+												commitMessage?.message.split("\n")[0] || "No commit message provided"}
 											<p class="text-body commit-failed__file-entry-dependency-lock">
 												<i class="commit-failed__text-icon"><Icon name="branch-small" /></i>
 												<span class="text-semibold">{branchName}</span>

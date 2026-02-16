@@ -1,5 +1,5 @@
 <script module lang="ts">
-	export type faceType = 'idle' | 'thinking' | 'waiting' | 'compacted';
+	export type faceType = "idle" | "thinking" | "waiting" | "compacted";
 </script>
 
 <script lang="ts">
@@ -7,11 +7,11 @@
 		mode?: faceType;
 	}
 
-	const { mode = 'idle' }: Props = $props();
+	const { mode = "idle" }: Props = $props();
 </script>
 
 <div class="but-face-wrapper {mode}">
-	{#if mode === 'compacted'}
+	{#if mode === "compacted"}
 		<svg width="30" height="28" viewBox="0 0 30 28" fill="none" xmlns="http://www.w3.org/2000/svg">
 			<path
 				d="M0.999023 8.41602C0.999023 5.10231 3.68532 2.41602 6.99902 2.41602H18.3988C21.7125 2.41602 24.3988 5.10231 24.3988 8.41602V11.3811C24.3988 13.1339 25.1653 14.799 26.4967 15.9389L27.2547 16.5879C28.1424 17.3478 28.6533 18.4579 28.6533 19.6264V22.9357C28.6533 25.1449 26.8625 26.9357 24.6533 26.9357H6.99903C3.68532 26.9357 0.999023 24.2495 0.999023 20.9357V8.41602Z"
@@ -81,14 +81,14 @@
 				stroke-width="1.2"
 			/>
 			<!-- MOUTH -->
-			{#if mode === 'thinking' || mode === 'idle'}
+			{#if mode === "thinking" || mode === "idle"}
 				<path
 					class="but-face__mouth-smile"
 					d="M7.55078 16.6064C11.269 19.1174 13.296 19.1056 16.9056 16.6064"
 					stroke="black"
 					stroke-width="1.2"
 				/>
-			{:else if mode === 'waiting'}
+			{:else if mode === "waiting"}
 				<path d="M7.99902 18H13.999" stroke="black" stroke-width="1.2" />
 			{/if}
 			<!-- EYES -->

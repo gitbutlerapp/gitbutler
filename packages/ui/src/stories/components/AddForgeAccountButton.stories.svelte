@@ -1,9 +1,9 @@
 <script module lang="ts">
-	import AddForgeAccountButton from '$components/AddForgeAccountButton.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import AddForgeAccountButton from "$components/AddForgeAccountButton.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Buttons / Add Forge Account Button',
+		title: "Buttons / Add Forge Account Button",
 		component: AddForgeAccountButton,
 		args: {
 			noAccounts: false,
@@ -11,28 +11,28 @@
 			loading: false,
 			menuItems: [
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
 				},
 				{
-					label: 'GitLab',
-					icon: 'gitlab',
-					onclick: () => alert('GitLab clicked')
-				}
-			]
+					label: "GitLab",
+					icon: "gitlab",
+					onclick: () => alert("GitLab clicked"),
+				},
+			],
 		},
 		argTypes: {
 			noAccounts: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			disabled: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			loading: {
-				control: { type: 'boolean' }
-			}
-		}
+				control: { type: "boolean" },
+			},
+		},
 	});
 </script>
 
@@ -55,15 +55,15 @@
 			loading={false}
 			menuItems={[
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
 				},
 				{
-					label: 'GitLab',
-					icon: 'gitlab',
-					onclick: () => alert('GitLab clicked')
-				}
+					label: "GitLab",
+					icon: "gitlab",
+					onclick: () => alert("GitLab clicked"),
+				},
 			]}
 		/>
 	{/snippet}
@@ -77,15 +77,15 @@
 			loading={false}
 			menuItems={[
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
 				},
 				{
-					label: 'GitLab',
-					icon: 'gitlab',
-					onclick: () => alert('GitLab clicked')
-				}
+					label: "GitLab",
+					icon: "gitlab",
+					onclick: () => alert("GitLab clicked"),
+				},
 			]}
 		/>
 	{/snippet}
@@ -99,15 +99,15 @@
 			loading={true}
 			menuItems={[
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
 				},
 				{
-					label: 'GitLab',
-					icon: 'gitlab',
-					onclick: () => alert('GitLab clicked')
-				}
+					label: "GitLab",
+					icon: "gitlab",
+					onclick: () => alert("GitLab clicked"),
+				},
 			]}
 		/>
 	{/snippet}
@@ -121,15 +121,15 @@
 			loading={false}
 			menuItems={[
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
 				},
 				{
-					label: 'GitLab',
-					icon: 'gitlab',
-					onclick: () => alert('GitLab clicked')
-				}
+					label: "GitLab",
+					icon: "gitlab",
+					onclick: () => alert("GitLab clicked"),
+				},
 			]}
 		/>
 	{/snippet}
@@ -143,10 +143,10 @@
 			loading={false}
 			menuItems={[
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
-				}
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
+				},
 			]}
 		/>
 	{/snippet}
@@ -160,15 +160,15 @@
 			loading={false}
 			menuItems={[
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
 				},
 				{
-					label: 'GitLab',
-					icon: 'gitlab',
-					onclick: () => alert('GitLab clicked')
-				}
+					label: "GitLab",
+					icon: "gitlab",
+					onclick: () => alert("GitLab clicked"),
+				},
 			]}
 		/>
 	{/snippet}
@@ -182,15 +182,15 @@
 			loading={true}
 			menuItems={[
 				{
-					label: 'GitHub',
-					icon: 'github',
-					onclick: () => alert('GitHub clicked')
+					label: "GitHub",
+					icon: "github",
+					onclick: () => alert("GitHub clicked"),
 				},
 				{
-					label: 'GitLab',
-					icon: 'gitlab',
-					onclick: () => alert('GitLab clicked')
-				}
+					label: "GitLab",
+					icon: "gitlab",
+					onclick: () => alert("GitLab clicked"),
+				},
 			]}
 		/>
 	{/snippet}

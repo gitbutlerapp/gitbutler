@@ -1,10 +1,10 @@
 <script lang="ts">
-	import IrcChannel from '$components/IrcChannel.svelte';
-	import IrcChannels from '$components/IrcChannels.svelte';
-	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button } from '@gitbutler/ui';
+	import IrcChannel from "$components/IrcChannel.svelte";
+	import IrcChannels from "$components/IrcChannels.svelte";
+	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button } from "@gitbutler/ui";
 
 	const ircService = inject(IRC_SERVICE);
 	const uiState = inject(UI_STATE);
@@ -15,7 +15,7 @@
 	<IrcChannels />
 	<div class="right">
 		{#if currentName}
-			{#if currentName.startsWith('#')}
+			{#if currentName.startsWith("#")}
 				<IrcChannel type="group" channel={currentName} autojoin />
 			{:else}
 				{@const chat = ircService.getChat(currentName)}

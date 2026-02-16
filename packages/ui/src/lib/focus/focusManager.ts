@@ -1,22 +1,22 @@
-import { FModeManager } from '$lib/focus/fModeManager';
-import { getNavigationAction, isInputElement, getElementDescription } from '$lib/focus/focusUtils';
-import { focusNextTabIndex, getFocusableElements } from '$lib/focus/tabbable';
-import { isContentEditable, removeFromArray, scrollIntoViewIfNeeded } from '$lib/focus/utils';
-import { parseHotkey, matchesHotkey } from '$lib/utils/hotkeySymbols';
-import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
-import { InjectionToken } from '@gitbutler/core/context';
-import { on } from 'svelte/events';
-import { writable } from 'svelte/store';
+import { FModeManager } from "$lib/focus/fModeManager";
+import { getNavigationAction, isInputElement, getElementDescription } from "$lib/focus/focusUtils";
+import { focusNextTabIndex, getFocusableElements } from "$lib/focus/tabbable";
+import { isContentEditable, removeFromArray, scrollIntoViewIfNeeded } from "$lib/focus/utils";
+import { parseHotkey, matchesHotkey } from "$lib/utils/hotkeySymbols";
+import { mergeUnlisten } from "$lib/utils/mergeUnlisten";
+import { InjectionToken } from "@gitbutler/core/context";
+import { on } from "svelte/events";
+import { writable } from "svelte/store";
 import type {
 	FocusableNode,
 	FocusableOptions,
 	KeyboardHandler,
 	NavigationContext,
-	NavigationAction
-} from '$lib/focus/focusTypes';
-export type { FocusableOptions } from './focusTypes';
+	NavigationAction,
+} from "$lib/focus/focusTypes";
+export type { FocusableOptions } from "./focusTypes";
 
-export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken('FocusManager');
+export const FOCUS_MANAGER: InjectionToken<FocusManager> = new InjectionToken("FocusManager");
 
 const MAX_HISTORY_SIZE = 10;
 const MAX_PARENT_SEARCH_DEPTH = 100;
@@ -65,7 +65,7 @@ export class FocusManager {
 
 	private processKeyboardEvent(event: KeyboardEvent): boolean {
 		// Allow Tab and Escape through even in input elements for focus trap handling
-		const isTabOrEscape = event.key === 'Tab' || event.key === 'Escape';
+		const isTabOrEscape = event.key === "Tab" || event.key === "Escape";
 		if (!isTabOrEscape && this.shouldSkipEvent(event)) return false;
 
 		if (this.handleFModeInput(event)) return true;
@@ -108,7 +108,7 @@ export class FocusManager {
 	// Handles hotkeys for instant button activation (supports complex combinations like ⇧⌘P)
 	private handleHotkeyPress(event: KeyboardEvent): boolean {
 		// Skip if just pressing modifier keys alone
-		if (['Meta', 'Control', 'Alt', 'Shift'].includes(event.key)) return false;
+		if (["Meta", "Control", "Alt", "Shift"].includes(event.key)) return false;
 
 		// Find all buttons with hotkeys
 		const entries = Array.from(this.nodeMap.entries());
@@ -127,7 +127,7 @@ export class FocusManager {
 					try {
 						element.click();
 					} catch (error) {
-						console.warn('Error triggering button click via hotkey:', error);
+						console.warn("Error triggering button click via hotkey:", error);
 					}
 					return true;
 				}
@@ -142,15 +142,15 @@ export class FocusManager {
 
 	listen() {
 		return mergeUnlisten(
-			on(document, 'click', this.handleMouse, { capture: true }),
-			on(document, 'keydown', this.handleKeys)
+			on(document, "click", this.handleMouse, { capture: true }),
+			on(document, "keydown", this.handleKeys),
 		);
 	}
 
 	// Handles deferred linking when parents register after children
 	register(options: FocusableOptions, element: HTMLElement) {
 		if (!element || !element.isConnected) {
-			console.warn('Attempted to register invalid or disconnected element');
+			console.warn("Attempted to register invalid or disconnected element");
 			return;
 		}
 
@@ -162,7 +162,7 @@ export class FocusManager {
 			element,
 			parent: parentNode,
 			children: [],
-			options
+			options,
 		};
 
 		this.nodeMap.set(element, newNode);
@@ -360,7 +360,7 @@ export class FocusManager {
 		if (this.currentNode) return this.currentNode;
 
 		// For Tab key, find the trap container if we're inside one
-		if (event.key === 'Tab' && event.target instanceof HTMLElement) {
+		if (event.key === "Tab" && event.target instanceof HTMLElement) {
 			const nearestNode = this.findNearestFocusableElement(event.target);
 			if (nearestNode?.options.trap) {
 				this.currentNode = nearestNode;
@@ -370,7 +370,7 @@ export class FocusManager {
 
 		// We don't want to go from no current to picking nearest navigable
 		// descendant when modifier keys are pressed.
-		if (['Tab', 'Shift', 'Ctrl', 'Meta'].includes(event.key)) return;
+		if (["Tab", "Shift", "Ctrl", "Meta"].includes(event.key)) return;
 
 		const firstNode = this.findNavigableDescendant(this.getDefaultRoot());
 		if (firstNode) {
@@ -397,14 +397,14 @@ export class FocusManager {
 	}
 
 	private handleFModeInput(event: KeyboardEvent): boolean {
-		if (event.key === 'f' || event.key === 'F' || this.fModeManager.active) {
+		if (event.key === "f" || event.key === "F" || this.fModeManager.active) {
 			return this.fModeManager.handleKeypress(event, this.nodeMap, this.currentNode);
 		}
 		return false;
 	}
 
 	private handleTabKey(navigationContext: NavigationContext, event: KeyboardEvent): boolean {
-		if (navigationContext.action !== 'tab') return false;
+		if (navigationContext.action !== "tab") return false;
 
 		// For focus traps, let browser handle intra-modal tab order, but capture wrap-around
 		if (navigationContext.trap) {
@@ -433,7 +433,7 @@ export class FocusManager {
 			const handled = focusNextTabIndex({
 				container,
 				forward,
-				trap: true
+				trap: true,
 			});
 			if (!handled) {
 				this.focusElement(container, true);
@@ -446,7 +446,7 @@ export class FocusManager {
 			focusNextTabIndex({
 				container: this.currentNode!.element,
 				forward: !navigationContext.shiftKey,
-				trap: false
+				trap: false,
 			});
 			this.setOutline(false);
 			this.clearCurrent();
@@ -458,7 +458,7 @@ export class FocusManager {
 	}
 
 	private handleEscapeKey(event: KeyboardEvent): boolean {
-		if (event.key !== 'Escape') return false;
+		if (event.key !== "Escape") return false;
 
 		// Try onEsc handlers first
 		if (this.tryEscapeHandlers(event) || this.tryCustomHandlers(event)) {
@@ -473,7 +473,7 @@ export class FocusManager {
 		if (!this.currentNode) return false;
 
 		// Check if the key is Space or Enter
-		if (event.key !== ' ' && event.key !== 'Enter') return false;
+		if (event.key !== " " && event.key !== "Enter") return false;
 
 		if (!this.currentNode.options.onAction) return false;
 
@@ -481,7 +481,7 @@ export class FocusManager {
 			this.currentNode.options.onAction();
 			return true;
 		} catch (error) {
-			console.warn('Error in onAction handler:', error);
+			console.warn("Error in onAction handler:", error);
 		}
 
 		return false;
@@ -501,7 +501,7 @@ export class FocusManager {
 					return true;
 				}
 			} catch (error) {
-				console.warn('Error in key handler', error);
+				console.warn("Error in key handler", error);
 			}
 		}
 		return false;
@@ -514,13 +514,13 @@ export class FocusManager {
 	// Processes arrow keys and Tab navigation with outline visibility
 	private processStandardNavigation(
 		event: KeyboardEvent,
-		navigationContext: NavigationContext
+		navigationContext: NavigationContext,
 	): boolean {
 		if (!navigationContext.action) return false;
 
 		return this.executeNavigationAction(navigationContext.action, {
 			metaKey: event.metaKey,
-			trap: navigationContext.trap
+			trap: navigationContext.trap,
 		});
 	}
 
@@ -540,30 +540,30 @@ export class FocusManager {
 		options: {
 			metaKey?: boolean;
 			trap?: boolean;
-		}
+		},
 	): boolean {
 		const { metaKey, trap } = options;
 		switch (action) {
-			case 'left':
+			case "left":
 				if (trap) return true;
 				if (!this.focusNextVertical(false)) {
 					this.focusAnyNode();
 				}
 				return true;
 
-			case 'right':
+			case "right":
 				if (trap) return true;
 				if (!this.focusNextVertical(true)) {
 					this.focusAnyNode();
 				}
 				return true;
 
-			case 'up':
+			case "up":
 				if (trap) return true;
 				this.focusSibling({ forward: false, metaKey });
 				return true;
 
-			case 'down':
+			case "down":
 				if (trap) return true;
 				this.focusSibling({ forward: true, metaKey });
 				return true;
@@ -574,7 +574,7 @@ export class FocusManager {
 	// Finds first navigable descendant, skipping buttons and containers
 	private findNavigableDescendant(
 		node?: FocusableNode,
-		forward: boolean = true
+		forward: boolean = true,
 	): FocusableNode | undefined {
 		if (!node) return;
 
@@ -618,7 +618,7 @@ export class FocusManager {
 	// while staying within the same column structure.
 	private findNextInColumnNode(
 		searchNode: FocusableNode,
-		forward: boolean
+		forward: boolean,
 	): FocusableNode | undefined {
 		const parentNode = this.getParentNode(searchNode);
 		if (!parentNode || !this.currentNode) return undefined;
@@ -704,7 +704,7 @@ export class FocusManager {
 	// Finds which child branch contains the given element
 	private findChildNodeByDescendent(
 		ancestor: FocusableNode,
-		element: HTMLElement
+		element: HTMLElement,
 	): FocusableNode | undefined {
 		// Check each child (including buttons) to see which one contains our current element
 		// We need to check all children here because we're looking for containment, not navigation
@@ -765,13 +765,13 @@ export class FocusManager {
 	private establishParentChildRelationships(
 		element: HTMLElement,
 		newNode: FocusableNode,
-		parentNode?: FocusableNode
+		parentNode?: FocusableNode,
 	) {
 		if (!parentNode) return;
 
 		// Find children that should be moved to this new parent
 		const childrenToMove = parentNode.children.filter(
-			(child) => element.contains(child.element) && child.element !== element
+			(child) => element.contains(child.element) && child.element !== element,
 		);
 
 		// Move children to new parent
@@ -809,7 +809,7 @@ export class FocusManager {
 	private handlePendingRegistration(
 		element: HTMLElement,
 		parentNode: FocusableNode | undefined,
-		options: FocusableOptions
+		options: FocusableOptions,
 	) {
 		if (!parentNode && !options.isolate) {
 			this.pendingRelationships.push(element);
@@ -1009,7 +1009,7 @@ export class FocusManager {
 					return true;
 				}
 			} catch (error) {
-				console.warn('Error in onEsc handler:', error);
+				console.warn("Error in onEsc handler:", error);
 			}
 		}
 
@@ -1050,7 +1050,7 @@ export class FocusManager {
 			trap: node.options.trap,
 			shiftKey,
 			ctrlKey,
-			metaKey
+			metaKey,
 		};
 	}
 
@@ -1067,21 +1067,21 @@ export class FocusManager {
 		if (!node) return;
 
 		// Build indentation
-		const indent = '  '.repeat(depth);
+		const indent = "  ".repeat(depth);
 
 		// Build node description
 		const description = getElementDescription(element);
 		const isCurrent = this.currentNode?.element === element;
-		const marker = isCurrent ? ' ◀── CURRENT' : '';
+		const marker = isCurrent ? " ◀── CURRENT" : "";
 
 		// Build status indicators
 		const flags: string[] = [];
-		if (node.options.disabled) flags.push('disabled');
-		if (node.options.trap) flags.push('trap');
-		if (node.options.vertical) flags.push('vertical');
-		if (node.options.isolate) flags.push('isolate');
-		if (this.isContainerElement(node)) flags.push('container');
-		const flagsStr = flags.length > 0 ? ` [${flags.join(', ')}]` : '';
+		if (node.options.disabled) flags.push("disabled");
+		if (node.options.trap) flags.push("trap");
+		if (node.options.vertical) flags.push("vertical");
+		if (node.options.isolate) flags.push("isolate");
+		if (this.isContainerElement(node)) flags.push("container");
+		const flagsStr = flags.length > 0 ? ` [${flags.join(", ")}]` : "";
 
 		// Print current node with the actual element for hovering
 		const log = `${indent}${description}${flagsStr}${marker}`;

@@ -4,18 +4,18 @@
 	 * time. This is because it is working directly with the query parameters
 	 * and has no idea if it will conflict or not.
 	 */
-	import SectionComponent from '$lib/components/review/Section.svelte';
+	import SectionComponent from "$lib/components/review/Section.svelte";
 	import {
 		setBeforeVersion,
 		setAfterVersion,
 		getBeforeVersion,
-		getAfterVersion
-	} from '$lib/interdiffRangeQuery.svelte';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { getPatchIdableSections } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import { Button, Select, SelectItem, type SelectItemType } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { PatchCommit } from '@gitbutler/shared/patches/types';
+		getAfterVersion,
+	} from "$lib/interdiffRangeQuery.svelte";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { getPatchIdableSections } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
+	import { Button, Select, SelectItem, type SelectItemType } from "@gitbutler/ui";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 
 	interface Props {
 		branchUuid: string;
@@ -29,7 +29,7 @@
 	let isInterdiffBarVisible = $state(false);
 
 	const allOptions: readonly SelectItemType<string>[] = $derived.by(() => {
-		const out = [{ value: '-1', label: 'Base' }];
+		const out = [{ value: "-1", label: "Base" }];
 
 		if (!isDefined(patchCommit.version)) return out;
 
@@ -38,7 +38,7 @@
 
 			out.push({
 				value: i.toString(),
-				label: `v${i}${last ? ' (latest)' : ''}`
+				label: `v${i}${last ? " (latest)" : ""}`,
 			});
 		}
 
@@ -60,9 +60,9 @@
 					branchUuid,
 					changeId,
 					selectedBefore === -1 ? undefined : selectedBefore,
-					selectedAfter
+					selectedAfter,
 				)
-			: undefined
+			: undefined,
 	);
 
 	const interdiffActive = $derived(selectedBefore !== -1 || selectedAfter !== patchCommit.version);
@@ -95,7 +95,7 @@
 					<Button
 						tooltip="Show interdiff"
 						kind="ghost"
-						icon={isInterdiffBarVisible ? 'interdiff-fill' : 'interdiff'}
+						icon={isInterdiffBarVisible ? "interdiff-fill" : "interdiff"}
 						onclick={() => (isInterdiffBarVisible = !isInterdiffBarVisible)}
 					/>
 				</div>

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import CodegenApprovalToolCall from '$components/codegen/CodegenApprovalToolCall.svelte';
-	import CodegenAssistantMessage from '$components/codegen/CodegenAssistantMessage.svelte';
-	import CodegenGitButlerMessage from '$components/codegen/CodegenGitButlerMessage.svelte';
-	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
-	import CodegenToolCall from '$components/codegen/CodegenToolCall.svelte';
-	import CodegenUserMessage from '$components/codegen/CodegenUserMessage.svelte';
-	import { type Message } from '$lib/codegen/messages';
-	import { Icon, Markdown } from '@gitbutler/ui';
-	import type { PermissionDecision } from '$lib/codegen/types';
+	import CodegenApprovalToolCall from "$components/codegen/CodegenApprovalToolCall.svelte";
+	import CodegenAssistantMessage from "$components/codegen/CodegenAssistantMessage.svelte";
+	import CodegenGitButlerMessage from "$components/codegen/CodegenGitButlerMessage.svelte";
+	import CodegenServiceMessage from "$components/codegen/CodegenServiceMessage.svelte";
+	import CodegenToolCall from "$components/codegen/CodegenToolCall.svelte";
+	import CodegenUserMessage from "$components/codegen/CodegenUserMessage.svelte";
+	import { type Message } from "$lib/codegen/messages";
+	import { Icon, Markdown } from "@gitbutler/ui";
+	import type { PermissionDecision } from "$lib/codegen/types";
 
 	type Props = {
 		projectId: string;
@@ -15,7 +15,7 @@
 		onPermissionDecision?: (
 			id: string,
 			decision: PermissionDecision,
-			useWildcard: boolean
+			useWildcard: boolean,
 		) => Promise<void>;
 		toolCallExpandedState?: {
 			groups: Map<string, boolean>;
@@ -27,23 +27,23 @@
 	let expanded = $state(false);
 </script>
 
-{#if message.source === 'user'}
+{#if message.source === "user"}
 	<CodegenUserMessage content={message.message} attachments={message.attachments} />
-{:else if message.source === 'claude'}
-	{#if 'subtype' in message && message.subtype === 'compaction'}
+{:else if message.source === "claude"}
+	{#if "subtype" in message && message.subtype === "compaction"}
 		<CodegenServiceMessage style="info" face="compacted">
 			{#snippet extraContent()}
 				{@render compactionSummary(message.message)}
 			{/snippet}
 		</CodegenServiceMessage>
-	{:else if 'subtype' in message && message.subtype === 'askUserQuestion'}
+	{:else if "subtype" in message && message.subtype === "askUserQuestion"}
 		{#if message.answered}
 			{@const toolCall = {
-				name: 'AskUserQuestion',
+				name: "AskUserQuestion",
 				id: message.toolUseId,
 				input: { questions: message.questions },
-				result: message.resultText ?? 'Answered',
-				requestAt: new Date(message.createdAt)
+				result: message.resultText ?? "Answered",
+				requestAt: new Date(message.createdAt),
 			}}
 			<CodegenToolCall
 				{projectId}
@@ -58,12 +58,12 @@
 		{#each message.contentBlocks as block, index}
 			{@const prevBlock = message.contentBlocks[index - 1]}
 			{@const nextBlock = message.contentBlocks[index + 1]}
-			{@const firstInGroup = block.type === 'toolCall' && prevBlock?.type !== 'toolCall'}
-			{@const lastInGroup = block.type === 'toolCall' && nextBlock?.type !== 'toolCall'}
-			{#if block.type === 'text'}
+			{@const firstInGroup = block.type === "toolCall" && prevBlock?.type !== "toolCall"}
+			{@const lastInGroup = block.type === "toolCall" && nextBlock?.type !== "toolCall"}
+			{#if block.type === "text"}
 				<CodegenAssistantMessage content={block.text} />
-			{:else if block.type === 'toolCall'}
-				{#if block.toolCall.name !== 'TodoWrite'}
+			{:else if block.type === "toolCall"}
+				{#if block.toolCall.name !== "TodoWrite"}
 					<CodegenToolCall
 						{projectId}
 						toolCall={block.toolCall}
@@ -73,7 +73,7 @@
 						{lastInGroup}
 					/>
 				{/if}
-			{:else if block.type === 'toolCallPendingApproval'}
+			{:else if block.type === "toolCallPendingApproval"}
 				<CodegenApprovalToolCall
 					{projectId}
 					toolCall={block.toolCall}
@@ -83,7 +83,7 @@
 			{/if}
 		{/each}
 	{/if}
-{:else if message.source === 'gitButler'}
+{:else if message.source === "gitButler"}
 	<CodegenGitButlerMessage {projectId} {message} />
 {/if}
 

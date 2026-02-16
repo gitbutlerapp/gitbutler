@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { setEditorText } from '$lib/richText/selection';
-	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
+	import { setEditorText } from "$lib/richText/selection";
+	import { mergeUnlisten } from "$lib/utils/mergeUnlisten";
 	import {
 		$getRoot as getRoot,
 		$getSelection as getSelection,
 		COMMAND_PRIORITY_NORMAL,
 		$isRangeSelection as isRangeSelection,
-		KEY_DOWN_COMMAND
-	} from 'lexical';
-	import { getEditor } from 'svelte-lexical';
+		KEY_DOWN_COMMAND,
+	} from "lexical";
+	import { getEditor } from "svelte-lexical";
 
 	type Props = { historyLookup: (offset: number) => Promise<string | undefined> };
 
@@ -40,7 +40,7 @@
 	}
 
 	function handleKeyboardEvent(e: KeyboardEvent): boolean {
-		const isKeyMatch = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+		const isKeyMatch = e.key === "ArrowUp" || e.key === "ArrowDown";
 		const validEnv = active || canActivate();
 		if (!isKeyMatch || !validEnv) {
 			active = false;
@@ -52,12 +52,12 @@
 		e.preventDefault();
 
 		switch (e.key) {
-			case 'ArrowUp':
+			case "ArrowUp":
 				applyFromHistory(offset++);
 				break;
-			case 'ArrowDown':
+			case "ArrowDown":
 				if (offset === 0) {
-					setEditorText(editor, '');
+					setEditorText(editor, "");
 					return false;
 				}
 				applyFromHistory(--offset);
@@ -67,7 +67,7 @@
 
 	$effect(() => {
 		return mergeUnlisten(
-			editor.registerCommand(KEY_DOWN_COMMAND, handleKeyboardEvent, COMMAND_PRIORITY_NORMAL)
+			editor.registerCommand(KEY_DOWN_COMMAND, handleKeyboardEvent, COMMAND_PRIORITY_NORMAL),
 		);
 	});
 </script>

@@ -1,15 +1,15 @@
 <script lang="ts">
-	import InviteLink from '$lib/components/InviteLink.svelte';
-	import OrganizationEditModal from '$lib/components/OrganizationEditModal.svelte';
-	import ProjectsSection from '$lib/components/ProjectsSection.svelte';
-	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
-	import { OWNER_SERVICE } from '$lib/owner/ownerService';
-	import { UserService, USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import { Button, Modal } from '@gitbutler/ui';
+	import InviteLink from "$lib/components/InviteLink.svelte";
+	import OrganizationEditModal from "$lib/components/OrganizationEditModal.svelte";
+	import ProjectsSection from "$lib/components/ProjectsSection.svelte";
+	import ReviewsSection from "$lib/components/ReviewsSection.svelte";
+	import { OWNER_SERVICE } from "$lib/owner/ownerService";
+	import { UserService, USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
+	import { Button, Modal } from "@gitbutler/ui";
 
-	import type { ExtendedOrganization, OrganizationMember } from '$lib/owner/types';
+	import type { ExtendedOrganization, OrganizationMember } from "$lib/owner/types";
 
 	interface Props {
 		organization: ExtendedOrganization;
@@ -29,7 +29,7 @@
 
 	let patchStacksStore = $state(organizationService.getPatchStacks(ownerSlug));
 	let patchStacks = $derived($patchStacksStore);
-	let patchStacksData = $derived(patchStacks.status === 'found' ? patchStacks.value || [] : []);
+	let patchStacksData = $derived(patchStacks.status === "found" ? patchStacks.value || [] : []);
 
 	// Create a local mutable copy of the organization for updates
 	let localOrganization = $derived(organization);
@@ -39,7 +39,7 @@
 	let currentUserLogin = $derived($currentUser?.login);
 
 	// Role constants
-	const ROLE_OWNER = 'owner';
+	const ROLE_OWNER = "owner";
 
 	// Modals for confirmation
 	let confirmRemoveUserModal = $state<Modal>();
@@ -58,12 +58,12 @@
 		// Directly fetch the updated organization data to reflect changes immediately
 		try {
 			const response = await ownerService.fetchOwner(ownerSlug);
-			if (response.type === 'organization') {
+			if (response.type === "organization") {
 				// Update our local copy
 				localOrganization = response.data;
 			}
 		} catch (error) {
-			console.error('Failed to refresh organization data:', error);
+			console.error("Failed to refresh organization data:", error);
 		}
 	}
 
@@ -72,7 +72,7 @@
 		if (!currentUserLogin || !localOrganization.members) return false;
 
 		const currentMember = localOrganization.members.find(
-			(member) => member.login === currentUserLogin
+			(member) => member.login === currentUserLogin,
 		);
 		return currentMember ? isOwner(currentMember) : false;
 	}
@@ -98,14 +98,14 @@
 			// Remove the user locally to update UI immediately
 			if (localOrganization.members) {
 				localOrganization.members = localOrganization.members.filter(
-					(member) => member.login !== userToRemove
+					(member) => member.login !== userToRemove,
 				);
 			}
 
 			// Refresh data from server to ensure consistency
 			await refreshOrganizationData();
 		} catch (error) {
-			console.error('Failed to remove user:', error);
+			console.error("Failed to remove user:", error);
 		} finally {
 			isRemoving = false;
 			userToRemove = undefined;
@@ -134,7 +134,7 @@
 			// Refresh data from server to ensure consistency
 			await refreshOrganizationData();
 		} catch (error) {
-			console.error('Failed to make user an owner:', error);
+			console.error("Failed to make user an owner:", error);
 		} finally {
 			isPromoting = false;
 			userToPromote = undefined;
@@ -224,7 +224,7 @@
 							<div class="member-card">
 								<a href="/{member.login}" class="member-link">
 									<img
-										src={member.avatar_url || '/images/default-avatar.png'}
+										src={member.avatar_url || "/images/default-avatar.png"}
 										alt="{member.login}'s avatar"
 										class="member-avatar"
 									/>

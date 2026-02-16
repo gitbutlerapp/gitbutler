@@ -1,14 +1,14 @@
 <script lang="ts">
-	import FileList from '$components/FileList.svelte';
-	import FileListMode from '$components/FileListMode.svelte';
-	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from '$lib/selection/key';
-	import { inject } from '@gitbutler/core/context';
-	import { Badge, LineStats, EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
+	import FileList from "$components/FileList.svelte";
+	import FileListMode from "$components/FileListMode.svelte";
+	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from "$lib/selection/key";
+	import { inject } from "@gitbutler/core/context";
+	import { Badge, LineStats, EmptyStatePlaceholder, Icon } from "@gitbutler/ui";
 
-	import type { ConflictEntriesObj } from '$lib/files/conflicts';
-	import type { TreeChange, TreeStats } from '$lib/hunks/change';
+	import type { ConflictEntriesObj } from "$lib/files/conflicts";
+	import type { TreeChange, TreeStats } from "$lib/hunks/change";
 
 	type Props = {
 		projectId: string;
@@ -40,8 +40,8 @@
 		ancestorMostConflictedCommitId,
 		onFileClick,
 		allowUnselect = true,
-		persistId = 'default',
-		foldedByDefault = false
+		persistId = "default",
+		foldedByDefault = false,
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -50,7 +50,7 @@
 	// Derive the path of the first changed file, so it can be watched reactively in a consistent way.
 	const firstChangePath = $derived(changes.at(0)?.path);
 
-	let listMode: 'list' | 'tree' = $state('tree');
+	let listMode: "list" | "tree" = $state("tree");
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
 	let folded = $state(foldedByDefault);
 

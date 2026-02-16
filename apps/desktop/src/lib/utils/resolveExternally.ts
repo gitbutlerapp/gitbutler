@@ -8,7 +8,7 @@ export class ExternallyResolvedPromise<T> {
 			((resolve: (value: T) => void, reject: (error: unknown) => void) => {
 				this.resolve = resolve as T extends undefined ? (value?: T) => void : (value: T) => void;
 				this.reject = reject;
-			}).bind(this)
+			}).bind(this),
 		);
 	}
 }

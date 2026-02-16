@@ -1,4 +1,4 @@
-import { sleep } from '$lib/utils/sleep';
+import { sleep } from "$lib/utils/sleep";
 
 /**
  * Tries to focus the claude input.
@@ -21,7 +21,7 @@ export async function focusClaudeInput(stackId: string) {
 async function hackyRetriedSelector(
 	selector: string,
 	timeLimit = 50,
-	refreshInterval = 1
+	refreshInterval = 1,
 ): Promise<Element | undefined> {
 	let tries = 0;
 	while (refreshInterval * tries < timeLimit) {

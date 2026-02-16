@@ -1,6 +1,6 @@
-import { encodeDiffFileLine } from '@gitbutler/ui/utils/diffParsing';
-import type { DiffPatch } from '@gitbutler/shared/chat/types';
-import type { DiffFileLineId, LineSelector } from '@gitbutler/ui/utils/diffParsing';
+import { encodeDiffFileLine } from "@gitbutler/ui/utils/diffParsing";
+import type { DiffPatch } from "@gitbutler/shared/chat/types";
+import type { DiffFileLineId, LineSelector } from "@gitbutler/ui/utils/diffParsing";
 
 export interface DiffLineSelected extends LineSelector {
 	index: number;
@@ -19,7 +19,7 @@ export interface DiffSelection {
  */
 export function parseDiffPatchToEncodedSelection(
 	fileName: string,
-	diffPatchArray: DiffPatch[]
+	diffPatchArray: DiffPatch[],
 ): DiffFileLineId | undefined {
 	if (diffPatchArray.length === 0) return undefined;
 	return encodeDiffFileLine(fileName, diffPatchArray[0].left, diffPatchArray[0].right);

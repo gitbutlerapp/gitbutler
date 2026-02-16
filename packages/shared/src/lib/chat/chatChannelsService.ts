@@ -1,4 +1,4 @@
-import { chatChannelTable } from '$lib/chat/chatChannelsSlice';
+import { chatChannelTable } from "$lib/chat/chatChannelsSlice";
 import {
 	apiToChatMessage,
 	createChannelKey,
@@ -7,17 +7,17 @@ import {
 	type ApiChatMessage,
 	type LoadableChatChannel,
 	type PatchChatMessageParams,
-	type SendChatMessageParams
-} from '$lib/chat/types';
-import { InterestStore, type Interest } from '$lib/interest/interestStore';
-import { errorToLoadable } from '$lib/network/loadable';
-import { POLLING_GLACIALLY } from '$lib/polling';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { HttpClient } from '$lib/network/httpClient';
-import type { AppDispatch } from '$lib/redux/store.svelte';
+	type SendChatMessageParams,
+} from "$lib/chat/types";
+import { InterestStore, type Interest } from "$lib/interest/interestStore";
+import { errorToLoadable } from "$lib/network/loadable";
+import { POLLING_GLACIALLY } from "$lib/polling";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { HttpClient } from "$lib/network/httpClient";
+import type { AppDispatch } from "$lib/redux/store.svelte";
 
 export const CHAT_CHANNELS_SERVICE: InjectionToken<ChatChannelsService> = new InjectionToken(
-	'ChatChannelsService'
+	"ChatChannelsService",
 );
 
 export class ChatChannelsService {
@@ -28,7 +28,7 @@ export class ChatChannelsService {
 
 	constructor(
 		private readonly httpClient: HttpClient,
-		private readonly appDispatch: AppDispatch
+		private readonly appDispatch: AppDispatch,
 	) {}
 
 	getChatChannelInterest(projectId: string, changeId?: string): Interest {
@@ -36,11 +36,11 @@ export class ChatChannelsService {
 			.findOrCreateSubscribable({ projectId, changeId }, async () => {
 				const chatChannelKey = createChannelKey(projectId, changeId);
 				this.appDispatch.dispatch(
-					chatChannelTable.addOne({ status: 'loading', id: chatChannelKey })
+					chatChannelTable.addOne({ status: "loading", id: chatChannelKey }),
 				);
 				try {
 					const apiChatMessages = await this.httpClient.get<ApiChatMessage[]>(
-						`chat_messages/${projectId}/chats/${changeId ?? ''}`
+						`chat_messages/${projectId}/chats/${changeId ?? ""}`,
 					);
 
 					// Return the messages in reverse order so that
@@ -48,20 +48,20 @@ export class ChatChannelsService {
 					apiChatMessages.reverse();
 
 					const chatChannel: LoadableChatChannel = {
-						status: 'found',
+						status: "found",
 						id: chatChannelKey,
 						value: {
 							id: chatChannelKey,
 							projectId,
 							changeId,
-							messages: apiChatMessages.map(apiToChatMessage)
-						}
+							messages: apiChatMessages.map(apiToChatMessage),
+						},
 					};
 
 					this.appDispatch.dispatch(chatChannelTable.upsertOne(chatChannel));
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						chatChannelTable.addOne(errorToLoadable(error, chatChannelKey))
+						chatChannelTable.addOne(errorToLoadable(error, chatChannelKey)),
 					);
 				}
 			})
@@ -75,32 +75,32 @@ export class ChatChannelsService {
 	async sendChatMessage(params: SendChatMessageParams): Promise<void> {
 		try {
 			await this.httpClient.post(`chat_messages/${params.projectId}/branch/${params.branchId}`, {
-				body: toApiCreateChatMessageParams(params)
+				body: toApiCreateChatMessageParams(params),
 			});
 
 			// Re-fetch the chat messages to get the new message
 			this.chatMessagesInterests.invalidate({
 				projectId: params.projectId,
-				changeId: params.changeId
+				changeId: params.changeId,
 			});
 		} catch (error) {
-			console.error('Failed to send chat message', error);
+			console.error("Failed to send chat message", error);
 		}
 	}
 
 	async patchChatMessage(params: PatchChatMessageParams): Promise<void> {
 		try {
 			await this.httpClient.patch(`chat_messages/${params.projectId}/chat/${params.messageUuid}`, {
-				body: toApiPatchChatMessageParams(params)
+				body: toApiPatchChatMessageParams(params),
 			});
 
 			// Re-fetch the chat messages to get the new message
 			this.chatMessagesInterests.invalidate({
 				projectId: params.projectId,
-				changeId: params.changeId
+				changeId: params.changeId,
 			});
 		} catch (error) {
-			console.error('Failed to update chat message', error);
+			console.error("Failed to update chat message", error);
 		}
 	}
 }

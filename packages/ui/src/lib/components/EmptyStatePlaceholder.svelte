@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import type { Snippet } from 'svelte';
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		title?: Snippet;
@@ -25,7 +25,7 @@
 		title,
 		caption,
 		actions,
-		background = 'none'
+		background = "none",
 	}: Props = $props();
 </script>
 

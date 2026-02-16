@@ -1,33 +1,33 @@
 <script module lang="ts">
-	import InfoButton from '$components/InfoButton.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import InfoButton from "$components/InfoButton.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Overlays / InfoButton',
+		title: "Overlays / InfoButton",
 		component: InfoButton,
 		args: {
-			title: 'The title of the InfoButton',
-			children: 'This is the content of the InfoButton' as any,
-			size: 'medium'
+			title: "The title of the InfoButton",
+			children: "This is the content of the InfoButton" as any,
+			size: "medium",
 		},
 		argTypes: {
 			size: {
-				options: ['small', 'medium', 'large'],
+				options: ["small", "medium", "large"],
 				control: {
-					type: 'select'
-				}
+					type: "select",
+				},
 			},
 			title: {
 				control: {
-					type: 'text'
-				}
+					type: "text",
+				},
 			},
 			children: {
 				control: {
-					type: 'text'
-				}
-			}
-		}
+					type: "text",
+				},
+			},
+		},
 	});
 </script>
 

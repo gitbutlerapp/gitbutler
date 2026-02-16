@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
+	import { eventTimeStamp } from "@gitbutler/shared/branches/utils";
 
-	import { Icon } from '@gitbutler/ui';
-	import type { PatchStatusEvent } from '@gitbutler/shared/patchEvents/types';
+	import { Icon } from "@gitbutler/ui";
+	import type { PatchStatusEvent } from "@gitbutler/shared/patchEvents/types";
 
-	const UNKNOWN_USER = 'Unknown User';
+	const UNKNOWN_USER = "Unknown User";
 
 	interface Props {
 		event: PatchStatusEvent;
@@ -13,15 +13,15 @@
 	const { event }: Props = $props();
 
 	const userName = $derived(
-		event.user?.login ?? event.user?.name ?? event.user?.email ?? UNKNOWN_USER
+		event.user?.login ?? event.user?.name ?? event.user?.email ?? UNKNOWN_USER,
 	);
-	const statusAction = $derived(event.data.status ? 'approved' : 'requested changes on');
+	const statusAction = $derived(event.data.status ? "approved" : "requested changes on");
 	const timestamp = $derived(eventTimeStamp(event));
 </script>
 
 <div class="patch-status" class:request-changes={!event.data.status}>
 	<div class="patch-status__icon" class:request-changes={!event.data.status}>
-		<Icon name={event.data.status ? 'confeti' : 'refresh-in-circle'} />
+		<Icon name={event.data.status ? "confeti" : "refresh-in-circle"} />
 	</div>
 
 	<div class="patch-status-content">

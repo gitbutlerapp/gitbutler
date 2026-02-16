@@ -1,10 +1,10 @@
 <script module lang="ts">
-	import FileViewHeader from '$components/file/FileViewHeader.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import FileViewHeader from "$components/file/FileViewHeader.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'List items / FileViewHeader',
-		component: FileViewHeader
+		title: "List items / FileViewHeader",
+		component: FileViewHeader,
 	});
 </script>
 

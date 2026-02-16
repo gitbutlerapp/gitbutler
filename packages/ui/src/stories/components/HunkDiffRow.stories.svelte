@@ -1,9 +1,9 @@
 <script module lang="ts">
-	import HunkDiffRow from '$components/hunkDiff/HunkDiffRow.svelte';
-	import LineSelection from '$components/hunkDiff/lineSelection.svelte';
-	import { SectionType, encodeDiffFileLine } from '$lib/utils/diffParsing';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { Row, DependencyLock } from '$lib/utils/diffParsing';
+	import HunkDiffRow from "$components/hunkDiff/HunkDiffRow.svelte";
+	import LineSelection from "$components/hunkDiff/lineSelection.svelte";
+	import { SectionType, encodeDiffFileLine } from "$lib/utils/diffParsing";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
+	import type { Row, DependencyLock } from "$lib/utils/diffParsing";
 
 	// Mock LineSelection for stories
 	const mockLineSelection = new LineSelection();
@@ -11,13 +11,13 @@
 	// Sample dependency locks
 	const sampleLocks: DependencyLock[] = [
 		{
-			target: { type: 'stack', subject: 'main-stack' },
-			commitId: 'abc123def456'
+			target: { type: "stack", subject: "main-stack" },
+			commitId: "abc123def456",
 		},
 		{
-			target: { type: 'stack', subject: 'feature-branch' },
-			commitId: 'def456ghi789'
-		}
+			target: { type: "stack", subject: "feature-branch" },
+			commitId: "def456ghi789",
+		},
 	];
 
 	// Create sample rows for different scenarios
@@ -25,23 +25,23 @@
 		type: SectionType,
 		beforeLineNumber?: number,
 		afterLineNumber?: number,
-		locks?: DependencyLock[]
+		locks?: DependencyLock[],
 	): Row {
 		return {
-			encodedLineId: encodeDiffFileLine('file.js', beforeLineNumber, afterLineNumber),
+			encodedLineId: encodeDiffFileLine("file.js", beforeLineNumber, afterLineNumber),
 			beforeLineNumber,
 			afterLineNumber,
-			tokens: ['Sample', ' ', 'code', ' ', 'content'],
+			tokens: ["Sample", " ", "code", " ", "content"],
 			type,
 			size: 17,
 			isLast: false,
 			isDeltaLine: type !== SectionType.Context,
-			locks
+			locks,
 		};
 	}
 
 	const { Story } = defineMeta({
-		title: 'Code / HunkDiffRow',
+		title: "Code / HunkDiffRow",
 		component: HunkDiffRow,
 		args: {
 			idx: 0,
@@ -51,40 +51,40 @@
 			hideCheckboxes: false,
 			hunkHasLocks: false,
 			lineSelection: mockLineSelection,
-			row: createSampleRow(SectionType.AddedLines, undefined, 42)
+			row: createSampleRow(SectionType.AddedLines, undefined, 42),
 		},
 		argTypes: {
 			idx: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			clickable: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			tabSize: {
-				control: { type: 'number', min: 1, max: 8 }
+				control: { type: "number", min: 1, max: 8 },
 			},
 			wrapText: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			diffFont: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			numberHeaderWidth: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			staged: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			hideCheckboxes: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			minWidth: {
-				control: { type: 'number', min: 1, max: 10 }
+				control: { type: "number", min: 1, max: 10 },
 			},
 			hunkHasLocks: {
-				control: { type: 'boolean' }
-			}
-		}
+				control: { type: "boolean" },
+			},
+		},
 	});
 </script>
 
@@ -139,9 +139,9 @@
 					>
 						{#snippet lockWarning(locks)}
 							This line is locked by commit {locks[0].commitId.slice(0, 7)} on stack {locks[0]
-								.target.type === 'stack'
+								.target.type === "stack"
 								? locks[0].target.subject
-								: 'unknown'}
+								: "unknown"}
 						{/snippet}
 					</HunkDiffRow>
 				</tbody>
@@ -163,9 +163,9 @@
 						{#snippet lockWarning(locks)}
 							This line is locked by multiple commits:
 							{#each locks as lock, i}
-								{lock.commitId.slice(0, 7)} ({lock.target.type === 'stack'
+								{lock.commitId.slice(0, 7)} ({lock.target.type === "stack"
 									? lock.target.subject
-									: 'unknown'}){i < locks.length - 1 ? ', ' : ''}
+									: "unknown"}){i < locks.length - 1 ? ", " : ""}
 							{/each}
 						{/snippet}
 					</HunkDiffRow>
@@ -269,65 +269,65 @@
 						row={{
 							...createSampleRow(SectionType.AddedLines, undefined, 42, [sampleLocks[0]]),
 							tokens: [
-								'This',
-								' ',
-								'is',
-								' ',
-								'a',
-								' ',
-								'very',
-								' ',
-								'long',
-								' ',
-								'line',
-								' ',
-								'of',
-								' ',
-								'code',
-								' ',
-								'that',
-								' ',
-								'should',
-								' ',
-								'demonstrate',
-								' ',
-								'word',
-								' ',
-								'wrapping',
-								' ',
-								'behavior',
-								' ',
-								'when',
-								' ',
-								'the',
-								' ',
-								'wrapText',
-								' ',
-								'prop',
-								' ',
-								'is',
-								' ',
-								'enabled',
-								' ',
-								'and',
-								' ',
-								'the',
-								' ',
-								'line',
-								' ',
-								'is',
-								' ',
-								'also',
-								' ',
-								'locked',
-								' ',
-								'by',
-								' ',
-								'a',
-								' ',
-								'dependency'
+								"This",
+								" ",
+								"is",
+								" ",
+								"a",
+								" ",
+								"very",
+								" ",
+								"long",
+								" ",
+								"line",
+								" ",
+								"of",
+								" ",
+								"code",
+								" ",
+								"that",
+								" ",
+								"should",
+								" ",
+								"demonstrate",
+								" ",
+								"word",
+								" ",
+								"wrapping",
+								" ",
+								"behavior",
+								" ",
+								"when",
+								" ",
+								"the",
+								" ",
+								"wrapText",
+								" ",
+								"prop",
+								" ",
+								"is",
+								" ",
+								"enabled",
+								" ",
+								"and",
+								" ",
+								"the",
+								" ",
+								"line",
+								" ",
+								"is",
+								" ",
+								"also",
+								" ",
+								"locked",
+								" ",
+								"by",
+								" ",
+								"a",
+								" ",
+								"dependency",
 							],
-							size: 150
+							size: 150,
 						}}
 					>
 						{#snippet lockWarning(locks)}

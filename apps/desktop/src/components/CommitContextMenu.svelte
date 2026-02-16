@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { CommitStatusType } from '$lib/commits/commit';
+	import type { CommitStatusType } from "$lib/commits/commit";
 	interface BaseContextData {
 		commitStatus: CommitStatusType;
 		commitId: string;
@@ -8,24 +8,24 @@
 	}
 
 	interface LocalCommitContextData extends BaseContextData {
-		commitStatus: 'LocalOnly' | 'LocalAndRemote';
+		commitStatus: "LocalOnly" | "LocalAndRemote";
 		stackId?: string;
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
 	}
 
 	interface RemoteCommitContextData extends BaseContextData {
-		commitStatus: 'Remote';
+		commitStatus: "Remote";
 		stackId?: string;
 	}
 
 	interface IntegratedCommitContextData extends BaseContextData {
-		commitStatus: 'Integrated';
+		commitStatus: "Integrated";
 		stackId?: string;
 	}
 
 	interface BaseCommitContextData extends BaseContextData {
-		commitStatus: 'Base';
+		commitStatus: "Base";
 	}
 
 	export type CommitContextData =
@@ -41,22 +41,22 @@
 </script>
 
 <script lang="ts">
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { editPatch } from '$lib/editMode/editPatchUtils';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { URL_SERVICE } from '$lib/utils/url';
-	import { ensureValue } from '$lib/utils/validation';
-	import { inject, injectOptional } from '@gitbutler/core/context';
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
+	import { editPatch } from "$lib/editMode/editPatchUtils";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { URL_SERVICE } from "$lib/utils/url";
+	import { ensureValue } from "$lib/utils/validation";
+	import { inject, injectOptional } from "@gitbutler/core/context";
 	import {
 		ContextMenuItem,
 		ContextMenuItemSubmenu,
 		ContextMenuSection,
 		KebabButton,
-		TestId
-	} from '@gitbutler/ui';
-	import type { AnchorPosition } from '$lib/stacks/stack';
+		TestId,
+	} from "@gitbutler/ui";
+	import type { AnchorPosition } from "$lib/stacks/stack";
 
 	type Props = {
 		showOnHover?: boolean;
@@ -71,7 +71,7 @@
 		projectId,
 		openId = $bindable(),
 		rightClickTrigger,
-		contextData
+		contextData,
 	}: Props = $props();
 
 	const urlService = inject(URL_SERVICE);
@@ -83,20 +83,20 @@
 
 	// Component is read-only when stackId is undefined
 	const isReadOnly = $derived(
-		contextData?.commitStatus === 'LocalAndRemote' || contextData?.commitStatus === 'LocalOnly'
+		contextData?.commitStatus === "LocalAndRemote" || contextData?.commitStatus === "LocalOnly"
 			? !contextData.stackId
-			: false
+			: false,
 	);
 
 	async function insertBlankCommit(
 		stackId: string,
 		commitId: string,
-		location: 'above' | 'below' = 'below'
+		location: "above" | "below" = "below",
 	) {
 		await insertBlankCommitInBranch({
 			projectId,
-			relativeTo: { type: 'commit', subject: commitId },
-			side: location
+			relativeTo: { type: "commit", subject: commitId },
+			side: location,
 		});
 	}
 
@@ -108,13 +108,13 @@
 			request: {
 				newName,
 				anchor: {
-					type: 'atCommit',
+					type: "atCommit",
 					subject: {
 						commit_id: commitId,
-						position
-					}
-				}
-			}
+						position,
+					},
+				},
+			},
 		});
 	}
 
@@ -124,7 +124,7 @@
 			modeService,
 			commitId,
 			stackId,
-			projectId
+			projectId,
 		});
 	}
 </script>
@@ -138,7 +138,7 @@
 	>
 		{#snippet contextMenu({ close })}
 			{@const { commitId, commitUrl, commitMessage } = contextData}
-			{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}
+			{#if contextData.commitStatus === "LocalAndRemote" || contextData.commitStatus === "LocalOnly"}
 				{@const { onUncommitClick, onEditMessageClick } = contextData}
 				<ContextMenuSection>
 					<ContextMenuItem
@@ -197,7 +197,7 @@
 								<ContextMenuItem
 									label="Copy commit link"
 									onclick={() => {
-										clipboardService.write(commitUrl, { message: 'Commit link copied' });
+										clipboardService.write(commitUrl, { message: "Commit link copied" });
 										closeSubmenu();
 										close();
 									}}
@@ -206,7 +206,7 @@
 							<ContextMenuItem
 								label="Copy commit hash"
 								onclick={() => {
-									clipboardService.write(commitId, { message: 'Commit hash copied' });
+									clipboardService.write(commitId, { message: "Commit hash copied" });
 									closeSubmenu();
 									close();
 								}}
@@ -214,7 +214,7 @@
 							<ContextMenuItem
 								label="Copy commit message"
 								onclick={() => {
-									clipboardService.write(commitMessage, { message: 'Commit message copied' });
+									clipboardService.write(commitMessage, { message: "Commit message copied" });
 									closeSubmenu();
 									close();
 								}}
@@ -222,7 +222,7 @@
 						</ContextMenuSection>
 					{/snippet}
 				</ContextMenuItemSubmenu>
-				{#if contextData.commitStatus === 'LocalAndRemote' || contextData.commitStatus === 'LocalOnly'}
+				{#if contextData.commitStatus === "LocalAndRemote" || contextData.commitStatus === "LocalOnly"}
 					{@const stackId = contextData.stackId}
 
 					<ContextMenuItemSubmenu label="Add empty commit" icon="new-empty-commit">
@@ -232,7 +232,7 @@
 									label="Add empty commit above"
 									disabled={isReadOnly || commitInsertion.current.isLoading}
 									onclick={() => {
-										insertBlankCommit(ensureValue(stackId), commitId, 'above');
+										insertBlankCommit(ensureValue(stackId), commitId, "above");
 										closeSubmenu();
 										close();
 									}}
@@ -241,7 +241,7 @@
 									label="Add empty commit below"
 									disabled={isReadOnly || commitInsertion.current.isLoading}
 									onclick={() => {
-										insertBlankCommit(ensureValue(stackId), commitId, 'below');
+										insertBlankCommit(ensureValue(stackId), commitId, "below");
 										closeSubmenu();
 										close();
 									}}
@@ -257,7 +257,7 @@
 									disabled={isReadOnly || refCreation.current.isLoading}
 									onclick={async () => {
 										if (!isReadOnly) {
-											await handleCreateNewRef(ensureValue(stackId), commitId, 'Above');
+											await handleCreateNewRef(ensureValue(stackId), commitId, "Above");
 											closeSubmenu();
 											close();
 										}
@@ -268,7 +268,7 @@
 									disabled={isReadOnly || refCreation.current.isLoading}
 									onclick={async () => {
 										if (!isReadOnly) {
-											await handleCreateNewRef(ensureValue(stackId), commitId, 'Below');
+											await handleCreateNewRef(ensureValue(stackId), commitId, "Below");
 											closeSubmenu();
 											close();
 										}
@@ -282,7 +282,7 @@
 
 			<ContextMenuSection>
 				<ContextMenuItem
-					label={$rewrapCommitMessage ? 'Show original wrapping' : 'Rewrap message'}
+					label={$rewrapCommitMessage ? "Show original wrapping" : "Rewrap message"}
 					icon="text-wrap"
 					disabled={commitInsertion.current.isLoading}
 					onclick={() => {

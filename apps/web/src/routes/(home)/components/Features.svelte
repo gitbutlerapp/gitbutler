@@ -72,7 +72,7 @@
 		left: 0;
 		background-image: radial-gradient(circle, var(--clr-text-3) 1px, transparent 1px);
 		background-size: 8px 8px;
-		content: '';
+		content: "";
 		opacity: 0.3;
 		pointer-events: none;
 	}

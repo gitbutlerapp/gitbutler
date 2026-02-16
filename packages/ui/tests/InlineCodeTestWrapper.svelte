@@ -1,20 +1,20 @@
 <script lang="ts">
-	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
+	import RichTextEditor from "$lib/richText/RichTextEditor.svelte";
 
 	type Props = {
 		initialText?: string;
 	};
 
-	const { initialText = '' }: Props = $props();
+	const { initialText = "" }: Props = $props();
 
 	let editor = $state<RichTextEditor>();
-	let textContentDisplay = $state('');
+	let textContentDisplay = $state("");
 	let inlineCodeCountDisplay = $state(0);
 	let value = $state(initialText);
 
 	async function updateDisplayValues() {
 		if (!editor) return;
-		textContentDisplay = (await editor.getPlaintext()) || '';
+		textContentDisplay = (await editor.getPlaintext()) || "";
 		inlineCodeCountDisplay = await getInlineCodeCount();
 	}
 
@@ -35,7 +35,7 @@
 				}
 				let count = 0;
 				function walk(node: any) {
-					if (node.type === 'inline-code') {
+					if (node.type === "inline-code") {
 						count++;
 					}
 					if (node.children) {
@@ -69,7 +69,7 @@
 			bind:this={editor}
 			bind:value
 			namespace="test-inline-code"
-			onError={(error) => console.error('Editor error:', error)}
+			onError={(error) => console.error("Editor error:", error)}
 			styleContext="client-editor"
 			{initialText}
 			minHeight="100px"

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
-	import { getPrStatus } from '$lib/forge/interface/prUtils';
-	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from '@gitbutler/ui';
-	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
+	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
+	import { getPrStatus } from "$lib/forge/interface/prUtils";
+	import { Avatar, ReviewBadge, SeriesIcon, TestId, TimeAgo } from "@gitbutler/ui";
+	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
 	type basePrData = {
 		number: number;
 		isDraft: boolean;
@@ -38,10 +38,10 @@
 		modifiedAt,
 		mergedAt,
 		closedAt,
-		onclick
+		onclick,
 	}: Props = $props();
 
-	const unknownName = 'Unknown Author';
+	const unknownName = "Unknown Author";
 
 	const prStatus = $derived(getPrStatus({ mergedAt, closedAt, draft: isDraft }));
 </script>
@@ -58,7 +58,7 @@
 			author,
 			modifiedAt,
 			mergedAt,
-			closedAt
+			closedAt,
 		})}
 >
 	{#snippet content()}
@@ -85,7 +85,7 @@
 	{/snippet}
 	{#snippet details()}
 		{#if author && modifiedAt}
-			<Avatar srcUrl={author.gravatarUrl || ''} username={author.name || unknownName} />
+			<Avatar srcUrl={author.gravatarUrl || ""} username={author.name || unknownName} />
 			<TimeAgo date={new Date(modifiedAt)} addSuffix /> by
 			{author.name || unknownName}
 		{/if}

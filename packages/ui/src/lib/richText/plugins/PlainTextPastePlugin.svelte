@@ -8,9 +8,9 @@ Use this when you want a simplified rich text mode without formatted paste suppo
 		$getSelection as getSelection,
 		$isRangeSelection as isRangeSelection,
 		COMMAND_PRIORITY_HIGH,
-		PASTE_COMMAND
-	} from 'lexical';
-	import { getEditor } from 'svelte-lexical';
+		PASTE_COMMAND,
+	} from "lexical";
+	import { getEditor } from "svelte-lexical";
 
 	const editor = getEditor();
 
@@ -19,7 +19,7 @@ Use this when you want a simplified rich text mode without formatted paste suppo
 			PASTE_COMMAND,
 			(event: ClipboardEvent) => {
 				// Get plain text from clipboard
-				const text = event?.clipboardData?.getData('text/plain');
+				const text = event?.clipboardData?.getData("text/plain");
 
 				if (text) {
 					event.preventDefault();
@@ -37,7 +37,7 @@ Use this when you want a simplified rich text mode without formatted paste suppo
 
 				return false;
 			},
-			COMMAND_PRIORITY_HIGH
+			COMMAND_PRIORITY_HIGH,
 		);
 
 		return () => {

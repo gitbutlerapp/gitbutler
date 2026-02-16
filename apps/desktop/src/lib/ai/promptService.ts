@@ -2,32 +2,32 @@ import {
 	LONG_DEFAULT_BRANCH_TEMPLATE,
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
 	LONG_DEFAULT_COMMIT_TEMPLATE,
-	SHORT_DEFAULT_COMMIT_TEMPLATE
-} from '$lib/ai/prompts';
-import { InjectionToken } from '@gitbutler/core/context';
-import { persisted, type Persisted } from '@gitbutler/shared/persisted';
-import { get } from 'svelte/store';
-import type { Prompt, Prompts, UserPrompt } from '$lib/ai/types';
+	SHORT_DEFAULT_COMMIT_TEMPLATE,
+} from "$lib/ai/prompts";
+import { InjectionToken } from "@gitbutler/core/context";
+import { persisted, type Persisted } from "@gitbutler/shared/persisted";
+import { get } from "svelte/store";
+import type { Prompt, Prompts, UserPrompt } from "$lib/ai/types";
 
 enum PromptPersistedKey {
-	Branch = 'aiBranchPrompts',
-	Commit = 'aiCommitPrompts'
+	Branch = "aiBranchPrompts",
+	Commit = "aiCommitPrompts",
 }
 
-export const PROMPT_SERVICE = new InjectionToken<PromptService>('PromptService');
+export const PROMPT_SERVICE = new InjectionToken<PromptService>("PromptService");
 
 export class PromptService {
 	get branchPrompts(): Prompts {
 		return {
 			defaultPrompt: LONG_DEFAULT_BRANCH_TEMPLATE,
-			userPrompts: persisted<UserPrompt[]>([], PromptPersistedKey.Branch)
+			userPrompts: persisted<UserPrompt[]>([], PromptPersistedKey.Branch),
 		};
 	}
 
 	get commitPrompts(): Prompts {
 		return {
 			defaultPrompt: LONG_DEFAULT_COMMIT_TEMPLATE,
-			userPrompts: persisted<UserPrompt[]>([], PromptPersistedKey.Commit)
+			userPrompts: persisted<UserPrompt[]>([], PromptPersistedKey.Commit),
 		};
 	}
 
@@ -89,11 +89,11 @@ export class PromptService {
 		return false;
 	}
 
-	createDefaultUserPrompt(type: 'commits' | 'branches'): UserPrompt {
+	createDefaultUserPrompt(type: "commits" | "branches"): UserPrompt {
 		return {
 			id: crypto.randomUUID(),
-			name: 'My prompt',
-			prompt: type === 'branches' ? SHORT_DEFAULT_BRANCH_TEMPLATE : SHORT_DEFAULT_COMMIT_TEMPLATE
+			name: "My prompt",
+			prompt: type === "branches" ? SHORT_DEFAULT_BRANCH_TEMPLATE : SHORT_DEFAULT_COMMIT_TEMPLATE,
 		};
 	}
 }

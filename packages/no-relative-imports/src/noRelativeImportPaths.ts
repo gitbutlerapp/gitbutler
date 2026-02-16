@@ -1,13 +1,13 @@
-import { ConfigPaths } from './paths.js';
-import { parse } from 'comment-json';
-import { readFileSync, statSync } from 'node:fs';
-import path from 'node:path';
+import { ConfigPaths } from "./paths.js";
+import { parse } from "comment-json";
+import { readFileSync, statSync } from "node:fs";
+import path from "node:path";
 
 /**
  * Do a basic check to determine if an import is relative
  */
 function isRelative(path: string) {
-	return path.startsWith('./') || path.startsWith('../');
+	return path.startsWith("./") || path.startsWith("../");
 }
 
 type TsConfig = {
@@ -24,7 +24,7 @@ function findTsConfigDirectory(absolutePath: string): string | undefined {
 	let current = path.resolve(absolutePath);
 
 	while (true) {
-		const configPath = path.join(current, 'tsconfig.json');
+		const configPath = path.join(current, "tsconfig.json");
 		try {
 			const configStat = statSync(configPath);
 			if (configStat.isFile()) return current;
@@ -51,7 +51,7 @@ function findConfigs(absolutePath: string): [string, TsConfig][] {
 		const configDirectory = findTsConfigDirectory(currentPath);
 		if (!configDirectory) break;
 
-		const configPath = path.join(configDirectory, 'tsconfig.json');
+		const configPath = path.join(configDirectory, "tsconfig.json");
 		const config = parse(readFileSync(configPath).toString()) as any as TsConfig;
 
 		// We are traversing the list of configs from super-most to base-most.
@@ -63,7 +63,7 @@ function findConfigs(absolutePath: string): [string, TsConfig][] {
 			// The `.json` at the end of the `extends` relative path is
 			// optional, so we should add back.
 			let extendsPath = config.extends;
-			if (!extendsPath.endsWith('.json')) {
+			if (!extendsPath.endsWith(".json")) {
 				extendsPath = `${extendsPath}.json`;
 			}
 			currentPath = path.join(configDirectory, extendsPath);
@@ -120,7 +120,7 @@ function create(context: any) {
 				const importPath: string = node.source.value;
 				const absoluteImportPath: string = path.join(
 					path.dirname(context.getFilename()),
-					importPath
+					importPath,
 				);
 
 				const formattedPath = formatAsNonRelative(absoluteImportPath);
@@ -133,32 +133,32 @@ function create(context: any) {
 						fix: (fixer: any) => {
 							return fixer.replaceTextRange(
 								[node.source.range[0] + 1, node.source.range[1] - 1],
-								formattedPath
+								formattedPath,
 							);
-						}
+						},
 					});
 				}
 			}
-		}
+		},
 	};
 }
 
 export const noRelativeImportPaths = {
 	meta: {
-		type: 'layout',
-		fixable: 'code',
+		type: "layout",
+		fixable: "code",
 		schema: {
-			type: 'array',
+			type: "array",
 			minItems: 0,
 			maxItems: 1,
 			items: [
 				{
-					type: 'object',
+					type: "object",
 					properties: {},
-					additionalProperties: false
-				}
-			]
-		}
+					additionalProperties: false,
+				},
+			],
+		},
 	},
-	create
+	create,
 };

@@ -1,47 +1,47 @@
 <script lang="ts">
-	import BranchIntegrationModal from '$components/BranchIntegrationModal.svelte';
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import CommitContextMenu from '$components/CommitContextMenu.svelte';
-	import CommitGoesHere from '$components/CommitGoesHere.svelte';
-	import CommitLineOverlay from '$components/CommitLineOverlay.svelte';
-	import CommitRow from '$components/CommitRow.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import LazyList from '$components/LazyList.svelte';
-	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import UpstreamCommitsAction from '$components/UpstreamCommitsAction.svelte';
-	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
-	import { commitCreatedAt } from '$lib/branches/v3';
-	import { commitStatusLabel } from '$lib/commits/commit';
+	import BranchIntegrationModal from "$components/BranchIntegrationModal.svelte";
+	import CardOverlay from "$components/CardOverlay.svelte";
+	import CommitContextMenu from "$components/CommitContextMenu.svelte";
+	import CommitGoesHere from "$components/CommitGoesHere.svelte";
+	import CommitLineOverlay from "$components/CommitLineOverlay.svelte";
+	import CommitRow from "$components/CommitRow.svelte";
+	import Dropzone from "$components/Dropzone.svelte";
+	import LazyList from "$components/LazyList.svelte";
+	import NestedChangedFiles from "$components/NestedChangedFiles.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import UpstreamCommitsAction from "$components/UpstreamCommitsAction.svelte";
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from "$components/lib";
+	import { commitCreatedAt } from "$lib/branches/v3";
+	import { commitStatusLabel } from "$lib/commits/commit";
 	import {
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
 		CommitDropData,
 		createCommitDropHandlers,
-		type DzCommitData
-	} from '$lib/commits/dropHandler';
-	import { findEarliestConflict } from '$lib/commits/utils';
-	import { projectRunCommitHooks } from '$lib/config/config';
-	import { draggableCommitV3 } from '$lib/dragging/draggable';
-	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
+		type DzCommitData,
+	} from "$lib/commits/dropHandler";
+	import { findEarliestConflict } from "$lib/commits/utils";
+	import { projectRunCommitHooks } from "$lib/config/config";
+	import { draggableCommitV3 } from "$lib/dragging/draggable";
+	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import {
 		ReorderCommitDzFactory,
-		ReorderCommitDzHandler
-	} from '$lib/dragging/stackingReorderDropzoneManager';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
-	import { createCommitSelection } from '$lib/selection/key';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { Button, Modal, RadioButton, TestId } from '@gitbutler/ui';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { BranchDetails } from '$lib/stacks/stack';
+		ReorderCommitDzHandler,
+	} from "$lib/dragging/stackingReorderDropzoneManager";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
+	import { createCommitSelection } from "$lib/selection/key";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { combineResults } from "$lib/state/helpers";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { Button, Modal, RadioButton, TestId } from "@gitbutler/ui";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import type { BranchDetails } from "$lib/stacks/stack";
 
 	interface Props {
 		projectId: string;
@@ -73,7 +73,7 @@
 		handleUncommit,
 		startEditingCommitMessage,
 		onclick,
-		onFileClick
+		onFileClick,
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -87,9 +87,9 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
+	const commitAction = $derived(exclusiveAction?.type === "commit" ? exclusiveAction : undefined);
 	const isCommitting = $derived(
-		exclusiveAction?.type === 'commit' && exclusiveAction.stackId === stackId
+		exclusiveAction?.type === "commit" && exclusiveAction.stackId === stackId,
 	);
 	const laneState = $derived(uiState.lane(laneId));
 	const selection = $derived(laneState.selection);
@@ -100,7 +100,7 @@
 
 	const localAndRemoteCommits = $derived(stackService.commits(projectId, stackId, branchName));
 	const upstreamOnlyCommits = $derived(
-		stackService.upstreamCommits(projectId, stackId, branchName)
+		stackService.upstreamCommits(projectId, stackId, branchName),
 	);
 
 	let integrationModal = $state<Modal>();
@@ -126,20 +126,20 @@
 			projectId,
 			stackId,
 			seriesName: branchName,
-			strategy: 'rebase'
+			strategy: "rebase",
 		});
 	}
 
-	type IntegrationMode = 'rebase' | 'interactive';
+	type IntegrationMode = "rebase" | "interactive";
 
-	const integrationMode = persisted<IntegrationMode>('rebase', 'branchUpstreamIntegrationMode');
+	const integrationMode = persisted<IntegrationMode>("rebase", "branchUpstreamIntegrationMode");
 
 	function integrate(mode: IntegrationMode) {
 		switch (mode) {
-			case 'rebase':
+			case "rebase":
 				handleRebaseIntegration();
 				break;
-			case 'interactive':
+			case "interactive":
 				kickOffIntegration();
 				break;
 		}
@@ -147,10 +147,10 @@
 
 	function getLabelForIntegrationMode(mode: IntegrationMode): string {
 		switch (mode) {
-			case 'rebase':
-				return 'Rebase';
-			case 'interactive':
-				return 'Configure integration…';
+			case "rebase":
+				return "Rebase";
+			case "interactive":
+				return "Configure integration…";
 		}
 	}
 </script>
@@ -166,14 +166,14 @@
 	>
 		<div class="uppstream-integration-actions__radio-container">
 			{@render integrationRadioOption(
-				'rebase',
-				'Rebase upstream changes',
-				'Place local-only changes on top, then the upstream changes. Similar to git pull --rebase.'
+				"rebase",
+				"Rebase upstream changes",
+				"Place local-only changes on top, then the upstream changes. Similar to git pull --rebase.",
 			)}
 			{@render integrationRadioOption(
-				'interactive',
-				'Interactive integration',
-				'Review and resolve any conflicts before completing the integration.'
+				"interactive",
+				"Interactive integration",
+				"Review and resolve any conflicts before completing the integration.",
 			)}
 		</div>
 
@@ -286,10 +286,10 @@
 								last={false}
 								onclick={() => {
 									projectState.exclusiveAction.set({
-										type: 'commit',
+										type: "commit",
 										stackId,
 										branchName,
-										parentCommitId: commitId
+										parentCommitId: commitId,
 									});
 								}}
 							/>
@@ -314,7 +314,7 @@
 									const previewOpen = selection.current?.previewOpen ?? false;
 									uiState.lane(stackId).selection.set({ branchName, commitId: newId, previewOpen });
 								}
-							}
+							},
 						})}
 						{@const tooltip = commitStatusLabel(commit.state.type)}
 						<Dropzone handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}>
@@ -322,15 +322,15 @@
 								{@const label =
 									handler instanceof AmendCommitWithChangeDzHandler ||
 									handler instanceof AmendCommitWithHunkDzHandler
-										? 'Amend'
-										: 'Squash'}
+										? "Amend"
+										: "Squash"}
 								<CardOverlay {hovered} {activated} {label} />
 							{/snippet}
 							<div
 								data-remove-from-panning
 								use:draggableCommitV3={{
 									disabled: false,
-									label: commit.message.split('\n')[0],
+									label: commit.message.split("\n")[0],
 									sha: commit.id.slice(0, 7),
 									date: getTimeAgo(commitCreatedAt(commit)),
 									authorImgUrl: undefined,
@@ -343,14 +343,14 @@
 													isRemote: !!branchDetails.remoteTrackingBranch,
 													hasConflicts: isLocalAndRemoteCommit(commit) && commit.hasConflicts,
 													isIntegrated:
-														isLocalAndRemoteCommit(commit) && commit.state.type === 'Integrated'
+														isLocalAndRemoteCommit(commit) && commit.state.type === "Integrated",
 												},
 												false,
-												branchName
+												branchName,
 											)
 										: undefined,
 									dropzoneRegistry,
-									dragStateService
+									dragStateService,
 								}}
 							>
 								<CommitRow
@@ -358,7 +358,7 @@
 									commitMessage={commit.message}
 									type={commit.state.type}
 									hasConflicts={commit.hasConflicts}
-									diverged={commit.state.type === 'LocalAndRemote' &&
+									diverged={commit.state.type === "LocalAndRemote" &&
 										commit.id !== commit.state.subject}
 									createdAt={commitCreatedAt(commit)}
 									gerritReviewUrl={commit.gerritReviewUrl ?? undefined}
@@ -382,7 +382,7 @@
 											commitStatus: commit.state.type,
 											commitUrl: forge.current.commitUrl(commitId),
 											onUncommitClick: () => handleUncommit(commit.id, branchName),
-											onEditMessageClick: () => startEditingCommitMessage(branchName, commit.id)
+											onEditMessageClick: () => startEditingCommitMessage(branchName, commit.id),
 										}}
 										<CommitContextMenu
 											showOnHover
@@ -412,7 +412,7 @@
 													persistId={`commit-${commitId}`}
 													changes={changesResult.changes.filter(
 														(change) =>
-															!(change.path in (changesResult.conflictEntries?.entries ?? {}))
+															!(change.path in (changesResult.conflictEntries?.entries ?? {})),
 													)}
 													stats={changesResult.stats}
 													conflictEntries={changesResult.conflictEntries}
@@ -430,7 +430,7 @@
 																branchName,
 																commitId,
 																upstream: false,
-																previewOpen: true
+																previewOpen: true,
 															});
 														}
 														onFileClick?.(index);
@@ -443,22 +443,22 @@
 							</div>
 						</Dropzone>
 						{@render commitReorderDz(
-							stackingReorderDropzoneManager.belowCommit(branchName, commit.id)
+							stackingReorderDropzoneManager.belowCommit(branchName, commit.id),
 						)}
 						{#if isCommitting && last}
 							<CommitGoesHere
 								commitId={branchDetails.baseCommit}
 								{first}
 								{last}
-								selected={exclusiveAction?.type === 'commit' &&
+								selected={exclusiveAction?.type === "commit" &&
 									exclusiveAction.parentCommitId === branchDetails.baseCommit &&
 									commitAction?.branchName === branchName}
 								onclick={() => {
 									projectState.exclusiveAction.set({
-										type: 'commit',
+										type: "commit",
 										stackId,
 										branchName,
-										parentCommitId: branchDetails.baseCommit
+										parentCommitId: branchDetails.baseCommit,
 									});
 								}}
 							/>

@@ -10,15 +10,15 @@
 </script>
 
 <script lang="ts">
-	import { createInlineCodeNode } from '$lib/richText/node/inlineCode';
-	import TypeAhead from '$lib/richText/plugins/TypeAhead.svelte';
+	import { createInlineCodeNode } from "$lib/richText/node/inlineCode";
+	import TypeAhead from "$lib/richText/plugins/TypeAhead.svelte";
 	import {
 		$isRangeSelection as isRangeSelection,
 		$getSelection as getSelection,
 		TextNode,
-		$isTextNode as isTextNode
-	} from 'lexical';
-	import { getEditor } from 'svelte-lexical';
+		$isTextNode as isTextNode,
+	} from "lexical";
+	import { getEditor } from "svelte-lexical";
 
 	type Props = {
 		getFileItems: (q: string) => Promise<string[]>;
@@ -45,7 +45,7 @@
 				matchText: match[0],
 				captureText: match[1],
 				start: match.index + 1,
-				end: match.index + match[0].length
+				end: match.index + match[0].length,
 			};
 		}
 		return null;
@@ -60,9 +60,9 @@
 
 	function onMatch(match: FileMatch) {
 		fileMatch = match.captureText;
-		onUpdateSuggestion({ loading: true }, fileMatch ?? '');
+		onUpdateSuggestion({ loading: true }, fileMatch ?? "");
 		getFileItems(fileMatch).then((items) => {
-			onUpdateSuggestion({ items, loading: false }, fileMatch ?? '');
+			onUpdateSuggestion({ items, loading: false }, fileMatch ?? "");
 		});
 	}
 
@@ -85,10 +85,10 @@
 				const fullText = anchorNode.getTextContent();
 				const textBeforeCursor = fullText.slice(0, offset);
 				const textAfterCursor = fullText.slice(offset);
-				const match = '@' + fileStart;
+				const match = "@" + fileStart;
 				const matchIndex = textBeforeCursor.lastIndexOf(match);
 				if (matchIndex !== -1) {
-					const replacement = '`' + path + '`';
+					const replacement = "`" + path + "`";
 					const textBefore = textBeforeCursor.slice(0, matchIndex);
 
 					// Split the text node and insert inline code node
@@ -104,7 +104,7 @@
 					afterNode.selectStart();
 				}
 			},
-			{ discrete: true }
+			{ discrete: true },
 		);
 
 		exit();

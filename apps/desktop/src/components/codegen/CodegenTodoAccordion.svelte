@@ -1,7 +1,7 @@
 <script lang="ts">
-	import CodegenStatusIcon from '$components/codegen/CodegenStatusIcon.svelte';
-	import { Icon } from '@gitbutler/ui';
-	import type { ClaudeTodo } from '$lib/codegen/types';
+	import CodegenStatusIcon from "$components/codegen/CodegenStatusIcon.svelte";
+	import { Icon } from "@gitbutler/ui";
+	import type { ClaudeTodo } from "$lib/codegen/types";
 
 	type Props = {
 		todos: ClaudeTodo[];
@@ -9,10 +9,10 @@
 	const { todos }: Props = $props();
 
 	const displayTodo = $derived(
-		[...todos].reverse().find((todo) => todo.status === 'in_progress') ?? todos[0]
+		[...todos].reverse().find((todo) => todo.status === "in_progress") ?? todos[0],
 	);
 
-	const completedCount = $derived(todos.filter((todo) => todo.status === 'completed').length);
+	const completedCount = $derived(todos.filter((todo) => todo.status === "completed").length);
 	const totalCount = $derived(todos.length);
 
 	let expanded = $state(false);
@@ -43,9 +43,9 @@
 					</div>
 					<p
 						class="text-12 text-body"
-						class:blinking-text={todo.status === 'in_progress'}
-						class:clr-text-1={todo.status === 'pending'}
-						class:todo-strikethrough={todo.status === 'completed'}
+						class:blinking-text={todo.status === "in_progress"}
+						class:clr-text-1={todo.status === "pending"}
+						class:todo-strikethrough={todo.status === "completed"}
 					>
 						{todo.content}
 					</p>

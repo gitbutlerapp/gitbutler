@@ -1,10 +1,10 @@
 <script lang="ts">
 	import {
 		getPatchApproversAllWithAvatars,
-		getPatchRejectorsAllWithAvatars
-	} from '@gitbutler/shared/contributors';
-	import { type PatchCommit } from '@gitbutler/shared/patches/types';
-	import { AvatarGroup } from '@gitbutler/ui';
+		getPatchRejectorsAllWithAvatars,
+	} from "@gitbutler/shared/contributors";
+	import { type PatchCommit } from "@gitbutler/shared/patches/types";
+	import { AvatarGroup } from "@gitbutler/ui";
 
 	type Props = {
 		patchCommit: PatchCommit;

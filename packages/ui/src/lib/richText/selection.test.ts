@@ -1,21 +1,21 @@
-import { setEditorText } from '$lib/richText/selection';
-import { createEditor, type LexicalEditor } from 'lexical';
-import { $getRoot, $isParagraphNode } from 'lexical';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { setEditorText } from "$lib/richText/selection";
+import { createEditor, type LexicalEditor } from "lexical";
+import { $getRoot, $isParagraphNode } from "lexical";
+import { describe, it, expect, beforeEach } from "vitest";
 
-describe('setEditorText', () => {
+describe("setEditorText", () => {
 	let editor: LexicalEditor;
 
 	beforeEach(() => {
 		editor = createEditor({
-			namespace: 'test',
+			namespace: "test",
 			onError: (error) => {
 				throw error;
-			}
+			},
 		});
 	});
 
-	it('should preserve blank lines when setting text', () => {
+	it("should preserve blank lines when setting text", () => {
 		const textWithBlankLines = `First paragraph
 
 Second paragraph
@@ -36,16 +36,16 @@ Third paragraph`;
 			const para4 = children[3];
 
 			if ($isParagraphNode(para2)) {
-				expect(para2.getTextContent()).toBe('');
+				expect(para2.getTextContent()).toBe("");
 			}
 
 			if ($isParagraphNode(para4)) {
-				expect(para4.getTextContent()).toBe('');
+				expect(para4.getTextContent()).toBe("");
 			}
 		});
 	});
 
-	it('should handle multiple consecutive blank lines', () => {
+	it("should handle multiple consecutive blank lines", () => {
 		const textWithMultipleBlankLines = `First
 
 

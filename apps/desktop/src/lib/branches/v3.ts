@@ -1,5 +1,5 @@
-import type { TreeChange, TreeStats } from '$lib/hunks/change';
-import type { Workspace } from '@gitbutler/core/api';
+import type { TreeChange, TreeStats } from "$lib/hunks/change";
+import type { Workspace } from "@gitbutler/core/api";
 
 /** Commit that is a part of a [`StackBranch`](gitbutler_stack::StackBranch) and, as such, containing state derived in relation to the specific branch.*/
 export type Commit = Workspace.Commit;
@@ -33,11 +33,11 @@ export function commitCreatedAtDate(commit: Commit | UpstreamCommit): Date {
 /** If the commit is in `LocalAndRemote` state, extract the subject (the remote commit ID) */
 export function commitStateSubject(commit: Commit): string | null {
 	switch (commit.state.type) {
-		case 'LocalOnly':
+		case "LocalOnly":
 			return null;
-		case 'Integrated':
+		case "Integrated":
 			return null;
-		case 'LocalAndRemote':
+		case "LocalAndRemote":
 			return commit.state.subject;
 	}
 }
@@ -49,12 +49,12 @@ export function commitStateSubject(commit: Commit): string | null {
 export type UpstreamCommit = Workspace.UpstreamCommit;
 
 export function isCommit(something: Commit | UpstreamCommit): something is Commit {
-	return 'state' in something;
+	return "state" in something;
 }
 
 export function extractUpstreamCommitId(commit: Commit | UpstreamCommit): string | undefined {
 	if (isCommit(commit)) {
-		if (commit.state.type === 'LocalAndRemote') {
+		if (commit.state.type === "LocalAndRemote") {
 			return commit.state.subject;
 		}
 	}

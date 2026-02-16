@@ -1,10 +1,10 @@
 <script lang="ts">
-	import BranchDividerLine from '$components/BranchDividerLine.svelte';
-	import BranchLineOverlay from '$components/BranchLineOverlay.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import { MoveBranchDzHandler } from '$lib/branches/dropHandler';
-	import type { ForgePrService } from '$lib/forge/interface/forgePrService';
-	import type { StackService } from '$lib/stacks/stackService.svelte';
+	import BranchDividerLine from "$components/BranchDividerLine.svelte";
+	import BranchLineOverlay from "$components/BranchLineOverlay.svelte";
+	import Dropzone from "$components/Dropzone.svelte";
+	import { MoveBranchDzHandler } from "$lib/branches/dropHandler";
+	import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+	import type { StackService } from "$lib/stacks/stackService.svelte";
 
 	interface Props {
 		projectId: string;
@@ -27,7 +27,7 @@
 		baseBranchName,
 		stackService,
 		prService,
-		isFirst = false
+		isFirst = false,
 	}: Props = $props();
 </script>
 
@@ -38,7 +38,7 @@
 		projectId,
 		stackId,
 		branchName,
-		baseBranchName
+		baseBranchName,
 	)}
 	<Dropzone handlers={[moveBranchHandler]}>
 		{#snippet overlay({ hovered, activated })}

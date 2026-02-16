@@ -1,6 +1,6 @@
-import { getEphemeralStorageItem, setEphemeralStorageItem } from '@gitbutler/shared/persisted';
-import { type Subscriber, type Unsubscriber } from 'svelte/store';
-import type { Commit } from '$lib/branches/v3';
+import { getEphemeralStorageItem, setEphemeralStorageItem } from "@gitbutler/shared/persisted";
+import { type Subscriber, type Unsubscriber } from "svelte/store";
+import type { Commit } from "$lib/branches/v3";
 
 /**
  * A custom persisted store that makes it easier to manage pr descriptions.
@@ -11,9 +11,9 @@ import type { Commit } from '$lib/branches/v3';
  * manually enters.
  */
 export class PrPersistedStore {
-	private persisted = '';
+	private persisted = "";
 
-	_default = '';
+	_default = "";
 	private subscribers: Subscriber<string>[] = [];
 
 	constructor(
@@ -21,9 +21,9 @@ export class PrPersistedStore {
 			cacheKey: string;
 			commits: Commit[];
 			defaultFn: (commits: Commit[]) => Promise<string>;
-		}
+		},
 	) {
-		this.persisted = (getEphemeralStorageItem(this.args.cacheKey) || '') as string;
+		this.persisted = (getEphemeralStorageItem(this.args.cacheKey) || "") as string;
 	}
 
 	subscribe(callback: Subscriber<string>): Unsubscriber {
@@ -46,7 +46,7 @@ export class PrPersistedStore {
 	}
 
 	set(value: string) {
-		const storedValue = value === this._default ? '' : value;
+		const storedValue = value === this._default ? "" : value;
 		setEphemeralStorageItem(this.args.cacheKey, storedValue, 1440);
 		this.persisted = value;
 		this.dispatch(storedValue);
@@ -57,7 +57,7 @@ export class PrPersistedStore {
 	}
 
 	reset() {
-		this.set('');
+		this.set("");
 	}
 
 	async setDefault(commits: Commit[]) {
@@ -71,5 +71,5 @@ export class PrPersistedStore {
 }
 
 function isEmptyOrUndefined(line?: string) {
-	return line === '\n' || line === '' || line === undefined;
+	return line === "\n" || line === "" || line === undefined;
 }

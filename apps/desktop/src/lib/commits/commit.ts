@@ -1,7 +1,7 @@
-import { ConflictEntries } from '$lib/files/conflicts';
-import { splitMessage } from '$lib/utils/commitMessage';
-import { Transform } from 'class-transformer';
-import 'reflect-metadata';
+import { ConflictEntries } from "$lib/files/conflicts";
+import { splitMessage } from "$lib/utils/commitMessage";
+import { Transform } from "class-transformer";
+import "reflect-metadata";
 
 export type CommitKey = {
 	stackId?: string;
@@ -46,7 +46,7 @@ export class DetailedCommit {
 
 	@Transform(
 		(obj) =>
-			new ConflictEntries(obj.value.ancestorEntries, obj.value.ourEntries, obj.value.theirEntries)
+			new ConflictEntries(obj.value.ancestorEntries, obj.value.ourEntries, obj.value.theirEntries),
 	)
 	conflictedFiles!: ConflictEntries;
 
@@ -65,10 +65,10 @@ export class DetailedCommit {
 	dependentDiffs!: string[];
 
 	get status(): CommitStatusType {
-		if (this.isIntegrated) return 'Integrated';
-		if (this.isLocalAndRemote) return 'LocalAndRemote';
-		if (this.isRemote) return 'Remote';
-		return 'LocalOnly';
+		if (this.isIntegrated) return "Integrated";
+		if (this.isLocalAndRemote) return "LocalAndRemote";
+		if (this.isRemote) return "Remote";
+		return "LocalOnly";
 	}
 
 	get descriptionTitle(): string | undefined {
@@ -112,7 +112,7 @@ export class Commit {
 	}
 
 	get status(): CommitStatusType {
-		return 'Remote';
+		return "Remote";
 	}
 
 	isMergeCommit() {
@@ -135,11 +135,11 @@ export interface Author {
 }
 
 export enum CommitStatus {
-	LocalOnly = 'LocalOnly',
-	LocalAndRemote = 'LocalAndRemote',
-	Integrated = 'Integrated',
-	Remote = 'Remote',
-	Base = 'Base'
+	LocalOnly = "LocalOnly",
+	LocalAndRemote = "LocalAndRemote",
+	Integrated = "Integrated",
+	Remote = "Remote",
+	Base = "Base",
 }
 
 export type CommitStatusType = keyof typeof CommitStatus;
@@ -147,15 +147,15 @@ export type CommitStatusType = keyof typeof CommitStatus;
 export function commitStatusLabel(status: CommitStatusType): string {
 	switch (status) {
 		case CommitStatus.LocalOnly:
-			return 'Local';
+			return "Local";
 		case CommitStatus.LocalAndRemote:
-			return 'Local and remote';
+			return "Local and remote";
 		case CommitStatus.Integrated:
-			return 'Integrated';
+			return "Integrated";
 		case CommitStatus.Remote:
-			return 'Remote';
+			return "Remote";
 		case CommitStatus.Base:
-			return 'Base';
+			return "Base";
 		default:
 			return status;
 	}
@@ -163,28 +163,28 @@ export function commitStatusLabel(status: CommitStatusType): string {
 
 export type MoveCommitIllegalAction =
 	| {
-			type: 'dependsOnCommits';
+			type: "dependsOnCommits";
 			subject: string[];
 	  }
 	| {
-			type: 'hasDependentChanges';
+			type: "hasDependentChanges";
 			subject: string[];
 	  }
 	| {
-			type: 'hasDependentUncommittedChanges';
+			type: "hasDependentUncommittedChanges";
 	  };
 
 function formatCommitIds(ids: string[]): string {
-	return ids.map((id) => id.slice(0, 7)).join('\n');
+	return ids.map((id) => id.slice(0, 7)).join("\n");
 }
 
 export function getMoveCommitIllegalActionMessage(action: MoveCommitIllegalAction): string {
 	switch (action.type) {
-		case 'dependsOnCommits':
+		case "dependsOnCommits":
 			return `Cannot move commit because it depends on the following commits: ${formatCommitIds(action.subject)}`;
-		case 'hasDependentChanges':
+		case "hasDependentChanges":
 			return `Cannot move commit because it has dependent changes: ${formatCommitIds(action.subject)}`;
-		case 'hasDependentUncommittedChanges':
+		case "hasDependentUncommittedChanges":
 			return `Cannot move commit because it has dependent uncommitted changes`;
 	}
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ContextMenuItem, ContextMenuSection, KebabButton, TestId } from '@gitbutler/ui';
+	import { ContextMenuItem, ContextMenuSection, KebabButton, TestId } from "@gitbutler/ui";
 
 	type Props = {
 		onCherryPick: () => void;

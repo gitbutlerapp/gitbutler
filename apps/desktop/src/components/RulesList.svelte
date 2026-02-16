@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Drawer from '$components/Drawer.svelte';
-	import NewRuleMenu from '$components/NewRuleMenu.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import Rule from '$components/Rule.svelte';
-	import RuleFiltersEditor from '$components/RuleFiltersEditor.svelte';
+	import Drawer from "$components/Drawer.svelte";
+	import NewRuleMenu from "$components/NewRuleMenu.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import Rule from "$components/Rule.svelte";
+	import RuleFiltersEditor from "$components/RuleFiltersEditor.svelte";
 	import {
 		type WorkspaceRuleId,
 		type RuleFilterMap,
@@ -13,13 +13,13 @@
 		encodeStackTarget,
 		decodeStackTarget,
 		compareStackTarget,
-		type RuleFilter
-	} from '$lib/rules/rule';
-	import { RULES_SERVICE, workspaceRulesSelectors } from '$lib/rules/rulesService.svelte';
-	import { getStackName } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { typedKeys } from '$lib/utils/object';
-	import { inject } from '@gitbutler/core/context';
+		type RuleFilter,
+	} from "$lib/rules/rule";
+	import { RULES_SERVICE, workspaceRulesSelectors } from "$lib/rules/rulesService.svelte";
+	import { getStackName } from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { typedKeys } from "$lib/utils/object";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
 		chipToasts,
@@ -29,11 +29,11 @@
 		Badge,
 		Spacer,
 		SkeletonBone,
-		Link
-	} from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { slide } from 'svelte/transition';
+		Link,
+	} from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { slide } from "svelte/transition";
 
 	type Props = {
 		projectId: string;
@@ -50,7 +50,7 @@
 	let selectedRuleId = $state<WorkspaceRuleId>();
 	let stackTargetSelected = $state<StackTarget>();
 	const encodedStackTarget = $derived(
-		stackTargetSelected && encodeStackTarget(stackTargetSelected)
+		stackTargetSelected && encodeStackTarget(stackTargetSelected),
 	);
 
 	let draftRuleFilterInitialValues = $state<Partial<RuleFilterMap>>({});
@@ -63,7 +63,7 @@
 	let newFilterContextMenu = $state<NewRuleMenu>();
 
 	// Visual state
-	let mode = $state<'list' | 'edit' | 'add'>('list');
+	let mode = $state<"list" | "edit" | "add">("list");
 	let editingRuleId = $state<WorkspaceRuleId | null>(null);
 
 	// Read initial collapsed state from persisted storage, default to false (open) if not found
@@ -92,7 +92,7 @@
 
 	function openRuleEditor() {
 		if (editingRuleId !== null) {
-			chipToasts.error('Please finish editing the current rule first');
+			chipToasts.error("Please finish editing the current rule first");
 			return;
 		}
 		// Open drawer if it's collapsed
@@ -100,7 +100,7 @@
 			drawer.open();
 		}
 
-		mode = 'add';
+		mode = "add";
 	}
 
 	function resetEditor() {
@@ -111,43 +111,43 @@
 	}
 
 	function cancelRuleEdition() {
-		mode = 'list';
+		mode = "list";
 		resetEditor();
 	}
 
 	function updateInitialValues(filter: RuleFilter, initialValues: Partial<RuleFilterMap>): true {
 		switch (filter.type) {
-			case 'pathMatchesRegex':
+			case "pathMatchesRegex":
 				initialValues.pathMatchesRegex = filter.subject;
 				return true;
-			case 'contentMatchesRegex':
+			case "contentMatchesRegex":
 				initialValues.contentMatchesRegex = filter.subject;
 				return true;
-			case 'fileChangeType':
+			case "fileChangeType":
 				initialValues.fileChangeType = filter.subject;
 				return true;
-			case 'semanticType':
+			case "semanticType":
 				initialValues.semanticType = filter.subject;
 				return true;
-			case 'claudeCodeSessionId':
+			case "claudeCodeSessionId":
 				initialValues.claudeCodeSessionId = filter.subject;
 				return true;
 		}
 	}
 
 	async function editExistingRule(rule: WorkspaceRule) {
-		if (mode === 'add' || (editingRuleId !== null && editingRuleId !== rule.id)) {
-			chipToasts.error('Please finish editing the current rule first');
+		if (mode === "add" || (editingRuleId !== null && editingRuleId !== rule.id)) {
+			chipToasts.error("Please finish editing the current rule first");
 			return;
 		}
 
-		if (rule.action.type === 'implicit') {
-			chipToasts.error('Cannot edit implicit rules');
+		if (rule.action.type === "implicit") {
+			chipToasts.error("Cannot edit implicit rules");
 			return;
 		}
 
-		if (rule.action.subject.type !== 'assign') {
-			chipToasts.error('Cannot edit rules that are not branch assignments');
+		if (rule.action.subject.type !== "assign") {
+			chipToasts.error("Cannot edit rules that are not branch assignments");
 			return;
 		}
 
@@ -162,7 +162,7 @@
 
 		draftRuleFilterInitialValues = initialValues;
 
-		mode = 'edit';
+		mode = "edit";
 	}
 
 	async function saveRule() {
@@ -172,12 +172,12 @@
 		const ruleFilters = ruleFiltersEditor ? ruleFiltersEditor.getRuleFilters() : [];
 
 		if (ruleFilters === undefined) {
-			chipToasts.error('Invalid rule filters');
+			chipToasts.error("Invalid rule filters");
 			return;
 		}
 
 		if (!stackTargetSelected) {
-			chipToasts.error('Please select a branch to assign the rule');
+			chipToasts.error("Please select a branch to assign the rule");
 			return;
 		}
 
@@ -188,34 +188,34 @@
 					id: selectedRuleId,
 					enabled: null,
 					action: {
-						type: 'explicit',
+						type: "explicit",
 						subject: {
-							type: 'assign',
-							subject: { target: stackTargetSelected }
-						}
+							type: "assign",
+							subject: { target: stackTargetSelected },
+						},
 					},
 					filters: ruleFilters,
-					trigger: null
-				}
+					trigger: null,
+				},
 			});
 		} else {
 			await create({
 				projectId,
 				request: {
 					action: {
-						type: 'explicit',
+						type: "explicit",
 						subject: {
-							type: 'assign',
-							subject: { target: stackTargetSelected }
-						}
+							type: "assign",
+							subject: { target: stackTargetSelected },
+						},
 					},
 					filters: ruleFilters,
-					trigger: 'fileSytemChange'
-				}
+					trigger: "fileSytemChange",
+				},
 			});
 		}
 
-		mode = 'list';
+		mode = "list";
 		resetEditor();
 	}
 
@@ -227,7 +227,7 @@
 
 		for (const rule of allRules) {
 			const hasAiFilter = rule.filters.some(
-				(filter: RuleFilter) => filter.type === 'claudeCodeSessionId'
+				(filter: RuleFilter) => filter.type === "claudeCodeSessionId",
 			);
 			if (hasAiFilter) {
 				aiRules.push(rule);
@@ -292,7 +292,7 @@
 			{@const totalRules = regularRules.length + aiRules.length}
 
 			{#if totalRules > 0}
-				{#if mode === 'add'}
+				{#if mode === "add"}
 					<div in:slide={{ duration: 150 }}>
 						{@render ruleEditor()}
 					</div>
@@ -325,7 +325,7 @@
 						</div>
 					{/if}
 				</div>
-			{:else if mode === 'add'}
+			{:else if mode === "add"}
 				<div in:slide={{ duration: 170 }}>
 					{@render ruleEditor()}
 				</div>
@@ -362,20 +362,20 @@
 								stack.id
 									? {
 											label: getStackName(stack),
-											value: encodeStackTarget({ type: 'stackId', subject: stack.id })
+											value: encodeStackTarget({ type: "stackId", subject: stack.id }),
 										}
-									: undefined
+									: undefined,
 							)
 							.filter(isDefined),
 						{ separator: true } as const,
 						{
-							label: 'Leftmost lane',
-							value: encodeStackTarget({ type: 'leftmost' })
+							label: "Leftmost lane",
+							value: encodeStackTarget({ type: "leftmost" }),
 						},
 						{
-							label: 'Rightmost lane',
-							value: encodeStackTarget({ type: 'rightmost' })
-						}
+							label: "Rightmost lane",
+							value: encodeStackTarget({ type: "rightmost" }),
+						},
 					]}
 
 					<Select
@@ -388,25 +388,25 @@
 							stackTargetSelected = decodeStackTarget(selectedStackTarget);
 						}}
 						icon={stackTargetSelected
-							? stackTargetSelected.type === 'leftmost'
-								? 'leftmost-lane'
-								: stackTargetSelected.type === 'rightmost'
-									? 'rightmost-lane'
-									: 'branch-remote'
-							: 'branch-remote'}
+							? stackTargetSelected.type === "leftmost"
+								? "leftmost-lane"
+								: stackTargetSelected.type === "rightmost"
+									? "rightmost-lane"
+									: "branch-remote"
+							: "branch-remote"}
 					>
 						{#snippet itemSnippet({ item, highlighted })}
 							<SelectItem
 								selected={item.value ? compareStackTarget(item.value, stackTargetSelected) : false}
 								{highlighted}
 							>
-								{item.label || ''}
+								{item.label || ""}
 								{#snippet iconSnippet()}
 									{#if item.value}
 										{@const target = decodeStackTarget(item.value)}
-										{#if target.type === 'leftmost'}
+										{#if target.type === "leftmost"}
 											<Icon name="leftmost-lane" />
-										{:else if target.type === 'rightmost'}
+										{:else if target.type === "rightmost"}
 											<Icon name="rightmost-lane" />
 										{:else}
 											<Icon name="branch-remote" />

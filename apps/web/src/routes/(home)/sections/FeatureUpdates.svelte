@@ -1,32 +1,32 @@
 <script lang="ts">
-	import ArrowButton from '$home/components/ArrowButton.svelte';
-	import SectionHeader from '$home/components/SectionHeader.svelte';
-	import VideoOverlay from '$home/components/VideoOverlay.svelte';
+	import ArrowButton from "$home/components/ArrowButton.svelte";
+	import SectionHeader from "$home/components/SectionHeader.svelte";
+	import VideoOverlay from "$home/components/VideoOverlay.svelte";
 	import {
 		fetchPlaylistVideos,
 		extractPlaylistId,
 		getEmbedUrl,
 		getHighQualityThumbnail,
 		getFallbackThumbnail,
-		type YouTubePlaylist
-	} from '$lib/youtube';
-	import { onMount } from 'svelte';
+		type YouTubePlaylist,
+	} from "$lib/youtube";
+	import { onMount } from "svelte";
 
 	// Constants
 	const PLAYLIST_URL =
-		'https://youtube.com/playlist?list=PLNXkW_le40U7IH8qA5VPN6f01oC25LOj4&si=IRZbd5aBoNLWDH5g';
+		"https://youtube.com/playlist?list=PLNXkW_le40U7IH8qA5VPN6f01oC25LOj4&si=IRZbd5aBoNLWDH5g";
 	const SCROLL_AMOUNT = 400;
 	const SCROLL_UPDATE_DELAY = 300;
 
 	// State
 	let playlist: YouTubePlaylist | null = $state(null);
 	let isLoading = $state(true);
-	let error = $state('');
+	let error = $state("");
 	let carousel: HTMLElement | undefined = $state();
 	let canScrollLeft = $state(false);
 	let canScrollRight = $state(false);
 	let showVideoOverlay = $state(false);
-	let selectedVideoUrl = $state('');
+	let selectedVideoUrl = $state("");
 
 	// Touch/swipe state
 	let touchStartX = $state(0);
@@ -40,10 +40,10 @@
 		canScrollRight = carousel.scrollLeft < carousel.scrollWidth - carousel.clientWidth;
 	}
 
-	function scroll(direction: 'left' | 'right') {
+	function scroll(direction: "left" | "right") {
 		if (!carousel) return;
-		const scrollAmount = direction === 'left' ? -SCROLL_AMOUNT : SCROLL_AMOUNT;
-		carousel.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+		const scrollAmount = direction === "left" ? -SCROLL_AMOUNT : SCROLL_AMOUNT;
+		carousel.scrollBy({ left: scrollAmount, behavior: "smooth" });
 		setTimeout(updateScrollState, SCROLL_UPDATE_DELAY);
 	}
 
@@ -55,11 +55,11 @@
 
 	function closeVideoOverlay() {
 		showVideoOverlay = false;
-		selectedVideoUrl = '';
+		selectedVideoUrl = "";
 	}
 
 	function openPlaylist() {
-		window.open(PLAYLIST_URL, '_blank');
+		window.open(PLAYLIST_URL, "_blank");
 	}
 
 	// Image error handling
@@ -70,7 +70,7 @@
 
 	// Keyboard interaction
 	function handleKeydown(event: KeyboardEvent, videoId: string) {
-		if (event.key === 'Enter' || event.key === ' ') {
+		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
 			handleVideoPlay(videoId);
 		}
@@ -110,10 +110,10 @@
 		if (Math.abs(deltaX) > deltaY && Math.abs(deltaX) > 50) {
 			if (deltaX > 0 && canScrollRight) {
 				// Swipe left, scroll right
-				scroll('right');
+				scroll("right");
 			} else if (deltaX < 0 && canScrollLeft) {
 				// Swipe right, scroll left
-				scroll('left');
+				scroll("left");
 			}
 		}
 
@@ -125,11 +125,11 @@
 		if (!carousel) return;
 
 		const timeoutId = setTimeout(updateScrollState, 0);
-		carousel.addEventListener('scroll', updateScrollState);
+		carousel.addEventListener("scroll", updateScrollState);
 
 		return () => {
 			clearTimeout(timeoutId);
-			carousel?.removeEventListener('scroll', updateScrollState);
+			carousel?.removeEventListener("scroll", updateScrollState);
 		};
 	});
 
@@ -144,13 +144,13 @@
 		try {
 			const playlistId = extractPlaylistId(PLAYLIST_URL);
 			if (!playlistId) {
-				throw new Error('Invalid playlist URL');
+				throw new Error("Invalid playlist URL");
 			}
 
 			playlist = await fetchPlaylistVideos(playlistId);
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load videos';
-			console.error('Error loading playlist:', err);
+			error = err instanceof Error ? err.message : "Failed to load videos";
+			console.error("Error loading playlist:", err);
 		} finally {
 			isLoading = false;
 		}
@@ -165,8 +165,8 @@
 			<div class="feature-updates__all-demos">
 				<ArrowButton showArrow={false} label="All demos" onclick={openPlaylist} />
 			</div>
-			<ArrowButton onclick={() => scroll('left')} reverseDirection disabled={!canScrollLeft} />
-			<ArrowButton onclick={() => scroll('right')} disabled={!canScrollRight} />
+			<ArrowButton onclick={() => scroll("left")} reverseDirection disabled={!canScrollLeft} />
+			<ArrowButton onclick={() => scroll("right")} disabled={!canScrollRight} />
 		{/snippet}
 	</SectionHeader>
 
@@ -264,7 +264,7 @@
 		top: 0;
 		width: 40px;
 		height: 100%;
-		content: '';
+		content: "";
 		pointer-events: none;
 	}
 

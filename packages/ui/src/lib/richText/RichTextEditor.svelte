@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable';
-	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
-	import { standardConfig } from '$lib/richText/config/config';
-	import { standardTheme } from '$lib/richText/config/theme';
+	import { focusable } from "$lib/focus/focusable";
+	import { WRAP_ALL_COMMAND } from "$lib/richText/commands";
+	import { standardConfig } from "$lib/richText/config/config";
+	import { standardTheme } from "$lib/richText/config/theme";
 	// import CodeBlockTypeAhead from '$lib/richText/plugins/CodeBlockTypeAhead.svelte';
-	import EmojiPlugin from '$lib/richText/plugins/Emoji.svelte';
-	import IndentPlugin from '$lib/richText/plugins/IndentPlugin.svelte';
-	import InlineCodePlugin from '$lib/richText/plugins/InlineCode.svelte';
-	import PlainTextPastePlugin from '$lib/richText/plugins/PlainTextPastePlugin.svelte';
-	import OnChangePlugin, { type OnChangeCallback } from '$lib/richText/plugins/onChange.svelte';
-	import OnInput, { type OnInputCallback } from '$lib/richText/plugins/onInput.svelte';
-	import { insertTextAtCaret, setEditorText } from '$lib/richText/selection';
-	import { exportPlaintext } from '$lib/richText/utils/export';
+	import EmojiPlugin from "$lib/richText/plugins/Emoji.svelte";
+	import IndentPlugin from "$lib/richText/plugins/IndentPlugin.svelte";
+	import InlineCodePlugin from "$lib/richText/plugins/InlineCode.svelte";
+	import PlainTextPastePlugin from "$lib/richText/plugins/PlainTextPastePlugin.svelte";
+	import OnChangePlugin, { type OnChangeCallback } from "$lib/richText/plugins/onChange.svelte";
+	import OnInput, { type OnInputCallback } from "$lib/richText/plugins/onInput.svelte";
+	import { insertTextAtCaret, setEditorText } from "$lib/richText/selection";
+	import { exportPlaintext } from "$lib/richText/utils/export";
 	import {
 		COMMAND_PRIORITY_CRITICAL,
 		$getRoot as getRoot,
@@ -19,22 +19,22 @@
 		KEY_DOWN_COMMAND,
 		FOCUS_COMMAND,
 		BLUR_COMMAND,
-		type SerializedEditorState
-	} from 'lexical';
-	import { type Snippet } from 'svelte';
+		type SerializedEditorState,
+	} from "lexical";
+	import { type Snippet } from "svelte";
 	import {
 		Composer,
 		ContentEditable,
 		RichTextPlugin,
 		AutoFocusPlugin,
 		PlaceHolder,
-		HistoryPlugin
-	} from 'svelte-lexical';
+		HistoryPlugin,
+	} from "svelte-lexical";
 
 	interface Props {
 		namespace: string;
 		onError: (error: unknown) => void;
-		styleContext: 'client-editor' | 'chat-input';
+		styleContext: "client-editor" | "chat-input";
 		plugins?: Snippet;
 		placeholder?: string;
 		minHeight?: string;
@@ -74,7 +74,7 @@
 		monospaceFont,
 		tabSize,
 		enableLigatures,
-		autoFocus = true
+		autoFocus = true,
 	}: Props = $props();
 
 	/** Standard configuration for our commit message editor. */
@@ -82,8 +82,8 @@
 		standardConfig({
 			namespace,
 			theme: standardTheme,
-			onError
-		})
+			onError,
+		}),
 	);
 
 	/**
@@ -118,7 +118,7 @@
 					}
 					return onKeyDown?.(e) ?? false;
 				},
-				COMMAND_PRIORITY_CRITICAL
+				COMMAND_PRIORITY_CRITICAL,
 			);
 			const unregisterFocus = editor.registerCommand(
 				FOCUS_COMMAND,
@@ -126,7 +126,7 @@
 					onFocus?.();
 					return false;
 				},
-				COMMAND_PRIORITY_CRITICAL
+				COMMAND_PRIORITY_CRITICAL,
 			);
 			const unregisterBlur = editor.registerCommand(
 				BLUR_COMMAND,
@@ -134,7 +134,7 @@
 					onBlur?.();
 					return false;
 				},
-				COMMAND_PRIORITY_CRITICAL
+				COMMAND_PRIORITY_CRITICAL,
 			);
 
 			return () => {
@@ -157,7 +157,7 @@
 		// Set initial text if provided and editor is empty
 		if (initialText) {
 			const currentText = await getPlaintext();
-			if (currentText?.trim() === '') {
+			if (currentText?.trim() === "") {
 				setText(initialText);
 			}
 		}
@@ -260,12 +260,12 @@
 		style:max-height={maxHeight}
 		style:--code-block-font={useMonospaceFont && monospaceFont
 			? monospaceFont
-			: 'var(--font-default)'}
+			: "var(--font-default)"}
 		style:--code-block-tab-size={useMonospaceFont && tabSize ? tabSize : 4}
 		style:--code-block-ligatures={useMonospaceFont && enableLigatures
-			? 'common-ligatures'
-			: 'normal'}
-		style:--lexical-input-client-text-wrap={useMonospaceFont ? 'nowrap' : 'normal'}
+			? "common-ligatures"
+			: "normal"}
+		style:--lexical-input-client-text-wrap={useMonospaceFont ? "nowrap" : "normal"}
 	>
 		<div class="editor">
 			<ContentEditable />

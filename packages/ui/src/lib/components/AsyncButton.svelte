@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button, { type Props as ButtonProps } from '$components/Button.svelte';
+	import Button, { type Props as ButtonProps } from "$components/Button.svelte";
 
-	type Props = Omit<ButtonProps, 'onclick'> & {
+	type Props = Omit<ButtonProps, "onclick"> & {
 		action: () => Promise<void>;
 		stopPropagation?: boolean;
 	};

@@ -1,17 +1,17 @@
 <script lang="ts">
-	import Chrome from '$components/Chrome.svelte';
-	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import directionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { AsyncButton, RadioButton, FileListItem, Link } from '@gitbutler/ui';
-	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import type { Snippet } from 'svelte';
+	import Chrome from "$components/Chrome.svelte";
+	import DecorativeSplitView from "$components/DecorativeSplitView.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import directionDoubtSvg from "$lib/assets/illustrations/direction-doubt.svg?raw";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { AsyncButton, RadioButton, FileListItem, Link } from "@gitbutler/ui";
+	import type { BaseBranch } from "$lib/baseBranch/baseBranch";
+	import type { Snippet } from "svelte";
 
-	type OptionsType = 'stash' | 'bring-to-workspace';
+	type OptionsType = "stash" | "bring-to-workspace";
 
 	interface Props {
 		projectId: string;
@@ -34,28 +34,29 @@
 			projectId,
 			branch,
 			pushRemote: remote,
-			stashUncommitted
+			stashUncommitted,
 		});
 	}
 
 	const conflicts = $derived(
-		mode.response?.type === 'OutsideWorkspace' && mode.response.subject.worktreeConflicts.length > 0
+		mode.response?.type === "OutsideWorkspace" &&
+			mode.response.subject.worktreeConflicts.length > 0,
 	);
 
-	let selectedHandlingOfUncommitted: OptionsType = $state('stash');
-	let doStash = $derived(selectedHandlingOfUncommitted === 'stash');
+	let selectedHandlingOfUncommitted: OptionsType = $state("stash");
+	let doStash = $derived(selectedHandlingOfUncommitted === "stash");
 
 	let handlingOptions: { label: string; value: OptionsType; selectable: boolean }[] = $derived([
 		{
-			label: 'Stash',
-			value: 'stash',
-			selectable: true
+			label: "Stash",
+			value: "stash",
+			selectable: true,
 		},
 		{
-			label: 'Bring to Workspace',
-			value: 'bring-to-workspace',
-			selectable: !conflicts // TODO: Reactivity??
-		}
+			label: "Bring to Workspace",
+			value: "bring-to-workspace",
+			selectable: !conflicts, // TODO: Reactivity??
+		},
 	]);
 
 	async function initSwithToWorkspace() {
@@ -110,7 +111,7 @@
 								<div class="switchrepo__file-list">
 									<ReduxResult result={mode.result} {projectId}>
 										{#snippet children(mode, _env)}
-											{#if mode.type === 'OutsideWorkspace'}
+											{#if mode.type === "OutsideWorkspace"}
 												{#each mode.subject.worktreeConflicts || [] as path, i}
 													<FileListItem
 														filePath={path}
@@ -141,7 +142,7 @@
 										value={item.value}
 										onchange={() => {
 											selectedHandlingOfUncommitted = item.value as OptionsType;
-											doStash = selectedHandlingOfUncommitted === 'stash';
+											doStash = selectedHandlingOfUncommitted === "stash";
 										}}
 										checked={selectedHandlingOfUncommitted === item.value}
 									/>

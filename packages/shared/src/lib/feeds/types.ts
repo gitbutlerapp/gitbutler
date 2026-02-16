@@ -1,4 +1,4 @@
-import type { ApiUser } from '$lib/users/types';
+import type { ApiUser } from "$lib/users/types";
 
 export type ApiPost = {
 	uuid: string;
@@ -37,8 +37,8 @@ export function apiToPost(apiPost: ApiPost): Post {
 		postType: apiPost.post_type,
 		replyToId: apiPost.reply_to_id,
 		createdAt: apiPost.created_at,
-		userLogin: apiPost.user.login ?? '',
-		pictureUrl: apiPost.picture_url || undefined
+		userLogin: apiPost.user.login ?? "",
+		pictureUrl: apiPost.picture_url || undefined,
 	};
 }
 

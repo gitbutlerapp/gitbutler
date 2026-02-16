@@ -5,23 +5,23 @@ import {
 	createWorktreeSelection,
 	type SelectedFileKey,
 	type SelectionId,
-	type SelectedFile
-} from '$lib/selection/key';
-import { createBranchRef } from '$lib/utils/branch';
-import { InjectionToken } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import { SvelteSet } from 'svelte/reactivity';
-import { get, writable, type Writable } from 'svelte/store';
-import type { HistoryService } from '$lib/history/history';
-import type { OplogService } from '$lib/history/oplogService.svelte';
-import type { TreeChange } from '$lib/hunks/change';
-import type { HunkAssignment } from '$lib/hunks/hunk';
-import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-import type { StackService } from '$lib/stacks/stackService.svelte';
-import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+	type SelectedFile,
+} from "$lib/selection/key";
+import { createBranchRef } from "$lib/utils/branch";
+import { InjectionToken } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import { SvelteSet } from "svelte/reactivity";
+import { get, writable, type Writable } from "svelte/store";
+import type { HistoryService } from "$lib/history/history";
+import type { OplogService } from "$lib/history/oplogService.svelte";
+import type { TreeChange } from "$lib/hunks/change";
+import type { HunkAssignment } from "$lib/hunks/hunk";
+import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
+import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
 
 export const FILE_SELECTION_MANAGER = new InjectionToken<FileSelectionManager>(
-	'FileSelectionManager'
+	"FileSelectionManager",
 );
 
 /**
@@ -51,12 +51,12 @@ export class FileSelectionManager {
 		private uncommittedService: UncommittedService,
 		private worktreeService: WorktreeService,
 		private oplogService: OplogService,
-		private historyService: HistoryService
+		private historyService: HistoryService,
 	) {
 		this.selections = new Map();
 		this.selections.set(selectionKey(createWorktreeSelection({ stackId: undefined })), {
 			entries: new SvelteSet<SelectedFileKey>(),
-			lastAdded: writable()
+			lastAdded: writable(),
 		});
 	}
 
@@ -66,7 +66,7 @@ export class FileSelectionManager {
 		if (!set) {
 			set = {
 				entries: new SvelteSet<SelectedFileKey>(),
-				lastAdded: writable()
+				lastAdded: writable(),
 			};
 			this.selections.set(key, set);
 		}
@@ -152,23 +152,23 @@ export class FileSelectionManager {
 		});
 
 		switch (params.type) {
-			case 'worktree':
+			case "worktree":
 				return this.uncommittedService
 					.getChangesByStackId(params.stackId || null)
 					.filter((c) => paths.includes(c.path));
-			case 'branch': {
+			case "branch": {
 				const { remote, branchName } = params;
 				const branch = createBranchRef(branchName, remote);
 				return await this.stackService.branchChangesByPaths({
 					projectId,
 					stackId: params.stackId,
 					branch,
-					paths: paths
+					paths: paths,
 				});
 			}
-			case 'commit':
+			case "commit":
 				return await this.stackService.commitChangesByPaths(projectId, params.commitId, paths);
-			case 'snapshot':
+			case "snapshot":
 				// TODO: Use the commented out code once back end support restored!
 				// Without this we can't show a multi file context menu for snapshots.
 				// if (paths[0]) {
@@ -191,15 +191,15 @@ export class FileSelectionManager {
 	 */
 	hunkAssignments(params: SelectionId): Record<string, HunkAssignment[]> | null {
 		switch (params.type) {
-			case 'worktree': {
+			case "worktree": {
 				const paths = this.values(params).map((fileSelection) => {
 					return fileSelection.path;
 				});
 				return this.uncommittedService.getAssignmentsByPaths(params.stackId || null, paths);
 			}
-			case 'branch':
-			case 'commit':
-			case 'snapshot':
+			case "branch":
+			case "commit":
+			case "snapshot":
 				return null;
 		}
 	}
@@ -226,7 +226,7 @@ export class FileSelectionManager {
 		}
 		const removedFiles: SelectedFile[] = [];
 		const worktreeSelection = this.selections.get(
-			selectionKey(createWorktreeSelection({ stackId: undefined }))
+			selectionKey(createWorktreeSelection({ stackId: undefined })),
 		);
 		if (!worktreeSelection) return;
 
@@ -255,26 +255,26 @@ export class FileSelectionManager {
 
 	changeByKey(projectId: string, selectedFile: SelectedFile) {
 		switch (selectedFile.type) {
-			case 'commit':
+			case "commit":
 				return this.stackService.commitChange(projectId, selectedFile.commitId, selectedFile.path);
-			case 'branch': {
+			case "branch": {
 				const { remote, branchName } = selectedFile;
 				const branch = createBranchRef(branchName, remote);
 				return this.stackService.branchChange({
 					projectId,
 					stackId: selectedFile.stackId,
 					branch,
-					path: selectedFile.path
+					path: selectedFile.path,
 				});
 			}
-			case 'worktree':
+			case "worktree":
 				this.uncommittedService.assignmentsByPath(selectedFile.stackId || null, selectedFile.path);
 				return this.worktreeService.treeChangeByPath(projectId, selectedFile.path);
-			case 'snapshot':
+			case "snapshot":
 				return this.historyService.snapshotDiffByPath({
 					projectId,
 					snapshotId: selectedFile.snapshotId,
-					path: selectedFile.path
+					path: selectedFile.path,
 				});
 		}
 	}

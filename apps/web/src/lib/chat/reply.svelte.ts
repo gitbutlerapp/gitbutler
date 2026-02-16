@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@gitbutler/shared/chat/types';
+import type { ChatMessage } from "@gitbutler/shared/chat/types";
 
 export default class ReplyHandler {
 	private _inReplyTo = $state<ChatMessage | undefined>();

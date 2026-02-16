@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import Factoid from '$lib/components/infoFlexRow//Factoid.svelte';
-	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
+	import { goto } from "$app/navigation";
+	import Factoid from "$lib/components/infoFlexRow//Factoid.svelte";
+	import InfoFlexRow from "$lib/components/infoFlexRow/InfoFlexRow.svelte";
 	import {
 		type ColumnTypes,
 		type ChangesType,
-		type AvatarsType
-	} from '$lib/components/table/types';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
-	import { AvatarGroup, CommitStatusBadge, Icon, type CommitStatusType } from '@gitbutler/ui';
+		type AvatarsType,
+	} from "$lib/components/table/types";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import Minimap from "@gitbutler/shared/branches/Minimap.svelte";
+	import { AvatarGroup, CommitStatusBadge, Icon, type CommitStatusType } from "@gitbutler/ui";
 
-	import dayjs from 'dayjs';
+	import dayjs from "dayjs";
 
 	type Props = {
 		columns: {
@@ -49,7 +49,7 @@
 	role="button"
 	tabIndex={0}
 	onclick={handleLinkClick}
-	onkeydown={(e) => e.key === 'Enter' && handleLinkClick(e)}
+	onkeydown={(e) => e.key === "Enter" && handleLinkClick(e)}
 	class:dynrow-separatedTop={separatedTop}
 	class:dynrow-separatedBottom={separatedBottom}
 >
@@ -58,23 +58,23 @@
 			<td class={[`truncate dynclmn-td dynclmn-${key}-td`]}>
 				<div
 					class={[
-						'dynclmn',
+						"dynclmn",
 						`dynclmn-${key}`,
-						{ 'text-13 text-bold truncate': key === 'title' },
-						{ 'text-12 truncate': key === 'string' },
-						{ 'dynclmn-number': key === 'number' }
+						{ "text-13 text-bold truncate": key === "title" },
+						{ "text-12 truncate": key === "string" },
+						{ "dynclmn-number": key === "number" },
 					]}
 					title={tooltip}
 				>
-					{#if key === 'title'}
+					{#if key === "title"}
 						<div class="truncate" title={tooltip}>
 							{value}
 						</div>
-					{:else if key === 'number'}
+					{:else if key === "number"}
 						{value}
-					{:else if key === 'commitGraph'}
-						{@const params = columns.find((col) => col.key === 'commitGraph')
-							?.value as ColumnTypes['commitGraph']}
+					{:else if key === "commitGraph"}
+						{@const params = columns.find((col) => col.key === "commitGraph")
+							?.value as ColumnTypes["commitGraph"]}
 
 						{#if $user}
 							<Minimap
@@ -85,9 +85,9 @@
 								user={$user}
 							/>
 						{/if}
-					{:else if key === 'avatars'}
+					{:else if key === "avatars"}
 						<AvatarGroup avatars={value as AvatarsType[]}></AvatarGroup>
-					{:else if key === 'reviewers'}
+					{:else if key === "reviewers"}
 						<div class="dynclmn-reviewers">
 							{#if (value as { approvers: AvatarsType[] }).approvers.length > 0 || (value as { rejectors: AvatarsType[] }).rejectors.length > 0}
 								<AvatarGroup
@@ -106,21 +106,21 @@
 								<span class="dynclmn-placeholder">No reviews</span>
 							{/if}
 						</div>
-					{:else if key === 'date'}
+					{:else if key === "date"}
 						{dayjs(value as Date).fromNow()}
-					{:else if key === 'status'}
+					{:else if key === "status"}
 						<CommitStatusBadge
 							status={value as CommitStatusType}
 							kind="both"
 							lineTop={!isTopEntry && !separatedTop}
 							lineBottom={!separatedBottom}
 						/>
-					{:else if key === 'changes'}
+					{:else if key === "changes"}
 						<div class="dynclmn-changes">
 							<span class="dynclmn-changes_additions">+{(value as ChangesType).additions}</span>
 							<span class="dynclmn-changes_deletions">-{(value as ChangesType).deletions}</span>
 						</div>
-					{:else if key === 'comments'}
+					{:else if key === "comments"}
 						<div class="text-12 dynclmn-comments" class:dynclmn-placeholder={!value}>
 							<span>{value}</span>
 							<div class="dynclmn-comments-icon"><Icon name="comments-small" /></div>
@@ -134,45 +134,45 @@
 	{:else}
 		<td class="dyncell-td">
 			<div class="dyncell">
-				{#if columns.find((col) => col.key === 'status')}
+				{#if columns.find((col) => col.key === "status")}
 					<div class="dyncell-status">
 						<CommitStatusBadge
-							status={columns.find((col) => col.key === 'status')?.value as CommitStatusType}
+							status={columns.find((col) => col.key === "status")?.value as CommitStatusType}
 						/>
 					</div>
 				{/if}
 
-				{#if columns.find((col) => col.key === 'title')}
+				{#if columns.find((col) => col.key === "title")}
 					<div class="dyncell-title">
 						<div class="text-13 text-bold">
-							{columns.find((col) => col.key === 'title')?.value}
+							{columns.find((col) => col.key === "title")?.value}
 						</div>
 					</div>
 				{/if}
 
 				<InfoFlexRow>
-					{#if columns.find((col) => col.key === 'changes')}
+					{#if columns.find((col) => col.key === "changes")}
 						<Factoid label="Changes">
 							<div class="dynclmn-changes">
 								<span class="dynclmn-changes_additions">
-									+{(columns.find((col) => col.key === 'changes')?.value as ChangesType).additions}
+									+{(columns.find((col) => col.key === "changes")?.value as ChangesType).additions}
 								</span>
 								<span class="dynclmn-changes_deletions">
-									-{(columns.find((col) => col.key === 'changes')?.value as ChangesType).deletions}
+									-{(columns.find((col) => col.key === "changes")?.value as ChangesType).deletions}
 								</span>
 							</div>
 						</Factoid>
 					{/if}
 
-					{#if columns.find((col) => col.key === 'comments')}
+					{#if columns.find((col) => col.key === "comments")}
 						<Factoid label="Comments" placeholderText="No comments">
-							{columns.find((col) => col.key === 'comments')?.value}
+							{columns.find((col) => col.key === "comments")?.value}
 						</Factoid>
 					{/if}
 
-					{#if columns.find((col) => col.key === 'reviewers')}
+					{#if columns.find((col) => col.key === "reviewers")}
 						<Factoid label="Reviewers" placeholderText="No reviews">
-							{@const reviewers = columns.find((col) => col.key === 'reviewers')?.value as {
+							{@const reviewers = columns.find((col) => col.key === "reviewers")?.value as {
 								approvers: AvatarsType[];
 								rejectors: AvatarsType[];
 							}}
@@ -195,22 +195,22 @@
 						</Factoid>
 					{/if}
 
-					{#if columns.find((col) => col.key === 'date')}
+					{#if columns.find((col) => col.key === "date")}
 						<Factoid label="Date">
-							{dayjs(columns.find((col) => col.key === 'date')?.value as Date).fromNow()}
+							{dayjs(columns.find((col) => col.key === "date")?.value as Date).fromNow()}
 						</Factoid>
 					{/if}
 
-					{#if columns.find((col) => col.key === 'number')}
+					{#if columns.find((col) => col.key === "number")}
 						<Factoid label="Number">
-							{columns.find((col) => col.key === 'number')?.value}
+							{columns.find((col) => col.key === "number")?.value}
 						</Factoid>
 					{/if}
 
-					{#if columns.find((col) => col.key === 'commitGraph')}
+					{#if columns.find((col) => col.key === "commitGraph")}
 						<Factoid label="Commits">
-							{@const params = columns.find((col) => col.key === 'commitGraph')
-								?.value as ColumnTypes['commitGraph']}
+							{@const params = columns.find((col) => col.key === "commitGraph")
+								?.value as ColumnTypes["commitGraph"]}
 
 							{#if $user}
 								<Minimap
@@ -224,10 +224,10 @@
 						</Factoid>
 					{/if}
 
-					{#if columns.find((col) => col.key === 'avatars')}
+					{#if columns.find((col) => col.key === "avatars")}
 						<Factoid label="Authors">
 							<AvatarGroup
-								avatars={columns.find((col) => col.key === 'avatars')?.value as AvatarsType[]}
+								avatars={columns.find((col) => col.key === "avatars")?.value as AvatarsType[]}
 							/>
 						</Factoid>
 					{/if}

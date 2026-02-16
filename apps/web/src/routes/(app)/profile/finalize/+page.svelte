@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import newProjectSvg from '$lib/assets/splash-illustrations/new-project.svg?raw';
-	import UsernameTextbox from '$lib/components/auth/UsernameTextbox.svelte';
-	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, InfoMessage, EmailTextbox } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import newProjectSvg from "$lib/assets/splash-illustrations/new-project.svg?raw";
+	import UsernameTextbox from "$lib/components/auth/UsernameTextbox.svelte";
+	import FullscreenIllustrationCard from "$lib/components/service/FullscreenIllustrationCard.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, InfoMessage, EmailTextbox } from "@gitbutler/ui";
 
 	const userService = inject(USER_SERVICE);
 	const loginService = inject(LOGIN_SERVICE);
@@ -33,7 +33,7 @@
 		!!effectiveEmail &&
 			!!effectiveUsername &&
 			(!email || emailTextbox?.isValid()) &&
-			(!username || usernameTextbox?.isValid())
+			(!username || usernameTextbox?.isValid()),
 	);
 
 	async function handleSubmit(event: Event) {
@@ -41,24 +41,24 @@
 
 		if (!$user) {
 			// should not happen
-			error = 'You must be logged in to finalize your account.';
+			error = "You must be logged in to finalize your account.";
 			return;
 		}
 
 		if (!effectiveEmail) {
-			error = 'Email is required.';
+			error = "Email is required.";
 			return;
 		}
 
 		if (!effectiveUsername) {
-			error = 'Username is required.';
+			error = "Username is required.";
 			return;
 		}
 
 		const response = await loginService.finalizeAccount(effectiveEmail, effectiveUsername);
-		if (response.type === 'error') {
+		if (response.type === "error") {
 			error = response.errorMessage;
-			console.error('Finalize account failed:', response.raw ?? response.errorMessage);
+			console.error("Finalize account failed:", response.raw ?? response.errorMessage);
 			return;
 		}
 

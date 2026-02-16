@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
-	import { showError } from '$lib/notifications/toasts';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import { goto } from "$app/navigation";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import RemoveProjectButton from "$components/RemoveProjectButton.svelte";
+	import { showError } from "$lib/notifications/toasts";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { inject } from "@gitbutler/core/context";
 
-	import { CardGroup, chipToasts } from '@gitbutler/ui';
+	import { CardGroup, chipToasts } from "@gitbutler/ui";
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -22,11 +22,11 @@
 		try {
 			await projectsService.deleteProject(projectId);
 			closeSettings();
-			goto('/');
-			chipToasts.success('Project deleted');
+			goto("/");
+			chipToasts.success("Project deleted");
 		} catch (err: any) {
 			console.error(err);
-			showError('Failed to delete project', err);
+			showError("Failed to delete project", err);
 		} finally {
 			isDeleting = false;
 		}

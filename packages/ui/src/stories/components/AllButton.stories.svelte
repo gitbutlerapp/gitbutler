@@ -1,18 +1,18 @@
 <script module lang="ts">
-	import Button from '$components/Button.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { ComponentColorType } from '$lib/utils/colorTypes';
+	import Button from "$components/Button.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
+	import type { ComponentColorType } from "$lib/utils/colorTypes";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Button',
+		title: "Inputs / Button",
 		args: {
-			label: 'Button'
-		}
+			label: "Button",
+		},
 	});
 
 	const defaultProps = {
-		label: 'Button',
-		reversedDirection: false
+		label: "Button",
+		reversedDirection: false,
 	};
 </script>
 
@@ -20,9 +20,9 @@
 	size,
 	label,
 	style,
-	reversedDirection
+	reversedDirection,
 }: {
-	size: 'icon' | 'cta' | 'button' | 'tag';
+	size: "icon" | "cta" | "button" | "tag";
 	label: string;
 	style?: ComponentColorType;
 	reversedDirection?: boolean;
@@ -51,35 +51,35 @@
 {#snippet buttons({
 	label,
 	style,
-	reversedDirection
+	reversedDirection,
 }: {
 	label: string;
 	style?: ComponentColorType;
 	reversedDirection?: boolean;
 })}
 	{@render buttonGroup({
-		size: 'cta',
+		size: "cta",
 		label,
 		style,
-		reversedDirection
+		reversedDirection,
 	})}
 	{@render buttonGroup({
-		size: 'button',
+		size: "button",
 		label,
 		style,
-		reversedDirection
+		reversedDirection,
 	})}
 	{@render buttonGroup({
-		size: 'tag',
+		size: "tag",
 		label,
 		style,
-		reversedDirection
+		reversedDirection,
 	})}
 	{@render buttonGroup({
-		size: 'icon',
+		size: "icon",
 		label,
 		style,
-		reversedDirection
+		reversedDirection,
 	})}
 {/snippet}
 
@@ -88,38 +88,38 @@
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'gray',
-			reversedDirection: defaultProps.reversedDirection
+			style: "gray",
+			reversedDirection: defaultProps.reversedDirection,
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'pop',
-			reversedDirection: defaultProps.reversedDirection
+			style: "pop",
+			reversedDirection: defaultProps.reversedDirection,
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'safe',
-			reversedDirection: defaultProps.reversedDirection
+			style: "safe",
+			reversedDirection: defaultProps.reversedDirection,
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'danger',
-			reversedDirection: defaultProps.reversedDirection
+			style: "danger",
+			reversedDirection: defaultProps.reversedDirection,
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'warning',
-			reversedDirection: defaultProps.reversedDirection
+			style: "warning",
+			reversedDirection: defaultProps.reversedDirection,
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			style: 'purple',
-			reversedDirection: defaultProps.reversedDirection
+			style: "purple",
+			reversedDirection: defaultProps.reversedDirection,
 		})}
 	</div></Story
 >

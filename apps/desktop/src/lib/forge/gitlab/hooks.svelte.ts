@@ -1,12 +1,12 @@
 import {
 	GITLAB_USER_SERVICE,
-	isSameGitLabAccountIdentifier
-} from '$lib/forge/gitlab/gitlabUserService.svelte';
-import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-import { inject } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import type { ButGitLabToken } from '@gitbutler/core/api';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
+	isSameGitLabAccountIdentifier,
+} from "$lib/forge/gitlab/gitlabUserService.svelte";
+import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+import { inject } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import type { ButGitLabToken } from "@gitbutler/core/api";
+import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 type GitLabPreferences = {
 	preferredGitLabAccount: Reactive<ButGitLabToken.GitlabAccountIdentifier | undefined>;
@@ -33,7 +33,7 @@ export function usePreferredGitLabUsername(projectId: Reactive<string>): GitLabP
 		if (
 			project === undefined ||
 			project.preferred_forge_user === null ||
-			project.preferred_forge_user.provider !== 'gitlab'
+			project.preferred_forge_user.provider !== "gitlab"
 		) {
 			return gitlabAccounts.at(0);
 		}
@@ -42,14 +42,14 @@ export function usePreferredGitLabUsername(projectId: Reactive<string>): GitLabP
 
 		return (
 			gitlabAccounts.find((account) =>
-				isSameGitLabAccountIdentifier(account, preferredForgeUser)
+				isSameGitLabAccountIdentifier(account, preferredForgeUser),
 			) ?? gitlabAccounts.at(0)
 		);
 	});
 
 	return {
 		preferredGitLabAccount: reactive(() => preferredUser),
-		gitlabAccounts: reactive(() => gitlabAccounts)
+		gitlabAccounts: reactive(() => gitlabAccounts),
 	};
 }
 
@@ -73,7 +73,7 @@ export function useGitLabAccessToken(projectId: Reactive<string>): GitLabAccess 
 	});
 	const aceessToken = $derived(glUserResponse?.response?.accessToken);
 	const host = $derived.by(() => {
-		if (preferredGitLabAccount.current?.type === 'selfHosted') {
+		if (preferredGitLabAccount.current?.type === "selfHosted") {
 			return preferredGitLabAccount.current.info.host;
 		}
 		return undefined;
@@ -83,8 +83,8 @@ export function useGitLabAccessToken(projectId: Reactive<string>): GitLabAccess 
 		accessToken: reactive(() => aceessToken),
 		isLoading: reactive(() => glUserResponse?.result.isLoading ?? false),
 		error: reactive(
-			() => glUserResponse?.result.error as { code: string; message: string } | undefined
+			() => glUserResponse?.result.error as { code: string; message: string } | undefined,
 		),
-		isError: reactive(() => glUserResponse?.result.isError ?? false)
+		isError: reactive(() => glUserResponse?.result.isError ?? false),
 	};
 }

@@ -1,10 +1,10 @@
-name: 'Publish'
+name: "Publish"
 on:
   schedule:
     # every day at 1am UTC, 3AM CEST or 2AM CET.
-    - cron: '0 1 * * *'
+    - cron: "0 1 * * *"
   workflow_run:
-    workflows: ['Nightly build']
+    workflows: ["Nightly build"]
     types:
       - completed
 
@@ -91,15 +91,15 @@ jobs:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
         include:
           - platform: macos-15 # [macOs, ARM64] - default target
-            target: ''
+            target: ""
           - platform: macos-15 # [macOs, x64] - cross-compile
             target: x86_64-apple-darwin
           - platform: ubuntu-22.04 # [linux, x64]
-            target: ''
+            target: ""
           - platform: ubuntu-22.04-arm # [linux, ARM64]
-            target: ''
+            target: ""
           - platform: windows-latest # [windows, x64]
-            target: ''
+            target: ""
 
     runs-on: ${{ matrix.platform }}
 
@@ -234,7 +234,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: '${{ env.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}'
+          name: "${{ env.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}"
           path: release/
           if-no-files-found: error
 
@@ -250,7 +250,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: runner.os == 'Windows'
         with:
-          name: '${{ env.channel }}-windows-aux-${{ github.run_number }}'
+          name: "${{ env.channel }}-windows-aux-${{ github.run_number }}"
           path: tauri-aux-artifacts/
           if-no-files-found: error
 
@@ -268,7 +268,7 @@ jobs:
       - name: Download unsigned artifacts
         uses: actions/download-artifact@v7.0.0
         with:
-          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
       - name: Sign Windows binary
         shell: bash
@@ -279,7 +279,7 @@ jobs:
       - name: Upload signed artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
           if-no-files-found: error
           overwrite: true
@@ -298,7 +298,7 @@ jobs:
       - name: Download ev-signed artifacts
         uses: actions/download-artifact@v7.0.0
         with:
-          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release
       - name: Set file as a variable
         shell: bash
@@ -328,7 +328,7 @@ jobs:
       - name: Upload re-signed artifacts
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
           path: release/
           if-no-files-found: error
           overwrite: true
@@ -344,15 +344,15 @@ jobs:
         # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-private-repositories
         include:
           - platform: macos-15 # [macOs, ARM64] - default target
-            target: ''
+            target: ""
           - platform: macos-15 # [macOs, x64] - cross-compile
             target: x86_64-apple-darwin
           - platform: ubuntu-22.04 # [linux, x64]
-            target: ''
+            target: ""
           - platform: ubuntu-22.04-arm # [linux, ARM64]
-            target: ''
+            target: ""
           - platform: windows-latest # [windows, x64]
-            target: ''
+            target: ""
     steps:
       - uses: actions/checkout@v6
         with:
@@ -369,7 +369,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v7.0.0
         with:
-          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}'
+          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}"
           path: release
       - name: Extract version
         shell: bash
@@ -389,9 +389,9 @@ jobs:
         with:
           aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_bucket: 'releases.gitbutler.com'
-          source_dir: 'release-s3/'
-          destination_dir: 'releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}'
+          aws_bucket: "releases.gitbutler.com"
+          source_dir: "release-s3/"
+          destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
 
       # tell our server to update with the version number
       - name: Notify GitButler API of new release
@@ -414,7 +414,7 @@ jobs:
       - name: Create git tag
         shell: bash
         env:
-          TAG_NAME: '${{ needs.build-tauri.outputs.channel }}/${{ needs.publish-tauri.outputs.version }}'
+          TAG_NAME: "${{ needs.build-tauri.outputs.channel }}/${{ needs.publish-tauri.outputs.version }}"
         run: |
           function tag_exists() {
             git tag --list | grep -q "^$1$"

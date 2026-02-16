@@ -1,4 +1,4 @@
-import { sleep } from '$lib/utils/sleep';
+import { sleep } from "$lib/utils/sleep";
 
 const MAX_ATTEMPTS = 2;
 const INITIAL_DELAY = 2000; // 2 seconds
@@ -11,7 +11,7 @@ const INITIAL_DELAY = 2000; // 2 seconds
  */
 export async function eventualConsistencyCheck<T>(
 	promiseFn: () => Promise<T>,
-	shouldStop: (r: T) => boolean
+	shouldStop: (r: T) => boolean,
 ): Promise<T> {
 	let result: T = await promiseFn();
 	for (let attempts = 0; !shouldStop(result) && attempts < MAX_ATTEMPTS; attempts++) {

@@ -2,15 +2,15 @@
 
 export type ChangeState = {
 	id: string;
-	kind: 'Tree' | 'Blob' | 'BlobExecutable' | 'Link' | 'Commit';
+	kind: "Tree" | "Blob" | "BlobExecutable" | "Link" | "Commit";
 };
 
 export type ModeFlags =
-	| 'ExecutableBitAdded'
-	| 'ExecutableBitRemoved'
-	| 'TypeChangeFileToLink'
-	| 'TypeChangeLinkToFile'
-	| 'TypeChange';
+	| "ExecutableBitAdded"
+	| "ExecutableBitRemoved"
+	| "TypeChangeFileToLink"
+	| "TypeChangeLinkToFile"
+	| "TypeChange";
 
 export type TreeChange = {
 	path: string;
@@ -22,14 +22,14 @@ export type TreeChange = {
 };
 
 export type TreeStatus =
-	| { type: 'Addition'; subject: { state: ChangeState; isUntracked: boolean } }
-	| { type: 'Deletion'; subject: { previousState: ChangeState } }
+	| { type: "Addition"; subject: { state: ChangeState; isUntracked: boolean } }
+	| { type: "Deletion"; subject: { previousState: ChangeState } }
 	| {
-			type: 'Modification';
+			type: "Modification";
 			subject: { previousState: ChangeState; state: ChangeState; flags: ModeFlags | null };
 	  }
 	| {
-			type: 'Rename';
+			type: "Rename";
 			subject: {
 				previousPath: string;
 				/**

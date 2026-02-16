@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button, TestId } from '@gitbutler/ui';
-	import { type Snippet } from 'svelte';
+	import { Button, TestId } from "@gitbutler/ui";
+	import { type Snippet } from "svelte";
 
 	interface Props {
 		CancelButtonLabel?: string;
@@ -8,7 +8,7 @@
 		children: Snippet;
 	}
 
-	const { children, CancelButtonLabel = 'Cancel', onCancel }: Props = $props();
+	const { children, CancelButtonLabel = "Cancel", onCancel }: Props = $props();
 </script>
 
 <div class="editor-footer">

@@ -1,25 +1,25 @@
-import { isReduxError } from '$lib/state/reduxError';
-import { getName, getVersion, getVersion as tauriGetVersion } from '@tauri-apps/api/app';
-import { invoke as invokeTauri } from '@tauri-apps/api/core';
-import { listen as listenTauri } from '@tauri-apps/api/event';
-import { documentDir as documentDirTauri } from '@tauri-apps/api/path';
-import { join as joinPathTauri } from '@tauri-apps/api/path';
-import { getCurrentWindow, Window } from '@tauri-apps/api/window';
+import { isReduxError } from "$lib/state/reduxError";
+import { getName, getVersion, getVersion as tauriGetVersion } from "@tauri-apps/api/app";
+import { invoke as invokeTauri } from "@tauri-apps/api/core";
+import { listen as listenTauri } from "@tauri-apps/api/event";
+import { documentDir as documentDirTauri } from "@tauri-apps/api/path";
+import { join as joinPathTauri } from "@tauri-apps/api/path";
+import { getCurrentWindow, Window } from "@tauri-apps/api/window";
 import {
 	writeText as tauriWriteText,
-	readText as tauriReadText
-} from '@tauri-apps/plugin-clipboard-manager';
-import { getCurrent, onOpenUrl } from '@tauri-apps/plugin-deep-link';
-import { open as filePickerTauri, type OpenDialogOptions } from '@tauri-apps/plugin-dialog';
-import { readFile as tauriReadFile } from '@tauri-apps/plugin-fs';
-import { error as logErrorToFile } from '@tauri-apps/plugin-log';
-import { platform } from '@tauri-apps/plugin-os';
-import { relaunch as relaunchTauri } from '@tauri-apps/plugin-process';
-import { Store } from '@tauri-apps/plugin-store';
-import { check as tauriCheck } from '@tauri-apps/plugin-updater';
-import { readable } from 'svelte/store';
-import type { AppInfo, DeepLinkHandlers, DiskStore, IBackend } from '$lib/backend/backend';
-import type { EventCallback, EventName } from '@tauri-apps/api/event';
+	readText as tauriReadText,
+} from "@tauri-apps/plugin-clipboard-manager";
+import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { open as filePickerTauri, type OpenDialogOptions } from "@tauri-apps/plugin-dialog";
+import { readFile as tauriReadFile } from "@tauri-apps/plugin-fs";
+import { error as logErrorToFile } from "@tauri-apps/plugin-log";
+import { platform } from "@tauri-apps/plugin-os";
+import { relaunch as relaunchTauri } from "@tauri-apps/plugin-process";
+import { Store } from "@tauri-apps/plugin-store";
+import { check as tauriCheck } from "@tauri-apps/plugin-updater";
+import { readable } from "svelte/store";
+import type { AppInfo, DeepLinkHandlers, DiskStore, IBackend } from "$lib/backend/backend";
+import type { EventCallback, EventName } from "@tauri-apps/api/event";
 
 export default class Tauri implements IBackend {
 	platformName = platform();
@@ -70,7 +70,7 @@ export default class Tauri implements IBackend {
 	async homeDirectory(): Promise<string> {
 		// TODO: Find a workaround to avoid this dynamic import
 		// https://github.com/sveltejs/kit/issues/905
-		return await (await import('@tauri-apps/api/path')).homeDir();
+		return await (await import("@tauri-apps/api/path")).homeDir();
 	}
 
 	async loadDiskStore(fileName: string): Promise<DiskStore> {
@@ -93,24 +93,24 @@ export default class Tauri implements IBackend {
 	}
 }
 
-const LAST_PROCESSED_DEEP_LINK_URL_KEY = 'lastProcessedDeepLinkUrl';
-const STORAGE_LOGIN_PREFIX = 'login|';
+const LAST_PROCESSED_DEEP_LINK_URL_KEY = "lastProcessedDeepLinkUrl";
+const STORAGE_LOGIN_PREFIX = "login|";
 
 function alreadyProcessedDeepLinkUrl(
 	topLevel: DeepLinkTopLevelPath,
 	url: string,
-	timestamp: string
+	timestamp: string,
 ): boolean {
 	switch (topLevel) {
-		case 'open': {
+		case "open": {
 			const lastProcessedUrl = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
 			return lastProcessedUrl === url;
 		}
-		case 'login': {
+		case "login": {
 			const value = localStorage.getItem(LAST_PROCESSED_DEEP_LINK_URL_KEY);
 			if (!value) return false;
 			if (!value.startsWith(STORAGE_LOGIN_PREFIX)) return false;
-			const storedTimestamp = value.replace(STORAGE_LOGIN_PREFIX, '').trim();
+			const storedTimestamp = value.replace(STORAGE_LOGIN_PREFIX, "").trim();
 			return storedTimestamp === timestamp;
 		}
 	}
@@ -119,13 +119,13 @@ function alreadyProcessedDeepLinkUrl(
 function markDeepLinkUrlAsProcessed(
 	topLevel: DeepLinkTopLevelPath,
 	url: string,
-	timestamp: string
+	timestamp: string,
 ): true {
 	switch (topLevel) {
-		case 'open':
+		case "open":
 			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, url);
 			return true;
-		case 'login': {
+		case "login": {
 			const value = `${STORAGE_LOGIN_PREFIX}${timestamp}`;
 			localStorage.setItem(LAST_PROCESSED_DEEP_LINK_URL_KEY, value);
 			return true;
@@ -138,21 +138,21 @@ function handleDeepLinkUrls(urls: string[], handlers: DeepLinkHandlers) {
 	const url = urls[urls.length - 1];
 	if (!url) return;
 	if (!isValidDeepLinkUrl(url)) {
-		console.warn('Received invalid deep link URL:', url);
+		console.warn("Received invalid deep link URL:", url);
 		return;
 	}
 
 	const result = parseDeepLinkUrl(url);
 	if (!result) {
-		console.warn('Failed to parse deep link URL:', url);
+		console.warn("Failed to parse deep link URL:", url);
 		return;
 	}
 
 	const [topLevel, params] = result;
-	const timestamp = params.get('t');
+	const timestamp = params.get("t");
 	if (!timestamp) {
 		// All deeplinks mus t have a timestamp to avoid processing duplicates.
-		console.warn('Deep link URL missing timestamp parameter:', url);
+		console.warn("Deep link URL missing timestamp parameter:", url);
 		return;
 	}
 
@@ -171,26 +171,26 @@ const LOGIN_LINK_EXPIRATION_MS = 30 * 1000; // 30 seconds
 function handleTopLevel(
 	path: DeepLinkTopLevelPath,
 	params: URLSearchParams,
-	handlers: DeepLinkHandlers
+	handlers: DeepLinkHandlers,
 ): true {
 	switch (path) {
-		case 'open': {
-			const filePath = params.get('path');
+		case "open": {
+			const filePath = params.get("path");
 			if (filePath) {
 				handlers.open(filePath);
 			}
 			return true;
 		}
-		case 'login': {
-			const accessToken = params.get('access_token');
-			const timestampStr = params.get('t');
+		case "login": {
+			const accessToken = params.get("access_token");
+			const timestampStr = params.get("t");
 			if (!timestampStr) {
 				return true;
 			}
 			const timestamp = Number(timestampStr);
 			const now = Date.now();
 			if (isNaN(timestamp) || now - timestamp > LOGIN_LINK_EXPIRATION_MS) {
-				console.warn('Ignoring expired login deep link');
+				console.warn("Ignoring expired login deep link");
 				return true;
 			}
 			if (accessToken) {
@@ -201,10 +201,10 @@ function handleTopLevel(
 	}
 }
 
-const DEEP_LINK_SCHMES = ['but', 'but-dev', 'but-nightly'] as const;
+const DEEP_LINK_SCHMES = ["but", "but-dev", "but-nightly"] as const;
 type DeepLinkScheme = (typeof DEEP_LINK_SCHMES)[number];
 
-const DEEP_LINK_TOP_LEVEL_PATHS = ['open', 'login'] as const;
+const DEEP_LINK_TOP_LEVEL_PATHS = ["open", "login"] as const;
 type DeepLinkTopLevelPath = (typeof DEEP_LINK_TOP_LEVEL_PATHS)[number];
 
 type DeepLinkUrl = `${DeepLinkScheme}://${DeepLinkTopLevelPath}${string}`;
@@ -216,7 +216,7 @@ function isValidDeepLinkTopLevelPath(path: string): path is DeepLinkTopLevelPath
 export function isValidDeepLinkUrl(url: string): url is DeepLinkUrl {
 	const correctScheme = DEEP_LINK_SCHMES.some((scheme) => url.startsWith(`${scheme}://`));
 	if (!correctScheme) return false;
-	const pathPart = url.split('://')[1];
+	const pathPart = url.split("://")[1];
 	if (!pathPart) return false;
 	const correctPath = DEEP_LINK_TOP_LEVEL_PATHS.some((path) => pathPart.startsWith(path));
 	if (!correctPath) return false;
@@ -224,12 +224,12 @@ export function isValidDeepLinkUrl(url: string): url is DeepLinkUrl {
 }
 
 export function parseDeepLinkUrl(url: DeepLinkUrl): [DeepLinkTopLevelPath, URLSearchParams] | null {
-	const pathPart = url.split('://')[1];
+	const pathPart = url.split("://")[1];
 	if (!pathPart) return null;
-	const [path, queryString] = pathPart.split('?');
+	const [path, queryString] = pathPart.split("?");
 	if (!path) return null;
 	if (!isValidDeepLinkTopLevelPath(path)) return null;
-	const searchParams = parseSearchParams(queryString ?? '');
+	const searchParams = parseSearchParams(queryString ?? "");
 
 	return [path, searchParams];
 }
@@ -256,13 +256,13 @@ export async function tauriLogErrorToFile(error: string) {
 	try {
 		await logErrorToFile(error);
 	} catch (e: unknown) {
-		console.warn('unable to log error to file', e);
+		console.warn("unable to log error to file", e);
 	}
 }
 
 export function tauriPathSeparator(): string {
 	const platformName = platform();
-	return platformName === 'windows' ? '\\' : '/';
+	return platformName === "windows" ? "\\" : "/";
 }
 
 async function tauriGetAppInfo(): Promise<AppInfo> {
@@ -302,5 +302,5 @@ function tauriListen<T>(event: EventName, handle: EventCallback<T>) {
 }
 
 async function tauriOpenExternalUrl(href: string): Promise<void> {
-	return await invokeTauri<void>('open_url', { url: href });
+	return await invokeTauri<void>("open_url", { url: href });
 }

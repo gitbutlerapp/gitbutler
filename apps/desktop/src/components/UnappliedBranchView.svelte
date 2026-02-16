@@ -1,12 +1,12 @@
 <script lang="ts">
-	import BranchDetails from '$components/BranchDetails.svelte';
-	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
-	import BranchReview from '$components/BranchReview.svelte';
-	import Drawer from '$components/Drawer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
+	import BranchDetails from "$components/BranchDetails.svelte";
+	import BranchHeaderContextMenu from "$components/BranchHeaderContextMenu.svelte";
+	import BranchReview from "$components/BranchReview.svelte";
+	import Drawer from "$components/Drawer.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon, TestId, Tooltip } from "@gitbutler/ui";
 
 	interface Props {
 		projectId: string;
@@ -25,7 +25,7 @@
 	const branchQuery = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
-			: stackService.unstackedBranchDetails(projectId, branchName, remote)
+			: stackService.unstackedBranchDetails(projectId, branchName, remote),
 	);
 </script>
 
@@ -40,10 +40,10 @@
 					<Tooltip
 						text={remoteTrackingBranch
 							? `Remote tracking branch:\n${remoteTrackingBranch}`
-							: 'No remote tracking branch'}
+							: "No remote tracking branch"}
 					>
 						<Icon
-							name={remoteTrackingBranch ? 'remote-target-branch' : 'no-remote-target-branch'}
+							name={remoteTrackingBranch ? "remote-target-branch" : "no-remote-target-branch"}
 						/>
 					</Tooltip>
 				{/if}
@@ -58,7 +58,7 @@
 					contextData={{
 						branch,
 						prNumber: branch.prNumber || undefined,
-						stackLength: 1
+						stackLength: 1,
 					}}
 				/>
 			{/snippet}

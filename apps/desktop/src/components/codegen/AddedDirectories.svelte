@@ -1,6 +1,6 @@
 <script lang="ts">
-	import AttachmentList from '$components/codegen/AttachmentList.svelte';
-	import { Icon } from '@gitbutler/ui';
+	import AttachmentList from "$components/codegen/AttachmentList.svelte";
+	import { Icon } from "@gitbutler/ui";
 
 	type Props = {
 		addedDirs: string[];
@@ -33,11 +33,11 @@
 
 		<AttachmentList
 			attachments={addedDirs.map((dir) => ({
-				type: 'directory',
-				path: dir
+				type: "directory",
+				path: dir,
 			}))}
 			onRemove={(attachment) => {
-				if (attachment.type === 'directory') {
+				if (attachment.type === "directory") {
 					onRemoveDir(attachment.path);
 				}
 			}}

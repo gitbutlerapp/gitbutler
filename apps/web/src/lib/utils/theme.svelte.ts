@@ -1,28 +1,28 @@
-import { browser } from '$app/environment';
-import { persisted } from '@gitbutler/shared/persisted';
-import { derived, writable, type Readable } from 'svelte/store';
+import { browser } from "$app/environment";
+import { persisted } from "@gitbutler/shared/persisted";
+import { derived, writable, type Readable } from "svelte/store";
 
-export type Theme = 'light' | 'dark' | 'system';
+export type Theme = "light" | "dark" | "system";
 
 // Create a persisted store for the theme preference
-export const themeStore = persisted<Theme>('system', 'web-theme-preference');
+export const themeStore = persisted<Theme>("system", "web-theme-preference");
 
 // Create a writable store for system theme that can be updated
-const systemThemeStore = writable<'light' | 'dark'>('light');
+const systemThemeStore = writable<"light" | "dark">("light");
 
 // Create a derived store for the effective theme
-export const effectiveThemeStore: Readable<'light' | 'dark'> = derived(
+export const effectiveThemeStore: Readable<"light" | "dark"> = derived(
 	[themeStore, systemThemeStore],
 	([$themeStore, $systemThemeStore]) => {
-		return $themeStore === 'system' ? $systemThemeStore : ($themeStore as 'light' | 'dark');
-	}
+		return $themeStore === "system" ? $systemThemeStore : ($themeStore as "light" | "dark");
+	},
 );
 
 /**
  * Update system theme store based on media query result
  */
 function updateSystemTheme(matches: boolean) {
-	systemThemeStore.set(matches ? 'dark' : 'light');
+	systemThemeStore.set(matches ? "dark" : "light");
 }
 
 /**
@@ -32,13 +32,13 @@ export function initTheme() {
 	if (!browser) return;
 
 	// Set up system theme detection
-	const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+	const darkModeQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
 	// Set initial system theme
 	updateSystemTheme(darkModeQuery.matches);
 
 	// Listen for system theme changes
-	darkModeQuery.addEventListener('change', (e) => {
+	darkModeQuery.addEventListener("change", (e) => {
 		updateSystemTheme(e.matches);
 	});
 
@@ -54,19 +54,19 @@ export function initTheme() {
 /**
  * Update the DOM with the current theme
  */
-function updateDom(effectiveTheme: 'light' | 'dark') {
+function updateDom(effectiveTheme: "light" | "dark") {
 	if (!browser) return;
 
 	const docEl = document.documentElement;
 
-	if (effectiveTheme === 'dark') {
-		docEl.classList.remove('light');
-		docEl.classList.add('dark');
-		docEl.style.colorScheme = 'dark';
+	if (effectiveTheme === "dark") {
+		docEl.classList.remove("light");
+		docEl.classList.add("dark");
+		docEl.style.colorScheme = "dark";
 	} else {
-		docEl.classList.remove('dark');
-		docEl.classList.add('light');
-		docEl.style.colorScheme = 'light';
+		docEl.classList.remove("dark");
+		docEl.classList.add("light");
+		docEl.style.colorScheme = "light";
 	}
 }
 

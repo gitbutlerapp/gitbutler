@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
-	import { FileListItem, Icon } from '@gitbutler/ui';
-	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
-	import { fly } from 'svelte/transition';
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
+	import { FileListItem, Icon } from "@gitbutler/ui";
+	import { clickOutside } from "@gitbutler/ui/utils/clickOutside";
+	import { fly } from "svelte/transition";
 
 	type Props = {
 		files: string[] | undefined;

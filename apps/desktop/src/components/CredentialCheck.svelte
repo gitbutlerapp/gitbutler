@@ -1,11 +1,11 @@
 <script lang="ts">
-	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
-	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { parseError } from '$lib/error/parser';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Icon, InfoMessage, Link } from '@gitbutler/ui';
-	import { slide } from 'svelte/transition';
+	import SectionCardDisclaimer from "$components/SectionCardDisclaimer.svelte";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { parseError } from "$lib/error/parser";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Icon, InfoMessage, Link } from "@gitbutler/ui";
+	import { slide } from "svelte/transition";
 
 	interface Props {
 		projectId: string;
@@ -35,10 +35,10 @@
 
 		try {
 			const fetchCheck = gitConfig.checkGitFetch(projectId, remoteName);
-			checks = [{ name: 'Fetch', promise: fetchCheck }];
+			checks = [{ name: "Fetch", promise: fetchCheck }];
 			await fetchCheck;
 			const pushCheck = gitConfig.checkGitPush(projectId, remoteName, branchName);
-			checks = [...checks, { name: 'Push', promise: pushCheck }];
+			checks = [...checks, { name: "Push", promise: pushCheck }];
 			await pushCheck;
 		} catch {
 			posthog.capture(OnboardingEvent.GitCheckCredentialsFailed);
@@ -57,7 +57,7 @@
 	{#if checks && checks.length > 0}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage
-				style={errors > 0 ? 'warning' : loading ? 'info' : 'success'}
+				style={errors > 0 ? "warning" : loading ? "info" : "success"}
 				filled
 				outlined={false}
 			>

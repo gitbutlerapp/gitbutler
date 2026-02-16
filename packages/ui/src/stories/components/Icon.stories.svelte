@@ -1,25 +1,25 @@
 <script module lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import iconsJson from '$lib/data/icons.json';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Icon from "$components/Icon.svelte";
+	import iconsJson from "$lib/data/icons.json";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / Icon',
+		title: "Basic / Icon",
 		component: Icon,
 		args: {
-			name: 'ai',
-			color: 'pop'
+			name: "ai",
+			color: "pop",
 		},
 		argTypes: {
 			color: {
-				control: 'select',
-				options: ['gray', 'pop', 'safe', 'danger', 'warning', 'purple', undefined]
+				control: "select",
+				options: ["gray", "pop", "safe", "danger", "warning", "purple", undefined],
 			},
 			name: {
-				control: 'select',
-				options: Object.keys(iconsJson)
-			}
-		}
+				control: "select",
+				options: Object.keys(iconsJson),
+			},
+		},
 	});
 </script>
 

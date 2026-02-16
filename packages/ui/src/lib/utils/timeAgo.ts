@@ -1,9 +1,9 @@
-import dayjs from 'dayjs';
-import localizedFormat from 'dayjs/plugin/localizedFormat';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import timezone from 'dayjs/plugin/timezone';
-import utc from 'dayjs/plugin/utc';
-import { writable, type Readable } from 'svelte/store';
+import dayjs from "dayjs";
+import localizedFormat from "dayjs/plugin/localizedFormat";
+import relativeTime from "dayjs/plugin/relativeTime";
+import timezone from "dayjs/plugin/timezone";
+import utc from "dayjs/plugin/utc";
+import { writable, type Readable } from "svelte/store";
 
 dayjs.extend(relativeTime);
 dayjs.extend(localizedFormat);
@@ -14,7 +14,7 @@ function customFormatDistance(date: Date, addSuffix: boolean): string {
 	const distance = dayjs(date).fromNow(!addSuffix);
 	return distance.replace(
 		/\b(seconds?|minutes?|hours?|days?|months?|years?)\b/g,
-		(match) => unitShorthandMap[match] ?? ''
+		(match) => unitShorthandMap[match] ?? "",
 	);
 }
 
@@ -34,11 +34,11 @@ function getSecondsUntilUpdate(seconds: number) {
 }
 
 export function getTimeAgo(input: Date | number, addSuffix: boolean = true): string {
-	const date = typeof input === 'number' ? new Date(input) : input;
+	const date = typeof input === "number" ? new Date(input) : input;
 
 	const seconds = Math.round(Math.abs((new Date().getTime() - date.getTime()) / 1000.0));
 	if (seconds < 10) {
-		return 'just now';
+		return "just now";
 	} else {
 		return customFormatDistance(date, addSuffix);
 	}
@@ -50,7 +50,7 @@ export function getTimeAgo(input: Date | number, addSuffix: boolean = true): str
 function createTimeBasedStore(
 	date: Date | undefined,
 	formatFn: (date: Date) => string,
-	getUpdateInterval: (seconds: number) => number
+	getUpdateInterval: (seconds: number) => number,
 ): Readable<string> | undefined {
 	if (!date) return;
 	let timeoutId: number;
@@ -75,7 +75,7 @@ function createTimeBasedStore(
 
 export function createTimeAgoStore(
 	date: Date | undefined,
-	addSuffix: boolean = false
+	addSuffix: boolean = false,
 ): Readable<string> | undefined {
 	return createTimeBasedStore(date, (d) => getTimeAgo(d, addSuffix), getSecondsUntilUpdate);
 }
@@ -85,18 +85,18 @@ export function createTimeAgoStore(
  * Example: "January 15, 2024 at 3:45 PM" (US) or "15 January 2024 at 15:45" (UK)
  */
 export function getAbsoluteTimestamp(input: Date | number | undefined, locale?: string): string {
-	if (!input) return '';
-	const date = typeof input === 'number' ? new Date(input) : input;
+	if (!input) return "";
+	const date = typeof input === "number" ? new Date(input) : input;
 
 	// Format the date and time using specified locale or browser locale
 	const dateStr = date.toLocaleDateString(locale, {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric'
+		year: "numeric",
+		month: "long",
+		day: "numeric",
 	});
 	const timeStr = date.toLocaleTimeString(locale, {
-		hour: '2-digit',
-		minute: '2-digit'
+		hour: "2-digit",
+		minute: "2-digit",
 	});
 
 	return `${dateStr} at ${timeStr}`;
@@ -109,7 +109,7 @@ export function getAbsoluteTimestamp(input: Date | number | undefined, locale?: 
  * - > 24 hours: shows date and time without seconds using browser locale
  */
 export function getTimestamp(input: Date | number): string {
-	const date = typeof input === 'number' ? new Date(input) : input;
+	const date = typeof input === "number" ? new Date(input) : input;
 	const seconds = Math.round(Math.abs((new Date().getTime() - date.getTime()) / 1000.0));
 
 	const twoMinutes = 2 * 60;
@@ -118,25 +118,25 @@ export function getTimestamp(input: Date | number): string {
 	if (seconds < twoMinutes) {
 		// Show time with seconds using browser locale
 		return date.toLocaleTimeString(undefined, {
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit'
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
 		});
 	} else if (seconds < day) {
 		// Show time without seconds using browser locale
 		return date.toLocaleTimeString(undefined, {
-			hour: '2-digit',
-			minute: '2-digit'
+			hour: "2-digit",
+			minute: "2-digit",
 		});
 	} else {
 		// Show date and time without seconds using browser locale
 		const dateStr = date.toLocaleDateString(undefined, {
-			month: '2-digit',
-			day: '2-digit'
+			month: "2-digit",
+			day: "2-digit",
 		});
 		const timeStr = date.toLocaleTimeString(undefined, {
-			hour: '2-digit',
-			minute: '2-digit'
+			hour: "2-digit",
+			minute: "2-digit",
 		});
 		return `${dateStr} ${timeStr}`;
 	}
@@ -167,16 +167,16 @@ export function createTimestampStore(date: Date | undefined): Readable<string> |
 
 // SHORTHAND WORDS
 const unitShorthandMap: Record<string, string> = {
-	second: 'sec',
-	seconds: 'sec',
-	minute: 'min',
-	minutes: 'min',
-	hour: 'hour',
-	hours: 'hours',
-	day: 'day',
-	days: 'days',
-	month: 'mo',
-	months: 'mo',
-	year: 'yr',
-	years: 'yr'
+	second: "sec",
+	seconds: "sec",
+	minute: "min",
+	minutes: "min",
+	hour: "hour",
+	hours: "hours",
+	day: "day",
+	days: "days",
+	month: "mo",
+	months: "mo",
+	year: "yr",
+	years: "yr",
 };

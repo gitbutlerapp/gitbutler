@@ -5,7 +5,7 @@
 		text?: string;
 	}
 
-	const { href = '', title = undefined, text = '' }: Props = $props();
+	const { href = "", title = undefined, text = "" }: Props = $props();
 </script>
 
 <img src={href} {title} alt={text} class="markdown__img" />

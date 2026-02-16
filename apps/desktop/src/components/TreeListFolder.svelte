@@ -1,20 +1,20 @@
 <script lang="ts">
-	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
-	import { draggableChips } from '$lib/dragging/draggable';
-	import { FolderChangeDropData } from '$lib/dragging/draggables';
-	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-	import { getAllChanges, nodePath, type TreeNode } from '$lib/files/filetreeV3';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { FolderListItem } from '@gitbutler/ui';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import type { SelectionId } from '$lib/selection/key';
+	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
+	import { draggableChips } from "$lib/dragging/draggable";
+	import { FolderChangeDropData } from "$lib/dragging/draggables";
+	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { getAllChanges, nodePath, type TreeNode } from "$lib/files/filetreeV3";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { FolderListItem } from "@gitbutler/ui";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import type { SelectionId } from "$lib/selection/key";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		selectionId: SelectionId;
-		node: TreeNode & { kind: 'dir' };
+		node: TreeNode & { kind: "dir" };
 		depth: number;
 		showCheckbox?: boolean;
 		draggable?: boolean;
@@ -35,7 +35,7 @@
 		isExpanded,
 		onclick,
 		ontoggle,
-		testId
+		testId,
 	}: Props = $props();
 
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
@@ -63,7 +63,7 @@
 	function onContextMenu(e: MouseEvent) {
 		const item = {
 			path: folderPath,
-			changes: getTreeChanges()
+			changes: getTreeChanges(),
 		};
 		contextMenu?.open(e, item);
 	}
@@ -80,9 +80,9 @@
 		filePath: folderPath,
 		data: new FolderChangeDropData(folderPath, getTreeChanges, selectionId, stackId),
 		disabled: draggableDisabled,
-		chipType: 'folder',
+		chipType: "folder",
 		dropzoneRegistry,
-		dragStateService
+		dragStateService,
 	}}
 >
 	<ChangedFilesContextMenu
@@ -99,8 +99,8 @@
 		{depth}
 		{isExpanded}
 		{showCheckbox}
-		checked={selectionStatus.current === 'checked'}
-		indeterminate={selectionStatus.current === 'indeterminate'}
+		checked={selectionStatus.current === "checked"}
+		indeterminate={selectionStatus.current === "indeterminate"}
 		draggable={!draggableDisabled}
 		oncheck={(e) => handleCheck(e.currentTarget.checked)}
 		{onclick}

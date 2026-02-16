@@ -1,6 +1,6 @@
 <script lang="ts">
-	import HunkDiffRow, { type ContextMenuParams } from '$components/hunkDiff/HunkDiffRow.svelte';
-	import LineSelection from '$components/hunkDiff/lineSelection.svelte';
+	import HunkDiffRow, { type ContextMenuParams } from "$components/hunkDiff/HunkDiffRow.svelte";
+	import LineSelection from "$components/hunkDiff/lineSelection.svelte";
 	import {
 		type ContentSection,
 		type DependencyLock,
@@ -10,10 +10,10 @@
 		type LineLock,
 		parserFromFilename,
 		type Row,
-		SectionType
-	} from '$lib/utils/diffParsing';
-	import type { LineSelectionParams } from '$components/hunkDiff/lineSelection.svelte';
-	import type { Snippet } from 'svelte';
+		SectionType,
+	} from "$lib/utils/diffParsing";
+	import type { LineSelectionParams } from "$components/hunkDiff/lineSelection.svelte";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		filePath: string;
@@ -50,13 +50,13 @@
 		stagedLines,
 		hideCheckboxes,
 		handleLineContextMenu,
-		lockWarning
+		lockWarning,
 	}: Props = $props();
 
 	const lineSelection = new LineSelection();
 	const parser = $derived(parserFromFilename(filePath));
 	const renderRows = $derived(
-		generateRows(filePath, content, inlineUnifiedDiffs, parser, undefined, lineLocks)
+		generateRows(filePath, content, inlineUnifiedDiffs, parser, undefined, lineLocks),
 	);
 	const clickable = $derived(!!isSelectable);
 	const maxLineNumber = $derived.by(() => {
@@ -99,7 +99,7 @@
 		if (staged === undefined) return undefined;
 		if (stagedLines === undefined || stagedLines.length === 0) return staged;
 		return stagedLines.some(
-			(line) => line.newLine === row.afterLineNumber && line.oldLine === row.beforeLineNumber
+			(line) => line.newLine === row.afterLineNumber && line.oldLine === row.beforeLineNumber,
 		);
 	}
 
@@ -113,13 +113,13 @@
 			[
 				{
 					sectionType: SectionType.Context,
-					lines: [{ beforeLineNumber: 0, afterLineNumber: 0, content: comment }]
-				}
+					lines: [{ beforeLineNumber: 0, afterLineNumber: 0, content: comment }],
+				},
 			],
 			false,
 			parser,
 			undefined,
-			undefined
+			undefined,
 		);
 	});
 
@@ -127,7 +127,7 @@
 
 	function divideIntoChunks<T>(array: T[], size: number): T[][] {
 		return Array.from({ length: Math.ceil(array.length / size) }, (_v, i) =>
-			array.slice(i * size, size * (i + 1))
+			array.slice(i * size, size * (i + 1)),
 		);
 	}
 
@@ -139,7 +139,7 @@
 		<tr>
 			<td class="diff-comment__number-column" colspan={commentNumericColSpan}>comment</td>
 			<td style="--tab-size: {tabSize};" class="diff-comment">
-				{@html commentRow.tokens.join('')}
+				{@html commentRow.tokens.join("")}
 			</td>
 		</tr>
 	</tbody>
@@ -147,7 +147,7 @@
 
 {#each renderChunks as chunkRows}
 	<tbody>
-		{#each chunkRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber } ))}
+		{#each chunkRows as row, idx (lineIdKey( { oldLine: row.beforeLineNumber, newLine: row.afterLineNumber }, ))}
 			<HunkDiffRow
 				{minWidth}
 				{idx}

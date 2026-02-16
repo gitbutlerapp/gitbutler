@@ -1,25 +1,25 @@
-import { isBrowserBusy, waitUntilIdle, doAndWaitForIdle, waitForBrowserIdle } from './test-utils';
-import { test, expect } from '@playwright/experimental-ct-svelte';
+import { isBrowserBusy, waitUntilIdle, doAndWaitForIdle, waitForBrowserIdle } from "./test-utils";
+import { test, expect } from "@playwright/experimental-ct-svelte";
 
-test.describe('Browser Idle Detection', () => {
-	test('isBrowserBusy should detect running animations', async ({ page }) => {
+test.describe("Browser Idle Detection", () => {
+	test("isBrowserBusy should detect running animations", async ({ page }) => {
 		// Initially browser should be idle
-		await page.goto('about:blank');
+		await page.goto("about:blank");
 		const initiallyBusy = await isBrowserBusy(page);
 		expect(initiallyBusy).toBe(false);
 
 		// Start an animation
 		await page.evaluate(() => {
-			const div = document.createElement('div');
-			div.style.width = '100px';
-			div.style.height = '100px';
-			div.style.backgroundColor = 'red';
+			const div = document.createElement("div");
+			div.style.width = "100px";
+			div.style.height = "100px";
+			div.style.backgroundColor = "red";
 			document.body.appendChild(div);
 
 			// Start animation
 			div.animate([{ opacity: 0 }, { opacity: 1 }], {
 				duration: 2000,
-				iterations: 1
+				iterations: 1,
 			});
 		});
 
@@ -35,19 +35,19 @@ test.describe('Browser Idle Detection', () => {
 		expect(idleAfterAnimation).toBe(false);
 	});
 
-	test('waitUntilIdle should wait for animations to complete', async ({ page }) => {
-		await page.goto('about:blank');
+	test("waitUntilIdle should wait for animations to complete", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// Start a short animation
 		await page.evaluate(() => {
-			const div = document.createElement('div');
-			div.style.width = '100px';
-			div.style.height = '100px';
+			const div = document.createElement("div");
+			div.style.width = "100px";
+			div.style.height = "100px";
 			document.body.appendChild(div);
 
 			div.animate([{ opacity: 0 }, { opacity: 1 }], {
 				duration: 500,
-				iterations: 1
+				iterations: 1,
 			});
 		});
 
@@ -67,19 +67,19 @@ test.describe('Browser Idle Detection', () => {
 		expect(busy).toBe(false);
 	});
 
-	test('waitUntilIdle should timeout if browser stays busy', async ({ page }) => {
-		await page.goto('about:blank');
+	test("waitUntilIdle should timeout if browser stays busy", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// Start a very long animation
 		await page.evaluate(() => {
-			const div = document.createElement('div');
-			div.style.width = '100px';
-			div.style.height = '100px';
+			const div = document.createElement("div");
+			div.style.width = "100px";
+			div.style.height = "100px";
 			document.body.appendChild(div);
 
 			div.animate([{ opacity: 0 }, { opacity: 1 }], {
 				duration: 10000, // 10 seconds
-				iterations: 1
+				iterations: 1,
 			});
 		});
 
@@ -95,8 +95,8 @@ test.describe('Browser Idle Detection', () => {
 		expect(elapsedTime).toBeLessThan(1000);
 	});
 
-	test('doAndWaitForIdle should execute action and wait for idle', async ({ page }) => {
-		await page.goto('about:blank');
+	test("doAndWaitForIdle should execute action and wait for idle", async ({ page }) => {
+		await page.goto("about:blank");
 
 		let actionExecuted = false;
 
@@ -106,18 +106,18 @@ test.describe('Browser Idle Detection', () => {
 				actionExecuted = true;
 				// Trigger an animation
 				await page.evaluate(() => {
-					const div = document.createElement('div');
-					div.style.width = '100px';
-					div.style.height = '100px';
+					const div = document.createElement("div");
+					div.style.width = "100px";
+					div.style.height = "100px";
 					document.body.appendChild(div);
 
 					div.animate([{ opacity: 0 }, { opacity: 1 }], {
 						duration: 300,
-						iterations: 1
+						iterations: 1,
 					});
 				});
 			},
-			{ maxWait: 2000 }
+			{ maxWait: 2000 },
 		);
 
 		// Action should have been executed
@@ -128,8 +128,8 @@ test.describe('Browser Idle Detection', () => {
 		expect(busy).toBe(false);
 	});
 
-	test('waitForBrowserIdle should handle network idle state', async ({ page }) => {
-		await page.goto('about:blank');
+	test("waitForBrowserIdle should handle network idle state", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// This should complete quickly since there's no network activity
 		const startTime = Date.now();
@@ -140,8 +140,8 @@ test.describe('Browser Idle Detection', () => {
 		expect(elapsedTime).toBeLessThan(500);
 	});
 
-	test('waitUntilIdle should require consecutive idle checks', async ({ page }) => {
-		await page.goto('about:blank');
+	test("waitUntilIdle should require consecutive idle checks", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// Create a function that alternates between busy and idle
 		await page.evaluate(() => {
@@ -152,14 +152,14 @@ test.describe('Browser Idle Detection', () => {
 					animations.forEach((anim) => anim.cancel());
 				} else {
 					// Start a short animation
-					const div = document.createElement('div');
-					div.style.width = '100px';
-					div.style.height = '100px';
+					const div = document.createElement("div");
+					div.style.width = "100px";
+					div.style.height = "100px";
 					document.body.appendChild(div);
 
 					div.animate([{ opacity: 0 }, { opacity: 1 }], {
 						duration: 50,
-						iterations: 1
+						iterations: 1,
 					});
 				}
 			};
@@ -167,14 +167,14 @@ test.describe('Browser Idle Detection', () => {
 
 		// Start with animation
 		await page.evaluate(() => {
-			const div = document.createElement('div');
-			div.style.width = '100px';
-			div.style.height = '100px';
+			const div = document.createElement("div");
+			div.style.width = "100px";
+			div.style.height = "100px";
 			document.body.appendChild(div);
 
 			div.animate([{ opacity: 0 }, { opacity: 1 }], {
 				duration: 200,
-				iterations: 1
+				iterations: 1,
 			});
 		});
 
@@ -184,7 +184,7 @@ test.describe('Browser Idle Detection', () => {
 		await waitUntilIdle(page, {
 			maxWait: 2000,
 			checkInterval: 50,
-			consecutiveIdleChecks: 3 // Require 3 consecutive checks
+			consecutiveIdleChecks: 3, // Require 3 consecutive checks
 		});
 
 		const elapsedTime = Date.now() - startTime;
@@ -193,13 +193,13 @@ test.describe('Browser Idle Detection', () => {
 		expect(elapsedTime).toBeGreaterThanOrEqual(200); // At least animation duration
 	});
 
-	test('isBrowserBusy should handle page with no animations', async ({ page }) => {
-		await page.goto('about:blank');
+	test("isBrowserBusy should handle page with no animations", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// Add some static content
 		await page.evaluate(() => {
-			const div = document.createElement('div');
-			div.textContent = 'Static content';
+			const div = document.createElement("div");
+			div.textContent = "Static content";
 			document.body.appendChild(div);
 		});
 
@@ -207,22 +207,22 @@ test.describe('Browser Idle Detection', () => {
 		expect(busy).toBe(false);
 	});
 
-	test('isBrowserBusy should detect CSS transitions', async ({ page }) => {
-		await page.goto('about:blank');
+	test("isBrowserBusy should detect CSS transitions", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// Create element with transition
 		await page.evaluate(() => {
-			const div = document.createElement('div');
-			div.style.width = '100px';
-			div.style.height = '100px';
-			div.style.backgroundColor = 'red';
-			div.style.transition = 'opacity 1s';
-			div.style.opacity = '0';
+			const div = document.createElement("div");
+			div.style.width = "100px";
+			div.style.height = "100px";
+			div.style.backgroundColor = "red";
+			div.style.transition = "opacity 1s";
+			div.style.opacity = "0";
 			document.body.appendChild(div);
 
 			// Trigger transition
 			setTimeout(() => {
-				div.style.opacity = '1';
+				div.style.opacity = "1";
 			}, 10);
 		});
 
@@ -233,11 +233,11 @@ test.describe('Browser Idle Detection', () => {
 		const busy = await isBrowserBusy(page);
 		// Note: This might be true or false depending on timing
 		// The important thing is it doesn't throw an error
-		expect(typeof busy).toBe('boolean');
+		expect(typeof busy).toBe("boolean");
 	});
 
-	test('waitUntilIdle with custom options', async ({ page }) => {
-		await page.goto('about:blank');
+	test("waitUntilIdle with custom options", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// Should complete quickly for idle page
 		const startTime = Date.now();
@@ -245,7 +245,7 @@ test.describe('Browser Idle Detection', () => {
 		await waitUntilIdle(page, {
 			maxWait: 10000,
 			checkInterval: 100,
-			consecutiveIdleChecks: 5
+			consecutiveIdleChecks: 5,
 		});
 
 		const elapsedTime = Date.now() - startTime;
@@ -256,14 +256,14 @@ test.describe('Browser Idle Detection', () => {
 		expect(elapsedTime).toBeLessThan(2000);
 	});
 
-	test('doAndWaitForIdle should handle errors in action', async ({ page }) => {
-		await page.goto('about:blank');
+	test("doAndWaitForIdle should handle errors in action", async ({ page }) => {
+		await page.goto("about:blank");
 
 		// Action that throws should propagate error
 		await expect(
 			doAndWaitForIdle(page, async () => {
-				throw new Error('Action failed');
-			})
-		).rejects.toThrow('Action failed');
+				throw new Error("Action failed");
+			}),
+		).rejects.toThrow("Action failed");
 	});
 });

@@ -1,8 +1,8 @@
-import Component from '$components/test/change-during-async-sees-updates-two-components/Component.svelte';
-import { ExternallyResolvedPromise } from '$lib/utils/resolveExternally';
-import { render, screen } from '@testing-library/svelte';
-import userEvent from '@testing-library/user-event';
-import { expect, test } from 'vitest';
+import Component from "$components/test/change-during-async-sees-updates-two-components/Component.svelte";
+import { ExternallyResolvedPromise } from "$lib/utils/resolveExternally";
+import { render, screen } from "@testing-library/svelte";
+import userEvent from "@testing-library/user-event";
+import { expect, test } from "vitest";
 
 /**
  * This shows the behavior of a variable changing while a promise is being
@@ -19,7 +19,7 @@ import { expect, test } from 'vitest';
  *     log(value);
  * }
  */
-test('Component', async () => {
+test("Component", async () => {
 	const logs: string[] = [];
 	// eslint-disable-next-line func-style
 	const log = (value: string) => logs.push(value);
@@ -29,16 +29,16 @@ test('Component', async () => {
 	render(Component, {
 		props: {
 			log,
-			promise
-		}
+			promise,
+		},
 	});
-	const logButton = await screen.findByText('log');
-	const updateStateButton = await screen.findByText('update-state');
+	const logButton = await screen.findByText("log");
+	const updateStateButton = await screen.findByText("update-state");
 
 	await user.click(logButton);
-	expect(logs).toEqual(['hello']);
+	expect(logs).toEqual(["hello"]);
 	await user.click(updateStateButton);
 	promise.resolve();
 	await promise.promise;
-	expect(logs).toEqual(['hello', 'world']);
+	expect(logs).toEqual(["hello", "world"]);
 });

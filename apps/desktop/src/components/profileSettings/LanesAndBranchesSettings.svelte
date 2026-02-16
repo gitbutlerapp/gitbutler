@@ -3,15 +3,15 @@
 		autoSelectBranchNameFeature,
 		autoSelectBranchCreationFeature,
 		stagingBehaviorFeature,
-		type StagingBehavior
-	} from '$lib/config/uiFeatureFlags';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { CardGroup, RadioButton, Toggle } from '@gitbutler/ui';
+		type StagingBehavior,
+	} from "$lib/config/uiFeatureFlags";
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { CardGroup, RadioButton, Toggle } from "@gitbutler/ui";
 
-	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
+	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 	function onStagingBehaviorFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
-		const selectedStagingBehavior = formData.get('stagingBehaviorType') as StagingBehavior | null;
+		const selectedStagingBehavior = formData.get("stagingBehaviorType") as StagingBehavior | null;
 		if (!selectedStagingBehavior) return;
 		stagingBehaviorFeature.set(selectedStagingBehavior);
 	}
@@ -84,7 +84,7 @@
 					name="stagingBehaviorType"
 					value="all"
 					id="stage-all"
-					checked={$stagingBehaviorFeature === 'all'}
+					checked={$stagingBehaviorFeature === "all"}
 				/>
 			{/snippet}
 		</CardGroup.Item>
@@ -102,7 +102,7 @@
 					name="stagingBehaviorType"
 					value="selection"
 					id="stage-selection"
-					checked={$stagingBehaviorFeature === 'selection'}
+					checked={$stagingBehaviorFeature === "selection"}
 				/>
 			{/snippet}
 		</CardGroup.Item>
@@ -119,7 +119,7 @@
 					name="stagingBehaviorType"
 					value="none"
 					id="stage-none"
-					checked={$stagingBehaviorFeature === 'none'}
+					checked={$stagingBehaviorFeature === "none"}
 				/>
 			{/snippet}
 		</CardGroup.Item>

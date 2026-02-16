@@ -6,17 +6,17 @@ The implementation of the wrapping is handled by a lib file since it needs
 to be shared with e.g. wrapping rich text converted into markdown.
 -->
 <script lang="ts">
-	import { WRAP_ALL_COMMAND } from '$lib/richText/commands';
-	import { wrapAll, wrapIfNecessary } from '$lib/richText/linewrap';
+	import { WRAP_ALL_COMMAND } from "$lib/richText/commands";
+	import { wrapAll, wrapIfNecessary } from "$lib/richText/linewrap";
 	import {
 		$isTextNode as isTextNode,
 		TextNode,
 		type NodeKey,
 		type NodeMutation,
 		$getNodeByKey as getNodeByKey,
-		COMMAND_PRIORITY_NORMAL
-	} from 'lexical';
-	import { getEditor } from 'svelte-lexical';
+		COMMAND_PRIORITY_NORMAL,
+	} from "lexical";
+	import { getEditor } from "svelte-lexical";
 
 	type Props = {
 		maxLength: number | undefined;
@@ -52,15 +52,15 @@ to be shared with e.g. wrapping rich text converted into markdown.
 				}
 				return true;
 			},
-			COMMAND_PRIORITY_NORMAL
-		)
+			COMMAND_PRIORITY_NORMAL,
+		),
 	);
 
 	function onTextNodeMutation(nodes: Map<NodeKey, NodeMutation>) {
 		editor.update(
 			() => {
 				for (const [key, type] of nodes.entries()) {
-					if (type !== 'updated' || !maxLength) continue;
+					if (type !== "updated" || !maxLength) continue;
 
 					const node = getNodeByKey(key);
 					if (!node || !isTextNode(node) || isInCodeBlock(node)) continue;
@@ -70,8 +70,8 @@ to be shared with e.g. wrapping rich text converted into markdown.
 			},
 			{
 				// Merge with the current history entry so wrapping doesn't create separate undo steps
-				tag: 'history-merge'
-			}
+				tag: "history-merge",
+			},
 		);
 	}
 
@@ -84,7 +84,7 @@ to be shared with e.g. wrapping rich text converted into markdown.
 		let depth = 0;
 
 		while (current) {
-			if (current.getType?.() === 'code') {
+			if (current.getType?.() === "code") {
 				return true;
 			}
 			current = current.getParent?.();
@@ -92,7 +92,7 @@ to be shared with e.g. wrapping rich text converted into markdown.
 
 			if (depth > 10) {
 				console.warn(
-					'[HardWrap] Parent chain depth exceeded 10, stopping to prevent infinite loop'
+					"[HardWrap] Parent chain depth exceeded 10, stopping to prevent infinite loop",
 				);
 				return false;
 			}

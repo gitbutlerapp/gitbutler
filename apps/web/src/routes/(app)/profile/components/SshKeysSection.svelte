@@ -1,8 +1,8 @@
 <script lang="ts">
-	import AddSshKeyModal from '$lib/components/AddSshKeyModal.svelte';
-	import { CardGroup, Spacer } from '@gitbutler/ui';
-	import type { SshKey, SshKeyService } from '$lib/sshKeyService';
-	import type { UserService } from '$lib/user/userService';
+	import AddSshKeyModal from "$lib/components/AddSshKeyModal.svelte";
+	import { CardGroup, Spacer } from "@gitbutler/ui";
+	import type { SshKey, SshKeyService } from "$lib/sshKeyService";
+	import type { UserService } from "$lib/user/userService";
 
 	interface Props {
 		sshKeyService: SshKeyService;
@@ -14,7 +14,7 @@
 	let sshKeys = $state<SshKey[]>([]);
 	let loadingSshKeys = $state(true);
 	let generatingSshToken = $state(false);
-	let sshKeyToken = $state('');
+	let sshKeyToken = $state("");
 	let showSshKeyTokenModal = $state(false);
 	let addKeyModal = $state<AddSshKeyModal>();
 
@@ -26,7 +26,7 @@
 		try {
 			sshKeys = await sshKeyService.getSshKeys();
 		} catch (error) {
-			console.error('Failed to load SSH keys:', error);
+			console.error("Failed to load SSH keys:", error);
 		} finally {
 			loadingSshKeys = false;
 		}
@@ -43,7 +43,7 @@
 			await sshKeyService.deleteSshKey(key.fingerprint);
 			sshKeys = sshKeys.filter((key) => key.fingerprint !== fingerprint);
 		} catch (error) {
-			console.error('Failed to delete SSH key:', error);
+			console.error("Failed to delete SSH key:", error);
 		}
 	}
 
@@ -55,17 +55,17 @@
 		generatingSshToken = true;
 		try {
 			const updatedUser = await userService.updateUser({
-				generate_ssh_token: true
+				generate_ssh_token: true,
 			});
 
 			if (updatedUser && updatedUser.ssh_key_token) {
 				sshKeyToken = updatedUser.ssh_key_token;
 				showSshKeyTokenModal = true;
 			} else {
-				console.error('Failed to generate SSH key token: No token returned');
+				console.error("Failed to generate SSH key token: No token returned");
 			}
 		} catch (error) {
-			console.error('Failed to generate SSH key token:', error);
+			console.error("Failed to generate SSH key token:", error);
 		} finally {
 			generatingSshToken = false;
 		}
@@ -73,7 +73,7 @@
 
 	function closeSshKeyTokenModal() {
 		showSshKeyTokenModal = false;
-		sshKeyToken = '';
+		sshKeyToken = "";
 	}
 
 	function handleModalClick(e: Event) {
@@ -118,7 +118,7 @@
 			disabled={generatingSshToken}
 		>
 			<span class="add-key-icon">+</span>
-			<span>{generatingSshToken ? 'Generating...' : 'Add Key via SSH'}</span>
+			<span>{generatingSshToken ? "Generating..." : "Add Key via SSH"}</span>
 		</button>
 	</div>
 </CardGroup.Item>

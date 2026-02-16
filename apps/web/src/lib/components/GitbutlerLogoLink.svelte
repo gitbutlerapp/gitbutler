@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { inject } from "@gitbutler/core/context";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 
 	interface Props {
 		markOnly?: boolean;

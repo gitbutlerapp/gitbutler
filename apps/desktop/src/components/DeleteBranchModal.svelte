@@ -7,9 +7,9 @@
 </script>
 
 <script lang="ts">
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, TestId } from '@gitbutler/ui';
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Modal, TestId } from "@gitbutler/ui";
 
 	const { projectId, stackId, branchName }: DeleteBranchModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
@@ -31,7 +31,7 @@
 		await removeBranch({
 			projectId,
 			stackId,
-			branchName
+			branchName,
 		});
 		close();
 	}}

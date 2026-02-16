@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import Icon from '$components/Icon.svelte';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import Button from "$components/Button.svelte";
+	import ContextMenu from "$components/ContextMenu.svelte";
+	import Icon from "$components/Icon.svelte";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		showOnHover?: boolean;
@@ -13,8 +13,8 @@
 		contextMenuTestId?: string;
 		buttonClassname?: string;
 		contextMenu: Snippet<[{ close: () => void }]>;
-		menuSide?: 'top' | 'bottom' | 'left' | 'right';
-		menuAlign?: 'start' | 'center' | 'end';
+		menuSide?: "top" | "bottom" | "left" | "right";
+		menuAlign?: "start" | "center" | "end";
 		icon?: keyof typeof iconsJson;
 		onMenuClose?: () => void;
 		onMenuOpen?: () => void;
@@ -29,12 +29,12 @@
 		contextMenuTestId,
 		buttonClassname,
 		contextMenu: contextMenuSnippet,
-		menuSide = 'bottom',
-		menuAlign = 'end',
-		icon = 'kebab',
+		menuSide = "bottom",
+		menuAlign = "end",
+		icon = "kebab",
 		onMenuClose,
 		onMenuOpen,
-		onMenuToggle
+		onMenuToggle,
 	}: Props = $props();
 
 	let visible = $state(false);
@@ -79,17 +79,17 @@
 
 	$effect(() => {
 		if (contextElement) {
-			contextElement.addEventListener('contextmenu', onContextMenu);
-			contextElement.addEventListener('mouseenter', onMouseEnter);
-			contextElement.addEventListener('mouseleave', onMouseLeave);
-			contextElement.addEventListener('focus', onFocus);
-			contextElement.addEventListener('blur', onBlur);
+			contextElement.addEventListener("contextmenu", onContextMenu);
+			contextElement.addEventListener("mouseenter", onMouseEnter);
+			contextElement.addEventListener("mouseleave", onMouseLeave);
+			contextElement.addEventListener("focus", onFocus);
+			contextElement.addEventListener("blur", onBlur);
 			return () => {
-				contextElement.removeEventListener('contextmenu', onContextMenu);
-				contextElement.removeEventListener('mouseenter', onMouseEnter);
-				contextElement.removeEventListener('mouseleave', onMouseLeave);
-				contextElement.removeEventListener('focus', onFocus);
-				contextElement.removeEventListener('blur', onBlur);
+				contextElement.removeEventListener("contextmenu", onContextMenu);
+				contextElement.removeEventListener("mouseenter", onMouseEnter);
+				contextElement.removeEventListener("mouseleave", onMouseLeave);
+				contextElement.removeEventListener("focus", onFocus);
+				contextElement.removeEventListener("blur", onBlur);
 			};
 		}
 	});
@@ -99,7 +99,7 @@
 	<button
 		bind:this={buttonElement}
 		type="button"
-		class={['kebab-btn', buttonClassname]}
+		class={["kebab-btn", buttonClassname]}
 		class:visible
 		class:show-on-hover={showOnHover}
 		class:minimal

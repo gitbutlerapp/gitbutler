@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { USER_SERVICE } from '@gitbutler/shared/users/userService';
-	import { getUserByLogin } from '@gitbutler/shared/users/usersPreview.svelte';
+	import { inject } from "@gitbutler/core/context";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { USER_SERVICE } from "@gitbutler/shared/users/userService";
+	import { getUserByLogin } from "@gitbutler/shared/users/usersPreview.svelte";
 	interface Props {
 		username: string;
 	}

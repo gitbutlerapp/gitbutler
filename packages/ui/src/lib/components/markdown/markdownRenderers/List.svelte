@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { type Snippet } from 'svelte';
+	import { type Snippet } from "svelte";
 
 	interface Props {
 		ordered: boolean;
-		start: number | '';
+		start: number | "";
 		children: Snippet;
 	}
 

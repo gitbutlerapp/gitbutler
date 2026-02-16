@@ -1,31 +1,31 @@
 <script lang="ts">
-	import Badge from '$components/Badge.svelte';
-	import Icon from '$components/Icon.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
-	import type { FileStatus } from '$components/file/types';
-	import type { ComponentColorType } from '$lib/utils/colorTypes';
+	import Badge from "$components/Badge.svelte";
+	import Icon from "$components/Icon.svelte";
+	import Tooltip from "$components/Tooltip.svelte";
+	import type { FileStatus } from "$components/file/types";
+	import type { ComponentColorType } from "$lib/utils/colorTypes";
 
 	interface Props {
 		status: FileStatus;
-		style?: 'dot' | 'full' | 'full-large';
+		style?: "dot" | "full" | "full-large";
 		tooltip?: string;
 		color?: string;
 	}
 
-	const { status, style = 'full', tooltip, color }: Props = $props();
+	const { status, style = "full", tooltip, color }: Props = $props();
 
 	const TOOLTIP_MAX_WIDTH = 320;
 
 	function getFullStatusText(status: FileStatus): string {
 		switch (status) {
-			case 'addition':
-				return 'Added';
-			case 'modification':
-				return 'Modified';
-			case 'deletion':
-				return 'Deleted';
-			case 'rename':
-				return 'Renamed';
+			case "addition":
+				return "Added";
+			case "modification":
+				return "Modified";
+			case "deletion":
+				return "Deleted";
+			case "rename":
+				return "Renamed";
 			default:
 				return status;
 		}
@@ -33,47 +33,47 @@
 
 	function getStatusColor(status: FileStatus): ComponentColorType {
 		switch (status) {
-			case 'addition':
-				return 'safe';
-			case 'modification':
-				return 'warning';
-			case 'deletion':
-				return 'danger';
-			case 'rename':
-				return 'purple';
+			case "addition":
+				return "safe";
+			case "modification":
+				return "warning";
+			case "deletion":
+				return "danger";
+			case "rename":
+				return "purple";
 			default:
-				return 'gray';
+				return "gray";
 		}
 	}
 </script>
 
-{#if style === 'dot'}
+{#if style === "dot"}
 	<Tooltip text={!tooltip ? getFullStatusText(status) : tooltip} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<div
 			class="status-dot-wrap"
 			style:--custom-file-dot-color={color}
-			class:added={status === 'addition'}
-			class:modified={status === 'modification'}
-			class:deleted={status === 'deletion'}
-			class:renamed={status === 'rename'}
+			class:added={status === "addition"}
+			class:modified={status === "modification"}
+			class:deleted={status === "deletion"}
+			class:renamed={status === "rename"}
 		>
-			{#if status === 'addition'}
+			{#if status === "addition"}
 				<Icon name="file-added" />
-			{:else if status === 'modification'}
+			{:else if status === "modification"}
 				<Icon name="file-modified" />
-			{:else if status === 'deletion'}
+			{:else if status === "deletion"}
 				<Icon name="file-deleted" />
-			{:else if status === 'rename'}
+			{:else if status === "rename"}
 				<Icon name="file-moved" />
 			{/if}
 		</div>
 	</Tooltip>
-{:else if style === 'full'}
-	<Tooltip text={status === 'rename' && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
+{:else if style === "full"}
+	<Tooltip text={status === "rename" && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<Badge style={getStatusColor(status)} kind="soft">{getFullStatusText(status)}</Badge>
 	</Tooltip>
-{:else if style === 'full-large'}
-	<Tooltip text={status === 'rename' && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
+{:else if style === "full-large"}
+	<Tooltip text={status === "rename" && tooltip ? tooltip : undefined} maxWidth={TOOLTIP_MAX_WIDTH}>
 		<Badge style={getStatusColor(status)} kind="soft" size="tag">{getFullStatusText(status)}</Badge>
 	</Tooltip>
 {/if}

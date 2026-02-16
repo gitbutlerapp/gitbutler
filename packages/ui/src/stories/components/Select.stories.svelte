@@ -1,89 +1,89 @@
 <script module lang="ts">
-	import Button from '$components/Button.svelte';
-	import Icon from '$components/Icon.svelte';
-	import Select from '$components/select/Select.svelte';
-	import SelectItem from '$components/select/SelectItem.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Button from "$components/Button.svelte";
+	import Icon from "$components/Icon.svelte";
+	import Select from "$components/select/Select.svelte";
+	import SelectItem from "$components/select/SelectItem.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Select',
+		title: "Inputs / Select",
 		args: {
 			options: [
-				{ value: '1', label: 'Option 1' },
-				{ value: '2', label: 'Option 2' },
-				{ value: '3', label: 'Option 3' },
-				{ value: '4', label: 'Option 4' },
-				{ value: '5', label: 'Option 5' }
+				{ value: "1", label: "Option 1" },
+				{ value: "2", label: "Option 2" },
+				{ value: "3", label: "Option 3" },
+				{ value: "4", label: "Option 4" },
+				{ value: "5", label: "Option 5" },
 			],
 			optionsWithIcons: [
-				{ value: 'js', label: 'JavaScript', icon: 'ai' },
-				{ value: 'ts', label: 'TypeScript', icon: 'branch-small' },
-				{ value: 'py', label: 'Python', icon: 'idea' },
-				{ value: 'rust', label: 'Rust', icon: 'docs' },
-				{ value: 'go', label: 'Go', icon: 'minus-small' }
+				{ value: "js", label: "JavaScript", icon: "ai" },
+				{ value: "ts", label: "TypeScript", icon: "branch-small" },
+				{ value: "py", label: "Python", icon: "idea" },
+				{ value: "rust", label: "Rust", icon: "docs" },
+				{ value: "go", label: "Go", icon: "minus-small" },
 			],
 			optionsWithEmojis: [
-				{ value: 'happy', label: 'Happy', emoji: '😊' },
-				{ value: 'sad', label: 'Sad', emoji: '😢' },
-				{ value: 'excited', label: 'Excited', emoji: '🎉' },
-				{ value: 'cool', label: 'Cool', emoji: '😎' },
-				{ value: 'love', label: 'Love', emoji: '❤️' }
+				{ value: "happy", label: "Happy", emoji: "😊" },
+				{ value: "sad", label: "Sad", emoji: "😢" },
+				{ value: "excited", label: "Excited", emoji: "🎉" },
+				{ value: "cool", label: "Cool", emoji: "😎" },
+				{ value: "love", label: "Love", emoji: "❤️" },
 			],
 			longOptions: [
 				{
-					value: '1',
-					label: 'This is a very long option that tests text overflow behavior in select items'
+					value: "1",
+					label: "This is a very long option that tests text overflow behavior in select items",
 				},
 				{
-					value: '2',
+					value: "2",
 					label:
-						'Super another extremely long option with lots of text to see how the component handles lengthy content and text wrapping scenarios'
+						"Super another extremely long option with lots of text to see how the component handles lengthy content and text wrapping scenarios",
 				},
 				{
-					value: '3',
+					value: "3",
 					label:
-						'Super duper ultra mega long option name that goes on and on and on to test the ellipsis functionality'
+						"Super duper ultra mega long option name that goes on and on and on to test the ellipsis functionality",
 				},
 				{
-					value: '4',
+					value: "4",
 					label:
-						'A moderately long option that is not as long as the others but still quite lengthy indeed'
+						"A moderately long option that is not as long as the others but still quite lengthy indeed",
 				},
-				{ value: '5', label: 'Short option' },
-				{ value: '6', label: 'Medium length option text here' },
+				{ value: "5", label: "Short option" },
+				{ value: "6", label: "Medium length option text here" },
 				{
-					value: '7',
+					value: "7",
 					label:
-						'This option has a very long name that includes multiple words and should demonstrate how the select component handles text truncation with ellipsis when the content exceeds the available width'
+						"This option has a very long name that includes multiple words and should demonstrate how the select component handles text truncation with ellipsis when the content exceeds the available width",
 				},
-				{ value: '8', label: 'Final long option to complete the test suite for overflow behavior' }
+				{ value: "8", label: "Final long option to complete the test suite for overflow behavior" },
 			],
 			optionsWithSeparators: [
-				{ value: 'new', label: 'New Document' },
-				{ value: 'open', label: 'Open Document' },
-				{ value: 'recent', label: 'Recent Documents' },
+				{ value: "new", label: "New Document" },
+				{ value: "open", label: "Open Document" },
+				{ value: "recent", label: "Recent Documents" },
 				{ separator: true },
-				{ value: 'save', label: 'Save' },
-				{ value: 'save-as', label: 'Save As...' },
-				{ value: 'export', label: 'Export' },
+				{ value: "save", label: "Save" },
+				{ value: "save-as", label: "Save As..." },
+				{ value: "export", label: "Export" },
 				{ separator: true },
-				{ value: 'cut', label: 'Cut' },
-				{ value: 'copy', label: 'Copy' },
-				{ value: 'paste', label: 'Paste' },
+				{ value: "cut", label: "Cut" },
+				{ value: "copy", label: "Copy" },
+				{ value: "paste", label: "Paste" },
 				{ separator: true },
-				{ value: 'settings', label: 'Settings' },
-				{ value: 'help', label: 'Help' },
-				{ value: 'about', label: 'ℹAbout' }
-			]
+				{ value: "settings", label: "Settings" },
+				{ value: "help", label: "Help" },
+				{ value: "about", label: "ℹAbout" },
+			],
 		},
-		argTypes: {}
+		argTypes: {},
 	});
 
-	let selectedItem = $state<string>('1');
-	let selectedWithIcon = $state<string>('js');
-	let selectedWithEmoji = $state<string>('happy');
+	let selectedItem = $state<string>("1");
+	let selectedWithIcon = $state<string>("js");
+	let selectedWithEmoji = $state<string>("happy");
 	let selectedLongOption = $state<string>();
-	let selectedWithSeparators = $state<string>('new');
+	let selectedWithSeparators = $state<string>("new");
 </script>
 
 <script lang="ts">
@@ -126,7 +126,7 @@
 				{#snippet customSelectButton()}
 					<Button kind="outline" icon="select-chevron" size="tag">
 						{args.options.find(
-							(option: { value: string; label: string }) => option.value === selectedItem
+							(option: { value: string; label: string }) => option.value === selectedItem,
 						)?.label}
 					</Button>
 				{/snippet}
@@ -194,9 +194,9 @@
 			<Select
 				searchable
 				options={[
-					{ value: 'builtin', label: 'Built-in Icon' },
-					{ value: 'emoji', label: 'Custom Emoji', emoji: '🎨' },
-					{ value: 'custom', label: 'Custom Component' }
+					{ value: "builtin", label: "Built-in Icon" },
+					{ value: "emoji", label: "Custom Emoji", emoji: "🎨" },
+					{ value: "custom", label: "Custom Component" },
 				]}
 				value={selectedWithIcon}
 				onselect={(value: string) => {
@@ -204,11 +204,11 @@
 				}}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					{#if item.value === 'builtin'}
+					{#if item.value === "builtin"}
 						<SelectItem selected={item.value === selectedWithIcon} {highlighted} icon="ai">
 							{item.label}
 						</SelectItem>
-					{:else if item.value === 'emoji'}
+					{:else if item.value === "emoji"}
 						<SelectItem selected={item.value === selectedWithIcon} {highlighted}>
 							{#snippet iconSnippet()}
 								<span class="emoji">{item.emoji}</span>
@@ -283,19 +283,19 @@
 			<Select
 				searchable
 				options={[
-					{ value: 'draft', label: 'Draft', icon: 'pencil' },
-					{ value: 'published', label: 'Published', icon: 'check' },
-					{ value: 'archived', label: 'Archived', icon: 'archive' },
+					{ value: "draft", label: "Draft", icon: "pencil" },
+					{ value: "published", label: "Published", icon: "check" },
+					{ value: "archived", label: "Archived", icon: "archive" },
 					{ separator: true },
-					{ value: 'high', label: 'High Priority', emoji: '🔴' },
-					{ value: 'medium', label: 'Medium Priority', emoji: '🟡' },
-					{ value: 'low', label: 'Low Priority', emoji: '🟢' },
+					{ value: "high", label: "High Priority", emoji: "🔴" },
+					{ value: "medium", label: "Medium Priority", emoji: "🟡" },
+					{ value: "low", label: "Low Priority", emoji: "🟢" },
 					{ separator: true },
-					{ value: 'today', label: 'Due Today' },
-					{ value: 'week', label: 'Due This Week' },
-					{ value: 'month', label: 'Due This Month' },
+					{ value: "today", label: "Due Today" },
+					{ value: "week", label: "Due This Week" },
+					{ value: "month", label: "Due This Month" },
 					{ separator: true },
-					{ value: 'delete', label: 'Delete', emoji: '🗑️' }
+					{ value: "delete", label: "Delete", emoji: "🗑️" },
 				]}
 				value={selectedWithSeparators}
 				onselect={(value: string) => {

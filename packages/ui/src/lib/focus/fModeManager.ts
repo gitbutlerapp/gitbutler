@@ -1,13 +1,13 @@
-import { isInputElement } from '$lib/focus/focusUtils';
+import { isInputElement } from "$lib/focus/focusUtils";
 import {
 	generateTwoLetterShortcut,
 	createShortcutOverlay,
-	removeShortcutOverlay
-} from '$lib/focus/shortcutUtils';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { FocusableNode } from '$lib/focus/focusTypes';
+	removeShortcutOverlay,
+} from "$lib/focus/shortcutUtils";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { FocusableNode } from "$lib/focus/focusTypes";
 
-export const FMODE_MANAGER: InjectionToken<FModeManager> = new InjectionToken('FModeManager');
+export const FMODE_MANAGER: InjectionToken<FModeManager> = new InjectionToken("FModeManager");
 
 /**
  * F-mode allows users to quickly navigate to buttons and containers using
@@ -35,13 +35,13 @@ export class FModeManager {
 	handleKeypress(
 		event: KeyboardEvent,
 		elements?: Map<HTMLElement, FocusableNode>,
-		currentNode?: FocusableNode
+		currentNode?: FocusableNode,
 	): boolean {
 		if (!this.featureEnabled) return false;
 
 		const key = event.key;
 
-		if (key === 'f' && !this._active) {
+		if (key === "f" && !this._active) {
 			this.activate(elements, currentNode);
 			event.preventDefault();
 			event.stopPropagation();
@@ -49,7 +49,7 @@ export class FModeManager {
 		}
 
 		if (this._active) {
-			if (key === 'Escape') {
+			if (key === "Escape") {
 				// If first letter was typed, reset to show all shortcuts
 				if (this.firstLetter) {
 					this.firstLetter = undefined;
@@ -63,7 +63,7 @@ export class FModeManager {
 				return true;
 			}
 
-			if (key === 'f') {
+			if (key === "f") {
 				this.deactivate();
 				event.preventDefault();
 				event.stopPropagation();
@@ -72,7 +72,7 @@ export class FModeManager {
 
 			const upperKey = key.toUpperCase();
 
-			if (upperKey.length !== 1 || upperKey < 'A' || upperKey > 'Z') {
+			if (upperKey.length !== 1 || upperKey < "A" || upperKey > "Z") {
 				this.deactivate();
 				return false;
 			}
@@ -180,7 +180,7 @@ export class FModeManager {
 			return;
 		}
 
-		if (isInputElement(element) && element.type !== 'checkbox') {
+		if (isInputElement(element) && element.type !== "checkbox") {
 			element.focus();
 		} else {
 			element.click();
@@ -194,7 +194,7 @@ export class FModeManager {
 		this.hideShortcut(element);
 		const overlay = createShortcutOverlay(element, shortcut);
 		this.activeOverlays.set(element, overlay);
-		element.classList.add('shortcut-visible');
+		element.classList.add("shortcut-visible");
 	}
 
 	private hideShortcut(element: HTMLElement): void {
@@ -203,14 +203,14 @@ export class FModeManager {
 			removeShortcutOverlay(overlay);
 			this.activeOverlays.delete(element);
 		}
-		element.classList.remove('shortcut-visible');
+		element.classList.remove("shortcut-visible");
 	}
 
 	private hideAllShortcuts(): void {
 		Array.from(this.activeOverlays.entries()).forEach(([element, overlay]) => {
 			removeShortcutOverlay(overlay);
-			element.removeAttribute('data-fmode-button');
-			element.classList.remove('shortcut-visible');
+			element.removeAttribute("data-fmode-button");
+			element.classList.remove("shortcut-visible");
 		});
 		this.activeOverlays.clear();
 	}

@@ -1,16 +1,16 @@
-import { AIService } from '$lib/ai/service';
-import { BaseBranch } from '$lib/baseBranch/baseBranch';
-import BaseBranchService from '$lib/baseBranch/baseBranchService.svelte';
-import { DefaultForgeFactory } from '$lib/forge/forgeFactory.svelte';
-import { StackService } from '$lib/stacks/stackService.svelte';
-import { UiState } from '$lib/state/uiState.svelte';
-import { getAIServiceMock } from '$lib/testing/mockAIService';
-import { mockCreateBackend } from '$lib/testing/mockBackend';
-import { getMockBaseBranch } from '$lib/testing/mockBaseBranch';
-import { getStackServiceMock } from '$lib/testing/mockStackService';
-import { getUiStateMock } from '$lib/testing/mockUiState';
-import { vi } from 'vitest';
-import type { IBackend } from '$lib/backend';
+import { AIService } from "$lib/ai/service";
+import { BaseBranch } from "$lib/baseBranch/baseBranch";
+import BaseBranchService from "$lib/baseBranch/baseBranchService.svelte";
+import { DefaultForgeFactory } from "$lib/forge/forgeFactory.svelte";
+import { StackService } from "$lib/stacks/stackService.svelte";
+import { UiState } from "$lib/state/uiState.svelte";
+import { getAIServiceMock } from "$lib/testing/mockAIService";
+import { mockCreateBackend } from "$lib/testing/mockBackend";
+import { getMockBaseBranch } from "$lib/testing/mockBaseBranch";
+import { getStackServiceMock } from "$lib/testing/mockStackService";
+import { getUiStateMock } from "$lib/testing/mockUiState";
+import { vi } from "vitest";
+import type { IBackend } from "$lib/backend";
 
 export type TestSetup = {
 	cleanup: () => void;
@@ -37,7 +37,7 @@ function createContext() {
 		[UiState, uiState],
 		[DefaultForgeFactory, forge],
 		[AIService, aiService],
-		[BaseBranch, baseBranch]
+		[BaseBranch, baseBranch],
 	]);
 }
 /**
@@ -78,7 +78,7 @@ export function setup(): TestSetup {
 		}
 
 		root = null;
-		rootMargin = '';
+		rootMargin = "";
 		thresholds = [];
 	};
 
@@ -86,7 +86,7 @@ export function setup(): TestSetup {
 
 	let context = createContext();
 
-	vi.spyOn(backend, 'listen').mockReturnValue(async () => {});
+	vi.spyOn(backend, "listen").mockReturnValue(async () => {});
 
 	return {
 		cleanup: () => {
@@ -95,6 +95,6 @@ export function setup(): TestSetup {
 			context = createContext();
 		},
 		context,
-		backend
+		backend,
 	};
 }

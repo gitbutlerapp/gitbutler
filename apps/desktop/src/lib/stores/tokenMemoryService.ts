@@ -1,5 +1,5 @@
-import { writable, type Readable } from 'svelte/store';
-import type { UserService as _UserService } from '$lib/user/userService';
+import { writable, type Readable } from "svelte/store";
+import type { UserService as _UserService } from "$lib/user/userService";
 
 /**
  * Holds the logged in user's token in memory

@@ -1,19 +1,19 @@
-import { GitLabBranch } from '$lib/forge/gitlab/gitlabBranch';
-import { gitlab, type GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
-import { GitLabListingService } from '$lib/forge/gitlab/gitlabListingService.svelte';
-import { GitLabPrService } from '$lib/forge/gitlab/gitlabPrService.svelte';
-import { providesList, ReduxTag } from '$lib/state/tags';
-import { toSerializable } from '@gitbutler/shared/network/types';
-import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { ForgeArguments, ForgeUser } from '$lib/forge/interface/types';
-import type { GitLabApi } from '$lib/state/clientState.svelte';
-import type { Branded } from '@gitbutler/shared/utils/branding';
-import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
-import type { TagDescription } from '@reduxjs/toolkit/query';
+import { GitLabBranch } from "$lib/forge/gitlab/gitlabBranch";
+import { gitlab, type GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
+import { GitLabListingService } from "$lib/forge/gitlab/gitlabListingService.svelte";
+import { GitLabPrService } from "$lib/forge/gitlab/gitlabPrService.svelte";
+import { providesList, ReduxTag } from "$lib/state/tags";
+import { toSerializable } from "@gitbutler/shared/network/types";
+import type { PostHogWrapper } from "$lib/analytics/posthog";
+import type { Forge, ForgeName } from "$lib/forge/interface/forge";
+import type { ForgeArguments, ForgeUser } from "$lib/forge/interface/types";
+import type { GitLabApi } from "$lib/state/clientState.svelte";
+import type { Branded } from "@gitbutler/shared/utils/branding";
+import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
+import type { TagDescription } from "@reduxjs/toolkit/query";
 
-export const GITLAB_DOMAIN = 'gitlab.com';
-export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
+export const GITLAB_DOMAIN = "gitlab.com";
+export const GITLAB_SUB_DOMAIN = "gitlab"; // For self hosted instance of Gitlab
 
 /**
  * PR support is pending OAuth support in the rust code.
@@ -22,7 +22,7 @@ export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
  * https://github.com/gitbutlerapp/gitbutler/issues/2511
  */
 export class GitLab implements Forge {
-	readonly name: ForgeName = 'gitlab';
+	readonly name: ForgeName = "gitlab";
 	readonly authenticated: boolean;
 	readonly isLoading: boolean;
 	private baseUrl: string;
@@ -37,18 +37,18 @@ export class GitLab implements Forge {
 			client: GitLabClient;
 			dispatch: ThunkDispatch<any, any, UnknownAction>;
 			isLoading: boolean;
-		}
+		},
 	) {
 		const { api, baseBranch, forkStr, authenticated, repo, isLoading } = this.params;
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
-		let protocol = repo.protocol?.endsWith(':')
+		let protocol = repo.protocol?.endsWith(":")
 			? repo.protocol.slice(0, -1)
-			: repo.protocol || 'https';
+			: repo.protocol || "https";
 
 		// SSH URLs cannot be opened in browsers, so convert to HTTPS
-		if (protocol === 'ssh') {
-			protocol = 'https';
+		if (protocol === "ssh") {
+			protocol = "https";
 		}
 
 		this.baseUrl = `${protocol}://${repo.domain}/${repo.owner}/${repo.name}`;
@@ -115,20 +115,20 @@ function injectEndpoints(api: GitLabApi) {
 						const data = {
 							id: user.id,
 							name: user.name,
-							srcUrl: user.avatar_url
+							srcUrl: user.avatar_url,
 						};
 						return { data };
 					} catch (e: unknown) {
 						return { error: toSerializable(e) };
 					}
 				},
-				providesTags: [providesList(ReduxTag.ForgeUser)]
-			})
-		})
+				providesTags: [providesList(ReduxTag.ForgeUser)],
+			}),
+		}),
 	});
 }
 
-export type GitLabProjectId = Branded<string, 'GitLabProjectId'>;
+export type GitLabProjectId = Branded<string, "GitLabProjectId">;
 
 export function createGitLabProjectId(owner: string, name: string): GitLabProjectId {
 	return encodeURI(`${owner}/${name}`) as GitLabProjectId;

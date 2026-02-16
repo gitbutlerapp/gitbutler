@@ -10,35 +10,35 @@
 </script>
 
 <script lang="ts">
-	import PrTemplateSection from '$components/PrTemplateSection.svelte';
-	import MessageEditor from '$components/editor/MessageEditor.svelte';
-	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
-	import { AI_SERVICE } from '$lib/ai/service';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { type Commit } from '$lib/branches/v3';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { projectAiGenEnabled, projectRunCommitHooks } from '$lib/config/config';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { mapErrorToToast } from '$lib/forge/github/errorMap';
-	import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
-	import { type PullRequest } from '$lib/forge/interface/types';
-	import { PrPersistedStore } from '$lib/forge/prContents';
-	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
-	import { showError, showToast } from '$lib/notifications/toasts';
-	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
-	import { partialStackRequestsForcePush, requiresPush } from '$lib/stacks/stack';
-	import { STACK_SERVICE, type BranchPushResult } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { parseRemoteUrl } from '$lib/url/gitUrl';
-	import { getBranchNameFromRef } from '$lib/utils/branch';
-	import { splitMessage } from '$lib/utils/commitMessage';
-	import { sleep } from '$lib/utils/sleep';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { chipToasts, TestId } from '@gitbutler/ui';
-	import { IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { tick } from 'svelte';
+	import PrTemplateSection from "$components/PrTemplateSection.svelte";
+	import MessageEditor from "$components/editor/MessageEditor.svelte";
+	import MessageEditorInput from "$components/editor/MessageEditorInput.svelte";
+	import { AI_SERVICE } from "$lib/ai/service";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { type Commit } from "$lib/branches/v3";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { projectAiGenEnabled, projectRunCommitHooks } from "$lib/config/config";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { mapErrorToToast } from "$lib/forge/github/errorMap";
+	import { GitHubPrService } from "$lib/forge/github/githubPrService.svelte";
+	import { type PullRequest } from "$lib/forge/interface/types";
+	import { PrPersistedStore } from "$lib/forge/prContents";
+	import { updatePrDescriptionTables as updatePrStackInfo } from "$lib/forge/shared/prFooter";
+	import { showError, showToast } from "$lib/notifications/toasts";
+	import { REMOTES_SERVICE } from "$lib/remotes/remotesService";
+	import { partialStackRequestsForcePush, requiresPush } from "$lib/stacks/stack";
+	import { STACK_SERVICE, type BranchPushResult } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { parseRemoteUrl } from "$lib/url/gitUrl";
+	import { getBranchNameFromRef } from "$lib/utils/branch";
+	import { splitMessage } from "$lib/utils/commitMessage";
+	import { sleep } from "$lib/utils/sleep";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { chipToasts, TestId } from "@gitbutler/ui";
+	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { tick } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -68,11 +68,11 @@
 	const branchesQuery = $derived(stackService.branches(projectId, stackId));
 	const branches = $derived(branchesQuery.response || []);
 	const branchParentQuery = $derived(
-		stackService.branchParentByName(projectId, stackId, branchName)
+		stackService.branchParentByName(projectId, stackId, branchName),
 	);
 	const branchParent = $derived(branchParentQuery.response);
 	const branchParentDetailsQuery = $derived(
-		branchParent ? stackService.branchDetails(projectId, stackId, branchParent.name) : undefined
+		branchParent ? stackService.branchDetails(projectId, stackId, branchParent.name) : undefined,
 	);
 	const branchParentDetails = $derived(branchParentDetailsQuery?.response);
 	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
@@ -83,10 +83,10 @@
 
 	const forgeBranch = $derived(branchName ? forge.current.branch(branchName) : undefined);
 
-	const createDraft = persisted<boolean>(false, 'createDraftPr');
+	const createDraft = persisted<boolean>(false, "createDraftPr");
 
 	const pushBeforeCreate = $derived(
-		!forgeBranch || (branchDetails ? requiresPush(branchDetails.pushStatus) : true)
+		!forgeBranch || (branchDetails ? requiresPush(branchDetails.pushStatus) : true),
 	);
 
 	let titleInput = $state<HTMLTextAreaElement | undefined>(undefined);
@@ -130,23 +130,23 @@
 		if (autoFill && commits.length === 1) {
 			return splitMessage(commits[0]!.message).description;
 		}
-		return '';
+		return "";
 	}
 
 	const prTitle = $derived(
 		new PrPersistedStore({
-			cacheKey: 'prtitle_' + projectId + '_' + branchName,
+			cacheKey: "prtitle_" + projectId + "_" + branchName,
 			commits,
-			defaultFn: getDefaultTitle
-		})
+			defaultFn: getDefaultTitle,
+		}),
 	);
 
 	const prBody = $derived(
 		new PrPersistedStore({
-			cacheKey: 'prbody' + projectId + '_' + branchName,
+			cacheKey: "prbody" + projectId + "_" + branchName,
 			commits,
-			defaultFn: getDefaultBody
-		})
+			defaultFn: getDefaultBody,
+		}),
 	);
 
 	$effect(() => {
@@ -155,10 +155,10 @@
 	});
 
 	async function pushIfNeeded(
-		branchName: string
+		branchName: string,
 	): Promise<[string | undefined, BranchPushResult | undefined]> {
 		if (pushBeforeCreate) {
-			const firstPush = branchDetails?.pushStatus === 'completelyUnpushed';
+			const firstPush = branchDetails?.pushStatus === "completelyUnpushed";
 			const withForce = partialStackRequestsForcePush(branchName, branches);
 			const pushQuery = await pushStack({
 				projectId,
@@ -167,7 +167,7 @@
 				skipForcePushProtection: false, // override available for regular push
 				branch: branchName,
 				runHooks: $runHooks,
-				pushOpts: []
+				pushOpts: [],
 			});
 
 			if (firstPush) {
@@ -190,7 +190,7 @@
 	export async function createReview() {
 		if (isExecuting) return;
 
-		const effectivePRBody = (await messageEditor?.getPlaintext()) ?? '';
+		const effectivePRBody = (await messageEditor?.getPlaintext()) ?? "";
 		// Declare early to have them inside the function closure, in case
 		// the component unmounts or updates.
 		const closureStackId = stackId;
@@ -211,7 +211,7 @@
 				title,
 				body,
 				draft,
-				upstreamBranchName: branch
+				upstreamBranchName: branch,
 			});
 
 			prBody.reset();
@@ -233,7 +233,7 @@
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!forge) {
-			chipToasts.error('Pull request service not available');
+			chipToasts.error("Pull request service not available");
 			return;
 		}
 
@@ -242,42 +242,42 @@
 
 		try {
 			if (!baseBranchName) {
-				chipToasts.error('No base branch name determined');
+				chipToasts.error("No base branch name determined");
 				return;
 			}
 
 			if (!params.upstreamBranchName) {
-				chipToasts.error('No upstream branch name determined');
+				chipToasts.error("No upstream branch name determined");
 				return;
 			}
 
 			if (!prService) {
-				chipToasts.error('Pull request service not available');
+				chipToasts.error("Pull request service not available");
 				return;
 			}
 
 			// Find the index of the current branch so we know where we want to point the pr.
 			const currentIndex = branches.findIndex((b) => b.name === params.branchName);
 			if (currentIndex === -1) {
-				throw new Error('Branch index not found.');
+				throw new Error("Branch index not found.");
 			}
 
 			// Use base branch as base unless it's part of stack and should be be pointing
 			// to the preceding branch. Ensuring we're not using `archived` branches as base.
-			let base = baseBranch?.shortName || 'master';
+			let base = baseBranch?.shortName || "master";
 
 			if (
 				branchParent &&
 				branchParent.prNumber &&
 				branchParentDetails &&
-				branchParentDetails.pushStatus !== 'integrated'
+				branchParentDetails.pushStatus !== "integrated"
 			) {
 				base = branchParent.name;
 			}
 
 			const pushRemoteName = baseBranch?.actualPushRemoteName();
 			if (!pushRemoteName) {
-				chipToasts.error('No push remote name determined');
+				chipToasts.error("No push remote name determined");
 				return;
 			}
 
@@ -299,7 +299,7 @@
 				body: params.body,
 				draft: params.draft,
 				baseBranchName: base,
-				upstreamName
+				upstreamName,
 			});
 
 			// Store the new pull request number with the branch data.
@@ -308,7 +308,7 @@
 					projectId,
 					stackId: params.stackId,
 					branchName: params.branchName,
-					prNumber: pr.number
+					prNumber: pr.number,
 				});
 			}
 
@@ -320,7 +320,7 @@
 			}
 
 			// Show success notification
-			const unit = prService.unit.abbr || 'PR';
+			const unit = prService.unit.abbr || "PR";
 			chipToasts.success(`${unit} #${pr.number} created successfully`);
 
 			return pr;
@@ -328,7 +328,7 @@
 			console.error(err);
 			const toast = mapErrorToToast(err);
 			if (toast) showToast(toast);
-			else showError('Error while creating pull request', err);
+			else showError("Error while creating pull request", err);
 		}
 	}
 
@@ -353,7 +353,7 @@
 					}
 					prBody.append(token);
 					messageEditor?.setText($prBody);
-				}
+				},
 			});
 
 			if (description) {
@@ -372,7 +372,7 @@
 		},
 		get isExecuting() {
 			return isExecuting;
-		}
+		},
 	};
 </script>
 
@@ -396,18 +396,18 @@
 				prTitle.set(value);
 			}}
 			onkeydown={imeHandler.handleKeydown((e: KeyboardEvent) => {
-				if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+				if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
 					e.preventDefault();
 					messageEditor?.focus();
 				}
 
-				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+				if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 					e.preventDefault();
 					createReview();
 					return true;
 				}
 
-				if (e.key === 'Escape') {
+				if (e.key === "Escape") {
 					e.preventDefault();
 					onClose();
 				}
@@ -438,19 +438,19 @@
 				prBody.set(text);
 			}}
 			onKeyDown={(e: KeyboardEvent) => {
-				if (e.key === 'Tab' && e.shiftKey) {
+				if (e.key === "Tab" && e.shiftKey) {
 					e.preventDefault();
 					titleInput?.focus();
 					return true;
 				}
 
-				if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+				if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 					e.preventDefault();
 					createReview();
 					return true;
 				}
 
-				if (e.key === 'Escape') {
+				if (e.key === "Escape") {
 					e.preventDefault();
 					onClose();
 					return true;

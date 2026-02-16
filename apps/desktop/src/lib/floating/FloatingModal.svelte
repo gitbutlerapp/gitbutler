@@ -1,16 +1,16 @@
 <script lang="ts">
-	import ResizeHandles from '$lib/floating/ResizeHandles.svelte';
-	import { DragResizeHandler } from '$lib/floating/dragResizeHandler';
-	import { ResizeCalculator } from '$lib/floating/resizeCalculator';
-	import { SnapPointManager } from '$lib/floating/snapPointManager';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { portal } from '@gitbutler/ui/utils/portal';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { onMount, type Snippet } from 'svelte';
-	import type { SnapPositionName } from '$lib/floating/types';
-	import type { SnapPoint, ModalBounds } from '$lib/floating/types';
+	import ResizeHandles from "$lib/floating/ResizeHandles.svelte";
+	import { DragResizeHandler } from "$lib/floating/dragResizeHandler";
+	import { ResizeCalculator } from "$lib/floating/resizeCalculator";
+	import { SnapPointManager } from "$lib/floating/snapPointManager";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { portal } from "@gitbutler/ui/utils/portal";
+	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { onMount, type Snippet } from "svelte";
+	import type { SnapPositionName } from "$lib/floating/types";
+	import type { SnapPoint, ModalBounds } from "$lib/floating/types";
 
 	interface Props {
 		children: Snippet;
@@ -33,7 +33,7 @@
 		defaults,
 		onUpdateSnapPosition,
 		onUpdateSize,
-		onCancel
+		onCancel,
 	}: Props = $props();
 
 	// Managers
@@ -75,14 +75,14 @@
 		const nearestSnapPoint = snapManager.findNearestSnapPoint(
 			modalCenterX,
 			modalCenterY,
-			snapPoints
+			snapPoints,
 		);
 
 		const { offsetX, offsetY } = snapManager.getAlignmentOffset(
 			nearestSnapPoint.x,
 			nearestSnapPoint.y,
 			width,
-			height
+			height,
 		);
 
 		const newX = nearestSnapPoint.x + offsetX;
@@ -107,7 +107,7 @@
 			currentSnapPoint.x,
 			currentSnapPoint.y,
 			width,
-			height
+			height,
 		);
 
 		x = currentSnapPoint.x + offsetX;
@@ -174,7 +174,7 @@
 
 	// Update current snap position for resize calculations
 	$effect(() => {
-		dragResizeHandler.currentSnapPosition = currentSnapPoint?.name || '';
+		dragResizeHandler.currentSnapPosition = currentSnapPoint?.name || "";
 	});
 
 	onMount(() => {
@@ -194,7 +194,7 @@
 				defaultSnapPoint.x,
 				defaultSnapPoint.y,
 				width,
-				height
+				height,
 			);
 
 			x = defaultSnapPoint.x + offsetX;
@@ -204,14 +204,14 @@
 
 		// Connect drag handle element if provided
 		if (dragHandleElement) {
-			dragHandleElement.addEventListener('pointerdown', handleHeaderPointerDown);
+			dragHandleElement.addEventListener("pointerdown", handleHeaderPointerDown);
 		}
 
-		window.addEventListener('resize', handleWindowResize);
+		window.addEventListener("resize", handleWindowResize);
 		return () => {
-			window.removeEventListener('resize', handleWindowResize);
+			window.removeEventListener("resize", handleWindowResize);
 			if (dragHandleElement) {
-				dragHandleElement.removeEventListener('pointerdown', handleHeaderPointerDown);
+				dragHandleElement.removeEventListener("pointerdown", handleHeaderPointerDown);
 			}
 		};
 	});
@@ -219,7 +219,7 @@
 
 <div
 	bind:this={modalEl}
-	use:portal={'body'}
+	use:portal={"body"}
 	use:focusable={{
 		trap: true,
 		activate: true,
@@ -228,19 +228,19 @@
 		onEsc: () => {
 			onCancel?.();
 			return true;
-		}
+		},
 	}}
 	class="floating-modal"
 	class:snapping
 	class:resizing={dragResizeHandler.isResizing}
-	style:left={pxToRem(x, zoom) + 'rem'}
-	style:top={pxToRem(y, zoom) + 'rem'}
-	style:width={pxToRem(width, zoom) + 'rem'}
-	style:height={pxToRem(height, zoom) + 'rem'}
+	style:left={pxToRem(x, zoom) + "rem"}
+	style:top={pxToRem(y, zoom) + "rem"}
+	style:width={pxToRem(width, zoom) + "rem"}
+	style:height={pxToRem(height, zoom) + "rem"}
 	style:max-width="calc(100vw - 5rem)"
 	style:max-height="calc(100vh - 5rem)"
 >
-	<ResizeHandles onResizeStart={handleResizeStart} snapPosition={currentSnapPoint?.name || ''} />
+	<ResizeHandles onResizeStart={handleResizeStart} snapPosition={currentSnapPoint?.name || ""} />
 	{@render children()}
 </div>
 

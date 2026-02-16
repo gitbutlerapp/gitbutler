@@ -1,4 +1,4 @@
-import { type Prompt, MessageRole } from '$lib/ai/types';
+import { type Prompt, MessageRole } from "$lib/ai/types";
 
 export const SHORT_DEFAULT_COMMIT_TEMPLATE: Prompt = [
 	{
@@ -19,8 +19,8 @@ Here is my git diff:
 \`\`\`
 %{diff}
 \`\`\`
-`
-	}
+`,
+	},
 ];
 
 export const LONG_DEFAULT_COMMIT_TEMPLATE: Prompt = [
@@ -54,15 +54,15 @@ index 1cbfaa2..7aeebcf 100644
 +  return Array.isArray(something) && something.every(check);
 +}
 \`\`\`
-`
+`,
 	},
 	{
 		role: MessageRole.Assistant,
 		content: `Typing utilities: Check for array of type
 
-Added an utility function to check whether a given value is an array of a specific type.`
+Added an utility function to check whether a given value is an array of a specific type.`,
 	},
-	...SHORT_DEFAULT_COMMIT_TEMPLATE
+	...SHORT_DEFAULT_COMMIT_TEMPLATE,
 ];
 
 export const SHORT_DEFAULT_BRANCH_TEMPLATE: Prompt = [
@@ -83,8 +83,8 @@ Here is my git diff:
 And here are the commit messages:
 
 %{commits}
-`
-	}
+`,
+	},
 ];
 
 export const LONG_DEFAULT_BRANCH_TEMPLATE: Prompt = [
@@ -114,21 +114,21 @@ index 1cbfaa2..7aeebcf 100644
 +  return Array.isArray(something) && something.every(check);
 +}
 \`\`\`
-`
+`,
 	},
 	{
 		role: MessageRole.Assistant,
-		content: `utils-typing-is-array-of-type`
+		content: `utils-typing-is-array-of-type`,
 	},
-	...SHORT_DEFAULT_BRANCH_TEMPLATE
+	...SHORT_DEFAULT_BRANCH_TEMPLATE,
 ];
 
 export const DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE =
-	'List the most important changes. Use bullet points. Skip any other information.';
+	"List the most important changes. Use bullet points. Skip any other information.";
 
 export function getPrTemplateDirective(prBodyTemplate: string | undefined): string {
 	if (!prBodyTemplate) {
-		return '';
+		return "";
 	}
 
 	return `PR_TEMPLATE:
@@ -147,7 +147,7 @@ Use the provided context, like the COMMIT_MESSAGES, PR_TEMPLATE, current TITLE a
 The list of commit messages is separated by this token: <###>.
 BE CONCISE.
 ONLY return the description.
-Use the PR_TEMPLATE to format the description, if given.`
+Use the PR_TEMPLATE to format the description, if given.`,
 	},
 	{
 		role: MessageRole.User,
@@ -168,11 +168,11 @@ COMMIT_MESSAGES:
 \`\`\`
 %{commit_messages}
 \`\`\`
-`
-	}
+`,
+	},
 ];
 
-export const FILL_MARKER = '<<<<<FIM>>>>>';
+export const FILL_MARKER = "<<<<<FIM>>>>>";
 
 export const AUTOCOMPLETE_SUGGESTION_PROMPT_CONTENT = `You are a developer working on a new feature. You have made some changes to the code and are documenting them.
 Use the Fill-in-the-middle approach to complete the text.

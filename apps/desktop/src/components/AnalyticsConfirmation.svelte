@@ -1,10 +1,10 @@
 <script lang="ts">
-	import AnalyticsSettings from '$components/AnalyticsSettings.svelte';
-	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
-	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, TestId } from '@gitbutler/ui';
+	import AnalyticsSettings from "$components/AnalyticsSettings.svelte";
+	import { initAnalyticsIfEnabled } from "$lib/analytics/analytics";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, TestId } from "@gitbutler/ui";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = $derived(settingsService.appSettings);

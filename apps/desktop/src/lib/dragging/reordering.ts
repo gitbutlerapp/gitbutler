@@ -21,10 +21,10 @@
  *     <div class="item" ondrop={() => updateOrder(sortedStacks)}>...</div>
  * </div>
  */
-import ReorderClone from '$lib/dragging/ReorderClone.svelte';
-import { cloneElement } from '$lib/dragging/draggable';
-import { mount } from 'svelte';
-import type { Stack } from '$lib/stacks/stack';
+import ReorderClone from "$lib/dragging/ReorderClone.svelte";
+import { cloneElement } from "$lib/dragging/draggable";
+import { mount } from "svelte";
+import type { Stack } from "$lib/stacks/stack";
 
 let dragHandle: HTMLElement | null;
 let dragged: HTMLDivElement | undefined;
@@ -40,7 +40,7 @@ export function onReorderStart(
 	e: DragEvent & { currentTarget: HTMLDivElement },
 	stackId: string,
 	callback?: () => void,
-	preserveOriginalSize?: boolean
+	preserveOriginalSize?: boolean,
 ) {
 	if (dragHandle?.dataset.dragHandle === undefined) {
 		// Only elements with`data-drag-handle` attribute can initiate drag.
@@ -55,15 +55,15 @@ export function onReorderStart(
 	const clonedElement = cloneElement(e.currentTarget);
 
 	// Create the Svelte component container
-	const container = document.createElement('div');
+	const container = document.createElement("div");
 	mount(ReorderClone, {
 		target: container,
 		props: {
 			element: clonedElement,
 			preserveOriginalSize,
 			originalHeight: preserveOriginalSize ? e.currentTarget.offsetHeight : undefined,
-			originalWidth: preserveOriginalSize ? e.currentTarget.offsetWidth : undefined
-		}
+			originalWidth: preserveOriginalSize ? e.currentTarget.offsetWidth : undefined,
+		},
 	});
 
 	clone = container.firstElementChild as HTMLElement;
@@ -71,13 +71,13 @@ export function onReorderStart(
 
 	// Get chromium to fire dragover & drop events
 	// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
-	e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
+	e.dataTransfer?.setData("text/html", "d"); // cannot be empty string
 	e.dataTransfer?.setDragImage(clone, e.offsetX, e.offsetY); // Adds the padding
 	dragged = e.currentTarget;
-	draggedFadeElement = dragged.querySelector('[data-fade-on-reorder]');
+	draggedFadeElement = dragged.querySelector("[data-fade-on-reorder]");
 
 	if (draggedFadeElement) {
-		draggedFadeElement.style.opacity = '0.5';
+		draggedFadeElement.style.opacity = "0.5";
 	}
 
 	draggedId = stackId;
@@ -90,7 +90,7 @@ export function onReorderEnd() {
 	}
 
 	if (draggedFadeElement) {
-		draggedFadeElement.style.opacity = '1';
+		draggedFadeElement.style.opacity = "1";
 	}
 
 	draggedFadeElement = null;
@@ -101,7 +101,7 @@ export function onReorderEnd() {
 export function onDragOver(
 	e: MouseEvent & { currentTarget: HTMLDivElement },
 	sortedStacks: Stack[],
-	thisStackId: string
+	thisStackId: string,
 ) {
 	// Return early if we are currently dragging over ourself.
 	if (draggedId === thisStackId) {

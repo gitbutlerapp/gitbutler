@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { registerInterest } from '$lib/interest/registerInterestFunction.svelte';
-	import type { Interest } from '$lib/interest/interestStore';
+	import { registerInterest } from "$lib/interest/registerInterestFunction.svelte";
+	import type { Interest } from "$lib/interest/interestStore";
 
 	type Props = {
 		interest: Interest;

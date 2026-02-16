@@ -1,13 +1,13 @@
 <script lang="ts">
-	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
-	import FileViewHeaderWrapper from '$components/FileViewHeaderWrapper.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
-	import { isExecutableStatus } from '$lib/hunks/change';
-	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { readKey, type SelectionId } from '$lib/selection/key';
-	import { inject } from '@gitbutler/core/context';
+	import FilePreviewPlaceholder from "$components/FilePreviewPlaceholder.svelte";
+	import FileViewHeaderWrapper from "$components/FileViewHeaderWrapper.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
+	import { isExecutableStatus } from "$lib/hunks/change";
+	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { readKey, type SelectionId } from "$lib/selection/key";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		projectId: string;
@@ -28,7 +28,7 @@
 		onclose,
 		testId,
 		scrollContainer,
-		bottomBorder
+		bottomBorder,
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -45,10 +45,10 @@
 	});
 
 	const stackId = $derived(
-		selectionId && `stackId` in selectionId ? selectionId.stackId : undefined
+		selectionId && `stackId` in selectionId ? selectionId.stackId : undefined,
 	);
 
-	const selectable = $derived(selectionId?.type === 'worktree');
+	const selectable = $derived(selectionId?.type === "worktree");
 </script>
 
 <div class="selection-view" data-testid={testId}>
@@ -80,7 +80,7 @@
 							<UnifiedDiffView
 								projectId={env.projectId}
 								{stackId}
-								commitId={selectedFile.type === 'commit' ? selectedFile.commitId : undefined}
+								commitId={selectedFile.type === "commit" ? selectedFile.commitId : undefined}
 								{draggable}
 								{change}
 								{diff}

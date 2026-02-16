@@ -1,15 +1,15 @@
 <script module lang="ts">
-	import Toggle from '$components/Toggle.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Toggle from "$components/Toggle.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Toggle',
+		title: "Inputs / Toggle",
 		component: Toggle,
 		args: {
 			checked: false,
 			disabled: false,
-			small: false
-		}
+			small: false,
+		},
 	});
 </script>
 
@@ -59,10 +59,10 @@
 			<Toggle
 				bind:checked={toggleValue}
 				onchange={(checked) => {
-					console.warn('Toggle changed:', checked);
+					console.warn("Toggle changed:", checked);
 				}}
 			/>
-			<span>Current value: {toggleValue ? 'On' : 'Off'}</span>
+			<span>Current value: {toggleValue ? "On" : "Off"}</span>
 		</div>
 		<button
 			type="button"

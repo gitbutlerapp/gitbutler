@@ -1,7 +1,7 @@
 <script lang="ts">
-	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
-	import linkJson from '$lib/data/links.json';
-	import { scale } from 'svelte/transition';
+	import HeaderAuthSection from "$lib/components/HeaderAuthSection.svelte";
+	import linkJson from "$lib/data/links.json";
+	import { scale } from "svelte/transition";
 
 	let isMenuOpen = $state(false);
 
@@ -11,13 +11,13 @@
 
 	// Simple scroll lock using CSS class
 	$effect(() => {
-		if (typeof document !== 'undefined') {
-			document.body.classList.toggle('menu-open', isMenuOpen);
+		if (typeof document !== "undefined") {
+			document.body.classList.toggle("menu-open", isMenuOpen);
 		}
 
 		return () => {
-			if (typeof document !== 'undefined') {
-				document.body.classList.remove('menu-open');
+			if (typeof document !== "undefined") {
+				document.body.classList.remove("menu-open");
 			}
 		};
 	});
@@ -28,7 +28,7 @@
 	class="mobile-menu-button"
 	class:is-open={isMenuOpen}
 	onclick={toggleMenu}
-	aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+	aria-label={isMenuOpen ? "Close menu" : "Open menu"}
 	aria-expanded={isMenuOpen}
 ></button>
 
@@ -110,7 +110,7 @@
 			width: 100%;
 			height: 0.094rem;
 			background-color: var(--clr-text-1);
-			content: '';
+			content: "";
 			transition:
 				transform 0.15s ease,
 				top 0.15s ease,

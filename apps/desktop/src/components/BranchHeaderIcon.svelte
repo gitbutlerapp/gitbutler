@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import { Icon } from "@gitbutler/ui";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 	interface Props {
 		iconName: keyof typeof iconsJson;

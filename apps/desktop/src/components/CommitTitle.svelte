@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { splitMessage } from '$lib/utils/commitMessage';
-	import { TestId, Tooltip } from '@gitbutler/ui';
+	import { splitMessage } from "$lib/utils/commitMessage";
+	import { TestId, Tooltip } from "@gitbutler/ui";
 
 	type Props = {
 		truncate?: boolean;
@@ -17,7 +17,7 @@
 		if (title) {
 			return title;
 		}
-		return editable ? 'Empty commit. Drag changes here' : 'Empty commit';
+		return editable ? "Empty commit. Drag changes here" : "Empty commit";
 	}
 </script>
 

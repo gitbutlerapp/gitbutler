@@ -1,7 +1,7 @@
-import { findNearestSuitableAncestor } from '$lib/focus/domUtils';
+import { findNearestSuitableAncestor } from "$lib/focus/domUtils";
 
 // F key is reserved for F-mode toggle, so 'FF' is not a valid shortcut
-const RESERVED_SHORTCUT = 'FF';
+const RESERVED_SHORTCUT = "FF";
 
 function isValidShortcut(shortcut: string, used: Map<string, unknown>): boolean {
 	return shortcut !== RESERVED_SHORTCUT && !used.has(shortcut);
@@ -11,17 +11,17 @@ function isValidShortcut(shortcut: string, used: Map<string, unknown>): boolean 
 export function generateTwoLetterShortcut(used: Map<string, unknown>): string | undefined {
 	const keyGroups = [
 		// Group 1: Left hand home row (highest priority)
-		['A', 'S', 'D'],
+		["A", "S", "D"],
 		// Group 2: Extended left hand home row including G
-		['A', 'S', 'D', 'G'],
+		["A", "S", "D", "G"],
 		// Group 3: Left hand upper row
-		['Q', 'W', 'E', 'R', 'T'],
+		["Q", "W", "E", "R", "T"],
 		// Group 4: Left hand lower row
-		['Z', 'X', 'C', 'V', 'B'],
+		["Z", "X", "C", "V", "B"],
 		// Group 5: Right hand home row (for second letter when needed)
-		['J', 'K', 'L'],
+		["J", "K", "L"],
 		// Group 6: All other letters as fallback
-		['H', 'I', 'M', 'N', 'O', 'P', 'U', 'Y']
+		["H", "I", "M", "N", "O", "P", "U", "Y"],
 	];
 
 	for (let groupIndex = 0; groupIndex < 3; groupIndex++) {
@@ -74,12 +74,12 @@ export function generateTwoLetterShortcut(used: Map<string, unknown>): string | 
 export function createShortcutOverlay(element: HTMLElement, shortcut: string): HTMLElement {
 	const { ancestor, accumulatedLeft, accumulatedTop } = findNearestSuitableAncestor(element);
 
-	const overlay = document.createElement('div');
-	overlay.className = 'focus-shortcut-overlay';
+	const overlay = document.createElement("div");
+	overlay.className = "focus-shortcut-overlay";
 	overlay.textContent = shortcut;
 
-	overlay.classList.add('f-key');
-	overlay.classList.add('text-9');
+	overlay.classList.add("f-key");
+	overlay.classList.add("text-9");
 	overlay.style.left = `${accumulatedLeft + element.offsetWidth - 12}px`; // Position at right edge
 	overlay.style.top = `${accumulatedTop + element.offsetHeight - 6}px`; // Position at bottom edge
 

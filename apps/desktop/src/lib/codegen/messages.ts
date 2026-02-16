@@ -2,7 +2,7 @@
  * This module is responsible for taking the messages from a near-incomprehesable mess into something _vaugly_ useful.
  */
 
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type {
 	ClaudeMessage,
 	ClaudePermissionRequest,
@@ -11,25 +11,25 @@ import type {
 	PromptAttachment,
 	GitButlerUpdate,
 	SystemMessage,
-	AskUserQuestion
-} from '$lib/codegen/types';
+	AskUserQuestion,
+} from "$lib/codegen/types";
 
 /** A content block that can be either text or a tool call, preserving original order */
 export type ContentBlock =
-	| { type: 'text'; text: string }
-	| { type: 'toolCall'; toolCall: ToolCall }
-	| { type: 'toolCallPendingApproval'; toolCall: ToolCall };
+	| { type: "text"; text: string }
+	| { type: "toolCall"; toolCall: ToolCall }
+	| { type: "toolCallPendingApproval"; toolCall: ToolCall };
 
 export type Message = { createdAt: string } &
 	/* This is strictly only things that the real fleshy human has said */
 	(| {
-				source: 'user';
+				source: "user";
 				message: string;
 				attachments?: PromptAttachment[];
 		  }
 		/* Output from claude. Content blocks preserve original ordering of text and tool calls. */
 		| {
-				source: 'claude';
+				source: "claude";
 				/** @deprecated Use contentBlocks instead for proper ordering */
 				message: string;
 				/** @deprecated Use contentBlocks instead for proper ordering */
@@ -40,8 +40,8 @@ export type Message = { createdAt: string } &
 				contentBlocks: ContentBlock[];
 		  }
 		| {
-				source: 'claude';
-				subtype: 'compaction';
+				source: "claude";
+				subtype: "compaction";
 				message: string;
 				toolCalls: ToolCall[];
 				toolCallsPendingApproval: ToolCall[];
@@ -49,8 +49,8 @@ export type Message = { createdAt: string } &
 		  }
 		/* Claude is asking the user a question */
 		| {
-				source: 'claude';
-				subtype: 'askUserQuestion';
+				source: "claude";
+				subtype: "askUserQuestion";
 				/** The tool_use_id from the AskUserQuestion tool call */
 				toolUseId: string;
 				/** The questions to ask the user */
@@ -61,24 +61,24 @@ export type Message = { createdAt: string } &
 				resultText?: string;
 		  }
 		| ({
-				source: 'system';
+				source: "system";
 		  } & SystemMessage)
 		| ({
-				source: 'gitButler';
+				source: "gitButler";
 		  } & GitButlerUpdate)
 	);
 
 export type ToolCallName =
-	| 'Read'
-	| 'Edit'
-	| 'Write'
-	| 'Bash'
-	| 'Grep'
-	| 'Glob'
-	| 'Task'
-	| 'TodoWrite'
-	| 'WebFetch'
-	| 'WebSearch'
+	| "Read"
+	| "Edit"
+	| "Write"
+	| "Bash"
+	| "Grep"
+	| "Glob"
+	| "Task"
+	| "TodoWrite"
+	| "WebFetch"
+	| "WebSearch"
 	| string; // Allow unknown tools from Claude Code
 
 export type ToolCall = {
@@ -94,7 +94,7 @@ export function toolCallLoading(toolCall: ToolCall): boolean {
 	return toolCall.result === undefined;
 }
 
-const loginRequiredMessage = 'Invalid API key · Please run /login';
+const loginRequiredMessage = "Invalid API key · Please run /login";
 
 export function reverseMessages(messages: Message[]): Message[] {
 	return [...messages].reverse();
@@ -103,7 +103,7 @@ export function reverseMessages(messages: Message[]): Message[] {
 export function formatMessages(
 	events: ClaudeMessage[],
 	permissionRequests: ClaudePermissionRequest[],
-	isActive: boolean
+	isActive: boolean,
 ): Message[] {
 	const permReqsById: Record<string, ClaudePermissionRequest> = {};
 	for (const request of permissionRequests) {
@@ -118,7 +118,7 @@ export function formatMessages(
 
 	// Type for standard claude messages (not askUserQuestion)
 	type StandardClaudeMessage = { createdAt: string } & {
-		source: 'claude';
+		source: "claude";
 		message: string;
 		toolCalls: ToolCall[];
 		toolCallsPendingApproval: ToolCall[];
@@ -128,55 +128,55 @@ export function formatMessages(
 
 	for (const message of events) {
 		const payload = message.payload;
-		if (payload.source === 'user') {
+		if (payload.source === "user") {
 			wrapUpAgentSide();
 			out.push({
 				createdAt: message.createdAt,
-				source: 'user',
+				source: "user",
 				message: payload.message,
-				attachments: payload.attachments
+				attachments: payload.attachments,
 			});
 			lastAssistantMessage = undefined;
-		} else if (payload.source === 'claude') {
+		} else if (payload.source === "claude") {
 			// We've either triggered a tool call, or sent a message
-			if (payload.data.type === 'assistant') {
+			if (payload.data.type === "assistant") {
 				const claudeOutput = payload.data.message;
 
 				// Process all content blocks in the message
 				for (const contentBlock of claudeOutput.content) {
-					if (contentBlock.type === 'text') {
+					if (contentBlock.type === "text") {
 						if (contentBlock.text === loginRequiredMessage) {
 							continue;
 						}
 						if (!lastAssistantMessage) {
 							lastAssistantMessage = {
 								createdAt: message.createdAt,
-								source: 'claude',
+								source: "claude",
 								message: contentBlock.text,
 								toolCalls: [],
 								toolCallsPendingApproval: [],
-								contentBlocks: [{ type: 'text', text: contentBlock.text }]
+								contentBlocks: [{ type: "text", text: contentBlock.text }],
 							};
 							out.push(lastAssistantMessage);
 						} else {
 							// Append text to existing message
 							lastAssistantMessage.message += contentBlock.text;
 							// Add to content blocks preserving order
-							lastAssistantMessage.contentBlocks.push({ type: 'text', text: contentBlock.text });
+							lastAssistantMessage.contentBlocks.push({ type: "text", text: contentBlock.text });
 						}
-					} else if (contentBlock.type === 'tool_use') {
+					} else if (contentBlock.type === "tool_use") {
 						const content = contentBlock;
 
-						if (content.name === 'AskUserQuestion') {
+						if (content.name === "AskUserQuestion") {
 							const input = content.input as { questions: AskUserQuestion[] };
 							const askMessage: Message = {
 								createdAt: message.createdAt,
-								source: 'claude',
-								subtype: 'askUserQuestion',
+								source: "claude",
+								subtype: "askUserQuestion",
 								toolUseId: content.id,
 								questions: input.questions,
 								answered: false,
-								resultText: undefined
+								resultText: undefined,
 							};
 							out.push(askMessage);
 							askUserQuestionToolCalls[content.id] = askMessage;
@@ -190,16 +190,16 @@ export function formatMessages(
 							name: content.name,
 							input: content.input as object,
 							result: undefined,
-							requestAt: normalizeDate(new Date(message.createdAt))
+							requestAt: normalizeDate(new Date(message.createdAt)),
 						};
 						if (!lastAssistantMessage) {
 							lastAssistantMessage = {
-								source: 'claude',
+								source: "claude",
 								createdAt: message.createdAt,
-								message: '',
+								message: "",
 								toolCalls: [],
 								toolCallsPendingApproval: [],
-								contentBlocks: []
+								contentBlocks: [],
 							};
 							out.push(lastAssistantMessage);
 						}
@@ -209,8 +209,8 @@ export function formatMessages(
 							lastAssistantMessage.toolCallsPendingApproval.push(toolCall);
 							// Add to content blocks preserving order
 							lastAssistantMessage.contentBlocks.push({
-								type: 'toolCallPendingApproval',
-								toolCall
+								type: "toolCallPendingApproval",
+								toolCall,
 							});
 						} else {
 							if (permReq) {
@@ -218,37 +218,37 @@ export function formatMessages(
 							}
 							lastAssistantMessage.toolCalls.push(toolCall);
 							// Add to content blocks preserving order
-							lastAssistantMessage.contentBlocks.push({ type: 'toolCall', toolCall });
+							lastAssistantMessage.contentBlocks.push({ type: "toolCall", toolCall });
 						}
 						toolCalls[toolCall.id] = toolCall;
 					}
 				}
-			} else if (payload.data.type === 'user') {
+			} else if (payload.data.type === "user") {
 				const content = payload.data.message.content;
-				if (Array.isArray(content) && content[0]!.type === 'tool_result') {
+				if (Array.isArray(content) && content[0]!.type === "tool_result") {
 					const result = content[0];
 
 					// Check if this is a response to an AskUserQuestion
 					const askMessage = askUserQuestionToolCalls[result.tool_use_id];
 					if (
 						askMessage &&
-						askMessage.source === 'claude' &&
-						'subtype' in askMessage &&
-						askMessage.subtype === 'askUserQuestion'
+						askMessage.source === "claude" &&
+						"subtype" in askMessage &&
+						askMessage.subtype === "askUserQuestion"
 					) {
 						askMessage.answered = true;
 						if (!isDefined(result.content)) {
-							askMessage.resultText = 'User answered the question';
-						} else if (typeof result.content === 'string') {
+							askMessage.resultText = "User answered the question";
+						} else if (typeof result.content === "string") {
 							askMessage.resultText = result.content;
 						} else if (
 							Array.isArray(result.content) &&
 							result.content.length > 0 &&
-							result.content[0]!.type === 'text'
+							result.content[0]!.type === "text"
 						) {
 							askMessage.resultText = result.content[0]!.text;
 						} else {
-							askMessage.resultText = 'User answered the question';
+							askMessage.resultText = "User answered the question";
 						}
 						continue;
 					}
@@ -258,93 +258,93 @@ export function formatMessages(
 						// This should never happen
 						continue;
 					} else if (!isDefined(result.content)) {
-						foundToolCall.result = 'Tool completed with no output';
-					} else if (typeof result.content === 'string') {
+						foundToolCall.result = "Tool completed with no output";
+					} else if (typeof result.content === "string") {
 						foundToolCall.result = result.content;
 					} else if (
 						Array.isArray(result.content) &&
 						result.content.length > 0 &&
-						result.content[0]!.type === 'text'
+						result.content[0]!.type === "text"
 					) {
 						foundToolCall.result = result.content[0]!.text;
 					} else {
-						foundToolCall.result = 'Tool completed with no output';
+						foundToolCall.result = "Tool completed with no output";
 					}
 				}
 			}
-		} else if (payload.source === 'system') {
+		} else if (payload.source === "system") {
 			if (
-				payload.type === 'claudeExit' ||
-				payload.type === 'userAbort' ||
-				payload.type === 'unhandledException' ||
-				payload.type === 'compactStart' ||
-				payload.type === 'compactFinished'
+				payload.type === "claudeExit" ||
+				payload.type === "userAbort" ||
+				payload.type === "unhandledException" ||
+				payload.type === "compactStart" ||
+				payload.type === "compactFinished"
 			) {
 				wrapUpAgentSide();
 			}
 
-			if (payload.type === 'claudeExit' && payload.code !== 0) {
+			if (payload.type === "claudeExit" && payload.code !== 0) {
 				if (previousEventLoginFailureQuery(events, message)) {
 					const msg = `Claude Code is currently not logged in.\n\n Please run \`claude\` in your terminal and complete the login flow in order to use the GitButler Claude Code integration.`;
 					out.push({
-						source: 'claude',
+						source: "claude",
 						createdAt: message.createdAt,
 						message: msg,
 						toolCalls: [],
 						toolCallsPendingApproval: [],
-						contentBlocks: [{ type: 'text', text: msg }]
+						contentBlocks: [{ type: "text", text: msg }],
 					});
 				} else {
 					const msg = `Claude exited with non 0 error code \n\n\`\`\`\n${payload.message}\n\`\`\``;
 					out.push({
-						source: 'claude',
+						source: "claude",
 						message: msg,
 						toolCalls: [],
 						toolCallsPendingApproval: [],
 						createdAt: message.createdAt,
-						contentBlocks: [{ type: 'text', text: msg }]
+						contentBlocks: [{ type: "text", text: msg }],
 					});
 				}
 			}
-			if (payload.type === 'unhandledException') {
+			if (payload.type === "unhandledException") {
 				const msg = `Encountered an unhandled exception when executing Claude.\nPlease verify your Claude Code installation location and try clearing the context. \n\n\`\`\`\n${payload.message}\n\`\`\``;
 				out.push({
-					source: 'claude',
+					source: "claude",
 					message: msg,
 					toolCalls: [],
 					toolCallsPendingApproval: [],
 					createdAt: message.createdAt,
-					contentBlocks: [{ type: 'text', text: msg }]
+					contentBlocks: [{ type: "text", text: msg }],
 				});
 			}
-			if (payload.type === 'userAbort') {
+			if (payload.type === "userAbort") {
 				const msg = `I've stopped! What can I help you with next?`;
 				out.push({
-					source: 'claude',
+					source: "claude",
 					createdAt: message.createdAt,
 					message: msg,
 					toolCalls: [],
 					toolCallsPendingApproval: [],
-					contentBlocks: [{ type: 'text', text: msg }]
+					contentBlocks: [{ type: "text", text: msg }],
 				});
 			}
-			if (payload.type === 'compactFinished') {
+			if (payload.type === "compactFinished") {
 				const msg = `Context compaction completed: ${payload.summary}`;
 				out.push({
-					source: 'claude',
+					source: "claude",
 					createdAt: message.createdAt,
-					subtype: 'compaction',
+					subtype: "compaction",
 					message: msg,
 					toolCalls: [],
 					toolCallsPendingApproval: [],
-					contentBlocks: [{ type: 'text', text: msg }]
+					contentBlocks: [{ type: "text", text: msg }],
 				});
 			}
-		} else if (payload.source === 'gitButler') {
-			if (payload.type === 'commitCreated') {
+		} else if (payload.source === "gitButler") {
+			if (payload.type === "commitCreated") {
 				out.push({
 					createdAt: message.createdAt,
-					...payload
+					...payload,
 				});
 			}
 		}
@@ -359,18 +359,18 @@ export function formatMessages(
 		// Mark all pending tool calls as aborted (similar to claudeExit/userAbort)
 		for (const toolCall of Object.values(toolCalls)) {
 			if (toolCall.result) continue;
-			toolCall.result = 'Tool call aborted - session is no longer active';
+			toolCall.result = "Tool call aborted - session is no longer active";
 		}
 		toolCalls = {};
 		// Move pending approval tool calls to completed tool calls
 		// Skip AskUserQuestion messages as they don't have toolCalls
 		if (
-			lastAssistantMessage?.source === 'claude' &&
-			!('subtype' in lastAssistantMessage && lastAssistantMessage.subtype === 'askUserQuestion')
+			lastAssistantMessage?.source === "claude" &&
+			!("subtype" in lastAssistantMessage && lastAssistantMessage.subtype === "askUserQuestion")
 		) {
 			lastAssistantMessage.toolCalls = [
 				...lastAssistantMessage.toolCalls,
-				...lastAssistantMessage.toolCallsPendingApproval
+				...lastAssistantMessage.toolCallsPendingApproval,
 			];
 			lastAssistantMessage.toolCallsPendingApproval = [];
 		}
@@ -384,10 +384,10 @@ function previousEventLoginFailureQuery(events: ClaudeMessage[], event: ClaudeMe
 	if (idx <= 0) return false;
 	const previous = events[idx - 1]!;
 
-	if (previous.payload.source !== 'claude') return false;
+	if (previous.payload.source !== "claude") return false;
 	const content = previous.payload.data;
-	if (content.type !== 'result') return false;
-	if (content.subtype !== 'success') return false;
+	if (content.type !== "result") return false;
+	if (content.subtype !== "success") return false;
 	if (content.result !== loginRequiredMessage) return false;
 	return true;
 }
@@ -406,20 +406,20 @@ type UserFeedbackStatus =
 export function hasPendingAskUserQuestion(messages: Message[]): boolean {
 	return messages.some(
 		(message) =>
-			message.source === 'claude' &&
-			'subtype' in message &&
-			message.subtype === 'askUserQuestion' &&
-			!message.answered
+			message.source === "claude" &&
+			"subtype" in message &&
+			message.subtype === "askUserQuestion" &&
+			!message.answered,
 	);
 }
 
 export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
-	const lastMessage = messages.filter((m) => m.source !== 'gitButler')?.at(-1);
-	if (!lastMessage || lastMessage.source === 'user' || lastMessage.source === 'system') {
+	const lastMessage = messages.filter((m) => m.source !== "gitButler")?.at(-1);
+	if (!lastMessage || lastMessage.source === "user" || lastMessage.source === "system") {
 		return { waitingForFeedback: false, msSpentWaiting: 0 };
 	}
 	// AskUserQuestion messages don't have toolCallsPendingApproval
-	if ('subtype' in lastMessage && lastMessage.subtype === 'askUserQuestion') {
+	if ("subtype" in lastMessage && lastMessage.subtype === "askUserQuestion") {
 		return { waitingForFeedback: false, msSpentWaiting: 0 };
 	}
 	if (lastMessage.toolCallsPendingApproval.length > 0) {
@@ -437,39 +437,39 @@ export function userFeedbackStatus(messages: Message[]): UserFeedbackStatus {
 /** Anthropic prices, per 1M tokens */
 const pricing = [
 	{
-		name: 'opus',
+		name: "opus",
 		input: 15,
 		output: 75,
 		writeCache: 18.75,
 		readCache: 1.5,
-		context: 200_000
+		context: 200_000,
 	},
 	// Ordering the 1m model before the 200k model so it matches first.
 	{
-		name: 'sonnet',
-		subtype: '[1m]',
+		name: "sonnet",
+		subtype: "[1m]",
 		input: 6,
 		output: 22.5,
 		writeCache: 7.5,
 		readCache: 0.6,
-		context: 1_000_000
+		context: 1_000_000,
 	},
 	{
-		name: 'sonnet',
+		name: "sonnet",
 		input: 3,
 		output: 15,
 		writeCache: 3.75,
 		readCache: 0.3,
-		context: 200_000
+		context: 200_000,
 	},
 	{
-		name: 'haiku',
+		name: "haiku",
 		input: 1,
 		output: 5,
 		writeCache: 1.25,
 		readCache: 0.1,
-		context: 200_000
-	}
+		context: 200_000,
+	},
 ] as const;
 
 /** Cost of anthropic making web request calls per 1K calls */
@@ -496,9 +496,9 @@ export function usageStats(events: ClaudeMessage[]): {
 
 	for (let i = events.length - 1; i >= 0; i--) {
 		const event = events[i]!;
-		if (event.payload.source !== 'claude') continue;
+		if (event.payload.source !== "claude") continue;
 		const content = event.payload.data;
-		if (content.type !== 'assistant') continue;
+		if (content.type !== "assistant") continue;
 		lastAssistantMessage = content;
 		break;
 	}
@@ -520,9 +520,9 @@ export function usageStats(events: ClaudeMessage[]): {
 
 	for (let i = events.length - 1; i >= 0; i--) {
 		const event = events[i]!;
-		if (event.payload.source !== 'claude') continue;
+		if (event.payload.source !== "claude") continue;
 		const content = event.payload.data;
-		if (content.type !== 'assistant') continue;
+		if (content.type !== "assistant") continue;
 		if (usedIds.has(content.message.id)) continue;
 		usedIds.add(content.message.id);
 		const modelPricing = findModelPricing(content.message.model);
@@ -542,7 +542,7 @@ export function usageStats(events: ClaudeMessage[]): {
 function findModelPricing(name: string) {
 	for (const p of pricing) {
 		// We do a starts with so we don't have to deal with all the versioning
-		if (name.includes(p.name) && ('subtype' in p ? name.includes(p.subtype) : true)) {
+		if (name.includes(p.name) && ("subtype" in p ? name.includes(p.subtype) : true)) {
 			return p;
 		}
 	}
@@ -552,55 +552,55 @@ function findModelPricing(name: string) {
  * Based on the current event log, determine the current status
  */
 export function currentStatus(events: ClaudeMessage[], isActive: boolean): ClaudeStatus {
-	if (events.length === 0) return 'disabled';
+	if (events.length === 0) return "disabled";
 	const lastEvent = events.at(-1)!;
-	if (lastEvent.payload.source === 'claude' && lastEvent.payload.data.type === 'result') {
+	if (lastEvent.payload.source === "claude" && lastEvent.payload.data.type === "result") {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'
-		return 'enabled';
+		return "enabled";
 	}
 
-	if (lastEvent.payload.source === 'system' && lastEvent.payload.type === 'compactStart') {
-		return 'compacting';
+	if (lastEvent.payload.source === "system" && lastEvent.payload.type === "compactStart") {
+		return "compacting";
 	}
 
 	if (
-		lastEvent.payload.source === 'system' &&
-		(lastEvent.payload.type === 'userAbort' ||
-			lastEvent.payload.type === 'claudeExit' ||
-			lastEvent.payload.type === 'unhandledException' ||
-			lastEvent.payload.type === 'compactFinished')
+		lastEvent.payload.source === "system" &&
+		(lastEvent.payload.type === "userAbort" ||
+			lastEvent.payload.type === "claudeExit" ||
+			lastEvent.payload.type === "unhandledException" ||
+			lastEvent.payload.type === "compactFinished")
 	) {
 		// Once we have the TODOs, if all the TODOs are completed, we can change
 		// this to conditionally return 'enabled' or 'completed'
-		return 'enabled';
+		return "enabled";
 	}
 	// If the stack is not active, consider it no longer running
 	if (!isActive) {
-		return 'enabled';
+		return "enabled";
 	}
-	return 'running';
+	return "running";
 }
 
 export type CompletedStatus =
-	| { type: 'notCompleted' }
-	| { type: 'noMessagesSent' }
-	| { type: 'completed'; code: number };
+	| { type: "notCompleted" }
+	| { type: "noMessagesSent" }
+	| { type: "completed"; code: number };
 
 export function isCompletedWithStatus(events: ClaudeMessage[], isActive: boolean): CompletedStatus {
-	if (events.length === 0) return { type: 'noMessagesSent' };
+	if (events.length === 0) return { type: "noMessagesSent" };
 	const status = currentStatus(events, isActive);
-	if (status === 'enabled') {
+	if (status === "enabled") {
 		// The last event after 'completed' is _usually_ "claudeExit", but not
 		// always. If it is, we use it, or just assume success.
 		const lastEvent = events.at(-1)!;
-		if (lastEvent.payload.source === 'system' && lastEvent.payload.type === 'claudeExit') {
-			return { type: 'completed', code: lastEvent.payload.code };
+		if (lastEvent.payload.source === "system" && lastEvent.payload.type === "claudeExit") {
+			return { type: "completed", code: lastEvent.payload.code };
 		} else {
-			return { type: 'completed', code: 0 };
+			return { type: "completed", code: 0 };
 		}
 	} else {
-		return { type: 'notCompleted' };
+		return { type: "notCompleted" };
 	}
 }
 
@@ -616,8 +616,8 @@ export function thinkingOrCompactingStartedAt(events: ClaudeMessage[]): Date | u
 	for (let i = events.length - 1; i >= 0; --i) {
 		const e = events[i]!;
 		if (
-			e.payload.source === 'user' ||
-			(e.payload.source === 'system' && e.payload.type === 'compactStart')
+			e.payload.source === "user" ||
+			(e.payload.source === "system" && e.payload.type === "compactStart")
 		) {
 			event = e;
 			break;
@@ -647,12 +647,12 @@ export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
 	let todos: ClaudeTodo[] | undefined;
 	for (let i = events.length - 1; i >= 0; --i) {
 		const event = events[i]!;
-		if (event.payload.source !== 'claude') continue;
+		if (event.payload.source !== "claude") continue;
 		const content = event.payload.data;
-		if (content.type !== 'assistant') continue;
+		if (content.type !== "assistant") continue;
 		const msgContent = content.message.content[0]!;
-		if (msgContent.type !== 'tool_use') continue;
-		if (msgContent.name !== 'TodoWrite') continue;
+		if (msgContent.type !== "tool_use") continue;
+		if (msgContent.name !== "TodoWrite") continue;
 		todos = (msgContent.input as { todos: ClaudeTodo[] }).todos;
 		break;
 	}
@@ -663,7 +663,7 @@ export function getTodos(events: ClaudeMessage[]): ClaudeTodo[] {
  * Extracts the last non-empty line from a string
  */
 function extractLastNonEmptyLine(text: string): string {
-	const lines = text.split('\n');
+	const lines = text.split("\n");
 	for (let i = lines.length - 1; i >= 0; i--) {
 		const trimmedLine = lines[i]?.trim();
 		if (trimmedLine && trimmedLine.length > 0) {
@@ -680,13 +680,13 @@ function extractLastNonEmptyLine(text: string): string {
 function extractTextFromMessage(message: ClaudeMessage): string | undefined {
 	const { payload } = message;
 
-	if (payload.source === 'claude') {
+	if (payload.source === "claude") {
 		const content = payload.data;
 
 		// Assistant text messages (conversational responses)
-		if (content.type === 'assistant') {
+		if (content.type === "assistant") {
 			const msgContent = content.message.content[0];
-			if (msgContent?.type === 'text') {
+			if (msgContent?.type === "text") {
 				const trimmedText = msgContent.text.trim();
 				if (trimmedText.length > 0) {
 					return extractLastNonEmptyLine(trimmedText);
@@ -695,17 +695,17 @@ function extractTextFromMessage(message: ClaudeMessage): string | undefined {
 		}
 
 		// Result messages (final summaries)
-		if (content.type === 'result') {
-			if (content.subtype === 'success') {
+		if (content.type === "result") {
+			if (content.subtype === "success") {
 				const trimmedResult = content.result.trim();
 				if (trimmedResult.length > 0) {
 					return extractLastNonEmptyLine(trimmedResult);
 				}
 			} else {
-				return 'an error has occurred';
+				return "an error has occurred";
 			}
 		}
-	} else if (payload.source === 'user') {
+	} else if (payload.source === "user") {
 		// User messages (actual human input)
 		const trimmedMessage = payload.message.trim();
 		if (trimmedMessage.length > 0) {

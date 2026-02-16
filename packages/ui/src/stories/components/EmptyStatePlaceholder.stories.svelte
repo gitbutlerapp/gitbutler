@@ -1,10 +1,10 @@
 <script module lang="ts">
-	import Button from '$components/Button.svelte';
-	import EmptyStatePlaceholder from '$components/EmptyStatePlaceholder.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Button from "$components/Button.svelte";
+	import EmptyStatePlaceholder from "$components/EmptyStatePlaceholder.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Layout / EmptyStatePlaceholder',
+		title: "Layout / EmptyStatePlaceholder",
 		component: EmptyStatePlaceholder,
 		args: {
 			width: 256,
@@ -12,28 +12,28 @@
 			topBottomPadding: 48,
 			leftRightPadding: 0,
 			gap: 16,
-			background: 'none'
+			background: "none",
 		},
 		argTypes: {
 			width: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			bottomMargin: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			topBottomPadding: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			leftRightPadding: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			gap: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			background: {
-				control: { type: 'text' }
-			}
-		}
+				control: { type: "text" },
+			},
+		},
 	});
 </script>
 
@@ -74,7 +74,7 @@
 				Create your first branch to get started with your project.
 			{/snippet}
 			{#snippet actions()}
-				<Button style="pop" onclick={() => alert('Create branch clicked')}>Create Branch</Button>
+				<Button style="pop" onclick={() => alert("Create branch clicked")}>Create Branch</Button>
 			{/snippet}
 		</EmptyStatePlaceholder>
 	{/snippet}

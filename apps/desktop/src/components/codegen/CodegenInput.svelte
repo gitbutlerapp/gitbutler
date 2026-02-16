@@ -1,27 +1,27 @@
 <script lang="ts">
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import AttachmentList from '$components/codegen/AttachmentList.svelte';
-	import CodegenQueued from '$components/codegen/CodegenQueued.svelte';
-	import FileSearch from '$components/codegen/FileSearch.svelte';
-	import { BACKEND } from '$lib/backend';
-	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
+	import CardOverlay from "$components/CardOverlay.svelte";
+	import Dropzone from "$components/Dropzone.svelte";
+	import AttachmentList from "$components/codegen/AttachmentList.svelte";
+	import CodegenQueued from "$components/codegen/CodegenQueued.svelte";
+	import FileSearch from "$components/codegen/FileSearch.svelte";
+	import { BACKEND } from "$lib/backend";
+	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
 	import {
 		CodegenCommitDropHandler,
 		CodegenFileDropHandler,
-		CodegenHunkDropHandler
-	} from '$lib/codegen/dropzone';
-	import { type UserInput, type PromptAttachment, type ClaudeMessage } from '$lib/codegen/types';
-	import { newlineOnEnter } from '$lib/config/uiFeatureFlags';
-	import { FILE_SERVICE } from '$lib/files/fileService';
-	import { showError } from '$lib/notifications/toasts';
-	import { inject } from '@gitbutler/core/context';
-	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from '@gitbutler/ui';
-	import { tick, type Snippet } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import type { FileSuggestionUpdate } from '@gitbutler/ui/richText/plugins/FilePlugin.svelte';
+		CodegenHunkDropHandler,
+	} from "$lib/codegen/dropzone";
+	import { type UserInput, type PromptAttachment, type ClaudeMessage } from "$lib/codegen/types";
+	import { newlineOnEnter } from "$lib/config/uiFeatureFlags";
+	import { FILE_SERVICE } from "$lib/files/fileService";
+	import { showError } from "$lib/notifications/toasts";
+	import { inject } from "@gitbutler/core/context";
+	import { Tooltip, AsyncButton, RichTextEditor, FilePlugin, UpDownPlugin } from "@gitbutler/ui";
+	import { tick, type Snippet } from "svelte";
+	import { fade } from "svelte/transition";
+	import type { FileSuggestionUpdate } from "@gitbutler/ui/richText/plugins/FilePlugin.svelte";
 
-	type UserMessage = ClaudeMessage<{ source: 'user' } & UserInput> | undefined;
+	type UserMessage = ClaudeMessage<{ source: "user" } & UserInput> | undefined;
 
 	type Props = {
 		projectId: string;
@@ -50,7 +50,7 @@
 		onCancel,
 		actionsOnLeft,
 		actionsOnRight,
-		onChange
+		onChange,
 	}: Props = $props();
 
 	const backend = inject(BACKEND);
@@ -65,7 +65,7 @@
 	let fileSuggestionsPlugin = $state<FilePlugin>();
 	let loadingFileSuggestions = $state(false);
 	let fileSuggestions = $state<string[] | undefined>(undefined);
-	let fileSuggestionsQuery = $state<string>('');
+	let fileSuggestionsQuery = $state<string>("");
 
 	function selectFileSuggestion(filename: string) {
 		fileSuggestionsPlugin?.selectFileSuggestion(filename);
@@ -97,19 +97,19 @@
 		const i = indexOfSelectedFile ?? 0;
 
 		switch (key) {
-			case 'ArrowUp':
+			case "ArrowUp":
 				if (fileSuggestions.length === 0) return false;
 				event.stopPropagation();
 				event.preventDefault();
 				indexOfSelectedFile = i === 0 ? fileSuggestions.length - 1 : i - 1;
 				return true;
-			case 'ArrowDown':
+			case "ArrowDown":
 				if (fileSuggestions.length === 0) return false;
 				event.stopPropagation();
 				event.preventDefault();
 				indexOfSelectedFile = (i + 1) % fileSuggestions.length;
 				return true;
-			case 'Enter': {
+			case "Enter": {
 				if (fileSuggestions.length === 0) return false;
 				event.stopPropagation();
 				event.preventDefault(); // Prevents newline in editor.
@@ -119,7 +119,7 @@
 				}
 				return true;
 			}
-			case 'Escape':
+			case "Escape":
 				exitFileSuggestions();
 				return true;
 			default:
@@ -157,7 +157,7 @@
 			if (state) {
 				editorRef?.load(state);
 			}
-			showError('Send error', err);
+			showError("Send error", err);
 		}
 	}
 
@@ -168,21 +168,21 @@
 		}
 
 		// Handle Escape to cancel/close
-		if (event.key === 'Escape' && onCancel) {
+		if (event.key === "Escape" && onCancel) {
 			event.preventDefault();
 			onCancel();
 			return true;
 		}
 
 		// Handle Ctrl+C to abort
-		if (event.key === 'c' && event.ctrlKey && onAbort) {
+		if (event.key === "c" && event.ctrlKey && onAbort) {
 			event.preventDefault();
 			onAbort();
 			return true;
 		}
 
 		// Handle Enter to submit
-		if (event.key === 'Enter' && !event.shiftKey && (event.metaKey || !$newlineOnEnter)) {
+		if (event.key === "Enter" && !event.shiftKey && (event.metaKey || !$newlineOnEnter)) {
 			event.preventDefault();
 			handleSubmit();
 			return true;
@@ -197,7 +197,7 @@
 	const handlers = $derived([
 		new CodegenCommitDropHandler(stackId, addAttachment),
 		new CodegenFileDropHandler(stackId, branchName, addAttachment),
-		new CodegenHunkDropHandler(stackId, addAttachment)
+		new CodegenHunkDropHandler(stackId, addAttachment),
 	]);
 
 	// Expose methods to manipulate text programmatically (e.g., for template insertion)
@@ -227,7 +227,7 @@
 		tabindex="-1"
 		onclick={() => editorRef?.focus()}
 		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
+			if (e.key === "Enter" || e.key === " ") {
 				editorRef?.focus();
 			}
 		}}
@@ -255,7 +255,7 @@
 				placeholder="Use @ to reference files, ↓ and ↑ for prompt history"
 				minHeight="4rem"
 				maxHeight="20rem"
-				onError={(e: unknown) => console.warn('Editor error', e)}
+				onError={(e: unknown) => console.warn("Editor error", e)}
 				initialText={value}
 				{onChange}
 				onKeyDown={handleEditorKeyDown}
@@ -274,9 +274,9 @@
 					<UpDownPlugin
 						historyLookup={async (offset) => {
 							attachmentService.clearByBranch(branchName);
-							const resp = (await backend.invoke('claude_get_user_message', {
+							const resp = (await backend.invoke("claude_get_user_message", {
 								projectId,
-								offset
+								offset,
 							})) as UserMessage;
 							// Let the state update so payload is removed.
 							await tick();
@@ -320,10 +320,10 @@
 
 					<Tooltip
 						text={loading
-							? 'Processing...'
+							? "Processing..."
 							: value.trim().length === 0
-								? 'Type a message'
-								: 'Send ⌘↵'}
+								? "Type a message"
+								: "Send ⌘↵"}
 					>
 						<button
 							class="send-button"
@@ -416,7 +416,7 @@
 			left: 12px;
 			height: 1px;
 			background-color: var(--clr-border-3);
-			content: '';
+			content: "";
 		}
 	}
 

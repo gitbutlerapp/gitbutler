@@ -1,7 +1,7 @@
-import autoprefixer from 'autoprefixer';
-import cssnano from 'cssnano';
-import postcssNesting from 'postcss-nesting';
-import pxToRem from 'postcss-pxtorem';
+import autoprefixer from "autoprefixer";
+import cssnano from "cssnano";
+import postcssNesting from "postcss-nesting";
+import pxToRem from "postcss-pxtorem";
 
 export default {
 	plugins: [
@@ -9,17 +9,17 @@ export default {
 		pxToRem({
 			rootValue: 16,
 			unitPrecision: 5,
-			propList: ['*'],
+			propList: ["*"],
 			replace: true,
-			mediaQuery: true
+			mediaQuery: true,
 		}),
 		postcssNesting(),
-		...(process.env.NODE_ENV === 'production'
+		...(process.env.NODE_ENV === "production"
 			? [
 					cssnano({
-						preset: ['default']
-					})
+						preset: ["default"],
+					}),
 				]
-			: [])
-	]
+			: []),
+	],
 };

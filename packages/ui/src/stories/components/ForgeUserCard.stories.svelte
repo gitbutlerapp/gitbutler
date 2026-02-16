@@ -1,39 +1,39 @@
 <script module lang="ts">
-	import Badge from '$components/Badge.svelte';
-	import ForgeUserCard from '$components/ForgeUserCard.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Badge from "$components/Badge.svelte";
+	import ForgeUserCard from "$components/ForgeUserCard.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'List items / Forge User Card',
+		title: "List items / Forge User Card",
 		component: ForgeUserCard,
 		args: {
-			username: 'octocat',
-			avatarUrl: 'https://avatars.githubusercontent.com/u/583231?v=4',
-			email: 'octocat@github.com',
+			username: "octocat",
+			avatarUrl: "https://avatars.githubusercontent.com/u/583231?v=4",
+			email: "octocat@github.com",
 			isError: false,
 			isLoading: false,
-			isForgetLoading: false
+			isForgetLoading: false,
 		},
 		argTypes: {
 			username: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			avatarUrl: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			email: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			isError: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			isLoading: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			isForgetLoading: {
-				control: { type: 'boolean' }
-			}
-		}
+				control: { type: "boolean" },
+			},
+		},
 	});
 </script>
 
@@ -46,7 +46,7 @@
 			isError={args.isError}
 			isLoading={args.isLoading}
 			isForgetLoading={args.isForgetLoading}
-			onForget={() => alert('Forget clicked')}
+			onForget={() => alert("Forget clicked")}
 		>
 			{#snippet badge()}
 				<Badge style="purple">PAT</Badge>
@@ -64,7 +64,7 @@
 			isError={false}
 			isLoading={true}
 			isForgetLoading={false}
-			onForget={() => alert('Forget clicked')}
+			onForget={() => alert("Forget clicked")}
 		/>
 	{/snippet}
 </Story>
@@ -78,7 +78,7 @@
 			isError={true}
 			isLoading={false}
 			isForgetLoading={false}
-			onForget={() => alert('Forget clicked')}
+			onForget={() => alert("Forget clicked")}
 		/>
 	{/snippet}
 </Story>
@@ -92,7 +92,7 @@
 			isError={false}
 			isLoading={false}
 			isForgetLoading={false}
-			onForget={() => alert('Forget clicked')}
+			onForget={() => alert("Forget clicked")}
 		/>
 	{/snippet}
 </Story>
@@ -106,7 +106,7 @@
 			isError={false}
 			isLoading={false}
 			isForgetLoading={true}
-			onForget={() => alert('Forget clicked')}
+			onForget={() => alert("Forget clicked")}
 		/>
 	{/snippet}
 </Story>
@@ -120,7 +120,7 @@
 			isError={false}
 			isLoading={false}
 			isForgetLoading={false}
-			onForget={() => alert('Forget clicked')}
+			onForget={() => alert("Forget clicked")}
 		>
 			{#snippet badge()}
 				<Badge style="purple">PAT</Badge>
@@ -138,7 +138,7 @@
 			isError={false}
 			isLoading={false}
 			isForgetLoading={false}
-			onForget={() => alert('Forget clicked')}
+			onForget={() => alert("Forget clicked")}
 		>
 			{#snippet badge()}
 				<Badge style="warning">PAT</Badge>
@@ -157,7 +157,7 @@
 				isError={false}
 				isLoading={false}
 				isForgetLoading={false}
-				onForget={() => alert('Forget octocat')}
+				onForget={() => alert("Forget octocat")}
 			/>
 			<ForgeUserCard
 				username="gitlabuser"
@@ -166,7 +166,7 @@
 				isError={false}
 				isLoading={false}
 				isForgetLoading={false}
-				onForget={() => alert('Forget gitlabuser')}
+				onForget={() => alert("Forget gitlabuser")}
 			/>
 			<ForgeUserCard
 				username="erroruser"
@@ -175,7 +175,7 @@
 				isError={true}
 				isLoading={false}
 				isForgetLoading={false}
-				onForget={() => alert('Forget erroruser')}
+				onForget={() => alert("Forget erroruser")}
 			/>
 		</div>
 	{/snippet}

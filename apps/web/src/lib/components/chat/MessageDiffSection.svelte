@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button, FileIcon, HunkDiffBody } from '@gitbutler/ui';
-	import type { ContentSection } from '@gitbutler/ui/utils/diffParsing';
+	import { Button, FileIcon, HunkDiffBody } from "@gitbutler/ui";
+	import type { ContentSection } from "@gitbutler/ui/utils/diffParsing";
 
 	interface Props {
 		diffPath: string;

@@ -1,56 +1,56 @@
 <script lang="ts">
-	import BranchList from '$components/BranchList.svelte';
-	import BranchView from '$components/BranchView.svelte';
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import CommitView from '$components/CommitView.svelte';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import MultiDiffView from '$components/MultiDiffView.svelte';
-	import NewCommitView from '$components/NewCommitView.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import Resizer from '$components/Resizer.svelte';
-	import StackDragHandle from '$components/StackDragHandle.svelte';
-	import WorktreeChanges from '$components/WorktreeChanges.svelte';
-	import CodegenMcpConfigModal from '$components/codegen/CodegenMcpConfigModal.svelte';
-	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
-	import { isLocalAndRemoteCommit, isUpstreamCommit } from '$components/lib';
-	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
-	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { MessageSender } from '$lib/codegen/messageQueue.svelte';
+	import BranchList from "$components/BranchList.svelte";
+	import BranchView from "$components/BranchView.svelte";
+	import CardOverlay from "$components/CardOverlay.svelte";
+	import CommitView from "$components/CommitView.svelte";
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import Dropzone from "$components/Dropzone.svelte";
+	import FullviewLoading from "$components/FullviewLoading.svelte";
+	import MultiDiffView from "$components/MultiDiffView.svelte";
+	import NewCommitView from "$components/NewCommitView.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import Resizer from "$components/Resizer.svelte";
+	import StackDragHandle from "$components/StackDragHandle.svelte";
+	import WorktreeChanges from "$components/WorktreeChanges.svelte";
+	import CodegenMcpConfigModal from "$components/codegen/CodegenMcpConfigModal.svelte";
+	import CodegenMessages from "$components/codegen/CodegenMessages.svelte";
+	import { isLocalAndRemoteCommit, isUpstreamCommit } from "$components/lib";
+	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
+	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
+	import { MessageSender } from "$lib/codegen/messageQueue.svelte";
 	import {
 		AmendCommitWithChangeDzHandler,
 		AmendCommitWithHunkDzHandler,
 		createCommitDropHandlers,
-		type DzCommitData
-	} from '$lib/commits/dropHandler';
-	import { projectRunCommitHooks } from '$lib/config/config';
-	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
-	import { isParsedError } from '$lib/error/parser';
-	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
-	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
+		type DzCommitData,
+	} from "$lib/commits/dropHandler";
+	import { projectRunCommitHooks } from "$lib/config/config";
+	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
+	import { isParsedError } from "$lib/error/parser";
+	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
+	import { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import {
 		createBranchSelection,
 		createCommitSelection,
 		createWorktreeSelection,
 		readKey,
-		type SelectionId
-	} from '$lib/selection/key';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
+		type SelectionId,
+	} from "$lib/selection/key";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { combineResults } from "$lib/state/helpers";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
 
-	import { inject } from '@gitbutler/core/context';
-	import { persistWithExpiration } from '@gitbutler/shared/persisted';
+	import { inject } from "@gitbutler/core/context";
+	import { persistWithExpiration } from "@gitbutler/shared/persisted";
 
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { Button, TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { fly } from 'svelte/transition';
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+	import { Button, TestId } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { intersectionObserver } from "@gitbutler/ui/utils/intersectionObserver";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { fly } from "svelte/transition";
 
 	type Props = {
 		projectId: string;
@@ -69,7 +69,7 @@
 		topBranchName,
 		clientHeight = $bindable(),
 		clientWidth = $bindable(),
-		onVisible
+		onVisible,
 	}: Props = $props();
 
 	const stableStackId = $derived(stackId);
@@ -91,10 +91,10 @@
 	const projectState = $derived(uiState.project(stableProjectId));
 
 	const action = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(action?.type === 'commit' && action.stackId === stableStackId);
+	const isCommitting = $derived(action?.type === "commit" && action.stackId === stableStackId);
 
 	// If the user is making a commit to a different lane we dim this one.
-	const dimmed = $derived(action?.type === 'commit' && action?.stackId !== stableStackId);
+	const dimmed = $derived(action?.type === "commit" && action?.stackId !== stableStackId);
 
 	// Resizer configuration for stack panels and details view
 	const RESIZER_CONFIG: {
@@ -104,21 +104,21 @@
 		panel1: {
 			minWidth: 20,
 			maxWidth: 64,
-			defaultValue: 23
+			defaultValue: 23,
 		},
 		panel2: {
 			minWidth: 20,
 			maxWidth: 64,
-			defaultValue: 32
-		}
+			defaultValue: 32,
+		},
 	};
 
 	const persistedStackWidth = $derived(
 		persistWithExpiration(
 			RESIZER_CONFIG.panel1.defaultValue,
 			`ui-stack-width-${stableStackId}`,
-			1440
-		)
+			1440,
+		),
 	);
 
 	const branchesQuery = $derived(stackService.branches(stableProjectId, stableStackId));
@@ -128,11 +128,11 @@
 	const laneState = $derived(uiState.lane(laneId));
 	const selection = $derived(laneState.selection);
 	const assignedSelection = $derived(
-		idSelection.getById(createWorktreeSelection({ stackId: stableStackId }))
+		idSelection.getById(createWorktreeSelection({ stackId: stableStackId })),
 	);
 	const lastAddedAssigned = $derived(assignedSelection.lastAdded);
 	const assignedKey = $derived(
-		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined
+		$lastAddedAssigned?.key ? readKey($lastAddedAssigned.key) : undefined,
 	);
 
 	const commitId = $derived(selection.current?.commitId);
@@ -142,7 +142,7 @@
 
 	// Get commit data for drop handlers when viewing a commit
 	const commitQuery = $derived(
-		commitId ? stackService.commitById(stableProjectId, stableStackId, commitId) : undefined
+		commitId ? stackService.commitById(stableProjectId, stableStackId, commitId) : undefined,
 	);
 	const runHooks = $derived(projectRunCommitHooks(stableProjectId));
 	const isCommitView = $derived(!!(branchName && commitId));
@@ -226,14 +226,14 @@
 
 	function checkFilesForCommit(): true {
 		switch ($stagingBehaviorFeature) {
-			case 'all':
+			case "all":
 				checkAllFiles();
 				return true;
-			case 'selection':
+			case "selection":
 				// We only check the selected files.
 				checkSelectedFilesForCommit();
 				return true;
-			case 'none':
+			case "none":
 				uncheckAll();
 				return true;
 		}
@@ -241,9 +241,9 @@
 
 	function startCommit(branchName: string) {
 		projectState.exclusiveAction.set({
-			type: 'commit',
+			type: "commit",
 			branchName,
-			stackId: stableStackId
+			stackId: stableStackId,
 		});
 
 		checkFilesForCommit();
@@ -262,9 +262,9 @@
 
 	function onerror(err: unknown) {
 		// Clear selection if branch not found.
-		if (isParsedError(err) && err.code === 'errors.branch.notfound') {
+		if (isParsedError(err) && err.code === "errors.branch.notfound") {
 			selection?.set(undefined);
-			console.warn('Workspace selection cleared');
+			console.warn("Workspace selection cleared");
 		}
 	}
 
@@ -282,7 +282,7 @@
 	// Function to update CSS custom property for details view width
 	function updateDetailsViewWidth(width: number) {
 		if (stackViewEl) {
-			stackViewEl.style.setProperty('--details-view-width', `${width}rem`);
+			stackViewEl.style.setProperty("--details-view-width", `${width}rem`);
 		}
 	}
 
@@ -292,22 +292,22 @@
 		if (element) {
 			if (isDetailsViewOpen) {
 				// Set default width if not already set or is zero
-				const currentWidth = element.style.getPropertyValue('--details-view-width');
-				if (!currentWidth || currentWidth === '0rem') {
+				const currentWidth = element.style.getPropertyValue("--details-view-width");
+				if (!currentWidth || currentWidth === "0rem") {
 					element.style.setProperty(
-						'--details-view-width',
-						`${RESIZER_CONFIG.panel2.defaultValue}rem`
+						"--details-view-width",
+						`${RESIZER_CONFIG.panel2.defaultValue}rem`,
 					);
 				}
 			} else {
-				element.style.setProperty('--details-view-width', '0rem');
+				element.style.setProperty("--details-view-width", "0rem");
 			}
 		}
 
 		// Cleanup function to reset the property when the effect reruns or component unmounts
 		return () => {
 			if (element) {
-				element.style.removeProperty('--details-view-width');
+				element.style.removeProperty("--details-view-width");
 			}
 		};
 	});
@@ -339,9 +339,9 @@
 					selectedBranch: reactive(() => ({ stackId, head: branchName })),
 					thinkingLevel: reactive(() => selectedThinkingLevel),
 					model: reactive(() => selectedModel),
-					permissionMode: reactive(() => selectedPermissionMode)
+					permissionMode: reactive(() => selectedPermissionMode),
 				})
-			: undefined
+			: undefined,
 	);
 	const initialPrompt = $derived(messageSender?.prompt);
 
@@ -361,7 +361,7 @@
 		await claudeCodeService.answerAskUserQuestion({
 			projectId,
 			stackId,
-			answers
+			answers,
 		});
 	}
 
@@ -388,18 +388,18 @@
 		},
 		options: {
 			threshold: 0.5,
-			root: lanesScrollableEl
-		}
+			root: lanesScrollableEl,
+		},
 	}}
 	use:focusable={{
 		onKeydown: (event) => {
-			if (event.key === 'Escape' && isDetailsViewOpen) {
+			if (event.key === "Escape" && isDetailsViewOpen) {
 				onclosePreview();
 				event.preventDefault();
 				event.stopPropagation();
 				return true;
 			}
-		}
+		},
 	}}
 >
 	<ReduxResult
@@ -469,14 +469,14 @@
 									<div class="start-commit">
 										<Button
 											testId={TestId.StartCommitButton}
-											kind={changes.current.length > 0 ? 'solid' : 'outline'}
-											style={changes.current.length > 0 ? 'pop' : 'gray'}
+											kind={changes.current.length > 0 ? "solid" : "outline"}
+											style={changes.current.length > 0 ? "pop" : "gray"}
 											type="button"
 											wide
 											disabled={isReadOnly ||
 												defaultBranch === null ||
 												!!projectState.exclusiveAction.current}
-											tooltip={isReadOnly ? 'Read-only mode' : undefined}
+											tooltip={isReadOnly ? "Read-only mode" : undefined}
 											onclick={() => {
 												if (defaultBranch) startCommit(defaultBranch);
 											}}
@@ -498,7 +498,7 @@
 							{active}
 							onclick={() => {
 								// Clear one selection when you modify the other.
-								idSelection.clear({ type: 'worktree', stackId: stableStackId });
+								idSelection.clear({ type: "worktree", stackId: stableStackId });
 							}}
 							onFileClick={(index) => {
 								multiDiffView?.jumpToIndex(index);
@@ -590,7 +590,7 @@
 													.lane(stableStackId)
 													.selection.set({ branchName, commitId: newId, previewOpen });
 											}
-										}
+										},
 									})
 								: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
 						{#if branchName && commitId}
@@ -604,8 +604,8 @@
 									{@const label =
 										handler instanceof AmendCommitWithChangeDzHandler ||
 										handler instanceof AmendCommitWithHunkDzHandler
-											? 'Amend'
-											: 'Squash'}
+											? "Amend"
+											: "Squash"}
 									<CardOverlay {hovered} {activated} {label} />
 								{/snippet}
 								<div class="details-view__inner">
@@ -617,7 +617,7 @@
 											stackId: stableStackId,
 											branchName,
 											commitId,
-											upstream: !!upstream
+											upstream: !!upstream,
 										}}
 										draggableFiles
 										rounded
@@ -631,7 +631,7 @@
 												{#snippet children(commit)}
 													<MultiDiffView
 														{stackId}
-														selectionId={{ type: 'commit', commitId }}
+														selectionId={{ type: "commit", commitId }}
 														bind:this={multiDiffView}
 														projectId={stableProjectId}
 														changes={commit.changes}
@@ -649,7 +649,7 @@
 							{@const changesQuery = stackService.branchChanges({
 								projectId: stableProjectId,
 								stackId: stableStackId,
-								branch: branchName
+								branch: branchName,
 							})}
 							<div class="details-view__inner">
 								<!-- TOP SECTION: Branch/Commit Details (no resizer) -->
@@ -666,7 +666,7 @@
 									{#snippet children(result)}
 										<MultiDiffView
 											{stackId}
-											selectionId={{ type: 'branch', branchName, remote: undefined }}
+											selectionId={{ type: "branch", branchName, remote: undefined }}
 											changes={result.changes}
 											bind:this={multiDiffView}
 											projectId={stableProjectId}
@@ -680,7 +680,7 @@
 						{:else if $activeLastAdded}
 							<MultiDiffView
 								{stackId}
-								selectionId={{ type: 'worktree', stackId }}
+								selectionId={{ type: "worktree", stackId }}
 								changes={assignedFiles}
 								bind:this={multiDiffView}
 								projectId={stableProjectId}

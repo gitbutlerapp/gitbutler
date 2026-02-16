@@ -5,18 +5,18 @@ export type FocusOptions = {
 };
 
 const focusableSelectors: string[] = [
-	'a[href]',
-	'button:not([disabled])',
+	"a[href]",
+	"button:not([disabled])",
 	'input:not([disabled]):not([type="hidden"])',
-	'select:not([disabled])',
-	'textarea:not([disabled])',
+	"select:not([disabled])",
+	"textarea:not([disabled])",
 	'[tabindex]:not([tabindex="-1"])',
-	'[contenteditable="true"]'
+	'[contenteditable="true"]',
 ];
 
 export function getFocusableElements(container: HTMLElement): HTMLElement[] {
 	const focusableElements: NodeListOf<Element> = container.querySelectorAll(
-		focusableSelectors.join(',')
+		focusableSelectors.join(","),
 	);
 
 	return Array.from(focusableElements)
@@ -27,12 +27,12 @@ export function getFocusableElements(container: HTMLElement): HTMLElement[] {
 				el.offsetWidth > 0 &&
 				el.offsetHeight > 0 &&
 				!el.hidden &&
-				getComputedStyle(el).visibility !== 'hidden'
+				getComputedStyle(el).visibility !== "hidden"
 			);
 		})
 		.sort((a: HTMLElement, b: HTMLElement): number => {
-			const aIndex: number = parseInt(a.getAttribute('tabindex') || '0') || 0;
-			const bIndex: number = parseInt(b.getAttribute('tabindex') || '0') || 0;
+			const aIndex: number = parseInt(a.getAttribute("tabindex") || "0") || 0;
+			const bIndex: number = parseInt(b.getAttribute("tabindex") || "0") || 0;
 
 			if (aIndex > 0 && bIndex === 0) return -1;
 			if (aIndex === 0 && bIndex > 0) return 1;

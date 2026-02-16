@@ -1,14 +1,14 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import PreviewHeader from '$components/PreviewHeader.svelte';
-	import Resizer from '$components/Resizer.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
-	import { persistWithExpiration } from '@gitbutler/shared/persisted';
-	import { Icon } from '@gitbutler/ui';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { writable, type Writable } from 'svelte/store';
-	import type { ComponentProps, Snippet } from 'svelte';
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import PreviewHeader from "$components/PreviewHeader.svelte";
+	import Resizer from "$components/Resizer.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
+	import { persistWithExpiration } from "@gitbutler/shared/persisted";
+	import { Icon } from "@gitbutler/ui";
+	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { writable, type Writable } from "svelte/store";
+	import type { ComponentProps, Snippet } from "svelte";
 
 	type Props = {
 		header: Snippet<[HTMLDivElement]>;
@@ -61,7 +61,7 @@
 		scrollRoot,
 		highlighted,
 		ontoggle,
-		onclose
+		onclose,
 	}: Props = $props();
 
 	const userSettings = inject(SETTINGS);
@@ -227,7 +227,7 @@
 				height: 100%;
 				border: 2px solid var(--clr-theme-pop-element);
 				border-radius: calc(var(--radius-m) + 2px);
-				content: '';
+				content: "";
 				pointer-events: none;
 			}
 		}

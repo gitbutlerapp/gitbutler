@@ -1,4 +1,4 @@
-import type { Action } from 'svelte/action';
+import type { Action } from "svelte/action";
 
 interface StickyOptions {
 	enabled?: boolean;
@@ -9,7 +9,7 @@ interface StickyOptions {
 
 export function sticky(
 	element: HTMLElement,
-	options: StickyOptions
+	options: StickyOptions,
 ): ReturnType<Action<HTMLElement, StickyOptions>> {
 	let { enabled = false, onStuck, scrollThreshold = 4, scrollContainer } = options;
 
@@ -17,7 +17,7 @@ export function sticky(
 
 	function cleanup() {
 		if (scrollContainer) {
-			scrollContainer.removeEventListener('scroll', handleScroll);
+			scrollContainer.removeEventListener("scroll", handleScroll);
 		}
 	}
 
@@ -52,14 +52,14 @@ export function sticky(
 
 		// Apply styles in one batch to avoid layout thrashing
 		Object.assign(element.style, {
-			position: 'sticky',
-			top: '0px',
-			zIndex: 'var(--z-lifted)'
+			position: "sticky",
+			top: "0px",
+			zIndex: "var(--z-lifted)",
 		});
 
 		// Only setup scroll listener when callback is provided and scroll container exists
 		if (onStuck && scrollContainer) {
-			scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+			scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 			handleScroll(); // Check initial state
 		}
 	}
@@ -79,9 +79,9 @@ export function sticky(
 				cleanup();
 				// Clear styles in one batch
 				Object.assign(element.style, {
-					position: '',
-					top: '',
-					zIndex: ''
+					position: "",
+					top: "",
+					zIndex: "",
 				});
 				return;
 			}
@@ -91,10 +91,10 @@ export function sticky(
 			} else if (scrollContainer !== oldScrollContainer) {
 				// Scroll container changed - update listener
 				if (oldScrollContainer) {
-					oldScrollContainer.removeEventListener('scroll', handleScroll);
+					oldScrollContainer.removeEventListener("scroll", handleScroll);
 				}
 				if (onStuck && scrollContainer) {
-					scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+					scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 					handleScroll();
 				}
 			}
@@ -103,10 +103,10 @@ export function sticky(
 			cleanup();
 			// Clear styles in one batch
 			Object.assign(element.style, {
-				position: '',
-				top: '',
-				zIndex: ''
+				position: "",
+				top: "",
+				zIndex: "",
 			});
-		}
+		},
 	};
 }

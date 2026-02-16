@@ -1,22 +1,22 @@
 <script module lang="ts">
-	import LineStats from '$components/LineStats.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import LineStats from "$components/LineStats.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / LineStats',
+		title: "Basic / LineStats",
 		component: LineStats,
 		args: {
 			linesAdded: 42,
-			linesRemoved: 13
+			linesRemoved: 13,
 		},
 		argTypes: {
 			linesAdded: {
-				control: { type: 'number', min: 0 }
+				control: { type: "number", min: 0 },
 			},
 			linesRemoved: {
-				control: { type: 'number', min: 0 }
-			}
-		}
+				control: { type: "number", min: 0 },
+			},
+		},
 	});
 </script>
 

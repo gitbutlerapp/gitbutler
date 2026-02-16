@@ -1,12 +1,12 @@
 <script lang="ts">
-	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import OAuthButtons from '$lib/components/auth/OAuthButtons.svelte';
-	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, EmailTextbox, Textbox, InfoMessage } from '@gitbutler/ui';
-	import { env } from '$env/dynamic/public';
+	import RedirectIfLoggedIn from "$lib/auth/RedirectIfLoggedIn.svelte";
+	import OAuthButtons from "$lib/components/auth/OAuthButtons.svelte";
+	import FullscreenIllustrationCard from "$lib/components/service/FullscreenIllustrationCard.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, EmailTextbox, Textbox, InfoMessage } from "@gitbutler/ui";
+	import { env } from "$env/dynamic/public";
 
 	let email = $state<string>();
 	let password = $state<string>();
@@ -52,20 +52,20 @@
 		clearError();
 
 		if (!email || !password) {
-			console.error('Email and password are required');
+			console.error("Email and password are required");
 			return;
 		}
 
 		const response = await loginService.loginWithEmail(email, password);
 
-		if (response.type === 'error') {
+		if (response.type === "error") {
 			error = response.errorMessage;
 			errorCode = response.errorCode;
-			console.error('Login failed:', response.raw ?? response.errorMessage);
+			console.error("Login failed:", response.raw ?? response.errorMessage);
 		} else {
 			const token = response.data;
-			const url = new URL('successful_login', env.PUBLIC_APP_HOST);
-			url.searchParams.set('access_token', encodeURIComponent(token));
+			const url = new URL("successful_login", env.PUBLIC_APP_HOST);
+			url.searchParams.set("access_token", encodeURIComponent(token));
 			const path = url.toString();
 			window.location.href = path;
 		}
@@ -73,7 +73,7 @@
 
 	async function resendConfirmationEmail() {
 		if (!email) {
-			error = 'Please enter your email to resend the confirmation email.';
+			error = "Please enter your email to resend the confirmation email.";
 			return;
 		}
 
@@ -81,11 +81,11 @@
 		startResendCountdown();
 
 		const response = await loginService.resendConfirmationEmail(email);
-		if (response.type === 'error') {
+		if (response.type === "error") {
 			error = response.errorMessage;
 			errorCode = response.errorCode;
 			confirmationSent = false;
-			console.error('Failed to resend confirmation email:', response.raw ?? response.errorMessage);
+			console.error("Failed to resend confirmation email:", response.raw ?? response.errorMessage);
 		} else {
 			error = undefined;
 			errorCode = undefined;
@@ -138,7 +138,7 @@
 			<div class="wiggle-animation">
 				<InfoMessage filled outlined={false} style="danger" class="m-b-16">
 					{#snippet content()}
-						{#if errorCode === 'email_not_verified'}
+						{#if errorCode === "email_not_verified"}
 							{#if !resendDisabled}
 								<p>
 									Verify your email before logging in. Check your inbox or <button

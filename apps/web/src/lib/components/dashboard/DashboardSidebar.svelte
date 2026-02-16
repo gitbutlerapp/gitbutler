@@ -1,9 +1,9 @@
 <script lang="ts">
-	import DashboardSidebarProjects from '$lib/components/dashboard/DashboardSidebarProjects.svelte';
-	import DashboardSidebarReviews from '$lib/components/dashboard/DashboardSidebarReviews.svelte';
-	import { dashboardSidebarSetTab, type SidebarTab } from '$lib/dashboard/sidebar.svelte';
-	import { WEB_STATE } from '$lib/redux/store.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import DashboardSidebarProjects from "$lib/components/dashboard/DashboardSidebarProjects.svelte";
+	import DashboardSidebarReviews from "$lib/components/dashboard/DashboardSidebarReviews.svelte";
+	import { dashboardSidebarSetTab, type SidebarTab } from "$lib/dashboard/sidebar.svelte";
+	import { WEB_STATE } from "$lib/redux/store.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	const webState = inject(WEB_STATE);
 	const webDispatch = webState.appDispatch;
@@ -11,8 +11,8 @@
 	const currentTab = $derived(webState.dashboardSidebar.currentTab);
 
 	const tabs = [
-		{ label: 'My projects', key: 'projects' as SidebarTab },
-		{ label: 'My reviews', key: 'reviews' as SidebarTab }
+		{ label: "My projects", key: "projects" as SidebarTab },
+		{ label: "My reviews", key: "reviews" as SidebarTab },
 	];
 </script>
 
@@ -33,9 +33,9 @@
 		{/each}
 	</div>
 	<div class="content">
-		{#if currentTab === 'projects'}
+		{#if currentTab === "projects"}
 			<DashboardSidebarProjects />
-		{:else if currentTab === 'reviews'}
+		{:else if currentTab === "reviews"}
 			<DashboardSidebarReviews />
 		{/if}
 	</div>

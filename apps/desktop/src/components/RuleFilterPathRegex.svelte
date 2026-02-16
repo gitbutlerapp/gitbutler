@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Textbox } from '@gitbutler/ui';
+	import { Textbox } from "@gitbutler/ui";
 
 	type Props = {
 		value: string | undefined;

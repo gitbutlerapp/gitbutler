@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Formatter from '$lib/richText/plugins/Formatter.svelte';
-	import FormattingButton from '$lib/richText/tools/FormattingButton.svelte';
+	import Formatter from "$lib/richText/plugins/Formatter.svelte";
+	import FormattingButton from "$lib/richText/tools/FormattingButton.svelte";
 
 	type Props = {
 		formatter: ReturnType<typeof Formatter> | undefined;
@@ -31,14 +31,14 @@
 			function handleScroll() {
 				updateScrollState();
 			}
-			scrollerElement.addEventListener('scroll', handleScroll);
+			scrollerElement.addEventListener("scroll", handleScroll);
 
 			// Listen for resize events to update scroll state
 			const resizeObserver = new ResizeObserver(updateScrollState);
 			resizeObserver.observe(scrollerElement);
 
 			return () => {
-				scrollerElement?.removeEventListener('scroll', handleScroll);
+				scrollerElement?.removeEventListener("scroll", handleScroll);
 				resizeObserver.disconnect();
 			};
 		}
@@ -58,21 +58,21 @@
 					icon="text-bold"
 					activated={formatter.imports.isBold}
 					tooltip="Bold"
-					onclick={() => formatter.format('text-bold')}
+					onclick={() => formatter.format("text-bold")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="text-italic"
 					activated={formatter.imports.isItalic}
 					tooltip="Italic"
-					onclick={() => formatter.format('text-italic')}
+					onclick={() => formatter.format("text-italic")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="text-strikethrough"
 					activated={formatter.imports.isStrikethrough}
 					tooltip="Strikethrough"
-					onclick={() => formatter.format('text-strikethrough')}
+					onclick={() => formatter.format("text-strikethrough")}
 				/>
 			</div>
 			<div class="formatting-bar__group">
@@ -81,21 +81,21 @@
 					icon="text-code"
 					activated={formatter.imports.isCode}
 					tooltip="Code"
-					onclick={() => formatter.format('text-code')}
+					onclick={() => formatter.format("text-code")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="text-quote"
 					activated={formatter.imports.isQuote}
 					tooltip="Quote"
-					onclick={() => formatter.format('text-quote')}
+					onclick={() => formatter.format("text-quote")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="text-link"
 					activated={formatter.imports.isLink}
 					tooltip="Link"
-					onclick={() => formatter.format('text-link')}
+					onclick={() => formatter.format("text-link")}
 				/>
 			</div>
 			<div class="formatting-bar__group">
@@ -104,21 +104,21 @@
 					icon="text"
 					activated={formatter?.imports.isNormal}
 					tooltip="Normal text"
-					onclick={() => formatter?.format('text')}
+					onclick={() => formatter?.format("text")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="text-h2"
 					activated={formatter?.imports.isH2}
 					tooltip="Heading 2"
-					onclick={() => formatter?.format('text-h2')}
+					onclick={() => formatter?.format("text-h2")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="text-h3"
 					activated={formatter?.imports.isH3}
 					tooltip="Heading 3"
-					onclick={() => formatter?.format('text-h3')}
+					onclick={() => formatter?.format("text-h3")}
 				/>
 			</div>
 			<div class="formatting-bar__group">
@@ -126,19 +126,19 @@
 					size="tag"
 					icon="bullet-list"
 					tooltip="Unordered list"
-					onclick={() => formatter?.format('bullet-list')}
+					onclick={() => formatter?.format("bullet-list")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="number-list"
 					tooltip="Ordered list"
-					onclick={() => formatter?.format('number-list')}
+					onclick={() => formatter?.format("number-list")}
 				/>
 				<FormattingButton
 					size="tag"
 					icon="checklist"
 					tooltip="Check list"
-					onclick={() => formatter?.format('checklist')}
+					onclick={() => formatter?.format("checklist")}
 				/>
 			</div>
 		</div>
@@ -184,7 +184,7 @@
 				height: 16px;
 				margin: 0 6px;
 				background-color: var(--clr-border-2);
-				content: '';
+				content: "";
 			}
 		}
 	}

@@ -1,18 +1,18 @@
-import { Snapshot } from '$lib/history/types';
-import { InjectionToken } from '@gitbutler/core/context';
-import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import { plainToInstance } from 'class-transformer';
-import { get, writable } from 'svelte/store';
-import type { IBackend } from '$lib/backend';
-import type { TreeChange } from '$lib/hunks/change';
-import type { BackendApi, ClientState } from '$lib/state/clientState.svelte';
+import { Snapshot } from "$lib/history/types";
+import { InjectionToken } from "@gitbutler/core/context";
+import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
+import { plainToInstance } from "class-transformer";
+import { get, writable } from "svelte/store";
+import type { IBackend } from "$lib/backend";
+import type { TreeChange } from "$lib/hunks/change";
+import type { BackendApi, ClientState } from "$lib/state/clientState.svelte";
 
 const snapshotDiffAdapter = createEntityAdapter({
-	selectId: (tc: TreeChange) => tc.path
+	selectId: (tc: TreeChange) => tc.path,
 });
 const snapshotDiffSelectors = snapshotDiffAdapter.getSelectors();
 
-export const HISTORY_SERVICE = new InjectionToken<HistoryService>('HistoryService');
+export const HISTORY_SERVICE = new InjectionToken<HistoryService>("HistoryService");
 class SnapshotPager {
 	cursor: string | undefined = undefined;
 
@@ -31,7 +31,7 @@ class SnapshotPager {
 
 	constructor(
 		private readonly projectId: string,
-		private backend: IBackend
+		private backend: IBackend,
 	) {}
 
 	async load() {
@@ -43,7 +43,7 @@ class SnapshotPager {
 	}
 
 	async loadMore() {
-		if (!this.cursor) throw new Error('Not without a cursor');
+		if (!this.cursor) throw new Error("Not without a cursor");
 		if (get(this.isAllLoaded)) return; // Nothing to do.
 
 		// TODO: Update API so we don't have to .slice()
@@ -59,10 +59,10 @@ class SnapshotPager {
 
 	private async fetch(after?: string) {
 		this.loading.set(true);
-		const resp = await this.backend.invoke<Snapshot[]>('list_snapshots', {
+		const resp = await this.backend.invoke<Snapshot[]>("list_snapshots", {
 			projectId: this.projectId,
 			sha: after,
-			limit: 32
+			limit: 32,
 		});
 		this.loading.set(false);
 		return plainToInstance(Snapshot, resp);
@@ -83,7 +83,7 @@ export class HistoryService {
 
 	constructor(
 		private backend: IBackend,
-		backendApi: BackendApi
+		backendApi: BackendApi,
 	) {
 		this.api = injectEndpoints(backendApi);
 	}
@@ -101,13 +101,13 @@ export class HistoryService {
 	async getSnapshotDiff(projectId: string, snapshotId: string): Promise<TreeChange[]> {
 		return await this.api.endpoints.snapshotDiff.fetch(
 			{ projectId, snapshotId },
-			{ transform: snapshotDiffSelectors.selectAll }
+			{ transform: snapshotDiffSelectors.selectAll },
 		);
 	}
 
 	snapshotDiff(params: SnapshotDiffParams) {
 		return this.api.endpoints.snapshotDiff.useQuery(params, {
-			transform: snapshotDiffSelectors.selectAll
+			transform: snapshotDiffSelectors.selectAll,
 		});
 	}
 
@@ -115,8 +115,8 @@ export class HistoryService {
 		return this.api.endpoints.snapshotDiff.useQuery(
 			{ projectId: params.projectId, snapshotId: params.snapshotId },
 			{
-				transform: (data) => snapshotDiffSelectors.selectById(data, params.path)
-			}
+				transform: (data) => snapshotDiffSelectors.selectById(data, params.path),
+			},
 		);
 	}
 
@@ -125,9 +125,9 @@ export class HistoryService {
 	}
 
 	async createSnapshot(projectId: string, message?: string) {
-		await this.backend.invoke<string>('create_snapshot', {
+		await this.backend.invoke<string>("create_snapshot", {
 			projectId,
-			message: message?.trim() || undefined
+			message: message?.trim() || undefined,
 		});
 		// Refresh snapshots list after creating
 		this.snapshots(projectId).load();
@@ -136,23 +136,23 @@ export class HistoryService {
 
 export function createdOnDay(d: Date) {
 	const t = new Date();
-	return `${t.toDateString() === d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}, ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+	return `${t.toDateString() === d.toDateString() ? "Today" : d.toLocaleDateString("en-US", { weekday: "short" })}, ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
+function injectEndpoints(api: ClientState["backendApi"]) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			snapshotDiff: build.query<EntityState<TreeChange, string>, SnapshotDiffParams>({
-				extraOptions: { command: 'snapshot_diff' },
+				extraOptions: { command: "snapshot_diff" },
 				query: ({ projectId, snapshotId }) => ({ projectId, sha: snapshotId }),
 				transformResponse: (data: TreeChange[]) => {
 					return snapshotDiffAdapter.addMany(snapshotDiffAdapter.getInitialState(), data);
-				}
+				},
 			}),
 			restoreSnapshot: build.mutation<void, { projectId: string; sha: string }>({
-				extraOptions: { command: 'restore_snapshot' },
-				query: (args) => args
-			})
-		})
+				extraOptions: { command: "restore_snapshot" },
+				query: (args) => args,
+			}),
+		}),
 	});
 }

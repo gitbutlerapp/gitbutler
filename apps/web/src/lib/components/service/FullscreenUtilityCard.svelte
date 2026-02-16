@@ -1,6 +1,6 @@
 <script lang="ts">
-	import linksJson from '$lib/data/links.json';
-	import type { Snippet } from 'svelte';
+	import linksJson from "$lib/data/links.json";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		title: string;

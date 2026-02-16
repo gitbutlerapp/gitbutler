@@ -1,22 +1,22 @@
-import { providesItem, providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { SecretsService } from '$lib/secrets/secretsService';
-import type { BackendApi } from '$lib/state/clientState.svelte';
-import type { ButGitLab, ButGitLabToken } from '@gitbutler/core/api';
+import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { SecretsService } from "$lib/secrets/secretsService";
+import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { ButGitLab, ButGitLabToken } from "@gitbutler/core/api";
 
-export const GITLAB_USER_SERVICE = new InjectionToken<GitLabUserService>('GitLabUserService');
+export const GITLAB_USER_SERVICE = new InjectionToken<GitLabUserService>("GitLabUserService");
 
 export function isSameGitLabAccountIdentifier(
 	a: ButGitLabToken.GitlabAccountIdentifier,
-	b: ButGitLabToken.GitlabAccountIdentifier
+	b: ButGitLabToken.GitlabAccountIdentifier,
 ): boolean {
 	if (a.type !== b.type) {
 		return false;
 	}
 	switch (a.type) {
-		case 'patUsername':
+		case "patUsername":
 			return a.info.username === (b as typeof a).info.username;
-		case 'selfHosted':
+		case "selfHosted":
 			return (
 				a.info.host === (b as typeof a).info.host &&
 				a.info.username === (b as typeof a).info.username
@@ -24,31 +24,31 @@ export function isSameGitLabAccountIdentifier(
 	}
 }
 
-export type GitLabAccountIdentifierType = ButGitLabToken.GitlabAccountIdentifier['type'];
+export type GitLabAccountIdentifierType = ButGitLabToken.GitlabAccountIdentifier["type"];
 
 function isGitLabAccountIdentifierType(text: unknown): text is GitLabAccountIdentifierType {
-	if (typeof text !== 'string') {
+	if (typeof text !== "string") {
 		return false;
 	}
-	return text === 'patUsername' || text === 'enterprise';
+	return text === "patUsername" || text === "enterprise";
 }
 
 // ASCII Unit Separator, used to separate data units within a record or field.
-const UNIT_SEP = '\u001F';
+const UNIT_SEP = "\u001F";
 
 export function gitlabAccountIdentifierToString(
-	account: ButGitLabToken.GitlabAccountIdentifier
+	account: ButGitLabToken.GitlabAccountIdentifier,
 ): string {
 	switch (account.type) {
-		case 'patUsername':
+		case "patUsername":
 			return `${account.type}${UNIT_SEP}${account.info.username}`;
-		case 'selfHosted':
+		case "selfHosted":
 			return `${account.type}${UNIT_SEP}${account.info.host}${UNIT_SEP}${account.info.username}`;
 	}
 }
 
 export function stringToGitLabAccountIdentifier(
-	str: string
+	str: string,
 ): ButGitLabToken.GitlabAccountIdentifier | null {
 	const parts = str.split(UNIT_SEP);
 	if (parts.length < 2) {
@@ -61,24 +61,24 @@ export function stringToGitLabAccountIdentifier(
 	}
 
 	switch (type) {
-		case 'patUsername':
+		case "patUsername":
 			if (infoParts.length < 1) return null;
 
 			return {
-				type: 'patUsername',
+				type: "patUsername",
 				info: {
-					username: infoParts[0]!
-				}
+					username: infoParts[0]!,
+				},
 			};
-		case 'selfHosted':
+		case "selfHosted":
 			if (infoParts.length < 2) return null;
 
 			return {
-				type: 'selfHosted',
+				type: "selfHosted",
 				info: {
 					host: infoParts[0]!,
-					username: infoParts[1]!
-				}
+					username: infoParts[1]!,
+				},
 			};
 	}
 }
@@ -88,7 +88,7 @@ export class GitLabUserService {
 
 	constructor(
 		backendApi: BackendApi,
-		private secretsService: SecretsService
+		private secretsService: SecretsService,
 	) {
 		this.backendApi = injectBackendEndpoints(backendApi);
 	}
@@ -138,63 +138,63 @@ function injectBackendEndpoints(api: BackendApi) {
 		endpoints: (build) => ({
 			forgetGitLabAccount: build.mutation<void, ButGitLabToken.GitlabAccountIdentifier>({
 				extraOptions: {
-					command: 'forget_gitlab_account',
-					actionName: 'Forget GitLab Account'
+					command: "forget_gitlab_account",
+					actionName: "Forget GitLab Account",
 				},
 				query: (account) => ({
-					account
+					account,
 				}),
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)]
+				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
 			getGitLabUser: build.query<
 				ButGitLab.AuthenticatedUserSensitive | null,
 				{ account: ButGitLabToken.GitlabAccountIdentifier }
 			>({
 				extraOptions: {
-					command: 'get_gl_user'
+					command: "get_gl_user",
 				},
 				query: (args) => args,
 				providesTags: (_result, _error, username) => [
-					...providesItem(ReduxTag.ForgeUser, `gitlab:${username}`)
-				]
+					...providesItem(ReduxTag.ForgeUser, `gitlab:${username}`),
+				],
 			}),
 			listKnownGitLabAccounts: build.query<ButGitLabToken.GitlabAccountIdentifier[], void>({
 				extraOptions: {
-					command: 'list_known_gitlab_accounts'
+					command: "list_known_gitlab_accounts",
 				},
 				query: () => ({}),
-				providesTags: [providesList(ReduxTag.GitLabUserList)]
+				providesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
 			clearAllGitLabAccounts: build.mutation<void, void>({
 				extraOptions: {
-					command: 'clear_all_gitlab_tokens',
-					actionName: 'Clear All GitLab Accounts'
+					command: "clear_all_gitlab_tokens",
+					actionName: "Clear All GitLab Accounts",
 				},
 				query: () => ({}),
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)]
+				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
 			storeGitLabPat: build.mutation<
 				ButGitLab.AuthStatusResponseSensitive,
 				{ accessToken: string }
 			>({
 				extraOptions: {
-					command: 'store_gitlab_pat',
-					actionName: 'Store GitLab PAT'
+					command: "store_gitlab_pat",
+					actionName: "Store GitLab PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)]
+				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
 			}),
 			storeGitLabEnterprisePat: build.mutation<
 				ButGitLab.AuthStatusResponseSensitive,
 				{ host: string; accessToken: string }
 			>({
 				extraOptions: {
-					command: 'store_gitlab_selfhosted_pat',
-					actionName: 'Store GitLab Enterprise PAT'
+					command: "store_gitlab_selfhosted_pat",
+					actionName: "Store GitLab Enterprise PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitLabUserList)]
-			})
-		})
+				invalidatesTags: [providesList(ReduxTag.GitLabUserList)],
+			}),
+		}),
 	});
 }

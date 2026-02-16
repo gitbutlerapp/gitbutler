@@ -1,8 +1,8 @@
-import { CommitDropData } from '$lib/commits/dropHandler';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { StackOrder } from '$lib/branches/branch';
-import type { DropzoneHandler } from '$lib/dragging/handler';
-import type { StackService } from '$lib/stacks/stackService.svelte';
+import { CommitDropData } from "$lib/commits/dropHandler";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { StackOrder } from "$lib/branches/branch";
+import type { DropzoneHandler } from "$lib/dragging/handler";
+import type { StackService } from "$lib/stacks/stackService.svelte";
 
 export class ReorderCommitDzHandler implements DropzoneHandler {
 	constructor(
@@ -11,7 +11,7 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 		private stackService: StackService,
 		private currentSeriesName: string,
 		private series: { name: string; commitIds: string[] }[],
-		public commitId: string
+		public commitId: string,
 	) {}
 
 	accepts(data: unknown) {
@@ -22,7 +22,7 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 		const distance = distanceBetweenDropzones(
 			this.series,
 			`${data.branchName}|${data.commit.id}`,
-			`${this.currentSeriesName}|${this.commitId}`
+			`${this.currentSeriesName}|${this.commitId}`,
 		);
 		if (distance === 0 || distance === 1) return false;
 
@@ -34,14 +34,14 @@ export class ReorderCommitDzHandler implements DropzoneHandler {
 			this.series,
 			this.currentSeriesName,
 			data.commit.id,
-			this.commitId
+			this.commitId,
 		);
 
 		if (stackOrder) {
 			await this.stackService.reorderStack({
 				projectId: this.projectId,
 				stackId: data.stackId,
-				stackOrder
+				stackOrder,
 			});
 		}
 	}
@@ -54,7 +54,7 @@ export class ReorderCommitDzFactory {
 		private projectId: string,
 		private stackService: StackService,
 		private stack: { name: string; commitIds: string[] }[],
-		private laneId: string
+		private laneId: string,
 	) {
 		const seriesMap = new Map();
 		this.stack.forEach((series) => {
@@ -66,7 +66,7 @@ export class ReorderCommitDzFactory {
 	top(seriesName: string) {
 		const currentSeries = this.series.get(seriesName);
 		if (!currentSeries) {
-			throw new Error('Series not found');
+			throw new Error("Series not found");
 		}
 
 		return new ReorderCommitDzHandler(
@@ -75,14 +75,14 @@ export class ReorderCommitDzFactory {
 			this.stackService,
 			currentSeries.name,
 			this.stack,
-			'top'
+			"top",
 		);
 	}
 
 	belowCommit(seriesName: string, commitId: string) {
 		const currentSeries = this.series.get(seriesName);
 		if (!currentSeries) {
-			throw new Error('Series not found');
+			throw new Error("Series not found");
 		}
 
 		return new ReorderCommitDzHandler(
@@ -91,13 +91,13 @@ export class ReorderCommitDzFactory {
 			this.stackService,
 			currentSeries.name,
 			this.stack,
-			commitId
+			commitId,
 		);
 	}
 }
 
 export const REORDER_DROPZONE_FACTORY = new InjectionToken<ReorderDropzoneFactory>(
-	'ReorderDropzoneFactory'
+	"ReorderDropzoneFactory",
 );
 
 export class ReorderDropzoneFactory {
@@ -112,20 +112,20 @@ function buildNewStackOrder(
 	allSeries: { name: string; commitIds: string[] }[],
 	currentSeriesName: string,
 	actorCommitId: string,
-	targetCommitId: string
+	targetCommitId: string,
 ): StackOrder | undefined {
 	const branches = allSeries.map((s) => ({
 		name: s.name,
-		commitIds: s.commitIds
+		commitIds: s.commitIds,
 	}));
 
 	const allCommitIds = branches.flatMap((s) => s.commitIds);
 
 	if (
-		targetCommitId !== 'top' &&
+		targetCommitId !== "top" &&
 		(!allCommitIds.includes(actorCommitId) || !allCommitIds.includes(targetCommitId))
 	) {
-		throw new Error('Commit not found in series');
+		throw new Error("Commit not found in series");
 	}
 
 	const currentSeriesIndex = branches.findIndex((s) => s.name === currentSeriesName);
@@ -140,7 +140,7 @@ function buildNewStackOrder(
 	if (!updatedCurrentSeries) return undefined;
 
 	// Put actorCommtId in its new position
-	if (targetCommitId === 'top') {
+	if (targetCommitId === "top") {
 		updatedCurrentSeries.commitIds.unshift(actorCommitId);
 	} else {
 		const targetIndex = updatedCurrentSeries.commitIds.indexOf(targetCommitId);
@@ -150,22 +150,22 @@ function buildNewStackOrder(
 	branches[currentSeriesIndex] = updatedCurrentSeries;
 
 	return {
-		series: branches
+		series: branches,
 	};
 }
 
 function distanceBetweenDropzones(
 	allSeries: { name: string; commitIds: string[] }[],
 	actorDropzoneId: string,
-	targetDropzoneId: string
+	targetDropzoneId: string,
 ) {
 	const dropzoneIds = allSeries.flatMap((s) => [
 		`${s.name}|top`,
-		...s.commitIds.flatMap((p) => `${s.name}|${p}`)
+		...s.commitIds.flatMap((p) => `${s.name}|${p}`),
 	]);
 
 	if (
-		!targetDropzoneId.includes('|top') &&
+		!targetDropzoneId.includes("|top") &&
 		(!dropzoneIds.includes(actorDropzoneId) || !dropzoneIds.includes(targetDropzoneId))
 	) {
 		return 0;

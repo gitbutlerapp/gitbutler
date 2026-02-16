@@ -1,17 +1,17 @@
 <script lang="ts">
-	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
+	import ClaudeSessionDescriptor from "$components/ClaudeSessionDescriptor.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
 	import {
 		semanticTypeToString,
 		treeStatusToShortString,
 		type RuleFilter,
 		type StackTarget,
-		type WorkspaceRule
-	} from '$lib/rules/rule';
-	import { RULES_SERVICE } from '$lib/rules/rulesService.svelte';
-	import { getStackName } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
+		type WorkspaceRule,
+	} from "$lib/rules/rule";
+	import { RULES_SERVICE } from "$lib/rules/rulesService.svelte";
+	import { getStackName } from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
 		FileStatusBadge,
@@ -20,9 +20,9 @@
 		ContextMenuSection,
 		ContextMenuItem,
 		Modal,
-		Tooltip
-	} from '@gitbutler/ui';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+		Tooltip,
+	} from "@gitbutler/ui";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 	type Props = {
 		projectId: string;
@@ -42,41 +42,41 @@
 	async function handleDeleteRule() {
 		await deleteRule({
 			projectId,
-			ruleId: rule.id
+			ruleId: rule.id,
 		});
 	}
 
 	function getFilterConfig(filter: RuleFilter) {
 		switch (filter.type) {
-			case 'pathMatchesRegex':
+			case "pathMatchesRegex":
 				return {
-					icon: 'folder' as keyof typeof iconsJson,
+					icon: "folder" as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: `Path: ${filter.subject}`
+					tooltip: `Path: ${filter.subject}`,
 				};
-			case 'contentMatchesRegex':
+			case "contentMatchesRegex":
 				return {
-					icon: 'text-width' as keyof typeof iconsJson,
+					icon: "text-width" as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: `Containing text: ${filter.subject}`
+					tooltip: `Containing text: ${filter.subject}`,
 				};
-			case 'fileChangeType':
+			case "fileChangeType":
 				return {
 					icon: null,
 					label: treeStatusToShortString(filter.subject),
-					tooltip: `File change type: ${treeStatusToShortString(filter.subject)}`
+					tooltip: `File change type: ${treeStatusToShortString(filter.subject)}`,
 				};
-			case 'semanticType':
+			case "semanticType":
 				return {
-					icon: 'tag' as keyof typeof iconsJson,
+					icon: "tag" as keyof typeof iconsJson,
 					label: semanticTypeToString(filter.subject.type),
-					tooltip: `Semantic type: ${semanticTypeToString(filter.subject.type)}`
+					tooltip: `Semantic type: ${semanticTypeToString(filter.subject.type)}`,
 				};
-			case 'claudeCodeSessionId':
+			case "claudeCodeSessionId":
 				return {
-					icon: 'ai-outline' as keyof typeof iconsJson,
+					icon: "ai-outline" as keyof typeof iconsJson,
 					label: filter.subject,
-					tooltip: `Claude session: ${filter.subject}`
+					tooltip: `Claude session: ${filter.subject}`,
 				};
 		}
 	}
@@ -88,34 +88,34 @@
 	icon: keyof typeof iconsJson,
 	label: string,
 	tooltip: string,
-	hasError?: boolean
+	hasError?: boolean,
 )}
 	<Tooltip text={tooltip}>
 		<div class="target-pill" class:error={hasError}>
-			<Icon name={icon} color={hasError ? 'danger' : 'var(--clr-text-2)'} />
+			<Icon name={icon} color={hasError ? "danger" : "var(--clr-text-2)"} />
 			<span class="text-12 truncate">{label}</span>
 		</div>
 	</Tooltip>
 {/snippet}
 
 {#snippet stackTarget(target: StackTarget)}
-	{#if target.type === 'stackId'}
+	{#if target.type === "stackId"}
 		{@const stackId = target.subject}
 		{@const stack = stackService.stackById(projectId, stackId)}
 		<ReduxResult {projectId} result={stack.result}>
 			{#snippet children(stack)}
 				{#if stack !== null}
 					{@const stackName = getStackName(stack)}
-					{@render stackPill('branch-remote', stackName, stackName)}
+					{@render stackPill("branch-remote", stackName, stackName)}
 				{:else}
-					{@render stackPill('error-small', 'branch missing', 'Associated stack not found', true)}
+					{@render stackPill("error-small", "branch missing", "Associated stack not found", true)}
 				{/if}
 			{/snippet}
 		</ReduxResult>
-	{:else if target.type === 'leftmost'}
-		{@render stackPill('leftmost-lane', 'Leftmost', 'Leftmost lane')}
-	{:else if target.type === 'rightmost'}
-		{@render stackPill('rightmost-lane', 'Rightmost', 'Rightmost stack')}
+	{:else if target.type === "leftmost"}
+		{@render stackPill("leftmost-lane", "Leftmost", "Leftmost lane")}
+	{:else if target.type === "rightmost"}
+		{@render stackPill("rightmost-lane", "Rightmost", "Rightmost stack")}
 	{/if}
 {/snippet}
 
@@ -151,7 +151,7 @@
 {/snippet}
 
 {#snippet aiSessionPill(filter: RuleFilter)}
-	{#if filter.type === 'claudeCodeSessionId'}
+	{#if filter.type === "claudeCodeSessionId"}
 		{@const config = getFilterConfig(filter)}
 		<ClaudeSessionDescriptor {projectId} sessionId={filter.subject}>
 			{#snippet fallback()}
@@ -167,9 +167,9 @@
 {#snippet filterPill(filter: RuleFilter)}
 	{@const config = getFilterConfig(filter)}
 
-	{#if filter.type === 'claudeCodeSessionId'}
+	{#if filter.type === "claudeCodeSessionId"}
 		{@render aiSessionPill(filter)}
-	{:else if filter.type === 'fileChangeType'}
+	{:else if filter.type === "fileChangeType"}
 		{@render renderFileChangePill(config, filter.subject)}
 	{:else}
 		{@render renderBasicPill(config)}
@@ -203,7 +203,7 @@
 	</div>
 {/snippet}
 
-{#if rule.action.type === 'explicit' && rule.action.subject.type === 'assign' && (rule.trigger === 'fileSytemChange' || rule.trigger === 'claudeCodeHook')}
+{#if rule.action.type === "explicit" && rule.action.subject.type === "assign" && (rule.trigger === "fileSytemChange" || rule.trigger === "claudeCodeHook")}
 	{@const target = rule.action.subject.subject.target}
 	{@const filters = rule.filters}
 

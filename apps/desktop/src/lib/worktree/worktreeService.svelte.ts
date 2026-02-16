@@ -1,19 +1,19 @@
 import {
 	shouldRaiseDependencyError,
 	type DependencyError,
-	type HunkDependencies
-} from '$lib/dependencies/dependencies';
-import { shouldRaiseHunkAssignmentError, type HunkAssignment } from '$lib/hunks/hunk';
-import { showError } from '$lib/notifications/toasts';
-import { hasBackendExtra } from '$lib/state/backendQuery';
-import { createSelectByIds } from '$lib/state/customSelectors';
-import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/core/context';
-import { createEntityAdapter, type EntityState } from '@reduxjs/toolkit';
-import type { IgnoredChange, TreeChange, WorktreeChanges } from '$lib/hunks/change';
-import type { ClientState } from '$lib/state/clientState.svelte';
+	type HunkDependencies,
+} from "$lib/dependencies/dependencies";
+import { shouldRaiseHunkAssignmentError, type HunkAssignment } from "$lib/hunks/hunk";
+import { showError } from "$lib/notifications/toasts";
+import { hasBackendExtra } from "$lib/state/backendQuery";
+import { createSelectByIds } from "$lib/state/customSelectors";
+import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
+import { InjectionToken } from "@gitbutler/core/context";
+import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
+import type { IgnoredChange, TreeChange, WorktreeChanges } from "$lib/hunks/change";
+import type { ClientState } from "$lib/state/clientState.svelte";
 
-export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>('WorktreeService');
+export const WORKTREE_SERVICE = new InjectionToken<WorktreeService>("WorktreeService");
 
 /**
  * A service for tracking uncommitted changes.
@@ -31,14 +31,14 @@ export class WorktreeService {
 	treeChanges(projectId: string) {
 		return this.api.endpoints.worktreeChanges.useQuery(
 			{ projectId },
-			{ transform: (res) => res.rawChanges }
+			{ transform: (res) => res.rawChanges },
 		);
 	}
 
 	hunkAssignments(projectId: string) {
 		return this.api.endpoints.worktreeChanges.useQuery(
 			{ projectId },
-			{ transform: (res) => res.hunkAssignments }
+			{ transform: (res) => res.hunkAssignments },
 		);
 	}
 
@@ -51,7 +51,7 @@ export class WorktreeService {
 		const { worktreeChanges: getChanges } = this.api.endpoints;
 		return getChanges.useQueryState(
 			{ projectId },
-			{ transform: (res) => worktreeSelectors.selectById(res.changes, path)! }
+			{ transform: (res) => worktreeSelectors.selectById(res.changes, path)! },
 		);
 	}
 
@@ -59,7 +59,7 @@ export class WorktreeService {
 		const { worktreeChanges: getChanges } = this.api.endpoints;
 		return getChanges.useQueryState(
 			{ projectId },
-			{ transform: (res) => worktreeSelectors.selectByIds(res.changes, paths) }
+			{ transform: (res) => worktreeSelectors.selectByIds(res.changes, paths) },
 		);
 	}
 
@@ -67,7 +67,7 @@ export class WorktreeService {
 		const { worktreeChanges } = this.api.endpoints;
 		return await worktreeChanges.fetch(
 			{ projectId },
-			{ transform: (res) => worktreeSelectors.selectById(res.changes, path)! }
+			{ transform: (res) => worktreeSelectors.selectById(res.changes, path)! },
 		);
 	}
 
@@ -80,7 +80,7 @@ export class WorktreeService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
+function injectEndpoints(api: ClientState["backendApi"]) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			/**
@@ -100,7 +100,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				{ projectId: string }
 			>({
-				extraOptions: { command: 'changes_in_worktree' },
+				extraOptions: { command: "changes_in_worktree" },
 				query: (args) => args,
 				/** Invalidating tags causes data to be refreshed. */
 				providesTags: [providesList(ReduxTag.WorktreeChanges)],
@@ -110,7 +110,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				 */
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasBackendExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Backend not found!');
+						throw new Error("Redux dependency Backend not found!");
 					}
 					// The `cacheDataLoaded` promise resolves when the result is first loaded.
 					await lifecycleApi.cacheDataLoaded;
@@ -120,16 +120,16 @@ function injectEndpoints(api: ClientState['backendApi']) {
 							lifecycleApi.updateCachedData(() => ({
 								changes: worktreeAdapter.addMany(
 									worktreeAdapter.getInitialState(),
-									event.payload.changes
+									event.payload.changes,
 								),
 								rawChanges: event.payload.changes,
 								ignoredChanges: event.payload.ignoredChanges,
 								hunkAssignments: event.payload.assignments,
 								dependencies: event.payload.dependencies ?? undefined,
-								dependenciesError: event.payload.dependenciesError ?? undefined
+								dependenciesError: event.payload.dependenciesError ?? undefined,
 							}));
 							lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.Diff)]));
-						}
+						},
 					);
 					// The `cacheEntryRemoved` promise resolves when the result is removed
 					await lifecycleApi.cacheEntryRemoved;
@@ -142,19 +142,19 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				transformResponse(response: WorktreeChanges) {
 					if (shouldRaiseDependencyError(response.dependenciesError)) {
 						showError(
-							'Failed to compute dependencies',
+							"Failed to compute dependencies",
 							response.dependenciesError.description,
 							undefined,
-							'worktree-dependencies-error'
+							"worktree-dependencies-error",
 						);
 					}
 
 					if (shouldRaiseHunkAssignmentError(response.assignmentsError)) {
 						showError(
-							'Failed to compute hunk assignments',
+							"Failed to compute hunk assignments",
 							response.assignmentsError.description,
 							undefined,
-							'worktree-assignments-error'
+							"worktree-assignments-error",
 						);
 					}
 
@@ -164,20 +164,20 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						ignoredChanges: response.ignoredChanges,
 						hunkAssignments: response.assignments,
 						dependencies: response.dependencies ?? undefined,
-						dependenciesError: response.dependenciesError ?? undefined
+						dependenciesError: response.dependenciesError ?? undefined,
 					};
-				}
-			})
-		})
+				},
+			}),
+		}),
 	});
 }
 
 const worktreeAdapter = createEntityAdapter<TreeChange, string>({
 	selectId: (change) => change.path,
-	sortComparer: (a, b) => a.path.localeCompare(b.path)
+	sortComparer: (a, b) => a.path.localeCompare(b.path),
 });
 
 const worktreeSelectors = {
 	...worktreeAdapter.getSelectors(),
-	selectByIds: createSelectByIds<TreeChange>()
+	selectByIds: createSelectByIds<TreeChange>(),
 };

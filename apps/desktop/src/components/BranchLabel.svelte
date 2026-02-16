@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import { TestId } from '@gitbutler/ui';
-	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
-	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
+	import { autoSelectBranchNameFeature } from "$lib/config/uiFeatureFlags";
+	import { TestId } from "@gitbutler/ui";
+	import { clickOutside } from "@gitbutler/ui/utils/clickOutside";
+	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
 
 	interface Props {
 		name: string;
 		disabled?: boolean;
 		readonly?: boolean;
 		error?: boolean;
-		fontSize?: '14' | '15';
+		fontSize?: "14" | "15";
 		allowClear?: boolean;
 		onChange?: (value: string) => void;
 		onDblClick?: () => void;
@@ -18,12 +18,12 @@
 	const {
 		name,
 		disabled = false,
-		fontSize = '14',
+		fontSize = "14",
 		readonly = false,
 		allowClear,
 		error,
 		onChange,
-		onDblClick
+		onDblClick,
 	}: Props = $props();
 
 	let inputEl: HTMLInputElement | undefined = $state();
@@ -40,7 +40,7 @@
 
 		if (value === name) return;
 
-		if (value === '' && !allowClear) {
+		if (value === "" && !allowClear) {
 			currentValue = name;
 			target.value = name;
 			return;
@@ -60,7 +60,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === 'Escape') {
+		if (e.key === "Enter" || e.key === "Escape") {
 			e.stopPropagation();
 			inputEl?.blur();
 		}
@@ -132,7 +132,7 @@
 	data-remove-from-panning
 	data-no-drag
 	use:clickOutside={{
-		handler: () => inputEl?.blur()
+		handler: () => inputEl?.blur(),
 	}}
 	style:width={inputWidth}
 />

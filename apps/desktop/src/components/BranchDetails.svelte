@@ -1,8 +1,8 @@
 <script lang="ts">
-	import BranchBadge from '$components/BranchBadge.svelte';
-	import { type BranchDetails } from '$lib/stacks/stack';
-	import { AvatarGroup, Button } from '@gitbutler/ui';
-	import type { Snippet } from 'svelte';
+	import BranchBadge from "$components/BranchBadge.svelte";
+	import { type BranchDetails } from "$lib/stacks/stack";
+	import { AvatarGroup, Button } from "@gitbutler/ui";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		branch: BranchDetails;
@@ -27,7 +27,7 @@
 				maxAvatars={2}
 				avatars={branch.authors.map((a) => ({
 					username: a.name,
-					srcUrl: a.gravatarUrl
+					srcUrl: a.gravatarUrl,
 				}))}
 			/>
 		</div>

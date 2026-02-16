@@ -1,30 +1,30 @@
 <script module lang="ts">
-	import Line from '$components/commitLines/Line.svelte';
-	import { LineManager } from '$components/commitLines/lineManager';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { Author, CommitData } from '$components/commitLines/types';
+	import Line from "$components/commitLines/Line.svelte";
+	import { LineManager } from "$components/commitLines/lineManager";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
+	import type { Author, CommitData } from "$components/commitLines/types";
 
 	const { Story } = defineMeta({
-		title: 'Lane / Commit Lines',
+		title: "Lane / Commit Lines",
 		args: {
 			remoteCommits: [],
 			localCommits: [],
 			localAndRemoteCommits: [],
-			integratedCommits: []
+			integratedCommits: [],
 		},
 		argTypes: {
-			remoteCommits: { control: { type: 'object' } },
-			localCommits: { control: { type: 'object' } },
-			localAndRemoteCommits: { control: { type: 'object' } },
-			integratedCommits: { control: { type: 'object' } }
-		}
+			remoteCommits: { control: { type: "object" } },
+			localCommits: { control: { type: "object" } },
+			localAndRemoteCommits: { control: { type: "object" } },
+			integratedCommits: { control: { type: "object" } },
+		},
 	});
 </script>
 
 <script lang="ts">
 	const caleb: Author = {
-		email: 'hello@calebowens.com',
-		gravatarUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c'
+		email: "hello@calebowens.com",
+		gravatarUrl: "https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c",
 	};
 
 	function author() {
@@ -34,21 +34,21 @@
 	function commit(): CommitData {
 		return {
 			id: crypto.randomUUID(),
-			title: 'This is a commit',
-			author: author()
+			title: "This is a commit",
+			author: author(),
 		};
 	}
 
 	function relatedCommit(): CommitData {
 		return {
 			id: crypto.randomUUID(),
-			title: 'This is a commit with relations',
+			title: "This is a commit with relations",
 			author: author(),
 			relatedRemoteCommit: {
 				id: crypto.randomUUID(),
-				title: 'This is a related commit',
-				author: author()
-			}
+				title: "This is a related commit",
+				author: author(),
+			},
 		};
 	}
 </script>
@@ -59,7 +59,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [commit(), commit()],
-		integratedCommits: [commit(), commit()]
+		integratedCommits: [commit(), commit()],
 	}}
 >
 	{#snippet template(args)}
@@ -67,7 +67,7 @@
 			remoteCommits: args.remoteCommits ?? [],
 			localCommits: args.localCommits ?? [],
 			localAndRemoteCommits: args.localAndRemoteCommits ?? [],
-			integratedCommits: args.integratedCommits ?? []
+			integratedCommits: args.integratedCommits ?? [],
 		})}
 		{#each args.remoteCommits ?? [] as commit}
 			<div class="group">
@@ -101,7 +101,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [],
 		localAndRemoteCommits: [commit(), commit()],
-		integratedCommits: [commit(), commit()]
+		integratedCommits: [commit(), commit()],
 	}}
 />
 
@@ -111,7 +111,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: [commit(), commit()]
+		integratedCommits: [commit(), commit()],
 	}}
 />
 
@@ -121,7 +121,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: []
+		integratedCommits: [],
 	}}
 />
 
@@ -131,7 +131,7 @@
 		remoteCommits: [],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [commit()],
-		integratedCommits: [commit(), commit()]
+		integratedCommits: [commit(), commit()],
 	}}
 />
 
@@ -141,7 +141,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: [commit(), commit()]
+		integratedCommits: [commit(), commit()],
 	}}
 />
 
@@ -151,7 +151,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: []
+		integratedCommits: [],
 	}}
 />
 
@@ -161,7 +161,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [],
 		localAndRemoteCommits: [],
-		integratedCommits: [commit(), relatedCommit(), commit()]
+		integratedCommits: [commit(), relatedCommit(), commit()],
 	}}
 />
 
@@ -171,7 +171,7 @@
 		remoteCommits: [],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: []
+		integratedCommits: [],
 	}}
 />
 
@@ -181,7 +181,7 @@
 		remoteCommits: [commit(), commit()],
 		localCommits: [],
 		localAndRemoteCommits: [],
-		integratedCommits: []
+		integratedCommits: [],
 	}}
 />
 

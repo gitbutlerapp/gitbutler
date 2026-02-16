@@ -1,9 +1,9 @@
 <script lang="ts">
-	import CommitFailedFileEntry from '$components/CommitFailedFileEntry.svelte';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { REJECTTION_REASONS, type RejectionReason } from '$lib/stacks/stackService.svelte';
-	import { Icon, ModalHeader, TestId, Tooltip } from '@gitbutler/ui';
-	import type { CommitFailedModalState } from '$lib/state/uiState.svelte';
+	import CommitFailedFileEntry from "$components/CommitFailedFileEntry.svelte";
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import { REJECTTION_REASONS, type RejectionReason } from "$lib/stacks/stackService.svelte";
+	import { Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui";
+	import type { CommitFailedModalState } from "$lib/state/uiState.svelte";
 
 	type Props = {
 		data: CommitFailedModalState;
@@ -20,24 +20,24 @@
 
 	function getReadableRejectionReason(reason: RejectionReason): string {
 		switch (reason) {
-			case 'cherryPickMergeConflict':
-				return 'Cherry-pick merge conflict';
-			case 'noEffectiveChanges':
-				return 'No effective changes';
-			case 'workspaceMergeConflict':
-				return 'Workspace merge conflict';
-			case 'worktreeFileMissingForObjectConversion':
-				return 'Worktree file missing for object conversion';
-			case 'fileToLargeOrBinary':
-				return 'File too large or binary';
-			case 'pathNotFoundInBaseTree':
-				return 'Path not found in base tree';
-			case 'unsupportedDirectoryEntry':
-				return 'Unsupported directory entry';
-			case 'unsupportedTreeEntry':
-				return 'Unsupported tree entry';
-			case 'missingDiffSpecAssociation':
-				return 'Missing diff spec association';
+			case "cherryPickMergeConflict":
+				return "Cherry-pick merge conflict";
+			case "noEffectiveChanges":
+				return "No effective changes";
+			case "workspaceMergeConflict":
+				return "Workspace merge conflict";
+			case "worktreeFileMissingForObjectConversion":
+				return "Worktree file missing for object conversion";
+			case "fileToLargeOrBinary":
+				return "File too large or binary";
+			case "pathNotFoundInBaseTree":
+				return "Path not found in base tree";
+			case "unsupportedDirectoryEntry":
+				return "Unsupported directory entry";
+			case "unsupportedTreeEntry":
+				return "Unsupported tree entry";
+			case "missingDiffSpecAssociation":
+				return "Missing diff spec association";
 		}
 	}
 
@@ -69,11 +69,11 @@
 <div class="commit-failed__wrapper">
 	<ModalHeader
 		sticky={!isScrollTopVisible}
-		type={data.newCommitId ? 'warning' : 'danger'}
+		type={data.newCommitId ? "warning" : "danger"}
 		closeButton
 		{oncloseclick}
 		closeButtonTestId={TestId.GlobalModalActionButton}
-		>{data.newCommitId ? 'Some changes were not committed' : 'Failed to create commit'}</ModalHeader
+		>{data.newCommitId ? "Some changes were not committed" : "Failed to create commit"}</ModalHeader
 	>
 	<ConfigurableScrollableContainer
 		onscrollTop={(visible) => {
@@ -84,7 +84,7 @@
 			<div class="text-13 commit-failed__description">
 				{#if data.newCommitId}
 					Commit <i class="commit-failed__text-icon"><Icon name="commit" /></i>
-					<Tooltip text={data.commitTitle ? data.commitTitle : 'No commit title provided'}
+					<Tooltip text={data.commitTitle ? data.commitTitle : "No commit title provided"}
 						><span class="h-dotted-underline text-semibold">{data.newCommitId.substring(0, 7)}</span
 						></Tooltip
 					> was created, but some changes weren't fully committed:

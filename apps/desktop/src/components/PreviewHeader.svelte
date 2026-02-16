@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Button } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { onMount } from 'svelte';
-	import type { Snippet } from 'svelte';
+	import { Button } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { onMount } from "svelte";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		content: Snippet;
@@ -31,7 +31,7 @@
 		closeButtonPlaceholder,
 		scrollRoot,
 		onclose,
-		ondblclick
+		ondblclick,
 	}: Props = $props();
 
 	let headerDiv = $state<HTMLDivElement>();
@@ -49,8 +49,8 @@
 			},
 			{
 				threshold: 1,
-				root: scrollRoot || null
-			}
+				root: scrollRoot || null,
+			},
 		);
 
 		observer.observe(sentinelDiv);
@@ -74,7 +74,7 @@
 	bind:clientHeight={headerHeight}
 	use:focusable
 	{ondblclick}
-	style:background={transparent ? 'transparent' : undefined}
+	style:background={transparent ? "transparent" : undefined}
 >
 	<div class="drawer-header__title">
 		{@render content()}

@@ -1,30 +1,30 @@
-import emojiData from 'emojibase-data/en/compact.json';
-import groupData from 'emojibase-data/en/messages.json';
-import emojiByHexcode from 'emojibase-data/en/shortcodes/github.json';
-import type { GroupKey } from 'emojibase';
+import emojiData from "emojibase-data/en/compact.json";
+import groupData from "emojibase-data/en/messages.json";
+import emojiByHexcode from "emojibase-data/en/shortcodes/github.json";
+import type { GroupKey } from "emojibase";
 
 export const EMOJI_SHORTCODE_REGEX = /(^|\s):([0-9a-z+_-]+):($|\s)/;
 export const EMOJI_SHORTCODE_SEARCH_REGEX = /(^|\s):([0-9a-z+_-]*)$/;
-export const LS_RECENT_EMOJIS_KEY = 'recent-emojis';
+export const LS_RECENT_EMOJIS_KEY = "recent-emojis";
 
 export const DEFAULT_EMOJI: EmojiInfo[] = [
-	{ label: 'like', unicode: '👍' },
-	{ label: 'dislike', unicode: '👎' },
-	{ label: 'celebrate', unicode: '🎉' },
-	{ label: 'heart', unicode: '❤️' },
-	{ label: 'rocket', unicode: '🚀' },
-	{ label: 'poopsie', unicode: '💩' },
-	{ label: 'butreq', unicode: '🍑' },
-	{ label: 'happysmile', unicode: '🙂' },
-	{ label: 'veryhappysmile', unicode: '😀' },
-	{ label: 'unhappysmile', unicode: '🙁' },
-	{ label: 'tongue', unicode: '😛' },
-	{ label: 'evil', unicode: '😈' },
-	{ label: 'aubergine', unicode: '🍆' },
-	{ label: 'surprised', unicode: '😲' },
-	{ label: 'neutral', unicode: '😐' },
-	{ label: 'cheeky', unicode: '😜' },
-	{ label: 'unsure', unicode: '😕' }
+	{ label: "like", unicode: "👍" },
+	{ label: "dislike", unicode: "👎" },
+	{ label: "celebrate", unicode: "🎉" },
+	{ label: "heart", unicode: "❤️" },
+	{ label: "rocket", unicode: "🚀" },
+	{ label: "poopsie", unicode: "💩" },
+	{ label: "butreq", unicode: "🍑" },
+	{ label: "happysmile", unicode: "🙂" },
+	{ label: "veryhappysmile", unicode: "😀" },
+	{ label: "unhappysmile", unicode: "🙁" },
+	{ label: "tongue", unicode: "😛" },
+	{ label: "evil", unicode: "😈" },
+	{ label: "aubergine", unicode: "🍆" },
+	{ label: "surprised", unicode: "😲" },
+	{ label: "neutral", unicode: "😐" },
+	{ label: "cheeky", unicode: "😜" },
+	{ label: "unsure", unicode: "😕" },
 ];
 
 export type EmojiInfo = {
@@ -35,10 +35,10 @@ export type EmojiInfo = {
 
 function isEmojiInfo(something: unknown): something is EmojiInfo {
 	return (
-		typeof something === 'object' &&
+		typeof something === "object" &&
 		something !== null &&
-		typeof (something as EmojiInfo).unicode === 'string' &&
-		typeof (something as EmojiInfo).label === 'string'
+		typeof (something as EmojiInfo).unicode === "string" &&
+		typeof (something as EmojiInfo).label === "string"
 	);
 }
 
@@ -52,8 +52,8 @@ function isRecentlyUsedEmojiInfo(something: unknown): something is RecentlyUsedE
 		return false;
 	}
 	return (
-		typeof (something as RecentlyUsedEmojiInfo).timesUsed === 'number' &&
-		typeof (something as RecentlyUsedEmojiInfo).lastUsed === 'string'
+		typeof (something as RecentlyUsedEmojiInfo).timesUsed === "number" &&
+		typeof (something as RecentlyUsedEmojiInfo).lastUsed === "string"
 	);
 }
 
@@ -74,7 +74,7 @@ export function getRecentEmojis(): RecentlyUsedEmojiInfo[] | undefined {
 	try {
 		const parsed = JSON.parse(recentEmojis) as unknown;
 		if (!isRecentlyUsedEmojiInfos(parsed)) {
-			console.error('Invalid recent emojis data:', parsed);
+			console.error("Invalid recent emojis data:", parsed);
 			return undefined;
 		}
 
@@ -101,7 +101,7 @@ export function markRecentlyUsedEmoji(emoji: EmojiInfo): void {
 	const recentlyUsedEmoji: RecentlyUsedEmojiInfo = {
 		...emoji,
 		timesUsed: 1,
-		lastUsed: new Date().toISOString()
+		lastUsed: new Date().toISOString(),
 	};
 
 	let newRecentEmojis = recentEmojis;
@@ -110,14 +110,14 @@ export function markRecentlyUsedEmoji(emoji: EmojiInfo): void {
 		if (existingEmojiIndex !== -1) {
 			newRecentEmojis[existingEmojiIndex] = {
 				...recentlyUsedEmoji,
-				timesUsed: recentEmojis[existingEmojiIndex].timesUsed + 1
+				timesUsed: recentEmojis[existingEmojiIndex].timesUsed + 1,
 			};
 			break emojiInsertion;
 		}
 
 		newRecentEmojis = [
 			recentlyUsedEmoji,
-			...recentEmojis.filter((e) => e.unicode !== emoji.unicode)
+			...recentEmojis.filter((e) => e.unicode !== emoji.unicode),
 		];
 	}
 
@@ -160,7 +160,7 @@ export function searchThroughEmojis(searchQuery: string): EmojiInfo[] {
 		.map(([hexcode]) => hexcode);
 
 	const matchingData = emojiData.filter(
-		(emoji) => emojiHexcodes.includes(emoji.hexcode) || emoji.label.includes(searchQuery)
+		(emoji) => emojiHexcodes.includes(emoji.hexcode) || emoji.label.includes(searchQuery),
 	);
 
 	const matchingInitial = initialEmojis.filter((emoji) => emoji.label.includes(searchQuery));
@@ -199,7 +199,7 @@ export function findEmojiByUnicode(unicode: string): EmojiInfo | undefined {
 	return emojiData.find((emoji) => emoji.unicode === unicode);
 }
 
-export type EmojiGroupKey = 'recently-used' | GroupKey;
+export type EmojiGroupKey = "recently-used" | GroupKey;
 
 type BaseEmojiGroup = {
 	unicode: string;
@@ -209,7 +209,7 @@ type BaseEmojiGroup = {
 };
 
 type RecentEmojiGroup = BaseEmojiGroup & {
-	key: 'recently-used';
+	key: "recently-used";
 };
 
 type DataEmojiGroup = BaseEmojiGroup & {
@@ -225,22 +225,22 @@ type EmojiGroupDeclaration = {
 };
 
 const EMOJI_GROUPS = [
-	{ key: 'recently-used', unincode: '🕓' },
-	{ key: 'smileys-emotion', unincode: '😃' },
-	{ key: 'people-body', unincode: '🤷🏻‍♂️' },
-	{ key: 'animals-nature', unincode: '🐈' },
-	{ key: 'food-drink', unincode: '🍔' },
-	{ key: 'travel-places', unincode: '✈️' },
-	{ key: 'activities', unincode: '🚴‍♂️' },
-	{ key: 'objects', unincode: '🪑' },
-	{ key: 'flags', unincode: '🇲🇽' },
-	{ key: 'symbols', unincode: '🚾' }
+	{ key: "recently-used", unincode: "🕓" },
+	{ key: "smileys-emotion", unincode: "😃" },
+	{ key: "people-body", unincode: "🤷🏻‍♂️" },
+	{ key: "animals-nature", unincode: "🐈" },
+	{ key: "food-drink", unincode: "🍔" },
+	{ key: "travel-places", unincode: "✈️" },
+	{ key: "activities", unincode: "🚴‍♂️" },
+	{ key: "objects", unincode: "🪑" },
+	{ key: "flags", unincode: "🇲🇽" },
+	{ key: "symbols", unincode: "🚾" },
 ] satisfies EmojiGroupDeclaration[];
 
 export function getEmojiGroups(): EmojiGroup[] {
 	const recentEmojis = getRecentEmojis() ?? [];
 	const result: EmojiGroup[] = [
-		{ key: 'recently-used', message: 'recently used', unicode: '🕓', emojis: recentEmojis }
+		{ key: "recently-used", message: "recently used", unicode: "🕓", emojis: recentEmojis },
 	];
 	for (const group of EMOJI_GROUPS) {
 		const emojiGroup = groupData.groups.find((g) => g.key === group.key);

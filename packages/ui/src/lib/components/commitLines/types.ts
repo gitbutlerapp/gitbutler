@@ -1,4 +1,4 @@
-export type Style = 'dashed' | 'solid';
+export type Style = "dashed" | "solid";
 
 export interface CommitNodeData {
 	commit: CommitData;
@@ -23,4 +23,4 @@ export interface CommitData {
 	remoteCommitId?: string;
 }
 
-export type CellType = 'LocalOnly' | 'LocalAndRemote' | 'Integrated' | 'Remote' | 'Base';
+export type CellType = "LocalOnly" | "LocalAndRemote" | "Integrated" | "Remote" | "Base";

@@ -1,20 +1,20 @@
 <script module lang="ts">
-	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import ScrollableContainer from "$components/scroll/ScrollableContainer.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / ScrollableContainer',
+		title: "Basic / ScrollableContainer",
 		component: ScrollableContainer,
 		args: {
-			whenToShow: 'always',
-			children
+			whenToShow: "always",
+			children,
 		},
 		argTypes: {
 			whenToShow: {
-				options: ['always', 'hover', 'scroll'],
-				control: { type: 'select' }
-			}
-		}
+				options: ["always", "hover", "scroll"],
+				control: { type: "select" },
+			},
+		},
 	});
 </script>
 
@@ -29,7 +29,7 @@
 <Story name="default">
 	{#snippet template(args)}
 		<div class="list-wrapper">
-			<ScrollableContainer whenToShow={args.whenToShow ?? 'always'} children={args.children} />
+			<ScrollableContainer whenToShow={args.whenToShow ?? "always"} children={args.children} />
 		</div>
 	{/snippet}
 </Story>

@@ -4,13 +4,13 @@
 		const laneWidth = el?.offsetWidth ?? 0;
 		el?.scrollTo({
 			left: laneWidth * index,
-			behavior: 'smooth'
+			behavior: "smooth",
 		});
 	}
 </script>
 
 <script lang="ts">
-	import { Tooltip } from '@gitbutler/ui';
+	import { Tooltip } from "@gitbutler/ui";
 
 	type Props = {
 		length: number;
@@ -27,16 +27,16 @@
 		isCreateNewVisible = $bindable(),
 		selectedBranchIndex,
 		onPageClick,
-		onCreateNewClick
+		onCreateNewClick,
 	}: Props = $props();
 
 	function getPaginationTooltip(index: number) {
 		if (visibleIndexes.includes(index)) {
-			return 'In view';
+			return "In view";
 		} else if (index === selectedBranchIndex) {
-			return 'Selected';
+			return "Selected";
 		} else {
-			return 'Scroll to lane';
+			return "Scroll to lane";
 		}
 	}
 </script>
@@ -52,7 +52,7 @@
 				class:selected-branch={i === selectedBranchIndex}
 				onclick={() => onPageClick(i)}
 				onkeydown={(event) => {
-					if (event.key === 'Enter' || event.key === ' ') {
+					if (event.key === "Enter" || event.key === " ") {
 						event.preventDefault();
 						onPageClick(i);
 					}
@@ -68,7 +68,7 @@
 			class:create-new-visible={isCreateNewVisible}
 			onclick={onCreateNewClick}
 			onkeydown={(event) => {
-				if (event.key === 'Enter' || event.key === ' ') {
+				if (event.key === "Enter" || event.key === " ") {
 					event.preventDefault();
 					onCreateNewClick();
 				}

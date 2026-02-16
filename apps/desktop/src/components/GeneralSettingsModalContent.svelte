@@ -1,24 +1,24 @@
 <script lang="ts">
-	import SettingsModalLayout from '$components/SettingsModalLayout.svelte';
+	import SettingsModalLayout from "$components/SettingsModalLayout.svelte";
 
-	import AiSettings from '$components/profileSettings/AiSettings.svelte';
-	import ExperimentalSettings from '$components/profileSettings/ExperimentalSettings.svelte';
-	import GeneralSettings from '$components/profileSettings/GeneralSettings.svelte';
-	import GitSettings from '$components/profileSettings/GitSettings.svelte';
-	import IntegrationsSettings from '$components/profileSettings/IntegrationsSettings.svelte';
-	import LanesAndBranchesSettings from '$components/profileSettings/LanesAndBranchesSettings.svelte';
-	import OrganisationSettings from '$components/profileSettings/OrganisationSettings.svelte';
-	import TelemetrySettings from '$components/profileSettings/TelemetrySettings.svelte';
-	import AppearanceSettings from '$components/projectSettings/AppearanceSettings.svelte';
+	import AiSettings from "$components/profileSettings/AiSettings.svelte";
+	import ExperimentalSettings from "$components/profileSettings/ExperimentalSettings.svelte";
+	import GeneralSettings from "$components/profileSettings/GeneralSettings.svelte";
+	import GitSettings from "$components/profileSettings/GitSettings.svelte";
+	import IntegrationsSettings from "$components/profileSettings/IntegrationsSettings.svelte";
+	import LanesAndBranchesSettings from "$components/profileSettings/LanesAndBranchesSettings.svelte";
+	import OrganisationSettings from "$components/profileSettings/OrganisationSettings.svelte";
+	import TelemetrySettings from "$components/profileSettings/TelemetrySettings.svelte";
+	import AppearanceSettings from "$components/projectSettings/AppearanceSettings.svelte";
 	import {
 		generalSettingsPages,
-		type GeneralSettingsPageId
-	} from '$lib/settings/generalSettingsPages';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
-	import type { GeneralSettingsModalState } from '$lib/state/uiState.svelte';
+		type GeneralSettingsPageId,
+	} from "$lib/settings/generalSettingsPages";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon } from "@gitbutler/ui";
+	import type { GeneralSettingsModalState } from "$lib/state/uiState.svelte";
 
 	type Props = {
 		data: GeneralSettingsModalState;
@@ -41,28 +41,28 @@
 	title="Global settings"
 	pages={generalSettingsPages}
 	selectedId={currentSelectedId}
-	isAdmin={$user?.role === 'admin'}
+	isAdmin={$user?.role === "admin"}
 	onSelectPage={selectPage}
 >
 	{#snippet content({ currentPage })}
 		{#if currentPage}
-			{#if currentPage.id === 'general'}
+			{#if currentPage.id === "general"}
 				<GeneralSettings />
-			{:else if currentPage.id === 'appearance'}
+			{:else if currentPage.id === "appearance"}
 				<AppearanceSettings />
-			{:else if currentPage.id === 'lanes-and-branches'}
+			{:else if currentPage.id === "lanes-and-branches"}
 				<LanesAndBranchesSettings />
-			{:else if currentPage.id === 'git'}
+			{:else if currentPage.id === "git"}
 				<GitSettings />
-			{:else if currentPage.id === 'integrations'}
+			{:else if currentPage.id === "integrations"}
 				<IntegrationsSettings />
-			{:else if currentPage.id === 'ai'}
+			{:else if currentPage.id === "ai"}
 				<AiSettings />
-			{:else if currentPage.id === 'telemetry'}
+			{:else if currentPage.id === "telemetry"}
 				<TelemetrySettings />
-			{:else if currentPage.id === 'experimental'}
+			{:else if currentPage.id === "experimental"}
 				<ExperimentalSettings />
-			{:else if currentPage.id === 'organizations'}
+			{:else if currentPage.id === "organizations"}
 				<OrganisationSettings />
 			{:else}
 				Settings page {currentPage.id} not Found.
@@ -77,7 +77,7 @@
 			<button
 				type="button"
 				class="social-btn"
-				onclick={async () => await urlService.openExternalUrl('https://docs.gitbutler.com/')}
+				onclick={async () => await urlService.openExternalUrl("https://docs.gitbutler.com/")}
 			>
 				<Icon name="docs" />
 				<span class="text-13 text-bold">Docs</span>
@@ -86,7 +86,7 @@
 			<button
 				type="button"
 				class="social-btn"
-				onclick={async () => await urlService.openExternalUrl('https://discord.gg/MmFkmaJ42D')}
+				onclick={async () => await urlService.openExternalUrl("https://discord.gg/MmFkmaJ42D")}
 			>
 				<Icon name="discord" />
 				<span class="text-13 text-bold">Our Discord</span>

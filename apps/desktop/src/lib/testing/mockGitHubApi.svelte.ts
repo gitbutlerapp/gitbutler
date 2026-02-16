@@ -1,9 +1,9 @@
-import { GitHubClient } from '$lib/forge/github/githubClient';
-import { butlerModule } from '$lib/state/butlerModule';
-import { createGitHubApi } from '$lib/state/clientState.svelte';
-import { mockCreateBackend } from '$lib/testing/mockBackend';
-import { Octokit } from '@octokit/rest';
-import { configureStore, type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
+import { GitHubClient } from "$lib/forge/github/githubClient";
+import { butlerModule } from "$lib/state/butlerModule";
+import { createGitHubApi } from "$lib/state/clientState.svelte";
+import { mockCreateBackend } from "$lib/testing/mockBackend";
+import { Octokit } from "@octokit/rest";
+import { configureStore, type ThunkDispatch, type UnknownAction } from "@reduxjs/toolkit";
 
 /**
  * Mock for GitHub RTKQ.
@@ -29,18 +29,18 @@ export function setupMockGitHubApi() {
 	const backend = mockCreateBackend();
 	const octokit = new Octokit();
 	const gitHubClient = new GitHubClient({ client: octokit });
-	gitHubClient.setRepo({ owner: 'test-owner', repo: 'test-repo' });
+	gitHubClient.setRepo({ owner: "test-owner", repo: "test-repo" });
 	const gitHubApi = createGitHubApi(
-		butlerModule({ getDispatch: () => dispatch!, getState: () => state })
+		butlerModule({ getDispatch: () => dispatch!, getState: () => state }),
 	);
 
 	const store = configureStore({
 		reducer: { github: gitHubApi.reducer },
 		middleware: (getDefaultMiddleware) => {
 			return getDefaultMiddleware({
-				thunk: { extraArgument: { backend, gitHubClient } }
+				thunk: { extraArgument: { backend, gitHubClient } },
 			}).concat(gitHubApi.middleware);
-		}
+		},
 	});
 
 	store.subscribe(() => {
@@ -58,6 +58,6 @@ export function setupMockGitHubApi() {
 		gitHubApi,
 		gitHubClient,
 		octokit,
-		resetGitHubMock
+		resetGitHubMock,
 	};
 }

@@ -1,22 +1,22 @@
-import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import { mapL } from '$lib/network/loadable';
-import { patchEventsSelectors } from '$lib/patchEvents/patchEventsSlice';
-import { createPatchEventChannelKey, type LoadablePatchEventChannel } from '$lib/patchEvents/types';
-import { PATCH_COMMIT_SERVICE } from '$lib/patches/patchCommitService';
-import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
-import { getPatchIdable } from '$lib/patches/patchIdablesPreview.svelte';
-import { patchSectionsSelectors } from '$lib/patches/patchSectionsSlice';
-import { APP_STATE, type AppPatchEventsState } from '$lib/redux/store.svelte';
-import { inject } from '@gitbutler/core/context';
-import type { Loadable } from '$lib/network/types';
-import type { PatchEventsService } from '$lib/patchEvents/patchEventsService';
-import type { LoadablePatchCommit, Section } from '$lib/patches/types';
-import type { Reactive } from '$lib/storeUtils';
+import { registerInterest, type InView } from "$lib/interest/registerInterestFunction.svelte";
+import { mapL } from "$lib/network/loadable";
+import { patchEventsSelectors } from "$lib/patchEvents/patchEventsSlice";
+import { createPatchEventChannelKey, type LoadablePatchEventChannel } from "$lib/patchEvents/types";
+import { PATCH_COMMIT_SERVICE } from "$lib/patches/patchCommitService";
+import { patchCommitTable } from "$lib/patches/patchCommitsSlice";
+import { getPatchIdable } from "$lib/patches/patchIdablesPreview.svelte";
+import { patchSectionsSelectors } from "$lib/patches/patchSectionsSlice";
+import { APP_STATE, type AppPatchEventsState } from "$lib/redux/store.svelte";
+import { inject } from "@gitbutler/core/context";
+import type { Loadable } from "$lib/network/types";
+import type { PatchEventsService } from "$lib/patchEvents/patchEventsService";
+import type { LoadablePatchCommit, Section } from "$lib/patches/types";
+import type { Reactive } from "$lib/storeUtils";
 
 export function getPatch(
 	branchUuid: string,
 	changeId: string,
-	inView?: InView
+	inView?: InView,
 ): Reactive<LoadablePatchCommit | undefined> {
 	const patchService = inject(PATCH_COMMIT_SERVICE);
 	const appState = inject(APP_STATE);
@@ -28,14 +28,14 @@ export function getPatch(
 	return {
 		get current() {
 			return patch;
-		}
+		},
 	};
 }
 
 export function getPatchSections(
 	branchUuid: string,
 	changeId: string,
-	inView?: InView
+	inView?: InView,
 ): Reactive<Section[] | undefined> {
 	const patchService = inject(PATCH_COMMIT_SERVICE);
 	const appState = inject(APP_STATE);
@@ -44,7 +44,7 @@ export function getPatchSections(
 
 	const patch = $derived(patchCommitTable.selectors.selectById(appState.patches, changeId));
 	const sections = $derived.by(() => {
-		if (patch?.status !== 'found') return;
+		if (patch?.status !== "found") return;
 
 		return (patch.value.sectionIds || [])
 			.map((id) => patchSectionsSelectors.selectById(appState.patchSections, id))
@@ -54,7 +54,7 @@ export function getPatchSections(
 	return {
 		get current() {
 			return sections;
-		}
+		},
 	};
 }
 
@@ -62,7 +62,7 @@ export function getPatchIdableSections(
 	branchUuid: string,
 	changeId: string,
 	oldVersion: number | undefined,
-	newVersion: number
+	newVersion: number,
 ): Reactive<Loadable<Section[]>> {
 	const appState = inject(APP_STATE);
 
@@ -72,13 +72,13 @@ export function getPatchIdableSections(
 			return (patch.sectionIds || [])
 				.map((id) => patchSectionsSelectors.selectById(appState.patchSections, id))
 				.filter((a) => a) as Section[];
-		})
+		}),
 	);
 
 	return {
 		get current() {
 			return sections;
-		}
+		},
 	};
 }
 
@@ -87,19 +87,19 @@ export function getPatchEvents(
 	patchEventsService: PatchEventsService,
 	projectId: string,
 	changeId: string,
-	inView?: InView
+	inView?: InView,
 ): Reactive<LoadablePatchEventChannel | undefined> {
 	const patchEventsInterest = patchEventsService.patchEventsInterest(projectId, changeId);
 	registerInterest(patchEventsInterest, inView);
 
 	const patchEventChannelKey = createPatchEventChannelKey(projectId, changeId);
 	const patchEvents = $derived(
-		patchEventsSelectors.selectById(appState.patchEvents, patchEventChannelKey)
+		patchEventsSelectors.selectById(appState.patchEvents, patchEventChannelKey),
 	);
 
 	return {
 		get current() {
 			return patchEvents;
-		}
+		},
 	};
 }

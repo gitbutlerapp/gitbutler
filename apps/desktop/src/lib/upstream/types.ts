@@ -1,4 +1,4 @@
-import { getStackName, type Stack } from '$lib/stacks/stack';
+import { getStackName, type Stack } from "$lib/stacks/stack";
 
 export type StackStatus = {
 	treeStatus: TreeStatus;
@@ -12,10 +12,10 @@ type NameAndBranchStatus = {
 
 export type BranchStatus =
 	| {
-			type: 'empty' | 'integrated' | 'saflyUpdatable';
+			type: "empty" | "integrated" | "saflyUpdatable";
 	  }
 	| {
-			type: 'conflicted';
+			type: "conflicted";
 			subject: {
 				rebasable: boolean;
 			};
@@ -23,29 +23,29 @@ export type BranchStatus =
 
 export function stackFullyIntegrated(stackStatus: StackStatus): boolean {
 	return (
-		stackStatus.branchStatuses.every((branchStatus) => branchStatus.status.type === 'integrated') &&
-		stackStatus.treeStatus.type === 'empty'
+		stackStatus.branchStatuses.every((branchStatus) => branchStatus.status.type === "integrated") &&
+		stackStatus.treeStatus.type === "empty"
 	);
 }
 
 type TreeStatus = {
-	type: 'empty' | 'conflicted' | 'saflyUpdatable';
+	type: "empty" | "conflicted" | "saflyUpdatable";
 };
 
 export type StackStatusInfoV3 = { stack: Stack; status: StackStatus };
 
 export type StackStatusesWithBranchesV3 =
 	| {
-			type: 'upToDate';
+			type: "upToDate";
 	  }
 	| {
-			type: 'updatesRequired';
+			type: "updatesRequired";
 			worktreeConflicts: string[];
 			subject: StackStatusInfoV3[];
 	  };
 
 export type ResolutionApproach = {
-	type: 'rebase' | 'merge' | 'unapply' | 'delete';
+	type: "rebase" | "merge" | "unapply" | "delete";
 };
 
 export type Resolution = {
@@ -54,7 +54,7 @@ export type Resolution = {
 	deleteIntegratedBranches: boolean;
 };
 
-export type BaseBranchResolutionApproach = 'rebase' | 'merge' | 'hardReset';
+export type BaseBranchResolutionApproach = "rebase" | "merge" | "hardReset";
 
 export type BaseBranchResolution = {
 	targetCommitOid: string;
@@ -67,13 +67,13 @@ export type IntegrationOutcome = {
 
 export function getBaseBranchResolution(
 	targetCommitOid: string | undefined,
-	approach: BaseBranchResolutionApproach
+	approach: BaseBranchResolutionApproach,
 ): BaseBranchResolution | undefined {
 	if (!targetCommitOid) return;
 
 	return {
 		targetCommitOid,
-		approach: { type: approach }
+		approach: { type: approach },
 	};
 }
 
@@ -82,8 +82,8 @@ export function sortStatusInfoV3(a: StackStatusInfoV3, b: StackStatusInfoV3): nu
 		(!stackFullyIntegrated(a.status) && !stackFullyIntegrated(b.status)) ||
 		(stackFullyIntegrated(a.status) && stackFullyIntegrated(b.status))
 	) {
-		const aName = (a.stack && getStackName(a.stack)) ?? 'Unknown';
-		const bName = (b.stack && getStackName(b.stack)) ?? 'Unknown';
+		const aName = (a.stack && getStackName(a.stack)) ?? "Unknown";
+		const bName = (b.stack && getStackName(b.stack)) ?? "Unknown";
 
 		return aName.localeCompare(bName);
 	}
@@ -97,7 +97,7 @@ export function sortStatusInfoV3(a: StackStatusInfoV3, b: StackStatusInfoV3): nu
 
 export function getResolutionApproachV3(statusInfo: StackStatusInfoV3): ResolutionApproach {
 	if (stackFullyIntegrated(statusInfo.status)) {
-		return { type: 'delete' };
+		return { type: "delete" };
 	}
 
 	// TODO: Do we need this?
@@ -106,14 +106,14 @@ export function getResolutionApproachV3(statusInfo: StackStatusInfoV3): Resoluti
 	// }
 
 	// return { type: 'merge' };
-	return { type: 'rebase' };
+	return { type: "rebase" };
 }
 
 export type BranchStatusesResponse =
 	| {
-			type: 'upToDate';
+			type: "upToDate";
 	  }
 	| {
-			type: 'updatesRequired';
+			type: "updatesRequired";
 			subject: { worktreeConflicts: string[]; statuses: [string, StackStatus][] };
 	  };

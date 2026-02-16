@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Link, Select, SelectItem, Toggle } from '@gitbutler/ui';
-	import { onMount } from 'svelte';
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Link, Select, SelectItem, Toggle } from "@gitbutler/ui";
+	import { onMount } from "svelte";
 
 	const gitConfig = inject(GIT_CONFIG_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
@@ -13,16 +13,16 @@
 	let fetchFrequency = $state<number>(-1);
 
 	const fetchFrequencyOptions = [
-		{ label: '1 minute', value: '1', minutes: 1 },
-		{ label: '5 minutes', value: '5', minutes: 5 },
-		{ label: '10 minutes', value: '10', minutes: 10 },
-		{ label: '15 minutes', value: '15', minutes: 15 },
-		{ label: 'None', value: 'none', minutes: -1 }
+		{ label: "1 minute", value: "1", minutes: 1 },
+		{ label: "5 minutes", value: "5", minutes: 5 },
+		{ label: "10 minutes", value: "10", minutes: 10 },
+		{ label: "15 minutes", value: "15", minutes: 15 },
+		{ label: "None", value: "none", minutes: -1 },
 	] as const;
 
 	function toggleCommitterSigning() {
 		annotateCommits = !annotateCommits;
-		gitConfig.set('gitbutler.gitbutlerCommitter', annotateCommits ? '1' : '0');
+		gitConfig.set("gitbutler.gitbutlerCommitter", annotateCommits ? "1" : "0");
 	}
 
 	async function updateFetchFrequency(value: string) {
@@ -34,11 +34,11 @@
 	}
 
 	const selectedValue = $derived(
-		fetchFrequencyOptions.find((opt) => opt.minutes === fetchFrequency)?.value ?? 'none'
+		fetchFrequencyOptions.find((opt) => opt.minutes === fetchFrequency)?.value ?? "none",
 	);
 
 	onMount(async () => {
-		annotateCommits = (await gitConfig.get('gitbutler.gitbutlerCommitter')) === '1';
+		annotateCommits = (await gitConfig.get("gitbutler.gitbutlerCommitter")) === "1";
 	});
 
 	$effect(() => {

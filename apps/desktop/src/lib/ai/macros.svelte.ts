@@ -1,7 +1,7 @@
-import { showError, showToast } from '$lib/notifications/toasts';
-import type DiffInputContext from '$lib/ai/diffInputContext.svelte';
-import type { PromptService } from '$lib/ai/promptService';
-import type { AIService, DiffInput } from '$lib/ai/service';
+import { showError, showToast } from "$lib/notifications/toasts";
+import type DiffInputContext from "$lib/ai/diffInputContext.svelte";
+import type { PromptService } from "$lib/ai/promptService";
+import type { AIService, DiffInput } from "$lib/ai/service";
 
 type GenerateCommitMessageParams = {
 	branchName?: string;
@@ -19,7 +19,7 @@ export default class AIMacros {
 		private readonly projectId: string,
 		private readonly aiService: AIService,
 		private readonly promptService: PromptService,
-		private readonly diffInputContext: DiffInputContext
+		private readonly diffInputContext: DiffInputContext,
 	) {}
 
 	async setGenAIEnabled(enabled: boolean) {
@@ -43,7 +43,7 @@ export default class AIMacros {
 		const prompt = this.promptService.selectedCommitPrompt(this.projectId);
 		const diffInput = params.diffInput ?? (await this.diffInputContext.diffInput());
 		if (!diffInput) {
-			showError('Failed to generate commit message', 'No changes found');
+			showError("Failed to generate commit message", "No changes found");
 			return;
 		}
 
@@ -54,7 +54,7 @@ export default class AIMacros {
 			useBriefStyle: params.useBriefStyle ?? false,
 			commitTemplate: prompt,
 			branchName: params.branchName,
-			onToken: params.onToken
+			onToken: params.onToken,
 		});
 
 		return output;
@@ -70,9 +70,9 @@ export default class AIMacros {
 
 		const prompt = this.promptService.selectedBranchPrompt(this.projectId);
 		const newBranchName = await this.aiService.summarizeBranch({
-			type: 'hunks',
+			type: "hunks",
 			hunks: diffInput,
-			branchTemplate: prompt
+			branchTemplate: prompt,
 		});
 
 		return newBranchName;
@@ -91,15 +91,15 @@ export default class AIMacros {
 
 		const diffInput = await this.diffInputContext.diffInput();
 		if (!diffInput) {
-			showError('Failed to generate branch name', 'No changes found');
+			showError("Failed to generate branch name", "No changes found");
 			return { branchName: undefined, commitMessage: undefined };
 		}
 		const branchName = await this.generateBranchNameFromDiffInput(diffInput);
 
 		if (!branchName) {
 			showToast({
-				style: 'danger',
-				message: 'Failed to generate branch name.'
+				style: "danger",
+				message: "Failed to generate branch name.",
 			});
 			return { branchName, commitMessage: undefined };
 		}
@@ -108,8 +108,8 @@ export default class AIMacros {
 
 		if (!commitMessage) {
 			showToast({
-				style: 'danger',
-				message: 'Failed to generate commit message.'
+				style: "danger",
+				message: "Failed to generate commit message.",
 			});
 			return { branchName, commitMessage };
 		}

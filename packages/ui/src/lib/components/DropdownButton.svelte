@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
-	import type { Snippet } from 'svelte';
+	import Button from "$components/Button.svelte";
+	import ContextMenu from "$components/ContextMenu.svelte";
+	import Tooltip from "$components/Tooltip.svelte";
+	import type iconsJson from "$lib/data/icons.json";
+	import type { ComponentColorType, ComponentKindType } from "$lib/utils/colorTypes";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		testId?: string;
@@ -18,8 +18,8 @@
 		width?: number | string;
 		autoClose?: boolean;
 		tooltip?: string;
-		type?: 'button' | 'submit' | 'reset';
-		menuSide?: 'top' | 'bottom' | 'left' | 'right';
+		type?: "button" | "submit" | "reset";
+		menuSide?: "top" | "bottom" | "left" | "right";
 		shrinkable?: boolean;
 		hotkey?: string;
 		children?: Snippet;
@@ -30,8 +30,8 @@
 	const {
 		testId,
 		icon,
-		style = 'gray',
-		kind = 'solid',
+		style = "gray",
+		kind = "solid",
 		disabled = false,
 		loading = false,
 		wide = false,
@@ -45,7 +45,7 @@
 		hotkey,
 		children,
 		contextMenuSlot,
-		onclick
+		onclick,
 	}: Props = $props();
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
@@ -90,7 +90,7 @@
 			bind:el={iconEl}
 			{style}
 			{kind}
-			icon={visible ? 'chevron-up' : 'chevron-down'}
+			icon={visible ? "chevron-up" : "chevron-down"}
 			{loading}
 			disabled={disabled || loading}
 			dropdownChild

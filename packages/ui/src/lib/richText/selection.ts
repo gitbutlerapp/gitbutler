@@ -6,16 +6,16 @@ import {
 	type RangeSelection,
 	$getRoot,
 	$createParagraphNode,
-	$createTextNode
-} from 'lexical';
-import { ImageNode } from 'svelte-lexical';
+	$createTextNode,
+} from "lexical";
+import { ImageNode } from "svelte-lexical";
 
 /**
  * Get the line text up to the caret position.
  */
 export function getLineTextUpToAnchor(selection: RangeSelection): string | undefined {
 	const anchor = selection.anchor;
-	if (anchor.type !== 'text') {
+	if (anchor.type !== "text") {
 		return undefined;
 	}
 	const anchorNode = anchor.getNode();
@@ -31,7 +31,7 @@ export function getLineTextUpToAnchor(selection: RangeSelection): string | undef
  */
 export function getLineTextAfterAnchor(selection: RangeSelection): string | undefined {
 	const anchor = selection.anchor;
-	if (anchor.type !== 'text') {
+	if (anchor.type !== "text") {
 		return undefined;
 	}
 	const anchorNode = anchor.getNode();
@@ -48,7 +48,7 @@ export function getLineTextAfterAnchor(selection: RangeSelection): string | unde
 export function getEditorTextUpToAnchor(selection: RangeSelection): string | undefined {
 	const anchor = selection.anchor;
 
-	if (anchor.type !== 'text') {
+	if (anchor.type !== "text") {
 		return undefined;
 	}
 
@@ -67,7 +67,7 @@ export function getEditorTextUpToAnchor(selection: RangeSelection): string | und
 	const anchorOffset = anchor.offset;
 	const anchorNodeText = anchorNode.getTextContent().slice(0, anchorOffset);
 	buffer.push(anchorNodeText);
-	return buffer.join('\n');
+	return buffer.join("\n");
 }
 
 /**
@@ -76,7 +76,7 @@ export function getEditorTextUpToAnchor(selection: RangeSelection): string | und
 export function getEditorTextAfterAnchor(selection: RangeSelection): string | undefined {
 	const anchor = selection.anchor;
 
-	if (anchor.type !== 'text') {
+	if (anchor.type !== "text") {
 		return undefined;
 	}
 
@@ -98,7 +98,7 @@ export function getEditorTextAfterAnchor(selection: RangeSelection): string | un
 	const anchorOffset = anchor.offset;
 	const anchorNodeText = anchorNode.getTextContent().slice(anchorOffset);
 	buffer.push(anchorNodeText);
-	return buffer.join('\n');
+	return buffer.join("\n");
 }
 
 export function getCursorPosition() {
@@ -154,13 +154,13 @@ export function insertFilePath(editor: LexicalEditor, path: string, count: numbe
 			}
 
 			if (!target) {
-				throw new Error('Expected target');
+				throw new Error("Expected target");
 			}
 
 			target.replace(pathNode, false);
 			pathNode.selectEnd();
 		},
-		{ tag: 'history-merge' }
+		{ tag: "history-merge" },
 	);
 }
 
@@ -172,7 +172,7 @@ export function insertFilePath(editor: LexicalEditor, path: string, count: numbe
  */
 export function insertImageAtCaret(
 	editor: LexicalEditor,
-	image: { url: string; alt: string; count: number }
+	image: { url: string; alt: string; count: number },
 ) {
 	const { url, alt, count } = image;
 	editor.update(() => {
@@ -217,7 +217,7 @@ export function insertTextAtCaret(editor: LexicalEditor, text: string) {
 			const offset = selection.anchor.offset;
 			node.spliceText(offset, 0, text);
 		},
-		{ tag: 'history-merge' }
+		{ tag: "history-merge" },
 	);
 }
 
@@ -229,7 +229,7 @@ export function setEditorText(editor: LexicalEditor, text: string) {
 
 			// Split text into lines and create a paragraph for each line
 			// This preserves blank lines unlike markdown conversion
-			const lines = text.split('\n');
+			const lines = text.split("\n");
 
 			for (const line of lines) {
 				const paragraph = $createParagraphNode();
@@ -242,6 +242,6 @@ export function setEditorText(editor: LexicalEditor, text: string) {
 				root.append(paragraph);
 			}
 		},
-		{ discrete: true }
+		{ discrete: true },
 	);
 }

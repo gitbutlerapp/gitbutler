@@ -1,26 +1,26 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { beforeNavigate } from '$app/navigation';
-	import { page } from '$app/state';
-	import HomePage from '$home/HomePage.svelte';
-	import * as jsonLinks from '$lib/data/links.json';
-	import { WebState } from '$lib/redux/store.svelte';
-	import { latestClientVersion } from '$lib/store';
-	import { getValidReleases } from '$lib/types/releases';
-	import { UserService, USER_SERVICE } from '$lib/user/userService';
-	import { updateFavIcon } from '$lib/utils/faviconUtils';
-	import { initTheme } from '$lib/utils/theme.svelte';
-	import { provide } from '@gitbutler/core/context';
-	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
-	import { PROJECT_SERVICE, ProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService, WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { type Snippet } from 'svelte';
-	import { readable } from 'svelte/store';
-	import { env } from '$env/dynamic/public';
-	import '../styles/global.css';
-	import '@gitbutler/design-core/core';
-	import '@gitbutler/design-core/utility';
+	import { goto } from "$app/navigation";
+	import { beforeNavigate } from "$app/navigation";
+	import { page } from "$app/state";
+	import HomePage from "$home/HomePage.svelte";
+	import * as jsonLinks from "$lib/data/links.json";
+	import { WebState } from "$lib/redux/store.svelte";
+	import { latestClientVersion } from "$lib/store";
+	import { getValidReleases } from "$lib/types/releases";
+	import { UserService, USER_SERVICE } from "$lib/user/userService";
+	import { updateFavIcon } from "$lib/utils/faviconUtils";
+	import { initTheme } from "$lib/utils/theme.svelte";
+	import { provide } from "@gitbutler/core/context";
+	import { HttpClient, HTTP_CLIENT } from "@gitbutler/shared/network/httpClient";
+	import { PROJECT_SERVICE, ProjectService } from "@gitbutler/shared/organizations/projectService";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { WebRoutesService, WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { type Snippet } from "svelte";
+	import { readable } from "svelte/store";
+	import { env } from "$env/dynamic/public";
+	import "../styles/global.css";
+	import "@gitbutler/design-core/core";
+	import "@gitbutler/design-core/utility";
 
 	// Initialize theme system
 	initTheme();
@@ -31,10 +31,10 @@
 
 	const { children }: Props = $props();
 
-	const routesService = new WebRoutesService('/', true);
+	const routesService = new WebRoutesService("/", true);
 	provide(WEB_ROUTES_SERVICE, routesService);
 
-	const TOKEN_STORAGE_KEY = 'AuthService--token';
+	const TOKEN_STORAGE_KEY = "AuthService--token";
 
 	/// Temporary cleanup through the migration
 	$effect(() => {
@@ -42,7 +42,7 @@
 		if (item) localStorage.removeItem(TOKEN_STORAGE_KEY);
 	});
 
-	const httpClient = new HttpClient(fetch, env.PUBLIC_APP_HOST, readable(undefined), 'include');
+	const httpClient = new HttpClient(fetch, env.PUBLIC_APP_HOST, readable(undefined), "include");
 	provide(HTTP_CLIENT, httpClient);
 
 	const userService = new UserService(httpClient);
@@ -60,30 +60,30 @@
 
 	// Check if current page should use marketing layout
 	const isMarketingPage = $derived(
-		page.route.id === '/(app)' ||
-			page.route.id === '/(app)/home' ||
-			page.route.id === '/downloads' ||
-			page.route.id === '/nightly' ||
-			page.route.id === '/color-generator' ||
-			page.route.id === '/cli'
+		page.route.id === "/(app)" ||
+			page.route.id === "/(app)/home" ||
+			page.route.id === "/downloads" ||
+			page.route.id === "/nightly" ||
+			page.route.id === "/color-generator" ||
+			page.route.id === "/cli",
 	);
 
 	// Check if current page should render children directly (marketing pages except home)
 	const shouldRenderChildren = $derived(
-		isMarketingPage && page.route.id !== '/(app)' && page.route.id !== '/(app)/home'
+		isMarketingPage && page.route.id !== "/(app)" && page.route.id !== "/(app)/home",
 	);
 
 	$effect(() => {
-		if (page.url.pathname === '/privacy') {
+		if (page.url.pathname === "/privacy") {
 			window.location.href = jsonLinks.legal.privacyPolicy.url;
 		}
 
-		if (page.url.pathname === '/terms') {
+		if (page.url.pathname === "/terms") {
 			window.location.href = jsonLinks.legal.termsOfService.url;
 		}
 
-		if (!$user && page.route.id === '/(app)/home') {
-			goto('/');
+		if (!$user && page.route.id === "/(app)/home") {
+			goto("/");
 		}
 	});
 
@@ -95,7 +95,7 @@
 	$effect(() => {
 		if (isMarketingPage) {
 			// Fetch latest version
-			fetch('https://app.gitbutler.com/api/downloads?limit=1&channel=release')
+			fetch("https://app.gitbutler.com/api/downloads?limit=1&channel=release")
 				.then((response) => response.json())
 				.then((data) => {
 					const latestReleases = getValidReleases(data);
@@ -104,24 +104,24 @@
 					}
 				})
 				.catch((error) => {
-					console.error('Failed to fetch latest version:', error);
+					console.error("Failed to fetch latest version:", error);
 				});
 
 			// Fetch latest 10 releases for changelog
-			fetch('https://app.gitbutler.com/api/downloads?limit=10&channel=release')
+			fetch("https://app.gitbutler.com/api/downloads?limit=10&channel=release")
 				.then((response) => response.json())
 				.then((data) => {
 					releases = getValidReleases(data);
 				})
 				.catch((error) => {
-					console.error('Failed to fetch releases for changelog:', error);
+					console.error("Failed to fetch releases for changelog:", error);
 				});
 		}
 	});
 </script>
 
 <svelte:head>
-	{#if import.meta.env.MODE !== 'development'}
+	{#if import.meta.env.MODE !== "development"}
 		<script
 			async
 			src="https://u.gitbutler.com/script.js"

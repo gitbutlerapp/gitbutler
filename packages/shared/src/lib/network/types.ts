@@ -1,7 +1,7 @@
 export class ApiError extends Error {
 	constructor(
 		message: string,
-		readonly response: Response
+		readonly response: Response,
 	) {
 		super(message);
 	}
@@ -18,19 +18,19 @@ export function toSerializable(error: unknown): SerializableError {
 		return {
 			name: error.name,
 			message: error.message,
-			stack: error.stack
+			stack: error.stack,
 		};
 	}
 
 	return {
-		name: 'Unknown error',
-		message: String(error)
+		name: "Unknown error",
+		message: String(error),
 	};
 }
 
 export type Loadable<T> =
-	| { status: 'loading' | 'not-found' }
-	| { status: 'found'; value: T }
-	| { status: 'error'; error: SerializableError };
+	| { status: "loading" | "not-found" }
+	| { status: "found"; value: T }
+	| { status: "error"; error: SerializableError };
 
 export type LoadableData<T, Id> = Loadable<T> & { id: Id };

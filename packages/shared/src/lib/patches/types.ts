@@ -4,13 +4,13 @@ import {
 	type ApiUserMaybe,
 	type ApiUserSimple,
 	type UserMaybe,
-	type UserSimple
-} from '$lib/users/types';
-import type { LoadableData } from '$lib/network/types';
+	type UserSimple,
+} from "$lib/users/types";
+import type { LoadableData } from "$lib/network/types";
 
 export type ApiDiffSection = {
 	id: number;
-	section_type: 'diff';
+	section_type: "diff";
 	identifier: string;
 	title?: string;
 	position?: number;
@@ -30,7 +30,7 @@ export type ApiDiffSection = {
 
 export type DiffSection = {
 	id: number;
-	sectionType: 'diff';
+	sectionType: "diff";
 	identifier: string;
 	title?: string;
 	position?: number;
@@ -50,7 +50,7 @@ export type DiffSection = {
 
 export type ApiTextSection = {
 	id: number;
-	section_type: 'text';
+	section_type: "text";
 	identifier: string;
 	title?: string;
 	position?: number;
@@ -64,7 +64,7 @@ export type ApiTextSection = {
 
 export type TextSection = {
 	id: number;
-	sectionType: 'text';
+	sectionType: "text";
 	identifier: string;
 	title?: string;
 	position?: number;
@@ -80,10 +80,10 @@ export type ApiSection = ApiDiffSection | ApiTextSection;
 export type Section = DiffSection | TextSection;
 
 export function apiToSection(apiSection: ApiSection): Section {
-	if (apiSection.section_type === 'diff') {
+	if (apiSection.section_type === "diff") {
 		return {
 			id: apiSection.id,
-			sectionType: 'diff',
+			sectionType: "diff",
 			identifier: apiSection.identifier,
 			title: apiSection.title,
 			position: apiSection.position,
@@ -97,12 +97,12 @@ export function apiToSection(apiSection: ApiSection): Section {
 			hunks: apiSection.hunks,
 			lines: apiSection.lines,
 			deletions: apiSection.deletions,
-			diffPatch: apiSection.diff_patch
+			diffPatch: apiSection.diff_patch,
 		};
 	} else {
 		return {
 			id: apiSection.id,
-			sectionType: 'text',
+			sectionType: "text",
 			identifier: apiSection.identifier,
 			title: apiSection.title,
 			position: apiSection.position,
@@ -110,7 +110,7 @@ export function apiToSection(apiSection: ApiSection): Section {
 			type: apiSection.type,
 			code: apiSection.code,
 			plainText: apiSection.plain_text,
-			data: apiSection.data
+			data: apiSection.data,
 		};
 	}
 }
@@ -137,7 +137,7 @@ export function apiToPatchStatistics(api: ApiPatchStatistics): PatchStatistics {
 		sectionCount: api.section_count,
 		lines: api.lines,
 		deletions: api.deletions,
-		files: api.files
+		files: api.files,
 	};
 }
 
@@ -157,11 +157,11 @@ export function apiToPatchReview(api: ApiPatchReview): PatchReview {
 	return {
 		viewed: api.viewed.map(apiToUserSimple),
 		signedOff: api.signed_off.map(apiToUserSimple),
-		rejected: api.rejected.map(apiToUserSimple)
+		rejected: api.rejected.map(apiToUserSimple),
 	};
 }
 
-type PatchTypes = 'PatchCommit' | 'PatchIdable';
+type PatchTypes = "PatchCommit" | "PatchIdable";
 
 export type ApiBasePatch = {
 	type: PatchTypes;
@@ -172,7 +172,7 @@ export type ApiBasePatch = {
 };
 
 export type ApiPatchCommit = ApiBasePatch & {
-	type: 'PatchCommit';
+	type: "PatchCommit";
 	change_id: string;
 	commit_sha: string;
 	// patch_sha: string; Not sure this is real
@@ -192,7 +192,7 @@ export type ApiPatchCommit = ApiBasePatch & {
 };
 
 export type ApiPatchIdable = ApiBasePatch & {
-	type: 'PatchIdable';
+	type: "PatchIdable";
 	patch_id: string;
 };
 
@@ -208,7 +208,7 @@ export type BasePatch = {
 };
 
 export type PatchCommit = BasePatch & {
-	type: 'PatchCommit';
+	type: "PatchCommit";
 	changeId: string;
 	commitSha: string;
 	// patch_sha: string; Not sure this is real
@@ -228,29 +228,29 @@ export type PatchCommit = BasePatch & {
 };
 
 export type PatchIdable = BasePatch & {
-	type: 'PatchIdable';
+	type: "PatchIdable";
 	patchId: string;
 };
 
 export type Patch = PatchCommit | PatchIdable;
 
 export function getPatchStatus(
-	patch: PatchCommit
-): 'approved' | 'changes-requested' | 'unreviewed' | 'in-discussion' {
-	if (patch.reviewAll.rejected.length > 0) return 'changes-requested';
-	if (patch.reviewAll.signedOff.length > 0) return 'approved';
-	if (patch.commentCount > 0) return 'in-discussion';
-	return 'unreviewed';
+	patch: PatchCommit,
+): "approved" | "changes-requested" | "unreviewed" | "in-discussion" {
+	if (patch.reviewAll.rejected.length > 0) return "changes-requested";
+	if (patch.reviewAll.signedOff.length > 0) return "approved";
+	if (patch.commentCount > 0) return "in-discussion";
+	return "unreviewed";
 }
 
-export type LoadablePatchCommit = LoadableData<PatchCommit, PatchCommit['changeId']>;
+export type LoadablePatchCommit = LoadableData<PatchCommit, PatchCommit["changeId"]>;
 export type LoadablePatchIdable = LoadableData<PatchIdable, string>;
 
 export function patchIdableId({
 	branchUuid,
 	changeId,
 	oldVersion,
-	newVersion
+	newVersion,
 }: {
 	branchUuid: string;
 	changeId: string;
@@ -263,7 +263,7 @@ export function patchIdableId({
 export function apiToPatch(api: ApiPatchCommit): PatchCommit;
 export function apiToPatch(api: ApiPatchIdable): PatchIdable;
 export function apiToPatch(api: ApiPatch): Patch {
-	if (api.type === 'PatchCommit') {
+	if (api.type === "PatchCommit") {
 		return {
 			type: api.type,
 			changeId: api.change_id,
@@ -281,18 +281,18 @@ export function apiToPatch(api: ApiPatch): Patch {
 			sectionIds: api.sections?.map((section) => section.id),
 			createdAt: api.created_at,
 			updatedAt: api.updated_at,
-			branchUuid: api.branch_uuid
+			branchUuid: api.branch_uuid,
 		};
-	} else if (api.type === 'PatchIdable') {
+	} else if (api.type === "PatchIdable") {
 		return {
 			type: api.type,
 			statistics: apiToPatchStatistics(api.statistics),
 			sectionIds: api.sections?.map((section) => section.id),
 			createdAt: api.created_at,
 			updatedAt: api.updated_at,
-			patchId: api.patch_id
+			patchId: api.patch_id,
 		} as PatchIdable;
 	} else {
-		throw new Error('Unreachable');
+		throw new Error("Unreachable");
 	}
 }

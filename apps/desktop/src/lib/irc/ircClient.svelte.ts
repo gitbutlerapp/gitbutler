@@ -1,34 +1,34 @@
-import { Cmd, parseIRCMessage, toIrcEvent, type IrcEvent } from '$lib/irc/parser';
-import { InjectionToken } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import ReconnectingWebSocket, { type CloseEvent, type ErrorEvent } from 'reconnecting-websocket';
+import { Cmd, parseIRCMessage, toIrcEvent, type IrcEvent } from "$lib/irc/parser";
+import { InjectionToken } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import ReconnectingWebSocket, { type CloseEvent, type ErrorEvent } from "reconnecting-websocket";
 
-export const connecting = ReconnectingWebSocket['CONNECTING'];
-export const open = ReconnectingWebSocket['OPEN'];
-export const closing = ReconnectingWebSocket['CLOSING'];
-export const closed = ReconnectingWebSocket['CLOSED'];
+export const connecting = ReconnectingWebSocket["CONNECTING"];
+export const open = ReconnectingWebSocket["OPEN"];
+export const closing = ReconnectingWebSocket["CLOSING"];
+export const closed = ReconnectingWebSocket["CLOSED"];
 
 export enum ReadyState {
 	Connecting = connecting,
 	Open = open,
 	Closing = closing,
-	Closed = closed
+	Closed = closed,
 }
 
 const capabilities = [
-	'account-tag',
-	'message-tags',
-	'server-time',
-	'standard-replies',
-	'echo-message',
-	'away-notify',
-	'account-tag',
-	'account-notify',
-	'invite-notify',
-	'labeled-response'
+	"account-tag",
+	"message-tags",
+	"server-time",
+	"standard-replies",
+	"echo-message",
+	"away-notify",
+	"account-tag",
+	"account-notify",
+	"invite-notify",
+	"labeled-response",
 ];
 
-export const IRC_CLIENT = new InjectionToken<IrcClient>('IrcClient');
+export const IRC_CLIENT = new InjectionToken<IrcClient>("IrcClient");
 
 /**
  * A service for tracking uncommitted changes.
@@ -64,7 +64,7 @@ export class IrcClient {
 	connect(config: { server: string; nick: string }) {
 		const socket = new ReconnectingWebSocket(config.server, [], {
 			maxRetries: 0,
-			minReconnectionDelay: 5000
+			minReconnectionDelay: 5000,
 		});
 		socket.onopen = this.onopen_.bind(this);
 		socket.onmessage = this.onmessage.bind(this);
@@ -77,13 +77,13 @@ export class IrcClient {
 
 	private async onopen_() {
 		this._server = this.socket?.url;
-		this.send('CAP LS 302');
+		this.send("CAP LS 302");
 	}
 
 	private onregistered() {
 		this._connected = true;
 		this.onOpenSubscribers.forEach((subscriber) => subscriber());
-		console.warn('IRC connection open');
+		console.warn("IRC connection open");
 	}
 
 	private handleUnathenticated() {}
@@ -100,22 +100,22 @@ export class IrcClient {
 		const ircMessage = parseIRCMessage(data);
 		const event = toIrcEvent(ircMessage);
 
-		if (event.type === 'ping') {
+		if (event.type === "ping") {
 			this.send(`${Cmd.PONG} :${event.id}`);
 			return;
 		}
 
 		if (!this.registered) {
-			if (event.type === 'welcome') {
+			if (event.type === "welcome") {
 				this.registered = true;
 				this.onregistered();
-			} else if (event.type === 'capabilities' && event.subcommand === 'LS') {
-				this.send(`CAP REQ : ${capabilities.join(' ')}`);
-			} else if (event.type === 'capabilities' && event.subcommand === 'NAK') {
-				this._error = 'Capabilities rejected!';
+			} else if (event.type === "capabilities" && event.subcommand === "LS") {
+				this.send(`CAP REQ : ${capabilities.join(" ")}`);
+			} else if (event.type === "capabilities" && event.subcommand === "NAK") {
+				this._error = "Capabilities rejected!";
 				return;
-			} else if (event.type === 'capabilities' && event.subcommand === 'ACK') {
-				this.send('CAP END');
+			} else if (event.type === "capabilities" && event.subcommand === "ACK") {
+				this.send("CAP END");
 				this.send(`NICK ${this.nick}`);
 				this.send(`USER ${this.nick} 0 * :${this.nick}`);
 			}
@@ -129,7 +129,7 @@ export class IrcClient {
 
 	private onclose(_: CloseEvent) {
 		this._connected = false;
-		console.warn('IRC connection closed');
+		console.warn("IRC connection closed");
 	}
 
 	private onerror(event: ErrorEvent) {
@@ -145,7 +145,7 @@ export class IrcClient {
 
 	async send(message: string) {
 		if (!this.socket) {
-			throw new Error('Websocket not connected!');
+			throw new Error("Websocket not connected!");
 		}
 		this.socket.send(message);
 	}

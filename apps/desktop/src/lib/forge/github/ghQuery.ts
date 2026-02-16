@@ -1,9 +1,9 @@
-import { Code } from '$lib/error/knownErrors';
-import { GitHubClient } from '$lib/forge/github/githubClient';
-import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
-import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
-import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
-import type { Octokit } from '@octokit/rest';
+import { Code } from "$lib/error/knownErrors";
+import { GitHubClient } from "$lib/forge/github/githubClient";
+import { DEFAULT_HEADERS } from "$lib/forge/github/headers";
+import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
+import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
+import type { Octokit } from "@octokit/rest";
 
 type OwnerAndRepo = { owner: string; repo: string };
 
@@ -32,12 +32,12 @@ type DomainActionResponse<D extends DomainKey, A extends DomainAction<D>> =
 type GhQueryArgs<
 	T extends DomainKey,
 	S extends DomainAction<T>,
-	RequiresOwnerAndRepo extends 'required' | 'optional'
+	RequiresOwnerAndRepo extends "required" | "optional",
 > =
 	| GhArgs<T, S>
 	| ((
 			octokit: Octokit,
-			about: RequiresOwnerAndRepo extends 'required' ? OwnerAndRepo : Partial<OwnerAndRepo>
+			about: RequiresOwnerAndRepo extends "required" ? OwnerAndRepo : Partial<OwnerAndRepo>,
 	  ) => Promise<InferGhResponse<T, S>>);
 
 /**
@@ -47,34 +47,34 @@ type GhQueryArgs<
 export async function ghQuery<
 	T extends DomainKey,
 	S extends DomainAction<T>,
-	RequiresOwnerAndRepo extends 'required' | 'optional'
+	RequiresOwnerAndRepo extends "required" | "optional",
 >(
 	args: GhQueryArgs<T, S, RequiresOwnerAndRepo>,
 	passedExtra?: unknown,
-	requiresOwnerAndRepo?: RequiresOwnerAndRepo
+	requiresOwnerAndRepo?: RequiresOwnerAndRepo,
 ): Promise<InferGhResponse<T, S>> {
 	const extra = extractExtraParameters<T, S, RequiresOwnerAndRepo>(args, passedExtra);
 
-	if (!hasGitHub(extra)) throw new Error('No GitHub client!');
+	if (!hasGitHub(extra)) throw new Error("No GitHub client!");
 	const gh = extra.gitHubClient;
 	try {
-		if (typeof args === 'function') {
-			if ((!gh.owner || !gh.repo) && requiresOwnerAndRepo === 'required') {
-				throw { name: 'GitHub API error', message: 'No GitHub owner or repo!' };
+		if (typeof args === "function") {
+			if ((!gh.owner || !gh.repo) && requiresOwnerAndRepo === "required") {
+				throw { name: "GitHub API error", message: "No GitHub owner or repo!" };
 			}
 			return await args(gh.octokit, {
 				owner: gh.owner,
-				repo: gh.repo
-			} as RequiresOwnerAndRepo extends 'required' ? OwnerAndRepo : Partial<OwnerAndRepo>);
+				repo: gh.repo,
+			} as RequiresOwnerAndRepo extends "required" ? OwnerAndRepo : Partial<OwnerAndRepo>);
 		}
 
 		const action = gh.octokit[args.domain][args.action];
-		if (typeof action === 'function') {
+		if (typeof action === "function") {
 			return await action({
 				...args.parameters,
 				headers: DEFAULT_HEADERS,
 				owner: gh.owner,
-				repo: gh.repo
+				repo: gh.repo,
 			});
 		}
 
@@ -83,10 +83,10 @@ export async function ghQuery<
 		const argInfo = extractDomainAndAction<T, S, RequiresOwnerAndRepo>(args);
 		const title = argInfo
 			? `GitHub API error: ${argInfo.domain}/${argInfo.action}`
-			: 'GitHub API error';
+			: "GitHub API error";
 
 		const message = isErrorlike(err) ? err.message : String(err);
-		const code = message.startsWith('Not Found -') ? Code.GitHubTokenExpired : undefined;
+		const code = message.startsWith("Not Found -") ? Code.GitHubTokenExpired : undefined;
 
 		return { error: { name: title, message, code } };
 	}
@@ -98,7 +98,7 @@ export async function ghQuery<
 type GhArgs<T extends DomainKey, S extends DomainAction<T>> = {
 	domain: T;
 	action: S;
-	parameters?: Omit<DomainActionParameters<T, S>, 'owner' | 'string'>;
+	parameters?: Omit<DomainActionParameters<T, S>, "owner" | "string">;
 	extra: unknown;
 };
 
@@ -115,10 +115,10 @@ type InferGhResponse<T extends DomainKey, S extends DomainAction<T>> = GhRespons
 function extractExtraParameters<
 	T extends DomainKey,
 	S extends DomainAction<T>,
-	RequiresOwnerAndRepo extends 'required' | 'optional'
+	RequiresOwnerAndRepo extends "required" | "optional",
 >(args: GhQueryArgs<T, S, RequiresOwnerAndRepo>, passedExtra: unknown) {
 	let extra;
-	if (typeof args === 'function') {
+	if (typeof args === "function") {
 		extra = passedExtra;
 	} else {
 		extra = args.extra;
@@ -129,9 +129,9 @@ function extractExtraParameters<
 function extractDomainAndAction<
 	T extends DomainKey,
 	S extends DomainAction<T>,
-	RequiresOwnerAndRepo extends 'required' | 'optional'
+	RequiresOwnerAndRepo extends "required" | "optional",
 >(args: GhQueryArgs<T, S, RequiresOwnerAndRepo>): { domain: string; action: string } | undefined {
-	if (typeof args !== 'function') {
+	if (typeof args !== "function") {
 		return { domain: args.domain, action: String(args.action) };
 	}
 	return undefined;
@@ -145,9 +145,9 @@ function hasGitHub(extra: unknown): extra is {
 } {
 	return (
 		!!extra &&
-		typeof extra === 'object' &&
+		typeof extra === "object" &&
 		extra !== null &&
-		'gitHubClient' in extra &&
+		"gitHubClient" in extra &&
 		extra.gitHubClient instanceof GitHubClient
 	);
 }

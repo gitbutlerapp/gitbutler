@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button, CardGroup, ProfilePictureUpload, Spacer, Textbox, Toggle } from '@gitbutler/ui';
-	import type { User, UserService } from '$lib/user/userService';
+	import { Button, CardGroup, ProfilePictureUpload, Spacer, Textbox, Toggle } from "@gitbutler/ui";
+	import type { User, UserService } from "$lib/user/userService";
 
 	interface Props {
 		user: User;
@@ -11,21 +11,21 @@
 
 	let updatingName = $state(false);
 	let updatingAdditionalInfo = $state(false);
-	let nameValue = $state('');
-	let emailValue = $state('');
-	let websiteValue = $state('');
-	let twitterValue = $state('');
-	let blueskyValue = $state('');
-	let locationValue = $state('');
+	let nameValue = $state("");
+	let emailValue = $state("");
+	let websiteValue = $state("");
+	let twitterValue = $state("");
+	let blueskyValue = $state("");
+	let locationValue = $state("");
 	let emailShareValue = $state(false);
 
 	$effect(() => {
 		nameValue = user.name;
 		emailValue = user.email;
-		websiteValue = user.website || '';
-		twitterValue = user.twitter || '';
-		blueskyValue = user.bluesky || '';
-		locationValue = user.location || '';
+		websiteValue = user.website || "";
+		twitterValue = user.twitter || "";
+		blueskyValue = user.bluesky || "";
+		locationValue = user.location || "";
 		emailShareValue = user.emailShare || false;
 	});
 
@@ -37,7 +37,7 @@
 		try {
 			await userService.updateUser({ picture: file });
 		} catch (error) {
-			console.error('Failed to update profile picture:', error);
+			console.error("Failed to update profile picture:", error);
 			// TODO: Add toast notification for error
 		}
 	}
@@ -60,8 +60,8 @@
 				twitter: twitterValue,
 				bluesky: blueskyValue,
 				location: locationValue,
-				timezone: '', // Not used in the UI currently
-				emailShare: emailShareValue
+				timezone: "", // Not used in the UI currently
+				emailShare: emailShareValue,
 			});
 		} finally {
 			updatingAdditionalInfo = false;
@@ -83,7 +83,7 @@
 						bind:value={nameValue}
 						readonly={updatingName}
 						onblur={updateName}
-						onkeydown={(e) => e.key === 'Enter' && updateName()}
+						onkeydown={(e) => e.key === "Enter" && updateName()}
 					/>
 					<Textbox id="email" label="Email" type="text" bind:value={emailValue} readonly={true} />
 				</div>
@@ -153,7 +153,7 @@
 					loading={updatingAdditionalInfo}
 					disabled={updatingAdditionalInfo}
 				>
-					{updatingAdditionalInfo ? 'Saving...' : 'Update profile'}
+					{updatingAdditionalInfo ? "Saving..." : "Update profile"}
 				</Button>
 			</div>
 		</CardGroup.Item>

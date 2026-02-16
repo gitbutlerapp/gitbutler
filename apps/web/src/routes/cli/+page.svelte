@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ComparisonTable from './sections/ComparisonTable.svelte';
-	import CtaSection from './sections/CtaSection.svelte';
-	import Features from './sections/Features.svelte';
-	import Hero from './sections/Hero.svelte';
-	import OptimizedForAgents from './sections/OptimizedForAgents.svelte';
-	import Footer from '$lib/components/marketing/Footer.svelte';
+	import ComparisonTable from "./sections/ComparisonTable.svelte";
+	import CtaSection from "./sections/CtaSection.svelte";
+	import Features from "./sections/Features.svelte";
+	import Hero from "./sections/Hero.svelte";
+	import OptimizedForAgents from "./sections/OptimizedForAgents.svelte";
+	import Footer from "$lib/components/marketing/Footer.svelte";
 </script>
 
 <svelte:head>

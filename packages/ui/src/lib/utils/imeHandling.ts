@@ -1,7 +1,7 @@
-import { InjectionToken } from '@gitbutler/core/context';
+import { InjectionToken } from "@gitbutler/core/context";
 
 export const IME_COMPOSITION_HANDLER: InjectionToken<IMECompositionHandler> =
-	new InjectionToken<IMECompositionHandler>('IMECompositionHandler');
+	new InjectionToken<IMECompositionHandler>("IMECompositionHandler");
 
 /**
  * IME (Input Method Editor) handling utilities for text input components.
@@ -49,7 +49,7 @@ export class IMECompositionHandler {
 	 */
 	handleKeydown(
 		originalHandler?: (event: KeyboardEvent) => void,
-		additionalBlockingKeys: string[] = []
+		additionalBlockingKeys: string[] = [],
 	) {
 		return (event: KeyboardEvent) => {
 			if (
@@ -71,17 +71,17 @@ export class IMECompositionHandler {
  * Keys that should be blocked during IME composition to prevent unintended actions
  */
 const IME_BLOCKING_KEYS = [
-	'Enter',
-	'Escape',
-	'Tab',
-	'0',
-	'1',
-	'2',
-	'3',
-	'4',
-	'5',
-	'6',
-	'7',
-	'8',
-	'9'
+	"Enter",
+	"Escape",
+	"Tab",
+	"0",
+	"1",
+	"2",
+	"3",
+	"4",
+	"5",
+	"6",
+	"7",
+	"8",
+	"9",
 ] as const;

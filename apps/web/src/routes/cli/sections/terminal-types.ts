@@ -1,4 +1,4 @@
 export interface ScriptStep {
-	type: 'input' | 'output';
+	type: "input" | "output";
 	lines: string[];
 }

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { dropzone, type HoverArgs } from '$lib/dragging/dropzone';
-	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-	import { inject } from '@gitbutler/core/context';
-	import type { DropzoneHandler } from '$lib/dragging/handler';
-	import type { Snippet } from 'svelte';
+	import { dropzone, type HoverArgs } from "$lib/dragging/dropzone";
+	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { inject } from "@gitbutler/core/context";
+	import type { DropzoneHandler } from "$lib/dragging/handler";
+	import type { Snippet } from "svelte";
 
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
 
@@ -30,7 +30,7 @@
 		overlay,
 		children,
 		hideWhenInactive,
-		overflow
+		overflow,
 	}: Props = $props();
 
 	let hovered = $state(false);
@@ -70,13 +70,13 @@
 		onHoverEnd,
 		onActivationStart,
 		onActivationEnd,
-		target: '.dropzone-target',
-		registry: dropzoneRegistry
+		target: ".dropzone-target",
+		registry: dropzoneRegistry,
 	}}
 	class:fill-height={fillHeight}
 	class:max-height={maxHeight}
-	style:display={hideWhenInactive && !activated ? 'none' : undefined}
-	style:overflow={overflow ? 'hidden' : undefined}
+	style:display={hideWhenInactive && !activated ? "none" : undefined}
+	style:overflow={overflow ? "hidden" : undefined}
 	class="dropzone-container"
 >
 	{#if overlay}

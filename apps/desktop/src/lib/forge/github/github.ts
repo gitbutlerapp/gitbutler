@@ -1,24 +1,24 @@
-import { ghQuery } from '$lib/forge/github/ghQuery';
-import { GitHubBranch } from '$lib/forge/github/githubBranch';
-import { GitHubChecksMonitor } from '$lib/forge/github/githubChecksMonitor.svelte';
-import { GitHubListingService } from '$lib/forge/github/githubListingService.svelte';
-import { GitHubPrService } from '$lib/forge/github/githubPrService.svelte';
-import { GitHubRepoService } from '$lib/forge/github/githubRepoService.svelte';
-import { GitHubIssueService } from '$lib/forge/github/issueService';
-import { providesList, ReduxTag } from '$lib/state/tags';
-import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { GitHubClient } from '$lib/forge/github/githubClient';
-import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { ForgeArguments } from '$lib/forge/interface/types';
-import type { BackendApi, GitHubApi } from '$lib/state/clientState.svelte';
-import type { RestEndpointMethodTypes } from '@octokit/rest';
-import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
-import type { TagDescription } from '@reduxjs/toolkit/query';
+import { ghQuery } from "$lib/forge/github/ghQuery";
+import { GitHubBranch } from "$lib/forge/github/githubBranch";
+import { GitHubChecksMonitor } from "$lib/forge/github/githubChecksMonitor.svelte";
+import { GitHubListingService } from "$lib/forge/github/githubListingService.svelte";
+import { GitHubPrService } from "$lib/forge/github/githubPrService.svelte";
+import { GitHubRepoService } from "$lib/forge/github/githubRepoService.svelte";
+import { GitHubIssueService } from "$lib/forge/github/issueService";
+import { providesList, ReduxTag } from "$lib/state/tags";
+import type { PostHogWrapper } from "$lib/analytics/posthog";
+import type { GitHubClient } from "$lib/forge/github/githubClient";
+import type { Forge, ForgeName } from "$lib/forge/interface/forge";
+import type { ForgeArguments } from "$lib/forge/interface/types";
+import type { BackendApi, GitHubApi } from "$lib/state/clientState.svelte";
+import type { RestEndpointMethodTypes } from "@octokit/rest";
+import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
+import type { TagDescription } from "@reduxjs/toolkit/query";
 
-export const GITHUB_DOMAIN = 'github.com';
+export const GITHUB_DOMAIN = "github.com";
 
 export class GitHub implements Forge {
-	readonly name: ForgeName = 'github';
+	readonly name: ForgeName = "github";
 	readonly authenticated: boolean;
 	readonly isLoading: boolean;
 	private baseUrl: string;
@@ -33,7 +33,7 @@ export class GitHub implements Forge {
 			api: GitHubApi;
 			backendApi: BackendApi;
 			isLoading: boolean;
-		}
+		},
 	) {
 		const { client, api, authenticated, repo, isLoading } = params;
 		const { owner, name } = repo;
@@ -42,13 +42,13 @@ export class GitHub implements Forge {
 
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
-		let protocol = repo.protocol?.endsWith(':')
+		let protocol = repo.protocol?.endsWith(":")
 			? repo.protocol.slice(0, -1)
-			: repo.protocol || 'https';
+			: repo.protocol || "https";
 
 		// SSH URLs cannot be opened in browsers, so convert to HTTPS
-		if (protocol === 'ssh') {
-			protocol = 'https';
+		if (protocol === "ssh") {
+			protocol = "https";
 		}
 
 		this.baseUrl = `${protocol}://${repo.domain}/${owner}/${name}`;
@@ -91,8 +91,8 @@ export class GitHub implements Forge {
 			transform: (result) => ({
 				id: result.id,
 				name: result.name || result.login,
-				srcUrl: result.avatar_url
-			})
+				srcUrl: result.avatar_url,
+			}),
 		});
 	}
 
@@ -113,7 +113,7 @@ export class GitHub implements Forge {
 	}
 }
 
-type IsAuthenticated = RestEndpointMethodTypes['users']['getAuthenticated']['response']['data'];
+type IsAuthenticated = RestEndpointMethodTypes["users"]["getAuthenticated"]["response"]["data"];
 
 function injectEndpoints(api: GitHubApi) {
 	return api.injectEndpoints({
@@ -121,12 +121,12 @@ function injectEndpoints(api: GitHubApi) {
 			getGitHubUser: build.query<IsAuthenticated, null>({
 				queryFn: async (_, api) =>
 					await ghQuery({
-						domain: 'users',
-						action: 'getAuthenticated',
-						extra: api.extra
+						domain: "users",
+						action: "getAuthenticated",
+						extra: api.extra,
 					}),
-				providesTags: [providesList(ReduxTag.ForgeUser)]
-			})
-		})
+				providesTags: [providesList(ReduxTag.ForgeUser)],
+			}),
+		}),
 	});
 }

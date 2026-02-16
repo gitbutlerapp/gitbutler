@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Loading from '$lib/network/Loading.svelte';
-	import { isFound } from '$lib/network/loadable';
-	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
-	import { getOrganizationBySlug } from '$lib/organizations/organizationsPreview.svelte';
-	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
-	import { APP_STATE } from '$lib/redux/store.svelte';
-	import { USER_SERVICE } from '$lib/users/userService';
-	import { getUserByLogin } from '$lib/users/usersPreview.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Avatar, Button, CardGroup, Modal, Textbox } from '@gitbutler/ui';
+	import Loading from "$lib/network/Loading.svelte";
+	import { isFound } from "$lib/network/loadable";
+	import { ORGANIZATION_SERVICE } from "$lib/organizations/organizationService";
+	import { getOrganizationBySlug } from "$lib/organizations/organizationsPreview.svelte";
+	import { getProjectByRepositoryId } from "$lib/organizations/projectsPreview.svelte";
+	import { APP_STATE } from "$lib/redux/store.svelte";
+	import { USER_SERVICE } from "$lib/users/userService";
+	import { getUserByLogin } from "$lib/users/usersPreview.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Avatar, Button, CardGroup, Modal, Textbox } from "@gitbutler/ui";
 
 	type Props = {
 		slug: string;
@@ -23,7 +23,7 @@
 	const organization = $derived(getOrganizationBySlug(appState, organizationService, slug));
 
 	const title = $derived.by(() => {
-		if (!isFound(organization.current)) return '';
+		if (!isFound(organization.current)) return "";
 		return organization.current.value.name || organization.current.value.slug;
 	});
 
@@ -54,8 +54,8 @@
 								{#snippet children(user)}
 									<Avatar
 										size="medium"
-										username={user?.name || 'Unknown'}
-										srcUrl={user?.avatarUrl || ''}
+										username={user?.name || "Unknown"}
+										srcUrl={user?.avatarUrl || ""}
 									/>
 									<p>{user?.name}</p>
 								{/snippet}

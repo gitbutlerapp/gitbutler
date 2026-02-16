@@ -2,21 +2,21 @@
 	export type OnChangeCallback = (
 		value: string,
 		textUpToAnchor: string | undefined,
-		textAfterAnchor: string | undefined
+		textAfterAnchor: string | undefined,
 	) => void;
 </script>
 
 <script lang="ts">
-	import { getEditor } from '$lib/richText/context';
-	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
-	import { exportPlaintext } from '$lib/richText/utils/export';
-	import { $getRoot as getRoot } from 'lexical';
+	import { getEditor } from "$lib/richText/context";
+	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from "$lib/richText/selection";
+	import { exportPlaintext } from "$lib/richText/utils/export";
+	import { $getRoot as getRoot } from "lexical";
 	import {
 		BLUR_COMMAND,
 		COMMAND_PRIORITY_NORMAL,
 		$getSelection as getSelection,
-		$isRangeSelection as isRangeSelection
-	} from 'lexical';
+		$isRangeSelection as isRangeSelection,
+	} from "lexical";
 
 	type Props = {
 		onChange?: OnChangeCallback;
@@ -48,7 +48,7 @@
 				});
 				return false;
 			},
-			COMMAND_PRIORITY_NORMAL
+			COMMAND_PRIORITY_NORMAL,
 		);
 	});
 </script>

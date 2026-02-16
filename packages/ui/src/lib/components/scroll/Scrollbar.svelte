@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type ScrollbarVisilitySettings = 'scroll' | 'hover' | 'always';
+	export type ScrollbarVisilitySettings = "scroll" | "hover" | "always";
 </script>
 
 <script lang="ts">
@@ -19,14 +19,14 @@
 	const {
 		viewport,
 		initiallyVisible = false,
-		thickness = '.5rem',
-		shift = '0',
+		thickness = ".5rem",
+		shift = "0",
 		horz = false,
-		zIndex = 'var(--z-ground)',
-		whenToShow = 'hover',
+		zIndex = "var(--z-ground)",
+		whenToShow = "hover",
 		onthumbdrag,
 		onscroll,
-		onscrollexists
+		onscrollexists,
 	}: Props = $props();
 
 	$effect(() => {
@@ -76,10 +76,10 @@
 	const thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
 	const thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);
 	const thumbTop = $derived(
-		wholeHeight > 0 ? ((scrollTop + trackHeight) / wholeHeight) * trackHeight - thumbHeight : 0
+		wholeHeight > 0 ? ((scrollTop + trackHeight) / wholeHeight) * trackHeight - thumbHeight : 0,
 	);
 	const thumbLeft = $derived(
-		wholeWidth > 0 ? ((scrollLeft + trackWidth) / wholeWidth) * trackWidth - thumbWidth : 0
+		wholeWidth > 0 ? ((scrollLeft + trackWidth) / wholeWidth) * trackWidth - thumbWidth : 0,
 	);
 
 	const scrollableY = $derived(wholeHeight > trackHeight);
@@ -87,11 +87,11 @@
 	const isScrollable = $derived(scrollableY || scrollableX);
 	const shouldShowInitially = $derived(initiallyVisible && isScrollable);
 
-	const shouldShowOnHover = $derived(whenToShow === 'hover' && isScrollable);
-	const shouldAlwaysShow = $derived(whenToShow === 'always' && isScrollable);
+	const shouldShowOnHover = $derived(whenToShow === "hover" && isScrollable);
+	const shouldAlwaysShow = $derived(whenToShow === "always" && isScrollable);
 
 	let visible = $derived(
-		shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow
+		shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow,
 	);
 
 	// Used to detect sudden changes to content height.
@@ -134,8 +134,8 @@
 	function setupViewport(viewport: Element) {
 		if (!viewport) return;
 
-		if (typeof window.ResizeObserver === 'undefined') {
-			throw new Error('window.ResizeObserver is missing.');
+		if (typeof window.ResizeObserver === "undefined") {
+			throw new Error("window.ResizeObserver is missing.");
 		}
 
 		const observerSize = new ResizeObserver(() => updateTrack());
@@ -143,7 +143,7 @@
 
 		const content = viewport.children.item(0);
 		if (!content) {
-			throw new Error('Expected to find content container');
+			throw new Error("Expected to find content container");
 		}
 
 		// Sometimes the content size changes before scrollTop, so we
@@ -161,17 +161,17 @@
 		const observerMutations = new MutationObserver(updateTrack);
 		observerMutations.observe(viewport, { childList: true, subtree: true });
 
-		viewport.addEventListener('scroll', onScroll, { passive: true });
-		viewport.addEventListener('mouseenter', onViewportMouseEnter);
-		viewport.addEventListener('mouseleave', onViewportMouseLeave);
+		viewport.addEventListener("scroll", onScroll, { passive: true });
+		viewport.addEventListener("mouseenter", onViewportMouseEnter);
+		viewport.addEventListener("mouseleave", onViewportMouseLeave);
 
 		return () => {
 			observerSize.disconnect();
 			observerMutations.disconnect();
 			observerContentSize.disconnect();
-			viewport.removeEventListener('scroll', onScroll);
-			viewport.removeEventListener('mouseenter', onViewportMouseEnter);
-			viewport.removeEventListener('mouseleave', onViewportMouseLeave);
+			viewport.removeEventListener("scroll", onScroll);
+			viewport.removeEventListener("mouseenter", onViewportMouseEnter);
+			viewport.removeEventListener("mouseleave", onViewportMouseLeave);
 		};
 	}
 
@@ -197,14 +197,14 @@
 	function setupTrack(track: Element) {
 		if (!track) return;
 
-		track.addEventListener('mousedown', onThumbClick, { passive: true });
-		track.addEventListener('mouseenter', onTrackEnter);
-		track.addEventListener('mouseleave', onTrackLeave);
+		track.addEventListener("mousedown", onThumbClick, { passive: true });
+		track.addEventListener("mouseenter", onTrackEnter);
+		track.addEventListener("mouseleave", onTrackLeave);
 
 		return () => {
-			track.removeEventListener('mousedown', onTrackClick);
-			track.removeEventListener('mouseenter', onTrackEnter);
-			track.removeEventListener('mouseleave', onTrackLeave);
+			track.removeEventListener("mousedown", onTrackClick);
+			track.removeEventListener("mouseenter", onTrackEnter);
+			track.removeEventListener("mouseleave", onTrackLeave);
 		};
 	}
 
@@ -214,9 +214,9 @@
 	function setupThumb(thumb: Element) {
 		if (!thumb) return;
 
-		thumb.addEventListener('mousedown', onThumbClick, { passive: true });
+		thumb.addEventListener("mousedown", onThumbClick, { passive: true });
 		return () => {
-			thumb.removeEventListener('mousedown', onThumbClick);
+			thumb.removeEventListener("mousedown", onThumbClick);
 		};
 	}
 
@@ -253,8 +253,8 @@
 
 		isDragging = false;
 
-		document.removeEventListener('mousemove', onMouseMove);
-		document.removeEventListener('mouseup', onMouseUp);
+		document.removeEventListener("mousemove", onMouseMove);
+		document.removeEventListener("mouseup", onMouseUp);
 	}
 
 	function onTrackClick(event: Event | MouseEvent) {
@@ -274,8 +274,8 @@
 			startLeft = viewport.scrollTop;
 		}
 
-		document.addEventListener('mousemove', onMouseMove);
-		document.addEventListener('mouseup', onMouseUp);
+		document.addEventListener("mousemove", onMouseMove);
+		document.addEventListener("mouseup", onMouseUp);
 	}
 
 	function onThumbClick(event: Event | MouseEvent) {
@@ -291,8 +291,8 @@
 			startX = event.clientX;
 		}
 
-		document.addEventListener('mousemove', onMouseMove);
-		document.addEventListener('mouseup', onMouseUp);
+		document.addEventListener("mousemove", onMouseMove);
+		document.addEventListener("mouseup", onMouseUp);
 	}
 </script>
 

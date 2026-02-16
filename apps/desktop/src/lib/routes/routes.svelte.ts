@@ -1,4 +1,4 @@
-import { page } from '$app/state';
+import { page } from "$app/state";
 
 function isUrl<T>(id: string): T | undefined {
 	if (page.route.id === id) {
@@ -11,7 +11,7 @@ export function projectPath(projectId: string) {
 }
 
 export function isProjectPath() {
-	return isUrl<{ projectId: string }>('/[projectId]');
+	return isUrl<{ projectId: string }>("/[projectId]");
 }
 
 export function workspacePath(projectId: string) {
@@ -23,14 +23,14 @@ export function ircPath(projectId: string) {
 }
 
 export function isIrcPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/irc');
+	return isUrl<{ projectId: string }>("/[projectId]/irc");
 }
 
 export function isWorkspacePath(): { projectId: string; stackId?: string } | undefined {
 	const isStackUrl = isUrl<{ projectId: string; stackId?: string }>(
-		'/[projectId]/workspace?stackId=[stackId]'
+		"/[projectId]/workspace?stackId=[stackId]",
 	);
-	const isWorkspaceUrl = isUrl<{ projectId: string }>('/[projectId]/workspace');
+	const isWorkspaceUrl = isUrl<{ projectId: string }>("/[projectId]/workspace");
 	return isStackUrl ?? isWorkspaceUrl;
 }
 
@@ -39,7 +39,7 @@ export function historyPath(projectId: string) {
 }
 
 export function isHistoryPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/history');
+	return isUrl<{ projectId: string }>("/[projectId]/history");
 }
 
 export function branchesPath(projectId: string) {
@@ -47,7 +47,7 @@ export function branchesPath(projectId: string) {
 }
 
 export function isBranchesPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/branches');
+	return isUrl<{ projectId: string }>("/[projectId]/branches");
 }
 
 export function codegenPath(projectId: string) {
@@ -55,11 +55,11 @@ export function codegenPath(projectId: string) {
 }
 
 export function isCodegenPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/codegen');
+	return isUrl<{ projectId: string }>("/[projectId]/codegen");
 }
 
 export function isPreviewStackPath() {
-	return isUrl<{ projectId: string }>('/[projectId]/preview-stack/[stackId]');
+	return isUrl<{ projectId: string }>("/[projectId]/preview-stack/[stackId]");
 }
 
 export function previewStackPath(projectId: string, stackId: string) {
@@ -67,9 +67,9 @@ export function previewStackPath(projectId: string, stackId: string) {
 }
 
 export function isCommitPath() {
-	return page.url.searchParams.has('create');
+	return page.url.searchParams.has("create");
 }
 
 export function clonePath() {
-	return '/onboarding/clone';
+	return "/onboarding/clone";
 }

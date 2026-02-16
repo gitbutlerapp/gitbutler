@@ -9,30 +9,30 @@
 
 <script lang="ts">
 	import BranchRenameModal, {
-		type BranchRenameModalProps
-	} from '$components/BranchRenameModal.svelte';
+		type BranchRenameModalProps,
+	} from "$components/BranchRenameModal.svelte";
 	import DeleteBranchModal, {
-		type DeleteBranchModalProps
-	} from '$components/DeleteBranchModal.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { PROMPT_SERVICE } from '$lib/ai/promptService';
-	import { AI_SERVICE } from '$lib/ai/service';
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { projectAiGenEnabled } from '$lib/config/config';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
+		type DeleteBranchModalProps,
+	} from "$components/DeleteBranchModal.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { PROMPT_SERVICE } from "$lib/ai/promptService";
+	import { AI_SERVICE } from "$lib/ai/service";
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { projectAiGenEnabled } from "$lib/config/config";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		ContextMenuItem,
 		ContextMenuItemSubmenu,
 		ContextMenuSection,
 		KebabButton,
-		TestId
-	} from '@gitbutler/ui';
+		TestId,
+	} from "@gitbutler/ui";
 
-	import { tick } from 'svelte';
-	import type { AnchorPosition, BranchDetails } from '$lib/stacks/stack';
+	import { tick } from "svelte";
+	import type { AnchorPosition, BranchDetails } from "$lib/stacks/stack";
 
 	type Props = {
 		projectId: string;
@@ -49,7 +49,7 @@
 		laneId,
 		openId = $bindable(),
 		rightClickTrigger,
-		contextData
+		contextData,
 	}: Props = $props();
 
 	const aiService = inject(AI_SERVICE);
@@ -81,7 +81,7 @@
 	}
 
 	const commits = $derived(allCommits?.response);
-	const branchType = $derived(commits?.at(0)?.state.type || 'LocalOnly');
+	const branchType = $derived(commits?.at(0)?.state.type || "LocalOnly");
 	const isConflicted = $derived(commits?.some((commit) => commit.hasConflicts) ?? false);
 
 	let aiConfigurationValid = $state(false);
@@ -101,14 +101,14 @@
 		const commits = await getAllCommits();
 		const commitMessages = commits?.map((commit) => commit.message) ?? [];
 		if (commitMessages.length === 0) {
-			throw new Error('There must be commits in the branch before you can generate a branch name');
+			throw new Error("There must be commits in the branch before you can generate a branch name");
 		}
 
 		const prompt = promptService.selectedBranchPrompt(projectId);
 		const newBranchName = await aiService.summarizeBranch({
-			type: 'commitMessages',
+			type: "commitMessages",
 			commitMessages,
-			branchTemplate: prompt
+			branchTemplate: prompt,
 		});
 
 		if (newBranchName && newBranchName !== branchName) {
@@ -117,7 +117,7 @@
 				stackId,
 				laneId,
 				branchName,
-				newName: newBranchName
+				newName: newBranchName,
 			});
 		}
 	}
@@ -130,13 +130,13 @@
 			request: {
 				newName,
 				anchor: {
-					type: 'atReference',
+					type: "atReference",
 					subject: {
 						short_name: contextData.branch.name,
-						position
-					}
-				}
-			}
+						position,
+					},
+				},
+			},
 		});
 	}
 
@@ -171,7 +171,7 @@
 				icon="copy"
 				testId={TestId.BranchHeaderContextMenu_CopyBranchName}
 				onclick={() => {
-					clipboardService.write(branch?.name, { message: 'Branch name copied' });
+					clipboardService.write(branch?.name, { message: "Branch name copied" });
 					close();
 				}}
 			/>
@@ -190,7 +190,7 @@
 								testId={TestId.BranchHeaderContextMenu_AddDependentBranch}
 								disabled={isReadOnly}
 								onclick={async () => {
-									await handleCreateNewRef(stackId, 'Above');
+									await handleCreateNewRef(stackId, "Above");
 									closeSubmenu();
 									close();
 								}}
@@ -199,7 +199,7 @@
 								label="Create branch below"
 								disabled={isReadOnly}
 								onclick={async () => {
-									await handleCreateNewRef(stackId, 'Below');
+									await handleCreateNewRef(stackId, "Below");
 									closeSubmenu();
 									close();
 								}}
@@ -214,8 +214,8 @@
 					onclick={async () => {
 						await insertBlankCommitInBranch({
 							projectId,
-							relativeTo: { type: 'reference', subject: contextData.branch.reference },
-							side: 'below'
+							relativeTo: { type: "reference", subject: contextData.branch.reference },
+							side: "below",
 						});
 						close();
 					}}
@@ -230,7 +230,7 @@
 							await stackService.squashAllCommits({
 								projectId,
 								stackId,
-								branchName
+								branchName,
 							});
 							close();
 						}}
@@ -251,7 +251,7 @@
 						}}
 					/>
 				{/if}
-				{#if branchType !== 'Integrated'}
+				{#if branchType !== "Integrated"}
 					<ContextMenuItem
 						label="Rename"
 						icon="edit"
@@ -263,7 +263,7 @@
 								stackId,
 								laneId,
 								branchName,
-								isPushed: !!branch.remoteTrackingBranch
+								isPushed: !!branch.remoteTrackingBranch,
 							};
 							await tick();
 							renameBranchModal?.show();
@@ -281,7 +281,7 @@
 							deleteBranchModalContext = {
 								projectId,
 								stackId,
-								branchName
+								branchName,
 							};
 							await tick();
 							deleteBranchModal?.show();
@@ -313,7 +313,7 @@
 										testId={TestId.BranchHeaderContextMenu_CopyPRLink}
 										onclick={() => {
 											clipboardService.write(pr.htmlUrl, {
-												message: `${forge.reviewUnitAbbr} link copied`
+												message: `${forge.reviewUnitAbbr} link copied`,
 											});
 											closeSubmenu();
 											close();

@@ -1,17 +1,17 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import { isStr } from '@gitbutler/ui/utils/string';
-import type { HttpClient } from '$lib/network/httpClient';
+import { InjectionToken } from "@gitbutler/core/context";
+import { isStr } from "@gitbutler/ui/utils/string";
+import type { HttpClient } from "$lib/network/httpClient";
 
 interface BaseLoginResponse {
-	type: 'success' | 'error';
+	type: "success" | "error";
 }
 
 interface SuccessLoginResponse<T> extends BaseLoginResponse {
-	type: 'success';
+	type: "success";
 	data: T;
 }
 interface ErrorLoginResponse extends BaseLoginResponse {
-	type: 'error';
+	type: "error";
 
 	errorCode: string;
 	errorMessage: string;
@@ -20,13 +20,13 @@ interface ErrorLoginResponse extends BaseLoginResponse {
 
 type LoginResponse<T = void> = SuccessLoginResponse<T> | ErrorLoginResponse;
 
-export const LOGIN_SERVICE: InjectionToken<LoginService> = new InjectionToken('LoginService');
+export const LOGIN_SERVICE: InjectionToken<LoginService> = new InjectionToken("LoginService");
 export default class LoginService {
 	constructor(private readonly httpClient: HttpClient) {}
 
 	private async sendGetRequest<T>(
 		path: string,
-		successHandler?: (data: any) => T | undefined
+		successHandler?: (data: any) => T | undefined,
 	): Promise<LoginResponse<T>> {
 		try {
 			const response = await this.httpClient.get(path);
@@ -34,30 +34,30 @@ export default class LoginService {
 			if (response) {
 				const result = successHandler ? successHandler(response) : response;
 				return {
-					type: 'success',
-					data: result as T
+					type: "success",
+					data: result as T,
 				};
 			}
 
 			return {
-				type: 'error',
-				errorCode: 'empty_response',
-				errorMessage: 'No data received from server'
+				type: "error",
+				errorCode: "empty_response",
+				errorMessage: "No data received from server",
 			};
 		} catch (error) {
 			if (error instanceof Error) {
 				return {
-					type: 'error',
-					errorCode: 'network_error',
+					type: "error",
+					errorCode: "network_error",
 					errorMessage: error.message,
-					raw: error
+					raw: error,
 				};
 			}
 			return {
-				type: 'error',
-				errorCode: 'unknown_error',
-				errorMessage: 'An unknown error occurred',
-				raw: error
+				type: "error",
+				errorCode: "unknown_error",
+				errorMessage: "An unknown error occurred",
+				raw: error,
 			};
 		}
 	}
@@ -65,7 +65,7 @@ export default class LoginService {
 	private async sendPostRequest<T>(
 		path: string,
 		body: Record<string, unknown>,
-		successHandler?: (data: any) => T | undefined
+		successHandler?: (data: any) => T | undefined,
 	): Promise<LoginResponse<T>> {
 		try {
 			const response = await this.httpClient.postRaw(path, { body });
@@ -75,95 +75,95 @@ export default class LoginService {
 			if (response.ok) {
 				const result = successHandler ? successHandler(data) : data;
 				return {
-					type: 'success',
-					data: result as T
+					type: "success",
+					data: result as T,
 				};
 			}
 
 			return {
-				type: 'error',
-				errorCode: data.error_code || 'unknown_error',
-				errorMessage: data.error || 'An unknown error occurred'
+				type: "error",
+				errorCode: data.error_code || "unknown_error",
+				errorMessage: data.error || "An unknown error occurred",
 			};
 		} catch (error) {
 			if (error instanceof Error) {
 				return {
-					type: 'error',
-					errorCode: 'network_error',
+					type: "error",
+					errorCode: "network_error",
 					errorMessage: error.message,
-					raw: error
+					raw: error,
 				};
 			}
 			return {
-				type: 'error',
-				errorCode: 'unknown_error',
-				errorMessage: 'An unknown error occurred',
-				raw: error
+				type: "error",
+				errorCode: "unknown_error",
+				errorMessage: "An unknown error occurred",
+				raw: error,
 			};
 		}
 	}
 
 	async finalizeAccount(
 		email: string,
-		username: string
+		username: string,
 	): Promise<LoginResponse<{ message: string }>> {
 		return await this.sendPostRequest(
-			'sessions/finalize',
+			"sessions/finalize",
 			{
 				email,
-				login: username
+				login: username,
 			},
 			(data) => {
-				if (!isStr(data.message)) throw new Error('Invalid message format');
+				if (!isStr(data.message)) throw new Error("Invalid message format");
 				return { message: data.message };
-			}
+			},
 		);
 	}
 
 	async confirmPasswordReset(
 		token: string,
 		newPassword: string,
-		passwordConfirmation: string
+		passwordConfirmation: string,
 	): Promise<LoginResponse<{ message: string; token: string }>> {
 		return await this.sendPostRequest(
-			'sessions/confirm_new_password',
+			"sessions/confirm_new_password",
 			{
 				password_reset_token: token,
 				password: newPassword,
-				password_confirmation: passwordConfirmation
+				password_confirmation: passwordConfirmation,
 			},
 			(data) => {
-				if (!isStr(data.message)) throw new Error('Invalid message format');
-				if (!isStr(data.token)) throw new Error('Invalid token format');
+				if (!isStr(data.message)) throw new Error("Invalid message format");
+				if (!isStr(data.token)) throw new Error("Invalid token format");
 				return { message: data.message, token: data.token };
-			}
+			},
 		);
 	}
 
 	async resetPassword(email: string): Promise<LoginResponse<{ message: string }>> {
-		return await this.sendPostRequest('sessions/forgot_password', { email }, (data) => {
-			if (!isStr(data.message)) throw new Error('Invalid message format');
+		return await this.sendPostRequest("sessions/forgot_password", { email }, (data) => {
+			if (!isStr(data.message)) throw new Error("Invalid message format");
 			return { message: data.message };
 		});
 	}
 
 	async loginWithEmail(email: string, password: string): Promise<LoginResponse<string>> {
-		return await this.sendPostRequest('sessions/login_with_email', { email, password }, (data) => {
-			if (!isStr(data.token)) throw new Error('Invalid token format');
+		return await this.sendPostRequest("sessions/login_with_email", { email, password }, (data) => {
+			if (!isStr(data.token)) throw new Error("Invalid token format");
 			return data.token;
 		});
 	}
 
 	async resendConfirmationEmail(email: string): Promise<LoginResponse<{ message: string }>> {
-		return await this.sendPostRequest('sessions/resend_confirmation', { email }, (data) => {
-			if (!isStr(data.message)) throw new Error('Invalid message format');
+		return await this.sendPostRequest("sessions/resend_confirmation", { email }, (data) => {
+			if (!isStr(data.message)) throw new Error("Invalid message format");
 			return { message: data.message };
 		});
 	}
 
 	async token(): Promise<LoginResponse<string>> {
-		return await this.sendGetRequest('sessions/toke_me_bro', (data) => {
-			if (!isStr(data.token)) throw new Error('Invalid token format');
+		return await this.sendGetRequest("sessions/toke_me_bro", (data) => {
+			if (!isStr(data.token)) throw new Error("Invalid token format");
 			return data.token;
 		});
 	}
@@ -172,20 +172,20 @@ export default class LoginService {
 		username: string,
 		email: string,
 		password: string,
-		passwordConfirmation: string
+		passwordConfirmation: string,
 	): Promise<LoginResponse<{ message: string }>> {
 		return await this.sendPostRequest(
-			'sessions/sign_up_email',
+			"sessions/sign_up_email",
 			{
 				login: username,
 				email,
 				password,
-				password_confirmation: passwordConfirmation
+				password_confirmation: passwordConfirmation,
 			},
 			(data) => {
-				if (!isStr(data.message)) throw new Error('Invalid message format');
+				if (!isStr(data.message)) throw new Error("Invalid message format");
 				return { message: data.message };
-			}
+			},
 		);
 	}
 }

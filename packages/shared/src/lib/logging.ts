@@ -1,4 +1,4 @@
-import { DEV } from 'esm-env';
+import { DEV } from "esm-env";
 
 export function devLog(...args: any[]) {
 	if (DEV) {

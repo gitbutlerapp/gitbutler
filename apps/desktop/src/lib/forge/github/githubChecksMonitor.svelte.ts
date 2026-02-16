@@ -1,11 +1,11 @@
-import { ghQuery } from '$lib/forge/github/ghQuery';
-import { type ChecksResult } from '$lib/forge/github/types';
-import { eventualConsistencyCheck } from '$lib/forge/shared/progressivePolling';
-import { providesItem, ReduxTag } from '$lib/state/tags';
-import type { ChecksService } from '$lib/forge/interface/forgeChecksMonitor';
-import type { ChecksStatus } from '$lib/forge/interface/types';
-import type { QueryOptions } from '$lib/state/butlerModule';
-import type { GitHubApi } from '$lib/state/clientState.svelte';
+import { ghQuery } from "$lib/forge/github/ghQuery";
+import { type ChecksResult } from "$lib/forge/github/types";
+import { eventualConsistencyCheck } from "$lib/forge/shared/progressivePolling";
+import { providesItem, ReduxTag } from "$lib/state/tags";
+import type { ChecksService } from "$lib/forge/interface/forgeChecksMonitor";
+import type { ChecksStatus } from "$lib/forge/interface/types";
+import type { QueryOptions } from "$lib/state/butlerModule";
+import type { GitHubApi } from "$lib/state/clientState.svelte";
 
 export class GitHubChecksMonitor implements ChecksService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -19,8 +19,8 @@ export class GitHubChecksMonitor implements ChecksService {
 			{ ref: branchName },
 			{
 				transform: (result) => parseChecks(result),
-				...options
-			}
+				...options,
+			},
 		);
 	}
 
@@ -29,8 +29,8 @@ export class GitHubChecksMonitor implements ChecksService {
 			{ ref: branchName },
 			{
 				transform: (result) => parseChecks(result),
-				...options
-			}
+				...options,
+			},
 		);
 	}
 }
@@ -55,9 +55,9 @@ function parseChecks(data: ChecksResult): ChecksStatus | null {
 		.filter((startedAt) => startedAt !== null) as string[];
 	const startTimes = starts.map((startedAt) => new Date(startedAt));
 
-	const failedChecks = checkRuns.filter((c) => c.conclusion === 'failure');
+	const failedChecks = checkRuns.filter((c) => c.conclusion === "failure");
 	const failed = failedChecks.length;
-	const actionRequired = checkRuns.filter((c) => c.conclusion === 'action_required').length;
+	const actionRequired = checkRuns.filter((c) => c.conclusion === "action_required").length;
 
 	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
 	const completed = failed !== 0 || checkRuns.every((check) => !!check.completed_at);
@@ -68,7 +68,7 @@ function parseChecks(data: ChecksResult): ChecksStatus | null {
 		startedAt: firstStart.toISOString(),
 		success,
 		completed,
-		failedChecks: failedChecks.map((check) => check.name)
+		failedChecks: failedChecks.map((check) => check.name),
 	};
 }
 
@@ -79,12 +79,12 @@ function injectEndpoints(api: GitHubApi) {
 				queryFn: async ({ ref }, api) => {
 					async function listChecksForRef() {
 						return await ghQuery({
-							domain: 'checks',
-							action: 'listForRef',
+							domain: "checks",
+							action: "listForRef",
 							extra: api.extra,
 							parameters: {
-								ref
-							}
+								ref,
+							},
 						});
 					}
 
@@ -95,8 +95,8 @@ function injectEndpoints(api: GitHubApi) {
 						return hasChecks(response.data);
 					});
 				},
-				providesTags: (_result, _error, args) => [...providesItem(ReduxTag.Checks, args.ref)]
-			})
-		})
+				providesTags: (_result, _error, args) => [...providesItem(ReduxTag.Checks, args.ref)],
+			}),
+		}),
 	});
 }

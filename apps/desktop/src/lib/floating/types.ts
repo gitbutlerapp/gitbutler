@@ -1,13 +1,13 @@
 export type SnapPositionName =
-	| 'center'
-	| 'top-left'
-	| 'top-right'
-	| 'bottom-left'
-	| 'bottom-right'
-	| 'top-center'
-	| 'bottom-center'
-	| 'left-center'
-	| 'right-center';
+	| "center"
+	| "top-left"
+	| "top-right"
+	| "bottom-left"
+	| "bottom-right"
+	| "top-center"
+	| "bottom-center"
+	| "left-center"
+	| "right-center";
 
 export interface SnapPoint {
 	x: number;

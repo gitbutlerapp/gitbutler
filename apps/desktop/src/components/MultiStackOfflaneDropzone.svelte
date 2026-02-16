@@ -1,17 +1,17 @@
 <script lang="ts">
-	import Dropzone from '$components/Dropzone.svelte';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { OutsideLaneDzHandler } from '$lib/stacks/dropHandler';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { intersectionObserver } from '@gitbutler/ui/utils/intersectionObserver';
-	import type { Snippet } from 'svelte';
+	import Dropzone from "$components/Dropzone.svelte";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { OutsideLaneDzHandler } from "$lib/stacks/dropHandler";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { TestId } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { intersectionObserver } from "@gitbutler/ui/utils/intersectionObserver";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		viewport: HTMLElement;
@@ -40,8 +40,8 @@
 			uiState,
 			uncommittedService,
 			diffService,
-			baseBranchName
-		)
+			baseBranchName,
+		),
 	);
 </script>
 
@@ -59,8 +59,8 @@
 		},
 		options: {
 			threshold: 0.5,
-			root: viewport
-		}
+			root: viewport,
+		},
 	}}
 >
 	<Dropzone handlers={[dzHandler]}>
@@ -241,7 +241,7 @@
 			transform: translate(-50%, -50%);
 			border-radius: 100%;
 			background: radial-gradient(var(--clr-bg-2) 10%, oklch(from var(--clr-bg-2) l c h / 0) 50%);
-			content: '';
+			content: "";
 			/* background: radial-gradient(red 0%, oklch(from red l c h / 0) 50%); */
 			opacity: 0.9;
 		}

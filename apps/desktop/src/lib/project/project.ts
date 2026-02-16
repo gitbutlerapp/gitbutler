@@ -1,16 +1,16 @@
-import { goto } from '$app/navigation';
-import { showToast } from '$lib/notifications/toasts';
-import { projectPath } from '$lib/routes/routes.svelte';
-import { TestId } from '@gitbutler/ui';
-import type { ForgeName } from '$lib/forge/interface/forge';
-import type { ForgeUser } from '@gitbutler/core/api';
+import { goto } from "$app/navigation";
+import { showToast } from "$lib/notifications/toasts";
+import { projectPath } from "$lib/routes/routes.svelte";
+import { TestId } from "@gitbutler/ui";
+import type { ForgeName } from "$lib/forge/interface/forge";
+import type { ForgeUser } from "@gitbutler/core/api";
 
-export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
+export type KeyType = "gitCredentialsHelper" | "local" | "systemExecutable";
 export type LocalKey = {
 	local: { private_key_path: string };
 };
 
-export type AuthKey = Exclude<KeyType, 'local'> | LocalKey;
+export type AuthKey = Exclude<KeyType, "local"> | LocalKey;
 
 export type Project = {
 	id: string;
@@ -41,12 +41,12 @@ export type Project = {
 };
 
 export function vscodePath(path: string) {
-	return path.includes('\\') ? '/' + path.replace('\\', '/') : path;
+	return path.includes("\\") ? "/" + path.replace("\\", "/") : path;
 }
 
 export function gitAuthType(preferredKey?: AuthKey): string {
-	if (typeof preferredKey === 'object' && preferredKey !== null && 'local' in preferredKey) {
-		return 'local';
+	if (typeof preferredKey === "object" && preferredKey !== null && "local" in preferredKey) {
+		return "local";
 	}
 	return preferredKey as KeyType;
 }
@@ -63,33 +63,33 @@ export type CloudProject = {
 
 export type AddProjectOutcome =
 	| {
-			type: 'added';
+			type: "added";
 			subject: Project;
 	  }
 	| {
-			type: 'alreadyExists';
+			type: "alreadyExists";
 			subject: Project;
 	  }
 	| {
-			type: 'pathNotFound';
+			type: "pathNotFound";
 	  }
 	| {
-			type: 'notADirectory';
+			type: "notADirectory";
 	  }
 	| {
-			type: 'bareRepository';
+			type: "bareRepository";
 	  }
 	| {
-			type: 'nonMainWorktree';
+			type: "nonMainWorktree";
 	  }
 	| {
-			type: 'noWorkdir';
+			type: "noWorkdir";
 	  }
 	| {
-			type: 'noDotGitDirectory';
+			type: "noDotGitDirectory";
 	  }
 	| {
-			type: 'notAGitRepository';
+			type: "notAGitRepository";
 			/**
 			 * The error message received
 			 */
@@ -102,78 +102,78 @@ export type AddProjectOutcome =
  */
 export function handleAddProjectOutcome(
 	outcome: AddProjectOutcome,
-	onAdded?: (project: Project) => void
+	onAdded?: (project: Project) => void,
 ): true {
 	switch (outcome.type) {
-		case 'added':
+		case "added":
 			onAdded?.(outcome.subject);
 			return true;
-		case 'alreadyExists':
+		case "alreadyExists":
 			showToast({
 				testId: TestId.AddProjectAlreadyExistsModal,
-				style: 'warning',
+				style: "warning",
 				title: `Project '${outcome.subject.title}' already exists`,
 				message: `The project at "${outcome.subject.path}" is already added`,
 				extraAction: {
-					label: 'Open project',
+					label: "Open project",
 					testId: TestId.AddProjectAlreadyExistsModalOpenProjectButton,
 					onClick: (dismiss) => {
 						goto(projectPath(outcome.subject.id));
 						dismiss();
-					}
-				}
+					},
+				},
 			});
 			return true;
-		case 'pathNotFound':
+		case "pathNotFound":
 			showToast({
-				style: 'warning',
-				title: 'Path not found',
-				message: 'The specified path does not exist on the filesystem.'
+				style: "warning",
+				title: "Path not found",
+				message: "The specified path does not exist on the filesystem.",
 			});
 			return true;
-		case 'notADirectory':
+		case "notADirectory":
 			showToast({
-				style: 'warning',
-				title: 'Not a directory',
-				message: 'The specified path is not a directory.'
+				style: "warning",
+				title: "Not a directory",
+				message: "The specified path is not a directory.",
 			});
 			return true;
-		case 'bareRepository':
+		case "bareRepository":
 			showToast({
 				testId: TestId.AddProjectBareRepoModal,
-				style: 'danger',
-				title: 'Bare repository',
-				message: 'The specified path appears to be a bare Git repository and cannot be added.'
+				style: "danger",
+				title: "Bare repository",
+				message: "The specified path appears to be a bare Git repository and cannot be added.",
 			});
 			return true;
-		case 'nonMainWorktree':
+		case "nonMainWorktree":
 			showToast({
-				style: 'warning',
-				title: 'Non-main worktree',
-				message: 'The specified path is not the main worktree of the repository.'
+				style: "warning",
+				title: "Non-main worktree",
+				message: "The specified path is not the main worktree of the repository.",
 			});
 			return true;
-		case 'noWorkdir':
+		case "noWorkdir":
 			showToast({
-				style: 'warning',
-				title: 'No workdir',
-				message: 'The specified repository does not have a working directory.'
+				style: "warning",
+				title: "No workdir",
+				message: "The specified repository does not have a working directory.",
 			});
 			return true;
-		case 'noDotGitDirectory':
+		case "noDotGitDirectory":
 			showToast({
 				testId: TestId.AddProjectNoDotGitDirectoryModal,
-				style: 'warning',
-				title: 'No .git directory',
-				message: 'The specified path does not contain a .git directory.'
+				style: "warning",
+				title: "No .git directory",
+				message: "The specified path does not contain a .git directory.",
 			});
 			return true;
-		case 'notAGitRepository':
+		case "notAGitRepository":
 			showToast({
 				testId: TestId.AddProjectNotAGitRepoModal,
-				style: 'warning',
-				title: 'Not a Git repository',
-				message: `Unable to add project: ${outcome.subject}`
+				style: "warning",
+				title: "Not a Git repository",
+				message: `Unable to add project: ${outcome.subject}`,
 			});
 			return true;
 	}

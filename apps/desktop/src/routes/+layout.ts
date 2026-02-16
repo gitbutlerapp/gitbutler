@@ -1,10 +1,10 @@
-import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
-import { EventContext } from '$lib/analytics/eventContext';
-import { PostHogWrapper } from '$lib/analytics/posthog';
-import createBackend from '$lib/backend';
-import { SettingsService } from '$lib/config/appSettingsV2';
-import lscache from 'lscache';
-import type { LayoutLoad } from './$types';
+import { initAnalyticsIfEnabled } from "$lib/analytics/analytics";
+import { EventContext } from "$lib/analytics/eventContext";
+import { PostHogWrapper } from "$lib/analytics/posthog";
+import createBackend from "$lib/backend";
+import { SettingsService } from "$lib/config/appSettingsV2";
+import lscache from "lscache";
+import type { LayoutLoad } from "./$types";
 
 // call on startup so we don't accumulate old items
 lscache.flushExpired();
@@ -35,6 +35,6 @@ export const load: LayoutLoad = async () => {
 		settingsService,
 		appSettings,
 		posthog,
-		eventContext
+		eventContext,
 	};
 };

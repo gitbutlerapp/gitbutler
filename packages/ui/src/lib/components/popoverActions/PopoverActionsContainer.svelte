@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Snippet } from 'svelte';
+	import { type Snippet } from "svelte";
 
 	interface Props {
 		class?: string;
@@ -8,7 +8,7 @@
 		children: Snippet<[thin: boolean]>;
 	}
 
-	const { class: className = '', stayOpen, thin = false, children }: Props = $props();
+	const { class: className = "", stayOpen, thin = false, children }: Props = $props();
 </script>
 
 <div role="group" class="overflow-actions {className}" class:show={stayOpen}>

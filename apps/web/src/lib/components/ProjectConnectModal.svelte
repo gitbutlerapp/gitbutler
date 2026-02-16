@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { WEB_STATE } from '$lib/redux/store.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
-	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
-	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
+	import { WEB_STATE } from "$lib/redux/store.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import RegisterInterest from "@gitbutler/shared/interest/RegisterInterest.svelte";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
+	import { getOrganizations } from "@gitbutler/shared/organizations/organizationsPreview.svelte";
+	import { PROJECT_SERVICE } from "@gitbutler/shared/organizations/projectService";
+	import { projectTable } from "@gitbutler/shared/organizations/projectsSlice";
 
-	import { Button, CardGroup, Modal, chipToasts } from '@gitbutler/ui';
-	import type { Project } from '@gitbutler/shared/organizations/types';
+	import { Button, CardGroup, Modal, chipToasts } from "@gitbutler/ui";
+	import type { Project } from "@gitbutler/shared/organizations/types";
 
 	type Props = {
 		projectRepositoryId: string;
@@ -23,7 +23,7 @@
 
 	const projectInterest = $derived(projectService.getProjectInterest(projectRepositoryId));
 	const project = $derived(
-		projectTable.selectors.selectById(webState.projects, projectRepositoryId)
+		projectTable.selectors.selectById(webState.projects, projectRepositoryId),
 	);
 
 	// Get list of organizations the user belongs to
@@ -34,8 +34,8 @@
 	let organizationProjects = $state<Project[]>([]);
 	let isLoadingProjects = $state(false);
 	let selectedProjectSlug = $state<string | null>(null);
-	let newProjectSlug = $state('');
-	let currentProjectSlug = $derived(project?.status === 'found' ? project.value.slug : '');
+	let newProjectSlug = $state("");
+	let currentProjectSlug = $derived(project?.status === "found" ? project.value.slug : "");
 	let isCreatingNew = $state(false);
 
 	// Fetch projects for the selected organization
@@ -65,8 +65,8 @@
 				selectedProjectSlug = null;
 			}
 		} catch (error) {
-			console.error('Failed to fetch organization projects:', error);
-			chipToasts.error('Failed to fetch organization projects');
+			console.error("Failed to fetch organization projects:", error);
+			chipToasts.error("Failed to fetch organization projects");
 			organizationProjects = [];
 		} finally {
 			isLoadingProjects = false;
@@ -94,12 +94,12 @@
 	}
 
 	async function connectToOrganization(organizationSlug: string) {
-		if (project?.status !== 'found') return;
+		if (project?.status !== "found") return;
 
 		const projectSlug = isCreatingNew ? newProjectSlug : selectedProjectSlug;
 
 		if (!projectSlug) {
-			chipToasts.error('Please select or create a project first');
+			chipToasts.error("Please select or create a project first");
 			return;
 		}
 
@@ -107,19 +107,19 @@
 			await projectService.connectProjectToOrganization(
 				projectRepositoryId,
 				organizationSlug,
-				projectSlug
+				projectSlug,
 			);
-			chipToasts.success('Project connected to organization');
+			chipToasts.success("Project connected to organization");
 			modal?.close();
 		} catch (error) {
 			chipToasts.error(
-				`Failed to connect project: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Failed to connect project: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		}
 	}
 
 	const title = $derived.by(() => {
-		if (project?.status !== 'found') return 'Connect Project';
+		if (project?.status !== "found") return "Connect Project";
 		return `Connect ${project.value.name} to an Organization`;
 	});
 
@@ -187,7 +187,7 @@
 			<CardGroup>
 				{#if organizationProjects.length > 0}
 					{#each organizationProjects as orgProject}
-						<div class={selectedProjectSlug === orgProject.slug ? 'selected' : ''}>
+						<div class={selectedProjectSlug === orgProject.slug ? "selected" : ""}>
 							<CardGroup.Item onclick={() => selectProject(orgProject.slug)}>
 								<div class="project-info">
 									<h5 class="text-15 text-bold">{orgProject.name}</h5>
@@ -210,7 +210,7 @@
 				{/if}
 
 				<!-- Create New Project Option -->
-				<div class={isCreatingNew ? 'selected create-new' : 'create-new'}>
+				<div class={isCreatingNew ? "selected create-new" : "create-new"}>
 					<CardGroup.Item onclick={toggleCreateNew}>
 						<div class="project-info">
 							<h5 class="text-15 text-bold">Create New Project</h5>
@@ -242,7 +242,7 @@
 			</CardGroup>
 
 			<div class="action-buttons">
-				<Button style="pop" onclick={() => connectToOrganization(selectedOrgSlug || '')}>
+				<Button style="pop" onclick={() => connectToOrganization(selectedOrgSlug || "")}>
 					Connect
 				</Button>
 			</div>

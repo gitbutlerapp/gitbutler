@@ -1,9 +1,9 @@
 <script module lang="ts">
-	import { fileIcons } from '$lib/components/file/fileIcons.js';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import { fileIcons } from "$lib/components/file/fileIcons.js";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / FileIcon'
+		title: "Basic / FileIcon",
 	});
 
 	let fileIconEntries = Object.entries(fileIcons);

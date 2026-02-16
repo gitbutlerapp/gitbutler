@@ -1,25 +1,25 @@
 <script module lang="ts">
-	import ProfilePictureUpload from '$components/ProfilePictureUpload.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import ProfilePictureUpload from "$components/ProfilePictureUpload.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Avatar / ProfilePictureUpload',
+		title: "Avatar / ProfilePictureUpload",
 		component: ProfilePictureUpload,
 		args: {
-			picture: 'https://avatars.githubusercontent.com/u/1942963?v=4',
-			alt: 'User avatar',
-			size: '6.25rem'
+			picture: "https://avatars.githubusercontent.com/u/1942963?v=4",
+			alt: "User avatar",
+			size: "6.25rem",
 		},
 		argTypes: {
 			size: {
-				control: { type: 'number', min: 3, max: 12, step: 0.25 }
-			}
-		}
+				control: { type: "number", min: 3, max: 12, step: 0.25 },
+			},
+		},
 	});
 </script>
 
 <script lang="ts">
-	import { chipToasts } from '$components/chipToast/chipToastStore';
+	import { chipToasts } from "$components/chipToast/chipToastStore";
 </script>
 
 <Story name="Default">
@@ -32,7 +32,7 @@
 				chipToasts.success(`File selected: ${file.name}`);
 			}}
 			onInvalidFileType={() => {
-				chipToasts.error('Please use a valid image file (JPEG or PNG)');
+				chipToasts.error("Please use a valid image file (JPEG or PNG)");
 			}}
 		/>
 	{/snippet}
@@ -45,7 +45,7 @@
 				chipToasts.success(`File selected: ${file.name}`);
 			}}
 			onInvalidFileType={() => {
-				chipToasts.error('Please use a valid image file (JPEG or PNG)');
+				chipToasts.error("Please use a valid image file (JPEG or PNG)");
 			}}
 		/>
 	{/snippet}
@@ -66,7 +66,7 @@
 						chipToasts.success(`File selected: ${file.name}`);
 					}}
 					onInvalidFileType={() => {
-						chipToasts.error('Please use a valid image file');
+						chipToasts.error("Please use a valid image file");
 					}}
 				/>
 			</div>
@@ -82,7 +82,7 @@
 						chipToasts.success(`File selected: ${file.name}`);
 					}}
 					onInvalidFileType={() => {
-						chipToasts.error('Please use a valid image file');
+						chipToasts.error("Please use a valid image file");
 					}}
 				/>
 			</div>
@@ -98,7 +98,7 @@
 						chipToasts.success(`File selected: ${file.name}`);
 					}}
 					onInvalidFileType={() => {
-						chipToasts.error('Please use a valid image file');
+						chipToasts.error("Please use a valid image file");
 					}}
 				/>
 			</div>

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { AI_SERVICE, type DiffInput } from '$lib/ai/service';
-	import { ModelKind } from '$lib/ai/types';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, InfoMessage, Link } from '@gitbutler/ui';
-	import { slide } from 'svelte/transition';
+	import { AI_SERVICE, type DiffInput } from "$lib/ai/service";
+	import { ModelKind } from "$lib/ai/types";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, InfoMessage, Link } from "@gitbutler/ui";
+	import { slide } from "svelte/transition";
 
 	const aiService = inject(AI_SERVICE);
 	const userService = inject(USER_SERVICE);
@@ -13,7 +13,7 @@
 	let testing = $state(false);
 	let isStreaming = $state(false);
 	let result = $state<string | null>(null);
-	let streamingResult = $state<string>('');
+	let streamingResult = $state<string>("");
 	let error = $state<string | null>(null);
 	let modelKind = $state<ModelKind | undefined>();
 	let isUsingButlerAPI = $state(false);
@@ -26,22 +26,22 @@
 	// Simple test diff for commit message generation
 	const testDiff: DiffInput[] = [
 		{
-			filePath: 'example.js',
+			filePath: "example.js",
 			diff: `@@ -1,3 +1,5 @@
  function hello() {
   -  return "Hello World";
   +  // Add a greeting with the current time
   +  const now = new Date();
   +  return \`Hello World! The time is \${now.toLocaleTimeString()}\`;
- }`
-		}
+ }`,
+		},
 	];
 
 	async function testAiCredentials() {
 		testing = true;
 		isStreaming = false;
 		result = null;
-		streamingResult = '';
+		streamingResult = "";
 		error = null;
 		debugInfo = null;
 
@@ -77,14 +77,14 @@
 					if (isUsingButlerAPI && !$user) {
 						throw new Error("Please sign in to use GitButler's AI API");
 					} else {
-						throw new Error('Please provide a valid API key for your selected AI service');
+						throw new Error("Please provide a valid API key for your selected AI service");
 					}
 				} else if (modelKind === ModelKind.Ollama) {
 					// Get Ollama configuration for more detailed error
 					const endpoint = await aiService.getOllamaEndpoint();
 					const model = await aiService.getOllamaModelName();
 					throw new Error(
-						`Please check Ollama configuration: endpoint=${endpoint}, model=${model}`
+						`Please check Ollama configuration: endpoint=${endpoint}, model=${model}`,
 					);
 				} else if (modelKind === ModelKind.LMStudio) {
 					// Get LM Studio configuration for more detailed error
@@ -98,9 +98,9 @@
 			// Set a timeout to fail if the streaming doesn't start or complete
 			testTimeout = setTimeout(() => {
 				if (testing) {
-					console.error('AI response timed out after 20 seconds');
+					console.error("AI response timed out after 20 seconds");
 					error =
-						'AI response timed out after 20 seconds. Please check if your AI service is running properly.';
+						"AI response timed out after 20 seconds. Please check if your AI service is running properly.";
 					testing = false;
 					isStreaming = false; // Make sure streaming state is reset on timeout
 					debugInfo += `, Timeout after 20s`;
@@ -110,7 +110,7 @@
 						try {
 							abortController.abort();
 						} catch (err) {
-							console.error('Error aborting request:', err);
+							console.error("Error aborting request:", err);
 						}
 					}
 
@@ -131,7 +131,7 @@
 				onToken: (token) => {
 					// Append each token as it comes in
 					streamingResult += token;
-				}
+				},
 			});
 
 			// Clear the timeout since we got a result
@@ -143,20 +143,20 @@
 			// Set the final result (handling undefined case)
 			result = aiResult || streamingResult || null;
 
-			debugInfo += `, Received commit message: ${result?.substring(0, 30)}${result && result.length > 30 ? '...' : ''}`;
+			debugInfo += `, Received commit message: ${result?.substring(0, 30)}${result && result.length > 30 ? "..." : ""}`;
 
 			// If result is empty or undefined, show an error
-			if (!result || result.trim() === '') {
-				throw new Error('Received empty response from AI service');
+			if (!result || result.trim() === "") {
+				throw new Error("Received empty response from AI service");
 			}
 		} catch (e) {
-			console.error('AI credential check error:', e);
+			console.error("AI credential check error:", e);
 
 			// Don't show abort errors as they're expected when we cancel the request
-			if (e instanceof Error && e.name === 'AbortError') {
-				error = 'AI request was cancelled';
+			if (e instanceof Error && e.name === "AbortError") {
+				error = "AI request was cancelled";
 			} else {
-				error = e instanceof Error ? e.message : 'Unknown error occurred';
+				error = e instanceof Error ? e.message : "Unknown error occurred";
 			}
 
 			debugInfo += `, Error: ${error}`;
@@ -190,8 +190,8 @@
 	{#if isStreaming || result || error}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage
-				style={error ? 'danger' : 'success'}
-				icon={error ? 'error' : isStreaming ? 'robot' : 'success'}
+				style={error ? "danger" : "success"}
+				icon={error ? "error" : isStreaming ? "robot" : "success"}
 				filled
 				outlined={false}
 			>
@@ -234,7 +234,7 @@
 								<pre class:streaming={isStreaming}>{isStreaming
 										? streamingResult
 											? streamingResult.trim()
-											: 'Loading...'
+											: "Loading..."
 										: `Response:\n\n${result?.trim()}`}
 								</pre>
 							</div>
@@ -252,7 +252,7 @@
 		onclick={testAiCredentials}
 	>
 		{#if testing || isStreaming}
-			{isStreaming ? 'AI is responding...' : 'Testing AI connection...'}
+			{isStreaming ? "AI is responding..." : "Testing AI connection..."}
 		{:else if error}
 			Try again
 		{:else if result}
@@ -278,7 +278,7 @@
 
 	<div class="debug-info-buttons">
 		<button type="button" class="text-12 debug-button" onclick={toggleSampleMessage}>
-			{showSampleDiff ? 'Hide' : 'Show'} diff sample
+			{showSampleDiff ? "Hide" : "Show"} diff sample
 		</button>
 		<button
 			type="button"
@@ -286,7 +286,7 @@
 			class:debug-button_disabled={!debugInfo}
 			onclick={toggleDebug}
 		>
-			{showDebug ? 'Hide' : 'Show'} debug info
+			{showDebug ? "Hide" : "Show"} debug info
 		</button>
 	</div>
 </div>

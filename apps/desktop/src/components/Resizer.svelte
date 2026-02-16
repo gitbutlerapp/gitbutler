@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { RESIZE_SYNC } from '$lib/utils/resizeSync';
-	import { inject } from '@gitbutler/core/context';
-	import { persistWithExpiration } from '@gitbutler/shared/persisted';
-	import { mergeUnlisten } from '@gitbutler/ui/utils/mergeUnlisten';
-	import { pxToRem, remToPx } from '@gitbutler/ui/utils/pxToRem';
-	import { on } from 'svelte/events';
-	import { writable } from 'svelte/store';
-	import type { ResizeGroup } from '$lib/utils/resizeGroup';
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { RESIZE_SYNC } from "$lib/utils/resizeSync";
+	import { inject } from "@gitbutler/core/context";
+	import { persistWithExpiration } from "@gitbutler/shared/persisted";
+	import { mergeUnlisten } from "@gitbutler/ui/utils/mergeUnlisten";
+	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
+	import { on } from "svelte/events";
+	import { writable } from "svelte/store";
+	import type { ResizeGroup } from "$lib/utils/resizeGroup";
 
 	interface Props {
 		/** Default value */
@@ -15,7 +15,7 @@
 		/** The element that is being resized */
 		viewport: HTMLElement;
 		/** Sets direction of resizing for viewport */
-		direction: 'left' | 'right' | 'up' | 'down';
+		direction: "left" | "right" | "up" | "down";
 		/** Custom z-index in case of overlapping with other elements */
 		zIndex?: string;
 		/** Other resizers with the same name will receive same updates. */
@@ -52,7 +52,7 @@
 		defaultValue,
 		viewport,
 		direction,
-		zIndex = 'var(--z-lifted)',
+		zIndex = "var(--z-lifted)",
 		minWidth = 0,
 		maxWidth = 120,
 		minHeight = 0,
@@ -68,10 +68,10 @@
 		onResizing,
 		onOverflow,
 		onDblClick,
-		onWidth
+		onWidth,
 	}: Props = $props();
 
-	const orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
+	const orientation = $derived(["left", "right"].includes(direction) ? "horizontal" : "vertical");
 	const userSettings = inject(SETTINGS);
 	const resizeSync = inject(RESIZE_SYNC);
 	const zoom = $derived($userSettings.zoom);
@@ -79,7 +79,7 @@
 	const value = $derived(
 		persistId
 			? persistWithExpiration(defaultValue, persistId, 1440)
-			: writable<number | undefined>(defaultValue)
+			: writable<number | undefined>(defaultValue),
 	);
 
 	const resizerId = Symbol();
@@ -94,13 +94,13 @@
 	function onMouseDown(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
-		unsubUp = on(document, 'pointerup', onMouseUp);
-		unsubMove = on(document, 'pointermove', onMouseMove);
+		unsubUp = on(document, "pointerup", onMouseUp);
+		unsubMove = on(document, "pointermove", onMouseMove);
 
-		if (direction === 'right') initial = e.clientX - viewport.clientWidth;
-		if (direction === 'left') initial = window.innerWidth - e.clientX - viewport.clientWidth;
-		if (direction === 'down') initial = e.clientY - viewport.clientHeight;
-		if (direction === 'up') initial = window.innerHeight - e.clientY - viewport.clientHeight;
+		if (direction === "right") initial = e.clientX - viewport.clientWidth;
+		if (direction === "left") initial = window.innerWidth - e.clientX - viewport.clientWidth;
+		if (direction === "down") initial = e.clientY - viewport.clientHeight;
+		if (direction === "up") initial = window.innerHeight - e.clientY - viewport.clientHeight;
 
 		onResizing?.(true);
 	}
@@ -109,19 +109,19 @@
 		let newValue: number;
 		let overflow: number;
 		switch (direction) {
-			case 'down':
+			case "down":
 				newValue = Math.min(Math.max(value, minHeight), maxHeight);
 				overflow = minHeight - value;
 				break;
-			case 'up':
+			case "up":
 				newValue = Math.min(Math.max(value, minHeight), maxHeight);
 				overflow = minHeight - value;
 				break;
-			case 'right':
+			case "right":
 				newValue = Math.min(Math.max(value, minWidth), maxWidth);
 				overflow = minWidth - value;
 				break;
-			case 'left':
+			case "left":
 				newValue = Math.min(Math.max(value, minWidth), maxWidth);
 				overflow = minWidth - value;
 				break;
@@ -134,16 +134,16 @@
 		isResizing = true;
 		let offsetPx: number | undefined;
 		switch (direction) {
-			case 'down':
+			case "down":
 				offsetPx = e.clientY - initial;
 				break;
-			case 'up':
+			case "up":
 				offsetPx = document.body.scrollHeight - e.clientY - initial;
 				break;
-			case 'right':
+			case "right":
 				offsetPx = e.clientX - initial;
 				break;
-			case 'left':
+			case "left":
 				offsetPx = document.body.scrollWidth - e.clientX - initial;
 				break;
 		}
@@ -190,14 +190,14 @@
 			return;
 		}
 		if (passive || disabled) {
-			if (orientation === 'horizontal') {
-				viewport.style.width = '';
-				viewport.style.maxWidth = '';
-				viewport.style.minWidth = '';
+			if (orientation === "horizontal") {
+				viewport.style.width = "";
+				viewport.style.maxWidth = "";
+				viewport.style.minWidth = "";
 			} else {
-				viewport.style.height = '';
-				viewport.style.maxHeight = '';
-				viewport.style.minHeight = '';
+				viewport.style.height = "";
+				viewport.style.maxHeight = "";
+				viewport.style.minHeight = "";
 			}
 			return;
 		}
@@ -206,25 +206,25 @@
 			newValue = applyLimits(newValue).newValue;
 		}
 
-		if (orientation === 'horizontal') {
+		if (orientation === "horizontal") {
 			if (newValue === undefined) {
-				viewport.style.width = '';
-				viewport.style.maxWidth = maxWidth ? maxWidth + 'rem' : '';
-				viewport.style.minWidth = minWidth ? minWidth + 'rem' : '';
+				viewport.style.width = "";
+				viewport.style.maxWidth = maxWidth ? maxWidth + "rem" : "";
+				viewport.style.minWidth = minWidth ? minWidth + "rem" : "";
 			} else {
-				viewport.style.width = newValue + 'rem';
-				viewport.style.maxWidth = '';
-				viewport.style.minWidth = '';
+				viewport.style.width = newValue + "rem";
+				viewport.style.maxWidth = "";
+				viewport.style.minWidth = "";
 			}
 		} else {
 			if (newValue === undefined) {
-				viewport.style.height = '';
-				viewport.style.maxHeight = unsetMaxHeight || '';
-				viewport.style.minHeight = minHeight ? minHeight + 'rem' : '';
+				viewport.style.height = "";
+				viewport.style.maxHeight = unsetMaxHeight || "";
+				viewport.style.minHeight = minHeight ? minHeight + "rem" : "";
 			} else {
-				viewport.style.height = newValue + 'rem';
-				viewport.style.maxHeight = '';
-				viewport.style.minHeight = '';
+				viewport.style.height = newValue + "rem";
+				viewport.style.maxHeight = "";
+				viewport.style.minHeight = "";
 			}
 		}
 	}
@@ -233,7 +233,7 @@
 		if ($value !== undefined) {
 			return $value;
 		}
-		if (orientation === 'horizontal') {
+		if (orientation === "horizontal") {
 			return pxToRem(viewport.clientWidth, zoom);
 		}
 		return pxToRem(viewport.clientHeight, zoom);
@@ -261,7 +261,7 @@
 				getValue,
 				setValue,
 				minValue: minHeight || minWidth,
-				position: order
+				position: order,
 			});
 		}
 	});
@@ -273,8 +273,8 @@
 				resizeSync.subscribe({
 					key: syncName,
 					resizerId,
-					callback: setValue
-				})
+					callback: setValue,
+				}),
 			);
 			return mergeUnlisten(...unlistenFns);
 		}
@@ -303,12 +303,12 @@
 	class:disabled
 	class="resizer"
 	class:is-resizing={isResizing}
-	class:vertical={orientation === 'vertical'}
-	class:horizontal={orientation === 'horizontal'}
-	class:up={direction === 'up'}
-	class:down={direction === 'down'}
-	class:left={direction === 'left'}
-	class:right={direction === 'right'}
+	class:vertical={orientation === "vertical"}
+	class:horizontal={orientation === "horizontal"}
+	class:up={direction === "up"}
+	class:down={direction === "down"}
+	class:left={direction === "left"}
+	class:right={direction === "right"}
 	class:border={showBorder}
 	style:z-index={zIndex}
 ></div>
@@ -341,7 +341,7 @@
 			width: 1px;
 			height: 100%;
 			border-left: 1px solid var(--clr-border-2);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 
@@ -359,7 +359,7 @@
 			width: 100%;
 			height: 1px;
 			border-top: 1px solid var(--clr-border-2);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 

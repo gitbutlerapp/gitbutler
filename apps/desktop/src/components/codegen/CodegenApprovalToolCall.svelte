@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { type ToolCall } from '$lib/codegen/messages';
-	import { formatToolCall, getToolIcon } from '$lib/utils/codegenTools';
-	import { Codeblock } from '@gitbutler/ui';
+	import { type ToolCall } from "$lib/codegen/messages";
+	import { formatToolCall, getToolIcon } from "$lib/utils/codegenTools";
+	import { Codeblock } from "@gitbutler/ui";
 	import {
 		DropdownButton,
 		ContextMenuItem,
 		ContextMenuSection,
 		ContextMenu,
 		Button,
-		Icon
-	} from '@gitbutler/ui';
-	import type { PermissionDecision } from '$lib/codegen/types';
+		Icon,
+	} from "@gitbutler/ui";
+	import type { PermissionDecision } from "$lib/codegen/types";
 
 	type Props = {
 		projectId: string;
@@ -19,7 +19,7 @@
 		onPermissionDecision: (
 			id: string,
 			decision: PermissionDecision,
-			useWildcard: boolean
+			useWildcard: boolean,
 		) => Promise<void>;
 	};
 	const { toolCall, onPermissionDecision }: Props = $props();
@@ -29,61 +29,61 @@
 	let wildcardButton = $state<HTMLElement>();
 	let wildcardContextMenu = $state<ReturnType<typeof ContextMenu>>();
 
-	type AllowDecision = 'allowOnce' | 'allowSession' | 'allowProject' | 'allowAlways';
-	type DenyDecision = 'denyOnce' | 'denySession' | 'denyProject' | 'denyAlways';
-	type WildcardDecision = 'precise' | 'wild';
+	type AllowDecision = "allowOnce" | "allowSession" | "allowProject" | "allowAlways";
+	type DenyDecision = "denyOnce" | "denySession" | "denyProject" | "denyAlways";
+	type WildcardDecision = "precise" | "wild";
 
-	let selectedAllowDecision = $state<AllowDecision>('allowOnce');
-	let selectedDenyDecision = $state<DenyDecision>('denyOnce');
-	let selectedWildcardDecision = $state<WildcardDecision>('precise');
+	let selectedAllowDecision = $state<AllowDecision>("allowOnce");
+	let selectedDenyDecision = $state<DenyDecision>("denyOnce");
+	let selectedWildcardDecision = $state<WildcardDecision>("precise");
 
 	const helperText = $derived.by(() => {
 		const isProject =
-			selectedAllowDecision === 'allowProject' || selectedDenyDecision === 'denyProject';
+			selectedAllowDecision === "allowProject" || selectedDenyDecision === "denyProject";
 		const isAlways =
-			selectedAllowDecision === 'allowAlways' || selectedDenyDecision === 'denyAlways';
+			selectedAllowDecision === "allowAlways" || selectedDenyDecision === "denyAlways";
 
 		if (isProject) {
-			return 'Permissions will be saved to .claude/settings.local.json';
+			return "Permissions will be saved to .claude/settings.local.json";
 		} else if (isAlways) {
-			return 'Permissions will be saved to ~/.claude/settings.json';
+			return "Permissions will be saved to ~/.claude/settings.json";
 		}
 		return null;
 	});
 
 	const allowLabels: Record<AllowDecision, string> = {
-		allowOnce: 'Allow once',
-		allowProject: 'Allow this project',
-		allowSession: 'Allow in this session',
-		allowAlways: 'Allow always'
+		allowOnce: "Allow once",
+		allowProject: "Allow this project",
+		allowSession: "Allow in this session",
+		allowAlways: "Allow always",
 	};
 
 	const denyLabels: Record<DenyDecision, string> = {
-		denyOnce: 'Deny once',
-		denySession: 'Deny this session',
-		denyProject: 'Deny this project',
-		denyAlways: 'Deny always'
+		denyOnce: "Deny once",
+		denySession: "Deny this session",
+		denyProject: "Deny this project",
+		denyAlways: "Deny always",
 	};
 
 	// The wildcard selector only shows up for certain tool calls
 	const wildcardSelector = $derived.by<
 		{ show: false } | { show: true; options: { label: string; value: WildcardDecision }[] }
 	>(() => {
-		if (toolCall.name === 'Edit' || toolCall.name === 'Write') {
+		if (toolCall.name === "Edit" || toolCall.name === "Write") {
 			return {
 				show: true,
 				options: [
-					{ value: 'precise', label: 'This file' },
-					{ value: 'wild', label: 'Any files in the same folder' }
-				]
+					{ value: "precise", label: "This file" },
+					{ value: "wild", label: "Any files in the same folder" },
+				],
 			};
-		} else if (toolCall.name === 'Bash') {
+		} else if (toolCall.name === "Bash") {
 			return {
 				show: true,
 				options: [
-					{ value: 'precise', label: 'This command' },
-					{ value: 'wild', label: 'Any subcommands or flags' }
-				]
+					{ value: "precise", label: "This command" },
+					{ value: "wild", label: "Any subcommands or flags" },
+				],
 			};
 		} else {
 			return { show: false };
@@ -122,7 +122,7 @@
 				}}
 			>
 				{wildcardSelector.options.find((opt) => opt.value === selectedWildcardDecision)?.label ||
-					'Select scope'}
+					"Select scope"}
 			</Button>
 
 			<ContextMenu bind:this={wildcardContextMenu} leftClickTrigger={wildcardButton}>
@@ -149,7 +149,7 @@
 				await onPermissionDecision(
 					toolCall.id,
 					selectedDenyDecision,
-					selectedWildcardDecision === 'wild'
+					selectedWildcardDecision === "wild",
 				);
 				denyDropdownButton?.close();
 			}}
@@ -160,28 +160,28 @@
 					<ContextMenuItem
 						label="Deny once"
 						onclick={() => {
-							selectedDenyDecision = 'denyOnce';
+							selectedDenyDecision = "denyOnce";
 							denyDropdownButton?.close();
 						}}
 					/>
 					<ContextMenuItem
 						label="Deny in this session"
 						onclick={() => {
-							selectedDenyDecision = 'denySession';
+							selectedDenyDecision = "denySession";
 							denyDropdownButton?.close();
 						}}
 					/>
 					<ContextMenuItem
 						label="Deny in this project"
 						onclick={() => {
-							selectedDenyDecision = 'denyProject';
+							selectedDenyDecision = "denyProject";
 							denyDropdownButton?.close();
 						}}
 					/>
 					<ContextMenuItem
 						label="Deny always"
 						onclick={() => {
-							selectedDenyDecision = 'denyAlways';
+							selectedDenyDecision = "denyAlways";
 							denyDropdownButton?.close();
 						}}
 					/>
@@ -196,7 +196,7 @@
 				await onPermissionDecision(
 					toolCall.id,
 					selectedAllowDecision,
-					selectedWildcardDecision === 'wild'
+					selectedWildcardDecision === "wild",
 				);
 				allowDropdownButton?.close();
 			}}
@@ -207,28 +207,28 @@
 					<ContextMenuItem
 						label="Allow once"
 						onclick={() => {
-							selectedAllowDecision = 'allowOnce';
+							selectedAllowDecision = "allowOnce";
 							allowDropdownButton?.close();
 						}}
 					/>
 					<ContextMenuItem
 						label="Allow in this session"
 						onclick={() => {
-							selectedAllowDecision = 'allowSession';
+							selectedAllowDecision = "allowSession";
 							allowDropdownButton?.close();
 						}}
 					/>
 					<ContextMenuItem
 						label="Allow in this project"
 						onclick={() => {
-							selectedAllowDecision = 'allowProject';
+							selectedAllowDecision = "allowProject";
 							allowDropdownButton?.close();
 						}}
 					/>
 					<ContextMenuItem
 						label="Allow always"
 						onclick={() => {
-							selectedAllowDecision = 'allowAlways';
+							selectedAllowDecision = "allowAlways";
 							allowDropdownButton?.close();
 						}}
 					/>

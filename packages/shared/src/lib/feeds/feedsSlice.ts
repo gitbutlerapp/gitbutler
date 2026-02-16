@@ -1,14 +1,14 @@
-import { createEntityAdapter, createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { Feed } from '$lib/feeds/types';
+import { createEntityAdapter, createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import type { Feed } from "$lib/feeds/types";
 
 // Feeds
 const feedsAdapter = createEntityAdapter({
 	selectId: (feed: Feed) => feed.identifier,
-	sortComparer: (a: Feed, b: Feed) => a.identifier.localeCompare(b.identifier)
+	sortComparer: (a: Feed, b: Feed) => a.identifier.localeCompare(b.identifier),
 });
 
 const feedsSlice = createSlice({
-	name: 'feeds',
+	name: "feeds",
 	initialState: feedsAdapter.getInitialState(),
 	reducers: {
 		addFeed: feedsAdapter.addOne,
@@ -18,7 +18,7 @@ const feedsSlice = createSlice({
 			if (!feed) feed = { identifier: action.payload.identifier, postIds: [] };
 
 			const postIdsToAdd = action.payload.postIds.filter(
-				(postId) => !feed.postIds.includes(postId)
+				(postId) => !feed.postIds.includes(postId),
 			);
 			feed.postIds.push(...postIdsToAdd);
 
@@ -29,13 +29,13 @@ const feedsSlice = createSlice({
 			if (!feed) feed = { identifier: action.payload.identifier, postIds: [] };
 
 			const postIdsToAdd = action.payload.postIds.filter(
-				(postId) => !feed.postIds.includes(postId)
+				(postId) => !feed.postIds.includes(postId),
 			);
 			feed.postIds.unshift(...postIdsToAdd);
 
 			feedsAdapter.upsertOne(state, feed);
-		}
-	}
+		},
+	},
 });
 
 export const feedsReducer = feedsSlice.reducer;

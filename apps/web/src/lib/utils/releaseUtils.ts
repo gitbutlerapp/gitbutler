@@ -1,13 +1,13 @@
-import { getValidReleases, type Build, type Release } from '$lib/types/releases';
+import { getValidReleases, type Build, type Release } from "$lib/types/releases";
 
-const API_BASE_URL = 'https://app.gitbutler.com/api/downloads';
+const API_BASE_URL = "https://app.gitbutler.com/api/downloads";
 
 /**
  * Process builds by filtering out .zip files, removing duplicates, and sorting by platform
  */
 export function processBuilds(builds: Build[]): Build[] {
 	return builds
-		.filter((build) => !build.url.endsWith('.zip'))
+		.filter((build) => !build.url.endsWith(".zip"))
 		.filter((build, index, self) => self.findIndex((b) => b.url === build.url) === index)
 		.sort((a, b) => b.platform.localeCompare(a.platform));
 }
@@ -18,14 +18,14 @@ export function processBuilds(builds: Build[]): Build[] {
 export function findBuild(
 	builds: Build[],
 	os: string,
-	arch?: 'x86_64' | 'aarch64',
-	fileIncludes?: string
+	arch?: "x86_64" | "aarch64",
+	fileIncludes?: string,
 ): Build | undefined {
 	return builds.find(
 		(build: Build) =>
 			build.os === os &&
 			(!arch || build.arch === arch) &&
-			(!fileIncludes || build.file.includes(fileIncludes))
+			(!fileIncludes || build.file.includes(fileIncludes)),
 	);
 }
 
@@ -35,7 +35,7 @@ export function findBuild(
  */
 export function deduplicateReleases(releases: Release[]): Release[] {
 	return releases.filter(
-		(release, index, self) => self.findIndex((r) => r.version === release.version) === index
+		(release, index, self) => self.findIndex((r) => r.version === release.version) === index,
 	);
 }
 
@@ -56,15 +56,15 @@ export interface LatestReleaseBuilds {
 
 export function createLatestReleaseBuilds(latestRelease: Release): LatestReleaseBuilds {
 	return {
-		darwin_x86_64: findBuild(latestRelease.builds, 'darwin', 'x86_64'),
-		darwin_aarch64: findBuild(latestRelease.builds, 'darwin', 'aarch64'),
-		windows_x86_64: findBuild(latestRelease.builds, 'windows', 'x86_64'),
-		linux_appimage_x86_64: findBuild(latestRelease.builds, 'linux', 'x86_64', 'AppImage'),
-		linux_deb_x86_64: findBuild(latestRelease.builds, 'linux', 'x86_64', 'deb'),
-		linux_rpm_x86_64: findBuild(latestRelease.builds, 'linux', 'x86_64', 'rpm'),
-		linux_appimage_aarch64: findBuild(latestRelease.builds, 'linux', 'aarch64', 'AppImage'),
-		linux_deb_aarch64: findBuild(latestRelease.builds, 'linux', 'aarch64', 'deb'),
-		linux_rpm_aarch64: findBuild(latestRelease.builds, 'linux', 'aarch64', 'rpm')
+		darwin_x86_64: findBuild(latestRelease.builds, "darwin", "x86_64"),
+		darwin_aarch64: findBuild(latestRelease.builds, "darwin", "aarch64"),
+		windows_x86_64: findBuild(latestRelease.builds, "windows", "x86_64"),
+		linux_appimage_x86_64: findBuild(latestRelease.builds, "linux", "x86_64", "AppImage"),
+		linux_deb_x86_64: findBuild(latestRelease.builds, "linux", "x86_64", "deb"),
+		linux_rpm_x86_64: findBuild(latestRelease.builds, "linux", "x86_64", "rpm"),
+		linux_appimage_aarch64: findBuild(latestRelease.builds, "linux", "aarch64", "AppImage"),
+		linux_deb_aarch64: findBuild(latestRelease.builds, "linux", "aarch64", "deb"),
+		linux_rpm_aarch64: findBuild(latestRelease.builds, "linux", "aarch64", "rpm"),
 	};
 }
 
@@ -74,7 +74,7 @@ export function createLatestReleaseBuilds(latestRelease: Release): LatestRelease
 export function processAllReleases(releases: Release[]): Release[] {
 	const processedReleases = releases.map((release) => ({
 		...release,
-		builds: processBuilds(release.builds)
+		builds: processBuilds(release.builds),
 	}));
 
 	// Remove duplicate releases based on version using the dedicated function
@@ -86,7 +86,7 @@ export function processAllReleases(releases: Release[]): Release[] {
  */
 export async function fetchReleases(
 	limit: number = 10,
-	channel: 'release' | 'nightly' = 'release'
+	channel: "release" | "nightly" = "release",
 ): Promise<Release[]> {
 	const response = await fetch(`${API_BASE_URL}?limit=${limit}&channel=${channel}`);
 	const data = await response.json();
@@ -98,7 +98,7 @@ export async function fetchReleases(
  */
 export async function fetchAndProcessReleases(
 	limit: number = 10,
-	channel: 'release' | 'nightly' = 'release'
+	channel: "release" | "nightly" = "release",
 ): Promise<Release[]> {
 	const releases = await fetchReleases(limit, channel);
 	return processAllReleases(releases);

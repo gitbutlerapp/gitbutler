@@ -14,13 +14,13 @@
 </script>
 
 <script lang="ts" generics="T extends Match">
-	import { getEditor } from '$lib/richText/context';
-	import { getLineTextUpToAnchor } from '$lib/richText/selection';
+	import { getEditor } from "$lib/richText/context";
+	import { getLineTextUpToAnchor } from "$lib/richText/selection";
 	import {
 		type EditorState,
 		$isRangeSelection as isRangeSelection,
-		$getSelection as getSelection
-	} from 'lexical';
+		$getSelection as getSelection,
+	} from "lexical";
 
 	const { onExit, testMatch, onMatch }: Props<T> = $props();
 
@@ -55,7 +55,7 @@
 		return editor.registerUpdateListener(
 			({ editorState, dirtyElements, dirtyLeaves, prevEditorState, tags }) => {
 				if (
-					tags.has('history-merge') ||
+					tags.has("history-merge") ||
 					(dirtyElements.size === 0 && dirtyLeaves.size === 0) ||
 					prevEditorState.isEmpty()
 				) {
@@ -63,7 +63,7 @@
 					return;
 				}
 				matchTheCurrentSelection(editorState);
-			}
+			},
 		);
 	});
 </script>

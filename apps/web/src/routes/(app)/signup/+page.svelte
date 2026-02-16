@@ -1,14 +1,14 @@
 <script lang="ts">
-	import newProjectSvg from '$lib/assets/splash-illustrations/new-project.svg?raw';
-	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import OAuthButtons from '$lib/components/auth/OAuthButtons.svelte';
-	import PasswordConfirmation from '$lib/components/auth/PasswordConfirmation.svelte';
-	import UsernameTextbox from '$lib/components/auth/UsernameTextbox.svelte';
-	import FullscreenIllustrationCard from '$lib/components/service/FullscreenIllustrationCard.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, EmailTextbox, InfoMessage } from '@gitbutler/ui';
+	import newProjectSvg from "$lib/assets/splash-illustrations/new-project.svg?raw";
+	import RedirectIfLoggedIn from "$lib/auth/RedirectIfLoggedIn.svelte";
+	import OAuthButtons from "$lib/components/auth/OAuthButtons.svelte";
+	import PasswordConfirmation from "$lib/components/auth/PasswordConfirmation.svelte";
+	import UsernameTextbox from "$lib/components/auth/UsernameTextbox.svelte";
+	import FullscreenIllustrationCard from "$lib/components/service/FullscreenIllustrationCard.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, EmailTextbox, InfoMessage } from "@gitbutler/ui";
 
 	let username = $state<string>();
 	let email = $state<string>();
@@ -26,7 +26,7 @@
 			email?.trim() &&
 			emailTextbox?.isValid() &&
 			usernameTextbox?.isValid() &&
-			passwordComponent?.isValid?.()
+			passwordComponent?.isValid?.(),
 	);
 
 	const loginService = inject(LOGIN_SERVICE);
@@ -35,17 +35,17 @@
 	async function handleSubmit(event: Event) {
 		event.preventDefault();
 		if (!username || !email || !password || !passwordConfirmation) {
-			error = 'Username, email and password are required';
+			error = "Username, email and password are required";
 			return;
 		}
 
 		if (!passwordComponent?.isValid()) {
-			error = 'Please check your password and confirmation';
+			error = "Please check your password and confirmation";
 			return;
 		}
 
 		if (!usernameTextbox?.isValid()) {
-			error = 'Please check your username';
+			error = "Please check your username";
 			return;
 		}
 
@@ -53,12 +53,12 @@
 			username,
 			email,
 			password,
-			passwordConfirmation
+			passwordConfirmation,
 		);
 
-		if (response.type === 'error') {
+		if (response.type === "error") {
 			error = response.errorMessage;
-			console.error('Login failed:', response.raw ?? response.errorMessage);
+			console.error("Login failed:", response.raw ?? response.errorMessage);
 		} else {
 			error = undefined;
 			successMessage = response.data.message;

@@ -4,13 +4,13 @@ This component keeps the analytics context up-to-date, i.e. the metadata
 attached to posthog events.
 -->
 <script lang="ts">
-	import { EVENT_CONTEXT } from '$lib/analytics/eventContext';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { gitAuthType } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import { EVENT_CONTEXT } from "$lib/analytics/eventContext";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { gitAuthType } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -27,14 +27,14 @@ attached to posthog events.
 
 	$effect(() => {
 		eventContext.update({
-			exclusiveAction: projectState.exclusiveAction.current?.type
+			exclusiveAction: projectState.exclusiveAction.current?.type,
 		});
 	});
 
 	$effect(() => {
 		eventContext.update({
 			rulerCount: globalState.rulerCountValue.current,
-			useRuler: globalState.useRuler.current
+			useRuler: globalState.useRuler.current,
 		});
 	});
 
@@ -45,7 +45,7 @@ attached to posthog events.
 			tabSize: $settings.tabSize,
 			defaultCodeEditor: $settings.defaultCodeEditor.schemeIdentifer,
 			aiSummariesEnabled: $settings.aiSummariesEnabled,
-			diffLigatures: $settings.diffLigatures
+			diffLigatures: $settings.diffLigatures,
 		});
 	});
 
@@ -53,7 +53,7 @@ attached to posthog events.
 		const project = projectQuery.response;
 		if (project) {
 			eventContext.update({
-				gitAuthType: gitAuthType(project.preferred_key)
+				gitAuthType: gitAuthType(project.preferred_key),
 			});
 		}
 	});
@@ -61,7 +61,7 @@ attached to posthog events.
 	$effect(() => {
 		eventContext.update({
 			v3: true,
-			rules: $settingsService?.featureFlags.rules
+			rules: $settingsService?.featureFlags.rules,
 		});
 	});
 </script>

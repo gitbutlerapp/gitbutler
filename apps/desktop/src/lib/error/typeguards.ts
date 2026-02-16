@@ -1,19 +1,19 @@
-import type { HttpError, UnhandledPromiseError } from '$lib/error/error';
+import type { HttpError, UnhandledPromiseError } from "$lib/error/error";
 
 export function isPromiseRejection(err: unknown): err is UnhandledPromiseError {
 	return (
-		typeof err === 'object' && err !== null && 'reason' in err && typeof err.reason === 'object'
+		typeof err === "object" && err !== null && "reason" in err && typeof err.reason === "object"
 	);
 }
 
 export function isHttpError(err: unknown): err is HttpError {
 	return (
-		typeof err === 'object' &&
+		typeof err === "object" &&
 		err !== null &&
-		'message' in err &&
-		typeof err.message === 'string' &&
-		'status' in err &&
-		typeof err.status === 'number'
+		"message" in err &&
+		typeof err.message === "string" &&
+		"status" in err &&
+		typeof err.status === "number"
 	);
 }
 
@@ -24,15 +24,15 @@ export function isReduxActionError(err: unknown): err is {
 	meta?: unknown;
 } {
 	return (
-		typeof err === 'object' &&
+		typeof err === "object" &&
 		err !== null &&
-		'error' in err &&
-		typeof err.error === 'object' &&
-		'meta' in err &&
-		typeof err.meta === 'object' &&
-		'payload' in err &&
-		typeof err.payload === 'string' &&
-		'type' in err &&
-		typeof err.type === 'string'
+		"error" in err &&
+		typeof err.error === "object" &&
+		"meta" in err &&
+		typeof err.meta === "object" &&
+		"payload" in err &&
+		typeof err.payload === "string" &&
+		"type" in err &&
+		typeof err.type === "string"
 	);
 }

@@ -1,25 +1,25 @@
 <script lang="ts">
-	import BranchDetails from '$components/BranchDetails.svelte';
-	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
-	import BranchRenameModal from '$components/BranchRenameModal.svelte';
-	import BranchReview from '$components/BranchReview.svelte';
-	import CommitRow from '$components/CommitRow.svelte';
-	import DeleteBranchModal from '$components/DeleteBranchModal.svelte';
-	import Drawer from '$components/Drawer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import Resizer from '$components/Resizer.svelte';
-	import newBranchSmolSVG from '$lib/assets/empty-state/new-branch-smol.svg?raw';
-	import { commitCreatedAt, commitStateSubject } from '$lib/branches/v3';
-	import { findEarliestConflict } from '$lib/commits/utils';
-	import { editPatch } from '$lib/editMode/editPatchUtils';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon, TestId, Tooltip } from '@gitbutler/ui';
+	import BranchDetails from "$components/BranchDetails.svelte";
+	import BranchHeaderContextMenu from "$components/BranchHeaderContextMenu.svelte";
+	import BranchRenameModal from "$components/BranchRenameModal.svelte";
+	import BranchReview from "$components/BranchReview.svelte";
+	import CommitRow from "$components/CommitRow.svelte";
+	import DeleteBranchModal from "$components/DeleteBranchModal.svelte";
+	import Drawer from "$components/Drawer.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import Resizer from "$components/Resizer.svelte";
+	import newBranchSmolSVG from "$lib/assets/empty-state/new-branch-smol.svg?raw";
+	import { commitCreatedAt, commitStateSubject } from "$lib/branches/v3";
+	import { findEarliestConflict } from "$lib/commits/utils";
+	import { editPatch } from "$lib/editMode/editPatchUtils";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { combineResults } from "$lib/state/helpers";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon, TestId, Tooltip } from "@gitbutler/ui";
 
-	import type { ComponentProps } from 'svelte';
+	import type { ComponentProps } from "svelte";
 
 	interface Props {
 		stackId?: string;
@@ -47,7 +47,7 @@
 		rounded,
 		ontoggle,
 		onerror,
-		onclose
+		onclose,
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -60,7 +60,7 @@
 
 	// Get conflicted commits for this branch
 	const conflictedCommitsInBranch = $derived(
-		branchQuery.response?.commits.filter((commit) => commit.hasConflicts) || []
+		branchQuery.response?.commits.filter((commit) => commit.hasConflicts) || [],
 	);
 
 	let renameBranchModal = $state<BranchRenameModal>();
@@ -78,7 +78,7 @@
 			modeService,
 			commitId: ancestorMostConflicted.id,
 			stackId,
-			projectId
+			projectId,
 		});
 	}
 </script>
@@ -109,11 +109,11 @@
 						<Tooltip
 							text={remoteTrackingBranch
 								? `Remote tracking branch:\n${remoteTrackingBranch}`
-								: 'No remote tracking branch'}
+								: "No remote tracking branch"}
 						>
 							<div class="remote-tracking-branch-icon" class:disabled={!remoteTrackingBranch}>
 								<Icon
-									name={remoteTrackingBranch ? 'remote-target-branch' : 'no-remote-target-branch'}
+									name={remoteTrackingBranch ? "remote-target-branch" : "no-remote-target-branch"}
 								/>
 							</div>
 						</Tooltip>
@@ -126,7 +126,7 @@
 				{@const data = {
 					branch,
 					prNumber: branch.prNumber || undefined,
-					stackLength: branches.length
+					stackLength: branches.length,
 				}}
 				<BranchHeaderContextMenu {projectId} {stackId} {laneId} contextData={data} />
 			{/snippet}
@@ -145,7 +145,7 @@
 						{#snippet conflictedCommits()}
 							{#if conflictedCommitsInBranch.length > 0}
 								{#each conflictedCommitsInBranch as commit}
-									{@const isLocalAndRemote = commit.state.type === 'LocalAndRemote'}
+									{@const isLocalAndRemote = commit.state.type === "LocalAndRemote"}
 									<CommitRow
 										type={commit.state.type}
 										{branchName}
@@ -163,7 +163,7 @@
 											laneState.selection.set({
 												branchName,
 												commitId: commit.id,
-												previewOpen: true
+												previewOpen: true,
 											});
 										}}
 									/>

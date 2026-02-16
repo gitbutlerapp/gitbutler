@@ -1,15 +1,15 @@
 <script lang="ts">
-	import DialogBubble from '$components/DialogBubble.svelte';
-	import { MessageRole, type UserPrompt } from '$lib/ai/types';
-	import { Button, Icon, Textbox } from '@gitbutler/ui';
+	import DialogBubble from "$components/DialogBubble.svelte";
+	import { MessageRole, type UserPrompt } from "$lib/ai/types";
+	import { Button, Icon, Textbox } from "@gitbutler/ui";
 
 	interface Props {
 		prompt: UserPrompt;
-		displayMode: 'readOnly' | 'writable';
+		displayMode: "readOnly" | "writable";
 		deletePrompt?: (prompt: UserPrompt) => void;
 	}
 
-	let { prompt = $bindable(), displayMode = 'writable', deletePrompt }: Props = $props();
+	let { prompt = $bindable(), displayMode = "writable", deletePrompt }: Props = $props();
 
 	let expanded = $state(false);
 	let editing = $state(false);
@@ -26,8 +26,8 @@
 				...promptMessages,
 				{
 					role: MessageRole.User,
-					content: ''
-				}
+					content: "",
+				},
 			];
 		}
 	});
@@ -37,12 +37,12 @@
 			...promptMessages,
 			{
 				role: MessageRole.Assistant,
-				content: ''
+				content: "",
 			},
 			{
 				role: MessageRole.User,
-				content: ''
-			}
+				content: "",
+			},
 		];
 	}
 
@@ -57,7 +57,7 @@
 			return;
 		}
 
-		if (promptName.trim() === '') {
+		if (promptName.trim() === "") {
 			promptName = initialName;
 		}
 
@@ -74,7 +74,7 @@
 	}
 
 	$effect(() => {
-		isInEditing = displayMode === 'writable' && editing;
+		isInEditing = displayMode === "writable" && editing;
 	});
 
 	function toggleExpand() {
@@ -87,7 +87,7 @@
 		let errors = [] as number[];
 
 		promptMessages.forEach((message, index) => {
-			if (message.content.trim() === '') {
+			if (message.content.trim() === "") {
 				errors.push(index);
 			}
 		});
@@ -103,13 +103,13 @@
 		class="header"
 		class:editing={isInEditing}
 		onclick={toggleExpand}
-		onkeydown={(e) => e.key === 'Enter' && toggleExpand()}
+		onkeydown={(e) => e.key === "Enter" && toggleExpand()}
 	>
 		{#if !isInEditing}
 			<Icon name="doc" />
 			<h3 class="text-15 text-bold title">{promptName}</h3>
 			<div class="icon">
-				<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
+				<Icon name={expanded ? "chevron-up" : "chevron-down"} />
 			</div>
 		{:else}
 			<Textbox bind:value={promptName} wide onclick={(e) => e.stopPropagation()} />
@@ -117,7 +117,7 @@
 	</div>
 
 	{#if expanded}
-		<div class="content" class:default-mode={prompt.id === 'default'} class:editing={isInEditing}>
+		<div class="content" class:default-mode={prompt.id === "default"} class:editing={isInEditing}>
 			{#each promptMessages as promptMessage, index}
 				<DialogBubble
 					promptMessage={promptMessage.content}
@@ -132,7 +132,7 @@
 							if (i === index) {
 								return {
 									...message,
-									content: value
+									content: value,
 								};
 							}
 
@@ -150,7 +150,7 @@
 			{/each}
 		</div>
 
-		{#if displayMode === 'writable'}
+		{#if displayMode === "writable"}
 			<div class="actions">
 				{#if editing}
 					<Button kind="outline" onclick={() => cancel()}>Cancel</Button>

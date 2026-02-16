@@ -1,9 +1,9 @@
-import { LatestBranchLookupService } from '$lib/branches/latestBranchLookupService';
-import { latestBranchLookupTable } from '$lib/branches/latestBranchLookupSlice';
-import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import type { LoadableBranchUuid } from '$lib/branches/types';
-import type { AppLatestBranchLookupsState } from '$lib/redux/store.svelte';
-import type { Reactive } from '$lib/storeUtils';
+import { LatestBranchLookupService } from "$lib/branches/latestBranchLookupService";
+import { latestBranchLookupTable } from "$lib/branches/latestBranchLookupSlice";
+import { registerInterest, type InView } from "$lib/interest/registerInterestFunction.svelte";
+import type { LoadableBranchUuid } from "$lib/branches/types";
+import type { AppLatestBranchLookupsState } from "$lib/redux/store.svelte";
+import type { Reactive } from "$lib/storeUtils";
 
 export function lookupLatestBranchUuid(
 	appState: AppLatestBranchLookupsState,
@@ -11,19 +11,19 @@ export function lookupLatestBranchUuid(
 	ownerSlug: string,
 	projectSlug: string,
 	branchId: string,
-	inView?: InView
+	inView?: InView,
 ): Reactive<LoadableBranchUuid | undefined> {
 	registerInterest(
 		latestBranchLookupService.getBranchUuidInterest(ownerSlug, projectSlug, branchId),
-		inView
+		inView,
 	);
 	const branchUuid = $derived(
-		latestBranchLookupTable.selectors.selectById(appState.latestBranchLookups, branchId)
+		latestBranchLookupTable.selectors.selectById(appState.latestBranchLookups, branchId),
 	);
 
 	return {
 		get current() {
 			return branchUuid;
-		}
+		},
 	};
 }

@@ -1,7 +1,7 @@
 <script lang="ts" generics="TAccount">
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
-	import { Button, CardGroup, Link, Select, SelectItem } from '@gitbutler/ui';
-	import type { Component } from 'svelte';
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { Button, CardGroup, Link, Select, SelectItem } from "@gitbutler/ui";
+	import type { Component } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -14,7 +14,7 @@
 		updatePreferredAccount: (projectId: string, account: TAccount) => void;
 		AccountBadge: Component<{ account: TAccount; class?: string }>;
 		docsUrl: string;
-		requestType: 'pull request' | 'merge request';
+		requestType: "pull request" | "merge request";
 	};
 
 	const {
@@ -28,7 +28,7 @@
 		updatePreferredAccount,
 		AccountBadge,
 		docsUrl,
-		requestType
+		requestType,
 	}: Props = $props();
 
 	const { openGeneralSettings } = useSettingsModal();
@@ -56,7 +56,7 @@
 
 	{#if !hasAccounts}
 		<div class="flex">
-			<Button onclick={() => openGeneralSettings('integrations')} style="pop" icon="link"
+			<Button onclick={() => openGeneralSettings("integrations")} style="pop" icon="link"
 				>Set up in General Settings</Button
 			>
 		</div>
@@ -68,7 +68,7 @@
 			value={accountStr}
 			options={accounts.map((acc) => ({
 				label: getUsername(acc),
-				value: accountToString(acc)
+				value: accountToString(acc),
 			}))}
 			onselect={handleAccountChange}
 			disabled={accounts.length <= 1}

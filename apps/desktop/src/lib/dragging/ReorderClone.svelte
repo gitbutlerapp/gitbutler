@@ -18,7 +18,7 @@
 	use:appendElement
 	class="reorder-clone"
 	class:preserve-size={preserveOriginalSize}
-	style:height={preserveOriginalSize && originalHeight ? `${originalHeight}px` : 'auto'}
+	style:height={preserveOriginalSize && originalHeight ? `${originalHeight}px` : "auto"}
 	style:width={preserveOriginalSize && originalWidth ? `${originalWidth}px` : undefined}
 	style:max-height={`${window.innerHeight - 100}px`}
 ></div>

@@ -5,30 +5,30 @@
  * hirerarchical structure for easy rendering.
  */
 
-import type { TreeChange } from '$lib/hunks/change';
+import type { TreeChange } from "$lib/hunks/change";
 
 /**
  * Sort configuration for file lists.
  */
 const FILE_SORT_CONFIG: Intl.CollatorOptions = {
 	numeric: true,
-	caseFirst: 'lower',
-	sensitivity: 'base'
+	caseFirst: "lower",
+	sensitivity: "base",
 } as const;
 
-const FILE_SORT_LOCALE = 'en';
+const FILE_SORT_LOCALE = "en";
 
 export type TreeNode = {
-	kind: 'dir' | 'file';
+	kind: "dir" | "file";
 	name: string;
 	children: TreeNode[];
 	parent?: TreeNode;
 } & (
 	| {
-			kind: 'dir';
+			kind: "dir";
 	  }
 	| {
-			kind: 'file';
+			kind: "file";
 			index: number;
 			change: TreeChange;
 	  }
@@ -36,7 +36,7 @@ export type TreeNode = {
 
 function createNode(acc: TreeNode, pathParts: string[]) {
 	if (pathParts.length === 0) {
-		acc.kind = 'file';
+		acc.kind = "file";
 		return acc;
 	}
 
@@ -46,10 +46,10 @@ function createNode(acc: TreeNode, pathParts: string[]) {
 	}
 
 	const newDir: TreeNode = {
-		kind: 'dir',
-		name: pathParts[0] ? pathParts[0] : '',
+		kind: "dir",
+		name: pathParts[0] ? pathParts[0] : "",
 		children: [],
-		parent: acc
+		parent: acc,
 	};
 	acc.children.push(newDir);
 
@@ -58,9 +58,9 @@ function createNode(acc: TreeNode, pathParts: string[]) {
 
 export function sortChildren(node: TreeNode) {
 	node.children.sort((a, b) => {
-		if (a.kind === 'file' && b.kind === 'dir') {
+		if (a.kind === "file" && b.kind === "dir") {
 			return 1;
-		} else if (a.kind === 'dir' && b.kind === 'file') {
+		} else if (a.kind === "dir" && b.kind === "file") {
 			return -1;
 		} else {
 			return a.name.localeCompare(b.name, FILE_SORT_LOCALE, FILE_SORT_CONFIG);
@@ -72,11 +72,11 @@ export function sortChildren(node: TreeNode) {
 }
 
 export function changesToFileTree(files: TreeChange[]): TreeNode {
-	const acc: TreeNode = { kind: 'dir', name: 'root', children: [] };
+	const acc: TreeNode = { kind: "dir", name: "root", children: [] };
 	files.forEach((f, index) => {
-		const pathParts = f.path.split('/');
+		const pathParts = f.path.split("/");
 		const node = createNode(acc, pathParts);
-		if (node.kind === 'file') {
+		if (node.kind === "file") {
 			node.change = f;
 			node.index = index;
 		}
@@ -86,7 +86,7 @@ export function changesToFileTree(files: TreeChange[]): TreeNode {
 }
 
 export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
-	const separator = '/';
+	const separator = "/";
 
 	return changes.sort((a, b) => {
 		const partsA = a.path.split(separator);
@@ -111,7 +111,7 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
 		return partsA[partsA.length - 1]!.localeCompare(
 			partsB[partsB.length - 1]!,
 			FILE_SORT_LOCALE,
-			FILE_SORT_CONFIG
+			FILE_SORT_CONFIG,
 		);
 	});
 }
@@ -130,7 +130,7 @@ export function sortLikeFileTree(changes: TreeChange[]): TreeChange[] {
  */
 export function abbreviateFolders(node: TreeNode): TreeNode {
 	const newNode = { ...node };
-	if (newNode.kind === 'file') {
+	if (newNode.kind === "file") {
 		return newNode;
 	}
 	// A node without a parent is the root node. Since this node is not
@@ -138,10 +138,10 @@ export function abbreviateFolders(node: TreeNode): TreeNode {
 	if (newNode.parent) {
 		while (newNode.children.length === 1) {
 			const grandChild = newNode.children[0]!;
-			if (grandChild.kind === 'file') {
+			if (grandChild.kind === "file") {
 				break;
 			} else {
-				newNode.name = newNode.name + '/' + grandChild.name;
+				newNode.name = newNode.name + "/" + grandChild.name;
 				newNode.children = [...grandChild.children];
 			}
 		}
@@ -152,7 +152,7 @@ export function abbreviateFolders(node: TreeNode): TreeNode {
 }
 
 export function countLeafNodes(node: TreeNode): number {
-	if (node.kind === 'file') {
+	if (node.kind === "file") {
 		return 1;
 	}
 	return node.children.reduce((prev, curr) => prev + countLeafNodes(curr), 0);
@@ -160,14 +160,14 @@ export function countLeafNodes(node: TreeNode): number {
 
 export function nodePath(node: TreeNode): string {
 	if (!node.parent) {
-		return '';
+		return "";
 	}
 	const parentPath = nodePath(node.parent);
-	return parentPath ? parentPath + '/' + node.name : node.name;
+	return parentPath ? parentPath + "/" + node.name : node.name;
 }
 
 export function getAllChanges(node: TreeNode): TreeChange[] {
-	if (node.kind === 'file') {
+	if (node.kind === "file") {
 		return [node.change];
 	}
 	return node.children.reduce((prev, curr) => prev.concat(getAllChanges(curr)), [] as TreeChange[]);

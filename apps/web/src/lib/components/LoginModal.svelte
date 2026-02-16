@@ -1,9 +1,9 @@
 <script lang="ts">
-	import loginSvg from '$lib/assets/login-modal.svg?raw';
-	import { Button, Modal } from '@gitbutler/ui';
+	import loginSvg from "$lib/assets/login-modal.svg?raw";
+	import { Button, Modal } from "@gitbutler/ui";
 
-	import { type Snippet } from 'svelte';
-	import { env } from '$env/dynamic/public';
+	import { type Snippet } from "svelte";
+	import { env } from "$env/dynamic/public";
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();
 

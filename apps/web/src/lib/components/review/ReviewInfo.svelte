@@ -1,24 +1,24 @@
 <script lang="ts">
-	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
-	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
-	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
+	import Factoid from "$lib/components/infoFlexRow/Factoid.svelte";
+	import InfoFlexRow from "$lib/components/infoFlexRow/InfoFlexRow.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { getChatChannelParticipants } from "@gitbutler/shared/chat/chatChannelsPreview.svelte";
+	import { CHAT_CHANNELS_SERVICE } from "@gitbutler/shared/chat/chatChannelsService";
 	import {
 		getUsersWithAvatars,
 		getPatchApproversWithAvatars,
 		getPatchContributorsWithAvatars,
-		getPatchRejectorsWithAvatars
-	} from '@gitbutler/shared/contributors';
-	import ChangeStatus from '@gitbutler/shared/patches/ChangeStatus.svelte';
-	import { type PatchCommit } from '@gitbutler/shared/patches/types';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { AvatarGroup, Icon } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+		getPatchRejectorsWithAvatars,
+	} from "@gitbutler/shared/contributors";
+	import ChangeStatus from "@gitbutler/shared/patches/ChangeStatus.svelte";
+	import { type PatchCommit } from "@gitbutler/shared/patches/types";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { AvatarGroup, Icon } from "@gitbutler/ui";
+	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
 
-	const NO_REVIEWERS = 'Not reviewed yet';
-	const NO_CONTRIBUTORS = 'No contributors';
-	const NO_COMMENTS = 'No comments yet';
+	const NO_REVIEWERS = "Not reviewed yet";
+	const NO_CONTRIBUTORS = "No contributors";
+	const NO_COMMENTS = "No comments yet";
 
 	interface Props {
 		projectId: string;
@@ -30,13 +30,13 @@
 	const chatChannelService = inject(CHAT_CHANNELS_SERVICE);
 
 	const chatParticipants = $derived(
-		getChatChannelParticipants(appState, chatChannelService, projectId, patchCommit.changeId)
+		getChatChannelParticipants(appState, chatChannelService, projectId, patchCommit.changeId),
 	);
 
 	const commenters = $derived(
 		chatParticipants.current === undefined
 			? Promise.resolve([])
-			: getUsersWithAvatars(chatParticipants.current)
+			: getUsersWithAvatars(chatParticipants.current),
 	);
 	const contributors = $derived(getPatchContributorsWithAvatars(patchCommit));
 	const approvers = $derived(getPatchApproversWithAvatars(patchCommit));

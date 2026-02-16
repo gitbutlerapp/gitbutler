@@ -1,15 +1,15 @@
 <script lang="ts">
-	import Textbox from '$components/Textbox.svelte';
-	import EmojiButton from '$components/emoji/EmojiButton.svelte';
-	import EmojiGroup from '$components/emoji/EmojiGroup.svelte';
+	import Textbox from "$components/Textbox.svelte";
+	import EmojiButton from "$components/emoji/EmojiButton.svelte";
+	import EmojiGroup from "$components/emoji/EmojiGroup.svelte";
 	import {
 		getEmojiGroups,
 		markRecentlyUsedEmoji,
 		searchThroughEmojis,
 		type EmojiGroupKey,
-		type EmojiInfo
-	} from '$components/emoji/utils';
-	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
+		type EmojiInfo,
+	} from "$components/emoji/utils";
+	import ScrollableContainer from "$components/scroll/ScrollableContainer.svelte";
 
 	type Props = {
 		onEmojiSelect: (emoji: EmojiInfo) => void;
@@ -18,7 +18,7 @@
 	let { onEmojiSelect }: Props = $props();
 
 	const groups = getEmojiGroups();
-	let selectedGroup = $state<EmojiGroupKey>('recently-used');
+	let selectedGroup = $state<EmojiGroupKey>("recently-used");
 	let searchVal = $state<string>();
 
 	const searchResults = $derived.by(() => {
@@ -29,7 +29,7 @@
 	function scrollIntoGroupView(selectedGroup: EmojiGroupKey) {
 		const element = document.getElementById(`emoji-group-${selectedGroup}`);
 		if (element) {
-			element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			element.scrollIntoView({ behavior: "smooth", block: "start" });
 		}
 	}
 
@@ -147,7 +147,7 @@
 			transform: translateY(100%);
 			border-radius: 4px 4px 0 0;
 			background-color: var(--clr-theme-pop-element);
-			content: '';
+			content: "";
 			transition: transform var(--transition-medium);
 		}
 

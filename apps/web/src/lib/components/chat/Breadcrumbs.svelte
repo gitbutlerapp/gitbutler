@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, Icon } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, Icon } from "@gitbutler/ui";
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 	// get user's project page params
@@ -12,14 +12,14 @@
 
 	function getRootLabel() {
 		if ($user?.login === routes.isProjectReviewBranchPageSubset?.ownerSlug) {
-			return 'My Projects';
+			return "My Projects";
 		} else {
-			return 'My Reviews';
+			return "My Reviews";
 		}
 	}
 </script>
 
-{#snippet backButton({ href, label = 'Back' }: { href: string; label: string })}
+{#snippet backButton({ href, label = "Back" }: { href: string; label: string })}
 	<a {href} class="breadcrumbs__back-btn">
 		<div class="breadcrumbs__back-btn__icon">
 			<Icon name="chevron-left" />
@@ -46,13 +46,13 @@
 
 	{#if routes.isProjectReviewBranchCommitPageSubset}
 		{@render backButton({
-			label: 'Back',
-			href: routes.projectReviewBranchPath(routes.isProjectReviewBranchCommitPageSubset)
+			label: "Back",
+			href: routes.projectReviewBranchPath(routes.isProjectReviewBranchCommitPageSubset),
 		})}
 	{:else if routes.isProjectReviewBranchPageSubset}
 		{@render backButton({
-			label: 'Back',
-			href: `${routes.projectPath(routes.isProjectReviewBranchPageSubset)}/reviews`
+			label: "Back",
+			href: `${routes.projectPath(routes.isProjectReviewBranchPageSubset)}/reviews`,
 		})}
 	{/if}
 </div>
@@ -100,7 +100,7 @@
 			height: 18px;
 			margin: 0 8px 0 0;
 			background-color: var(--clr-border-2);
-			content: '';
+			content: "";
 			transition: opacity 0.2s;
 		}
 

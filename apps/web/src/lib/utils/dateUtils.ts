@@ -29,7 +29,7 @@ export function getRelativeTime(dateString: string): string {
 }
 
 export function getTimeSince(timestamp: string | undefined) {
-	if (!timestamp) return 'Unknown';
+	if (!timestamp) return "Unknown";
 
 	const date = new Date(timestamp);
 	const now = new Date();
@@ -37,9 +37,9 @@ export function getTimeSince(timestamp: string | undefined) {
 	const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
 	if (diffDays === 0) {
-		return 'Today';
+		return "Today";
 	} else if (diffDays === 1) {
-		return 'Yesterday';
+		return "Yesterday";
 	} else if (diffDays < 7) {
 		return `${diffDays} days ago`;
 	} else if (diffDays < 30) {

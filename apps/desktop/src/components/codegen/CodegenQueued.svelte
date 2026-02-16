@@ -1,11 +1,11 @@
 <script lang="ts">
-	import AttachmentList from '$components/codegen/AttachmentList.svelte';
-	import { messageQueueSelectors, messageQueueSlice } from '$lib/codegen/messageQueueSlice';
-	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon, Button } from '@gitbutler/ui';
-	import { slide } from 'svelte/transition';
-	import type { PromptAttachment } from '$lib/codegen/types';
+	import AttachmentList from "$components/codegen/AttachmentList.svelte";
+	import { messageQueueSelectors, messageQueueSlice } from "$lib/codegen/messageQueueSlice";
+	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon, Button } from "@gitbutler/ui";
+	import { slide } from "svelte/transition";
+	import type { PromptAttachment } from "$lib/codegen/types";
 
 	type Message = {
 		thinkingLevel: any;
@@ -28,7 +28,7 @@
 	const queue = $derived(
 		messageQueueSelectors
 			.selectAll(clientState.messageQueue)
-			.find((q) => q.head === branchName && q.stackId === laneId && q.projectId === projectId)
+			.find((q) => q.head === branchName && q.stackId === laneId && q.projectId === projectId),
 	);
 
 	function deleteMessage(message: any) {
@@ -36,8 +36,8 @@
 			clientState.dispatch(
 				messageQueueSlice.actions.upsert({
 					...queue,
-					messages: queue.messages.filter((m) => m !== message)
-				})
+					messages: queue.messages.filter((m) => m !== message),
+				}),
 			);
 		}
 	}
@@ -47,8 +47,8 @@
 			clientState.dispatch(
 				messageQueueSlice.actions.upsert({
 					...queue,
-					messages: []
-				})
+					messages: [],
+				}),
 			);
 		}
 	}

@@ -8,18 +8,18 @@
 </script>
 
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import InfoButton from '$components/InfoButton.svelte';
+	import Icon from "$components/Icon.svelte";
+	import InfoButton from "$components/InfoButton.svelte";
 	import {
 		CountColumnSide,
 		isDeltaLine,
 		SectionType,
 		type DependencyLock,
-		type Row
-	} from '$lib/utils/diffParsing';
-	import { getHunkLineId } from '$lib/utils/hunk';
-	import type LineSelection from '$components/hunkDiff/lineSelection.svelte';
-	import type { Snippet } from 'svelte';
+		type Row,
+	} from "$lib/utils/diffParsing";
+	import { getHunkLineId } from "$lib/utils/hunk";
+	import type LineSelection from "$components/hunkDiff/lineSelection.svelte";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		idx: number;
@@ -45,14 +45,14 @@
 		lineSelection,
 		tabSize,
 		wrapText,
-		diffFont = 'var(--font-mono)',
+		diffFont = "var(--font-mono)",
 		numberHeaderWidth,
 		staged,
 		hideCheckboxes,
 		handleLineContextMenu,
 		minWidth,
 		lockWarning,
-		hunkHasLocks
+		hunkHasLocks,
 	}: Props = $props();
 
 	let stagingColumnWidth = $state<number>(0);
@@ -88,7 +88,7 @@
 			handleLineContextMenu?.({
 				event: ev,
 				beforeLineNumber: row.beforeLineNumber,
-				afterLineNumber: row.afterLineNumber
+				afterLineNumber: row.afterLineNumber,
 			});
 		}}
 	>
@@ -127,7 +127,7 @@
 				handleLineContextMenu?.({
 					event: ev,
 					beforeLineNumber: row.beforeLineNumber,
-					afterLineNumber: row.afterLineNumber
+					afterLineNumber: row.afterLineNumber,
 				});
 			}}
 		>
@@ -192,7 +192,7 @@
 			handleLineContextMenu?.({
 				event: ev,
 				beforeLineNumber: row.beforeLineNumber,
-				afterLineNumber: row.afterLineNumber
+				afterLineNumber: row.afterLineNumber,
 			});
 		}}
 	>
@@ -206,7 +206,7 @@
 				></div>
 			{/if}
 
-			{@html row.tokens.join('')}
+			{@html row.tokens.join("")}
 		</div>
 	</td>
 </tr>

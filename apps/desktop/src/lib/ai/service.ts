@@ -1,23 +1,23 @@
-import { AnthropicAIClient } from '$lib/ai/anthropicClient';
-import { ButlerAIClient } from '$lib/ai/butlerClient';
-import { formatStagedChanges } from '$lib/ai/diffFormatting';
+import { AnthropicAIClient } from "$lib/ai/anthropicClient";
+import { ButlerAIClient } from "$lib/ai/butlerClient";
+import { formatStagedChanges } from "$lib/ai/diffFormatting";
 import {
 	LM_STUDIO_DEFAULT_ENDPOINT,
 	LM_STUDIO_DEFAULT_MODEL_NAME,
-	LMStudioClient
-} from '$lib/ai/lmStudioClient';
+	LMStudioClient,
+} from "$lib/ai/lmStudioClient";
 import {
 	DEFAULT_OLLAMA_ENDPOINT,
 	DEFAULT_OLLAMA_MODEL_NAME,
-	OllamaClient
-} from '$lib/ai/ollamaClient';
-import { OpenAIClient } from '$lib/ai/openAIClient';
+	OllamaClient,
+} from "$lib/ai/ollamaClient";
+import { OpenAIClient } from "$lib/ai/openAIClient";
 import {
 	AUTOCOMPLETE_SUGGESTION_PROMPT_CONTENT,
 	DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE,
 	FILL_MARKER,
-	getPrTemplateDirective
-} from '$lib/ai/prompts';
+	getPrTemplateDirective,
+} from "$lib/ai/prompts";
 import {
 	OpenAIModelName,
 	type AIClient,
@@ -26,41 +26,41 @@ import {
 	MessageRole,
 	type Prompt,
 	type PromptMessage,
-	type FileChange
-} from '$lib/ai/types';
-import { splitMessage } from '$lib/utils/commitMessage';
-import { InjectionToken } from '@gitbutler/core/context';
-import { get } from 'svelte/store';
-import type { GitConfigService } from '$lib/config/gitConfigService';
-import type { SecretsService } from '$lib/secrets/secretsService';
-import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
-import type { HttpClient } from '@gitbutler/shared/network/httpClient';
+	type FileChange,
+} from "$lib/ai/types";
+import { splitMessage } from "$lib/utils/commitMessage";
+import { InjectionToken } from "@gitbutler/core/context";
+import { get } from "svelte/store";
+import type { GitConfigService } from "$lib/config/gitConfigService";
+import type { SecretsService } from "$lib/secrets/secretsService";
+import type { TokenMemoryService } from "$lib/stores/tokenMemoryService";
+import type { HttpClient } from "@gitbutler/shared/network/httpClient";
 
 const maxDiffLengthLimitForAPI = 5000;
 const prDescriptionTokenLimit = 4096;
 
 export enum KeyOption {
-	BringYourOwn = 'bringYourOwn',
-	ButlerAPI = 'butlerAPI'
+	BringYourOwn = "bringYourOwn",
+	ButlerAPI = "butlerAPI",
 }
 
 export enum AISecretHandle {
-	OpenAIKey = 'aiOpenAIKey',
-	AnthropicKey = 'aiAnthropicKey'
+	OpenAIKey = "aiOpenAIKey",
+	AnthropicKey = "aiAnthropicKey",
 }
 
 export enum GitAIConfigKey {
-	ModelProvider = 'gitbutler.aiModelProvider',
-	OpenAIKeyOption = 'gitbutler.aiOpenAIKeyOption',
-	OpenAIModelName = 'gitbutler.aiOpenAIModelName',
-	OpenAICustomEndpoint = 'gitbutler.aiOpenAICustomEndpoint',
-	AnthropicKeyOption = 'gitbutler.aiAnthropicKeyOption',
-	AnthropicModelName = 'gitbutler.aiAnthropicModelName',
-	DiffLengthLimit = 'gitbutler.diffLengthLimit',
-	OllamaEndpoint = 'gitbutler.aiOllamaEndpoint',
-	OllamaModelName = 'gitbutler.aiOllamaModelName',
-	LMStudioEndpoint = 'gitbutler.aiLMStudioEndpoint',
-	LMStudioModelName = 'gitbutler.aiLMStudioModelName'
+	ModelProvider = "gitbutler.aiModelProvider",
+	OpenAIKeyOption = "gitbutler.aiOpenAIKeyOption",
+	OpenAIModelName = "gitbutler.aiOpenAIModelName",
+	OpenAICustomEndpoint = "gitbutler.aiOpenAICustomEndpoint",
+	AnthropicKeyOption = "gitbutler.aiAnthropicKeyOption",
+	AnthropicModelName = "gitbutler.aiAnthropicModelName",
+	DiffLengthLimit = "gitbutler.diffLengthLimit",
+	OllamaEndpoint = "gitbutler.aiOllamaEndpoint",
+	OllamaModelName = "gitbutler.aiOllamaModelName",
+	LMStudioEndpoint = "gitbutler.aiLMStudioEndpoint",
+	LMStudioModelName = "gitbutler.aiLMStudioModelName",
 }
 
 interface BaseAIServiceOpts {
@@ -78,13 +78,13 @@ interface SummarizeCommitOpts extends BaseAIServiceOpts {
 }
 
 interface SummarizeBranchOptsByHunks extends BaseAIServiceOpts {
-	type: 'hunks';
+	type: "hunks";
 	hunks: DiffInput[];
 	branchTemplate?: Prompt;
 }
 
 interface SummarizeBranchOptsByCommitMessages extends BaseAIServiceOpts {
-	type: 'commitMessages';
+	type: "commitMessages";
 	commitMessages: string[];
 	branchTemplate?: Prompt;
 }
@@ -108,7 +108,7 @@ export interface DiffInput {
 // Exported for testing only
 export function buildDiff(hunks: DiffInput[], limit: number) {
 	return shuffle(hunks.map((h) => `${h.filePath} - ${h.diff}`))
-		.join('\n')
+		.join("\n")
 		.slice(0, limit);
 }
 
@@ -119,7 +119,7 @@ function shuffle<T>(items: T[]): T[] {
 		.map((item) => item.item);
 }
 
-export const AI_SERVICE = new InjectionToken<AIService>('AI Service');
+export const AI_SERVICE = new InjectionToken<AIService>("AI Service");
 
 export class AIService {
 	prSummaryMainDirective: Readonly<string> = DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE;
@@ -128,20 +128,20 @@ export class AIService {
 		private gitConfig: GitConfigService,
 		private secretsService: SecretsService,
 		private cloud: HttpClient,
-		private tokenMemoryService: TokenMemoryService
+		private tokenMemoryService: TokenMemoryService,
 	) {}
 
 	async getModelKind() {
 		return await this.gitConfig.getWithDefault<ModelKind>(
 			GitAIConfigKey.ModelProvider,
-			ModelKind.OpenAI
+			ModelKind.OpenAI,
 		);
 	}
 
 	async getOpenAIKeyOption() {
 		return await this.gitConfig.getWithDefault<KeyOption>(
 			GitAIConfigKey.OpenAIKeyOption,
-			KeyOption.ButlerAPI
+			KeyOption.ButlerAPI,
 		);
 	}
 
@@ -156,14 +156,14 @@ export class AIService {
 	async getOpenAIModleName() {
 		return await this.gitConfig.getWithDefault<OpenAIModelName>(
 			GitAIConfigKey.OpenAIModelName,
-			OpenAIModelName.GPT4oMini
+			OpenAIModelName.GPT4oMini,
 		);
 	}
 
 	async getAnthropicKeyOption() {
 		return await this.gitConfig.getWithDefault<KeyOption>(
 			GitAIConfigKey.AnthropicKeyOption,
-			KeyOption.ButlerAPI
+			KeyOption.ButlerAPI,
 		);
 	}
 
@@ -174,14 +174,14 @@ export class AIService {
 	async getAnthropicModelName() {
 		return await this.gitConfig.getWithDefault<AnthropicModelName>(
 			GitAIConfigKey.AnthropicModelName,
-			AnthropicModelName.Haiku
+			AnthropicModelName.Haiku,
 		);
 	}
 
 	async getDiffLengthLimit() {
 		const limitString = await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.DiffLengthLimit,
-			'5000'
+			"5000",
 		);
 
 		return parseInt(limitString, 10);
@@ -203,28 +203,28 @@ export class AIService {
 	async getOllamaEndpoint() {
 		return await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.OllamaEndpoint,
-			DEFAULT_OLLAMA_ENDPOINT
+			DEFAULT_OLLAMA_ENDPOINT,
 		);
 	}
 
 	async getOllamaModelName() {
 		return await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.OllamaModelName,
-			DEFAULT_OLLAMA_MODEL_NAME
+			DEFAULT_OLLAMA_MODEL_NAME,
 		);
 	}
 
 	async getLMStudioEndpoint() {
 		return await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.LMStudioEndpoint,
-			LM_STUDIO_DEFAULT_ENDPOINT
+			LM_STUDIO_DEFAULT_ENDPOINT,
 		);
 	}
 
 	async getLMStudioModelName() {
 		return await this.gitConfig.getWithDefault<string>(
 			GitAIConfigKey.LMStudioModelName,
-			LM_STUDIO_DEFAULT_MODEL_NAME
+			LM_STUDIO_DEFAULT_MODEL_NAME,
 		);
 	}
 
@@ -301,7 +301,7 @@ export class AIService {
 			const lmStudioModelName = await this.getLMStudioModelName();
 
 			if (!lmStudioEndpoint) {
-				throw new Error('When using LM Studio, you must provide a valid endpoint');
+				throw new Error("When using LM Studio, you must provide a valid endpoint");
 			}
 
 			return new LMStudioClient(lmStudioEndpoint, lmStudioModelName);
@@ -314,7 +314,7 @@ export class AIService {
 
 			if (!openAIKey) {
 				throw new Error(
-					'When using OpenAI in a bring your own key configuration, you must provide a valid token'
+					"When using OpenAI in a bring your own key configuration, you must provide a valid token",
 				);
 			}
 
@@ -327,7 +327,7 @@ export class AIService {
 
 			if (!anthropicKey) {
 				throw new Error(
-					'When using Anthropic in a bring your own key configuration, you must provide a valid token'
+					"When using Anthropic in a bring your own key configuration, you must provide a valid token",
 				);
 			}
 
@@ -344,7 +344,7 @@ export class AIService {
 		useBriefStyle = false,
 		commitTemplate,
 		onToken,
-		branchName
+		branchName,
 	}: SummarizeCommitOpts): Promise<string | undefined> {
 		const aiClient = await this.buildClient();
 
@@ -359,36 +359,36 @@ export class AIService {
 			}
 
 			let content = promptMessage.content.replaceAll(
-				'%{diff}',
-				buildDiff(diffInput, diffLengthLimit)
+				"%{diff}",
+				buildDiff(diffInput, diffLengthLimit),
 			);
 
 			const briefPart = useHaiku
-				? 'Compose the commit message in the form of a haiku. A haiku is a three-line poem with a 5-7-5 syllable structure.'
+				? "Compose the commit message in the form of a haiku. A haiku is a three-line poem with a 5-7-5 syllable structure."
 				: useBriefStyle
-					? 'The commit message must be only one sentence and as short as possible.'
-					: '';
-			content = content.replaceAll('%{brief_style}', briefPart);
+					? "The commit message must be only one sentence and as short as possible."
+					: "";
+			content = content.replaceAll("%{brief_style}", briefPart);
 
 			const emojiPart = useEmojiStyle
-				? 'Make use of GitMoji in the title prefix.'
+				? "Make use of GitMoji in the title prefix."
 				: "Don't use any emoji.";
-			content = content.replaceAll('%{emoji_style}', emojiPart);
+			content = content.replaceAll("%{emoji_style}", emojiPart);
 
 			if (branchName) {
-				content = content.replaceAll('%{branch_name}', branchName);
+				content = content.replaceAll("%{branch_name}", branchName);
 			}
 
 			return {
 				role: MessageRole.User,
-				content
+				content,
 			};
 		});
 
 		let message = (await aiClient.evaluate(prompt, { onToken })).trim();
 
 		if (useBriefStyle) {
-			message = message.split('\n')[0] ?? message;
+			message = message.split("\n")[0] ?? message;
 		}
 
 		const { title, description } = splitMessage(message);
@@ -397,7 +397,7 @@ export class AIService {
 	async autoCompleteCommitMessage({
 		currentValue,
 		suffix,
-		stagedChanges
+		stagedChanges,
 	}: {
 		currentValue: string;
 		suffix: string;
@@ -412,13 +412,13 @@ export class AIService {
 
 		prompt.push({
 			role: MessageRole.System,
-			content: systemContent
+			content: systemContent,
 		});
 
 		// This is the actual completion trigger
 		prompt.push({
 			role: MessageRole.User,
-			content: `${currentValue}${FILL_MARKER}${suffix}`
+			content: `${currentValue}${FILL_MARKER}${suffix}`,
 		});
 
 		const message = await aiClient.evaluate(prompt);
@@ -432,26 +432,26 @@ export class AIService {
 
 		const diffLengthLimit = await this.getDiffLengthLimitConsideringAPI();
 		const defaultedBranchTemplate = params.branchTemplate || aiClient.defaultBranchTemplate;
-		const hunks = params.type === 'hunks' ? params.hunks : [];
-		const commitMessages = params.type === 'commitMessages' ? params.commitMessages : [];
+		const hunks = params.type === "hunks" ? params.hunks : [];
+		const commitMessages = params.type === "commitMessages" ? params.commitMessages : [];
 		const prompt = defaultedBranchTemplate.map((promptMessage) => {
 			if (promptMessage.role !== MessageRole.User) {
 				return promptMessage;
 			}
 
 			const content = promptMessage.content
-				.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit))
-				.replaceAll('%{commits}', commitMessages.slice().reverse().join('\n<###>\n'));
+				.replaceAll("%{diff}", buildDiff(hunks, diffLengthLimit))
+				.replaceAll("%{commits}", commitMessages.slice().reverse().join("\n<###>\n"));
 
 			return {
 				role: MessageRole.User,
-				content
+				content,
 			};
 		});
 
 		const message = (await aiClient.evaluate(prompt, { onToken: params.onToken })).trim();
 
-		return message?.replaceAll(' ', '-').replaceAll('\n', '-') ?? '';
+		return message?.replaceAll(" ", "-").replaceAll("\n", "-") ?? "";
 	}
 
 	async describePR({
@@ -461,7 +461,7 @@ export class AIService {
 		directive,
 		prTemplate,
 		prBodyTemplate,
-		onToken
+		onToken,
 	}: SummarizePROpts): Promise<string | undefined> {
 		const aiClient = await this.buildClient();
 
@@ -469,7 +469,7 @@ export class AIService {
 
 		const defaultPRTemplate = prTemplate ?? aiClient.defaultPRTemplate;
 
-		const mainDirective = (directive ?? this.prSummaryMainDirective) + '\n';
+		const mainDirective = (directive ?? this.prSummaryMainDirective) + "\n";
 		const prBodyTemplateDirective = getPrTemplateDirective(prBodyTemplate);
 
 		const prompt: Prompt = defaultPRTemplate.map((message) => {
@@ -480,21 +480,21 @@ export class AIService {
 			return {
 				role: MessageRole.User,
 				content: message.content
-					.replaceAll('%{pr_main_directive}', mainDirective)
-					.replaceAll('%{pr_template_directive}', prBodyTemplateDirective)
-					.replaceAll('%{commit_messages}', commitMessages.slice().reverse().join('\n<###>\n'))
-					.replaceAll('%{title}', title)
-					.replaceAll('%{body}', body)
+					.replaceAll("%{pr_main_directive}", mainDirective)
+					.replaceAll("%{pr_template_directive}", prBodyTemplateDirective)
+					.replaceAll("%{commit_messages}", commitMessages.slice().reverse().join("\n<###>\n"))
+					.replaceAll("%{title}", title)
+					.replaceAll("%{body}", body),
 			};
 		});
 
 		let message = (
 			await aiClient.evaluate(prompt, {
 				onToken,
-				maxTokens: prDescriptionTokenLimit
+				maxTokens: prDescriptionTokenLimit,
 			})
 		).trim();
-		if (message.startsWith('```\n') && message.endsWith('\n```')) {
+		if (message.startsWith("```\n") && message.endsWith("\n```")) {
 			message = message.slice(4, -4);
 		}
 

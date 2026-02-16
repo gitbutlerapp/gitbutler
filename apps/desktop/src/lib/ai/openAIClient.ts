@@ -1,10 +1,10 @@
 import {
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
-	SHORT_DEFAULT_PR_TEMPLATE
-} from '$lib/ai/prompts';
-import OpenAI from 'openai';
-import type { OpenAIModelName, Prompt, AIClient, AIEvalOptions } from '$lib/ai/types';
+	SHORT_DEFAULT_PR_TEMPLATE,
+} from "$lib/ai/prompts";
+import OpenAI from "openai";
+import type { OpenAIModelName, Prompt, AIClient, AIEvalOptions } from "$lib/ai/types";
 
 const DEFAULT_MAX_TOKENS = 1024;
 
@@ -32,15 +32,15 @@ export class OpenAIClient implements AIClient {
 			max_completion_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
 			messages: prompt,
 			model: this.modelName,
-			stream: true
+			stream: true,
 		});
 
 		const buffer: string[] = [];
 		for await (const chunk of response) {
-			const token = chunk.choices[0]?.delta.content ?? '';
+			const token = chunk.choices[0]?.delta.content ?? "";
 			options?.onToken?.(token);
 			buffer.push(token);
 		}
-		return buffer.join('');
+		return buffer.join("");
 	}
 }

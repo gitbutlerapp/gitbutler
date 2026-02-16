@@ -1,17 +1,17 @@
-import { isReduxError } from '$lib/state/reduxError';
-import { getCookie } from '$lib/utils/cookies';
-import ReconnectingWebSocket from 'reconnecting-websocket';
-import { readable } from 'svelte/store';
+import { isReduxError } from "$lib/state/reduxError";
+import { getCookie } from "$lib/utils/cookies";
+import ReconnectingWebSocket from "reconnecting-websocket";
+import { readable } from "svelte/store";
 import type {
 	AppInfo,
 	DiskStore,
 	IBackend,
 	OpenDialogOptions,
-	OpenDialogReturn
-} from '$lib/backend/backend';
+	OpenDialogReturn,
+} from "$lib/backend/backend";
 
 export default class Web implements IBackend {
-	platformName = 'web';
+	platformName = "web";
 	systemTheme = readable<string | null>(null);
 	invoke = webInvoke;
 	listen = webListen;
@@ -66,7 +66,7 @@ class WebDiskStore implements DiskStore {
 			const parsed = fromCookie ? (JSON.parse(fromCookie) as T) : undefined;
 			return parsed ?? defaultValue;
 		} catch (error) {
-			console.error('Error parsing disk store value from cookie', error);
+			console.error("Error parsing disk store value from cookie", error);
 			return defaultValue;
 		}
 	}
@@ -74,11 +74,11 @@ class WebDiskStore implements DiskStore {
 
 export function webLogErrorToFile(error: string) {
 	// TODO: Implement this for the web version if needed
-	console.error('Logging to file is not supported in web builds.');
+	console.error("Logging to file is not supported in web builds.");
 	console.error(error);
 }
 export function webPathSeparator(): string {
-	return '/'; // Web uses forward slashes for path
+	return "/"; // Web uses forward slashes for path
 }
 
 async function webReadTextFromClipboard(): Promise<string> {
@@ -91,13 +91,13 @@ async function webWriteTextToClipboard(text: string): Promise<void> {
 
 async function webGetAppInfo(): Promise<AppInfo> {
 	return await Promise.resolve({
-		name: 'gitbutler-web',
-		version: '0.0.0'
+		name: "gitbutler-web",
+		version: "0.0.0",
 	});
 }
 
 async function webHomeDirectory(): Promise<string> {
-	return await Promise.resolve('/tmp/gitbutler');
+	return await Promise.resolve("/tmp/gitbutler");
 }
 
 async function webJoinPath(pathSegment: string, ...paths: string[]): Promise<string> {
@@ -108,15 +108,15 @@ async function webJoinPath(pathSegment: string, ...paths: string[]): Promise<str
 
 async function webDocumentDir(): Promise<string> {
 	// This needs to be implemented for the web version
-	return await Promise.resolve('');
+	return await Promise.resolve("");
 }
 
 async function webFilePicker<T extends OpenDialogOptions>(
-	options?: T
+	options?: T,
 ): Promise<OpenDialogReturn<T>> {
-	const fileInput = document.createElement('input');
-	const projectPath = getCookie('PROJECT_PATH') || '';
-	fileInput.type = 'file';
+	const fileInput = document.createElement("input");
+	const projectPath = getCookie("PROJECT_PATH") || "";
+	fileInput.type = "file";
 
 	if (options?.multiple) {
 		fileInput.multiple = true;
@@ -137,8 +137,8 @@ async function webFilePicker<T extends OpenDialogOptions>(
 			if (options?.directory) {
 				const file = files[0]!;
 				const filePath = file.webkitRelativePath || file.name;
-				const dirPath = filePath.split('/').slice(0, -1).join('/');
-				const absolute = projectPath + '/' + dirPath;
+				const dirPath = filePath.split("/").slice(0, -1).join("/");
+				const absolute = projectPath + "/" + dirPath;
 				resolve(absolute as OpenDialogReturn<T>);
 				return;
 			}
@@ -169,7 +169,7 @@ async function webFilePicker<T extends OpenDialogOptions>(
 
 async function webRelaunch(): Promise<void> {
 	// The web version does not support relaunching
-	throw new Error('Relaunch is not implemented in the web version');
+	throw new Error("Relaunch is not implemented in the web version");
 }
 
 /**
@@ -184,14 +184,14 @@ async function webRelaunch(): Promise<void> {
 async function webInvoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {
 	try {
 		const response = await fetch(`http://${getWebUrl()}/${command}`, {
-			method: 'POST',
+			method: "POST",
 			headers: {
-				'Content-Type': 'application/json'
+				"Content-Type": "application/json",
 			},
-			body: JSON.stringify(params)
+			body: JSON.stringify(params),
 		});
 		const out: ServerResonse<T> = await response.json();
-		if (out.type === 'success') {
+		if (out.type === "success") {
 			return out.subject;
 		} else {
 			if (isReduxError(out.subject)) {
@@ -227,16 +227,16 @@ async function webCheckUpdate(): Promise<null> {
 
 async function webCurrentVersion(): Promise<string> {
 	// TODO: Implement this for the web version if needed
-	return '0.0.0';
+	return "0.0.0";
 }
 
 async function webReadFile(_path: string): Promise<Uint8Array> {
 	// TODO: Implement this for the web version if needed
-	throw new Error('webReadFile is not implemented for the web version');
+	throw new Error("webReadFile is not implemented for the web version");
 }
 
 async function webOpenExternalUrl(href: string): Promise<void> {
-	window.open(href, '_blank');
+	window.open(href, "_blank");
 	return await Promise.resolve();
 }
 
@@ -260,7 +260,7 @@ class WebListener {
 		this.count++;
 		if (!this.socket) {
 			this.socket = new ReconnectingWebSocket(`ws://${getWebUrl()}/ws`);
-			this.socket.addEventListener('message', (event) => {
+			this.socket.addEventListener("message", (event) => {
 				const data: { name: string; payload: any } = JSON.parse(event.data);
 				for (const handler of this.handlers) {
 					if (handler.name === data.name) {
@@ -285,8 +285,8 @@ class WebListener {
 }
 
 function getWebUrl(): string {
-	const host = getCookie('butlerHost') || import.meta.env.VITE_BUTLER_HOST || 'localhost';
-	const port = getCookie('butlerPort') || import.meta.env.VITE_BUTLER_PORT || '6978';
+	const host = getCookie("butlerHost") || import.meta.env.VITE_BUTLER_HOST || "localhost";
+	const port = getCookie("butlerPort") || import.meta.env.VITE_BUTLER_PORT || "6978";
 	return `${host}:${port}`;
 }
 
@@ -305,10 +305,10 @@ type EventCallback<T> = (event: Event<T>) => void;
 
 type ServerResonse<T> =
 	| {
-			type: 'success';
+			type: "success";
 			subject: T;
 	  }
 	| {
-			type: 'error';
+			type: "error";
 			subject: unknown;
 	  };

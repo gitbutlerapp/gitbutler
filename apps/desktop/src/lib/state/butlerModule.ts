@@ -1,10 +1,10 @@
 import {
 	buildMutationHook,
 	buildQueryHooks,
-	type MutationHook
-} from '$lib/state/customHooks.svelte';
-import { isMutationDefinition, isQueryDefinition } from '$lib/state/helpers';
-import { type Reactive } from '@gitbutler/shared/storeUtils';
+	type MutationHook,
+} from "$lib/state/customHooks.svelte";
+import { isMutationDefinition, isQueryDefinition } from "$lib/state/helpers";
+import { type Reactive } from "@gitbutler/shared/storeUtils";
 import {
 	type BaseQueryFn,
 	type EndpointDefinitions,
@@ -18,10 +18,10 @@ import {
 	type QueryResultSelectorResult,
 	type ApiModules,
 	type QueryActionCreatorResult,
-	type StartQueryActionCreatorOptions
-} from '@reduxjs/toolkit/query';
-import type { TauriBaseQueryFn } from '$lib/state/backendQuery';
-import type { HookContext } from '$lib/state/context';
+	type StartQueryActionCreatorOptions,
+} from "@reduxjs/toolkit/query";
+import type { TauriBaseQueryFn } from "$lib/state/backendQuery";
+import type { HookContext } from "$lib/state/context";
 
 /** Gives our module a namespace in the extended `ApiModules` interface. */
 export const butlerModuleName = Symbol();
@@ -41,7 +41,7 @@ export type ExtraOptions = {
  * calling `buildCreateApi`, and the new methods become available on the
  * declared endpoints.
  */
-declare module '@reduxjs/toolkit/query' {
+declare module "@reduxjs/toolkit/query" {
 	export interface ApiModules<
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		BaseQuery extends BaseQueryFn,
@@ -49,7 +49,7 @@ declare module '@reduxjs/toolkit/query' {
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		ReducerPath extends string,
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		TagTypes extends string
+		TagTypes extends string,
 	> {
 		[butlerModuleName]: {
 			endpoints: {
@@ -70,18 +70,18 @@ type CustomEndpoints<T> = {
 function isObjectWithActionName(value: unknown): value is { actionName: string } {
 	return (
 		value !== null &&
-		typeof value === 'object' &&
-		'actionName' in value &&
-		typeof value.actionName === 'string'
+		typeof value === "object" &&
+		"actionName" in value &&
+		typeof value.actionName === "string"
 	);
 }
 
 function isObjectWithCommand(value: unknown): value is { command: string } {
 	return (
 		value !== null &&
-		typeof value === 'object' &&
-		'command' in value &&
-		typeof value.command === 'string'
+		typeof value === "object" &&
+		"command" in value &&
+		typeof value.command === "string"
 	);
 }
 
@@ -100,7 +100,7 @@ export type ExtensionDefinitions = ApiModules<
 	>,
 	string,
 	string
->[typeof butlerModuleName]['endpoints'];
+>[typeof butlerModuleName]["endpoints"];
 
 /**
  * Injects custom methods onto endpoint definitions.
@@ -132,7 +132,7 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 								command,
 								actionName,
 								api,
-								ctx
+								ctx,
 							});
 						endpoint.fetch = fetch;
 						endpoint.useQuery = useQuery;
@@ -148,14 +148,14 @@ export function butlerModule(ctx: HookContext): Module<ButlerModule> {
 							actionName,
 							command,
 							api,
-							ctx
+							ctx,
 						});
 						endpoint.useMutation = useMutation;
 						endpoint.mutate = mutate;
 					}
-				}
+				},
 			};
-		}
+		},
 	};
 }
 
@@ -184,7 +184,7 @@ export type QueryExtensions = {
 
 export type ReactiveQuery<
 	T,
-	Extensions extends Record<string, unknown> = Record<string, unknown>
+	Extensions extends Record<string, unknown> = Record<string, unknown>,
 > = {
 	readonly result: CustomQueryResult<CustomQuery<T>> & Extensions;
 	readonly response: T | undefined;
@@ -207,7 +207,7 @@ type CustomArgs = any;
  */
 export type Transformer<T extends CustomQuery<any>> = (
 	queryResult: ResultTypeFrom<T>,
-	queryArgs: QueryArgFrom<T>
+	queryArgs: QueryArgFrom<T>,
 ) => unknown;
 
 /**
@@ -218,7 +218,7 @@ export type Transformer<T extends CustomQuery<any>> = (
  */
 type DefaultTransformer<T extends CustomQuery<any>> = (
 	queryResult: ResultTypeFrom<T>,
-	queryArgs: QueryArgFrom<T>
+	queryArgs: QueryArgFrom<T>,
 ) => ResultTypeFrom<T>;
 
 /**
@@ -237,26 +237,26 @@ type QueryHooks<D extends CustomQuery<unknown>> = {
 	/** Execute query and return results. */
 	subscribe: (
 		args: QueryArgFrom<D>,
-		options: QueryOptions
+		options: QueryOptions,
 	) => QueryActionCreatorResult<CustomQuery<ResultTypeFrom<D>>>;
 	/** Fetch as promise, non-reactive. */
 	fetch: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
-		options?: { transform?: T; forceRefetch?: boolean }
+		options?: { transform?: T; forceRefetch?: boolean },
 	) => Promise<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>;
 	/** Execute query and return results. */
 	useQuery: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
-		options?: { transform?: T } & StartQueryActionCreatorOptions
+		options?: { transform?: T } & StartQueryActionCreatorOptions,
 	) => ReactiveQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>, QueryExtensions>;
 	/** Execute query on existing state. */
 	useQueryState: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		args: QueryArgFrom<D>,
-		options?: { transform?: T }
+		options?: { transform?: T },
 	) => ReactiveQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>;
 	useQueries: <T extends Transformer<D> | undefined = DefaultTransformer<D>>(
 		queryArgs: QueryArgFrom<D>[],
-		options?: { transform?: T } & StartQueryActionCreatorOptions
+		options?: { transform?: T } & StartQueryActionCreatorOptions,
 	) => Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>[]
 	>;

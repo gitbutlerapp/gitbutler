@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Button } from '@gitbutler/ui';
-	import { env } from '$env/dynamic/public';
+	import { Button } from "@gitbutler/ui";
+	import { env } from "$env/dynamic/public";
 </script>
 
 <div class="supporter-card">

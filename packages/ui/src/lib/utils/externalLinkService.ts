@@ -1,7 +1,7 @@
-import { InjectionToken } from '@gitbutler/core/context';
+import { InjectionToken } from "@gitbutler/core/context";
 
 export type ExternalLinkService = {
 	open(href: string): void;
 };
 
-export const EXTERNAL_LINK_SERVICE = new InjectionToken<ExternalLinkService>('ExternalLinkService');
+export const EXTERNAL_LINK_SERVICE = new InjectionToken<ExternalLinkService>("ExternalLinkService");

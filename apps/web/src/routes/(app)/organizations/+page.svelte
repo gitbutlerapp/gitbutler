@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
-	import CreateOrganizationModal from '@gitbutler/shared/organizations/CreateOrganizationModal.svelte';
-	import JoinOrganizationModal from '@gitbutler/shared/organizations/JoinOrganizationModal.svelte';
-	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { Button, CardGroup, EmptyStatePlaceholder, Icon } from '@gitbutler/ui';
+	import { inject } from "@gitbutler/core/context";
+	import RegisterInterest from "@gitbutler/shared/interest/RegisterInterest.svelte";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { HTTP_CLIENT } from "@gitbutler/shared/network/httpClient";
+	import CreateOrganizationModal from "@gitbutler/shared/organizations/CreateOrganizationModal.svelte";
+	import JoinOrganizationModal from "@gitbutler/shared/organizations/JoinOrganizationModal.svelte";
+	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
+	import { organizationTable } from "@gitbutler/shared/organizations/organizationsSlice";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { Button, CardGroup, EmptyStatePlaceholder, Icon } from "@gitbutler/ui";
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 	const appState = inject(APP_STATE);

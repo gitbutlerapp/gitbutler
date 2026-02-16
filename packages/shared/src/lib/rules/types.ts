@@ -1,4 +1,4 @@
-import type { LoadableData } from '$lib/network/types';
+import type { LoadableData } from "$lib/network/types";
 
 export type ApiRule = {
 	uuid: string;
@@ -31,11 +31,11 @@ export function apiToRule(apiRule: ApiRule): Rule {
 		negativeExample: apiRule.negative_example,
 		positiveExample: apiRule.positive_example,
 		createdAt: apiRule.created_at,
-		updatedAt: apiRule.updated_at
+		updatedAt: apiRule.updated_at,
 	};
 }
 
-export type LoadableRule = LoadableData<Rule, Rule['uuid']>;
+export type LoadableRule = LoadableData<Rule, Rule["uuid"]>;
 
 /**
  * Parameters for creating a new rule.
@@ -62,6 +62,6 @@ export function toApiCreateRuleParams(params: CreateRuleParams): ApiCreateRulePa
 		title: params.title,
 		description: params.description,
 		negative_example: params.negativeExample,
-		positive_example: params.positiveExample
+		positive_example: params.positiveExample,
 	};
 }

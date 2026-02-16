@@ -94,9 +94,9 @@ pnpm test:e2e:not-tauri
 1. **Create a new test file** in `playwright/tests/`:
 
 ```typescript
-import { startGitButler, type GitButler } from '../src/setup.ts';
-import { clickByTestId, waitForTestId } from '../src/util.ts';
-import { expect, test } from '@playwright/test';
+import { startGitButler, type GitButler } from "../src/setup.ts";
+import { clickByTestId, waitForTestId } from "../src/util.ts";
+import { expect, test } from "@playwright/test";
 
 let gitbutler: GitButler;
 
@@ -104,22 +104,22 @@ test.afterEach(async () => {
 	await gitbutler?.destroy();
 });
 
-test('should do something amazing', async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath('workdir');
-	const configdir = testInfo.outputPath('config');
+test("should do something amazing", async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context);
 
 	// Setup test data
-	await gitbutler.runScript('your-setup-script.sh');
+	await gitbutler.runScript("your-setup-script.sh");
 
-	await page.goto('/');
+	await page.goto("/");
 
 	// Your test logic here
-	await waitForTestId(page, 'your-element');
-	await clickByTestId(page, 'your-button');
+	await waitForTestId(page, "your-element");
+	await clickByTestId(page, "your-button");
 
 	// Assertions
-	expect(await page.locator('[data-testid="result"]').textContent()).toBe('expected');
+	expect(await page.locator('[data-testid="result"]').textContent()).toBe("expected");
 });
 ```
 
@@ -135,22 +135,22 @@ test('should do something amazing', async ({ page, context }, testInfo) => {
 1. **Create a new test file** in `blackbox/tests/`:
 
 ```typescript
-import { spawnAndLog, findAndClick, setElementValue } from '../utils.js';
+import { spawnAndLog, findAndClick, setElementValue } from "../utils.js";
 
-describe('Your Feature', () => {
+describe("Your Feature", () => {
 	before(() => {
 		// Setup test repositories
-		spawnAndLog('bash', [
-			'-c',
-			'./blackbox/scripts/your-setup-script.sh ../target/debug/gitbutler-cli'
+		spawnAndLog("bash", [
+			"-c",
+			"./blackbox/scripts/your-setup-script.sh ../target/debug/gitbutler-cli",
 		]);
 	});
 
-	it('should perform an action', async () => {
+	it("should perform an action", async () => {
 		await findAndClick('button[data-testid="your-button"]');
 
 		const element = $('input[data-testid="your-input"]');
-		await setElementValue(await element.getElement(), 'test value');
+		await setElementValue(await element.getElement(), "test value");
 
 		// Add assertions
 		const result = await $('div[data-testid="result"]').getElement();
@@ -241,7 +241,7 @@ Access these in `e2e/test-results/` after test runs.
 Add logging to your tests:
 
 ```typescript
-console.log('Debug info:', await page.locator('[data-testid="element"]').textContent());
+console.log("Debug info:", await page.locator('[data-testid="element"]').textContent());
 ```
 
 View browser console in headed mode or check test output.
@@ -274,7 +274,7 @@ pnpm exec wdio run ./blackbox/wdio.blackbox.conf.ts --spec ./blackbox/tests/your
 Use `browser.debug()` in your test to pause execution:
 
 ```typescript
-it('should do something', async () => {
+it("should do something", async () => {
 	await findAndClick('button[data-testid="test"]');
 	await browser.debug(); // Pauses here
 	// ... rest of test

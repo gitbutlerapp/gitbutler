@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		projectId: string;
@@ -23,13 +23,13 @@
 
 	let hasRun = false;
 	$effect(() => {
-		if (forgeName === 'github' && listedPrNumber && !hasRun) {
+		if (forgeName === "github" && listedPrNumber && !hasRun) {
 			hasRun = true;
 			stackService.updateBranchPrNumber({
 				projectId: projectId,
 				stackId,
 				branchName,
-				prNumber: listedPrNumber
+				prNumber: listedPrNumber,
 			});
 		}
 	});

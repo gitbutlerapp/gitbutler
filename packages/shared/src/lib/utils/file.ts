@@ -1,6 +1,6 @@
-const SEPARATOR = '/';
-const SEPARATOR_WIN = '\\';
-const EXT_SEPARATOR = '.';
+const SEPARATOR = "/";
+const SEPARATOR_WIN = "\\";
+const EXT_SEPARATOR = ".";
 
 export function isWindowsPath(filePath: string): boolean {
 	// This is a simple check, but it should be enough for our purposes.
@@ -33,7 +33,7 @@ export function getFilePathInfo(filePath: string): FilePathInfo | undefined {
 
 	const fileName = parts[parts.length - 1]!;
 	const hasExtension = fileName.includes(EXT_SEPARATOR);
-	const extension = hasExtension ? fileName.split(EXT_SEPARATOR).pop() || '' : '';
+	const extension = hasExtension ? fileName.split(EXT_SEPARATOR).pop() || "" : "";
 
 	const sep = getSeparator(filePath);
 	const directoryPath = parts.slice(0, parts.length - 1).join(sep);
@@ -42,16 +42,16 @@ export function getFilePathInfo(filePath: string): FilePathInfo | undefined {
 }
 
 const IMAGE_EXTENSIONS = [
-	'.png',
-	'.jpg',
-	'.jpeg',
-	'.gif',
-	'.webp',
-	'.bmp',
-	'.ico',
-	'.heic',
-	'.heif',
-	'.avif'
+	".png",
+	".jpg",
+	".jpeg",
+	".gif",
+	".webp",
+	".bmp",
+	".ico",
+	".heic",
+	".heif",
+	".avif",
 ];
 
 export function isImageFile(path: string): boolean {

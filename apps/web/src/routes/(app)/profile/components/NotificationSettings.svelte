@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
-	import type { NotificationSettingsService } from '@gitbutler/shared/settings/notificationSettingsService';
-	import type { NotificationSettings as NotificationSettingsType } from '@gitbutler/shared/settings/types';
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
+	import type { NotificationSettingsService } from "@gitbutler/shared/settings/notificationSettingsService";
+	import type { NotificationSettings as NotificationSettingsType } from "@gitbutler/shared/settings/types";
 
 	interface Props {
 		notificationSettings: NotificationSettingsType;
@@ -20,7 +20,7 @@
 	async function updateReceiveChatMentionEmails(value: boolean) {
 		updatingReceiveChatMentionEmails = true;
 		await notificationSettingsService.updateNotificationSettings({
-			receiveChatMentionEmails: value
+			receiveChatMentionEmails: value,
 		});
 		updatingReceiveChatMentionEmails = false;
 	}
@@ -28,7 +28,7 @@
 	async function updateReceiveChatReplyEmails(value: boolean) {
 		updatingReceiveChatReplyEmails = true;
 		await notificationSettingsService.updateNotificationSettings({
-			receiveChatReplyEmails: value
+			receiveChatReplyEmails: value,
 		});
 		updatingReceiveChatReplyEmails = false;
 	}
@@ -36,7 +36,7 @@
 	async function updateReceiveIssueCreationEmails(value: boolean) {
 		updatingReceiveIssueCreationEmails = true;
 		await notificationSettingsService.updateNotificationSettings({
-			receiveIssueCreationEmails: value
+			receiveIssueCreationEmails: value,
 		});
 		updatingReceiveIssueCreationEmails = false;
 	}
@@ -44,7 +44,7 @@
 	async function updateReceiveIssueResolutionEmails(value: boolean) {
 		updatingReceiveIssueResolutionEmails = true;
 		await notificationSettingsService.updateNotificationSettings({
-			receiveIssueResolutionEmails: value
+			receiveIssueResolutionEmails: value,
 		});
 		updatingReceiveIssueResolutionEmails = false;
 	}
@@ -52,7 +52,7 @@
 	async function updateReceiveReviewBranchEmails(value: boolean) {
 		updatingReceiveReviewBranchEmails = true;
 		await notificationSettingsService.updateNotificationSettings({
-			receiveReviewBranchEmails: value
+			receiveReviewBranchEmails: value,
 		});
 		updatingReceiveReviewBranchEmails = false;
 	}
@@ -60,7 +60,7 @@
 	async function updateReceiveSignOffEmails(value: boolean) {
 		updatingReceiveSignOffEmails = true;
 		await notificationSettingsService.updateNotificationSettings({
-			receiveSignOffEmails: value
+			receiveSignOffEmails: value,
 		});
 		updatingReceiveSignOffEmails = false;
 	}

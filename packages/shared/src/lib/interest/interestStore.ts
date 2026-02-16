@@ -1,5 +1,5 @@
-import { shallowCompare } from '$lib/compare';
-import { asyncToSyncSignals } from '$lib/storeUtils';
+import { shallowCompare } from "$lib/compare";
+import { asyncToSyncSignals } from "$lib/storeUtils";
 
 type Callable =
 	| (() => Promise<void>)
@@ -41,12 +41,12 @@ class PollingSubscription<Arguments> implements Subscription<Arguments> {
 	constructor(
 		readonly args: Arguments,
 		private readonly upsert: Callable,
-		private readonly frequency: number
+		private readonly frequency: number,
 	) {}
 
 	createInterest(): Interest {
 		return {
-			_subscribe: asyncToSyncSignals(this.subscribe.bind(this))
+			_subscribe: asyncToSyncSignals(this.subscribe.bind(this)),
 		};
 	}
 
@@ -89,12 +89,12 @@ class ListeningSubscription<Arguments> implements Subscription<Arguments> {
 
 	constructor(
 		readonly args: Arguments,
-		private readonly upsert: Callable
+		private readonly upsert: Callable,
 	) {}
 
 	createInterest(): Interest {
 		return {
-			_subscribe: asyncToSyncSignals(this.subscribe.bind(this))
+			_subscribe: asyncToSyncSignals(this.subscribe.bind(this)),
 		};
 	}
 
@@ -118,7 +118,7 @@ class ListeningSubscription<Arguments> implements Subscription<Arguments> {
 
 	async refetch(): Promise<void> {
 		// Refetch does not make sense for listening subscriptions
-		throw new Error('Refetch can not be called on ListeningSubscription');
+		throw new Error("Refetch can not be called on ListeningSubscription");
 	}
 }
 
@@ -141,7 +141,7 @@ export class InterestStore<Arguments> {
 
 	findOrCreateSubscribable(args: Arguments, upsert: Callable): Subscription<Arguments> {
 		let subscription = this.subscriptions.find((subscription) =>
-			shallowCompare(subscription.args, args)
+			shallowCompare(subscription.args, args),
 		);
 		if (!subscription) {
 			if (this.frequency) {
@@ -157,7 +157,7 @@ export class InterestStore<Arguments> {
 
 	async invalidate(args: Arguments): Promise<void> {
 		const subscription = this.subscriptions.find((subscription) =>
-			shallowCompare(subscription.args, args)
+			shallowCompare(subscription.args, args),
 		);
 		if (subscription) {
 			await subscription.refetch();

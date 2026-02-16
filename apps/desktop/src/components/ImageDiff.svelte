@@ -1,10 +1,10 @@
 <script lang="ts">
-	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
-	import { FILE_SERVICE } from '$lib/files/fileService';
-	import { inject } from '@gitbutler/core/context';
-	import { ImageDiff, EmptyStatePlaceholder } from '@gitbutler/ui';
-	import { untrack } from 'svelte';
-	import type { TreeChange } from '$lib/hunks/change';
+	import emptyFileSvg from "$lib/assets/empty-state/empty-file.svg?raw";
+	import { FILE_SERVICE } from "$lib/files/fileService";
+	import { inject } from "@gitbutler/core/context";
+	import { ImageDiff, EmptyStatePlaceholder } from "@gitbutler/ui";
+	import { untrack } from "svelte";
+	import type { TreeChange } from "$lib/hunks/change";
 
 	type Props = {
 		projectId: string;
@@ -14,8 +14,8 @@
 	};
 
 	type ImageSource =
-		| { type: 'workspace'; path: string }
-		| { type: 'blob'; path: string; blobId: string };
+		| { type: "workspace"; path: string }
+		| { type: "blob"; path: string; blobId: string };
 
 	type LoadStrategy = {
 		before: ImageSource | null;
@@ -36,48 +36,48 @@
 		const isCommitDiff = !!commitId;
 
 		switch (status.type) {
-			case 'Addition':
+			case "Addition":
 				return isCommitDiff
 					? {
 							before: null,
-							after: { type: 'blob' as const, path, blobId: status.subject.state.id }
+							after: { type: "blob" as const, path, blobId: status.subject.state.id },
 						}
-					: { before: null, after: { type: 'workspace' as const, path } };
+					: { before: null, after: { type: "workspace" as const, path } };
 
-			case 'Deletion':
+			case "Deletion":
 				return {
-					before: { type: 'blob' as const, path, blobId: status.subject.previousState.id },
-					after: null
+					before: { type: "blob" as const, path, blobId: status.subject.previousState.id },
+					after: null,
 				};
 
-			case 'Modification':
+			case "Modification":
 				return isCommitDiff
 					? {
-							before: { type: 'blob' as const, path, blobId: status.subject.previousState.id },
-							after: { type: 'blob' as const, path, blobId: status.subject.state.id }
+							before: { type: "blob" as const, path, blobId: status.subject.previousState.id },
+							after: { type: "blob" as const, path, blobId: status.subject.state.id },
 						}
 					: {
-							before: { type: 'blob' as const, path, blobId: status.subject.previousState.id },
-							after: { type: 'workspace' as const, path }
+							before: { type: "blob" as const, path, blobId: status.subject.previousState.id },
+							after: { type: "workspace" as const, path },
 						};
 
-			case 'Rename':
+			case "Rename":
 				return isCommitDiff
 					? {
 							before: {
-								type: 'blob' as const,
+								type: "blob" as const,
 								path: status.subject.previousPath,
-								blobId: status.subject.previousState.id
+								blobId: status.subject.previousState.id,
 							},
-							after: { type: 'blob' as const, path, blobId: status.subject.state.id }
+							after: { type: "blob" as const, path, blobId: status.subject.state.id },
 						}
 					: {
 							before: {
-								type: 'blob' as const,
+								type: "blob" as const,
 								path: status.subject.previousPath,
-								blobId: status.subject.previousState.id
+								blobId: status.subject.previousState.id,
 							},
-							after: { type: 'workspace' as const, path }
+							after: { type: "workspace" as const, path },
 						};
 		}
 	}
@@ -100,17 +100,17 @@
 	 */
 	async function loadImage(
 		source: ImageSource | null,
-		signal?: AbortSignal
+		signal?: AbortSignal,
 	): Promise<string | null> {
 		if (!source) return null;
 
 		try {
 			let fileInfo;
 
-			if (source.type === 'workspace') {
+			if (source.type === "workspace") {
 				const { data } = await fileService.readFromWorkspace(source.path, projectId);
 				fileInfo = data;
-			} else if (source.type === 'blob') {
+			} else if (source.type === "blob") {
 				fileInfo = await fileService.readFromBlob(source.path, projectId, source.blobId);
 			}
 
@@ -140,7 +140,7 @@
 
 			const [before, after] = await Promise.all([
 				loadImage(strategy.before, signal),
-				loadImage(strategy.after, signal)
+				loadImage(strategy.after, signal),
 			]);
 
 			if (signal?.aborted) return;
@@ -149,14 +149,14 @@
 			afterImageUrl = after;
 
 			if (!before && !after) {
-				loadError = 'Failed to load both images (before and after).';
+				loadError = "Failed to load both images (before and after).";
 			} else if (!before && strategy.before) {
-				loadError = 'Failed to load before image.';
+				loadError = "Failed to load before image.";
 			} else if (!after && strategy.after) {
-				loadError = 'Failed to load after image.';
+				loadError = "Failed to load after image.";
 			}
 		} catch (err) {
-			console.error('Failed to load images:', err);
+			console.error("Failed to load images:", err);
 			loadError = `Failed to load images: ${err instanceof Error ? err.message : String(err)}`;
 		} finally {
 			isLoading = false;

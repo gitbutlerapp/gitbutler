@@ -1,4 +1,4 @@
-import { env } from '$env/dynamic/public';
+import { env } from "$env/dynamic/public";
 
 function replacePropertyContent(metaTags: string, property: string, newContent: string) {
 	const regexOg = new RegExp(`property="og:${property}" content="([^"]+)"`);
@@ -34,30 +34,30 @@ export async function fillMeta(html: string, url: string) {
 	if (match) {
 		const [_, user, project, reviewId, changeId] = match;
 		metaTags = metaTags.replaceAll(
-			'%image%',
-			`${env.PUBLIC_APP_HOST}og/review/${user}/${project}/${reviewId}/${changeId}`
+			"%image%",
+			`${env.PUBLIC_APP_HOST}og/review/${user}/${project}/${reviewId}/${changeId}`,
 		);
 
 		try {
 			const response = await fetch(
 				env.PUBLIC_APP_HOST +
-					`api/patch_stack/${user}/${project}/branch/${reviewId}/commit/${changeId}`
+					`api/patch_stack/${user}/${project}/branch/${reviewId}/commit/${changeId}`,
 			);
 			const data = await response.json();
-			metaTags = replacePropertyContent(metaTags, 'title', `Review ${data.title}`);
+			metaTags = replacePropertyContent(metaTags, "title", `Review ${data.title}`);
 			if (data.description) {
-				metaTags = replacePropertyContent(metaTags, 'description', data.description);
+				metaTags = replacePropertyContent(metaTags, "description", data.description);
 			} else {
 				metaTags = replacePropertyContent(
 					metaTags,
-					'description',
-					`Review code for ${user}/${project}`
+					"description",
+					`Review code for ${user}/${project}`,
 				);
 			}
-			return html.replace('%metatags%', metaTags);
+			return html.replace("%metatags%", metaTags);
 		} catch (error: unknown) {
-			console.error('Fetch error:', error);
-			return html.replace('%metatags%', metaTags);
+			console.error("Fetch error:", error);
+			return html.replace("%metatags%", metaTags);
 		}
 	}
 
@@ -66,34 +66,34 @@ export async function fillMeta(html: string, url: string) {
 	if (match) {
 		const [_, user, project, reviewId] = match;
 		metaTags = metaTags.replaceAll(
-			'%image%',
-			`${env.PUBLIC_APP_HOST}og/review/${user}/${project}/${reviewId}`
+			"%image%",
+			`${env.PUBLIC_APP_HOST}og/review/${user}/${project}/${reviewId}`,
 		);
 
 		// hit the API for this patch and get the project name
 		try {
 			const response = await fetch(
-				env.PUBLIC_APP_HOST + `api/patch_stack/${user}/${project}/branch/${reviewId}`
+				env.PUBLIC_APP_HOST + `api/patch_stack/${user}/${project}/branch/${reviewId}`,
 			);
 			const data = await response.json();
-			metaTags = replacePropertyContent(metaTags, 'title', `Review ${data.title}`);
+			metaTags = replacePropertyContent(metaTags, "title", `Review ${data.title}`);
 			if (data.description) {
-				metaTags = replacePropertyContent(metaTags, 'description', data.description);
+				metaTags = replacePropertyContent(metaTags, "description", data.description);
 			} else {
 				metaTags = replacePropertyContent(
 					metaTags,
-					'description',
-					`Review code for ${user}/${project}`
+					"description",
+					`Review code for ${user}/${project}`,
 				);
 			}
-			return html.replace('%metatags%', metaTags);
+			return html.replace("%metatags%", metaTags);
 		} catch (error: unknown) {
-			console.error('Fetch error:', error);
-			return html.replace('%metatags%', metaTags);
+			console.error("Fetch error:", error);
+			return html.replace("%metatags%", metaTags);
 		}
 	}
 
 	// Default fallback for non-review pages
-	metaTags = metaTags.replaceAll('%image%', `${env.PUBLIC_CLOUD_HOST}og-image.png`);
-	return html.replace('%metatags%', metaTags);
+	metaTags = metaTags.replaceAll("%image%", `${env.PUBLIC_CLOUD_HOST}og-image.png`);
+	return html.replace("%metatags%", metaTags);
 }

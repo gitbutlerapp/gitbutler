@@ -1,6 +1,6 @@
-import { DESKTOP_PORT } from './src/env.ts';
-import { defineConfig, devices } from '@playwright/test';
-import path from 'node:path';
+import { DESKTOP_PORT } from "./src/env.ts";
+import { defineConfig, devices } from "@playwright/test";
+import path from "node:path";
 
 /**
  * Read environment variables from file.
@@ -16,7 +16,7 @@ const AMOUNT_OF_WORKERS = process.env.CI ? 1 : 4;
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-	testDir: './tests',
+	testDir: "./tests",
 	/* Run tests in files in parallel */
 	fullyParallel: true, // FullyParallel has some issues - for now we just parallelize by file.
 	/* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -26,7 +26,7 @@ export default defineConfig({
 	/* Opt out of parallel tests on CI. */
 	workers: AMOUNT_OF_WORKERS,
 	/* Reporter to use. See https://playwright.dev/docs/test-reporters */
-	reporter: process.env.CI ? 'github' : 'list',
+	reporter: process.env.CI ? "github" : "list",
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
@@ -34,8 +34,8 @@ export default defineConfig({
 
 		/* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
 		// I have no idea why, but with this disabled, some tests just always fail. I have no idea why.
-		trace: 'on',
-		video: process.env.CI ? 'on-first-retry' : 'retain-on-failure'
+		trace: "on",
+		video: process.env.CI ? "on-first-retry" : "retain-on-failure",
 	},
 
 	/* Configure projects for major browsers */
@@ -44,26 +44,26 @@ export default defineConfig({
 	/* Run your local dev server before starting the tests */
 	webServer: webServers(),
 
-	snapshotPathTemplate: '{testDir}/__snapshots__/{testFilePath}/{arg}{ext}'
+	snapshotPathTemplate: "{testDir}/__snapshots__/{testFilePath}/{arg}{ext}",
 });
 
 function projects() {
 	const projects = [];
 	if (process.env.CI) {
 		projects.push({
-			name: 'chromium',
-			use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } }
+			name: "chromium",
+			use: { ...devices["Desktop Chrome"], viewport: { width: 1920, height: 1080 } },
 		});
 		return projects;
 	}
 
 	projects.push({
-		name: 'Chrome',
+		name: "Chrome",
 		use: {
-			...devices['Desktop Chrome'],
-			headless: process.env.PLAYWRIGHT_UI === '1' ? false : true,
-			channel: 'chrome'
-		}
+			...devices["Desktop Chrome"],
+			headless: process.env.PLAYWRIGHT_UI === "1" ? false : true,
+			channel: "chrome",
+		},
 	});
 
 	return projects;
@@ -92,16 +92,16 @@ function feServerCommand(desktopPort?: number) {
 function webServers() {
 	const desktopPort = parseInt(DESKTOP_PORT, 10);
 	const config = {
-		cwd: path.resolve(import.meta.dirname, '../..'),
+		cwd: path.resolve(import.meta.dirname, "../.."),
 		command: feServerCommand(desktopPort),
 		url: `http://localhost:${desktopPort}`,
 		env: {
 			// VITE_BUTLER_PORT: BUT_SERVER_PORT,
-			VITE_BUTLER_HOST: 'localhost',
-			VITE_BUILD_TARGET: 'web'
+			VITE_BUTLER_HOST: "localhost",
+			VITE_BUILD_TARGET: "web",
 		},
 		reuseExistingServer: true,
-		stdout: 'pipe'
+		stdout: "pipe",
 	} as const;
 
 	return [config];

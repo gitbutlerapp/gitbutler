@@ -1,11 +1,11 @@
 <script lang="ts">
-	import CommitDetails from '$components/CommitDetails.svelte';
-	import CommitTitle from '$components/CommitTitle.svelte';
-	import Drawer from '$components/Drawer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import CommitDetails from "$components/CommitDetails.svelte";
+	import CommitTitle from "$components/CommitTitle.svelte";
+	import Drawer from "$components/Drawer.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		projectId: string;

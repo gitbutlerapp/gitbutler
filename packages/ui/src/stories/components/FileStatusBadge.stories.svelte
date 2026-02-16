@@ -1,28 +1,28 @@
 <script module lang="ts">
-	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import FileStatusBadge from "$components/file/FileStatusBadge.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / FileStatusBadge',
+		title: "Basic / FileStatusBadge",
 		component: FileStatusBadge,
 		args: {
-			status: 'modification',
-			style: 'full',
-			tooltip: undefined
+			status: "modification",
+			style: "full",
+			tooltip: undefined,
 		},
 		argTypes: {
 			status: {
-				options: ['addition', 'modification', 'deletion', 'rename'],
-				control: { type: 'select' }
+				options: ["addition", "modification", "deletion", "rename"],
+				control: { type: "select" },
 			},
 			style: {
-				options: ['dot', 'full', 'full-large'],
-				control: { type: 'select' }
+				options: ["dot", "full", "full-large"],
+				control: { type: "select" },
 			},
 			tooltip: {
-				control: { type: 'text' }
-			}
-		}
+				control: { type: "text" },
+			},
+		},
 	});
 </script>
 

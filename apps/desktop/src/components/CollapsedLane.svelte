@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CollapseStackButton from '$components/CollapseStackButton.svelte';
-	import { Icon } from '@gitbutler/ui';
+	import CollapseStackButton from "$components/CollapseStackButton.svelte";
+	import { Icon } from "@gitbutler/ui";
 
 	type Props = {
 		stackId?: string;

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$components/Tooltip.svelte';
-	import { stringToColor } from '$lib/utils/stringToColor';
+	import Tooltip, { type TooltipAlign, type TooltipPosition } from "$components/Tooltip.svelte";
+	import { stringToColor } from "$lib/utils/stringToColor";
 
 	interface Props {
 		srcUrl: string | null;
@@ -8,16 +8,16 @@
 		tooltip?: string;
 		tooltipAlign?: TooltipAlign;
 		tooltipPosition?: TooltipPosition;
-		size?: 'small' | 'medium' | 'large';
+		size?: "small" | "medium" | "large";
 	}
 
 	const {
 		srcUrl,
-		username = '',
+		username = "",
 		tooltip,
 		tooltipAlign,
 		tooltipPosition,
-		size = 'small'
+		size = "small",
 	}: Props = $props();
 </script>
 

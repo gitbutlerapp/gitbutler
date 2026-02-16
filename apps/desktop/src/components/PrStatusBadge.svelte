@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { PrStatusBadge, type PrStatusInfoType } from '@gitbutler/ui';
+	import { PrStatusBadge, type PrStatusInfoType } from "@gitbutler/ui";
 
-	import type { DetailedPullRequest } from '$lib/forge/interface/types';
+	import type { DetailedPullRequest } from "$lib/forge/interface/types";
 
 	interface Props {
 		testId?: string;
@@ -13,15 +13,15 @@
 	const prStatus: PrStatusInfoType = $derived.by(() => {
 		switch (true) {
 			case !pr:
-				return 'loading';
+				return "loading";
 			case !!pr?.mergedAt:
-				return 'merged';
+				return "merged";
 			case !!pr?.closedAt:
-				return 'closed';
+				return "closed";
 			case !!pr?.draft:
-				return 'draft';
+				return "draft";
 			default:
-				return 'open';
+				return "open";
 		}
 	});
 </script>

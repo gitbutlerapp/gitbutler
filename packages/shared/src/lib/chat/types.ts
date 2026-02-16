@@ -1,9 +1,9 @@
-import { apiToUserSimple, type ApiUserSimple, type UserSimple } from '$lib/users/types';
-import type { LoadableData } from '$lib/network/types';
-import type { BrandedId } from '$lib/utils/branding';
+import { apiToUserSimple, type ApiUserSimple, type UserSimple } from "$lib/users/types";
+import type { LoadableData } from "$lib/network/types";
+import type { BrandedId } from "$lib/utils/branding";
 
 export type ApiDiffPatch = {
-	type: 'context' | 'added' | 'removed';
+	type: "context" | "added" | "removed";
 	left?: number;
 	right?: number;
 	line: string;
@@ -44,7 +44,7 @@ export type ApiChatMessage = {
 };
 
 export type DiffPatch = {
-	type: 'context' | 'added' | 'removed';
+	type: "context" | "added" | "removed";
 	left?: number;
 	right?: number;
 	line: string;
@@ -58,7 +58,7 @@ export type ChatMessageReaction = {
 export function apiToChatMessageReaction(apiReaction: ApiChatMessageReaction): ChatMessageReaction {
 	return {
 		reaction: apiReaction.reaction,
-		users: apiReaction.users.map(apiToUserSimple)
+		users: apiReaction.users.map(apiToUserSimple),
 	};
 }
 
@@ -74,7 +74,7 @@ export type ChatMessageInReplyTo = {
 };
 
 export function apiToChatMessageInReplyTo(
-	apiInReplyTo: ApiChatMessageInReplyTo
+	apiInReplyTo: ApiChatMessageInReplyTo,
 ): ChatMessageInReplyTo {
 	return {
 		uuid: apiInReplyTo.uuid,
@@ -84,7 +84,7 @@ export function apiToChatMessageInReplyTo(
 		resolved: apiInReplyTo.resolved,
 		threadId: apiInReplyTo.thread_id ?? undefined,
 		comment: apiInReplyTo.comment,
-		mentions: apiInReplyTo.mentions.map(apiToUserSimple)
+		mentions: apiInReplyTo.mentions.map(apiToUserSimple),
 	};
 }
 
@@ -106,7 +106,7 @@ export type ChatMessage = {
 	user: UserSimple;
 };
 
-type ChatChannelId = BrandedId<'ChatChannelId'>;
+type ChatChannelId = BrandedId<"ChatChannelId">;
 
 export type ChatChannel = {
 	/**
@@ -127,7 +127,7 @@ export function createChannelKey(projectId: string, changeId: string | undefined
 	return `${projectId}:${changeId}` as ChatChannelId;
 }
 
-export type LoadableChatChannel = LoadableData<ChatChannel, ChatChannel['id']>;
+export type LoadableChatChannel = LoadableData<ChatChannel, ChatChannel["id"]>;
 
 export function apiToChatMessage(apiChatMessage: ApiChatMessage): ChatMessage {
 	return {
@@ -147,7 +147,7 @@ export function apiToChatMessage(apiChatMessage: ApiChatMessage): ChatMessage {
 		createdAt: apiChatMessage.created_at,
 		updatedAt: apiChatMessage.updated_at,
 		threadId: apiChatMessage.thread_id ?? undefined,
-		user: apiToUserSimple(apiChatMessage.user)
+		user: apiToUserSimple(apiChatMessage.user),
 	};
 }
 
@@ -237,7 +237,7 @@ export type SendChatMessageParams = {
 };
 
 export function toApiCreateChatMessageParams(
-	params: SendChatMessageParams
+	params: SendChatMessageParams,
 ): ApiCreateChatMessageParams {
 	return {
 		branch_id: params.branchId,
@@ -249,7 +249,7 @@ export function toApiCreateChatMessageParams(
 		diff_path: params.diffPath,
 		diff_sha: params.diffSha,
 		range: params.range,
-		in_reply_to: params.inReplyTo
+		in_reply_to: params.inReplyTo,
 	};
 }
 
@@ -280,11 +280,11 @@ export type PatchChatMessageParams = {
 };
 
 export function toApiPatchChatMessageParams(
-	params: PatchChatMessageParams
+	params: PatchChatMessageParams,
 ): ApiPatchChatMessageParams {
 	return {
 		chat_uuid: params.messageUuid,
 		resolved: params.resolved,
-		reaction: params.reaction
+		reaction: params.reaction,
 	};
 }

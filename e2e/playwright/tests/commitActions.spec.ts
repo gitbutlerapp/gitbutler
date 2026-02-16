@@ -4,97 +4,97 @@ import {
 	updateCommitMessage,
 	verifyCommitDrawerContent,
 	verifyCommitMessageEditor,
-	verifyCommitPlaceholderPosition
-} from '../src/commit.ts';
-import { stageFirstFile, unstageAllFiles, writeFiles } from '../src/file.ts';
-import { getBaseURL, type GitButler, startGitButler } from '../src/setup.ts';
+	verifyCommitPlaceholderPosition,
+} from "../src/commit.ts";
+import { stageFirstFile, unstageAllFiles, writeFiles } from "../src/file.ts";
+import { getBaseURL, type GitButler, startGitButler } from "../src/setup.ts";
 import {
 	clickByTestId,
 	dragAndDropByLocator,
 	getByTestId,
 	waitForTestId,
-	waitForTestIdToNotExist
-} from '../src/util.ts';
-import { expect, Page, test } from '@playwright/test';
-import { copyFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+	waitForTestIdToNotExist,
+} from "../src/util.ts";
+import { expect, Page, test } from "@playwright/test";
+import { copyFileSync, writeFileSync } from "fs";
+import { join } from "path";
 
 let gitbutler: GitButler;
 
 test.use({
-	baseURL: getBaseURL()
+	baseURL: getBaseURL(),
 });
 
 test.afterEach(async () => {
 	await gitbutler.destroy();
 });
 
-const FIXTURE_IMAGE_PATH = join(import.meta.dirname, '../fixtures/lesh0.jpg');
+const FIXTURE_IMAGE_PATH = join(import.meta.dirname, "../fixtures/lesh0.jpg");
 
-test('should be able to amend a file to a commit', async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath('workdir');
-	const configdir = testInfo.outputPath('config');
+test("should be able to amend a file to a commit", async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context);
 
-	const filePath = gitbutler.pathInWorkdir('local-clone/b_file');
+	const filePath = gitbutler.pathInWorkdir("local-clone/b_file");
 
-	await gitbutler.runScript('project-with-remote-branches.sh');
-	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
 
-	await page.goto('/');
+	await page.goto("/");
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
+	await waitForTestId(page, "workspace-view");
 
 	// There should be only one stack
-	const stacks = getByTestId(page, 'stack');
+	const stacks = getByTestId(page, "stack");
 	await expect(stacks).toHaveCount(1);
 	const stack = stacks.first();
-	await expect(stack).toContainText('branch1');
+	await expect(stack).toContainText("branch1");
 
 	// The stack should have two commits
-	const commits = getByTestId(page, 'commit-row');
+	const commits = getByTestId(page, "commit-row");
 	await expect(commits).toHaveCount(2);
 
 	// Push the changes to the remote branch
 	// (it's basically a no-op, just makes sure that the same commits after rebasing are on the remote)
-	await clickByTestId(page, 'stack-push-button');
+	await clickByTestId(page, "stack-push-button");
 
 	// Add a new file
-	writeFileSync(filePath, 'Hello! this is file b\n', { flag: 'w' });
+	writeFileSync(filePath, "Hello! this is file b\n", { flag: "w" });
 
-	const fileLocator = getByTestId(page, 'file-list-item').filter({ hasText: 'b_file' });
-	const topCommitLocator = getByTestId(page, 'commit-row').filter({
-		hasText: 'branch1:  second commit'
+	const fileLocator = getByTestId(page, "file-list-item").filter({ hasText: "b_file" });
+	const topCommitLocator = getByTestId(page, "commit-row").filter({
+		hasText: "branch1:  second commit",
 	});
 
 	// Drag the new file onto the top commit, to amend it
 	await dragAndDropByLocator(page, fileLocator, topCommitLocator);
 
 	// Push the changes to the remote branch
-	await clickByTestId(page, 'stack-push-button');
+	await clickByTestId(page, "stack-push-button");
 
 	// The stack should have two commits
-	const commitsAfterAmend = getByTestId(page, 'commit-row');
+	const commitsAfterAmend = getByTestId(page, "commit-row");
 	await expect(commitsAfterAmend).toHaveCount(2);
 
-	const pushButton = getByTestId(page, 'stack-push-button');
+	const pushButton = getByTestId(page, "stack-push-button");
 	await expect(pushButton).toBeDisabled();
 });
 
-test('should be able to commit a bunch of times in a row and edit their message', async ({
+test("should be able to commit a bunch of times in a row and edit their message", async ({
 	page,
-	context
+	context,
 }, testInfo) => {
-	const workdir = testInfo.outputPath('workdir');
-	const configdir = testInfo.outputPath('config');
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context);
 
-	await gitbutler.runScript('project-with-remote-branches.sh');
-	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
 
 	// Create a couple of uncommitted files.
-	const fileNames = ['file1.txt', 'file2.txt', 'file3.txt', 'file4.txt', 'file5.txt', 'file6.txt'];
+	const fileNames = ["file1.txt", "file2.txt", "file3.txt", "file4.txt", "file5.txt", "file6.txt"];
 	const filesContent: Record<string, string> = {};
 	for (const fileName of fileNames) {
 		const filePath = gitbutler.pathInWorkdir(`local-clone/${fileName}`);
@@ -102,10 +102,10 @@ test('should be able to commit a bunch of times in a row and edit their message'
 	}
 	writeFiles(filesContent);
 
-	await page.goto('/');
+	await page.goto("/");
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
+	await waitForTestId(page, "workspace-view");
 
 	const TIMES = 3;
 	await commitMultipleTimes(TIMES, page);
@@ -114,33 +114,33 @@ test('should be able to commit a bunch of times in a row and edit their message'
 	await startCommittingAndCancel(page, TIMES);
 });
 
-test('should be able to commit a binary file', async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath('workdir');
-	const configdir = testInfo.outputPath('config');
+test("should be able to commit a binary file", async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context);
 
-	await gitbutler.runScript('project-with-remote-branches.sh');
-	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
 
 	// Copy the binary image file from fixtures to the working directory
-	const targetImagePath = gitbutler.pathInWorkdir('local-clone/lesh0.jpg');
+	const targetImagePath = gitbutler.pathInWorkdir("local-clone/lesh0.jpg");
 	copyFileSync(FIXTURE_IMAGE_PATH, targetImagePath);
 
-	await page.goto('/');
+	await page.goto("/");
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
+	await waitForTestId(page, "workspace-view");
 
 	// There should be only one stack
-	const stacks = getByTestId(page, 'stack');
+	const stacks = getByTestId(page, "stack");
 	await expect(stacks).toHaveCount(1);
 
 	// The binary file should appear in the uncommitted changes
-	const fileLocator = getByTestId(page, 'file-list-item').filter({ hasText: 'lesh0.jpg' });
+	const fileLocator = getByTestId(page, "file-list-item").filter({ hasText: "lesh0.jpg" });
 	await expect(fileLocator).toBeVisible();
 
 	// Start committing the binary file
-	await clickByTestId(page, 'start-commit-button');
+	await clickByTestId(page, "start-commit-button");
 
 	await verifyCommitPlaceholderPosition(page);
 	await unstageAllFiles(page);
@@ -150,58 +150,58 @@ test('should be able to commit a binary file', async ({ page, context }, testInf
 	await expect(imageFileCheckbox).toBeVisible();
 	await imageFileCheckbox.click();
 
-	const commitTitle = 'Add binary image file';
-	const commitMessage = 'Adding lesh0.jpg to the repository';
+	const commitTitle = "Add binary image file";
+	const commitMessage = "Adding lesh0.jpg to the repository";
 
 	// Fill the commit message
-	await verifyCommitMessageEditor(page, '', '');
+	await verifyCommitMessageEditor(page, "", "");
 	await updateCommitMessage(page, commitTitle, commitMessage);
 
 	// Submit the commit
-	await clickByTestId(page, 'commit-drawer-action-button');
+	await clickByTestId(page, "commit-drawer-action-button");
 
 	// Commit with title should be visible in the commit list
-	const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+	const commitRow = getByTestId(page, "commit-row").filter({ hasText: commitTitle });
 	await expect(commitRow).toBeVisible();
 
 	// Open the commit drawer to verify the binary file was committed
 	const commitDrawer = await openCommitDrawer(page, commitTitle);
 	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
 
-	const stackPreview = getByTestId(page, 'stack');
+	const stackPreview = getByTestId(page, "stack");
 	// Verify the binary file is listed in the commit
-	const committedFile = stackPreview.getByTestId('file-list-item').filter({ hasText: 'lesh0.jpg' });
+	const committedFile = stackPreview.getByTestId("file-list-item").filter({ hasText: "lesh0.jpg" });
 	await expect(committedFile).toBeVisible();
 });
 
-test('should be able to commit a git submodule', async ({ page, context }, testInfo) => {
-	const workdir = testInfo.outputPath('workdir');
-	const configdir = testInfo.outputPath('config');
+test("should be able to commit a git submodule", async ({ page, context }, testInfo) => {
+	const workdir = testInfo.outputPath("workdir");
+	const configdir = testInfo.outputPath("config");
 	gitbutler = await startGitButler(workdir, configdir, context);
 
-	await gitbutler.runScript('project-with-remote-branches.sh');
-	await gitbutler.runScript('apply-upstream-branch.sh', ['branch1', 'local-clone']);
+	await gitbutler.runScript("project-with-remote-branches.sh");
+	await gitbutler.runScript("apply-upstream-branch.sh", ["branch1", "local-clone"]);
 
-	await page.goto('/');
+	await page.goto("/");
 
 	// Should load the workspace
-	await waitForTestId(page, 'workspace-view');
+	await waitForTestId(page, "workspace-view");
 
 	// There should be only one stack
-	const stacks = getByTestId(page, 'stack');
+	const stacks = getByTestId(page, "stack");
 	await expect(stacks).toHaveCount(1);
 
 	// Add a git submodule to the working directory
-	await gitbutler.runScript('project-with-remote-branches__add-submodule.sh');
+	await gitbutler.runScript("project-with-remote-branches__add-submodule.sh");
 
 	// The submodule files should appear in the uncommitted changes
-	const gitmodulesFile = getByTestId(page, 'file-list-item').filter({ hasText: '.gitmodules' });
-	const submoduleDir = getByTestId(page, 'file-list-item').filter({ hasText: 'my-submodule' });
+	const gitmodulesFile = getByTestId(page, "file-list-item").filter({ hasText: ".gitmodules" });
+	const submoduleDir = getByTestId(page, "file-list-item").filter({ hasText: "my-submodule" });
 	await expect(gitmodulesFile).toBeVisible();
 	await expect(submoduleDir).toBeVisible();
 
 	// Start committing the submodule
-	await clickByTestId(page, 'start-commit-button');
+	await clickByTestId(page, "start-commit-button");
 
 	await verifyCommitPlaceholderPosition(page);
 	await unstageAllFiles(page);
@@ -215,35 +215,35 @@ test('should be able to commit a git submodule', async ({ page, context }, testI
 	await expect(submoduleCheckbox).toBeVisible();
 	await submoduleCheckbox.click();
 
-	const commitTitle = 'Add git submodule';
-	const commitMessage = 'Adding my-submodule to the repository';
+	const commitTitle = "Add git submodule";
+	const commitMessage = "Adding my-submodule to the repository";
 
 	// Fill the commit message
-	await verifyCommitMessageEditor(page, '', '');
+	await verifyCommitMessageEditor(page, "", "");
 	await updateCommitMessage(page, commitTitle, commitMessage);
 
 	// Submit the commit
-	await clickByTestId(page, 'commit-drawer-action-button');
+	await clickByTestId(page, "commit-drawer-action-button");
 
 	// Commit with title should be visible in the commit list
-	const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+	const commitRow = getByTestId(page, "commit-row").filter({ hasText: commitTitle });
 	await expect(commitRow).toBeVisible();
 
 	// Open the commit drawer to verify the submodule was committed
 	const commitDrawer = await openCommitDrawer(page, commitTitle);
 	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
 
-	const stackPreview = getByTestId(page, 'stack');
+	const stackPreview = getByTestId(page, "stack");
 	// Verify the .gitmodules file is listed in the commit
 	const committedGitmodules = stackPreview
-		.getByTestId('file-list-item')
-		.filter({ hasText: '.gitmodules' });
+		.getByTestId("file-list-item")
+		.filter({ hasText: ".gitmodules" });
 	await expect(committedGitmodules).toBeVisible();
 
 	// Verify the submodule directory is listed in the commit
 	const committedSubmodule = stackPreview
-		.getByTestId('file-list-item')
-		.filter({ hasText: 'my-submodule' });
+		.getByTestId("file-list-item")
+		.filter({ hasText: "my-submodule" });
 	await expect(committedSubmodule).toBeVisible();
 });
 
@@ -255,7 +255,7 @@ test('should be able to commit a git submodule', async ({ page, context }, testI
 async function commitMultipleTimes(TIMES: number, page: Page) {
 	for (let i = 0; i < TIMES; i++) {
 		// Start committing the files one by one
-		await clickByTestId(page, 'start-commit-button');
+		await clickByTestId(page, "start-commit-button");
 
 		await verifyCommitPlaceholderPosition(page);
 		await unstageAllFiles(page);
@@ -265,21 +265,21 @@ async function commitMultipleTimes(TIMES: number, page: Page) {
 		const commitMessage = getCommitDescription(i);
 
 		// Fill the commit message
-		await verifyCommitMessageEditor(page, '', '');
+		await verifyCommitMessageEditor(page, "", "");
 		await updateCommitMessage(page, commitTitle, commitMessage);
 
 		// Submit the commit
-		await clickByTestId(page, 'commit-drawer-action-button');
+		await clickByTestId(page, "commit-drawer-action-button");
 
 		// Commit with title should be visible in the commit list
-		const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+		const commitRow = getByTestId(page, "commit-row").filter({ hasText: commitTitle });
 		await expect(commitRow).toBeVisible();
 	}
 }
 
 async function startCommittingAndCancel(page: Page, index: number) {
 	// Start committing the files one by one
-	await clickByTestId(page, 'start-commit-button');
+	await clickByTestId(page, "start-commit-button");
 
 	await verifyCommitPlaceholderPosition(page);
 	await unstageAllFiles(page);
@@ -289,14 +289,14 @@ async function startCommittingAndCancel(page: Page, index: number) {
 	const commitMessage = getCommitDescription(index);
 
 	// Fill the commit message
-	await verifyCommitMessageEditor(page, '', '');
+	await verifyCommitMessageEditor(page, "", "");
 	await updateCommitMessage(page, commitTitle, commitMessage);
 
 	// Cancel the commit
-	await clickByTestId(page, 'commit-drawer-cancel-button');
+	await clickByTestId(page, "commit-drawer-cancel-button");
 
 	// Commit with title should be visible in the commit list
-	const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+	const commitRow = getByTestId(page, "commit-row").filter({ hasText: commitTitle });
 	await expect(commitRow).toHaveCount(0);
 }
 
@@ -320,10 +320,10 @@ async function amendCommitMessageMultipleTimes(TIMES: number, page: Page) {
 
 		// Update and submit the changes
 		await updateCommitMessage(page, newCommitTitle, newCommitMessage);
-		await clickByTestId(page, 'commit-drawer-action-button');
+		await clickByTestId(page, "commit-drawer-action-button");
 
 		// Verify the changes were applied
-		await waitForTestIdToNotExist(page, 'edit-commit-message-box');
+		await waitForTestIdToNotExist(page, "edit-commit-message-box");
 		await verifyCommitDrawerContent(commitDrawer, newCommitTitle, newCommitMessage);
 	}
 }
@@ -344,10 +344,10 @@ async function startAmendingACommitMessageAndCancel(page: Page, commitIndex: num
 
 	// Update and cancel the changes
 	await updateCommitMessage(page, newCommitTitle, newCommitMessage);
-	await clickByTestId(page, 'commit-drawer-cancel-button');
+	await clickByTestId(page, "commit-drawer-cancel-button");
 
 	// Verify the changes were NOT applied (original values remain)
-	await waitForTestIdToNotExist(page, 'edit-commit-message-box');
+	await waitForTestIdToNotExist(page, "edit-commit-message-box");
 	await verifyCommitDrawerContent(commitDrawer, commitTitle, commitMessage);
 }
 

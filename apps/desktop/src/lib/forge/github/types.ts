@@ -1,23 +1,23 @@
-import { parseRemoteUrl } from '$lib/url/gitUrl';
-import type { GhResponse } from '$lib/forge/github/ghQuery';
+import { parseRemoteUrl } from "$lib/url/gitUrl";
+import type { GhResponse } from "$lib/forge/github/ghQuery";
 import type {
 	DetailedPullRequest,
 	Label,
 	PullRequest,
-	PullRequestPermissions
-} from '$lib/forge/interface/types';
-import type { RestEndpointMethodTypes } from '@octokit/rest';
+	PullRequestPermissions,
+} from "$lib/forge/interface/types";
+import type { RestEndpointMethodTypes } from "@octokit/rest";
 
-export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
-export type CreatePrResult = RestEndpointMethodTypes['pulls']['create']['response']['data'];
-export type CreateIssueResult = RestEndpointMethodTypes['issues']['create']['response']['data'];
+export type DetailedGitHubPullRequest = RestEndpointMethodTypes["pulls"]["get"]["response"]["data"];
+export type CreatePrResult = RestEndpointMethodTypes["pulls"]["create"]["response"]["data"];
+export type CreateIssueResult = RestEndpointMethodTypes["issues"]["create"]["response"]["data"];
 
 export type PullRequestListItem =
 	| CreatePrResult
-	| RestEndpointMethodTypes['pulls']['list']['response']['data'][number];
+	| RestEndpointMethodTypes["pulls"]["list"]["response"]["data"][number];
 
-export type ChecksResult = RestEndpointMethodTypes['checks']['listForRef']['response']['data'];
-export type RepoResult = RestEndpointMethodTypes['repos']['get']['response']['data'];
+export type ChecksResult = RestEndpointMethodTypes["checks"]["listForRef"]["response"]["data"];
+export type RepoResult = RestEndpointMethodTypes["repos"]["get"]["response"]["data"];
 
 export interface GitHubRepoPermissions {
 	admin: boolean;
@@ -32,7 +32,7 @@ export type DetailedGitHubPullRequestWithPermissions = DetailedGitHubPullRequest
 };
 
 export function parseGitHubDetailedPullRequest(
-	response: GhResponse<DetailedGitHubPullRequestWithPermissions>
+	response: GhResponse<DetailedGitHubPullRequestWithPermissions>,
 ): GhResponse<DetailedPullRequest> {
 	if (response.error) {
 		return response;
@@ -42,7 +42,7 @@ export function parseGitHubDetailedPullRequest(
 	const reviewers =
 		data.requested_reviewers?.map((reviewer) => ({
 			srcUrl: reviewer.avatar_url,
-			username: reviewer.name || reviewer.login
+			username: reviewer.name || reviewer.login,
 		})) || [];
 
 	const permissions: PullRequestPermissions | undefined = data.permissions
@@ -57,8 +57,8 @@ export function parseGitHubDetailedPullRequest(
 				? {
 						name: data.user.login || undefined,
 						email: data.user.email || undefined,
-						isBot: data.user.type.toLowerCase() === 'bot',
-						gravatarUrl: data.user.avatar_url
+						isBot: data.user.type.toLowerCase() === "bot",
+						gravatarUrl: data.user.avatar_url,
 					}
 				: null,
 			title: data.title,
@@ -83,8 +83,8 @@ export function parseGitHubDetailedPullRequest(
 			commentsCount: data.comments,
 			permissions,
 			repositorySshUrl: data.head?.repo?.ssh_url,
-			repositoryHttpsUrl: data.head?.repo?.clone_url
-		}
+			repositoryHttpsUrl: data.head?.repo?.clone_url,
+		},
 	};
 }
 
@@ -92,14 +92,14 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 	const labels: Label[] = pr.labels?.map((label) => ({
 		name: label.name,
 		description: label.description || undefined,
-		color: label.color
+		color: label.color,
 	}));
 
 	const reviewers =
 		pr.requested_reviewers?.map((reviewer) => ({
 			id: reviewer.id,
 			srcUrl: reviewer.avatar_url,
-			name: reviewer.name || reviewer.login
+			name: reviewer.name || reviewer.login,
 		})) || [];
 
 	return {
@@ -112,8 +112,8 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 					id: pr.user.id,
 					name: pr.user.login || undefined,
 					email: pr.user.email || undefined,
-					isBot: pr.user.type.toLowerCase() === 'bot',
-					gravatarUrl: pr.user.avatar_url
+					isBot: pr.user.type.toLowerCase() === "bot",
+					gravatarUrl: pr.user.avatar_url,
 				}
 			: null,
 		labels: labels,
@@ -128,6 +128,6 @@ export function ghResponseToInstance(pr: PullRequestListItem): PullRequest {
 		repoOwner: pr.head?.repo?.owner.login,
 		repositorySshUrl: pr.head?.repo?.ssh_url,
 		repositoryHttpsUrl: pr.head?.repo?.clone_url,
-		reviewers
+		reviewers,
 	};
 }

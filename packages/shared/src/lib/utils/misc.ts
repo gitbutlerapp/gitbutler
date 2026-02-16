@@ -1,6 +1,6 @@
 export function throttle<T extends (...args: any[]) => any>(
 	func: T,
-	limit: number
+	limit: number,
 ): (...args: Parameters<T>) => void {
 	let inThrottle: boolean = false;
 
@@ -17,7 +17,7 @@ export function throttle<T extends (...args: any[]) => any>(
 
 export function throttlePromise<T extends (...args: any[]) => Promise<any>>(
 	func: T,
-	limit: number
+	limit: number,
 ): (...args: Parameters<T>) => Promise<void> {
 	let inThrottle: boolean = false;
 
@@ -34,7 +34,7 @@ export function throttlePromise<T extends (...args: any[]) => Promise<any>>(
 
 export function debouncePromise<T extends (...args: any[]) => Promise<any>>(
 	fn: T,
-	delay: number
+	delay: number,
 ): (...args: Parameters<T>) => Promise<void> {
 	let timeout: ReturnType<typeof setTimeout> | undefined;
 

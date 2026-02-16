@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Link, TestId, Toggle } from '@gitbutler/ui';
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Link, TestId, Toggle } from "@gitbutler/ui";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = $derived(settingsService.appSettings);
@@ -42,7 +42,7 @@
 				checked={errorReportingEnabled}
 				onclick={() =>
 					settingsService.updateTelemetry({
-						appErrorReportingEnabled: !errorReportingEnabled
+						appErrorReportingEnabled: !errorReportingEnabled,
 					})}
 			/>
 		{/snippet}
@@ -62,7 +62,7 @@
 				checked={metricsEnabled}
 				onclick={() =>
 					settingsService.updateTelemetry({
-						appMetricsEnabled: !metricsEnabled
+						appMetricsEnabled: !metricsEnabled,
 					})}
 			/>
 		{/snippet}
@@ -82,7 +82,7 @@
 				checked={nonAnonMetricsEnabled}
 				onclick={() =>
 					settingsService.updateTelemetry({
-						appNonAnonMetricsEnabled: !nonAnonMetricsEnabled
+						appNonAnonMetricsEnabled: !nonAnonMetricsEnabled,
 					})}
 			/>
 		{/snippet}

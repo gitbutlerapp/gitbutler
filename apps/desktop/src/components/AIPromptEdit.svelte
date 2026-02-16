@@ -1,13 +1,13 @@
 <script lang="ts">
-	import Content from '$components/Content.svelte';
-	import { PROMPT_SERVICE } from '$lib/ai/promptService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button } from '@gitbutler/ui';
-	import { get } from 'svelte/store';
-	import type { Prompts, UserPrompt } from '$lib/ai/types';
+	import Content from "$components/Content.svelte";
+	import { PROMPT_SERVICE } from "$lib/ai/promptService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button } from "@gitbutler/ui";
+	import { get } from "svelte/store";
+	import type { Prompts, UserPrompt } from "$lib/ai/types";
 
 	interface Props {
-		promptUse: 'commits' | 'branches';
+		promptUse: "commits" | "branches";
 	}
 
 	const { promptUse }: Props = $props();
@@ -16,7 +16,7 @@
 
 	let prompts = $state<Prompts>();
 
-	if (promptUse === 'commits') {
+	if (promptUse === "commits") {
 		prompts = promptService.commitPrompts;
 	} else {
 		prompts = promptService.branchPrompts;
@@ -27,7 +27,7 @@
 	function createNewPrompt() {
 		prompts?.userPrompts.set([
 			...get(prompts.userPrompts),
-			promptService.createDefaultUserPrompt(promptUse)
+			promptService.createDefaultUserPrompt(promptUse),
 		]);
 	}
 
@@ -42,7 +42,7 @@
 {#if prompts && $userPrompts}
 	<div class="prompt-item__title">
 		<h3 class="text-15 text-bold">
-			{promptUse === 'commits' ? 'Commit message' : 'Branch name'}
+			{promptUse === "commits" ? "Commit message" : "Branch name"}
 		</h3>
 		<Button kind="outline" icon="plus-small" onclick={createNewPrompt}>New prompt</Button>
 	</div>
@@ -51,8 +51,8 @@
 			displayMode="readOnly"
 			prompt={{
 				prompt: prompts.defaultPrompt,
-				name: 'Default prompt',
-				id: 'default'
+				name: "Default prompt",
+				id: "default",
 			}}
 		/>
 

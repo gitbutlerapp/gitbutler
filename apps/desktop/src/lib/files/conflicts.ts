@@ -1,5 +1,5 @@
-import 'reflect-metadata';
-import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
+import "reflect-metadata";
+import { emptyConflictEntryPresence, type ConflictEntryPresence } from "$lib/conflictEntryPresence";
 
 export class ConflictEntries {
 	public entries: Map<string, ConflictEntryPresence> = new Map();
@@ -23,7 +23,7 @@ export class ConflictEntries {
 
 	toObj(): ConflictEntriesObj {
 		return {
-			entries: Object.fromEntries(this.entries.entries())
+			entries: Object.fromEntries(this.entries.entries()),
 		};
 	}
 }

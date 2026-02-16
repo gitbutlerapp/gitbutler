@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { copyToClipboard } from '$lib/utils/clipboard';
+	import Icon from "$components/Icon.svelte";
+	import { copyToClipboard } from "$lib/utils/clipboard";
 
 	interface Props {
 		label?: string;
@@ -9,7 +9,7 @@
 		maxHeight?: string;
 	}
 
-	let { label, content, marginBottom, maxHeight = '20lh' }: Props = $props();
+	let { label, content, marginBottom, maxHeight = "20lh" }: Props = $props();
 	let copied = $state(false);
 
 	function handleCopy() {
@@ -23,7 +23,7 @@
 
 <div class="codeblock-wrapper" style="margin-bottom: {marginBottom}">
 	<button type="button" class="codeblock__copy-btn" onclick={handleCopy}>
-		<Icon name={copied ? 'tick' : 'copy-small'} />
+		<Icon name={copied ? "tick" : "copy-small"} />
 	</button>
 
 	<div class="codeblock scrollbar" style="max-height: {maxHeight}">

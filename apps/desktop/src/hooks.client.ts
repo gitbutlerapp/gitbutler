@@ -1,25 +1,25 @@
-import { logErrorToFile } from '$lib/backend';
-import { SilentError } from '$lib/error/error';
-import { parseError } from '$lib/error/parser';
-import { showError } from '$lib/notifications/toasts';
-import { polyfillAbortSignalTimeout } from '$lib/polyfills/abortSignal';
-import { captureException } from '@sentry/sveltekit';
-import type { HandleClientError } from '@sveltejs/kit';
+import { logErrorToFile } from "$lib/backend";
+import { SilentError } from "$lib/error/error";
+import { parseError } from "$lib/error/parser";
+import { showError } from "$lib/notifications/toasts";
+import { polyfillAbortSignalTimeout } from "$lib/polyfills/abortSignal";
+import { captureException } from "@sentry/sveltekit";
+import type { HandleClientError } from "@sveltejs/kit";
 
 // Apply polyfills before any code runs
 polyfillAbortSignalTimeout();
 
 const E2E_MESSAGES_TO_IGNORE_DURING_E2E = [
-	'Unable to autolaunch a dbus-daemon without a $DISPLAY for X11'
+	"Unable to autolaunch a dbus-daemon without a $DISPLAY for X11",
 ];
 const E2E_MESSAGES_TO_IGNORE = [
 	// We can safely ignore this error. This is caused by tauri falling back from the custom protocol to http protocol.
-	"undefined is not an object (evaluating '[callbackId, data]')"
+	"undefined is not an object (evaluating '[callbackId, data]')",
 ];
 
 function shouldIgnoreError(error: unknown): boolean {
 	const { message } = parseError(error);
-	if (import.meta.env.VITE_E2E === 'true') {
+	if (import.meta.env.VITE_E2E === "true") {
 		return E2E_MESSAGES_TO_IGNORE_DURING_E2E.some((entry) => message.includes(entry));
 	}
 
@@ -29,7 +29,7 @@ function shouldIgnoreError(error: unknown): boolean {
 // SvelteKit error handler.
 export function handleError({
 	error,
-	status
+	status,
 }: {
 	error: unknown;
 	status: number;
@@ -38,7 +38,7 @@ export function handleError({
 		logError(error);
 	}
 	return {
-		message: String(error)
+		message: String(error),
 	};
 }
 
@@ -47,11 +47,11 @@ function loggableError(error: unknown): string {
 		return error.message;
 	}
 
-	if (typeof error === 'string') {
+	if (typeof error === "string") {
 		return error;
 	}
-	if (typeof error === 'object' && error !== null) {
-		if ('message' in error && typeof error.message === 'string') {
+	if (typeof error === "object" && error !== null) {
+		if ("message" in error && typeof error.message === "string") {
 			return error.message;
 		}
 		return JSON.stringify(error);
@@ -73,9 +73,9 @@ function logError(error: unknown) {
 	try {
 		captureException(error, {
 			mechanism: {
-				type: 'sveltekit',
-				handled: false
-			}
+				type: "sveltekit",
+				handled: false,
+			},
 		});
 
 		// Unwrap error if it's an unhandled promise rejection.
@@ -84,7 +84,7 @@ function logError(error: unknown) {
 		}
 
 		if (!(error instanceof SilentError)) {
-			showError('Unhandled exception', error);
+			showError("Unhandled exception", error);
 		}
 
 		const logMessage = loggableError(error);
@@ -92,6 +92,6 @@ function logError(error: unknown) {
 
 		console.error(error);
 	} catch (err: unknown) {
-		console.error('Error while trying to log error.', err);
+		console.error("Error while trying to log error.", err);
 	}
 }

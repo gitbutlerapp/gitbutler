@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import EditMode from '$components/EditMode.svelte';
-	import { MODE_SERVICE, type EditModeMetadata } from '$lib/mode/modeService';
-	import { inject } from '@gitbutler/core/context';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
+	import EditMode from "$components/EditMode.svelte";
+	import { MODE_SERVICE, type EditModeMetadata } from "$lib/mode/modeService";
+	import { inject } from "@gitbutler/core/context";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 
 	// TODO: Refactor so we don't need non-null assertion.
 	const projectId = $derived(page.params.projectId!);
@@ -16,7 +16,7 @@
 	$effect(() => {
 		if (!isDefined(mode.response)) return;
 
-		if (mode.response.type === 'Edit') {
+		if (mode.response.type === "Edit") {
 			editModeMetadata = mode.response.subject;
 		} else {
 			goto(`/${projectId}`);

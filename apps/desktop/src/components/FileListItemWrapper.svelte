@@ -1,24 +1,24 @@
 <script lang="ts">
-	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
-	import { conflictEntryHint } from '$lib/conflictEntryPresence';
-	import { targetEqual, type HunkLockTarget } from '$lib/dependencies/dependencies';
-	import { draggableChips } from '$lib/dragging/draggable';
-	import { FileChangeDropData } from '$lib/dragging/draggables';
-	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-	import { getFilename } from '$lib/files/utils';
-	import { type TreeChange } from '$lib/hunks/change';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { key, type SelectionId } from '$lib/selection/key';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { getStackName } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { inject } from '@gitbutler/core/context';
-	import { FileListItem, TestId } from '@gitbutler/ui';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { type FocusableOptions } from '@gitbutler/ui/focus/focusManager';
-	import type { ConflictEntriesObj } from '$lib/files/conflicts';
+	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
+	import { conflictEntryHint } from "$lib/conflictEntryPresence";
+	import { targetEqual, type HunkLockTarget } from "$lib/dependencies/dependencies";
+	import { draggableChips } from "$lib/dragging/draggable";
+	import { FileChangeDropData } from "$lib/dragging/draggables";
+	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { getFilename } from "$lib/files/utils";
+	import { type TreeChange } from "$lib/hunks/change";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { key, type SelectionId } from "$lib/selection/key";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { getStackName } from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { computeChangeStatus } from "$lib/utils/fileStatus";
+	import { inject } from "@gitbutler/core/context";
+	import { FileListItem, TestId } from "@gitbutler/ui";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { type FocusableOptions } from "@gitbutler/ui/focus/focusManager";
+	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 
 	interface Props {
 		projectId: string;
@@ -26,7 +26,7 @@
 		change: TreeChange;
 		selectionId: SelectionId;
 		selected?: boolean;
-		listMode: 'list' | 'tree';
+		listMode: "list" | "tree";
 		depth?: number;
 		executable?: boolean;
 		focusableOpts?: FocusableOptions;
@@ -61,7 +61,7 @@
 		lockedTargets = [],
 		isLast = false,
 		onclick,
-		onkeydown
+		onkeydown,
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -75,9 +75,9 @@
 	let draggableEl: HTMLDivElement | undefined = $state();
 
 	const previousTooltipText = $derived(
-		change.status.type === 'Rename' && change.status.subject.previousPath
+		change.status.type === "Rename" && change.status.subject.previousPath
 			? `${change.status.subject.previousPath} →\n${change.path}`
-			: undefined
+			: undefined,
 	);
 
 	function onCheck(checked: boolean) {
@@ -89,7 +89,7 @@
 	}
 
 	const checkStatus = $derived(
-		uncommittedService.fileCheckStatus(stackId || undefined, change.path)
+		uncommittedService.fileCheckStatus(stackId || undefined, change.path),
 	);
 
 	async function onContextMenu(e: MouseEvent) {
@@ -112,16 +112,16 @@
 			.filter(
 				(stack) =>
 					stack.id &&
-					lockedTargets.some((t) => targetEqual(t, { type: 'stack', subject: stack.id! }))
+					lockedTargets.some((t) => targetEqual(t, { type: "stack", subject: stack.id! })),
 			)
 			.map(getStackName);
 
 		if (stackNames.length === 0) {
-			return 'Depends on changes in an unidentified stack';
+			return "Depends on changes in an unidentified stack";
 		} else if (stackNames.length === 1) {
 			return `Depends on changes in:\n '${stackNames[0]}'`;
 		} else {
-			return `Depends on changes in:\n ${stackNames.join(', ')}`;
+			return `Depends on changes in:\n ${stackNames.join(", ")}`;
 		}
 	});
 
@@ -129,15 +129,15 @@
 		lockedCommitIds.forEach((commitId) => {
 			const commitRows = document.querySelectorAll(`[data-commit-id="${commitId}"]`);
 			commitRows.forEach((row) => {
-				row.classList.add('dependency-highlighted');
+				row.classList.add("dependency-highlighted");
 			});
 		});
 	}
 
 	function handleLockUnhover() {
-		const highlighted = document.querySelectorAll('.dependency-highlighted');
+		const highlighted = document.querySelectorAll(".dependency-highlighted");
 		highlighted.forEach((row) => {
-			row.classList.remove('dependency-highlighted');
+			row.classList.remove("dependency-highlighted");
 		});
 	}
 </script>
@@ -152,9 +152,9 @@
 		filePath: change.path,
 		data: new FileChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
 		disabled: draggableDisabled,
-		chipType: 'file',
+		chipType: "file",
 		dropzoneRegistry,
-		dragStateService
+		dragStateService,
 	}}
 >
 	<ChangedFilesContextMenu
@@ -173,9 +173,9 @@
 		fileStatusTooltip={previousTooltipText}
 		pathFirst={$userSettings.pathFirst}
 		{listMode}
-		checked={checkStatus.current === 'checked' || checkStatus.current === 'indeterminate'}
+		checked={checkStatus.current === "checked" || checkStatus.current === "indeterminate"}
 		{active}
-		indeterminate={checkStatus.current === 'indeterminate'}
+		indeterminate={checkStatus.current === "indeterminate"}
 		{depth}
 		{executable}
 		draggable={!draggableDisabled}

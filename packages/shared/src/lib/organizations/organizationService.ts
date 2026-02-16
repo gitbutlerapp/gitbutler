@@ -1,9 +1,9 @@
-import { apiToBranch } from '$lib/branches/types';
-import { InterestStore, type Interest } from '$lib/interest/interestStore';
-import { type HttpClient } from '$lib/network/httpClient';
-import { errorToLoadable } from '$lib/network/loadable';
-import { organizationTable } from '$lib/organizations/organizationsSlice';
-import { projectTable } from '$lib/organizations/projectsSlice';
+import { apiToBranch } from "$lib/branches/types";
+import { InterestStore, type Interest } from "$lib/interest/interestStore";
+import { type HttpClient } from "$lib/network/httpClient";
+import { errorToLoadable } from "$lib/network/loadable";
+import { organizationTable } from "$lib/organizations/organizationsSlice";
+import { projectTable } from "$lib/organizations/projectsSlice";
 import {
 	apiToOrganization,
 	apiToProject,
@@ -11,20 +11,20 @@ import {
 	type ApiOrganizationWithDetails,
 	type LoadableOrganization,
 	type LoadableProject,
-	type Organization
-} from '$lib/organizations/types';
-import { POLLING_REGULAR, POLLING_SLOW } from '$lib/polling';
-import { InjectionToken } from '@gitbutler/core/context';
-import { writable, type Writable } from 'svelte/store';
-import type { ApiBranch, Branch } from '$lib/branches/types';
-import type { Loadable } from '$lib/network/types';
-import type { AppDispatch } from '$lib/redux/store.svelte';
+	type Organization,
+} from "$lib/organizations/types";
+import { POLLING_REGULAR, POLLING_SLOW } from "$lib/polling";
+import { InjectionToken } from "@gitbutler/core/context";
+import { writable, type Writable } from "svelte/store";
+import type { ApiBranch, Branch } from "$lib/branches/types";
+import type { Loadable } from "$lib/network/types";
+import type { AppDispatch } from "$lib/redux/store.svelte";
 
 // Define the LoadablePatchStacks type
 export type LoadablePatchStacks = Loadable<Branch[]> & { ownerSlug: string };
 
 export const ORGANIZATION_SERVICE: InjectionToken<OrganizationService> = new InjectionToken(
-	'OrganizationService'
+	"OrganizationService",
 );
 
 export class OrganizationService {
@@ -35,17 +35,17 @@ export class OrganizationService {
 
 	constructor(
 		private readonly httpClient: HttpClient,
-		private readonly appDispatch: AppDispatch
+		private readonly appDispatch: AppDispatch,
 	) {}
 
 	getOrganizationListingInterest(): Interest {
 		return this.organizationListingInterests
 			.findOrCreateSubscribable(undefined, async () => {
-				const apiOrganizations = await this.httpClient.get<ApiOrganization[]>('organization');
+				const apiOrganizations = await this.httpClient.get<ApiOrganization[]>("organization");
 				const organizations = apiOrganizations.map<LoadableOrganization>((apiOrganizations) => ({
-					status: 'found',
+					status: "found",
 					id: apiOrganizations.slug,
-					value: apiToOrganization(apiOrganizations)
+					value: apiToOrganization(apiOrganizations),
 				}));
 
 				this.appDispatch.dispatch(organizationTable.upsertMany(organizations));
@@ -56,26 +56,26 @@ export class OrganizationService {
 	getOrganizationWithDetailsInterest(slug: string): Interest {
 		return this.orgnaizationInterests
 			.findOrCreateSubscribable({ slug }, async () => {
-				this.appDispatch.dispatch(organizationTable.addOne({ status: 'loading', id: slug }));
+				this.appDispatch.dispatch(organizationTable.addOne({ status: "loading", id: slug }));
 
 				try {
 					const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
-						`organization/${slug}`
+						`organization/${slug}`,
 					);
 
 					const projects = apiOrganization.projects.map<LoadableProject>((apiProject) => ({
-						status: 'found',
+						status: "found",
 						id: apiProject.repository_id,
-						value: apiToProject(apiProject)
+						value: apiToProject(apiProject),
 					}));
 					this.appDispatch.dispatch(projectTable.upsertMany(projects));
 
 					this.appDispatch.dispatch(
 						organizationTable.upsertOne({
-							status: 'found',
+							status: "found",
 							id: slug,
-							value: apiToOrganization(apiOrganization)
-						})
+							value: apiToOrganization(apiOrganization),
+						}),
 					);
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(organizationTable.addOne(errorToLoadable(error, slug)));
@@ -87,18 +87,18 @@ export class OrganizationService {
 	async createOrganization(
 		slug: string,
 		name?: string,
-		description?: string
+		description?: string,
 	): Promise<Organization> {
-		const apiOrganization = await this.httpClient.post<ApiOrganizationWithDetails>('organization', {
+		const apiOrganization = await this.httpClient.post<ApiOrganizationWithDetails>("organization", {
 			body: {
 				slug,
 				name,
-				description
-			}
+				description,
+			},
 		});
 		const organization = apiToOrganization(apiOrganization);
 		this.appDispatch.dispatch(
-			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+			organizationTable.upsertOne({ status: "found", id: slug, value: organization }),
 		);
 
 		return organization;
@@ -108,13 +108,13 @@ export class OrganizationService {
 		const apiOrganization = await this.httpClient.post<ApiOrganizationWithDetails>(
 			`organization/${slug}/join`,
 			{
-				body: { invite_code: joinCode }
-			}
+				body: { invite_code: joinCode },
+			},
 		);
 
 		const organization = apiToOrganization(apiOrganization);
 		this.appDispatch.dispatch(
-			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+			organizationTable.upsertOne({ status: "found", id: slug, value: organization }),
 		);
 
 		return organization;
@@ -128,23 +128,23 @@ export class OrganizationService {
 	getPatchStacks(ownerSlug: string): Writable<LoadablePatchStacks> {
 		if (!this.patchStackCache.has(ownerSlug)) {
 			// Create a new store for this organization's patch stacks
-			const store = writable<LoadablePatchStacks>({ status: 'loading', ownerSlug }, (set) => {
+			const store = writable<LoadablePatchStacks>({ status: "loading", ownerSlug }, (set) => {
 				// Fetch data when the store is first subscribed to
 				this.fetchPatchStacks(ownerSlug)
 					.then((data) => {
-						set({ status: 'found', ownerSlug, value: data } as LoadablePatchStacks);
+						set({ status: "found", ownerSlug, value: data } as LoadablePatchStacks);
 					})
 					.catch((error) => {
 						if (error.response?.status === 404) {
 							set({
-								status: 'not-found',
-								ownerSlug
+								status: "not-found",
+								ownerSlug,
 							} as LoadablePatchStacks);
 						} else {
 							set({
-								status: 'error',
+								status: "error",
 								ownerSlug,
-								error: error.message || 'Unknown error occurred'
+								error: error.message || "Unknown error occurred",
 							} as LoadablePatchStacks);
 						}
 					});
@@ -201,12 +201,12 @@ export class OrganizationService {
 	async removeUser(slug: string, login: string): Promise<Organization> {
 		const apiOrganization = await this.httpClient.post<ApiOrganizationWithDetails>(
 			`organization/${slug}/remove?login=${login}`,
-			{}
+			{},
 		);
 
 		const organization = apiToOrganization(apiOrganization);
 		this.appDispatch.dispatch(
-			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+			organizationTable.upsertOne({ status: "found", id: slug, value: organization }),
 		);
 
 		return organization;
@@ -215,12 +215,12 @@ export class OrganizationService {
 	async resetInviteCode(slug: string): Promise<Organization> {
 		const apiOrganization = await this.httpClient.post<ApiOrganizationWithDetails>(
 			`organization/${slug}/reset_invite_code`,
-			{}
+			{},
 		);
 
 		const organization = apiToOrganization(apiOrganization);
 		this.appDispatch.dispatch(
-			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+			organizationTable.upsertOne({ status: "found", id: slug, value: organization }),
 		);
 
 		return organization;
@@ -229,12 +229,12 @@ export class OrganizationService {
 	async changeUserRole(slug: string, login: string, role: string): Promise<Organization> {
 		const apiOrganization = await this.httpClient.put<ApiOrganizationWithDetails>(
 			`organization/${slug}/${login}?role=${role}`,
-			{}
+			{},
 		);
 
 		const organization = apiToOrganization(apiOrganization);
 		this.appDispatch.dispatch(
-			organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+			organizationTable.upsertOne({ status: "found", id: slug, value: organization }),
 		);
 
 		return organization;
@@ -243,7 +243,7 @@ export class OrganizationService {
 	async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
 		try {
 			const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
-				`organization/${slug}`
+				`organization/${slug}`,
 			);
 
 			// Convert API format to application format
@@ -251,7 +251,7 @@ export class OrganizationService {
 
 			// Update the organization in the store
 			this.appDispatch.dispatch(
-				organizationTable.upsertOne({ status: 'found', id: slug, value: organization })
+				organizationTable.upsertOne({ status: "found", id: slug, value: organization }),
 			);
 
 			return organization;
@@ -267,7 +267,7 @@ export class OrganizationService {
 
 	async updateOrganization(
 		slug: string,
-		params: { name?: string; new_slug?: string; description?: string }
+		params: { name?: string; new_slug?: string; description?: string },
 	): Promise<Organization> {
 		const apiOrganization = await this.httpClient.put<ApiOrganizationWithDetails>(
 			`organization/${slug}`,
@@ -275,9 +275,9 @@ export class OrganizationService {
 				body: {
 					name: params.name,
 					new_slug: params.new_slug,
-					description: params.description
-				}
-			}
+					description: params.description,
+				},
+			},
 		);
 
 		// Convert API format to application format
@@ -288,7 +288,7 @@ export class OrganizationService {
 
 		// Update the organization in the store
 		this.appDispatch.dispatch(
-			organizationTable.upsertOne({ status: 'found', id: newSlug, value: organization })
+			organizationTable.upsertOne({ status: "found", id: newSlug, value: organization }),
 		);
 
 		// If slug was changed, remove the old entry

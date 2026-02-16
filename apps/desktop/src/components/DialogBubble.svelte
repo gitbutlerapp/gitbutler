@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { MessageRole } from '$lib/ai/types';
-	import { Button, Icon, Textarea, Markdown } from '@gitbutler/ui';
+	import { MessageRole } from "$lib/ai/types";
+	import { Button, Icon, Textarea, Markdown } from "@gitbutler/ui";
 
 	interface Props {
 		role: MessageRole;
@@ -23,7 +23,7 @@
 		promptMessage = $bindable(),
 		onRemoveLastExample,
 		onAddExample,
-		onInput
+		onInput,
 	}: Props = $props();
 </script>
 

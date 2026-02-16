@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Modal, TestId } from '@gitbutler/ui';
+	import { Button, Modal, TestId } from "@gitbutler/ui";
 
 	interface Props {
 		projectTitle?: string;
@@ -10,11 +10,11 @@
 	}
 
 	const {
-		projectTitle = '#',
+		projectTitle = "#",
 		isDeleting,
 		noModal,
 		outlineStyle,
-		onDeleteClicked
+		onDeleteClicked,
 	}: Props = $props();
 
 	export function show() {
@@ -38,7 +38,7 @@
 <Button
 	testId={TestId.ProjectDeleteButton}
 	style="danger"
-	kind={outlineStyle ? 'outline' : 'solid'}
+	kind={outlineStyle ? "outline" : "solid"}
 	icon="bin-small"
 	reversedDirection
 	onclick={handleClick}

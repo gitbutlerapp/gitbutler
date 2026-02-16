@@ -1,8 +1,8 @@
-import { memoize } from '$lib/memoization';
-import { describe, it, expect, vi } from 'vitest';
+import { memoize } from "$lib/memoization";
+import { describe, it, expect, vi } from "vitest";
 
-describe('memoize', () => {
-	it('should return the same result for the same arguments', () => {
+describe("memoize", () => {
+	it("should return the same result for the same arguments", () => {
 		const fn = vi.fn((a: number, b: number) => a + b);
 		const memoized = memoize(fn);
 
@@ -11,7 +11,7 @@ describe('memoize', () => {
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
 
-	it('should call the original function for different arguments', () => {
+	it("should call the original function for different arguments", () => {
 		const fn = vi.fn((a: number, b: number) => a * b);
 		const memoized = memoize(fn);
 
@@ -20,7 +20,7 @@ describe('memoize', () => {
 		expect(fn).toHaveBeenCalledTimes(2);
 	});
 
-	it('should work with functions returning objects', () => {
+	it("should work with functions returning objects", () => {
 		const fn = vi.fn((x: number) => ({ value: x }));
 		const memoized = memoize(fn);
 
@@ -30,7 +30,7 @@ describe('memoize', () => {
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
 
-	it('should handle no arguments', () => {
+	it("should handle no arguments", () => {
 		const fn = vi.fn(() => 42);
 		const memoized = memoize(fn);
 
@@ -39,7 +39,7 @@ describe('memoize', () => {
 		expect(fn).toHaveBeenCalledTimes(1);
 	});
 
-	it('should cache based on argument values, not references', () => {
+	it("should cache based on argument values, not references", () => {
 		const fn = vi.fn((obj: { a: number }) => obj.a);
 		const memoized = memoize(fn);
 
@@ -48,7 +48,7 @@ describe('memoize', () => {
 		expect(fn).toHaveBeenCalledTimes(1); // Because JSON.stringify({a:1}) === JSON.stringify({a:1})
 	});
 
-	it('should cache correctly for primitive and array arguments', () => {
+	it("should cache correctly for primitive and array arguments", () => {
 		const fn = vi.fn((arr: number[]) => arr.reduce((a, b) => a + b, 0));
 		const memoized = memoize(fn);
 

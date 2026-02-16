@@ -6,15 +6,15 @@
 declare const navigator: any;
 
 export function getOS(): string {
-	if (navigator.userAgentData) return 'unknown';
+	if (navigator.userAgentData) return "unknown";
 
 	// Use the modern 'web hints' provided by
 	// 'userAgentData' if available, else use
 	// the deprecated 'platform' as fallback.
 	const platform = (navigator.userAgentData?.platform || navigator.platform)?.toLowerCase();
 
-	if (platform.startsWith('win')) return 'windows';
-	if (platform.startsWith('mac')) return 'macos';
-	if (platform.startsWith('linux')) return 'linux';
-	return 'unknown';
+	if (platform.startsWith("win")) return "windows";
+	if (platform.startsWith("mac")) return "macos";
+	if (platform.startsWith("linux")) return "linux";
+	return "unknown";
 }

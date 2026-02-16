@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SectionCardDisclaimer from '$components/SectionCardDisclaimer.svelte';
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { inject } from '@gitbutler/core/context';
+	import SectionCardDisclaimer from "$components/SectionCardDisclaimer.svelte";
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
 		CardGroup,
@@ -12,8 +12,8 @@
 		Select,
 		SelectItem,
 		Textbox,
-		Toggle
-	} from '@gitbutler/ui';
+		Toggle,
+	} from "@gitbutler/ui";
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -27,21 +27,21 @@
 
 	const signingFormatOptions = [
 		{
-			label: 'GPG',
-			value: 'openpgp',
-			keyPlaceholder: 'ex: 723CCA3AC13CF28D',
-			programPlaceholder: 'ex: /usr/local/bin/gpg'
+			label: "GPG",
+			value: "openpgp",
+			keyPlaceholder: "ex: 723CCA3AC13CF28D",
+			programPlaceholder: "ex: /usr/local/bin/gpg",
 		},
 		{
-			label: 'SSH',
-			value: 'ssh',
-			keyPlaceholder: 'ex: /Users/bob/.ssh/id_rsa.pub',
-			programPlaceholder: 'ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign'
-		}
+			label: "SSH",
+			value: "ssh",
+			keyPlaceholder: "ex: /Users/bob/.ssh/id_rsa.pub",
+			programPlaceholder: "ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign",
+		},
 	] as const;
 
 	const selectedOption = $derived(
-		signingFormatOptions.find((option) => option.value === signingFormat)
+		signingFormatOptions.find((option) => option.value === signingFormat),
 	);
 	const keyPlaceholder = $derived(selectedOption?.keyPlaceholder);
 	const programPlaceholder = $derived(selectedOption?.programPlaceholder);
@@ -49,10 +49,10 @@
 	let checked = $state(false);
 	let loading = $state(true);
 	let signCheckResult = $state(false);
-	let errorMessage = $state('');
+	let errorMessage = $state("");
 
 	async function checkSigning() {
-		errorMessage = '';
+		errorMessage = "";
 		checked = true;
 		loading = true;
 		await gitService
@@ -61,7 +61,7 @@
 				signCheckResult = true;
 			})
 			.catch((err) => {
-				console.error('Error checking signing:', err);
+				console.error("Error checking signing:", err);
 				errorMessage = err.message;
 				signCheckResult = false;
 			});
@@ -72,22 +72,22 @@
 		let signUpdate = {
 			signingFormat: signingFormat,
 			signingKey: signingKey,
-			gpgProgram: signingFormat === 'openpgp' ? signingProgram : '',
-			gpgSshProgram: signingFormat === 'ssh' ? signingProgram : ''
+			gpgProgram: signingFormat === "openpgp" ? signingProgram : "",
+			gpgSshProgram: signingFormat === "ssh" ? signingProgram : "",
 		};
 		await gitConfig.setGbConfig(projectId, signUpdate);
 	}
 
 	const gbConfig = $derived(gitConfig.gbConfig(projectId));
 	let signCommits = $derived(gbConfig.response?.signCommits ?? false);
-	let signingFormat = $derived(gbConfig.response?.signingFormat ?? 'openpgp');
-	let signingKey = $derived(gbConfig.response?.signingKey ?? '');
+	let signingFormat = $derived(gbConfig.response?.signingFormat ?? "openpgp");
+	let signingKey = $derived(gbConfig.response?.signingKey ?? "");
 	let signingProgram = $derived(
 		gbConfig.response
-			? signingFormat === 'openpgp'
-				? (gbConfig.response.gpgProgram ?? '')
-				: (gbConfig.response.gpgSshProgram ?? '')
-			: ''
+			? signingFormat === "openpgp"
+				? (gbConfig.response.gpgProgram ?? "")
+				: (gbConfig.response.gpgSshProgram ?? "")
+			: "",
 	);
 
 	async function handleSignCommitsClick(event: MouseEvent) {
@@ -149,7 +149,7 @@
 
 				{#if checked}
 					<InfoMessage
-						style={loading ? 'info' : signCheckResult ? 'success' : 'danger'}
+						style={loading ? "info" : signCheckResult ? "success" : "danger"}
 						filled
 						outlined={false}
 						error={errorMessage}

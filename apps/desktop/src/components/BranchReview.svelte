@@ -1,13 +1,13 @@
 <script lang="ts">
-	import CanPublishReviewPlugin from '$components/CanPublishReviewPlugin.svelte';
-	import PullRequestCard from '$components/PullRequestCard.svelte';
-	import ReviewCreation from '$components/ReviewCreation.svelte';
-	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
-	import StackedPullRequestCard from '$components/StackedPullRequestCard.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal } from '@gitbutler/ui';
-	import type { Snippet } from 'svelte';
+	import CanPublishReviewPlugin from "$components/CanPublishReviewPlugin.svelte";
+	import PullRequestCard from "$components/PullRequestCard.svelte";
+	import ReviewCreation from "$components/ReviewCreation.svelte";
+	import ReviewCreationControls from "$components/ReviewCreationControls.svelte";
+	import StackedPullRequestCard from "$components/StackedPullRequestCard.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Modal } from "@gitbutler/ui";
+	import type { Snippet } from "svelte";
 
 	// TODO: This and the SeriesHeader should have a wholistic refactor to
 	// reduce the complexity of the forge related functionality.

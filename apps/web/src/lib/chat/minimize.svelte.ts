@@ -1,4 +1,4 @@
-const SHORTCUT_KEY = 'b';
+const SHORTCUT_KEY = "b";
 
 export class ChatMinimize {
 	private _minimize = $state<boolean>(false);

@@ -1,13 +1,13 @@
 <script module lang="ts">
-	import EmailTextbox from '$components/EmailTextbox.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import EmailTextbox from "$components/EmailTextbox.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / EmailTextbox',
+		title: "Inputs / EmailTextbox",
 		component: EmailTextbox,
 		args: {
-			value: '',
-			placeholder: 'Enter email address',
+			value: "",
+			placeholder: "Enter email address",
 			disabled: false,
 			readonly: false,
 			required: false,
@@ -17,36 +17,36 @@
 			autocomplete: true,
 			autofocus: false,
 			selectall: false,
-			label: '',
-			helperText: '',
-			customValidationMessage: 'Please enter a valid email address.',
-			size: 'default',
-			textAlign: 'left',
+			label: "",
+			helperText: "",
+			customValidationMessage: "Please enter a valid email address.",
+			size: "default",
+			textAlign: "left",
 			iconLeft: undefined,
 			iconRight: undefined,
-			width: undefined
+			width: undefined,
 		},
 		argTypes: {
 			size: {
-				control: { type: 'select' },
-				options: ['default', 'large']
+				control: { type: "select" },
+				options: ["default", "large"],
 			},
 			textAlign: {
-				control: { type: 'select' },
-				options: ['left', 'center', 'right']
+				control: { type: "select" },
+				options: ["left", "center", "right"],
 			},
 			iconLeft: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			iconRight: {
-				control: { type: 'text' }
-			}
-		}
+				control: { type: "text" },
+			},
+		},
 	});
 </script>
 
 <script lang="ts">
-	let emailValue = $state('');
+	let emailValue = $state("");
 </script>
 
 <Story name="Default">

@@ -1,17 +1,17 @@
 <script lang="ts">
-	import blankChat from '$lib/assets/blank-chat.svg?raw';
-	import ReplyHandler from '$lib/chat/reply.svelte';
-	import ShowChatButton from '$lib/components/ShowChatButton.svelte';
-	import ChatInput from '$lib/components/chat/ChatInput.svelte';
-	import Event from '$lib/components/chat/Event.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { PATCH_EVENTS_SERVICE } from '@gitbutler/shared/patchEvents/patchEventsService';
-	import { getPatchEvents } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { Button } from '@gitbutler/ui';
-	import type { PatchCommit } from '@gitbutler/shared/patches/types';
+	import blankChat from "$lib/assets/blank-chat.svg?raw";
+	import ReplyHandler from "$lib/chat/reply.svelte";
+	import ShowChatButton from "$lib/components/ShowChatButton.svelte";
+	import ChatInput from "$lib/components/chat/ChatInput.svelte";
+	import Event from "$lib/components/chat/Event.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { isFound } from "@gitbutler/shared/network/loadable";
+	import { PATCH_EVENTS_SERVICE } from "@gitbutler/shared/patchEvents/patchEventsService";
+	import { getPatchEvents } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { Button } from "@gitbutler/ui";
+	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 
 	type Props = {
 		messageUuid: string | undefined;
@@ -40,7 +40,7 @@
 		isPatchAuthor,
 		isUserLoggedIn,
 		isTabletMode,
-		onMinimizeToggle
+		onMinimizeToggle,
 	}: Props = $props();
 
 	const appState = inject(APP_STATE);
@@ -72,7 +72,7 @@
 		setTimeout(() => {
 			const element = document.getElementById(`chat-message-${uuid}`);
 			if (element) {
-				element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+				element.scrollIntoView({ behavior: "smooth", block: "center" });
 				scrolledMessages.add(uuid);
 				highlightedMessageUuid = uuid;
 			}

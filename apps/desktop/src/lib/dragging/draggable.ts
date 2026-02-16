@@ -1,21 +1,21 @@
-import { type CommitStatusType } from '$lib/commits/commit';
-import DragClone from '$lib/dragging/DragClone.svelte';
-import { FileChangeDropData, type DropData } from '$lib/dragging/draggables';
-import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-import { mount } from 'svelte';
-import type { DropzoneRegistry } from '$lib/dragging/registry';
-import type { PushStatus } from '$lib/stacks/stack';
-import type { DragStateService } from '@gitbutler/ui/drag/dragStateService.svelte';
+import { type CommitStatusType } from "$lib/commits/commit";
+import DragClone from "$lib/dragging/DragClone.svelte";
+import { FileChangeDropData, type DropData } from "$lib/dragging/draggables";
+import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+import { mount } from "svelte";
+import type { DropzoneRegistry } from "$lib/dragging/registry";
+import type { PushStatus } from "$lib/stacks/stack";
+import type { DragStateService } from "@gitbutler/ui/drag/dragStateService.svelte";
 
 // Added to element being dragged (not the clone that follows the cursor).
-const DRAGGING_CLASS = 'dragging';
+const DRAGGING_CLASS = "dragging";
 
 // Minimum movement before drag starts (prevents accidental drags)
 const MIN_MOVEMENT_BEFORE_DRAG_START_PX = 3;
 
-type chipType = 'file' | 'folder' | 'hunk' | 'ai-session' | 'branch';
+type chipType = "file" | "folder" | "hunk" | "ai-session" | "branch";
 
-type DragCloneType = 'branch' | 'commit' | 'file' | 'folder' | 'hunk' | 'ai-session';
+type DragCloneType = "branch" | "commit" | "file" | "folder" | "hunk" | "ai-session";
 
 interface DragCloneProps {
 	type: DragCloneType;
@@ -31,10 +31,10 @@ interface DragCloneProps {
  * Helper to create a drag clone using the Svelte DragClone component
  */
 function createSvelteDragClone(props: DragCloneProps): HTMLElement {
-	const container = document.createElement('div');
+	const container = document.createElement("div");
 	mount(DragClone, {
 		target: container,
-		props
+		props,
 	});
 	return container.firstElementChild as HTMLElement;
 }
@@ -62,8 +62,8 @@ function setupDragHandlers(
 		handlerWidth: boolean;
 		maxHeight?: number;
 	} = {
-		handlerWidth: false
-	}
+		handlerWidth: false,
+	},
 ): {
 	update: (opts: DraggableConfig) => void;
 	destroy: () => void;
@@ -96,10 +96,10 @@ function setupDragHandlers(
 	 */
 	function hasScrollableOverflow(style: CSSStyleDeclaration): boolean {
 		return (
-			style.overflowY === 'auto' ||
-			style.overflowY === 'scroll' ||
-			style.overflowX === 'auto' ||
-			style.overflowX === 'scroll'
+			style.overflowY === "auto" ||
+			style.overflowY === "scroll" ||
+			style.overflowX === "auto" ||
+			style.overflowX === "scroll"
 		);
 	}
 
@@ -119,7 +119,7 @@ function setupDragHandlers(
 		const addedContainers = new Set<HTMLElement>();
 
 		// 1. Find all explicitly marked scrollable containers for dragging
-		const markedContainers = document.querySelectorAll('[data-scrollable-for-dragging]');
+		const markedContainers = document.querySelectorAll("[data-scrollable-for-dragging]");
 		for (const container of markedContainers) {
 			if (!(container instanceof HTMLElement)) continue;
 
@@ -245,7 +245,7 @@ function setupDragHandlers(
 		if (target.dataset.noDrag !== undefined) return;
 
 		// Prevent dragging from input elements
-		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+		if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
 			return;
 		}
 
@@ -257,8 +257,8 @@ function setupDragHandlers(
 		currentMousePosition = { x: e.clientX, y: e.clientY };
 
 		// Add listeners for potential drag - using passive listeners
-		window.addEventListener('mousemove', handleMouseMoveMaybeStart);
-		window.addEventListener('mouseup', handleMouseUpBeforeDrag);
+		window.addEventListener("mousemove", handleMouseMoveMaybeStart);
+		window.addEventListener("mouseup", handleMouseUpBeforeDrag);
 	}
 
 	function handleMouseMoveMaybeStart(e: MouseEvent) {
@@ -272,8 +272,8 @@ function setupDragHandlers(
 
 		if (dx >= MIN_MOVEMENT_BEFORE_DRAG_START_PX || dy >= MIN_MOVEMENT_BEFORE_DRAG_START_PX) {
 			// Remove maybe listeners
-			window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
-			window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+			window.removeEventListener("mousemove", handleMouseMoveMaybeStart);
+			window.removeEventListener("mouseup", handleMouseUpBeforeDrag);
 
 			// Start actual drag
 			startDrag(e);
@@ -282,8 +282,8 @@ function setupDragHandlers(
 
 	function handleMouseUpBeforeDrag() {
 		// User released before moving enough - cancel
-		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
-		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+		window.removeEventListener("mousemove", handleMouseMoveMaybeStart);
+		window.removeEventListener("mouseup", handleMouseUpBeforeDrag);
 
 		dragHandle = null;
 		dragStartPosition = null;
@@ -297,7 +297,7 @@ function setupDragHandlers(
 
 		const parentNode = node.parentElement?.parentElement;
 		if (!parentNode) {
-			console.error('draggable parent node not found');
+			console.error("draggable parent node not found");
 			return;
 		}
 
@@ -342,26 +342,26 @@ function setupDragHandlers(
 		clone = createClone(opts, selectedElements);
 		if (clone) {
 			if (params.handlerWidth) {
-				clone.style.width = node.clientWidth + 'px';
+				clone.style.width = node.clientWidth + "px";
 			}
 			if (params.maxHeight) {
 				clone.style.maxHeight = `${pxToRem(params.maxHeight)}rem`;
 			}
 
 			// Position clone at cursor with GPU-accelerated transform
-			clone.style.position = 'fixed';
-			clone.style.left = '0';
-			clone.style.top = '0';
+			clone.style.position = "fixed";
+			clone.style.left = "0";
+			clone.style.top = "0";
 			clone.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
-			clone.style.pointerEvents = 'none';
-			clone.style.zIndex = 'var(--z-blocker)';
+			clone.style.pointerEvents = "none";
+			clone.style.zIndex = "var(--z-blocker)";
 
 			document.body.appendChild(clone);
 		}
 
 		// Add drag listeners - mousemove is passive, mouseup needs passive:false for preventDefault
-		window.addEventListener('mousemove', handleMouseMove);
-		window.addEventListener('mouseup', handleMouseUp, { passive: false });
+		window.addEventListener("mousemove", handleMouseMove);
+		window.addEventListener("mouseup", handleMouseUp, { passive: false });
 
 		// Start position observer
 		startObserver();
@@ -464,11 +464,11 @@ function setupDragHandlers(
 
 		// Remove listeners
 		if (isDragging) {
-			window.removeEventListener('mousemove', handleMouseMove);
-			window.removeEventListener('mouseup', handleMouseUp);
+			window.removeEventListener("mousemove", handleMouseMove);
+			window.removeEventListener("mouseup", handleMouseUp);
 		}
-		window.removeEventListener('mousemove', handleMouseMoveMaybeStart);
-		window.removeEventListener('mouseup', handleMouseUpBeforeDrag);
+		window.removeEventListener("mousemove", handleMouseMoveMaybeStart);
+		window.removeEventListener("mouseup", handleMouseUpBeforeDrag);
 
 		isDragging = false;
 
@@ -502,12 +502,12 @@ function setupDragHandlers(
 		opts = newOpts;
 
 		// Mousedown needs passive:false because we call preventDefault
-		node.addEventListener('mousedown', handleMouseDown, { passive: false });
+		node.addEventListener("mousedown", handleMouseDown, { passive: false });
 	}
 
 	function clean() {
 		cleanup();
-		node.removeEventListener('mousedown', handleMouseDown);
+		node.removeEventListener("mousedown", handleMouseDown);
 	}
 
 	if (opts) {
@@ -520,7 +520,7 @@ function setupDragHandlers(
 		},
 		destroy() {
 			clean();
-		}
+		},
 	};
 }
 
@@ -532,14 +532,14 @@ export function draggableBranch(node: HTMLElement, initialOpts: DraggableConfig)
 	function createClone(opts: DraggableConfig) {
 		if (opts.disabled) return;
 		return createSvelteDragClone({
-			type: 'branch',
+			type: "branch",
 			label: opts.label,
 			pushStatus: opts.pushStatus,
-			dragStateService: opts.dragStateService
+			dragStateService: opts.dragStateService,
 		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
-		handlerWidth: false
+		handlerWidth: false,
 	});
 }
 
@@ -551,26 +551,26 @@ export function draggableCommitV3(node: HTMLElement, initialOpts: DraggableConfi
 	function createClone(opts: DraggableConfig) {
 		if (opts.disabled) return;
 		return createSvelteDragClone({
-			type: 'commit',
+			type: "commit",
 			commitType: opts.commitType,
 			label: opts.label,
-			dragStateService: opts.dragStateService
+			dragStateService: opts.dragStateService,
 		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
-		handlerWidth: false
+		handlerWidth: false,
 	});
 }
 
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig, selectedElements: Element[]) {
-		const chipType = opts.chipType || 'file';
+		const chipType = opts.chipType || "file";
 		return createSvelteDragClone({
 			type: chipType as DragCloneType,
 			childrenAmount: selectedElements.length,
 			label: opts.label,
 			filePath: opts.filePath,
-			dragStateService: opts.dragStateService
+			dragStateService: opts.dragStateService,
 		});
 	}
 	return setupDragHandlers(node, initialOpts, createClone);
@@ -584,7 +584,7 @@ export function cloneElement(node: HTMLElement) {
 	const cloneEl = node.cloneNode(true) as HTMLElement;
 
 	// exclude all ignored elements from the clone
-	const ignoredElements = Array.from(cloneEl.querySelectorAll('[data-drag-clone-ignore]'));
+	const ignoredElements = Array.from(cloneEl.querySelectorAll("[data-drag-clone-ignore]"));
 	ignoredElements.forEach((el) => el.remove());
 
 	return cloneEl;

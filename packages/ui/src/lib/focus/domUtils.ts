@@ -4,10 +4,10 @@ export function isScrollable(element: HTMLElement): boolean {
 	const overflowY = style.overflowY;
 
 	const hasScrollableOverflow =
-		overflowX === 'auto' ||
-		overflowX === 'scroll' ||
-		overflowY === 'auto' ||
-		overflowY === 'scroll';
+		overflowX === "auto" ||
+		overflowX === "scroll" ||
+		overflowY === "auto" ||
+		overflowY === "scroll";
 
 	const hasOverflowingContent =
 		element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth;
@@ -18,7 +18,7 @@ export function isScrollable(element: HTMLElement): boolean {
 export function isPositioned(element: HTMLElement): boolean {
 	const style = window.getComputedStyle(element);
 	const position = style.position;
-	return position !== 'relative';
+	return position !== "relative";
 }
 
 // Finds ancestor that can properly contain an absolutely positioned overlay
@@ -43,7 +43,7 @@ export function findNearestSuitableAncestor(element: HTMLElement): {
 				return {
 					ancestor: nextParent,
 					accumulatedLeft,
-					accumulatedTop
+					accumulatedTop,
 				};
 			}
 
@@ -55,7 +55,7 @@ export function findNearestSuitableAncestor(element: HTMLElement): {
 					return {
 						ancestor: nextParent,
 						accumulatedLeft,
-						accumulatedTop
+						accumulatedTop,
 					};
 				}
 			}
@@ -67,6 +67,6 @@ export function findNearestSuitableAncestor(element: HTMLElement): {
 	return {
 		ancestor: document.body,
 		accumulatedLeft,
-		accumulatedTop
+		accumulatedTop,
 	};
 }

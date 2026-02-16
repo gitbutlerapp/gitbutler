@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { getRelativeTime } from '$lib/utils/dateUtils';
-	import { AvatarGroup, Button, CommitStatusBadge, type CommitStatusType } from '@gitbutler/ui';
-	import type { Branch } from '@gitbutler/shared/branches/types';
+	import { goto } from "$app/navigation";
+	import { getRelativeTime } from "$lib/utils/dateUtils";
+	import { AvatarGroup, Button, CommitStatusBadge, type CommitStatusType } from "@gitbutler/ui";
+	import type { Branch } from "@gitbutler/shared/branches/types";
 
 	interface Contributor {
 		user?: {
@@ -31,7 +31,7 @@
 	// Union type to accept both Branch and CustomReview
 	type Review = Branch | CustomReview;
 
-	type LoadingStatus = 'loading' | 'found' | 'error' | 'not-found';
+	type LoadingStatus = "loading" | "found" | "error" | "not-found";
 
 	interface Props {
 		reviews: Review[];
@@ -43,23 +43,23 @@
 
 	let {
 		reviews,
-		status = 'found',
-		sectionTitle = 'Recent Reviews',
+		status = "found",
+		sectionTitle = "Recent Reviews",
 		allReviewsUrl = undefined,
-		reviewsCount = 0
+		reviewsCount = 0,
 	}: Props = $props();
 
 	// Helper function to make Branch type compatible with our component's expectations
 	function getTitle(review: Review): string {
-		return 'title' in review && typeof review.title === 'string'
+		return "title" in review && typeof review.title === "string"
 			? review.title
-			: 'title' in review && review.title !== undefined
+			: "title" in review && review.title !== undefined
 				? String(review.title)
-				: 'Untitled Review';
+				: "Untitled Review";
 	}
 
 	function getReviewUrl(review: Review): string {
-		return 'reviewUrl' in review && review.reviewUrl
+		return "reviewUrl" in review && review.reviewUrl
 			? review.reviewUrl
 			: `/${review.projectFullSlug}/review/${review.uuid}`;
 	}
@@ -67,8 +67,8 @@
 	// Helper function to convert contributors to AvatarGroup format
 	function getContributorAvatars(contributors: Contributor[]) {
 		return contributors.map((contributor) => ({
-			srcUrl: contributor.user?.avatarUrl || '/images/default-avatar.png',
-			username: contributor.user?.name || 'User'
+			srcUrl: contributor.user?.avatarUrl || "/images/default-avatar.png",
+			username: contributor.user?.name || "User",
 		}));
 	}
 </script>
@@ -112,17 +112,17 @@
 								{getTitle(review)}
 							</a>
 						</td>
-						<td>{review.stackSize || '-'}</td>
+						<td>{review.stackSize || "-"}</td>
 						<td>{getRelativeTime(review.updatedAt)}</td>
 						<td>
 							<AvatarGroup avatars={getContributorAvatars(review.contributors)} />
 						</td>
-						<td>v{review.version || '-'}</td>
+						<td>v{review.version || "-"}</td>
 					</tr>
 				{/each}
 			</tbody>
 		</table>
-	{:else if status === 'loading'}
+	{:else if status === "loading"}
 		<div class="loading-state">
 			<div class="loading-spinner"></div>
 			<p>Loading reviews...</p>

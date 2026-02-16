@@ -1,8 +1,8 @@
-import { splitDiffIntoHunks } from '$lib/diffParsing';
-import { describe, it, expect } from 'vitest';
+import { splitDiffIntoHunks } from "$lib/diffParsing";
+import { describe, it, expect } from "vitest";
 
-describe('splitDiffIntoHunks', () => {
-	it('parses hunks which contain @@ twice', () => {
+describe("splitDiffIntoHunks", () => {
+	it("parses hunks which contain @@ twice", () => {
 		const diff = `diff --git a/butler/app/models/diff_cache.rb b/butler/app/models/diff_cache.rb
 index A..B 100644
 --- a/butler/app/models/diff_cache.rb
@@ -74,7 +74,7 @@ index A..B 100644
 +      end
      end
  
-     # identify the header lines`
+     # identify the header lines`,
 		]);
 	});
 });

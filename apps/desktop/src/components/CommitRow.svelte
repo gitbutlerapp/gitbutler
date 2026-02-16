@@ -1,14 +1,14 @@
 <script lang="ts">
-	import CommitLine from '$components/CommitLine.svelte';
-	import CommitTitle from '$components/CommitTitle.svelte';
-	import { type CommitStatusType } from '$lib/commits/commit';
-	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
-	import { Avatar, Icon, TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import CommitLine from "$components/CommitLine.svelte";
+	import CommitTitle from "$components/CommitTitle.svelte";
+	import { type CommitStatusType } from "$lib/commits/commit";
+	import { URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
+	import { Avatar, Icon, TestId } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
 
-	import { slide } from 'svelte/transition';
-	import type { Snippet } from 'svelte';
+	import { slide } from "svelte/transition";
+	import type { Snippet } from "svelte";
 
 	type BaseProps = {
 		type: CommitStatusType;
@@ -36,17 +36,17 @@
 	};
 
 	type RemoteStatusProps = {
-		type: 'LocalOnly' | 'Integrated' | 'Remote';
+		type: "LocalOnly" | "Integrated" | "Remote";
 	};
 
 	type LocalAndRemoteWithActions = {
-		type: 'LocalAndRemote';
+		type: "LocalAndRemote";
 		disableCommitActions: false;
 		diverged: boolean;
 	};
 
 	type LocalAndRemoteDisabled = {
-		type: 'LocalAndRemote';
+		type: "LocalAndRemote";
 		disableCommitActions: true;
 		diverged: boolean;
 	};
@@ -122,14 +122,14 @@
 		{onclick}
 		use:focusable={{
 			onAction: () => onclick?.(),
-			focusable: true
+			focusable: true,
 		}}
 	>
 		{#if selected}
 			<div
 				class="commit-row__select-indicator"
 				class:active
-				in:slide={{ axis: 'x', duration: 150 }}
+				in:slide={{ axis: "x", duration: 150 }}
 			></div>
 		{/if}
 
@@ -141,7 +141,7 @@
 
 		<CommitLine
 			commitStatus={args.type}
-			diverged={args.type === 'LocalAndRemote' ? (args.diverged ?? false) : false}
+			diverged={args.type === "LocalAndRemote" ? (args.diverged ?? false) : false}
 			{tooltip}
 			{lastCommit}
 			{lastBranch}

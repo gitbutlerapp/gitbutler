@@ -1,11 +1,11 @@
 <script lang="ts">
-	import PrStatusBadge from '$components/PrStatusBadge.svelte';
-	import PullRequestPolling from '$components/PullRequestPolling.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
+	import PrStatusBadge from "$components/PrStatusBadge.svelte";
+	import PullRequestPolling from "$components/PullRequestPolling.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
 		ContextMenu,
@@ -13,11 +13,11 @@
 		ContextMenuSection,
 		Icon,
 		AvatarGroup,
-		TestId
-	} from '@gitbutler/ui';
-	import { getForgeLogo } from '@gitbutler/ui/utils/getForgeLogo';
-	import type { DetailedPullRequest } from '$lib/forge/interface/types';
-	import type { Snippet } from 'svelte';
+		TestId,
+	} from "@gitbutler/ui";
+	import { getForgeLogo } from "@gitbutler/ui/utils/getForgeLogo";
+	import type { DetailedPullRequest } from "$lib/forge/interface/types";
+	import type { Snippet } from "svelte";
 
 	type ButtonStatus = {
 		disabled: boolean;
@@ -46,7 +46,7 @@
 		hasParent,
 		baseIsTargetBranch,
 		parentIsPushed,
-		button
+		button,
 	}: Props = $props();
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
@@ -71,25 +71,25 @@
 		let disabled = true;
 		let tooltip = undefined;
 		if (isPushed && hasParent && !parentIsPushed) {
-			tooltip = 'Remote parent branch seems to have been deleted';
+			tooltip = "Remote parent branch seems to have been deleted";
 		} else if (!baseIsTargetBranch) {
-			tooltip = name + ' is not next in stack';
+			tooltip = name + " is not next in stack";
 		} else if (prLoading) {
-			tooltip = 'Reloading pull request data';
+			tooltip = "Reloading pull request data";
 		} else if (!pr?.permissions?.canMerge) {
-			tooltip = name + ' requires push permissions';
+			tooltip = name + " requires push permissions";
 		} else if (pr?.draft) {
-			tooltip = name + ' is a draft';
-		} else if (pr?.mergeableState === 'blocked') {
-			tooltip = name + ' needs approval';
-		} else if (pr?.mergeableState === 'unknown') {
-			tooltip = name + ' mergeability is unknown';
-		} else if (pr?.mergeableState === 'behind') {
-			tooltip = name + ' base is too far behind';
-		} else if (pr?.mergeableState === 'dirty') {
-			tooltip = name + ' has conflicts';
+			tooltip = name + " is a draft";
+		} else if (pr?.mergeableState === "blocked") {
+			tooltip = name + " needs approval";
+		} else if (pr?.mergeableState === "unknown") {
+			tooltip = name + " mergeability is unknown";
+		} else if (pr?.mergeableState === "behind") {
+			tooltip = name + " base is too far behind";
+		} else if (pr?.mergeableState === "dirty") {
+			tooltip = name + " has conflicts";
 		} else if (!pr?.mergeable) {
-			tooltip = name + ' is not mergeable';
+			tooltip = name + " is not mergeable";
 		} else {
 			disabled = false;
 		}
@@ -100,7 +100,7 @@
 		let disabled = true;
 		let tooltip = undefined;
 		if (isPushed && hasParent && !parentIsPushed) {
-			tooltip = 'Remote parent branch seems to have been deleted';
+			tooltip = "Remote parent branch seems to have been deleted";
 		} else {
 			disabled = false;
 		}
@@ -153,7 +153,7 @@
 					<ContextMenuItem
 						label="Copy checks"
 						onclick={() => {
-							clipboardService.write(`${pr.htmlUrl}/checks`, { message: 'Checks link copied' });
+							clipboardService.write(`${pr.htmlUrl}/checks`, { message: "Checks link copied" });
 							contextMenuEl?.close();
 						}}
 					/>

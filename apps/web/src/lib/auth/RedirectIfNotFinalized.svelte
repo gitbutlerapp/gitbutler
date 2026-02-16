@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { afterNavigate, goto } from '$app/navigation';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { afterNavigate, goto } from "$app/navigation";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
 
 	const routesService = inject(WEB_ROUTES_SERVICE);
 	const userService = inject(USER_SERVICE);
@@ -16,7 +16,7 @@
 
 	// Keep track of the current path name to avoid redirect loops
 	afterNavigate((navigation) => {
-		currentPathName = navigation.to?.url.pathname || '';
+		currentPathName = navigation.to?.url.pathname || "";
 	});
 
 	// If the user account is not finalized, redirect to the finalization page

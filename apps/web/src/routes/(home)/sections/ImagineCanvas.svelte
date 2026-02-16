@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount } from "svelte";
 
 	let canvas: HTMLCanvasElement;
 	let ctx: CanvasRenderingContext2D;
@@ -32,7 +32,7 @@
 			stars.push({
 				x: Math.random() * displayWidth - displayWidth / 2,
 				y: Math.random() * displayHeight - displayHeight / 2,
-				z: Math.random() * maxDepth
+				z: Math.random() * maxDepth,
 			});
 		}
 	}
@@ -128,23 +128,23 @@
 	}
 
 	onMount(() => {
-		ctx = canvas.getContext('2d')!;
+		ctx = canvas.getContext("2d")!;
 		handleResize();
 
-		window.addEventListener('resize', handleResize);
+		window.addEventListener("resize", handleResize);
 		drawStars();
 
 		// Add hover event listeners for anime-style speed boost
-		canvas.addEventListener('mouseenter', () => {
+		canvas.addEventListener("mouseenter", () => {
 			targetSpeed = boostSpeed;
 		});
 
-		canvas.addEventListener('mouseleave', () => {
+		canvas.addEventListener("mouseleave", () => {
 			targetSpeed = baseSpeed;
 		});
 
 		return () => {
-			window.removeEventListener('resize', handleResize);
+			window.removeEventListener("resize", handleResize);
 			if (animationFrame) {
 				cancelAnimationFrame(animationFrame);
 			}

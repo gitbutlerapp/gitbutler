@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon, Button } from '@gitbutler/ui';
+	import { Icon, Button } from "@gitbutler/ui";
 
 	interface Props {
 		onSettingsBtnClick: () => void;

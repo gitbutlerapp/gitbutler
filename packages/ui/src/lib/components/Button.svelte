@@ -7,17 +7,17 @@
 		loading?: boolean;
 		activated?: boolean;
 		tabindex?: number | undefined;
-		type?: 'submit' | 'reset' | 'button' | undefined;
+		type?: "submit" | "reset" | "button" | undefined;
 		autofocus?: boolean;
 		// Layout props
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
 		width?: number | string | undefined;
 		maxWidth?: number | undefined;
-		size?: 'icon' | 'tag' | 'button' | 'cta';
+		size?: "icon" | "tag" | "button" | "cta";
 		wide?: boolean;
 		grow?: boolean;
-		align?: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto';
+		align?: "flex-start" | "center" | "flex-end" | "stretch" | "baseline" | "auto";
 		dropdownChild?: boolean;
 		// Style props
 		style?: ComponentColorType;
@@ -47,15 +47,15 @@
 </script>
 
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$components/Tooltip.svelte';
-	import { focusable } from '$lib/focus/focusable';
-	import { formatHotkeyForPlatform } from '$lib/utils/hotkeySymbols';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onMount, tick } from 'svelte';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
-	import type { Snippet } from 'svelte';
+	import Icon from "$components/Icon.svelte";
+	import Tooltip, { type TooltipAlign, type TooltipPosition } from "$components/Tooltip.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import { formatHotkeyForPlatform } from "$lib/utils/hotkeySymbols";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import { onMount, tick } from "svelte";
+	import type iconsJson from "$lib/data/icons.json";
+	import type { ComponentColorType, ComponentKindType } from "$lib/utils/colorTypes";
+	import type { Snippet } from "svelte";
 
 	let {
 		el = $bindable(),
@@ -64,22 +64,22 @@
 		loading = false,
 		activated = false,
 		tabindex,
-		type = 'button',
+		type = "button",
 		autofocus = false,
 		shrinkable = false,
 		reversedDirection = false,
 		width,
 		maxWidth,
-		size = 'button',
+		size = "button",
 		wide = false,
 		grow = false,
-		align = 'auto',
+		align = "auto",
 		dropdownChild = false,
-		style = 'gray',
-		kind = 'solid',
+		style = "gray",
+		kind = "solid",
 		hotkey,
-		class: className = '',
-		iconClass = '',
+		class: className = "",
+		iconClass = "",
 		customStyle,
 		testId,
 		icon,
@@ -94,7 +94,7 @@
 		onkeydown,
 		children,
 		custom,
-		badge
+		badge,
 	}: Props = $props();
 
 	async function handleAction(e: MouseEvent) {
@@ -139,25 +139,25 @@
 			hotkey: hotkey,
 			onAction: () => {
 				el?.click();
-			}
+			},
 		}}
 		class={[
-			'btn',
+			"btn",
 			style,
 			kind,
 			size && `${size}-size`,
-			activated && 'activated',
-			grow && 'grow',
-			wide && 'wide',
-			shrinkable && 'shrinkable',
-			reversedDirection && 'reversed-direction',
-			dropdownChild && 'is-dropdown',
-			!children && !wide && 'fixed-width',
-			className
+			activated && "activated",
+			grow && "grow",
+			wide && "wide",
+			shrinkable && "shrinkable",
+			reversedDirection && "reversed-direction",
+			dropdownChild && "is-dropdown",
+			!children && !wide && "fixed-width",
+			className,
 		]}
 		style:align-self={align}
 		style:width={width !== undefined
-			? typeof width === 'number'
+			? typeof width === "number"
 				? `${pxToRem(width)}rem`
 				: width
 			: undefined}
@@ -171,13 +171,13 @@
 		{type}
 		{id}
 		{tabindex}
-		{...testId ? { 'data-testid': testId } : null}
+		{...testId ? { "data-testid": testId } : null}
 	>
 		{#if children}
 			<span
 				class="btn-label text-semibold truncate"
-				class:text-12={size === 'button' || size === 'cta'}
-				class:text-11={size === 'tag' || size === 'icon'}
+				class:text-12={size === "button" || size === "cta"}
+				class:text-11={size === "tag" || size === "icon"}
 			>
 				{@render children()}
 
@@ -195,9 +195,9 @@
 		{/if}
 
 		{#if icon || loading}
-			<div class={['btn-icon', iconClass]}>
+			<div class={["btn-icon", iconClass]}>
 				{#if loading}
-					<Icon name="spinner" spinnerRadius={size === 'tag' ? 4 : 5} />
+					<Icon name="spinner" spinnerRadius={size === "tag" ? 4 : 5} />
 				{:else if icon}
 					<Icon name={icon} />
 				{/if}
@@ -427,14 +427,14 @@
 		}
 
 		/* Apply size variables */
-		&[class*='-size'] {
+		&[class*="-size"] {
 			height: var(--btn-size);
 			padding: var(--btn-padding);
 			gap: var(--btn-gap);
 		}
 
 		/* Fixed width variants */
-		&.fixed-width[class*='-size'] {
+		&.fixed-width[class*="-size"] {
 			width: var(--btn-size);
 		}
 
@@ -454,7 +454,7 @@
 			width: 1px;
 			height: 100%;
 			background-color: currentColor;
-			content: '';
+			content: "";
 			opacity: 0.4;
 		}
 

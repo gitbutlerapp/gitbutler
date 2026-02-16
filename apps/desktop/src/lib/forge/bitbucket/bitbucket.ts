@@ -1,11 +1,11 @@
-import { BitBucketBranch } from '$lib/forge/bitbucket/bitbucketBranch';
-import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { ForgeArguments, ForgeUser } from '$lib/forge/interface/types';
-import type { ReactiveQuery } from '$lib/state/butlerModule';
-import type { ReduxTag } from '$lib/state/tags';
-import type { TagDescription } from '@reduxjs/toolkit/query';
+import { BitBucketBranch } from "$lib/forge/bitbucket/bitbucketBranch";
+import type { Forge, ForgeName } from "$lib/forge/interface/forge";
+import type { ForgeArguments, ForgeUser } from "$lib/forge/interface/types";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
+import type { ReduxTag } from "$lib/state/tags";
+import type { TagDescription } from "@reduxjs/toolkit/query";
 
-export const BITBUCKET_DOMAIN = 'bitbucket.org';
+export const BITBUCKET_DOMAIN = "bitbucket.org";
 
 /**
  * PR support is pending OAuth support in the rust code.
@@ -14,7 +14,7 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
  * https://github.com/gitbutlerapp/gitbutler/issues/3252
  */
 export class BitBucket implements Forge {
-	readonly name: ForgeName = 'bitbucket';
+	readonly name: ForgeName = "bitbucket";
 	readonly authenticated: boolean;
 	readonly isLoading = false;
 	private baseUrl: string;
@@ -24,13 +24,13 @@ export class BitBucket implements Forge {
 	constructor({ repo, baseBranch, forkStr, authenticated }: ForgeArguments) {
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
-		let protocol = repo.protocol?.endsWith(':')
+		let protocol = repo.protocol?.endsWith(":")
 			? repo.protocol.slice(0, -1)
-			: repo.protocol || 'https';
+			: repo.protocol || "https";
 
 		// SSH URLs cannot be opened in browsers, so convert to HTTPS
-		if (protocol === 'ssh') {
-			protocol = 'https';
+		if (protocol === "ssh") {
+			protocol = "https";
 		}
 
 		this.baseUrl = `${protocol}://${repo.domain}/${repo.owner}/${repo.name}`;
@@ -49,7 +49,7 @@ export class BitBucket implements Forge {
 
 	get user() {
 		return {
-			result: { status: 'uninitialized' as const, data: undefined }
+			result: { status: "uninitialized" as const, data: undefined },
 		} as ReactiveQuery<ForgeUser>;
 	}
 

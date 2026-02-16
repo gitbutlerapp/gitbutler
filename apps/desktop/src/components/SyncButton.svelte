@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, TimeAgo, Icon, TestId } from '@gitbutler/ui';
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, TimeAgo, Icon, TestId } from "@gitbutler/ui";
 
 	interface Props {
 		projectId: string;
@@ -38,11 +38,11 @@
 		e.stopPropagation();
 		loading = true;
 		try {
-			await baseBranchService.fetchFromRemotes(projectId, 'modal');
+			await baseBranchService.fetchFromRemotes(projectId, "modal");
 			await Promise.all([
 				listingService?.refresh(projectId),
 				baseBranch.result?.refetch(),
-				branchService.refresh()
+				branchService.refresh(),
 			]);
 		} finally {
 			loading = false;
@@ -85,7 +85,7 @@
 			height: 12px;
 			margin: 0 2px 0 4px;
 			background-color: var(--clr-text-2);
-			content: '';
+			content: "";
 			opacity: 0.5;
 		}
 	}

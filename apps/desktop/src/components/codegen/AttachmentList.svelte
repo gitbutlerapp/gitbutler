@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { FileIcon, Icon, Tooltip } from '@gitbutler/ui';
-	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
-	import { fly } from 'svelte/transition';
-	import type { PromptAttachment } from '$lib/codegen/types';
+	import { FileIcon, Icon, Tooltip } from "@gitbutler/ui";
+	import { splitFilePath } from "@gitbutler/ui/utils/filePath";
+	import { fly } from "svelte/transition";
+	import type { PromptAttachment } from "$lib/codegen/types";
 
 	type Props = {
 		attachments: PromptAttachment[];
@@ -18,22 +18,22 @@
 
 	function getTooltipText(attachment: PromptAttachment): string {
 		switch (attachment.type) {
-			case 'file': {
+			case "file": {
 				const { commitId, path } = attachment;
-				const commitInfo = commitId ? ` (from commit ${commitId})` : '';
+				const commitInfo = commitId ? ` (from commit ${commitId})` : "";
 				return `${path}${commitInfo}`;
 			}
-			case 'lines': {
+			case "lines": {
 				const { commitId, path, start, end } = attachment;
-				const commitInfo = commitId ? ` (from commit ${commitId})` : '';
+				const commitInfo = commitId ? ` (from commit ${commitId})` : "";
 				return `Lines ${start}-${end}${path}${commitInfo}`;
 			}
-			case 'commit':
+			case "commit":
 				return `${attachment.commitId}`;
-			case 'directory':
+			case "directory":
 				return `${attachment.path}`;
 		}
-		return '';
+		return "";
 	}
 </script>
 
@@ -43,14 +43,14 @@
 			<Tooltip text={getTooltipText(attachment)}>
 				<div class="attachment-content text-12 text-semibold">
 					<!-- COMMIT -->
-					{#if attachment.type === 'commit'}
+					{#if attachment.type === "commit"}
 						<Icon name="commit" color="var(--clr-text-2)" />
 						<span class="path">
 							#{attachment.commitId.slice(0, 6)}
 						</span>
 					{/if}
 					<!-- FILE -->
-					{#if attachment.type === 'file'}
+					{#if attachment.type === "file"}
 						{@const { path, commitId } = attachment}
 						<FileIcon fileName={path} />
 
@@ -68,7 +68,7 @@
 						{/if}
 					{/if}
 					<!-- LINES -->
-					{#if attachment.type === 'lines'}
+					{#if attachment.type === "lines"}
 						{@const { commitId, path, start, end } = attachment}
 						<FileIcon fileName={path} />
 
@@ -91,14 +91,14 @@
 						{/if}
 					{/if}
 					<!-- DIRECTORY -->
-					{#if attachment.type === 'directory'}
+					{#if attachment.type === "directory"}
 						{@const { path } = attachment}
 						<span class="path">
 							{path}
 						</span>
 					{/if}
 					<!-- FOLDER -->
-					{#if attachment.type === 'folder'}
+					{#if attachment.type === "folder"}
 						{@const { path } = attachment}
 						<Icon name="folder" color="var(--clr-text-2)" />
 						<span class="path">

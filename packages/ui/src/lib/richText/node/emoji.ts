@@ -1,9 +1,9 @@
 import {
 	EMOJI_SHORTCODE_REGEX,
 	EMOJI_SHORTCODE_SEARCH_REGEX,
-	findEmojiByShortcode
-} from '$components/emoji/utils';
-import { $applyNodeReplacement, TextNode } from 'lexical';
+	findEmojiByShortcode,
+} from "$components/emoji/utils";
+import { $applyNodeReplacement, TextNode } from "lexical";
 import {
 	type BaseSelection,
 	type EditorConfig,
@@ -13,8 +13,8 @@ import {
 	type Spread,
 	$isRangeSelection as isRangeSelection,
 	$isTextNode as isTextNode,
-	$createTextNode as createTextNode
-} from 'lexical';
+	$createTextNode as createTextNode,
+} from "lexical";
 
 export type ShortCodeMatch = {
 	start: number;
@@ -75,7 +75,7 @@ export class EmojiNode extends TextNode {
 	__className: string;
 
 	static getType(): string {
-		return 'emoji';
+		return "emoji";
 	}
 
 	static clone(node: EmojiNode): EmojiNode {
@@ -88,10 +88,10 @@ export class EmojiNode extends TextNode {
 	}
 
 	createDOM(config: EditorConfig): HTMLElement {
-		const dom = document.createElement('span');
+		const dom = document.createElement("span");
 		const inner = super.createDOM(config);
 		dom.className = this.__className;
-		inner.className = 'emoji-inner';
+		inner.className = "emoji-inner";
 		dom.appendChild(inner);
 		return dom;
 	}
@@ -117,7 +117,7 @@ export class EmojiNode extends TextNode {
 	exportJSON(): SerializedEmojiNode {
 		return {
 			...super.exportJSON(),
-			className: this.getClassName()
+			className: this.getClassName(),
 		};
 	}
 
@@ -132,14 +132,14 @@ export function $isEmojiNode(node: LexicalNode | null | undefined): node is Emoj
 }
 
 export function createEmojiNode(className: string, emojiText: string): EmojiNode {
-	const node = new EmojiNode(className, emojiText).setMode('token');
+	const node = new EmojiNode(className, emojiText).setMode("token");
 	return $applyNodeReplacement(node);
 }
 
 function getTextSurroundingEmoji(text: string, start: number, end: number): [string, string] {
 	const before = text.slice(0, start);
 	let after = text.slice(end);
-	after = after.startsWith(' ') ? after : ' ' + after;
+	after = after.startsWith(" ") ? after : " " + after;
 
 	return [before, after];
 }
@@ -167,7 +167,7 @@ export function insertEmoji(params: EmojiInsertionParams) {
 
 	lastNode.setTextContent(before);
 
-	const mention = createEmojiNode('emoji', unicode);
+	const mention = createEmojiNode("emoji", unicode);
 
 	lastNode.insertAfter(mention);
 	const suffix = mention.insertAfter(createTextNode(after));
@@ -204,7 +204,7 @@ export function findAndReplaceShortCodeEmoji(node: TextNode): TextNode | undefin
 		return undefined;
 	}
 
-	const emojiNode = createEmojiNode('emoji', match.unicode);
+	const emojiNode = createEmojiNode("emoji", match.unicode);
 
 	const targetNode = getNodeToReplace(node, shortCodeMatch.start, shortCodeMatch.end);
 	targetNode.replace(emojiNode);

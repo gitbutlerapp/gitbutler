@@ -11,17 +11,17 @@
 </script>
 
 <script lang="ts">
-	import SkeletonBone from '$components/SkeletonBone.svelte';
-	import { useImageLoading } from '$lib/utils/imageLoading.svelte';
+	import SkeletonBone from "$components/SkeletonBone.svelte";
+	import { useImageLoading } from "$lib/utils/imageLoading.svelte";
 
 	let {
 		picture = $bindable(),
-		alt = '',
-		acceptedFileTypes = ['image/jpeg', 'image/png'],
+		alt = "",
+		acceptedFileTypes = ["image/jpeg", "image/png"],
 		onFileSelect,
 		onInvalidFileType,
 		class: className,
-		size = '6.25rem'
+		size = "6.25rem",
 	}: Props = $props();
 
 	let previewUrl = $derived(picture);
@@ -50,7 +50,7 @@
 		type="file"
 		id="profile-picture-upload"
 		name="picture"
-		accept={acceptedFileTypes.join(',')}
+		accept={acceptedFileTypes.join(",")}
 		class="hidden-input"
 	/>
 

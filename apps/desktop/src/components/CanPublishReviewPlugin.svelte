@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		projectId: string;
@@ -17,7 +17,7 @@
 	const stackService = inject(STACK_SERVICE);
 
 	const commits = $derived(
-		stackId && branchName ? stackService.commits(projectId, stackId, branchName) : undefined
+		stackId && branchName ? stackService.commits(projectId, stackId, branchName) : undefined,
 	);
 	const branchEmpty = $derived(commits?.response ? commits.response.length === 0 : false);
 	const prService = $derived(forge.current.prService);
@@ -52,6 +52,6 @@
 		},
 		get ctaLabel() {
 			return ctaLabel;
-		}
+		},
 	};
 </script>

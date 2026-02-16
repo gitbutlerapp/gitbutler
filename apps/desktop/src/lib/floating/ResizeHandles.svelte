@@ -8,24 +8,24 @@
 
 	function getCursorStyle(direction: string): string {
 		const cursors: Record<string, string> = {
-			n: 'ns-resize',
-			s: 'ns-resize',
-			e: 'ew-resize',
-			w: 'ew-resize',
-			ne: 'nesw-resize',
-			sw: 'nesw-resize',
-			nw: 'nwse-resize',
-			se: 'nwse-resize'
+			n: "ns-resize",
+			s: "ns-resize",
+			e: "ew-resize",
+			w: "ew-resize",
+			ne: "nesw-resize",
+			sw: "nesw-resize",
+			nw: "nwse-resize",
+			se: "nwse-resize",
 		};
-		return cursors[direction] || 'default';
+		return cursors[direction] || "default";
 	}
 
 	function isResizeAllowed(direction: string): boolean {
 		// Don't allow resizing from snapped edges
-		if (snapPosition.includes('left') && direction.includes('w')) return false;
-		if (snapPosition.includes('right') && direction.includes('e')) return false;
-		if (snapPosition.includes('top') && direction.includes('n')) return false;
-		if (snapPosition.includes('bottom') && direction.includes('s')) return false;
+		if (snapPosition.includes("left") && direction.includes("w")) return false;
+		if (snapPosition.includes("right") && direction.includes("e")) return false;
+		if (snapPosition.includes("top") && direction.includes("n")) return false;
+		if (snapPosition.includes("bottom") && direction.includes("s")) return false;
 
 		// For center positions, allow all resizing
 		return true;
@@ -44,53 +44,53 @@
 <!-- Corner handles -->
 <div
 	class="resize-handle corner nw"
-	class:disabled={!isResizeAllowed('nw')}
+	class:disabled={!isResizeAllowed("nw")}
 	style="cursor: {isResizeAllowed('nw') ? getCursorStyle('nw') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 'nw')}
+	onpointerdown={(e) => handleResizeStart(e, "nw")}
 ></div>
 <div
 	class="resize-handle corner ne"
-	class:disabled={!isResizeAllowed('ne')}
+	class:disabled={!isResizeAllowed("ne")}
 	style="cursor: {isResizeAllowed('ne') ? getCursorStyle('ne') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 'ne')}
+	onpointerdown={(e) => handleResizeStart(e, "ne")}
 ></div>
 <div
 	class="resize-handle corner sw"
-	class:disabled={!isResizeAllowed('sw')}
+	class:disabled={!isResizeAllowed("sw")}
 	style="cursor: {isResizeAllowed('sw') ? getCursorStyle('sw') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 'sw')}
+	onpointerdown={(e) => handleResizeStart(e, "sw")}
 ></div>
 <div
 	class="resize-handle corner se"
-	class:disabled={!isResizeAllowed('se')}
+	class:disabled={!isResizeAllowed("se")}
 	style="cursor: {isResizeAllowed('se') ? getCursorStyle('se') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 'se')}
+	onpointerdown={(e) => handleResizeStart(e, "se")}
 ></div>
 
 <!-- Edge handles -->
 <div
 	class="resize-handle edge n"
-	class:disabled={!isResizeAllowed('n')}
+	class:disabled={!isResizeAllowed("n")}
 	style="cursor: {isResizeAllowed('n') ? getCursorStyle('n') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 'n')}
+	onpointerdown={(e) => handleResizeStart(e, "n")}
 ></div>
 <div
 	class="resize-handle edge s"
-	class:disabled={!isResizeAllowed('s')}
+	class:disabled={!isResizeAllowed("s")}
 	style="cursor: {isResizeAllowed('s') ? getCursorStyle('s') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 's')}
+	onpointerdown={(e) => handleResizeStart(e, "s")}
 ></div>
 <div
 	class="resize-handle edge w"
-	class:disabled={!isResizeAllowed('w')}
+	class:disabled={!isResizeAllowed("w")}
 	style="cursor: {isResizeAllowed('w') ? getCursorStyle('w') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 'w')}
+	onpointerdown={(e) => handleResizeStart(e, "w")}
 ></div>
 <div
 	class="resize-handle edge e"
-	class:disabled={!isResizeAllowed('e')}
+	class:disabled={!isResizeAllowed("e")}
 	style="cursor: {isResizeAllowed('e') ? getCursorStyle('e') : 'not-allowed'}"
-	onpointerdown={(e) => handleResizeStart(e, 'e')}
+	onpointerdown={(e) => handleResizeStart(e, "e")}
 ></div>
 
 <style>

@@ -1,17 +1,17 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import type { IBackend } from '$lib/backend';
+import { InjectionToken } from "@gitbutler/core/context";
+import type { IBackend } from "$lib/backend";
 
 export interface GitRemote {
 	name?: string;
 	url?: string;
 }
 
-export const REMOTES_SERVICE = new InjectionToken<RemotesService>('RemotesService');
+export const REMOTES_SERVICE = new InjectionToken<RemotesService>("RemotesService");
 
 export class RemotesService {
 	constructor(private backend: IBackend) {}
 	async remotes(projectId: string) {
-		return await this.backend.invoke<GitRemote[]>('list_remotes', { projectId });
+		return await this.backend.invoke<GitRemote[]>("list_remotes", { projectId });
 	}
 
 	async addRemote(projectId: string, name: string, url: string) {
@@ -29,6 +29,6 @@ export class RemotesService {
 			throw new Error(`Remote ${sameUrlRemote.name} with url ${sameUrlRemote.url} already exists.`);
 		}
 
-		return await this.backend.invoke<string>('add_remote', { projectId, name, url });
+		return await this.backend.invoke<string>("add_remote", { projectId, name, url });
 	}
 }

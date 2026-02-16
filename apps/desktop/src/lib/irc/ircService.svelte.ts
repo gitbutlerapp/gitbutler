@@ -17,21 +17,21 @@ import {
 	getChannel,
 	setPopup,
 	getChat,
-	clearNames
-} from '$lib/irc/ircSlice';
-import { showError } from '$lib/notifications/toasts';
-import { InjectionToken } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import persistReducer from 'redux-persist/es/persistReducer';
-import storage from 'redux-persist/lib/storage';
-import type { IrcClient } from '$lib/irc/ircClient.svelte';
-import type { IrcEvent } from '$lib/irc/parser';
-import type { IrcChannel, IrcChat, WhoInfo } from '$lib/irc/types';
-import type { ClientState } from '$lib/state/clientState.svelte';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
-import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
+	clearNames,
+} from "$lib/irc/ircSlice";
+import { showError } from "$lib/notifications/toasts";
+import { InjectionToken } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import persistReducer from "redux-persist/es/persistReducer";
+import storage from "redux-persist/lib/storage";
+import type { IrcClient } from "$lib/irc/ircClient.svelte";
+import type { IrcEvent } from "$lib/irc/parser";
+import type { IrcChannel, IrcChat, WhoInfo } from "$lib/irc/types";
+import type { ClientState } from "$lib/state/clientState.svelte";
+import type { Reactive } from "@gitbutler/shared/storeUtils";
+import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
 
-export const IRC_SERVICE = new InjectionToken<IrcService>('IrcService');
+export const IRC_SERVICE = new InjectionToken<IrcService>("IrcService");
 
 /**
  * Experimental IRC
@@ -44,11 +44,11 @@ export class IrcService {
 	constructor(
 		clientState: ClientState,
 		private dispatch: ThunkDispatch<any, any, UnknownAction>,
-		private ircClient: IrcClient
+		private ircClient: IrcClient,
 	) {
 		const persistConfig = {
 			key: ircSlice.reducerPath,
-			storage: storage
+			storage: storage,
 		};
 
 		clientState.inject(ircSlice.reducerPath, persistReducer(persistConfig, ircSlice.reducer));
@@ -91,8 +91,8 @@ export class IrcService {
 		await this.dispatch(
 			setUser({
 				username: args.username,
-				realname: args.realname
-			})
+				realname: args.realname,
+			}),
 		);
 	}
 
@@ -100,7 +100,7 @@ export class IrcService {
 		try {
 			this.dispatch(processIncoming(event));
 		} catch (err: unknown) {
-			showError('IRC error', err);
+			showError("IRC error", err);
 		}
 	}
 
@@ -118,8 +118,8 @@ export class IrcService {
 			messageChannel({
 				channel,
 				message,
-				data
-			})
+				data,
+			}),
 		);
 	}
 
@@ -128,8 +128,8 @@ export class IrcService {
 			messageNick({
 				nick,
 				message,
-				data
-			})
+				data,
+			}),
 		);
 	}
 

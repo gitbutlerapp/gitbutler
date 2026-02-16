@@ -1,19 +1,19 @@
-import { isMessageRole, type Prompt } from '$lib/ai/types';
-import { isStr } from '@gitbutler/ui/utils/string';
-import type { MessageParam } from '@anthropic-ai/sdk/resources/messages.mjs';
+import { isMessageRole, type Prompt } from "$lib/ai/types";
+import { isStr } from "@gitbutler/ui/utils/string";
+import type { MessageParam } from "@anthropic-ai/sdk/resources/messages.mjs";
 
 export function splitPromptMessages(prompt: Prompt): [MessageParam[], string | undefined] {
 	const messages: MessageParam[] = [];
 	let system: string | undefined = undefined;
 	for (const message of prompt) {
-		if (message.role === 'system') {
+		if (message.role === "system") {
 			system = message.content;
 			continue;
 		}
 
 		messages.push({
 			role: message.role,
-			content: message.content
+			content: message.content,
 		});
 	}
 
@@ -28,7 +28,7 @@ export function messageParamToPrompt(messages: MessageParam[]): Prompt {
 
 		result.push({
 			role: message.role,
-			content: message.content
+			content: message.content,
 		});
 	}
 	return result;

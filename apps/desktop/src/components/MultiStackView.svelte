@@ -1,31 +1,31 @@
 <script lang="ts">
-	import CollapsedLane from '$components/CollapsedLane.svelte';
-	import CreateBranchModal from '$components/CreateBranchModal.svelte';
-	import MultiStackOfflaneDropzone from '$components/MultiStackOfflaneDropzone.svelte';
-	import MultiStackPagination, { scrollToLane } from '$components/MultiStackPagination.svelte';
-	import Scrollbar from '$components/Scrollbar.svelte';
-	import StackDraft from '$components/StackDraft.svelte';
-	import StackView from '$components/StackView.svelte';
-	import { HorizontalPanner } from '$lib/dragging/horizontalPanner';
+	import CollapsedLane from "$components/CollapsedLane.svelte";
+	import CreateBranchModal from "$components/CreateBranchModal.svelte";
+	import MultiStackOfflaneDropzone from "$components/MultiStackOfflaneDropzone.svelte";
+	import MultiStackPagination, { scrollToLane } from "$components/MultiStackPagination.svelte";
+	import Scrollbar from "$components/Scrollbar.svelte";
+	import StackDraft from "$components/StackDraft.svelte";
+	import StackView from "$components/StackView.svelte";
+	import { HorizontalPanner } from "$lib/dragging/horizontalPanner";
 	import {
 		onReorderEnd,
 		onReorderMouseDown,
 		onReorderStart,
-		onDragOver
-	} from '$lib/dragging/reordering';
-	import { WorkspaceAutoPanner } from '$lib/dragging/workspaceAutoPanner';
-	import { branchesPath } from '$lib/routes/routes.svelte';
-	import { type SelectionId } from '$lib/selection/key';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { throttle } from '$lib/utils/misc';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { flip } from 'svelte/animate';
-	import type { Stack } from '$lib/stacks/stack';
+		onDragOver,
+	} from "$lib/dragging/reordering";
+	import { WorkspaceAutoPanner } from "$lib/dragging/workspaceAutoPanner";
+	import { branchesPath } from "$lib/routes/routes.svelte";
+	import { type SelectionId } from "$lib/selection/key";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { throttle } from "$lib/utils/misc";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { flip } from "svelte/animate";
+	import type { Stack } from "$lib/stacks/stack";
 
 	type Props = {
 		projectId: string;
@@ -52,7 +52,7 @@
 	let laneWidths = $state<number[]>([]);
 	let lineHights = $state<number[]>([]);
 	let isNotEnoughHorzSpace = $derived(
-		(lanesScrollableWidth ?? 0) < laneWidths.length * (laneWidths[0] ?? 0)
+		(lanesScrollableWidth ?? 0) < laneWidths.length * (laneWidths[0] ?? 0),
 	);
 	let visibleIndexes = $state<number[]>([0]);
 	let isCreateNewVisible = $state<boolean>(false);
@@ -65,8 +65,8 @@
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isDraftStackVisible = $derived(
-		(exclusiveAction?.type === 'commit' && exclusiveAction.stackId === undefined) ||
-			exclusiveAction?.type === 'codegen'
+		(exclusiveAction?.type === "commit" && exclusiveAction.stackId === undefined) ||
+			exclusiveAction?.type === "codegen",
 	);
 
 	const SHOW_PAGINATION_THRESHOLD = 1;
@@ -90,7 +90,7 @@
 	});
 
 	const workspaceAutoPanner = $derived(
-		lanesScrollableEl ? new WorkspaceAutoPanner(lanesScrollableEl) : undefined
+		lanesScrollableEl ? new WorkspaceAutoPanner(lanesScrollableEl) : undefined,
 	);
 
 	// Enable panning when anything is being dragged.
@@ -103,7 +103,7 @@
 	});
 
 	const horizontalPanner = $derived(
-		lanesScrollableEl ? new HorizontalPanner(lanesScrollableEl) : undefined
+		lanesScrollableEl ? new HorizontalPanner(lanesScrollableEl) : undefined,
 	);
 
 	$effect(() => {
@@ -119,7 +119,7 @@
 			setTimeout(() => {
 				const stackEl = stackElements[scrollToStackId];
 				if (stackEl) {
-					stackEl.scrollIntoView({ behavior: 'smooth' });
+					stackEl.scrollIntoView({ behavior: "smooth" });
 				}
 				onScrollComplete?.();
 			}, 50);
@@ -159,7 +159,7 @@
 			projectId,
 			stacks: mutableStacks
 				.map((b, i) => (b.id ? { id: b.id, order: i } : undefined))
-				.filter(isDefined)
+				.filter(isDefined),
 		});
 	}}
 	use:resizeObserver={(data) => {
@@ -181,7 +181,7 @@
 		<StackDraft
 			{projectId}
 			visible={isDraftStackVisible}
-			mode={exclusiveAction?.type === 'codegen' ? 'codegen' : 'commit'}
+			mode={exclusiveAction?.type === "codegen" ? "codegen" : "commit"}
 		/>
 
 		<!--
@@ -193,7 +193,7 @@
 	 -->
 		{#each mutableStacks as stack, i (stack.id)}
 			<div
-				bind:this={stackElements[stack.id || 'branchless']}
+				bind:this={stackElements[stack.id || "branchless"]}
 				class="reorderable-stack dotted-pattern"
 				role="presentation"
 				animate:flip={{ duration: draggingStack ? 200 : 0 }}
@@ -207,7 +207,7 @@
 						() => {
 							draggingStack = true;
 						},
-						isCollapsedLane
+						isCollapsedLane,
 					);
 				}}
 				ondragover={(e) => {
@@ -228,7 +228,7 @@
 				{:else}
 					<StackView
 						{projectId}
-						laneId={stack.id || 'banana'}
+						laneId={stack.id || "banana"}
 						stackId={stack.id ?? undefined}
 						topBranchName={stack.heads.at(0)?.name}
 						bind:clientWidth={laneWidths[i]}

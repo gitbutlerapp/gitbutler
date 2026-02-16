@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { isMentionMatch, type MentionMatch } from '$lib/chat/mentions';
-	import Self from '$lib/components/chat/Mention.svelte';
+	import { isMentionMatch, type MentionMatch } from "$lib/chat/mentions";
+	import Self from "$lib/components/chat/Mention.svelte";
 
 	interface Props {
 		mention: MentionMatch;

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
-	import type { Settings } from '$lib/settings/userSettings';
-	import type { Writable } from 'svelte/store';
+	import { Icon } from "@gitbutler/ui";
+	import type { Settings } from "$lib/settings/userSettings";
+	import type { Writable } from "svelte/store";
 
 	interface Props {
 		userSettings: Writable<Settings>;
@@ -11,20 +11,20 @@
 
 	const themes = [
 		{
-			name: 'Light',
-			value: 'light',
-			preview: '/images/theme-previews/light.svg'
+			name: "Light",
+			value: "light",
+			preview: "/images/theme-previews/light.svg",
 		},
 		{
-			name: 'Dark',
-			value: 'dark',
-			preview: '/images/theme-previews/dark.svg'
+			name: "Dark",
+			value: "dark",
+			preview: "/images/theme-previews/dark.svg",
 		},
 		{
-			name: 'System preference',
-			value: 'system',
-			preview: '/images/theme-previews/system.svg'
-		}
+			name: "System preference",
+			value: "system",
+			preview: "/images/theme-previews/system.svg",
+		},
 	];
 </script>
 
@@ -39,7 +39,7 @@
 				class="hidden-input"
 				type="radio"
 				id="theme-{theme.value}"
-				value={$userSettings.theme || 'system'}
+				value={$userSettings.theme || "system"}
 				checked={theme.value === $userSettings.theme}
 				onchange={() => userSettings.update((s) => ({ ...s, theme: theme.value }))}
 			/>

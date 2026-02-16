@@ -1,5 +1,5 @@
-import { expect } from '@playwright/experimental-ct-svelte';
-import type { Page, Locator } from 'playwright';
+import { expect } from "@playwright/experimental-ct-svelte";
+import type { Page, Locator } from "playwright";
 
 /**
  * Wait for browser to be idle (no pending network requests, animations settled, etc.)
@@ -10,13 +10,13 @@ export async function waitForBrowserIdle(
 		timeout?: number;
 		networkIdleTime?: number;
 		checkAnimations?: boolean;
-	} = {}
+	} = {},
 ): Promise<void> {
 	const { timeout = 5000, networkIdleTime = 500, checkAnimations = true } = options;
 
 	// Wait for network to be idle
 	try {
-		await page.waitForLoadState('networkidle', { timeout: networkIdleTime });
+		await page.waitForLoadState("networkidle", { timeout: networkIdleTime });
 	} catch {
 		// Network idle timeout is acceptable - just means network settled quickly
 	}
@@ -30,14 +30,14 @@ export async function waitForBrowserIdle(
 				if (animations.length > 0) {
 					await Promise.race([
 						Promise.all(animations.map(async (anim) => await anim.finished)),
-						new Promise((resolve) => setTimeout(resolve, opts.networkIdleTime))
+						new Promise((resolve) => setTimeout(resolve, opts.networkIdleTime)),
 					]);
 				}
 
 				// Wait for any pending microtasks
 				await new Promise((resolve) => setTimeout(resolve, 0));
 			},
-			{ timeout, networkIdleTime }
+			{ timeout, networkIdleTime },
 		);
 	}
 
@@ -57,7 +57,7 @@ export async function waitForConditionWithIdle<T>(
 		interval?: number;
 		waitForIdle?: boolean;
 		idleTimeout?: number;
-	} = {}
+	} = {},
 ): Promise<void> {
 	const { timeout = 5000, interval = 100, waitForIdle = true, idleTimeout = 500 } = options;
 	const startTime = Date.now();
@@ -93,7 +93,7 @@ export async function waitForConditionWithIdle<T>(
 	}
 
 	throw new Error(
-		`waitForConditionWithIdle timed out after ${timeout}ms. Last value: ${JSON.stringify(finalValue)}`
+		`waitForConditionWithIdle timed out after ${timeout}ms. Last value: ${JSON.stringify(finalValue)}`,
 	);
 }
 
@@ -104,7 +104,7 @@ export async function waitForConditionWithIdle<T>(
 export async function waitFor<T>(
 	getter: () => Promise<T>,
 	matcher: (value: T) => boolean | Promise<boolean>,
-	options: { timeout?: number; interval?: number } = {}
+	options: { timeout?: number; interval?: number } = {},
 ): Promise<void> {
 	const { timeout = 2000, interval = 50 } = options;
 	const startTime = Date.now();
@@ -127,11 +127,11 @@ export async function waitFor<T>(
 export async function waitForTextContent(
 	component: Locator,
 	expectedText: string,
-	timeout = 2000
+	timeout = 2000,
 ): Promise<void> {
 	await expect
-		.poll(async () => (await component.getByTestId('text-content').textContent()) || '', {
-			timeout
+		.poll(async () => (await component.getByTestId("text-content").textContent()) || "", {
+			timeout,
 		})
 		.toContain(expectedText);
 }
@@ -144,7 +144,7 @@ export async function waitForTextContentWithIdle(
 	page: Page,
 	component: Locator,
 	expectedText: string,
-	options: { timeout?: number; idleFirst?: boolean } = {}
+	options: { timeout?: number; idleFirst?: boolean } = {},
 ): Promise<void> {
 	const { timeout = 5000, idleFirst = true } = options;
 
@@ -155,9 +155,9 @@ export async function waitForTextContentWithIdle(
 
 	await waitForConditionWithIdle(
 		page,
-		async () => (await component.getByTestId('text-content').textContent()) || '',
+		async () => (await component.getByTestId("text-content").textContent()) || "",
 		(text) => text.includes(expectedText),
-		{ timeout }
+		{ timeout },
 	);
 }
 
@@ -168,10 +168,10 @@ export async function waitForTestId(
 	component: Locator,
 	testId: string,
 	expectedValue: string | number,
-	timeout = 2000
+	timeout = 2000,
 ): Promise<void> {
 	await expect
-		.poll(async () => (await component.getByTestId(testId).textContent()) || '', { timeout })
+		.poll(async () => (await component.getByTestId(testId).textContent()) || "", { timeout })
 		.toBe(String(expectedValue));
 }
 
@@ -180,7 +180,7 @@ export async function waitForTestId(
  */
 export async function waitForCondition(
 	condition: () => Promise<boolean>,
-	timeout = 2000
+	timeout = 2000,
 ): Promise<void> {
 	await expect.poll(condition, { timeout }).toBe(true);
 }
@@ -189,7 +189,7 @@ export async function waitForCondition(
  * Get text content from a component's test-content element
  */
 export async function getTextContent(component: Locator): Promise<string> {
-	return (await component.getByTestId('text-content').textContent()) || '';
+	return (await component.getByTestId("text-content").textContent()) || "";
 }
 
 /**
@@ -197,7 +197,7 @@ export async function getTextContent(component: Locator): Promise<string> {
  */
 export async function getTestIdValue(component: Locator, testId: string): Promise<number> {
 	const text = await component.getByTestId(testId).textContent();
-	return parseInt(text || '0', 10);
+	return parseInt(text || "0", 10);
 }
 
 /**
@@ -209,14 +209,14 @@ export async function waitForScrollStability(
 		timeout?: number;
 		requiredStableChecks?: number;
 		checkInterval?: number;
-	} = {}
+	} = {},
 ): Promise<void> {
 	const { timeout = 2000, requiredStableChecks = 3, checkInterval = 100 } = options;
 
 	await viewport.evaluate(
 		async (
 			el: HTMLElement,
-			opts: { timeout: number; requiredStableChecks: number; checkInterval: number }
+			opts: { timeout: number; requiredStableChecks: number; checkInterval: number },
 		) => {
 			return await new Promise<void>((resolve) => {
 				let lastScrollTop = el.scrollTop;
@@ -242,7 +242,7 @@ export async function waitForScrollStability(
 				}, opts.timeout);
 			});
 		},
-		{ timeout, requiredStableChecks, checkInterval }
+		{ timeout, requiredStableChecks, checkInterval },
 	);
 }
 
@@ -254,7 +254,7 @@ export async function waitForPropertyChange<T extends number>(
 	propertyGetter: (el: HTMLElement) => T,
 	comparison: (newValue: T, oldValue: T) => boolean,
 	oldValue: T,
-	timeout = 2000
+	timeout = 2000,
 ): Promise<void> {
 	await element.evaluate(
 		async (
@@ -264,14 +264,14 @@ export async function waitForPropertyChange<T extends number>(
 				comparison: string;
 				oldValue: number;
 				timeout: number;
-			}
+			},
 		) => {
-			const getter = new Function('el', `return ${args.propertyGetter}`) as (
-				el: HTMLElement
+			const getter = new Function("el", `return ${args.propertyGetter}`) as (
+				el: HTMLElement,
 			) => number;
-			const compare = new Function('newVal', 'oldVal', `return ${args.comparison}`) as (
+			const compare = new Function("newVal", "oldVal", `return ${args.comparison}`) as (
 				newVal: number,
-				oldVal: number
+				oldVal: number,
 			) => boolean;
 
 			return await new Promise<void>((resolve) => {
@@ -290,8 +290,8 @@ export async function waitForPropertyChange<T extends number>(
 			propertyGetter: propertyGetter.toString(),
 			comparison: comparison.toString(),
 			oldValue,
-			timeout
-		}
+			timeout,
+		},
 	);
 }
 
@@ -306,7 +306,7 @@ export async function getScrollProperties(viewport: Locator): Promise<{
 	return await viewport.evaluate((el: HTMLElement) => ({
 		scrollTop: el.scrollTop,
 		scrollHeight: el.scrollHeight,
-		clientHeight: el.clientHeight
+		clientHeight: el.clientHeight,
 	}));
 }
 
@@ -334,7 +334,7 @@ export async function scrollTo(viewport: Locator, scrollTop: number): Promise<vo
 export async function waitForScrollHeightIncrease(
 	viewport: Locator,
 	oldHeight: number,
-	timeout = 2000
+	timeout = 2000,
 ): Promise<void> {
 	await viewport.evaluate(
 		async (el, args: { oldHeight: number; timeout: number }) => {
@@ -350,7 +350,7 @@ export async function waitForScrollHeightIncrease(
 				setTimeout(resolve, args.timeout);
 			});
 		},
-		{ oldHeight, timeout }
+		{ oldHeight, timeout },
 	);
 }
 
@@ -361,8 +361,8 @@ export async function waitForScrollHeightIncrease(
 export async function isBrowserBusy(page: Page): Promise<boolean> {
 	return await page.evaluate(() => {
 		// Check 1: Pending network requests (if Performance API is available)
-		if (typeof performance !== 'undefined' && performance.getEntriesByType) {
-			const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+		if (typeof performance !== "undefined" && performance.getEntriesByType) {
+			const resources = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
 			const recentResources = resources.filter((r) => {
 				const age = performance.now() - r.startTime;
 				return age < 1000 && r.responseEnd === 0; // Started recently and not yet complete
@@ -372,15 +372,15 @@ export async function isBrowserBusy(page: Page): Promise<boolean> {
 
 		// Check 2: Running animations
 		const animations = document.getAnimations();
-		const activeAnimations = animations.filter((anim) => anim.playState === 'running');
+		const activeAnimations = animations.filter((anim) => anim.playState === "running");
 		if (activeAnimations.length > 0) return true;
 
 		// Check 3: Pending transitions
-		const allElements = document.querySelectorAll('*');
+		const allElements = document.querySelectorAll("*");
 		for (const el of Array.from(allElements)) {
 			const styles = window.getComputedStyle(el);
 			const transitionDuration = styles.transitionDuration;
-			if (transitionDuration && transitionDuration !== '0s') {
+			if (transitionDuration && transitionDuration !== "0s") {
 				// Element might be transitioning
 				return true;
 			}
@@ -403,7 +403,7 @@ export async function waitUntilIdle(
 		maxWait?: number;
 		checkInterval?: number;
 		consecutiveIdleChecks?: number;
-	} = {}
+	} = {},
 ): Promise<void> {
 	const { maxWait = 5000, checkInterval = 50, consecutiveIdleChecks = 3 } = options;
 
@@ -466,7 +466,7 @@ export async function isAtBottom(viewport: Locator, tolerance = 0): Promise<bool
 export async function waitForScrollHeightChange(
 	viewport: Locator,
 	action: () => Promise<void>,
-	timeout = 2000
+	timeout = 2000,
 ): Promise<void> {
 	const { scrollHeight: before } = await getScrollProperties(viewport);
 	await action();
@@ -497,9 +497,9 @@ export async function expectNotAtBottom(viewport: Locator, minDistance = 100): P
  */
 export async function getVisibleItemIndices(viewport: Locator): Promise<number[]> {
 	return await viewport.evaluate((el: HTMLElement) => {
-		const items = el.querySelectorAll('[data-index]');
+		const items = el.querySelectorAll("[data-index]");
 		return Array.from(items).map((item) => {
-			const index = item.getAttribute('data-index');
+			const index = item.getAttribute("data-index");
 			return index ? parseInt(index, 10) : -1;
 		});
 	});
@@ -516,7 +516,7 @@ export async function doAndWaitForIdle(
 		maxWait?: number;
 		checkInterval?: number;
 		consecutiveIdleChecks?: number;
-	} = {}
+	} = {},
 ): Promise<void> {
 	await action();
 	await waitUntilIdle(page, options);

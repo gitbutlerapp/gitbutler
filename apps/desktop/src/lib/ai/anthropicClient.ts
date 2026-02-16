@@ -1,12 +1,12 @@
-import { splitPromptMessages } from '$lib/ai/anthropicUtils';
+import { splitPromptMessages } from "$lib/ai/anthropicUtils";
 import {
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
-	SHORT_DEFAULT_PR_TEMPLATE
-} from '$lib/ai/prompts';
-import { type AIEvalOptions } from '$lib/ai/types';
-import { type AIClient, type AnthropicModelName, type Prompt } from '$lib/ai/types';
-import Anthropic from '@anthropic-ai/sdk';
+	SHORT_DEFAULT_PR_TEMPLATE,
+} from "$lib/ai/prompts";
+import { type AIEvalOptions } from "$lib/ai/types";
+import { type AIClient, type AnthropicModelName, type Prompt } from "$lib/ai/types";
+import Anthropic from "@anthropic-ai/sdk";
 
 const DEFAULT_MAX_TOKENS = 1024;
 
@@ -24,7 +24,7 @@ export class AnthropicAIClient implements AIClient {
 		this.modelName = modelName;
 		this.client = new Anthropic({
 			apiKey: this.apiKey,
-			dangerouslyAllowBrowser: true
+			dangerouslyAllowBrowser: true,
 		});
 	}
 
@@ -35,17 +35,17 @@ export class AnthropicAIClient implements AIClient {
 			system,
 			messages,
 			model: this.modelName,
-			stream: true
+			stream: true,
 		});
 
 		const buffer: string[] = [];
 		for await (const event of response) {
-			if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+			if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
 				const token = event.delta.text;
 				options?.onToken?.(token);
 				buffer.push(token);
 			}
 		}
-		return buffer.join('');
+		return buffer.join("");
 	}
 }

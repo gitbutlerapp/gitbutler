@@ -8,7 +8,7 @@
 	let copied = $state(false);
 
 	function handleCopy() {
-		navigator.clipboard.writeText('curl -fsSL https://gitbutler.com/install.sh | sh');
+		navigator.clipboard.writeText("curl -fsSL https://gitbutler.com/install.sh | sh");
 		copied = true;
 		setTimeout(() => {
 			copied = false;

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
-	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, InfoMessage, type MessageStyle, Spacer, TestId } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import DecorativeSplitView from "$components/DecorativeSplitView.svelte";
+	import ProjectSwitcher from "$components/ProjectSwitcher.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import RemoveProjectButton from "$components/RemoveProjectButton.svelte";
+	import notFoundSvg from "$lib/assets/illustrations/not-found.svg?raw";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, InfoMessage, type MessageStyle, Spacer, TestId } from "@gitbutler/ui";
 
 	interface Props {
 		projectId: string;
@@ -32,7 +32,7 @@
 			deleteSucceeded = true;
 		}
 		isDeleting = false;
-		goto('/');
+		goto("/");
 	}
 
 	async function locate(id: string) {
@@ -46,8 +46,8 @@
 
 	function getDeletionStatus(repoName: string, deleteSucceeded: boolean): DeletionStatus {
 		return deleteSucceeded
-			? { message: `Project "${repoName}" successfully deleted`, style: 'success' }
-			: { message: `Failed to delete "${repoName}" project`, style: 'danger' };
+			? { message: `Project "${repoName}" successfully deleted`, style: "success" }
+			: { message: `Failed to delete "${repoName}" project`, style: "danger" };
 	}
 </script>
 

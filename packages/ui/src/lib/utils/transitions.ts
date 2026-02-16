@@ -1,6 +1,6 @@
-import { pxToRem } from '$lib/utils/pxToRem';
-import { cubicOut } from 'svelte/easing';
-import { slide, type SlideParams, type TransitionConfig } from 'svelte/transition';
+import { pxToRem } from "$lib/utils/pxToRem";
+import { cubicOut } from "svelte/easing";
+import { slide, type SlideParams, type TransitionConfig } from "svelte/transition";
 
 export function slideFade(node: Element, options: SlideParams): TransitionConfig {
 	const slideTrans: TransitionConfig = slide(node, options);
@@ -8,8 +8,8 @@ export function slideFade(node: Element, options: SlideParams): TransitionConfig
 	return {
 		...slideTrans,
 		css: (t, u) =>
-			`${slideTrans.css ? slideTrans.css(t, u) : ''}
-			opacity:${t};`
+			`${slideTrans.css ? slideTrans.css(t, u) : ""}
+			opacity:${t};`,
 	};
 }
 
@@ -17,7 +17,7 @@ export function slideFade(node: Element, options: SlideParams): TransitionConfig
 const DEFAULT_Y = -6;
 const DEFAULT_SCALE_START = 0.94;
 const DEFAULT_DURATION = 200;
-const DEFAULT_POSITION = 'top';
+const DEFAULT_POSITION = "top";
 
 export function flyScale(
 	node: Element,
@@ -26,8 +26,8 @@ export function flyScale(
 		x?: number;
 		start?: number;
 		duration?: number;
-		position?: 'top' | 'bottom';
-	} = {}
+		position?: "top" | "bottom";
+	} = {},
 ): TransitionConfig {
 	// Pre-calculate static values
 	const nodeStyle = getComputedStyle(node);
@@ -38,11 +38,11 @@ export function flyScale(
 		y = DEFAULT_Y,
 		start: startScale = DEFAULT_SCALE_START,
 		duration = DEFAULT_DURATION,
-		position = DEFAULT_POSITION
+		position = DEFAULT_POSITION,
 	} = params;
 
 	// Pre-calculate position multiplier to avoid repeated conditional checks
-	const positionMultiplier = position === 'top' ? -1 : 1;
+	const positionMultiplier = position === "top" ? -1 : 1;
 	const scaleRange = 1 - startScale;
 
 	return {
@@ -54,7 +54,7 @@ export function flyScale(
 
 			return `transform: translate3d(${transformX}px, ${translateYRem}rem, 0) scale(${scale}); opacity: ${t};`;
 		},
-		easing: cubicOut
+		easing: cubicOut,
 	};
 }
 
@@ -63,12 +63,12 @@ export function popIn(
 	{
 		delay = 100,
 		duration = 200,
-		transformOrigin = 'left bottom'
+		transformOrigin = "left bottom",
 	}: {
 		delay?: number;
 		duration?: number;
 		transformOrigin?: string;
-	} = {}
+	} = {},
 ) {
 	return {
 		delay,
@@ -83,6 +83,6 @@ export function popIn(
 					transform: scale(${scale}) translateY(${y}px) rotate(${rotate}deg);
 					opacity: ${t};
 				`;
-		}
+		},
 	};
 }

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { fly, fade } from 'svelte/transition';
-	import type { IconName } from '$components/Icon.svelte';
-	import type { ChipToastType, ChipToastButtonConfig } from '$components/chipToast/chipToastTypes';
+	import Icon from "$components/Icon.svelte";
+	import { fly, fade } from "svelte/transition";
+	import type { IconName } from "$components/Icon.svelte";
+	import type { ChipToastType, ChipToastButtonConfig } from "$components/chipToast/chipToastTypes";
 
 	interface Props {
 		type: ChipToastType;
@@ -19,14 +19,14 @@
 		color: string;
 	} {
 		switch (type) {
-			case 'success':
-				return { name: 'success', color: 'var(--clr-theme-safe-element)' };
-			case 'warning':
-				return { name: 'warning', color: 'var(--clr-theme-warn-element)' };
-			case 'danger':
-				return { name: 'error', color: 'var(--clr-theme-danger-element)' };
+			case "success":
+				return { name: "success", color: "var(--clr-theme-safe-element)" };
+			case "warning":
+				return { name: "warning", color: "var(--clr-theme-warn-element)" };
+			case "danger":
+				return { name: "error", color: "var(--clr-theme-danger-element)" };
 			default:
-				return { name: 'info', color: 'var(--clr-theme-pop-element)' };
+				return { name: "info", color: "var(--clr-theme-pop-element)" };
 		}
 	}
 

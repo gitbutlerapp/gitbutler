@@ -1,10 +1,10 @@
 <script lang="ts">
-	import MobileMenu from '$home/components/MobileMenu.svelte';
-	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
-	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
-	import * as jsonLinks from '$lib/data/links.json';
-	import { Icon } from '@gitbutler/ui';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import MobileMenu from "$home/components/MobileMenu.svelte";
+	import GitbutlerLogoLink from "$lib/components/GitbutlerLogoLink.svelte";
+	import HeaderAuthSection from "$lib/components/HeaderAuthSection.svelte";
+	import * as jsonLinks from "$lib/data/links.json";
+	import { Icon } from "@gitbutler/ui";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 	interface Props {
 		disableLogoLink?: boolean;
@@ -36,29 +36,29 @@
 		<section class="flex gap-20">
 			{@render link({
 				href: jsonLinks.resources.documentation.url,
-				label: jsonLinks.resources.documentation.label
+				label: jsonLinks.resources.documentation.label,
 			})}
 			{@render link({
 				href: jsonLinks.resources.source.url,
-				label: 'Source',
-				icon: 'github-outline'
+				label: "Source",
+				icon: "github-outline",
 			})}
 			{@render link({
 				href: jsonLinks.social.discord.url,
-				label: 'Community',
-				icon: 'discord-outline'
+				label: "Community",
+				icon: "discord-outline",
 			})}
 			{@render link({
 				href: jsonLinks.resources.blog.url,
-				label: jsonLinks.resources.blog.label
+				label: jsonLinks.resources.blog.label,
 			})}
 			{@render link({
 				href: jsonLinks.resources.downloads.url,
-				label: jsonLinks.resources.downloads.label
+				label: jsonLinks.resources.downloads.label,
 			})}
 			{@render link({
 				href: jsonLinks.resources.jobs.url,
-				label: jsonLinks.resources.jobs.label
+				label: jsonLinks.resources.jobs.label,
 			})}
 			<HeaderAuthSection />
 		</section>

@@ -8,58 +8,58 @@
  * - Text (10-0): High contrast text, icons
  */
 
-import { hslToRgb, rgbToHex } from './colorConversion';
-import type { ColorScale, Shade } from '../types/color';
+import { hslToRgb, rgbToHex } from "./colorConversion";
+import type { ColorScale, Shade } from "../types/color";
 
 // Semantic zone definitions
 export const ZONES = {
-	background: { range: [100, 80], description: 'Subtle backgrounds' },
-	soft: { range: [70, 50], description: 'Borders, muted UI' },
-	solid: { range: [40, 20], description: 'Buttons, accents' },
-	text: { range: [10, 0], description: 'Text, icons' }
+	background: { range: [100, 80], description: "Subtle backgrounds" },
+	soft: { range: [70, 50], description: "Borders, muted UI" },
+	solid: { range: [40, 20], description: "Buttons, accents" },
+	text: { range: [10, 0], description: "Text, icons" },
 } as const;
 
 // Perceptual adjustment constants
 const HUE_PERCEPTION = {
 	YELLOW_GREEN_PEAK: 120, // Hue perceived as brightest
 	BLUE_PURPLE_TROUGH: 240, // Hue perceived as darkest
-	MAX_ADJUSTMENT: 0.04 // Maximum lightness boost (4%)
+	MAX_ADJUSTMENT: 0.04, // Maximum lightness boost (4%)
 } as const;
 
 const SHADE_THRESHOLDS = {
 	BACKGROUND_START: 80,
 	SOFT_START: 50,
 	SOLID_START: 20,
-	DARKEST_FOR_HUE_ADJUSTMENT: 30
+	DARKEST_FOR_HUE_ADJUSTMENT: 30,
 } as const;
 
 const LIGHTNESS_RANGES = {
 	background: {
 		gray: { min: 0.9, max: 1, scale: 0.5 },
-		colored: { min: 0.89, max: 0.98, scale: 0.5 }
+		colored: { min: 0.89, max: 0.98, scale: 0.5 },
 	},
 	soft: { min: 0.4, max: 0.9, exponent: 0.9 },
 	solid: { min: 0.22, max: 0.48 },
 	text: {
 		gray: { min: 0.06, max: 0.22, exponent: 1 },
-		colored: { min: 0.08, max: 0.26, exponent: 0.85 }
-	}
+		colored: { min: 0.08, max: 0.26, exponent: 0.85 },
+	},
 } as const;
 
 const SATURATION = {
 	DESATURATION_START: 60,
 	MIN_DESATURATION: 0.1, // 10% at shade 60
-	MAX_DESATURATION: 0.15 // 15% at shade 100
+	MAX_DESATURATION: 0.15, // 15% at shade 100
 } as const;
 
-const GRAY_SCALE_ID = 'gray';
+const GRAY_SCALE_ID = "gray";
 
 // Zone boundaries for calculations
 const ZONE_BOUNDARIES = {
 	background: { start: 0.8, end: 1.0, width: 0.2 },
 	soft: { start: 0.5, end: 0.8, width: 0.3 },
 	solid: { start: 0.2, end: 0.5, width: 0.3 },
-	text: { start: 0.0, end: 0.2, width: 0.2 }
+	text: { start: 0.0, end: 0.2, width: 0.2 },
 } as const;
 
 /**
@@ -111,7 +111,7 @@ function calculateDarknessIntensity(shade: number): number {
 function calculateLightness(
 	shade: number,
 	shade50Target?: number,
-	isGray: boolean = false
+	isGray: boolean = false,
 ): number {
 	// Always return pure white for shade 100 and pure black for shade 0
 	if (shade === 100) return 1.0;
@@ -144,7 +144,7 @@ function calculateBackgroundLightness(normalizedShade: number, isGray: boolean):
 function calculateSoftLightness(
 	normalizedShade: number,
 	shade: number,
-	shade50Target?: number
+	shade50Target?: number,
 ): number {
 	if (shade50Target !== undefined && shade === SHADE_THRESHOLDS.SOFT_START) {
 		return shade50Target;
@@ -161,14 +161,14 @@ function calculateSoftLightness(
 		shade,
 		shade50Target,
 		LIGHTNESS_RANGES.soft.min,
-		ZONE_BOUNDARIES.soft.width * 100
+		ZONE_BOUNDARIES.soft.width * 100,
 	);
 }
 
 function calculateSolidLightness(
 	normalizedShade: number,
 	shade: number,
-	shade50Target?: number
+	shade50Target?: number,
 ): number {
 	if (shade50Target !== undefined && shade === SHADE_THRESHOLDS.SOFT_START) {
 		return shade50Target;
@@ -185,7 +185,7 @@ function calculateSolidLightness(
 		shade,
 		shade50Target,
 		LIGHTNESS_RANGES.solid.max,
-		ZONE_BOUNDARIES.solid.width * 100
+		ZONE_BOUNDARIES.solid.width * 100,
 	);
 }
 
@@ -201,7 +201,7 @@ function applyShade50Adjustment(
 	shade: number,
 	shade50Target: number | undefined,
 	shade50Base: number,
-	zoneWidth: number
+	zoneWidth: number,
 ): number {
 	if (shade50Target === undefined) {
 		return baseLightness;
@@ -228,17 +228,17 @@ export const lightnessMap: Record<number, number> = {
 	20: calculateLightness(20),
 	10: calculateLightness(10),
 	5: calculateLightness(5),
-	0: calculateLightness(0)
+	0: calculateLightness(0),
 };
 
 /**
  * Get the semantic zone for a given shade value
  */
 export function getSemanticZone(shade: number): keyof typeof ZONES {
-	if (shade >= SHADE_THRESHOLDS.BACKGROUND_START) return 'background';
-	if (shade >= SHADE_THRESHOLDS.SOFT_START) return 'soft';
-	if (shade >= SHADE_THRESHOLDS.SOLID_START) return 'solid';
-	return 'text';
+	if (shade >= SHADE_THRESHOLDS.BACKGROUND_START) return "background";
+	if (shade >= SHADE_THRESHOLDS.SOFT_START) return "soft";
+	if (shade >= SHADE_THRESHOLDS.SOLID_START) return "solid";
+	return "text";
 }
 
 /**
@@ -266,7 +266,7 @@ export function generateScale(
 	scaleSaturations: Record<string, number>,
 	scaleHues: Record<string, number | null>,
 	baseHue: number,
-	scaleShade50Lightness: Record<string, number>
+	scaleShade50Lightness: Record<string, number>,
 ): Record<string, Record<number, string>> {
 	const result: Record<string, Record<number, string>> = {};
 
@@ -281,7 +281,7 @@ export function generateScale(
 			baseSaturation,
 			shade50Lightness,
 			isGray,
-			shades
+			shades,
 		);
 	}
 
@@ -293,7 +293,7 @@ function generateScaleShades(
 	baseSaturation: number,
 	shade50Lightness: number,
 	isGray: boolean,
-	shades: Shade[]
+	shades: Shade[],
 ): Record<number, string> {
 	const scaleShades: Record<number, string> = {};
 

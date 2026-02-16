@@ -1,10 +1,10 @@
 <script lang="ts">
-	import BranchDividerLine from '$components/BranchDividerLine.svelte';
-	import BranchesViewBranch from '$components/BranchesViewBranch.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { getColorFromPushStatus, getStackBranchNames } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import BranchDividerLine from "$components/BranchDividerLine.svelte";
+	import BranchesViewBranch from "$components/BranchesViewBranch.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { getColorFromPushStatus, getStackBranchNames } from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		projectId: string;
@@ -25,7 +25,7 @@
 		selectedCommitId,
 		onCommitClick,
 		onFileClick,
-		onerror
+		onerror,
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -43,7 +43,7 @@
 				{@const branchDetails = branchDetailsQuery.response}
 				{@const lineColor = branchDetails
 					? getColorFromPushStatus(branchDetails.pushStatus)
-					: 'var(--clr-commit-local)'}
+					: "var(--clr-commit-local)"}
 
 				{#if idx > 0}
 					<BranchDividerLine {lineColor} />

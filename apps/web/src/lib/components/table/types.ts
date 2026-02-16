@@ -1,5 +1,5 @@
-import { type CommitStatusType } from '@gitbutler/ui';
-import type { Branch } from '@gitbutler/shared/branches/types';
+import { type CommitStatusType } from "@gitbutler/ui";
+import type { Branch } from "@gitbutler/shared/branches/types";
 
 export type AvatarsType = {
 	srcUrl: string;

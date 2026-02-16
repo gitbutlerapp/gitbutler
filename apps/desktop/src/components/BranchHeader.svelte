@@ -8,20 +8,20 @@
 </script>
 
 <script lang="ts">
-	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
-	import BranchLabel from '$components/BranchLabel.svelte';
-	import CommitGoesHere from '$components/CommitGoesHere.svelte';
-	import { BranchDropData } from '$lib/branches/dropHandler';
-	import { draggableBranch, type DraggableConfig } from '$lib/dragging/draggable';
-	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-	import { inject } from '@gitbutler/core/context';
-	import { Badge, TestId, Icon } from '@gitbutler/ui';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { slide } from 'svelte/transition';
-	import type { PushStatus } from '$lib/stacks/stack';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import BranchHeaderIcon from "$components/BranchHeaderIcon.svelte";
+	import BranchLabel from "$components/BranchLabel.svelte";
+	import CommitGoesHere from "$components/CommitGoesHere.svelte";
+	import { BranchDropData } from "$lib/branches/dropHandler";
+	import { draggableBranch, type DraggableConfig } from "$lib/dragging/draggable";
+	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { inject } from "@gitbutler/core/context";
+	import { Badge, TestId, Icon } from "@gitbutler/ui";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { slide } from "svelte/transition";
+	import type { PushStatus } from "$lib/stacks/stack";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		branchName: string;
@@ -80,7 +80,7 @@
 		prCreation,
 		changedFiles,
 		showPrCreation,
-		dragArgs
+		dragArgs,
 	}: Props = $props();
 
 	const dropzoneRegistry = inject(DROPZONE_REGISTRY);
@@ -95,7 +95,7 @@
 	// 2. Empty branches with click handler (so you can select them)
 	// Branches with commits show it between commits in BranchCommitList instead
 	const showCommitGoesHere = $derived(
-		isCommitting && (draft || (isEmpty && onCommitGoesHereClick))
+		isCommitting && (draft || (isEmpty && onCommitGoesHereClick)),
 	);
 
 	const draggableBranchConfig = $derived.by<DraggableConfig>(() => {
@@ -103,13 +103,13 @@
 			return {
 				disabled: true,
 				dropzoneRegistry,
-				dragStateService
+				dragStateService,
 			};
 		}
 		return {
 			...dragArgs,
 			dropzoneRegistry,
-			dragStateService
+			dragStateService,
 		};
 	});
 </script>
@@ -120,7 +120,7 @@
 	use:focusable={{
 		onAction: () => onclick?.(),
 		onActive: (value) => (active = value),
-		focusable: true
+		focusable: true,
 	}}
 >
 	<div
@@ -149,7 +149,7 @@
 			{#if selected && !draft}
 				<div
 					class="branch-header__select-indicator"
-					in:slide={{ axis: 'x', duration: 150 }}
+					in:slide={{ axis: "x", duration: 150 }}
 					class:active
 				></div>
 			{/if}

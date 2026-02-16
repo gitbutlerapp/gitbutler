@@ -1,5 +1,5 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import { HttpClient } from '@gitbutler/shared/network/httpClient';
+import { InjectionToken } from "@gitbutler/core/context";
+import { HttpClient } from "@gitbutler/shared/network/httpClient";
 
 export interface SshKey {
 	id: string;
@@ -13,7 +13,7 @@ interface AddSshKeyRequest {
 	public_key: string;
 }
 
-export const SSH_KEY_SERVICE = new InjectionToken<SshKeyService>('SshKeyService');
+export const SSH_KEY_SERVICE = new InjectionToken<SshKeyService>("SshKeyService");
 
 export class SshKeyService {
 	private httpClient: HttpClient;
@@ -23,15 +23,15 @@ export class SshKeyService {
 	}
 
 	async getSshKeys(): Promise<SshKey[]> {
-		return await this.httpClient.get<SshKey[]>('/api/user/keys');
+		return await this.httpClient.get<SshKey[]>("/api/user/keys");
 	}
 
 	async addSshKey(name: string, publicKey: string): Promise<SshKey> {
 		const request: AddSshKeyRequest = {
 			name,
-			public_key: publicKey
+			public_key: publicKey,
 		};
-		return await this.httpClient.post<SshKey>('/api/user/keys', { body: request });
+		return await this.httpClient.post<SshKey>("/api/user/keys", { body: request });
 	}
 
 	async deleteSshKey(fingerprint: string): Promise<void> {

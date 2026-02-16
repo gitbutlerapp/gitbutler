@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Icon, type IconName } from '@gitbutler/ui';
-	import type { Snippet } from 'svelte';
+	import { Icon, type IconName } from "@gitbutler/ui";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		label: string;
@@ -21,7 +21,7 @@
 		content,
 		expanded = $bindable(false),
 		onToggle,
-		root = false
+		root = false,
 	}: Props = $props();
 </script>
 

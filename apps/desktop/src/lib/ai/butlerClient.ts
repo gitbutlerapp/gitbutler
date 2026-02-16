@@ -1,16 +1,16 @@
-import { messageParamToPrompt, splitPromptMessages } from '$lib/ai/anthropicUtils';
+import { messageParamToPrompt, splitPromptMessages } from "$lib/ai/anthropicUtils";
 import {
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
-	SHORT_DEFAULT_PR_TEMPLATE
-} from '$lib/ai/prompts';
-import { ModelKind, type AIClient, type AIEvalOptions, type Prompt } from '$lib/ai/types';
-import { stringStreamGenerator } from '@gitbutler/shared/utils/promise';
-import type { HttpClient } from '@gitbutler/shared/network/httpClient';
+	SHORT_DEFAULT_PR_TEMPLATE,
+} from "$lib/ai/prompts";
+import { ModelKind, type AIClient, type AIEvalOptions, type Prompt } from "$lib/ai/types";
+import { stringStreamGenerator } from "@gitbutler/shared/utils/promise";
+import type { HttpClient } from "@gitbutler/shared/network/httpClient";
 
 function splitPromptMessagesIfNecessary(
 	modelKind: ModelKind,
-	prompt: Prompt
+	prompt: Prompt,
 ): [Prompt, string | undefined] {
 	if (modelKind === ModelKind.Anthropic) {
 		const [messages, system] = splitPromptMessages(prompt);
@@ -27,23 +27,23 @@ export class ButlerAIClient implements AIClient {
 
 	constructor(
 		private cloud: HttpClient,
-		private modelKind: ModelKind
+		private modelKind: ModelKind,
 	) {}
 
 	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<string> {
 		const [messages, system] = splitPromptMessagesIfNecessary(this.modelKind, prompt);
-		const response = await this.cloud.postRaw('ai/stream', {
+		const response = await this.cloud.postRaw("ai/stream", {
 			body: {
 				messages,
 				system,
 				max_tokens: 3600,
-				model_kind: this.modelKind
-			}
+				model_kind: this.modelKind,
+			},
 		});
 
 		const reader = response.body?.getReader();
 		if (!reader) {
-			return '';
+			return "";
 		}
 
 		const buffer: string[] = [];
@@ -52,6 +52,6 @@ export class ButlerAIClient implements AIClient {
 			buffer.push(chunk);
 		}
 
-		return buffer.join('');
+		return buffer.join("");
 	}
 }

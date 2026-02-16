@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { inject } from '@gitbutler/core/context';
+	import { browser } from "$app/environment";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		OrganizationService,
-		ORGANIZATION_SERVICE
-	} from '@gitbutler/shared/organizations/organizationService';
-	import { Button, Textbox } from '@gitbutler/ui';
+		ORGANIZATION_SERVICE,
+	} from "@gitbutler/shared/organizations/organizationService";
+	import { Button, Textbox } from "@gitbutler/ui";
 
 	interface Props {
 		organizationSlug: string;
@@ -14,7 +14,7 @@
 
 	let { organizationSlug, inviteCode }: Props = $props();
 
-	let inviteUrl = $state('');
+	let inviteUrl = $state("");
 	let copied = $state(false);
 	let resetting = $state(false);
 	let serviceError = $state(false);
@@ -47,7 +47,7 @@
 				}, 2000);
 			})
 			.catch((err) => {
-				console.error('Failed to copy:', err);
+				console.error("Failed to copy:", err);
 			});
 	}
 
@@ -56,24 +56,24 @@
 
 		// Show confirmation dialog
 		const confirmed = confirm(
-			'Are you sure you want to reset the invite code? This will invalidate all existing invite links.'
+			"Are you sure you want to reset the invite code? This will invalidate all existing invite links.",
 		);
 
 		if (confirmed) {
 			try {
 				resetting = true;
 				const updatedOrg = await (organizationService as OrganizationService).resetInviteCode(
-					organizationSlug
+					organizationSlug,
 				);
 
 				// Update the invite code from the result
-				inviteCode = updatedOrg.inviteCode || '';
+				inviteCode = updatedOrg.inviteCode || "";
 
 				// Update the invite URL with the new code
 				updateInviteUrl();
 			} catch (error) {
-				console.error('Failed to reset invite code:', error);
-				alert('Failed to reset invite code. Please try again.');
+				console.error("Failed to reset invite code:", error);
+				alert("Failed to reset invite code. Please try again.");
 			} finally {
 				resetting = false;
 			}
@@ -87,7 +87,7 @@
 
 		<div class="invite-url-container">
 			<Textbox readonly value={inviteCode} />
-			<Button onclick={copyToClipboard} style={copied ? 'safe' : 'pop'}>copy url</Button>
+			<Button onclick={copyToClipboard} style={copied ? "safe" : "pop"}>copy url</Button>
 		</div>
 
 		<p class="info-text">

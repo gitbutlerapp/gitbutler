@@ -7,12 +7,12 @@
  * @see https://developer.mozilla.org/en-US/docs/Web/API/AbortSignal/timeout_static
  */
 export function polyfillAbortSignalTimeout() {
-	if (typeof AbortSignal !== 'undefined' && !AbortSignal.timeout) {
+	if (typeof AbortSignal !== "undefined" && !AbortSignal.timeout) {
 		AbortSignal.timeout = function (ms: number): AbortSignal {
 			const controller = new AbortController();
 			setTimeout(() => {
 				controller.abort(
-					new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+					new DOMException("The operation was aborted due to timeout", "TimeoutError"),
 				);
 			}, ms);
 			return controller.signal;

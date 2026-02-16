@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Textbox from '$components/Textbox.svelte';
+	import Textbox from "$components/Textbox.svelte";
 
 	interface Props {
 		// Email-specific props
@@ -9,7 +9,7 @@
 	}
 
 	let {
-		customValidationMessage = 'Please enter a valid email address.',
+		customValidationMessage = "Please enter a valid email address.",
 		value = $bindable(),
 		oninput,
 		onchange,
@@ -46,7 +46,7 @@
 			emailError = undefined;
 		}
 
-		onchange?.(value || '');
+		onchange?.(value || "");
 	}
 
 	// Export validation state for parent components

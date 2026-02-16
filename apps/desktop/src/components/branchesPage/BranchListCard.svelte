@@ -1,16 +1,16 @@
 <script lang="ts">
-	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
-	import { type BranchListing, BranchListingDetails } from '$lib/branches/branchListing';
-	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
-	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { getPrStatus } from '$lib/forge/interface/prUtils';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
+	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
+	import { type BranchListing, BranchListingDetails } from "$lib/branches/branchListing";
+	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
+	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { getPrStatus } from "$lib/forge/interface/prUtils";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
 
-	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from '@gitbutler/ui';
-	import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';
-	import type { ReviewUnitInfo } from '$lib/forge/interface/forgePrService';
-	import type { PullRequest } from '$lib/forge/interface/types';
+	import { AvatarGroup, ReviewBadge, SeriesLabelsRow, TestId, TimeAgo } from "@gitbutler/ui";
+	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
+	import type { ReviewUnitInfo } from "$lib/forge/interface/forgePrService";
+	import type { PullRequest } from "$lib/forge/interface/types";
 
 	interface Props {
 		reviewUnit: ReviewUnitInfo | undefined;
@@ -23,8 +23,8 @@
 
 	const { reviewUnit, projectId, branchListing, prs, selected, onclick }: Props = $props();
 
-	const unknownName = 'unknown';
-	const unknownEmail = 'example@example.com';
+	const unknownName = "unknown";
+	const unknownEmail = "example@example.com";
 
 	const userService = inject(USER_SERVICE);
 	const gitConfigService = inject(GIT_CONFIG_SERVICE);
@@ -47,7 +47,7 @@
 		let canceled = false;
 
 		if (ownedByUser) {
-			gitConfigService.get('user.name').then((userName) => {
+			gitConfigService.get("user.name").then((userName) => {
 				if (canceled) return;
 
 				if (userName) {
@@ -59,7 +59,7 @@
 		} else {
 			lastCommitDetails = {
 				authorName: branchListing.lastCommiter.name || unknownName,
-				lastCommitAt: new Date(branchListing.updatedAt)
+				lastCommitAt: new Date(branchListing.updatedAt),
 			};
 		}
 	});
@@ -72,8 +72,8 @@
 
 	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
 		if (ownedByUser) {
-			const name = (await gitConfigService.get('user.name')) || unknownName;
-			const email = (await gitConfigService.get('user.email')) || unknownEmail;
+			const name = (await gitConfigService.get("user.name")) || unknownName;
+			const email = (await gitConfigService.get("user.email")) || unknownEmail;
 			const srcUrl =
 				email.toLowerCase() === $user?.email?.toLowerCase() && $user?.picture
 					? $user?.picture
@@ -90,9 +90,9 @@
 									(author.email?.toLowerCase() === $user?.email?.toLowerCase()
 										? $user?.picture
 										: author.gravatarUrl) ??
-									(await gravatarUrlFromEmail(author.email || unknownEmail))
+									(await gravatarUrlFromEmail(author.email || unknownEmail)),
 							};
-						})
+						}),
 					)
 				: [];
 		} else {
@@ -102,7 +102,7 @@
 
 	const stackBranches = $derived(branchListing.stack?.branches);
 	const filteredStackBranches = $derived(
-		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name]
+		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name],
 	);
 </script>
 

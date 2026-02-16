@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import type { Snippet } from 'svelte';
+	import type { Snippet } from "svelte";
 
-	type BranchStatus = 'integrated' | 'conflicted' | 'clear' | undefined;
+	type BranchStatus = "integrated" | "conflicted" | "clear" | undefined;
 
 	type Branch = {
 		name: string;
@@ -22,19 +22,19 @@
 </script>
 
 <script lang="ts">
-	import Checkbox from '$components/Checkbox.svelte';
-	import Icon from '$components/Icon.svelte';
-	import SeriesIcon from '$components/SeriesIcon.svelte';
-	import { TestId } from '$lib/utils/testIds';
+	import Checkbox from "$components/Checkbox.svelte";
+	import Icon from "$components/Icon.svelte";
+	import SeriesIcon from "$components/SeriesIcon.svelte";
+	import { TestId } from "$lib/utils/testIds";
 	const {
 		testId,
 		series,
 		children,
 		updateBranchShouldBeDeletedMap,
-		branchShouldBeDeletedMap
+		branchShouldBeDeletedMap,
 	}: Props = $props();
 
-	const allSeriesAreIntegrated = series.every((branch) => branch.status === 'integrated');
+	const allSeriesAreIntegrated = series.every((branch) => branch.status === "integrated");
 </script>
 
 {#snippet stackBranch({ name, status }: Branch, isLast: boolean)}
@@ -48,16 +48,16 @@
 					class="status-badge text-10 text-semibold"
 					data-testid={TestId.IntegrateUpstreamSeriesRowStatusBadge}
 				>
-					{#if status === 'conflicted'}
+					{#if status === "conflicted"}
 						Conflicted
-					{:else if status === 'integrated'}
+					{:else if status === "integrated"}
 						Integrated
 					{/if}
 				</span>
 			{/if}
 		</div>
 
-		{#if status === 'integrated'}
+		{#if status === "integrated"}
 			<div class="integrated-label-wrap">
 				<Icon name="tick-small" />
 				<span class="integrated-label text-12"> Part of the new base </span>
@@ -78,7 +78,7 @@
 
 				{#if allSeriesAreIntegrated}
 					{@const atLeastSomeWillBeDeleted = series.some(
-						(branch) => branchShouldBeDeletedMap[branch.name]
+						(branch) => branchShouldBeDeletedMap[branch.name],
 					)}
 					<div class="integrated-label-wrap">
 						<span class="integrated-label text-12">Delete all local branches</span>
@@ -88,7 +88,7 @@
 								const shouldBeDeleted = e.currentTarget.checked;
 								updateBranchShouldBeDeletedMap(
 									series.map((branch) => branch.name),
-									shouldBeDeleted
+									shouldBeDeleted,
 								);
 							}}
 						/>
@@ -119,14 +119,14 @@
 				{#if branch.status}
 					<div class="branch-status-info">
 						<span class="status-badge text-10 text-semibold">
-							{#if branch.status === 'conflicted'}
+							{#if branch.status === "conflicted"}
 								Conflicted
-							{:else if branch.status === 'integrated'}
+							{:else if branch.status === "integrated"}
 								Integrated
 							{/if}
 						</span>
 
-						{#if branch.status === 'integrated'}
+						{#if branch.status === "integrated"}
 							<div class="integrated-label-wrap">
 								<span class="integrated-label text-12">Delete local branch</span>
 								<Checkbox
@@ -293,7 +293,7 @@
 				height: calc(100% + 8px);
 				border-bottom: 1px solid var(--line-color);
 				border-left: 1px solid var(--line-color);
-				content: '';
+				content: "";
 			}
 
 			&::after {
@@ -303,7 +303,7 @@
 				width: var(--line-bounding-box);
 				height: 20px;
 				border-left: 1px solid var(--line-color);
-				content: '';
+				content: "";
 			}
 
 			&.last {

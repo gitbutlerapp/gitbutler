@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Footer from '$lib/components/marketing/Footer.svelte';
-	import Header from '$lib/components/marketing/Header.svelte';
-	import osIcons from '$lib/data/os-icons.json';
-	import { Icon } from '@gitbutler/ui';
-	import type { Release } from '$lib/types/releases';
-	import type { LatestReleaseBuilds } from '$lib/utils/releaseUtils';
+	import Footer from "$lib/components/marketing/Footer.svelte";
+	import Header from "$lib/components/marketing/Header.svelte";
+	import osIcons from "$lib/data/os-icons.json";
+	import { Icon } from "@gitbutler/ui";
+	import type { Release } from "$lib/types/releases";
+	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";
 
 	interface Props {
 		data: {
@@ -42,14 +42,14 @@
 						<span>Latest release</span>
 						<span> • </span>
 						<span
-							>{new Date(latestNightly.released_at).toLocaleDateString('en-GB', {
-								day: 'numeric',
-								month: 'long',
-								year: 'numeric'
-							})} at {new Date(latestNightly.released_at).toLocaleTimeString('en-GB', {
-								hour: '2-digit',
-								minute: '2-digit',
-								hour12: false
+							>{new Date(latestNightly.released_at).toLocaleDateString("en-GB", {
+								day: "numeric",
+								month: "long",
+								year: "numeric",
+							})} at {new Date(latestNightly.released_at).toLocaleTimeString("en-GB", {
+								hour: "2-digit",
+								minute: "2-digit",
+								hour12: false,
 							})}
 						</span>
 						<span> • </span>
@@ -213,15 +213,15 @@
 						<span class="release-row__version">{release.version}</span>
 						<div class="release-row__info">
 							<span class="release-row__date">
-								{new Date(release.released_at).toLocaleDateString('en-GB', {
-									day: 'numeric',
-									month: 'short',
-									year: 'numeric'
+								{new Date(release.released_at).toLocaleDateString("en-GB", {
+									day: "numeric",
+									month: "short",
+									year: "numeric",
 								})},
-								{new Date(release.released_at).toLocaleTimeString('en-GB', {
-									hour: '2-digit',
-									minute: '2-digit',
-									hour12: false
+								{new Date(release.released_at).toLocaleTimeString("en-GB", {
+									hour: "2-digit",
+									minute: "2-digit",
+									hour12: false,
 								})},
 							</span>
 							<div class="flex items-center gap-2">
@@ -246,33 +246,33 @@
 						{#if release.builds && release.builds.length > 0}
 							{#each release.builds as build}
 								<a href={build.url} class="download-link">
-									{#if build.os === 'darwin'}
-										{#if build.platform.includes('aarch64')}
+									{#if build.os === "darwin"}
+										{#if build.platform.includes("aarch64")}
 											macOS Apple Silicon
-										{:else if build.platform.includes('x86_64')}
+										{:else if build.platform.includes("x86_64")}
 											macOS Intel
 										{:else}
 											macOS {build.platform}
 										{/if}
-									{:else if build.os === 'windows'}
+									{:else if build.os === "windows"}
 										MSI
-									{:else if build.os === 'linux'}
-										{#if build.arch === 'x86_64'}
-											{#if build.file.includes('AppImage')}
+									{:else if build.os === "linux"}
+										{#if build.arch === "x86_64"}
+											{#if build.file.includes("AppImage")}
 												Linux Intel (AppImage)
-											{:else if build.file.includes('deb')}
+											{:else if build.file.includes("deb")}
 												Linux Intel (Deb)
-											{:else if build.file.includes('rpm')}
+											{:else if build.file.includes("rpm")}
 												Linux Intel (RPM)
 											{:else}
 												Linux {build.platform}
 											{/if}
-										{:else if build.arch === 'aarch64'}
-											{#if build.file.includes('AppImage')}
+										{:else if build.arch === "aarch64"}
+											{#if build.file.includes("AppImage")}
 												Linux ARM64 (AppImage)
-											{:else if build.file.includes('deb')}
+											{:else if build.file.includes("deb")}
 												Linux ARM64 (Deb)
-											{:else if build.file.includes('rpm')}
+											{:else if build.file.includes("rpm")}
 												Linux ARM64 (RPM)
 											{:else}
 												Linux {build.platform}
@@ -376,7 +376,7 @@
 				transparent 2px,
 				transparent 6px
 			);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 

@@ -1,23 +1,23 @@
 <script lang="ts">
-	import BranchDividerLine from '$components/BranchDividerLine.svelte';
-	import CodegenRow from '$components/CodegenRow.svelte';
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import DraftBranchHeader from '$components/DraftBranchHeader.svelte';
-	import NewCommitView from '$components/NewCommitView.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import Resizer from '$components/Resizer.svelte';
-	import CodegenMessages from '$components/codegen/CodegenMessages.svelte';
-	import { messageQueueSlice } from '$lib/codegen/messageQueueSlice';
-	import { showError } from '$lib/notifications/toasts';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { TestId } from '@gitbutler/ui';
-	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import BranchDividerLine from "$components/BranchDividerLine.svelte";
+	import CodegenRow from "$components/CodegenRow.svelte";
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import DraftBranchHeader from "$components/DraftBranchHeader.svelte";
+	import NewCommitView from "$components/NewCommitView.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import Resizer from "$components/Resizer.svelte";
+	import CodegenMessages from "$components/codegen/CodegenMessages.svelte";
+	import { messageQueueSlice } from "$lib/codegen/messageQueueSlice";
+	import { showError } from "$lib/notifications/toasts";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { TestId } from "@gitbutler/ui";
+	import { onMount } from "svelte";
+	import { fly } from "svelte/transition";
 
-	type DraftMode = 'commit' | 'codegen';
+	type DraftMode = "commit" | "codegen";
 
 	type Props = {
 		projectId: string;
@@ -25,7 +25,7 @@
 		mode?: DraftMode;
 	};
 
-	let { projectId, visible, mode = $bindable('commit') }: Props = $props();
+	let { projectId, visible, mode = $bindable("commit") }: Props = $props();
 
 	const uiState = inject(UI_STATE);
 	const projectState = $derived(uiState.project(projectId));
@@ -48,20 +48,20 @@
 			// Create the new stack
 			const stack = await createNewStack({
 				projectId,
-				branch: { name: branchName, order: 0 }
+				branch: { name: branchName, order: 0 },
 			});
 
 			const stackId = stack.id;
 			const finalBranchName = stack.heads[0]?.name;
 
 			if (!stackId || !finalBranchName) {
-				throw new Error('Failed to create stack');
+				throw new Error("Failed to create stack");
 			}
 
 			// Get current settings from project state
 			const thinkingLevel = projectState.thinkingLevel.current;
 			const model = projectState.selectedModel.current;
-			const permissionMode = uiState.lane('draft-codegen').permissionMode.current;
+			const permissionMode = uiState.lane("draft-codegen").permissionMode.current;
 
 			// Add message to the queue for the new stack
 
@@ -76,10 +76,10 @@
 							prompt,
 							thinkingLevel,
 							model,
-							permissionMode
-						}
-					]
-				})
+							permissionMode,
+						},
+					],
+				}),
 			);
 
 			uiState.global.draftBranchName.set(undefined);
@@ -94,7 +94,7 @@
 				if (element instanceof HTMLElement) element?.focus();
 			}, 100);
 		} catch (err: unknown) {
-			showError('Failed to create codegen session', err);
+			showError("Failed to create codegen session", err);
 		} finally {
 			isCreatingStack = false;
 		}
@@ -102,7 +102,7 @@
 
 	onMount(() => {
 		if (draftPanelEl) {
-			draftPanelEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+			draftPanelEl.scrollIntoView({ behavior: "smooth", block: "start" });
 		}
 	});
 </script>
@@ -113,9 +113,9 @@
 			<div
 				class="draft-stack__scroll-wrap"
 				bind:this={draftPanelEl}
-				style:width={uiState.global.stackWidth.current + 'rem'}
+				style:width={uiState.global.stackWidth.current + "rem"}
 			>
-				{#if mode === 'commit'}
+				{#if mode === "commit"}
 					<div class="new-commit-view">
 						<NewCommitView {projectId} />
 					</div>
@@ -127,13 +127,13 @@
 							{branchName}
 							lineColor="var(--clr-commit-local)"
 							{mode}
-							isCommitting={mode === 'commit'}
+							isCommitting={mode === "commit"}
 							updateBranchName={(name) => uiState.global.draftBranchName.set(name)}
 							isUpdatingName={false}
 							failedToUpdateName={false}
 						/>
 
-						{#if mode === 'codegen'}
+						{#if mode === "codegen"}
 							<BranchDividerLine lineColor="var(--clr-commit-local)" short />
 							<CodegenRow draft />
 						{/if}
@@ -150,7 +150,7 @@
 			</div>
 		</ConfigurableScrollableContainer>
 
-		{#if mode === 'codegen'}
+		{#if mode === "codegen"}
 			<div
 				bind:this={draftCodegenEl}
 				in:fly={{ y: 20, duration: 200 }}
@@ -160,7 +160,7 @@
 				<ReduxResult {projectId} result={newNameQuery.result}>
 					{#snippet children(newName)}
 						{@const branchName = draftBranchName.current || newName}
-						{@const laneState = uiState.lane('draft-codegen')}
+						{@const laneState = uiState.lane("draft-codegen")}
 						<CodegenMessages
 							{projectId}
 							{branchName}
@@ -175,7 +175,7 @@
 							}}
 							onclose={() => {
 								projectState.exclusiveAction.set(undefined);
-								laneState.prompt.set('');
+								laneState.prompt.set("");
 							}}
 						/>
 					{/snippet}

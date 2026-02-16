@@ -1,21 +1,21 @@
-import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlice';
-import { branchTable } from '$lib/branches/branchesSlice';
+import { branchReviewListingTable } from "$lib/branches/branchReviewListingsSlice";
+import { branchTable } from "$lib/branches/branchesSlice";
 import {
 	apiToBranch,
 	branchReviewListingKey,
 	BranchStatus,
 	type ApiBranch,
 	type Branch,
-	type LoadableBranch
-} from '$lib/branches/types';
-import { InterestStore, type Interest } from '$lib/interest/interestStore';
-import { errorToLoadable } from '$lib/network/loadable';
-import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
-import { apiToPatch, type LoadablePatchCommit } from '$lib/patches/types';
-import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { HttpClient } from '$lib/network/httpClient';
-import type { AppDispatch } from '$lib/redux/store.svelte';
+	type LoadableBranch,
+} from "$lib/branches/types";
+import { InterestStore, type Interest } from "$lib/interest/interestStore";
+import { errorToLoadable } from "$lib/network/loadable";
+import { patchCommitTable } from "$lib/patches/patchCommitsSlice";
+import { apiToPatch, type LoadablePatchCommit } from "$lib/patches/types";
+import { POLLING_GLACIALLY, POLLING_REGULAR } from "$lib/polling";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { HttpClient } from "$lib/network/httpClient";
+import type { AppDispatch } from "$lib/redux/store.svelte";
 
 type BranchUpdateParams = {
 	status?: BranchStatus.Active | BranchStatus.Closed;
@@ -25,7 +25,7 @@ type BranchUpdateParams = {
 	forgeDescription?: string;
 };
 
-export const BRANCH_SERVICE: InjectionToken<BranchService> = new InjectionToken('BranchService');
+export const BRANCH_SERVICE: InjectionToken<BranchService> = new InjectionToken("BranchService");
 
 export class BranchService {
 	private readonly branchesInterests = new InterestStore<{
@@ -37,43 +37,43 @@ export class BranchService {
 
 	constructor(
 		private readonly httpClient: HttpClient,
-		private readonly appDispatch: AppDispatch
+		private readonly appDispatch: AppDispatch,
 	) {}
 
 	getBranchesInterest(
 		ownerSlug: string,
 		projectSlug: string,
-		branchStatus: BranchStatus = BranchStatus.All
+		branchStatus: BranchStatus = BranchStatus.All,
 	): Interest {
 		return this.branchesInterests
 			.findOrCreateSubscribable({ ownerSlug, projectSlug, branchStatus }, async () => {
 				this.appDispatch.dispatch(
 					branchReviewListingTable.addOne({
 						id: branchReviewListingKey(ownerSlug, projectSlug, branchStatus),
-						status: 'loading'
-					})
+						status: "loading",
+					}),
 				);
 				try {
 					const apiBranches = await this.httpClient.get<ApiBranch[]>(
-						`patch_stack/${ownerSlug}/${projectSlug}?status=${branchStatus}`
+						`patch_stack/${ownerSlug}/${projectSlug}?status=${branchStatus}`,
 					);
 
 					const branches = apiBranches.map(
 						(api): LoadableBranch => ({
-							status: 'found',
+							status: "found",
 							id: api.uuid,
-							value: apiToBranch(api)
-						})
+							value: apiToBranch(api),
+						}),
 					);
 
 					const patches = apiBranches
 						.flatMap((branch) => branch.patches)
 						.map((api): LoadablePatchCommit => {
-							if (!api) return { status: 'not-found', id: '' };
+							if (!api) return { status: "not-found", id: "" };
 							return {
-								status: 'found',
+								status: "found",
 								id: api.change_id,
-								value: apiToPatch(api)
+								value: apiToPatch(api),
 							};
 						});
 
@@ -82,15 +82,15 @@ export class BranchService {
 					this.appDispatch.dispatch(
 						branchReviewListingTable.upsertOne({
 							id: branchReviewListingKey(ownerSlug, projectSlug, branchStatus),
-							status: 'found',
-							value: apiBranches.map((branch) => branch.uuid)
-						})
+							status: "found",
+							value: apiBranches.map((branch) => branch.uuid),
+						}),
 					);
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
 						branchReviewListingTable.addOne(
-							errorToLoadable(error, branchReviewListingKey(ownerSlug, projectSlug, branchStatus))
-						)
+							errorToLoadable(error, branchReviewListingKey(ownerSlug, projectSlug, branchStatus)),
+						),
 					);
 				}
 			})
@@ -101,17 +101,17 @@ export class BranchService {
 		try {
 			const apiBranch = await this.httpClient.get<ApiBranch>(`patch_stack/${uuid}`);
 			const loadableBranch: LoadableBranch = {
-				status: 'found',
+				status: "found",
 				id: apiBranch.uuid,
-				value: apiToBranch(apiBranch)
+				value: apiToBranch(apiBranch),
 			};
 
 			const patches = apiBranch.patches?.map(
 				(api): LoadablePatchCommit => ({
-					status: 'found',
+					status: "found",
 					id: api.change_id,
-					value: apiToPatch(api)
-				})
+					value: apiToPatch(api),
+				}),
 			);
 			this.appDispatch.dispatch(branchTable.upsertOne(loadableBranch));
 			if (patches) {
@@ -127,21 +127,21 @@ export class BranchService {
 	getBranchInterest(uuid: string): Interest {
 		return this.branchInterests
 			.findOrCreateSubscribable({ uuid }, async () => {
-				this.appDispatch.dispatch(branchTable.addOne({ status: 'loading', id: uuid }));
+				this.appDispatch.dispatch(branchTable.addOne({ status: "loading", id: uuid }));
 				try {
 					const apiBranch = await this.httpClient.get<ApiBranch>(`patch_stack/${uuid}`);
 					const branch: LoadableBranch = {
-						status: 'found',
+						status: "found",
 						id: apiBranch.uuid,
-						value: apiToBranch(apiBranch)
+						value: apiToBranch(apiBranch),
 					};
 
 					const patches = apiBranch.patches?.map(
 						(api): LoadablePatchCommit => ({
-							status: 'found',
+							status: "found",
 							id: api.change_id,
-							value: apiToPatch(api)
-						})
+							value: apiToPatch(api),
+						}),
 					);
 					this.appDispatch.dispatch(branchTable.upsertOne(branch));
 					if (patches) {
@@ -165,21 +165,25 @@ export class BranchService {
 				title: params.title,
 				description: params.description,
 				forge_url: params.forgeUrl,
-				forge_description: params.forgeDescription
-			}
+				forge_description: params.forgeDescription,
+			},
 		});
 		const branch = apiToBranch(apiBranch);
 
 		const patches = apiBranch.patches?.map(
-			(api): LoadablePatchCommit => ({ status: 'found', id: api.change_id, value: apiToPatch(api) })
+			(api): LoadablePatchCommit => ({
+				status: "found",
+				id: api.change_id,
+				value: apiToPatch(api),
+			}),
 		);
 
 		this.appDispatch.dispatch(
 			branchTable.upsertOne({
-				status: 'found',
+				status: "found",
 				id: branch.uuid,
-				value: branch
-			})
+				value: branch,
+			}),
 		);
 		this.appDispatch.dispatch(patchCommitTable.upsertMany(patches ?? []));
 

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import featuresJson from '../features.json';
-	import Features from '$home/components/Features.svelte';
-	import SectionHeader from '$home/components/SectionHeader.svelte';
+	import featuresJson from "../features.json";
+	import Features from "$home/components/Features.svelte";
+	import SectionHeader from "$home/components/SectionHeader.svelte";
 </script>
 
 <section class="cli-features">

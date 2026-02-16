@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
-	import { Button } from '@gitbutler/ui';
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { Button } from "@gitbutler/ui";
 
 	const { openGeneralSettings } = useSettingsModal();
 </script>
@@ -9,7 +9,7 @@
 	style="pop"
 	icon="signin"
 	onclick={async () => {
-		openGeneralSettings('general');
+		openGeneralSettings("general");
 	}}
 >
 	Go to Settings

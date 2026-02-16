@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import BranchIndexCard from '$lib/components/branches/BranchIndexCard.svelte';
-	import DashboardLayout from '$lib/components/dashboard/DashboardLayout.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { getBranchReviewsForRepository } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { BranchStatus } from '@gitbutler/shared/branches/types';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { getProject } from '@gitbutler/shared/organizations/projectsPreview.svelte';
-	import { type ProjectParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, Select, SelectItem } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import BranchIndexCard from "$lib/components/branches/BranchIndexCard.svelte";
+	import DashboardLayout from "$lib/components/dashboard/DashboardLayout.svelte";
+	import Table from "$lib/components/table/Table.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { getBranchReviewsForRepository } from "@gitbutler/shared/branches/branchesPreview.svelte";
+	import { BranchStatus } from "@gitbutler/shared/branches/types";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { getProject } from "@gitbutler/shared/organizations/projectsPreview.svelte";
+	import { type ProjectParameters } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, Select, SelectItem } from "@gitbutler/ui";
 
 	// Get authentication service and check if user is logged in
 	const routes = inject(WEB_ROUTES_SERVICE);
@@ -33,14 +33,14 @@
 
 	let filterStatus = $state<BranchStatus>(BranchStatus.All);
 	const selectableStatuses = [
-		{ value: BranchStatus.All, label: 'All branches' },
-		{ value: BranchStatus.Closed, label: 'Closed' },
-		{ value: BranchStatus.Active, label: 'Active' },
-		{ value: BranchStatus.Inactive, label: 'Inactive' }
+		{ value: BranchStatus.All, label: "All branches" },
+		{ value: BranchStatus.Closed, label: "Closed" },
+		{ value: BranchStatus.Active, label: "Active" },
+		{ value: BranchStatus.Inactive, label: "Inactive" },
 	];
 
 	const brancheses = $derived(
-		getBranchReviewsForRepository(data.ownerSlug, data.projectSlug, filterStatus)
+		getBranchReviewsForRepository(data.ownerSlug, data.projectSlug, filterStatus),
 	);
 
 	const project = $derived(getProject(data.ownerSlug, data.projectSlug));
@@ -93,34 +93,34 @@
 				<Table
 					headColumns={[
 						{
-							key: 'status',
-							value: 'Status'
+							key: "status",
+							value: "Status",
 						},
 						{
-							key: 'title',
-							value: 'Name'
+							key: "title",
+							value: "Name",
 						},
 						{
-							key: 'number',
-							value: 'UUID'
+							key: "number",
+							value: "UUID",
 						},
 						{
-							key: 'number',
-							value: 'Commits'
+							key: "number",
+							value: "Commits",
 						},
 						{
-							key: 'date',
-							value: 'Update'
+							key: "date",
+							value: "Update",
 						},
 						{
-							key: 'avatars',
-							value: 'Authors'
+							key: "avatars",
+							value: "Authors",
 						},
 						{
-							key: 'number',
-							value: 'Ver.',
-							tooltip: 'Commit version'
-						}
+							key: "number",
+							value: "Ver.",
+							tooltip: "Commit version",
+						},
 					]}
 				>
 					{#snippet body()}

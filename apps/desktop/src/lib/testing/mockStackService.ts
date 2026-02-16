@@ -1,37 +1,37 @@
-import { mockReduxFulfilled } from '$lib/testing/mockRedux';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import { vi } from 'vitest';
-import type { Author, Commit, UpstreamCommit } from '$lib/branches/v3';
-import type { BranchDetails } from '$lib/stacks/stack';
+import { mockReduxFulfilled } from "$lib/testing/mockRedux";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import { vi } from "vitest";
+import type { Author, Commit, UpstreamCommit } from "$lib/branches/v3";
+import type { BranchDetails } from "$lib/stacks/stack";
 
 const MOCK_AUTHOR_A: Author = {
-	name: 'Author A',
-	email: 'some-email@greatemail.com',
-	gravatarUrl: 'https://example.com/avatar-a.png'
+	name: "Author A",
+	email: "some-email@greatemail.com",
+	gravatarUrl: "https://example.com/avatar-a.png",
 };
 
 const MOCK_COMMIT_A: Commit = {
-	id: 'commit-a-id',
-	parentIds: ['parent-commit-id'],
-	message: 'Initial commit message',
+	id: "commit-a-id",
+	parentIds: ["parent-commit-id"],
+	message: "Initial commit message",
 	hasConflicts: false,
-	state: { type: 'LocalOnly' },
+	state: { type: "LocalOnly" },
 	createdAt: BigInt(1672531200000), // Example timestamp
 	author: MOCK_AUTHOR_A,
-	gerritReviewUrl: null
+	gerritReviewUrl: null,
 };
 
 const MOCK_UPSTREAM_COMMIT_A: UpstreamCommit = {
-	id: 'upstream-commit-a-id',
-	message: 'Upstream commit message',
+	id: "upstream-commit-a-id",
+	message: "Upstream commit message",
 	createdAt: BigInt(1672531200000), // Example timestamp
-	author: MOCK_AUTHOR_A
+	author: MOCK_AUTHOR_A,
 };
 
 const BRANCH_DETAILS_A: BranchDetails = {
-	name: 'branch-a',
-	reference: 'refs/heads/branch-a',
-	pushStatus: 'nothingToPush',
+	name: "branch-a",
+	reference: "refs/heads/branch-a",
+	pushStatus: "nothingToPush",
 	authors: [MOCK_AUTHOR_A],
 	isConflicted: false,
 	commits: [MOCK_COMMIT_A],
@@ -39,11 +39,11 @@ const BRANCH_DETAILS_A: BranchDetails = {
 	remoteTrackingBranch: null,
 	prNumber: null,
 	reviewId: null,
-	tip: 'tip-commit-a',
-	baseCommit: 'base-commit-a',
+	tip: "tip-commit-a",
+	baseCommit: "base-commit-a",
 	isRemoteHead: false,
 	linkedWorktreeId: null,
-	lastUpdatedAt: BigInt(1672531200000)
+	lastUpdatedAt: BigInt(1672531200000),
 };
 
 export function getStackServiceMock() {
@@ -93,13 +93,13 @@ export function getStackServiceMock() {
 	StackServiceMock.prototype.createCommitLegacy = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.updateCommitMessage = [
 		vi.fn(),
-		reactive(() => mockReduxFulfilled({}))
+		reactive(() => mockReduxFulfilled({})),
 	];
 	StackServiceMock.prototype.newBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.uncommit = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.insertBlankCommit = {
 		useMutation: vi.fn(() => [vi.fn(), reactive(() => mockReduxFulfilled({}))]),
-		mutate: vi.fn()
+		mutate: vi.fn(),
 	};
 	StackServiceMock.prototype.unapply = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.publishBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
@@ -107,13 +107,13 @@ export function getStackServiceMock() {
 	StackServiceMock.prototype.discardChanges = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.updateBranchPrNumber = [
 		vi.fn(),
-		reactive(() => mockReduxFulfilled({}))
+		reactive(() => mockReduxFulfilled({})),
 	];
 	StackServiceMock.prototype.updateBranchName = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.removeBranch = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.updateBranchDescription = [
 		vi.fn(),
-		reactive(() => mockReduxFulfilled({}))
+		reactive(() => mockReduxFulfilled({})),
 	];
 	StackServiceMock.prototype.reorderStack = [vi.fn(), reactive(() => mockReduxFulfilled({}))];
 	StackServiceMock.prototype.reorderStackMutation = vi.fn();

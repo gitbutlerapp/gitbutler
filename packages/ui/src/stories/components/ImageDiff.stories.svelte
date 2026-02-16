@@ -1,6 +1,6 @@
 <script module lang="ts">
-	import ImageDiff from '$components/ImageDiff.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import ImageDiff from "$components/ImageDiff.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	// Sample image data URLs for demonstration
 	const sampleImageBefore =
@@ -9,28 +9,28 @@
 		'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="500" height="400"%3E%3Crect width="500" height="400" fill="%234ecdc4"/%3E%3Ctext x="250" y="200" text-anchor="middle" dominant-baseline="middle" font-size="24" fill="white"%3EAfter%3C/text%3E%3C/svg%3E';
 
 	const { Story } = defineMeta({
-		title: 'File Diff / ImageDiff',
+		title: "File Diff / ImageDiff",
 		component: ImageDiff as any,
 		args: {
 			beforeImageUrl: sampleImageBefore,
 			afterImageUrl: sampleImageAfter,
-			fileName: 'example.png',
-			isLoading: false
+			fileName: "example.png",
+			isLoading: false,
 		},
 		argTypes: {
 			beforeImageUrl: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			afterImageUrl: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			fileName: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			isLoading: {
-				control: { type: 'boolean' }
-			}
-		}
+				control: { type: "boolean" },
+			},
+		},
 	});
 </script>
 

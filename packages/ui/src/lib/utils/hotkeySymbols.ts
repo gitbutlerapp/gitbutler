@@ -1,92 +1,92 @@
-import { determinePlatform } from '$lib/utils/platform';
+import { determinePlatform } from "$lib/utils/platform";
 
 // Symbol-to-key mapping for displaying and parsing hotkeys
 export const SYMBOL_TO_KEY_MAP: Record<string, string> = {
 	// Modifiers
-	'⌘': 'Meta',
-	'⌃': 'Control',
-	'⌥': 'Alt',
-	'⇧': 'Shift',
-	cmd: 'Meta',
-	ctrl: 'Control',
-	alt: 'Alt',
-	shift: 'Shift',
+	"⌘": "Meta",
+	"⌃": "Control",
+	"⌥": "Alt",
+	"⇧": "Shift",
+	cmd: "Meta",
+	ctrl: "Control",
+	alt: "Alt",
+	shift: "Shift",
 
 	// Special keys
-	'↵': 'Enter',
-	'⏎': 'Enter',
-	'⎋': 'Escape',
-	'⌫': 'Backspace',
-	'⌦': 'Delete',
-	'⇥': 'Tab',
-	'␣': ' ',
-	'⏺': ' ',
-	'↑': 'ArrowUp',
-	'↓': 'ArrowDown',
-	'←': 'ArrowLeft',
-	'→': 'ArrowRight',
-	'⇞': 'PageUp',
-	'⇟': 'PageDown',
-	'↖': 'Home',
-	'↘': 'End',
+	"↵": "Enter",
+	"⏎": "Enter",
+	"⎋": "Escape",
+	"⌫": "Backspace",
+	"⌦": "Delete",
+	"⇥": "Tab",
+	"␣": " ",
+	"⏺": " ",
+	"↑": "ArrowUp",
+	"↓": "ArrowDown",
+	"←": "ArrowLeft",
+	"→": "ArrowRight",
+	"⇞": "PageUp",
+	"⇟": "PageDown",
+	"↖": "Home",
+	"↘": "End",
 
 	// Function keys
-	F1: 'F1',
-	F2: 'F2',
-	F3: 'F3',
-	F4: 'F4',
-	F5: 'F5',
-	F6: 'F6',
-	F7: 'F7',
-	F8: 'F8',
-	F9: 'F9',
-	F10: 'F10',
-	F11: 'F11',
-	F12: 'F12'
+	F1: "F1",
+	F2: "F2",
+	F3: "F3",
+	F4: "F4",
+	F5: "F5",
+	F6: "F6",
+	F7: "F7",
+	F8: "F8",
+	F9: "F9",
+	F10: "F10",
+	F11: "F11",
+	F12: "F12",
 };
 
 // Platform-specific symbol mappings
 export const PLATFORM_SYMBOLS = {
 	macos: {
-		Meta: '⌘',
-		Control: '⌃',
-		Alt: '⌥',
-		Shift: '⇧'
+		Meta: "⌘",
+		Control: "⌃",
+		Alt: "⌥",
+		Shift: "⇧",
 	},
 	windows: {
-		Meta: 'Win',
-		Control: 'Ctrl',
-		Alt: 'Alt',
-		Shift: 'Shift'
+		Meta: "Win",
+		Control: "Ctrl",
+		Alt: "Alt",
+		Shift: "Shift",
 	},
 	linux: {
-		Meta: 'Super',
-		Control: 'Ctrl',
-		Alt: 'Alt',
-		Shift: 'Shift'
-	}
+		Meta: "Super",
+		Control: "Ctrl",
+		Alt: "Alt",
+		Shift: "Shift",
+	},
 } as const;
 
 // Reverse mapping for display purposes (Mac symbols by default)
 export const KEY_TO_SYMBOL_MAP: Record<string, string> = {
-	Meta: '⌘',
-	Control: '⌃',
-	Alt: '⌥',
-	Shift: '⇧',
-	Enter: '↵',
-	Escape: '⎋',
-	Backspace: '⌫',
-	Delete: '⌦',
-	Tab: '⇥',
-	' ': '␣',
-	ArrowUp: '↑',
-	ArrowDown: '↓',
-	ArrowLeft: '←',
-	ArrowRight: '→',
-	PageUp: '⇞',
-	PageDown: '⇟',
-	Home: '↖',
-	End: '↘'
+	Meta: "⌘",
+	Control: "⌃",
+	Alt: "⌥",
+	Shift: "⇧",
+	Enter: "↵",
+	Escape: "⎋",
+	Backspace: "⌫",
+	Delete: "⌦",
+	Tab: "⇥",
+	" ": "␣",
+	ArrowUp: "↑",
+	ArrowDown: "↓",
+	ArrowLeft: "←",
+	ArrowRight: "→",
+	PageUp: "⇞",
+	PageDown: "⇟",
+	Home: "↖",
+	End: "↘",
 };
 
 export interface ParsedHotkey {
@@ -110,7 +110,7 @@ export function parseHotkey(hotkey: string): ParsedHotkey | undefined {
 		meta: false,
 		ctrl: false,
 		alt: false,
-		shift: false
+		shift: false,
 	};
 
 	let remaining = hotkey;
@@ -124,16 +124,16 @@ export function parseHotkey(hotkey: string): ParsedHotkey | undefined {
 		for (const [symbol, key] of Object.entries(SYMBOL_TO_KEY_MAP)) {
 			if (remaining.startsWith(symbol)) {
 				switch (key) {
-					case 'Meta':
+					case "Meta":
 						modifiers.meta = true;
 						break;
-					case 'Control':
+					case "Control":
 						modifiers.ctrl = true;
 						break;
-					case 'Alt':
+					case "Alt":
 						modifiers.alt = true;
 						break;
-					case 'Shift':
+					case "Shift":
 						modifiers.shift = true;
 						break;
 					default:
@@ -154,7 +154,7 @@ export function parseHotkey(hotkey: string): ParsedHotkey | undefined {
 
 	return {
 		modifiers,
-		key: mappedKey
+		key: mappedKey,
 	};
 }
 
@@ -183,12 +183,12 @@ export function formatHotkeyForDisplay(hotkey: string): string {
 	const parsed = parseHotkey(hotkey);
 	if (!parsed) return hotkey;
 
-	let display = '';
+	let display = "";
 
-	if (parsed.modifiers.meta) display += KEY_TO_SYMBOL_MAP['Meta'] || '⌘';
-	if (parsed.modifiers.ctrl) display += KEY_TO_SYMBOL_MAP['Control'] || '⌃';
-	if (parsed.modifiers.alt) display += KEY_TO_SYMBOL_MAP['Alt'] || '⌥';
-	if (parsed.modifiers.shift) display += KEY_TO_SYMBOL_MAP['Shift'] || '⇧';
+	if (parsed.modifiers.meta) display += KEY_TO_SYMBOL_MAP["Meta"] || "⌘";
+	if (parsed.modifiers.ctrl) display += KEY_TO_SYMBOL_MAP["Control"] || "⌃";
+	if (parsed.modifiers.alt) display += KEY_TO_SYMBOL_MAP["Alt"] || "⌥";
+	if (parsed.modifiers.shift) display += KEY_TO_SYMBOL_MAP["Shift"] || "⇧";
 
 	// Convert key to symbol if available
 	const keySymbol = KEY_TO_SYMBOL_MAP[parsed.key] || parsed.key;
@@ -211,28 +211,28 @@ export function formatHotkeyForPlatform(hotkey: string): string {
 	const symbols =
 		PLATFORM_SYMBOLS[platform as keyof typeof PLATFORM_SYMBOLS] || PLATFORM_SYMBOLS.macos;
 
-	let display = '';
+	let display = "";
 
 	// Build modifier string based on platform
 	if (parsed.modifiers.meta) {
 		// On Windows/Linux, Cmd (Meta) typically maps to Ctrl
-		if (platform === 'windows' || platform === 'linux') {
-			display += symbols['Control'];
+		if (platform === "windows" || platform === "linux") {
+			display += symbols["Control"];
 		} else {
-			display += symbols['Meta'];
+			display += symbols["Meta"];
 		}
 	}
-	if (parsed.modifiers.ctrl) display += symbols['Control'];
-	if (parsed.modifiers.alt) display += symbols['Alt'];
-	if (parsed.modifiers.shift) display += symbols['Shift'];
+	if (parsed.modifiers.ctrl) display += symbols["Control"];
+	if (parsed.modifiers.alt) display += symbols["Alt"];
+	if (parsed.modifiers.shift) display += symbols["Shift"];
 
 	// Add separator for text-based platforms
-	if ((platform === 'windows' || platform === 'linux') && display) {
-		display += '+';
+	if ((platform === "windows" || platform === "linux") && display) {
+		display += "+";
 	}
 
 	// Convert key to symbol if available (for special keys like arrows)
-	const keySymbol = (platform === 'macos' && KEY_TO_SYMBOL_MAP[parsed.key]) || parsed.key;
+	const keySymbol = (platform === "macos" && KEY_TO_SYMBOL_MAP[parsed.key]) || parsed.key;
 	display += keySymbol;
 
 	return display;

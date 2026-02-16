@@ -1,4 +1,4 @@
-import type { LoadableData } from '$lib/network/types';
+import type { LoadableData } from "$lib/network/types";
 
 export type ApiUserSimple = {
 	id: number;
@@ -10,13 +10,13 @@ export type ApiUserSimple = {
 
 export function isApiUserSimple(data: unknown): data is ApiUserSimple {
 	return (
-		typeof data === 'object' &&
+		typeof data === "object" &&
 		data !== null &&
-		typeof (data as any).id === 'number' &&
-		(typeof (data as any).avatar_url === 'string' || (data as any).avatar_url === null) &&
-		(typeof (data as any).email === 'string' || (data as any).email === null) &&
-		(typeof (data as any).login === 'string' || (data as any).login === null) &&
-		(typeof (data as any).name === 'string' || (data as any).name === null)
+		typeof (data as any).id === "number" &&
+		(typeof (data as any).avatar_url === "string" || (data as any).avatar_url === null) &&
+		(typeof (data as any).email === "string" || (data as any).email === null) &&
+		(typeof (data as any).login === "string" || (data as any).login === null) &&
+		(typeof (data as any).name === "string" || (data as any).name === null)
 	);
 }
 
@@ -34,7 +34,7 @@ export function apiToUserSimple(api: ApiUserSimple): UserSimple {
 		avatarUrl: api.avatar_url ?? undefined,
 		email: api.email ?? undefined,
 		login: api.login ?? undefined,
-		name: api.name ?? undefined
+		name: api.name ?? undefined,
 	};
 }
 
@@ -51,7 +51,7 @@ export type UserMaybe = {
 export function apiToUserMaybe(api: ApiUserMaybe): UserMaybe {
 	return {
 		email: api.email,
-		user: api.user ? apiToUserSimple(api.user) : undefined
+		user: api.user ? apiToUserSimple(api.user) : undefined,
 	};
 }
 
@@ -83,7 +83,7 @@ export type User = {
 	location?: string;
 };
 
-export type LoadableUser = LoadableData<User, User['id']>;
+export type LoadableUser = LoadableData<User, User["id"]>;
 
 export type LoadableUserIdByLogin = LoadableData<number, string>;
 
@@ -94,7 +94,7 @@ export function apiToUser(apiUser: ApiUser): User {
 		twitter: apiUser.twitter,
 		bluesky: apiUser.bluesky,
 		timezone: apiUser.timezone,
-		location: apiUser.location
+		location: apiUser.location,
 	};
 }
 
@@ -112,19 +112,19 @@ export function apiToUserPrivate(api: ApiUserPrivate): UserPrivate {
 	return {
 		...apiToUser(api),
 		accessToken: api.access_token,
-		role: api.role ?? undefined
+		role: api.role ?? undefined,
 	};
 }
 
 export type SearchUsersApiSearchTerm = {
 	value: string;
-	operator?: 'EQUAL' | 'STARTS_WITH';
+	operator?: "EQUAL" | "STARTS_WITH";
 	case_sensitive?: boolean;
 };
 
 export type SearchUsersApiFilter = {
-	field: 'login' | 'name' | 'email';
-	operator: 'NULL' | 'NOT_NULL';
+	field: "login" | "name" | "email";
+	operator: "NULL" | "NOT_NULL";
 };
 
 export type SearchUsersApiQuery = {

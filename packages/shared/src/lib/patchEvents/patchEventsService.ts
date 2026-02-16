@@ -1,31 +1,31 @@
-import { InterestStore, type Interest } from '$lib/interest/interestStore';
-import { errorToLoadable, isFound } from '$lib/network/loadable';
-import { patchEventsSelectors, upsertPatchEvent } from '$lib/patchEvents/patchEventsSlice';
+import { InterestStore, type Interest } from "$lib/interest/interestStore";
+import { errorToLoadable, isFound } from "$lib/network/loadable";
+import { patchEventsSelectors, upsertPatchEvent } from "$lib/patchEvents/patchEventsSlice";
 import {
 	apiToPatchEvent,
 	createPatchEventChannelKey,
 	isApiPatchEvent,
 	type ApiPatchEvent,
 	type LoadablePatchEventChannel,
-	type PatchEvent
-} from '$lib/patchEvents/types';
-import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
-import { playSound } from '$lib/sounds';
-import { asyncToSyncSignals, writableDerived } from '$lib/storeUtils';
-import { InjectionToken } from '@gitbutler/core/context';
-import { createConsumer } from '@rails/actioncable';
-import { type Readable } from 'svelte/store';
-import type { HttpClient } from '$lib/network/httpClient';
-import type { PatchCommitService } from '$lib/patches/patchCommitService';
-import type { AppDispatch, AppPatchEventsState } from '$lib/redux/store.svelte';
+	type PatchEvent,
+} from "$lib/patchEvents/types";
+import { patchCommitTable } from "$lib/patches/patchCommitsSlice";
+import { playSound } from "$lib/sounds";
+import { asyncToSyncSignals, writableDerived } from "$lib/storeUtils";
+import { InjectionToken } from "@gitbutler/core/context";
+import { createConsumer } from "@rails/actioncable";
+import { type Readable } from "svelte/store";
+import type { HttpClient } from "$lib/network/httpClient";
+import type { PatchCommitService } from "$lib/patches/patchCommitService";
+import type { AppDispatch, AppPatchEventsState } from "$lib/redux/store.svelte";
 
 function getActionCableEndpoint(token: string | undefined, baseUrl: string): string {
-	const domain = baseUrl.replace('http', 'ws');
-	const url = new URL('cable', domain);
+	const domain = baseUrl.replace("http", "ws");
+	const url = new URL("cable", domain);
 
 	const urlSearchParams = new URLSearchParams();
 	if (token) {
-		urlSearchParams.append('token', token);
+		urlSearchParams.append("token", token);
 	}
 	url.search = urlSearchParams.toString();
 
@@ -33,7 +33,7 @@ function getActionCableEndpoint(token: string | undefined, baseUrl: string): str
 }
 
 export const PATCH_EVENTS_SERVICE: InjectionToken<PatchEventsService> = new InjectionToken(
-	'PatchEventsService'
+	"PatchEventsService",
 );
 
 export class PatchEventsService {
@@ -50,7 +50,7 @@ export class PatchEventsService {
 		private readonly appDispatch: AppDispatch,
 		private readonly token: Readable<string | undefined>,
 		private readonly patchService: PatchCommitService,
-		private readonly websocketBase: string
+		private readonly websocketBase: string,
 	) {}
 
 	setUserId(userId: number) {
@@ -75,19 +75,19 @@ export class PatchEventsService {
 				const actionCableEndpoint = getActionCableEndpoint(token, this.websocketBase);
 				const consumer = createConsumer(actionCableEndpoint);
 				consumer.subscriptions.create(
-					{ channel: 'ChatChannel', change_id: changeId, project_id: projectId },
+					{ channel: "ChatChannel", change_id: changeId, project_id: projectId },
 					{
 						received: (data: unknown) => {
 							if (!isApiPatchEvent(data)) return;
 							this.handlePatchEventData(projectId, changeId, data);
-						}
-					}
+						},
+					},
 				);
 
 				return async () => {
 					consumer.disconnect();
 				};
-			})
+			}),
 		);
 
 		return this.patchEventsInterestStore
@@ -106,7 +106,7 @@ export class PatchEventsService {
 			return false;
 		}
 
-		return patchEvent.user.id !== this.userId && patchEvent.eventType === 'chat';
+		return patchEvent.user.id !== this.userId && patchEvent.eventType === "chat";
 	}
 
 	private handlePatchEventData(projectId: string, changeId: string, data: ApiPatchEvent) {
@@ -126,17 +126,17 @@ export class PatchEventsService {
 
 		// If a chat event has appeared, then we want to make sure that the
 		// change is propagated elsewhere.
-		if (patchEvent.eventType === 'patch_version') {
+		if (patchEvent.eventType === "patch_version") {
 			this.appDispatch.dispatch(
 				patchCommitTable.upsertOne({
-					status: 'found',
+					status: "found",
 					id: patchEvent.object.changeId,
-					value: patchEvent.object
-				})
+					value: patchEvent.object,
+				}),
 			);
-		} else if (patchEvent.eventType === 'issue_status') {
+		} else if (patchEvent.eventType === "issue_status") {
 			this.patchService.refreshPatchWithSections(changeId);
-		} else if (patchEvent.eventType === 'chat_reaction') {
+		} else if (patchEvent.eventType === "chat_reaction") {
 			this.fetchInitialPatchEvents(projectId, changeId);
 		}
 
@@ -148,7 +148,7 @@ export class PatchEventsService {
 	private async fetchInitialPatchEvents(projectId: string, changeId: string) {
 		try {
 			const apiPatchEvents = await this.httpClient.get<ApiPatchEvent[]>(
-				`patch_events/${projectId}/patch/${changeId}`
+				`patch_events/${projectId}/patch/${changeId}`,
 			);
 
 			// Return the events in reverse order so that
@@ -159,13 +159,13 @@ export class PatchEventsService {
 			const patchEventChannel: LoadablePatchEventChannel = createPatchEventChannel(
 				projectId,
 				changeId,
-				events
+				events,
 			);
 
 			this.appDispatch.dispatch(upsertPatchEvent(patchEventChannel));
 		} catch (error: unknown) {
 			this.appDispatch.dispatch(
-				upsertPatchEvent(errorToLoadable(error, createPatchEventChannelKey(projectId, changeId)))
+				upsertPatchEvent(errorToLoadable(error, createPatchEventChannelKey(projectId, changeId))),
 			);
 		}
 	}
@@ -174,17 +174,17 @@ export class PatchEventsService {
 function createPatchEventChannel(
 	projectId: string,
 	changeId: string,
-	events: PatchEvent[]
+	events: PatchEvent[],
 ): LoadablePatchEventChannel {
 	const patchEventChannelKey = createPatchEventChannelKey(projectId, changeId);
 	return {
-		status: 'found',
+		status: "found",
 		id: patchEventChannelKey,
 		value: {
 			id: patchEventChannelKey,
 			projectId,
 			changeId,
-			events
-		}
+			events,
+		},
 	};
 }

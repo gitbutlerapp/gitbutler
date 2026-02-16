@@ -1,13 +1,13 @@
-import { AzureBranch } from '$lib/forge/azure/azureBranch';
-import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { ForgeRepoService } from '$lib/forge/interface/forgeRepoService';
-import type { ForgeArguments, ForgeUser } from '$lib/forge/interface/types';
-import type { ReactiveQuery } from '$lib/state/butlerModule';
-import type { ReduxTag } from '$lib/state/tags';
-import type { RepoInfo } from '$lib/url/gitUrl';
-import type { TagDescription } from '@reduxjs/toolkit/query';
+import { AzureBranch } from "$lib/forge/azure/azureBranch";
+import type { Forge, ForgeName } from "$lib/forge/interface/forge";
+import type { ForgeRepoService } from "$lib/forge/interface/forgeRepoService";
+import type { ForgeArguments, ForgeUser } from "$lib/forge/interface/types";
+import type { ReactiveQuery } from "$lib/state/butlerModule";
+import type { ReduxTag } from "$lib/state/tags";
+import type { RepoInfo } from "$lib/url/gitUrl";
+import type { TagDescription } from "@reduxjs/toolkit/query";
 
-export const AZURE_DOMAIN = 'dev.azure.com';
+export const AZURE_DOMAIN = "dev.azure.com";
 
 /**
  * PR support is pending OAuth support in the rust code.
@@ -16,7 +16,7 @@ export const AZURE_DOMAIN = 'dev.azure.com';
  * https://github.com/gitbutlerapp/gitbutler/issues/2651
  */
 export class AzureDevOps implements Forge {
-	readonly name: ForgeName = 'azure';
+	readonly name: ForgeName = "azure";
 	readonly authenticated: boolean;
 	readonly isLoading = false;
 	private baseUrl: string;
@@ -27,13 +27,13 @@ export class AzureDevOps implements Forge {
 	constructor({ repo, baseBranch, forkStr, authenticated }: ForgeArguments) {
 		// Use the protocol from repo if available, otherwise default to https
 		// For SSH remote URLs, always use HTTPS for browser compatibility
-		let protocol = repo.protocol?.endsWith(':')
+		let protocol = repo.protocol?.endsWith(":")
 			? repo.protocol.slice(0, -1)
-			: repo.protocol || 'https';
+			: repo.protocol || "https";
 
 		// SSH URLs cannot be opened in browsers, so convert to HTTPS
-		if (protocol === 'ssh') {
-			protocol = 'https';
+		if (protocol === "ssh") {
+			protocol = "https";
 		}
 
 		this.baseUrl = `${protocol}://${repo.domain}/${repo.organization}/${repo.owner}/_git/${repo.name}`;
@@ -53,7 +53,7 @@ export class AzureDevOps implements Forge {
 
 	get user() {
 		return {
-			result: { status: 'uninitialized' as const, data: undefined }
+			result: { status: "uninitialized" as const, data: undefined },
 		} as ReactiveQuery<ForgeUser>;
 	}
 

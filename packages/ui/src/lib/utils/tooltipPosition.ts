@@ -6,8 +6,8 @@ interface TooltipPosition {
 
 interface PositionProps {
 	targetEl?: HTMLElement;
-	position?: 'top' | 'bottom';
-	align?: 'start' | 'center' | 'end';
+	position?: "top" | "bottom";
+	align?: "start" | "center" | "end";
 	verticalOffset?: number;
 	overrideYScroll?: number;
 }
@@ -24,7 +24,7 @@ interface MeasurementCache {
 function getMeasurements(
 	targetEl: HTMLElement,
 	tooltipEl: HTMLElement,
-	overrideYScroll?: number
+	overrideYScroll?: number,
 ): MeasurementCache {
 	const targetChild = targetEl.children[0] as HTMLElement;
 
@@ -34,7 +34,7 @@ function getMeasurements(
 		windowWidth: window.innerWidth,
 		windowHeight: window.innerHeight,
 		scrollX: window.scrollX,
-		scrollY: overrideYScroll ?? window.scrollY
+		scrollY: overrideYScroll ?? window.scrollY,
 	};
 }
 
@@ -55,25 +55,25 @@ function hasSpaceBelow(measurements: MeasurementCache, offset: number): boolean 
 
 function calculateHorizontalAlignment(
 	measurements: MeasurementCache,
-	align: 'start' | 'center' | 'end'
+	align: "start" | "center" | "end",
 ): { left: number; transformOriginX: string } {
 	const { targetRect, tooltipRect, scrollX } = measurements;
 
 	switch (align) {
-		case 'start':
+		case "start":
 			return {
 				left: targetRect.left + scrollX,
-				transformOriginX: 'left'
+				transformOriginX: "left",
 			};
-		case 'end':
+		case "end":
 			return {
 				left: targetRect.right - tooltipRect.width + scrollX,
-				transformOriginX: 'right'
+				transformOriginX: "right",
 			};
 		default:
 			return {
 				left: targetRect.left + targetRect.width / 2 - tooltipRect.width / 2 + scrollX,
-				transformOriginX: 'center'
+				transformOriginX: "center",
 			};
 	}
 }
@@ -87,51 +87,51 @@ function autoDetectHorizontalAlignment(measurements: MeasurementCache): {
 	if (hasSpaceOnLeft(measurements) && hasSpaceOnRight(measurements)) {
 		return {
 			left: targetRect.left + targetRect.width / 2 - tooltipRect.width / 2 + scrollX,
-			transformOriginX: 'center'
+			transformOriginX: "center",
 		};
 	}
 
 	if (!hasSpaceOnLeft(measurements)) {
 		return {
 			left: targetRect.left + scrollX,
-			transformOriginX: 'left'
+			transformOriginX: "left",
 		};
 	}
 
 	return {
 		left: targetRect.right - tooltipRect.width + scrollX,
-		transformOriginX: 'right'
+		transformOriginX: "right",
 	};
 }
 
 function calculateVerticalPosition(
 	measurements: MeasurementCache,
-	position: 'top' | 'bottom' | undefined,
-	offset: number
+	position: "top" | "bottom" | undefined,
+	offset: number,
 ): { top: number; transformOriginY: string } {
 	const { targetRect, scrollY } = measurements;
 
 	if (!position) {
-		position = hasSpaceBelow(measurements, offset) ? 'bottom' : 'top';
+		position = hasSpaceBelow(measurements, offset) ? "bottom" : "top";
 	}
 
-	if (position === 'top') {
+	if (position === "top") {
 		return {
 			top: targetRect.top - measurements.tooltipRect.height - offset + scrollY,
-			transformOriginY: 'bottom'
+			transformOriginY: "bottom",
 		};
 	}
 
 	return {
 		top: targetRect.bottom + offset + scrollY,
-		transformOriginY: 'top'
+		transformOriginY: "top",
 	};
 }
 
 export function calculateTooltipPosition(
 	targetEl: HTMLElement,
 	tooltipEl: HTMLElement,
-	props: PositionProps
+	props: PositionProps,
 ): TooltipPosition {
 	const { position, align, verticalOffset = 4, overrideYScroll } = props;
 
@@ -139,7 +139,7 @@ export function calculateTooltipPosition(
 	const { top, transformOriginY } = calculateVerticalPosition(
 		measurements,
 		position,
-		verticalOffset
+		verticalOffset,
 	);
 	const { left, transformOriginX } = align
 		? calculateHorizontalAlignment(measurements, align)
@@ -148,7 +148,7 @@ export function calculateTooltipPosition(
 	return {
 		top,
 		left,
-		transformOrigin: `${transformOriginX} ${transformOriginY}`
+		transformOrigin: `${transformOriginX} ${transformOriginY}`,
 	};
 }
 
@@ -170,6 +170,6 @@ export function tooltip(tooltipNode: HTMLElement, props: PositionProps) {
 		update(newProps: PositionProps) {
 			Object.assign(props, newProps);
 			updatePosition();
-		}
+		},
 	};
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import AttachmentList from '$components/codegen/AttachmentList.svelte';
-	import { Markdown } from '@gitbutler/ui';
-	import type { PromptAttachment } from '$lib/codegen/types';
+	import AttachmentList from "$components/codegen/AttachmentList.svelte";
+	import { Markdown } from "@gitbutler/ui";
+	import type { PromptAttachment } from "$lib/codegen/types";
 
 	interface Props {
 		content?: string;

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ContextMenu, ContextMenuItem, ContextMenuSection } from '@gitbutler/ui';
-	import type { RuleFilterType } from '$lib/rules/rule';
+	import { ContextMenu, ContextMenuItem, ContextMenuSection } from "@gitbutler/ui";
+	import type { RuleFilterType } from "$lib/rules/rule";
 
 	type Props = {
 		addedFilterTypes: RuleFilterType[];
@@ -37,33 +37,33 @@
 		<ContextMenuItem
 			icon="folder"
 			label="File or folder path"
-			disabled={filterHasBeenAdded('pathMatchesRegex')}
+			disabled={filterHasBeenAdded("pathMatchesRegex")}
 			onclick={() => {
-				handleAddFilter('pathMatchesRegex');
+				handleAddFilter("pathMatchesRegex");
 			}}
 		/>
 		<ContextMenuItem
 			icon="text-width"
 			label="Contains text"
-			disabled={filterHasBeenAdded('contentMatchesRegex')}
+			disabled={filterHasBeenAdded("contentMatchesRegex")}
 			onclick={() => {
-				handleAddFilter('contentMatchesRegex');
+				handleAddFilter("contentMatchesRegex");
 			}}
 		/>
 		<ContextMenuItem
 			icon="file-changes"
 			label="Change type (coming soon)"
-			disabled={filterHasBeenAdded('fileChangeType') || true}
+			disabled={filterHasBeenAdded("fileChangeType") || true}
 			onclick={() => {
-				handleAddFilter('fileChangeType');
+				handleAddFilter("fileChangeType");
 			}}
 		/>
 		<ContextMenuItem
 			icon="tag"
 			label="Work category (coming soon)"
-			disabled={filterHasBeenAdded('semanticType') || true}
+			disabled={filterHasBeenAdded("semanticType") || true}
 			onclick={() => {
-				handleAddFilter('semanticType');
+				handleAddFilter("semanticType");
 			}}
 		/>
 	</ContextMenuSection>

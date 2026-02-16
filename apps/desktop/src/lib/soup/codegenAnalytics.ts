@@ -1,17 +1,17 @@
-import { usageStats, formatMessages, type Message } from '$lib/codegen/messages';
-import { SettingsService } from '$lib/config/appSettingsV2';
-import { InjectionToken } from '@gitbutler/core/context';
-import { get } from 'svelte/store';
-import type { ClaudeCodeService } from '$lib/codegen/claude';
-import type { ThinkingLevel, ModelType } from '$lib/codegen/types';
-import type { EventProperties } from '$lib/state/customHooks.svelte';
+import { usageStats, formatMessages, type Message } from "$lib/codegen/messages";
+import { SettingsService } from "$lib/config/appSettingsV2";
+import { InjectionToken } from "@gitbutler/core/context";
+import { get } from "svelte/store";
+import type { ClaudeCodeService } from "$lib/codegen/claude";
+import type { ThinkingLevel, ModelType } from "$lib/codegen/types";
+import type { EventProperties } from "$lib/state/customHooks.svelte";
 
-export const CODEGEN_ANALYTICS = new InjectionToken<CodegenAnalytics>('CodegenAnalytics');
+export const CODEGEN_ANALYTICS = new InjectionToken<CodegenAnalytics>("CodegenAnalytics");
 
 export class CodegenAnalytics {
 	constructor(
 		private claudeCodeService: ClaudeCodeService,
-		private settingsService: SettingsService
+		private settingsService: SettingsService,
 	) {}
 
 	async getCodegenProperties(args: {
@@ -26,13 +26,13 @@ export class CodegenAnalytics {
 			const [messages, isStackActiveResult, claudeCheck] = await Promise.all([
 				this.claudeCodeService.fetchMessages({
 					projectId: args.projectId,
-					stackId: args.stackId
+					stackId: args.stackId,
 				}),
 				this.claudeCodeService.fetchIsStackActive({
 					projectId: args.projectId,
-					stackId: args.stackId
+					stackId: args.stackId,
 				}),
-				this.claudeCodeService.fetchCheckAvailable(undefined)
+				this.claudeCodeService.fetchCheckAvailable(undefined),
 			]);
 
 			// Get settings for Claude preferences
@@ -55,24 +55,24 @@ export class CodegenAnalytics {
 				dangerouslySkipPermissions: settings?.claude?.dangerouslyAllowAllPermissions ?? false,
 				tokensUsed: usage.tokens,
 				totalMessagesSent: totalMessagesSent,
-				claudeVersion: claudeCheck?.status === 'available' ? claudeCheck.version : undefined,
-				promptLength: args.message.length
+				claudeVersion: claudeCheck?.status === "available" ? claudeCheck.version : undefined,
+				promptLength: args.message.length,
 			};
 
-			return namespaceProps(claudeMetrics, 'claude');
+			return namespaceProps(claudeMetrics, "claude");
 		} catch (_e) {
 			return namespaceProps(
 				{
 					thinkingLevel: args.thinkingLevel,
-					model: args.model
+					model: args.model,
 				},
-				'claude'
+				"claude",
 			);
 		}
 	}
 
 	private countUserMessages(formattedMessages: Message[]): number {
-		return formattedMessages.filter((message) => message.source === 'user').length;
+		return formattedMessages.filter((message) => message.source === "user").length;
 	}
 }
 

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import Icon from "$components/Icon.svelte";
+	import Tooltip from "$components/Tooltip.svelte";
+	import type iconsJson from "$lib/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		el?: HTMLButtonElement;
@@ -25,7 +25,7 @@
 		onclick,
 		disabled,
 		overrideYScroll,
-		children
+		children,
 	}: Props = $props();
 </script>
 

@@ -1,5 +1,5 @@
-import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
-import type { LoadableData } from '$lib/network/types';
+import { apiToPermissions, type ApiPermissions, type Permissions } from "$lib/permissions";
+import type { LoadableData } from "$lib/network/types";
 
 export type ApiProject = {
 	slug: string;
@@ -51,7 +51,7 @@ export type Project = {
 	lastPushedAt?: string;
 };
 
-export type LoadableProject = LoadableData<Project, Project['repositoryId']>;
+export type LoadableProject = LoadableData<Project, Project["repositoryId"]>;
 
 export function apiToProject(apiProject: ApiProject): Project {
 	return {
@@ -71,7 +71,7 @@ export function apiToProject(apiProject: ApiProject): Project {
 		createdAt: apiProject.created_at,
 		updatedAt: apiProject.updated_at,
 		readme: apiProject.readme,
-		lastPushedAt: apiProject.last_pushed_at
+		lastPushedAt: apiProject.last_pushed_at,
 	};
 }
 
@@ -105,10 +105,10 @@ export type Organization = {
 	projectRepositoryIds?: string[];
 };
 
-export type LoadableOrganization = LoadableData<Organization, Organization['slug']>;
+export type LoadableOrganization = LoadableData<Organization, Organization["slug"]>;
 
 export function apiToOrganization(
-	apiOrganization: ApiOrganization | ApiOrganizationWithDetails
+	apiOrganization: ApiOrganization | ApiOrganizationWithDetails,
 ): Organization {
 	return {
 		slug: apiOrganization.slug,
@@ -117,11 +117,11 @@ export function apiToOrganization(
 		createdAt: apiOrganization.created_at,
 		inviteCode: apiOrganization.invite_code,
 		projectRepositoryIds:
-			'projects' in apiOrganization
+			"projects" in apiOrganization
 				? apiOrganization.projects.map(({ repository_id }) => repository_id)
 				: undefined,
 		memberLogins:
-			'members' in apiOrganization ? apiOrganization.members.map(({ login }) => login) : undefined
+			"members" in apiOrganization ? apiOrganization.members.map(({ login }) => login) : undefined,
 	};
 }
 

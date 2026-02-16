@@ -1,5 +1,5 @@
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { createSelector, type EntityState } from '@reduxjs/toolkit';
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { createSelector, type EntityState } from "@reduxjs/toolkit";
 
 export function createSelectNth<T>() {
 	return createSelector(
@@ -15,7 +15,7 @@ export function createSelectNth<T>() {
 				}
 			}
 			return null;
-		}
+		},
 	);
 }
 
@@ -24,7 +24,7 @@ export function createSelectByIds<T>() {
 		[(state: EntityState<T, number | string>) => state, (state_, ids: string[]) => ids],
 		(state, ids) => {
 			return ids.map((id) => state.entities[id]).filter(isDefined);
-		}
+		},
 	);
 }
 
@@ -32,13 +32,13 @@ export function createSelectByPrefix<T>() {
 	return createSelector(
 		[
 			(state: EntityState<T, string>) => state,
-			(state_: EntityState<T, string>, prefix: string) => prefix
+			(state_: EntityState<T, string>, prefix: string) => prefix,
 		],
 		(state, prefix) =>
 			state.ids
 				.filter((id) => id.startsWith(prefix))
 				.map((id) => state.entities[id])
-				.filter(isDefined)
+				.filter(isDefined),
 	);
 }
 
@@ -49,6 +49,6 @@ export function createSelectNotIn<T>() {
 			state.ids
 				.filter((id) => !exclude.includes(id))
 				.map((id) => state.entities[id])
-				.filter(isDefined)
+				.filter(isDefined),
 	);
 }

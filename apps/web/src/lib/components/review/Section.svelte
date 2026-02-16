@@ -1,6 +1,6 @@
 <script lang="ts">
-	import DiffSection from '$lib/components/review/DiffSection.svelte';
-	import { type Section } from '@gitbutler/shared/patches/types';
+	import DiffSection from "$lib/components/review/DiffSection.svelte";
+	import { type Section } from "@gitbutler/shared/patches/types";
 
 	interface Props {
 		section: Section;
@@ -10,6 +10,6 @@
 	const { section, commitPageHeaderHeight }: Props = $props();
 </script>
 
-{#if section.sectionType === 'diff'}
+{#if section.sectionType === "diff"}
 	<DiffSection {section} {commitPageHeaderHeight} />
 {/if}

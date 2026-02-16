@@ -1,4 +1,4 @@
-import type { BehaviorSubject } from 'rxjs';
+import type { BehaviorSubject } from "rxjs";
 
 /**
  * Like the `BehaviorSubject`, but is missing the `next` method. This is like
@@ -7,4 +7,4 @@ import type { BehaviorSubject } from 'rxjs';
  * You _could_ convert cast it back to a `Subject`, but then it would be
  * missing the `.value` property and `.getValue()` method.
  */
-export type ReadonlyBehaviorSubject<T> = Omit<BehaviorSubject<T>, 'next'>;
+export type ReadonlyBehaviorSubject<T> = Omit<BehaviorSubject<T>, "next">;

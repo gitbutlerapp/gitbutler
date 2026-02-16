@@ -1,11 +1,11 @@
 <script lang="ts">
-	import GitLabAccountBadge from '$components/GitLabAccountBadge.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { GITLAB_USER_SERVICE } from '$lib/forge/gitlab/gitlabUserService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { ForgeUserCard } from '@gitbutler/ui';
-	import { QueryStatus } from '@reduxjs/toolkit/query';
-	import type { ButGitLabToken } from '@gitbutler/core/api';
+	import GitLabAccountBadge from "$components/GitLabAccountBadge.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { ForgeUserCard } from "@gitbutler/ui";
+	import { QueryStatus } from "@reduxjs/toolkit/query";
+	import type { ButGitLabToken } from "@gitbutler/core/api";
 
 	type Props = {
 		account: ButGitLabToken.GitlabAccountIdentifier;
@@ -22,7 +22,7 @@
 	const isLoading = $derived(glUser.result?.status === QueryStatus.pending);
 
 	const username = $derived(
-		account.type === 'patUsername' ? account.info.username : account.info.username
+		account.type === "patUsername" ? account.info.username : account.info.username,
 	);
 </script>
 

@@ -16,8 +16,8 @@
 	 * the blocker.
 	 */
 
-	import LazyloadContainer from '$components/LazyloadContainer.svelte';
-	import { type Snippet } from 'svelte';
+	import LazyloadContainer from "$components/LazyloadContainer.svelte";
+	import { type Snippet } from "svelte";
 
 	interface Props {
 		items: T[];
@@ -46,7 +46,7 @@
 			{@render template(item, {
 				index,
 				first: index === 0,
-				last: index === items.length - 1
+				last: index === items.length - 1,
 			})}
 		{/each}
 	</LazyloadContainer>

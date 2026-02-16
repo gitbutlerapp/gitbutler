@@ -1,29 +1,29 @@
 <script lang="ts">
-	import BranchBadge from '$components/BranchBadge.svelte';
-	import BranchDividerLine from '$components/BranchDividerLine.svelte';
-	import BranchHeader from '$components/BranchHeader.svelte';
-	import BranchHeaderContextMenu from '$components/BranchHeaderContextMenu.svelte';
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import ChecksPolling from '$components/ChecksPolling.svelte';
-	import CreateReviewBox from '$components/CreateReviewBox.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import PrNumberUpdater from '$components/PrNumberUpdater.svelte';
-	import { BranchDropData, StartCommitDzHandler } from '$lib/branches/dropHandler';
-	import { MoveCommitDzHandler } from '$lib/commits/dropHandler';
-	import { ReorderCommitDzHandler } from '$lib/dragging/stackingReorderDropzoneManager';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { ReviewBadge, TestId } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { DropzoneHandler } from '$lib/dragging/handler';
-	import type { PushStatus } from '$lib/stacks/stack';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import BranchBadge from "$components/BranchBadge.svelte";
+	import BranchDividerLine from "$components/BranchDividerLine.svelte";
+	import BranchHeader from "$components/BranchHeader.svelte";
+	import BranchHeaderContextMenu from "$components/BranchHeaderContextMenu.svelte";
+	import CardOverlay from "$components/CardOverlay.svelte";
+	import ChecksPolling from "$components/ChecksPolling.svelte";
+	import CreateReviewBox from "$components/CreateReviewBox.svelte";
+	import Dropzone from "$components/Dropzone.svelte";
+	import PrNumberUpdater from "$components/PrNumberUpdater.svelte";
+	import { BranchDropData, StartCommitDzHandler } from "$lib/branches/dropHandler";
+	import { MoveCommitDzHandler } from "$lib/commits/dropHandler";
+	import { ReorderCommitDzHandler } from "$lib/dragging/stackingReorderDropzoneManager";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { ReviewBadge, TestId } from "@gitbutler/ui";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import type { DropzoneHandler } from "$lib/dragging/handler";
+	import type { PushStatus } from "$lib/stacks/stack";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	interface BranchCardProps {
-		type: 'normal-branch' | 'stack-branch' | 'pr-branch';
+		type: "normal-branch" | "stack-branch" | "pr-branch";
 		projectId: string;
 		branchName: string;
 		isCommitting?: boolean;
@@ -34,7 +34,7 @@
 	}
 
 	interface NormalBranchProps extends BranchCardProps {
-		type: 'normal-branch';
+		type: "normal-branch";
 		iconName: keyof typeof iconsJson;
 		selected: boolean;
 		trackingBranch?: string;
@@ -48,7 +48,7 @@
 	}
 
 	interface StackBranchProps extends BranchCardProps {
-		type: 'stack-branch';
+		type: "stack-branch";
 		iconName: keyof typeof iconsJson;
 		stackId?: string;
 		laneId: string;
@@ -78,7 +78,7 @@
 	}
 
 	interface PrBranchProps extends BranchCardProps {
-		type: 'pr-branch';
+		type: "pr-branch";
 		selected: boolean;
 		trackingBranch: string;
 	}
@@ -100,17 +100,17 @@
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
 	const showPrCreation = $derived(
-		exclusiveAction?.type === 'create-pr' &&
-			exclusiveAction.stackId === (args.type === 'stack-branch' ? args.stackId : undefined) &&
-			exclusiveAction.branchName === branchName
+		exclusiveAction?.type === "create-pr" &&
+			exclusiveAction.stackId === (args.type === "stack-branch" ? args.stackId : undefined) &&
+			exclusiveAction.branchName === branchName,
 	);
 
-	const laneState = $derived(args.type === 'stack-branch' ? uiState.lane(args.laneId) : undefined);
+	const laneState = $derived(args.type === "stack-branch" ? uiState.lane(args.laneId) : undefined);
 	const selection = $derived(laneState ? laneState.selection.current : undefined);
 	const selected = $derived(selection?.branchName === branchName);
 	const isPushed = $derived(!!args.trackingBranch);
 	const isCommitTarget = $derived(
-		exclusiveAction?.type === 'commit' && exclusiveAction.branchName === branchName
+		exclusiveAction?.type === "commit" && exclusiveAction.branchName === branchName,
 	);
 
 	// Consolidated rounded bottom logic from both BranchCard and BranchHeader
@@ -118,17 +118,17 @@
 		// Empty branches being committed should be rounded
 		if (args.isCommitting) {
 			const isEmpty =
-				(args.type === 'stack-branch' || args.type === 'normal-branch') && args.isNewBranch;
+				(args.type === "stack-branch" || args.type === "normal-branch") && args.isNewBranch;
 			if (isEmpty) return true;
 
 			// Stack branches with codegen row or no commits should be rounded when committing
-			if (args.type === 'stack-branch') {
+			if (args.type === "stack-branch") {
 				return args.hasCodegenRow || args.numberOfCommits === 0;
 			}
 		}
 
 		// For stack branches not committing, check if actions are visible and structural conditions
-		if (args.type === 'stack-branch' && !args.isCommitting) {
+		if (args.type === "stack-branch" && !args.isCommitting) {
 			const hasActions = args.buttons !== undefined || args.menu !== undefined;
 			const structurallyRounded =
 				args.hasCodegenRow || (args.numberOfCommits === 0 && args.numberOfUpstreamCommits === 0);
@@ -139,23 +139,23 @@
 	});
 
 	async function updateBranchName(title: string) {
-		if (args.type === 'stack-branch') {
+		if (args.type === "stack-branch") {
 			if (!args.stackId) return;
 			updateName({
 				projectId,
 				stackId: args.stackId,
 				laneId: args.laneId,
 				branchName,
-				newName: title
+				newName: title,
 			});
 		}
 	}
 
 	function getCardOverlayLabel(handler: DropzoneHandler | undefined): string {
-		if (handler instanceof MoveCommitDzHandler) return 'Move here';
-		if (handler instanceof ReorderCommitDzHandler) return 'Reorder here';
-		if (handler instanceof StartCommitDzHandler) return 'Start commit';
-		return 'Drop here';
+		if (handler instanceof MoveCommitDzHandler) return "Move here";
+		if (handler instanceof ReorderCommitDzHandler) return "Reorder here";
+		if (handler instanceof StartCommitDzHandler) return "Start commit";
+		return "Drop here";
 	}
 </script>
 
@@ -164,9 +164,9 @@
 	class:selected
 	data-series-name={branchName}
 	data-testid={TestId.BranchCard}
-	style:overflow={overflowHidden ? 'hidden' : undefined}
+	style:overflow={overflowHidden ? "hidden" : undefined}
 >
-	{#if args.type === 'stack-branch'}
+	{#if args.type === "stack-branch"}
 		{@const moveHandler = args.stackId
 			? new MoveCommitDzHandler(stackService, args.stackId, projectId, uiState)
 			: undefined}
@@ -194,10 +194,10 @@
 				onCommitGoesHereClick={() => {
 					if (!args.stackId) return;
 					projectState.exclusiveAction.set({
-						type: 'commit',
+						type: "commit",
 						stackId: args.stackId,
 						branchName,
-						parentCommitId: args.baseCommit
+						parentCommitId: args.baseCommit,
 					});
 				}}
 				iconName={args.iconName}
@@ -214,11 +214,11 @@
 				{showPrCreation}
 				changedFiles={args.changedFiles}
 				dragArgs={{
-					disabled: args.isConflicted || (args.type === 'stack-branch' && args.applied === false),
+					disabled: args.isConflicted || (args.type === "stack-branch" && args.applied === false),
 					label: branchName,
 					pushStatus: args.pushStatus,
 					data:
-						args.type === 'stack-branch' && args.stackId
+						args.type === "stack-branch" && args.stackId
 							? new BranchDropData(
 									args.stackId,
 									branchName,
@@ -226,9 +226,9 @@
 									args.numberOfBranchesInStack,
 									args.numberOfCommits,
 									args.prNumber,
-									args.allOtherPrNumbersInStack
+									args.allOtherPrNumbersInStack,
 								)
-							: undefined
+							: undefined,
 				}}
 			>
 				{#snippet buttons()}
@@ -254,14 +254,14 @@
 								{@const prQuery = prService?.get(args.prNumber, { forceRefetch: true })}
 								{@const pr = prQuery?.response}
 								{@const prStatus = (() => {
-									if (!pr) return 'unknown';
-									if (pr.mergedAt) return 'merged';
-									if (pr.closedAt) return 'closed';
-									if (pr.draft) return 'draft';
-									return 'open';
+									if (!pr) return "unknown";
+									if (pr.mergedAt) return "merged";
+									if (pr.closedAt) return "closed";
+									if (pr.draft) return "draft";
+									return "open";
 								})()}
 								<ReviewBadge type={prUnit?.abbr} number={args.prNumber} status={prStatus} />
-								{#if pr && !pr.closedAt && forge.current.checks && pr.state === 'open'}
+								{#if pr && !pr.closedAt && forge.current.checks && pr.state === "open"}
 									<ChecksPolling
 										{projectId}
 										branchName={pr.sourceBranch}
@@ -288,7 +288,7 @@
 				{/snippet}
 			</BranchHeader>
 		</Dropzone>
-	{:else if args.type === 'normal-branch'}
+	{:else if args.type === "normal-branch"}
 		<BranchHeader
 			{branchName}
 			isEmpty={args.isNewBranch}
@@ -310,7 +310,7 @@
 				>
 			{/snippet}
 		</BranchHeader>
-	{:else if args.type === 'pr-branch'}
+	{:else if args.type === "pr-branch"}
 		<BranchHeader
 			{branchName}
 			isEmpty
@@ -326,7 +326,7 @@
 		/>
 	{/if}
 
-	{#if args.type === 'stack-branch' && args.hasCodegenRow && args.codegenRow}
+	{#if args.type === "stack-branch" && args.hasCodegenRow && args.codegenRow}
 		<BranchDividerLine {lineColor} short />
 		{@render args.codegenRow()}
 		{#if args.numberOfCommits > 0 || args.numberOfUpstreamCommits > 0}
@@ -334,7 +334,7 @@
 		{/if}
 	{/if}
 
-	{#if args.type === 'stack-branch' || args.type === 'normal-branch'}
+	{#if args.type === "stack-branch" || args.type === "normal-branch"}
 		{#if args.branchContent}
 			{@render args.branchContent()}
 		{/if}

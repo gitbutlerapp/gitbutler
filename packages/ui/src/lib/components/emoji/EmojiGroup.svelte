@@ -1,7 +1,7 @@
 <script lang="ts">
-	import EmojiButton from '$components/emoji/EmojiButton.svelte';
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	import type { EmojiGroup, EmojiInfo } from '$components/emoji/utils';
+	import EmojiButton from "$components/emoji/EmojiButton.svelte";
+	import { intersectionObserver } from "$lib/utils/intersectionObserver";
+	import type { EmojiGroup, EmojiInfo } from "$components/emoji/utils";
 
 	type Props = {
 		group: EmojiGroup;
@@ -22,11 +22,11 @@
 		},
 		options: {
 			threshold: 0.5,
-			root: null
-		}
+			root: null,
+		},
 	}}
 	class="emoji-picker__group"
-	class:min-height={group.key !== 'recently-used'}
+	class:min-height={group.key !== "recently-used"}
 	id="emoji-group-{group.key}"
 >
 	{#if isInViewport}

@@ -1,4 +1,4 @@
-@import '@gitbutler/ui/main.css';
+@import "@gitbutler/ui/main.css";
 
 :root {
 	--dropzone-fill: oklch(from var(--clr-core-pop-50) l c h / 0.1);

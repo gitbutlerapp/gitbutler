@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import type { HTMLTextareaAttributes } from 'svelte/elements';
+	import { focusable } from "$lib/focus/focusable";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import type { HTMLTextareaAttributes } from "svelte/elements";
 
 	interface Props extends HTMLTextareaAttributes {
 		textBoxEl?: HTMLTextAreaElement;
 		testId?: string;
 		label?: string;
 		value?: string;
-		fontWeight?: 'regular' | 'bold' | 'semibold';
+		fontWeight?: "regular" | "bold" | "semibold";
 		fontSize?: number;
 		minRows?: number;
 		maxRows?: number;
@@ -41,8 +41,8 @@
 		minRows = 1,
 		maxRows = 100,
 		autofocus,
-		class: className = '',
-		fontWeight = 'regular',
+		class: className = "",
+		fontWeight = "regular",
 		flex,
 		padding = {},
 		borderTop = true,
@@ -55,7 +55,7 @@
 		onchange,
 		onfocus,
 		onblur,
-		onkeydown
+		onkeydown,
 	}: Props = $props();
 
 	// Compute effective padding in one step
@@ -66,8 +66,8 @@
 					top: padding.top ?? 12,
 					right: padding.right ?? 12,
 					bottom: padding.bottom ?? 12,
-					left: padding.left ?? 12
-				}
+					left: padding.left ?? 12,
+				},
 	);
 
 	let measureEl: HTMLPreElement | undefined = $state();
@@ -80,7 +80,7 @@
 				fontFamily: styles.fontFamily,
 				fontSize: styles.fontSize,
 				fontWeight: styles.fontWeight,
-				border: styles.border
+				border: styles.border,
 			});
 		}
 	});
@@ -97,10 +97,10 @@
 	const lineHeight = 1.6;
 
 	const minHeight = $derived(
-		fontSize * lineHeight * minRows + effectivePadding.top + effectivePadding.bottom
+		fontSize * lineHeight * minRows + effectivePadding.top + effectivePadding.bottom,
 	);
 	const maxHeight = $derived(
-		fontSize * lineHeight * maxRows + effectivePadding.top + effectivePadding.bottom
+		fontSize * lineHeight * maxRows + effectivePadding.top + effectivePadding.bottom,
 	);
 
 	// Initialize with approximate minHeight to prevent initial scroll flash
@@ -114,7 +114,7 @@
 
 <div
 	class="textarea-container"
-	style:--placeholder-text={`"${placeholder || 'Type here...'}"`}
+	style:--placeholder-text={`"${placeholder || "Type here..."}"`}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
 	style:--padding-top="{pxToRem(effectivePadding.top)}rem"
@@ -136,7 +136,7 @@
 		bind:offsetHeight={measureElHeight}
 		style:line-height={lineHeight}
 		style:min-height="{pxToRem(minHeight)}rem"
-		style:max-height="{pxToRem(maxHeight)}rem">{value + '\n'}</pre>
+		style:max-height="{pxToRem(maxHeight)}rem">{value + "\n"}</pre>
 	<textarea
 		bind:this={textBoxEl}
 		use:focusable={{ button: true }}
@@ -150,14 +150,14 @@
 		class:hide-scrollbar={measureElHeight < maxHeight}
 		style:height="{pxToRem(Math.max(measureElHeight, minHeight))}rem"
 		style:font-size="{pxToRem(fontSize)}rem"
-		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
-		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
-		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
-		style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
-		style:border-top-right-radius={borderTop && borderRight ? undefined : '0'}
-		style:border-top-left-radius={borderTop && borderLeft ? undefined : '0'}
-		style:border-bottom-right-radius={borderBottom && borderRight ? undefined : '0'}
-		style:border-bottom-left-radius={borderBottom && borderLeft ? undefined : '0'}
+		style:border-top-width={borderTop && !borderless ? "1px" : "0"}
+		style:border-right-width={borderRight && !borderless ? "1px" : "0"}
+		style:border-bottom-width={borderBottom && !borderless ? "1px" : "0"}
+		style:border-left-width={borderLeft && !borderless ? "1px" : "0"}
+		style:border-top-right-radius={borderTop && borderRight ? undefined : "0"}
+		style:border-top-left-radius={borderTop && borderLeft ? undefined : "0"}
+		style:border-bottom-right-radius={borderBottom && borderRight ? undefined : "0"}
+		style:border-bottom-left-radius={borderBottom && borderLeft ? undefined : "0"}
 		{placeholder}
 		bind:value
 		{disabled}

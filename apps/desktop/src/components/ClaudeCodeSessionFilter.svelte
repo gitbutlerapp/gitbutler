@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ClaudeSessionDescriptor from '$components/ClaudeSessionDescriptor.svelte';
-	import { Codeblock } from '@gitbutler/ui';
+	import ClaudeSessionDescriptor from "$components/ClaudeSessionDescriptor.svelte";
+	import { Codeblock } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;

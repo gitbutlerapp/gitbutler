@@ -1,34 +1,34 @@
 <script module lang="ts">
-	import Button from '$components/Button.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuItemSubmenu from '$components/ContextMenuItemSubmenu.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Button from "$components/Button.svelte";
+	import ContextMenu from "$components/ContextMenu.svelte";
+	import ContextMenuItem from "$components/ContextMenuItem.svelte";
+	import ContextMenuItemSubmenu from "$components/ContextMenuItemSubmenu.svelte";
+	import ContextMenuSection from "$components/ContextMenuSection.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Overlays / ContextMenu',
+		title: "Overlays / ContextMenu",
 		args: {
-			side: 'bottom',
-			align: 'start',
-			offset: 0
+			side: "bottom",
+			align: "start",
+			offset: 0,
 		},
 		argTypes: {
 			side: {
-				control: { type: 'select' },
-				options: ['top', 'bottom', 'left', 'right'],
-				description: 'Which side of the trigger element to position the menu'
+				control: { type: "select" },
+				options: ["top", "bottom", "left", "right"],
+				description: "Which side of the trigger element to position the menu",
 			},
 			align: {
-				control: { type: 'select' },
-				options: ['start', 'center', 'end'],
-				description: 'How to align the menu relative to the trigger element'
+				control: { type: "select" },
+				options: ["start", "center", "end"],
+				description: "How to align the menu relative to the trigger element",
 			},
 			offset: {
-				control: { type: 'number' },
-				description: 'Distance in pixels from the trigger element'
-			}
-		}
+				control: { type: "number" },
+				description: "Distance in pixels from the trigger element",
+			},
+		},
 	});
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
@@ -57,7 +57,7 @@
 					icon="commit"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('Commit and bleep');
+						console.log("Commit and bleep");
 						contextMenu?.close();
 					}}
 					keyboardShortcut="⌘+Enter"
@@ -67,7 +67,7 @@
 					icon="text-width"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('Commit and bleep');
+						console.log("Commit and bleep");
 						contextMenu?.close();
 					}}
 				/>
@@ -77,7 +77,7 @@
 					label="Another commit"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('Commit and bleep');
+						console.log("Commit and bleep");
 						contextMenu?.close();
 					}}
 				/>
@@ -85,7 +85,7 @@
 					label="Amend"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('Commit and bleep');
+						console.log("Commit and bleep");
 						contextMenu?.close();
 					}}
 				/>
@@ -93,7 +93,7 @@
 					label="Revert"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('Commit and bleep');
+						console.log("Commit and bleep");
 						contextMenu?.close();
 					}}
 				/>
@@ -101,7 +101,7 @@
 					label="Squash"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('Commit and bleep');
+						console.log("Commit and bleep");
 						contextMenu?.close();
 					}}
 				/>
@@ -111,7 +111,7 @@
 					label="Delete"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('Commit and bleep');
+						console.log("Commit and bleep");
 						contextMenu?.close();
 					}}
 				/>
@@ -139,35 +139,35 @@
 				<ContextMenuItem
 					label="Commit"
 					onclick={() => {
-						console.log('Commit');
+						console.log("Commit");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Push"
 					onclick={() => {
-						console.log('Push');
+						console.log("Push");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Pull"
 					onclick={() => {
-						console.log('Pull');
+						console.log("Pull");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Fetch"
 					onclick={() => {
-						console.log('Fetch');
+						console.log("Fetch");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Merge"
 					onclick={() => {
-						console.log('Merge');
+						console.log("Merge");
 						contextMenu?.close();
 					}}
 				/>
@@ -177,7 +177,7 @@
 							<ContextMenuItem
 								label="Cherry-pick"
 								onclick={() => {
-									console.log('Cherry-pick');
+									console.log("Cherry-pick");
 									close();
 									contextMenu?.close();
 								}}
@@ -185,7 +185,7 @@
 							<ContextMenuItem
 								label="Rebase"
 								onclick={() => {
-									console.log('Rebase');
+									console.log("Rebase");
 									close();
 									contextMenu?.close();
 								}}
@@ -198,14 +198,14 @@
 				<ContextMenuItem
 					label="Create branch"
 					onclick={() => {
-						console.log('Create branch');
+						console.log("Create branch");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Switch branch"
 					onclick={() => {
-						console.log('Switch branch');
+						console.log("Switch branch");
 						contextMenu?.close();
 					}}
 				/>
@@ -214,21 +214,21 @@
 				<ContextMenuItem
 					label="Stage changes"
 					onclick={() => {
-						console.log('Stage changes');
+						console.log("Stage changes");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Unstage changes"
 					onclick={() => {
-						console.log('Unstage changes');
+						console.log("Unstage changes");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Discard changes"
 					onclick={() => {
-						console.log('Discard changes');
+						console.log("Discard changes");
 						contextMenu?.close();
 					}}
 				/>
@@ -237,21 +237,21 @@
 				<ContextMenuItem
 					label="Bisect"
 					onclick={() => {
-						console.log('Bisect');
+						console.log("Bisect");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Reflog"
 					onclick={() => {
-						console.log('Reflog');
+						console.log("Reflog");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Worktree"
 					onclick={() => {
-						console.log('Worktree');
+						console.log("Worktree");
 						contextMenu?.close();
 					}}
 				/>
@@ -278,105 +278,105 @@
 				<ContextMenuItem
 					label="Item 1"
 					onclick={() => {
-						console.log('Item 1');
+						console.log("Item 1");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 2"
 					onclick={() => {
-						console.log('Item 2');
+						console.log("Item 2");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 3"
 					onclick={() => {
-						console.log('Item 3');
+						console.log("Item 3");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 4"
 					onclick={() => {
-						console.log('Item 4');
+						console.log("Item 4");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 5"
 					onclick={() => {
-						console.log('Item 5');
+						console.log("Item 5");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 6"
 					onclick={() => {
-						console.log('Item 6');
+						console.log("Item 6");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 7"
 					onclick={() => {
-						console.log('Item 7');
+						console.log("Item 7");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 8"
 					onclick={() => {
-						console.log('Item 8');
+						console.log("Item 8");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 9"
 					onclick={() => {
-						console.log('Item 9');
+						console.log("Item 9");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 10"
 					onclick={() => {
-						console.log('Item 10');
+						console.log("Item 10");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 11"
 					onclick={() => {
-						console.log('Item 11');
+						console.log("Item 11");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 12"
 					onclick={() => {
-						console.log('Item 12');
+						console.log("Item 12");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 13"
 					onclick={() => {
-						console.log('Item 13');
+						console.log("Item 13");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 14"
 					onclick={() => {
-						console.log('Item 14');
+						console.log("Item 14");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Item 15"
 					onclick={() => {
-						console.log('Item 15');
+						console.log("Item 15");
 						contextMenu?.close();
 					}}
 				/>
@@ -402,21 +402,21 @@
 				<ContextMenuItem
 					label="Copy"
 					onclick={() => {
-						console.log('Copy');
+						console.log("Copy");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Paste"
 					onclick={() => {
-						console.log('Paste');
+						console.log("Paste");
 						contextMenu?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label="Cut"
 					onclick={() => {
-						console.log('Cut');
+						console.log("Cut");
 						contextMenu?.close();
 					}}
 				/>
@@ -428,7 +428,7 @@
 							<ContextMenuItem
 								label="Bold"
 								onclick={() => {
-									console.log('Bold');
+									console.log("Bold");
 									close();
 									contextMenu?.close();
 								}}
@@ -436,7 +436,7 @@
 							<ContextMenuItem
 								label="Italic"
 								onclick={() => {
-									console.log('Italic');
+									console.log("Italic");
 									close();
 									contextMenu?.close();
 								}}
@@ -444,7 +444,7 @@
 							<ContextMenuItem
 								label="Underline"
 								onclick={() => {
-									console.log('Underline');
+									console.log("Underline");
 									close();
 									contextMenu?.close();
 								}}
@@ -454,7 +454,7 @@
 							<ContextMenuItem
 								label="Left"
 								onclick={() => {
-									console.log('Left');
+									console.log("Left");
 									close();
 									contextMenu?.close();
 								}}
@@ -462,7 +462,7 @@
 							<ContextMenuItem
 								label="Center"
 								onclick={() => {
-									console.log('Center');
+									console.log("Center");
 									close();
 									contextMenu?.close();
 								}}
@@ -470,7 +470,7 @@
 							<ContextMenuItem
 								label="Right"
 								onclick={() => {
-									console.log('Right');
+									console.log("Right");
 									close();
 									contextMenu?.close();
 								}}
@@ -484,7 +484,7 @@
 							<ContextMenuItem
 								label="Image"
 								onclick={() => {
-									console.log('Image');
+									console.log("Image");
 									close();
 									contextMenu?.close();
 								}}
@@ -492,7 +492,7 @@
 							<ContextMenuItem
 								label="Link"
 								onclick={() => {
-									console.log('Link');
+									console.log("Link");
 									close();
 									contextMenu?.close();
 								}}
@@ -500,7 +500,7 @@
 							<ContextMenuItem
 								label="Table"
 								onclick={() => {
-									console.log('Table');
+									console.log("Table");
 									close();
 									contextMenu?.close();
 								}}
@@ -531,7 +531,7 @@
 					label="Rebase"
 					caption="Move your commits on top of upstream changes. Creates clean, linear history."
 					onclick={() => {
-						console.log('Copy');
+						console.log("Copy");
 						contextMenu?.close();
 					}}
 				/>
@@ -539,7 +539,7 @@
 					label="Paste"
 					caption="Paste from clipboard"
 					onclick={() => {
-						console.log('Paste');
+						console.log("Paste");
 						contextMenu?.close();
 					}}
 				/>

@@ -1,37 +1,37 @@
 <script module lang="ts">
-	import { SegmentControl } from '$components/segmentControl';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import { SegmentControl } from "$components/segmentControl";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Segment Control',
+		title: "Inputs / Segment Control",
 		args: {
-			selected: '1',
+			selected: "1",
 			fullWidth: false,
-			size: 'default',
+			size: "default",
 			segments: [
-				{ id: '1', icon: 'horz-columns' },
-				{ id: '2', icon: 'single-view' },
-				{ id: '3', icon: 'vert-columns' }
-			]
+				{ id: "1", icon: "horz-columns" },
+				{ id: "2", icon: "single-view" },
+				{ id: "3", icon: "vert-columns" },
+			],
 		},
 		argTypes: {
 			selected: {
 				control: {
-					type: 'text'
-				}
+					type: "text",
+				},
 			},
 			fullWidth: {
 				control: {
-					type: 'boolean'
-				}
+					type: "boolean",
+				},
 			},
 			size: {
-				options: ['default', 'small'],
+				options: ["default", "small"],
 				control: {
-					type: 'select'
-				}
-			}
-		}
+					type: "select",
+				},
+			},
+		},
 	});
 </script>
 
@@ -45,7 +45,7 @@
 			fullWidth={args.fullWidth}
 			onselect={(id) => {
 				// eslint-disable-next-line no-console
-				console.log('Selected ID:', id);
+				console.log("Selected ID:", id);
 			}}
 			size={args.size}
 		>

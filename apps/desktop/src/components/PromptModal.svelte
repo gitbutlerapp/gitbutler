@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { PROMPT_SERVICE } from '$lib/prompt/promptService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, Textbox } from '@gitbutler/ui';
+	import { PROMPT_SERVICE } from "$lib/prompt/promptService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Modal, Textbox } from "@gitbutler/ui";
 
 	const promptService = inject(PROMPT_SERVICE);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
 
-	let value = $state<string>('');
+	let value = $state<string>("");
 	let modal = $state<ReturnType<typeof Modal>>();
 	let loading = $state(false);
 
@@ -48,7 +48,7 @@
 	function clear() {
 		prompt.set(undefined);
 		error.set(undefined);
-		value = '';
+		value = "";
 	}
 </script>
 

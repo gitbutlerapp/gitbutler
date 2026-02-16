@@ -1,23 +1,23 @@
 <script lang="ts">
-	import ScriptSwitcher from './ScriptSwitcher.svelte';
-	import TerminalMockup from './TerminalMockup.svelte';
-	import CtaButtons from '../components/CtaButtons.svelte';
-	import scriptsData from '../scripts.json';
-	import HeroHeader from '$home/sections/HeroHeader.svelte';
-	import Header from '$lib/components/marketing/Header.svelte';
+	import ScriptSwitcher from "./ScriptSwitcher.svelte";
+	import TerminalMockup from "./TerminalMockup.svelte";
+	import CtaButtons from "../components/CtaButtons.svelte";
+	import scriptsData from "../scripts.json";
+	import HeroHeader from "$home/sections/HeroHeader.svelte";
+	import Header from "$lib/components/marketing/Header.svelte";
 
-	import { type Snippet } from 'svelte';
-	import type { ScriptStep } from './terminal-types';
+	import { type Snippet } from "svelte";
+	import type { ScriptStep } from "./terminal-types";
 
 	interface Props {
-		currentPage?: 'home' | 'cli';
+		currentPage?: "home" | "cli";
 		descriptionContent: Snippet;
 	}
 
-	const { currentPage = 'home', descriptionContent }: Props = $props();
+	const { currentPage = "home", descriptionContent }: Props = $props();
 
 	const scriptKeys = Object.keys(scriptsData);
-	let selectedScript = $state('stacked-branches');
+	let selectedScript = $state("stacked-branches");
 	let scriptProgress = $state(0);
 
 	function handleScriptChange(scriptId: string) {

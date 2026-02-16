@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, type Snippet } from "svelte";
 
 	interface Props {
 		href: string;
@@ -22,9 +22,9 @@
 		}
 	});
 
-	const isExternal = $derived(href?.startsWith('http'));
-	const target = $derived(isExternal && !insideWindow ? '_blank' : '_self');
-	const rel = $derived(isExternal && !insideWindow ? 'noopener noreferrer' : undefined);
+	const isExternal = $derived(href?.startsWith("http"));
+	const target = $derived(isExternal && !insideWindow ? "_blank" : "_self");
+	const rel = $derived(isExternal && !insideWindow ? "noopener noreferrer" : undefined);
 </script>
 
 <a {href} {target} {rel} class="link {classes}" bind:this={element}>

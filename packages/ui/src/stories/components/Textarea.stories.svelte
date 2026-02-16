@@ -1,26 +1,26 @@
 <script module lang="ts">
-	import Textarea from '$components/Textarea.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Textarea from "$components/Textarea.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	function handleDescriptionKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
+		if (e.key === "Escape") {
 			// eslint-disable-next-line no-console
-			console.log('keyboard', e.key);
+			console.log("keyboard", e.key);
 			e.preventDefault();
 			return;
 		}
 
-		if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+		if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
 			// eslint-disable-next-line no-console
-			console.log('keyboard', e.key);
+			console.log("keyboard", e.key);
 			e.preventDefault();
 			return;
 		}
 	}
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Textarea',
-		component: Textarea
+		title: "Inputs / Textarea",
+		component: Textarea,
 	});
 </script>
 
@@ -34,10 +34,10 @@
 				onkeydown={handleDescriptionKeyDown}
 				onfocus={(e) => {
 					// eslint-disable-next-line no-console
-					console.log('focus', e);
+					console.log("focus", e);
 				}}
 				padding={{
-					bottom: 60
+					bottom: 60,
 				}}
 				placeholder="Custom bottom padding…"
 			/>

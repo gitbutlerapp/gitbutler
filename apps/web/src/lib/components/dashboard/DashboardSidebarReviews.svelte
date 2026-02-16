@@ -1,6 +1,6 @@
 <script lang="ts">
-	import DashboardSidebarProject from '$lib/components/dashboard/DashboardSidebarProject.svelte';
-	import { getRecentlyInteractedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import DashboardSidebarProject from "$lib/components/dashboard/DashboardSidebarProject.svelte";
+	import { getRecentlyInteractedProjects } from "@gitbutler/shared/organizations/projectsPreview.svelte";
 
 	const recentProjects = getRecentlyInteractedProjects();
 </script>

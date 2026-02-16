@@ -1,11 +1,11 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import { stringStreamGenerator } from '@gitbutler/shared/utils/promise';
-import type { HttpClient } from '@gitbutler/shared/network/httpClient';
+import { InjectionToken } from "@gitbutler/core/context";
+import { stringStreamGenerator } from "@gitbutler/shared/utils/promise";
+import type { HttpClient } from "@gitbutler/shared/network/httpClient";
 
 export enum MessageRole {
-	System = 'system',
-	User = 'user',
-	Assistant = 'assistant'
+	System = "system",
+	User = "user",
+	Assistant = "assistant",
 }
 
 export interface PromptMessage {
@@ -15,7 +15,7 @@ export interface PromptMessage {
 
 export type Prompt = PromptMessage[];
 
-export const BUTLER_AI_CLIENT = new InjectionToken<ButlerAIClient>('ButlerAIClient');
+export const BUTLER_AI_CLIENT = new InjectionToken<ButlerAIClient>("ButlerAIClient");
 
 export class ButlerAIClient {
 	constructor(private cloud: HttpClient) {}
@@ -23,20 +23,20 @@ export class ButlerAIClient {
 	async evaluate(
 		systemPrompt: string,
 		prompt: Prompt,
-		onToken: (t: string) => void
+		onToken: (t: string) => void,
 	): Promise<string> {
-		const response = await this.cloud.postRaw('ai/stream', {
+		const response = await this.cloud.postRaw("ai/stream", {
 			body: {
 				messages: prompt,
 				system: systemPrompt,
 				max_tokens: 3600,
-				model_kind: 'openai'
-			}
+				model_kind: "openai",
+			},
 		});
 
 		const reader = response.body?.getReader();
 		if (!reader) {
-			return '';
+			return "";
 		}
 
 		const buffer: string[] = [];
@@ -45,6 +45,6 @@ export class ButlerAIClient {
 			buffer.push(chunk);
 		}
 
-		return buffer.join('');
+		return buffer.join("");
 	}
 }

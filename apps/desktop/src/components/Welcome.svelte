@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import IconLink from '$components/IconLink.svelte';
-	import WelcomeAction from '$components/WelcomeAction.svelte';
-	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
-	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
-	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
-	import { handleAddProjectOutcome } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/core/context';
-	import { TestId } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import IconLink from "$components/IconLink.svelte";
+	import WelcomeAction from "$components/WelcomeAction.svelte";
+	import WelcomeSigninAction from "$components/WelcomeSigninAction.svelte";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import cloneRepoSvg from "$lib/assets/welcome/clone-repo.svg?raw";
+	import newProjectSvg from "$lib/assets/welcome/new-local-project.svg?raw";
+	import { handleAddProjectOutcome } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { inject } from "@gitbutler/core/context";
+	import { TestId } from "@gitbutler/ui";
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
@@ -21,7 +21,7 @@
 		newProjectLoading = true;
 		try {
 			const testDirectoryPath = directoryInputElement?.value;
-			const outcome = await projectsService.addProject(testDirectoryPath ?? '');
+			const outcome = await projectsService.addProject(testDirectoryPath ?? "");
 
 			posthog.captureOnboarding(OnboardingEvent.AddLocalProject);
 			if (outcome) {
@@ -35,7 +35,7 @@
 	}
 
 	async function onCloneProject() {
-		goto('/onboarding/clone');
+		goto("/onboarding/clone");
 	}
 </script>
 

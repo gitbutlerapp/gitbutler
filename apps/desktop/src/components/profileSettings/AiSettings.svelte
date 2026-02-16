@@ -1,14 +1,14 @@
 <script lang="ts">
-	import AIPromptEdit from '$components/AIPromptEdit.svelte';
-	import AiCredentialCheck from '$components/AiCredentialCheck.svelte';
-	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from '$lib/ai/service';
-	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
-	import { GIT_CONFIG_SERVICE } from '$lib/config/gitConfigService';
-	import { SECRET_SERVICE } from '$lib/secrets/secretsService';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
+	import AIPromptEdit from "$components/AIPromptEdit.svelte";
+	import AiCredentialCheck from "$components/AiCredentialCheck.svelte";
+	import AuthorizationBanner from "$components/AuthorizationBanner.svelte";
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from "$lib/ai/service";
+	import { OpenAIModelName, AnthropicModelName, ModelKind } from "$lib/ai/types";
+	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
+	import { SECRET_SERVICE } from "$lib/secrets/secretsService";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		CardGroup,
 		Icon,
@@ -18,11 +18,11 @@
 		Select,
 		SelectItem,
 		Spacer,
-		Textbox
-	} from '@gitbutler/ui';
+		Textbox,
+	} from "@gitbutler/ui";
 
-	import { onMount, tick } from 'svelte';
-	import { run } from 'svelte/legacy';
+	import { onMount, tick } from "svelte";
+	import { run } from "svelte/legacy";
 
 	const gitConfigService = inject(GIT_CONFIG_SERVICE);
 	const secretsService = inject(SECRET_SERVICE);
@@ -47,12 +47,12 @@
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
-		gitConfigService.set(key, value || '');
+		gitConfigService.set(key, value || "");
 	}
 
 	async function setSecret(handle: AISecretHandle, secret: string | undefined) {
 		if (!initialized) return;
-		await secretsService.set(handle, secret || '');
+		await secretsService.set(handle, secret || "");
 	}
 
 	onMount(async () => {
@@ -83,74 +83,74 @@
 
 	const keyOptions = [
 		{
-			label: 'Use GitButler API',
-			value: KeyOption.ButlerAPI
+			label: "Use GitButler API",
+			value: KeyOption.ButlerAPI,
 		},
 		{
-			label: 'Your own key',
-			value: KeyOption.BringYourOwn
-		}
+			label: "Your own key",
+			value: KeyOption.BringYourOwn,
+		},
 	];
 
 	const openAIModelOptions = [
 		{
-			label: 'GPT 5',
-			value: OpenAIModelName.GPT5
+			label: "GPT 5",
+			value: OpenAIModelName.GPT5,
 		},
 		{
-			label: 'GPT 5 Mini',
-			value: OpenAIModelName.GPT5Mini
+			label: "GPT 5 Mini",
+			value: OpenAIModelName.GPT5Mini,
 		},
 		{
-			label: 'o3 Mini',
-			value: OpenAIModelName.O3mini
+			label: "o3 Mini",
+			value: OpenAIModelName.O3mini,
 		},
 		{
-			label: 'o1 Mini',
-			value: OpenAIModelName.O1mini
+			label: "o1 Mini",
+			value: OpenAIModelName.O1mini,
 		},
 		{
-			label: 'GPT 4o mini',
-			value: OpenAIModelName.GPT4oMini
+			label: "GPT 4o mini",
+			value: OpenAIModelName.GPT4oMini,
 		},
 		{
-			label: 'GPT 4.1',
-			value: OpenAIModelName.GPT4_1
+			label: "GPT 4.1",
+			value: OpenAIModelName.GPT4_1,
 		},
 		{
-			label: 'GPT 4.1 mini (recommended)',
-			value: OpenAIModelName.GPT4_1Mini
-		}
+			label: "GPT 4.1 mini (recommended)",
+			value: OpenAIModelName.GPT4_1Mini,
+		},
 	];
 
 	const anthropicModelOptions = [
 		{
-			label: 'Haiku',
-			value: AnthropicModelName.Haiku
+			label: "Haiku",
+			value: AnthropicModelName.Haiku,
 		},
 		{
-			label: 'Sonnet 3.5',
-			value: AnthropicModelName.Sonnet35
+			label: "Sonnet 3.5",
+			value: AnthropicModelName.Sonnet35,
 		},
 		{
-			label: 'Sonnet 3.7 (recommended)',
-			value: AnthropicModelName.Sonnet37
+			label: "Sonnet 3.7 (recommended)",
+			value: AnthropicModelName.Sonnet37,
 		},
 		{
-			label: 'Sonnet 4',
-			value: AnthropicModelName.Sonnet4
+			label: "Sonnet 4",
+			value: AnthropicModelName.Sonnet4,
 		},
 		{
-			label: 'Opus 4',
-			value: AnthropicModelName.Opus4
-		}
+			label: "Opus 4",
+			value: AnthropicModelName.Opus4,
+		},
 	];
 
 	let form = $state<HTMLFormElement>();
 
 	function onFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
-		modelKind = formData.get('modelKind') as ModelKind;
+		modelKind = formData.get("modelKind") as ModelKind;
 	}
 	run(() => {
 		setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
@@ -240,7 +240,7 @@
 					{#if !$user}
 						<AuthorizationBanner message="Please sign in to use the GitButler API." />
 					{:else}
-						{@render shortNote('GitButler uses OpenAI API for commit messages and branch names.')}
+						{@render shortNote("GitButler uses OpenAI API for commit messages and branch names.")}
 					{/if}
 				{/if}
 
@@ -309,7 +309,7 @@
 						<AuthorizationBanner message="Please sign in to use the GitButler API." />
 					{:else}
 						{@render shortNote(
-							'GitButler uses Anthropic API for commit messages and branch names.'
+							"GitButler uses Anthropic API for commit messages and branch names.",
 						)}
 					{/if}
 				{/if}

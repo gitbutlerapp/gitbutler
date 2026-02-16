@@ -1,29 +1,29 @@
-import { SectionType, type ContentSection, type Line } from '@gitbutler/ui/utils/diffParsing';
-import type { DiffPatch } from '@gitbutler/shared/chat/types';
+import { SectionType, type ContentSection, type Line } from "@gitbutler/ui/utils/diffParsing";
+import type { DiffPatch } from "@gitbutler/shared/chat/types";
 
 function getSectionType(line: DiffPatch): SectionType {
 	switch (line.type) {
-		case 'added':
+		case "added":
 			return SectionType.AddedLines;
-		case 'removed':
+		case "removed":
 			return SectionType.RemovedLines;
-		case 'context':
+		case "context":
 			return SectionType.Context;
 	}
 }
 
 function cleanDiffLine(line: string, sectionType: SectionType): string {
-	if (sectionType === SectionType.AddedLines && line.startsWith('+')) {
+	if (sectionType === SectionType.AddedLines && line.startsWith("+")) {
 		return line.slice(1);
 	}
-	if (sectionType === SectionType.RemovedLines && line.startsWith('-')) {
+	if (sectionType === SectionType.RemovedLines && line.startsWith("-")) {
 		return line.slice(1);
 	}
 	return line;
 }
 
 export function parseDiffPatchToContentSection(
-	diffPatchArray: DiffPatch[] | undefined
+	diffPatchArray: DiffPatch[] | undefined,
 ): ContentSection[] {
 	if (!diffPatchArray || diffPatchArray.length === 0) {
 		return [];
@@ -39,7 +39,7 @@ export function parseDiffPatchToContentSection(
 		} else if (lastSectionType !== currentType) {
 			content.push({
 				sectionType: lastSectionType,
-				lines
+				lines,
 			});
 			lines = [];
 			lastSectionType = currentType;
@@ -48,14 +48,14 @@ export function parseDiffPatchToContentSection(
 		lines.push({
 			content: cleanDiffLine(line.line, currentType),
 			beforeLineNumber: line.left,
-			afterLineNumber: line.right
+			afterLineNumber: line.right,
 		});
 	}
 
 	if (lines.length > 0 && lastSectionType !== undefined) {
 		content.push({
 			sectionType: lastSectionType,
-			lines
+			lines,
 		});
 	}
 
@@ -64,7 +64,7 @@ export function parseDiffPatchToContentSection(
 
 export function parseDiffPatchToDiffString(
 	diffPatchArray: DiffPatch[] | undefined,
-	side: 'before' | 'after'
+	side: "before" | "after",
 ): string | undefined {
 	if (!diffPatchArray || diffPatchArray.length === 0) {
 		return undefined;
@@ -73,14 +73,14 @@ export function parseDiffPatchToDiffString(
 	return diffPatchArray
 		.map((line) => {
 			switch (line.type) {
-				case 'added':
-					return side === 'after' ? cleanDiffLine(line.line, SectionType.AddedLines) : undefined;
-				case 'removed':
-					return side === 'before' ? cleanDiffLine(line.line, SectionType.RemovedLines) : undefined;
-				case 'context':
+				case "added":
+					return side === "after" ? cleanDiffLine(line.line, SectionType.AddedLines) : undefined;
+				case "removed":
+					return side === "before" ? cleanDiffLine(line.line, SectionType.RemovedLines) : undefined;
+				case "context":
 					return line.line;
 			}
 		})
 		.filter((line) => line !== undefined)
-		.join('\n');
+		.join("\n");
 }

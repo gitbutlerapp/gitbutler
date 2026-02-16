@@ -1,11 +1,11 @@
-import { Commit } from '$lib/commits/commit';
-import { Type } from 'class-transformer';
+import { Commit } from "$lib/commits/commit";
+import { Type } from "class-transformer";
 
 export interface RemoteBranchInfo {
 	name: string;
 }
 
-export type ForgeProvider = 'github' | 'gitlab' | 'bitbucket' | 'azure';
+export type ForgeProvider = "github" | "gitlab" | "bitbucket" | "azure";
 
 export type ForgeRepoInfo = {
 	forge: ForgeProvider;
@@ -43,7 +43,7 @@ export class BaseBranch {
 	}
 
 	get lastPathComponent(): string {
-		return this.branchName.split('/').slice(-1)[0]!;
+		return this.branchName.split("/").slice(-1)[0]!;
 	}
 
 	/**
@@ -59,7 +59,7 @@ export class BaseBranch {
 
 		// Handle the edge case where the branchName is exactly the remoteName
 		if (this.remoteName && name === this.remoteName) {
-			return '';
+			return "";
 		}
 
 		const prefixesToTry: string[] = [];
@@ -69,7 +69,7 @@ export class BaseBranch {
 			prefixesToTry.push(`refs/remotes/${this.remoteName}/`);
 			prefixesToTry.push(`${this.remoteName}/`);
 		}
-		prefixesToTry.push('refs/heads/');
+		prefixesToTry.push("refs/heads/");
 
 		for (const prefix of prefixesToTry) {
 			if (name.startsWith(prefix)) {

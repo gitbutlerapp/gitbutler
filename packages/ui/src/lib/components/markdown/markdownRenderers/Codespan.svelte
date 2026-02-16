@@ -3,7 +3,7 @@
 		raw: string;
 	}
 
-	const { raw = '' }: Props = $props();
+	const { raw = "" }: Props = $props();
 </script>
 
-<code>{raw.replace(/`/g, '')}</code>
+<code>{raw.replace(/`/g, "")}</code>

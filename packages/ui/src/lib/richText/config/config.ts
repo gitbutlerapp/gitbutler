@@ -1,7 +1,7 @@
-import { EmojiNode } from '$lib/richText/node/emoji';
-import { GhostText } from '$lib/richText/node/ghostText';
-import { InlineCodeNode } from '$lib/richText/node/inlineCode';
-import { MentionNode } from '$lib/richText/node/mention';
+import { EmojiNode } from "$lib/richText/node/emoji";
+import { GhostText } from "$lib/richText/node/ghostText";
+import { InlineCodeNode } from "$lib/richText/node/inlineCode";
+import { MentionNode } from "$lib/richText/node/mention";
 import {
 	HeadingNode,
 	QuoteNode,
@@ -21,16 +21,16 @@ import {
 	type EditorThemeClasses,
 	$createParagraphNode,
 	$createTextNode,
-	$getRoot
-} from 'svelte-lexical';
+	$getRoot,
+} from "svelte-lexical";
 import type {
 	EditorState,
 	HTMLConfig,
 	Klass,
 	LexicalEditor,
 	LexicalNode,
-	LexicalNodeReplacement
-} from 'lexical';
+	LexicalNodeReplacement,
+} from "lexical";
 
 export type InitialEditorStateType =
 	| null
@@ -94,7 +94,7 @@ export function standardConfig(args: {
 			KeywordNode,
 			InlineCodeNode,
 			MentionNode,
-			GhostText
-		]
+			GhostText,
+		],
 	};
 }

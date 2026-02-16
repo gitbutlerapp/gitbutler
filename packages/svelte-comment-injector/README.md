@@ -25,10 +25,10 @@ Add the preprocessor to your Svelte configuration:
 
 ```js
 // svelte.config.js
-import svelteInjectComment from 'svelte-devtools-comment';
+import svelteInjectComment from "svelte-devtools-comment";
 
 export default {
-	preprocess: [svelteInjectComment()]
+	preprocess: [svelteInjectComment()],
 	// ...rest of your config
 };
 ```
@@ -39,16 +39,16 @@ You can customize the comment format by passing options to the preprocessor:
 
 ```js
 // svelte.config.js
-import svelteInjectComment from 'svelte-devtools-comment';
+import svelteInjectComment from "svelte-devtools-comment";
 
 export default {
 	preprocess: [
 		svelteInjectComment({
 			enabled: true, // Enable or disable the comment injection
 			showEndComment: true, // Show the end comment
-			showFullPath: false // Show the full path in the comment
-		})
-	]
+			showFullPath: false, // Show the full path in the comment
+		}),
+	],
 	// ...rest of your config
 };
 ```

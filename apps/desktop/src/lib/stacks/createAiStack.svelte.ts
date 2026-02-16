@@ -1,9 +1,9 @@
-import { focusClaudeInput } from '$lib/codegen/focusClaudeInput';
-import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-import { UI_STATE } from '$lib/state/uiState.svelte';
-import { inject } from '@gitbutler/core/context';
-import { untrack } from 'svelte';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
+import { focusClaudeInput } from "$lib/codegen/focusClaudeInput";
+import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+import { UI_STATE } from "$lib/state/uiState.svelte";
+import { inject } from "@gitbutler/core/context";
+import { untrack } from "svelte";
+import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 export function useCreateAiStack(projectId: Reactive<string>) {
 	const uiState = inject(UI_STATE);
@@ -14,8 +14,8 @@ export function useCreateAiStack(projectId: Reactive<string>) {
 		const stack = await stackService.newStackMutation({
 			projectId: pid,
 			branch: {
-				name: undefined
-			}
+				name: undefined,
+			},
 		});
 
 		if (!stack.id) return;

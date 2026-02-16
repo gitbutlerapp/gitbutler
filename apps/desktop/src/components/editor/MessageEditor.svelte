@@ -7,20 +7,20 @@
 </script>
 
 <script lang="ts">
-	import MessageEditorRuler from '$components/editor/MessageEditorRuler.svelte';
-	import CommitSuggestions from '$components/editor/commitSuggestions.svelte';
+	import MessageEditorRuler from "$components/editor/MessageEditorRuler.svelte";
+	import CommitSuggestions from "$components/editor/commitSuggestions.svelte";
 	import {
 		projectCommitGenerationExtraConcise,
 		projectCommitGenerationHaiku,
-		projectCommitGenerationUseEmojis
-	} from '$lib/config/config';
-	import { showError } from '$lib/notifications/toasts';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { uploadFiles } from '@gitbutler/shared/dom';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
+		projectCommitGenerationUseEmojis,
+	} from "$lib/config/config";
+	import { showError } from "$lib/notifications/toasts";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { uploadFiles } from "@gitbutler/shared/dom";
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { UPLOADS_SERVICE } from "@gitbutler/shared/uploads/uploadsService";
 	import {
 		Button,
 		Checkbox,
@@ -33,15 +33,15 @@
 		Formatter,
 		GhostTextPlugin,
 		HardWrapPlugin,
-		FormattingButton
-	} from '@gitbutler/ui';
+		FormattingButton,
+	} from "@gitbutler/ui";
 	import FileUploadPlugin, {
-		type DropFileResult
-	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
+		type DropFileResult,
+	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
 
-	import { tick } from 'svelte';
+	import { tick } from "svelte";
 
-	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
+	const ACCEPTED_FILE_TYPES = ["image/*", "application/*", "text/*", "audio/*", "video/*"];
 
 	interface Props {
 		projectId: string;
@@ -60,7 +60,7 @@
 		testId?: string;
 		forceSansFont?: boolean;
 		useRuler?: boolean;
-		messageType: 'commit' | 'pr';
+		messageType: "commit" | "pr";
 		reviewUnitAbbr?: string;
 	}
 
@@ -82,7 +82,7 @@
 		forceSansFont,
 		useRuler,
 		messageType,
-		reviewUnitAbbr
+		reviewUnitAbbr,
 	}: Props = $props();
 
 	const MIN_RULER_VALUE = 30;
@@ -106,9 +106,9 @@
 	let formatter = $state<ReturnType<typeof Formatter>>();
 	let fileUploadPlugin = $state<ReturnType<typeof FileUploadPlugin>>();
 	let uploadConfirmationModal = $state<ReturnType<typeof Modal>>();
-	const doNotShowUploadWarning = persisted<boolean>(false, 'doNotShowUploadWarning');
+	const doNotShowUploadWarning = persisted<boolean>(false, "doNotShowUploadWarning");
 	let allowUploadOnce = $state<boolean>(false);
-	let uploadedBy = $state<'drop' | 'attach' | undefined>(undefined);
+	let uploadedBy = $state<"drop" | "attach" | undefined>(undefined);
 	let tempDropFiles: FileList | undefined = $state(undefined);
 
 	export async function getPlaintext(): Promise<string | undefined> {
@@ -118,7 +118,7 @@
 	async function handleChange(
 		text: string,
 		textUpToAnchor: string | undefined,
-		textAfterAnchor: string | undefined
+		textAfterAnchor: string | undefined,
 	) {
 		onChange?.(text);
 		await suggestionsHandler?.onChange(textUpToAnchor, textAfterAnchor);
@@ -141,7 +141,7 @@
 	}
 
 	function isAcceptedFileType(file: File): boolean {
-		const type = file.type.split('/')[0];
+		const type = file.type.split("/")[0];
 		if (!type) return false;
 		return ACCEPTED_FILE_TYPES.some((acceptedType) => acceptedType.startsWith(type));
 	}
@@ -156,12 +156,12 @@
 				return { name: file.name, url: upload.url, isImage: upload.isImage };
 			});
 		const settled = await Promise.allSettled(uploads);
-		const successful = settled.filter((result) => result.status === 'fulfilled');
-		const failed = settled.filter((result) => result.status === 'rejected');
+		const successful = settled.filter((result) => result.status === "fulfilled");
+		const failed = settled.filter((result) => result.status === "rejected");
 
 		if (failed.length > 0) {
-			console.error('File upload failed', failed);
-			showError('File upload failed', failed.map((result) => result.reason).join(', '));
+			console.error("File upload failed", failed);
+			showError("File upload failed", failed.map((result) => result.reason).join(", "));
 		}
 
 		allowUploadOnce = false;
@@ -170,13 +170,13 @@
 	}
 
 	async function handleDropFiles(
-		files: FileList | undefined
+		files: FileList | undefined,
 	): Promise<DropFileResult[] | undefined> {
 		if ($doNotShowUploadWarning || allowUploadOnce) {
 			return onDropFiles(files);
 		}
 
-		uploadedBy = 'drop';
+		uploadedBy = "drop";
 		tempDropFiles = files;
 		uploadConfirmationModal?.show();
 		return undefined;
@@ -185,7 +185,7 @@
 	async function attachFiles() {
 		composer?.focus();
 
-		const files = await uploadFiles(ACCEPTED_FILE_TYPES.join(','));
+		const files = await uploadFiles(ACCEPTED_FILE_TYPES.join(","));
 
 		if (!files) return;
 		await fileUploadPlugin?.handleFileUpload(files);
@@ -196,7 +196,7 @@
 			attachFiles();
 			return;
 		}
-		uploadedBy = 'attach';
+		uploadedBy = "attach";
 		uploadConfirmationModal?.show();
 	}
 
@@ -223,23 +223,23 @@
 		onAiButtonClick({
 			useHaiku: $commitGenerationHaiku,
 			useEmojiStyle: $commitGenerationUseEmojis,
-			useBriefStyle: $commitGenerationExtraConcise
+			useBriefStyle: $commitGenerationExtraConcise,
 		});
 	}
 
 	const DROPDOWN_BTN_BREAKPOINTS = {
 		short: 280,
-		medium: 320
+		medium: 320,
 	};
 
 	const generateMessages = $derived.by(() => ({
-		commit: 'Generate commit message',
-		pr: `Generate ${reviewUnitAbbr ?? 'PR'} description`
+		commit: "Generate commit message",
+		pr: `Generate ${reviewUnitAbbr ?? "PR"} description`,
 	}));
 
 	function getTooltipText(): string | undefined {
 		if (!canUseAI) {
-			return 'You need to enable AI in the project settings to use this feature';
+			return "You need to enable AI in the project settings to use this feature";
 		}
 		if (currentEditorWidth <= DROPDOWN_BTN_BREAKPOINTS.medium) {
 			return generateMessages[messageType];
@@ -251,7 +251,7 @@
 </script>
 
 {#snippet buttonText()}
-	{currentEditorWidth > DROPDOWN_BTN_BREAKPOINTS.medium ? 'Generate message' : 'Generate'}
+	{currentEditorWidth > DROPDOWN_BTN_BREAKPOINTS.medium ? "Generate message" : "Generate"}
 {/snippet}
 
 <Modal
@@ -262,14 +262,14 @@
 	onSubmit={async (close) => {
 		allowUploadOnce = true;
 
-		if (uploadedBy === 'drop') {
+		if (uploadedBy === "drop") {
 			const files = tempDropFiles;
 			tempDropFiles = undefined;
 			if (files) {
 				composer?.focus();
 				await fileUploadPlugin?.handleFileUpload(files);
 			}
-		} else if (uploadedBy === 'attach') {
+		} else if (uploadedBy === "attach") {
 			await attachFiles();
 		}
 
@@ -331,7 +331,7 @@
 					namespace="CommitMessageEditor"
 					{placeholder}
 					bind:this={composer}
-					onError={(e) => console.warn('Editor error', e)}
+					onError={(e) => console.warn("Editor error", e)}
 					initialText={initialValue}
 					onChange={handleChange}
 					onKeyDown={handleKeyDown}
@@ -361,8 +361,8 @@
 			<div class="message-textarea__toolbar__left">
 				<Button
 					kind="ghost"
-					icon={useFloatingBox.current ? 'exit-floating-box' : 'enter-floating-box'}
-					tooltip={useFloatingBox.current ? 'Exit floating mode' : 'Use floating mode'}
+					icon={useFloatingBox.current ? "exit-floating-box" : "enter-floating-box"}
+					tooltip={useFloatingBox.current ? "Exit floating mode" : "Use floating mode"}
 					onclick={() => {
 						useFloatingBox.set(!useFloatingBox.current);
 					}}
@@ -402,7 +402,7 @@
 								type="number"
 								onblur={() => {
 									if (rulerCountValue.current < MIN_RULER_VALUE) {
-										console.warn('Ruler value must be greater than 10');
+										console.warn("Ruler value must be greater than 10");
 										rulerCountValue.set(MIN_RULER_VALUE);
 									} else if (rulerCountValue.current > MAX_RULER_VALUE) {
 										rulerCountValue.set(MAX_RULER_VALUE);
@@ -413,7 +413,7 @@
 									rulerCountValue.set(parseInt(input.value));
 								}}
 								onkeydown={(e) => {
-									if (e.key === 'Enter') {
+									if (e.key === "Enter") {
 										e.preventDefault();
 										composer?.focus();
 									}
@@ -513,7 +513,7 @@
 			width: calc(100% - 16px);
 			height: 1px;
 			background-color: var(--clr-border-3);
-			content: '';
+			content: "";
 		}
 	}
 

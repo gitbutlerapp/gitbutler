@@ -1,7 +1,7 @@
 <script lang="ts">
-	import RedirectToProfileIfLoggedIn from '$lib/auth/RedirectToProfileIfLoggedIn.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
+	import RedirectToProfileIfLoggedIn from "$lib/auth/RedirectToProfileIfLoggedIn.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
 
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;

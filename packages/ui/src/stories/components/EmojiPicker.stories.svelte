@@ -1,13 +1,13 @@
 <script module lang="ts">
-	import EmojiPicker from '$components/emoji/EmojiPicker.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { EmojiInfo } from '$components/emoji/utils';
+	import EmojiPicker from "$components/emoji/EmojiPicker.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
+	import type { EmojiInfo } from "$components/emoji/utils";
 
 	const { Story } = defineMeta({
-		title: 'Editing / EmojiPicker',
+		title: "Editing / EmojiPicker",
 		component: EmojiPicker,
 		args: {},
-		argTypes: {}
+		argTypes: {},
 	});
 </script>
 
@@ -20,7 +20,7 @@
 			<EmojiPicker
 				onEmojiSelect={(emoji: EmojiInfo) => {
 					// eslint-disable-next-line no-console
-					console.log('Emoji selected:', emoji);
+					console.log("Emoji selected:", emoji);
 				}}
 			/>
 		</div>

@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import PRListCard from '$components/branchesPage/PRListCard.svelte';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { showError } from '$lib/notifications/toasts';
-	import { REMOTES_SERVICE } from '$lib/remotes/remotesService';
-	import { workspacePath } from '$lib/routes/routes.svelte';
-	import { handleCreateBranchFromBranchOutcome } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
+	import { goto } from "$app/navigation";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import PRListCard from "$components/branchesPage/PRListCard.svelte";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { showError } from "$lib/notifications/toasts";
+	import { REMOTES_SERVICE } from "$lib/remotes/remotesService";
+	import { workspacePath } from "$lib/routes/routes.svelte";
+	import { handleCreateBranchFromBranchOutcome } from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
 
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, TestId, Textbox } from '@gitbutler/ui';
-	import type { DetailedPullRequest } from '$lib/forge/interface/types';
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Modal, TestId, Textbox } from "@gitbutler/ui";
+	import type { DetailedPullRequest } from "$lib/forge/interface/types";
 
 	type Props = {
 		projectId: string;
@@ -41,7 +41,7 @@
 	function getRemoteUrl(pr: DetailedPullRequest) {
 		if (!baseRepo) return;
 
-		if (baseRepo.protocol?.startsWith('http')) {
+		if (baseRepo.protocol?.startsWith("http")) {
 			return pr.repositoryHttpsUrl;
 		} else {
 			return pr.repositorySshUrl;
@@ -56,27 +56,27 @@
 		}
 
 		if (!inputRemoteName) {
-			showError('Cannot create a remote', 'Please provide a remote name.');
+			showError("Cannot create a remote", "Please provide a remote name.");
 			return;
 		}
 
 		loading = true;
 
 		try {
-			const remoteRef = 'refs/remotes/' + inputRemoteName + '/' + pr.sourceBranch;
+			const remoteRef = "refs/remotes/" + inputRemoteName + "/" + pr.sourceBranch;
 			await remotesService.addRemote(projectId, inputRemoteName, remoteUrl);
 			await baseBranchService.fetchFromRemotes(projectId);
 			const outcome = await stackService.createVirtualBranchFromBranch({
 				projectId,
 				branch: remoteRef,
 				remote: remoteRef,
-				prNumber
+				prNumber,
 			});
 
 			handleCreateBranchFromBranchOutcome(outcome);
 			goto(workspacePath(projectId));
 		} catch (err: unknown) {
-			showError('Failed to apply forked branch', err);
+			showError("Failed to apply forked branch", err);
 		} finally {
 			loading = false;
 		}

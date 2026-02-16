@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Self from '$components/FileTreeNode.svelte';
-	import TreeListFolder from '$components/TreeListFolder.svelte';
-	import { TestId } from '@gitbutler/ui';
-	import type { TreeNode } from '$lib/files/filetreeV3';
-	import type { TreeChange } from '$lib/hunks/change';
-	import type { SelectionId } from '$lib/selection/key';
-	import type { Snippet } from 'svelte';
+	import Self from "$components/FileTreeNode.svelte";
+	import TreeListFolder from "$components/TreeListFolder.svelte";
+	import { TestId } from "@gitbutler/ui";
+	import type { TreeNode } from "$lib/files/filetreeV3";
+	import type { TreeChange } from "$lib/hunks/change";
+	import type { SelectionId } from "$lib/selection/key";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -31,7 +31,7 @@
 		draggableFiles,
 		changes,
 		depth = 0,
-		fileTemplate
+		fileTemplate,
 	}: Props = $props();
 
 	// Local state to track whether the folder is expanded
@@ -58,7 +58,7 @@
 			{fileTemplate}
 		/>
 	{/each}
-{:else if node.kind === 'file'}
+{:else if node.kind === "file"}
 	{@render fileTemplate(node.change, node.index, depth)}
 {:else}
 	<TreeListFolder

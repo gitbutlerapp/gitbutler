@@ -1,33 +1,33 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import FullscreenUtilityCard from '$lib/components/service/FullscreenUtilityCard.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { AsyncButton, Button, chipToasts } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+	import { goto } from "$app/navigation";
+	import { page } from "$app/state";
+	import FullscreenUtilityCard from "$lib/components/service/FullscreenUtilityCard.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import { AsyncButton, Button, chipToasts } from "@gitbutler/ui";
+	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
 
 	const loginService = inject(LOGIN_SERVICE);
-	const BUILD_TYPE_PARAM = 'bt';
+	const BUILD_TYPE_PARAM = "bt";
 
 	const searchParams = $derived(page.url.searchParams);
 	const buildType = $derived(mapBuiltType(searchParams.get(BUILD_TYPE_PARAM)));
 
 	async function copyAccessToken() {
 		const response = await loginService.token();
-		if (response.type === 'success' && response.data) {
+		if (response.type === "success" && response.data) {
 			copyToClipboard(response.data);
 		} else {
-			chipToasts.error('Failed to get token');
+			chipToasts.error("Failed to get token");
 		}
 	}
 
-	function mapBuiltType(buildType: string | null): 'but' | 'but-nightly' | null {
+	function mapBuiltType(buildType: string | null): "but" | "but-nightly" | null {
 		switch (buildType) {
-			case 'release':
-				return 'but';
-			case 'nightly':
-				return 'but-nightly';
+			case "release":
+				return "but";
+			case "nightly":
+				return "but-nightly";
 			default:
 				return null;
 		}
@@ -35,13 +35,13 @@
 
 	async function followDeeplink() {
 		if (!buildType) {
-			chipToasts.error('Unknown built type');
+			chipToasts.error("Unknown built type");
 			return;
 		}
 
 		const response = await loginService.token();
-		if (response.type !== 'success' || !response.data) {
-			chipToasts.error('Failed to get token');
+		if (response.type !== "success" || !response.data) {
+			chipToasts.error("Failed to get token");
 		} else {
 			const accessToken = response.data;
 			const deeplink = `${buildType}://login?access_token=${accessToken}&t=${Date.now()}`;
@@ -57,8 +57,8 @@
 <FullscreenUtilityCard
 	title="Signed in successfully 🎯"
 	backlink={{
-		label: 'Main',
-		href: '/'
+		label: "Main",
+		href: "/",
 	}}
 >
 	<div class="loggedin__success-card-content">
@@ -77,7 +77,7 @@
 					>Copy Access Token</AsyncButton
 				>
 			{/if}
-			<Button style="gray" kind="ghost" onclick={() => goto('/profile')} icon="profile"
+			<Button style="gray" kind="ghost" onclick={() => goto("/profile")} icon="profile"
 				>Profile page</Button
 			>
 		</div>

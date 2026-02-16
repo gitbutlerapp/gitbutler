@@ -1,6 +1,6 @@
 <script lang="ts">
-	import VirtualList from '$components/VirtualList.svelte';
-	import AsyncContent from '$lib/helpers/AsyncContent.svelte';
+	import VirtualList from "$components/VirtualList.svelte";
+	import AsyncContent from "$lib/helpers/AsyncContent.svelte";
 
 	type Props = {
 		defaultHeight: number;
@@ -17,7 +17,7 @@
 		itemCount = 10,
 		stickToBottom = false,
 		startIndex,
-		onloadmore
+		onloadmore,
 	}: Props = $props();
 
 	let items = $state(Array.from({ length: itemCount }, (_, i) => `Item ${i + 1}`));
@@ -55,10 +55,10 @@
 	function expandLast() {
 		// Need to wait for next tick to ensure DOM is updated
 		requestAnimationFrame(() => {
-			const itemElements = document.querySelectorAll('.test-item');
+			const itemElements = document.querySelectorAll(".test-item");
 			if (itemElements && itemElements.length > 0) {
 				const lastItem = itemElements[itemElements.length - 1] as HTMLElement;
-				lastItem.style.height = '300px';
+				lastItem.style.height = "300px";
 			}
 		});
 	}

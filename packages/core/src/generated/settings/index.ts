@@ -7,8 +7,8 @@ import type {
 	GitHubOAuthAppSettings,
 	Reviews,
 	TelemetrySettings,
-	UiSettings
-} from './appSettings';
+	UiSettings,
+} from "./appSettings";
 
 export type AppSettings = {
 	/**

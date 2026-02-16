@@ -20,20 +20,20 @@ export function hexToRgb(hex: string): RGB | null {
 		? {
 				r: parseInt(result[1], 16) / 255,
 				g: parseInt(result[2], 16) / 255,
-				b: parseInt(result[3], 16) / 255
+				b: parseInt(result[3], 16) / 255,
 			}
 		: null;
 }
 
 export function rgbToHex(r: number, g: number, b: number): string {
 	return (
-		'#' +
+		"#" +
 		[r, g, b]
 			.map((x) => {
 				const hex = Math.round(Math.max(0, Math.min(255, x * 255))).toString(16);
-				return hex.length === 1 ? '0' + hex : hex;
+				return hex.length === 1 ? "0" + hex : hex;
 			})
-			.join('')
+			.join("")
 	);
 }
 

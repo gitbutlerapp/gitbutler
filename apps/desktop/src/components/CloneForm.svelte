@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { BACKEND } from '$lib/backend';
-	import { parseError } from '$lib/error/parser';
-	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { handleAddProjectOutcome } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { projectPath } from '$lib/routes/routes.svelte';
-	import { parseRemoteUrl } from '$lib/url/gitUrl';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { Button, InfoMessage, type MessageStyle, Spacer, Textbox } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import { BACKEND } from "$lib/backend";
+	import { parseError } from "$lib/error/parser";
+	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { handleAddProjectOutcome } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { projectPath } from "$lib/routes/routes.svelte";
+	import { parseRemoteUrl } from "$lib/url/gitUrl";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { Button, InfoMessage, type MessageStyle, Spacer, Textbox } from "@gitbutler/ui";
 
-	import * as Sentry from '@sentry/sveltekit';
-	import { onMount } from 'svelte';
+	import * as Sentry from "@sentry/sveltekit";
+	import { onMount } from "svelte";
 
 	const projectsService = inject(PROJECTS_SERVICE);
 	const gitService = inject(GIT_SERVICE);
@@ -24,9 +24,9 @@
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
 	let completed = $state(false);
-	let repositoryUrl = $state('');
-	let targetDirPath = $state('');
-	let savedTargetDirPath = persisted('', 'clone_targetDirPath');
+	let repositoryUrl = $state("");
+	let targetDirPath = $state("");
+	let savedTargetDirPath = persisted("", "clone_targetDirPath");
 
 	onMount(async () => {
 		if ($savedTargetDirPath) {
@@ -40,7 +40,7 @@
 		const selectedPath = await backend.filePicker({
 			directory: true,
 			recursive: true,
-			title: 'Target Clone Directory'
+			title: "Target Clone Directory",
 		});
 		if (!selectedPath || !selectedPath[0]) return;
 
@@ -64,7 +64,7 @@
 
 		if (!repositoryUrl || !targetDirPath) {
 			errors.push({
-				label: 'You must add both a repository URL and target directory.'
+				label: "You must add both a repository URL and target directory.",
 			});
 			loading = false;
 			return;
@@ -85,9 +85,9 @@
 			if (!outcome) {
 				posthog.captureOnboarding(
 					OnboardingEvent.ClonedProjectFailed,
-					'Failed to add project after cloning'
+					"Failed to add project after cloning",
 				);
-				throw new Error('Failed to add project after cloning.');
+				throw new Error("Failed to add project after cloning.");
 			}
 
 			handleAddProjectOutcome(outcome, (project) => goto(projectPath(project.id)));
@@ -96,7 +96,7 @@
 			const errorMessage = getErrorMessage(e);
 			posthog.captureOnboarding(OnboardingEvent.ClonedProjectFailed, e);
 			errors.push({
-				label: errorMessage
+				label: errorMessage,
 			});
 		} finally {
 			loading = false;
@@ -107,7 +107,7 @@
 		if (history.length > 0) {
 			history.back();
 		} else {
-			goto('/');
+			goto("/");
 		}
 	}
 </script>
@@ -129,17 +129,17 @@
 <Spacer dotted margin={24} />
 
 {#if completed}
-	{@render Notification({ title: 'Success', style: 'success' })}
+	{@render Notification({ title: "Success", style: "success" })}
 {/if}
 {#if errors.length}
-	{@render Notification({ title: 'Error', items: errors, style: 'danger' })}
+	{@render Notification({ title: "Error", items: errors, style: "danger" })}
 {/if}
 
 <div class="clone__actions">
 	<Button kind="outline" disabled={loading} onclick={handleCancel}>Cancel</Button>
 	<Button
 		style="pop"
-		icon={errors.length > 0 ? 'update' : 'chevron-right-small'}
+		icon={errors.length > 0 ? "update" : "chevron-right-small"}
 		disabled={loading}
 		{loading}
 		onclick={cloneRepository}
@@ -157,7 +157,7 @@
 {#snippet Notification({
 	title: titleLabel,
 	items,
-	style
+	style,
 }: {
 	title: string;
 	items?: any[];

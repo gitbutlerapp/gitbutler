@@ -1,11 +1,11 @@
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import {
 	QueryStatus,
 	type EndpointDefinition,
 	type MutationDefinition,
-	type QueryDefinition
-} from '@reduxjs/toolkit/query';
-import type { CustomQuery, CustomResult } from '$lib/state/butlerModule';
+	type QueryDefinition,
+} from "@reduxjs/toolkit/query";
+import type { CustomQuery, CustomResult } from "$lib/state/butlerModule";
 
 export type Result<A> = {
 	data?: A;
@@ -15,16 +15,16 @@ export type Result<A> = {
 
 /** Copied from redux-toolkit, it isn't exported. */
 export function isQueryDefinition(
-	e: EndpointDefinition<unknown, any, string, unknown>
+	e: EndpointDefinition<unknown, any, string, unknown>,
 ): e is QueryDefinition<unknown, any, string, unknown> {
-	return e.type === 'query';
+	return e.type === "query";
 }
 
 /** Copied from redux-toolkit, it isn't exported. */
 export function isMutationDefinition(
-	e: EndpointDefinition<unknown, any, string, unknown>
+	e: EndpointDefinition<unknown, any, string, unknown>,
 ): e is MutationDefinition<unknown, any, string, unknown> {
-	return e.type === 'mutation';
+	return e.type === "mutation";
 }
 
 /**
@@ -39,7 +39,7 @@ export function isMutationDefinition(
  */
 export function combineResults<T extends [...CustomResult<any>[]]>(
 	...results: T
-): CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>> | undefined {
+): CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]["data"], undefined> }>> | undefined {
 	if (results.length === 0) {
 		return;
 	}
@@ -54,6 +54,6 @@ export function combineResults<T extends [...CustomResult<any>[]]>(
 	return {
 		status,
 		error,
-		data
-	} as CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]['data'], undefined> }>>;
+		data,
+	} as CustomResult<CustomQuery<{ [K in keyof T]: Exclude<T[K]["data"], undefined> }>>;
 }

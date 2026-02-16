@@ -4,11 +4,11 @@
  * This file replaces `$lib/utils/selection.ts`, with the main difference
  * being the type change from `AnyFile` to `TreeChange`.
  */
-import { type SelectedFile, type SelectionId } from '$lib/selection/key';
-import { getSelectionDirection } from '$lib/utils/getSelectionDirection';
-import { get } from 'svelte/store';
-import type { TreeChange } from '$lib/hunks/change';
-import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
+import { type SelectedFile, type SelectionId } from "$lib/selection/key";
+import { getSelectionDirection } from "$lib/utils/getSelectionDirection";
+import { get } from "svelte/store";
+import type { TreeChange } from "$lib/hunks/change";
+import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 
 function getFile(files: TreeChange[], id: string): TreeChange | undefined {
 	return files.find((f) => f.path === id);
@@ -40,7 +40,7 @@ function getTopFile(files: TreeChange[], selectedFileIds: SelectedFile[]): TreeC
 
 function getBottomFile(
 	files: TreeChange[],
-	selectedFileIds: SelectedFile[]
+	selectedFileIds: SelectedFile[],
 ): TreeChange | undefined {
 	for (let i = files.length - 1; i >= 0; i--) {
 		const file = files[i]!;
@@ -76,7 +76,7 @@ export function updateSelection({
 	selectedFileIds,
 	fileIdSelection,
 	selectionId,
-	preventDefault
+	preventDefault,
 }: UpdateSelectionParams): boolean {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return false;
 
@@ -88,12 +88,12 @@ export function updateSelection({
 
 	let selectionDirection = getSelectionDirection(
 		files.findIndex((f) => f.path === lastFileId),
-		files.findIndex((f) => f.path === firstFileId)
+		files.findIndex((f) => f.path === firstFileId),
 	);
 
 	function getAndAddFile(
 		id: string,
-		getFileFunc?: (files: TreeChange[], id: string) => TreeChange | undefined
+		getFileFunc?: (files: TreeChange[], id: string) => TreeChange | undefined,
 	) {
 		const file = getFileFunc?.(files, id) ?? getFile(files, id);
 		if (file) {
@@ -105,7 +105,7 @@ export function updateSelection({
 
 	function getAndClearExcept(
 		id: string,
-		getFileFunc?: (files: TreeChange[], id: string) => TreeChange | undefined
+		getFileFunc?: (files: TreeChange[], id: string) => TreeChange | undefined,
 	) {
 		const file = getFileFunc?.(files, id) ?? getFile(files, id);
 		if (file) {
@@ -117,8 +117,8 @@ export function updateSelection({
 
 	switch (key) {
 		// Cmd+A on Mac, Ctrl+A on Windows/Linux
-		case 'a':
-		case 'A':
+		case "a":
+		case "A":
 			if (allowMultiple && (metaKey || ctrlKey)) {
 				preventDefault();
 
@@ -131,15 +131,15 @@ export function updateSelection({
 				fileIdSelection.clearPreview(selectionId);
 			}
 			break;
-		case 'k':
-		case 'ArrowUp':
+		case "k":
+		case "ArrowUp":
 			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
 				// we should update the selection direction
 				if (selectedFileIds.length === 1) {
-					selectionDirection = 'up';
-				} else if (selectionDirection === 'down') {
+					selectionDirection = "up";
+				} else if (selectionDirection === "down") {
 					fileIdSelection.remove(lastFileId, selectionId);
 				}
 				getAndAddFile(lastFileId, getPreviousFile);
@@ -156,15 +156,15 @@ export function updateSelection({
 			}
 			break;
 
-		case 'j':
-		case 'ArrowDown':
+		case "j":
+		case "ArrowDown":
 			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
 				// we should update the selection direction
 				if (selectedFileIds.length === 1) {
-					selectionDirection = 'down';
-				} else if (selectionDirection === 'up') {
+					selectionDirection = "down";
+				} else if (selectionDirection === "up") {
 					fileIdSelection.remove(lastFileId, selectionId);
 				}
 
@@ -181,7 +181,7 @@ export function updateSelection({
 				}
 			}
 			break;
-		case 'Escape':
+		case "Escape":
 			preventDefault();
 			fileIdSelection.clearPreview(selectionId);
 			targetElement.blur();
@@ -201,7 +201,7 @@ export function selectFilesInList(
 	allowMultiple: boolean,
 	index: number,
 	selectionId: SelectionId,
-	allowUnselect?: boolean
+	allowUnselect?: boolean,
 ) {
 	const isAlreadySelected = idSelection.has(change.path, selectionId);
 	const isTheOnlyOneSelected = idSelection.collectionSize(selectionId) === 1 && isAlreadySelected;

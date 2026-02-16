@@ -1,4 +1,4 @@
-import type { SnapPoint, ModalBounds } from '$lib/floating/types';
+import type { SnapPoint, ModalBounds } from "$lib/floating/types";
 
 export class SnapPointManager {
 	private margin: number;
@@ -14,17 +14,17 @@ export class SnapPointManager {
 
 		return [
 			// Corners
-			{ x: m, y: m, name: 'top-left' },
-			{ x: w - m, y: m, name: 'top-right' },
-			{ x: m, y: h - m, name: 'bottom-left' },
-			{ x: w - m, y: h - m, name: 'bottom-right' },
+			{ x: m, y: m, name: "top-left" },
+			{ x: w - m, y: m, name: "top-right" },
+			{ x: m, y: h - m, name: "bottom-left" },
+			{ x: w - m, y: h - m, name: "bottom-right" },
 			// Edge centers
-			{ x: w / 2, y: m, name: 'top-center' },
-			{ x: w / 2, y: h - m, name: 'bottom-center' },
-			{ x: m, y: h / 2, name: 'left-center' },
-			{ x: w - m, y: h / 2, name: 'right-center' },
+			{ x: w / 2, y: m, name: "top-center" },
+			{ x: w / 2, y: h - m, name: "bottom-center" },
+			{ x: m, y: h / 2, name: "left-center" },
+			{ x: w - m, y: h / 2, name: "right-center" },
 			// Screen center
-			{ x: w / 2, y: h / 2, name: 'center' }
+			{ x: w / 2, y: h / 2, name: "center" },
 		];
 	}
 
@@ -60,7 +60,7 @@ export class SnapPointManager {
 	findNearestSnapPoint(
 		modalCenterX: number,
 		modalCenterY: number,
-		snapPoints: SnapPoint[]
+		snapPoints: SnapPoint[],
 	): SnapPoint {
 		return snapPoints.reduce((closest, point) => {
 			const dist = Math.hypot(modalCenterX - point.x, modalCenterY - point.y);

@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { onMount, type Snippet } from 'svelte';
+	import { goto } from "$app/navigation";
+	import { onMount, type Snippet } from "svelte";
 
 	interface Props {
-		currentPage?: 'home' | 'cli';
+		currentPage?: "home" | "cli";
 		descriptionContent: Snippet;
 	}
 
-	const { currentPage = 'home', descriptionContent }: Props = $props();
+	const { currentPage = "home", descriptionContent }: Props = $props();
 
 	let clientButtonWidth = $state(0);
 	let cliButtonWidth = $state(0);
 	let clientButton: HTMLButtonElement;
 	let cliButton: HTMLButtonElement;
-	let hoveredOption = $state<'home' | 'cli' | null>(null);
+	let hoveredOption = $state<"home" | "cli" | null>(null);
 	let enableTransitions = $state(false);
 
 	const TOGGLE_GAP = 4; // Gap between toggle buttons
@@ -73,13 +73,13 @@
 			bind:this={clientButton}
 			type="button"
 			class="toggle-option"
-			class:active={currentPage === 'home'}
-			class:hovered={hoveredOption === 'home' && currentPage !== 'home'}
-			class:dimmed={hoveredOption !== null && hoveredOption !== 'home' && currentPage === 'home'}
-			onclick={() => goto('/')}
-			onmouseenter={() => (hoveredOption = 'home')}
+			class:active={currentPage === "home"}
+			class:hovered={hoveredOption === "home" && currentPage !== "home"}
+			class:dimmed={hoveredOption !== null && hoveredOption !== "home" && currentPage === "home"}
+			onclick={() => goto("/")}
+			onmouseenter={() => (hoveredOption = "home")}
 			onmouseleave={() => (hoveredOption = null)}
-			aria-pressed={currentPage === 'home'}
+			aria-pressed={currentPage === "home"}
 		>
 			Desktop
 		</button>
@@ -87,13 +87,13 @@
 			bind:this={cliButton}
 			type="button"
 			class="toggle-option"
-			class:active={currentPage === 'cli'}
-			class:hovered={hoveredOption === 'cli' && currentPage !== 'cli'}
-			class:dimmed={hoveredOption !== null && hoveredOption !== 'cli' && currentPage === 'cli'}
-			onclick={() => goto('/cli')}
-			onmouseenter={() => (hoveredOption = 'cli')}
+			class:active={currentPage === "cli"}
+			class:hovered={hoveredOption === "cli" && currentPage !== "cli"}
+			class:dimmed={hoveredOption !== null && hoveredOption !== "cli" && currentPage === "cli"}
+			onclick={() => goto("/cli")}
+			onmouseenter={() => (hoveredOption = "cli")}
 			onmouseleave={() => (hoveredOption = null)}
-			aria-pressed={currentPage === 'cli'}
+			aria-pressed={currentPage === "cli"}
 		>
 			CLI
 		</button>
@@ -104,9 +104,9 @@
 			class:enable-transitions={enableTransitions}
 			class:dimmed={hoveredOption !== null && hoveredOption !== currentPage}
 			style:width="{activeOption === 'cli' ? cliButtonWidth : clientButtonWidth}px"
-			style:transform={activeOption === 'cli'
+			style:transform={activeOption === "cli"
 				? `translateX(${clientButtonWidth + TOGGLE_GAP}px)`
-				: 'translateX(0)'}
+				: "translateX(0)"}
 			aria-hidden="true"
 		></div>
 	</div>

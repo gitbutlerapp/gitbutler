@@ -8,55 +8,55 @@ export function emptyConflictEntryPresence(): ConflictEntryPresence {
 	return {
 		ancestor: false,
 		ours: false,
-		theirs: false
+		theirs: false,
 	};
 }
 
 export function conflictEntryHint(presence: ConflictEntryPresence): string {
-	let defaultVerb = 'added';
+	let defaultVerb = "added";
 
 	if (presence.ancestor) {
-		defaultVerb = 'modified';
+		defaultVerb = "modified";
 	}
 
 	let oursVerb = defaultVerb;
 
 	if (!presence.ours) {
-		oursVerb = 'deleted';
+		oursVerb = "deleted";
 	}
 
 	let theirsVerb = defaultVerb;
 
 	if (!presence.theirs) {
-		theirsVerb = 'deleted';
+		theirsVerb = "deleted";
 	}
 
 	return `You have ${theirsVerb} this file, They have ${oursVerb} this file.`;
 }
 
 function looksConflicted(file: string): boolean {
-	const lines = file.split('\n');
+	const lines = file.split("\n");
 	for (const line of lines) {
-		if (line.startsWith('<<<<<<<')) {
+		if (line.startsWith("<<<<<<<")) {
 			return true;
 		}
 	}
 	return false;
 }
 
-export type ConflictState = 'conflicted' | 'resolved' | 'unknown';
+export type ConflictState = "conflicted" | "resolved" | "unknown";
 
 export function getConflictState(
 	conflictEntryPresence: ConflictEntryPresence,
-	file: string
+	file: string,
 ): ConflictState {
 	if (!conflictEntryPresence.ours || !conflictEntryPresence.theirs) {
-		return 'conflicted';
+		return "conflicted";
 	}
 
 	if (looksConflicted(file)) {
-		return 'conflicted';
+		return "conflicted";
 	}
 
-	return 'resolved';
+	return "resolved";
 }

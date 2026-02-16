@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Checkbox from '$components/Checkbox.svelte';
-	import Icon from '$components/Icon.svelte';
-	import FileIcon from '$components/file/FileIcon.svelte';
-	import FileIndent from '$components/file/FileIndent.svelte';
+	import Checkbox from "$components/Checkbox.svelte";
+	import Icon from "$components/Icon.svelte";
+	import FileIcon from "$components/file/FileIcon.svelte";
+	import FileIndent from "$components/file/FileIndent.svelte";
 
 	interface Props {
 		name: string;
@@ -16,7 +16,7 @@
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
-			}
+			},
 		) => void;
 		ontoggle?: (expanded: boolean) => void;
 		onclick?: (e: MouseEvent) => void;
@@ -39,7 +39,7 @@
 		onclick,
 		onkeydown,
 		oncontextmenu,
-		testId
+		testId,
 	}: Props = $props();
 </script>
 
@@ -103,7 +103,7 @@
 		{/if}
 
 		<div class="folder-list-item__icon">
-			<FileIcon fileName={isExpanded ? 'folder-open' : 'folder-close'} />
+			<FileIcon fileName={isExpanded ? "folder-open" : "folder-close"} />
 		</div>
 	</div>
 	<p class="text-12 text-semibold truncate">{name}</p>

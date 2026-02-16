@@ -1,10 +1,10 @@
 <script module lang="ts">
-	import HunkDiffSkeleton from '$components/hunkDiff/HunkDiffSkeleton.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import HunkDiffSkeleton from "$components/hunkDiff/HunkDiffSkeleton.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Code / HunkDiffSkeleton',
-		component: HunkDiffSkeleton
+		title: "Code / HunkDiffSkeleton",
+		component: HunkDiffSkeleton,
 	});
 </script>
 

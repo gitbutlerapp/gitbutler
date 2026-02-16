@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	interface Props {
 		monospaceFont?: string;
@@ -17,7 +17,7 @@
 <div
 	class="message-ruler-container"
 	style:--ruler-position="calc({lineWidth}px - var(--lexical-input-client-padding))"
-	style:--ruler-font={monospaceFont || 'var(--font-default)'}
+	style:--ruler-font={monospaceFont || "var(--font-default)"}
 >
 	<div class="message-ruler-dummy" bind:clientWidth={lineWidth}>
 		<!-- Create a dummy amount of text to measure the width -->

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon, Textbox, AsyncButton, Codeblock } from '@gitbutler/ui';
-	import { fromStore } from 'svelte/store';
+	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon, Textbox, AsyncButton, Codeblock } from "@gitbutler/ui";
+	import { fromStore } from "svelte/store";
 
 	type Props = {
 		showTitle?: boolean;
@@ -15,8 +15,8 @@
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = fromStore(settingsService.appSettings);
 
-	let claudeExecutable = $state('');
-	let recheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
+	let claudeExecutable = $state("");
+	let recheckedAvailability = $state<"recheck-failed" | "recheck-succeeded">();
 	let isChecking = $state(false);
 	let showSuccess = $state(false);
 	let hideResultTimer: ReturnType<typeof setTimeout> | undefined = $state();
@@ -38,10 +38,10 @@
 
 	async function checkClaudeAvailability() {
 		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
-		if (recheck?.status === 'available') {
-			recheckedAvailability = 'recheck-succeeded';
+		if (recheck?.status === "available") {
+			recheckedAvailability = "recheck-succeeded";
 		} else {
-			recheckedAvailability = 'recheck-failed';
+			recheckedAvailability = "recheck-failed";
 		}
 	}
 
@@ -53,7 +53,7 @@
 			await checkClaudeAvailability();
 
 			// Show success message if connection succeeded
-			if (recheckedAvailability === 'recheck-succeeded') {
+			if (recheckedAvailability === "recheck-succeeded") {
 				showSuccess = true;
 				// Show the result for a few seconds before showing the button again
 				hideResultTimer = setTimeout(() => {
@@ -80,10 +80,10 @@
 
 	// Derived state to check if Claude Code is not available
 	const isClaudeNotAvailable = $derived(
-		recheckedAvailability === 'recheck-failed' ||
+		recheckedAvailability === "recheck-failed" ||
 			(recheckedAvailability === undefined &&
-				(availabilityQuery.response?.status === 'not_available' ||
-					availabilityQuery.response?.status === 'execution_failed'))
+				(availabilityQuery.response?.status === "not_available" ||
+					availabilityQuery.response?.status === "execution_failed")),
 	);
 </script>
 
@@ -107,12 +107,12 @@
 		value={claudeExecutable}
 		placeholder="Path to the Claude Code executable"
 		onchange={updateClaudeExecutable}
-		error={recheckedAvailability === 'recheck-failed'
-			? 'Claude exited with a non 0 code'
+		error={recheckedAvailability === "recheck-failed"
+			? "Claude exited with a non 0 code"
 			: undefined}
 	/>
 
-	{#if availabilityQuery.response?.status === 'execution_failed' && (availabilityQuery.response.stdout || availabilityQuery.response.stderr)}
+	{#if availabilityQuery.response?.status === "execution_failed" && (availabilityQuery.response.stdout || availabilityQuery.response.stderr)}
 		<div class="stack-v gap-8">
 			{#if availabilityQuery.response.stdout}
 				<Codeblock label="Stdout" content={availabilityQuery.response.stdout} />

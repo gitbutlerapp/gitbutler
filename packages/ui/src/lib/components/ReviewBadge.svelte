@@ -1,19 +1,19 @@
 <script lang="ts">
-	import Tooltip from '$components/Tooltip.svelte';
-	import ghLogo from '$lib/assets/review-badge/gh-logo.svg?raw';
-	import glLogo from '$lib/assets/review-badge/gl-logo.svg?raw';
+	import Tooltip from "$components/Tooltip.svelte";
+	import ghLogo from "$lib/assets/review-badge/gh-logo.svg?raw";
+	import glLogo from "$lib/assets/review-badge/gl-logo.svg?raw";
 
 	interface Props {
 		type: string | undefined;
-		status?: 'open' | 'closed' | 'draft' | 'merged' | 'unknown';
+		status?: "open" | "closed" | "draft" | "merged" | "unknown";
 		number: number;
 		title?: string;
 	}
 
 	const { type, status, number, title }: Props = $props();
 
-	const reviewUnit = $derived(type === 'MR' ? 'MR' : 'PR');
-	const reviewSymbol = $derived(reviewUnit === 'MR' ? '!' : '#');
+	const reviewUnit = $derived(type === "MR" ? "MR" : "PR");
+	const reviewSymbol = $derived(reviewUnit === "MR" ? "!" : "#");
 	const id = $derived(`${reviewSymbol}${number}`);
 
 	const badgeDetails = $derived.by(() => {
@@ -22,13 +22,13 @@
 		}
 
 		switch (status) {
-			case 'open':
+			case "open":
 				return `${reviewUnit} ${id} is open`;
-			case 'closed':
+			case "closed":
 				return `${reviewUnit} ${id} is closed`;
-			case 'draft':
+			case "draft":
 				return `${reviewUnit} ${id} is a draft`;
-			case 'merged':
+			case "merged":
 				return `${reviewUnit} ${id} is merged`;
 			default:
 				return `${reviewUnit} ${id}`;
@@ -39,15 +39,15 @@
 <Tooltip text={badgeDetails}>
 	<div class="review-badge pr-{status}">
 		<div class="review-badge__icon">
-			{#if type === 'MR'}
+			{#if type === "MR"}
 				{@html glLogo}
-			{:else if type === 'PR'}
+			{:else if type === "PR"}
 				{@html ghLogo}
 			{/if}
 		</div>
 
 		<span class="text-11 text-semibold review-badge-text">
-			{#if status === 'draft'}
+			{#if status === "draft"}
 				Draft {reviewUnit}
 			{:else}
 				{reviewUnit} {id}

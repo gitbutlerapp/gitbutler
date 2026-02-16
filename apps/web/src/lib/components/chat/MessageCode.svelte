@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { codeContentToTokens, parserFromExtension } from '@gitbutler/ui/utils/diffParsing';
+	import { codeContentToTokens, parserFromExtension } from "@gitbutler/ui/utils/diffParsing";
 
 	interface Props {
 		text: string;
@@ -16,7 +16,7 @@
 	<code class="code">
 		{#each lines as line, i (i)}
 			<p class="line">
-				{@html line.join('')}
+				{@html line.join("")}
 			</p>
 		{/each}
 	</code>

@@ -1,6 +1,9 @@
 export function resizeObserver(
 	element: HTMLElement,
-	callback: (data: { currentTarget: HTMLElement; frame: { width: number; height: number } }) => void
+	callback: (data: {
+		currentTarget: HTMLElement;
+		frame: { width: number; height: number };
+	}) => void,
 ) {
 	const resizeObserver = new ResizeObserver((entries) => {
 		for (const entry of entries) {
@@ -10,8 +13,8 @@ export function resizeObserver(
 				currentTarget: element,
 				frame: {
 					width: Math.round(inlineSize),
-					height: Math.round(blockSize)
-				}
+					height: Math.round(blockSize),
+				},
 			});
 		}
 	});
@@ -21,6 +24,6 @@ export function resizeObserver(
 	return {
 		destroy() {
 			resizeObserver.disconnect();
-		}
+		},
 	};
 }

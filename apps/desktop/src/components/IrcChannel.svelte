@@ -1,20 +1,20 @@
 <script lang="ts">
-	import IrcInput from '$components/IrcInput.svelte';
-	import IrcMessages from '$components/IrcMessages.svelte';
-	import IrcNames from '$components/IrcNames.svelte';
-	import { IRC_CLIENT } from '$lib/irc/ircClient.svelte';
-	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import type { Snippet } from 'svelte';
+	import IrcInput from "$components/IrcInput.svelte";
+	import IrcMessages from "$components/IrcMessages.svelte";
+	import IrcNames from "$components/IrcNames.svelte";
+	import { IRC_CLIENT } from "$lib/irc/ircClient.svelte";
+	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		type: string;
 		headerElRef?: HTMLDivElement | undefined;
 		headerActions?: Snippet;
 	} & (
-		| { type: 'server' }
-		| { type: 'group'; channel: string; autojoin: boolean }
-		| { type: 'private'; nick: string }
+		| { type: "server" }
+		| { type: "group"; channel: string; autojoin: boolean }
+		| { type: "private"; nick: string }
 	);
 
 	let { headerElRef = $bindable(), ...props }: Props = $props();
@@ -22,7 +22,7 @@
 	const ircClient = inject(IRC_CLIENT);
 
 	$effect(() => {
-		if (props.type === 'group' && props.autojoin && ircClient.connected.current) {
+		if (props.type === "group" && props.autojoin && ircClient.connected.current) {
 			ircService.send(`JOIN ${props.channel}`);
 		}
 	});
@@ -33,20 +33,20 @@
 		if (i++ > 2) {
 			return;
 		}
-		if (props.type === 'group') {
+		if (props.type === "group") {
 			return ircService.markOpen(props.channel);
-		} else if (props.type === 'private') {
+		} else if (props.type === "private") {
 			return ircService.markOpen(props.nick);
 		}
 	});
 
 	const logs = $derived.by(() => {
 		switch (props.type) {
-			case 'group':
+			case "group":
 				return ircService.getChannelMessages(props.channel);
-			case 'private':
+			case "private":
 				return ircService.getPrivateMessages(props.nick);
-			case 'server':
+			case "server":
 				return ircService.getServerMessages();
 		}
 	});
@@ -56,11 +56,11 @@
 	<div class="header text-14 text-semibold" bind:this={headerElRef}>
 		<div class="header-left"></div>
 		<div class="header-center">
-			{#if props.type === 'group'}
+			{#if props.type === "group"}
 				{props.channel}
-			{:else if props.type === 'private'}
+			{:else if props.type === "private"}
 				{props.nick}
-			{:else if props.type === 'server'}
+			{:else if props.type === "server"}
 				{ircClient.server.current}
 			{/if}
 		</div>
@@ -70,15 +70,15 @@
 	</div>
 	<div class="middle">
 		<IrcMessages {logs} />
-		{#if props.type === 'group'}
+		{#if props.type === "group"}
 			<IrcNames channel={props.channel} />
 		{/if}
 	</div>
-	{#if props.type === 'group'}
+	{#if props.type === "group"}
 		<IrcInput type="group" channel={props.channel} />
-	{:else if props.type === 'private'}
+	{:else if props.type === "private"}
 		<IrcInput type="private" nick={props.nick} />
-	{:else if props.type === 'server'}
+	{:else if props.type === "server"}
 		<IrcInput type="server" />
 	{/if}
 </div>

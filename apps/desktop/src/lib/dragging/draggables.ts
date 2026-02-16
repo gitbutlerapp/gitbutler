@@ -1,10 +1,10 @@
-import { key, type SelectionId } from '$lib/selection/key';
-import type { BranchDropData } from '$lib/branches/dropHandler';
-import type { CodegenRuleDropData } from '$lib/codegen/dropzone';
-import type { CommitDropData } from '$lib/commits/dropHandler';
-import type { TreeChange } from '$lib/hunks/change';
-import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
-import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
+import { key, type SelectionId } from "$lib/selection/key";
+import type { BranchDropData } from "$lib/branches/dropHandler";
+import type { CodegenRuleDropData } from "$lib/codegen/dropzone";
+import type { CommitDropData } from "$lib/commits/dropHandler";
+import type { TreeChange } from "$lib/hunks/change";
+import type { HunkAssignment, HunkHeader } from "$lib/hunks/hunk";
+import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 
 export class HunkDropDataV3 {
 	constructor(
@@ -13,7 +13,7 @@ export class HunkDropDataV3 {
 		readonly uncommitted: boolean,
 		readonly stackId: string | null,
 		readonly commitId: string | undefined,
-		readonly selectionId: SelectionId
+		readonly selectionId: SelectionId,
 	) {}
 }
 
@@ -30,7 +30,7 @@ export class FileChangeDropData {
 		 */
 		private selection: FileSelectionManager,
 		readonly selectionId: SelectionId,
-		readonly stackId?: string
+		readonly stackId?: string,
 	) {}
 
 	changedPaths(params: SelectionId): string[] {
@@ -62,7 +62,7 @@ export class FileChangeDropData {
 	}
 
 	get isCommitted(): boolean {
-		return this.selectionId.type === 'commit' || this.selectionId.type === 'branch';
+		return this.selectionId.type === "commit" || this.selectionId.type === "branch";
 	}
 }
 
@@ -71,7 +71,7 @@ export class FolderChangeDropData {
 		readonly folderPath: string,
 		private getTreeChanges: () => TreeChange[],
 		readonly selectionId: SelectionId,
-		readonly stackId?: string
+		readonly stackId?: string,
 	) {}
 
 	async treeChanges(): Promise<TreeChange[]> {
@@ -83,7 +83,7 @@ export class FolderChangeDropData {
 	}
 
 	get isCommitted(): boolean {
-		return this.selectionId.type === 'commit' || this.selectionId.type === 'branch';
+		return this.selectionId.type === "commit" || this.selectionId.type === "branch";
 	}
 }
 

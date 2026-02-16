@@ -2,9 +2,9 @@ name: GitHub Actions Security Analysis with zizmor
 
 on:
   push:
-    branches: ['master']
+    branches: ["master"]
   pull_request:
-    branches: ['**']
+    branches: ["**"]
 
 jobs:
   zizmor:

@@ -1,4 +1,4 @@
-import { on } from 'svelte/events';
+import { on } from "svelte/events";
 
 /**
  * Using the mouse to scroll the element.
@@ -7,7 +7,7 @@ export class HorizontalPanner {
 	private isPanning = false;
 	private panStartX = 0;
 	private panStartScrollLeft = 0;
-	private originalCursor: string = '';
+	private originalCursor: string = "";
 
 	constructor(private readonly element: HTMLElement) {}
 
@@ -21,8 +21,8 @@ export class HorizontalPanner {
 	}
 
 	registerListeners() {
-		const mouseDown = on(this.element, 'mousedown', this.handleMouseDown.bind(this), {});
-		const mouseUp = on(document, 'mouseup', this.stopPanning.bind(this), {});
+		const mouseDown = on(this.element, "mousedown", this.handleMouseDown.bind(this), {});
+		const mouseUp = on(document, "mouseup", this.stopPanning.bind(this), {});
 
 		return () => {
 			mouseDown();
@@ -50,8 +50,8 @@ export class HorizontalPanner {
 		if (!(e.target instanceof HTMLElement)) return;
 
 		// Exclude clicks on interactive elements
-		if (e.target.closest('button, a, input, select, textarea')) return;
-		if (e.target.closest('[data-remove-from-panning]')) return;
+		if (e.target.closest("button, a, input, select, textarea")) return;
+		if (e.target.closest("[data-remove-from-panning]")) return;
 
 		this.isPanning = true;
 		this.panStartX = e.clientX;
@@ -59,12 +59,12 @@ export class HorizontalPanner {
 
 		// Store original cursor and set to grabbing
 		this.originalCursor = this.element.style.cursor;
-		this.element.style.cursor = 'grabbing';
+		this.element.style.cursor = "grabbing";
 
 		e.preventDefault();
 
 		// Make sure we clear any old subscriptions.
 		this.clearSubscription();
-		this.mouseMoveSubscription = on(document, 'mousemove', this.handleMouseMove.bind(this));
+		this.mouseMoveSubscription = on(document, "mousemove", this.handleMouseMove.bind(this));
 	}
 }

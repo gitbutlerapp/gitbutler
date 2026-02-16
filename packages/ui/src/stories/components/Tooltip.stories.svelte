@@ -1,42 +1,42 @@
 <script module lang="ts">
-	import Tooltip from '$components/Tooltip.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Tooltip from "$components/Tooltip.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Overlays / Tooltip',
+		title: "Overlays / Tooltip",
 		component: Tooltip,
 		args: {
-			text: 'This is a tooltip',
-			align: 'center',
-			position: 'top',
+			text: "This is a tooltip",
+			align: "center",
+			position: "top",
 			disabled: false,
-			hotkey: '⇧⌘K',
-			children
+			hotkey: "⇧⌘K",
+			children,
 		},
 		argTypes: {
 			text: {
 				control: {
-					type: 'text'
-				}
+					type: "text",
+				},
 			},
 			align: {
-				options: ['center', 'start', 'end'],
+				options: ["center", "start", "end"],
 				control: {
-					type: 'select'
-				}
+					type: "select",
+				},
 			},
 			position: {
-				options: ['top', 'bottom'],
+				options: ["top", "bottom"],
 				control: {
-					type: 'select'
-				}
+					type: "select",
+				},
 			},
 			disabled: {
 				control: {
-					type: 'boolean'
-				}
-			}
-		}
+					type: "boolean",
+				},
+			},
+		},
 	});
 </script>
 

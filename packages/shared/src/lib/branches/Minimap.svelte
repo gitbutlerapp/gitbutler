@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import ChangeStatus from '$lib/patches/ChangeStatus.svelte';
-	import { WEB_ROUTES_SERVICE } from '$lib/routing/webRoutes.svelte';
-	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { isFound, map } from '@gitbutler/shared/network/loadable';
-	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { CommitStatusBadge } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import ChangeStatus from "$lib/patches/ChangeStatus.svelte";
+	import { WEB_ROUTES_SERVICE } from "$lib/routing/webRoutes.svelte";
+	import { getBranchReview } from "@gitbutler/shared/branches/branchesPreview.svelte";
+	import { isFound, map } from "@gitbutler/shared/network/loadable";
+	import { getPatch } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { CommitStatusBadge } from "@gitbutler/ui";
 	import {
 		EXTERNAL_LINK_SERVICE,
-		type ExternalLinkService
-	} from '@gitbutler/ui/utils/externalLinkService';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { PatchCommit } from '@gitbutler/shared/patches/types';
+		type ExternalLinkService,
+	} from "@gitbutler/ui/utils/externalLinkService";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import type { PatchCommit } from "@gitbutler/shared/patches/types";
 
 	type Props = {
 		ownerSlug: string;
@@ -30,7 +30,7 @@
 		branchUuid,
 		horizontal = false,
 		user,
-		openExternally = false
+		openExternally = false,
 	}: Props = $props();
 
 	const routes = inject(WEB_ROUTES_SERVICE);
@@ -39,7 +39,7 @@
 	const branch = $derived.by(() => getBranchReview(branchUuid));
 	const loadablePatchCommits = $derived(
 		map(branch.current, (branch) => branch.patchCommitIds.map((id) => getPatch(branch.uuid, id))) ||
-			[]
+			[],
 	);
 	const patchCommits = $derived(
 		loadablePatchCommits
@@ -48,7 +48,7 @@
 					return patchCommit.current.value;
 				}
 			})
-			.filter(isDefined)
+			.filter(isDefined),
 	);
 
 	function getClass(patchCommit: PatchCommit) {
@@ -57,14 +57,14 @@
 			patchCommit.reviewAll.signedOff.length === 0 &&
 			patchCommit.reviewAll.rejected.length === 0
 		) {
-			return 'in-discussion';
+			return "in-discussion";
 		}
 
 		if (patchCommit.reviewAll.rejected.length > 0) {
-			return 'changes-requested';
+			return "changes-requested";
 		}
 		if (patchCommit.reviewAll.signedOff.length > 0) {
-			return 'approved';
+			return "approved";
 		}
 	}
 
@@ -82,8 +82,8 @@
 					ownerSlug,
 					projectSlug,
 					branchId: branch.current.value.branchId,
-					changeId: patchCommit.changeId
-				})
+					changeId: patchCommit.changeId,
+				}),
 			);
 		} else {
 			goto(
@@ -91,8 +91,8 @@
 					ownerSlug,
 					projectSlug,
 					branchId: branch.current.value.branchId,
-					changeId: patchCommit.changeId
-				})
+					changeId: patchCommit.changeId,
+				}),
 			);
 		}
 	}
@@ -102,7 +102,7 @@
 	{@const iRejected = patchCommit.reviewAll.rejected.find((entry) => entry.id === user.id)}
 	{@const iAccepted = patchCommit.reviewAll.signedOff.find((entry) => entry.id === user.id)}
 	{@const myReview = patchCommit.contributors.some(
-		(contributor) => contributor.email === user.email || contributor.user?.id === user.id
+		(contributor) => contributor.email === user.email || contributor.user?.id === user.id,
 	)}
 	<div class="info-card">
 		<div class="info-section">
@@ -118,7 +118,7 @@
 					<p class="text-11">Your status:</p>
 				</div>
 				<CommitStatusBadge
-					status={iAccepted ? 'approved' : iRejected ? 'changes-requested' : 'unreviewed'}
+					status={iAccepted ? "approved" : iRejected ? "changes-requested" : "unreviewed"}
 				/>
 			</div>
 		{/if}
@@ -130,7 +130,7 @@
 		<div class="erectangle-hover-area">
 			<div
 				role="presentation"
-				class={['erectangle', getClass(patch)]}
+				class={["erectangle", getClass(patch)]}
 				class:is-subject={isPageSubject(patch.changeId).current}
 				onclick={() => visitPatch(patch)}
 			>

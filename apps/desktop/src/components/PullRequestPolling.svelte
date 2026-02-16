@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { getPollingInterval } from '$lib/forge/shared/progressivePolling';
-	import { inject } from '@gitbutler/core/context';
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { getPollingInterval } from "$lib/forge/shared/progressivePolling";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		number: number;
@@ -24,7 +24,7 @@
 
 		if (pr) {
 			const lastUpdatedMs = Date.parse(pr.updatedAt);
-			isClosed = pr.state === 'closed';
+			isClosed = pr.state === "closed";
 			elapsedMs = Date.now() - lastUpdatedMs;
 		}
 	});

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button } from '@gitbutler/ui';
+	import { Button } from "@gitbutler/ui";
 
 	interface Props {
 		goToPatch: (patchId: string) => void;

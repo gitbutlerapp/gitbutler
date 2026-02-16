@@ -1,8 +1,8 @@
 <script lang="ts" module>
 	type T = any | unknown | undefined;
 
-	export type ModalSize = 'medium' | 'large' | 'small' | 'xsmall' | number;
-	export type ModalType = 'info' | 'warning' | 'danger' | 'success';
+	export type ModalSize = "medium" | "large" | "small" | "xsmall" | number;
+	export type ModalType = "info" | "warning" | "danger" | "success";
 
 	export type ModalProps = {
 		width?: ModalSize;
@@ -32,18 +32,18 @@
 </script>
 
 <script lang="ts" generics="T extends undefined | any = any">
-	import ModalFooter from '$components/ModalFooter.svelte';
-	import ModalHeader from '$components/ModalHeader.svelte';
-	import { focusable } from '$lib/focus/focusable';
-	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onDestroy } from 'svelte';
-	import type { Snippet } from 'svelte';
+	import ModalFooter from "$components/ModalFooter.svelte";
+	import ModalHeader from "$components/ModalHeader.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import { portal } from "$lib/utils/portal";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import { onDestroy } from "svelte";
+	import type { Snippet } from "svelte";
 
 	const {
-		width = 'medium',
+		width = "medium",
 		title,
-		type = 'info',
+		type = "info",
 		closeButton,
 		onClose,
 		onClickOutside,
@@ -54,7 +54,7 @@
 		onKeyDown,
 		noPadding = false,
 		testId,
-		defaultItem
+		defaultItem,
 	}: ModalProps = $props();
 
 	let open = $state(false);
@@ -63,21 +63,21 @@
 	let closingPromise: Promise<void> | undefined = undefined;
 
 	function handleKeyDown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
+		if (event.key === "Escape") {
 			close();
 		}
 	}
 
 	// Clean up event listener if component is destroyed (in case modal is open)
 	onDestroy(() => {
-		window.removeEventListener('keydown', handleKeyDown);
+		window.removeEventListener("keydown", handleKeyDown);
 	});
 
 	export function show(newItem?: T) {
 		item = newItem as any;
 		open = true;
 
-		window.addEventListener('keydown', handleKeyDown);
+		window.addEventListener("keydown", handleKeyDown);
 	}
 
 	export function close(): Promise<void> {
@@ -102,7 +102,7 @@
 	export const imports = {
 		get open() {
 			return open;
-		}
+		},
 	};
 </script>
 
@@ -110,7 +110,7 @@
 	<div
 		data-testid={testId}
 		role="presentation"
-		use:portal={'body'}
+		use:portal={"body"}
 		class="modal-container {isClosing ? 'closing' : 'open'}"
 		class:open
 		onmousedown={(e) => {
@@ -127,11 +127,11 @@
 	>
 		<form
 			class="modal-form"
-			class:medium={width === 'medium'}
-			class:large={width === 'large'}
-			class:small={width === 'small'}
-			class:xsmall={width === 'xsmall'}
-			style:width={typeof width === 'number' ? `${pxToRem(width)}rem` : undefined}
+			class:medium={width === "medium"}
+			class:large={width === "large"}
+			class:small={width === "small"}
+			class:xsmall={width === "xsmall"}
+			style:width={typeof width === "number" ? `${pxToRem(width)}rem` : undefined}
 			use:focusable={{
 				trap: true,
 				activate: true,
@@ -140,7 +140,7 @@
 				onEsc: () => {
 					close();
 					return true;
-				}
+				},
 			}}
 			onsubmit={(e) => {
 				e.preventDefault();
