@@ -156,6 +156,10 @@ export { default as FilePlugin } from '$lib/richText/plugins/FilePlugin.svelte';
 export { default as PlainTextPastePlugin } from '$lib/richText/plugins/PlainTextPastePlugin.svelte';
 export { default as UpDownPlugin } from '$lib/richText/plugins/UpDownPlugin.svelte';
 export {
+	default as FileUploadPlugin,
+	type DropFileResult
+} from '$lib/richText/plugins/FileUpload.svelte';
+export {
 	default as Mention,
 	type MentionSuggestion,
 	type MentionSuggestionUpdate

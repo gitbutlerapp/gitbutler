@@ -141,6 +141,14 @@ pub struct CommitAttachment {
     commit_id: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageAttachment {
+    pub name: String,
+    pub base64: String,
+    pub mime_type: String,
+}
+
 /// Represents a file attachment with full content (used in API input).
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase", tag = "type")]
@@ -148,6 +156,7 @@ pub enum PromptAttachment {
     Lines(LinesAttachment),
     File(FileAttachment),
     Commit(CommitAttachment),
+    Image(ImageAttachment),
 }
 
 /// Raw output from Claude API

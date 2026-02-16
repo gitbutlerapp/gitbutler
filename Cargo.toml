@@ -192,6 +192,7 @@ gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 # TODO: is 'bundled' still needed?
 rusqlite = { version = "0.38.0", features = ["bundled"] }
 backoff = "0.4.0"
+base64 = "0.22.1"
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { version = "0.78.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }

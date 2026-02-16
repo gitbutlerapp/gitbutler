@@ -32,6 +32,8 @@
 				return `${attachment.commitId}`;
 			case 'directory':
 				return `${attachment.path}`;
+			case 'image':
+				return `${attachment.name}`;
 		}
 		return '';
 	}
@@ -105,6 +107,17 @@
 							{path}
 						</span>
 					{/if}
+					<!-- IMAGE -->
+					{#if attachment.type === 'image'}
+						<img
+							src="data:{attachment.mimeType};base64,{attachment.base64}"
+							alt={attachment.name}
+							class="image-thumbnail"
+						/>
+						<span class="path">
+							{attachment.name}
+						</span>
+					{/if}
 				</div>
 			</Tooltip>
 
@@ -161,6 +174,13 @@
 	.commit-badge {
 		color: var(--clr-text-3);
 		white-space: nowrap;
+	}
+
+	.image-thumbnail {
+		width: 20px;
+		height: 20px;
+		object-fit: cover;
+		border-radius: 2px;
 	}
 
 	.remove-button {
