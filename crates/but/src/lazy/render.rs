@@ -16,24 +16,26 @@ use super::app::{App, Panel, StatusItem};
 pub(super) fn ui(f: &mut Frame, app: &App) {
     let size = f.area();
 
-    // Top-level vertical split: main area + command log
-    let main_chunks = if app.command_log_visible {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(10), Constraint::Length(6)])
-            .split(size)
-    } else {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Min(10), Constraint::Length(0)])
-            .split(size)
-    };
+    // Top-level vertical split: main area + command log + help bar
+    let log_height = if app.command_log_visible { 6 } else { 0 };
+    let outer_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(10),
+            Constraint::Length(log_height),
+            Constraint::Length(1),
+        ])
+        .split(size);
+
+    let main_area = outer_chunks[0];
+    let log_area = outer_chunks[1];
+    let helpbar_area = outer_chunks[2];
 
     // Horizontal split: left panels (40%) + details (60%)
     let h_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-        .split(main_chunks[0]);
+        .split(main_area);
 
     // Left side: vertical split into upstream + status + oplog
     let has_upstream = app.upstream_info.is_some();
@@ -65,8 +67,11 @@ pub(super) fn ui(f: &mut Frame, app: &App) {
 
     // Command log
     if app.command_log_visible {
-        render_command_log(f, app, main_chunks[1]);
+        render_command_log(f, app, log_area);
     }
+
+    // Help bar
+    render_help_bar(f, app, helpbar_area);
 
     // Help overlay
     if app.show_help {
@@ -666,6 +671,41 @@ fn help_line<'a>(key: &'a str, desc: &'a str) -> Line<'a> {
         ),
         Span::raw(desc),
     ])
+}
+
+// ---------------------------------------------------------------------------
+// Help bar
+// ---------------------------------------------------------------------------
+
+fn render_help_bar(f: &mut Frame, app: &App, area: Rect) {
+    let key_style = Style::default()
+        .fg(Color::Black)
+        .bg(Color::DarkGray)
+        .add_modifier(Modifier::BOLD);
+    let desc_style = Style::default().fg(Color::DarkGray);
+
+    let mut spans: Vec<Span> = Vec::new();
+
+    let mut hotkey = |key: &'static str, desc: &'static str| {
+        spans.push(Span::styled(format!(" {key} "), key_style));
+        spans.push(Span::styled(format!("{desc} "), desc_style));
+    };
+
+    hotkey("?", "Help");
+    hotkey("q", "Quit");
+    hotkey("Tab", "Panel");
+    hotkey("j/k", "Nav");
+    hotkey("h/l", "Details");
+
+    match app.active_panel {
+        Panel::Upstream | Panel::Status => hotkey("f", "Fetch"),
+        Panel::Oplog => {}
+    }
+
+    hotkey("^R", "Refresh");
+    hotkey("~", "Log");
+
+    f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 // ---------------------------------------------------------------------------
