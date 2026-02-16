@@ -1026,6 +1026,22 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Skill(skill::Platform),
 
+    /// Launch an interactive TUI for GitButler.
+    ///
+    /// Opens a full-screen terminal interface (similar to lazygit) that shows
+    /// your workspace status, branches, commits, and upstream state. You can
+    /// navigate with keyboard shortcuts to commit, reword, squash, and more.
+    ///
+    /// ## Examples
+    ///
+    /// ```text
+    /// but lazy
+    /// ```
+    ///
+    #[cfg(feature = "legacy")]
+    #[clap(verbatim_doc_comment)]
+    Lazy,
+
     /// Show help information grouped by category.
     ///
     /// Displays all available commands organized into functional categories
