@@ -154,7 +154,16 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
     }
 
     // Stacks & branches
+    let show_stack_names = app.stacks.len() > 1;
     for (si, stack) in app.stacks.iter().enumerate() {
+        if show_stack_names {
+            items.push(ListItem::new(Line::from(vec![Span::styled(
+                format!("── {} ──", stack.name),
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
+            )])));
+        }
         for (bi, branch) in stack.branches.iter().enumerate() {
             // Branch header with tree connector
             let connector = if bi == 0 && stack.branches.len() > 1 {
@@ -262,6 +271,11 @@ fn render_oplog_panel(f: &mut Frame, app: &App, area: Rect) {
         .iter()
         .map(|entry| {
             ListItem::new(Line::from(vec![
+                Span::styled(
+                    entry.id.clone(),
+                    Style::default().fg(Color::Green),
+                ),
+                Span::raw(" "),
                 Span::styled(
                     format!("{:<8}", entry.operation),
                     Style::default().fg(Color::Cyan),
@@ -431,6 +445,13 @@ fn build_status_details(app: &App) -> Vec<Line<'static>> {
                         Span::raw(" on "),
                         Span::styled(branch_name, Style::default().fg(Color::Blue)),
                     ]),
+                    Line::from(vec![
+                        Span::styled(
+                            "SHA:    ",
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                        Span::styled(c.full_id.clone(), Style::default().fg(Color::DarkGray)),
+                    ]),
                     Line::from(""),
                 ];
 
@@ -558,7 +579,7 @@ fn build_upstream_details(app: &App) -> Vec<Line<'static>> {
                     Span::raw(uc.message.lines().next().unwrap_or("").to_string()),
                     Span::raw(" "),
                     Span::styled(
-                        format!("({})", uc.author),
+                        format!("({}, {})", uc.author, uc.created_at),
                         Style::default().fg(Color::DarkGray),
                     ),
                 ]));
