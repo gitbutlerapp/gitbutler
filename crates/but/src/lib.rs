@@ -313,18 +313,18 @@ async fn match_subcommand(
         #[cfg(feature = "legacy")]
         Subcommands::Claude(claude::Platform { cmd }) => {
             use but_claude::hooks::OutputClaudeJson;
+            let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
             match cmd {
-                claude::Subcommands::PreTool => but_claude::hooks::handle_pre_tool_call(std::io::stdin().lock())
+                claude::Subcommands::PreTool => but_claude::hooks::handle_pre_tool_call(ctx, std::io::stdin().lock())
                     .output_claude_json()
                     .emit_metrics(metrics_ctx),
-                claude::Subcommands::PostTool => but_claude::hooks::handle_post_tool_call(std::io::stdin().lock())
+                claude::Subcommands::PostTool => but_claude::hooks::handle_post_tool_call(ctx, std::io::stdin().lock())
                     .output_claude_json()
                     .emit_metrics(metrics_ctx),
-                claude::Subcommands::Stop => but_claude::hooks::handle_stop(std::io::stdin().lock())
+                claude::Subcommands::Stop => but_claude::hooks::handle_stop(ctx, std::io::stdin().lock())
                     .output_claude_json()
                     .emit_metrics(metrics_ctx),
                 claude::Subcommands::Last { offset } => {
-                    let ctx = setup::init_ctx(&args, InitCtxOptions::default(), out)?;
                     let message = but_claude::db::get_user_message(&ctx, Some(offset as i64))?;
                     match message {
                         Some(msg) => {
