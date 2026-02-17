@@ -52,6 +52,15 @@ fn id_from_name_v2_to_v3_opt(
     }))
 }
 
+/// Get the associated forge review information out of the metadata, if any.
+fn review_id_from_meta(
+    name: &gix::refs::FullNameRef,
+    meta: &VirtualBranchesTomlMetadata,
+) -> anyhow::Result<Option<usize>> {
+    let pull_request = meta.branch_opt(name)?.and_then(|ref_meta| ref_meta.review.pull_request);
+    Ok(pull_request)
+}
+
 /// Returns the list of branch information for the branches in a stack.
 pub fn stack_heads_info(stack: &Stack, repo: &gix::Repository) -> anyhow::Result<Vec<StackHeadInfo>> {
     let branches = stack
@@ -62,6 +71,7 @@ pub fn stack_heads_info(stack: &Stack, repo: &gix::Repository) -> anyhow::Result
             let tip = branch.head_oid(repo).ok()?;
             Some(StackHeadInfo {
                 name: branch.name().to_owned().into(),
+                review_id: branch.pr_number,
                 tip,
                 is_checked_out: false,
             })
@@ -84,6 +94,7 @@ fn try_from_stack_v3(
         .segments
         .into_iter()
         .map(|segment| -> anyhow::Result<_> {
+            let review_id = segment.metadata.and_then(|meta| meta.review.pull_request);
             let ref_name = segment
                 .ref_info
                 .context("This type can't represent this state and it shouldn't have to")?
@@ -95,6 +106,7 @@ fn try_from_stack_v3(
                     .and_then(|r| r.try_id())
                     .map(|id| id.detach())
                     .unwrap_or(repo.object_hash().null()),
+                review_id,
                 name: ref_name.shorten().into(),
                 is_checked_out: segment.is_entrypoint,
             })
@@ -160,6 +172,7 @@ pub fn stacks_v3(
                 heads: vec![StackHeadInfo {
                     name: ref_name.shorten().into(),
                     tip,
+                    review_id: review_id_from_meta(ref_name.as_ref(), meta)?,
                     is_checked_out: false,
                 }],
                 tip,
@@ -487,7 +500,7 @@ pub fn stack_branch_local_and_remote_commits(
     let branch = branches
         .iter()
         .find(|b| b.name() == &branch_name)
-        .ok_or_else(|| anyhow::anyhow!("Could not find branch {:?}", branch_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Could not find branch {branch_name:?}"))?;
     if branch.archived {
         return Ok(vec![]);
     }

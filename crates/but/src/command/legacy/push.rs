@@ -381,7 +381,7 @@ fn handle_dry_run(ctx: &mut Context, branch_id: &Option<String>, out: &mut Outpu
                         "Branch:".bold(),
                         info.branch_name.cyan().bold(),
                         "↑".dimmed(),
-                        format!("(on top of {})", stacked_on).blue()
+                        format!("(on top of {stacked_on})").blue()
                     )?;
                 } else {
                     writeln!(
@@ -797,7 +797,7 @@ fn handle_no_branch_specified(ctx: &Context, out: &mut OutputChannel) -> anyhow:
 
     let selection = prompt
         .display()
-        .map_err(|e| anyhow::anyhow!("Selection aborted: {:?}", e))?;
+        .map_err(|e| anyhow::anyhow!("Selection aborted: {e:?}"))?;
 
     // Parse the selection
     if selection.starts_with("all ") {
@@ -962,8 +962,7 @@ fn resolve_branch_name(ctx: &mut Context, id_map: &IdMap, branch_id: &str) -> an
             ));
         } else {
             return Err(anyhow::anyhow!(
-                "Identifier '{}' matches multiple non-branch items. Please use a branch name or branch CLI ID.",
-                branch_id
+                "Identifier '{branch_id}' matches multiple non-branch items. Please use a branch name or branch CLI ID."
             ));
         }
     }
@@ -999,7 +998,7 @@ fn format_branch_suggestions(branches: &[String]) -> String {
 
     branches
         .iter()
-        .map(|name| format!("  - {}", name))
+        .map(|name| format!("  - {name}"))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -1072,7 +1071,6 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
 
     // Branch not found - this shouldn't happen as we validate earlier
     Err(anyhow::anyhow!(
-        "Branch '{}' not found when checking for conflicts",
-        branch_name
+        "Branch '{branch_name}' not found when checking for conflicts"
     ))
 }

@@ -58,7 +58,7 @@ impl RepoActionsExt for Context {
         let git2_repo = self.git2_repo.get()?;
         let branch = git2_repo
             .maybe_find_branch_by_refname(&target_branch_refname)?
-            .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
+            .ok_or(anyhow!("failed to find branch {target_branch_refname}"))?;
 
         let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();
 

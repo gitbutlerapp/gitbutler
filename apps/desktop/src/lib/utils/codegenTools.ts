@@ -172,7 +172,7 @@ function formatAskUserQuestion(input: Record<string, any>): string {
 		.filter(Boolean);
 	const count = questionTexts.length;
 	if (count === 1) {
-		return `Question: ${truncate(questionTexts[0]!, 160)}`;
+		return `Question: ${truncate(questionTexts[0], 160)}`;
 	}
 	const joined = questionTexts.join('; ');
 	return `Questions (${count}): ${truncate(joined, 240)}`;

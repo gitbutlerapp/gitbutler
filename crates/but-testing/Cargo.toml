@@ -45,3 +45,6 @@ tracing.workspace = true
 dirs-next = "2.0.0"
 serde_json.workspace = true
 tokio.workspace = true
+
+[lints]
+workspace = true

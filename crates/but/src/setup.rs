@@ -126,7 +126,7 @@ pub fn init_ctx(args: &Args, options: InitCtxOptions, out: &mut OutputChannel) -
                             })?
                         }
                         SetupPromptResult::Declined => {
-                            anyhow::bail!("Setup required: {}", message);
+                            anyhow::bail!("Setup required: {message}");
                         }
                     }
                 }
@@ -154,7 +154,7 @@ pub fn init_ctx(args: &Args, options: InitCtxOptions, out: &mut OutputChannel) -
                             check_project_setup(&ctx, guard.read_permission())?;
                         }
                         SetupPromptResult::Declined => {
-                            anyhow::bail!("Setup required: {}", message);
+                            anyhow::bail!("Setup required: {message}");
                         }
                     }
                 }
@@ -331,7 +331,7 @@ fn spawn_background_sync(
                     std::time::SystemTime::now().duration_since(t).ok().map(|elapsed| {
                         let secs = elapsed.as_secs();
                         if secs < 60 {
-                            format!("Last fetch was {}s ago. ", secs)
+                            format!("Last fetch was {secs}s ago. ")
                         } else if secs < 3600 {
                             format!("Last fetch was {}m ago. ", secs / 60)
                         } else if secs < 86400 {
@@ -346,7 +346,7 @@ fn spawn_background_sync(
             String::new()
         };
 
-        writeln!(out, "{}", format!("{}Initiated a background sync...", msg).dimmed()).ok();
+        writeln!(out, "{}", format!("{msg}Initiated a background sync...").dimmed()).ok();
     }
 }
 

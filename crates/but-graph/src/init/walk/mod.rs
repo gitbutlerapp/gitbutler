@@ -550,15 +550,21 @@ impl PartialOrd<Self> for GenThenTime {
     }
 }
 
-/// Sort it so younger generations sort first, and lacking two generations, so that more recent times (i.e. higher)
-/// sort first.
+/// Sort it so younger generations sort first, with more recent times (i.e. higher) as tiebreaker.
+/// When the generation is unknown (`None`), treat it as `u32::MAX` (youngest possible) to match
+/// git's `GENERATION_NUMBER_INFINITY` convention, ensuring unknown-generation commits are processed
+/// first during traversal.
 impl Ord for GenThenTime {
     fn cmp(&self, other: &Self) -> Ordering {
-        let time_cmp = self.committer_time.cmp(&other.committer_time).reverse();
-        match (self.generation, other.generation) {
-            (Some(a), Some(b)) => a.cmp(&b).reverse().then(time_cmp),
-            _ => time_cmp,
-        }
+        // Using a fixed sentinel for `None` is necessary to maintain a total order
+        // — the previous approach of falling back to time-only comparison when generations were mixed
+        // violated transitivity.
+        let gen_a = self.generation.unwrap_or(u32::MAX);
+        let gen_b = other.generation.unwrap_or(u32::MAX);
+        gen_a
+            .cmp(&gen_b)
+            .reverse()
+            .then_with(|| self.committer_time.cmp(&other.committer_time).reverse())
     }
 }
 
@@ -1088,3 +1094,6 @@ impl crate::RefInfo {
         Self { ref_name, worktree }
     }
 }
+
+#[cfg(test)]
+mod tests;

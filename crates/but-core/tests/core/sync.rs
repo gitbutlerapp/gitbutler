@@ -17,8 +17,7 @@ fn exclusive_lock_prevents_second_acquisition() -> anyhow::Result<()> {
     let err_msg = result.err().unwrap().to_string();
     assert!(
         err_msg.contains("already opened for writing by another GitButler instance"),
-        "Error message should indicate lock is already held by another instance, got: {}",
-        err_msg
+        "Error message should indicate lock is already held by another instance, got: {err_msg}"
     );
 
     Ok(())
@@ -78,8 +77,7 @@ fn background_refresh_lock_prevents_second_background_refresh() -> anyhow::Resul
     let err_msg = result.err().unwrap().to_string();
     assert!(
         err_msg.contains("already being refreshed in the background by another GitButler instance"),
-        "Error message should indicate background refresh is already in progress, got: {}",
-        err_msg
+        "Error message should indicate background refresh is already in progress, got: {err_msg}"
     );
 
     Ok(())

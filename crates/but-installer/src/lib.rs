@@ -1,6 +1,7 @@
+#![cfg(unix)]
 //! GitButler installer library
 //!
-//! This library provides functionality for installing GitButler on macOS systems.
+//! This library provides functionality for installing GitButler on Linux and macOS systems.
 //! It handles downloading releases, verifying signatures, extracting archives,
 //! and setting up the application and CLI tools.
 
@@ -12,15 +13,26 @@ mod release;
 mod shell;
 pub mod ui;
 
+#[cfg(target_os = "linux")]
+mod install_linux;
+
+#[cfg(target_os = "macos")]
+mod install_macos;
+
 use anyhow::Result;
 use config::{Channel, InstallerConfig};
 // Re-export types for public API consumers
 pub use config::{Version, VersionRequest};
-use download::{download_file, validate_tarball, verify_signature};
-use install::{but_binary_path, extract_tarball, install_app, verify_app_structure};
-use release::{fetch_release, validate_download_url};
+use install::but_binary_path;
+use release::fetch_release;
 use shell::setup_path;
 use ui::{info, success};
+
+#[cfg(target_os = "linux")]
+use crate::install_linux::download_and_install_app;
+
+#[cfg(target_os = "macos")]
+use crate::install_macos::download_and_install_app;
 
 /// Runs the complete GitButler installation process with a specific version.
 ///
@@ -73,81 +85,35 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
     let release = fetch_release(&config)?;
 
     // Display version information
-    match &config.version_request {
+    let channel = match &config.version_request {
         VersionRequest::Nightly => {
             info(&format!("Installing latest nightly version: {}", release.version));
+            Some(Channel::Nightly)
         }
         VersionRequest::Specific(version) => {
-            info(&format!("Installing version: {}", version));
+            info(&format!("Installing version: {version}"));
+            Some(Channel::Release)
         }
         VersionRequest::Release => {
             info(&format!("Latest version: {}", release.version));
+            None
         }
-    }
+    };
 
     let platform_info = release
         .platforms
         .get(&config.platform)
         .ok_or_else(|| anyhow::anyhow!("Platform {} not found in release", config.platform))?;
 
-    let download_url = platform_info.url.as_deref().ok_or_else(|| {
-        anyhow::anyhow!(
-            "No download URL for platform {} in release {}",
-            config.platform,
-            release.version
-        )
-    })?;
-
-    // Validate download URL
-    validate_download_url(download_url)?;
-
-    info(&format!("Download URL: {}", download_url));
-
-    // Create temporary directory
-    let temp_dir = tempfile::Builder::new().prefix("gitbutler-install.").tempdir()?;
-
-    // Download the tarball
-    let filename = download_url
-        .split('/')
-        .next_back()
-        .ok_or_else(|| anyhow::anyhow!("Failed to extract filename from download URL"))?;
-    let tarball_path = temp_dir.path().join(filename);
-
-    info(&format!("Downloading GitButler {}...", release.version));
-    download_file(download_url, &tarball_path)?;
-
-    // Validate download
-    validate_tarball(&tarball_path)?;
-    success("Download completed successfully");
-
-    // Verify signature
-    verify_signature(&tarball_path, &platform_info.signature, temp_dir.path())?;
-
-    // Extract tarball
-    info("Extracting archive...");
-    let app_dir = extract_tarball(&tarball_path, temp_dir.path())?;
-    success("Archive extracted successfully");
-
-    // Verify app structure
-    verify_app_structure(&app_dir)?;
-
-    // Detect channel from app bundle name
-    let app_basename = app_dir
-        .file_name()
-        .and_then(|n| n.to_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to get app bundle name"))?;
-    let channel = detect_channel(app_basename);
-
-    // Install the app bundle
-    install_app(&app_dir, &config.home_dir, channel)?;
+    download_and_install_app(&config, platform_info, &release, channel)?;
 
     // Setup PATH
     setup_path(&config.home_dir)?;
 
     ui::println_empty();
     success(&format!(
-        "✓ GitButler CLI installation completed! ({} {})",
-        channel.display_name(),
+        "✓ GitButler CLI installation completed! ({}{})",
+        channel.map(|c| format!("{} ", c.display_name())).unwrap_or_default(),
         release.version
     ));
     ui::println_empty();
@@ -170,25 +136,4 @@ fn run_installation_impl(config: InstallerConfig, interactive: bool) -> Result<(
     }
 
     Ok(())
-}
-
-/// Detect the channel from an app bundle name
-fn detect_channel(app_name: &str) -> Channel {
-    if app_name.contains("Nightly") {
-        Channel::Nightly
-    } else {
-        Channel::Release
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_detect_channel() {
-        assert_eq!(detect_channel("GitButler.app"), Channel::Release);
-        assert_eq!(detect_channel("GitButler Nightly.app"), Channel::Nightly);
-        assert_eq!(detect_channel("GitButler_Nightly.app"), Channel::Nightly);
-    }
 }

@@ -214,7 +214,7 @@ pub fn list(
         }
 
         if more_count > 0 {
-            writeln!(out, "\n... and {} more branches (use --all to show all)", more_count)?;
+            writeln!(out, "\n... and {more_count} more branches (use --all to show all)")?;
         }
     }
     Ok(())
@@ -492,16 +492,16 @@ fn format_date_for_display(timestamp_ms: u128) -> String {
     } else if days_ago == 1 {
         "yesterday".to_string()
     } else if days_ago < 7 {
-        format!("{}d ago", days_ago)
+        format!("{days_ago}d ago")
     } else if days_ago < 30 {
         let weeks_ago = days_ago / 7;
-        format!("{}w ago", weeks_ago)
+        format!("{weeks_ago}w ago")
     } else if days_ago < 365 {
         let months_ago = days_ago / 30;
-        format!("{}mo ago", months_ago)
+        format!("{months_ago}mo ago")
     } else {
         let years_ago = days_ago / 365;
-        format!("{}y ago", years_ago)
+        format!("{years_ago}y ago")
     }
 }
 
@@ -563,7 +563,7 @@ fn print_applied_branches_table(
             // Ahead column
             let ahead_str = commits_ahead_map
                 .and_then(|map| map.get(&branch.name.to_string()))
-                .map(|count| format!("↑{}", count).bright_cyan().to_string())
+                .map(|count| format!("↑{count}").bright_cyan().to_string())
                 .unwrap_or_default();
 
             // Merge status indicator
@@ -599,12 +599,12 @@ fn print_applied_branches_table(
                     .map(|r| format!("{}{}", r.unit_symbol, r.number))
                     .collect::<Vec<String>>()
                     .join(", ");
-                format!(" ({})", review_numbers).blue().to_string()
+                format!(" ({review_numbers})").blue().to_string()
             } else {
                 String::new()
             };
 
-            let branch_str = format!("{}{}", branch_with_prefix, reviews_str);
+            let branch_str = format!("{branch_with_prefix}{reviews_str}");
 
             // Get CLI ID for this branch
             let cli_id = id_map
@@ -664,7 +664,7 @@ fn print_branches_table(
         // Ahead column
         let ahead_str = commits_ahead_map
             .and_then(|map| map.get(&branch.name.to_string()))
-            .map(|count| format!("↑{}", count).bright_cyan().to_string())
+            .map(|count| format!("↑{count}").bright_cyan().to_string())
             .unwrap_or_default();
 
         // Merge status indicator
@@ -697,7 +697,7 @@ fn print_branches_table(
                 .map(|r| format!("{}{}", r.unit_symbol, r.number))
                 .collect::<Vec<String>>()
                 .join(", ");
-            format!(" ({})", review_numbers).blue().to_string()
+            format!(" ({review_numbers})").blue().to_string()
         } else {
             String::new()
         };

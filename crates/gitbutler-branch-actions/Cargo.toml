@@ -60,3 +60,6 @@ tempfile.workspace = true
 but-hunk-assignment.workspace = true
 # Needed to make tests work with stable change ids
 gitbutler-git = { workspace = true }
+
+[lints]
+workspace = true

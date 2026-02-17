@@ -31,7 +31,7 @@ pub(crate) fn insert_blank_commit(
     let cli_ids = id_map.parse_using_context(target, ctx)?;
 
     if cli_ids.is_empty() {
-        bail!("Target '{}' not found", target);
+        bail!("Target '{target}' not found");
     }
 
     if cli_ids.len() > 1 {
@@ -121,7 +121,7 @@ fn generate_unified_diff(
                             writeln!(&mut diff_output, "Binary files differ")?;
                         }
                         but_core::UnifiedPatch::TooLarge { size_in_bytes } => {
-                            writeln!(&mut diff_output, "File too large ({} bytes)", size_in_bytes)?;
+                            writeln!(&mut diff_output, "File too large ({size_in_bytes} bytes)")?;
                         }
                         but_core::UnifiedPatch::Patch { hunks, .. } => {
                             for hunk in hunks {
@@ -164,15 +164,14 @@ fn resolve_file_ids(
         let cli_ids = match id_map.parse_using_context(file_id, ctx) {
             Ok(ids) => ids,
             Err(e) => {
-                errors.push(format!("'{}': {}", file_id, e));
+                errors.push(format!("'{file_id}': {e}"));
                 continue;
             }
         };
 
         if cli_ids.is_empty() {
             errors.push(format!(
-                "'{}' not found. Run 'but status' to see available file IDs.",
-                file_id
+                "'{file_id}' not found. Run 'but status' to see available file IDs."
             ));
             continue;
         }
@@ -192,13 +191,12 @@ fn resolve_file_ids(
                 for hunk in &uncommitted.hunk_assignments {
                     if hunk.stack_id.is_some() && hunk.stack_id != target_stack_id {
                         errors.push(format!(
-                            "'{}' is assigned to a different stack. Use 'but rub {} zz' to unassign it first.",
-                            file_id, file_id
+                            "'{file_id}' is assigned to a different stack. Use 'but rub {file_id} zz' to unassign it first."
                         ));
                         break;
                     }
                 }
-                if errors.iter().any(|e| e.starts_with(&format!("'{}'", file_id))) {
+                if errors.iter().any(|e| e.starts_with(&format!("'{file_id}'"))) {
                     continue;
                 }
 
@@ -416,7 +414,7 @@ pub(crate) fn commit(
                 }
                 None
             })
-            .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found in target stack", hint))?
+            .ok_or_else(|| anyhow::anyhow!("Branch '{hint}' not found in target stack"))?
     } else {
         // No branch hint, use first branch (HEAD of stack)
         target_stack
@@ -497,11 +495,11 @@ fn create_independent_branch(
 
     if let Some(new_stack_id) = new_stack_id_opt {
         if let Some(out) = out.for_human() {
-            writeln!(out, "Created new independent branch '{}'", branch_name)?;
+            writeln!(out, "Created new independent branch '{branch_name}'")?;
         }
         Ok((new_stack_id, workspace::stack_details(ctx, Some(new_stack_id))?))
     } else {
-        bail!("Failed to create new branch '{}'", branch_name);
+        bail!("Failed to create new branch '{branch_name}'");
     }
 }
 
@@ -533,7 +531,7 @@ fn select_stack(
             if create_branch {
                 create_independent_branch(hint, ctx, out)
             } else {
-                bail!("Branch '{}' not found", hint)
+                bail!("Branch '{hint}' not found")
             }
         }
         None if create_branch => {
@@ -569,7 +567,7 @@ fn find_stack_by_hint(
     }
 
     // Try CLI ID parsing
-    let cli_ids = id_map.parse(hint, |_, _| Ok(Vec::new())).ok()?;
+    let cli_ids = id_map.parse(hint, Box::new(move |_, _| Ok(Vec::new()))).ok()?;
     for cli_id in cli_ids {
         if let CliId::Branch { name, .. } = cli_id {
             for (stack_id, stack_details) in stacks {

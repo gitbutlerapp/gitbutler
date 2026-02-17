@@ -122,12 +122,12 @@ impl TryFrom<but_db::Workflow> for Workflow {
             .iter()
             .map(|c| ObjectId::from_str(c))
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| anyhow::anyhow!("Failed to parse input commits: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to parse input commits: {e}"))?;
         let output_commits: Vec<ObjectId> = serde_json::from_str::<Vec<String>>(&value.output_commits)?
             .iter()
             .map(|c| ObjectId::from_str(c))
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| anyhow::anyhow!("Failed to parse output commits: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to parse output commits: {e}"))?;
         let summary = value.summary.as_deref().map(|s| s.to_string());
         Ok(Self {
             id: Uuid::parse_str(&value.id)?,
@@ -191,7 +191,7 @@ impl Workflow {
             .get_mut()?
             .workflows_mut()
             .insert(self.try_into()?)
-            .map_err(|e| anyhow::anyhow!("Failed to persist workflow: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("Failed to persist workflow: {e}"))?;
         Ok(())
     }
 }
@@ -202,7 +202,7 @@ pub fn list_workflows(ctx: &Context, offset: i64, limit: i64) -> anyhow::Result<
         .get()?
         .workflows()
         .list(offset, limit)
-        .map_err(|e| anyhow::anyhow!("Failed to list workflows: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to list workflows: {e}"))?;
 
     let workflows = workflows
         .into_iter()

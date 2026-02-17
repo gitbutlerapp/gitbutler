@@ -8,17 +8,22 @@ pub struct Platform {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Install the GitButler CLI skill files for Coding agents
-    ///
-    /// By default, installs the skill into the current repository. The command
-    /// will prompt you to select a skill folder format (Claude Code, OpenCode, Codex, GitHub Copilot,
-    /// Cursor, Windsurf, Gemini CLI) unless you specify a custom path with --path.
+    /// By default, the command prompts you to choose installation scope first
+    /// (current repository or global home directory), then prompts you to
+    /// select a skill folder format (Claude Code, OpenCode, Gemini CLI, Codex, GitHub
+    /// Copilot, Cursor, Windsurf) unless you specify a custom path with --path.
+    /// When run outside a git repository, local scope is unavailable and the
+    /// default install location is global (home directory). You can still
+    /// install to a custom location with `--path` using an absolute or `~` path.
     ///
     /// Use --global to install the skill in a global location instead of the
     /// current repository.
     ///
+    /// In non-interactive mode, specify --path or --detect.
+    ///
     /// ## Examples
     ///
-    /// Install in current repository (prompts for format):
+    /// Install interactively (prompts for scope and format):
     ///
     /// ```text
     /// but skill install
@@ -46,7 +51,8 @@ pub enum Subcommands {
         /// Install the skill globally instead of in the current repository
         #[clap(long, short = 'g')]
         global: bool,
-        /// Custom path where to install the skill (relative to repository root or absolute)
+        /// Custom path where to install the skill (relative to repository root or absolute).
+        /// Outside a repository, relative paths require --global.
         #[clap(long, short = 'p')]
         path: Option<String>,
         /// Automatically detect where to install by finding existing installation

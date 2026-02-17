@@ -23,3 +23,6 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 sha2.workspace = true
 machine-uid = "0.5.4"
 chrono = { workspace = true, features = ["serde", "clock"] }
+
+[lints]
+workspace = true

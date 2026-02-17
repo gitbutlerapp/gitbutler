@@ -117,12 +117,12 @@ pub(crate) fn tear_off_branch(
         .find(|r| r.reference.to_string() == subject_branch_name)
         .context("subject branch not found in rebase output")?;
 
-    let subject_branch_reference_name = format!("refs/heads/{}", subject_branch_name);
+    let subject_branch_reference_name = format!("refs/heads/{subject_branch_name}");
     repo.reference(
         subject_branch_reference_name.clone(),
         subject_branch_reference_spec.commit_id,
         PreviousValue::Any,
-        format!("Creating branch {}", subject_branch_name),
+        format!("Creating branch {subject_branch_name}"),
     )?;
 
     let new_workspace = WorkspaceState::create(ctx, perm.read_permission())?;
@@ -236,7 +236,7 @@ fn extract_branch_steps(
     let mut inside_branch = false;
     let branch_ref = repository
         .try_find_reference(subject_branch_name)?
-        .ok_or_else(|| anyhow::anyhow!("Source branch '{}' not found in repository", subject_branch_name))?;
+        .ok_or_else(|| anyhow::anyhow!("Source branch '{subject_branch_name}' not found in repository"))?;
     let branch_ref_name = branch_ref.name().to_owned();
 
     for step in source_steps {
@@ -283,12 +283,9 @@ fn inject_branch_steps(
     branch_steps.reverse();
 
     let mut new_destination_steps = Vec::new();
-    let branch_ref = repository.try_find_reference(destination_branch_name)?.ok_or_else(|| {
-        anyhow::anyhow!(
-            "Destination branch '{}' not found in repository",
-            destination_branch_name
-        )
-    })?;
+    let branch_ref = repository
+        .try_find_reference(destination_branch_name)?
+        .ok_or_else(|| anyhow::anyhow!("Destination branch '{destination_branch_name}' not found in repository"))?;
     let branch_ref_name = branch_ref.name().to_owned();
 
     for step in destination_steps {

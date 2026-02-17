@@ -59,7 +59,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // Check if version is requested
     if args.iter().any(|arg| arg == "--version" || arg == "-V") {
         let version = option_env!("VERSION").unwrap_or("dev");
-        println!("but {}", version);
+        println!("but {version}");
         return Ok(());
     }
 
@@ -153,8 +153,7 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             // Check if the path exists before trying to open the GUI
             if !path.exists() {
                 anyhow::bail!(
-                    "\"but {}\" is not a command. Type \"but --help\" to see all available commands.",
-                    maybe_path
+                    "\"but {maybe_path}\" is not a command. Type \"but --help\" to see all available commands."
                 );
             }
 
@@ -260,18 +259,15 @@ async fn match_subcommand(
             }
         }
         Subcommands::Skill(args::skill::Platform { cmd }) => {
-            // For global installs or absolute paths, we don't need to be in a git repository
-            // For --detect without --global, we try to get repo context but don't require it
-            let needs_repo = match &cmd {
-                args::skill::Subcommands::Install { global, path, detect } => {
-                    !global && !detect && path.as_ref().is_none_or(|p| !std::path::Path::new(p).is_absolute())
-                }
-                // Check uses context if available (for local installs), but doesn't require it
-                args::skill::Subcommands::Check { .. } => false,
-            };
-
+            // Skill commands use repository context when available, but can run
+            // without one. Subcommand handlers produce tailored guidance when a
+            // local repository is actually required.
             let ctx = but_ctx::Context::discover(&args.current_dir);
-            let mut ctx = if needs_repo { Some(ctx?) } else { ctx.ok() };
+            let mut ctx = match ctx {
+                Ok(ctx) => Some(ctx),
+                Err(err) if is_not_in_git_repository_error(&err) => None,
+                Err(err) => return Err(err),
+            };
             let result = command::skill::handle(ctx.as_mut(), out, cmd);
 
             // Handle user cancellation gracefully (exit 0 instead of error)
@@ -363,7 +359,7 @@ async fn match_subcommand(
                             if args.json {
                                 println!("null");
                             } else {
-                                println!("No user message found at offset {}", offset);
+                                println!("No user message found at offset {offset}");
                             }
                         }
                     }
@@ -808,15 +804,14 @@ async fn match_subcommand(
                 }) => {
                     // Read message content from file or inline
                     let message_content = match &file {
-                        Some(path) => Some(
-                            std::fs::read_to_string(path)
-                                .with_context(|| format!("Failed to read PR message from file: {}", path.display()))?,
-                        ),
+                        Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
+                            format!("Failed to read forge review message from file: {}", path.display())
+                        })?),
                         None => message.clone(),
                     };
                     // Parse early to fail fast on invalid content
-                    let pr_message = match message_content {
-                        Some(content) => Some(command::legacy::forge::review::parse_pr_message(&content)?),
+                    let review_message = match message_content {
+                        Some(content) => Some(command::legacy::forge::review::parse_review_message(&content)?),
                         None => None,
                     };
                     // Check for non-interactive environment
@@ -824,36 +819,36 @@ async fn match_subcommand(
                         if branch.is_none() {
                             anyhow::bail!("Non-interactive environment detected. Please specify a branch.");
                         }
-                        if pr_message.is_none() && !default {
+                        if review_message.is_none() && !default {
                             anyhow::bail!(
                                 "Non-interactive environment detected. Provide one of: --message (-m), --file (-F), or --default (-t)."
                             );
                         }
                     }
-                    command::legacy::forge::review::create_pr(
+                    command::legacy::forge::review::create_review(
                         &mut ctx,
                         branch,
                         skip_force_push_protection,
                         with_force,
                         run_hooks,
                         default,
-                        pr_message,
+                        review_message,
                         out,
                     )
                     .await
-                    .context("Failed to create PR for branch.")
+                    .context("Failed to create forge review for branch.")
                     .emit_metrics(metrics_ctx)
                 }
                 Some(forge::pr::Subcommands::Template { template_path }) => {
                     command::legacy::forge::review::set_review_template(&mut ctx, template_path, out)
-                        .context("Failed to set PR template.")
+                        .context("Failed to set forge review template.")
                         .emit_metrics(metrics_ctx)
                 }
                 None => {
                     // Default to `pr new` when no subcommand is provided
-                    command::legacy::forge::review::create_pr(&mut ctx, None, false, true, true, false, None, out)
+                    command::legacy::forge::review::create_review(&mut ctx, None, false, true, true, false, None, out)
                         .await
-                        .context("Failed to create PR for branch.")
+                        .context("Failed to create forge review for branch.")
                         .emit_metrics(metrics_ctx)
                 }
             }
@@ -1079,6 +1074,17 @@ async fn match_subcommand(
                 .show_root_cause_error_then_exit_without_destructors(output)
         }
     }
+}
+
+fn is_not_in_git_repository_error(err: &anyhow::Error) -> bool {
+    matches!(
+        err.downcast_ref::<gix::discover::Error>(),
+        Some(gix::discover::Error::Discover(
+            gix::discover::upwards::Error::NoGitRepository { .. }
+                | gix::discover::upwards::Error::NoGitRepositoryWithinCeiling { .. }
+                | gix::discover::upwards::Error::NoGitRepositoryWithinFs { .. }
+        ))
+    )
 }
 
 /// If `--status-after` was requested, appends workspace status to the output.

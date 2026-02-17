@@ -25,3 +25,6 @@ strum = { version = "0.27", features = ["derive"] }
 reqwest.workspace = true
 uuid.workspace = true
 gix.workspace = true
+
+[lints]
+workspace = true

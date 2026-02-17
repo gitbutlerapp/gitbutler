@@ -62,3 +62,6 @@ insta = { version = "1.45.1", features = ["json"] }
 # TODO: remove once `gitbutler-repo` isn't needed anymore.
 gitbutler-commit = { workspace = true, features = ["testing"] }
 gitbutler-reference.workspace = true
+
+[lints]
+workspace = true

@@ -25,3 +25,5 @@ anyhow.workspace = true
 uuid.workspace = true
 gix.workspace = true
 chrono.workspace = true
+[lints]
+workspace = true

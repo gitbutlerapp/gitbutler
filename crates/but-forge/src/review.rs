@@ -3,8 +3,9 @@ use std::{
     path::{self},
 };
 
-use anyhow::{Error, Result};
+use anyhow::{Context as _, Error, Result};
 use but_fs::list_files;
+use but_github::CredentialCheckResult;
 use but_gitlab::GitLabProjectId;
 use chrono::Datelike;
 use serde::{Deserialize, Serialize};
@@ -451,6 +452,84 @@ pub fn list_forge_reviews_with_cache(
     Ok(reviews)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ForgeAccountValidity {
+    Valid,
+    Invalid,
+    NoCredentials,
+}
+
+impl From<but_github::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_github::CredentialCheckResult) -> Self {
+        match value {
+            CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
+            CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
+impl From<but_gitlab::CredentialCheckResult> for ForgeAccountValidity {
+    fn from(value: but_gitlab::CredentialCheckResult) -> Self {
+        match value {
+            but_gitlab::CredentialCheckResult::Invalid => ForgeAccountValidity::Invalid,
+            but_gitlab::CredentialCheckResult::NoCredentials => ForgeAccountValidity::NoCredentials,
+            but_gitlab::CredentialCheckResult::Valid => ForgeAccountValidity::Valid,
+        }
+    }
+}
+
+/// Check whether there's an account that would be used for this repository is authenticated.
+pub async fn check_forge_account_is_valid(
+    preferred_forge_user: Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeAccountValidity> {
+    match forge_repo_info.forge {
+        ForgeName::GitHub => {
+            let preferred_account = match preferred_forge_user.as_ref().and_then(|user| user.github().cloned()) {
+                Some(account) => account,
+                None => {
+                    let known_accounts = but_github::list_known_github_accounts(storage).await?;
+                    match known_accounts.first() {
+                        Some(account) => account.clone(),
+                        None => {
+                            return Ok(ForgeAccountValidity::NoCredentials);
+                        }
+                    }
+                }
+            };
+
+            but_github::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        ForgeName::GitLab => {
+            let preferred_account = match preferred_forge_user.as_ref().and_then(|user| user.gitlab().cloned()) {
+                Some(account) => account,
+                None => {
+                    let known_accounts = but_gitlab::list_known_gitlab_accounts(storage).await?;
+                    match known_accounts.first() {
+                        Some(account) => account.clone(),
+                        None => {
+                            return Ok(ForgeAccountValidity::NoCredentials);
+                        }
+                    }
+                }
+            };
+
+            but_gitlab::check_credentials(&preferred_account, storage)
+                .await
+                .map(Into::into)
+        }
+        _ => Err(Error::msg(format!(
+            "Checking reviews for forge {:?} is not implemented yet",
+            forge_repo_info.forge
+        ))),
+    }
+}
+
 fn list_forge_reviews(
     preferred_forge_user: Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
@@ -475,7 +554,7 @@ fn list_forge_reviews(
                 ))
             })
             .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
 
             pulls.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
         }
@@ -494,14 +573,13 @@ fn list_forge_reviews(
                 ))
             })
             .join()
-            .map_err(|e| anyhow::anyhow!("Failed to join thread: {:?}", e))??;
+            .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
 
             mrs.into_iter().map(ForgeReview::from).collect::<Vec<ForgeReview>>()
         }
         _ => {
             return Err(Error::msg(format!(
-                "Listing reviews for forge {:?} is not implemented yet.",
-                forge,
+                "Listing reviews for forge {forge:?} is not implemented yet.",
             )));
         }
     };
@@ -546,8 +624,7 @@ pub async fn list_forge_reviews_for_branch(
             Ok(mrs.into_iter().map(ForgeReview::from).collect())
         }
         _ => Err(Error::msg(format!(
-            "Listing reviews for forge {:?} is not implemented yet.",
-            forge,
+            "Listing reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -651,8 +728,51 @@ pub async fn get_forge_review(
             Ok(ForgeReview::from(mr))
         }
         _ => Err(Error::msg(format!(
-            "Getting reviews for forge {:?} is not implemented yet.",
-            forge,
+            "Getting reviews for forge {forge:?} is not implemented yet.",
+        ))),
+    }
+}
+
+/// Merge a review to it's target branch
+pub async fn merge_review(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    let crate::forge::ForgeRepoInfo { forge, owner, repo, .. } = forge_repo_info;
+    match forge {
+        ForgeName::GitHub => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.github());
+            let pr_number = review_number
+                .try_into()
+                .context("PR: Failed to cast usize to i64, somehow")?;
+            let params = but_github::MergePullRequestParams {
+                owner,
+                repo,
+                pr_number,
+                commit_message: None,
+                commit_title: None,
+                merge_method: None,
+            };
+            but_github::pr::merge(preferred_account, params, storage).await
+        }
+        ForgeName::GitLab => {
+            let preferred_account = preferred_forge_user.as_ref().and_then(|user| user.gitlab());
+            let project_id = GitLabProjectId::new(owner, repo);
+            let mr_iid = review_number
+                .try_into()
+                .context("MR: Failed to cast usize to i64, somehow")?;
+            let params = but_gitlab::MergeMergeRequestParams {
+                project_id,
+                mr_iid,
+                squash: None,
+            };
+
+            but_gitlab::mr::merge(preferred_account, params, storage).await
+        }
+        _ => Err(Error::msg(format!(
+            "Merging reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -708,8 +828,7 @@ pub async fn create_forge_review(
             Ok(ForgeReview::from(mr))
         }
         _ => Err(Error::msg(format!(
-            "Creating reviews for forge {:?} is not implemented yet.",
-            forge,
+            "Creating reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -768,8 +887,7 @@ pub async fn update_review_description_tables(
             Ok(())
         }
         _ => Err(Error::msg(format!(
-            "Updating review descriptions for forge {:?} is not implemented yet.",
-            forge,
+            "Updating review descriptions for forge {forge:?} is not implemented yet.",
         ))),
     }
 }
@@ -797,14 +915,14 @@ fn update_body(body: Option<&str>, pr_number: i64, all_pr_numbers: &[i64], symbo
         if tail.is_empty() {
             return head.to_string();
         }
-        return format!("{}\n\n{}", head, tail);
+        return format!("{head}\n\n{tail}");
     }
 
     let footer = generate_footer(pr_number, all_pr_numbers, symbol);
     if tail.is_empty() {
-        format!("{}\n\n{}", head, footer)
+        format!("{head}\n\n{footer}")
     } else {
-        format!("{}\n\n{}\n\n{}", head, footer, tail)
+        format!("{head}\n\n{footer}\n\n{tail}")
     }
 }
 
@@ -827,8 +945,7 @@ fn generate_footer(for_pr_number: i64, all_pr_numbers: &[i64], symbol: &str) -> 
     footer.push('\n');
     footer.push_str("---\n");
     footer.push_str(&format!(
-        "This is **part {} of {} in a stack** made with GitButler:\n",
-        nth, stack_length
+        "This is **part {nth} of {stack_length} in a stack** made with GitButler:\n"
     ));
 
     for (i, &pr_number) in all_pr_numbers.iter().rev().enumerate() {
@@ -1108,7 +1225,7 @@ mod tests {
     #[test]
     fn test_update_body_multiple_prs_to_single_pr() {
         let old_footer = generate_footer(123, &[122, 123, 124], "#");
-        let body = format!("Description\n\n{}", old_footer);
+        let body = format!("Description\n\n{old_footer}");
 
         // Update to a single PR stack
         let result = update_body(Some(&body), 123, &[123], "#");
@@ -1136,14 +1253,14 @@ mod tests {
 
         // Verify all PRs are listed
         for pr in &all_prs {
-            assert!(footer.contains(&format!("#{}", pr)));
+            assert!(footer.contains(&format!("#{pr}")));
         }
     }
 
     #[test]
     fn test_update_body_with_tail_and_multiple_newlines() {
         let old_footer = generate_footer(100, &[100, 101], "#");
-        let body = format!("Head\n\n{}\n\n\n\nTail with gaps", old_footer);
+        let body = format!("Head\n\n{old_footer}\n\n\n\nTail with gaps");
 
         let result = update_body(Some(&body), 100, &[100, 101, 102], "#");
 
@@ -1155,7 +1272,7 @@ mod tests {
     #[test]
     fn test_update_body_replaces_existing_footer() {
         let old_footer = generate_footer(123, &[123], "#");
-        let body = format!("My description\n\n{}\n\nSome trailing content", old_footer);
+        let body = format!("My description\n\n{old_footer}\n\nSome trailing content");
 
         let result = update_body(Some(&body), 123, &[123, 124], "#");
 
@@ -1174,8 +1291,7 @@ mod tests {
     #[test]
     fn test_update_body_preserves_head_and_tail() {
         let body = format!(
-            "Head content\n\n{}\n---\nOld footer\n{}\n\nTail content",
-            STACKING_FOOTER_BOUNDARY_TOP, STACKING_FOOTER_BOUNDARY_BOTTOM
+            "Head content\n\n{STACKING_FOOTER_BOUNDARY_TOP}\n---\nOld footer\n{STACKING_FOOTER_BOUNDARY_BOTTOM}\n\nTail content"
         );
 
         let result = update_body(Some(&body), 456, &[456, 457], "!");
@@ -1212,7 +1328,7 @@ mod tests {
     #[test]
     fn test_update_body_single_pr_removes_existing_footer() {
         let old_footer = generate_footer(123, &[123, 124], "#");
-        let body = format!("My description\n\n{}\n\nSome trailing content", old_footer);
+        let body = format!("My description\n\n{old_footer}\n\nSome trailing content");
 
         // Now updating with just one PR should remove the footer
         let result = update_body(Some(&body), 123, &[123], "#");
@@ -1235,7 +1351,7 @@ mod tests {
     #[test]
     fn test_update_body_single_pr_with_tail() {
         let old_footer = generate_footer(123, &[123], "#");
-        let body = format!("Head content\n\n{}\n\nTail content", old_footer);
+        let body = format!("Head content\n\n{old_footer}\n\nTail content");
 
         let result = update_body(Some(&body), 123, &[123], "#");
 

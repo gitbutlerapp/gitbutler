@@ -35,3 +35,6 @@ resolve-path = "0.1.0"
 gitbutler-testsupport.workspace = true
 tempfile.workspace = true
 insta.workspace = true
+
+[lints]
+workspace = true

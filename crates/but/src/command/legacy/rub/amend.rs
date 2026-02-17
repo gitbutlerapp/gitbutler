@@ -35,7 +35,7 @@ pub(crate) fn uncommitted_to_commit(
                 format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
             })
             .unwrap_or_default();
-        writeln!(out, "Amended {} → {}", description, new_commit)?;
+        writeln!(out, "Amended {description} → {new_commit}")?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({
             "ok": true,

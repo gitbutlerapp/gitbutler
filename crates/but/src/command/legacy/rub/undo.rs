@@ -32,5 +32,5 @@ pub(crate) fn stack_id_by_commit_id(ctx: &Context, oid: &ObjectId) -> anyhow::Re
     }) {
         return Ok(*id);
     }
-    anyhow::bail!("No stack found for commit {}", oid)
+    anyhow::bail!("No stack found for commit {oid}")
 }

@@ -39,8 +39,7 @@ impl GitLabClient {
             account_id.client(&access_token)
         } else {
             Err(anyhow::anyhow!(
-                "No GitLab access token found for account '{}'.\nRun 'but config forge auth' to re-authenticate.",
-                account_id
+                "No GitLab access token found for account '{account_id}'.\nRun 'but config forge auth' to re-authenticate."
             ))
         }
     }
@@ -59,9 +58,9 @@ impl GitLabClient {
         let base_url = if host.ends_with("/api/v4") {
             host.to_string()
         } else if host.ends_with('/') {
-            format!("{}api/v4", host)
+            format!("{host}api/v4")
         } else {
-            format!("{}/api/v4", host)
+            format!("{host}/api/v4")
         };
 
         Ok(Self { client, base_url })
@@ -165,7 +164,7 @@ impl GitLabClient {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            bail!("Failed to create merge request: {} - {}", status, error_text);
+            bail!("Failed to create merge request: {status} - {error_text}");
         }
 
         let mr: GitLabMergeRequest = response.json().await?;
@@ -184,6 +183,29 @@ impl GitLabClient {
         let mr: GitLabMergeRequest = response.json().await?;
         Ok(mr.into())
     }
+
+    pub async fn merge_merge_request(&self, params: &MergeMergeRequestParams) -> Result<()> {
+        #[derive(Serialize)]
+        struct MergeMergeRequestBody {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            squash: Option<bool>,
+        }
+
+        let url = format!(
+            "{}/projects/{}/merge_requests/{}/merge",
+            self.base_url, params.project_id, params.mr_iid
+        );
+
+        let body = MergeMergeRequestBody { squash: params.squash };
+
+        let response = self.client.put(&url).json(&body).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to merge merge request: {}", response.status());
+        }
+
+        Ok(())
+    }
 }
 
 pub struct CreateMergeRequestParams<'a> {
@@ -192,6 +214,11 @@ pub struct CreateMergeRequestParams<'a> {
     pub source_branch: &'a str,
     pub target_branch: &'a str,
     pub project_id: GitLabProjectId,
+}
+pub struct MergeMergeRequestParams {
+    pub project_id: GitLabProjectId,
+    pub mr_iid: i64,
+    pub squash: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -334,8 +361,7 @@ pub(crate) fn resolve_account(
             account
         } else {
             bail!(
-                "Preferred GitLab account '{}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account.",
-                account
+                "Preferred GitLab account '{account}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account."
             );
         }
     } else {

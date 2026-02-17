@@ -152,7 +152,7 @@ fn handles_optional_fields() -> anyhow::Result<()> {
 
 fn forge_review(number: i64, title: &str, source_branch: &str) -> ForgeReview {
     ForgeReview {
-        html_url: format!("https://github.com/owner/repo/pull/{}", number),
+        html_url: format!("https://github.com/owner/repo/pull/{number}"),
         number,
         title: title.to_string(),
         body: Some("PR body".to_string()),

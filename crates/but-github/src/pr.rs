@@ -70,3 +70,14 @@ pub async fn update(
         .context("Failed to update pull request")?;
     Ok(pr)
 }
+
+pub async fn merge(
+    preferred_account: Option<&crate::GithubAccountIdentifier>,
+    params: crate::client::MergePullRequestParams<'_>,
+    storage: &but_forge_storage::Controller,
+) -> Result<()> {
+    GitHubClient::from_storage(storage, preferred_account)?
+        .merge_pull_request(&params)
+        .await
+        .context("Failed to merge PR")
+}

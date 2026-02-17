@@ -200,7 +200,7 @@ fn delete_for_reference() -> anyhow::Result<()> {
 fn ci_check(id: i64, ref_name: &str) -> CiCheck {
     CiCheck {
         id,
-        name: format!("Test Check {}", id),
+        name: format!("Test Check {id}"),
         output_summary: "Summary".to_string(),
         output_text: "Output text".to_string(),
         output_title: "Title".to_string(),

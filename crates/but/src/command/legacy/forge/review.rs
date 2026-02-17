@@ -26,7 +26,7 @@ pub fn set_review_template(
         let message = format!("Set review template path to: {}", &path);
         but_api::legacy::forge::set_review_template(ctx, Some(path))?;
         if let Some(out) = out.for_human() {
-            writeln!(out, "{}", message)?;
+            writeln!(out, "{message}")?;
         }
     } else {
         let current_template = but_api::legacy::forge::review_template(ctx)?;
@@ -37,7 +37,7 @@ pub fn set_review_template(
             |s| {
                 if let Some(current) = &current_template {
                     if s == &current.path {
-                        format!("{} (current)", s)
+                        format!("{s} (current)")
                     } else {
                         s.clone()
                     }
@@ -53,36 +53,29 @@ pub fn set_review_template(
         let message = format!("Set review template path to: {}", &selected_template);
         but_api::legacy::forge::set_review_template(ctx, Some(selected_template.clone()))?;
         if let Some(out) = out.for_human() {
-            writeln!(out, "{}", message)?;
+            writeln!(out, "{message}")?;
         }
     }
 
     Ok(())
 }
 
-/// Create a new PR for a branch.
+/// Create a new forge review for a branch.
 /// If no branch is specified, prompts the user to select one.
-/// If there is only one branch without a PR, asks for confirmation.
+/// If there is only one branch without a an acco, asks for confirmation.
 #[allow(clippy::too_many_arguments)]
-pub async fn create_pr(
+pub async fn create_review(
     ctx: &mut Context,
     branch: Option<String>,
     skip_force_push_protection: bool,
     with_force: bool,
     run_hooks: bool,
     default: bool,
-    message: Option<PrMessage>,
+    message: Option<ForgeReviewMessage>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
     // Fail fast if no forge user is authenticated, before pushing or prompting.
-    let known_gh_accounts = but_api::github::list_known_github_accounts().await?;
-    let known_gl_accounts = but_api::gitlab::list_known_gitlab_accounts().await?;
-    if known_gh_accounts.is_empty() && known_gl_accounts.is_empty() {
-        anyhow::bail!(
-            "No authenticated forge users found.\nRun '{}' to authenticate with GitHub or GitLab.",
-            "but config forge auth"
-        );
-    }
+    ensure_forge_authentication(ctx).await?;
 
     let review_map = get_review_map(ctx, Some(but_forge::CacheConfig::CacheOnly))?;
     let applied_stacks =
@@ -93,11 +86,11 @@ pub async fn create_pr(
         Some(get_branch_names(&ctx.legacy_project, &branch_id)?)
     } else {
         // Find branches without PRs
-        let branches_without_prs = get_branches_without_prs(&review_map, &applied_stacks);
+        let branches_without_prs = get_branches_without_prs(&review_map, &applied_stacks)?;
 
         if branches_without_prs.is_empty() {
             if let Some(out) = out.for_human() {
-                writeln!(out, "All branches already have PRs.")?;
+                writeln!(out, "All branches already have reviews.")?;
             }
             return Ok(());
         } else if branches_without_prs.len() == 1 {
@@ -107,7 +100,7 @@ pub async fn create_pr(
                 .prepare_for_terminal_input()
                 .context("Terminal input not available. Please specify a branch using command line arguments.")?;
             if inout.confirm(
-                format!("Do you want to open a new PR on branch '{branch_name}'?"),
+                format!("Do you want to open a new review on branch '{branch_name}'?"),
                 ConfirmDefault::Yes,
             )? == Confirm::Yes
             {
@@ -136,23 +129,78 @@ pub async fn create_pr(
     .await
 }
 
+/// Make sure that the account that is about to be used in this repository's forge is correctly authenticated.
+async fn ensure_forge_authentication(ctx: &mut Context) -> Result<(), anyhow::Error> {
+    let (storage, base_branch, preferred_forge_user) = {
+        let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
+        (
+            but_forge_storage::Controller::from_path(but_path::app_data_dir()?),
+            base_branch,
+            ctx.legacy_project.preferred_forge_user.clone(),
+        )
+    };
+
+    let forge_repo_info = base_branch.forge_repo_info.ok_or_else(|| {
+        anyhow::anyhow!(
+            "Unable to determine the forge for this project. Is target branch associated with a supported forge?"
+        )
+    })?;
+
+    let account_validity =
+        but_forge::check_forge_account_is_valid(preferred_forge_user, &forge_repo_info, &storage).await?;
+
+    let forge_display_name = match forge_repo_info.forge {
+        but_forge::ForgeName::Azure => {
+            anyhow::bail!("Azure is unsupported at the minute. Sorry 😞.");
+        }
+        but_forge::ForgeName::Bitbucket => {
+            anyhow::bail!("Bitbucket is unsupported at the minute. Sorry 😞.");
+        }
+        but_forge::ForgeName::GitHub => "GitHub",
+        but_forge::ForgeName::GitLab => "GitLab",
+    };
+
+    match account_validity {
+        but_forge::ForgeAccountValidity::Invalid => Err(anyhow::anyhow!(
+            "Known account is not correctly authenticated.\nRun '{}' to authenticate with {}.",
+            "but config forge auth",
+            forge_display_name
+        )),
+        but_forge::ForgeAccountValidity::NoCredentials => Err(anyhow::anyhow!(
+            "No authenticated forge users found.\nRun '{}' to authenticate with {}.",
+            "but config forge auth",
+            forge_display_name
+        )),
+        but_forge::ForgeAccountValidity::Valid => {
+            // All good, continue
+            Ok(())
+        }
+    }
+}
+
 /// Get list of branch names that don't have PRs yet.
 fn get_branches_without_prs(
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     applied_stacks: &[but_workspace::legacy::ui::StackEntry],
-) -> Vec<String> {
+) -> anyhow::Result<Vec<String>> {
     let mut branches_without_prs = Vec::new();
     for stack_entry in applied_stacks {
         for head in &stack_entry.heads {
-            let branch_name = head.name.to_string();
-            if !review_map.contains_key(&branch_name)
-                || review_map.get(&branch_name).map(|v| v.is_empty()).unwrap_or(true)
+            let branch_name = &head.name.to_string();
+            if !review_map.contains_key(branch_name)
+                || review_map.get(branch_name).map(|v| v.is_empty()).unwrap_or(true)
             {
-                branches_without_prs.push(branch_name);
+                // This means that there are no associated reviews that are open, but that doesn't mean that there are
+                // no associated reviews.
+                // Check whether there's an associated forge review.
+                if head.review_id.is_none() {
+                    // If there's no associated review, the append the branch
+                    branches_without_prs.push(branch_name.to_owned());
+                }
             }
         }
     }
-    branches_without_prs
+    Ok(branches_without_prs)
 }
 
 fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<String>> {
@@ -168,7 +216,7 @@ fn get_branch_names(project: &Project, branch_id: &str) -> anyhow::Result<Vec<St
         .collect::<Vec<_>>();
 
     if branch_ids.is_empty() {
-        anyhow::bail!("No branch found for ID: {}", branch_id);
+        anyhow::bail!("No branch found for ID: {branch_id}");
     }
 
     Ok(branch_ids)
@@ -183,7 +231,7 @@ pub async fn handle_multiple_branches_in_workspace(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
-    message: Option<&PrMessage>,
+    message: Option<&ForgeReviewMessage>,
     out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
 ) -> anyhow::Result<()> {
@@ -320,10 +368,10 @@ fn prompt_for_branch_selection(
                 if num > 0 && num <= all_branches.len() {
                     selected.push(all_branches[num - 1].0.clone());
                 } else {
-                    println!("Warning: Ignoring invalid branch number: {}", num);
+                    println!("Warning: Ignoring invalid branch number: {num}");
                 }
             } else {
-                println!("Warning: Ignoring invalid input: {}", part);
+                println!("Warning: Ignoring invalid input: {part}");
             }
         }
         selected
@@ -342,7 +390,7 @@ async fn publish_reviews_for_branch_and_dependents(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
-    message: Option<&PrMessage>,
+    message: Option<&ForgeReviewMessage>,
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
     let base_branch = gitbutler_branch_actions::base::get_base_branch_data(ctx)?;
@@ -514,12 +562,12 @@ enum PublishReviewResult {
 }
 
 #[derive(Clone, Debug)]
-pub struct PrMessage {
+pub struct ForgeReviewMessage {
     pub title: String,
     pub body: String,
 }
 
-pub fn parse_pr_message(content: &str) -> anyhow::Result<PrMessage> {
+pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage> {
     let mut lines = content.lines();
     let title = lines.next().unwrap_or("").trim().to_string();
 
@@ -535,7 +583,7 @@ pub fn parse_pr_message(content: &str) -> anyhow::Result<PrMessage> {
         .trim()
         .to_string();
 
-    Ok(PrMessage { title, body })
+    Ok(ForgeReviewMessage { title, body })
 }
 
 async fn publish_review_for_branch(
@@ -545,7 +593,7 @@ async fn publish_review_for_branch(
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     default_message: bool,
-    message: Option<&PrMessage>,
+    message: Option<&ForgeReviewMessage>,
 ) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
     // If it does, skip publishing a new review.
@@ -704,7 +752,7 @@ fn get_pr_title_and_body_from_editor(
                 if !file_paths.is_empty() {
                     template.push_str("#    Modified files:\n");
                     for file in file_paths.iter().take(10) {
-                        template.push_str(&format!("#      - {}\n", file));
+                        template.push_str(&format!("#      - {file}\n"));
                     }
                     if file_paths.len() > 10 {
                         template.push_str(&format!("#      ... and {} more files\n", file_paths.len() - 10));
@@ -717,7 +765,7 @@ fn get_pr_title_and_body_from_editor(
     template.push_str("#\n");
 
     let content = get_text::from_editor_no_comments("pr_message", &template)?.to_string();
-    let message = parse_pr_message(&content)?;
+    let message = parse_review_message(&content)?;
     Ok((message.title, message.body))
 }
 
@@ -747,7 +795,6 @@ pub fn get_review_map(
     cache_config: Option<but_forge::CacheConfig>,
 ) -> anyhow::Result<std::collections::HashMap<String, Vec<but_forge::ForgeReview>>> {
     let reviews = but_api::legacy::forge::list_reviews(ctx, cache_config).unwrap_or_default();
-
     let branch_review_map = reviews
         .into_iter()
         .fold(std::collections::HashMap::new(), |mut acc, r| {
@@ -792,9 +839,9 @@ pub fn get_review_numbers(
             .collect::<Vec<String>>()
             .join(", ");
 
-        format!(" ({})", review_numbers).blue()
+        format!(" ({review_numbers})").blue()
     } else if let Some(pr_number) = associated_review_number {
-        format!(" (#{})", pr_number).blue()
+        format!(" (#{pr_number})").blue()
     } else {
         "".to_string().normal()
     }
@@ -806,56 +853,56 @@ mod tests {
 
     #[test]
     fn parse_pr_message_title_only() {
-        let msg = parse_pr_message("My PR Title").unwrap();
+        let msg = parse_review_message("My PR Title").unwrap();
         assert_eq!(msg.title, "My PR Title");
         assert_eq!(msg.body, "");
     }
 
     #[test]
     fn parse_pr_message_title_and_body() {
-        let msg = parse_pr_message("My PR Title\n\nThis is the body.").unwrap();
+        let msg = parse_review_message("My PR Title\n\nThis is the body.").unwrap();
         assert_eq!(msg.title, "My PR Title");
         assert_eq!(msg.body, "This is the body.");
     }
 
     #[test]
     fn parse_pr_message_multiline_body() {
-        let msg = parse_pr_message("Title\n\nLine 1\nLine 2\nLine 3").unwrap();
+        let msg = parse_review_message("Title\n\nLine 1\nLine 2\nLine 3").unwrap();
         assert_eq!(msg.title, "Title");
         assert_eq!(msg.body, "Line 1\nLine 2\nLine 3");
     }
 
     #[test]
     fn parse_pr_message_skips_blank_lines_between_title_and_body() {
-        let msg = parse_pr_message("Title\n\n\n\nBody starts here").unwrap();
+        let msg = parse_review_message("Title\n\n\n\nBody starts here").unwrap();
         assert_eq!(msg.title, "Title");
         assert_eq!(msg.body, "Body starts here");
     }
 
     #[test]
     fn parse_pr_message_trims_whitespace() {
-        let msg = parse_pr_message("  Title with spaces  \n\n  Body with spaces  ").unwrap();
+        let msg = parse_review_message("  Title with spaces  \n\n  Body with spaces  ").unwrap();
         assert_eq!(msg.title, "Title with spaces");
         assert_eq!(msg.body, "Body with spaces");
     }
 
     #[test]
     fn parse_pr_message_empty_string_fails() {
-        let result = parse_pr_message("");
+        let result = parse_review_message("");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("empty PR title"));
     }
 
     #[test]
     fn parse_pr_message_whitespace_only_fails() {
-        let result = parse_pr_message("   \n\n   ");
+        let result = parse_review_message("   \n\n   ");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("empty PR title"));
     }
 
     #[test]
     fn parse_pr_message_blank_first_line_fails() {
-        let result = parse_pr_message("\nActual title on second line");
+        let result = parse_review_message("\nActual title on second line");
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("empty PR title"));
     }

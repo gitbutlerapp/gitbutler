@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 mod client;
 pub mod pr;
 pub use client::{
-    CheckRun, CreatePullRequestParams, GitHubClient, GitHubPrLabel, GitHubUser, PullRequest, UpdatePullRequestParams,
+    CheckRun, CreatePullRequestParams, GitHubClient, GitHubPrLabel, GitHubUser, MergeMethod, MergePullRequestParams,
+    PullRequest, UpdatePullRequestParams,
 };
 mod token;
 pub use token::GithubAccountIdentifier;

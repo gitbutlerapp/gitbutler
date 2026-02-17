@@ -1177,7 +1177,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
     ");
 
     let out = but_workspace::branch::apply(r("refs/heads/conflict-hero"), &ws, &repo, &mut meta, default_options())?;
-    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", out)), @r#"
+    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{out:#?}")), @r#"
     Outcome {
         workspace_changed: true,
         workspace_ref_created: false,
@@ -1231,7 +1231,7 @@ fn apply_with_conflicts_shows_exact_conflict_info() -> anyhow::Result<()> {
         },
     )?;
     // It does still report conflicts.
-    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{:#?}", out)), @r#"
+    insta::assert_snapshot!(sanitize_uuids_and_timestamps(format!("{out:#?}")), @r#"
     Outcome {
         workspace_changed: true,
         workspace_ref_created: false,

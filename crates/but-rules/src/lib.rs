@@ -284,7 +284,7 @@ pub fn get_rule(ctx: &Context, id: &str) -> anyhow::Result<WorkspaceRule> {
         .get()?
         .workspace_rules()
         .get(id)?
-        .ok_or_else(|| anyhow::anyhow!("Rule with ID {} not found", id))?
+        .ok_or_else(|| anyhow::anyhow!("Rule with ID {id} not found"))?
         .try_into()?;
     Ok(rule)
 }
@@ -321,7 +321,7 @@ pub fn process_rules(ctx: &mut Context, perm: &mut RepoExclusive) -> anyhow::Res
             Some(&dependencies),
             context_lines,
         )
-        .map_err(|e| anyhow::anyhow!("Failed to get assignments: {}", e))?;
+        .map_err(|e| anyhow::anyhow!("Failed to get assignments: {e}"))?;
         (assignments, dependencies)
     };
 

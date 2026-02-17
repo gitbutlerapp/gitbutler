@@ -1,19 +1,14 @@
 <div align="center">
-  <img align="center" width="100%" src="./readme-preview.webp" />
-
-  <p align="center"><i>Our beautiful GUI</i></p>
-
+  
+  <img align="center" width="100px" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/md-logo.png" alt="GitButler logo" />
   <br />
 
-<img align="center" width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/CleanShot%202026-02-08%20at%2012.46.35%402x.png" 
-/>
-
-  <p align="center"><i>Our amazing <code>but</code> CLI</i></p>
-  <br />
-  <br />
-
-  <p align="center" >
-  <b>Git, <i>but</i> better</b>. GitButler is a modern Git-based version control interface with both a GUI and CLI built from the ground up for AI-powered workflows.
+  <h1 align="center">GitButler</h1>
+  
+  <p align="center">
+   <b>Git, <i>but</i> better</b>.
+   <br/>
+   GitButler is a modern Git-based version control interface with both a GUI and CLI built from the ground up for AI-powered workflows.
     <br />
     <br />
     <a href="https://gitbutler.com">Website</a>
@@ -25,8 +20,18 @@
     <a href="https://gitbutler.com/downloads">Downloads</a>
   </p>
 
+  <br/>
+
+  <img width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/app-preview-light.png" alt="GitButler desktop app preview" />
+  <p align="center"><i>Our beautiful GUI</i></p>
+
+  <img width="100%" src="https://gitbutler-docs-images-public.s3.us-east-1.amazonaws.com/cli-preview.png" alt="GitButler CLI preview" />
+  <p align="center"><i>Our amazing <code>but</code> CLI</i></p>
+
+  <br/>
+
 [![TWEET][s1]][l1] [
-![BLUESKY][s8]][l8 ] [![DISCORD][s2]][l2]
+![BLUESKY][s8]][l8] [![DISCORD][s2]][l2]
 
 [![CI][s0]][l0] [![INSTA][s3]][l3] [![YOUTUBE][s5]][l5] [![DEEPWIKI][s7]][l7]
 

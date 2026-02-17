@@ -25,8 +25,8 @@ impl Display for PushFlag {
             PushFlag::Wip => write!(f, "wip"),
             PushFlag::Ready => write!(f, "ready"),
             PushFlag::Private => write!(f, "private"),
-            PushFlag::Hashtag(tag) => write!(f, "t={}", tag),
-            PushFlag::Topic(topic) => write!(f, "topic={}", topic),
+            PushFlag::Hashtag(tag) => write!(f, "t={tag}"),
+            PushFlag::Topic(topic) => write!(f, "topic={topic}"),
         }
     }
 }
@@ -228,7 +228,7 @@ fn mappings(
         } else if let (Some(change_id), Some(host)) = (commit.change_id(), host.as_ref()) {
             // Fallback: generate review URL if we have a change ID and a host
             let gerrit_change_id = GerritChangeId::from(&change_id);
-            let review_url = format!("https://{}/q/{}", host, gerrit_change_id);
+            let review_url = format!("https://{host}/q/{gerrit_change_id}");
             mappings.push(ChangeIdMapping {
                 commit_id: id,
                 change_id: change_id.to_string(),

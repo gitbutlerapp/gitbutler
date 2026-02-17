@@ -24,3 +24,6 @@ md5.workspace = true
 rusqlite.workspace = true
 serde_json.workspace = true
 gix = { workspace = true, features = [] }
+
+[lints]
+workspace = true

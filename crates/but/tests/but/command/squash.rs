@@ -5,10 +5,8 @@ use crate::utils::Sandbox;
 /// Helper to create multiple commits on a branch for testing
 fn setup_branch_with_commits(env: &Sandbox, branch: &str, num_commits: usize) {
     for i in 1..=num_commits {
-        env.file(format!("file{}.txt", i), format!("content for commit {}\n", i));
-        env.but(format!("commit {} -m 'commit {}'", branch, i))
-            .assert()
-            .success();
+        env.file(format!("file{i}.txt"), format!("content for commit {i}\n"));
+        env.but(format!("commit {branch} -m 'commit {i}'")).assert().success();
     }
 }
 

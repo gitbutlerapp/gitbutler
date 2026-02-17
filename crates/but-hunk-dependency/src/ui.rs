@@ -116,7 +116,7 @@ impl From<HunkLockTarget> for Option<StackId> {
 impl Display for HunkLockTarget {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Stack(s) => write!(f, "{}", s),
+            Self::Stack(s) => write!(f, "{s}"),
             Self::Unidentified => write!(f, "unidentified"),
         }
     }

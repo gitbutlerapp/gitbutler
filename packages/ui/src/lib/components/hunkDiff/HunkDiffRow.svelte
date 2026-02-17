@@ -8,7 +8,6 @@
 </script>
 
 <script lang="ts">
-	import Button from '$components/Button.svelte';
 	import Icon from '$components/Icon.svelte';
 	import InfoButton from '$components/InfoButton.svelte';
 	import {
@@ -26,22 +25,17 @@
 		idx: number;
 		row: Row;
 		clickable?: boolean;
-		clearLineSelection?: () => void;
 		lineSelection: LineSelection;
 		tabSize: number;
 		wrapText: boolean;
 		diffFont?: string;
 		numberHeaderWidth?: number;
-		onQuoteSelection?: () => void;
-		onCopySelection?: () => void;
-		hoveringOverTable: boolean;
 		staged?: boolean;
 		hideCheckboxes?: boolean;
 		handleLineContextMenu?: (params: ContextMenuParams) => void;
 		minWidth: number;
 		lockWarning?: Snippet<[DependencyLock[]]>;
 		hunkHasLocks?: boolean;
-		touchDevice?: boolean;
 	}
 
 	const {
@@ -52,21 +46,15 @@
 		tabSize,
 		wrapText,
 		diffFont = 'var(--font-mono)',
-		clearLineSelection,
 		numberHeaderWidth,
-		onQuoteSelection,
-		onCopySelection,
-		hoveringOverTable,
 		staged,
 		hideCheckboxes,
 		handleLineContextMenu,
 		minWidth,
 		lockWarning,
-		hunkHasLocks,
-		touchDevice
+		hunkHasLocks
 	}: Props = $props();
 
-	let overflowMenuHeight = $state<number>(0);
 	let stagingColumnWidth = $state<number>(0);
 
 	const locked = $derived(row.locks !== undefined && row.locks.length > 0);
@@ -198,9 +186,6 @@
 		class:diff-line-addition={row.type === SectionType.AddedLines}
 		class:selected={row.isSelected}
 		class:is-last={row.isLast}
-		onclick={() => {
-			if (!row.isSelected) clearLineSelection?.();
-		}}
 		oncontextmenu={(ev) => {
 			ev.preventDefault();
 			ev.stopPropagation();
@@ -219,39 +204,6 @@
 					class:is-last={row.isLastOfSelectionGroup}
 					style="--number-col-width: {numberHeaderWidth}px; "
 				></div>
-			{/if}
-
-			{#if row.isLastSelected}
-				<div
-					bind:clientHeight={overflowMenuHeight}
-					class="table__selected-row-overflow-menu"
-					class:visible={hoveringOverTable || touchDevice}
-					style="--number-col-width: {numberHeaderWidth}px; --overflow-menu-height: {overflowMenuHeight}px;"
-				>
-					{#if onQuoteSelection}
-						<div class="button-wrapper">
-							<Button
-								icon="text-quote"
-								style="gray"
-								kind="ghost"
-								size="button"
-								tooltip="Quote"
-								onclick={onQuoteSelection}
-							/>
-						</div>
-					{/if}
-
-					<div class="button-wrapper">
-						<Button
-							icon="copy-small"
-							style="gray"
-							kind="ghost"
-							size="button"
-							tooltip="Copy"
-							onclick={onCopySelection}
-						/>
-					</div>
-				</div>
 			{/if}
 
 			{@html row.tokens.join('')}
@@ -296,8 +248,8 @@
 		box-sizing: border-box;
 
 		left: calc(var(--offset) * -1);
-		width: calc(var(--width) + 1px);
-		height: var(--height);
+		width: 100%;
+		height: 100%;
 		border-right: 1px solid var(--clr-theme-warn-element);
 		border-left: 1px solid var(--clr-theme-warn-element);
 		background: color-mix(in srgb, var(--clr-btn-warn-outline-bg), transparent 30%);
@@ -312,44 +264,13 @@
 		}
 	}
 
-	.table__selected-row-overflow-menu {
-		display: flex;
-		z-index: var(--z-lifted);
-		position: absolute;
-		top: calc(var(--height) - var(--overflow-menu-height) - 6px);
-		left: 0;
-		border: 1px solid var(--clr-border-2);
-		background: var(--clr-bg-1);
-		box-shadow: var(--fx-shadow-s);
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity var(--transition-medium);
-
-		.button-wrapper:not(:last-child) {
-			border-right: 1px solid var(--clr-border-2);
-		}
-
-		&.visible {
-			opacity: 1;
-			pointer-events: all;
-		}
-	}
-
-	.button-wrapper {
-		display: flex;
-	}
-
-	.table__lockColumn {
-		padding: 0;
-	}
-
 	.table__numberColumn {
 		z-index: var(--z-ground);
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 		padding: 0 4px;
 		border-color: var(--clr-diff-count-border);
-		border-right: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
 		font-size: 11px;
@@ -363,26 +284,22 @@
 			border-color: var(--clr-diff-addition-count-border);
 			background-color: var(--clr-diff-addition-count-bg);
 			color: var(--clr-diff-addition-count-text);
-			--checkmark-color: var(--clr-diff-addition-count-checkmark);
 		}
 
 		&.diff-line-deletion {
 			border-color: var(--clr-diff-deletion-count-border);
 			background-color: var(--clr-diff-deletion-count-bg);
 			color: var(--clr-diff-deletion-count-text);
-			--checkmark-color: var(--clr-diff-deletion-count-checkmark);
 		}
 
 		&.clickable {
 			cursor: pointer;
 		}
 		&.stagable {
-			left: calc(var(--column-and-boder));
 			min-width: var(--staging-column-width);
 		}
 
 		&.stagable:not(.is-before) {
-			left: calc(var(--column-and-boder) * 2);
 			min-width: var(--staging-column-width);
 		}
 
@@ -408,9 +325,8 @@
 	.table__lockColumn {
 		padding: 0 1px;
 		border-color: var(--clr-diff-count-border);
-		border-right: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
-		color: var(--clr-diff-count-text);
 		line-height: 1;
 		vertical-align: top;
 
@@ -467,13 +383,13 @@
 		pointer-events: none;
 
 		&:not(.locked).staged {
-			color: var(--clr-diff-selected-count-checkmark);
+			color: var(--clr-diff-selected-count-text);
 		}
 		&.locked {
-			color: var(--clr-diff-locked-count-checkmark);
+			color: var(--clr-diff-locked-count-text);
 		}
 		&.staged.locked {
-			color: var(--clr-diff-locked-selected-count-checkmark);
+			color: var(--clr-diff-locked-selected-count-text);
 		}
 	}
 </style>

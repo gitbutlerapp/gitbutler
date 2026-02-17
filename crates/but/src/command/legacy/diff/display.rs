@@ -80,7 +80,7 @@ fn format_patch(patch: &UnifiedPatch, render_header: impl Fn(&mut String)) -> St
             render_header(&mut output);
             output.push_str(&format!(
                 "   {}\n",
-                format!("File too large ({} bytes) - no diff available", size_in_bytes).dimmed()
+                format!("File too large ({size_in_bytes} bytes) - no diff available").dimmed()
             ));
         }
         UnifiedPatch::Patch {
@@ -142,20 +142,20 @@ fn fmt_hunk(hunk: &DiffHunk) -> String {
             '+' => {
                 // Added line: show blank old line number, show new line number
                 let line_nums = format!("{:>width$} {:>width$}", "", new_line, width = width);
-                let formatted_line = format!("{}│+{}", line_nums, content_str).green();
-                output.push_str(&format!("   {}\n", formatted_line));
+                let formatted_line = format!("{line_nums}│+{content_str}").green();
+                output.push_str(&format!("   {formatted_line}\n"));
                 new_line += 1;
             }
             '-' => {
                 // Removed line: show old line number, blank new line number
                 let line_nums = format!("{:>width$} {:>width$}", old_line, "", width = width);
-                let formatted_line = format!("{}│-{}", line_nums, content_str).red();
-                output.push_str(&format!("   {}\n", formatted_line));
+                let formatted_line = format!("{line_nums}│-{content_str}").red();
+                output.push_str(&format!("   {formatted_line}\n"));
                 old_line += 1;
             }
             ' ' => {
                 // Context line: show both line numbers
-                let line_nums = format!("{:>width$} {:>width$}", old_line, new_line, width = width);
+                let line_nums = format!("{old_line:>width$} {new_line:>width$}");
                 output.push_str(&format!("   {}│ {}\n", line_nums.dimmed(), content_str));
                 old_line += 1;
                 new_line += 1;

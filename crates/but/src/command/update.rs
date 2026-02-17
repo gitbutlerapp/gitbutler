@@ -64,7 +64,7 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
             let trimmed = notes.trim();
             if !trimmed.is_empty() {
                 writeln!(writer)?;
-                writeln!(writer, "{}", trimmed)?;
+                writeln!(writer, "{trimmed}")?;
             }
         }
 
@@ -127,9 +127,7 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
             // Wrap validation errors with CLI-specific context
             VersionRequest::from_string(Some(version_str.to_string())).map_err(|e| {
                 anyhow::anyhow!(
-                    "Invalid version '{}': {}\n\nValid targets:\n  nightly          Install latest nightly build\n  release          Install latest stable release\n  <version>        Install specific version (e.g., 0.18.7)",
-                    version_str,
-                    e
+                    "Invalid version '{version_str}': {e}\n\nValid targets:\n  nightly          Install latest nightly build\n  release          Install latest stable release\n  <version>        Install specific version (e.g., 0.18.7)"
                 )
             })?
         }

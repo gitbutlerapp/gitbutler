@@ -19,17 +19,15 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     let head_name = {
         let repo = ctx.repo.get()?;
         let head = repo.head()?;
-        head.referent_name()
-            .map(|n| n.shorten().to_string())
-            .unwrap_or_default()
+        head.referent_name().map(|n| n.shorten().to_owned()).unwrap_or_default()
     };
 
-    if !head_name.starts_with("gitbutler/") {
+    if !head_name.starts_with(b"gitbutler/") {
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
                 "{}",
-                format!("Not currently on gitbutler/workspace branch (on: {}).", head_name).red()
+                format!("Not currently on gitbutler/workspace branch (on: {head_name}).").red()
             )?;
             writeln!(out)?;
             writeln!(
@@ -94,7 +92,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         .ok_or_else(|| anyhow::anyhow!("Stack has no branches"))?;
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "  {}", format!("✓ Will check out: {}", target_branch_name).green())?;
+        writeln!(out, "  {}", format!("✓ Will check out: {target_branch_name}").green())?;
         writeln!(out)?;
     }
 
@@ -106,13 +104,13 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(
             out,
             "  {}",
-            format!("Warning: Failed to uninstall Git hooks: {}", e).yellow()
+            format!("Warning: Failed to uninstall Git hooks: {e}").yellow()
         )?;
     }
 
     // Check out the target branch using Git directly
     if let Some(out) = out.for_human() {
-        writeln!(out, "{}", format!("→ Checking out {}...", target_branch_name).dimmed())?;
+        writeln!(out, "{}", format!("→ Checking out {target_branch_name}...").dimmed())?;
     }
 
     // Use git checkout via command
@@ -143,13 +141,13 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         std::process::Command::new("git")
             .arg("-C")
             .arg(workdir)
-            .args(["symbolic-ref", "HEAD", &format!("refs/heads/{}", target_branch_name)])
+            .args(["symbolic-ref", "HEAD", &format!("refs/heads/{target_branch_name}")])
             .output()
             .context("Failed to set symbolic ref")?;
     }
 
     if let Some(out) = out.for_human() {
-        writeln!(out, "  {}", format!("✓ Checked out: {}", target_branch_name).green())?;
+        writeln!(out, "  {}", format!("✓ Checked out: {target_branch_name}").green())?;
         writeln!(out)?;
     }
 
@@ -160,7 +158,7 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
         writeln!(
             out,
             "{}",
-            format!("You are now on branch: {}", target_branch_name).dimmed()
+            format!("You are now on branch: {target_branch_name}").dimmed()
         )?;
         writeln!(out)?;
         writeln!(out, "{}", "To return to GitButler mode, run:".blue())?;

@@ -241,8 +241,7 @@ fn error_when_changes_not_found_in_source() -> Result<()> {
     let err = result.unwrap_err();
     assert!(
         err.to_string().contains("Failed to extract described changes"),
-        "Expected error about failed extraction, got: {}",
-        err
+        "Expected error about failed extraction, got: {err}"
     );
 
     Ok(())

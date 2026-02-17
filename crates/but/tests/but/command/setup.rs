@@ -609,7 +609,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
         .output()?;
     assert!(output.status.success());
     let commit_count: u32 = String::from_utf8_lossy(&output.stdout).trim().parse()?;
-    assert!(commit_count >= 1, "Expected at least 1 commit, found {}", commit_count);
+    assert!(commit_count >= 1, "Expected at least 1 commit, found {commit_count}");
 
     Ok(())
 }

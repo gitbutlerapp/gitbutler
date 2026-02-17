@@ -3,6 +3,7 @@ use std::{fmt::Write as _, path::PathBuf};
 use anyhow::{Context as _, Result};
 use but_ctx::Context;
 use cli_prompts::DisplayPrompt;
+use cli_prompts::prompts::AbortReason;
 use colored::Colorize;
 use serde::Serialize;
 
@@ -67,14 +68,32 @@ struct SkillFormat {
     name: &'static str,
     /// Description of where this format is used
     description: &'static str,
+    /// Whether this format should be offered for local and/or global installs.
+    availability: SkillFormatAvailability,
     /// Path relative to repository root (for local) or home directory (for global)
     path: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SkillFormatAvailability {
+    LocalAndGlobal,
+    LocalOnly,
+    GlobalOnly,
 }
 
 impl SkillFormat {
     /// Get the actual installation path given a base directory
     fn get_install_path(&self, base_dir: &std::path::Path) -> PathBuf {
         base_dir.join(self.path)
+    }
+
+    fn is_available_for(&self, global: bool) -> bool {
+        matches!(
+            (global, self.availability),
+            (_, SkillFormatAvailability::LocalAndGlobal)
+                | (false, SkillFormatAvailability::LocalOnly)
+                | (true, SkillFormatAvailability::GlobalOnly)
+        )
     }
 }
 
@@ -83,36 +102,43 @@ const SKILL_FORMATS: &[SkillFormat] = &[
     SkillFormat {
         name: "Claude Code",
         description: "Claude Code CLI skill format",
+        availability: SkillFormatAvailability::LocalAndGlobal,
         path: ".claude/skills/gitbutler",
     },
     SkillFormat {
         name: "OpenCode",
         description: "OpenCode AI skill format",
+        availability: SkillFormatAvailability::LocalAndGlobal,
         path: ".opencode/skills/gitbutler",
     },
     SkillFormat {
         name: "Codex",
         description: "Codex skill format",
+        availability: SkillFormatAvailability::LocalAndGlobal,
         path: ".codex/skills/gitbutler",
     },
     SkillFormat {
         name: "GitHub Copilot",
         description: "GitHub Copilot local (repo) skill format",
+        availability: SkillFormatAvailability::LocalOnly,
         path: ".github/skills/gitbutler",
     },
     SkillFormat {
         name: "GitHub Copilot",
         description: "GitHub Copilot global skill format",
+        availability: SkillFormatAvailability::GlobalOnly,
         path: ".copilot/skills/gitbutler",
     },
     SkillFormat {
         name: "Cursor",
         description: "Cursor AI skill format",
+        availability: SkillFormatAvailability::LocalAndGlobal,
         path: ".cursor/skills/gitbutler",
     },
     SkillFormat {
         name: "Windsurf",
         description: "Windsurf skill format",
+        availability: SkillFormatAvailability::LocalAndGlobal,
         path: ".windsurf/skills/gitbutler",
     },
     SkillFormat {
@@ -121,6 +147,49 @@ const SKILL_FORMATS: &[SkillFormat] = &[
         path: ".gemini/skills/gitbutler",
     },
 ];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallScope {
+    Local,
+    Global,
+}
+
+impl InstallScope {
+    fn is_global(self) -> bool {
+        matches!(self, Self::Global)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum InstallScopeResolution {
+    PromptUser,
+    Fixed(InstallScope),
+}
+
+fn determine_install_scope_resolution(global: bool, local_scope_available: bool) -> InstallScopeResolution {
+    if global {
+        InstallScopeResolution::Fixed(InstallScope::Global)
+    } else if local_scope_available {
+        InstallScopeResolution::PromptUser
+    } else {
+        InstallScopeResolution::Fixed(InstallScope::Global)
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum InstallScopeOption {
+    Local,
+    Global,
+}
+
+impl From<InstallScopeOption> for String {
+    fn from(value: InstallScopeOption) -> Self {
+        match value {
+            InstallScopeOption::Local => "Local (repository)".to_string(),
+            InstallScopeOption::Global => "Global (home directory)".to_string(),
+        }
+    }
+}
 
 /// Status of an installed skill
 #[derive(Debug, Clone, Serialize)]
@@ -199,11 +268,11 @@ fn inject_version(content: &str, version: &str) -> String {
     if let Some(end_pos) = frontmatter_end {
         let frontmatter = &content[..end_pos];
         let rest = &content[end_pos..];
-        let updated_frontmatter = frontmatter.replace("version: 0.0.0", &format!("version: {}", version));
-        format!("{}{}", updated_frontmatter, rest)
+        let updated_frontmatter = frontmatter.replace("version: 0.0.0", &format!("version: {version}"));
+        format!("{updated_frontmatter}{rest}")
     } else {
         // Fallback if frontmatter format is unexpected
-        content.replace("version: 0.0.0", &format!("version: {}", version))
+        content.replace("version: 0.0.0", &format!("version: {version}"))
     }
 }
 
@@ -561,9 +630,7 @@ fn detect_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBu
                     .join("\n");
 
                 anyhow::bail!(
-                    "Multiple skill installations found in {} scope. Please use --path to specify which one to update:\n{}",
-                    scope,
-                    installations_list
+                    "Multiple skill installations found in {scope} scope. Please use --path to specify which one to update:\n{installations_list}"
                 )
             }
         }
@@ -580,13 +647,31 @@ fn detect_install_path(ctx: Option<&mut Context>, global: bool) -> Result<PathBu
         .collect::<Vec<_>>()
         .join("\n");
 
-    anyhow::bail!(
-        "Could not detect installation location. No existing skill found in:\n{}",
-        checked_locations
-    )
+    anyhow::bail!("Could not detect installation location. No existing skill found in:\n{checked_locations}")
 }
 
-/// Prompt user to select installation format
+fn prompt_for_install_scope(progress: &mut impl std::io::Write) -> Result<InstallScope> {
+    writeln!(progress)?;
+    writeln!(progress, "{}", "Select installation scope:".bold())?;
+    writeln!(progress)?;
+
+    let prompt = cli_prompts::prompts::Selection::new(
+        "Where would you like to install the skill?",
+        vec![InstallScopeOption::Local, InstallScopeOption::Global].into_iter(),
+    );
+
+    match prompt.display() {
+        Ok(InstallScopeOption::Local) => Ok(InstallScope::Local),
+        Ok(InstallScopeOption::Global) => Ok(InstallScope::Global),
+        Err(AbortReason::Interrupt) => {
+            writeln!(progress)?;
+            Err(UserCancelled.into())
+        }
+        Err(AbortReason::Error(err)) => Err(anyhow::Error::from(err).context("Failed to read user selection")),
+    }
+}
+
+/// Prompt user to select installation scope and format
 fn prompt_for_install_path(
     ctx: Option<&mut Context>,
     global: bool,
@@ -595,17 +680,66 @@ fn prompt_for_install_path(
 ) -> Result<PathBuf> {
     if out.for_human().is_none() {
         anyhow::bail!(
-            "In non-interactive mode, you must specify --path. Use --path <path> to specify where to install the skill."
+            "In non-interactive mode, you must specify --path or --detect. Use --path <path> to specify where to install the skill, or --detect to update an existing installation."
+        );
+    }
+    if !out.can_prompt() {
+        anyhow::bail!(
+            "Human input required - run this in a terminal, or specify --path/--detect to avoid interactive prompts."
         );
     }
 
-    let base_dir = get_base_dir(ctx, global)?;
+    let local_scope_available = if !global {
+        match ctx.as_ref() {
+            Some(ctx) => {
+                let repo = ctx.repo.get()?;
+                repo.workdir().is_some()
+            }
+            None => false,
+        }
+    } else {
+        false
+    };
+
+    let scope = match determine_install_scope_resolution(global, local_scope_available) {
+        InstallScopeResolution::PromptUser => prompt_for_install_scope(progress)?,
+        InstallScopeResolution::Fixed(scope) => scope,
+    };
+
+    if !global && !local_scope_available {
+        writeln!(progress)?;
+        if ctx.is_none() {
+            writeln!(
+                progress,
+                "{} Not in a git repository. Installing globally in your home directory.",
+                "ℹ".blue()
+            )?;
+        } else {
+            writeln!(
+                progress,
+                "{} Local installs require a repository workdir. Installing globally in your home directory.",
+                "ℹ".blue()
+            )?;
+        }
+        writeln!(progress)?;
+    }
+
+    let base_dir = get_base_dir(ctx, scope.is_global())?;
 
     writeln!(progress)?;
     writeln!(progress, "{}", "Select a skill folder format:".bold())?;
     writeln!(progress)?;
 
-    let options: Vec<String> = SKILL_FORMATS
+    let available_formats: Vec<&SkillFormat> = SKILL_FORMATS
+        .iter()
+        .filter(|f| f.is_available_for(scope.is_global()))
+        .collect();
+    debug_assert!(
+        !available_formats.is_empty(),
+        "At least one skill format must be available for each install scope"
+    );
+
+    let options: Vec<String> = available_formats
         .iter()
         .map(|format| {
             let full_path = format.get_install_path(&base_dir);
@@ -622,16 +756,18 @@ fn prompt_for_install_path(
 
     let selection: String = match prompt.display() {
         Ok(s) => s,
-        Err(_) => {
-            // User cancelled the prompt (e.g., pressed Escape)
+        Err(AbortReason::Interrupt) => {
             writeln!(progress)?;
             return Err(UserCancelled.into());
+        }
+        Err(AbortReason::Error(err)) => {
+            return Err(anyhow::Error::from(err).context("Failed to read user selection"));
         }
     };
 
     // Find the format that matches the selection
-    let selected_format = SKILL_FORMATS
-        .iter()
+    let selected_format = available_formats
+        .into_iter()
         .find(|format| {
             let expected_prefix = format!("{} - {}", format.name, format.description);
             selection.starts_with(&expected_prefix)
@@ -694,6 +830,19 @@ fn install_skill(
     // Validate flags
     if detect && custom_path.is_some() {
         anyhow::bail!("Cannot use both --detect and --path options together");
+    }
+    if ctx.is_none()
+        && !global
+        && let Some(custom) = custom_path.as_deref()
+    {
+        // Without a repository context, only absolute/tilde paths can be resolved without `--global`.
+        let expanded = expand_tilde(custom).unwrap_or_else(|| PathBuf::from(custom));
+        if !expanded.is_absolute() {
+            anyhow::bail!(
+                "Cannot use relative --path outside a git repository unless --global is specified.\n\
+                 Use --global --path <path> for a global installation, use an absolute path, or run from within a repository for local installation."
+            );
+        }
     }
 
     // Determine installation path
@@ -899,6 +1048,7 @@ mod tests {
         let format = SkillFormat {
             name: "Test",
             description: "Test format",
+            availability: SkillFormatAvailability::LocalAndGlobal,
             path: ".test/skills/foo",
         };
 
@@ -906,6 +1056,24 @@ mod tests {
         let result = format.get_install_path(&base);
 
         assert_eq!(result, PathBuf::from("/home/user/.test/skills/foo"));
+    }
+
+    #[test]
+    fn determine_install_scope_resolution_explicit_global_is_fixed_global() {
+        let resolution = determine_install_scope_resolution(true, true);
+        assert_eq!(resolution, InstallScopeResolution::Fixed(InstallScope::Global));
+    }
+
+    #[test]
+    fn determine_install_scope_resolution_repo_context_prompts_user() {
+        let resolution = determine_install_scope_resolution(false, true);
+        assert_eq!(resolution, InstallScopeResolution::PromptUser);
+    }
+
+    #[test]
+    fn determine_install_scope_resolution_no_repo_context_is_fixed_global() {
+        let resolution = determine_install_scope_resolution(false, false);
+        assert_eq!(resolution, InstallScopeResolution::Fixed(InstallScope::Global));
     }
 
     #[test]

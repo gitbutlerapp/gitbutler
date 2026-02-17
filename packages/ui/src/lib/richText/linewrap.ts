@@ -215,7 +215,7 @@ function updateParagraphsWithWrappedLines(
 
 	// Update the first paragraph with the first wrapped line
 	const children = paragraph.getChildren();
-	const firstTextNode = children.find((child) => isTextNode(child)) as TextNode | undefined;
+	const firstTextNode = children.find((child) => isTextNode(child));
 
 	if (firstTextNode) {
 		firstTextNode.setTextContent(wrappedLines[0]);
@@ -282,9 +282,9 @@ function repositionCursor(
 	}
 
 	// Navigate to the target paragraph
-	let currentPara: ParagraphNode | null = paragraph.getNextSibling() as ParagraphNode | null;
+	let currentPara: ParagraphNode | null = paragraph.getNextSibling();
 	for (let i = 1; i < targetLineIndex && currentPara; i++) {
-		currentPara = currentPara.getNextSibling() as ParagraphNode | null;
+		currentPara = currentPara.getNextSibling();
 	}
 
 	if (currentPara && $isParagraphNode(currentPara)) {

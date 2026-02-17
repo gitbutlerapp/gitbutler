@@ -27,3 +27,6 @@ chrono.workspace = true
 serde_regex = "1.1.0"
 serde_json.workspace = true
 uuid.workspace = true
+
+[lints]
+workspace = true

@@ -8,7 +8,7 @@ pub(crate) fn get_head(heads: &[StackBranch], name: &str) -> Result<(usize, Stac
         .iter()
         .enumerate()
         .find(|(_, h)| h.name() == name)
-        .ok_or_else(|| anyhow!("Series with name {} not found", name))?;
+        .ok_or_else(|| anyhow!("Series with name {name} not found"))?;
     Ok((idx, head.clone()))
 }
 

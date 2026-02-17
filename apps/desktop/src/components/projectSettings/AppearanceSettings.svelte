@@ -132,7 +132,7 @@
 			wrapText={$userSettings.wrapText}
 			diffFont={$userSettings.diffFont}
 			diffLigatures={$userSettings.diffLigatures}
-			diffContrast={$userSettings.diffContrast}
+			strongContrast={$userSettings.strongContrast}
 			colorBlindFriendly={$userSettings.colorBlindFriendly}
 			inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 			hunkStr={diff}
@@ -228,35 +228,24 @@
 		{/snippet}
 	</CardGroup.Item>
 
-	<CardGroup.Item>
+	<CardGroup.Item labelFor="strongContrast">
 		{#snippet title()}
-			Lines contrast
+			Strong contrast
 		{/snippet}
 		{#snippet caption()}
-			The contrast for added, deleted, and context lines in diffs.
+			Use stronger contrast for added, deleted, and context lines in diffs.
 		{/snippet}
 		{#snippet actions()}
-			<Select
-				maxWidth={110}
-				value={$userSettings.diffContrast}
-				options={[
-					{ label: 'Light', value: 'light' },
-					{ label: 'Medium', value: 'medium' },
-					{ label: 'Strong', value: 'strong' }
-				]}
-				onselect={(value) => {
+			<Toggle
+				id="strongContrast"
+				checked={$userSettings.strongContrast}
+				onclick={() => {
 					userSettings.update((s) => ({
 						...s,
-						diffContrast: value as 'strong' | 'medium' | 'light'
+						strongContrast: !s.strongContrast
 					}));
 				}}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === $userSettings.diffContrast} {highlighted}>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
+			/>
 		{/snippet}
 	</CardGroup.Item>
 

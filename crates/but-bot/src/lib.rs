@@ -35,7 +35,7 @@ pub fn forge_branch_chat(
 ) -> anyhow::Result<String> {
     let reviews_text = reviews
         .iter()
-        .map(|r| format!("{}", r))
+        .map(|r| format!("{r}"))
         .collect::<Vec<String>>()
         .join("\n\n");
 

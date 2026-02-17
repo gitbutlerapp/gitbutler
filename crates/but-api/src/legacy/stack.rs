@@ -13,6 +13,8 @@ use tracing::instrument;
 pub mod create_reference {
     use serde::{Deserialize, Serialize};
 
+    use crate::json::HexHash;
+
     #[derive(Deserialize, Serialize, Debug)]
     #[serde(rename_all = "camelCase")]
     pub struct Request {
@@ -26,7 +28,7 @@ pub mod create_reference {
     #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
     pub enum Anchor {
         AtCommit {
-            commit_id: gix::ObjectId,
+            commit_id: HexHash,
             position: but_workspace::branch::create_reference::Position,
         },
         AtReference {
@@ -51,7 +53,10 @@ pub fn create_reference(
         .map(|anchor| -> Result<_> {
             Ok(match anchor {
                 create_reference::Anchor::AtCommit { commit_id, position } => {
-                    but_workspace::branch::create_reference::Anchor::AtCommit { commit_id, position }
+                    but_workspace::branch::create_reference::Anchor::AtCommit {
+                        commit_id: commit_id.into(),
+                        position,
+                    }
                 }
                 create_reference::Anchor::AtReference { short_name, position } => {
                     but_workspace::branch::create_reference::Anchor::AtSegment {

@@ -9,7 +9,6 @@ rust-version.workspace = true
 
 [lib]
 doctest = false
-test = false
 
 [dependencies]
 but-core.workspace = true
@@ -28,3 +27,6 @@ but-testsupport.workspace = true
 
 gitbutler-reference.workspace = true
 insta = "1.45.1"
+
+[lints]
+workspace = true

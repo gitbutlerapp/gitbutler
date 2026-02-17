@@ -69,6 +69,7 @@ fn unborn_untracked() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(0000000000000000000000000000000000000000),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],
@@ -228,6 +229,7 @@ fn conflicted_in_local_branch() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(84503317a1e1464381fcff65ece14bc1f4315b7c),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],
@@ -347,6 +349,7 @@ fn single_branch() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],
@@ -521,26 +524,31 @@ fn single_branch_multiple_segments() -> anyhow::Result<()> {
                 StackHeadInfo {
                     name: "main",
                     tip: Sha1(b5743a3aa79957bcb7f654d7d4ad11d995ad5303),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "nine",
                     tip: Sha1(344e3209e344c1eb90bedb4b00b4d4999a84406c),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "six",
                     tip: Sha1(c4f2a356d6ed7250bab3dd7c58e1922b95f288c5),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "three",
                     tip: Sha1(281da9454d5b41844d28e453e80b24925a7c8c7a),
+                    review_id: None,
                     is_checked_out: false,
                 },
                 StackHeadInfo {
                     name: "one",
                     tip: Sha1(3d57fc18d679a1ba45bc7f79e394a5e2606719ee),
+                    review_id: None,
                     is_checked_out: false,
                 },
             ],

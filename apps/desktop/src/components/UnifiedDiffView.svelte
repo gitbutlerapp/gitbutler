@@ -227,9 +227,10 @@
 							tabSize={$userSettings.tabSize}
 							wrapText={$userSettings.wrapText}
 							diffFont={$userSettings.diffFont}
-							diffContrast={$userSettings.diffContrast}
+							strongContrast={$userSettings.strongContrast}
 							colorBlindFriendly={$userSettings.colorBlindFriendly}
 							inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
+							selectable={isUncommittedChange}
 							onLineClick={(p) => {
 								if (!canBePartiallySelected(diff.subject)) {
 									uncommittedService.checkHunk(stackId || null, change.path, hunk);

@@ -208,8 +208,7 @@ To return to GitButler mode, run:
     let status_output = String::from_utf8_lossy(&status.stdout);
     assert!(
         status_output.contains("UserFile"),
-        "UserFile should be uncommitted: {}",
-        status_output
+        "UserFile should be uncommitted: {status_output}"
     );
 
     Ok(())

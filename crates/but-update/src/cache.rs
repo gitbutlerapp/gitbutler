@@ -138,10 +138,7 @@ pub fn suppress_update(cache: &mut but_db::AppCacheHandle, hours: u32) -> anyhow
     }
 
     if hours > MAX_SUPPRESSION_HOURS {
-        anyhow::bail!(
-            "Suppression duration cannot exceed {} hours (30 days)",
-            MAX_SUPPRESSION_HOURS
-        );
+        anyhow::bail!("Suppression duration cannot exceed {MAX_SUPPRESSION_HOURS} hours (30 days)");
     }
 
     cache.update_check_mut()?.suppress(hours).map_err(Into::into)

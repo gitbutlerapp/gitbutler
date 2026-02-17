@@ -104,7 +104,7 @@ fn default_target_setting_if_none(ctx: &Context, vb_state: &VirtualBranchesHandl
 
     let mut head_ref = repo
         .find_reference(&format!("refs/remotes/{remote_name}/HEAD"))
-        .map_err(|_| anyhow::anyhow!("No HEAD reference found for remote {}", remote_name))?;
+        .map_err(|_| anyhow::anyhow!("No HEAD reference found for remote {remote_name}"))?;
 
     let head_commit = head_ref.peel_to_commit()?;
 

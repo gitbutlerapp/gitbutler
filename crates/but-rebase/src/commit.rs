@@ -129,7 +129,7 @@ pub fn create(
                         gitbutler_sign_commits: Some(false),
                         ..GitConfigSettings::default()
                     })?;
-                    return Err(anyhow!("Failed to sign commit: {}", err).context(Code::CommitSigningFailed));
+                    return Err(anyhow!("Failed to sign commit: {err}").context(Code::CommitSigningFailed));
                 } else {
                     tracing::warn!(
                         "Commit signing failed but remains enabled as gitbutler.signCommits is explicitly enabled globally"
@@ -241,7 +241,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
             let stderr = BString::new(output.stderr);
             let stdout = BString::new(output.stdout);
             let std_both = format!("{stdout} {stderr}");
-            bail!("Failed to sign SSH: {}", std_both);
+            bail!("Failed to sign SSH: {std_both}");
         }
     } else {
         let gpg_program = config
@@ -283,7 +283,7 @@ pub fn sign_buffer(repo: &gix::Repository, buffer: &[u8]) -> anyhow::Result<BStr
             let stderr = BString::new(output.stderr);
             let stdout = BString::new(output.stdout);
             let std_both = format!("{stdout} {stderr}");
-            bail!("Failed to sign GPG: {}", std_both);
+            bail!("Failed to sign GPG: {std_both}");
         }
     }
 }

@@ -378,7 +378,7 @@ export async function isBrowserBusy(page: Page): Promise<boolean> {
 		// Check 3: Pending transitions
 		const allElements = document.querySelectorAll('*');
 		for (const el of Array.from(allElements)) {
-			const styles = window.getComputedStyle(el as Element);
+			const styles = window.getComputedStyle(el);
 			const transitionDuration = styles.transitionDuration;
 			if (transitionDuration && transitionDuration !== '0s') {
 				// Element might be transitioning

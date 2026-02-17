@@ -59,11 +59,16 @@ pub fn create_virtual_branch(ctx: &mut Context, branch: BranchCreateRequest) -> 
             .context("BUG: didn't find a stack that was just created")?;
         let stack = &new_ws.stacks[stack_idx];
         let tip = stack.segments[segment_idx].tip().unwrap_or(repo.object_hash().null());
+        let review_id = stack.segments[segment_idx]
+            .metadata
+            .as_ref()
+            .and_then(|meta| meta.review.pull_request);
 
         let out = StackEntryNoOpt {
             id: stack.id.context("BUG: all new stacks are created with an ID")?,
             heads: vec![StackHeadInfo {
                 name: new_ref.shorten().into(),
+                review_id,
                 tip,
                 is_checked_out: false,
             }],

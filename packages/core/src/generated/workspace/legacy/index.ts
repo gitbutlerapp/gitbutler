@@ -42,6 +42,10 @@ export type StackHeadInfo = {
 	 */
 	tip: string;
 	/**
+	 * The associated forge review with this branch, e.g. GitHub PRs or GitLab MRs
+	 */
+	reviewId: number | null;
+	/**
 	 * If `true`, then this head is checked directly so `HEAD` points to it, and this is only ever `true` for a single head.
 	 * This is `false` if the worktree is checked out.
 	 */

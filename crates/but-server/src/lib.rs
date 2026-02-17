@@ -927,6 +927,16 @@ async fn handle_command(
                 Err(e) => Err(e),
             }
         }
+        "merge_review" => {
+            let params = deserialize_json(request.params);
+            match params {
+                Ok(params) => {
+                    let result = legacy::forge::merge_review_cmd(params).await;
+                    result.map(|_| json!({"result": "success"}))
+                }
+                Err(e) => Err(e),
+            }
+        }
         "update_review_footers" => {
             let params = deserialize_json(request.params);
             match params {
@@ -1068,7 +1078,7 @@ async fn handle_command(
             result.map(|r| json!(r))
         }
 
-        _ => Err(anyhow::anyhow!("Command {} not found!", command)),
+        _ => Err(anyhow::anyhow!("Command {command} not found!")),
     }
 }
 

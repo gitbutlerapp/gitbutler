@@ -28,7 +28,6 @@ rstest = "0.26.1"
 serde.workspace = true
 deser-hjson = "2.2.4"
 
-[lints.clippy]
-all = "deny"
-perf = "deny"
-correctness = "deny"
+[lints]
+workspace = true
+

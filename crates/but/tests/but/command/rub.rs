@@ -454,7 +454,7 @@ fn uncommit_command_on_commit() -> anyhow::Result<()> {
         .unwrap();
 
     // Test uncommit command
-    env.but(format!("uncommit {}", commit_id)).assert().success();
+    env.but(format!("uncommit {commit_id}")).assert().success();
 
     // Verify the files are now unassigned
     env.but("--json status -f")
@@ -656,7 +656,7 @@ fn unstage_command_validation() -> anyhow::Result<()> {
         .unwrap();
 
     // Test that unstage rejects commits
-    env.but(format!("unstage {}", commit_id))
+    env.but(format!("unstage {commit_id}"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"
@@ -666,7 +666,7 @@ Failed to unstage. Cannot unstage fc - it is a commit. Only uncommitted files an
 
     // Test that unstage rejects non-branch as branch parameter
     commit_file_with_worktree_changes_as_two_hunks(&env, "A", "c.txt");
-    env.but(format!("unstage c.txt {}", commit_id))
+    env.but(format!("unstage c.txt {commit_id}"))
         .assert()
         .failure()
         .stderr_eq(str![[r#"

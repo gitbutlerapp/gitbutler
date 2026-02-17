@@ -477,7 +477,7 @@ pub(crate) fn integrate_upstream(
             let Some(stack) = maybe_stack else {
                 // The integration results should match the stacks in the workspace,
                 // so this should never happen.
-                bail!("Failed to find stack while integrating upstream: {:?}", stack_id);
+                bail!("Failed to find stack while integrating upstream: {stack_id:?}");
             };
 
             virtual_branches_state.delete_branch_entry(stack_id)?;

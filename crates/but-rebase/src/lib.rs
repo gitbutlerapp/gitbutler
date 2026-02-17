@@ -96,7 +96,7 @@ impl<'repo> Rebase<'repo> {
         if let Some(base) = base
             && !repo.has_object(base)
         {
-            bail!("Base commit must exist if provided: {}", base);
+            bail!("Base commit must exist if provided: {base}");
         }
         Ok(Self {
             repo,

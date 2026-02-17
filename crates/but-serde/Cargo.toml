@@ -18,3 +18,6 @@ git2 = { workspace = true, optional = true }
 gix.workspace = true
 serde.workspace = true
 bstr.workspace = true
+
+[lints]
+workspace = true

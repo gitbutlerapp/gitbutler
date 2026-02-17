@@ -139,7 +139,7 @@ fn generate_short_name_from_signature(author: &gix::actor::Signature) -> anyhow:
             })
             .take(3)
             .collect();
-        format!("{}-branch-1", direct_chars)
+        format!("{direct_chars}-branch-1")
     } else {
         // For other scripts, use initials
         format!(

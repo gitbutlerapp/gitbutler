@@ -48,7 +48,6 @@
 			tabSize: 4,
 			wrapText: false,
 			minWidth: 3,
-			hoveringOverTable: false,
 			hideCheckboxes: false,
 			hunkHasLocks: false,
 			lineSelection: mockLineSelection,
@@ -72,9 +71,6 @@
 			},
 			numberHeaderWidth: {
 				control: { type: 'number' }
-			},
-			hoveringOverTable: {
-				control: { type: 'boolean' }
 			},
 			staged: {
 				control: { type: 'boolean' }

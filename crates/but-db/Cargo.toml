@@ -32,3 +32,6 @@ insta.workspace = true
 # for multi-process migration testing.
 [target."cfg(unix)".dev-dependencies]
 libc = "0.2.180"
+
+[lints]
+workspace = true

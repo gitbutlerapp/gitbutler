@@ -49,7 +49,7 @@ impl Version {
 
         // Reject if it looks like a flag
         if version.starts_with('-') {
-            bail!("Invalid version: {}. Usage: but-installer [version|nightly]", version);
+            bail!("Invalid version: {version}. Usage: but-installer [version|nightly]");
         }
 
         // Only allow semver-compatible characters
@@ -58,17 +58,13 @@ impl Version {
             .all(|c| c.is_alphanumeric() || c == '.' || c == '-' || c == '+')
         {
             bail!(
-                "Invalid version format: {}. Version must contain only alphanumeric characters, dots, hyphens, and plus signs.",
-                version
+                "Invalid version format: {version}. Version must contain only alphanumeric characters, dots, hyphens, and plus signs."
             );
         }
 
         // Must contain at least one alphanumeric character
         if !version.chars().any(|c| c.is_alphanumeric()) {
-            bail!(
-                "Invalid version format: {}. Version must contain at least one alphanumeric character.",
-                version
-            );
+            bail!("Invalid version format: {version}. Version must contain at least one alphanumeric character.");
         }
 
         Ok(())
@@ -150,14 +146,12 @@ impl InstallerConfig {
         let os = env::consts::OS;
         let arch = env::consts::ARCH;
 
-        if os != "macos" {
-            bail!("This installer currently only supports macOS. Your OS: {}", os);
-        }
-
-        let platform = match arch {
-            "x86_64" => "darwin-x86_64",
-            "aarch64" => "darwin-aarch64",
-            _ => bail!("Unsupported architecture: {}", arch),
+        let platform = match (os, arch) {
+            ("macos", "aarch64") => "darwin-aarch64",
+            ("macos", "x86_64") => "darwin-x86_64",
+            ("linux", "aarch64") => "linux-aarch64",
+            ("linux", "x86_64") => "linux-x86_64",
+            (os, arch) => bail!("unsupported OS or architecture: {os} {arch}"),
         };
 
         Ok(Self {
@@ -256,7 +250,7 @@ mod tests {
     #[test]
     fn test_version_display() {
         let version = Version::new("1.2.3".to_string()).unwrap();
-        assert_eq!(format!("{}", version), "1.2.3");
+        assert_eq!(format!("{version}"), "1.2.3");
     }
 
     #[test]

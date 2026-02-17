@@ -40,6 +40,7 @@ fn stacks_info_without_short_ids(stacks: Vec<Stack>) -> StacksInfo {
                 inner: segment,
                 workspace_commits,
                 remote_commits,
+                stack_id: stack.id,
             });
         }
         stacks_info.stacks.push(stack_with_id);

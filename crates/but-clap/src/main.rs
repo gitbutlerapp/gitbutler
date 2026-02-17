@@ -20,12 +20,12 @@ fn main() -> Result<()> {
         }
 
         let subcommand_name = subcommand.get_name();
-        let file_path = docs_dir.join(format!("but-{}.mdx", subcommand_name));
+        let file_path = docs_dir.join(format!("but-{subcommand_name}.mdx"));
 
         let mdx_content = generator::generate_command_mdx(subcommand);
         fs::write(&file_path, mdx_content)
-            .with_context(|| format!("Failed to write subcommand documentation to {:?}", file_path))?;
-        println!("Generated: {:?}", file_path);
+            .with_context(|| format!("Failed to write subcommand documentation to {file_path:?}"))?;
+        println!("Generated: {file_path:?}");
     }
 
     println!("\nDocumentation generation complete!");

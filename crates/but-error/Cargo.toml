@@ -11,3 +11,6 @@ doctest = true
 
 [dependencies]
 anyhow.workspace = true
+
+[lints]
+workspace = true

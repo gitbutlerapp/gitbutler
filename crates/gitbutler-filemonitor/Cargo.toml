@@ -19,10 +19,8 @@ notify.workspace = true
 gitbutler-notify-debouncer.path = "vendor/debouncer"
 gitbutler-project.workspace = true
 
-[lints.clippy]
-all = "deny"
-perf = "deny"
-correctness = "deny"
+[lints]
+workspace = true
 
 [dev-dependencies]
 but-testsupport.workspace = true

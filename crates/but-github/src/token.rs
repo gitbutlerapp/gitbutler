@@ -102,10 +102,10 @@ impl GithubAccountIdentifier {
 impl std::fmt::Display for GithubAccountIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GithubAccountIdentifier::OAuthUsername { username } => write!(f, "OAuth: {}", username),
-            GithubAccountIdentifier::PatUsername { username } => write!(f, "PAT: {}", username),
+            GithubAccountIdentifier::OAuthUsername { username } => write!(f, "OAuth: {username}"),
+            GithubAccountIdentifier::PatUsername { username } => write!(f, "PAT: {username}"),
             GithubAccountIdentifier::Enterprise { username, host } => {
-                write!(f, "Enterprise {}@{}", username, host)
+                write!(f, "Enterprise {username}@{host}")
             }
         }
     }
@@ -194,9 +194,9 @@ impl GitHubAccount {
 
     fn secret_key(&self) -> String {
         match self {
-            GitHubAccount::OAuth { username, .. } => format!("github_oauth_{}", username),
-            GitHubAccount::Pat { username, .. } => format!("github_pat_{}", username),
-            GitHubAccount::Enterprise { host, .. } => format!("github_enterprise_{}", host),
+            GitHubAccount::OAuth { username, .. } => format!("github_oauth_{username}"),
+            GitHubAccount::Pat { username, .. } => format!("github_pat_{username}"),
+            GitHubAccount::Enterprise { host, .. } => format!("github_enterprise_{host}"),
         }
     }
 

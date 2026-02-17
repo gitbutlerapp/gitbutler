@@ -57,7 +57,7 @@ impl TestingDot for StepGraph {
                 &|_, v| format!("label=\"order: {}\"", v.weight().order),
                 &|_, (_, step)| {
                     match step {
-                        Step::Pick(Pick { id, .. }) => format!("label=\"pick: {}\"", id),
+                        Step::Pick(Pick { id, .. }) => format!("label=\"pick: {id}\""),
                         Step::Reference { refname } => {
                             format!("label=\"reference: {}\"", refname.as_bstr())
                         }
@@ -200,7 +200,7 @@ fn format_step(step: &Step, title: Option<String>) -> String {
             let mut sha = id.to_string();
             sha.truncate(7);
             match title {
-                Some(t) => format!("{} {}", sha, t),
+                Some(t) => format!("{sha} {t}"),
                 None => sha,
             }
         }
@@ -525,7 +525,7 @@ mod tests {
 
     fn make_ref(name: &str) -> Step {
         Step::Reference {
-            refname: gix::refs::FullName::try_from(format!("refs/heads/{}", name)).unwrap(),
+            refname: gix::refs::FullName::try_from(format!("refs/heads/{name}")).unwrap(),
         }
     }
 

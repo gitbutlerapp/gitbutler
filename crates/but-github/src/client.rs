@@ -38,8 +38,7 @@ impl GitHubClient {
             account_id.client(&access_token)
         } else {
             Err(anyhow::anyhow!(
-                "No GitHub access token found for account '{}'.\nRun 'but config forge auth' to re-authenticate.",
-                account_id
+                "No GitHub access token found for account '{account_id}'.\nRun 'but config forge auth' to re-authenticate."
             ))
         }
     }
@@ -119,7 +118,7 @@ impl GitHubClient {
                 ("state", "open"),
                 ("sort", "updated"),
                 ("direction", "desc"),
-                ("per_page", "20"),
+                ("per_page", "100"),
             ])
             .send()
             .await?;
@@ -233,6 +232,39 @@ impl GitHubClient {
         let pr: GitHubPullRequest = response.json().await?;
         Ok(pr.into())
     }
+
+    pub async fn merge_pull_request(&self, params: &MergePullRequestParams<'_>) -> Result<()> {
+        #[derive(Serialize)]
+        struct MergePullRequestBody<'a> {
+            #[serde(skip_serializing_if = "Option::is_none")]
+            commit_title: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            commit_message: Option<&'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            merge_method: Option<&'a str>,
+        }
+
+        let url = format!(
+            "{}/repos/{}/{}/pulls/{}/merge",
+            self.base_url, params.owner, params.repo, params.pr_number
+        );
+
+        let merge_method = params.merge_method.as_ref().map(Into::into);
+
+        let body = MergePullRequestBody {
+            commit_title: params.commit_title,
+            commit_message: params.commit_message,
+            merge_method,
+        };
+
+        let response = self.client.put(&url).json(&body).send().await?;
+
+        if !response.status().is_success() {
+            bail!("Failed to merge pull request: {}", response.status());
+        }
+
+        Ok(())
+    }
 }
 
 pub struct CreatePullRequestParams<'a> {
@@ -253,6 +285,35 @@ pub struct UpdatePullRequestParams<'a> {
     pub body: Option<&'a str>,
     pub base: Option<&'a str>,
     pub state: Option<&'a str>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum MergeMethod {
+    #[default]
+    Merge,
+    Squash,
+    Rebase,
+}
+
+impl From<&MergeMethod> for &str {
+    fn from(val: &MergeMethod) -> Self {
+        match val {
+            MergeMethod::Merge => "merge",
+            MergeMethod::Rebase => "rebase",
+            MergeMethod::Squash => "squash",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MergePullRequestParams<'a> {
+    pub owner: &'a str,
+    pub repo: &'a str,
+    pub pr_number: i64,
+    pub commit_title: Option<&'a str>,
+    pub commit_message: Option<&'a str>,
+    pub merge_method: Option<MergeMethod>,
 }
 
 #[derive(Debug, Serialize)]
@@ -442,8 +503,7 @@ pub(crate) fn resolve_account(
             account
         } else {
             bail!(
-                "Preferred GitHub account '{}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account.",
-                account
+                "Preferred GitHub account '{account}' has not authenticated yet.\nRun 'but config forge auth' to authenticate, or choose another account."
             );
         }
     } else {

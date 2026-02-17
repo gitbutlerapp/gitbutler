@@ -37,3 +37,6 @@ gix.workspace = true
 parking_lot.workspace = true
 termtree = "0.5.1"
 uuid.workspace = true
+
+[lints]
+workspace = true
