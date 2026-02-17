@@ -113,6 +113,13 @@ members = [
     "crates/but-clap",
 
     ##
+    ### Utilities
+    ##
+    # Generate TypeScript types out of JSON schemas.
+    "crates/but-schema-gen",
+
+
+    ##
     ### Legacy
     ##
     # Crates that are from the first version of GitButler, using old data structures.
@@ -224,6 +231,7 @@ tempfile = "3.24"
 rand = "0.9.2"
 notify-rust = "4.11.7"
 git2-hooks = { version = "0.5.0" }
+inventory = "0.3"
 itertools = "0.14.0"
 dirs = "6.0.0"
 rmcp = { version = "0.9.1", default-features = false, features = [

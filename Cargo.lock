@@ -905,6 +905,7 @@ dependencies = [
  "gitbutler-user",
  "gix",
  "insta",
+ "inventory",
  "itertools 0.14.0",
  "open",
  "schemars 1.2.0",
@@ -1388,6 +1389,16 @@ dependencies = [
  "serde_json",
  "serde_regex",
  "uuid",
+]
+
+[[package]]
+name = "but-schema-gen"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-api",
+ "schemars 1.2.0",
+ "serde_json",
 ]
 
 [[package]]
@@ -5880,6 +5891,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "inventory"
+version = "0.3.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc61209c082fbeb19919bee74b176221b27223e27b65d781eb91af24eb1fb46e"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]
