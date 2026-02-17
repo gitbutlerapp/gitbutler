@@ -6,6 +6,44 @@ use anyhow::{Context, Result, anyhow, bail};
 
 use crate::http::create_client;
 
+/// Download a URL and return its contents as a string.
+pub(crate) fn download_to_string(url: &str) -> Result<String> {
+    let mut easy = create_client()?;
+
+    easy.url(url).with_context(|| format!("Failed to set URL: {url}"))?;
+
+    let buf = std::cell::RefCell::new(Vec::new());
+
+    {
+        let mut transfer = easy.transfer();
+        transfer
+            .write_function(|data| {
+                buf.borrow_mut().extend_from_slice(data);
+                Ok(data.len())
+            })
+            .context("Failed to set write function")?;
+
+        transfer
+            .perform()
+            .with_context(|| format!("Failed to download from {url}"))?;
+    }
+
+    let response_code = easy.response_code().context("Failed to get response code")?;
+    if response_code != 200 {
+        bail!("Download of {url} failed with HTTP status: {response_code}");
+    }
+
+    let effective_url = easy
+        .effective_url()
+        .context("Failed to get effective URL")?
+        .ok_or_else(|| anyhow!("Effective URL is missing"))?;
+
+    crate::release::validate_download_url(effective_url)
+        .with_context(|| format!("Download was redirected to an untrusted URL: {effective_url}"))?;
+
+    String::from_utf8(buf.into_inner()).context("Signature file is not valid UTF-8")
+}
+
 pub(crate) fn download_file(url: &str, dest: &Path) -> Result<()> {
     let mut easy = create_client()?;
 
