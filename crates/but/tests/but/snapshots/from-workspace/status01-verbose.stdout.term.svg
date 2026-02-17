@@ -2,6 +2,7 @@
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
+    .fg-blue { fill: #0000AA }
     .fg-cyan { fill: #00AAAA }
     .fg-green { fill: #00AA00 }
     .container {
@@ -10,7 +11,6 @@
     }
     .bold { font-weight: bold; }
     .italic { font-style: italic; }
-    .underline { text-decoration-line: underline; }
     .dimmed { opacity: 0.7; }
     tspan {
       font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
@@ -22,15 +22,15 @@
   <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
 
   <text xml:space="preserve" class="container fg">
-    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="underline">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>] </tspan>
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>] </tspan>
 </tspan>
     <tspan x="10px" y="46px"><tspan>┊     </tspan><tspan class="italic dimmed">no changes</tspan>
 </tspan>
     <tspan x="10px" y="64px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="underline">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>] </tspan><tspan> </tspan>
+    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>] </tspan><tspan> </tspan>
 </tspan>
-    <tspan x="10px" y="100px"><tspan>┊● </tspan><tspan class="underline">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-01 00:00:00 +0000</tspan><tspan>  </tspan>
+    <tspan x="10px" y="100px"><tspan>┊● </tspan><tspan class="fg-blue bold">94</tspan><tspan class="dimmed">77ae7</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-01 00:00:00 +0000</tspan><tspan>  </tspan>
 </tspan>
     <tspan x="10px" y="118px"><tspan>┊│     add A </tspan>
 </tspan>
@@ -38,9 +38,9 @@
 </tspan>
     <tspan x="10px" y="154px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="172px"><tspan>┊╭┄</tspan><tspan class="underline">h0</tspan><tspan> [</tspan><tspan class="fg-green bold">B</tspan><tspan>] </tspan><tspan> </tspan>
+    <tspan x="10px" y="172px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">h0</tspan><tspan> [</tspan><tspan class="fg-green bold">B</tspan><tspan>] </tspan><tspan> </tspan>
 </tspan>
-    <tspan x="10px" y="190px"><tspan>┊● </tspan><tspan class="underline">d3</tspan><tspan class="dimmed">e2ba3</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-01 00:00:00 +0000</tspan><tspan>  </tspan>
+    <tspan x="10px" y="190px"><tspan>┊● </tspan><tspan class="fg-blue bold">d3</tspan><tspan class="dimmed">e2ba3</tspan><tspan> author </tspan><tspan class="dimmed">2000-01-01 00:00:00 +0000</tspan><tspan>  </tspan>
 </tspan>
     <tspan x="10px" y="208px"><tspan>┊│     add B </tspan>
 </tspan>
