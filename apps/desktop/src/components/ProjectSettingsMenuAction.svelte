@@ -54,6 +54,8 @@
 				await fileService.showFileInFolder(project.path);
 			}),
 			shortcutService.on('open-in-terminal', async () => {
+				// TODO: once projectId is a project handle, it can be sent to the
+				// backend directly and we don't need to fetch.
 				const project = await projectsService.fetchProject(projectId);
 				if (!project) {
 					throw new Error(`Project not found: ${projectId}`);

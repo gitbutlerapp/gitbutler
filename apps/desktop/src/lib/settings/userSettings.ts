@@ -89,9 +89,8 @@ export function loadUserSettings(): Writable<Settings> {
 		obj = {};
 	}
 
-	// If no terminal was persisted, or the persisted one is the old 'auto' sentinel,
-	// resolve to the platform default.
-	if (!obj.defaultTerminal || obj.defaultTerminal.identifier === 'auto') {
+	// If no terminal was persisted, resolve to the platform default.
+	if (!obj.defaultTerminal) {
 		obj.defaultTerminal = defaultTerminalForPlatform();
 	}
 
