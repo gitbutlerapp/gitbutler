@@ -1,0 +1,63 @@
+{
+	"name": "@gitbutler/but-sdk",
+	"version": "0.0.1",
+	"description": "GitButler JS but SDK",
+	"main": "index.js",
+	"types": "index.d.ts",
+	"scripts": {
+		"artifacts": "napi artifacts",
+		"build:types": "cargo run -p but-schema-gen -- --output ./src/generated/index.d.ts",
+		"build:napi": "napi build --platform --release --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/.",
+		"build": "pnpm build:napi && pnpm build:types",
+		"build:debug": "napi build --platform --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir . --verbose",
+		"prepublishOnly": "napi prepublish -t npm",
+		"test": "node --test test/*.test.js",
+		"universal": "napi universal"
+	},
+	"napi": {
+		"binaryName": "gitbutler-sdk",
+		"targets": [
+			"x86_64-apple-darwin",
+			"aarch64-apple-darwin",
+			"x86_64-unknown-linux-gnu",
+			"x86_64-pc-windows-msvc"
+		]
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/gitbutlerapp/gitbutler.git",
+		"directory": "packages/but-sdk"
+	},
+	"keywords": [
+		"git",
+		"gitbutler",
+		"version-control",
+		"napi-rs",
+		"native"
+	],
+	"author": "GitButler <gitbutler@gitbutler.com>",
+	"license": "FSL-1.1-MIT",
+	"engines": {
+		"node": ">= 18"
+	},
+	"devDependencies": {
+		"@napi-rs/cli": "^3.5.1"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts",
+		"*.node"
+	],
+	"exports": {
+		".": {
+			"import": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			},
+			"require": {
+				"types": "./index.d.ts",
+				"default": "./index.js"
+			}
+		}
+	}
+}

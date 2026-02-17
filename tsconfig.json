@@ -10,5 +10,12 @@
 		"esModuleInterop": true
 	},
 	"include": ["**/*.js", "**/*.mjs"],
-	"exclude": ["**/.svelte-kit/", "**/build/", "**/dist/", "**/node_modules/", "**/target/"]
+	"exclude": [
+		"**/.svelte-kit/",
+		"**/build/",
+		"**/dist/",
+		"**/node_modules/",
+		"**/target/",
+		"packages/but-sdk/**/"
+	]
 }
