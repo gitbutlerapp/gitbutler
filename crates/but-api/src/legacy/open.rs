@@ -45,7 +45,13 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
 
     let mut cmd_errors = Vec::new();
 
-    for mut cmd in open::commands(target_url.path()) {
+    let url = if target_url.scheme() == "file" {
+        target_url.path()
+    } else {
+        target_url.as_str()
+    };
+
+    for mut cmd in open::commands(url) {
         let cleaned_vars = clean_env_vars(&[
             "APPDIR",
             "GDK_PIXBUF_MODULE_FILE",
