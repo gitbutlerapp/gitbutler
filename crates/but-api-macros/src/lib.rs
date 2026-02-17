@@ -32,6 +32,15 @@ use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 ///         - `gix::ObjectId` will be translated into `json::HexHash`.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
 ///     - It performs all **Parameter Transformations** of `func_json`.
+/// * `func_napi` (opt-in) for calls from Node.js via napi-rs, taking individual typed parameters and returning `napi::Result<serde_json::Value>`.
+///     - **Only generated when `napi` is specified**: `#[but_api(napi)]` or `#[but_api(napi, try_from = Foo)]`.
+///     - Gated behind `#[cfg(feature = "napi")]`.
+///     - **Parameter Transformation**
+///         - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` named `project_id`
+///         - `gix::ObjectId` / `HexHash` → `String` (hex-encoded)
+///         - `BString` → `String`
+///         - Other serde-compatible types → `serde_json::Value`
+///     - Automatically converts `anyhow::Error` → `napi::Error`.
 #[proc_macro_attribute]
 pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input_fn = parse_macro_input!(item as ItemFn);
@@ -160,6 +169,24 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         quote! { #fn_name(#(#call_arg_idents),*) }
     };
 
+    // Build napi-specific parameter list and conversions.
+    // For napi, Context → String (project_id), ObjectId/HexHash → String,
+    // BString → String, other serde types → serde_json::Value.
+    let napi_info = match build_napi_params(input.iter(), &json_ty_by_name) {
+        Ok(info) => info,
+        Err(err) => return err.into_compile_error().into(),
+    };
+
+    let napi_fn_params = &napi_info.params;
+    let napi_param_conversions = &napi_info.conversions;
+    let napi_call_arg_idents = &napi_info.call_arg_idents;
+
+    let napi_call_fn_args = if asyncness.is_some() {
+        quote! { #fn_name(#(#napi_call_arg_idents),*).await }
+    } else {
+        quote! { #fn_name(#(#napi_call_arg_idents),*) }
+    };
+
     // Struct name: <FunctionName>Params (PascalCase)
     let param_struct_name = format_ident!("{}Params", fn_name.to_string().to_case(Case::Pascal));
 
@@ -168,6 +195,12 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     // Cmd function name: <function_name>_json
     let fn_json_name = format_ident!("{}_json", fn_name);
+
+    // Napi function name: <function_name>_napi
+    let fn_napi_name = format_ident!("{}_napi", fn_name);
+
+    // Module name for tauri-renames, to keep the original function names.
+    let napi_mod_name = format_ident!("napi_{}", fn_name);
 
     // Module name for tauri-renames, to keep the original function names.
     let tauri_mod_name = format_ident!("tauri_{}", fn_name);
@@ -216,6 +249,75 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let legacy_cfg_if_json_mapping_is_used = if !json_ty_by_name.is_empty() {
         quote! { #[cfg(feature = "legacy")] }
+    } else {
+        quote! {}
+    };
+
+    // Compute the TypeScript return type name string for napi's ts_return_type attribute.
+    let ts_return_type_str = type_to_ts_name(&json_ty);
+
+    // The napi function needs `legacy` when json_ty_by_name is non-empty (Context parameter).
+    let napi_legacy_cfg = if !json_ty_by_name.is_empty() {
+        quote! { #[cfg(all(feature = "napi", feature = "legacy"))] }
+    } else {
+        quote! { #[cfg(feature = "napi")] }
+    };
+
+    // Build the napi function body.
+    // For async functions, we use an `async {}` block; for sync, a closure.
+    // Both return anyhow::Result to handle any error type uniformly.
+    let napi_body = if asyncness.is_some() {
+        quote! {
+            let __napi_body_result: ::anyhow::Result<::serde_json::Value> = async {
+                let result = #napi_call_fn_args?;
+                #convert_to_json_result_type
+                Ok(::serde_json::to_value(result)?)
+            }.await;
+            __napi_body_result.map_err(|e: ::anyhow::Error| {
+                let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
+                let message = ctx
+                    .message
+                    .map(|m| m.to_string())
+                    .unwrap_or_else(|| format!("{e:#}"));
+                napi::Error::new(napi::Status::GenericFailure, message)
+            })
+        }
+    } else {
+        quote! {
+            let __napi_body_result: ::anyhow::Result<::serde_json::Value> = (|| {
+                let result = #napi_call_fn_args?;
+                #convert_to_json_result_type
+                Ok(::serde_json::to_value(result)?)
+            })();
+            __napi_body_result.map_err(|e: ::anyhow::Error| {
+                let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
+                let message = ctx
+                    .message
+                    .map(|m| m.to_string())
+                    .unwrap_or_else(|| format!("{e:#}"));
+                napi::Error::new(napi::Status::GenericFailure, message)
+            })
+        }
+    };
+
+    let napi_fn_block = if opts.napi {
+        quote! {
+            /// napi function - strongly typed params, serde_json::Value output, automatic error conversion.
+            #napi_legacy_cfg
+            #[napi_derive::napi(ts_return_type = #ts_return_type_str)]
+            #vis #asyncness fn #fn_napi_name(
+                #(#napi_fn_params),*
+            ) -> napi::Result<::serde_json::Value> {
+                #(#napi_param_conversions);*
+                #napi_body
+            }
+
+            /// A module to re-export napi functions with the original function name.
+            #napi_legacy_cfg
+            pub mod #napi_mod_name {
+                pub use super::#fn_napi_name as #fn_name;
+            }
+        }
     } else {
         quote! {}
     };
@@ -269,6 +371,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             pub use super::#tauri_cmd_name as #tauri_orig_cmd_name;
         }
 
+        #napi_fn_block
     };
 
     expanded.into()
@@ -411,6 +514,9 @@ struct Options {
     /// It's `None` if the result type converts to JSON naturally.
     /// Otherwise, we convert to it.
     result_conversion: Option<ResultConversion>,
+    /// If `true`, generate a `_napi` function for Node.js bindings.
+    /// Enabled by writing `#[but_api(napi)]` or `#[but_api(napi, try_from = Foo)]`.
+    napi: bool,
 }
 
 struct ResultConversion {
@@ -425,10 +531,17 @@ struct ResultConversion {
 }
 
 fn parse_attrs_to_options(meta: syn::Meta, is_result_option: bool) -> Result<Options, syn::Error> {
+    let mut napi = false;
     let path = match meta {
         syn::Meta::Path(path) => {
-            // #[but_api(Foo)]
-            Some((FromMode::From, path))
+            if path.is_ident("napi") {
+                // #[but_api(napi)]
+                napi = true;
+                None
+            } else {
+                // #[but_api(Foo)]
+                Some((FromMode::From, path))
+            }
         }
         syn::Meta::NameValue(nv) => {
             if let (Some(ident), Expr::Path(path)) = (&nv.path.get_ident(), &nv.value) {
@@ -449,8 +562,25 @@ fn parse_attrs_to_options(meta: syn::Meta, is_result_option: bool) -> Result<Opt
             }
         }
         syn::Meta::List(list) => {
-            // #[api_cmd_tauri(key, other, try_from = Foo)]
-            panic!("Currently unsupported: {list:?}")
+            // #[but_api(napi, try_from = Foo)] or #[but_api(napi, Foo)]
+            let mut conversion_path = None;
+            list.parse_nested_meta(|nested| {
+                if nested.path.is_ident("napi") {
+                    napi = true;
+                    Ok(())
+                } else if nested.path.is_ident("try_from") {
+                    // try_from = Foo
+                    let value = nested.value()?;
+                    let path: syn::Path = value.parse()?;
+                    conversion_path = Some((FromMode::TryFrom, path));
+                    Ok(())
+                } else {
+                    // Bare path like `Foo` → FromMode::From
+                    conversion_path = Some((FromMode::From, nested.path.clone()));
+                    Ok(())
+                }
+            })?;
+            conversion_path
         }
     };
 
@@ -473,7 +603,10 @@ fn parse_attrs_to_options(meta: syn::Meta, is_result_option: bool) -> Result<Opt
             json_ty_rval: rval_ty,
         }
     });
-    Ok(Options { result_conversion })
+    Ok(Options {
+        result_conversion,
+        napi,
+    })
 }
 
 /// Detect `Result<Option<` type
@@ -490,5 +623,289 @@ fn is_result_option(ty: &syn::Type) -> bool {
         true
     } else {
         false
+    }
+}
+
+/// Information about the napi-specific parameters for a function.
+struct NapiParamsInfo {
+    /// The napi-compatible function parameters.
+    params: Vec<proc_macro2::TokenStream>,
+    /// Code to convert napi parameters into the types the original function expects.
+    conversions: Vec<proc_macro2::TokenStream>,
+    /// The identifiers to pass to the original function call (may include `&` or `&mut`).
+    call_arg_idents: Vec<proc_macro2::TokenStream>,
+}
+
+/// Build napi-compatible parameter lists and conversions.
+///
+/// For napi, we need to map Rust types to types that napi-rs can handle:
+/// - `Context`/`&Context`/`&mut Context`/`ThreadSafeContext` → `String` (project_id)
+/// - `gix::ObjectId` → `String` (hex-encoded)
+/// - `json::HexHash` → `String` (hex-encoded)
+/// - `BString` → `String`
+/// - Other types that implement Serialize/Deserialize → `serde_json::Value`
+fn build_napi_params<'a>(
+    input: impl IntoIterator<Item = &'a syn::FnArg>,
+    json_ty_by_name: &HashMap<String, JsonParameterMapping>,
+) -> Result<NapiParamsInfo, syn::Error> {
+    let mut params = Vec::new();
+    let mut conversions = Vec::new();
+    let mut call_arg_idents = Vec::new();
+
+    for arg in input {
+        let syn::FnArg::Typed(pat_ty) = arg else {
+            continue;
+        };
+        let Pat::Ident(pat_ident) = &*pat_ty.pat else {
+            return Err(syn::Error::new_spanned(
+                &pat_ty.pat,
+                "Cannot handle this pattern in napi generation",
+            ));
+        };
+        let ident = &pat_ident.ident;
+
+        // Check if this parameter has a json type mapping (Context, ObjectId)
+        if let Some(mapping) = json_ty_by_name.get(&ident.to_string()) {
+            let param_name = mapping.json_ident.as_ref().unwrap_or(ident);
+            let last_segment = mapping.json_ty.segments.last().unwrap();
+            let last_ident = &last_segment.ident;
+
+            if *last_ident == "LegacyProjectId" {
+                // Context → String project_id, then convert to Context
+                params.push(quote! { #param_name: String });
+                // Determine the actual type we need to produce (stripping references)
+                let actual_ty = match &*pat_ty.ty {
+                    syn::Type::Reference(r) => &*r.elem,
+                    other => other,
+                };
+                conversions.push(quote! {
+                    let project_id: but_ctx::LegacyProjectId = #param_name.parse()
+                        .map_err(|e: <but_ctx::LegacyProjectId as ::std::str::FromStr>::Err| {
+                            napi::Error::new(napi::Status::InvalidArg, format!("{e:#}"))
+                        })?;
+                    let mut #ident = <#actual_ty>::try_from(project_id)
+                        .map_err(|e: anyhow::Error| napi::Error::new(napi::Status::GenericFailure, format!("{e:#}")))?;
+                });
+                // Pass as reference if original was a reference
+                let call_ident = match &*pat_ty.ty {
+                    syn::Type::Reference(r) => {
+                        let mutability = &r.mutability;
+                        quote! { &#mutability #ident }
+                    }
+                    _ => quote! { #ident },
+                };
+                call_arg_idents.push(call_ident);
+            } else if *last_ident == "HexHash" {
+                // ObjectId via HexHash → String, then parse
+                params.push(quote! { #param_name: String });
+                conversions.push(quote! {
+                    let #ident = ::std::str::FromStr::from_str(&#param_name)
+                        .map_err(|e: gix::hash::decode::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                });
+                let call_ident = match &*pat_ty.ty {
+                    syn::Type::Reference(r) => {
+                        let mutability = &r.mutability;
+                        quote! { &#mutability #ident }
+                    }
+                    _ => quote! { #ident },
+                };
+                call_arg_idents.push(call_ident);
+            } else {
+                // Fallback: use serde_json::Value with ts_arg_type for proper TS typing
+                let ts_type_str = type_to_ts_name(&pat_ty.ty);
+                params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #param_name: ::serde_json::Value });
+                let actual_ty = match &*pat_ty.ty {
+                    syn::Type::Reference(r) => &*r.elem,
+                    other => other,
+                };
+                conversions.push(quote! {
+                    let mut #ident: #actual_ty = ::serde_json::from_value(#param_name)
+                        .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                });
+                let call_ident = match &*pat_ty.ty {
+                    syn::Type::Reference(r) => {
+                        let mutability = &r.mutability;
+                        quote! { &#mutability #ident }
+                    }
+                    _ => quote! { #ident },
+                };
+                call_arg_idents.push(call_ident);
+            }
+        } else {
+            // No json mapping — use the original type information
+            let ty = &*pat_ty.ty;
+            let (base_ty, is_ref) = match ty {
+                syn::Type::Reference(r) => (&*r.elem, true),
+                other => (other, false),
+            };
+
+            // Check for known types that need special napi handling
+            let type_name = type_last_segment_name(base_ty);
+            match type_name.as_deref() {
+                Some("BString") => {
+                    params.push(quote! { #ident: String });
+                    conversions.push(quote! {
+                        let #ident: bstr::BString = #ident.into();
+                    });
+                    if is_ref {
+                        call_arg_idents.push(quote! { &#ident });
+                    } else {
+                        call_arg_idents.push(quote! { #ident });
+                    }
+                }
+                Some("HexHash") => {
+                    // json::HexHash used directly as parameter (not via ObjectId mapping)
+                    params.push(quote! { #ident: String });
+                    conversions.push(quote! {
+                        let #ident: crate::json::HexHash = ::std::str::FromStr::from_str(&#ident)
+                            .map(crate::json::HexHash)
+                            .map_err(|e: gix::hash::decode::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                    });
+                    call_arg_idents.push(quote! { #ident });
+                }
+                _ => {
+                    // For all other types: check for napi-incompatible types first
+                    if let Some((napi_ty, cast_expr)) = napi_type_remap(base_ty) {
+                        // Type needs remapping (e.g., usize → i64)
+                        params.push(quote! { #ident: #napi_ty });
+                        conversions.push(quote! {
+                            let #ident = #ident #cast_expr;
+                        });
+                        call_arg_idents.push(quote! { #ident });
+                    } else if is_simple_napi_type(base_ty) {
+                        // Simple types (String, bool, numbers) can be passed directly
+                        params.push(quote! { #ident: #ty });
+                        call_arg_idents.push(quote! { #ident });
+                    } else {
+                        // Complex types → serde_json::Value with ts_arg_type for proper TS typing
+                        let ts_type_str = type_to_ts_name(ty);
+                        params.push(quote! { #[napi(ts_arg_type = #ts_type_str)] #ident: ::serde_json::Value });
+                        conversions.push(quote! {
+                            let #ident: #base_ty = ::serde_json::from_value(#ident)
+                                .map_err(|e| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                        });
+                        if is_ref {
+                            call_arg_idents.push(quote! { &#ident });
+                        } else {
+                            call_arg_idents.push(quote! { #ident });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(NapiParamsInfo {
+        params,
+        conversions,
+        call_arg_idents,
+    })
+}
+
+/// Get the last segment name of a type path, if it is a simple path.
+fn type_last_segment_name(ty: &syn::Type) -> Option<String> {
+    if let syn::Type::Path(tp) = ty {
+        tp.path.segments.last().map(|s| s.ident.to_string())
+    } else {
+        None
+    }
+}
+
+/// Check if a type is "simple" enough to pass directly to napi without serde_json::Value.
+/// This includes primitive types and String.
+fn is_simple_napi_type(ty: &syn::Type) -> bool {
+    let Some(name) = type_last_segment_name(ty) else {
+        return false;
+    };
+    matches!(
+        name.as_str(),
+        "String" | "bool" | "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "i64" | "f32" | "f64"
+    )
+}
+
+/// Check if a Rust type needs to be remapped for napi compatibility.
+/// Returns Some(napi_type, conversion_code) if the type needs remapping.
+fn napi_type_remap(ty: &syn::Type) -> Option<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+    let name = type_last_segment_name(ty)?;
+    match name.as_str() {
+        // napi doesn't support usize/isize — remap to i64
+        "usize" => Some((quote! { i64 }, quote! { as usize })),
+        "isize" => Some((quote! { i64 }, quote! { as isize })),
+        _ => None,
+    }
+}
+
+/// Convert a Rust `syn::Type` to a TypeScript type name string.
+///
+/// This produces a string suitable for napi-rs's `ts_return_type` attribute
+/// and for schema registration names.
+fn type_to_ts_name(ty: &syn::Type) -> String {
+    match ty {
+        syn::Type::Path(tp) => {
+            let segments: Vec<_> = tp.path.segments.iter().collect();
+            if segments.is_empty() {
+                return "any".to_string();
+            }
+            let last = segments.last().unwrap();
+            let name = last.ident.to_string();
+
+            match name.as_str() {
+                // Primitive type mappings
+                "String" | "str" => "string".to_string(),
+                "bool" => "boolean".to_string(),
+                "u8" | "u16" | "u32" | "i8" | "i16" | "i32" | "f32" | "f64" | "usize" | "isize" => "number".to_string(),
+                "i64" | "u64" | "i128" | "u128" => "number".to_string(),
+                // Unit type
+                "()" => "void".to_string(),
+                // Generic containers
+                "Vec" => {
+                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
+                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+                    {
+                        let inner_name = type_to_ts_name(inner);
+                        return format!("Array<{inner_name}>");
+                    }
+                    "Array<any>".to_string()
+                }
+                "Option" => {
+                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments
+                        && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
+                    {
+                        let inner_name = type_to_ts_name(inner);
+                        return format!("{inner_name} | null");
+                    }
+                    "any | null".to_string()
+                }
+                "HashMap" | "BTreeMap" => {
+                    if let syn::PathArguments::AngleBracketed(args) = &last.arguments {
+                        let mut iter = args.args.iter();
+                        if let (Some(syn::GenericArgument::Type(k)), Some(syn::GenericArgument::Type(v))) =
+                            (iter.next(), iter.next())
+                        {
+                            let key_name = type_to_ts_name(k);
+                            let val_name = type_to_ts_name(v);
+                            return format!("Record<{key_name}, {val_name}>");
+                        }
+                    }
+                    "Record<string, any>".to_string()
+                }
+                // Tuple of two elements (e.g., (HexHash, HexHash))
+                "HexHash" | "HexHashString" => "string".to_string(),
+                "ObjectId" => "string".to_string(),
+                "BString" => "string".to_string(),
+                // Named types — use their name as-is (these will be defined in the generated .d.ts)
+                other => other.to_string(),
+            }
+        }
+        syn::Type::Tuple(tuple) => {
+            if tuple.elems.is_empty() {
+                "void".to_string()
+            } else {
+                let inner: Vec<_> = tuple.elems.iter().map(type_to_ts_name).collect();
+                format!("[{}]", inner.join(", "))
+            }
+        }
+        syn::Type::Reference(r) => type_to_ts_name(&r.elem),
+        _ => "any".to_string(),
     }
 }

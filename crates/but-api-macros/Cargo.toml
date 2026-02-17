@@ -11,8 +11,9 @@ proc-macro = true
 doctest = false
 
 [dependencies]
-syn = "2"
+syn = { version = "2", features = ["full", "extra-traits"] }
 quote = "1"
+proc-macro2 = "1"
 convert_case = "0.10.0"
 
 [lints]
