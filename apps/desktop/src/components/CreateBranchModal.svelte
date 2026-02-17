@@ -260,7 +260,7 @@
 			<span class="text-12 text-body footer-text"
 				>See more: <Link
 					href="https://docs.gitbutler.com/features/branch-management/stacked-branches"
-					>Stacked vs. Dependent</Link
+					>Stacked vs. Independent</Link
 				></span
 			>
 
