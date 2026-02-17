@@ -376,7 +376,7 @@ fn handle_dry_run(ctx: &mut Context, branch_id: &Option<String>, out: &mut Outpu
                     "Branch:".bold(),
                     info.branch_name.cyan().bold(),
                     "↑".dimmed(),
-                    format!("(on top of {})", stacked_on).blue()
+                    format!("(on top of {stacked_on})").blue()
                 )?;
             } else {
                 writeln!(

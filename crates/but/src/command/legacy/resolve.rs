@@ -492,62 +492,62 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
     let mut progress = out.progress_channel();
 
     // We have conflicts - show them grouped by branch
-    writeln!(progress, "{}", "Found conflicted commits:".yellow().bold())?;
-    writeln!(progress)?;
-
-    let mut all_commits: Vec<&ConflictedCommit> = vec![];
-
-    for (branch_name, commits) in &conflicts_by_branch {
-        writeln!(progress, "{} {}", "Branch:".bold(), branch_name.green())?;
-        for commit in commits {
-            writeln!(
-                progress,
-                "  {} {} {}",
-                "●".red(),
-                commit.commit_short_id.dimmed(),
-                commit.commit_message
-            )?;
-            all_commits.push(commit);
-        }
+    if out.for_human().is_some() {
+        writeln!(progress, "{}", "Found conflicted commits:".yellow().bold())?;
         writeln!(progress)?;
-    }
 
-    // Prompt user to select a commit to resolve
-    writeln!(
-        progress,
-        "{}",
-        "Would you like to start resolving these conflicts?".bold()
-    )?;
+        let mut all_commits: Vec<&ConflictedCommit> = vec![];
 
-    // Find the bottom-most commit (first in topological order) on the first branch
-    let default_commit = all_commits.first();
+        for (branch_name, commits) in &conflicts_by_branch {
+            writeln!(progress, "{} {}", "Branch:".bold(), branch_name.green())?;
+            for commit in commits {
+                writeln!(
+                    progress,
+                    "  {} {} {}",
+                    "●".red(),
+                    commit.commit_short_id.dimmed(),
+                    commit.commit_message
+                )?;
+                all_commits.push(commit);
+            }
+            writeln!(progress)?;
+        }
 
-    // Interactive prompting only for human output mode with terminal
-    if out.can_prompt()
-        && let Some(default) = default_commit
-    {
-        write!(
+        // Prompt user to select a commit to resolve
+        writeln!(
             progress,
-            "Enter commit ID to resolve [default: {}]: ",
-            default.commit_short_id.cyan()
+            "{}",
+            "Would you like to start resolving these conflicts?".bold()
         )?;
 
-        let mut response = String::new();
-        std::io::stdin().read_line(&mut response)?;
-        let response = response.trim();
+        // Find the bottom-most commit (first in topological order) on the first branch
+        let default_commit = all_commits.first();
 
-        let commit_id_to_resolve = if response.is_empty() {
-            default.commit_short_id.clone()
-        } else {
-            response.to_string()
-        };
+        // Interactive prompting only for human output mode with terminal
+        if out.can_prompt()
+            && let Some(default) = default_commit
+        {
+            write!(
+                progress,
+                "Enter commit ID to resolve [default: {}]: ",
+                default.commit_short_id.cyan()
+            )?;
 
-        // Enter resolution mode for the selected commit
-        writeln!(progress)?;
-        return enter_resolution(ctx, out, &commit_id_to_resolve);
-    }
+            let mut response = String::new();
+            std::io::stdin().read_line(&mut response)?;
+            let response = response.trim();
 
-    if let Some(json_out) = out.for_json() {
+            let commit_id_to_resolve = if response.is_empty() {
+                default.commit_short_id.clone()
+            } else {
+                response.to_string()
+            };
+
+            // Enter resolution mode for the selected commit
+            writeln!(progress)?;
+            return enter_resolution(ctx, out, &commit_id_to_resolve);
+        }
+    } else if let Some(json_out) = out.for_json() {
         // JSON output mode
         let mut json_conflicts = serde_json::Map::new();
 
