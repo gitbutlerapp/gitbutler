@@ -190,7 +190,7 @@ jobs:
             gir1.2-javascriptcoregtk-4.1="$webkit_version" \
             gir1.2-webkit2-4.1="$webkit_version";
 
-      - uses: actions/download-artifact@v7.0.0
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         name: Download SvelteKit build output
         with:
           name: sveltekit-build
@@ -266,7 +266,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -296,7 +296,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download ev-signed artifacts
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -349,7 +349,7 @@ jobs:
         shell: bash
         run: rm -rf release
       - name: Download unsigned artifacts
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
@@ -413,7 +413,7 @@ jobs:
             echo "artifact_suffix=" >> $GITHUB_ENV
           fi
       - name: Download artifacts
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}${{ env.artifact_suffix }}-${{ github.run_number }}'
           path: release
