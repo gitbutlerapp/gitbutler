@@ -102,6 +102,7 @@ enum MenuAction {
     Cancel,
     WordWrap,
     ShowHelp,
+    ShowAbout,
 }
 
 const MENU_TITLES: &[&str] = &["File", "View", "Help"];
@@ -116,17 +117,40 @@ fn menu_items(menu_index: usize) -> &'static [MenuItem] {
 }
 
 static FILE_MENU: [MenuItem; 3] = [
-    MenuItem { label: "Save", shortcut: "Ctrl+S", action: MenuAction::Save },
-    MenuItem { label: "Save & Quit", shortcut: "Ctrl+Q", action: MenuAction::SaveAndQuit },
-    MenuItem { label: "Cancel", shortcut: "Esc", action: MenuAction::Cancel },
+    MenuItem {
+        label: "Save",
+        shortcut: "Ctrl+S",
+        action: MenuAction::Save,
+    },
+    MenuItem {
+        label: "Save & Quit",
+        shortcut: "Ctrl+Q",
+        action: MenuAction::SaveAndQuit,
+    },
+    MenuItem {
+        label: "Cancel",
+        shortcut: "Esc",
+        action: MenuAction::Cancel,
+    },
 ];
 
-static VIEW_MENU: [MenuItem; 1] = [
-    MenuItem { label: "Word Wrap", shortcut: "Alt+Z", action: MenuAction::WordWrap },
-];
+static VIEW_MENU: [MenuItem; 1] = [MenuItem {
+    label: "Word Wrap",
+    shortcut: "Alt+Z",
+    action: MenuAction::WordWrap,
+}];
 
-static HELP_MENU: [MenuItem; 1] = [
-    MenuItem { label: "Keyboard Shortcuts", shortcut: "", action: MenuAction::ShowHelp },
+static HELP_MENU: [MenuItem; 2] = [
+    MenuItem {
+        label: "Keyboard Shortcuts",
+        shortcut: "",
+        action: MenuAction::ShowHelp,
+    },
+    MenuItem {
+        label: "About",
+        shortcut: "",
+        action: MenuAction::ShowAbout,
+    },
 ];
 
 // ── Help overlay ─────────────────────────────────────────────────────────────
@@ -136,6 +160,18 @@ struct HelpOverlay {
 }
 
 impl Default for HelpOverlay {
+    fn default() -> Self {
+        Self { active: false }
+    }
+}
+
+// ── About overlay ────────────────────────────────────────────────────────────
+
+struct AboutOverlay {
+    active: bool,
+}
+
+impl Default for AboutOverlay {
     fn default() -> Self {
         Self { active: false }
     }
@@ -157,8 +193,9 @@ struct EditorApp {
     // Menus
     active_menu: Option<usize>,
     menu_item_index: usize,
-    // Help overlay
+    // Overlays
     help_overlay: HelpOverlay,
+    about_overlay: AboutOverlay,
     // Layout cache (set during render)
     editor_area: Rect,
     gutter_width: u16,
@@ -190,6 +227,7 @@ impl EditorApp {
             active_menu: None,
             menu_item_index: 0,
             help_overlay: HelpOverlay::default(),
+            about_overlay: AboutOverlay::default(),
             editor_area: Rect::default(),
             gutter_width: 4,
             highlight_save_hint: false,
@@ -291,7 +329,9 @@ impl EditorApp {
     fn execute_menu_action(&mut self, action: MenuAction) {
         self.active_menu = None;
         match action {
-            MenuAction::Save => { self.save_on_quit = true; /* save handled externally */ }
+            MenuAction::Save => {
+                self.save_on_quit = true; /* save handled externally */
+            }
             MenuAction::SaveAndQuit => {
                 self.save_on_quit = true;
                 self.should_quit = true;
@@ -303,6 +343,9 @@ impl EditorApp {
             MenuAction::WordWrap => self.word_wrap = !self.word_wrap,
             MenuAction::ShowHelp => {
                 self.help_overlay.active = !self.help_overlay.active;
+            }
+            MenuAction::ShowAbout => {
+                self.about_overlay.active = !self.about_overlay.active;
             }
         }
     }
@@ -320,10 +363,20 @@ impl EditorApp {
 
         // If help overlay is active, any key dismisses it
         if self.help_overlay.active {
-            if let Event::Key(key) = ev {
-                if key.kind == KeyEventKind::Press {
-                    self.help_overlay.active = false;
-                }
+            if let Event::Key(key) = ev
+                && key.kind == KeyEventKind::Press
+            {
+                self.help_overlay.active = false;
+            }
+            return;
+        }
+
+        // If about overlay is active, any key dismisses it
+        if self.about_overlay.active {
+            if let Event::Key(key) = ev
+                && key.kind == KeyEventKind::Press
+            {
+                self.about_overlay.active = false;
             }
             return;
         }
@@ -355,11 +408,15 @@ impl EditorApp {
 
                     // ── Navigation ────────────────────────────────────
                     KeyCode::Up => {
-                        if self.cursor_row > 0 { self.cursor_row -= 1; }
+                        if self.cursor_row > 0 {
+                            self.cursor_row -= 1;
+                        }
                         self.clamp_cursor();
                     }
                     KeyCode::Down => {
-                        if self.cursor_row + 1 < self.lines.len() { self.cursor_row += 1; }
+                        if self.cursor_row + 1 < self.lines.len() {
+                            self.cursor_row += 1;
+                        }
                         self.clamp_cursor();
                     }
                     KeyCode::Left => {
@@ -393,11 +450,15 @@ impl EditorApp {
                         }
                     }
                     KeyCode::Home => {
-                        if ctrl { self.cursor_row = 0; }
+                        if ctrl {
+                            self.cursor_row = 0;
+                        }
                         self.cursor_col = 0;
                     }
                     KeyCode::End => {
-                        if ctrl { self.cursor_row = self.lines.len() - 1; }
+                        if ctrl {
+                            self.cursor_row = self.lines.len() - 1;
+                        }
                         self.cursor_col = self.lines[self.cursor_row].len();
                     }
                     KeyCode::PageUp => {
@@ -631,11 +692,7 @@ fn render(frame: &mut ratatui::Frame, app: &mut EditorApp) {
     // Layout: menu bar (1) | editor (fill) | status bar (1)
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Min(1),
-            Constraint::Length(1),
-        ])
+        .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
         .split(area);
 
     render_menu_bar(frame, app, chunks[0]);
@@ -650,6 +707,11 @@ fn render(frame: &mut ratatui::Frame, app: &mut EditorApp) {
     // Render help overlay if active
     if app.help_overlay.active {
         render_help_overlay(frame);
+    }
+
+    // Render about overlay if active
+    if app.about_overlay.active {
+        render_about_overlay(frame);
     }
 }
 
@@ -688,7 +750,11 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
     app.ensure_cursor_visible();
 
     // 72-char guide line position (only for commit message mode)
-    let guide_col = if app.mode == EditorMode::CommitMessage { Some(72) } else { None };
+    let guide_col = if app.mode == EditorMode::CommitMessage {
+        Some(72)
+    } else {
+        None
+    };
 
     for row_offset in 0..visible_rows {
         let line_idx = app.scroll_row + row_offset;
@@ -698,10 +764,7 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
         let gutter_area = Rect::new(area.x, y, app.gutter_width, 1);
         if line_idx < app.lines.len() {
             let num_str = format!("{:>width$} ", line_idx + 1, width = digits);
-            let gutter = Paragraph::new(Span::styled(
-                num_str,
-                Style::default().fg(LINE_NUM_FG).bg(LINE_NUM_BG),
-            ));
+            let gutter = Paragraph::new(Span::styled(num_str, Style::default().fg(LINE_NUM_FG).bg(LINE_NUM_BG)));
             frame.render_widget(gutter, gutter_area);
         } else {
             let gutter = Paragraph::new(Span::styled(
@@ -811,16 +874,11 @@ fn render_status_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
 
     let ctrl_q_hint = "Ctrl-Q to save ";
 
-    let padding = area
-        .width
-        .saturating_sub(left.len() as u16 + ctrl_q_hint.len() as u16);
+    let padding = area.width.saturating_sub(left.len() as u16 + ctrl_q_hint.len() as u16);
 
     let line = Line::from(vec![
         Span::styled(&left, Style::default().fg(STATUS_BAR_FG).bg(STATUS_BAR_BG)),
-        Span::styled(
-            " ".repeat(padding as usize),
-            Style::default().bg(STATUS_BAR_BG),
-        ),
+        Span::styled(" ".repeat(padding as usize), Style::default().bg(STATUS_BAR_BG)),
         Span::styled(ctrl_q_hint, ctrl_q_style),
     ]);
     frame.render_widget(Paragraph::new(line), area);
@@ -847,12 +905,7 @@ fn render_dropdown(frame: &mut ratatui::Frame, app: &EditorApp, menu_index: usiz
     for (i, item) in items.iter().enumerate() {
         let shortcut_len = item.shortcut.len();
         let label_space = inner_width.saturating_sub(shortcut_len + 4);
-        let text = format!(
-            "  {:<width$}  {}",
-            item.label,
-            item.shortcut,
-            width = label_space,
-        );
+        let text = format!("  {:<width$}  {}", item.label, item.shortcut, width = label_space,);
         let style = if i == app.menu_item_index {
             Style::default().fg(DROPDOWN_FG).bg(DROPDOWN_HIGHLIGHT_BG)
         } else {
@@ -881,7 +934,10 @@ fn render_help_overlay(frame: &mut ratatui::Frame) {
     frame.render_widget(Clear, rect);
 
     let help_text = vec![
-        Line::styled("  Keyboard Shortcuts", Style::default().fg(MENU_ACTIVE_BG).add_modifier(Modifier::BOLD)),
+        Line::styled(
+            "  Keyboard Shortcuts",
+            Style::default().fg(MENU_ACTIVE_BG).add_modifier(Modifier::BOLD),
+        ),
         Line::raw(""),
         Line::styled("  Ctrl+Q        Save & Quit", Style::default().fg(DROPDOWN_FG)),
         Line::styled("  Ctrl+S        Save", Style::default().fg(DROPDOWN_FG)),
@@ -902,16 +958,46 @@ fn render_help_overlay(frame: &mut ratatui::Frame) {
     frame.render_widget(help, rect);
 }
 
+fn render_about_overlay(frame: &mut ratatui::Frame) {
+    let screen = frame.area();
+    let width = 40u16.min(screen.width.saturating_sub(4));
+    let height = 7u16.min(screen.height.saturating_sub(4));
+    let x = (screen.width.saturating_sub(width)) / 2;
+    let y = (screen.height.saturating_sub(height)) / 2;
+    let rect = Rect::new(x, y, width, height);
+
+    frame.render_widget(Clear, rect);
+
+    let about_text = vec![
+        Line::raw(""),
+        Line::styled(
+            "  Made with ❤️ in Berlin",
+            Style::default().fg(DROPDOWN_FG).add_modifier(Modifier::BOLD),
+        ),
+        Line::styled(
+            "  by GitButler",
+            Style::default().fg(DROPDOWN_FG).add_modifier(Modifier::BOLD),
+        ),
+        Line::raw(""),
+        Line::styled("  Press any key to close", Style::default().fg(Color::DarkGray)),
+    ];
+
+    let about = Paragraph::new(about_text).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" About ")
+            .border_style(Style::default().fg(Color::Rgb(140, 140, 180)).bg(DROPDOWN_BG))
+            .style(Style::default().bg(DROPDOWN_BG)),
+    );
+    frame.render_widget(about, rect);
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /// Opens the built-in TUI text editor.
 ///
 /// Returns `Some(content)` if the user saved, or `None` if they cancelled.
-pub fn run_builtin_editor(
-    filename: &str,
-    initial_content: &str,
-    mode: EditorMode,
-) -> anyhow::Result<Option<String>> {
+pub fn run_builtin_editor(filename: &str, initial_content: &str, mode: EditorMode) -> anyhow::Result<Option<String>> {
     let mut guard = super::TerminalGuard::new(true)?;
     let mut app = EditorApp::new(filename, initial_content, mode);
 
