@@ -3,7 +3,7 @@ use but_ctx::Context;
 pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path: String) -> anyhow::Result<()> {
     let mut db = ctx.db.get_mut()?;
     let mut locks_mut = db.file_write_locks_mut();
-    let max_wait_time = std::time::Duration::from_secs(60 * 10);
+    let max_wait_time = std::time::Duration::from_secs(30);
     let start = std::time::Instant::now();
 
     loop {
@@ -11,10 +11,8 @@ pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path:
 
         if let Some(lock) = locks.into_iter().find(|l| l.path == file_path) {
             if lock.owner == session_id {
-                // We already own the lock, so we can proceed
                 return Ok(());
             } else {
-                // Another session owns the lock, wait and retry, but not indefinitely
                 if start.elapsed() > max_wait_time {
                     return Err(anyhow::anyhow!(
                         "Failed to obtain lock for {file_path} after waiting for {max_wait_time:?}"
@@ -23,7 +21,6 @@ pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path:
                 std::thread::sleep(std::time::Duration::from_secs(1));
             }
         } else {
-            // Create a lock entry
             let lock = but_db::FileWriteLock {
                 path: file_path.clone(),
                 created_at: chrono::Local::now().naive_local(),
@@ -44,16 +41,16 @@ pub fn clear(ctx: &mut Context, session_id: String, file_path: Option<String>) -
     let mut trans = db.transaction()?;
 
     let locks = trans.file_write_locks().list()?;
-    let locks_to_remove: Vec<_> = if let Some(path) = file_path {
+    let locks_to_remove: Vec<_> = if let Some(ref path) = file_path {
         locks
             .into_iter()
-            .filter(|l| l.path == path && l.owner == session_id)
+            .filter(|l| l.path == *path && l.owner == session_id)
             .collect()
     } else {
         locks.into_iter().filter(|l| l.owner == session_id).collect()
     };
 
-    for lock in locks_to_remove {
+    for lock in &locks_to_remove {
         trans
             .file_write_locks_mut()
             .delete(&lock.path)

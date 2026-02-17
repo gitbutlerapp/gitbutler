@@ -93,8 +93,18 @@ pub fn handle_session_stop(
     transcript_path: &str,
     skip_gui_check: bool,
 ) -> anyhow::Result<ClaudeHookOutput> {
+    let resolved_session_id = original_session_id(&mut ctx, session_id.to_string())?;
+
+    // ClearLocksGuard ensures all file locks for this session are cleared on drop,
+    // including early returns (no changes, GUI check, auto-commit disabled).
+    let mut defer = ClearLocksGuard {
+        ctx,
+        session_id: resolved_session_id.clone(),
+        file_path: None,
+    };
+
     let transcript = Transcript::from_file(Path::new(transcript_path))?;
-    let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
+    let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
 
     // This is a naive way of handling this case.
     // If the user simply asks a question and there are no changes, we don't need to create a stack
@@ -113,21 +123,13 @@ pub fn handle_session_stop(
     let summary = transcript.summary().unwrap_or_default();
     let prompt = transcript.prompt().unwrap_or_default();
 
-    if !skip_gui_check && should_exit_early(&mut ctx, session_id)? {
+    if !skip_gui_check && should_exit_early(&mut defer.ctx, session_id)? {
         return Ok(ClaudeHookOutput {
             do_continue: true,
             stop_reason: "Session running in GUI, skipping hook".to_string(),
             suppress_output: true,
         });
     }
-
-    let session_id = original_session_id(&mut ctx, session_id.to_string())?;
-
-    let mut defer = ClearLocksGuard {
-        ctx,
-        session_id: session_id.clone(),
-        file_path: None,
-    };
 
     if !defer.ctx.settings.claude.auto_commit_after_completion {
         return Ok(ClaudeHookOutput {
@@ -143,7 +145,7 @@ pub fn handle_session_stop(
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), &session_id, stacks)?;
+    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), &resolved_session_id, stacks)?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
     // lock so we need to drop this here to ensure we don't end up with a deadlock.
@@ -154,7 +156,7 @@ pub fn handle_session_stop(
         &summary,
         Some(prompt.clone()),
         ActionHandler::HandleChangesSimple,
-        Source::ClaudeCode(session_id.clone()),
+        Source::ClaudeCode(resolved_session_id.clone()),
         Some(stack_id),
     )?;
 
@@ -228,7 +230,7 @@ pub fn handle_session_stop(
 
             // Write commit notification messages to the database
             // These will be broadcasted by the main process after Claude completes
-            let session_uuid = uuid::Uuid::parse_str(&session_id)?;
+            let session_uuid = uuid::Uuid::parse_str(session_id)?;
             let commit_message =
                 crate::MessagePayload::GitButler(crate::GitButlerUpdate::CommitCreated(crate::CommitCreatedDetails {
                     stack_id: Some(branch.stack_id.to_string()),
@@ -356,7 +358,8 @@ pub fn lock_file_for_tool_call(
     file_path: &str,
 ) -> anyhow::Result<ClaudeHookOutput> {
     let mut ctx: Context = sync_ctx.into_thread_local();
-    file_lock::obtain_or_insert(&mut ctx, session_id.into(), file_path.to_string())?;
+    let resolved_session_id = original_session_id(&mut ctx, session_id.to_string())?;
+    file_lock::obtain_or_insert(&mut ctx, resolved_session_id, file_path.to_string())?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -387,7 +390,16 @@ pub fn assign_hunks_post_tool_call(
 ) -> anyhow::Result<ClaudeHookOutput> {
     let hook_headers: Vec<HunkHeader> = structured_patch.iter().map(|p| p.into()).collect();
 
-    if !skip_gui_check && should_exit_early(&mut ctx, session_id)? {
+    let resolved_session_id = original_session_id(&mut ctx, session_id.to_string())?;
+
+    // ClearLocksGuard ensures the file lock is cleared on drop, including early returns.
+    let mut defer = ClearLocksGuard {
+        ctx,
+        session_id: resolved_session_id.clone(),
+        file_path: Some(file_path.to_string()),
+    };
+
+    if !skip_gui_check && should_exit_early(&mut defer.ctx, session_id)? {
         return Ok(ClaudeHookOutput {
             do_continue: true,
             stop_reason: "Session running in GUI, skipping hook".to_string(),
@@ -395,24 +407,17 @@ pub fn assign_hunks_post_tool_call(
         });
     }
 
-    let relative_file_path = ctx.workdir_or_fail().ok().and_then(|worktree_dir| {
+    let relative_file_path = defer.ctx.workdir_or_fail().ok().and_then(|worktree_dir| {
         std::path::PathBuf::from(file_path)
             .strip_prefix(worktree_dir)
             .ok()
             .map(|rel| rel.to_string_lossy().to_string())
     });
 
-    let session_id = original_session_id(&mut ctx, session_id.to_string())?;
-    let mut defer = ClearLocksGuard {
-        ctx,
-        session_id: session_id.clone(),
-        file_path: Some(file_path.to_string()),
-    };
-
     let mut guard = defer.ctx.exclusive_worktree_access();
     let stacks = list_stacks(&defer.ctx)?;
 
-    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), &session_id, stacks)?;
+    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), &resolved_session_id, stacks)?;
 
     let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
     let context_lines = defer.ctx.settings.context_lines;
