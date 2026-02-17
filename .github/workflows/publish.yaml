@@ -333,8 +333,54 @@ jobs:
           if-no-files-found: error
           overwrite: true
 
+  sign-but:
+    needs: build-tauri
+    runs-on: ubuntu-latest
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # we currently only run this for Linux builds, as we only publish a standalone but binary for those
+          - platform: ubuntu-22.04 # [linux, x64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+    steps:
+      - name: Clean artifact directory
+        shell: bash
+        run: rm -rf release
+      - name: Download unsigned artifacts
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release
+      - name: Sign but binary with minisign
+        shell: bash
+        run: |
+          sudo apt-get update && sudo apt-get install -y minisign
+          but_file=$(find release -name "but" -type f -printf '%P\n')
+
+          echo "sign release/$but_file"
+          timestamp=$(date +%s)
+          TRUSTED_COMMENT="timestamp:$timestamp	file:$but_file"
+          UNTRUSTED_COMMENT="signature from tauri secret key"
+          echo "${{ secrets.TAURI_PRIVATE_KEY }}" | base64 -d > minisign.key
+          echo "${{ secrets.TAURI_KEY_PASSWORD }}" | minisign -S -s minisign.key -t "$TRUSTED_COMMENT" -c "$UNTRUSTED_COMMENT" -m "release/$but_file"
+
+          # there's no particularly good reason to base64 encode this file given its current usage, we do it only to
+          # be consistent with how we treat signatures (which are always base64 encoded at present)
+          base64 -w 0 < "release/$but_file.minisig" > "release/$but_file.sig"
+          rm "release/$but_file.minisig"
+          rm minisign.key
+      - name: Upload signed artifacts
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release/
+          if-no-files-found: error
+          overwrite: true
+
   publish-tauri:
-    needs: [sign-tauri, build-tauri]
+    needs: [sign-tauri, sign-but, build-tauri]
     runs-on: ubuntu-latest
     outputs:
       version: ${{ env.version }}

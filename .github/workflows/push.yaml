@@ -326,8 +326,7 @@ jobs:
     needs: changes
     if: ${{ needs.changes.outputs.install_script == 'true' || needs.changes.outputs.but_installer == 'true' }}
     runs-on: ubuntu-22.04
-    permissions:
-      contents: none
+    permissions: {}
     outputs:
       release_version: ${{ steps.fetch.outputs.release_version }}
       nightly_version: ${{ steps.fetch.outputs.nightly_version }}
