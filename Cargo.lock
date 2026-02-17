@@ -1415,6 +1415,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-schemars"
+version = "0.0.0"
+dependencies = [
+ "bstr",
+ "git2",
+ "gix",
+ "schemars 1.2.0",
+]
+
+[[package]]
 name = "but-secret"
 version = "0.0.0"
 dependencies = [
@@ -1598,6 +1608,7 @@ dependencies = [
  "but-meta",
  "but-oxidize",
  "but-rebase",
+ "but-schemars",
  "but-serde",
  "but-testsupport",
  "but-workspace",
@@ -1613,6 +1624,7 @@ dependencies = [
  "insta",
  "itertools 0.14.0",
  "md5",
+ "schemars 1.2.0",
  "serde",
  "tempfile",
  "tracing",

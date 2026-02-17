@@ -1,0 +1,23 @@
+[package]
+name = "but-schemars"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+legacy = ["dep:git2"]
+
+[dependencies]
+git2 = { workspace = true, optional = true }
+
+gix.workspace = true
+schemars.workspace = true
+bstr.workspace = true
+
+[lints]
+workspace = true
