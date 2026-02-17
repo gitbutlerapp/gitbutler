@@ -140,11 +140,7 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
         items.push(ListItem::new(Line::from(vec![
             Span::styled("╭┄", Style::default().fg(Color::DarkGray)),
             Span::styled(
-                "zz",
-                Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
-            ),
-            Span::styled(
-                " [unstaged changes]",
+                "unstaged changes",
                 Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
             ),
         ])));
@@ -166,18 +162,43 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
     }
 
     // Stacks & branches
-    let show_stack_names = app.stacks.len() > 1;
     for (si, stack) in app.stacks.iter().enumerate() {
-        if show_stack_names {
-            items.push(ListItem::new(Line::from(vec![Span::styled(
-                format!("── {} ──", stack.name),
-                Style::default()
-                    .fg(Color::Magenta)
-                    .add_modifier(Modifier::BOLD),
-            )])));
+        let has_staged = stack
+            .branches
+            .first()
+            .map_or(false, |b| !b.files.is_empty());
+        let first_branch_name = stack
+            .branches
+            .first()
+            .map(|b| b.name.clone())
+            .unwrap_or_default();
+
+        // Staged files header (shown above the branch)
+        if has_staged {
+            items.push(ListItem::new(Line::from(vec![
+                Span::styled("╭┄", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("staged to {first_branch_name}"),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ])));
+
+            for file in &stack.branches[0].files {
+                let path = file.path.to_str_lossy();
+                items.push(ListItem::new(Line::from(vec![
+                    Span::styled("┊   ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        path.into_owned(),
+                        Style::default().fg(Color::Yellow),
+                    ),
+                ])));
+            }
         }
+
         for (bi, branch) in stack.branches.iter().enumerate() {
-            let is_last_branch = bi == stack.branches.len() - 1;
+            let is_first_visual = bi == 0 && !has_staged;
 
             let no_commits_hint = if branch.commits.is_empty() {
                 " (no commits)"
@@ -185,10 +206,11 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
                 ""
             };
 
-            // Branch header: ┊╭┄xx [branch-name]
+            // Branch header: first visual item uses ╭┄, subsequent use ├┄
+            let prefix = if is_first_visual { "╭┄" } else { "├┄" };
             items.push(ListItem::new(Line::from(vec![
                 Span::styled(
-                    "┊╭┄",
+                    prefix,
                     Style::default().fg(Color::DarkGray),
                 ),
                 Span::styled(
@@ -203,16 +225,18 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
                 ),
             ])));
 
-            // Assigned files
-            for file in &branch.files {
-                let path = file.path.to_str_lossy();
-                items.push(ListItem::new(Line::from(vec![
-                    Span::styled("┊   ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(
-                        path.into_owned(),
-                        Style::default().fg(Color::Yellow),
-                    ),
-                ])));
+            // Assigned files (skip first branch files if shown in staged section)
+            if !(bi == 0 && has_staged) {
+                for file in &branch.files {
+                    let path = file.path.to_str_lossy();
+                    items.push(ListItem::new(Line::from(vec![
+                        Span::styled("┊   ", Style::default().fg(Color::DarkGray)),
+                        Span::styled(
+                            path.into_owned(),
+                            Style::default().fg(Color::Yellow),
+                        ),
+                    ])));
+                }
             }
 
             // Commits
@@ -231,26 +255,17 @@ fn render_status_panel(f: &mut Frame, app: &App, area: Rect) {
                     Span::raw(msg.to_string()),
                 ])));
             }
+        }
 
-            // Branch footer: ├╯ or last item
-            if !is_last_branch {
-                items.push(ListItem::new(Line::from(vec![
-                    Span::styled("├╯", Style::default().fg(Color::DarkGray)),
-                ])));
-            } else {
-                items.push(ListItem::new(Line::from(vec![
-                    Span::styled("├╯", Style::default().fg(Color::DarkGray)),
-                ])));
-            }
-
-            // Separator line after each branch
+        // Stack footer
+        if !stack.branches.is_empty() {
             items.push(ListItem::new(Line::from(vec![
-                Span::styled("┊", Style::default().fg(Color::DarkGray)),
+                Span::styled("╰╯", Style::default().fg(Color::DarkGray)),
             ])));
         }
 
-        // Extra separator between stacks
-        if si < app.stacks.len() - 1 {
+        // Separator between stacks
+        if si + 1 < app.stacks.len() {
             items.push(ListItem::new(Line::from("")));
         }
     }
@@ -393,6 +408,33 @@ fn build_status_details(app: &App) -> Vec<Line<'static>> {
                     ]),
                     Line::from(""),
                     Line::from(format!("{} hunk(s)", file.assignments.len())),
+                ]
+            } else {
+                vec![]
+            }
+        }
+        StatusItem::StagedHeader { stack } => {
+            if let Some(s) = app.stacks.get(stack) {
+                let branch_name = s
+                    .branches
+                    .first()
+                    .map(|b| b.name.clone())
+                    .unwrap_or_default();
+                let file_count = s
+                    .branches
+                    .first()
+                    .map(|b| b.files.len())
+                    .unwrap_or(0);
+                vec![
+                    Line::from(vec![
+                        Span::styled(
+                            "Staged to: ",
+                            Style::default().add_modifier(Modifier::BOLD),
+                        ),
+                        Span::styled(branch_name, Style::default().fg(Color::Blue)),
+                    ]),
+                    Line::from(""),
+                    Line::from(format!("{file_count} file(s) staged for next commit.")),
                 ]
             } else {
                 vec![]

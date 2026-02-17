@@ -405,16 +405,30 @@ impl App {
     pub fn count_status_items(&self) -> usize {
         let mut count = 0;
         if !self.unassigned_files.is_empty() {
-            count += 1 + self.unassigned_files.len();
+            count += 1 + self.unassigned_files.len(); // header + files
+            count += 1; // separator (┊ line)
         }
-        for stack in &self.stacks {
-            for branch in &stack.branches {
-                count += 1;
-                count += branch.files.len();
+        for (si, stack) in self.stacks.iter().enumerate() {
+            let has_staged = stack
+                .branches
+                .first()
+                .map_or(false, |b| !b.files.is_empty());
+            if has_staged {
+                count += 1; // staged header
+                count += stack.branches[0].files.len(); // staged files
+            }
+            for (bi, branch) in stack.branches.iter().enumerate() {
+                count += 1; // branch header
+                if !(bi == 0 && has_staged) {
+                    count += branch.files.len(); // files (skip first branch if staged)
+                }
                 count += branch.commits.len();
             }
             if !stack.branches.is_empty() {
-                count += 1;
+                count += 1; // stack footer (╰╯)
+            }
+            if si + 1 < self.stacks.len() {
+                count += 1; // blank line between stacks
             }
         }
         count
@@ -424,20 +438,36 @@ impl App {
         let mut pos = 0;
         if !self.unassigned_files.is_empty() {
             pos += 1 + self.unassigned_files.len();
-            if pos == idx {
-                return true;
+            if idx == pos {
+                return true; // separator after unassigned files
             }
             pos += 1;
         }
-        for stack in &self.stacks {
-            for branch in &stack.branches {
-                pos += 1;
-                pos += branch.files.len();
+        for (si, stack) in self.stacks.iter().enumerate() {
+            let has_staged = stack
+                .branches
+                .first()
+                .map_or(false, |b| !b.files.is_empty());
+            if has_staged {
+                pos += 1; // staged header
+                pos += stack.branches[0].files.len(); // staged files
+            }
+            for (bi, branch) in stack.branches.iter().enumerate() {
+                pos += 1; // branch header
+                if !(bi == 0 && has_staged) {
+                    pos += branch.files.len();
+                }
                 pos += branch.commits.len();
             }
             if !stack.branches.is_empty() {
-                if pos == idx {
-                    return true;
+                if idx == pos {
+                    return true; // stack footer (╰╯)
+                }
+                pos += 1;
+            }
+            if si + 1 < self.stacks.len() {
+                if idx == pos {
+                    return true; // blank line between stacks
                 }
                 pos += 1;
             }
@@ -600,6 +630,26 @@ impl App {
         }
 
         for (si, stack) in self.stacks.iter().enumerate() {
+            let has_staged = stack
+                .branches
+                .first()
+                .map_or(false, |b| !b.files.is_empty());
+            if has_staged {
+                if idx == pos {
+                    return Some(StatusItem::StagedHeader { stack: si });
+                }
+                pos += 1;
+                for (fi, _) in stack.branches[0].files.iter().enumerate() {
+                    if idx == pos {
+                        return Some(StatusItem::AssignedFile {
+                            stack: si,
+                            branch: 0,
+                            file: fi,
+                        });
+                    }
+                    pos += 1;
+                }
+            }
             for (bi, branch) in stack.branches.iter().enumerate() {
                 if idx == pos {
                     return Some(StatusItem::Branch {
@@ -608,15 +658,17 @@ impl App {
                     });
                 }
                 pos += 1;
-                for (fi, _) in branch.files.iter().enumerate() {
-                    if idx == pos {
-                        return Some(StatusItem::AssignedFile {
-                            stack: si,
-                            branch: bi,
-                            file: fi,
-                        });
+                if !(bi == 0 && has_staged) {
+                    for (fi, _) in branch.files.iter().enumerate() {
+                        if idx == pos {
+                            return Some(StatusItem::AssignedFile {
+                                stack: si,
+                                branch: bi,
+                                file: fi,
+                            });
+                        }
+                        pos += 1;
                     }
-                    pos += 1;
                 }
                 for (ci, _) in branch.commits.iter().enumerate() {
                     if idx == pos {
@@ -629,7 +681,12 @@ impl App {
                     pos += 1;
                 }
             }
-            pos += 1;
+            if !stack.branches.is_empty() {
+                pos += 1; // stack footer
+            }
+            if si + 1 < self.stacks.len() {
+                pos += 1; // blank line between stacks
+            }
         }
 
         None
@@ -640,6 +697,9 @@ impl App {
 pub(super) enum StatusItem {
     UnassignedHeader,
     UnassignedFile(usize),
+    StagedHeader {
+        stack: usize,
+    },
     Branch {
         stack: usize,
         branch: usize,
