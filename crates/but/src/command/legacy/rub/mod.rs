@@ -279,9 +279,9 @@ pub(crate) fn handle(
 fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
     format!(
         "Operation doesn't make sense. Source {} is {} and target {} is {}.",
-        source.to_short_string().blue().underline(),
+        source.to_short_string().blue().bold(),
         source.kind_for_humans().yellow(),
-        target.to_short_string().blue().underline(),
+        target.to_short_string().blue().bold(),
         target.kind_for_humans().yellow()
     )
 }
@@ -730,7 +730,7 @@ pub(crate) fn handle_uncommit(ctx: &mut Context, out: &mut OutputChannel, source
             _ => {
                 bail!(
                     "Cannot uncommit {} - it is {}. Only commits and files-in-commits can be uncommitted.",
-                    source_str.blue().underline(),
+                    source_str.blue().bold(),
                     source.kind_for_humans().yellow()
                 );
             }
@@ -762,7 +762,7 @@ pub(crate) fn handle_amend(
             _ => {
                 bail!(
                     "Cannot amend {} - it is {}. Only uncommitted files and hunks can be amended.",
-                    file.to_short_string().blue().underline(),
+                    file.to_short_string().blue().bold(),
                     file.kind_for_humans().yellow()
                 );
             }
@@ -777,7 +777,7 @@ pub(crate) fn handle_amend(
         other => {
             bail!(
                 "Cannot amend into {} - it is {}. Target must be a commit.",
-                other.to_short_string().blue().underline(),
+                other.to_short_string().blue().bold(),
                 other.kind_for_humans().yellow()
             );
         }
@@ -808,7 +808,7 @@ pub(crate) fn handle_stage(
             _ => {
                 bail!(
                     "Cannot stage {} - it is {}. Only uncommitted files and hunks can be staged.",
-                    file.to_short_string().blue().underline(),
+                    file.to_short_string().blue().bold(),
                     file.kind_for_humans().yellow()
                 );
             }
@@ -823,7 +823,7 @@ pub(crate) fn handle_stage(
         other => {
             bail!(
                 "Cannot stage to {} - it is {}. Target must be a branch.",
-                other.to_short_string().blue().underline(),
+                other.to_short_string().blue().bold(),
                 other.kind_for_humans().yellow()
             );
         }
@@ -852,7 +852,7 @@ pub(crate) fn handle_stage_tui(
             other => {
                 bail!(
                     "Cannot stage to {} - it is {}. Target must be a branch.",
-                    other.to_short_string().blue().underline(),
+                    other.to_short_string().blue().bold(),
                     other.kind_for_humans().yellow()
                 );
             }
@@ -950,7 +950,7 @@ pub(crate) fn handle_unstage(
             _ => {
                 bail!(
                     "Cannot unstage {} - it is {}. Only uncommitted files and hunks can be unstaged.",
-                    file.to_short_string().blue().underline(),
+                    file.to_short_string().blue().bold(),
                     file.kind_for_humans().yellow()
                 );
             }
@@ -967,7 +967,7 @@ pub(crate) fn handle_unstage(
             other => {
                 bail!(
                     "Cannot unstage from {} - it is {}. Target must be a branch.",
-                    other.to_short_string().blue().underline(),
+                    other.to_short_string().blue().bold(),
                     other.kind_for_humans().yellow()
                 );
             }

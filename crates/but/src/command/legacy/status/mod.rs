@@ -464,7 +464,7 @@ fn print_assignments(
 
     let id = stack
         .and_then(|s| id_map.resolve_stack(s))
-        .map(|s| s.to_short_string().underline().blue())
+        .map(|s| s.to_short_string().bold().blue())
         .unwrap_or_default();
 
     if !unstaged && !assignments.is_empty() {
@@ -497,7 +497,7 @@ fn print_assignments(
 
         let cli_id = &fa.assignments[0].cli_id;
         let pad = max_id_width.saturating_sub(cli_id.len());
-        let id = format!("{:pad$}{}", "", cli_id.underline().blue());
+        let id = format!("{:pad$}{}", "", cli_id.bold().blue());
 
         let mut locks = fa
             .assignments
@@ -507,7 +507,7 @@ fn print_assignments(
             .map(|l| l.commit_id.to_string())
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
-            .map(|commit_id| format!("{}{}", commit_id[..2].blue().underline(), commit_id[2..7].blue()))
+            .map(|commit_id| format!("{}{}", commit_id[..2].blue().bold(), commit_id[2..7].blue()))
             .collect::<Vec<_>>()
             .join(", ");
 
@@ -548,7 +548,7 @@ pub fn print_group(
     if let Some(stack_with_id) = stack_with_id {
         let mut first = true;
         for segment in &stack_with_id.segments {
-            let id = segment.short_id.underline().blue();
+            let id = segment.short_id.bold().blue();
             let notch = if first { "╭" } else { "├" };
             if !first {
                 writeln!(out, "┊│")?;
@@ -677,7 +677,7 @@ pub fn print_group(
             }
         }
     } else {
-        let id = id_map.unassigned().to_short_string().underline().blue();
+        let id = id_map.unassigned().to_short_string().bold().blue();
         writeln!(
             out,
             "╭┄{} [{}] {}",
@@ -823,7 +823,7 @@ fn print_commit(
         match commit_changes {
             CommitChanges::Workspace(tree_changes) => {
                 for TreeChangeWithId { short_id, inner } in tree_changes {
-                    let cid = short_id.blue().underline();
+                    let cid = short_id.blue().bold();
                     writeln!(out, "┊│     {cid} {}", inner.display_cli(false))?;
                 }
             }
@@ -861,7 +861,7 @@ fn display_cli_commit_details(
         let commit_id = commit.id.to_string();
         commit_id[short_id.len()..7].dimmed().to_string()
     };
-    let start_id = short_id.blue().underline();
+    let start_id = short_id.blue().bold();
 
     let conflicted_str = if commit.has_conflicts {
         " {conflicted}".red()

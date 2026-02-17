@@ -130,7 +130,7 @@ fn handle_multi_commit_squash(
             other => {
                 bail!(
                     "Cannot squash {} - it is {}. All arguments must be commits.",
-                    other.to_short_string().blue().underline(),
+                    other.to_short_string().blue().bold(),
                     other.kind_for_humans().yellow()
                 );
             }
