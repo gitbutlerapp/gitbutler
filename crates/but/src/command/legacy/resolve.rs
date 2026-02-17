@@ -524,25 +524,20 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         let default_commit = all_commits.first();
 
         // Interactive prompting only for human output mode with terminal
-        if out.can_prompt()
-            && let Some(default) = default_commit
-        {
-            write!(
-                progress,
-                "Enter commit ID to resolve [default: {}]: ",
-                default.commit_short_id.cyan()
-            )?;
-
-            let mut response = String::new();
-            std::io::stdin().read_line(&mut response)?;
-            let response = response.trim();
-
-            let commit_id_to_resolve = if response.is_empty() {
-                default.commit_short_id.clone()
+        let commit_id_to_resolve =
+            if let Some((mut inout, default)) = out.prepare_for_terminal_input().zip(default_commit) {
+                inout
+                    .prompt(format!(
+                        "Enter commit ID to resolve [default: {}]",
+                        default.commit_short_id.cyan()
+                    ))?
+                    .unwrap_or_else(|| default.commit_short_id.clone())
+                    .into()
             } else {
-                response.to_string()
+                None
             };
 
+        if let Some(commit_id_to_resolve) = commit_id_to_resolve {
             // Enter resolution mode for the selected commit
             writeln!(progress)?;
             return enter_resolution(ctx, out, &commit_id_to_resolve);
