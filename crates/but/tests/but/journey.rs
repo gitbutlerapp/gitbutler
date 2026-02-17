@@ -142,7 +142,7 @@ Learn more at https://docs.gitbutler.com/cli-overview
 ╭┄zz [unstaged changes] 
 ┊     no changes
 ┊
-┴ 6f66116 (common base) [gb-local/main] 2000-01-02 Initial empty commit 
+┴ 6f66116 [gb-local/main] 2000-01-02 Initial empty commit
 
 Hint: run `but branch new` to create a new branch to work on
 
