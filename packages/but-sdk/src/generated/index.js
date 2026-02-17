@@ -576,5 +576,6 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding
+module.exports.listProjectsNapi = nativeBinding.listProjectsNapi
 module.exports.stackDetailsNapi = nativeBinding.stackDetailsNapi
 module.exports.stacksNapi = nativeBinding.stacksNapi

@@ -43,7 +43,7 @@ mod registrations {
     };
     use schemars::schema_for;
 
-    use crate::schema::TypeSchemaEntry;
+    use crate::{legacy::projects::ProjectForFrontend, schema::TypeSchemaEntry};
 
     inventory::submit! { TypeSchemaEntry {
         name: "StackDetails",
@@ -58,5 +58,20 @@ mod registrations {
     inventory::submit! {TypeSchemaEntry {
         name: "StackEntry",
         schema_fn: || schema_for!(StackEntry)
+    }}
+
+    inventory::submit! {TypeSchemaEntry {
+        name: "StackId",
+        schema_fn: || schema_for!(String)
+    }}
+
+    inventory::submit! {TypeSchemaEntry {
+        name: "ProjectId",
+        schema_fn: || schema_for!(String)
+    }}
+
+    inventory::submit! {TypeSchemaEntry {
+        name: "ProjectForFrontend",
+        schema_fn: || schema_for!(ProjectForFrontend)
     }}
 }

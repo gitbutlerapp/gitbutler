@@ -6,16 +6,20 @@ authors.workspace = true
 publish = false
 rust-version.workspace = true
 
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars", "but-forge/export-schema"]
+
 [lib]
 doctest = false
 
 [dependencies]
 but-error.workspace = true
 but-path.workspace = true
-but-serde =  { workspace = true, features = ["legacy"] }
+but-serde = { workspace = true, features = ["legacy"] }
 but-core.workspace = true
 but-fs = { workspace = true, features = ["legacy"] }
 but-forge.workspace = true
+but-schemars = { workspace = true, optional = true }
 
 anyhow.workspace = true
 serde.workspace = true
@@ -30,6 +34,7 @@ gix = { workspace = true, features = [
 strum = { version = "0.27", features = ["derive"] }
 tracing.workspace = true
 resolve-path = "0.1.0"
+schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true

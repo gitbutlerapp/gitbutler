@@ -9,6 +9,11 @@ description = "Utilities to interact with forges in a somewhat generic way"
 
 [features]
 export-ts = ["dep:ts-rs"]
+export-schema = [
+  "dep:schemars",
+  "but-github/export-schema",
+  "but-gitlab/export-schema",
+]
 
 [lib]
 doctest = false
@@ -28,6 +33,7 @@ serde.workspace = true
 serde_json = { workspace = true, features = ["arbitrary_precision"] }
 anyhow.workspace = true
 ts-rs = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
 
 [lints]
 workspace = true

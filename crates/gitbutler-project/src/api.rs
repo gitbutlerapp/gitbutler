@@ -4,6 +4,7 @@ use serde::Serialize;
 /// API-specific project type that can be enriched with computed/derived data
 /// while preserving the original project structure for persistence.
 #[derive(Debug, Serialize, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct Project {
     #[serde(flatten)]
     inner: crate::Project,
