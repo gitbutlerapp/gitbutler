@@ -1,5 +1,5 @@
-import { handleAttributionCookies } from '$lib/cookies/attribution';
-import { fillMeta } from '$lib/meta/opengraph';
+import { handleAttributionCookies } from "$lib/cookies/attribution";
+import { fillMeta } from "$lib/meta/opengraph";
 
 export async function handle({ event, resolve }) {
 	const currentUrl = event.url.href;
@@ -8,6 +8,6 @@ export async function handle({ event, resolve }) {
 	handleAttributionCookies(event);
 
 	return resolve(event, {
-		transformPageChunk: async ({ html }) => await fillMeta(html, currentUrl)
+		transformPageChunk: async ({ html }) => await fillMeta(html, currentUrl),
 	});
 }

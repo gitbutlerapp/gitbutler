@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { focusable } from '$lib/focus/focusable';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import type { BaseInputProps, InputStylingProps } from '$components/inputTypes';
+	import Icon from "$components/Icon.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import type { BaseInputProps, InputStylingProps } from "$components/inputTypes";
 
 	export interface Tag {
 		id: string;
@@ -23,8 +23,8 @@
 		testId,
 		label,
 		tags = $bindable([]),
-		value = $bindable(''),
-		placeholder = 'Add tags (split by space/comma)',
+		value = $bindable(""),
+		placeholder = "Add tags (split by space/comma)",
 		disabled = false,
 		readonly = false,
 		autofocus: _autofocus = false,
@@ -35,7 +35,7 @@
 		maxTags,
 		onAddTag,
 		onRemoveTag,
-		onTagsChange
+		onTagsChange,
 	}: Props = $props();
 
 	let inputEl: HTMLInputElement;
@@ -54,11 +54,11 @@
 
 		const newTag: Tag = {
 			id: generateId(),
-			label: trimmedLabel
+			label: trimmedLabel,
 		};
 
 		tags = [...tags, newTag];
-		value = '';
+		value = "";
 
 		onAddTag?.(newTag);
 		onTagsChange?.(tags);
@@ -73,10 +73,10 @@
 
 	function handleKeyDown(e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) {
 		// Add tag on comma or space
-		if (e.key === ',' || e.key === ' ') {
+		if (e.key === "," || e.key === " ") {
 			e.preventDefault();
 			addTag(value);
-		} else if (e.key === 'Backspace' && !value && tags.length > 0) {
+		} else if (e.key === "Backspace" && !value && tags.length > 0) {
 			// Remove last tag on backspace when input is empty
 			removeTag(tags[tags.length - 1].id);
 		}
@@ -115,7 +115,7 @@
 		tabindex="-1"
 		onclick={() => !disabled && !readonly && inputEl?.focus()}
 		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === ' ') {
+			if (e.key === "Enter" || e.key === " ") {
 				e.preventDefault();
 				inputEl?.focus();
 			}

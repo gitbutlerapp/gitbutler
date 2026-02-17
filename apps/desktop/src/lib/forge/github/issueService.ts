@@ -1,8 +1,8 @@
-import { ghQuery } from '$lib/forge/github/ghQuery';
-import { invalidatesList, ReduxTag } from '$lib/state/tags';
-import type { CreateIssueResult } from '$lib/forge/github/types';
-import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
-import type { GitHubApi } from '$lib/state/clientState.svelte';
+import { ghQuery } from "$lib/forge/github/ghQuery";
+import { invalidatesList, ReduxTag } from "$lib/state/tags";
+import type { CreateIssueResult } from "$lib/forge/github/types";
+import type { ForgeIssueService } from "$lib/forge/interface/forgeIssueService";
+import type { GitHubApi } from "$lib/state/clientState.svelte";
 
 export class GitHubIssueService implements ForgeIssueService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -22,13 +22,13 @@ function injectEndpoints(api: GitHubApi) {
 			create: build.mutation<CreateIssueResult, { title: string; body: string; labels: string[] }>({
 				queryFn: async ({ title, body, labels }, api) =>
 					await ghQuery({
-						domain: 'issues',
-						action: 'create',
+						domain: "issues",
+						action: "create",
 						parameters: { title, body, labels },
-						extra: api.extra
+						extra: api.extra,
 					}),
-				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
-			})
-		})
+				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)],
+			}),
+		}),
 	});
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import * as jsonLinks from '$lib/data/links.json';
-	import { onMount } from 'svelte';
+	import * as jsonLinks from "$lib/data/links.json";
+	import { onMount } from "svelte";
 
 	let videoElement = $state<HTMLVideoElement>();
 	let io: IntersectionObserver;
@@ -8,8 +8,8 @@
 	onMount(() => {
 		const ioOptions = {
 			root: null,
-			rootMargin: '0% 0% -20% 0%',
-			threshold: 0
+			rootMargin: "0% 0% -20% 0%",
+			threshold: 0,
 		};
 
 		io = new IntersectionObserver((entries) => {
@@ -30,7 +30,7 @@
 	});
 </script>
 
-<a href={jsonLinks.other['youtube-demo'].url} target="_blank" class="yt-preview">
+<a href={jsonLinks.other["youtube-demo"].url} target="_blank" class="yt-preview">
 	<img class="yt-preview__btn" src="/images/video-thumb/watch-btn.svg" alt="" />
 
 	<div class="yt-preview__overlay-patttern"></div>
@@ -81,7 +81,7 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		background: url('/images/video-thumb/overlay-pattern.svg') repeat;
+		background: url("/images/video-thumb/overlay-pattern.svg") repeat;
 		background-size: 4px;
 		opacity: 0.3;
 	}

@@ -1,12 +1,12 @@
 // Class transformers will bust a gut if this isn't imported first
-import 'reflect-metadata';
+import "reflect-metadata";
 
-import { msSinceDaysAgo } from '$lib/utils/time';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { ForgeUser, PullRequest } from '$lib/forge/interface/types';
+import { msSinceDaysAgo } from "$lib/utils/time";
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import type { ForgeUser, PullRequest } from "$lib/forge/interface/types";
 
 export type GroupedSidebarEntries = Record<
-	'applied' | 'authored' | 'review' | 'today' | 'yesterday' | 'lastWeek' | 'older',
+	"applied" | "authored" | "review" | "today" | "yesterday" | "lastWeek" | "older",
 	SidebarEntrySubject[]
 >;
 
@@ -109,45 +109,45 @@ export class BranchListingDetails {
 }
 
 type PullRequestEntrySubject = {
-	type: 'pullRequest';
+	type: "pullRequest";
 	subject: PullRequest;
 	branchListing?: BranchListing;
 };
 
 type BranchListingEntrySubject = {
-	type: 'branchListing';
+	type: "branchListing";
 	subject: BranchListing;
 	prs: PullRequest[];
 };
 
 export type SidebarEntrySubject = PullRequestEntrySubject | BranchListingEntrySubject;
 
-export const BRANCH_FILTER_OPTIONS = ['all', 'pullRequest', 'local'] as const;
+export const BRANCH_FILTER_OPTIONS = ["all", "pullRequest", "local"] as const;
 export type BranchFilterOption = (typeof BRANCH_FILTER_OPTIONS)[number];
 
 export function isBranchFilterOption(something: unknown): something is BranchFilterOption {
 	return (
-		typeof something === 'string' && BRANCH_FILTER_OPTIONS.includes(something as BranchFilterOption)
+		typeof something === "string" && BRANCH_FILTER_OPTIONS.includes(something as BranchFilterOption)
 	);
 }
 
 function getEntryUpdatedDate(entry: SidebarEntrySubject) {
 	return new Date(
-		entry.type === 'branchListing' ? entry.subject.updatedAt : entry.subject.modifiedAt
+		entry.type === "branchListing" ? entry.subject.updatedAt : entry.subject.modifiedAt,
 	);
 }
 
 function getEntryName(entry: SidebarEntrySubject) {
-	return entry.type === 'branchListing' ? entry.subject.name : entry.subject.title;
+	return entry.type === "branchListing" ? entry.subject.name : entry.subject.title;
 }
 
 function getEntryWorkspaceStatus(entry: SidebarEntrySubject) {
-	return entry.type === 'branchListing' ? entry.subject.stack?.inWorkspace : undefined;
+	return entry.type === "branchListing" ? entry.subject.stack?.inWorkspace : undefined;
 }
 
 function isReviewerOfEntry(userId: number | undefined, entry: SidebarEntrySubject): boolean {
 	if (userId === undefined) return false;
-	if (entry.type === 'pullRequest') {
+	if (entry.type === "pullRequest") {
 		return entry.subject.reviewers.some((r) => r.id === userId);
 	}
 	return entry.prs.some((pr) => pr.reviewers.some((r) => r.id === userId));
@@ -155,7 +155,7 @@ function isReviewerOfEntry(userId: number | undefined, entry: SidebarEntrySubjec
 
 function isAuthoreOfEntry(userId: number | undefined, entry: SidebarEntrySubject): boolean {
 	if (userId === undefined) return false;
-	if (entry.type === 'pullRequest') {
+	if (entry.type === "pullRequest") {
 		return entry.subject.author?.id === userId;
 	}
 	return entry.prs.some((pr) => pr.author?.id === userId);
@@ -164,23 +164,23 @@ function isAuthoreOfEntry(userId: number | undefined, entry: SidebarEntrySubject
 export function combineBranchesAndPrs(
 	pullRequests: PullRequest[],
 	branchList: BranchListing[],
-	selectedOption: BranchFilterOption
+	selectedOption: BranchFilterOption,
 ) {
 	const prMap = Object.fromEntries(pullRequests.map((pr) => [pr.sourceBranch, pr]));
 
 	const listingSubjects: BranchListingEntrySubject[] = branchList.map((subject) => ({
-		type: 'branchListing',
+		type: "branchListing",
 		subject: subject,
 		prs:
 			getBranchNames(subject)
 				.map((name) => prMap[name])
-				.filter(isDefined) || []
+				.filter(isDefined) || [],
 	}));
 
 	const attachedPrs = new Set(listingSubjects.flatMap((item) => item.prs.map((pr) => pr.number)));
 	const prs: PullRequestEntrySubject[] = pullRequests
 		.filter((pr) => !attachedPrs.has(pr.number))
-		.map((pullRequests) => ({ type: 'pullRequest', subject: pullRequests }));
+		.map((pullRequests) => ({ type: "pullRequest", subject: pullRequests }));
 
 	const result = [...prs, ...listingSubjects];
 
@@ -202,23 +202,23 @@ export function combineBranchesAndPrs(
 function filterSidebarEntries(
 	pullRequests: PullRequest[],
 	selectedOption: string,
-	sidebarEntries: SidebarEntrySubject[]
+	sidebarEntries: SidebarEntrySubject[],
 ): SidebarEntrySubject[] {
 	switch (selectedOption) {
-		case 'pullRequest': {
+		case "pullRequest": {
 			return sidebarEntries.filter(
 				(sidebarEntry) =>
-					sidebarEntry.type === 'pullRequest' ||
+					sidebarEntry.type === "pullRequest" ||
 					pullRequests.some((pullRequest) =>
-						containsPullRequestBranch(sidebarEntry.subject, pullRequest.sourceBranch)
-					)
+						containsPullRequestBranch(sidebarEntry.subject, pullRequest.sourceBranch),
+					),
 			);
 		}
-		case 'local': {
+		case "local": {
 			return sidebarEntries.filter(
 				(sidebarEntry) =>
-					sidebarEntry.type === 'branchListing' &&
-					(sidebarEntry.subject.hasLocal || sidebarEntry.subject.stack)
+					sidebarEntry.type === "branchListing" &&
+					(sidebarEntry.subject.hasLocal || sidebarEntry.subject.stack),
 			);
 		}
 		default: {
@@ -241,7 +241,7 @@ export function groupBranches(branches: SidebarEntrySubject[], user: ForgeUser |
 		today: [],
 		yesterday: [],
 		lastWeek: [],
-		older: []
+		older: [],
 	};
 
 	const now = Date.now();

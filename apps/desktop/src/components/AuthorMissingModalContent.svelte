@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { inject } from '@gitbutler/core/context';
-	import { TestId, ModalHeader, ModalFooter, Textbox, EmailTextbox, Button } from '@gitbutler/ui';
-	import type { AuthorMissingModalState } from '$lib/state/uiState.svelte';
+	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { inject } from "@gitbutler/core/context";
+	import { TestId, ModalHeader, ModalFooter, Textbox, EmailTextbox, Button } from "@gitbutler/ui";
+	import type { AuthorMissingModalState } from "$lib/state/uiState.svelte";
 
 	type Props = {
 		data: AuthorMissingModalState;
@@ -29,7 +29,7 @@
 		await setAuthorInfo({
 			projectId: data.projectId,
 			name,
-			email
+			email,
 		});
 		close();
 	}
@@ -67,7 +67,7 @@
 		loading={settingInfo.current.isLoading}
 		disabled={!name || !email}
 	>
-		{settingInfo.current.isLoading ? 'Saving...' : 'Save & Continue'}
+		{settingInfo.current.isLoading ? "Saving..." : "Save & Continue"}
 	</Button>
 </ModalFooter>
 

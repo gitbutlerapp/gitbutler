@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	export type TooltipPosition = 'top' | 'bottom';
-	export type TooltipAlign = 'start' | 'center' | 'end';
+	export type TooltipPosition = "top" | "bottom";
+	export type TooltipAlign = "start" | "center" | "end";
 
 	// Global state to track if any tooltip is currently shown
 	let anyTooltipShown = $state(false);
@@ -8,14 +8,14 @@
 </script>
 
 <script lang="ts">
-	import { DRAG_STATE_SERVICE } from '$lib/drag/dragStateService.svelte';
+	import { DRAG_STATE_SERVICE } from "$lib/drag/dragStateService.svelte";
 
-	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { tooltip } from '$lib/utils/tooltipPosition';
-	import { flyScale } from '$lib/utils/transitions';
-	import { injectOptional } from '@gitbutler/core/context';
-	import { type Snippet } from 'svelte';
+	import { portal } from "$lib/utils/portal";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import { tooltip } from "$lib/utils/tooltipPosition";
+	import { flyScale } from "$lib/utils/transitions";
+	import { injectOptional } from "@gitbutler/core/context";
+	import { type Snippet } from "svelte";
 
 	interface Props {
 		text?: string;
@@ -34,11 +34,11 @@
 		delay = 500,
 		disabled,
 		align,
-		position: requestedPosition = 'bottom',
+		position: requestedPosition = "bottom",
 		overrideYScroll,
 		maxWidth = 240,
 		hotkey,
-		children
+		children,
 	}: Props = $props();
 
 	const TOOLTIP_VIEWPORT_EDGE_MARGIN = 100; // px
@@ -50,7 +50,7 @@
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
 	let isInstant = $state(false);
 
-	const isTextEmpty = $derived(!text || text === '');
+	const isTextEmpty = $derived(!text || text === "");
 
 	$effect(() => {
 		if (targetEl && window.visualViewport) {
@@ -61,12 +61,12 @@
 
 			// Force tooltip to top if within MARGIN of bottom of viewport
 			if (window.visualViewport.height - bottom < TOOLTIP_VIEWPORT_EDGE_MARGIN) {
-				position = 'top';
+				position = "top";
 			}
 
 			// Force tooltip to bottom if within MARGIN of top of viewport
 			if (top < TOOLTIP_VIEWPORT_EDGE_MARGIN) {
-				position = 'bottom';
+				position = "bottom";
 			}
 		}
 	});
@@ -102,7 +102,7 @@
 
 	function handleClick(e: MouseEvent) {
 		// Need to prevent interference with context menu and modals
-		if ((e.target as HTMLElement)?.dataset.clickable === 'true') {
+		if ((e.target as HTMLElement)?.dataset.clickable === "true") {
 			e.preventDefault();
 			handleMouseLeave();
 		}
@@ -131,13 +131,13 @@
 		{#if show && !$isDragging}
 			<div
 				use:tooltip={{ targetEl, position, align, overrideYScroll }}
-				use:portal={'body'}
+				use:portal={"body"}
 				class="tooltip-container text-11 text-body"
 				style:max-width="{pxToRem(maxWidth)}rem"
 				data-instant={isInstant ? true : undefined}
 				transition:flyScale={{
 					position: position,
-					duration: 150
+					duration: 150,
 				}}
 			>
 				<span>{text}</span>

@@ -1,15 +1,15 @@
 <script lang="ts" module>
-	export type MessageStyle = 'info' | 'warning' | 'danger' | 'success';
+	export type MessageStyle = "info" | "warning" | "danger" | "success";
 </script>
 
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import Icon from '$components/Icon.svelte';
-	import { copyToClipboard } from '$lib/utils/clipboard';
+	import Button from "$components/Button.svelte";
+	import Icon from "$components/Icon.svelte";
+	import { copyToClipboard } from "$lib/utils/clipboard";
 
-	import type iconsJson from '$lib/data/icons.json';
-	import type { ComponentColorType } from '$lib/utils/colorTypes';
-	import type { Snippet } from 'svelte';
+	import type iconsJson from "$lib/data/icons.json";
+	import type { ComponentColorType } from "$lib/utils/colorTypes";
+	import type { Snippet } from "svelte";
 
 	type IconColor = ComponentColorType | undefined;
 	type IconName = keyof typeof iconsJson;
@@ -41,19 +41,19 @@
 
 	const {
 		icon: iconName,
-		style = 'info',
+		style = "info",
 		outlined = true,
 		filled = false,
-		class: className = '',
-		primaryLabel = '',
+		class: className = "",
+		primaryLabel = "",
 		primaryIcon,
 		primaryTestId,
 		primaryAction,
-		secondaryLabel = '',
+		secondaryLabel = "",
 		secondaryIcon,
 		secondaryTestId,
 		secondaryAction,
-		tertiaryLabel = '',
+		tertiaryLabel = "",
 		tertiaryIcon,
 		tertiaryTestId,
 		tertiaryAction,
@@ -61,28 +61,28 @@
 		error,
 		title,
 		content,
-		testId
+		testId,
 	}: Props = $props();
 
 	const iconMap: { [Key in MessageStyle]: IconName } = {
-		info: 'info',
-		warning: 'warning',
-		danger: 'error',
-		success: 'success'
+		info: "info",
+		warning: "warning",
+		danger: "error",
+		success: "success",
 	};
 
 	const iconColorMap: { [Key in MessageStyle]: IconColor } = {
-		info: 'pop',
-		warning: 'warning',
-		danger: 'danger',
-		success: 'safe'
+		info: "pop",
+		warning: "warning",
+		danger: "danger",
+		success: "safe",
 	};
 
 	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
-		info: 'pop',
-		warning: 'warning',
-		danger: 'danger',
-		success: 'pop'
+		info: "pop",
+		warning: "warning",
+		danger: "danger",
+		success: "pop",
 	};
 
 	const resolvedIconName = $derived(iconName ?? (iconMap[style] as IconName));

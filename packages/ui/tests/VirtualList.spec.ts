@@ -1,4 +1,4 @@
-import VirtualListTestWrapper from './VirtualListTestWrapper.svelte';
+import VirtualListTestWrapper from "./VirtualListTestWrapper.svelte";
 import {
 	waitForScrollStability,
 	waitForScrollHeightIncrease,
@@ -6,9 +6,9 @@ import {
 	scrollTo,
 	expectAtBottom,
 	expectNotAtBottom,
-	getVisibleItemIndices
-} from './test-utils';
-import { test, expect } from '@playwright/experimental-ct-svelte';
+	getVisibleItemIndices,
+} from "./test-utils";
+import { test, expect } from "@playwright/experimental-ct-svelte";
 
 const config = { itemCount: 20, defaultHeight: 100, asyncContent: { delay: 100, height: 200 } };
 
@@ -17,30 +17,30 @@ const config = { itemCount: 20, defaultHeight: 100, asyncContent: { delay: 100, 
  */
 async function addItemAndWait(component: any, viewport: any) {
 	const { scrollHeight: scrollHeightBefore } = await getScrollProperties(viewport);
-	await component.locator('button', { hasText: 'Add Item' }).click();
+	await component.locator("button", { hasText: "Add Item" }).click();
 	await waitForScrollHeightIncrease(viewport, scrollHeightBefore);
 }
 
-test('should initialize at bottom when initialPosition is bottom', async ({ mount }) => {
+test("should initialize at bottom when initialPosition is bottom", async ({ mount }) => {
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: true
-		}
+			stickToBottom: true,
+		},
 	});
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 	await expectAtBottom(viewport);
 });
 
-test('should AUTO-SCROLL to bottom when new items added while at bottom', async ({ mount }) => {
+test("should AUTO-SCROLL to bottom when new items added while at bottom", async ({ mount }) => {
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: true
-		}
+			stickToBottom: true,
+		},
 	});
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 	await expectAtBottom(viewport);
 
@@ -60,14 +60,14 @@ test('should AUTO-SCROLL to bottom when new items added while at bottom', async 
 	await expectAtBottom(viewport);
 });
 
-test('should NOT auto-scroll when user scrolled up beyond sticky distance', async ({ mount }) => {
+test("should NOT auto-scroll when user scrolled up beyond sticky distance", async ({ mount }) => {
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: true
-		}
+			stickToBottom: true,
+		},
 	});
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 	await expectAtBottom(viewport);
 
@@ -78,15 +78,15 @@ test('should NOT auto-scroll when user scrolled up beyond sticky distance', asyn
 	await expectNotAtBottom(viewport);
 });
 
-test('should show new unread button when scrolled up and new items added', async ({ mount }) => {
+test("should show new unread button when scrolled up and new items added", async ({ mount }) => {
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: true
-		}
+			stickToBottom: true,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Scroll to top (far from bottom)
@@ -94,7 +94,7 @@ test('should show new unread button when scrolled up and new items added', async
 	await expectNotAtBottom(viewport);
 
 	// Add new item
-	await component.locator('button', { hasText: 'Add Item' }).click();
+	await component.locator("button", { hasText: "Add Item" }).click();
 
 	// The "New unread" button should appear
 	const newUnreadButton = component.locator('text="New unread"');
@@ -108,17 +108,17 @@ test('should show new unread button when scrolled up and new items added', async
 	await expect(newUnreadButton).not.toBeVisible();
 });
 
-test('should maintain bottom position when stickToBottom enabled', async ({ mount }) => {
+test("should maintain bottom position when stickToBottom enabled", async ({ mount }) => {
 	// This test verifies the core stick-to-bottom contract:
 	// When at bottom and stickToBottom=true, scroll stays at bottom when content changes
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: true
-		}
+			stickToBottom: true,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	await expectAtBottom(viewport);
@@ -133,16 +133,16 @@ test('should maintain bottom position when stickToBottom enabled', async ({ moun
 	}
 });
 
-test('should initialize at a specific startIndex', async ({ mount }) => {
+test("should initialize at a specific startIndex", async ({ mount }) => {
 	const startIndex = 10;
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			startIndex
-		}
+			startIndex,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Verify the specified item is visible
@@ -155,15 +155,15 @@ test('should initialize at a specific startIndex', async ({ mount }) => {
 	await expectNotAtBottom(viewport);
 });
 
-test('should jump to a specific index using jumpToIndex method', async ({ mount }) => {
+test("should jump to a specific index using jumpToIndex method", async ({ mount }) => {
 	const targetIndex = 15;
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
-			...config
-		}
+			...config,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Initially, we should be at the top
@@ -171,9 +171,9 @@ test('should jump to a specific index using jumpToIndex method', async ({ mount 
 	expect(initialScrollTop).toBe(0);
 
 	// Set the jump-to index and click the button
-	const input = component.getByTestId('jump-to-index-input');
+	const input = component.getByTestId("jump-to-index-input");
 	await input.fill(targetIndex.toString());
-	const jumpButton = component.getByTestId('jump-to-index-button');
+	const jumpButton = component.getByTestId("jump-to-index-button");
 	await jumpButton.click();
 	await waitForScrollStability(viewport);
 
@@ -186,15 +186,15 @@ test('should jump to a specific index using jumpToIndex method', async ({ mount 
 	expect(finalScrollTop).toBeGreaterThan(0);
 });
 
-test('should initialize at top by default', async ({ mount }) => {
+test("should initialize at top by default", async ({ mount }) => {
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: false
-		}
+			stickToBottom: false,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Should be at the top
@@ -210,7 +210,7 @@ test('should initialize at top by default', async ({ mount }) => {
 	await expectNotAtBottom(viewport);
 });
 
-test('should call onloadmore callback when scrolled to bottom', async ({ mount }) => {
+test("should call onloadmore callback when scrolled to bottom", async ({ mount }) => {
 	let loadMoreCalled = false;
 
 	async function onloadmore() {
@@ -221,15 +221,15 @@ test('should call onloadmore callback when scrolled to bottom', async ({ mount }
 		props: {
 			...config,
 			asyncContent: undefined, // Remove async content for simpler test
-			onloadmore
-		}
+			onloadmore,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Scroll to bottom by clicking the button
-	const scrollButton = component.getByTestId('scroll-to-bottom-button');
+	const scrollButton = component.getByTestId("scroll-to-bottom-button");
 	await scrollButton.click();
 
 	await waitForScrollStability(viewport);
@@ -241,8 +241,8 @@ test('should call onloadmore callback when scrolled to bottom', async ({ mount }
 	expect(loadMoreCalled).toBe(true);
 });
 
-test('should initialize at bottom with very tall items when stickToBottom enabled', async ({
-	mount
+test("should initialize at bottom with very tall items when stickToBottom enabled", async ({
+	mount,
 }) => {
 	// This tests the scenario where items are much taller than the viewport
 	// The list should still initialize at the bottom correctly
@@ -251,11 +251,11 @@ test('should initialize at bottom with very tall items when stickToBottom enable
 			itemCount: 10,
 			defaultHeight: 500, // Very tall items (viewport is only 400px)
 			stickToBottom: true,
-			asyncContent: undefined // No async content to keep test simple
-		}
+			asyncContent: undefined, // No async content to keep test simple
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Should be scrolled to the bottom
@@ -270,8 +270,8 @@ test('should initialize at bottom with very tall items when stickToBottom enable
 	expect(scrollTop).toBeGreaterThan(0);
 });
 
-test('should stick to bottom when last item expands even with stickToBottom disabled', async ({
-	mount
+test("should stick to bottom when last item expands even with stickToBottom disabled", async ({
+	mount,
 }) => {
 	// When manually scrolled to bottom (without stickToBottom), expanding the last item
 	// should still keep us at the bottom - this is important for expanding collapsed diffs
@@ -279,11 +279,11 @@ test('should stick to bottom when last item expands even with stickToBottom disa
 		props: {
 			...config,
 			stickToBottom: false,
-			asyncContent: undefined
-		}
+			asyncContent: undefined,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Initially at top
@@ -291,7 +291,7 @@ test('should stick to bottom when last item expands even with stickToBottom disa
 	expect(initialScrollTop).toBe(0);
 
 	// Scroll to bottom manually
-	const scrollButton = component.getByTestId('scroll-to-bottom-button');
+	const scrollButton = component.getByTestId("scroll-to-bottom-button");
 	await scrollButton.click();
 	await waitForScrollStability(viewport);
 	await expectAtBottom(viewport);
@@ -300,7 +300,7 @@ test('should stick to bottom when last item expands even with stickToBottom disa
 	const { scrollHeight: scrollHeightBefore } = await getScrollProperties(viewport);
 
 	// Expand the last item
-	await component.locator('button', { hasText: 'Expand Last' }).click();
+	await component.locator("button", { hasText: "Expand Last" }).click();
 	await waitForScrollStability(viewport);
 
 	// Verify the item actually expanded
@@ -311,16 +311,16 @@ test('should stick to bottom when last item expands even with stickToBottom disa
 	await expectAtBottom(viewport);
 });
 
-test('should stick to bottom when footer toggled in children snippet', async ({ mount }) => {
+test("should stick to bottom when footer toggled in children snippet", async ({ mount }) => {
 	// This tests that stickToBottom works correctly when content is added to the children snippet
 	const component = await mount(VirtualListTestWrapper, {
 		props: {
 			...config,
-			stickToBottom: true
-		}
+			stickToBottom: true,
+		},
 	});
 
-	const viewport = component.locator('.viewport');
+	const viewport = component.locator(".viewport");
 	await waitForScrollStability(viewport);
 
 	// Initially at bottom
@@ -330,11 +330,11 @@ test('should stick to bottom when footer toggled in children snippet', async ({ 
 	const { scrollHeight: scrollHeightBefore } = await getScrollProperties(viewport);
 
 	// Toggle footer on (adds 200px element)
-	const toggleButton = component.getByTestId('toggle-footer-button');
+	const toggleButton = component.getByTestId("toggle-footer-button");
 	await toggleButton.click();
 
 	// Wait for footer to appear
-	const footer = component.getByTestId('footer');
+	const footer = component.getByTestId("footer");
 	await expect(footer).toBeVisible();
 
 	// Wait for scroll to stabilize

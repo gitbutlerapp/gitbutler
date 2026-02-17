@@ -1,15 +1,15 @@
 <script lang="ts">
-	import DashboardSidebarProject from '$lib/components/dashboard/DashboardSidebarProject.svelte';
-	import { WEB_STATE } from '$lib/redux/store.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import { getOrganizations } from '@gitbutler/shared/organizations/organizationsPreview.svelte';
+	import DashboardSidebarProject from "$lib/components/dashboard/DashboardSidebarProject.svelte";
+	import { WEB_STATE } from "$lib/redux/store.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
+	import { getOrganizations } from "@gitbutler/shared/organizations/organizationsPreview.svelte";
 	import {
 		getAllUserProjects,
-		getRecentlyPushedProjects
-	} from '@gitbutler/shared/organizations/projectsPreview.svelte';
+		getRecentlyPushedProjects,
+	} from "@gitbutler/shared/organizations/projectsPreview.svelte";
 
 	const webState = inject(WEB_STATE);
 	const organizationService = inject(ORGANIZATION_SERVICE);
@@ -25,8 +25,8 @@
 	const userProjects = $derived(username !== undefined ? getAllUserProjects(username) : undefined);
 	const filtedUserProjects = $derived(
 		(userProjects?.current || []).filter((project) =>
-			latestRecentProjects.every((recentProject) => recentProject.id !== project.id)
-		)
+			latestRecentProjects.every((recentProject) => recentProject.id !== project.id),
+		),
 	);
 </script>
 

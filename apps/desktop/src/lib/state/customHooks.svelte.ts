@@ -1,8 +1,8 @@
-import { emitQueryError, parseQueryError, SilentError } from '$lib/error/error';
-import { isReduxError, type ReduxError } from '$lib/state/reduxError';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import { type Reactive } from '@gitbutler/shared/storeUtils';
-import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
+import { emitQueryError, parseQueryError, SilentError } from "$lib/error/error";
+import { isReduxError, type ReduxError } from "$lib/state/reduxError";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import { type Reactive } from "@gitbutler/shared/storeUtils";
+import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
 import {
 	type Api,
 	type ApiEndpointMutation,
@@ -14,19 +14,19 @@ import {
 	type QueryActionCreatorResult,
 	type QueryArgFrom,
 	type ResultTypeFrom,
-	type StartQueryActionCreatorOptions
-} from '@reduxjs/toolkit/query';
-import { createSubscriber } from 'svelte/reactivity';
+	type StartQueryActionCreatorOptions,
+} from "@reduxjs/toolkit/query";
+import { createSubscriber } from "svelte/reactivity";
 import type {
 	CustomQuery,
 	Transformer,
 	CustomResult,
 	ExtensionDefinitions,
 	QueryExtensions,
-	ReactiveQuery
-} from '$lib/state/butlerModule';
-import type { HookContext } from '$lib/state/context';
-import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
+	ReactiveQuery,
+} from "$lib/state/butlerModule";
+import type { HookContext } from "$lib/state/context";
+import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
 
 /** Extra properties included for event tracking. */
 export type EventProperties = { [key: string]: string | number | boolean | undefined };
@@ -36,7 +36,7 @@ export type PropertiesFn = () => EventProperties;
 
 type TransformerFn = (data: any, args: any) => any;
 
-const EVENT_NAME = 'tauri_command';
+const EVENT_NAME = "tauri_command";
 
 /**
  * Returns implementations for custom endpoint methods defined in `ButlerModule`.
@@ -46,7 +46,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 	endpointName,
 	command,
 	actionName,
-	ctx: { getState, getDispatch, posthog }
+	ctx: { getState, getDispatch, posthog },
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
@@ -70,21 +70,21 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			error: args.error,
 			error_title: parsedError?.name,
 			error_message: parsedError?.message,
-			error_code: parsedError?.code
+			error_code: parsedError?.code,
 		});
 	}
 
 	async function fetch<T extends TransformerFn>(
 		queryArg: unknown,
-		options?: { transform?: T; forceRefetch?: boolean }
+		options?: { transform?: T; forceRefetch?: boolean },
 	) {
 		// const startTime = Date.now();
 		const dispatch = getDispatch();
 		const result = await dispatch(
 			initiate(queryArg, {
 				subscribe: false,
-				forceRefetch: options?.forceRefetch
-			})
+				forceRefetch: options?.forceRefetch,
+			}),
 		);
 		const { data, error } = result;
 		if (result.error) {
@@ -100,7 +100,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	function useQuery<T extends TransformerFn>(
 		queryArg: unknown,
-		options?: { transform?: T } & StartQueryActionCreatorOptions
+		options?: { transform?: T } & StartQueryActionCreatorOptions,
 	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T, QueryExtensions> {
 		// const startTime = Date.now();
 		const dispatch = getDispatch();
@@ -110,8 +110,8 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				initiate(queryArg, {
 					subscribe: options?.subscribe,
 					subscriptionOptions: options?.subscriptionOptions,
-					forceRefetch: options?.forceRefetch
-				})
+					forceRefetch: options?.forceRefetch,
+				}),
 			);
 			return () => {
 				query?.unsubscribe();
@@ -141,7 +141,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			return {
 				...result,
 				refetch,
-				data
+				data,
 			};
 		});
 
@@ -153,13 +153,13 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			get response() {
 				subscribe();
 				return output.data;
-			}
+			},
 		};
 	}
 
 	function useQueries<T extends TransformerFn, D extends CustomQuery<any>>(
 		queryArgs: unknown[],
-		options?: { transform?: T } & StartQueryActionCreatorOptions
+		options?: { transform?: T } & StartQueryActionCreatorOptions,
 	): Reactive<
 		CustomResult<CustomQuery<T extends Transformer<D> ? ReturnType<T> : ResultTypeFrom<D>>>[]
 	> {
@@ -171,9 +171,9 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 					initiate(queryArg, {
 						subscribe: options?.subscribe,
 						subscriptionOptions: options?.subscriptionOptions,
-						forceRefetch: options?.forceRefetch
-					})
-				)
+						forceRefetch: options?.forceRefetch,
+					}),
+				),
 			);
 			return () => {
 				queries.forEach((subscription) => subscription.unsubscribe());
@@ -190,7 +190,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 				}
 				return {
 					...result,
-					data
+					data,
 				};
 			});
 			return reactive(() => output);
@@ -203,7 +203,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 
 	function useQueryState<T extends TransformerFn>(
 		queryArg: unknown,
-		options?: { transform?: T }
+		options?: { transform?: T },
 	): ReactiveQuery<T extends Transformer<ReturnType<T>> ? ReturnType<T> : T> {
 		const selector = $derived(select(queryArg));
 		const result = $derived(selector(getState()));
@@ -214,7 +214,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			}
 			return {
 				...result,
-				data
+				data,
 			};
 		});
 
@@ -224,7 +224,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 			},
 			get response() {
 				return output.data;
-			}
+			},
 		};
 	}
 
@@ -239,7 +239,7 @@ export function buildQueryHooks<Definitions extends ExtensionDefinitions>({
 		useQuery,
 		useQueryState,
 		useQueries,
-		useQueryTimeStamp
+		useQueryTimeStamp,
 	};
 }
 
@@ -291,7 +291,7 @@ type UseMutationResult<Definition extends MutationDefinition<any, any, string, a
 		options?: {
 			/** Properties for event tracking. */
 			properties?: EventProperties;
-		}
+		},
 	) => Promise<ResultTypeFrom<Definition>>,
 	/**
 	 * The reactive state of the mutation.
@@ -302,14 +302,14 @@ type UseMutationResult<Definition extends MutationDefinition<any, any, string, a
 	/**
 	 * A method to reset the hook back to its original state and remove the current result from the cache.
 	 */
-	() => void
+	() => void,
 ];
 
 /**
  * Declaration of custom methods for mutations.
  */
 export interface MutationHook<
-	Definition extends MutationDefinition<unknown, any, string, unknown>
+	Definition extends MutationDefinition<unknown, any, string, unknown>,
 > {
 	/**
 	 * Mutation hook.
@@ -317,14 +317,14 @@ export interface MutationHook<
 	 * Returns a function to trigger the mutation, a reactive state of the mutation and a function to reset it.
 	 * */
 	useMutation: (
-		params?: UseMutationHookParams<Definition>
+		params?: UseMutationHookParams<Definition>,
 	) => Prettify<UseMutationResult<Definition>>;
 	/**
 	 * Execute query and return results.
 	 */
 	mutate(
 		args: QueryArgFrom<Definition>,
-		options?: UseMutationHookParams<Definition>
+		options?: UseMutationHookParams<Definition>,
 	): Promise<ResultTypeFrom<Definition>>;
 }
 
@@ -340,13 +340,13 @@ function throwError(error: unknown, silent: boolean): never {
  */
 export function buildMutationHook<
 	Definitions extends ExtensionDefinitions,
-	D extends MutationDefinition<unknown, any, string, unknown>
+	D extends MutationDefinition<unknown, any, string, unknown>,
 >({
 	api,
 	endpointName,
 	actionName,
 	command,
-	ctx: { getState, getDispatch, posthog }
+	ctx: { getState, getDispatch, posthog },
 }: {
 	api: Api<any, Definitions, any, any, CoreModule>;
 	endpointName: string;
@@ -375,7 +375,7 @@ export function buildMutationHook<
 			error: args.error,
 			error_title: parsedError?.name,
 			error_message: parsedError?.message,
-			error_code: parsedError?.code
+			error_code: parsedError?.code,
 		});
 
 		/** TODO: How long do we need to send these duplicates? */
@@ -386,7 +386,7 @@ export function buildMutationHook<
 			command,
 			durationMs,
 			failure: args.failure,
-			error: args.error
+			error: args.error,
 		});
 	}
 
@@ -433,7 +433,7 @@ export function buildMutationHook<
 
 		async function triggerMutation(
 			queryArg: QueryArgFrom<D>,
-			options?: { properties?: EventProperties }
+			options?: { properties?: EventProperties },
 		) {
 			const properties = Object.assign({}, propertiesFn?.(), options?.properties);
 			preEffect?.(queryArg);
@@ -482,12 +482,12 @@ export function buildMutationHook<
 				subscribe();
 				return result;
 			}),
-			reset
+			reset,
 		] as const;
 	}
 
 	return {
 		mutate,
-		useMutation
+		useMutation,
 	};
 }

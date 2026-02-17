@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import { projectRunCommitHooks } from '$lib/config/config';
-	import { CardGroup, Toggle } from '@gitbutler/ui';
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import { projectRunCommitHooks } from "$lib/config/config";
+	import { CardGroup, Toggle } from "@gitbutler/ui";
 
 	const { projectId }: { projectId: string } = $props();
 

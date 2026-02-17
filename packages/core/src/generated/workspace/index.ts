@@ -136,19 +136,19 @@ export type Commit = {
  * Represents the state a commit could be in.
  */
 export type CommitState =
-	| { type: 'LocalOnly' }
-	| { type: 'LocalAndRemote'; subject: string }
-	| { type: 'Integrated' };
+	| { type: "LocalOnly" }
+	| { type: "LocalAndRemote"; subject: string }
+	| { type: "Integrated" };
 
 /**
  * Represents the pushable status for the current stack.
  */
 export type PushStatus =
-	| 'nothingToPush'
-	| 'unpushedCommits'
-	| 'unpushedCommitsRequiringForce'
-	| 'completelyUnpushed'
-	| 'integrated';
+	| "nothingToPush"
+	| "unpushedCommits"
+	| "unpushedCommitsRequiringForce"
+	| "completelyUnpushed"
+	| "integrated";
 
 /**
  * Information about the current state of a stack

@@ -1,4 +1,4 @@
-import type { DiffFileLineId } from '$lib/utils/diffParsing';
+import type { DiffFileLineId } from "$lib/utils/diffParsing";
 
 export function getHunkLineId(rowEncodedId: DiffFileLineId): string {
 	return `hunk-line-${rowEncodedId}`;

@@ -1,23 +1,23 @@
-import { feedsSelectors } from '$lib/feeds/feedsSlice';
-import { postsSelectors } from '$lib/feeds/postsSlice';
+import { feedsSelectors } from "$lib/feeds/feedsSlice";
+import { postsSelectors } from "$lib/feeds/postsSlice";
 import {
 	registerInterest,
-	registerInterestInView
-} from '$lib/interest/registerInterestFunction.svelte';
-import { isFound } from '$lib/network/loadable';
-import { userByLoginTable, userTable } from '$lib/users/usersSlice';
-import type { FeedService } from '$lib/feeds/service';
-import type { Feed, Post } from '$lib/feeds/types';
-import type { Loadable } from '$lib/network/types';
-import type { AppFeedsState, AppPostsState, AppUsersState } from '$lib/redux/store.svelte';
-import type { Reactive } from '$lib/storeUtils';
-import type { User } from '$lib/users/types';
-import type { UserService } from '$lib/users/userService';
+	registerInterestInView,
+} from "$lib/interest/registerInterestFunction.svelte";
+import { isFound } from "$lib/network/loadable";
+import { userByLoginTable, userTable } from "$lib/users/usersSlice";
+import type { FeedService } from "$lib/feeds/service";
+import type { Feed, Post } from "$lib/feeds/types";
+import type { Loadable } from "$lib/network/types";
+import type { AppFeedsState, AppPostsState, AppUsersState } from "$lib/redux/store.svelte";
+import type { Reactive } from "$lib/storeUtils";
+import type { User } from "$lib/users/types";
+import type { UserService } from "$lib/users/userService";
 
 export function getFeed(
 	appState: AppFeedsState,
 	feedService: FeedService,
-	identity?: string
+	identity?: string,
 ): Reactive<Feed | undefined> {
 	// Fetching the head of the feed
 	$effect(() => {
@@ -33,14 +33,14 @@ export function getFeed(
 	return {
 		get current() {
 			return feed;
-		}
+		},
 	};
 }
 
 export function getFeedLastPost(
 	appState: AppFeedsState & AppPostsState,
 	feedService: FeedService,
-	feed?: Feed
+	feed?: Feed,
 ): Reactive<Post | undefined> {
 	const lastPostId = $derived(feed?.postIds.at(-1));
 	$effect(() => {
@@ -50,13 +50,13 @@ export function getFeedLastPost(
 		registerInterest(postWithRepliesInterest);
 	});
 	const lastPost = $derived(
-		lastPostId ? postsSelectors.selectById(appState.posts, lastPostId) : undefined
+		lastPostId ? postsSelectors.selectById(appState.posts, lastPostId) : undefined,
 	);
 
 	return {
 		get current() {
 			return lastPost;
-		}
+		},
 	};
 }
 
@@ -67,7 +67,7 @@ export function getPostAuthor(
 	postId: string,
 	renderInView?: {
 		element?: HTMLElement;
-	}
+	},
 ): Reactive<Loadable<User> | undefined> {
 	const currentUserId = $derived.by(() => {
 		const postInterest = feedService.getPostWithRepliesInterest(postId);
@@ -100,6 +100,6 @@ export function getPostAuthor(
 	return {
 		get current() {
 			return current;
-		}
+		},
 	};
 }

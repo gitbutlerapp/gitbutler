@@ -1,6 +1,6 @@
-import type { DependencyError, HunkDependencies } from '$lib/dependencies/dependencies';
-import type { HunkAssignment, HunkAssignmentError } from '$lib/hunks/hunk';
-import type { CoreUI } from '@gitbutler/core/api';
+import type { DependencyError, HunkDependencies } from "$lib/dependencies/dependencies";
+import type { HunkAssignment, HunkAssignmentError } from "$lib/hunks/hunk";
+import type { CoreUI } from "@gitbutler/core/api";
 
 /** Contains the changes that are in the worktree */
 export type WorktreeChanges = {
@@ -44,14 +44,14 @@ export type TreeChanges = {
 
 export function isTreeChange(something: unknown): something is TreeChange {
 	return (
-		typeof something === 'object' &&
+		typeof something === "object" &&
 		something !== null &&
-		'path' in something &&
-		typeof something['path'] === 'string' &&
-		'pathBytes' in something &&
-		Array.isArray(something['pathBytes']) &&
-		'status' in something &&
-		isChangeStatus(something['status'])
+		"path" in something &&
+		typeof something["path"] === "string" &&
+		"pathBytes" in something &&
+		Array.isArray(something["pathBytes"]) &&
+		"status" in something &&
+		isChangeStatus(something["status"])
 	);
 }
 
@@ -61,41 +61,41 @@ export type Status = CoreUI.TreeStatus;
 
 export function isExecutableStatus(status: Status): boolean {
 	switch (status.type) {
-		case 'Addition':
-		case 'Deletion':
+		case "Addition":
+		case "Deletion":
 			return false;
-		case 'Modification':
-		case 'Rename':
+		case "Modification":
+		case "Rename":
 			return (
-				status.subject.flags === 'ExecutableBitAdded' ||
-				status.subject.flags === 'ExecutableBitRemoved'
+				status.subject.flags === "ExecutableBitAdded" ||
+				status.subject.flags === "ExecutableBitRemoved"
 			);
 	}
 }
 
 export function isSubmoduleStatus(status: Status): boolean {
 	switch (status.type) {
-		case 'Addition':
-			return status.subject.state.kind === 'Commit';
-		case 'Deletion':
-			return status.subject.previousState.kind === 'Commit';
-		case 'Modification':
+		case "Addition":
+			return status.subject.state.kind === "Commit";
+		case "Deletion":
+			return status.subject.previousState.kind === "Commit";
+		case "Modification":
 			return (
-				status.subject.state.kind === 'Commit' || status.subject.previousState.kind === 'Commit'
+				status.subject.state.kind === "Commit" || status.subject.previousState.kind === "Commit"
 			);
-		case 'Rename':
+		case "Rename":
 			return (
-				status.subject.state.kind === 'Commit' || status.subject.previousState.kind === 'Commit'
+				status.subject.state.kind === "Commit" || status.subject.previousState.kind === "Commit"
 			);
 	}
 }
 
 function isChangeStatus(something: unknown): something is Status {
 	return (
-		typeof something === 'object' &&
+		typeof something === "object" &&
 		something !== null &&
-		'type' in something &&
-		typeof something['type'] === 'string'
+		"type" in something &&
+		typeof something["type"] === "string"
 	);
 }
 
@@ -110,6 +110,6 @@ export type IgnoredChange = {
 /** The status we can't handle.*/
 type IgnoredChangeStatus =
 	/** A conflicting entry in the index. The worktree state of the entry is unclear.*/
-	| 'Conflict'
+	| "Conflict"
 	/** A change in the `.git/index` that was overruled by a change to the same path in the *worktree*.*/
-	| 'TreeIndex';
+	| "TreeIndex";

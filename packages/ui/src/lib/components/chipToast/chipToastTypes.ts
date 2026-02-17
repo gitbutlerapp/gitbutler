@@ -1,4 +1,4 @@
-export type ChipToastType = 'info' | 'success' | 'warning' | 'danger';
+export type ChipToastType = "info" | "success" | "warning" | "danger";
 
 export interface ChipToastButtonConfig {
 	label: string;

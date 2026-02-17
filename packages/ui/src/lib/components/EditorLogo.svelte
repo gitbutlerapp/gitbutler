@@ -1,19 +1,19 @@
 <script lang="ts">
-	import claudeLogoSvg from '$lib/assets/claude.svg?raw';
-	import cursorLogoSvg from '$lib/assets/cursor.svg?raw';
-	import vsCodeInsidersLogoSvg from '$lib/assets/vscode-insiders.svg?raw';
-	import vsCodeLogoSvg from '$lib/assets/vscode.svg?raw';
+	import claudeLogoSvg from "$lib/assets/claude.svg?raw";
+	import cursorLogoSvg from "$lib/assets/cursor.svg?raw";
+	import vsCodeInsidersLogoSvg from "$lib/assets/vscode-insiders.svg?raw";
+	import vsCodeLogoSvg from "$lib/assets/vscode.svg?raw";
 
 	type Props = {
-		name: 'vscode' | 'cursor' | 'claude' | (string & {});
+		name: "vscode" | "cursor" | "claude" | (string & {});
 	};
 
 	const { name }: Props = $props();
-	const isCursor = $derived(name.toLowerCase().includes('cursor'));
-	const vsCodeKeywords = ['vscode', 'visual studio code'];
+	const isCursor = $derived(name.toLowerCase().includes("cursor"));
+	const vsCodeKeywords = ["vscode", "visual studio code"];
 	const isVsCode = $derived(vsCodeKeywords.some((keyword) => name.toLowerCase().includes(keyword)));
-	const isVsCodeInsiders = $derived(isVsCode && name.toLowerCase().includes('insiders'));
-	const isClaude = $derived(name.toLowerCase().includes('claude'));
+	const isVsCodeInsiders = $derived(isVsCode && name.toLowerCase().includes("insiders"));
+	const isClaude = $derived(name.toLowerCase().includes("claude"));
 </script>
 
 <div class="editor-logo">

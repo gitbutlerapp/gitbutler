@@ -1,6 +1,6 @@
 <script lang="ts">
-	import GitbutlerLogoLink from '$lib/components/GitbutlerLogoLink.svelte';
-	import HeaderAuthSection from '$lib/components/HeaderAuthSection.svelte';
+	import GitbutlerLogoLink from "$lib/components/GitbutlerLogoLink.svelte";
+	import HeaderAuthSection from "$lib/components/HeaderAuthSection.svelte";
 
 	interface NavigationProps {
 		markOnly?: boolean;

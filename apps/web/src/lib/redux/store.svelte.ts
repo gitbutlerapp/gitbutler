@@ -1,13 +1,13 @@
-import { dashboardSidebarReducer } from '$lib/dashboard/sidebar.svelte';
-import { InjectionToken } from '@gitbutler/core/context';
-import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
-import { configureStore, createSelector, type Store, type Selector } from '@reduxjs/toolkit';
+import { dashboardSidebarReducer } from "$lib/dashboard/sidebar.svelte";
+import { InjectionToken } from "@gitbutler/core/context";
+import { AppDispatch, AppState } from "@gitbutler/shared/redux/store.svelte";
+import { configureStore, createSelector, type Store, type Selector } from "@reduxjs/toolkit";
 
 export type WebDashboardSidebarState = {
 	readonly dashboardSidebar: ReturnType<typeof dashboardSidebarReducer>;
 };
 
-export const WEB_STATE = new InjectionToken<WebState>('WebState');
+export const WEB_STATE = new InjectionToken<WebState>("WebState");
 
 export class WebState extends AppState implements WebDashboardSidebarState {
 	/**
@@ -19,8 +19,8 @@ export class WebState extends AppState implements WebDashboardSidebarState {
 	readonly _store: Store = configureStore({
 		reducer: {
 			...this.reducers,
-			dashboardSidebar: dashboardSidebarReducer
-		}
+			dashboardSidebar: dashboardSidebarReducer,
+		},
 	});
 
 	readonly appDispatch = new AppDispatch(this._store.dispatch);
@@ -42,7 +42,7 @@ export class WebState extends AppState implements WebDashboardSidebarState {
 
 	private readonly selectDashboardSidebar = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.dashboardSidebar
+		(rootState) => rootState.dashboardSidebar,
 	);
 
 	readonly dashboardSidebar = $derived(this.selectDashboardSidebar(this.rootState));

@@ -1,14 +1,14 @@
 import {
 	aggregateFileDependencies,
 	type FileDependencies,
-	type HunkDependencies
-} from '$lib/dependencies/dependencies';
-import { createSelectByIds } from '$lib/state/customSelectors';
-import { InjectionToken } from '@gitbutler/core/context';
-import { createEntityAdapter } from '@reduxjs/toolkit';
-import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
+	type HunkDependencies,
+} from "$lib/dependencies/dependencies";
+import { createSelectByIds } from "$lib/state/customSelectors";
+import { InjectionToken } from "@gitbutler/core/context";
+import { createEntityAdapter } from "@reduxjs/toolkit";
+import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
 
-export const DEPENDENCY_SERVICE = new InjectionToken<DependencyService>('DependencyService');
+export const DEPENDENCY_SERVICE = new InjectionToken<DependencyService>("DependencyService");
 
 export default class DependencyService {
 	constructor(private readonly worktreeService: WorktreeService) {}
@@ -21,7 +21,7 @@ export default class DependencyService {
 					if (!dependencies) {
 						return {
 							path: filePath,
-							dependencies: []
+							dependencies: [],
 						};
 					}
 
@@ -29,11 +29,11 @@ export default class DependencyService {
 					return (
 						fileDependencySelectors.selectById(e.fileDependencies, filePath) || {
 							path: filePath,
-							dependencies: []
+							dependencies: [],
 						}
 					);
-				}
-			}
+				},
+			},
 		);
 	}
 
@@ -48,8 +48,8 @@ export default class DependencyService {
 
 					const e = toEntityAdapter(dependencies);
 					return fileDependencySelectors.selectByIds(e.fileDependencies, filePaths);
-				}
-			}
+				},
+			},
 		);
 	}
 }
@@ -61,16 +61,16 @@ function toEntityAdapter(dependencies: HunkDependencies) {
 		filePaths,
 		fileDependencies: fileDependenciesAdapter.addMany(
 			fileDependenciesAdapter.getInitialState(),
-			fileDependencies
-		)
+			fileDependencies,
+		),
 	};
 }
 
 const fileDependenciesAdapter = createEntityAdapter<FileDependencies, string>({
-	selectId: (fileDependency) => fileDependency.path
+	selectId: (fileDependency) => fileDependency.path,
 });
 
 const fileDependencySelectors = {
 	...fileDependenciesAdapter.getSelectors(),
-	selectByIds: createSelectByIds<FileDependencies>()
+	selectByIds: createSelectByIds<FileDependencies>(),
 };

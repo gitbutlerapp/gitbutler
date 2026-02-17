@@ -1,11 +1,11 @@
 export async function uploadFiles(accept: string, multiple = true): Promise<FileList | null> {
-	const input = document.createElement('input');
-	input.type = 'file';
+	const input = document.createElement("input");
+	input.type = "file";
 	input.accept = accept;
 	input.multiple = multiple;
 
 	// Append to document temporarily (some browsers require this)
-	input.style.display = 'none';
+	input.style.display = "none";
 	document.body.appendChild(input);
 
 	input.click();

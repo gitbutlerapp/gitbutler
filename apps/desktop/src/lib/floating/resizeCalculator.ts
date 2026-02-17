@@ -1,4 +1,4 @@
-import type { ModalBounds } from '$lib/floating/types';
+import type { ModalBounds } from "$lib/floating/types";
 
 export class ResizeCalculator {
 	private minWidth: number;
@@ -14,10 +14,10 @@ export class ResizeCalculator {
 		dy: number,
 		direction: string,
 		snapPosition: string,
-		baseBounds: ModalBounds
+		baseBounds: ModalBounds,
 	): ModalBounds {
-		const isCenterHorizontal = snapPosition.includes('center') || snapPosition === 'center';
-		const isCenterVertical = snapPosition.includes('center') || snapPosition === 'center';
+		const isCenterHorizontal = snapPosition.includes("center") || snapPosition === "center";
+		const isCenterVertical = snapPosition.includes("center") || snapPosition === "center";
 
 		let newX = baseBounds.x;
 		let newY = baseBounds.y;
@@ -25,50 +25,50 @@ export class ResizeCalculator {
 		let newHeight = baseBounds.height;
 
 		// Handle horizontal resizing
-		if (direction.includes('w') || direction === 'w') {
+		if (direction.includes("w") || direction === "w") {
 			const result = this.calculateHorizontalResize(
 				dx,
-				'w',
+				"w",
 				snapPosition,
 				isCenterHorizontal,
-				baseBounds
+				baseBounds,
 			);
 			newX = result.x;
 			newWidth = result.width;
 		}
 
-		if (direction.includes('e') || direction === 'e') {
+		if (direction.includes("e") || direction === "e") {
 			const result = this.calculateHorizontalResize(
 				dx,
-				'e',
+				"e",
 				snapPosition,
 				isCenterHorizontal,
-				baseBounds
+				baseBounds,
 			);
 			newX = result.x;
 			newWidth = result.width;
 		}
 
 		// Handle vertical resizing
-		if (direction.includes('n') || direction === 'n') {
+		if (direction.includes("n") || direction === "n") {
 			const result = this.calculateVerticalResize(
 				dy,
-				'n',
+				"n",
 				snapPosition,
 				isCenterVertical,
-				baseBounds
+				baseBounds,
 			);
 			newY = result.y;
 			newHeight = result.height;
 		}
 
-		if (direction.includes('s') || direction === 's') {
+		if (direction.includes("s") || direction === "s") {
 			const result = this.calculateVerticalResize(
 				dy,
-				's',
+				"s",
 				snapPosition,
 				isCenterVertical,
-				baseBounds
+				baseBounds,
 			);
 			newY = result.y;
 			newHeight = result.height;
@@ -79,21 +79,21 @@ export class ResizeCalculator {
 
 	private calculateHorizontalResize(
 		dx: number,
-		edge: 'w' | 'e',
+		edge: "w" | "e",
 		snapPosition: string,
 		isCenterHorizontal: boolean,
-		baseBounds: ModalBounds
+		baseBounds: ModalBounds,
 	) {
 		let newX = baseBounds.x;
 		let newWidth = baseBounds.width;
 
-		if (edge === 'w') {
-			if (isCenterHorizontal && !snapPosition.includes('left') && !snapPosition.includes('right')) {
+		if (edge === "w") {
+			if (isCenterHorizontal && !snapPosition.includes("left") && !snapPosition.includes("right")) {
 				// Center position - grow both directions
 				const widthChange = -dx * 2;
 				newWidth = Math.max(this.minWidth, baseBounds.width + widthChange);
 				newX = baseBounds.x + (baseBounds.width - newWidth) / 2;
-			} else if (snapPosition.includes('right')) {
+			} else if (snapPosition.includes("right")) {
 				// Right-anchored
 				newX = baseBounds.x + dx;
 				newWidth = Math.max(this.minWidth, baseBounds.width - dx);
@@ -104,11 +104,11 @@ export class ResizeCalculator {
 			}
 		} else {
 			// edge === 'e'
-			if (isCenterHorizontal && !snapPosition.includes('left') && !snapPosition.includes('right')) {
+			if (isCenterHorizontal && !snapPosition.includes("left") && !snapPosition.includes("right")) {
 				// Center position - grow both directions
 				newWidth = Math.max(this.minWidth, baseBounds.width + dx * 2);
 				newX = baseBounds.x - (newWidth - baseBounds.width) / 2;
-			} else if (snapPosition.includes('left')) {
+			} else if (snapPosition.includes("left")) {
 				// Left-anchored
 				newWidth = Math.max(this.minWidth, baseBounds.width + dx);
 			} else {
@@ -122,21 +122,21 @@ export class ResizeCalculator {
 
 	private calculateVerticalResize(
 		dy: number,
-		edge: 'n' | 's',
+		edge: "n" | "s",
 		snapPosition: string,
 		isCenterVertical: boolean,
-		baseBounds: ModalBounds
+		baseBounds: ModalBounds,
 	) {
 		let newY = baseBounds.y;
 		let newHeight = baseBounds.height;
 
-		if (edge === 'n') {
-			if (isCenterVertical && !snapPosition.includes('top') && !snapPosition.includes('bottom')) {
+		if (edge === "n") {
+			if (isCenterVertical && !snapPosition.includes("top") && !snapPosition.includes("bottom")) {
 				// Center position - grow both directions
 				const heightChange = -dy * 2;
 				newHeight = Math.max(this.minHeight, baseBounds.height + heightChange);
 				newY = baseBounds.y + (baseBounds.height - newHeight) / 2;
-			} else if (snapPosition.includes('bottom')) {
+			} else if (snapPosition.includes("bottom")) {
 				// Bottom-anchored
 				newY = baseBounds.y + dy;
 				newHeight = Math.max(this.minHeight, baseBounds.height - dy);
@@ -147,11 +147,11 @@ export class ResizeCalculator {
 			}
 		} else {
 			// edge === 's'
-			if (isCenterVertical && !snapPosition.includes('top') && !snapPosition.includes('bottom')) {
+			if (isCenterVertical && !snapPosition.includes("top") && !snapPosition.includes("bottom")) {
 				// Center position - grow both directions
 				newHeight = Math.max(this.minHeight, baseBounds.height + dy * 2);
 				newY = baseBounds.y - (newHeight - baseBounds.height) / 2;
-			} else if (snapPosition.includes('top')) {
+			} else if (snapPosition.includes("top")) {
 				// Top-anchored
 				newHeight = Math.max(this.minHeight, baseBounds.height + dy);
 			} else {

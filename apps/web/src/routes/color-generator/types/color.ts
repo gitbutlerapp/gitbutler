@@ -10,7 +10,7 @@ export interface ColorScale {
 
 export interface Shade {
 	value: number;
-	purpose: 'background' | 'soft' | 'solid' | 'text';
+	purpose: "background" | "soft" | "solid" | "text";
 }
 
 export interface SemanticZone {

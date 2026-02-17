@@ -1,15 +1,15 @@
 <script lang="ts">
-	import SectionHeader from '$home/components/SectionHeader.svelte';
+	import SectionHeader from "$home/components/SectionHeader.svelte";
 
 	const features = [
-		{ name: 'Stacked branch workflows', git: false, gitbutler: true },
-		{ name: 'Work on multiple branches simultaneously', git: false, gitbutler: true },
-		{ name: 'Unlimited undo/redo', git: false, gitbutler: true },
-		{ name: 'Simple, predictable rebasing', git: false, gitbutler: true },
-		{ name: 'Fast worktree management', git: false, gitbutler: true },
-		{ name: 'AI agent-friendly commands', git: false, gitbutler: true },
-		{ name: 'Make commits', git: true, gitbutler: true },
-		{ name: 'Works with Git repositories', git: true, gitbutler: true }
+		{ name: "Stacked branch workflows", git: false, gitbutler: true },
+		{ name: "Work on multiple branches simultaneously", git: false, gitbutler: true },
+		{ name: "Unlimited undo/redo", git: false, gitbutler: true },
+		{ name: "Simple, predictable rebasing", git: false, gitbutler: true },
+		{ name: "Fast worktree management", git: false, gitbutler: true },
+		{ name: "AI agent-friendly commands", git: false, gitbutler: true },
+		{ name: "Make commits", git: true, gitbutler: true },
+		{ name: "Works with Git repositories", git: true, gitbutler: true },
 	];
 </script>
 

@@ -1,4 +1,4 @@
-import type { ForgeBranch } from '$lib/forge/interface/forgeBranch';
+import type { ForgeBranch } from "$lib/forge/interface/forgeBranch";
 
 export class GitHubBranch implements ForgeBranch {
 	readonly url: string;

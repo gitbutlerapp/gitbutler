@@ -1,13 +1,13 @@
 <script lang="ts">
-	import signinSvg from '$lib/assets/token.svg?raw';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, CardGroup, Textbox, Spacer } from '@gitbutler/ui';
+	import signinSvg from "$lib/assets/token.svg?raw";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, CardGroup, Textbox, Spacer } from "@gitbutler/ui";
 
 	const userService = inject(USER_SERVICE);
 	const user = userService.user;
 
-	let accessToken = $state('');
+	let accessToken = $state("");
 </script>
 
 {#if !$user}
@@ -57,7 +57,7 @@
 						disabled={accessToken.trim().length === 0}
 						onclick={async () => {
 							await userService.setUserAccessToken(accessToken.trim(), true);
-							accessToken = '';
+							accessToken = "";
 						}}>Authorize access token</Button
 					>
 				</div>

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { AsyncButton, Badge, Button, Checkbox, RadioButton, Textarea } from '@gitbutler/ui';
-	import type { AskUserQuestion } from '$lib/codegen/types';
+	import { AsyncButton, Badge, Button, Checkbox, RadioButton, Textarea } from "@gitbutler/ui";
+	import type { AskUserQuestion } from "$lib/codegen/types";
 
 	type Props = {
 		questions: AskUserQuestion[];
@@ -31,10 +31,10 @@
 		for (const [index, q] of questions.entries()) {
 			const key = getQuestionKey(index, q.question);
 			if (!(key in selectedAnswers)) {
-				selectedAnswers[key] = q.multiSelect ? [] : '';
+				selectedAnswers[key] = q.multiSelect ? [] : "";
 			}
 			if (!(key in otherText)) {
-				otherText[key] = '';
+				otherText[key] = "";
 			}
 		}
 
@@ -54,7 +54,7 @@
 	const isMultiStep = $derived(questions.length > 1);
 	const currentQuestion = $derived(questions[currentStep]);
 	const currentQuestionKey = $derived(
-		currentQuestion ? getQuestionKey(currentStep, currentQuestion.question) : ''
+		currentQuestion ? getQuestionKey(currentStep, currentQuestion.question) : "",
 	);
 
 	function isQuestionAnswered(question: AskUserQuestion, questionIndex: number): boolean {
@@ -65,7 +65,7 @@
 		}
 		if (isOtherSelected(key)) {
 			const text = otherText[key];
-			if (!text || text.trim() === '') {
+			if (!text || text.trim() === "") {
 				return false;
 			}
 		}
@@ -96,7 +96,7 @@
 	}
 
 	function isOtherSelected(questionKey: string): boolean {
-		return isOptionSelected(questionKey, '__other__');
+		return isOptionSelected(questionKey, "__other__");
 	}
 
 	function activateOption(questionKey: string, label: string) {
@@ -108,7 +108,7 @@
 	}
 
 	function getOptionId(questionIdx: number, optionLabel: string): string {
-		return `q${questionIdx}-opt-${optionLabel.replace(/\s+/g, '-').toLowerCase()}`;
+		return `q${questionIdx}-opt-${optionLabel.replace(/\s+/g, "-").toLowerCase()}`;
 	}
 
 	// Check if all questions have been answered
@@ -139,11 +139,11 @@
 			}
 			if (Array.isArray(answer)) {
 				// Multi-select: replace '__other__' with the actual text
-				const resolvedAnswers = answer.map((a) => (a === '__other__' ? (otherText[key] ?? '') : a));
-				answers[question.question] = resolvedAnswers.join(', ');
+				const resolvedAnswers = answer.map((a) => (a === "__other__" ? (otherText[key] ?? "") : a));
+				answers[question.question] = resolvedAnswers.join(", ");
 			} else {
 				// Single-select: replace '__other__' with the actual text
-				answers[question.question] = answer === '__other__' ? (otherText[key] ?? '') : answer;
+				answers[question.question] = answer === "__other__" ? (otherText[key] ?? "") : answer;
 			}
 		}
 		await onSubmitAnswers(answers);
@@ -216,7 +216,7 @@
 
 						<!-- Other option -->
 						<label
-							for={getOptionId(currentStep, 'other')}
+							for={getOptionId(currentStep, "other")}
 							class="option"
 							class:selected={isOtherSelected(currentQuestionKey)}
 							class:disabled={answered}
@@ -224,7 +224,7 @@
 							<div class="option__indicator">
 								{#if currentQuestion.multiSelect}
 									<Checkbox
-										id={getOptionId(currentStep, 'other')}
+										id={getOptionId(currentStep, "other")}
 										name={`question-${currentStep}`}
 										value="__other__"
 										small
@@ -232,12 +232,12 @@
 										checked={isOtherSelected(currentQuestionKey)}
 										onchange={() => {
 											if (answered) return;
-											activateOption(currentQuestionKey, '__other__');
+											activateOption(currentQuestionKey, "__other__");
 										}}
 									/>
 								{:else}
 									<RadioButton
-										id={getOptionId(currentStep, 'other')}
+										id={getOptionId(currentStep, "other")}
 										name={`question-${currentStep}`}
 										value="__other__"
 										small
@@ -245,7 +245,7 @@
 										checked={isOtherSelected(currentQuestionKey)}
 										onchange={() => {
 											if (answered) return;
-											activateOption(currentQuestionKey, '__other__');
+											activateOption(currentQuestionKey, "__other__");
 										}}
 									/>
 								{/if}
@@ -259,7 +259,7 @@
 									disabled={answered}
 									onfocus={() => {
 										if (answered) return;
-										activateOption(currentQuestionKey, '__other__');
+										activateOption(currentQuestionKey, "__other__");
 									}}
 								/>
 							</div>

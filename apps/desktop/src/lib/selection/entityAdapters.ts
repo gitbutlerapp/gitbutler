@@ -1,11 +1,11 @@
-import { platformPathSeparator } from '$lib/backend';
-import { createEntityAdapter } from '@reduxjs/toolkit';
-import type { TreeChange } from '$lib/hunks/change';
-import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
-import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+import { platformPathSeparator } from "$lib/backend";
+import { createEntityAdapter } from "@reduxjs/toolkit";
+import type { TreeChange } from "$lib/hunks/change";
+import type { HunkAssignment, HunkHeader } from "$lib/hunks/hunk";
+import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 // ASCII Unit Separator, used to separate data units within a record or field.
-const UNIT_SEP = '\u001F';
+const UNIT_SEP = "\u001F";
 
 /**
  * Assignments and selections are keyed by this combination of parameters.
@@ -44,11 +44,11 @@ export function prefixKey(stackId: string | null, path: string) {
 }
 
 export const treeChangeAdapter = createEntityAdapter<TreeChange, string>({
-	selectId: (change) => change.path
+	selectId: (change) => change.path,
 });
 
 export const hunkAssignmentAdapter = createEntityAdapter<HunkAssignment, string>({
-	selectId: (c) => compositeKey(c)
+	selectId: (c) => compositeKey(c),
 });
 
 /**
@@ -65,5 +65,5 @@ export type HunkSelection = {
 };
 
 export const hunkSelectionAdapter = createEntityAdapter<HunkSelection, string>({
-	selectId: (c) => c.assignmentId
+	selectId: (c) => c.assignmentId,
 });

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import RangeControl from './RangeControl.svelte';
-	import type { ColorScale } from '../types/color';
+	import RangeControl from "./RangeControl.svelte";
+	import type { ColorScale } from "../types/color";
 
 	interface Props {
 		scale: ColorScale;
@@ -19,7 +19,7 @@
 		hue = $bindable(),
 		onHueChange,
 		onSaturationChange,
-		onShade50LightnessChange
+		onShade50LightnessChange,
 	}: Props = $props();
 
 	let displayHue = $state(hue !== null ? hue : scale.baseHue || 180);

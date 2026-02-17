@@ -1,4 +1,4 @@
-import type { Readable } from 'svelte/store';
+import type { Readable } from "svelte/store";
 
 export type DeepLinkHandlers = {
 	open: (path: string) => void;
@@ -106,22 +106,22 @@ type Event<T> = {
 
 export type DownloadEvent =
 	| {
-			event: 'Started';
+			event: "Started";
 			data: {
 				contentLength?: number;
 			};
 	  }
 	| {
-			event: 'Progress';
+			event: "Progress";
 			data: {
 				chunkLength: number;
 			};
 	  }
 	| {
-			event: 'Finished';
+			event: "Finished";
 	  };
 
-export type DownloadEventName = DownloadEvent['event'];
+export type DownloadEventName = DownloadEvent["event"];
 
 export type DownloadUpdate = (onEvent?: (progress: DownloadEvent) => void) => Promise<void>;
 export type InstallUpdate = () => Promise<void>;
@@ -174,11 +174,11 @@ export type OpenDialogOptions = {
 	canCreateDirectories?: boolean;
 };
 
-export type OpenDialogReturn<T extends OpenDialogOptions> = T['directory'] extends true
-	? T['multiple'] extends true
+export type OpenDialogReturn<T extends OpenDialogOptions> = T["directory"] extends true
+	? T["multiple"] extends true
 		? string[] | null
 		: string | null
-	: T['multiple'] extends true
+	: T["multiple"] extends true
 		? string[] | null
 		: string | null;
 

@@ -12,19 +12,19 @@
 </script>
 
 <script lang="ts">
-	import { parseDiffPatchToContentSection } from '$lib/chat/diffPatch';
-	import { updateReactions } from '$lib/chat/reactions';
-	import ChatInReplyTo from '$lib/components/chat/ChatInReplyTo.svelte';
-	import MessageActions from '$lib/components/chat/MessageActions.svelte';
-	import MessageContextMenu from '$lib/components/chat/MessageContextMenu.svelte';
-	import MessageDiffSection from '$lib/components/chat/MessageDiffSection.svelte';
-	import MessageMarkdown from '$lib/components/chat/MessageMarkdown.svelte';
-	import { parseDiffPatchToEncodedSelection } from '$lib/diff/lineSelection.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
-	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
-	import { type ChatMessageReaction } from '@gitbutler/shared/chat/types';
+	import { parseDiffPatchToContentSection } from "$lib/chat/diffPatch";
+	import { updateReactions } from "$lib/chat/reactions";
+	import ChatInReplyTo from "$lib/components/chat/ChatInReplyTo.svelte";
+	import MessageActions from "$lib/components/chat/MessageActions.svelte";
+	import MessageContextMenu from "$lib/components/chat/MessageContextMenu.svelte";
+	import MessageDiffSection from "$lib/components/chat/MessageDiffSection.svelte";
+	import MessageMarkdown from "$lib/components/chat/MessageMarkdown.svelte";
+	import { parseDiffPatchToEncodedSelection } from "$lib/diff/lineSelection.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { eventTimeStamp } from "@gitbutler/shared/branches/utils";
+	import { CHAT_CHANNELS_SERVICE } from "@gitbutler/shared/chat/chatChannelsService";
+	import { type ChatMessageReaction } from "@gitbutler/shared/chat/types";
 
 	import {
 		Badge,
@@ -33,19 +33,19 @@
 		EmojiPicker,
 		Icon,
 		PopoverActionsContainer,
-		PopoverActionsItem
-	} from '@gitbutler/ui';
+		PopoverActionsItem,
+	} from "@gitbutler/ui";
 	import {
 		findEmojiByUnicode,
 		getInitialEmojis,
 		markRecentlyUsedEmoji,
-		type EmojiInfo
-	} from '@gitbutler/ui/components/emoji/utils';
+		type EmojiInfo,
+	} from "@gitbutler/ui/components/emoji/utils";
 
-	import { SvelteSet } from 'svelte/reactivity';
-	import type { ChatEvent } from '@gitbutler/shared/patchEvents/types';
-	import type { UserSimple } from '@gitbutler/shared/users/types';
-	const UNKNOWN_AUTHOR = 'Unknown author';
+	import { SvelteSet } from "svelte/reactivity";
+	import type { ChatEvent } from "@gitbutler/shared/patchEvents/types";
+	import type { UserSimple } from "@gitbutler/shared/users/types";
+	const UNKNOWN_AUTHOR = "Unknown author";
 
 	const {
 		event,
@@ -55,7 +55,7 @@
 		highlight,
 		disableActions,
 		onReply,
-		scrollToMessage
+		scrollToMessage,
 	}: MessageProps = $props();
 
 	const chatChannelService = inject(CHAT_CHANNELS_SERVICE);
@@ -81,7 +81,7 @@
 	});
 
 	const authorName = $derived(
-		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
+		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR,
 	);
 
 	const timestamp = $derived(eventTimeStamp(event));
@@ -95,7 +95,7 @@
 	function handleGoToDiff() {
 		if (!diffSelectionString) return;
 		const rowElement = document.getElementById(`hunk-line-${diffSelectionString}`);
-		if (rowElement) rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+		if (rowElement) rowElement.scrollIntoView({ behavior: "smooth", block: "center" });
 	}
 
 	function setRecentlyUsedEmojis() {
@@ -117,12 +117,12 @@
 				projectId,
 				changeId,
 				messageUuid: message.uuid,
-				reaction: emoji.unicode
+				reaction: emoji.unicode,
 			});
 			reactButDoItOptimisticaly(emoji);
 			markRecentlyUsedEmoji(emoji);
 		} catch (error) {
-			console.error('Failed to add reaction', error);
+			console.error("Failed to add reaction", error);
 		}
 		reactionSet.delete(emoji.unicode);
 	}
@@ -139,14 +139,14 @@
 
 	function getReactionTooltip(users: UserSimple[]) {
 		const thisUsername = $user?.login;
-		if (users.length === 0) return '';
-		const formatted = users.map((user) => (user.login === thisUsername ? 'You' : user.login));
-		if (formatted.length < 4) return formatted.map((user) => user).join(', ');
+		if (users.length === 0) return "";
+		const formatted = users.map((user) => (user.login === thisUsername ? "You" : user.login));
+		if (formatted.length < 4) return formatted.map((user) => user).join(", ");
 		return (
 			formatted
 				.slice(0, 3)
 				.map((user) => user)
-				.join(', ') + ` and ${formatted.length - 3} more`
+				.join(", ") + ` and ${formatted.length - 3} more`
 		);
 	}
 
@@ -220,16 +220,16 @@
 					{@const reacted = thisUserReacted(reaction.users)}
 					<Button
 						style="gray"
-						kind={reacted ? 'ghost' : 'outline'}
+						kind={reacted ? "ghost" : "outline"}
 						size="tag"
 						loading={reactionSet.has(reaction.reaction)}
 						disabled={!$user}
 						tooltip={getReactionTooltip(reaction.users)}
-						customStyle={reacted ? 'background: var(--clr-theme-pop-soft);' : undefined}
+						customStyle={reacted ? "background: var(--clr-theme-pop-soft);" : undefined}
 						onclick={() => handleClickOnExistingReaction(reaction.reaction)}
 					>
 						<div class="text-13">
-							{reaction.reaction + ' ' + reaction.users.length}
+							{reaction.reaction + " " + reaction.users.length}
 						</div>
 					</Button>
 				{/each}

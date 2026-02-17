@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
+	import { inject } from "@gitbutler/core/context";
+	import { CHAT_CHANNELS_SERVICE } from "@gitbutler/shared/chat/chatChannelsService";
 
-	import { Button } from '@gitbutler/ui';
-	import type { ChatMessage } from '@gitbutler/shared/chat/types';
+	import { Button } from "@gitbutler/ui";
+	import type { ChatMessage } from "@gitbutler/shared/chat/types";
 
 	interface Props {
 		projectId: string;
@@ -25,7 +25,7 @@
 				projectId,
 				changeId,
 				messageUuid: message.uuid,
-				resolved: true
+				resolved: true,
 			});
 		} finally {
 			isResolving = false;

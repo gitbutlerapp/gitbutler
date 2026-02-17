@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
-	import type { Snippet } from 'svelte';
+	import { Icon } from "@gitbutler/ui";
+	import type { Snippet } from "svelte";
 
 	const {
 		title,
@@ -12,7 +12,7 @@
 		dimMessage,
 		row,
 		rowReverse,
-		testId
+		testId,
 	}: {
 		title: string;
 		loading?: boolean;

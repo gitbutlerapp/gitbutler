@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
 	import {
 		getBaseBranchResolution,
 		type BaseBranchResolutionApproach,
@@ -12,16 +12,16 @@
 		sortStatusInfoV3,
 		getResolutionApproachV3,
 		type StackStatusInfoV3,
-		type StackStatusesWithBranchesV3
-	} from '$lib/upstream/types';
-	import { UPSTREAM_INTEGRATION_SERVICE } from '$lib/upstream/upstreamIntegrationService.svelte';
-	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
+		type StackStatusesWithBranchesV3,
+	} from "$lib/upstream/types";
+	import { UPSTREAM_INTEGRATION_SERVICE } from "$lib/upstream/upstreamIntegrationService.svelte";
+	import { URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		getBooleanStorageItem,
 		removeStorageItem,
-		setBooleanStorageItem
-	} from '@gitbutler/shared/persisted';
+		setBooleanStorageItem,
+	} from "@gitbutler/shared/persisted";
 	import {
 		Badge,
 		Button,
@@ -33,14 +33,14 @@
 		SelectItem,
 		ScrollableContainer,
 		type BranchShouldBeDeletedMap,
-		TestId
-	} from '@gitbutler/ui';
-	import { tick } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
-	import type { PullRequest } from '$lib/forge/interface/types';
+		TestId,
+	} from "@gitbutler/ui";
+	import { tick } from "svelte";
+	import { SvelteMap } from "svelte/reactivity";
+	import type { PullRequest } from "$lib/forge/interface/types";
 
-	type OperationState = 'inert' | 'loading' | 'completed';
-	type OperationType = 'rebase' | 'merge' | 'unapply' | 'delete';
+	type OperationState = "inert" | "loading" | "completed";
+	type OperationType = "rebase" | "merge" | "unapply" | "delete";
 
 	interface Props {
 		projectId: string;
@@ -59,7 +59,7 @@
 	const clipboardService = inject(CLIPBOARD_SERVICE);
 
 	let modal = $state<Modal>();
-	let integratingUpstream = $state<OperationState>('inert');
+	let integratingUpstream = $state<OperationState>("inert");
 	const results = new SvelteMap<string, Resolution>();
 	let statuses = $state<StackStatusInfoV3[]>([]);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
@@ -87,7 +87,7 @@
 
 	$effect(() => {
 		if (!modal?.imports.open) return;
-		if (branchStatuses?.type !== 'updatesRequired') {
+		if (branchStatuses?.type !== "updatesRequired") {
 			statuses = [];
 			return;
 		}
@@ -104,7 +104,7 @@
 				results.set(status.stack.id, {
 					stackId: status.stack.id,
 					approach: getResolutionApproachV3(status),
-					deleteIntegratedBranches: !dontDelete
+					deleteIntegratedBranches: !dontDelete,
 				});
 			}
 		}
@@ -130,7 +130,7 @@
 			upstreamIntegrationService
 				.resolveUpstreamIntegrationMutation({
 					projectId,
-					resolutionApproach: { type: baseResolutionApproach }
+					resolutionApproach: { type: baseResolutionApproach },
 				})
 				.then((result) => {
 					targetCommitOid = result;
@@ -177,20 +177,20 @@
 	}
 
 	async function integrate() {
-		integratingUpstream = 'loading';
+		integratingUpstream = "loading";
 		await tick();
 		const baseResolution = getBaseBranchResolution(
 			targetCommitOid,
-			baseResolutionApproach || 'hardReset'
+			baseResolutionApproach || "hardReset",
 		);
 
 		await integrateUpstream({
 			projectId,
 			resolutions: Array.from(results.values()),
-			baseBranchResolution: baseResolution
+			baseBranchResolution: baseResolution,
 		});
 		await baseBranchService.refreshBaseBranch(projectId);
-		integratingUpstream = 'completed';
+		integratingUpstream = "completed";
 		modal?.close();
 	}
 
@@ -200,7 +200,7 @@
 	// }
 
 	export async function show() {
-		integratingUpstream = 'inert';
+		integratingUpstream = "inert";
 		branchStatuses = undefined;
 		filteredReviews = [];
 		await tick();
@@ -213,36 +213,36 @@
 	export const imports = {
 		get open() {
 			return modal?.imports.open;
-		}
+		},
 	};
 
 	function branchStatusToRowEntry(
 		associatedeReview: PullRequest | undefined,
-		branchStatus: BranchStatus
-	): 'integrated' | 'conflicted' | 'clear' {
+		branchStatus: BranchStatus,
+	): "integrated" | "conflicted" | "clear" {
 		if (associatedeReview?.mergedAt !== undefined) {
-			return 'integrated';
+			return "integrated";
 		}
 
-		if (branchStatus.type === 'integrated') {
-			return 'integrated';
+		if (branchStatus.type === "integrated") {
+			return "integrated";
 		}
 
-		if (branchStatus.type === 'conflicted') {
-			return 'conflicted';
+		if (branchStatus.type === "conflicted") {
+			return "conflicted";
 		}
 
-		return 'clear';
+		return "clear";
 	}
 
 	function integrationRowSeries(
-		stackStatus: StackStatus
-	): { name: string; status: 'integrated' | 'conflicted' | 'clear' }[] {
+		stackStatus: StackStatus,
+	): { name: string; status: "integrated" | "conflicted" | "clear" }[] {
 		const statuses = stackStatus.branchStatuses.map((series) => {
 			const associatedeReview = reviewMap.get(series.name);
 			return {
 				name: series.name,
-				status: branchStatusToRowEntry(associatedeReview, series.status)
+				status: branchStatusToRowEntry(associatedeReview, series.status),
 			};
 		});
 
@@ -252,7 +252,7 @@
 	}
 	function getBranchShouldBeDeletedMap(
 		stackId: string,
-		stackStatus: StackStatus
+		stackStatus: StackStatus,
 	): BranchShouldBeDeletedMap {
 		const branchShouldBeDeletedMap: BranchShouldBeDeletedMap = {};
 		stackStatus.branchStatuses.forEach((branch) => {
@@ -264,7 +264,7 @@
 	function updateBranchShouldBeDeletedMap(
 		stackId: string,
 		branchNames: string[],
-		shouldBeDeleted: boolean
+		shouldBeDeleted: boolean,
 	): void {
 		const result = results.get(stackId);
 		if (!result) return;
@@ -280,18 +280,18 @@
 	}
 
 	function integrationOptions(
-		stackStatus: StackStatus
-	): { label: string; value: 'rebase' | 'unapply' | 'merge' }[] {
+		stackStatus: StackStatus,
+	): { label: string; value: "rebase" | "unapply" | "merge" }[] {
 		if (stackStatus.branchStatuses.length > 1) {
 			return [
-				{ label: 'Rebase', value: 'rebase' },
-				{ label: 'Stash', value: 'unapply' }
+				{ label: "Rebase", value: "rebase" },
+				{ label: "Stash", value: "unapply" },
 			];
 		} else {
 			return [
-				{ label: 'Rebase', value: 'rebase' },
-				{ label: 'Merge', value: 'merge' },
-				{ label: 'Stash', value: 'unapply' }
+				{ label: "Rebase", value: "rebase" },
+				{ label: "Merge", value: "merge" },
+				{ label: "Stash", value: "unapply" },
 			];
 		}
 	}
@@ -338,7 +338,7 @@
 		{#if base}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
-					<span>Incoming {base.upstreamCommits.length === 1 ? 'change' : 'changes'}</span><Badge
+					<span>Incoming {base.upstreamCommits.length === 1 ? "change" : "changes"}</span><Badge
 						>{base.upstreamCommits.length}</Badge
 					>
 				</h3>
@@ -347,13 +347,13 @@
 						{#each base.upstreamCommits as commit}
 							{@const commitUrl = forge.current.commitUrl(commit.id)}
 							<SimpleCommitRow
-								title={commit.descriptionTitle ?? ''}
+								title={commit.descriptionTitle ?? ""}
 								sha={commit.id}
 								date={commit.createdAt}
 								author={commit.author.name}
 								url={commitUrl}
 								onOpen={(url) => urlService.openExternalUrl(url)}
-								onCopy={() => clipboardService.write(commit.id, { message: 'Commit hash copied' })}
+								onCopy={() => clipboardService.write(commit.id, { message: "Commit hash copied" })}
 							/>
 						{/each}
 					</ScrollableContainer>
@@ -361,7 +361,7 @@
 			</div>
 		{/if}
 		<!-- CONFLICTED FILES -->
-		{#if branchStatuses?.type === 'updatesRequired' && branchStatuses?.worktreeConflicts.length > 0}
+		{#if branchStatuses?.type === "updatesRequired" && branchStatuses?.worktreeConflicts.length > 0}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
 					<span>Conflicting uncommitted files</span>
@@ -407,9 +407,9 @@
 						placeholder="Choose…"
 						onselect={handleBaseResolutionSelection}
 						options={[
-							{ label: 'Rebase', value: 'rebase' },
-							{ label: 'Merge', value: 'merge' },
-							{ label: 'Hard reset', value: 'hardReset' }
+							{ label: "Rebase", value: "rebase" },
+							{ label: "Merge", value: "merge" },
+							{ label: "Hard reset", value: "hardReset" },
 						]}
 					>
 						{#snippet itemSnippet({ item, highlighted })}
@@ -446,7 +446,7 @@
 				wide
 				style="pop"
 				disabled={isDivergedResolved || !branchStatuses}
-				loading={integratingUpstream === 'loading' || !branchStatuses}
+				loading={integratingUpstream === "loading" || !branchStatuses}
 				onclick={async () => {
 					await integrate();
 				}}

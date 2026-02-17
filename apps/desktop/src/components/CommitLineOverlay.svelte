@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { portal } from '@gitbutler/ui/utils/portal';
+	import { portal } from "@gitbutler/ui/utils/portal";
 
 	interface Props {
 		hovered: boolean;
@@ -18,7 +18,7 @@
 		if (!indicatorElement) return;
 
 		const rect = indicatorElement.getBoundingClientRect();
-		const stackView = indicatorElement.closest('.stack-view');
+		const stackView = indicatorElement.closest(".stack-view");
 		if (!stackView) return;
 
 		stackViewElement = stackView;
@@ -31,7 +31,7 @@
 			top: rect.top - stackRect.top + scrollTop,
 			left: rect.left - stackRect.left,
 			width: rect.width,
-			height: rect.height
+			height: rect.height,
 		};
 	}
 

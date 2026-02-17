@@ -1,33 +1,33 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 import type {
 	StackState,
 	ProjectUiState,
 	GlobalUiState,
-	StackSelection
-} from '$lib/state/uiState.svelte';
+	StackSelection,
+} from "$lib/state/uiState.svelte";
 
 const MOCK_UI_SELECTION: StackSelection = {
-	branchName: 'branch-a',
-	commitId: 'commit-a-id',
+	branchName: "branch-a",
+	commitId: "commit-a-id",
 	upstream: false,
-	previewOpen: false
+	previewOpen: false,
 };
 
 const MOCK_STACK_UI_STATE: StackState = {
 	selection: MOCK_UI_SELECTION,
-	newCommitMessage: { title: '', description: '' },
-	prompt: '',
-	permissionMode: 'default',
+	newCommitMessage: { title: "", description: "" },
+	prompt: "",
+	permissionMode: "default",
 	disabledMcpServers: [],
-	addedDirs: []
+	addedDirs: [],
 };
 
 const MOCK_PROJECT_UI_STATE: ProjectUiState = {
 	exclusiveAction: undefined,
 	branchesToPoll: [],
 	selectedClaudeSession: undefined,
-	thinkingLevel: 'normal',
-	selectedModel: 'sonnet'
+	thinkingLevel: "normal",
+	selectedModel: "sonnet",
 };
 
 const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
@@ -38,13 +38,13 @@ const MOCK_GLOBAL_UI_STATE: GlobalUiState = {
 	useFloatingBox: false,
 	unassignedSidebarFolded: false,
 	floatingBoxSize: { width: 640, height: 330 },
-	floatingBoxPosition: 'bottom-center',
+	floatingBoxPosition: "bottom-center",
 	useRuler: true,
 	rulerCountValue: 0,
 	modal: undefined,
 	stackWidth: 22.5,
 	detailsWidth: 25,
-	previewWidth: 30
+	previewWidth: 30,
 };
 
 export function getUiStateMock() {
@@ -54,13 +54,13 @@ export function getUiStateMock() {
 		drawerHeight: {
 			get() {
 				return MOCK_GLOBAL_UI_STATE.drawerHeight;
-			}
+			},
 		},
 		aiSuggestionsOnType: {
 			get() {
 				return MOCK_GLOBAL_UI_STATE.aiSuggestionsOnType;
-			}
-		}
+			},
+		},
 	};
 
 	UiStateMock.prototype.project = vi.fn(() => {
@@ -68,8 +68,8 @@ export function getUiStateMock() {
 			drawerPage: {
 				get() {
 					return MOCK_PROJECT_UI_STATE.exclusiveAction;
-				}
-			}
+				},
+			},
 		};
 	});
 
@@ -78,13 +78,13 @@ export function getUiStateMock() {
 			selection: {
 				get() {
 					return MOCK_STACK_UI_STATE.selection;
-				}
+				},
 			},
 			newCommitMessage: {
 				get() {
 					return MOCK_STACK_UI_STATE.newCommitMessage;
-				}
-			}
+				},
+			},
 		};
 	});
 

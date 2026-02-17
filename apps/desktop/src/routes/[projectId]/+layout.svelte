@@ -1,42 +1,42 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import AnalyticsMonitor from '$components/AnalyticsMonitor.svelte';
-	import Chrome from '$components/Chrome.svelte';
-	import FileMenuAction from '$components/FileMenuAction.svelte';
-	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import IrcPopups from '$components/IrcPopups.svelte';
-	import NoBaseBranch from '$components/NoBaseBranch.svelte';
-	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
-	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
-	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import { BACKEND } from '$lib/backend';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { GITHUB_CLIENT } from '$lib/forge/github/githubClient';
-	import { useGitHubAccessToken } from '$lib/forge/github/hooks.svelte';
-	import { createGitLabProjectId } from '$lib/forge/gitlab/gitlab';
-	import { GITLAB_CLIENT } from '$lib/forge/gitlab/gitlabClient.svelte';
-	import { GITLAB_USER_SERVICE } from '$lib/forge/gitlab/gitlabUserService.svelte';
-	import { useGitLabAccessToken } from '$lib/forge/gitlab/hooks.svelte';
-	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { showError, showInfo, showWarning } from '$lib/notifications/toasts';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { CLIENT_STATE } from '$lib/state/clientState.svelte';
-	import { combineResults } from '$lib/state/helpers';
-	import { debounce } from '$lib/utils/debounce';
-	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-	import { onDestroy, untrack, type Snippet } from 'svelte';
-	import type { LayoutData } from './$types';
+	import { goto } from "$app/navigation";
+	import AnalyticsMonitor from "$components/AnalyticsMonitor.svelte";
+	import Chrome from "$components/Chrome.svelte";
+	import FileMenuAction from "$components/FileMenuAction.svelte";
+	import FullviewLoading from "$components/FullviewLoading.svelte";
+	import IrcPopups from "$components/IrcPopups.svelte";
+	import NoBaseBranch from "$components/NoBaseBranch.svelte";
+	import NotOnGitButlerBranch from "$components/NotOnGitButlerBranch.svelte";
+	import ProblemLoadingRepo from "$components/ProblemLoadingRepo.svelte";
+	import ProjectSettingsMenuAction from "$components/ProjectSettingsMenuAction.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import { BACKEND } from "$lib/backend";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { GITHUB_CLIENT } from "$lib/forge/github/githubClient";
+	import { useGitHubAccessToken } from "$lib/forge/github/hooks.svelte";
+	import { createGitLabProjectId } from "$lib/forge/gitlab/gitlab";
+	import { GITLAB_CLIENT } from "$lib/forge/gitlab/gitlabClient.svelte";
+	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
+	import { useGitLabAccessToken } from "$lib/forge/gitlab/hooks.svelte";
+	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { showError, showInfo, showWarning } from "$lib/notifications/toasts";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { CLIENT_STATE } from "$lib/state/clientState.svelte";
+	import { combineResults } from "$lib/state/helpers";
+	import { debounce } from "$lib/utils/debounce";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+	import { onDestroy, untrack, type Snippet } from "svelte";
+	import type { LayoutData } from "./$types";
 
 	const { data, children: pageChildren }: { data: LayoutData; children: Snippet } = $props();
 
@@ -108,20 +108,20 @@
 	const gitlabForkProjectId = $derived(
 		forkInfoOwner !== undefined && forkInfoName !== undefined
 			? createGitLabProjectId(forkInfoOwner, forkInfoName)
-			: undefined
+			: undefined,
 	);
 	const repoInfoOwner = $derived(repoInfo?.owner);
 	const repoInfoName = $derived(repoInfo?.name);
 	const gitlabUpstreamProjectId = $derived(
 		repoInfoOwner !== undefined && repoInfoName !== undefined
 			? createGitLabProjectId(repoInfoOwner, repoInfoName)
-			: undefined
+			: undefined,
 	);
 
 	const gitlabTokenIsLoading = $derived(gitlabAccessToken.isLoading.current);
 
 	const gitlabIsLoading = $derived(
-		gitlabTokenIsLoading && !gitlabForkProjectId && !gitlabUpstreamProjectId
+		gitlabTokenIsLoading && !gitlabForkProjectId && !gitlabUpstreamProjectId,
 	);
 
 	// GitLab setup
@@ -132,7 +132,7 @@
 				gitlabAccessToken.host.current,
 				accessToken,
 				gitlabForkProjectId,
-				gitlabUpstreamProjectId
+				gitlabUpstreamProjectId,
 			);
 		}
 	});
@@ -156,7 +156,7 @@
 			githubError: githubAccessToken.error.current,
 			gitlabAuthenticated: !!gitlabAccessToken.accessToken.current,
 			detectedForgeProvider: baseBranch?.forgeRepoInfo?.forge ?? undefined,
-			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override
+			forgeOverride: projects?.find((project) => project.id === projectId)?.forge_override,
 		});
 	});
 
@@ -176,7 +176,7 @@
 			untrack(() => {
 				uncommittedService.updateData({
 					changes: worktreeData.rawChanges,
-					assignments: worktreeData.hunkAssignments
+					assignments: worktreeData.hunkAssignments,
 				});
 			});
 		}
@@ -217,14 +217,14 @@
 			([appInfo, currentTitle]) => {
 				baseTitle = appInfo.name;
 
-				if (!currentTitle.includes(' — ')) {
+				if (!currentTitle.includes(" — ")) {
 					windowTitle = currentTitle;
 				}
 
 				if (projectTitle) {
 					backend.setWindowTitle(`${projectTitle} — ${baseTitle}`);
 				}
-			}
+			},
 		);
 
 		return () => {
@@ -263,13 +263,13 @@
 
 	const debouncedBaseBranchRefresh = debounce(async () => {
 		await baseBranchService.refreshBaseBranch(projectId).catch((error) => {
-			console.error('Failed to refresh base branch:', error);
+			console.error("Failed to refresh base branch:", error);
 		});
 	}, 500);
 
 	const debouncedRemoteBranchRefresh = debounce(async () => {
 		await branchService.refresh().catch((error) => {
-			console.error('Failed to refresh remote branches:', error);
+			console.error("Failed to refresh remote branches:", error);
 		});
 	}, 500);
 
@@ -278,7 +278,7 @@
 		gitService.onFetch(data.projectId, () => {
 			debouncedBaseBranchRefresh();
 			debouncedRemoteBranchRefresh();
-		})
+		}),
 	);
 
 	// Refresh when branch data changes
@@ -288,7 +288,7 @@
 
 	// Auto-fetch setup
 	async function fetchRemoteForProject() {
-		await baseBranchService.fetchFromRemotes(projectId, 'auto');
+		await baseBranchService.fetchFromRemotes(projectId, "auto");
 	}
 
 	function setupFetchInterval() {
@@ -318,7 +318,7 @@
 		if (projectId) {
 			untrack(() => setupFetchInterval());
 		} else {
-			goto('/onboarding');
+			goto("/onboarding");
 		}
 	});
 
@@ -333,27 +333,27 @@
 
 			if (!info.is_exclusive) {
 				showInfo(
-					'Just FYI, this project is already open in another window',
-					'There might be some unexpected behavior if you open it in multiple windows'
+					"Just FYI, this project is already open in another window",
+					"There might be some unexpected behavior if you open it in multiple windows",
 				);
 			}
 
 			if (info.db_error) {
-				showError('The database was corrupted', info.db_error);
+				showError("The database was corrupted", info.db_error);
 			}
 
-			if (info.headsup && localStorage.getItem(dontShowAgainKey) !== '1') {
-				showWarning('Important PSA', info.headsup, {
+			if (info.headsup && localStorage.getItem(dontShowAgainKey) !== "1") {
+				showWarning("Important PSA", info.headsup, {
 					label: "Don't show again",
 					onClick: (dismiss) => {
-						localStorage.setItem(dontShowAgainKey, '1');
+						localStorage.setItem(dontShowAgainKey, "1");
 						dismiss();
-					}
+					},
 				});
 			}
 		} catch (error: unknown) {
 			posthog.captureOnboarding(OnboardingEvent.SetProjectActiveFailed);
-			showError('Failed to set the project active', error);
+			showError("Failed to set the project active", error);
 		}
 	}
 
@@ -382,13 +382,13 @@
 		{#if !baseBranch}
 			<NoBaseBranch {projectId} />
 		{:else if baseBranch}
-			{#if mode.type === 'OpenWorkspace' || mode.type === 'Edit' || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
+			{#if mode.type === "OpenWorkspace" || mode.type === "Edit" || ($settingsStore?.featureFlags.singleBranch && mode.subject.branchName)}
 				<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-					<Chrome {projectId} sidebarDisabled={mode.type === 'Edit'}>
+					<Chrome {projectId} sidebarDisabled={mode.type === "Edit"}>
 						{@render pageChildren()}
 					</Chrome>
 				</div>
-			{:else if mode.type === 'OutsideWorkspace'}
+			{:else if mode.type === "OutsideWorkspace"}
 				<NotOnGitButlerBranch {projectId} {baseBranch}>
 					{@render pageChildren()}
 				</NotOnGitButlerBranch>

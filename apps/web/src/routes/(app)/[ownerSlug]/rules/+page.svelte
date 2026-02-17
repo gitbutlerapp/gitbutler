@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { eventTimeStamp } from '@gitbutler/shared/branches/utils';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { getRulesList } from '@gitbutler/shared/rules/rulesPreview.svelte';
-	import { RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
-	import type { Rule } from '@gitbutler/shared/rules/types';
+	import { goto } from "$app/navigation";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { eventTimeStamp } from "@gitbutler/shared/branches/utils";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { getRulesList } from "@gitbutler/shared/rules/rulesPreview.svelte";
+	import { RULES_SERVICE } from "@gitbutler/shared/rules/rulesService";
+	import type { Rule } from "@gitbutler/shared/rules/types";
 
 	// Get authentication service and check if user is logged in
 	const routes = inject(WEB_ROUTES_SERVICE);

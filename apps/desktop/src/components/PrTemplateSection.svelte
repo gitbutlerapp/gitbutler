@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Toggle, Select, SelectItem, TestId } from '@gitbutler/ui';
-	import type { Writable } from 'svelte/store';
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Toggle, Select, SelectItem, TestId } from "@gitbutler/ui";
+	import type { Writable } from "svelte/store";
 
 	interface Props {
 		projectId: string;
@@ -65,8 +65,8 @@
 					value={$path}
 					options={templates.map((value) => ({ label: value, value }))}
 					placeholder={templates.length > 0
-						? 'Choose template'
-						: 'No PR templates found ¯\\_(ツ)_/¯'}
+						? "Choose template"
+						: "No PR templates found ¯\\_(ツ)_/¯"}
 					flex="1"
 					searchable
 					disabled={!$enabled || templates.length === 0 || disabled}

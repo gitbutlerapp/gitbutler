@@ -1,24 +1,24 @@
 <script lang="ts">
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import LazyList from '$components/LazyList.svelte';
-	import BranchesListGroup from '$components/branchesPage/BranchesListGroup.svelte';
-	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
+	import ScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import LazyList from "$components/LazyList.svelte";
+	import BranchesListGroup from "$components/branchesPage/BranchesListGroup.svelte";
+	import noBranchesSvg from "$lib/assets/empty-state/no-branches.svg?raw";
 	import {
 		combineBranchesAndPrs,
 		groupBranches,
 		isBranchFilterOption,
 		type BranchFilterOption,
-		type SidebarEntrySubject
-	} from '$lib/branches/branchListing';
-	import { BRANCH_SERVICE } from '$lib/branches/branchService.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { debounce } from '$lib/utils/debounce';
-	import { inject } from '@gitbutler/core/context';
-	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from '@gitbutler/ui';
-	import Fuse from 'fuse.js';
-	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import type { ForgeUser } from '$lib/forge/interface/types';
-	import type { Snippet } from 'svelte';
+		type SidebarEntrySubject,
+	} from "$lib/branches/branchListing";
+	import { BRANCH_SERVICE } from "$lib/branches/branchService.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { debounce } from "$lib/utils/debounce";
+	import { inject } from "@gitbutler/core/context";
+	import { Badge, Button, EmptyStatePlaceholder, SegmentControl } from "@gitbutler/ui";
+	import Fuse from "fuse.js";
+	import type { BaseBranch } from "$lib/baseBranch/baseBranch";
+	import type { ForgeUser } from "$lib/forge/interface/types";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -32,20 +32,20 @@
 		forgeUser,
 		selectedOption = $bindable(),
 		sidebarEntry,
-		baseBranch
+		baseBranch,
 	}: Props = $props();
 
 	const searchEngine = new Fuse([] as SidebarEntrySubject[], {
 		keys: [
 			// Subject is branch listing
-			'subject.name',
-			'subject.lastCommiter.email',
-			'subject.lastCommiter.name',
-			'subject.stack.branches',
+			"subject.name",
+			"subject.lastCommiter.email",
+			"subject.lastCommiter.name",
+			"subject.stack.branches",
 			// Subject is pull request
-			'subject.title',
-			'subject.author.email',
-			'subject.author.name'
+			"subject.title",
+			"subject.author.email",
+			"subject.author.name",
 		],
 		threshold: 0.3, // 0 is the strictest.
 		ignoreLocation: true,
@@ -59,10 +59,10 @@
 			}
 			// If there are no dates or they're the same, sort by score
 			return a.score < b.score ? -1 : 1;
-		}
+		},
 	});
 
-	let searchTerm = $state('');
+	let searchTerm = $state("");
 	let searchEl: HTMLInputElement | undefined = $state();
 	let searching = $state(false);
 
@@ -73,7 +73,7 @@
 
 	const branchesQuery = $derived(branchService.list(projectId));
 	const combined = $derived(
-		combineBranchesAndPrs(prs?.response || [], branchesQuery.response || [], selectedOption)
+		combineBranchesAndPrs(prs?.response || [], branchesQuery.response || [], selectedOption),
 	);
 
 	const groupedBranches = $derived(groupBranches(combined, forgeUser));
@@ -86,14 +86,14 @@
 	});
 
 	function handleSearchKeyDown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
+		if (e.key === "Escape") {
 			closeSearch();
 		}
 	}
 
 	function closeSearch() {
 		searching = false;
-		searchTerm = '';
+		searchTerm = "";
 	}
 
 	function openSearch() {
@@ -114,14 +114,14 @@
 	const filterOptions = $derived.by<Partial<Record<BranchFilterOption, string>>>(() => {
 		if (forge.current.listService) {
 			return {
-				all: 'All',
-				pullRequest: 'PRs',
-				local: 'Local'
+				all: "All",
+				pullRequest: "PRs",
+				local: "Local",
 			};
 		} else {
 			return {
-				all: 'All',
-				local: 'Local'
+				all: "All",
+				local: "Local",
 			};
 		}
 	});
@@ -138,24 +138,24 @@
 
 	// Mapping for forge type to display name
 	const FORGE_NAME_MAP: Record<string, string> = {
-		github: 'GitHub',
-		gitlab: 'GitLab',
-		bitbucket: 'Bitbucket',
-		azure: 'Azure DevOps'
+		github: "GitHub",
+		gitlab: "GitLab",
+		bitbucket: "Bitbucket",
+		azure: "Azure DevOps",
 	};
 
 	// Increased from 180 to accommodate longer contextual messages
 	const EMPTY_STATE_WIDTH = 280;
 
 	// Helper to get a user-friendly forge name
-	const forgeName = $derived(FORGE_NAME_MAP[forge.determinedForgeType] ?? 'your forge');
+	const forgeName = $derived(FORGE_NAME_MAP[forge.determinedForgeType] ?? "your forge");
 
 	// Helper to determine if authentication message should be shown
 	// Show auth message when:
 	// 1. User is not authenticated, AND
 	// 2. Either viewing PRs filter OR forge has PR listing capability
 	const shouldShowAuthMessage = $derived(
-		!forge.current.authenticated && (selectedOption === 'pullRequest' || forge.current.listService)
+		!forge.current.authenticated && (selectedOption === "pullRequest" || forge.current.listService),
 	);
 </script>
 
@@ -179,7 +179,7 @@
 			<div class="search-container" class:show-search={searching}>
 				<div class="search-button">
 					<Button
-						icon={searching ? 'cross' : 'search'}
+						icon={searching ? "cross" : "search"}
 						kind="ghost"
 						onclick={toggleSearch}
 						tabindex={searching ? -1 : 0}
@@ -215,20 +215,20 @@
 							{/each}
 						</div>
 					{:else}
-						{@render branchGroup({ title: 'Applied', children: groupedBranches.applied })}
+						{@render branchGroup({ title: "Applied", children: groupedBranches.applied })}
 
 						{#if groupedBranches.authored.length > 0}
-							{@render branchGroup({ title: 'Mine', children: groupedBranches.authored })}
+							{@render branchGroup({ title: "Mine", children: groupedBranches.authored })}
 						{/if}
 
 						{#if groupedBranches.review.length > 0}
-							{@render branchGroup({ title: 'Review Requested', children: groupedBranches.review })}
+							{@render branchGroup({ title: "Review Requested", children: groupedBranches.review })}
 						{/if}
 
-						{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
-						{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
-						{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}
-						{@render branchGroup({ title: 'Older', children: groupedBranches.older })}
+						{@render branchGroup({ title: "Today", children: groupedBranches.today })}
+						{@render branchGroup({ title: "Yesterday", children: groupedBranches.yesterday })}
+						{@render branchGroup({ title: "Last week", children: groupedBranches.lastWeek })}
+						{@render branchGroup({ title: "Older", children: groupedBranches.older })}
 					{/if}
 				</ScrollableContainer>
 			</div>
@@ -243,17 +243,17 @@
 		<div class="branches__empty-state">
 			<EmptyStatePlaceholder image={noBranchesSvg} width={EMPTY_STATE_WIDTH} bottomMargin={48}>
 				{#snippet title()}
-					{#if selectedOption === 'local'}
+					{#if selectedOption === "local"}
 						No local branches found
 					{:else}
 						No branches or {forge.reviewUnitAbbr}s found
 					{/if}
 				{/snippet}
 				{#snippet caption()}
-					{#if selectedOption === 'pullRequest'}
+					{#if selectedOption === "pullRequest"}
 						No {forge.reviewUnitAbbr}s found {#if baseBranch}
 							from <strong>{baseBranch.remoteName}</strong>{/if}.
-					{:else if selectedOption === 'local'}
+					{:else if selectedOption === "local"}
 						Create a new branch or fetch from your remote.
 					{:else if baseBranch}
 						Branches and {forge.reviewUnitAbbr}s from

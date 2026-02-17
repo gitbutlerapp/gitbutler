@@ -1,15 +1,15 @@
-import { apiToPatch, type ApiPatchCommit, type PatchCommit } from '$lib/patches/types';
-import { apiToPermissions, type ApiPermissions, type Permissions } from '$lib/permissions';
-import { apiToUserMaybe, type ApiUserMaybe, type UserMaybe } from '$lib/users/types';
-import type { LoadableData } from '$lib/network/types';
+import { apiToPatch, type ApiPatchCommit, type PatchCommit } from "$lib/patches/types";
+import { apiToPermissions, type ApiPermissions, type Permissions } from "$lib/permissions";
+import { apiToUserMaybe, type ApiUserMaybe, type UserMaybe } from "$lib/users/types";
+import type { LoadableData } from "$lib/network/types";
 
 export enum BranchStatus {
-	Active = 'active',
-	Inactive = 'inactive',
-	Closed = 'closed',
-	Loading = 'loading',
-	All = 'all',
-	Previous = 'previous'
+	Active = "active",
+	Inactive = "inactive",
+	Closed = "closed",
+	Loading = "loading",
+	All = "all",
+	Previous = "previous",
 }
 
 /*
@@ -80,7 +80,7 @@ export type Branch = {
 	projectFullSlug: string;
 };
 
-export type LoadableBranch = LoadableData<Branch, Branch['uuid']>;
+export type LoadableBranch = LoadableData<Branch, Branch["uuid"]>;
 
 export function apiToBranch(api: ApiBranch): Branch {
 	return {
@@ -106,7 +106,7 @@ export function apiToBranch(api: ApiBranch): Branch {
 		forgeUrl: api.forge_url,
 		forgeDescription: api.forge_description,
 		reviewUrl: api.review_url,
-		projectFullSlug: api.project_full_slug
+		projectFullSlug: api.project_full_slug,
 	};
 }
 
@@ -120,7 +120,7 @@ export function toCombineSlug(ownerSlug: string, projectSlug: string) {
 export function branchReviewListingKey(
 	ownerSlug: string,
 	projectSlug: string,
-	branchStatus: BranchStatus
+	branchStatus: BranchStatus,
 ) {
 	return `${ownerSlug}/${projectSlug}:${branchStatus}`;
 }

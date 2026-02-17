@@ -1,9 +1,9 @@
-import { rateLimit } from '$lib/utils/ratelimit';
-import { InjectionToken } from '@gitbutler/core/context';
-import { Octokit } from '@octokit/rest';
-import type { ApiClient } from '$lib/forge/interface/apiClient';
+import { rateLimit } from "$lib/utils/ratelimit";
+import { InjectionToken } from "@gitbutler/core/context";
+import { Octokit } from "@octokit/rest";
+import type { ApiClient } from "$lib/forge/interface/apiClient";
 
-export const GITHUB_CLIENT = new InjectionToken<GitHubClient>('GitHubClient');
+export const GITHUB_CLIENT = new InjectionToken<GitHubClient>("GitHubClient");
 
 export class GitHubClient implements ApiClient {
 	private _client: Octokit | undefined;
@@ -74,19 +74,19 @@ export class GitHubClient implements ApiClient {
 function newClient(token: string | undefined, host?: string): Octokit {
 	return new Octokit({
 		auth: token,
-		userAgent: 'GitButler Client',
-		baseUrl: host ?? 'https://api.github.com',
+		userAgent: "GitButler Client",
+		baseUrl: host ?? "https://api.github.com",
 		request: {
 			// Global rate-limiter to mitigate accidental reactivity bugs that
 			// could trigger runaway requests.
 			fetch: rateLimit({
-				name: 'Octokit',
+				name: "Octokit",
 				limit: 100,
 				windowMs: 60 * 1000,
 				fn: async (input: RequestInfo | URL, init?: RequestInit) => {
 					return await window.fetch(input, init);
-				}
-			})
-		}
+				},
+			}),
+		},
 	});
 }

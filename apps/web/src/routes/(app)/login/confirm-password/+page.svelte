@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import RedirectIfLoggedIn from '$lib/auth/RedirectIfLoggedIn.svelte';
-	import PasswordConfirmation from '$lib/components/auth/PasswordConfirmation.svelte';
-	import FullscreenUtilityCard from '$lib/components/service/FullscreenUtilityCard.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, InfoMessage } from '@gitbutler/ui';
-	import { env } from '$env/dynamic/public';
+	import { page } from "$app/state";
+	import RedirectIfLoggedIn from "$lib/auth/RedirectIfLoggedIn.svelte";
+	import PasswordConfirmation from "$lib/components/auth/PasswordConfirmation.svelte";
+	import FullscreenUtilityCard from "$lib/components/service/FullscreenUtilityCard.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, InfoMessage } from "@gitbutler/ui";
+	import { env } from "$env/dynamic/public";
 
 	const loginService = inject(LOGIN_SERVICE);
 	const routesService = inject(WEB_ROUTES_SERVICE);
@@ -19,36 +19,36 @@
 	let passwordComponent: PasswordConfirmation | undefined;
 
 	async function handleSubmit() {
-		const token = page.url.searchParams.get('t');
+		const token = page.url.searchParams.get("t");
 
 		if (!token) {
-			error = 'Invalid or missing token';
+			error = "Invalid or missing token";
 			// TODO: Probably redirect to the login page or show a more user-friendly error
 			return;
 		}
 
 		if (!passwordComponent?.isValid()) {
-			error = 'Please check your password and confirmation';
+			error = "Please check your password and confirmation";
 			return;
 		}
 
 		if (!password || !passwordConfirmation) {
-			error = 'Password are required';
+			error = "Password are required";
 			return;
 		}
 
 		const response = await loginService.confirmPasswordReset(token, password, passwordConfirmation);
-		if (response.type === 'error') {
+		if (response.type === "error") {
 			error = response.errorMessage;
-			console.error('Confirm password failed:', response.raw ?? response.errorMessage);
-			message = '';
+			console.error("Confirm password failed:", response.raw ?? response.errorMessage);
+			message = "";
 			return;
 		}
 
 		error = undefined;
 		message = response.data.message;
-		const url = new URL('successful_login', env.PUBLIC_APP_HOST);
-		url.searchParams.set('access_token', encodeURIComponent(response.data.token));
+		const url = new URL("successful_login", env.PUBLIC_APP_HOST);
+		url.searchParams.set("access_token", encodeURIComponent(response.data.token));
 		const path = url.toString();
 		window.location.href = path;
 	}
@@ -62,7 +62,7 @@
 
 <FullscreenUtilityCard
 	title="Confirm new password"
-	backlink={{ label: 'Login', href: routesService.loginPath() }}
+	backlink={{ label: "Login", href: routesService.loginPath() }}
 >
 	<div class="form-content">
 		<PasswordConfirmation

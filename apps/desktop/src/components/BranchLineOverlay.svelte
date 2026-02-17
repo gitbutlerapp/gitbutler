@@ -11,7 +11,7 @@
 	const { hovered }: Props = $props();
 
 	// Unique ID for this overlay instance
-	const overlayId = Symbol('overlay');
+	const overlayId = Symbol("overlay");
 
 	// Update global state when this overlay is hovered
 	$effect(() => {

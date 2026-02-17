@@ -1,4 +1,4 @@
-import path from 'path';
+import path from "path";
 
 interface svelteInjectOptions {
 	enabled?: boolean;
@@ -11,9 +11,9 @@ interface svelteInjectOptions {
  */
 export default function svelteInjectComment(options: svelteInjectOptions = {}) {
 	const {
-		enabled = process.env.NODE_ENV === 'development',
+		enabled = process.env.NODE_ENV === "development",
 		showEndComment = true,
-		showFullPath = false
+		showFullPath = false,
 	} = options;
 
 	return {
@@ -21,7 +21,7 @@ export default function svelteInjectComment(options: svelteInjectOptions = {}) {
 			if (!enabled || !filename) return { code: content };
 
 			const filePath = showFullPath
-				? filename.replace(process.cwd() + '/', '')
+				? filename.replace(process.cwd() + "/", "")
 				: path.basename(filename);
 
 			const startComment = `{@html '<!-- Begin ${filePath} -->'}`;
@@ -32,6 +32,6 @@ export default function svelteInjectComment(options: svelteInjectOptions = {}) {
 				? `${startComment}\n${content}\n${endComment}`
 				: `${startComment}\n${content}`;
 			return { code: injected };
-		}
+		},
 	};
 }

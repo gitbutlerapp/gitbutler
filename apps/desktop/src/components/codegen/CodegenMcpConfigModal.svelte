@@ -1,15 +1,15 @@
 <script lang="ts">
-	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import mcpLogoSvg from '$lib/assets/unsized-logos/mcp.svg?raw';
+	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
+	import mcpLogoSvg from "$lib/assets/unsized-logos/mcp.svg?raw";
 	import {
 		CardGroup,
 		EmptyStatePlaceholder,
 		Link,
 		Modal,
 		ScrollableContainer,
-		Toggle
-	} from '@gitbutler/ui';
-	import type { McpConfig, McpServer } from '$lib/codegen/types';
+		Toggle,
+	} from "@gitbutler/ui";
+	import type { McpConfig, McpServer } from "$lib/codegen/types";
 
 	type Props = {
 		mcpConfig: McpConfig;
@@ -29,7 +29,7 @@
 <Modal
 	bind:this={modal}
 	width={480}
-	title={Object.entries(mcpConfig.mcpServers).length > 0 ? 'MCP server configuration' : undefined}
+	title={Object.entries(mcpConfig.mcpServers).length > 0 ? "MCP server configuration" : undefined}
 >
 	<ScrollableContainer>
 		<div class="flex flex-col gap-8">
@@ -78,7 +78,7 @@
 
 		{#snippet caption()}
 			{#if server.command}
-				<span>{server.command} {server.args?.join(' ')}</span>
+				<span>{server.command} {server.args?.join(" ")}</span>
 			{/if}
 			{#if server.url}
 				<span>{server.url}</span>

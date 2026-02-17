@@ -1,10 +1,10 @@
-import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
-import type { LatestBranchLookupService } from '@gitbutler/shared/branches/latestBranchLookupService';
+import { BranchService as CloudBranchService } from "@gitbutler/shared/branches/branchService";
+import type { LatestBranchLookupService } from "@gitbutler/shared/branches/latestBranchLookupService";
 
 export class ButRequestDetailsService {
 	constructor(
 		private readonly cloudBranchService: CloudBranchService,
-		private readonly latestBranchLookupService: LatestBranchLookupService
+		private readonly latestBranchLookupService: LatestBranchLookupService,
 	) {}
 
 	setDetails(reviewId: string, title: string, description: string) {
@@ -28,7 +28,7 @@ export class ButRequestDetailsService {
 
 		await this.cloudBranchService.updateBranch(branch.uuid, {
 			title: data.title,
-			description: data.description
+			description: data.description,
 		});
 
 		localStorage.removeItem(key);

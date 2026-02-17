@@ -11,14 +11,14 @@
 	}
 
 	let {
-		name = '',
+		name = "",
 		small = false,
 		disabled = false,
-		value = '',
-		id = '',
-		class: className = '',
+		value = "",
+		id = "",
+		class: className = "",
 		checked = $bindable(),
-		onchange
+		onchange,
 	}: Props = $props();
 </script>
 
@@ -34,7 +34,7 @@
 	tabindex={disabled ? -1 : 0}
 	{onchange}
 	onkeydown={(e) => {
-		if (e.key === 'Enter') {
+		if (e.key === "Enter") {
 			e.preventDefault();
 			e.stopPropagation();
 			checked = true;
@@ -103,7 +103,7 @@
 			transform: scale(0.5);
 			border-radius: 16px;
 			background-color: var(--clr-text-1);
-			content: '';
+			content: "";
 			opacity: 0;
 			transition: background-color var(--transition-fast);
 		}

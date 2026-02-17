@@ -7,17 +7,17 @@
  * Only the title will be trimmed (unless otherwise specified), the description will keep its original formatting.
  */
 export function splitMessage(message: string, skipTrimming: boolean = false) {
-	const lines = message.split('\n');
+	const lines = message.split("\n");
 	if (lines.length === 0) {
-		return { title: '', description: '' };
+		return { title: "", description: "" };
 	}
 
 	if (lines.length === 1) {
-		return { title: skipTrimming ? message : message.trim(), description: '' };
+		return { title: skipTrimming ? message : message.trim(), description: "" };
 	}
 
 	const title = skipTrimming ? lines[0]! : lines[0]!.trim();
-	let description: string = '';
+	let description: string = "";
 
 	// Search for the first and last non-empty lines
 	// to determine the description.
@@ -37,11 +37,11 @@ export function splitMessage(message: string, skipTrimming: boolean = false) {
 	}
 
 	if (firstNonEmptyLine !== -1 && lastNonEmptyLine !== -1) {
-		description = lines.slice(firstNonEmptyLine, lastNonEmptyLine + 1).join('\n');
+		description = lines.slice(firstNonEmptyLine, lastNonEmptyLine + 1).join("\n");
 	}
 
 	return {
 		title,
-		description
+		description,
 	};
 }

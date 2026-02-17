@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable';
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { focusable } from "$lib/focus/focusable";
+	import { pxToRem } from "$lib/utils/pxToRem";
 
 	interface Props {
 		element?: HTMLInputElement;
@@ -37,7 +37,7 @@
 		wide,
 		width,
 		oninput,
-		onchange
+		onchange,
 	}: Props = $props();
 
 	// Calculate the fill ratio (0-1)

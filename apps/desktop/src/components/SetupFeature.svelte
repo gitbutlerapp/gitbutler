@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		disabled?: boolean;
@@ -17,12 +17,12 @@
 		disabled = false,
 		success = false,
 		topBorder = false,
-		labelFor = '',
+		labelFor = "",
 		actions,
 		icon,
 		title,
 		body,
-		toggle
+		toggle,
 	}: Props = $props();
 </script>
 
@@ -32,7 +32,7 @@
 	class:success
 	class:disabled
 	class:top-border={topBorder}
-	class:clickable={labelFor !== '' && !actions}
+	class:clickable={labelFor !== "" && !actions}
 >
 	<div class="setup-feature__icon">
 		{@render icon?.()}

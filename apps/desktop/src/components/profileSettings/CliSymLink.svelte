@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { BACKEND } from '$lib/backend';
-	import { CLI_MANAGER } from '$lib/cli/cli';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
+	import { BACKEND } from "$lib/backend";
+	import { CLI_MANAGER } from "$lib/cli/cli";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon } from "@gitbutler/ui";
+	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
 
 	interface Props {
 		class?: string;
 	}
 
-	const { class: classes = '' }: Props = $props();
+	const { class: classes = "" }: Props = $props();
 
 	const cliManager = inject(CLI_MANAGER);
 	const cliPath = cliManager.path();
@@ -17,7 +17,7 @@
 	const platformName = backend.platformName;
 
 	function cliCommand(path: string, platform: string): string {
-		if (platform === 'windows') {
+		if (platform === "windows") {
 			// Windows-specific instructions - copy to WindowsApps which is typically in PATH
 			return `copy "${path}" "%LOCALAPPDATA%\\Microsoft\\WindowsApps\\but.exe"`;
 		} else {

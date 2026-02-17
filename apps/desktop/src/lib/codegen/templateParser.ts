@@ -1,4 +1,4 @@
-import type { PromptTemplate } from '$lib/codegen/types';
+import type { PromptTemplate } from "$lib/codegen/types";
 
 export type ParsedTemplateMetadata = {
 	name: string | null;
@@ -37,7 +37,7 @@ export function parseTemplateMetadata(template: string): ParsedTemplateMetadata 
 		return { name: null, emoji: null, content: template };
 	}
 
-	const [, frontmatter = '', content = ''] = match;
+	const [, frontmatter = "", content = ""] = match;
 	const name = frontmatter.match(/^name:\s*(.+)$/m)?.[1]?.trim() || null;
 	const emoji = frontmatter.match(/^emoji:\s*(.+)$/m)?.[1]?.trim() || null;
 
@@ -56,8 +56,8 @@ export function parseTemplates(templates: PromptTemplate[]): ParsedTemplate[] {
 			parsed: {
 				name: parsed.name,
 				emoji: parsed.emoji,
-				content: parsed.content
-			}
+				content: parsed.content,
+			},
 		};
 	});
 }
@@ -69,6 +69,6 @@ export function templatesToDisplayFormat(templates: ParsedTemplate[]): TemplateF
 	return templates.map((t) => ({
 		label: t.parsed.name || t.fileName,
 		emoji: t.parsed.emoji || undefined,
-		fileName: t.fileName
+		fileName: t.fileName,
 	}));
 }

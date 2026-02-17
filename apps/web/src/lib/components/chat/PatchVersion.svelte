@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { setAfterVersion, setBeforeVersion } from '$lib/interdiffRangeQuery.svelte';
-	import { eventTimeStamp, getMultipleContributorNames } from '@gitbutler/shared/branches/utils';
-	import { getPatchContributorsWithAvatars } from '@gitbutler/shared/contributors';
-	import { isFound } from '@gitbutler/shared/network/loadable';
-	import { type PatchVersionEvent } from '@gitbutler/shared/patchEvents/types';
-	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import { AvatarGroup, Icon } from '@gitbutler/ui';
+	import { setAfterVersion, setBeforeVersion } from "$lib/interdiffRangeQuery.svelte";
+	import { eventTimeStamp, getMultipleContributorNames } from "@gitbutler/shared/branches/utils";
+	import { getPatchContributorsWithAvatars } from "@gitbutler/shared/contributors";
+	import { isFound } from "@gitbutler/shared/network/loadable";
+	import { type PatchVersionEvent } from "@gitbutler/shared/patchEvents/types";
+	import { getPatch } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
+	import { AvatarGroup, Icon } from "@gitbutler/ui";
 
 	interface Props {
 		event: PatchVersionEvent;

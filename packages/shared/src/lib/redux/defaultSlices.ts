@@ -1,4 +1,4 @@
-import { loadableUpsert, loadableUpsertMany } from '$lib/network/loadable';
+import { loadableUpsert, loadableUpsertMany } from "$lib/network/loadable";
 import {
 	createEntityAdapter,
 	createSlice,
@@ -6,26 +6,26 @@ import {
 	type EntityState,
 	type Reducer,
 	type EntitySelectors,
-	type Action
-} from '@reduxjs/toolkit';
-import type { LoadableData } from '$lib/network/types';
+	type Action,
+} from "@reduxjs/toolkit";
+import type { LoadableData } from "$lib/network/types";
 
 type LoadableTable<T extends LoadableData<unknown, EntityId>> = {
-	reducer: Reducer<EntityState<T, T['id']>>;
-	selectors: EntitySelectors<T, EntityState<T, T['id']>, T['id']>;
+	reducer: Reducer<EntityState<T, T["id"]>>;
+	selectors: EntitySelectors<T, EntityState<T, T["id"]>, T["id"]>;
 	addOne: (value: T) => Action;
 	addMany: (values: T[]) => Action;
-	removeOne: (value: T['id']) => Action;
-	removeMany: (values: T['id'][]) => Action;
+	removeOne: (value: T["id"]) => Action;
+	removeMany: (values: T["id"][]) => Action;
 	upsertOne: (value: T) => Action;
 	upsertMany: (values: T[]) => Action;
 };
 
 export function buildLoadableTable<T extends LoadableData<unknown, EntityId>>(
-	name: string
+	name: string,
 ): LoadableTable<T> {
-	const adapter = createEntityAdapter<T, T['id']>({
-		selectId: (t: T) => t.id
+	const adapter = createEntityAdapter<T, T["id"]>({
+		selectId: (t: T) => t.id,
 	});
 
 	const slice = createSlice({
@@ -43,8 +43,8 @@ export function buildLoadableTable<T extends LoadableData<unknown, EntityId>>(
 			// @ts-expect-error generics + redux = sad
 			upsertOne: loadableUpsert(adapter),
 			// @ts-expect-error generics + redux = sad
-			upsertMany: loadableUpsertMany(adapter)
-		}
+			upsertMany: loadableUpsertMany(adapter),
+		},
 	});
 
 	return {
@@ -55,6 +55,6 @@ export function buildLoadableTable<T extends LoadableData<unknown, EntityId>>(
 		removeOne: slice.actions.removeOne,
 		removeMany: slice.actions.removeMany,
 		upsertOne: slice.actions.upsertOne,
-		upsertMany: slice.actions.upsertMany
+		upsertMany: slice.actions.upsertMany,
 	} as LoadableTable<T>;
 }

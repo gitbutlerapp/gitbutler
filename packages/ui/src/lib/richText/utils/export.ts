@@ -1,4 +1,4 @@
-import type { RootNode } from 'lexical';
+import type { RootNode } from "lexical";
 
 /**
  * We keep this export function in a separate package accessible to both plugins
@@ -11,6 +11,6 @@ export function exportPlaintext(root: RootNode): string {
 	// normally paragraphs have a bottom margin (that we removed).
 	const children = root.getChildren();
 	const paragraphTexts = children.map((child) => child.getTextContent());
-	const text = paragraphTexts.join('\n');
+	const text = paragraphTexts.join("\n");
 	return text;
 }

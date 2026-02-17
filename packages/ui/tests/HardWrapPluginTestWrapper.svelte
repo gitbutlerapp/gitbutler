@@ -1,6 +1,6 @@
 <script lang="ts">
-	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
-	import HardWrapPlugin from '$lib/richText/plugins/HardWrapPlugin.svelte';
+	import RichTextEditor from "$lib/richText/RichTextEditor.svelte";
+	import HardWrapPlugin from "$lib/richText/plugins/HardWrapPlugin.svelte";
 
 	type Props = {
 		maxLength?: number;
@@ -8,17 +8,17 @@
 		initialText?: string;
 	};
 
-	const { maxLength = 50, enabled = true, initialText = '' }: Props = $props();
+	const { maxLength = 50, enabled = true, initialText = "" }: Props = $props();
 
 	let editor = $state<RichTextEditor>();
 	let paragraphCountDisplay = $state(0);
-	let textContentDisplay = $state('');
+	let textContentDisplay = $state("");
 	let value = $state(initialText);
 
 	// Update display values from the editor
 	async function updateDisplayValues() {
 		if (!editor) return;
-		textContentDisplay = (await editor.getPlaintext()) || '';
+		textContentDisplay = (await editor.getPlaintext()) || "";
 		paragraphCountDisplay = await editor.getParagraphCount();
 	}
 
@@ -60,7 +60,7 @@
 			bind:this={editor}
 			bind:value
 			namespace="test-hardwrap"
-			onError={(error) => console.error('Editor error:', error)}
+			onError={(error) => console.error("Editor error:", error)}
 			styleContext="client-editor"
 			{initialText}
 			minHeight="100px"
@@ -72,7 +72,7 @@
 	</div>
 
 	<div class="controls">
-		<button type="button" data-testid="set-text-button" onclick={() => setText('Test text')}>
+		<button type="button" data-testid="set-text-button" onclick={() => setText("Test text")}>
 			Set Text
 		</button>
 		<button type="button" data-testid="wrap-all-button" onclick={wrapAll}>Wrap All</button>

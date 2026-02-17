@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { Shade } from '../types/color';
+	import type { Shade } from "../types/color";
 
 	interface Props {
 		shade: Shade;
 		color: string;
 		scaleId: string;
 		onCopy?: (color: string) => void;
-		children?: import('svelte').Snippet;
+		children?: import("svelte").Snippet;
 	}
 
 	let { shade, color, scaleId, children }: Props = $props();

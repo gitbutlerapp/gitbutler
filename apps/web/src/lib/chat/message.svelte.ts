@@ -1,7 +1,7 @@
-import { type DiffLineSelected, type DiffSelection } from '$lib/diff/lineSelection.svelte';
-import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
-import { extractUserMention } from '@gitbutler/ui/richText/node/mention';
-import { encodeDiffLineRange } from '@gitbutler/ui/utils/diffParsing';
+import { type DiffLineSelected, type DiffSelection } from "$lib/diff/lineSelection.svelte";
+import { ChatChannelsService } from "@gitbutler/shared/chat/chatChannelsService";
+import { extractUserMention } from "@gitbutler/ui/richText/node/mention";
+import { encodeDiffLineRange } from "@gitbutler/ui/utils/diffParsing";
 
 export interface SendParams {
 	issue?: boolean;
@@ -21,7 +21,7 @@ export default class MessageHandler {
 		chatChannelService: ChatChannelsService,
 		projectId: string,
 		branchId: string,
-		changeId: string
+		changeId: string,
 	) {
 		this.chatChannelService = chatChannelService;
 		this.projectId = projectId;
@@ -36,7 +36,7 @@ export default class MessageHandler {
 		const messageBuffer: string[] = [];
 		const displayBuffer: string[] = [];
 
-		const listedText = messageLine.split(' ');
+		const listedText = messageLine.split(" ");
 		for (const word of listedText) {
 			const match = extractUserMention(word);
 
@@ -51,27 +51,27 @@ export default class MessageHandler {
 			displayBuffer.push(label);
 		}
 
-		return [messageBuffer.join(' '), displayBuffer.join(' ')];
+		return [messageBuffer.join(" "), displayBuffer.join(" ")];
 	}
 
 	private getSendableMessages(): [string, string] | undefined {
 		const message = this._message;
 
-		if (!message || message.trim() === '') {
+		if (!message || message.trim() === "") {
 			return undefined;
 		}
 
 		const messageBuffer: string[] = [];
 		const displayBuffer: string[] = [];
 
-		const messageLines = message.split('\n');
+		const messageLines = message.split("\n");
 		for (const line of messageLines) {
 			const [messageLine, displayLine] = this.getSendableLine(line);
 			messageBuffer.push(messageLine);
 			displayBuffer.push(displayLine);
 		}
 
-		return [messageBuffer.join('\n'), displayBuffer.join('\n')];
+		return [messageBuffer.join("\n"), displayBuffer.join("\n")];
 	}
 
 	private getDiffRange(lines: DiffLineSelected[] | undefined) {
@@ -108,7 +108,7 @@ export default class MessageHandler {
 			diffPath: params.diffSelection?.fileName,
 			diffSha: params.diffSelection?.diffSha,
 			range: this.getDiffRange(params.diffSelection?.lines),
-			inReplyTo: params.inReplyTo
+			inReplyTo: params.inReplyTo,
 		});
 	}
 

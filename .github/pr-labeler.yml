@@ -8,18 +8,18 @@ CLI:
   - changed-files:
       - any-glob-to-any-file: crates/but/**/*
 
-'@gitbutler/desktop':
+"@gitbutler/desktop":
   - changed-files:
       - any-glob-to-any-file: apps/desktop/**/*
 
-'@gitbutler/web':
+"@gitbutler/web":
   - changed-files:
       - any-glob-to-any-file: apps/web/**/*
 
-'@gitbutler/ui':
+"@gitbutler/ui":
   - changed-files:
       - any-glob-to-any-file: packages/ui/**/*
 
-'@gitbutler/no-relative-imports':
+"@gitbutler/no-relative-imports":
   - changed-files:
       - any-glob-to-any-file: packages/no-relative-imports/**/*

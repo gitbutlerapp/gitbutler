@@ -1,12 +1,12 @@
-import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { Section } from '$lib/patches/types';
+import { createEntityAdapter, createSlice } from "@reduxjs/toolkit";
+import type { Section } from "$lib/patches/types";
 
-const patchSectionsAdapter = createEntityAdapter<Section, Section['id']>({
-	selectId: (patchSection: Section) => patchSection.id
+const patchSectionsAdapter = createEntityAdapter<Section, Section["id"]>({
+	selectId: (patchSection: Section) => patchSection.id,
 });
 
 const patchSectionsSlice = createSlice({
-	name: 'patchSectionSections',
+	name: "patchSectionSections",
 	initialState: patchSectionsAdapter.getInitialState(),
 	reducers: {
 		addPatchSection: patchSectionsAdapter.addOne,
@@ -14,8 +14,8 @@ const patchSectionsSlice = createSlice({
 		removePatchSection: patchSectionsAdapter.removeOne,
 		removePatchSections: patchSectionsAdapter.removeMany,
 		upsertPatchSection: patchSectionsAdapter.upsertOne,
-		upsertPatchSections: patchSectionsAdapter.upsertMany
-	}
+		upsertPatchSections: patchSectionsAdapter.upsertMany,
+	},
 });
 
 export const patchSectionsReducer = patchSectionsSlice.reducer;
@@ -27,5 +27,5 @@ export const {
 	removePatchSection,
 	removePatchSections,
 	upsertPatchSection,
-	upsertPatchSections
+	upsertPatchSections,
 } = patchSectionsSlice.actions;

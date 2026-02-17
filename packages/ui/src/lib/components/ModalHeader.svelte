@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import Icon from '$components/Icon.svelte';
-	import { type ModalType } from '$components/Modal.svelte';
-	import { type Snippet } from 'svelte';
+	import Button from "$components/Button.svelte";
+	import Icon from "$components/Icon.svelte";
+	import { type ModalType } from "$components/Modal.svelte";
+	import { type Snippet } from "svelte";
 
 	interface Props {
 		type?: ModalType;
@@ -14,25 +14,25 @@
 	}
 
 	const {
-		type = 'info',
+		type = "info",
 		closeButton,
 		sticky,
 		closeButtonTestId,
 		children,
-		oncloseclick
+		oncloseclick,
 	}: Props = $props();
 </script>
 
 <div class="modal__header" class:sticky>
-	{#if type === 'warning'}
+	{#if type === "warning"}
 		<Icon name="warning" color="warning" />
 	{/if}
 
-	{#if type === 'danger'}
+	{#if type === "danger"}
 		<Icon name="error" color="danger" />
 	{/if}
 
-	{#if type === 'success'}
+	{#if type === "success"}
 		<Icon name="success" color="safe" />
 	{/if}
 

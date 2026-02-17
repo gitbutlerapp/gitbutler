@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import ProjectNotFound from '$components/ProjectNotFound.svelte';
-	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { parseQueryError } from '$lib/error/error';
-	import { Code } from '$lib/error/knownErrors';
-	import { Button, InfoMessage } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import DecorativeSplitView from "$components/DecorativeSplitView.svelte";
+	import ProjectNotFound from "$components/ProjectNotFound.svelte";
+	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
+	import { parseQueryError } from "$lib/error/error";
+	import { Code } from "$lib/error/knownErrors";
+	import { Button, InfoMessage } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -23,9 +23,9 @@
 
 	function apologiy(): string {
 		if (isMonday()) {
-			return 'Sorry about that. Mondays can be tough!';
+			return "Sorry about that. Mondays can be tough!";
 		}
-		return 'We apologize for the inconvenience.';
+		return "We apologize for the inconvenience.";
 	}
 </script>
 
@@ -52,7 +52,7 @@
 			</InfoMessage>
 
 			<div class="button-container">
-				<Button type="button" style="pop" onclick={async () => await goto('/')}>Go back</Button>
+				<Button type="button" style="pop" onclick={async () => await goto("/")}>Go back</Button>
 			</div>
 		</div>
 	</DecorativeSplitView>

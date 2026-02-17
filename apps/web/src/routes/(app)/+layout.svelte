@@ -1,69 +1,69 @@
 <script lang="ts">
-	import '../../styles/global.css';
-	import { page } from '$app/state';
-	import { ButlerAIClient, BUTLER_AI_CLIENT } from '$lib/ai/service';
-	import RedirectIfNotFinalized from '$lib/auth/RedirectIfNotFinalized.svelte';
-	import CompactFooter from '$lib/components/CompactFooter.svelte';
-	import Navigation from '$lib/components/Navigation.svelte';
-	import { OwnerService, OWNER_SERVICE } from '$lib/owner/ownerService';
-	import { WebState, WEB_STATE } from '$lib/redux/store.svelte';
-	import { SshKeyService, SSH_KEY_SERVICE } from '$lib/sshKeyService';
-	import { UserService, USER_SERVICE } from '$lib/user/userService';
-	import { provide } from '@gitbutler/core/context';
-	import { BranchService, BRANCH_SERVICE } from '@gitbutler/shared/branches/branchService';
+	import "../../styles/global.css";
+	import { page } from "$app/state";
+	import { ButlerAIClient, BUTLER_AI_CLIENT } from "$lib/ai/service";
+	import RedirectIfNotFinalized from "$lib/auth/RedirectIfNotFinalized.svelte";
+	import CompactFooter from "$lib/components/CompactFooter.svelte";
+	import Navigation from "$lib/components/Navigation.svelte";
+	import { OwnerService, OWNER_SERVICE } from "$lib/owner/ownerService";
+	import { WebState, WEB_STATE } from "$lib/redux/store.svelte";
+	import { SshKeyService, SSH_KEY_SERVICE } from "$lib/sshKeyService";
+	import { UserService, USER_SERVICE } from "$lib/user/userService";
+	import { provide } from "@gitbutler/core/context";
+	import { BranchService, BRANCH_SERVICE } from "@gitbutler/shared/branches/branchService";
 	import {
 		LatestBranchLookupService,
-		LATEST_BRANCH_LOOKUP_SERVICE
-	} from '@gitbutler/shared/branches/latestBranchLookupService';
+		LATEST_BRANCH_LOOKUP_SERVICE,
+	} from "@gitbutler/shared/branches/latestBranchLookupService";
 	import {
 		ChatChannelsService,
-		CHAT_CHANNELS_SERVICE
-	} from '@gitbutler/shared/chat/chatChannelsService';
-	import { FeedService, FEED_SERVICE } from '@gitbutler/shared/feeds/service';
-	import LoginService, { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import { HttpClient, HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
+		CHAT_CHANNELS_SERVICE,
+	} from "@gitbutler/shared/chat/chatChannelsService";
+	import { FeedService, FEED_SERVICE } from "@gitbutler/shared/feeds/service";
+	import LoginService, { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import { HttpClient, HTTP_CLIENT } from "@gitbutler/shared/network/httpClient";
 	import {
 		OrganizationService,
-		ORGANIZATION_SERVICE
-	} from '@gitbutler/shared/organizations/organizationService';
-	import { ProjectService, PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
+		ORGANIZATION_SERVICE,
+	} from "@gitbutler/shared/organizations/organizationService";
+	import { ProjectService, PROJECT_SERVICE } from "@gitbutler/shared/organizations/projectService";
 	import {
 		RepositoryIdLookupService,
-		REPOSITORY_ID_LOOKUP_SERVICE
-	} from '@gitbutler/shared/organizations/repositoryIdLookupService';
+		REPOSITORY_ID_LOOKUP_SERVICE,
+	} from "@gitbutler/shared/organizations/repositoryIdLookupService";
 	import {
 		PatchEventsService,
-		PATCH_EVENTS_SERVICE
-	} from '@gitbutler/shared/patchEvents/patchEventsService';
+		PATCH_EVENTS_SERVICE,
+	} from "@gitbutler/shared/patchEvents/patchEventsService";
 	import {
 		PatchCommitService,
-		PATCH_COMMIT_SERVICE
-	} from '@gitbutler/shared/patches/patchCommitService';
+		PATCH_COMMIT_SERVICE,
+	} from "@gitbutler/shared/patches/patchCommitService";
 	import {
 		PatchIdableService,
-		PATCH_IDABLE_SERVICE
-	} from '@gitbutler/shared/patches/patchIdableService';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { RulesService, RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
+		PATCH_IDABLE_SERVICE,
+	} from "@gitbutler/shared/patches/patchIdableService";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { RulesService, RULES_SERVICE } from "@gitbutler/shared/rules/rulesService";
 	import {
 		NotificationSettingsService,
-		NOTIFICATION_SETTINGS_SERVICE
-	} from '@gitbutler/shared/settings/notificationSettingsService';
-	import { UploadsService, UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
+		NOTIFICATION_SETTINGS_SERVICE,
+	} from "@gitbutler/shared/settings/notificationSettingsService";
+	import { UploadsService, UPLOADS_SERVICE } from "@gitbutler/shared/uploads/uploadsService";
 	import {
 		UserService as NewUserService,
-		USER_SERVICE as NEW_USER_SERVICE
-	} from '@gitbutler/shared/users/userService';
-	import { ChipToastContainer } from '@gitbutler/ui';
+		USER_SERVICE as NEW_USER_SERVICE,
+	} from "@gitbutler/shared/users/userService";
+	import { ChipToastContainer } from "@gitbutler/ui";
 	import {
 		EXTERNAL_LINK_SERVICE,
-		type ExternalLinkService
-	} from '@gitbutler/ui/utils/externalLinkService';
-	import { type Snippet } from 'svelte';
-	import { readable } from 'svelte/store';
-	import { env } from '$env/dynamic/public';
+		type ExternalLinkService,
+	} from "@gitbutler/ui/utils/externalLinkService";
+	import { type Snippet } from "svelte";
+	import { readable } from "svelte/store";
+	import { env } from "$env/dynamic/public";
 
-	const CHAT_NOTFICATION_SOUND = '/sounds/pop.mp3';
+	const CHAT_NOTFICATION_SOUND = "/sounds/pop.mp3";
 
 	interface Props {
 		children: Snippet;
@@ -73,7 +73,7 @@
 
 	const mockToken = readable<string | undefined>(undefined);
 
-	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, mockToken, 'include');
+	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, mockToken, "include");
 	provide(HTTP_CLIENT, httpClient);
 
 	const loginService = new LoginService(httpClient);
@@ -106,7 +106,7 @@
 		webState.appDispatch,
 		mockToken,
 		patchService,
-		env.PUBLIC_APP_HOST
+		env.PUBLIC_APP_HOST,
 	);
 	const patchIdableService = new PatchIdableService(httpClient, webState.appDispatch);
 	provide(PATCH_IDABLE_SERVICE, patchIdableService);
@@ -129,13 +129,13 @@
 	provide(LATEST_BRANCH_LOOKUP_SERVICE, latestBranchLookupService);
 	const notificationSettingsService = new NotificationSettingsService(
 		httpClient,
-		webState.appDispatch
+		webState.appDispatch,
 	);
 	provide(NOTIFICATION_SETTINGS_SERVICE, notificationSettingsService);
 	provide(EXTERNAL_LINK_SERVICE, {
 		open: (href) => {
 			location.href = href;
-		}
+		},
 	} satisfies ExternalLinkService);
 
 	const sshKeyService = new SshKeyService(httpClient);
@@ -149,20 +149,20 @@
 	const rulesService = new RulesService(httpClient, webState.appDispatch);
 	provide(RULES_SERVICE, rulesService);
 
-	const isCommitPage = $derived(page.url.pathname.includes('/commit/'));
-	const isLoginPage = $derived(page.url.pathname.includes('/login'));
-	const isSignupPage = $derived(page.url.pathname.includes('/signup'));
-	const isFinalized = $derived(page.url.pathname.includes('/finalize'));
-	const isLoggedinPage = $derived(page.url.pathname === '/loggedin');
+	const isCommitPage = $derived(page.url.pathname.includes("/commit/"));
+	const isLoginPage = $derived(page.url.pathname.includes("/login"));
+	const isSignupPage = $derived(page.url.pathname.includes("/signup"));
+	const isFinalized = $derived(page.url.pathname.includes("/finalize"));
+	const isLoggedinPage = $derived(page.url.pathname === "/loggedin");
 	const hasNavigation = $derived(
-		!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized && !isLoggedinPage
+		!isCommitPage && !isLoginPage && !isSignupPage && !isFinalized && !isLoggedinPage,
 	);
 
 	function getBreadcrumbs() {
 		if (!hasNavigation) return [];
 
-		if (page.route.id === '/(app)/profile') {
-			return [{ label: 'Profile', href: '/profile' }];
+		if (page.route.id === "/(app)/profile") {
+			return [{ label: "Profile", href: "/profile" }];
 		}
 		return [];
 	}

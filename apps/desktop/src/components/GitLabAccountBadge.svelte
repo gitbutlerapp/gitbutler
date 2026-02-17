@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Badge } from '@gitbutler/ui';
-	import type { ButGitLabToken } from '@gitbutler/core/api';
+	import { Badge } from "@gitbutler/ui";
+	import type { ButGitLabToken } from "@gitbutler/core/api";
 
 	type Props = {
 		account: ButGitLabToken.GitlabAccountIdentifier;
@@ -11,19 +11,19 @@
 
 	export function badgeText(account: ButGitLabToken.GitlabAccountIdentifier): string | null {
 		switch (account.type) {
-			case 'patUsername':
-				return 'PAT';
-			case 'selfHosted':
+			case "patUsername":
+				return "PAT";
+			case "selfHosted":
 				return account.info.host;
 		}
 	}
 
 	export function tooltipText(account: ButGitLabToken.GitlabAccountIdentifier): string {
 		switch (account.type) {
-			case 'patUsername':
-				return 'Personal Access Token';
-			case 'selfHosted':
-				return 'Self-Hosted GitLab';
+			case "patUsername":
+				return "Personal Access Token";
+			case "selfHosted":
+				return "Self-Hosted GitLab";
 		}
 	}
 </script>

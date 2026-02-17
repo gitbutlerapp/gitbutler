@@ -6,8 +6,8 @@ import {
 	type LexicalEditor,
 	$getRoot,
 	$isParagraphNode,
-	ParagraphNode
-} from 'lexical';
+	ParagraphNode,
+} from "lexical";
 
 export type Bullet = {
 	prefix: string;
@@ -27,14 +27,14 @@ type WrapArgs = {
  * that fits within `maxLength`, and the remainder that should be carried over
  * to the next line.
  */
-export function wrapLine({ line, maxLength, remainder = '', indent = '', bullet }: WrapArgs): {
+export function wrapLine({ line, maxLength, remainder = "", indent = "", bullet }: WrapArgs): {
 	newLine: string;
 	newRemainder: string;
 } {
 	// When we have a bullet, skip the bullet prefix to get the actual text parts
 	const prefixLength = bullet ? bullet.prefix.length : indent.length;
 	const parts = Array.from(line.substring(prefixLength).match(/([ \t]+|\S+)/g) || []);
-	let acc = remainder.length > 0 ? indent + remainder + ' ' : bullet ? bullet.prefix : indent;
+	let acc = remainder.length > 0 ? indent + remainder + " " : bullet ? bullet.prefix : indent;
 
 	for (let i = 0; i < parts.length; i++) {
 		const word = parts[i];
@@ -48,19 +48,19 @@ export function wrapLine({ line, maxLength, remainder = '', indent = '', bullet 
 			if (
 				!accTrimmed ||
 				accTrimmed === indent.trimEnd() ||
-				accTrimmed === (bullet?.prefix.trimEnd() ?? '')
+				accTrimmed === (bullet?.prefix.trimEnd() ?? "")
 			) {
 				const remainingParts = parts.slice(i + 1);
 				return {
 					newLine: word,
-					newRemainder: remainingParts.join('').trim()
+					newRemainder: remainingParts.join("").trim(),
 				};
 			}
 			// Otherwise, acc becomes newLine and remainder starts from current word
 			const remainingParts = parts.slice(i);
 			return {
 				newLine: accTrimmed,
-				newRemainder: remainingParts.join('').trim()
+				newRemainder: remainingParts.join("").trim(),
 			};
 		}
 		acc = nextAcc;
@@ -71,10 +71,10 @@ export function wrapLine({ line, maxLength, remainder = '', indent = '', bullet 
 	if (trimmedAcc.length === maxLength && acc.length > maxLength) {
 		// We're exactly at max length with trailing space(s)
 		// Return a space as remainder to create an empty next line
-		return { newLine: trimmedAcc, newRemainder: ' ' };
+		return { newLine: trimmedAcc, newRemainder: " " };
 	}
 
-	return { newLine: trimmedAcc, newRemainder: '' };
+	return { newLine: trimmedAcc, newRemainder: "" };
 }
 
 export const WRAP_EXEMPTIONS = {
@@ -85,7 +85,7 @@ export const WRAP_EXEMPTIONS = {
 	Heading: /^ {0,3}#{1,6} /,
 	HorizontalRule: /^ {0,3}(-{3,}|\*{3,}|_{3,})\s*$/,
 	LinkedDefinition: /^\s*\[[^\]]+]:\s+\S+/,
-	InlineLinkOrImage: /!?\[[^\]]*\]\([^)]*\)/
+	InlineLinkOrImage: /!?\[[^\]]*\]\([^)]*\)/,
 } as const;
 
 type ExemptionId = keyof typeof WRAP_EXEMPTIONS;
@@ -96,17 +96,17 @@ export function isWrappingExempt(line: string): ExemptionId | undefined {
 }
 
 export function parseIndent(line: string) {
-	return line.match(/^[ \t]+/)?.[0] || '';
+	return line.match(/^[ \t]+/)?.[0] || "";
 }
 
 export function parseBullet(text: string): Bullet | undefined {
 	const match = text.match(/^(\s*)([-*+]|(?<number>[0-9]+)\.)\s/);
 	if (!match) return;
-	const spaces = match[1] ?? '';
+	const spaces = match[1] ?? "";
 	const prefix = match[0];
-	const numberStr = match.groups?.['number'];
+	const numberStr = match.groups?.["number"];
 	const number = numberStr ? parseInt(numberStr) : undefined;
-	const indent = number ? ' '.repeat(number.toString().length + 2) : spaces + '  ';
+	const indent = number ? " ".repeat(number.toString().length + 2) : spaces + "  ";
 	return { prefix, indent, number };
 }
 
@@ -141,7 +141,7 @@ function collectLogicalParagraph(paragraph: ParagraphNode, indent: string): Para
 	while (nextSibling && $isParagraphNode(nextSibling)) {
 		// Extra defensive check: never collect empty paragraphs
 		const siblingText = nextSibling.getTextContent();
-		if (siblingText.trim() === '') break;
+		if (siblingText.trim() === "") break;
 
 		if (isLogicalParagraphBoundary(nextSibling, indent)) break;
 		paragraphs.push(nextSibling);
@@ -157,14 +157,14 @@ function collectLogicalParagraph(paragraph: ParagraphNode, indent: string): Para
 function combineLogicalParagraphText(
 	paragraphs: ParagraphNode[],
 	indent: string,
-	firstLineText: string
+	firstLineText: string,
 ): string {
 	let combined = firstLineText;
 
 	for (let i = 1; i < paragraphs.length; i++) {
 		const text = paragraphs[i].getTextContent();
 		const textWithoutIndent = text.startsWith(indent) ? text.substring(indent.length) : text;
-		combined += ' ' + textWithoutIndent;
+		combined += " " + textWithoutIndent;
 	}
 
 	return combined;
@@ -177,7 +177,7 @@ function wrapCombinedText(
 	combinedText: string,
 	maxLength: number,
 	indent: string,
-	bullet: Bullet | undefined
+	bullet: Bullet | undefined,
 ): string[] {
 	const wrappedLines: string[] = [];
 	let remainder = combinedText;
@@ -188,8 +188,8 @@ function wrapCombinedText(
 		const { newLine, newRemainder } = wrapLine({
 			line: lineToWrap,
 			maxLength,
-			indent: isFirstLine ? '' : indent,
-			bullet: isFirstLine ? bullet : undefined
+			indent: isFirstLine ? "" : indent,
+			bullet: isFirstLine ? bullet : undefined,
 		});
 
 		wrappedLines.push(newLine);
@@ -206,7 +206,7 @@ function wrapCombinedText(
 function updateParagraphsWithWrappedLines(
 	paragraph: ParagraphNode,
 	paragraphsToRemove: ParagraphNode[],
-	wrappedLines: string[]
+	wrappedLines: string[],
 ): void {
 	// Remove old continuation paragraphs
 	for (let i = 1; i < paragraphsToRemove.length; i++) {
@@ -245,7 +245,7 @@ function repositionCursor(
 	paragraph: ParagraphNode,
 	wrappedLines: string[],
 	selectionOffset: number,
-	indent: string
+	indent: string,
 ): void {
 	const firstTextNode = paragraph.getFirstChild();
 	if (!isTextNode(firstTextNode)) return;
@@ -299,14 +299,14 @@ export function wrapIfNecessary({ node, maxLength }: { node: TextNode; maxLength
 	const paragraph = node.getParent();
 
 	if (!$isParagraphNode(paragraph)) {
-		console.warn('[wrapIfNecessary] Node parent is not a paragraph:', paragraph?.getType());
+		console.warn("[wrapIfNecessary] Node parent is not a paragraph:", paragraph?.getType());
 		return;
 	}
 
 	const line = paragraph.getTextContent();
 
 	// Early returns for cases where wrapping isn't needed
-	if (line.length <= maxLength || !line.includes(' ') || isWrappingExempt(line)) {
+	if (line.length <= maxLength || !line.includes(" ") || isWrappingExempt(line)) {
 		return;
 	}
 
@@ -342,6 +342,6 @@ export function wrapAll(editor: LexicalEditor, maxLength: number) {
 				}
 			}
 		},
-		{ tag: 'history-merge' }
+		{ tag: "history-merge" },
 	);
 }

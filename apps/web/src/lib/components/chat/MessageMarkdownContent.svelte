@@ -1,7 +1,7 @@
 <script lang="ts">
-	import MessageCode from '$lib/components/chat/MessageCode.svelte';
-	import Self from '$lib/components/chat/MessageMarkdownContent.svelte';
-	import MessageText from '$lib/components/chat/MessageText.svelte';
+	import MessageCode from "$lib/components/chat/MessageCode.svelte";
+	import Self from "$lib/components/chat/MessageMarkdownContent.svelte";
+	import MessageText from "$lib/components/chat/MessageText.svelte";
 
 	import {
 		Blockquote,
@@ -15,13 +15,13 @@
 		List,
 		ListItem,
 		Paragraph,
-		Strong
-	} from '@gitbutler/ui';
-	import type { UserSimple } from '@gitbutler/shared/users/types';
-	import type { Token } from 'marked';
-	import type { Component } from 'svelte';
+		Strong,
+	} from "@gitbutler/ui";
+	import type { UserSimple } from "@gitbutler/shared/users/types";
+	import type { Token } from "marked";
+	import type { Component } from "svelte";
 
-	type Props = { type: 'init'; tokens: Token[]; mentions: UserSimple[] } | Token;
+	type Props = { type: "init"; tokens: Token[]; mentions: UserSimple[] } | Token;
 
 	const renderers = {
 		link: Link,
@@ -38,35 +38,35 @@
 		init: null,
 		br: Br,
 		strong: Strong,
-		em: Em
+		em: Em,
 	};
 
 	const { type, ...rest }: Props = $props();
-	const mentions = $derived('mentions' in rest ? rest.mentions : []);
+	const mentions = $derived("mentions" in rest ? rest.mentions : []);
 
-	type ListToken = Extract<Token, { type: 'list' }>;
+	type ListToken = Extract<Token, { type: "list" }>;
 </script>
 
-{#if type === 'init' && 'tokens' in rest && rest.tokens}
+{#if type === "init" && "tokens" in rest && rest.tokens}
 	{#each rest.tokens as token}
 		<Self {...token} {mentions} />
 	{/each}
 {:else if renderers[type as keyof typeof renderers]}
 	{@const CurrentComponent = renderers[type as keyof typeof renderers] as Component}
-	{#if type === 'list'}
+	{#if type === "list"}
 		{@const listItems = (rest as ListToken).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
 				<Self {...item} {mentions} />
 			{/each}
 		</CurrentComponent>
-	{:else if type === 'text' && 'raw' in rest}
+	{:else if type === "text" && "raw" in rest}
 		<MessageText text={rest.raw} {mentions} />
 	{:else}
 		<CurrentComponent {...rest}>
-			{#if 'tokens' in rest && rest.tokens}
+			{#if "tokens" in rest && rest.tokens}
 				<Self type="init" tokens={rest.tokens} {mentions} />
-			{:else if 'raw' in rest}
+			{:else if "raw" in rest}
 				{rest.raw}
 			{/if}
 		</CurrentComponent>

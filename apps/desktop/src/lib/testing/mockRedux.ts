@@ -1,4 +1,4 @@
-import { QueryStatus } from '@reduxjs/toolkit/query';
+import { QueryStatus } from "@reduxjs/toolkit/query";
 
 export function mockReduxFulfilled(data: unknown) {
 	return {
@@ -7,7 +7,7 @@ export function mockReduxFulfilled(data: unknown) {
 		status: QueryStatus.fulfilled,
 		isError: false,
 		isLoading: false,
-		isSuccess: true
+		isSuccess: true,
 	};
 }
 
@@ -18,6 +18,6 @@ export function mockReduxPending() {
 		status: QueryStatus.pending,
 		isError: false,
 		isLoading: true,
-		isSuccess: false
+		isSuccess: false,
 	};
 }

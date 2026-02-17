@@ -1,6 +1,6 @@
 <script lang="ts">
-	import CodegenStatusIcon from '$components/codegen/CodegenStatusIcon.svelte';
-	import type { ClaudeTodo } from '$lib/codegen/types';
+	import CodegenStatusIcon from "$components/codegen/CodegenStatusIcon.svelte";
+	import type { ClaudeTodo } from "$lib/codegen/types";
 
 	type Props = {
 		todo: ClaudeTodo;
@@ -12,9 +12,9 @@
 	<CodegenStatusIcon status={todo.status} />
 	<p
 		class="text-12 text-body"
-		class:blinking-text={todo.status === 'in_progress'}
-		class:clr-text-1={todo.status === 'pending'}
-		class:todo-strikethrough={todo.status === 'completed'}
+		class:blinking-text={todo.status === "in_progress"}
+		class:clr-text-1={todo.status === "pending"}
+		class:todo-strikethrough={todo.status === "completed"}
 	>
 		{todo.content}
 	</p>

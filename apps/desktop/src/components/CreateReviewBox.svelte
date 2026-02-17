@@ -1,12 +1,12 @@
 <script lang="ts">
-	import FloatingCommitBox from '$components/FloatingCommitBox.svelte';
-	import ReviewCreation from '$components/ReviewCreation.svelte';
-	import ReviewCreationControls from '$components/ReviewCreationControls.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { TestId } from '@gitbutler/ui';
+	import FloatingCommitBox from "$components/FloatingCommitBox.svelte";
+	import ReviewCreation from "$components/ReviewCreation.svelte";
+	import ReviewCreationControls from "$components/ReviewCreationControls.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { TestId } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -34,7 +34,7 @@
 
 	const prNumber = $derived(branch.response?.prNumber ?? undefined);
 	const prService = $derived(forge.current.prService);
-	const reviewUnit = $derived(prService?.unit.abbr ?? 'PR');
+	const reviewUnit = $derived(prService?.unit.abbr ?? "PR");
 	const prQuery = $derived(prNumber ? prService?.get(prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
 

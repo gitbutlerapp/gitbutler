@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Tooltip from '$lib/components/Tooltip.svelte';
-	import { createTimestampStore, getAbsoluteTimestamp } from '$lib/utils/timeAgo';
+	import Tooltip from "$lib/components/Tooltip.svelte";
+	import { createTimestampStore, getAbsoluteTimestamp } from "$lib/utils/timeAgo";
 
 	interface Props {
 		date?: string | Date;
@@ -9,9 +9,9 @@
 	}
 
 	const parsedDate = $derived.by(() => {
-		if (typeof date === 'string') {
-			if (date.endsWith('Z')) return new Date(date);
-			return new Date(date + 'Z');
+		if (typeof date === "string") {
+			if (date.endsWith("Z")) return new Date(date);
+			return new Date(date + "Z");
 		}
 		return date;
 	});

@@ -1,22 +1,22 @@
-@import '@gitbutler/ui/main.css';
+@import "@gitbutler/ui/main.css";
 
 :root {
 	--radius-xl: 20px;
 	--layout-col-gap: 20px;
 	--layout-side-paddings: 80px;
-	--cursor-custom: url('/images/cursors/cursor-default.svg') 0 0, auto;
+	--cursor-custom: url("/images/cursors/cursor-default.svg") 0 0, auto;
 	--cursor-custom-2x:
 		-webkit-image-set(
-				url('/images/cursors/cursor-default-2x.svg') 1x,
-				url('/images/cursors/cursor-default-2x.svg') 2x
+				url("/images/cursors/cursor-default-2x.svg") 1x,
+				url("/images/cursors/cursor-default-2x.svg") 2x
 			)
 			0 0,
 		auto;
-	--cursor-pointer: url('/images/cursors/cursor-pointer.svg') 2 0, pointer;
+	--cursor-pointer: url("/images/cursors/cursor-pointer.svg") 2 0, pointer;
 	--cursor-pointer-2x:
 		-webkit-image-set(
-				url('/images/cursors/cursor-pointer.svg') 1x,
-				url('/images/cursors/cursor-pointer-2x.svg') 2x
+				url("/images/cursors/cursor-pointer.svg") 1x,
+				url("/images/cursors/cursor-pointer-2x.svg") 2x
 			)
 			2 0,
 		pointer;
@@ -140,7 +140,7 @@ body:has(.marketing-page)::-webkit-scrollbar-thumb {
 	width: 1000px;
 	height: 950px;
 	transform: rotate(30deg);
-	background-image: url('/images/grainy-gradient-light.png');
+	background-image: url("/images/grainy-gradient-light.png");
 	background-size: 100%;
 	background-repeat: no-repeat;
 	opacity: 0.08;
@@ -148,6 +148,6 @@ body:has(.marketing-page)::-webkit-scrollbar-thumb {
 }
 
 .dark .grainy-bg {
-	background-image: url('/images/grainy-gradient-dark.png');
+	background-image: url("/images/grainy-gradient-dark.png");
 	opacity: 0.08;
 }

@@ -5,23 +5,23 @@ import {
 	type HunkSelection,
 	compositeKey,
 	partialKey,
-	prefixKey
-} from '$lib/selection/entityAdapters';
+	prefixKey,
+} from "$lib/selection/entityAdapters";
 import {
 	createSelectByIds,
 	createSelectByPrefix,
-	createSelectNotIn
-} from '$lib/state/customSelectors';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
+	createSelectNotIn,
+} from "$lib/state/customSelectors";
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import {
 	createSelector,
 	createSlice,
 	type EntityState,
-	type PayloadAction
-} from '@reduxjs/toolkit';
-import type { TreeChange } from '$lib/hunks/change';
-import type { HunkAssignment, HunkHeader } from '$lib/hunks/hunk';
-import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+	type PayloadAction,
+} from "@reduxjs/toolkit";
+import type { TreeChange } from "$lib/hunks/change";
+import type { HunkAssignment, HunkHeader } from "$lib/hunks/hunk";
+import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 type UncommittedState = {
 	treeChanges: EntityState<TreeChange, string>;
@@ -39,17 +39,17 @@ type UncommittedState = {
  * A hunk selection will always have an associated hunk assignment.
  */
 export const uncommittedSlice = createSlice({
-	name: 'uncommitted',
+	name: "uncommitted",
 	initialState: {
 		treeChanges: treeChangeAdapter.getInitialState(),
 		hunkAssignments: hunkAssignmentAdapter.getInitialState(),
-		hunkSelection: hunkSelectionAdapter.getInitialState()
+		hunkSelection: hunkSelectionAdapter.getInitialState(),
 	} as UncommittedState,
 	reducers: {
 		clearHunkSelection(state, action: PayloadAction<{ stackId: string | null }>) {
 			state.hunkSelection = hunkSelectionAdapter.removeMany(
 				state.hunkSelection,
-				state.hunkSelection.ids.filter((id) => id.startsWith(`${action.payload.stackId}`))
+				state.hunkSelection.ids.filter((id) => id.startsWith(`${action.payload.stackId}`)),
 			);
 		},
 		// We want to go over all the existing hunk assignments and
@@ -66,12 +66,12 @@ export const uncommittedSlice = createSlice({
 				path: string;
 				hunkHeader: HunkHeader;
 				line: LineId;
-			}>
+			}>,
 		) {
 			const key = compositeKey(action.payload);
 			const assignment = uncommittedSelectors.hunkAssignments.selectById(
 				state.hunkAssignments,
-				key
+				key,
 			);
 			if (!assignment) {
 				throw new Error(`Expected to find assignment: ${key} `);
@@ -88,7 +88,7 @@ export const uncommittedSlice = createSlice({
 
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
 					...selection,
-					lines: newLines
+					lines: newLines,
 				});
 			} else {
 				state.hunkSelection = hunkSelectionAdapter.addOne(state.hunkSelection, {
@@ -96,7 +96,7 @@ export const uncommittedSlice = createSlice({
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
-					lines: [line]
+					lines: [line],
 				});
 			}
 		},
@@ -108,7 +108,7 @@ export const uncommittedSlice = createSlice({
 				hunkHeader: HunkHeader;
 				line: LineId;
 				allLinesInHunk: LineId[];
-			}>
+			}>,
 		) {
 			const { stackId, path, hunkHeader, line, allLinesInHunk } = action.payload;
 			const key = compositeKey({ stackId, path, hunkHeader });
@@ -116,28 +116,28 @@ export const uncommittedSlice = createSlice({
 			if (selection) {
 				const assignment = uncommittedSelectors.hunkAssignments.selectById(
 					state.hunkAssignments,
-					selection.assignmentId
+					selection.assignmentId,
 				);
 				if (!assignment) {
 					throw new Error(`Expected to find assignment: ${key} `);
 				}
 				if (assignment.hunkHeader === null) {
 					// TODO: Validate that this never happens?
-					throw new Error('Not implemented');
+					throw new Error("Not implemented");
 				}
 
 				if (selection.lines.length === 0) {
 					// No lines selected means the whole hunk is selected.
 					// Unselecting one line means that all lines except that one are selected.
 					const newLines = allLinesInHunk.filter(
-						(l) => l.newLine !== line.newLine || l.oldLine !== line.oldLine
+						(l) => l.newLine !== line.newLine || l.oldLine !== line.oldLine,
 					);
 
 					if (newLines.length > 0) {
 						// If there are still lines selected, we update the selection.
 						state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
 							...selection,
-							lines: newLines
+							lines: newLines,
 						});
 						return;
 					}
@@ -145,21 +145,21 @@ export const uncommittedSlice = createSlice({
 					// If there are no lines left selected, we remove the selection.
 					state.hunkSelection = hunkSelectionAdapter.removeOne(
 						state.hunkSelection,
-						selection.assignmentId
+						selection.assignmentId,
 					);
 					return;
 				}
 
 				// Some lines are selected, so we remove the line from the selection.
 				const newLines = selection.lines.filter(
-					(l) => l.newLine !== line.newLine || l.oldLine !== line.oldLine
+					(l) => l.newLine !== line.newLine || l.oldLine !== line.oldLine,
 				);
 
 				if (newLines.length > 0) {
 					// As long as there are still lines selected, we update the selection.
 					state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
 						...selection,
-						lines: newLines
+						lines: newLines,
 					});
 					return;
 				}
@@ -167,18 +167,22 @@ export const uncommittedSlice = createSlice({
 				// Otherwise, if there are no lines left selected, we remove the hunk completely.
 				state.hunkSelection = hunkSelectionAdapter.removeOne(
 					state.hunkSelection,
-					selection.assignmentId
+					selection.assignmentId,
 				);
 			}
 		},
 		checkHunk(
 			state,
-			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: HunkHeader | null }>
+			action: PayloadAction<{
+				stackId: string | null;
+				path: string;
+				hunkHeader: HunkHeader | null;
+			}>,
 		) {
 			const key = compositeKey(action.payload);
 			const assignment = uncommittedSelectors.hunkAssignments.selectById(
 				state.hunkAssignments,
-				key
+				key,
 			);
 			if (assignment) {
 				state.hunkSelection = hunkSelectionAdapter.upsertOne(state.hunkSelection, {
@@ -186,13 +190,17 @@ export const uncommittedSlice = createSlice({
 					stackId: action.payload.stackId,
 					path: assignment.path,
 					assignmentId: key,
-					lines: []
+					lines: [],
 				});
 			}
 		},
 		uncheckHunk(
 			state,
-			action: PayloadAction<{ stackId: string | null; path: string; hunkHeader: HunkHeader | null }>
+			action: PayloadAction<{
+				stackId: string | null;
+				path: string;
+				hunkHeader: HunkHeader | null;
+			}>,
 		) {
 			const key = compositeKey(action.payload);
 			state.hunkSelection = hunkSelectionAdapter.removeOne(state.hunkSelection, key);
@@ -202,7 +210,7 @@ export const uncommittedSlice = createSlice({
 			const prefix = partialKey(stackId, path);
 			const assignments = uncommittedSelectors.hunkAssignments.selectByPrefix(
 				state.hunkAssignments,
-				prefix
+				prefix,
 			);
 
 			for (const assignment of assignments) {
@@ -212,7 +220,7 @@ export const uncommittedSlice = createSlice({
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
-					lines: []
+					lines: [],
 				});
 			}
 		},
@@ -223,7 +231,7 @@ export const uncommittedSlice = createSlice({
 				const prefix = partialKey(stackId, path);
 				const assignments = uncommittedSelectors.hunkAssignments.selectByPrefix(
 					state.hunkAssignments,
-					prefix
+					prefix,
 				);
 
 				for (const assignment of assignments) {
@@ -233,7 +241,7 @@ export const uncommittedSlice = createSlice({
 						stackId: stackId,
 						path: assignment.path,
 						assignmentId: key,
-						lines: []
+						lines: [],
 					});
 				}
 			}
@@ -245,11 +253,11 @@ export const uncommittedSlice = createSlice({
 			const prefix = partialKey(stackId, path);
 			const selections = uncommittedSelectors.hunkSelection.selectByPrefix(
 				state.hunkSelection,
-				prefix
+				prefix,
 			);
 			state.hunkSelection = hunkSelectionAdapter.removeMany(
 				state.hunkSelection,
-				selections.map((a) => a.assignmentId)
+				selections.map((a) => a.assignmentId),
 			);
 		},
 		checkDir(state, action: PayloadAction<{ stackId: string | null; path: string }>) {
@@ -257,7 +265,7 @@ export const uncommittedSlice = createSlice({
 			const prefix = prefixKey(stackId, path);
 			const assignments = uncommittedSelectors.hunkAssignments.selectByPrefix(
 				state.hunkAssignments,
-				prefix
+				prefix,
 			);
 
 			for (const assignment of assignments) {
@@ -267,7 +275,7 @@ export const uncommittedSlice = createSlice({
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
-					lines: []
+					lines: [],
 				});
 			}
 		},
@@ -276,11 +284,11 @@ export const uncommittedSlice = createSlice({
 			const prefix = prefixKey(stackId, path);
 			const selections = uncommittedSelectors.hunkSelection.selectByPrefix(
 				state.hunkSelection,
-				prefix
+				prefix,
 			);
 			state.hunkSelection = hunkSelectionAdapter.removeMany(
 				state.hunkSelection,
-				selections.map((a) => a.assignmentId)
+				selections.map((a) => a.assignmentId),
 			);
 		},
 		checkStack(state, action: PayloadAction<{ stackId: string | null }>) {
@@ -288,7 +296,7 @@ export const uncommittedSlice = createSlice({
 			const prefix = partialKey(stackId);
 			const assignments = uncommittedSelectors.hunkAssignments.selectByPrefix(
 				state.hunkAssignments,
-				prefix
+				prefix,
 			);
 
 			for (const assignment of assignments) {
@@ -298,7 +306,7 @@ export const uncommittedSlice = createSlice({
 					stackId: stackId,
 					path: assignment.path,
 					assignmentId: key,
-					lines: []
+					lines: [],
 				});
 			}
 		},
@@ -307,14 +315,14 @@ export const uncommittedSlice = createSlice({
 			const prefix = partialKey(stackId);
 			const selections = uncommittedSelectors.hunkSelection.selectByPrefix(
 				state.hunkSelection,
-				prefix
+				prefix,
 			);
 			state.hunkSelection = hunkSelectionAdapter.removeMany(
 				state.hunkSelection,
-				selections.map((s) => s.assignmentId)
+				selections.map((s) => s.assignmentId),
 			);
-		}
-	}
+		},
+	},
 });
 
 /** This type is needed for `createSelector` calls. */
@@ -331,7 +339,7 @@ function selectSelf(state: ReturnType<typeof uncommittedSlice.getInitialState>) 
 /** Used as input selector for several selectors below. */
 const selectHunkAssignments = createSelector(
 	[selectSelf],
-	(rootState) => rootState.hunkAssignments
+	(rootState) => rootState.hunkAssignments,
 );
 
 /** Used as input selector for selector below. */
@@ -346,17 +354,17 @@ const selectByStackId = createSelector(
 	[
 		selectTreeChanges,
 		selectHunkAssignments,
-		(_: AssignmentState, stackId: string | null) => stackId
+		(_: AssignmentState, stackId: string | null) => stackId,
 	],
 	(changes, assignments, stackId) => {
 		const paths = new Set(
 			Object.values(assignments.entities)
 				.filter((a) => a.stackId === stackId)
 				.filter(isDefined)
-				.map((a) => a.path)
+				.map((a) => a.path),
 		);
 		return changes.ids.map((id) => changes.entities[id]!).filter((c) => paths.has(c.path));
-	}
+	},
 );
 
 /**
@@ -366,14 +374,14 @@ const selectedByStackId = createSelector(
 	[selectHunkSelection, selectByStackId, (_: AssignmentState, stackId: string | null) => stackId],
 	(selections, changes, stackId) =>
 		changes.filter((change) =>
-			selections.ids.some((id) => id.startsWith(prefixKey(stackId, change.path)))
-		)
+			selections.ids.some((id) => id.startsWith(prefixKey(stackId, change.path))),
+		),
 );
 
 /** Selects the tree change for a specific path. */
 const selectByPath = createSelector(
 	[selectSelf, (_, path: string) => path],
-	(rootState, path: string) => rootState.treeChanges.entities[path]
+	(rootState, path: string) => rootState.treeChanges.entities[path],
 );
 
 const hunkCheckStatus = createSelector(
@@ -381,7 +389,7 @@ const hunkCheckStatus = createSelector(
 		selectHunkSelection,
 		(_, hunkId: { stackId: string | null; path: string; hunkHeader: HunkHeader }) => {
 			return hunkId;
-		}
+		},
 	],
 	(selections, { stackId, path, hunkHeader }) => {
 		const selection = selections.entities[compositeKey({ stackId, path, hunkHeader })];
@@ -390,10 +398,10 @@ const hunkCheckStatus = createSelector(
 		} else {
 			return { selected: true, lines: selection.lines };
 		}
-	}
+	},
 );
 
-export type CheckboxStatus = 'checked' | 'indeterminate' | 'unchecked';
+export type CheckboxStatus = "checked" | "indeterminate" | "unchecked";
 
 const fileCheckStatus = createSelector(
 	[
@@ -401,26 +409,26 @@ const fileCheckStatus = createSelector(
 		selectHunkAssignments,
 		(_, args: { stackId: string | null; path: string }) => {
 			return args;
-		}
+		},
 	],
 	(selections, assignments, { stackId, path }) => {
 		const prefix = partialKey(stackId, path);
 		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(selections, prefix);
 		const stackAssignments = uncommittedSelectors.hunkAssignments.selectByPrefix(
 			assignments,
-			prefix
+			prefix,
 		);
 		if (!selection || selection.length === 0) {
-			return 'unchecked';
+			return "unchecked";
 		} else if (
 			selection.length === stackAssignments.length &&
 			selection.every((s) => s.lines.length === 0)
 		) {
-			return 'checked';
+			return "checked";
 		} else {
-			return 'indeterminate';
+			return "indeterminate";
 		}
-	}
+	},
 );
 
 const folderCheckStatus = createSelector(
@@ -429,20 +437,20 @@ const folderCheckStatus = createSelector(
 		selectHunkAssignments,
 		(_, args: { stackId: string | null; path: string }) => {
 			return args;
-		}
+		},
 	],
 	(selections, assignments, { stackId, path }) => {
 		const prefix = prefixKey(stackId, path);
 		const matches = uncommittedSelectors.hunkAssignments.selectByPrefix(assignments, prefix);
 		if (matches.length === 0) {
-			return 'unchecked';
+			return "unchecked";
 		} else if (matches.every((a) => compositeKey(a) in selections.entities)) {
-			return 'checked';
+			return "checked";
 		} else if (matches.some((a) => compositeKey(a) in selections.entities)) {
-			return 'indeterminate';
+			return "indeterminate";
 		}
-		return 'unchecked';
-	}
+		return "unchecked";
+	},
 );
 
 const stackCheckStatus = createSelector(
@@ -451,20 +459,20 @@ const stackCheckStatus = createSelector(
 		selectHunkAssignments,
 		(_, args: { stackId: string | null }) => {
 			return args;
-		}
+		},
 	],
 	(selections, assignments, { stackId }) => {
 		const prefix = partialKey(stackId);
 		const matches = uncommittedSelectors.hunkAssignments.selectByPrefix(assignments, prefix);
 		if (matches.length === 0) {
-			return 'unchecked';
+			return "unchecked";
 		} else if (matches.every((a) => compositeKey(a) in selections.entities)) {
-			return 'checked';
+			return "checked";
 		} else if (matches.some((a) => compositeKey(a) in selections.entities)) {
-			return 'indeterminate';
+			return "indeterminate";
 		}
-		return 'unchecked';
-	}
+		return "unchecked";
+	},
 );
 
 /**
@@ -478,12 +486,12 @@ export const uncommittedSelectors = {
 		selectByIds: createSelectByIds<TreeChange>(),
 		selectByPath,
 		selectByStackId,
-		selectedByStackId
+		selectedByStackId,
 	},
 	hunkAssignments: {
 		...hunkAssignmentAdapter.getSelectors(),
 		selectByPrefix: createSelectByPrefix<HunkAssignment>(),
-		selectNotIn: createSelectNotIn<HunkAssignment>()
+		selectNotIn: createSelectNotIn<HunkAssignment>(),
 	},
 	hunkSelection: {
 		...hunkSelectionAdapter.getSelectors(),
@@ -492,8 +500,8 @@ export const uncommittedSelectors = {
 		hunkCheckStatus,
 		fileCheckStatus,
 		folderCheckStatus,
-		stackCheckStatus
-	}
+		stackCheckStatus,
+	},
 };
 
 /**
@@ -505,17 +513,17 @@ export const uncommittedSelectors = {
  */
 function updateAssignments(
 	state: UncommittedState,
-	action: PayloadAction<{ assignments: HunkAssignment[]; changes: TreeChange[] }>
+	action: PayloadAction<{ assignments: HunkAssignment[]; changes: TreeChange[] }>,
 ): UncommittedState {
 	// Read: Replace whole tree changes slice with the new changes.
 	state.treeChanges = treeChangeAdapter.addMany(
 		treeChangeAdapter.getInitialState(),
-		action.payload.changes
+		action.payload.changes,
 	);
 	const oldAssignments = state.hunkAssignments;
 	state.hunkAssignments = hunkAssignmentAdapter.addMany(
 		hunkAssignmentAdapter.getInitialState(),
-		action.payload.assignments
+		action.payload.assignments,
 	);
 	const oldSelections = uncommittedSelectors.hunkSelection.selectAll(state.hunkSelection);
 	// Set hunk selection to empty. We will re-build this.
@@ -523,14 +531,14 @@ function updateAssignments(
 
 	// Keyed by stable ID or fallback to composite key.
 	const newAssignments = new Map(
-		action.payload.assignments.map((a) => [a.id || compositeKey(a), a])
+		action.payload.assignments.map((a) => [a.id || compositeKey(a), a]),
 	);
 
 	for (const old of oldSelections) {
 		const newAssignment = newAssignments.get(old.stableId || old.assignmentId);
 		const oldAssignment = uncommittedSelectors.hunkAssignments.selectById(
 			oldAssignments,
-			old.assignmentId
+			old.assignmentId,
 		);
 
 		if (newAssignment) {
@@ -543,7 +551,7 @@ function updateAssignments(
 					assignmentId: compositeKey(newAssignment),
 					stackId: newAssignment.stackId,
 					path: newAssignment.path,
-					lines: updatedLines
+					lines: updatedLines,
 				});
 			}
 		}
@@ -566,7 +574,7 @@ function updateAssignments(
 function updateLines(
 	newAssignment: HunkAssignment,
 	oldAssignment: HunkAssignment,
-	lines: LineId[]
+	lines: LineId[],
 ): LineId[] | undefined {
 	// If all are selected (indicated by empty array), we want to keep them all
 	// selected.
@@ -584,7 +592,7 @@ function updateLines(
 	const news = new Set(newAssignment.lineNumsAdded);
 
 	const filteredLines = lines.filter(
-		(l) => (!l.newLine || news.has(l.newLine)) && (!l.oldLine || olds.has(l.oldLine))
+		(l) => (!l.newLine || news.has(l.newLine)) && (!l.oldLine || olds.has(l.oldLine)),
 	);
 
 	if (filteredLines.length === 0) {

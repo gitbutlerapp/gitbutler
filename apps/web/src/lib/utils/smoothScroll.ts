@@ -6,7 +6,7 @@ export function smoothScroll(event: MouseEvent) {
 		return;
 	}
 
-	const anchorId = new URL(link.href).hash.replace('#', '');
+	const anchorId = new URL(link.href).hash.replace("#", "");
 	const anchor = document.getElementById(anchorId);
 
 	if (!anchor) {
@@ -15,6 +15,6 @@ export function smoothScroll(event: MouseEvent) {
 
 	window.scrollTo({
 		top: anchor.offsetTop,
-		behavior: 'smooth'
+		behavior: "smooth",
 	});
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ColorCard from './ColorCard.svelte';
-	import ScaleControls from './ScaleControls.svelte';
-	import type { ColorScale, Shade } from '../types/color';
+	import ColorCard from "./ColorCard.svelte";
+	import ScaleControls from "./ScaleControls.svelte";
+	import type { ColorScale, Shade } from "../types/color";
 
 	interface Props {
 		scale: ColorScale;
@@ -28,7 +28,7 @@
 		onToggle,
 		onHueChange,
 		onSaturationChange,
-		onShade50LightnessChange
+		onShade50LightnessChange,
 	}: Props = $props();
 
 	function toggleExpanded() {
@@ -45,7 +45,7 @@
 	role="presentation"
 >
 	{#each shades.filter((s) => s.value !== 100 && s.value !== 0) as shade (shade.value)}
-		{@const color = colors[shade.value] || '#000'}
+		{@const color = colors[shade.value] || "#000"}
 		<ColorCard {shade} {color} scaleId={scale.id}>
 			{#if shade.value === 50 && isExpanded}
 				<div class="scale-controls" onclick={(e) => e.stopPropagation()} role="presentation">
@@ -87,7 +87,7 @@
 		cursor: pointer;
 	}
 
-	.scale-container :global(.color-card[data-shade='50']) {
+	.scale-container :global(.color-card[data-shade="50"]) {
 		grid-column: span 3;
 	}
 
@@ -105,11 +105,11 @@
 			border: none;
 		}
 
-		.scale-container :global(.color-card[data-shade='50']) {
+		.scale-container :global(.color-card[data-shade="50"]) {
 			grid-column: 1 / -1;
 		}
 
-		.scale-container :global(.color-card:not([data-shade='50'])) {
+		.scale-container :global(.color-card:not([data-shade="50"])) {
 			display: none;
 		}
 	}

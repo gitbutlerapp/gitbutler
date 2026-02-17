@@ -1,4 +1,4 @@
-import { Meta } from '@storybook/addon-docs/blocks';
+import { Meta } from "@storybook/addon-docs/blocks";
 
 <Meta title="About/Introduction" />
 
@@ -19,7 +19,7 @@ Because the GitButler UI is a part of a monorepo, you can use the components by 
 Then import the package styles in your project:
 
 ```css
-@import '@gitbutler/ui/main.css';
+@import "@gitbutler/ui/main.css";
 ```
 
 This **single import** automatically includes:
@@ -59,16 +59,16 @@ const config = {
 		pxToRem({
 			rootValue: 16,
 			unitPrecision: 5,
-			propList: ['*'],
+			propList: ["*"],
 			selectorBlackList: [],
 			replace: true,
 			mediaQuery: false,
-			minPixelValue: 0
+			minPixelValue: 0,
 		}),
 		autoprefixer(),
 		postcssNesting(),
 		postcssBundler(),
-		postcssMinify()
-	]
+		postcssMinify(),
+	],
 };
 ```

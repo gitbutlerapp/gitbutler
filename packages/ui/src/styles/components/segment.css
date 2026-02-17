@@ -38,7 +38,7 @@
 		transition: color var(--transition-fast);
 		user-select: none;
 
-		&:not([aria-selected='true']):hover {
+		&:not([aria-selected="true"]):hover {
 			color: var(--clr-text-1);
 
 			& > .segment-control-item__icon {
@@ -53,7 +53,7 @@
 			width: 1px;
 			height: 45%;
 			background-color: var(--clr-border-2);
-			content: '';
+			content: "";
 		}
 
 		&:last-of-type {
@@ -62,7 +62,7 @@
 			}
 		}
 
-		&[aria-selected='true'] {
+		&[aria-selected="true"] {
 			background-color: var(--clr-bg-1);
 			box-shadow: inset 0 0 0 1px var(--clr-border-2);
 			color: var(--clr-text-1);

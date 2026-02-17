@@ -1,8 +1,8 @@
-import postcssBundler from '@csstools/postcss-bundler';
-import autoprefixer from 'autoprefixer';
-import cssnano from 'cssnano';
-import postcssNesting from 'postcss-nesting';
-import pxToRem from 'postcss-pxtorem';
+import postcssBundler from "@csstools/postcss-bundler";
+import autoprefixer from "autoprefixer";
+import cssnano from "cssnano";
+import postcssNesting from "postcss-nesting";
+import pxToRem from "postcss-pxtorem";
 
 /** @type {import('postcss').Config} */
 const config = {
@@ -10,21 +10,21 @@ const config = {
 		pxToRem({
 			rootValue: 16,
 			unitPrecision: 5,
-			propList: ['*'],
+			propList: ["*"],
 			replace: true,
-			mediaQuery: true
+			mediaQuery: true,
 		}),
 		autoprefixer(),
 		postcssNesting(),
 		postcssBundler(),
-		...(process.env.NODE_ENV === 'production'
+		...(process.env.NODE_ENV === "production"
 			? [
 					cssnano({
-						preset: ['default']
-					})
+						preset: ["default"],
+					}),
 				]
-			: [])
-	]
+			: []),
+	],
 };
 
 export default config;

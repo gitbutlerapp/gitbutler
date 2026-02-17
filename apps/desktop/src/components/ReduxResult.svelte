@@ -5,12 +5,12 @@
 </script>
 
 <script lang="ts" generics="A, B extends string | undefined, C extends string | undefined">
-	import { isParsedError } from '$lib/error/parser';
+	import { isParsedError } from "$lib/error/parser";
 
-	import { Icon, InfoMessage } from '@gitbutler/ui';
-	import { QueryStatus } from '@reduxjs/toolkit/query';
-	import type { Result } from '$lib/state/helpers';
-	import type { Snippet } from 'svelte';
+	import { Icon, InfoMessage } from "@gitbutler/ui";
+	import { QueryStatus } from "@reduxjs/toolkit/query";
+	import type { Result } from "$lib/state/helpers";
+	import type { Snippet } from "svelte";
 
 	type Env<B, C> = {
 		projectId: C;
@@ -102,9 +102,9 @@
 	{/if}
 {:else if display.result?.data !== undefined}
 	{@render props.children(display.result.data, display.env)}
-{:else if display.result?.status === 'pending' || display.result?.status === 'uninitialized'}
+{:else if display.result?.status === "pending" || display.result?.status === "uninitialized"}
 	{@render loadingComponent(display.result.data, display.result.status)}
-{:else if display.result?.status === 'fulfilled'}
+{:else if display.result?.status === "fulfilled"}
 	{@render props.empty?.()}
 {/if}
 

@@ -2,18 +2,18 @@
 	import {
 		markRecentlyUsedEmoji,
 		searchThroughEmojis,
-		type EmojiInfo
-	} from '$components/emoji/utils';
-	import { getEditor } from '$lib/richText/context';
+		type EmojiInfo,
+	} from "$components/emoji/utils";
+	import { getEditor } from "$lib/richText/context";
 	import {
 		findAndReplaceShortCodeEmoji,
 		getShortCodeSearchMatch,
 		insertEmoji,
-		type ShortCodeSearchMatch
-	} from '$lib/richText/node/emoji';
-	import EmojiSuggestions from '$lib/richText/plugins/EmojiSuggestions.svelte';
-	import TypeAheadPlugin from '$lib/richText/plugins/TypeAhead.svelte';
-	import { TextNode, $getSelection as getSelection } from 'lexical';
+		type ShortCodeSearchMatch,
+	} from "$lib/richText/node/emoji";
+	import EmojiSuggestions from "$lib/richText/plugins/EmojiSuggestions.svelte";
+	import TypeAheadPlugin from "$lib/richText/plugins/TypeAhead.svelte";
+	import { TextNode, $getSelection as getSelection } from "lexical";
 
 	/**
 	 * Transforms a text node to replace emoji shortcodes with emoji nodes.
@@ -69,7 +69,7 @@
 					selection,
 					start,
 					end,
-					unicode: emoji.unicode
+					unicode: emoji.unicode,
 				});
 			});
 

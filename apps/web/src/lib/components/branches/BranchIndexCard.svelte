@@ -1,16 +1,16 @@
 <script lang="ts">
-	import TableRow from '$lib/components/table/TableRow.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound } from '@gitbutler/shared/network/loadable';
+	import TableRow from "$lib/components/table/TableRow.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { getBranchReview } from "@gitbutler/shared/branches/branchesPreview.svelte";
+	import { getContributorsWithAvatars } from "@gitbutler/shared/contributors";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { isFound } from "@gitbutler/shared/network/loadable";
 	import {
 		WEB_ROUTES_SERVICE,
-		type ProjectParameters
-	} from '@gitbutler/shared/routing/webRoutes.svelte';
-	import dayjs from 'dayjs';
-	import relativeTime from 'dayjs/plugin/relativeTime';
+		type ProjectParameters,
+	} from "@gitbutler/shared/routing/webRoutes.svelte";
+	import dayjs from "dayjs";
+	import relativeTime from "dayjs/plugin/relativeTime";
 
 	dayjs.extend(relativeTime);
 
@@ -44,13 +44,13 @@
 		<TableRow
 			href={routes.projectReviewBranchPath({ ...linkParams, branchId: branch.branchId })}
 			columns={[
-				{ key: 'status', value: branch.reviewStatus },
-				{ key: 'title', value: branch.title || '-', tooltip: branch.title },
-				{ key: 'number', value: branch.branchId.slice(0, 7), tooltip: branch.branchId },
-				{ key: 'commitGraph', value: { branch, ...linkParams } },
-				{ key: 'date', value: branch.updatedAt },
-				{ key: 'avatars', value: contributors },
-				{ key: 'number', value: branch.version || 0 }
+				{ key: "status", value: branch.reviewStatus },
+				{ key: "title", value: branch.title || "-", tooltip: branch.title },
+				{ key: "number", value: branch.branchId.slice(0, 7), tooltip: branch.branchId },
+				{ key: "commitGraph", value: { branch, ...linkParams } },
+				{ key: "date", value: branch.updatedAt },
+				{ key: "avatars", value: contributors },
+				{ key: "number", value: branch.version || 0 },
 			]}
 			{isTopEntry}
 			separatedTop={roundedTop}

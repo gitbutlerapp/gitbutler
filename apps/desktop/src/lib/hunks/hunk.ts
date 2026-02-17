@@ -1,14 +1,14 @@
-import { memoize } from '@gitbutler/shared/memoization';
+import { memoize } from "@gitbutler/shared/memoization";
 import {
 	lineIdKey,
 	parseHunk,
 	SectionType,
 	type LineId,
-	type LineLock
-} from '@gitbutler/ui/utils/diffParsing';
-import type { HunkLock, HunkLocks } from '$lib/dependencies/dependencies';
-import type { Prettify } from '@gitbutler/shared/utils/typeUtils';
-import 'reflect-metadata';
+	type LineLock,
+} from "@gitbutler/ui/utils/diffParsing";
+import type { HunkLock, HunkLocks } from "$lib/dependencies/dependencies";
+import type { Prettify } from "@gitbutler/shared/utils/typeUtils";
+import "reflect-metadata";
 
 export type DiffSpec = {
 	/** lossless version of `previous_path` if this was a rename. */
@@ -35,10 +35,10 @@ export type HunkAssignmentError = {
 };
 
 export function shouldRaiseHunkAssignmentError(
-	error: HunkAssignmentError | null
+	error: HunkAssignmentError | null,
 ): error is HunkAssignmentError {
 	if (!error) return false;
-	if (error.description === 'errors.projects.default_target.not_found') return false;
+	if (error.description === "errors.projects.default_target.not_found") return false;
 	return true;
 }
 
@@ -108,11 +108,11 @@ type DeltaLineGroup = {
 	lines: LineId[];
 };
 
-function getAnchorLineNumber(lineNumber: number, action: 'discard' | 'commit'): number {
+function getAnchorLineNumber(lineNumber: number, action: "discard" | "commit"): number {
 	switch (action) {
-		case 'discard':
+		case "discard":
 			return lineNumber;
-		case 'commit':
+		case "commit":
 			return 0;
 	}
 }
@@ -124,31 +124,31 @@ function getAnchorLineNumber(lineNumber: number, action: 'discard' | 'commit'): 
 function lineGroupsToHunkHeader(
 	lineGroup: DeltaLineGroup,
 	parentHunkHeader: HunkHeader,
-	action: 'discard' | 'commit'
+	action: "discard" | "commit",
 ): HunkHeader {
 	const lineCount = lineGroup.lines.length;
 	if (lineCount === 0) {
-		throw new Error('Line group has no lines');
+		throw new Error("Line group has no lines");
 	}
 
 	const firstLine = lineGroup.lines[0]!;
 
 	switch (lineGroup.type) {
-		case 'added': {
+		case "added": {
 			const oldStart = getAnchorLineNumber(parentHunkHeader.oldStart, action);
 			const oldLines = getAnchorLineNumber(parentHunkHeader.oldLines, action);
 			if (firstLine.newLine === undefined) {
-				throw new Error('Line has no new line number');
+				throw new Error("Line has no new line number");
 			}
 			const newStart = firstLine.newLine;
 			const newLines = lineCount;
 			return { oldStart, oldLines, newStart, newLines };
 		}
-		case 'removed': {
+		case "removed": {
 			const newStart = getAnchorLineNumber(parentHunkHeader.newStart, action);
 			const newLines = getAnchorLineNumber(parentHunkHeader.newLines, action);
 			if (firstLine.oldLine === undefined) {
-				throw new Error('Line has no old line number');
+				throw new Error("Line has no old line number");
 			}
 			const oldStart = firstLine.oldLine;
 			const oldLines = lineCount;
@@ -157,17 +157,17 @@ function lineGroupsToHunkHeader(
 	}
 }
 
-type DeltaLineType = 'added' | 'removed';
+type DeltaLineType = "added" | "removed";
 
 function lineType(line: LineId): DeltaLineType | undefined {
 	if (line.oldLine === undefined && line.newLine === undefined) {
-		throw new Error('Line has no line numbers');
+		throw new Error("Line has no line numbers");
 	}
 	if (line.oldLine === undefined) {
-		return 'added';
+		return "added";
 	}
 	if (line.newLine === undefined) {
-		return 'removed';
+		return "removed";
 	}
 	return undefined;
 }
@@ -192,7 +192,7 @@ export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGr
 		for (const line of section.lines) {
 			const lineId = {
 				oldLine: line.beforeLineNumber,
-				newLine: line.afterLineNumber
+				newLine: line.afterLineNumber,
 			};
 			const deltaType = lineType(lineId);
 			const key = lineIdKey(lineId);
@@ -216,7 +216,7 @@ export function extractLineGroups(lineIds: LineId[], diff: string): [DeltaLineGr
 		oldStart: parsedHunk.oldStart,
 		oldLines: parsedHunk.oldLines,
 		newStart: parsedHunk.newStart,
-		newLines: parsedHunk.newLines
+		newLines: parsedHunk.newLines,
 	};
 	return [lineGroups, parentHunkHeader];
 }
@@ -230,7 +230,7 @@ export function extractAllGroups(diff: string): [DeltaLineGroup[], HunkHeader] {
 		for (const line of section.lines) {
 			const lineId = {
 				oldLine: line.beforeLineNumber,
-				newLine: line.afterLineNumber
+				newLine: line.afterLineNumber,
 			};
 			const deltaType = lineType(lineId);
 			if (deltaType === undefined) {
@@ -252,7 +252,7 @@ export function extractAllGroups(diff: string): [DeltaLineGroup[], HunkHeader] {
 		oldStart: parsedHunk.oldStart,
 		oldLines: parsedHunk.oldLines,
 		newStart: parsedHunk.newStart,
-		newLines: parsedHunk.newLines
+		newLines: parsedHunk.newLines,
 	};
 	return [lineGroups, parentHunkHeader];
 }
@@ -266,7 +266,7 @@ export function extractAllGroups(diff: string): [DeltaLineGroup[], HunkHeader] {
 export function lineIdsToHunkHeaders(
 	lineIds: LineId[],
 	diff: string,
-	action: 'discard' | 'commit'
+	action: "discard" | "commit",
 ): HunkHeader[] {
 	if (lineIds.length === 0) {
 		return [];
@@ -282,7 +282,7 @@ export function lineIdsToHunkHeaders(
  *
  * This is used when the user selects the entire hunk.
  */
-export function diffToHunkHeaders(diff: string, action: 'discard' | 'commit'): HunkHeader[] {
+export function diffToHunkHeaders(diff: string, action: "discard" | "commit"): HunkHeader[] {
 	const [lineGroups, parentHunkHeader] = extractAllGroups(diff);
 
 	return lineGroups.map((lineGroup) => lineGroupsToHunkHeader(lineGroup, parentHunkHeader, action));
@@ -312,18 +312,18 @@ export type DiffHunk = Prettify<
 
 export function isDiffHunk(something: unknown): something is DiffHunk {
 	return (
-		typeof something === 'object' &&
+		typeof something === "object" &&
 		something !== null &&
-		'oldStart' in something &&
-		typeof (something as any).oldStart === 'number' &&
-		'oldLines' in something &&
-		typeof (something as any).oldLines === 'number' &&
-		'newStart' in something &&
-		typeof (something as any).newStart === 'number' &&
-		'newLines' in something &&
-		typeof (something as any).newLines === 'number' &&
-		'diff' in something &&
-		typeof (something as any).diff === 'string'
+		"oldStart" in something &&
+		typeof (something as any).oldStart === "number" &&
+		"oldLines" in something &&
+		typeof (something as any).oldLines === "number" &&
+		"newStart" in something &&
+		typeof (something as any).newStart === "number" &&
+		"newLines" in something &&
+		typeof (something as any).newLines === "number" &&
+		"diff" in something &&
+		typeof (something as any).diff === "string"
 	);
 }
 
@@ -392,7 +392,7 @@ export function hunkHeaderEquals(a: HunkHeader, b: HunkHeader): boolean {
 
 export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
 	if (line.oldLine === undefined && line.newLine === undefined) {
-		throw new Error('Line has no line numbers');
+		throw new Error("Line has no line numbers");
 	}
 
 	if (line.oldLine !== undefined && line.newLine !== undefined) {
@@ -412,7 +412,7 @@ export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
 		return hunk.newStart <= line.newLine && hunk.newStart + hunk.newLines - 1 >= line.newLine;
 	}
 
-	throw new Error('Malformed line ID');
+	throw new Error("Malformed line ID");
 }
 
 /**
@@ -420,7 +420,7 @@ export function hunkContainsLine(hunk: DiffHunk, line: LineId): boolean {
  */
 export function getLineLocks(
 	hunk: DiffHunk,
-	locks: HunkLocks[]
+	locks: HunkLocks[],
 ): [boolean, LineLock[] | undefined] {
 	const lineLocks: LineLock[] = [];
 	const parsedHunk = memoizedParseHunk(hunk.diff);
@@ -435,7 +435,7 @@ export function getLineLocks(
 		for (const line of contentSection.lines) {
 			const lineId: LineId = {
 				oldLine: line.beforeLineNumber,
-				newLine: line.afterLineNumber
+				newLine: line.afterLineNumber,
 			};
 
 			const hunkLocks = locksContained.filter((lock) => hunkContainsLine(lock.hunk, lineId));
@@ -446,7 +446,7 @@ export function getLineLocks(
 
 			lineLocks.push({
 				...lineId,
-				locks: hunkLocks.map((lock) => lock.locks).flat()
+				locks: hunkLocks.map((lock) => lock.locks).flat(),
 			});
 		}
 	}

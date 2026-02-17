@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Badge from '$components/Badge.svelte';
-	import RangeInput from '$components/RangeInput.svelte';
-	import SkeletonBone from '$components/SkeletonBone.svelte';
-	import { SegmentControl } from '$components/segmentControl';
+	import Badge from "$components/Badge.svelte";
+	import RangeInput from "$components/RangeInput.svelte";
+	import SkeletonBone from "$components/SkeletonBone.svelte";
+	import { SegmentControl } from "$components/segmentControl";
 
 	type Props = {
 		beforeImageUrl?: string | null;
@@ -14,12 +14,12 @@
 	const {
 		beforeImageUrl = null,
 		afterImageUrl = null,
-		fileName = 'image',
-		isLoading = false
+		fileName = "image",
+		isLoading = false,
 	}: Props = $props();
 
-	type ViewMode = '2-up' | 'swipe' | 'onion-skin';
-	let viewMode = $state<ViewMode>('2-up');
+	type ViewMode = "2-up" | "swipe" | "onion-skin";
+	let viewMode = $state<ViewMode>("2-up");
 	let swipePosition = $state(50);
 	let onionOpacity = $state(50);
 	let isDragging = $state(false);
@@ -49,7 +49,7 @@
 		} else if (diff < 0) {
 			return `-${formatFileSize(absDiff)}`;
 		}
-		return 'Same size';
+		return "Same size";
 	}
 
 	async function loadImageMetadata(url: string): Promise<ImageMetadata> {
@@ -58,7 +58,7 @@
 			img.onload = async () => {
 				const metadata: ImageMetadata = {
 					width: img.naturalWidth,
-					height: img.naturalHeight
+					height: img.naturalHeight,
 				};
 
 				// Try to fetch file size
@@ -71,7 +71,7 @@
 				}
 				resolve(metadata);
 			};
-			img.onerror = () => reject(new Error('Failed to load image'));
+			img.onerror = () => reject(new Error("Failed to load image"));
 			img.src = url;
 		});
 	}
@@ -81,7 +81,7 @@
 			loadImageMetadata(beforeImageUrl)
 				.then((metadata) => (beforeImageMetadata = metadata))
 				.catch((error) => {
-					console.error('Failed to load before image metadata:', error);
+					console.error("Failed to load before image metadata:", error);
 					beforeImageMetadata = null;
 				});
 		}
@@ -90,7 +90,7 @@
 			loadImageMetadata(afterImageUrl)
 				.then((metadata) => (afterImageMetadata = metadata))
 				.catch((error) => {
-					console.error('Failed to load after image metadata:', error);
+					console.error("Failed to load after image metadata:", error);
 					afterImageMetadata = null;
 				});
 		}
@@ -112,7 +112,7 @@
 
 	function handleDragMove(e: MouseEvent | TouchEvent) {
 		if (!isDragging) return;
-		if (typeof TouchEvent !== 'undefined' && e instanceof TouchEvent) e.preventDefault();
+		if (typeof TouchEvent !== "undefined" && e instanceof TouchEvent) e.preventDefault();
 		const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
 		updateSwipePosition(clientX);
 	}
@@ -125,21 +125,21 @@
 		const step = e.shiftKey ? 10 : 1; // Larger steps with Shift key
 
 		switch (e.key) {
-			case 'ArrowLeft':
-			case 'ArrowDown':
+			case "ArrowLeft":
+			case "ArrowDown":
 				e.preventDefault();
 				swipePosition = Math.max(0, swipePosition - step);
 				break;
-			case 'ArrowRight':
-			case 'ArrowUp':
+			case "ArrowRight":
+			case "ArrowUp":
 				e.preventDefault();
 				swipePosition = Math.min(100, swipePosition + step);
 				break;
-			case 'Home':
+			case "Home":
 				e.preventDefault();
 				swipePosition = 0;
 				break;
-			case 'End':
+			case "End":
 				e.preventDefault();
 				swipePosition = 100;
 				break;
@@ -147,18 +147,18 @@
 	}
 
 	$effect(() => {
-		if (viewMode !== 'swipe') return;
+		if (viewMode !== "swipe") return;
 
-		document.addEventListener('mousemove', handleDragMove);
-		document.addEventListener('mouseup', handleDragEnd);
-		document.addEventListener('touchmove', handleDragMove, { passive: false });
-		document.addEventListener('touchend', handleDragEnd);
+		document.addEventListener("mousemove", handleDragMove);
+		document.addEventListener("mouseup", handleDragEnd);
+		document.addEventListener("touchmove", handleDragMove, { passive: false });
+		document.addEventListener("touchend", handleDragEnd);
 
 		return () => {
-			document.removeEventListener('mousemove', handleDragMove);
-			document.removeEventListener('mouseup', handleDragEnd);
-			document.removeEventListener('touchmove', handleDragMove);
-			document.removeEventListener('touchend', handleDragEnd);
+			document.removeEventListener("mousemove", handleDragMove);
+			document.removeEventListener("mouseup", handleDragEnd);
+			document.removeEventListener("touchmove", handleDragMove);
+			document.removeEventListener("touchend", handleDragEnd);
 		};
 	});
 </script>
@@ -294,7 +294,7 @@
 		</div>
 	{/if}
 
-	<div class="image-comparison" class:is-swipe={viewMode === 'swipe'}>
+	<div class="image-comparison" class:is-swipe={viewMode === "swipe"}>
 		{#if isLoading}
 			<div class="image-panel skeleton-panel">
 				<SkeletonBone height="12.5rem" />
@@ -304,32 +304,32 @@
 				</div>
 			</div>
 		{:else if beforeImageUrl || afterImageUrl}
-			{#if viewMode === '2-up'}
+			{#if viewMode === "2-up"}
 				{#if beforeImageUrl}
 					{@render imagePanel({
 						url: beforeImageUrl,
-						label: afterImageUrl ? 'Before' : 'Removed',
+						label: afterImageUrl ? "Before" : "Removed",
 						isBefore: true,
-						metadata: beforeImageMetadata
+						metadata: beforeImageMetadata,
 					})}
 				{/if}
 
 				{#if afterImageUrl}
 					{@render imagePanel({
 						url: afterImageUrl,
-						label: beforeImageUrl ? 'After' : 'Added',
-						metadata: afterImageMetadata
+						label: beforeImageUrl ? "After" : "Added",
+						metadata: afterImageMetadata,
 					})}
 				{/if}
-			{:else if viewMode === 'swipe' && beforeImageUrl && afterImageUrl}
+			{:else if viewMode === "swipe" && beforeImageUrl && afterImageUrl}
 				{@render swipe({
 					controlValue: swipePosition,
-					onValueChange: (value) => (swipePosition = value)
+					onValueChange: (value) => (swipePosition = value),
 				})}
-			{:else if viewMode === 'onion-skin' && beforeImageUrl && afterImageUrl}
+			{:else if viewMode === "onion-skin" && beforeImageUrl && afterImageUrl}
 				{@render onionSkin({
 					controlValue: onionOpacity,
-					onValueChange: (value) => (onionOpacity = value)
+					onValueChange: (value) => (onionOpacity = value),
 				})}
 			{/if}
 		{/if}

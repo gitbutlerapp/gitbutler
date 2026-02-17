@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button } from '@gitbutler/ui';
+	import { browser } from "$app/environment";
+	import { goto } from "$app/navigation";
+	import { page } from "$app/stores";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button } from "@gitbutler/ui";
 
-	import { env } from '$env/dynamic/public';
+	import { env } from "$env/dynamic/public";
 
 	const userService = inject(USER_SERVICE);
 	const organizationService = inject(ORGANIZATION_SERVICE);
@@ -49,15 +49,15 @@
 			}, 1500);
 		} catch (error: any) {
 			// Try to extract error message from JSON response if available
-			let errorMessage = 'Failed to join organization';
+			let errorMessage = "Failed to join organization";
 			try {
 				// Check if error has a response with JSON data
 				if (error.response && error.response.data) {
 					// Extract error message from JSON response
 					errorMessage = error.response.data.error || errorMessage;
-				} else if (typeof error.message === 'string') {
+				} else if (typeof error.message === "string") {
 					// Try to parse error message as JSON if it's a string
-					const errorJson = JSON.parse(error.message.replace(/^[^{]*/, ''));
+					const errorJson = JSON.parse(error.message.replace(/^[^{]*/, ""));
 					errorMessage = errorJson.error || errorMessage;
 				}
 			} catch (_) {
@@ -90,7 +90,7 @@
 	function goToLogin() {
 		// Store the current URL in session storage to redirect back after login
 		if (browser) {
-			sessionStorage.setItem('redirectAfterLogin', window.location.href);
+			sessionStorage.setItem("redirectAfterLogin", window.location.href);
 		}
 		window.location.href = `${env.PUBLIC_APP_HOST}/cloud/login?callback=${window.location.href}`;
 	}

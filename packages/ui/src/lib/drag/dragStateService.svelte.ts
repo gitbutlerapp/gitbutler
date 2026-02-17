@@ -1,8 +1,8 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import { writable, type Readable } from 'svelte/store';
+import { InjectionToken } from "@gitbutler/core/context";
+import { writable, type Readable } from "svelte/store";
 
 export const DRAG_STATE_SERVICE: InjectionToken<DragStateService> = new InjectionToken(
-	'DragStateService'
+	"DragStateService",
 );
 
 /**
@@ -37,7 +37,7 @@ export class DragStateService {
 	}
 
 	setDropLabel(label: string | undefined): symbol {
-		const token = Symbol('dropLabel');
+		const token = Symbol("dropLabel");
 		this.activeLabels.set(token, label);
 		this.updateDropLabel();
 		return token;

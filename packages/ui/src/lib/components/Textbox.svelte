@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { focusable } from '$lib/focus/focusable';
-	import { clickOutside } from '$lib/utils/clickOutside';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onMount, tick } from 'svelte';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import Icon from "$components/Icon.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import { clickOutside } from "$lib/utils/clickOutside";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import { onMount, tick } from "svelte";
+	import type iconsJson from "$lib/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		element?: HTMLElement;
@@ -16,8 +16,8 @@
 		iconRight?: keyof typeof iconsJson;
 		customIconLeft?: Snippet;
 		customIconRight?: Snippet;
-		size?: 'default' | 'large';
-		textAlign?: 'left' | 'center' | 'right';
+		size?: "default" | "large";
+		textAlign?: "left" | "center" | "right";
 		value?: string;
 		width?: number;
 		placeholder?: string;
@@ -47,15 +47,15 @@
 		element = $bindable(),
 		id,
 		testId,
-		type = 'text',
+		type = "text",
 		iconLeft,
 		iconRight,
 		customIconLeft,
 		customIconRight,
 		value = $bindable(),
 		width,
-		size = 'default',
-		textAlign = 'left',
+		size = "default",
+		textAlign = "left",
 		placeholder,
 		helperText,
 		error,
@@ -76,7 +76,7 @@
 		oninput,
 		onblur,
 		onchange,
-		onkeydown
+		onkeydown,
 	}: Props = $props();
 
 	let showPassword = $state(false);
@@ -95,16 +95,16 @@
 	}
 
 	type inputType =
-		| 'text'
-		| 'password'
-		| 'password-non-visible'
-		| 'number'
-		| 'select'
-		| 'tel'
-		| 'url'
-		| 'search'
-		| 'date'
-		| 'time';
+		| "text"
+		| "password"
+		| "password-non-visible"
+		| "number"
+		| "select"
+		| "tel"
+		| "url"
+		| "search"
+		| "date"
+		| "time";
 
 	onMount(() => {
 		if (autofocus) {
@@ -158,7 +158,7 @@
 			</div>
 		{:else if iconLeft}
 			<div class="textbox__icon textbox__icon--left">
-				<Icon name={!disabled ? iconLeft : 'locked'} />
+				<Icon name={!disabled ? iconLeft : "locked"} />
 			</div>
 		{/if}
 
@@ -168,7 +168,7 @@
 			</div>
 		{:else if iconRight}
 			<div class="textbox__icon textbox__icon--right">
-				<Icon name={!disabled ? iconRight : 'locked'} />
+				<Icon name={!disabled ? iconRight : "locked"} />
 			</div>
 		{/if}
 
@@ -180,18 +180,18 @@
 			{placeholder}
 			{spellcheck}
 			{disabled}
-			autocorrect={autocorrect ? 'on' : 'off'}
-			autocomplete={autocomplete ? 'on' : 'off'}
+			autocorrect={autocorrect ? "on" : "off"}
+			autocomplete={autocomplete ? "on" : "off"}
 			min={minVal}
 			max={maxVal}
-			{...type === 'password' && showPassword
-				? { type: 'text' }
-				: { type: type === 'password-non-visible' ? 'password' : type }}
+			{...type === "password" && showPassword
+				? { type: "text" }
+				: { type: type === "password-non-visible" ? "password" : type }}
 			class:show-count-actions={showCountActions}
 			class="text-input textbox__input size-{size} {size === 'large'
 				? 'text-14 text-semibold'
 				: 'text-13'}"
-			class:readonly={type !== 'select' && readonly}
+			class:readonly={type !== "select" && readonly}
 			class:error={hasError}
 			style:text-align={textAlign}
 			bind:value
@@ -210,7 +210,7 @@
 			{onkeydown}
 		/>
 
-		{#if type === 'number' && showCountActions}
+		{#if type === "number" && showCountActions}
 			<div class="textbox__count-actions">
 				<button
 					type="button"
@@ -247,7 +247,7 @@
 			</div>
 		{/if}
 
-		{#if type === 'password'}
+		{#if type === "password"}
 			<button
 				type="button"
 				class="textbox__show-hide-icon"
@@ -258,7 +258,7 @@
 					htmlInput.focus();
 				}}
 			>
-				<Icon name={showPassword ? 'eye-shown' : 'eye-hidden'} />
+				<Icon name={showPassword ? "eye-shown" : "eye-hidden"} />
 			</button>
 		{/if}
 	</div>
@@ -356,14 +356,14 @@
 	}
 
 	/* select */
-	.textbox__input[type='select']:not([disabled]),
-	.textbox__input[type='select']:not([readonly]) {
+	.textbox__input[type="select"]:not([disabled]),
+	.textbox__input[type="select"]:not([readonly]) {
 		cursor: pointer;
 		user-select: none;
 	}
 
 	/* number */
-	.textbox__input[type='number'] {
+	.textbox__input[type="number"] {
 		appearance: textfield;
 		-moz-appearance: textfield;
 
@@ -372,8 +372,8 @@
 		}
 	}
 
-	.textbox__input[type='number']::-webkit-inner-spin-button,
-	.textbox__input[type='number']::-webkit-outer-spin-button {
+	.textbox__input[type="number"]::-webkit-inner-spin-button,
+	.textbox__input[type="number"]::-webkit-outer-spin-button {
 		-webkit-appearance: none;
 		margin: 0;
 	}
@@ -395,7 +395,7 @@
 		height: 100%;
 		transform: translateY(-50%);
 		background-color: var(--clr-border-2);
-		content: '';
+		content: "";
 	}
 
 	.textbox__count-btn {

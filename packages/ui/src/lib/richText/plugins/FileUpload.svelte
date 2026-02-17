@@ -7,9 +7,9 @@
 </script>
 
 <script lang="ts">
-	import { getEditor } from '$lib/richText/context';
-	import { insertTextAtCaret } from '$lib/richText/selection';
-	import { COMMAND_PRIORITY_CRITICAL, DROP_COMMAND, PASTE_COMMAND } from 'lexical';
+	import { getEditor } from "$lib/richText/context";
+	import { insertTextAtCaret } from "$lib/richText/selection";
+	import { COMMAND_PRIORITY_CRITICAL, DROP_COMMAND, PASTE_COMMAND } from "lexical";
 
 	type Props = {
 		onDrop: (files: FileList | undefined) => Promise<DropFileResult[] | undefined>;
@@ -53,7 +53,7 @@
 				handleDrop(files);
 				return true;
 			},
-			COMMAND_PRIORITY_CRITICAL
+			COMMAND_PRIORITY_CRITICAL,
 		);
 
 		const unregisterPaste = editor.registerCommand(
@@ -73,7 +73,7 @@
 
 				return false;
 			},
-			COMMAND_PRIORITY_CRITICAL
+			COMMAND_PRIORITY_CRITICAL,
 		);
 
 		return () => {

@@ -1,12 +1,12 @@
-import CardGroupItem from '$components/cardGroup/CardGroupItem.svelte';
-import CardGroupRoot from '$components/cardGroup/CardGroupRoot.svelte';
+import CardGroupItem from "$components/cardGroup/CardGroupItem.svelte";
+import CardGroupRoot from "$components/cardGroup/CardGroupRoot.svelte";
 
 type CardGroupType = typeof CardGroupRoot & {
 	Item: typeof CardGroupItem;
 };
 
 const CardGroup = Object.assign(CardGroupRoot, {
-	Item: CardGroupItem
+	Item: CardGroupItem,
 }) as CardGroupType;
 
 export { CardGroup };

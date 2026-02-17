@@ -1,20 +1,20 @@
-import { type SnapPositionName } from '$lib/floating/types';
-import { InjectionToken } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import { type Reactive } from '@gitbutler/shared/storeUtils';
-import { isStr } from '@gitbutler/ui/utils/string';
+import { type SnapPositionName } from "$lib/floating/types";
+import { InjectionToken } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import { type Reactive } from "@gitbutler/shared/storeUtils";
+import { isStr } from "@gitbutler/ui/utils/string";
 import {
 	createEntityAdapter,
 	createSlice,
 	type EntityState,
 	type ThunkDispatch,
-	type UnknownAction
-} from '@reduxjs/toolkit';
-import type { ThinkingLevel, ModelType, PermissionMode } from '$lib/codegen/types';
-import type { GeneralSettingsPageId } from '$lib/settings/generalSettingsPages';
-import type { ProjectSettingsPageId } from '$lib/settings/projectSettingsPages';
-import type { StackDetails } from '$lib/stacks/stack';
-import type { RejectionReason } from '$lib/stacks/stackService.svelte';
+	type UnknownAction,
+} from "@reduxjs/toolkit";
+import type { ThinkingLevel, ModelType, PermissionMode } from "$lib/codegen/types";
+import type { GeneralSettingsPageId } from "$lib/settings/generalSettingsPages";
+import type { ProjectSettingsPageId } from "$lib/settings/projectSettingsPages";
+import type { StackDetails } from "$lib/stacks/stack";
+import type { RejectionReason } from "$lib/stacks/stackService.svelte";
 
 export type StackSelection = {
 	branchName?: string;
@@ -44,22 +44,22 @@ export type StackState = {
 
 export type ExclusiveAction =
 	| {
-			type: 'commit';
+			type: "commit";
 			stackId: string | undefined;
 			branchName: string | undefined;
 			parentCommitId?: string;
 	  }
 	| {
-			type: 'edit-commit-message';
+			type: "edit-commit-message";
 			stackId: string | undefined;
 			branchName: string;
 			commitId: string;
 	  }
 	| {
-			type: 'codegen';
+			type: "codegen";
 	  }
 	| {
-			type: 'create-pr';
+			type: "create-pr";
 			stackId: string | undefined;
 			branchName: string;
 	  };
@@ -73,18 +73,18 @@ export type ProjectUiState = {
 };
 
 type GlobalModalType =
-	| 'commit-failed'
-	| 'author-missing'
-	| 'general-settings'
-	| 'project-settings'
-	| 'login-confirmation'
-	| 'auto-commit';
+	| "commit-failed"
+	| "author-missing"
+	| "general-settings"
+	| "project-settings"
+	| "login-confirmation"
+	| "auto-commit";
 type BaseGlobalModalState = {
 	type: GlobalModalType;
 };
 
 export type CommitFailedModalState = BaseGlobalModalState & {
-	type: 'commit-failed';
+	type: "commit-failed";
 	projectId: string;
 	targetBranchName: string;
 	newCommitId: string | undefined;
@@ -93,29 +93,29 @@ export type CommitFailedModalState = BaseGlobalModalState & {
 };
 
 export type AuthorMissingModalState = BaseGlobalModalState & {
-	type: 'author-missing';
+	type: "author-missing";
 	projectId: string;
 	authorName: string | undefined;
 	authorEmail: string | undefined;
 };
 
 export type GeneralSettingsModalState = BaseGlobalModalState & {
-	type: 'general-settings';
+	type: "general-settings";
 	selectedId?: GeneralSettingsPageId;
 };
 
 export type ProjectSettingsModalState = BaseGlobalModalState & {
-	type: 'project-settings';
+	type: "project-settings";
 	projectId: string;
 	selectedId?: ProjectSettingsPageId;
 };
 
 export type LoginConfirmationModalState = BaseGlobalModalState & {
-	type: 'login-confirmation';
+	type: "login-confirmation";
 };
 
 export type AutoCommitModalState = BaseGlobalModalState & {
-	type: 'auto-commit';
+	type: "auto-commit";
 	projectId: string;
 };
 
@@ -147,7 +147,7 @@ export type GlobalUiState = {
 	modal: GlobalModalState | undefined;
 };
 
-export const UI_STATE = new InjectionToken<UiState>('UiState');
+export const UI_STATE = new InjectionToken<UiState>("UiState");
 
 /**
  * Stateful properties for the UI, with redux backed fine-grained reactivity.
@@ -157,18 +157,18 @@ export class UiState {
 
 	private scopesCache = {
 		lanes: {} as Record<string, GlobalStore<any>>,
-		projects: {} as Record<string, GlobalStore<any>>
+		projects: {} as Record<string, GlobalStore<any>>,
 	};
 
 	/** Properties scoped to a specific stack. */
 	readonly lane = this.buildScopedProps<StackState>(this.scopesCache.lanes, {
 		selection: undefined,
-		newCommitMessage: { title: '', description: '' },
-		prompt: '',
+		newCommitMessage: { title: "", description: "" },
+		prompt: "",
 		// I _know_ we have a permission mode called 'default', but acceptEdits is a much more sensible default.
-		permissionMode: 'acceptEdits',
+		permissionMode: "acceptEdits",
 		disabledMcpServers: [],
-		addedDirs: []
+		addedDirs: [],
 	});
 
 	/** Properties scoped to a specific project. */
@@ -176,8 +176,8 @@ export class UiState {
 		exclusiveAction: undefined,
 		branchesToPoll: [],
 		selectedClaudeSession: undefined,
-		thinkingLevel: 'normal',
-		selectedModel: 'sonnet'
+		thinkingLevel: "normal",
+		selectedModel: "sonnet",
 	});
 
 	/** Properties that are globally scoped. */
@@ -189,21 +189,21 @@ export class UiState {
 		useFloatingBox: false,
 		floatingBoxSize: {
 			width: 640,
-			height: 330
+			height: 330,
 		},
-		floatingBoxPosition: 'bottom-center',
+		floatingBoxPosition: "bottom-center",
 		unassignedSidebarFolded: false,
 		useRuler: true,
 		rulerCountValue: 72,
 		aiSuggestionsOnType: false,
 		channel: undefined,
 		draftBranchName: undefined,
-		modal: undefined
+		modal: undefined,
 	});
 
 	constructor(
 		reactiveState: Reactive<typeof this.state>,
-		private dispatch: ThunkDispatch<any, any, UnknownAction>
+		private dispatch: ThunkDispatch<any, any, UnknownAction>,
 	) {
 		$effect(() => {
 			this.state = reactiveState.current;
@@ -235,7 +235,7 @@ export class UiState {
 				},
 				get current() {
 					return mutableResult;
-				}
+				},
 			};
 		}
 		return props as GlobalStore<T>;
@@ -248,7 +248,7 @@ export class UiState {
 	 */
 	private buildScopedProps<T extends DefaultConfig>(
 		scopeCache: Record<string, GlobalStore<T>>,
-		defaultConfig: T
+		defaultConfig: T,
 	): (id: string) => GlobalStore<T> {
 		return (id: string) => {
 			if (id in scopeCache) {
@@ -268,7 +268,7 @@ export class UiState {
 					},
 					get current() {
 						return mutableResult;
-					}
+					},
 				};
 
 				// If the value is an array of strings, we add methods to add/remove
@@ -286,12 +286,12 @@ export class UiState {
 				}
 				// If the value is an object, we add a method to update
 				if (
-					typeof mutableResult === 'object' &&
+					typeof mutableResult === "object" &&
 					!Array.isArray(mutableResult) &&
 					mutableResult !== null
 				) {
 					(props[key] as GlobalProperty<Record<string, UiStateValue>>).update = (
-						value: Record<string, UiStateValue>
+						value: Record<string, UiStateValue>,
 					) => {
 						mutableResult = { ...(mutableResult as Record<string, UiStateValue>), ...value };
 						this.update(`${id}:${key}`, mutableResult);
@@ -305,18 +305,18 @@ export class UiState {
 }
 
 export const uiStateAdapter = createEntityAdapter<UiStateVariable, string>({
-	selectId: (item) => item.id
+	selectId: (item) => item.id,
 });
 
 const { selectById } = uiStateAdapter.getSelectors();
 
 export const uiStateSlice = createSlice({
-	name: 'uiState',
+	name: "uiState",
 	initialState: uiStateAdapter.getInitialState(),
 	reducers: {
-		upsertOne: uiStateAdapter.upsertOne
+		upsertOne: uiStateAdapter.upsertOne,
 	},
-	selectors: { selectById }
+	selectors: { selectById },
 });
 
 const { upsertOne } = uiStateSlice.actions;
@@ -372,22 +372,22 @@ export type GlobalStore<T extends DefaultConfig> = {
 export function replaceBranchInExclusiveAction(
 	action: ExclusiveAction,
 	oldBranchName: string,
-	branchName: string
+	branchName: string,
 ): ExclusiveAction {
 	switch (action.type) {
-		case 'commit':
+		case "commit":
 			if (action.branchName === oldBranchName) {
 				return { ...action, branchName };
 			}
 			return action;
-		case 'edit-commit-message':
+		case "edit-commit-message":
 			return action; // No change needed
-		case 'create-pr':
+		case "create-pr":
 			if (action.branchName === oldBranchName) {
 				return { ...action, branchName };
 			}
 			return action;
-		case 'codegen':
+		case "codegen":
 			return action;
 	}
 }
@@ -395,7 +395,7 @@ export function replaceBranchInExclusiveAction(
 export function replaceBranchInStackSelection(
 	selection: StackSelection,
 	oldBranchName: string,
-	branchName: string
+	branchName: string,
 ): StackSelection {
 	if (selection.branchName === oldBranchName) {
 		return { ...selection, branchName };
@@ -435,7 +435,7 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 	if (!selection.upstream && !branchCommitIds.includes(selection.commitId)) {
 		laneState.selection.set({
 			branchName: selection.branchName,
-			previewOpen: false
+			previewOpen: false,
 		});
 
 		return;
@@ -448,7 +448,7 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 	if (selection.upstream && !upstreamCommitIds.includes(selection.commitId)) {
 		laneState.selection.set({
 			branchName: selection.branchName,
-			previewOpen: false
+			previewOpen: false,
 		});
 
 		return;
@@ -461,7 +461,7 @@ function updateStackSelection(uiState: UiState, stackId: string, details: StackD
 export function updateStaleStackState(
 	uiState: UiState,
 	stackId: string,
-	details: StackDetails
+	details: StackDetails,
 ): void {
 	updateStackSelection(uiState, stackId, details);
 }
@@ -478,7 +478,7 @@ export function updateStaleProjectState(
 	stackIds: string[],
 	branches: string[],
 	commitIds: string[],
-	baseCommitShas: string[]
+	baseCommitShas: string[],
 ) {
 	const projectState = uiState.project(projectId);
 
@@ -489,7 +489,7 @@ export function updateStaleProjectState(
 			stackIds,
 			commitIds,
 			branches,
-			baseCommitShas
+			baseCommitShas,
 		);
 	}
 }
@@ -500,10 +500,10 @@ function updateExclusiveActionState(
 	stackIds: string[],
 	commitIds: string[],
 	branches: string[],
-	baseCommitShas: string[]
+	baseCommitShas: string[],
 ) {
 	switch (action.type) {
-		case 'commit':
+		case "commit":
 			if (action.stackId && !stackIds.includes(action.stackId)) {
 				projectState.exclusiveAction.set(undefined);
 			}
@@ -518,7 +518,7 @@ function updateExclusiveActionState(
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
-		case 'edit-commit-message':
+		case "edit-commit-message":
 			if (action.stackId && !stackIds.includes(action.stackId)) {
 				projectState.exclusiveAction.set(undefined);
 			}
@@ -529,7 +529,7 @@ function updateExclusiveActionState(
 				projectState.exclusiveAction.set(undefined);
 			}
 			break;
-		case 'create-pr':
+		case "create-pr":
 			if (action.stackId && !stackIds.includes(action.stackId)) {
 				projectState.exclusiveAction.set(undefined);
 			}

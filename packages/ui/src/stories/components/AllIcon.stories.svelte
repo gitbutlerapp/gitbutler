@@ -1,10 +1,10 @@
 <script module lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import iconsJson from '$lib/data/icons.json';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Icon from "$components/Icon.svelte";
+	import iconsJson from "$lib/data/icons.json";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / Icon'
+		title: "Basic / Icon",
 	});
 
 	let icons = Object.keys(iconsJson) as (keyof typeof iconsJson)[];

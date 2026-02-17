@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { getEditor } from '$lib/richText/context';
-	import { createInlineCodeNode, isInlineCodeNode } from '$lib/richText/node/inlineCode';
-	import { TextNode } from 'lexical';
+	import { getEditor } from "$lib/richText/context";
+	import { createInlineCodeNode, isInlineCodeNode } from "$lib/richText/node/inlineCode";
+	import { TextNode } from "lexical";
 
 	const INLINE_CODE_REGEX = /`[^`]+`/;
 

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { splitDiffIntoHunks } from '$lib/diffParsing';
-	import { isLockfile } from '@gitbutler/shared/lockfiles';
-	import { getFilePathInfo } from '@gitbutler/shared/utils/file';
-	import { Button, FileIcon, HunkDiff } from '@gitbutler/ui';
-	import type { DiffSection } from '@gitbutler/shared/patches/types';
+	import { splitDiffIntoHunks } from "$lib/diffParsing";
+	import { isLockfile } from "@gitbutler/shared/lockfiles";
+	import { getFilePathInfo } from "@gitbutler/shared/utils/file";
+	import { Button, FileIcon, HunkDiff } from "@gitbutler/ui";
+	import type { DiffSection } from "@gitbutler/shared/patches/types";
 
 	interface Props {
 		section: DiffSection;
@@ -22,7 +22,7 @@
 		if (!section.diffPatch) return [];
 		return splitDiffIntoHunks(section.diffPatch);
 	});
-	const filePath = $derived(section.newPath || 'unknown');
+	const filePath = $derived(section.newPath || "unknown");
 	const filePathInfo = $derived(getFilePathInfo(filePath));
 
 	let diffFolded = $state(false);
@@ -44,8 +44,8 @@
 			{
 				root: null,
 				rootMargin: `0px 0px -${windowHeight - commitHeaderHeight}px`,
-				threshold: 0
-			}
+				threshold: 0,
+			},
 		);
 
 		observer.observe(diffHeaderEl);
@@ -78,7 +78,7 @@
 		<Button
 			kind="ghost"
 			size="tag"
-			icon={diffFolded ? 'chevron-down' : 'chevron-up'}
+			icon={diffFolded ? "chevron-down" : "chevron-up"}
 			onclick={() => (diffFolded = !diffFolded)}
 		/>
 	</div>
@@ -95,7 +95,7 @@
 			</div>
 		{:else}
 			{#each hunks as hunkStr}
-				<HunkDiff filePath={section.newPath || 'unknown'} {hunkStr} diffLigatures={false} />
+				<HunkDiff filePath={section.newPath || "unknown"} {hunkStr} diffLigatures={false} />
 			{/each}
 		{/if}
 	</div>

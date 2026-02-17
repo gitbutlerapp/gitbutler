@@ -11,25 +11,25 @@ import {
 	type PromptDir,
 	type McpConfig,
 	type SubAgent,
-	type PromptAttachment
-} from '$lib/codegen/types';
-import { hasBackendExtra } from '$lib/state/backendQuery';
+	type PromptAttachment,
+} from "$lib/codegen/types";
+import { hasBackendExtra } from "$lib/state/backendQuery";
 import {
 	invalidatesItem,
 	invalidatesList,
 	providesItem,
 	providesList,
-	ReduxTag
-} from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { ClientState } from '$lib/state/clientState.svelte';
+	ReduxTag,
+} from "$lib/state/tags";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { ClientState } from "$lib/state/clientState.svelte";
 
-export const CLAUDE_CODE_SERVICE = new InjectionToken<ClaudeCodeService>('Claude code service');
+export const CLAUDE_CODE_SERVICE = new InjectionToken<ClaudeCodeService>("Claude code service");
 
 export class ClaudeCodeService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(clientState: ClientState['backendApi']) {
+	constructor(clientState: ClientState["backendApi"]) {
 		this.api = injectEndpoints(clientState);
 	}
 
@@ -76,7 +76,7 @@ export class ClaudeCodeService {
 	isStackActive(projectId: string, stackId?: string) {
 		return this.api.endpoints.isStackActive.useQuery({
 			projectId,
-			stackId
+			stackId,
 		});
 	}
 
@@ -87,7 +87,7 @@ export class ClaudeCodeService {
 	sessionDetails(projectId: string, sessionId: string) {
 		return this.api.endpoints.getSessionDetails.useQuery({
 			projectId,
-			sessionId
+			sessionId,
 		});
 	}
 
@@ -132,7 +132,7 @@ export class ClaudeCodeService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
+function injectEndpoints(api: ClientState["backendApi"]) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			sendMessage: build.mutation<
@@ -150,8 +150,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				extraOptions: {
-					command: 'claude_send_message',
-					actionName: 'Send message'
+					command: "claude_send_message",
+					actionName: "Send message",
 				},
 				query: (args) => args,
 				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)],
@@ -159,27 +159,27 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
 					await lifecycleApi.cacheDataLoaded;
 					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
-				}
+				},
 			}),
 			getSessionDetails: build.query<
 				ClaudeSessionDetails,
 				{ projectId: string; sessionId: string }
 			>({
-				extraOptions: { command: 'claude_get_session_details' },
+				extraOptions: { command: "claude_get_session_details" },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => [
-					...providesItem(ReduxTag.ClaudeSessionDetails, args.projectId + args.sessionId)
-				]
+					...providesItem(ReduxTag.ClaudeSessionDetails, args.projectId + args.sessionId),
+				],
 			}),
 			getMessages: build.query<ClaudeMessage[], { projectId: string; stackId?: string }>({
-				extraOptions: { command: 'claude_get_messages' },
+				extraOptions: { command: "claude_get_messages" },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => [
-					...providesItem(ReduxTag.ClaudeCodeTranscript, args.projectId + args.stackId)
+					...providesItem(ReduxTag.ClaudeCodeTranscript, args.projectId + args.stackId),
 				],
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasBackendExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Backend not found!');
+						throw new Error("Redux dependency Backend not found!");
 					}
 					const { listen } = lifecycleApi.extra.backend;
 					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
@@ -189,7 +189,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/claude/${arg.stackId}/message_received`,
 						async (event) => {
 							const { payload } = event.payload;
-							if (payload.source === 'gitButler' && payload.type === 'commitCreated') {
+							if (payload.source === "gitButler" && payload.type === "commitCreated") {
 								lifecycleApi.dispatch(api.util.invalidateTags([invalidatesList(ReduxTag.HeadSha)]));
 							}
 							lifecycleApi.updateCachedData((events) => {
@@ -197,21 +197,21 @@ function injectEndpoints(api: ClientState['backendApi']) {
 							});
 
 							api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
-						}
+						},
 					);
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
-				}
+				},
 			}),
 			getPermissionRequests: build.query<ClaudePermissionRequest[], { projectId: string }>({
-				extraOptions: { command: 'claude_list_permission_requests' },
+				extraOptions: { command: "claude_list_permission_requests" },
 				query: (args) => args,
 				providesTags: (_result, _error, args) => [
-					...providesItem(ReduxTag.ClaudePermissionRequests, args.projectId)
+					...providesItem(ReduxTag.ClaudePermissionRequests, args.projectId),
 				],
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasBackendExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Backend not found!');
+						throw new Error("Redux dependency Backend not found!");
 					}
 					const { listen, invoke } = lifecycleApi.extra.backend;
 					await lifecycleApi.cacheDataLoaded;
@@ -219,15 +219,15 @@ function injectEndpoints(api: ClientState['backendApi']) {
 						`project://${arg.projectId}/claude-permission-requests`,
 						async (_) => {
 							const value = await invoke<ClaudePermissionRequest[]>(
-								'claude_list_permission_requests',
-								{ projectId: arg.projectId }
+								"claude_list_permission_requests",
+								{ projectId: arg.projectId },
 							);
 							lifecycleApi.updateCachedData(() => value);
-						}
+						},
 					);
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
-				}
+				},
 			}),
 			updatePermissionRequest: build.mutation<
 				undefined,
@@ -239,13 +239,13 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				extraOptions: {
-					command: 'claude_update_permission_request',
-					actionName: 'Update Permission Request'
+					command: "claude_update_permission_request",
+					actionName: "Update Permission Request",
 				},
 				query: (args) => args,
 				invalidatesTags: (_result, _error, args) => [
-					invalidatesItem(ReduxTag.ClaudePermissionRequests, args.projectId)
-				]
+					invalidatesItem(ReduxTag.ClaudePermissionRequests, args.projectId),
+				],
 			}),
 			answerAskUserQuestion: build.mutation<
 				boolean,
@@ -256,10 +256,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				extraOptions: {
-					command: 'claude_answer_ask_user_question',
-					actionName: 'Answer Question'
+					command: "claude_answer_ask_user_question",
+					actionName: "Answer Question",
 				},
-				query: (args) => args
+				query: (args) => args,
 			}),
 			cancelSession: build.mutation<
 				boolean,
@@ -269,27 +269,27 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				extraOptions: {
-					command: 'claude_cancel_session',
-					actionName: 'Cancel Session'
+					command: "claude_cancel_session",
+					actionName: "Cancel Session",
 				},
 				query: (args) => args,
-				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)]
+				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)],
 			}),
 			checkAvailable: build.query<ClaudeCheckResult, undefined>({
-				extraOptions: { command: 'claude_check_available' },
+				extraOptions: { command: "claude_check_available" },
 				query: (args) => args,
 				// For some unholy reason, this is represented in seconds. This
 				// can be a little slow, and the value is unlikely to change so,
 				// let's cache it for a long time.
-				keepUnusedDataFor: 60 * 60 * 24
+				keepUnusedDataFor: 60 * 60 * 24,
 			}),
 			isStackActive: build.query<boolean, { projectId: string; stackId?: string }>({
-				extraOptions: { command: 'claude_is_stack_active' },
+				extraOptions: { command: "claude_is_stack_active" },
 				query: (args) => args,
 				providesTags: [providesList(ReduxTag.ClaudeStackActive)],
 				async onCacheEntryAdded(arg, lifecycleApi) {
 					if (!hasBackendExtra(lifecycleApi.extra)) {
-						throw new Error('Redux dependency Backend not found!');
+						throw new Error("Redux dependency Backend not found!");
 					}
 					const { listen, invoke } = lifecycleApi.extra.backend;
 					api.util.invalidateTags([invalidatesList(ReduxTag.ClaudeStackActive)]);
@@ -298,36 +298,36 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					const unsubscribe = listen<ClaudeMessage>(
 						`project://${arg.projectId}/claude/${arg.stackId}/message_received`,
 						async () => {
-							const active = await invoke<boolean>('claude_is_stack_active', arg);
+							const active = await invoke<boolean>("claude_is_stack_active", arg);
 							lifecycleApi.updateCachedData(() => active);
-						}
+						},
 					);
 					await lifecycleApi.cacheEntryRemoved;
 					unsubscribe();
-				}
+				},
 			}),
 			listPromptTemplates: build.query<PromptTemplate[], { projectId: string }>({
-				extraOptions: { command: 'claude_list_prompt_templates' },
-				query: (args) => args
+				extraOptions: { command: "claude_list_prompt_templates" },
+				query: (args) => args,
 			}),
 			getPromptDirs: build.query<PromptDir[], { projectId: string }>({
-				extraOptions: { command: 'claude_get_prompt_dirs' },
-				query: (args) => args
+				extraOptions: { command: "claude_get_prompt_dirs" },
+				query: (args) => args,
 			}),
 			createPromptDir: build.mutation<undefined, { projectId: string; path: string }>({
 				extraOptions: {
-					command: 'claude_maybe_create_prompt_dir',
-					actionName: 'Create Prompt Directory'
+					command: "claude_maybe_create_prompt_dir",
+					actionName: "Create Prompt Directory",
 				},
-				query: (args) => args
+				query: (args) => args,
 			}),
 			getMcpConfig: build.query<McpConfig, { projectId: string }>({
-				extraOptions: { command: 'claude_get_mcp_config' },
-				query: (args) => args
+				extraOptions: { command: "claude_get_mcp_config" },
+				query: (args) => args,
 			}),
 			getSubAgents: build.query<SubAgent[], { projectId: string }>({
-				extraOptions: { command: 'claude_get_sub_agents' },
-				query: (args) => args
+				extraOptions: { command: "claude_get_sub_agents" },
+				query: (args) => args,
 			}),
 			verifyPath: build.mutation<
 				boolean,
@@ -337,10 +337,10 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				extraOptions: {
-					command: 'claude_verify_path',
-					actionName: 'Verify Path'
+					command: "claude_verify_path",
+					actionName: "Verify Path",
 				},
-				query: (args) => args
+				query: (args) => args,
 			}),
 			compactHistory: build.mutation<
 				undefined,
@@ -350,12 +350,12 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				extraOptions: {
-					command: 'claude_compact_history',
-					actionName: 'Compact History'
+					command: "claude_compact_history",
+					actionName: "Compact History",
 				},
 				query: (args) => args,
-				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)]
-			})
-		})
+				invalidatesTags: [invalidatesList(ReduxTag.ClaudeStackActive)],
+			}),
+		}),
 	});
 }

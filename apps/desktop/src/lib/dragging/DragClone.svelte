@@ -1,14 +1,14 @@
 <script lang="ts">
-	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
-	import { getColorFromCommitState } from '$components/lib';
-	import { type CommitStatusType } from '$lib/commits/commit';
-	import { type PushStatus } from '$lib/stacks/stack';
-	import { Icon, FileIcon } from '@gitbutler/ui';
-	import { type DragStateService } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { readable } from 'svelte/store';
+	import BranchHeaderIcon from "$components/BranchHeaderIcon.svelte";
+	import { getColorFromCommitState } from "$components/lib";
+	import { type CommitStatusType } from "$lib/commits/commit";
+	import { type PushStatus } from "$lib/stacks/stack";
+	import { Icon, FileIcon } from "@gitbutler/ui";
+	import { type DragStateService } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { readable } from "svelte/store";
 
 	type Props = {
-		type: 'branch' | 'commit' | 'file' | 'folder' | 'hunk' | 'ai-session';
+		type: "branch" | "commit" | "file" | "folder" | "hunk" | "ai-session";
 		label?: string;
 		filePath?: string;
 		commitType?: CommitStatusType;
@@ -24,14 +24,14 @@
 		commitType,
 		childrenAmount = 1,
 		pushStatus,
-		dragStateService
+		dragStateService,
 	}: Props = $props();
 
 	const fallbackDropLabelStore = readable<string | undefined>(undefined);
 	const dropLabel = $derived(dragStateService?.dropLabel ?? fallbackDropLabelStore);
 
 	const commitColor = $derived(
-		type === 'commit' && commitType ? getColorFromCommitState(commitType, false) : undefined
+		type === "commit" && commitType ? getColorFromCommitState(commitType, false) : undefined,
 	);
 </script>
 
@@ -54,7 +54,7 @@
 	</div>
 {/snippet}
 
-{#if type === 'branch'}
+{#if type === "branch"}
 	<div class="draggable-branch-card">
 		<div class="drag-animation-wrapper" class:activated={$dropLabel !== undefined}>
 			{@render dropLabelSnippet({ label: $dropLabel, amount: childrenAmount })}
@@ -66,26 +66,26 @@
 			</span>
 		</div>
 	</div>
-{:else if type === 'commit'}
+{:else if type === "commit"}
 	<div
 		class="draggable-commit"
-		class:draggable-commit-local={commitType === 'LocalOnly' ||
-			commitType === 'Integrated' ||
-			commitType === 'Base'}
-		class:draggable-commit-remote={commitType !== 'LocalOnly' &&
-			commitType !== 'Integrated' &&
-			commitType !== 'Base'}
+		class:draggable-commit-local={commitType === "LocalOnly" ||
+			commitType === "Integrated" ||
+			commitType === "Base"}
+		class:draggable-commit-remote={commitType !== "LocalOnly" &&
+			commitType !== "Integrated" &&
+			commitType !== "Base"}
 		style:--commit-color={commitColor}
 	>
 		<div class="drag-animation-wrapper" class:activated={$dropLabel !== undefined}>
 			{@render dropLabelSnippet({ label: $dropLabel, amount: childrenAmount })}
 			<div class="draggable-commit-indicator"></div>
 			<div class="truncate text-13 text-semibold draggable-commit-label">
-				{label || 'Empty commit'}
+				{label || "Empty commit"}
 			</div>
 		</div>
 	</div>
-{:else if type === 'ai-session'}
+{:else if type === "ai-session"}
 	<div class="dragchip-container">
 		<div class="drag-animation-wrapper" class:activated={$dropLabel !== undefined}>
 			{@render dropLabelSnippet({ label: $dropLabel, amount: childrenAmount })}
@@ -109,24 +109,24 @@
 		>
 			{@render dropLabelSnippet({ label: $dropLabel, amount: childrenAmount })}
 			<div class="dragchip">
-				{#if type === 'file'}
+				{#if type === "file"}
 					<div class="dragchip-file-container">
-						<FileIcon fileName={filePath || ''} />
+						<FileIcon fileName={filePath || ""} />
 						<span class="text-12 text-semibold truncate dragchip-file-name">
-							{label || 'Empty file'}
+							{label || "Empty file"}
 						</span>
 					</div>
-				{:else if type === 'folder'}
+				{:else if type === "folder"}
 					<div class="dragchip-file-container">
 						<FileIcon fileName="folder-close" color="var(--clr-text-2)" />
 						<span class="text-12 text-semibold truncate dragchip-file-name">
-							{label || 'Empty folder'}
+							{label || "Empty folder"}
 						</span>
 					</div>
-				{:else if type === 'hunk'}
+				{:else if type === "hunk"}
 					<div class="dragchip-hunk-container">
 						<div class="dragchip-hunk-decorator">〈/〉</div>
-						<span class="dragchip-hunk-label">{label || 'Empty hunk'}</span>
+						<span class="dragchip-hunk-label">{label || "Empty hunk"}</span>
 					</div>
 				{/if}
 			</div>
@@ -239,7 +239,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
-		content: '';
+		content: "";
 	}
 
 	.drag-animation-wrapper.dragchip-two {
@@ -362,7 +362,7 @@
 				width: 2px;
 				height: 100%;
 				background-color: var(--commit-color);
-				content: '';
+				content: "";
 			}
 		}
 	}

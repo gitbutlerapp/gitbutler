@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import OrganizationProfile from '$lib/components/OrganizationProfile.svelte';
-	import UserProfile from '$lib/components/UserProfile.svelte';
-	import { featureShowProjectPage } from '$lib/featureFlags';
-	import { OWNER_SERVICE } from '$lib/owner/ownerService';
-	import { inject } from '@gitbutler/core/context';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import type { OwnerParameters } from '@gitbutler/shared/routing/webRoutes.svelte';
+	import { goto } from "$app/navigation";
+	import OrganizationProfile from "$lib/components/OrganizationProfile.svelte";
+	import UserProfile from "$lib/components/UserProfile.svelte";
+	import { featureShowProjectPage } from "$lib/featureFlags";
+	import { OWNER_SERVICE } from "$lib/owner/ownerService";
+	import { inject } from "@gitbutler/core/context";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import type { OwnerParameters } from "@gitbutler/shared/routing/webRoutes.svelte";
 
 	const routes = inject(WEB_ROUTES_SERVICE);
 
@@ -29,9 +29,9 @@
 	let owner = $derived($ownerStore);
 
 	// Helper derived values for easier template usage
-	let loading = $derived(owner.status === 'loading');
-	let error = $derived(owner.status === 'error' ? owner.error : null);
-	let ownerData = $derived(owner.status === 'found' ? owner.value : null);
+	let loading = $derived(owner.status === "loading");
+	let error = $derived(owner.status === "error" ? owner.error : null);
+	let ownerData = $derived(owner.status === "found" ? owner.value : null);
 </script>
 
 {#if loading}
@@ -43,11 +43,11 @@
 		<p>Error: {error}</p>
 	</div>
 {:else if ownerData}
-	{#if ownerData.type === 'user'}
+	{#if ownerData.type === "user"}
 		<UserProfile user={ownerData.data} ownerSlug={data.ownerSlug} />
-	{:else if ownerData.type === 'organization'}
+	{:else if ownerData.type === "organization"}
 		<OrganizationProfile organization={ownerData.data} ownerSlug={data.ownerSlug} />
-	{:else if ownerData.type === 'not_found'}
+	{:else if ownerData.type === "not_found"}
 		<div class="not-found">
 			<h2>Not Found</h2>
 			<p>The owner "{data.ownerSlug}" could not be found.</p>

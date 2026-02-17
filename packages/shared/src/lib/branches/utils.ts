@@ -1,7 +1,7 @@
-import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-import type { UserMaybe } from '@gitbutler/shared/users/types';
+import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
+import type { UserMaybe } from "@gitbutler/shared/users/types";
 
-const UNKNOWN_AUTHOR = 'Unknown author';
+const UNKNOWN_AUTHOR = "Unknown author";
 
 export type TimestampedEvent = {
 	createdAt: string;
@@ -23,10 +23,10 @@ export function eventTimeStamp(event: TimestampedEvent): string {
 
 	if (createdToday) {
 		return (
-			'Today at ' +
-			creationDate.toLocaleTimeString('en-US', {
-				hour: 'numeric',
-				minute: 'numeric'
+			"Today at " +
+			creationDate.toLocaleTimeString("en-US", {
+				hour: "numeric",
+				minute: "numeric",
 			})
 		);
 	}
@@ -48,5 +48,5 @@ export function getMultipleContributorNames(contributors: UserMaybe[]): string {
 				return contributor.email;
 			}
 		})
-		.join(', ');
+		.join(", ");
 }

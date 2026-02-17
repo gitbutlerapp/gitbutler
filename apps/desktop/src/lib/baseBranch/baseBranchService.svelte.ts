@@ -1,18 +1,18 @@
-import { BaseBranch, type RemoteBranchInfo } from '$lib/baseBranch/baseBranch';
-import { Code } from '$lib/error/knownErrors';
-import { showError } from '$lib/notifications/toasts';
-import { isReduxError } from '$lib/state/reduxError';
-import { invalidatesList, invalidatesType, providesType, ReduxTag } from '$lib/state/tags';
-import { parseRemoteUrl } from '$lib/url/gitUrl';
-import { InjectionToken } from '@gitbutler/core/context';
-import { plainToInstance } from 'class-transformer';
-import type { BackendApi } from '$lib/state/clientState.svelte';
+import { BaseBranch, type RemoteBranchInfo } from "$lib/baseBranch/baseBranch";
+import { Code } from "$lib/error/knownErrors";
+import { showError } from "$lib/notifications/toasts";
+import { isReduxError } from "$lib/state/reduxError";
+import { invalidatesList, invalidatesType, providesType, ReduxTag } from "$lib/state/tags";
+import { parseRemoteUrl } from "$lib/url/gitUrl";
+import { InjectionToken } from "@gitbutler/core/context";
+import { plainToInstance } from "class-transformer";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 function mapBaseBranch(data: unknown): BaseBranch | undefined;
 function mapBaseBranch<T>(data: unknown, cb: (baseBranch: BaseBranch) => T): T | undefined;
 function mapBaseBranch<T>(
 	data: unknown,
-	cb?: (baseBranch: BaseBranch) => T
+	cb?: (baseBranch: BaseBranch) => T,
 ): BaseBranch | T | undefined {
 	if (!data) return undefined;
 	const baseBranch = plainToInstance(BaseBranch, data);
@@ -20,7 +20,7 @@ function mapBaseBranch<T>(
 	return baseBranch;
 }
 
-export const BASE_BRANCH_SERVICE = new InjectionToken<BaseBranchService>('BaseBranchService');
+export const BASE_BRANCH_SERVICE = new InjectionToken<BaseBranchService>("BaseBranchService");
 
 export default class BaseBranchService {
 	private api: ReturnType<typeof injectEndpoints>;
@@ -32,54 +32,54 @@ export default class BaseBranchService {
 	baseBranch(projectId: string) {
 		return this.api.endpoints.baseBranch.useQuery(
 			{
-				projectId
+				projectId,
 			},
 			{
 				transform: (data) => {
 					return mapBaseBranch(data);
-				}
-			}
+				},
+			},
 		);
 	}
 
 	baseBranchShortName(projectId: string) {
 		return this.api.endpoints.baseBranch.useQuery(
 			{
-				projectId
+				projectId,
 			},
 			{
 				transform: (data) =>
 					mapBaseBranch(data, (baseBranch) => {
-						if (baseBranch.branchName.startsWith(baseBranch.remoteName + '/')) {
+						if (baseBranch.branchName.startsWith(baseBranch.remoteName + "/")) {
 							return baseBranch.branchName.substring(baseBranch.remoteName.length + 1);
 						}
 						return baseBranch.branchName;
-					})
-			}
+					}),
+			},
 		);
 	}
 
 	repo(projectId: string) {
 		return this.api.endpoints.baseBranch.useQuery(
 			{
-				projectId
+				projectId,
 			},
 			{
 				transform: (data) =>
-					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.remoteUrl))
-			}
+					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.remoteUrl)),
+			},
 		);
 	}
 
 	pushRepo(projectId: string) {
 		return this.api.endpoints.baseBranch.useQuery(
 			{
-				projectId
+				projectId,
 			},
 			{
 				transform: (data) =>
-					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.pushRemoteUrl))
-			}
+					mapBaseBranch(data, (baseBranch) => parseRemoteUrl(baseBranch.pushRemoteUrl)),
+			},
 		);
 	}
 
@@ -87,13 +87,13 @@ export default class BaseBranchService {
 		await this.api.endpoints.baseBranch.fetch({ projectId }, { forceRefetch: true });
 	}
 
-	async fetchFromRemotes(projectId: string, action?: 'auto' | 'modal') {
+	async fetchFromRemotes(projectId: string, action?: "auto" | "modal") {
 		return await this.api.endpoints.fetchFromRemotes
 			.mutate({ projectId, action })
 			.catch((error: unknown) => {
 				if (!isReduxError(error)) {
-					if (action === 'auto') return;
-					showError('Failed to fetch', String(error));
+					if (action === "auto") return;
+					showError("Failed to fetch", String(error));
 					return;
 				}
 				const { code } = error;
@@ -103,18 +103,18 @@ export default class BaseBranchService {
 				}
 
 				if (code === Code.ProjectsGitAuth) {
-					if (action === 'auto') return;
-					showError('Failed to authenticate', error.message);
+					if (action === "auto") return;
+					showError("Failed to authenticate", error.message);
 					return;
 				}
 
-				if (code === Code.Unknown && error.message?.includes('cargo build -p gitbutler-git')) {
-					showError('Run `cargo build -p gitbutler-git`', error.message);
+				if (code === Code.Unknown && error.message?.includes("cargo build -p gitbutler-git")) {
+					showError("Run `cargo build -p gitbutler-git`", error.message);
 					return;
 				}
 
-				if (action !== 'auto') {
-					showError('Failed to fetch', error.message);
+				if (action !== "auto") {
+					showError("Failed to fetch", error.message);
 				}
 
 				console.error(error);
@@ -142,60 +142,60 @@ function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			baseBranch: build.query<unknown, { projectId: string }>({
-				extraOptions: { command: 'get_base_branch_data' },
+				extraOptions: { command: "get_base_branch_data" },
 				query: (args) => args,
-				providesTags: [providesType(ReduxTag.BaseBranchData)]
+				providesTags: [providesType(ReduxTag.BaseBranchData)],
 			}),
 			fetchFromRemotes: build.mutation<void, { projectId: string; action?: string }>({
-				extraOptions: { command: 'fetch_from_remotes' },
+				extraOptions: { command: "fetch_from_remotes" },
 				query: ({ projectId, action }) => ({
 					projectId,
-					action: action ?? 'auto'
+					action: action ?? "auto",
 				}),
 				invalidatesTags: [
 					// No need to invalidate base branch, we should be listening
 					// for all FETCH events, and refreshing manually.
 					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
 					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
-					invalidatesList(ReduxTag.UpstreamIntegrationStatus)
-				]
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+				],
 			}),
 			setTarget: build.mutation<
 				BaseBranch,
 				{ projectId: string; branch: string; pushRemote?: string; stashUncommitted?: boolean }
 			>({
-				extraOptions: { command: 'set_base_branch' },
+				extraOptions: { command: "set_base_branch" },
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-					invalidatesList(ReduxTag.StackDetails) // Probably this is still needed??
-				]
+					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
+				],
 			}),
 			switchBackToWorkspace: build.mutation<BaseBranch, { projectId: string }>({
-				extraOptions: { command: 'switch_back_to_workspace' },
+				extraOptions: { command: "switch_back_to_workspace" },
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesType(ReduxTag.BaseBranchData),
 					invalidatesList(ReduxTag.Stacks), // Probably this is still needed??
-					invalidatesList(ReduxTag.StackDetails) // Probably this is still needed??
-				]
+					invalidatesList(ReduxTag.StackDetails), // Probably this is still needed??
+				],
 			}),
 			push: build.mutation<void, { projectId: string; withForce?: boolean }>({
-				extraOptions: { command: 'push_base_branch' },
+				extraOptions: { command: "push_base_branch" },
 				query: (args) => args,
-				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)]
+				invalidatesTags: [invalidatesType(ReduxTag.BaseBranchData)],
 			}),
 			remoteBranches: build.query<RemoteBranchInfo[], { projectId: string }>({
-				extraOptions: { command: 'git_remote_branches' },
+				extraOptions: { command: "git_remote_branches" },
 				query: (args) => args,
 				transformResponse: (data: string[]) => {
 					return data
 						.map((name) => name.substring(13))
 						.sort((a, b) => a.localeCompare(b))
 						.map((name) => ({ name }));
-				}
-			})
-		})
+				},
+			}),
+		}),
 	});
 }

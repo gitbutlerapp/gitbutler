@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { inject } from '@gitbutler/core/context';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound } from '@gitbutler/shared/network/loadable';
+	import { goto } from "$app/navigation";
+	import { inject } from "@gitbutler/core/context";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { isFound } from "@gitbutler/shared/network/loadable";
 	import {
 		getProjectByRepositoryId,
-		getRecentlyPushedProjects
-	} from '@gitbutler/shared/organizations/projectsPreview.svelte';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Icon } from '@gitbutler/ui';
+		getRecentlyPushedProjects,
+	} from "@gitbutler/shared/organizations/projectsPreview.svelte";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Icon } from "@gitbutler/ui";
 
 	type Props = {
 		showOwner?: boolean;
@@ -28,7 +28,7 @@
 		if (!projectPageParams) return false;
 		if (!isFound(project.current)) return;
 		const projectIsRecentlyPushed = recentProjects.current.some(
-			(recentProject) => recentProject.id === repositoryId
+			(recentProject) => recentProject.id === repositoryId,
 		);
 		const sectionIsSelected =
 			projectPageParams.ownerSlug === project.current.value.owner &&

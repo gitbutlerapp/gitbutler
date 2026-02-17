@@ -5,20 +5,20 @@
 </script>
 
 <script lang="ts">
-	import { HISTORY_SERVICE } from '$lib/history/history';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, ElementId, Modal, TestId, Textbox } from '@gitbutler/ui';
+	import { HISTORY_SERVICE } from "$lib/history/history";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, ElementId, Modal, TestId, Textbox } from "@gitbutler/ui";
 
 	const { projectId }: CreateSnapshotModalProps = $props();
 
 	const historyService = inject(HISTORY_SERVICE);
 
-	let message: string = $state('');
+	let message: string = $state("");
 	let modal: Modal | undefined = $state();
 	let isCreating = $state(false);
 
 	export function show() {
-		message = '';
+		message = "";
 		modal?.show();
 	}
 
@@ -30,7 +30,7 @@
 			await historyService.createSnapshot(projectId, message || undefined);
 			close();
 		} catch (error) {
-			console.error('Failed to create snapshot:', error);
+			console.error("Failed to create snapshot:", error);
 		} finally {
 			isCreating = false;
 		}

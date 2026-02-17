@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import type { IconName } from '$components/Icon.svelte';
+	import Button from "$components/Button.svelte";
+	import ContextMenu from "$components/ContextMenu.svelte";
+	import ContextMenuItem from "$components/ContextMenuItem.svelte";
+	import ContextMenuSection from "$components/ContextMenuSection.svelte";
+	import type { IconName } from "$components/Icon.svelte";
 
 	interface MenuItem {
 		label: string;
@@ -23,7 +23,7 @@
 	let addProfileButtonRef = $state<HTMLElement>();
 	let addAccountContextMenu = $state<ContextMenu>();
 
-	const buttonText = $derived(noAccounts ? 'Add account' : 'Add another account');
+	const buttonText = $derived(noAccounts ? "Add account" : "Add another account");
 </script>
 
 <Button

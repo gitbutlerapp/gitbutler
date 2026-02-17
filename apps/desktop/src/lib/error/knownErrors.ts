@@ -1,15 +1,15 @@
 export enum Code {
-	Unknown = 'errors.unknown',
-	Validation = 'errors.validation',
-	RepoOwnership = 'errors.repo_ownership',
-	ProjectsGitAuth = 'errors.projects.git.auth',
-	DefaultTargetNotFound = 'errors.projects.default_target.not_found',
-	CommitSigningFailed = 'errors.commit.signing_failed',
-	ProjectMissing = 'errors.projects.missing',
-	SecretKeychainNotFound = 'errors.secret.keychain_notfound',
-	MissingLoginKeychain = 'errors.secret.missing_login_keychain',
-	GitHubTokenExpired = 'errors.github.expired_token',
-	ProjectDatabaseIncompatible = 'errors.projectdb.migration'
+	Unknown = "errors.unknown",
+	Validation = "errors.validation",
+	RepoOwnership = "errors.repo_ownership",
+	ProjectsGitAuth = "errors.projects.git.auth",
+	DefaultTargetNotFound = "errors.projects.default_target.not_found",
+	CommitSigningFailed = "errors.commit.signing_failed",
+	ProjectMissing = "errors.projects.missing",
+	SecretKeychainNotFound = "errors.secret.keychain_notfound",
+	MissingLoginKeychain = "errors.secret.missing_login_keychain",
+	GitHubTokenExpired = "errors.github.expired_token",
+	ProjectDatabaseIncompatible = "errors.projectdb.migration",
 }
 
 export const KNOWN_ERRORS: Record<string, string> = {
@@ -38,5 +38,5 @@ Your GitHub token appears expired. Please log out and back in to refresh it. (Se
 	`,
 	[Code.ProjectDatabaseIncompatible]: `
 The database was changed by a more recent version of GitButler - cannot safely open it anymore. 
-	`
+	`,
 };

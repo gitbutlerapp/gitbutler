@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Textbox } from '@gitbutler/ui';
+	import { Textbox } from "@gitbutler/ui";
 
 	interface Props {
 		password?: string;
@@ -12,7 +12,7 @@
 		password = $bindable(),
 		passwordConfirmation = $bindable(),
 		showValidation = true,
-		autocomplete = true
+		autocomplete = true,
 	}: Props = $props();
 
 	let passwordTouched = $state(false);
@@ -27,48 +27,48 @@
 
 		// Length check (minimum 8 characters)
 		if (pwd.length < 8) {
-			errors.push('at least 8 characters');
+			errors.push("at least 8 characters");
 		}
 
 		// Must contain at least one lowercase letter
 		if (!/[a-z]/.test(pwd)) {
-			errors.push('one lowercase letter');
+			errors.push("one lowercase letter");
 		}
 
 		// Must contain at least one uppercase letter
 		if (!/[A-Z]/.test(pwd)) {
-			errors.push('one uppercase letter');
+			errors.push("one uppercase letter");
 		}
 
 		// Must contain at least one number
 		if (!/\d/.test(pwd)) {
-			errors.push('one number');
+			errors.push("one number");
 		}
 
 		return { isValid: errors.length === 0, errors };
 	}
 
-	const passwordValidation = $derived(validatePassword(password || ''));
+	const passwordValidation = $derived(validatePassword(password || ""));
 	const isPasswordValid = $derived(passwordValidation.isValid);
 
 	const passwordError = $derived(
 		showValidation && passwordTouched && password && !isPasswordValid
-			? `Password must contain: ${passwordValidation.errors.join(', ')}`
-			: undefined
+			? `Password must contain: ${passwordValidation.errors.join(", ")}`
+			: undefined,
 	);
 
 	const passwordHelperText = $derived(
 		showValidation && password && isPasswordValid
-			? 'Strong password! ✅'
+			? "Strong password! ✅"
 			: showValidation
-				? '8+ characters with uppercase, lowercase, and number'
-				: undefined
+				? "8+ characters with uppercase, lowercase, and number"
+				: undefined,
 	);
 
 	const passwordConfirmationError = $derived(
 		passwordConfirmationTouched && passwordConfirmation && !passwordsMatch
-			? 'Passwords do not match'
-			: undefined
+			? "Passwords do not match"
+			: undefined,
 	);
 
 	// Export validation state for parent components

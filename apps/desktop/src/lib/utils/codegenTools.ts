@@ -1,5 +1,5 @@
-import type { ToolCall } from '$lib/codegen/messages';
-import type iconsJson from '@gitbutler/ui/data/icons.json';
+import type { ToolCall } from "$lib/codegen/messages";
+import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 export type IconName = keyof typeof iconsJson;
 
@@ -10,145 +10,145 @@ export function getToolIcon(toolName: string): IconName {
 	const name = toolName.toLowerCase();
 
 	// Partial matches for tool types
-	if (name.includes('ls') || name.includes('list') || name.includes('directory')) {
-		return 'folder';
+	if (name.includes("ls") || name.includes("list") || name.includes("directory")) {
+		return "folder";
 	}
-	if (name.includes('read') || name.includes('file')) {
-		return 'docs-small';
+	if (name.includes("read") || name.includes("file")) {
+		return "docs-small";
 	}
-	if ((name.includes('write') && !name.includes('todo')) || name.includes('edit')) {
-		return 'edit';
+	if ((name.includes("write") && !name.includes("todo")) || name.includes("edit")) {
+		return "edit";
 	}
-	if (name.includes('todo')) {
-		return 'checklist';
+	if (name.includes("todo")) {
+		return "checklist";
 	}
-	if (name.includes('grep') || name.includes('search')) {
-		return 'search';
+	if (name.includes("grep") || name.includes("search")) {
+		return "search";
 	}
-	if (name.includes('bash') || name.includes('terminal') || name.includes('shell')) {
-		return 'logs';
+	if (name.includes("bash") || name.includes("terminal") || name.includes("shell")) {
+		return "logs";
 	}
-	if (name.includes('batch') || name.includes('script')) {
-		return 'text';
+	if (name.includes("batch") || name.includes("script")) {
+		return "text";
 	}
-	if (name.includes('exit')) {
-		return 'signout';
+	if (name.includes("exit")) {
+		return "signout";
 	}
-	if (name.includes('task')) {
-		return 'spinner';
+	if (name.includes("task")) {
+		return "spinner";
 	}
-	if (name.includes('askuserquestion')) {
-		return 'chat';
+	if (name.includes("askuserquestion")) {
+		return "chat";
 	}
 
 	// Default icon for unknown tool types
-	return 'settings';
+	return "settings";
 }
 
 export function getToolLabel(toolName: string): string {
 	switch (toolName) {
-		case 'AskUserQuestion':
-			return 'Ask user';
+		case "AskUserQuestion":
+			return "Ask user";
 		default:
 			return toolName;
 	}
 }
 
 const KNOWN_TOOLS = [
-	'Read',
-	'Edit',
-	'Write',
-	'Bash',
-	'Grep',
-	'Glob',
-	'Task',
-	'TaskOutput',
-	'TaskStop',
-	'TodoWrite',
-	'WebFetch',
-	'WebSearch',
-	'AskUserQuestion',
-	'Skill',
-	'NotebookEdit',
-	'EnterPlanMode',
-	'ExitPlanMode'
+	"Read",
+	"Edit",
+	"Write",
+	"Bash",
+	"Grep",
+	"Glob",
+	"Task",
+	"TaskOutput",
+	"TaskStop",
+	"TodoWrite",
+	"WebFetch",
+	"WebSearch",
+	"AskUserQuestion",
+	"Skill",
+	"NotebookEdit",
+	"EnterPlanMode",
+	"ExitPlanMode",
 ] as const;
 
 export function formatToolCall(toolCall: ToolCall): string {
 	const input = toolCall.input;
 
 	switch (toolCall.name) {
-		case 'Read':
-			return input['file_path'];
+		case "Read":
+			return input["file_path"];
 
-		case 'Edit':
-		case 'Write':
-			return input['file_path'];
+		case "Edit":
+		case "Write":
+			return input["file_path"];
 
-		case 'Bash':
+		case "Bash":
 			// Even if they are long, we don't want to truncate commands since
 			// any part of a command could perform dangerous actions.
-			return input['command'];
+			return input["command"];
 
-		case 'Grep':
-			return `"${input['pattern']}"${input['path'] ? ` in ${input['path']}` : ''}`;
+		case "Grep":
+			return `"${input["pattern"]}"${input["path"] ? ` in ${input["path"]}` : ""}`;
 
-		case 'Glob':
-			return `"${input['pattern']}"${input['path'] ? ` in ${input['path']}` : ''}`;
+		case "Glob":
+			return `"${input["pattern"]}"${input["path"] ? ` in ${input["path"]}` : ""}`;
 
-		case 'Task':
-			return input['description'] || 'Running subtask';
+		case "Task":
+			return input["description"] || "Running subtask";
 
-		case 'TodoWrite': {
-			const todos = input['todos'];
+		case "TodoWrite": {
+			const todos = input["todos"];
 			return Array.isArray(todos)
-				? `${todos.length} todo${todos.length !== 1 ? 's' : ''}`
-				: 'todos';
+				? `${todos.length} todo${todos.length !== 1 ? "s" : ""}`
+				: "todos";
 		}
 
-		case 'WebFetch':
-			return truncate(input['url'], 50);
+		case "WebFetch":
+			return truncate(input["url"], 50);
 
-		case 'WebSearch':
-			return `"${truncate(input['query'], 50)}"`;
+		case "WebSearch":
+			return `"${truncate(input["query"], 50)}"`;
 
-		case 'TaskOutput':
-			return `Task output ${input['task_id'] || 'unknown'}`;
+		case "TaskOutput":
+			return `Task output ${input["task_id"] || "unknown"}`;
 
-		case 'TaskStop':
-			return `Stop task ${input['task_id'] || 'unknown'}`;
+		case "TaskStop":
+			return `Stop task ${input["task_id"] || "unknown"}`;
 
-		case 'AskUserQuestion':
+		case "AskUserQuestion":
 			return formatAskUserQuestion(input);
 
-		case 'Skill':
-			return input['skill'] || 'Running skill';
+		case "Skill":
+			return input["skill"] || "Running skill";
 
-		case 'NotebookEdit':
-			return input['notebook_path'] || 'Editing notebook';
+		case "NotebookEdit":
+			return input["notebook_path"] || "Editing notebook";
 
-		case 'EnterPlanMode':
-			return 'Entering plan mode';
+		case "EnterPlanMode":
+			return "Entering plan mode";
 
-		case 'ExitPlanMode':
-			return 'Exiting plan mode';
+		case "ExitPlanMode":
+			return "Exiting plan mode";
 
 		default: {
 			// Log unknown tool types for debugging
 			if (!KNOWN_TOOLS.includes(toolCall.name as any)) {
-				console.warn('Unknown tool call type:', {
+				console.warn("Unknown tool call type:", {
 					name: toolCall.name,
 					input: toolCall.input,
-					result: toolCall.result
+					result: toolCall.result,
 				});
 			}
 
 			// Fallback: try to find a meaningful value
 			const keys = Object.keys(input);
-			if (keys.length === 0) return 'no parameters';
+			if (keys.length === 0) return "no parameters";
 			if (keys.length === 1) {
 				const value = input[keys[0]!];
-				return typeof value === 'string' ? truncate(value, 60) : JSON.stringify(value);
+				return typeof value === "string" ? truncate(value, 60) : JSON.stringify(value);
 			}
 			return truncate(JSON.stringify(input), 60);
 		}
@@ -157,23 +157,23 @@ export function formatToolCall(toolCall: ToolCall): string {
 
 function truncate(str: string, maxLength: number): string {
 	if (str.length <= maxLength) return str;
-	return str.slice(0, maxLength - 1) + '…';
+	return str.slice(0, maxLength - 1) + "…";
 }
 
 function formatAskUserQuestion(input: Record<string, any>): string {
-	const questions = input['questions'];
+	const questions = input["questions"];
 	if (!Array.isArray(questions) || questions.length === 0) {
-		return 'Asking user question';
+		return "Asking user question";
 	}
 	const questionTexts = questions
 		.map((question) =>
-			question && typeof question.question === 'string' ? question.question : 'Question'
+			question && typeof question.question === "string" ? question.question : "Question",
 		)
 		.filter(Boolean);
 	const count = questionTexts.length;
 	if (count === 1) {
 		return `Question: ${truncate(questionTexts[0], 160)}`;
 	}
-	const joined = questionTexts.join('; ');
+	const joined = questionTexts.join("; ");
 	return `Questions (${count}): ${truncate(joined, 240)}`;
 }

@@ -2,19 +2,19 @@
 	export type OnInputCallback = (
 		value: string,
 		textUpToAnchor: string | undefined,
-		textAfterAnchor: string | undefined
+		textAfterAnchor: string | undefined,
 	) => void;
 </script>
 
 <script lang="ts">
-	import { getEditor } from '$lib/richText/context';
-	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from '$lib/richText/selection';
-	import { exportPlaintext } from '$lib/richText/utils/export';
+	import { getEditor } from "$lib/richText/context";
+	import { getEditorTextAfterAnchor, getEditorTextUpToAnchor } from "$lib/richText/selection";
+	import { exportPlaintext } from "$lib/richText/utils/export";
 	import {
 		$getRoot as getRoot,
 		$getSelection as getSelection,
-		$isRangeSelection as isRangeSelection
-	} from 'lexical';
+		$isRangeSelection as isRangeSelection,
+	} from "lexical";
 
 	type Props = {
 		onInput?: OnInputCallback;
@@ -30,7 +30,7 @@
 		return editor.registerUpdateListener(
 			({ editorState, dirtyElements, dirtyLeaves, prevEditorState, tags }) => {
 				if (
-					tags.has('history-merge') ||
+					tags.has("history-merge") ||
 					(dirtyElements.size === 0 && dirtyLeaves.size === 0) ||
 					prevEditorState.isEmpty()
 				) {
@@ -51,7 +51,7 @@
 					const textAfterAnchor = getEditorTextAfterAnchor(selection);
 					onInput?.(text, textUpToAnchor, textAfterAnchor);
 				});
-			}
+			},
 		);
 	});
 

@@ -1,19 +1,19 @@
-import { autoSelectBranchNameFeature, stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
-import { getFilterCountMap, getStackTargetTypeCountMap, type WorkspaceRule } from '$lib/rules/rule';
-import { StackService } from '$lib/stacks/stackService.svelte';
-import { UiState } from '$lib/state/uiState.svelte';
-import { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-import { InjectionToken } from '@gitbutler/core/context';
-import { get } from 'svelte/store';
-import type { Commit } from '$lib/branches/v3';
-import type { HunkAssignment } from '$lib/hunks/hunk';
-import type { ProjectsService } from '$lib/project/projectsService';
-import type RulesService from '$lib/rules/rulesService.svelte';
-import type { Stack, BranchDetails } from '$lib/stacks/stack';
-import type { EventProperties } from '$lib/state/customHooks.svelte';
-import type { FModeManager } from '@gitbutler/ui/focus/fModeManager';
+import { autoSelectBranchNameFeature, stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
+import { getFilterCountMap, getStackTargetTypeCountMap, type WorkspaceRule } from "$lib/rules/rule";
+import { StackService } from "$lib/stacks/stackService.svelte";
+import { UiState } from "$lib/state/uiState.svelte";
+import { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import { InjectionToken } from "@gitbutler/core/context";
+import { get } from "svelte/store";
+import type { Commit } from "$lib/branches/v3";
+import type { HunkAssignment } from "$lib/hunks/hunk";
+import type { ProjectsService } from "$lib/project/projectsService";
+import type RulesService from "$lib/rules/rulesService.svelte";
+import type { Stack, BranchDetails } from "$lib/stacks/stack";
+import type { EventProperties } from "$lib/state/customHooks.svelte";
+import type { FModeManager } from "@gitbutler/ui/focus/fModeManager";
 
-export const COMMIT_ANALYTICS = new InjectionToken<CommitAnalytics>('CommitAnalytics');
+export const COMMIT_ANALYTICS = new InjectionToken<CommitAnalytics>("CommitAnalytics");
 
 export class CommitAnalytics {
 	constructor(
@@ -22,7 +22,7 @@ export class CommitAnalytics {
 		private worktreeService: WorktreeService,
 		private rulesService: RulesService,
 		private fModeManager: FModeManager,
-		private projectsService: ProjectsService
+		private projectsService: ProjectsService,
 	) {}
 
 	async getCommitProperties(args: {
@@ -47,17 +47,17 @@ export class CommitAnalytics {
 			const commitsResult = await this.stackService.fetchCommits(
 				args.projectId,
 				args.stackId,
-				args.selectedBranchName
+				args.selectedBranchName,
 			);
 			const commits = commitsResult || [];
 
 			const worktreeResult = await this.worktreeService.worktreeChanges.fetch({
-				projectId: args.projectId
+				projectId: args.projectId,
 			});
 			const worktreeData = worktreeResult;
 
 			if (!worktreeData) {
-				throw new Error('Failed to fetch worktree data');
+				throw new Error("Failed to fetch worktree data");
 			}
 
 			const assignments = worktreeData.hunkAssignments;
@@ -98,10 +98,10 @@ export class CommitAnalytics {
 				// Rule metrics
 				...this.getRuleMetrics(rules),
 				// Behavior metrics
-				...this.getBehaviorMetrics()
+				...this.getBehaviorMetrics(),
 			};
 		} catch (error) {
-			console.error('Failed to fetch commit analytics:', error);
+			console.error("Failed to fetch commit analytics:", error);
 			return {};
 		}
 	}
@@ -181,10 +181,10 @@ export class CommitAnalytics {
 			/// Count of filter types. Ignores multiple types of the same type in a single rule.
 			...filterCountByType,
 			/// Count the stack target types used
-			...assignmentTargetTypes
+			...assignmentTargetTypes,
 		};
 
-		return namespaceProps(ruleMetrics, 'workspaceRules');
+		return namespaceProps(ruleMetrics, "workspaceRules");
 	}
 
 	private getBehaviorMetrics(): EventProperties {
@@ -193,10 +193,10 @@ export class CommitAnalytics {
 		const autoSelectBranchName = get(autoSelectBranchNameFeature);
 		const behaviorMetrics = {
 			stagingBehavior,
-			autoSelectBranchName
+			autoSelectBranchName,
 		};
 
-		return namespaceProps(behaviorMetrics, 'behavior');
+		return namespaceProps(behaviorMetrics, "behavior");
 	}
 }
 

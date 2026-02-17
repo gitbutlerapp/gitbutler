@@ -1,3 +1,3 @@
-import { writable } from 'svelte/store';
+import { writable } from "svelte/store";
 
-export const latestClientVersion = writable('...');
+export const latestClientVersion = writable("...");

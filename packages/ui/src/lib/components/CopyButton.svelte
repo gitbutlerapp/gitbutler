@@ -25,7 +25,7 @@
 </script>
 
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
+	import Icon from "$components/Icon.svelte";
 
 	const { text, prefix, shortenText = true, onclick, class: className }: Props = $props();
 

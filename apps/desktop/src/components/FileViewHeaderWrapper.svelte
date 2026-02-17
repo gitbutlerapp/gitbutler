@@ -1,19 +1,19 @@
 <script lang="ts">
-	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
-	import { draggableChips } from '$lib/dragging/draggable';
-	import { FileChangeDropData } from '$lib/dragging/draggables';
-	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
-	import { getFilename } from '$lib/files/utils';
-	import { type TreeChange } from '$lib/hunks/change';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { type SelectionId } from '$lib/selection/key';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { inject } from '@gitbutler/core/context';
-	import { FileViewHeader, TestId } from '@gitbutler/ui';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { sticky as stickyAction } from '@gitbutler/ui/utils/sticky';
-	import type { UnifiedDiff } from '$lib/hunks/diff';
+	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
+	import { draggableChips } from "$lib/dragging/draggable";
+	import { FileChangeDropData } from "$lib/dragging/draggables";
+	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
+	import { getFilename } from "$lib/files/utils";
+	import { type TreeChange } from "$lib/hunks/change";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { type SelectionId } from "$lib/selection/key";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { computeChangeStatus } from "$lib/utils/fileStatus";
+	import { inject } from "@gitbutler/core/context";
+	import { FileViewHeader, TestId } from "@gitbutler/ui";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { sticky as stickyAction } from "@gitbutler/ui/utils/sticky";
+	import type { UnifiedDiff } from "$lib/hunks/diff";
 
 	interface Props {
 		projectId: string;
@@ -36,7 +36,7 @@
 		draggable,
 		executable,
 		scrollContainer,
-		onCloseClick
+		onCloseClick,
 	}: Props = $props();
 
 	const idSelection = inject(FILE_SELECTION_MANAGER);
@@ -49,16 +49,16 @@
 	let isStuck = $state(false);
 
 	const previousTooltipText = $derived(
-		change.status.type === 'Rename' && change.status.subject.previousPath
+		change.status.type === "Rename" && change.status.subject.previousPath
 			? `${change.status.subject.previousPath} →\n${change.path}`
-			: undefined
+			: undefined,
 	);
 
 	const lineChangesStat = $derived.by(() => {
-		if (diff && diff.type === 'Patch') {
+		if (diff && diff.type === "Patch") {
 			return {
 				added: diff.subject.linesAdded,
-				removed: diff.subject.linesRemoved
+				removed: diff.subject.linesRemoved,
 			};
 		}
 		return undefined;
@@ -85,16 +85,16 @@
 		filePath: change.path,
 		data: new FileChangeDropData(projectId, change, idSelection, selectionId, stackId || undefined),
 		disabled: !draggable,
-		chipType: 'file',
+		chipType: "file",
 		dropzoneRegistry,
-		dragStateService
+		dragStateService,
 	}}
 	use:stickyAction={{
 		enabled: true,
 		scrollContainer,
 		onStuck: (stuck) => {
 			isStuck = stuck;
-		}
+		},
 	}}
 >
 	<ChangedFilesContextMenu

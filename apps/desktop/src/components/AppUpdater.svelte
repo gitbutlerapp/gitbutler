@@ -1,10 +1,10 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { UPDATER_SERVICE, type InstallStatus } from '$lib/updater/updater';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, Markdown } from '@gitbutler/ui';
-	import { fade } from 'svelte/transition';
-	import { env } from '$env/dynamic/public';
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import { UPDATER_SERVICE, type InstallStatus } from "$lib/updater/updater";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Modal, Markdown } from "@gitbutler/ui";
+	import { fade } from "svelte/transition";
+	import { env } from "$env/dynamic/public";
 
 	interface Release {
 		version: string;
@@ -35,13 +35,13 @@
 		loadingReleases = true;
 		try {
 			const response = await fetch(
-				'https://app.gitbutler.com/api/downloads?limit=10&channel=release'
+				"https://app.gitbutler.com/api/downloads?limit=10&channel=release",
 			);
 			const data = await response.json();
 			releases = data.map((r: any) => ({
 				version: r.version,
 				notes: r.notes,
-				released_at: r.released_at
+				released_at: r.released_at,
 			}));
 			// Set current release to the one from the updater if it matches
 			if (version) {
@@ -51,7 +51,7 @@
 				}
 			}
 		} catch (error) {
-			console.error('Failed to fetch releases:', error);
+			console.error("Failed to fetch releases:", error);
 		} finally {
 			loadingReleases = false;
 		}
@@ -91,26 +91,26 @@
 	{releases[currentReleaseIndex + 1]?.version}
 {/snippet}
 
-{#if version || status === 'Up-to-date'}
+{#if version || status === "Up-to-date"}
 	<div class="update-banner" data-testid="update-banner" class:busy={$loading}>
 		<div class="floating-button">
 			<Button icon="cross-small" size="tag" kind="ghost" onclick={handleDismiss} />
 		</div>
 
 		<h4 class="text-13 text-semibold update-banner__status">
-			{#if status === 'Up-to-date'}
+			{#if status === "Up-to-date"}
 				You are up-to-date!
-			{:else if status === 'Downloading'}
+			{:else if status === "Downloading"}
 				Downloading update…
-			{:else if status === 'Downloaded'}
+			{:else if status === "Downloaded"}
 				Update downloaded
-			{:else if status === 'Installing'}
+			{:else if status === "Installing"}
 				Installing update…
-			{:else if status === 'Done'}
+			{:else if status === "Done"}
 				Install complete
-			{:else if status === 'Checking'}
+			{:else if status === "Checking"}
 				Checking for update…
-			{:else if status === 'Error'}
+			{:else if status === "Error"}
 				Error occurred
 			{:else if version}
 				New version available
@@ -123,7 +123,7 @@
 			{/if}
 			{#if !inFlatpak}
 				<div class="status-section">
-					{#if status !== 'Error' && status !== 'Up-to-date'}
+					{#if status !== "Error" && status !== "Up-to-date"}
 						<div class="sliding-gradient"></div>
 					{/if}
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
@@ -138,7 +138,7 @@
 							>
 								Update to {version}
 							</Button>
-						{:else if status === 'Up-to-date'}
+						{:else if status === "Up-to-date"}
 							<Button
 								wide
 								style="pop"
@@ -149,7 +149,7 @@
 							>
 								Got it!
 							</Button>
-						{:else if status === 'Done'}
+						{:else if status === "Done"}
 							<Button
 								style="pop"
 								wide
@@ -203,7 +203,7 @@
 					</div>
 
 					<div class="text-12 text-body release-notes-content">
-						<Markdown content={displayNotes || 'No release notes available'} />
+						<Markdown content={displayNotes || "No release notes available"} />
 					</div>
 				{/if}
 			</div>

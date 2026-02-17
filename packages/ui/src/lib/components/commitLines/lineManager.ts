@@ -1,9 +1,9 @@
-import type { CommitData, CommitNodeData, CellType } from '$components/commitLines/types';
+import type { CommitData, CommitNodeData, CellType } from "$components/commitLines/types";
 
 export enum LineSpacer {
-	Remote = 'remote-spacer',
-	Local = 'local-spacer',
-	LocalAndRemote = 'local-and-remote-spacer'
+	Remote = "remote-spacer",
+	Local = "local-spacer",
+	LocalAndRemote = "local-and-remote-spacer",
 }
 
 interface Commits {
@@ -17,24 +17,24 @@ function generateLineData({
 	remoteCommits,
 	localCommits,
 	localAndRemoteCommits,
-	integratedCommits
+	integratedCommits,
 }: Commits) {
 	const commitGroups: { commits: CommitData[]; type: CellType }[] = [
-		{ commits: remoteCommits, type: 'Remote' },
-		{ commits: localCommits, type: 'LocalOnly' },
-		{ commits: localAndRemoteCommits, type: 'LocalAndRemote' },
-		{ commits: integratedCommits, type: 'Integrated' }
+		{ commits: remoteCommits, type: "Remote" },
+		{ commits: localCommits, type: "LocalOnly" },
+		{ commits: localAndRemoteCommits, type: "LocalAndRemote" },
+		{ commits: integratedCommits, type: "Integrated" },
 	];
 
 	const groupedData = commitGroups.flatMap(({ commits, type }) =>
 		commits.map((commit) => ({
 			commit,
-			commitNode: { type, commit }
-		}))
+			commitNode: { type, commit },
+		})),
 	);
 
 	const data = new Map<string, CommitNodeData>(
-		groupedData.map(({ commit, commitNode }) => [commit.id, commitNode])
+		groupedData.map(({ commit, commitNode }) => [commit.id, commitNode]),
 	);
 
 	return { data };

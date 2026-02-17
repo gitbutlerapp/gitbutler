@@ -1,25 +1,25 @@
 <script lang="ts">
-	import CommitContextMenu from '$components/CommitContextMenu.svelte';
-	import CommitDetails from '$components/CommitDetails.svelte';
-	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
-	import CommitTitle from '$components/CommitTitle.svelte';
-	import Drawer from '$components/Drawer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import Resizer from '$components/Resizer.svelte';
-	import { isLocalAndRemoteCommit } from '$components/lib';
-	import { type CommitKey } from '$lib/commits/commit';
-	import { rewrapCommitMessage } from '$lib/config/uiFeatureFlags';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { showToast } from '$lib/notifications/toasts';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { splitMessage } from '$lib/utils/commitMessage';
-	import { ensureValue } from '$lib/utils/validation';
-	import { inject, injectOptional } from '@gitbutler/core/context';
-	import { Button, TestId } from '@gitbutler/ui';
+	import CommitContextMenu from "$components/CommitContextMenu.svelte";
+	import CommitDetails from "$components/CommitDetails.svelte";
+	import CommitMessageEditor from "$components/CommitMessageEditor.svelte";
+	import CommitTitle from "$components/CommitTitle.svelte";
+	import Drawer from "$components/Drawer.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import Resizer from "$components/Resizer.svelte";
+	import { isLocalAndRemoteCommit } from "$components/lib";
+	import { type CommitKey } from "$lib/commits/commit";
+	import { rewrapCommitMessage } from "$lib/config/uiFeatureFlags";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { showToast } from "$lib/notifications/toasts";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { splitMessage } from "$lib/utils/commitMessage";
+	import { ensureValue } from "$lib/utils/validation";
+	import { inject, injectOptional } from "@gitbutler/core/context";
+	import { Button, TestId } from "@gitbutler/ui";
 
-	import type { ComponentProps } from 'svelte';
+	import type { ComponentProps } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -48,7 +48,7 @@
 		rounded,
 		ontoggle,
 		onerror,
-		onclose
+		onclose,
 	}: Props & { isInEditMessageMode?: boolean } = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -65,36 +65,36 @@
 	const branchName = $derived(selected.current?.branchName);
 
 	const commitQuery = $derived(
-		stackService.commitById(projectId, commitKey.stackId, commitKey.commitId)
+		stackService.commitById(projectId, commitKey.stackId, commitKey.commitId),
 	);
 
 	const [updateCommitMessage, messageUpdateQuery] = stackService.updateCommitMessage;
 
-	type Mode = 'view' | 'edit';
+	type Mode = "view" | "edit";
 
 	function setMode(newMode: Mode) {
 		switch (newMode) {
-			case 'edit':
+			case "edit":
 				projectState.exclusiveAction.set({
-					type: 'edit-commit-message',
+					type: "edit-commit-message",
 					stackId,
 					branchName: commitKey.branchName,
-					commitId: commitKey.commitId
+					commitId: commitKey.commitId,
 				});
 				break;
-			case 'view':
+			case "view":
 				projectState.exclusiveAction.set(undefined);
 				break;
 		}
 	}
 
 	const parsedMessage = $derived(
-		commitQuery.response ? splitMessage(commitQuery.response.message) : undefined
+		commitQuery.response ? splitMessage(commitQuery.response.message) : undefined,
 	);
 
 	function combineParts(title?: string, description?: string): string {
 		if (!title) {
-			return '';
+			return "";
 		}
 		if (description) {
 			return `${title}\n\n${description}`;
@@ -105,10 +105,10 @@
 	async function saveCommitMessage(title: string, description: string) {
 		const commitMessage = combineParts(title, description);
 		if (!branchName) {
-			throw new Error('No branch selected!');
+			throw new Error("No branch selected!");
 		}
 		if (!commitMessage) {
-			showToast({ message: 'Commit message is required', style: 'danger' });
+			showToast({ message: "Commit message is required", style: "danger" });
 			return;
 		}
 
@@ -116,13 +116,13 @@
 			projectId,
 			stackId: ensureValue(stackId),
 			commitId: commitKey.commitId,
-			message: commitMessage
+			message: commitMessage,
 		});
 
 		uiState
 			.lane(ensureValue(stackId))
 			.selection.set({ branchName, commitId: newCommitId, previewOpen: true });
-		setMode('view');
+		setMode("view");
 	}
 
 	async function handleUncommit() {
@@ -131,7 +131,7 @@
 			projectId,
 			stackId: ensureValue(stackId),
 			branchName,
-			commitId: commitKey.commitId
+			commitId: commitKey.commitId,
 		});
 	}
 
@@ -140,7 +140,7 @@
 	}
 
 	function cancelEdit() {
-		setMode('view');
+		setMode("view");
 	}
 </script>
 
@@ -181,8 +181,8 @@
 						size="tag"
 						kind="ghost"
 						icon="edit"
-						onclick={() => setMode('edit')}
-						tooltip={isReadOnly ? 'Read-only mode' : 'Edit commit message'}
+						onclick={() => setMode("edit")}
+						tooltip={isReadOnly ? "Read-only mode" : "Edit commit message"}
 						disabled={isReadOnly}
 					/>
 				{/if}
@@ -194,7 +194,7 @@
 							commitStatus: commit.state.type,
 							commitUrl: forge.current.commitUrl(commit.id),
 							onUncommitClick: () => handleUncommit(),
-							onEditMessageClick: () => setMode('edit')
+							onEditMessageClick: () => setMode("edit"),
 						}
 					: undefined}
 				{#if data}
@@ -203,7 +203,7 @@
 			{/snippet}
 
 			<div class="commit-view">
-				{#if projectState.exclusiveAction.current?.type === 'edit-commit-message' && projectState.exclusiveAction.current.commitId === commit.id}
+				{#if projectState.exclusiveAction.current?.type === "edit-commit-message" && projectState.exclusiveAction.current.commitId === commit.id}
 					<div
 						class="edit-commit-view"
 						data-testid={TestId.EditCommitMessageBox}
@@ -219,8 +219,8 @@
 							floatingBoxHeader="Edit commit message"
 							loading={messageUpdateQuery.current.isLoading}
 							existingCommitId={commit.id}
-							title={parsedMessage?.title || ''}
-							description={parsedMessage?.description || ''}
+							title={parsedMessage?.title || ""}
+							description={parsedMessage?.description || ""}
 						/>
 					</div>
 				{:else}

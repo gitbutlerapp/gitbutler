@@ -9,12 +9,12 @@
 	}
 
 	const {
-		width = '100%',
+		width = "100%",
 		maxWidth,
-		height = '1rem',
-		radius = 'var(--radius-ml)',
-		color = 'var(--clr-border-2)',
-		opacity = 0.2
+		height = "1rem",
+		radius = "var(--radius-ml)",
+		color = "var(--clr-border-2)",
+		opacity = 0.2,
 	}: Props = $props();
 </script>
 

@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { portal } from '$lib/utils/portal';
-	import { tooltip } from '$lib/utils/tooltipPosition';
-	import { flyScale } from '$lib/utils/transitions';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import Icon from "$components/Icon.svelte";
+	import { portal } from "$lib/utils/portal";
+	import { tooltip } from "$lib/utils/tooltipPosition";
+	import { flyScale } from "$lib/utils/transitions";
+	import type iconsJson from "$lib/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		title?: string;
-		size?: 'small' | 'medium';
+		size?: "small" | "medium";
 		maxWidth?: string;
 		iconTopOffset?: string;
 		icon?: keyof typeof iconsJson;
@@ -18,12 +18,12 @@
 
 	const {
 		title,
-		size = 'medium',
-		maxWidth = '16rem',
-		iconTopOffset = '10%',
+		size = "medium",
+		maxWidth = "16rem",
+		iconTopOffset = "10%",
 		icon,
 		children,
-		inheritColor
+		inheritColor,
 	}: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
@@ -70,7 +70,7 @@
 	onmouseenter={handleMouseEnter}
 	onmouseleave={handleMouseLeave}
 	style:--icon-top-offset={iconTopOffset}
-	style:--size={size === 'small' ? '12px' : '14px'}
+	style:--size={size === "small" ? "12px" : "14px"}
 >
 	{#if icon}
 		<div class="info-custom-icon" class:inherit-color={inheritColor}>
@@ -82,11 +82,11 @@
 
 	{#if show}
 		<div
-			use:portal={'body'}
+			use:portal={"body"}
 			use:tooltip={{
 				targetEl,
-				position: 'bottom',
-				align: 'center'
+				position: "bottom",
+				align: "center",
 			}}
 			class="tooltip-container"
 			role="presentation"
@@ -139,7 +139,7 @@
 			transform: translateX(-50%);
 			border-radius: 2px;
 			background-color: var(--clr-text-2);
-			content: '';
+			content: "";
 			transition: background-color var(--transition-fast);
 		}
 	}

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, ModalHeader, ModalFooter, SkeletonBone } from '@gitbutler/ui';
-	import { gravatarUrlFromEmail } from '@gitbutler/ui/components/avatar/gravatar';
-	import type { LoginConfirmationModalState } from '$lib/state/uiState.svelte';
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, ModalHeader, ModalFooter, SkeletonBone } from "@gitbutler/ui";
+	import { gravatarUrlFromEmail } from "@gitbutler/ui/components/avatar/gravatar";
+	import type { LoginConfirmationModalState } from "$lib/state/uiState.svelte";
 
 	type Props = {
 		data: LoginConfirmationModalState;
@@ -14,9 +14,9 @@
 
 	const userService = inject(USER_SERVICE);
 	const incomingUser = $derived(userService.incomingUserLogin);
-	const incomingUserEmail = $derived($incomingUser?.email ?? '');
+	const incomingUserEmail = $derived($incomingUser?.email ?? "");
 	const incomingUserName = $derived(
-		$incomingUser?.login ?? $incomingUser?.name ?? incomingUserEmail ?? 'unknown'
+		$incomingUser?.login ?? $incomingUser?.name ?? incomingUserEmail ?? "unknown",
 	);
 	const incomingUserAvatarUrl = $derived($incomingUser?.picture);
 
@@ -41,7 +41,7 @@
 		close();
 	}
 
-	const avatarSize = '3.25rem';
+	const avatarSize = "3.25rem";
 </script>
 
 <ModalHeader type="info">Confirm login attempt</ModalHeader>

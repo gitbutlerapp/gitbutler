@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AsyncButton, Button, Modal } from '@gitbutler/ui';
+	import { AsyncButton, Button, Modal } from "@gitbutler/ui";
 
 	interface Props {
 		onSubmit: () => void;

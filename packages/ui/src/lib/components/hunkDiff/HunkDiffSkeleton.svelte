@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SkeletonBone from '$components/SkeletonBone.svelte';
+	import SkeletonBone from "$components/SkeletonBone.svelte";
 </script>
 
 <div class="hunk-loading-skeleton">

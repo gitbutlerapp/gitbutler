@@ -8,19 +8,19 @@
 	@component
 -->
 <script lang="ts">
-	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
-	import Drawer from '$components/Drawer.svelte';
-	import FilePreviewPlaceholder from '$components/FilePreviewPlaceholder.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import UnifiedDiffView from '$components/UnifiedDiffView.svelte';
-	import { isExecutableStatus, type TreeChange } from '$lib/hunks/change';
-	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { type SelectionId } from '$lib/selection/key';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from '@gitbutler/ui';
+	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
+	import Drawer from "$components/Drawer.svelte";
+	import FilePreviewPlaceholder from "$components/FilePreviewPlaceholder.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
+	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
+	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { type SelectionId } from "$lib/selection/key";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { computeChangeStatus } from "$lib/utils/fileStatus";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -45,7 +45,7 @@
 		showRoundedEdges = true,
 		startIndex,
 		selectionId,
-		onclose
+		onclose,
 	}: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
@@ -78,7 +78,7 @@
 	{@const diffQuery = diffService.getDiff(projectId, change)}
 	{@const diffData = diffQuery.response}
 	{@const isExecutable = isExecutableStatus(change.status)}
-	{@const patchData = diffData?.type === 'Patch' ? diffData.subject : null}
+	{@const patchData = diffData?.type === "Patch" ? diffData.subject : null}
 	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
 	<Drawer
 		noshrink
@@ -147,7 +147,7 @@
 				<UnifiedDiffView
 					{projectId}
 					{stackId}
-					commitId={selectionId.type === 'commit' ? selectionId.commitId : undefined}
+					commitId={selectionId.type === "commit" ? selectionId.commitId : undefined}
 					{draggable}
 					{change}
 					{diff}

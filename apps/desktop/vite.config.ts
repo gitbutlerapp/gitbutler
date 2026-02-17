@@ -1,20 +1,20 @@
-import { sentrySvelteKit } from '@sentry/sveltekit';
-import { sveltekit } from '@sveltejs/kit/vite';
-import { svelteTesting } from '@testing-library/svelte/vite';
-import { defineConfig, type Plugin } from 'vitest/config';
+import { sentrySvelteKit } from "@sentry/sveltekit";
+import { sveltekit } from "@sveltejs/kit/vite";
+import { svelteTesting } from "@testing-library/svelte/vite";
+import { defineConfig, type Plugin } from "vitest/config";
 
 export default defineConfig({
 	plugins: [
 		process.env.VITE_DEBOUNCE_RELOAD ? debounceReload() : undefined,
 		sentrySvelteKit({
-			adapter: 'other',
+			adapter: "other",
 			autoInstrument: {
 				load: true,
-				serverLoad: false
+				serverLoad: false,
 			},
 			sourceMapsUploadOptions: {
-				org: 'gitbutler',
-				project: 'app-js',
+				org: "gitbutler",
+				project: "app-js",
 				authToken: process.env.SENTRY_AUTH_TOKEN,
 				telemetry: false,
 				unstable_sentryVitePluginOptions: {
@@ -25,14 +25,14 @@ export default defineConfig({
 						setCommits: {
 							auto: true,
 							ignoreMissing: true,
-							ignoreEmpty: true
-						}
-					}
-				}
-			}
+							ignoreEmpty: true,
+						},
+					},
+				},
+			},
 		}),
 		sveltekit(),
-		svelteTesting()
+		svelteTesting(),
 	],
 
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -43,35 +43,35 @@ export default defineConfig({
 		port: 1420,
 		strictPort: true,
 		fs: {
-			strict: false
-		}
+			strict: false,
+		},
 	},
 	optimizeDeps: {
 		// Exclude local packages from pre-bundling
-		exclude: ['@gitbutler/core', '@gitbutler/ui', '@gitbutler/shared']
+		exclude: ["@gitbutler/core", "@gitbutler/ui", "@gitbutler/shared"],
 	},
 	// to make use of `TAURI_ENV_DEBUG` and other env variables
 	// https://tauri.studio/v1/api/config#buildconfig.beforedevcommand
-	envPrefix: ['VITE_', 'TAURI_'],
+	envPrefix: ["VITE_", "TAURI_"],
 	build: {
 		rollupOptions: { output: { manualChunks: {} } },
 		// Tauri supports es2021
-		target: 'modules',
+		target: "modules",
 		// minify production builds
-		minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+		minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
 		// ship sourcemaps for better sentry error reports
-		sourcemap: true
+		sourcemap: true,
 	},
 	test: {
-		includeSource: ['src/**/*.test.{js,ts}'],
-		exclude: ['node_modules/**/*', 'e2e/**/*'],
-		environment: 'jsdom',
-		setupFiles: ['./vitest-setup.js']
+		includeSource: ["src/**/*.test.{js,ts}"],
+		exclude: ["node_modules/**/*", "e2e/**/*"],
+		environment: "jsdom",
+		setupFiles: ["./vitest-setup.js"],
 	},
 	preview: {
 		// preview port for the e2e tests
-		port: 1420
-	}
+		port: 1420,
+	},
 });
 
 /**
@@ -83,7 +83,7 @@ function debounceReload(): Plugin {
 	let restartTimeout: NodeJS.Timeout | undefined;
 
 	return {
-		name: 'debounce-reload',
+		name: "debounce-reload",
 		/**
 		 * There is a `handleHotUpdate` callback that has the same docs, and
 		 * gets called as expected, but that fails to prevent the reload.
@@ -105,7 +105,7 @@ function debounceReload(): Plugin {
 			}
 
 			if (mustReload) {
-				server.hot.send('gb:reload');
+				server.hot.send("gb:reload");
 				const delay = getReloadDelay(longDelay);
 
 				// If the server should restart, or the if it should reload but there's already a restart scheduled.
@@ -127,26 +127,26 @@ function debounceReload(): Plugin {
 						timeout = undefined;
 						mustReload = false;
 						longDelay = false;
-						server.hot.send({ type: 'full-reload' });
+						server.hot.send({ type: "full-reload" });
 					}, delay);
 					return []; // Prevent immediate reload.
 				}
 			}
-		}
+		},
 	};
 }
 function isLocalPackageFile(file: string) {
-	return ['gitbutler/packages/shared/dist', 'gitbutler/packages/ui/dist'].some((pkg) =>
-		file.includes(pkg)
+	return ["gitbutler/packages/shared/dist", "gitbutler/packages/ui/dist"].some((pkg) =>
+		file.includes(pkg),
 	);
 }
 
 function isSvelteKitFile(file: string) {
-	return file.includes('.svelte-kit');
+	return file.includes(".svelte-kit");
 }
 
 function isNotInDesktopApp(file: string) {
-	return !file.includes('apps/desktop');
+	return !file.includes("apps/desktop");
 }
 
 function getReloadDelay(longDelay: boolean): number | undefined {

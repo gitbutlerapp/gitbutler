@@ -1,5 +1,5 @@
-import type { DetailedPullRequest } from '$lib/forge/interface/types';
-import type { Readable } from 'svelte/store';
+import type { DetailedPullRequest } from "$lib/forge/interface/types";
+import type { Readable } from "svelte/store";
 
 export interface ForgePrMonitor {
 	pr: Readable<DetailedPullRequest | undefined>;

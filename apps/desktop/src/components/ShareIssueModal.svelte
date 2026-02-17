@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { page } from '$app/stores';
-	import { BACKEND } from '$lib/backend';
-	import { FILE_SERVICE } from '$lib/files/fileService';
-	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import { DATA_SHARING_SERVICE } from '$lib/support/dataSharing';
-	import { USER } from '$lib/user/user';
-	import { inject } from '@gitbutler/core/context';
-	import { HTTP_CLIENT } from '@gitbutler/shared/network/httpClient';
+	import { page } from "$app/stores";
+	import { BACKEND } from "$lib/backend";
+	import { FILE_SERVICE } from "$lib/files/fileService";
+	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
+	import { DATA_SHARING_SERVICE } from "$lib/support/dataSharing";
+	import { USER } from "$lib/user/user";
+	import { inject } from "@gitbutler/core/context";
+	import { HTTP_CLIENT } from "@gitbutler/shared/network/httpClient";
 
-	import { Button, Checkbox, Modal, Textarea, EmailTextbox, chipToasts } from '@gitbutler/ui';
+	import { Button, Checkbox, Modal, Textarea, EmailTextbox, chipToasts } from "@gitbutler/ui";
 
 	type Feedback = {
 		id: number;
@@ -38,8 +38,8 @@
 
 	let modal: ReturnType<typeof Modal> | undefined = $state();
 
-	let messageInputValue = $state('');
-	let emailInputValue = $state('');
+	let messageInputValue = $state("");
+	let emailInputValue = $state("");
 	let sendLogs = $state(false);
 	let sendProjectRepository = $state(false);
 	let sendGraph = $state(false);
@@ -47,7 +47,7 @@
 	const projectId = $derived($page.params.projectId!);
 
 	function reset() {
-		messageInputValue = '';
+		messageInputValue = "";
 		sendLogs = false;
 		sendProjectRepository = false;
 		sendGraph = false;
@@ -56,10 +56,10 @@
 	async function readZipFile(path: string, filename?: string): Promise<File | Blob> {
 		// Using `new Uint8Array` to get an `ArrayBuffer` rather than `ArrayBufferLike`.
 		const file = new Uint8Array(await fileService.readFile(path));
-		const fileName = filename ?? path.split('/').pop();
+		const fileName = filename ?? path.split("/").pop();
 		return fileName
-			? new File([file], fileName, { type: 'application/zip' })
-			: new Blob([file], { type: 'application/zip' });
+			? new File([file], fileName, { type: "application/zip" })
+			: new Blob([file], { type: "application/zip" });
 	}
 
 	async function submit() {
@@ -67,30 +67,30 @@
 		const email = $user?.email ?? emailInputValue;
 
 		// put together context information to send with the feedback
-		let context = '';
+		let context = "";
 		const appInfo = await backend.getAppInfo();
 		const appVersion = appInfo.version;
 		const indexLength = await gitIndexLength();
-		context += 'GitButler Version: ' + appVersion + '\n';
-		context += 'Browser: ' + navigator.userAgent + '\n';
-		context += 'URL: ' + window.location.href + '\n';
-		context += 'Length of index: ' + indexLength + '\n';
+		context += "GitButler Version: " + appVersion + "\n";
+		context += "Browser: " + navigator.userAgent + "\n";
+		context += "URL: " + window.location.href + "\n";
+		context += "Length of index: " + indexLength + "\n";
 
 		chipToasts.promise(
 			Promise.all([
 				sendLogs
-					? dataSharingService.logs().then(async (path) => await readZipFile(path, 'logs.zip'))
+					? dataSharingService.logs().then(async (path) => await readZipFile(path, "logs.zip"))
 					: undefined,
 				sendProjectRepository
 					? dataSharingService
 							.projectData(projectId)
-							.then(async (path) => await readZipFile(path, 'project.zip'))
+							.then(async (path) => await readZipFile(path, "project.zip"))
 					: undefined,
 				sendGraph
 					? dataSharingService
 							.graphFile(projectId)
-							.then(async (path) => await readZipFile(path, 'graph.zip'))
-					: undefined
+							.then(async (path) => await readZipFile(path, "graph.zip"))
+					: undefined,
 			]).then(
 				async ([logs, repo, graph]) =>
 					await createFeedback($user?.access_token, {
@@ -99,17 +99,17 @@
 						context,
 						logs,
 						repo,
-						graph
-					})
+						graph,
+					}),
 			),
 			{
 				loading:
 					!sendLogs && !sendProjectRepository && !sendGraph
-						? 'Sending feedback...'
-						: 'Uploading data...',
-				success: 'Feedback sent successfully',
-				error: 'Failed to send feedback'
-			}
+						? "Sending feedback..."
+						: "Uploading data...",
+				success: "Feedback sent successfully",
+				error: "Failed to send feedback",
+			},
 		);
 		close();
 	}
@@ -123,20 +123,20 @@
 			logs?: Blob | File;
 			repo?: Blob | File;
 			graph?: Blob | File;
-		}
+		},
 	): Promise<Feedback> {
 		const formData = new FormData();
-		formData.append('message', params.message);
-		if (params.email) formData.append('email', params.email);
-		if (params.context) formData.append('context', params.context);
-		if (params.logs) formData.append('logs', params.logs);
-		if (params.repo) formData.append('repo', params.repo);
-		if (params.graph) formData.append('graph', params.graph);
+		formData.append("message", params.message);
+		if (params.email) formData.append("email", params.email);
+		if (params.context) formData.append("context", params.context);
+		if (params.logs) formData.append("logs", params.logs);
+		if (params.repo) formData.append("repo", params.repo);
+		if (params.graph) formData.append("graph", params.graph);
 
 		// Content Type must be unset for the right form-data border to be set automatically
-		return await httpClient.put('feedback', {
+		return await httpClient.put("feedback", {
 			body: formData,
-			headers: { 'Content-Type': undefined }
+			headers: { "Content-Type": undefined },
 		});
 	}
 
@@ -145,7 +145,7 @@
 		modal?.close();
 	}
 
-	$effect(() => shortcutService.on('share-debug-info', () => show()));
+	$effect(() => shortcutService.on("share-debug-info", () => show()));
 </script>
 
 <Modal

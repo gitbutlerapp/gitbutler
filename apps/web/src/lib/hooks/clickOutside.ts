@@ -10,12 +10,12 @@ export function clickOutside(node: HTMLElement, params: ClickOpts) {
 			params.handler();
 		}
 	}
-	document.addEventListener('pointerdown', onClick, true);
-	document.addEventListener('contextmenu', onClick, true);
+	document.addEventListener("pointerdown", onClick, true);
+	document.addEventListener("contextmenu", onClick, true);
 	return {
 		destroy() {
-			document.removeEventListener('pointerdown', onClick, true);
-			document.removeEventListener('contextmenu', onClick, true);
-		}
+			document.removeEventListener("pointerdown", onClick, true);
+			document.removeEventListener("contextmenu", onClick, true);
+		},
 	};
 }

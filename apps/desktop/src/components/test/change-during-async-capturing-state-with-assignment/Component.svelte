@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ExternallyResolvedPromise } from '$lib/utils/resolveExternally';
+	import type { ExternallyResolvedPromise } from "$lib/utils/resolveExternally";
 
 	type Props = {
 		promise: ExternallyResolvedPromise<undefined>;
@@ -8,7 +8,7 @@
 
 	const { promise, log }: Props = $props();
 
-	let value = $state('hello');
+	let value = $state("hello");
 
 	async function logfn() {
 		let value2 = value;
@@ -20,4 +20,4 @@
 </script>
 
 <button onclick={logfn} type="button">log</button>
-<button onclick={() => (value = 'world')} type="button">update-state</button>
+<button onclick={() => (value = "world")} type="button">update-state</button>

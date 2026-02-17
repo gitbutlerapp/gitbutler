@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Footer from '$lib/components/marketing/Footer.svelte';
-	import Header from '$lib/components/marketing/Header.svelte';
-	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
-	import osIcons from '$lib/data/os-icons.json';
-	import Markdown from 'svelte-exmarkdown';
-	import type { Release } from '$lib/types/releases';
-	import type { LatestReleaseBuilds } from '$lib/utils/releaseUtils';
+	import Footer from "$lib/components/marketing/Footer.svelte";
+	import Header from "$lib/components/marketing/Header.svelte";
+	import ReleaseCard from "$lib/components/marketing/ReleaseCard.svelte";
+	import osIcons from "$lib/data/os-icons.json";
+	import Markdown from "svelte-exmarkdown";
+	import type { Release } from "$lib/types/releases";
+	import type { LatestReleaseBuilds } from "$lib/utils/releaseUtils";
 
 	interface Props {
 		data: {
@@ -40,10 +40,10 @@
 					<span>Latest release</span>
 					<span> • </span>
 					<span
-						>{new Date(latestRelease.released_at).toLocaleDateString('en-GB', {
-							day: 'numeric',
-							month: 'long',
-							year: 'numeric'
+						>{new Date(latestRelease.released_at).toLocaleDateString("en-GB", {
+							day: "numeric",
+							month: "long",
+							year: "numeric",
 						})}</span
 					>
 				</div>
@@ -261,7 +261,7 @@
 				transparent 2px,
 				transparent 6px
 			);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 
@@ -342,13 +342,13 @@
 				transparent 2px,
 				transparent 6px
 			);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 	}
 
 	.grainy-bg {
-		background-image: url('/images/grainy-gradient-dark.png');
+		background-image: url("/images/grainy-gradient-dark.png");
 	}
 
 	.grainy-1 {

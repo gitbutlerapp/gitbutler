@@ -47,6 +47,6 @@ export function useImageLoading() {
 			return imgElement;
 		},
 		handleImageLoad,
-		handleImageError
+		handleImageError,
 	};
 }

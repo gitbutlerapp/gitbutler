@@ -1,9 +1,9 @@
 <script lang="ts">
-	import Features from '$home/components/Features.svelte';
-	import SectionHeader from '$home/components/SectionHeader.svelte';
-	import contentJSON from '$home/data/content.json';
+	import Features from "$home/components/Features.svelte";
+	import SectionHeader from "$home/components/SectionHeader.svelte";
+	import contentJSON from "$home/data/content.json";
 
-	const aiFetures = contentJSON['ai-features'];
+	const aiFetures = contentJSON["ai-features"];
 
 	let isPlaying = $state(false);
 
@@ -12,7 +12,7 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter' || event.key === ' ') {
+		if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
 			playVideo();
 		}
@@ -28,7 +28,7 @@
 			<iframe
 				width="100%"
 				height="100%"
-				src={`${contentJSON['ai-fetures-demo']}&autoplay=1`}
+				src={`${contentJSON["ai-fetures-demo"]}&autoplay=1`}
 				title="YouTube video player"
 				frameborder="0"
 				allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

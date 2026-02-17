@@ -7,8 +7,8 @@ export function removeFromArray<T>(array: T[], item: T) {
 
 export async function scrollIntoViewIfNeeded(
 	el: HTMLElement,
-	behavior: ScrollBehavior = 'smooth',
-	root: HTMLElement | null = null
+	behavior: ScrollBehavior = "smooth",
+	root: HTMLElement | null = null,
 ): Promise<void> {
 	return await new Promise((resolve) => {
 		const observer = new IntersectionObserver(
@@ -18,15 +18,15 @@ export async function scrollIntoViewIfNeeded(
 					observer.disconnect();
 					resolve();
 				} else {
-					el.scrollIntoView({ behavior, block: 'nearest', inline: 'nearest' });
+					el.scrollIntoView({ behavior, block: "nearest", inline: "nearest" });
 					observer.disconnect();
 					resolve();
 				}
 			},
 			{
 				root,
-				threshold: 1.0
-			}
+				threshold: 1.0,
+			},
 		);
 
 		observer.observe(el);
@@ -38,5 +38,5 @@ export function isContentEditable(element: HTMLElement): boolean {
 		return false;
 	}
 	const contentEditableValue = element.contentEditable.toLowerCase();
-	return contentEditableValue === 'true' || contentEditableValue === 'plaintext-only';
+	return contentEditableValue === "true" || contentEditableValue === "plaintext-only";
 }

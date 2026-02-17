@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [master]
     paths-ignore:
-      - 'apps/web/**'
+      - "apps/web/**"
   workflow_dispatch:
     inputs:
       sha:

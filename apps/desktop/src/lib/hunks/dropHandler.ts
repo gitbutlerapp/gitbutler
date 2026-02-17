@@ -2,12 +2,12 @@ import {
 	FileChangeDropData,
 	FolderChangeDropData,
 	HunkDropDataV3,
-	type ChangeDropData
-} from '$lib/dragging/draggables';
-import { type DiffService } from '$lib/hunks/diffService.svelte';
-import type { DropzoneHandler } from '$lib/dragging/handler';
-import type { FileSelectionManager } from '$lib/selection/fileSelectionManager.svelte';
-import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
+	type ChangeDropData,
+} from "$lib/dragging/draggables";
+import { type DiffService } from "$lib/hunks/diffService.svelte";
+import type { DropzoneHandler } from "$lib/dragging/handler";
+import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
+import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
 
 export class AssignmentDropHandler implements DropzoneHandler {
 	constructor(
@@ -15,7 +15,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 		private readonly diffService: DiffService,
 		private readonly uncommittedService: UncommittedService,
 		private readonly stackId: string | undefined,
-		private readonly idSelection: FileSelectionManager
+		private readonly idSelection: FileSelectionManager,
 	) {}
 
 	accepts(data: unknown) {
@@ -26,7 +26,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 		}
 		if (data instanceof HunkDropDataV3) {
 			if (!data.uncommitted) return false;
-			if (data.selectionId.type !== 'worktree') return false;
+			if (data.selectionId.type !== "worktree") return false;
 			if (data.selectionId.stackId === this.stackId) return false;
 			return true;
 		}
@@ -43,7 +43,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 				.map((h) => ({ ...h, stackId: this.stackId || null }));
 			await this.diffService.assignHunk({
 				projectId: this.projectId,
-				assignments
+				assignments,
 			});
 
 			// Remove all moved files from the selection
@@ -59,7 +59,7 @@ export class AssignmentDropHandler implements DropzoneHandler {
 				.map((h) => ({ ...h, stackId: this.stackId || null }));
 			await this.diffService.assignHunk({
 				projectId: this.projectId,
-				assignments
+				assignments,
 			});
 
 			// Remove all moved files from the selection
@@ -71,15 +71,15 @@ export class AssignmentDropHandler implements DropzoneHandler {
 			const assignment = this.uncommittedService.getAssignmentByHeader(
 				data.stackId,
 				data.change.path,
-				data.hunk
+				data.hunk,
 			).current!;
 			const allAssignments = this.uncommittedService.getAssignmentsByPath(
 				data.stackId,
-				data.change.path
+				data.change.path,
 			);
 			await this.diffService.assignHunk({
 				projectId: this.projectId,
-				assignments: [{ ...assignment, stackId: this.stackId || null }]
+				assignments: [{ ...assignment, stackId: this.stackId || null }],
 			});
 
 			// If we just moved the last assignment, remove the file from the selection.

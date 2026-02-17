@@ -1,23 +1,23 @@
 <script module lang="ts">
-	import Avatar from '$components/avatar/Avatar.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Avatar from "$components/avatar/Avatar.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Avatar / Avatar',
+		title: "Avatar / Avatar",
 		component: Avatar,
 		args: {
-			username: 'bob',
-			srcUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c',
-			size: 'medium'
+			username: "bob",
+			srcUrl: "https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c",
+			size: "medium",
 		},
 		argTypes: {
 			size: {
-				options: ['small', 'medium', 'large'],
+				options: ["small", "medium", "large"],
 				control: {
-					type: 'select'
-				}
-			}
-		}
+					type: "select",
+				},
+			},
+		},
 	});
 </script>
 

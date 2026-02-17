@@ -1,5 +1,5 @@
-import { hashCode } from '@gitbutler/ui/utils/string';
-import gitUrlParse from 'git-url-parse';
+import { hashCode } from "@gitbutler/ui/utils/string";
+import gitUrlParse from "git-url-parse";
 
 export type RepoInfo = {
 	domain: string;
@@ -16,7 +16,7 @@ export function parseRemoteUrl(url?: string): RepoInfo | undefined {
 	}
 	try {
 		const { protocol, name, owner, organization, resource } = gitUrlParse(url);
-		const hash = hashCode(name + '|' + owner + '|' + organization);
+		const hash = hashCode(name + "|" + owner + "|" + organization);
 
 		return {
 			protocol,
@@ -24,7 +24,7 @@ export function parseRemoteUrl(url?: string): RepoInfo | undefined {
 			name,
 			owner,
 			organization,
-			hash
+			hash,
 		};
 	} catch {
 		return undefined;

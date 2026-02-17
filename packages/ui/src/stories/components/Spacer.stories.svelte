@@ -1,15 +1,15 @@
 <script module lang="ts">
-	import Spacer from '$components/Spacer.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Spacer from "$components/Spacer.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / Spacer',
+		title: "Basic / Spacer",
 		component: Spacer,
 		args: {
 			margin: 0,
 			noLine: false,
-			dotted: false
-		}
+			dotted: false,
+		},
 	});
 </script>
 

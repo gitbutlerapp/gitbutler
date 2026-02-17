@@ -1,10 +1,10 @@
-import path from 'node:path';
+import path from "node:path";
 
 /**
  * Normalize paths across platforms.
  */
 export function normalize(p: string) {
-	return path.normalize(p).replace(/\\/g, '/');
+	return path.normalize(p).replace(/\\/g, "/");
 }
 
 /**
@@ -14,11 +14,11 @@ export function normalize(p: string) {
  * very rare usage, and so I'm not going to handle it.
  */
 function hasWildcard(path: string) {
-	return path.endsWith('*');
+	return path.endsWith("*");
 }
 
 function isHandledGlob(path: string): boolean {
-	const asteriskOccurences = path.split('*').length - 1;
+	const asteriskOccurences = path.split("*").length - 1;
 	// If there is no globbing, we can handle it
 	if (asteriskOccurences === 0) return true;
 	// If there is more than one glob, we can't handle it
@@ -43,7 +43,7 @@ export class PathEntry {
 	constructor(
 		configDirectory: string,
 		private readonly key: string,
-		target: string
+		target: string,
 	) {
 		// The target is defined as being relative to the tsconfig's directory.
 		// When it comes to matching, it's easier to work on the absolute
@@ -62,7 +62,7 @@ export class PathEntry {
 
 			if (importPath.startsWith(deglobbedPath)) {
 				if (hasWildcard(this.key)) {
-					let newPath = importPath.replace(deglobbedPath, '');
+					let newPath = importPath.replace(deglobbedPath, "");
 					newPath = removeGlob(this.key) + newPath;
 					return newPath;
 				} else {

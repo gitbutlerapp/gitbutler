@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { Tooltip } from '@gitbutler/ui';
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { Tooltip } from "@gitbutler/ui";
 
 	interface Props {
 		stackId?: string;
@@ -38,7 +38,7 @@
 	});
 </script>
 
-<Tooltip text={isFolded ? 'Expand stack' : 'Collapse stack'}>
+<Tooltip text={isFolded ? "Expand stack" : "Collapse stack"}>
 	<button
 		class="collapse-button"
 		class:isFolded
@@ -115,7 +115,7 @@
 			transform: translate(-50%, -50%);
 			border-radius: var(--radius-m);
 			background-color: var(--clr-bg-2);
-			content: '';
+			content: "";
 		}
 	}
 

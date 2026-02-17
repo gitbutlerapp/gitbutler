@@ -4,7 +4,7 @@
 	as stories.
 -->
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		delay?: number;

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SeriesIcon from '$components/SeriesIcon.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
+	import SeriesIcon from "$components/SeriesIcon.svelte";
+	import Tooltip from "$components/Tooltip.svelte";
 
 	interface Props {
 		series: string[];
@@ -9,7 +9,7 @@
 		fontSize?: string;
 	}
 
-	const { series, selected, fontSize = '12', origin }: Props = $props();
+	const { series, selected, fontSize = "12", origin }: Props = $props();
 </script>
 
 <div class="series-labels-row">
@@ -33,7 +33,7 @@
 	{/if}
 
 	{#if series.length > 1}
-		<Tooltip text={'→ ' + series.slice(1).join(' → ')}>
+		<Tooltip text={"→ " + series.slice(1).join(" → ")}>
 			<div class="series-name more-series text-{fontSize} text-semibold">
 				<span>{series.length - 1} more</span>
 			</div>

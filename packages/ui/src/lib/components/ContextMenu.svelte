@@ -1,15 +1,15 @@
 <script lang="ts" generics="T = any">
-	import { focusable } from '$lib/focus/focusable';
-	import { menuManager } from '$lib/utils/menuManager';
-	import { portal } from '$lib/utils/portal';
-	import { setContext, onDestroy } from 'svelte';
-	import { type Snippet } from 'svelte';
+	import { focusable } from "$lib/focus/focusable";
+	import { menuManager } from "$lib/utils/menuManager";
+	import { portal } from "$lib/utils/portal";
+	import { setContext, onDestroy } from "svelte";
+	import { type Snippet } from "svelte";
 
 	// Context key for submenu coordination
-	const SUBMENU_CONTEXT_KEY = 'contextmenu-submenu-coordination';
+	const SUBMENU_CONTEXT_KEY = "contextmenu-submenu-coordination";
 
 	// Constants
-	const ANIMATION_SHIFT = '6px';
+	const ANIMATION_SHIFT = "6px";
 
 	interface Props<T = any> {
 		testId?: string;
@@ -23,8 +23,8 @@
 		onclick?: () => void;
 		onkeypress?: () => void;
 		menu?: Snippet<[{ close: () => void }]>;
-		side?: 'top' | 'bottom' | 'left' | 'right';
-		align?: 'start' | 'center' | 'end';
+		side?: "top" | "bottom" | "left" | "right";
+		align?: "start" | "center" | "end";
 	}
 
 	let {
@@ -32,15 +32,15 @@
 		leftClickTrigger,
 		rightClickTrigger,
 		parentMenuId,
-		side = 'bottom',
-		align = 'end',
+		side = "bottom",
+		align = "end",
 		children,
 		onclose,
 		onopen,
 		ontoggle,
 		onclick,
 		onkeypress,
-		menu
+		menu,
 	}: Props<T> = $props();
 
 	let menuContainer: HTMLElement | undefined = $state();
@@ -67,7 +67,7 @@
 		closeEntireMenu: () => {
 			// Close this menu and all its children
 			menuManager.closeMenu(menuId);
-		}
+		},
 	};
 
 	setContext(SUBMENU_CONTEXT_KEY, submenuCoordination);
@@ -81,7 +81,7 @@
 
 	function calculatePosition(
 		target: HTMLElement | MouseEvent,
-		alignOverride?: 'start' | 'center' | 'end'
+		alignOverride?: "start" | "center" | "end",
 	): { x: number; y: number } {
 		const rect =
 			target instanceof HTMLElement
@@ -97,44 +97,44 @@
 		const useAlign = alignOverride ?? align;
 
 		// Position based on side
-		if (side === 'top') {
+		if (side === "top") {
 			y = rect.y - menuHeight;
 			// Adjust horizontal alignment for top/bottom
-			if (useAlign === 'start') {
+			if (useAlign === "start") {
 				x = rect.x;
-			} else if (useAlign === 'center') {
+			} else if (useAlign === "center") {
 				x = rect.x + rect.width / 2 - menuWidth / 2;
-			} else if (useAlign === 'end') {
+			} else if (useAlign === "end") {
 				x = rect.x + rect.width - menuWidth;
 			}
-		} else if (side === 'bottom') {
+		} else if (side === "bottom") {
 			y = rect.y + rect.height;
 			// Adjust horizontal alignment for top/bottom
-			if (useAlign === 'start') {
+			if (useAlign === "start") {
 				x = rect.x;
-			} else if (useAlign === 'center') {
+			} else if (useAlign === "center") {
 				x = rect.x + rect.width / 2 - menuWidth / 2;
-			} else if (useAlign === 'end') {
+			} else if (useAlign === "end") {
 				x = rect.x + rect.width - menuWidth;
 			}
-		} else if (side === 'left') {
+		} else if (side === "left") {
 			x = rect.x - menuWidth;
 			// Adjust vertical alignment for left/right
-			if (useAlign === 'start') {
+			if (useAlign === "start") {
 				y = rect.y;
-			} else if (useAlign === 'center') {
+			} else if (useAlign === "center") {
 				y = rect.y + rect.height / 2 - menuHeight / 2;
-			} else if (useAlign === 'end') {
+			} else if (useAlign === "end") {
 				y = rect.y + rect.height - menuHeight;
 			}
-		} else if (side === 'right') {
+		} else if (side === "right") {
 			x = rect.x + rect.width;
 			// Adjust vertical alignment for left/right
-			if (useAlign === 'start') {
+			if (useAlign === "start") {
 				y = rect.y;
-			} else if (useAlign === 'center') {
+			} else if (useAlign === "center") {
 				y = rect.y + rect.height / 2 - menuHeight / 2;
-			} else if (useAlign === 'end') {
+			} else if (useAlign === "end") {
 				y = rect.y + rect.height - menuHeight;
 			}
 		}
@@ -149,7 +149,7 @@
 		const menuHeight = menuContainer.offsetHeight;
 		const viewport = {
 			width: window.innerWidth,
-			height: window.innerHeight
+			height: window.innerHeight,
 		};
 		const MARGIN = 16; // Minimum margin from viewport edges
 
@@ -187,15 +187,15 @@
 
 		// For right-click: try align 'start', then 'end', then 'center' if needed
 		if (isRightClick && menuContainer) {
-			let pos = calculatePosition(target, 'start');
+			let pos = calculatePosition(target, "start");
 			let constrained = constrainToViewport(pos);
 			if (constrained.x !== pos.x || constrained.y !== pos.y) {
 				// 'start' would go offscreen, try 'end'
-				pos = calculatePosition(target, 'end');
+				pos = calculatePosition(target, "end");
 				constrained = constrainToViewport(pos);
 				if (constrained.x !== pos.x || constrained.y !== pos.y) {
 					// 'end' would go offscreen, try 'center'
-					pos = calculatePosition(target, 'center');
+					pos = calculatePosition(target, "center");
 					constrained = constrainToViewport(pos);
 				}
 			}
@@ -220,13 +220,13 @@
 			const target = isRightClick ? savedMouseEvent : leftClickTrigger;
 			if (target) {
 				if (isRightClick) {
-					let pos = calculatePosition(target, 'start');
+					let pos = calculatePosition(target, "start");
 					let constrained = constrainToViewport(pos);
 					if (constrained.x !== pos.x || constrained.y !== pos.y) {
-						pos = calculatePosition(target, 'end');
+						pos = calculatePosition(target, "end");
 						constrained = constrainToViewport(pos);
 						if (constrained.x !== pos.x || constrained.y !== pos.y) {
-							pos = calculatePosition(target, 'center');
+							pos = calculatePosition(target, "center");
 							constrained = constrainToViewport(pos);
 						}
 					}
@@ -269,7 +269,7 @@
 						savedMouseEvent = undefined;
 						onclose?.();
 						if (ontoggle) executeByTrigger(ontoggle);
-					}
+					},
 				});
 			}
 		}, 0);
@@ -301,26 +301,26 @@
 	function getTransformOrigin(): string {
 		// Calculate origin based on side and alignment
 		const verticalOrigin =
-			side === 'top'
-				? 'bottom'
-				: side === 'bottom'
-					? 'top'
-					: align === 'start'
-						? 'top'
-						: align === 'end'
-							? 'bottom'
-							: 'center';
+			side === "top"
+				? "bottom"
+				: side === "bottom"
+					? "top"
+					: align === "start"
+						? "top"
+						: align === "end"
+							? "bottom"
+							: "center";
 
 		const horizontalOrigin =
-			side === 'left'
-				? 'right'
-				: side === 'right'
-					? 'left'
-					: align === 'start'
-						? 'left'
-						: align === 'end'
-							? 'right'
-							: 'center';
+			side === "left"
+				? "right"
+				: side === "right"
+					? "left"
+					: align === "start"
+						? "left"
+						: align === "end"
+							? "right"
+							: "center";
 
 		return `${verticalOrigin} ${horizontalOrigin}`;
 	}
@@ -330,7 +330,7 @@
 	}
 
 	function handleKeyNavigation(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
+		if (e.key === "Escape") {
 			e.preventDefault();
 			close();
 		}
@@ -342,7 +342,7 @@
 
 		const observer = new MutationObserver((mutationList) => {
 			for (const mutation of mutationList) {
-				if (mutation.type === 'childList') {
+				if (mutation.type === "childList") {
 					// Only reposition if we don't have open submenus
 					// This prevents the menu from jumping when submenus open
 					if (isVisible && savedMouseEvent && !submenuCoordination.hasOpenSubmenus()) {
@@ -358,7 +358,7 @@
 </script>
 
 {#if isVisible}
-	<div class="portal-wrap" use:portal={'body'}>
+	<div class="portal-wrap" use:portal={"body"}>
 		<!-- svelte-ignore a11y_autofocus -->
 		<div
 			data-testid={testId}
@@ -370,18 +370,18 @@
 			{onkeypress}
 			onkeydown={handleKeyNavigation}
 			class="context-menu hide-native-scrollbar"
-			class:top-oriented={side === 'top'}
-			class:bottom-oriented={side === 'bottom'}
-			class:left-oriented={side === 'left'}
-			class:right-oriented={side === 'right'}
+			class:top-oriented={side === "top"}
+			class:bottom-oriented={side === "bottom"}
+			class:left-oriented={side === "left"}
+			class:right-oriented={side === "right"}
 			style:top="{menuPosition.y}px"
 			style:left="{menuPosition.x}px"
 			style:transform-origin={getTransformOrigin()}
-			style:--animation-transform-y-shift={side === 'top'
+			style:--animation-transform-y-shift={side === "top"
 				? ANIMATION_SHIFT
-				: side === 'bottom'
+				: side === "bottom"
 					? `-${ANIMATION_SHIFT}`
-					: '0'}
+					: "0"}
 			role="menu"
 		>
 			{@render children?.(item as T)}

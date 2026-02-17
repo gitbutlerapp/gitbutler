@@ -1,87 +1,87 @@
 <script module lang="ts">
-	import AvatarGroup from '$components/avatar/AvatarGroup.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import AvatarGroup from "$components/avatar/AvatarGroup.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Avatar / AvatarGroup',
+		title: "Avatar / AvatarGroup",
 		component: AvatarGroup,
 		args: {
 			avatars: [
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/76307?s=80&v=4',
-					username: 'Sebastian Markbåge'
+					srcUrl: "https://avatars.githubusercontent.com/u/76307?s=80&v=4",
+					username: "Sebastian Markbåge",
 				},
 				{
-					srcUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c',
-					username: 'Bestest hamster'
+					srcUrl: "https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c",
+					username: "Bestest hamster",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/869934?s=80&v=4',
-					username: 'Benjamin den Boer'
+					srcUrl: "https://avatars.githubusercontent.com/u/869934?s=80&v=4",
+					username: "Benjamin den Boer",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/14818017?s=64&v=4',
-					username: 'Paperstick'
+					srcUrl: "https://avatars.githubusercontent.com/u/14818017?s=64&v=4",
+					username: "Paperstick",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/11708259?s=64&v=4',
-					username: 'Andy Hook'
+					srcUrl: "https://avatars.githubusercontent.com/u/11708259?s=64&v=4",
+					username: "Andy Hook",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/869934?s=80&v=4',
-					username: 'Benjamin den Boer'
+					srcUrl: "https://avatars.githubusercontent.com/u/869934?s=80&v=4",
+					username: "Benjamin den Boer",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/14818017?s=64&v=4',
-					username: 'Paperstick'
+					srcUrl: "https://avatars.githubusercontent.com/u/14818017?s=64&v=4",
+					username: "Paperstick",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/11708259?s=64&v=4',
-					username: 'Andy Hook'
+					srcUrl: "https://avatars.githubusercontent.com/u/11708259?s=64&v=4",
+					username: "Andy Hook",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/869934?s=80&v=4',
-					username: 'Benjamin den Boer'
+					srcUrl: "https://avatars.githubusercontent.com/u/869934?s=80&v=4",
+					username: "Benjamin den Boer",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/14818017?s=64&v=4',
-					username: 'Paperstick'
+					srcUrl: "https://avatars.githubusercontent.com/u/14818017?s=64&v=4",
+					username: "Paperstick",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/11708259?s=64&v=4',
-					username: 'Andy Hook'
+					srcUrl: "https://avatars.githubusercontent.com/u/11708259?s=64&v=4",
+					username: "Andy Hook",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/869934?s=80&v=4',
-					username: 'Benjamin den Boer'
+					srcUrl: "https://avatars.githubusercontent.com/u/869934?s=80&v=4",
+					username: "Benjamin den Boer",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/14818017?s=64&v=4',
-					username: 'Paperstick'
+					srcUrl: "https://avatars.githubusercontent.com/u/14818017?s=64&v=4",
+					username: "Paperstick",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/11708259?s=64&v=4',
-					username: 'Andy Hook'
+					srcUrl: "https://avatars.githubusercontent.com/u/11708259?s=64&v=4",
+					username: "Andy Hook",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/14818017?s=64&v=4',
-					username: 'Paperstick'
+					srcUrl: "https://avatars.githubusercontent.com/u/14818017?s=64&v=4",
+					username: "Paperstick",
 				},
 				{
-					srcUrl: 'https://avatars.githubusercontent.com/u/11708259?s=64&v=4',
-					username: 'Andy Hook'
-				}
+					srcUrl: "https://avatars.githubusercontent.com/u/11708259?s=64&v=4",
+					username: "Andy Hook",
+				},
 			],
-			size: 'medium'
+			size: "medium",
 		},
 		argTypes: {
 			size: {
-				options: ['small', 'medium', 'large'],
+				options: ["small", "medium", "large"],
 				control: {
-					type: 'select'
-				}
-			}
-		}
+					type: "select",
+				},
+			},
+		},
 	});
 </script>
 

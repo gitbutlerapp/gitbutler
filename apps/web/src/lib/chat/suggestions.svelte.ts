@@ -1,12 +1,12 @@
-import { deduplicateBy } from '@gitbutler/shared/utils/array';
-import type MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
-import type { User } from '$lib/user/userService';
-import type { UserSimple } from '@gitbutler/shared/users/types';
-import type { UserService } from '@gitbutler/shared/users/userService';
-import type { MentionSuggestion, MentionSuggestionUpdate } from '@gitbutler/ui';
-import type Mention from '@gitbutler/ui/richText/plugins/Mention.svelte';
+import { deduplicateBy } from "@gitbutler/shared/utils/array";
+import type MentionSuggestions from "$lib/components/chat/MentionSuggestions.svelte";
+import type { User } from "$lib/user/userService";
+import type { UserSimple } from "@gitbutler/shared/users/types";
+import type { UserService } from "@gitbutler/shared/users/userService";
+import type { MentionSuggestion, MentionSuggestionUpdate } from "@gitbutler/ui";
+import type Mention from "@gitbutler/ui/richText/plugins/Mention.svelte";
 
-const RECENTLY_MENTIONED_USERS_KEY = 'chat-recently_mentioned_users';
+const RECENTLY_MENTIONED_USERS_KEY = "chat-recently_mentioned_users";
 
 type MentionSuggestionWithTimestamp = MentionSuggestion & { timestamp: string; count: number };
 
@@ -37,7 +37,7 @@ function addRecentlyMentionedUser(user: MentionSuggestion) {
 	const newUser: MentionSuggestionWithTimestamp = {
 		...user,
 		timestamp: new Date().toISOString(),
-		count: 1
+		count: 1,
 	};
 	storeRecentlyMentionedUsers([newUser, ...stored]);
 }
@@ -57,7 +57,7 @@ export default class SuggestionsHandler {
 		userService: UserService,
 		chatParticipants: UserSimple[] | undefined,
 		patchAuthors: UserSimple[] | undefined,
-		currentUser: User | undefined
+		currentUser: User | undefined,
 	) {
 		this.userService = userService;
 		this.chatParticipants = chatParticipants;
@@ -76,17 +76,17 @@ export default class SuggestionsHandler {
 			query: {
 				filters: [
 					{
-						field: 'login',
-						operator: 'NOT_NULL'
-					}
+						field: "login",
+						operator: "NOT_NULL",
+					},
 				],
 				search_terms: [
 					{
 						value: query,
-						operator: 'STARTS_WITH'
-					}
-				]
-			}
+						operator: "STARTS_WITH",
+					},
+				],
+			},
 		});
 
 		this._isLoading = false;
@@ -107,7 +107,7 @@ export default class SuggestionsHandler {
 		let recentlyMentionedUsers = getRecentlyMentionedUsers() ?? [];
 		recentlyMentionedUsers = recentlyMentionedUsers.filter((item) => item.label.startsWith(query));
 
-		const users = deduplicateBy([...usersSearchResults, ...recentlyMentionedUsers], 'id');
+		const users = deduplicateBy([...usersSearchResults, ...recentlyMentionedUsers], "id");
 
 		return users;
 	}
@@ -116,7 +116,7 @@ export default class SuggestionsHandler {
 		const participants: UserSimple[] = this.chatParticipants ?? [];
 		const authors: UserSimple[] = this.patchAuthors ?? [];
 
-		const allUSers = deduplicateBy([...participants, ...authors], 'id');
+		const allUSers = deduplicateBy([...participants, ...authors], "id");
 
 		const allUserMentions = allUSers
 			.map((participant) => {
@@ -127,7 +127,7 @@ export default class SuggestionsHandler {
 			.filter((item): item is MentionSuggestion => !!item);
 
 		const recentlyMentionedUsers = getRecentlyMentionedUsers() ?? [];
-		return deduplicateBy([...allUserMentions, ...recentlyMentionedUsers], 'id');
+		return deduplicateBy([...allUserMentions, ...recentlyMentionedUsers], "id");
 	}
 
 	async getSuggestionItems(query: string): Promise<MentionSuggestion[]> {
@@ -146,13 +146,13 @@ export default class SuggestionsHandler {
 	}
 
 	onSuggestionKeyDown(event: KeyboardEvent): boolean {
-		if (event.key === 'Escape') {
+		if (event.key === "Escape") {
 			this._suggestions = undefined;
 			this._mentionPlugin?.exitSuggestions();
 			return true;
 		}
 
-		if (event.key === 'Enter') {
+		if (event.key === "Enter") {
 			if (this._mentionSuggestions) {
 				this._mentionSuggestions.onEnter();
 			}
@@ -163,14 +163,14 @@ export default class SuggestionsHandler {
 			return true;
 		}
 
-		if (event.key === 'ArrowUp') {
+		if (event.key === "ArrowUp") {
 			if (this._mentionSuggestions) {
 				this._mentionSuggestions.onArrowUp();
 			}
 			return true;
 		}
 
-		if (event.key === 'ArrowDown') {
+		if (event.key === "ArrowDown") {
 			if (this._mentionSuggestions) {
 				this._mentionSuggestions.onArrowDown();
 			}

@@ -1,5 +1,5 @@
-import { isMobileTouchDevice } from '$lib/utils/browserAgent';
-import { type Row } from '$lib/utils/diffParsing';
+import { isMobileTouchDevice } from "$lib/utils/browserAgent";
+import { type Row } from "$lib/utils/diffParsing";
 
 export interface LineSelectionParams {
 	index: number;
@@ -51,7 +51,7 @@ export default class LineSelection {
 			shift: ev.shiftKey,
 			ctrlOrMeta: ev.ctrlKey || ev.metaKey,
 			startIndex: index,
-			rows: this.rows
+			rows: this.rows,
 		});
 	}
 
@@ -70,7 +70,7 @@ export default class LineSelection {
 				shift: ev.shiftKey,
 				ctrlOrMeta: ev.ctrlKey || ev.metaKey,
 				startIndex: this._selectionStart,
-				rows: this.rows
+				rows: this.rows,
 			});
 		}
 	}
@@ -108,7 +108,7 @@ export default class LineSelection {
 			shift: false,
 			ctrlOrMeta: false,
 			startIndex: index,
-			rows: this.rows
+			rows: this.rows,
 		});
 	}
 
@@ -122,7 +122,7 @@ export default class LineSelection {
 			shift: false,
 			ctrlOrMeta: false,
 			startIndex: this._selectionStart,
-			rows: this.rows
+			rows: this.rows,
 		});
 	}
 }

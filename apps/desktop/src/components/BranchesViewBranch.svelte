@@ -1,15 +1,15 @@
 <script lang="ts">
-	import BranchCard from '$components/BranchCard.svelte';
-	import BranchesViewCommitContextMenu from '$components/BranchesViewCommitContextMenu.svelte';
-	import CherryApplyModal from '$components/CherryApplyModal.svelte';
-	import CommitRow from '$components/CommitRow.svelte';
-	import NestedChangedFiles from '$components/NestedChangedFiles.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { commitCreatedAt, type Commit } from '$lib/branches/v3';
-	import { createCommitSelection } from '$lib/selection/key';
-	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import BranchCard from "$components/BranchCard.svelte";
+	import BranchesViewCommitContextMenu from "$components/BranchesViewCommitContextMenu.svelte";
+	import CherryApplyModal from "$components/CherryApplyModal.svelte";
+	import CommitRow from "$components/CommitRow.svelte";
+	import NestedChangedFiles from "$components/NestedChangedFiles.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { commitCreatedAt, type Commit } from "$lib/branches/v3";
+	import { createCommitSelection } from "$lib/selection/key";
+	import { getColorFromPushStatus, pushStatusToIcon, type BranchDetails } from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		projectId: string;
@@ -36,14 +36,14 @@
 		selectedCommitId,
 		onCommitClick,
 		onFileClick,
-		onerror
+		onerror,
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 	const branchQuery = $derived(
 		stackId
 			? stackService.branchDetails(projectId, stackId, branchName)
-			: stackService.unstackedBranchDetails(projectId, branchName, remote)
+			: stackService.unstackedBranchDetails(projectId, branchName, remote),
 	);
 
 	let cherryApplyModal = $state<CherryApplyModal>();
@@ -69,7 +69,7 @@
 		{@render commitMenu(rightClickTrigger)}
 	{/snippet}
 	{@const commitType: 'LocalOnly' | 'LocalAndRemote' | 'Integrated' = commit.state.type}
-	{@const isDiverged = commit.state.type === 'LocalAndRemote' && commit.id !== commit.state.subject}
+	{@const isDiverged = commit.state.type === "LocalAndRemote" && commit.id !== commit.state.subject}
 	{@const shouldShowMenu = !(inWorkspace || isTarget)}
 	{@const isLastCommit = idx === totalLocal - 1}
 	<CommitRow
@@ -102,7 +102,7 @@
 						draggableFiles
 						selectionId={createCommitSelection({ commitId: commit.id, stackId })}
 						changes={changesResult.changes.filter(
-							(change) => !(change.path in (changesResult.conflictEntries?.entries ?? {}))
+							(change) => !(change.path in (changesResult.conflictEntries?.entries ?? {})),
 						)}
 						stats={changesResult.stats}
 						conflictEntries={changesResult.conflictEntries}

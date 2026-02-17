@@ -11,7 +11,7 @@
 		onchange?: (
 			e: (Event | KeyboardEvent) & {
 				currentTarget: EventTarget & HTMLInputElement;
-			}
+			},
 		) => void;
 	}
 </script>
@@ -25,16 +25,16 @@
 		small = false,
 		disabled = false,
 		checked = $bindable(),
-		value = '',
+		value = "",
 		indeterminate = false,
 		onclick,
-		onchange
+		onchange,
 	}: Props = $props();
 
 	function getCheckmarkColor(): string {
-		if (disabled) return 'var(--clr-text-2)';
-		if (!checked) return 'var(--clr-text-2)';
-		return 'var(--clr-theme-pop-on-element)';
+		if (disabled) return "var(--clr-text-2)";
+		if (!checked) return "var(--clr-text-2)";
+		return "var(--clr-theme-pop-on-element)";
 	}
 
 	const checkmarkColor = $derived(getCheckmarkColor());
@@ -50,7 +50,7 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) {
-		if (e.key === 'Enter') {
+		if (e.key === "Enter") {
 			e.preventDefault();
 			e.stopPropagation();
 			checked = !checked;

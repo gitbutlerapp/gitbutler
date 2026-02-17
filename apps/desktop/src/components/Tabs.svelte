@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
-	import { writable } from 'svelte/store';
-	import type { TabContext } from '$lib/tabs';
-	import type { Snippet } from 'svelte';
+	import { setContext } from "svelte";
+	import { writable } from "svelte/store";
+	import type { TabContext } from "$lib/tabs";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		children: Snippet;
@@ -18,10 +18,10 @@
 		setSelected: (i) => {
 			selectedIndex.set(i);
 			return selectedIndex;
-		}
+		},
 	};
 
-	setContext<TabContext>('tab', context);
+	setContext<TabContext>("tab", context);
 </script>
 
 <section class="tab-wrapper">

@@ -1,4 +1,4 @@
-import type { ReactiveQuery } from '$lib/state/butlerModule';
+import type { ReactiveQuery } from "$lib/state/butlerModule";
 
 export interface RepoDetailedInfo {
 	/**

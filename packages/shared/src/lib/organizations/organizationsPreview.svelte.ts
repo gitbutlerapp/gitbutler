@@ -1,16 +1,16 @@
-import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import { map } from '$lib/network/loadable';
-import { organizationTable } from '$lib/organizations/organizationsSlice';
-import { projectTable } from '$lib/organizations/projectsSlice';
-import type { OrganizationService } from '$lib/organizations/organizationService';
-import type { LoadableOrganization, LoadableProject } from '$lib/organizations/types';
-import type { AppOrganizationsState, AppProjectsState } from '$lib/redux/store.svelte';
-import type { Reactive } from '$lib/storeUtils';
+import { registerInterest, type InView } from "$lib/interest/registerInterestFunction.svelte";
+import { map } from "$lib/network/loadable";
+import { organizationTable } from "$lib/organizations/organizationsSlice";
+import { projectTable } from "$lib/organizations/projectsSlice";
+import type { OrganizationService } from "$lib/organizations/organizationService";
+import type { LoadableOrganization, LoadableProject } from "$lib/organizations/types";
+import type { AppOrganizationsState, AppProjectsState } from "$lib/redux/store.svelte";
+import type { Reactive } from "$lib/storeUtils";
 
 export function getOrganizations(
 	appState: AppOrganizationsState,
 	organizationService: OrganizationService,
-	inView?: InView
+	inView?: InView,
 ): Reactive<LoadableOrganization[]> {
 	registerInterest(organizationService.getOrganizationListingInterest(), inView);
 	const current = $derived(organizationTable.selectors.selectAll(appState.organizations));
@@ -18,7 +18,7 @@ export function getOrganizations(
 	return {
 		get current() {
 			return current;
-		}
+		},
 	};
 }
 
@@ -26,7 +26,7 @@ export function getOrganizationBySlug(
 	appState: AppOrganizationsState,
 	organizationService: OrganizationService,
 	slug: string,
-	inView?: InView
+	inView?: InView,
 ): Reactive<LoadableOrganization | undefined> {
 	registerInterest(organizationService.getOrganizationWithDetailsInterest(slug), inView);
 	const current = $derived(organizationTable.selectors.selectById(appState.organizations, slug));
@@ -34,7 +34,7 @@ export function getOrganizationBySlug(
 	return {
 		get current() {
 			return current;
-		}
+		},
 	};
 }
 
@@ -42,11 +42,11 @@ export function getOrganizationProjects(
 	appState: AppProjectsState & AppOrganizationsState,
 	organizationService: OrganizationService,
 	slug: string,
-	inView?: InView
+	inView?: InView,
 ): Reactive<LoadableProject[] | undefined> {
 	registerInterest(organizationService.getOrganizationWithDetailsInterest(slug), inView);
 	const organization = $derived(
-		organizationTable.selectors.selectById(appState.organizations, slug)
+		organizationTable.selectors.selectById(appState.organizations, slug),
 	);
 	const projects = $derived(
 		map(
@@ -54,13 +54,13 @@ export function getOrganizationProjects(
 			(organization) =>
 				(organization.projectRepositoryIds || [])
 					.map((id) => projectTable.selectors.selectById(appState.projects, id))
-					.filter((a) => a !== undefined) as LoadableProject[]
-		)
+					.filter((a) => a !== undefined) as LoadableProject[],
+		),
 	);
 
 	return {
 		get current() {
 			return projects;
-		}
+		},
 	};
 }

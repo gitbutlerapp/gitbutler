@@ -1,45 +1,45 @@
 <script module lang="ts">
-	import Badge from '$components/Badge.svelte';
-	import iconsJson from '$lib/data/icons.json';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Badge from "$components/Badge.svelte";
+	import iconsJson from "$lib/data/icons.json";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Basic / Badge',
+		title: "Basic / Badge",
 		component: Badge as any,
 		args: {
-			text: 'Badge',
-			style: 'gray',
-			kind: 'solid',
-			size: 'icon',
-			icon: undefined
+			text: "Badge",
+			style: "gray",
+			kind: "solid",
+			size: "icon",
+			icon: undefined,
 		},
 		argTypes: {
 			text: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			style: {
-				options: ['gray', 'pop', 'safe', 'warning', 'danger', 'purple'],
-				control: { type: 'select' }
+				options: ["gray", "pop", "safe", "warning", "danger", "purple"],
+				control: { type: "select" },
 			},
 			kind: {
-				options: ['solid', 'soft'],
-				control: { type: 'select' }
+				options: ["solid", "soft"],
+				control: { type: "select" },
 			},
 			size: {
-				options: ['icon', 'tag'],
-				control: { type: 'select' }
+				options: ["icon", "tag"],
+				control: { type: "select" },
 			},
 			icon: {
 				options: Object.keys(iconsJson),
-				control: { type: 'select' }
+				control: { type: "select" },
 			},
 			reversedDirection: {
-				control: { type: 'boolean' }
+				control: { type: "boolean" },
 			},
 			skeleton: {
-				control: { type: 'boolean' }
-			}
-		}
+				control: { type: "boolean" },
+			},
+		},
 	});
 </script>
 

@@ -7,23 +7,23 @@
 	}
 
 	export function isHunkContextItem(item: unknown): item is HunkContextItem {
-		return typeof item === 'object' && item !== null && 'hunk' in item && isDiffHunk(item.hunk);
+		return typeof item === "object" && item !== null && "hunk" in item && isDiffHunk(item.hunk);
 	}
 </script>
 
 <script lang="ts">
-	import { ircEnabled } from '$lib/config/uiFeatureFlags';
-	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from '$lib/hunks/hunk';
-	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { vscodePath } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
-	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from '@gitbutler/ui';
-	import type { TreeChange } from '$lib/hunks/change';
-	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+	import { ircEnabled } from "$lib/config/uiFeatureFlags";
+	import { isDiffHunk, lineIdsToHunkHeaders, type DiffHunk } from "$lib/hunks/hunk";
+	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { vscodePath } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
+	import { ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
+	import type { TreeChange } from "$lib/hunks/change";
+	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 	interface Props {
 		trigger: HTMLElement | undefined;
@@ -44,7 +44,7 @@
 		selectable,
 		selectAllHunkLines,
 		unselectAllHunkLines,
-		invertHunkSelection
+		invertHunkSelection,
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -66,17 +66,17 @@
 		if (selectedLines !== undefined && selectedLines.length > 0)
 			return `Discard ${selectedLines.length} selected lines`;
 
-		return '';
+		return "";
 	}
 
 	async function discardHunk(item: HunkContextItem) {
 		const previousPathBytes =
-			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
+			change.status.type === "Rename" ? change.status.subject.previousPathBytes : null;
 
 		unselectAllHunkLines(item.hunk);
 
 		const isWholeFileChange =
-			change.status.type === 'Addition' || change.status.type === 'Deletion';
+			change.status.type === "Addition" || change.status.type === "Deletion";
 
 		await stackService.discardChanges({
 			projectId,
@@ -84,16 +84,16 @@
 				{
 					previousPathBytes,
 					pathBytes: change.pathBytes,
-					hunkHeaders: isWholeFileChange ? [] : [item.hunk]
-				}
-			]
+					hunkHeaders: isWholeFileChange ? [] : [item.hunk],
+				},
+			],
 		});
 	}
 
 	async function discardHunkLines(item: HunkContextItem) {
 		if (item.selectedLines === undefined || item.selectedLines.length === 0) return;
 		const previousPathBytes =
-			change.status.type === 'Rename' ? change.status.subject.previousPathBytes : null;
+			change.status.type === "Rename" ? change.status.subject.previousPathBytes : null;
 
 		unselectAllHunkLines(item.hunk);
 
@@ -103,9 +103,9 @@
 				{
 					previousPathBytes,
 					pathBytes: change.pathBytes,
-					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff, 'discard')
-				}
-			]
+					hunkHeaders: lineIdsToHunkHeaders(item.selectedLines, item.hunk.diff, "discard"),
+				},
+			],
 		});
 	}
 
@@ -138,7 +138,7 @@
 							contextMenu?.close();
 						}}
 					/>
-					{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && change.status.type !== 'Addition' && change.status.type !== 'Deletion'}
+					{#if item.selectedLines !== undefined && item.selectedLines.length > 0 && change.status.type !== "Addition" && change.status.type !== "Deletion"}
 						<ContextMenuItem
 							testId={TestId.HunkContextMenu_DiscardLines}
 							label={getDiscardLineLabel(item)}
@@ -165,7 +165,7 @@
 							const path = getEditorUri({
 								schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 								path: [vscodePath(project.path), filePath],
-								line: lineNumber
+								line: lineNumber,
 							});
 							urlService.openExternalUrl(path);
 						}

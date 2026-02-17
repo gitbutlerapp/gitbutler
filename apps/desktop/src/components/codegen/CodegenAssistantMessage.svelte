@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Markdown } from '@gitbutler/ui';
+	import { Markdown } from "@gitbutler/ui";
 
 	interface Props {
 		content?: string;

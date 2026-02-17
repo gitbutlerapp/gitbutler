@@ -1,4 +1,4 @@
-import type { UserSimple } from '@gitbutler/shared/users/types';
+import type { UserSimple } from "@gitbutler/shared/users/types";
 
 export interface MentionMatch {
 	user: UserSimple;
@@ -7,16 +7,16 @@ export interface MentionMatch {
 }
 
 export function isMentionMatch(value: any): value is MentionMatch {
-	return typeof value === 'object' && value !== null && 'id' in value;
+	return typeof value === "object" && value !== null && "id" in value;
 }
 
 export interface TextWord {
-	type: 'text';
+	type: "text";
 	value: string;
 }
 
 export interface MentionWord {
-	type: 'mention';
+	type: "mention";
 	mention: MentionMatch;
 }
 
@@ -24,7 +24,7 @@ export type Word = TextWord | MentionWord;
 
 function getChateMessageMentionMatch(
 	word: string,
-	userMap: Map<number, UserSimple>
+	userMap: Map<number, UserSimple>,
 ): MentionMatch | undefined {
 	if (!word) {
 		return undefined;
@@ -44,7 +44,7 @@ function getChateMessageMentionMatch(
 		return {
 			user,
 			prefix,
-			suffix
+			suffix,
 		};
 	}
 	return undefined;
@@ -52,16 +52,16 @@ function getChateMessageMentionMatch(
 
 export function getChatMessageWords(text: string, userMap: Map<number, UserSimple>): Word[] {
 	const words: Word[] = [];
-	const listedText = text.split(' ');
+	const listedText = text.split(" ");
 	for (const word of listedText) {
 		const mention = getChateMessageMentionMatch(word, userMap);
 
 		if (mention) {
-			words.push({ type: 'mention', mention });
+			words.push({ type: "mention", mention });
 			continue;
 		}
 
-		words.push({ type: 'text', value: word });
+		words.push({ type: "text", value: word });
 	}
 	return words;
 }

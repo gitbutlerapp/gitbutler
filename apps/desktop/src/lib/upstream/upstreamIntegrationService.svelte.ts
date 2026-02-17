@@ -1,19 +1,19 @@
-import { invalidatesList, providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/core/context';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { StackService } from '$lib/stacks/stackService.svelte';
-import type { ClientState } from '$lib/state/clientState.svelte';
+import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
+import { InjectionToken } from "@gitbutler/core/context";
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { ClientState } from "$lib/state/clientState.svelte";
 import type {
 	BaseBranchResolution,
 	BaseBranchResolutionApproach,
 	BranchStatusesResponse,
 	IntegrationOutcome,
 	Resolution,
-	StackStatusesWithBranchesV3
-} from '$lib/upstream/types';
+	StackStatusesWithBranchesV3,
+} from "$lib/upstream/types";
 
 export const UPSTREAM_INTEGRATION_SERVICE = new InjectionToken<UpstreamIntegrationService>(
-	'UpstreamIntegrationService'
+	"UpstreamIntegrationService",
 );
 
 export class UpstreamIntegrationService {
@@ -21,25 +21,25 @@ export class UpstreamIntegrationService {
 
 	constructor(
 		state: ClientState,
-		private stackService: StackService
+		private stackService: StackService,
 	) {
 		this.api = injectEndpoints(state.backendApi);
 	}
 
 	async upstreamStatuses(
 		projectId: string,
-		targetCommitOid: string | undefined
+		targetCommitOid: string | undefined,
 	): Promise<StackStatusesWithBranchesV3 | undefined> {
 		const stacks = await this.stackService.fetchStacks(projectId);
 		const branchStatuses = await this.api.endpoints.upstreamIntegrationStatuses.fetch({
 			projectId,
-			targetCommitOid
+			targetCommitOid,
 		});
 
-		if (branchStatuses.type === 'upToDate') return branchStatuses;
+		if (branchStatuses.type === "upToDate") return branchStatuses;
 
 		const stackStatusesWithBranches: StackStatusesWithBranchesV3 = {
-			type: 'updatesRequired',
+			type: "updatesRequired",
 			worktreeConflicts: branchStatuses.subject.worktreeConflicts,
 			subject: branchStatuses.subject.statuses
 				.map((status) => {
@@ -48,10 +48,10 @@ export class UpstreamIntegrationService {
 					if (!stack) return;
 					return {
 						stack,
-						status: status[1]
+						status: status[1],
 					};
 				})
-				.filter(isDefined)
+				.filter(isDefined),
 		};
 
 		return stackStatusesWithBranches;
@@ -70,16 +70,16 @@ export class UpstreamIntegrationService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
+function injectEndpoints(api: ClientState["backendApi"]) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			upstreamIntegrationStatuses: build.query<
 				BranchStatusesResponse,
 				{ projectId: string; targetCommitOid?: string }
 			>({
-				extraOptions: { command: 'upstream_integration_statuses' },
+				extraOptions: { command: "upstream_integration_statuses" },
 				query: (args) => args,
-				providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)]
+				providesTags: [providesList(ReduxTag.UpstreamIntegrationStatus)],
 			}),
 			integrateUpstream: build.mutation<
 				IntegrationOutcome,
@@ -90,15 +90,15 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				}
 			>({
 				extraOptions: {
-					command: 'integrate_upstream',
-					actionName: 'Integrate Upstream'
+					command: "integrate_upstream",
+					actionName: "Integrate Upstream",
 				},
 				query: (args) => args,
 				invalidatesTags: [
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
 					invalidatesList(ReduxTag.HeadSha),
-					invalidatesList(ReduxTag.BranchListing)
-				]
+					invalidatesList(ReduxTag.BranchListing),
+				],
 			}),
 			resolveUpstreamIntegration: build.mutation<
 				string,
@@ -106,11 +106,11 @@ function injectEndpoints(api: ClientState['backendApi']) {
 			>({
 				extraOptions: {
 					command: `resolve_upstream_integration`,
-					actionName: 'Resolve Integrate Upstream'
+					actionName: "Resolve Integrate Upstream",
 				},
 				query: (args) => args,
-				invalidatesTags: [invalidatesList(ReduxTag.UpstreamIntegrationStatus)]
-			})
-		})
+				invalidatesTags: [invalidatesList(ReduxTag.UpstreamIntegrationStatus)],
+			}),
+		}),
 	});
 }

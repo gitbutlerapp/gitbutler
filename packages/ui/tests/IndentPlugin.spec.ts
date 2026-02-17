@@ -1,175 +1,175 @@
-import IndentPluginTestWrapper from './IndentPluginTestWrapper.svelte';
-import { getTextContent, waitForTextContent, doAndWaitForIdle, waitUntilIdle } from './test-utils';
-import { test, expect } from '@playwright/experimental-ct-svelte';
+import IndentPluginTestWrapper from "./IndentPluginTestWrapper.svelte";
+import { getTextContent, waitForTextContent, doAndWaitForIdle, waitUntilIdle } from "./test-utils";
+import { test, expect } from "@playwright/experimental-ct-svelte";
 
-test.describe('IndentPlugin', () => {
-	test('should preserve indentation when pressing Enter', async ({ mount, page }) => {
+test.describe("IndentPlugin", () => {
+	test("should preserve indentation when pressing Enter", async ({ mount, page }) => {
 		const component = await mount(IndentPluginTestWrapper, {
 			props: {
-				initialText: 'Start text'
-			}
+				initialText: "Start text",
+			},
 		});
 
 		// Wait for editor to fully initialize with content
-		await waitForTextContent(component, 'Start');
+		await waitForTextContent(component, "Start");
 
 		// Wait for browser to be idle before starting interactions
 		await waitUntilIdle(page);
 
 		// Focus editor
-		await component.getByTestId('focus-button').click();
+		await component.getByTestId("focus-button").click();
 
 		// Clear and type indented content with idle detection
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.press('Meta+A');
-			await page.keyboard.press('Backspace');
+			await page.keyboard.press("Meta+A");
+			await page.keyboard.press("Backspace");
 		});
 
 		// Type indented line
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('    Indented line');
+			await page.keyboard.type("    Indented line");
 		});
 
 		// Press Enter - should preserve indentation
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.press('Enter');
+			await page.keyboard.press("Enter");
 		});
 
 		// Type new text on the new line
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('New line');
+			await page.keyboard.type("New line");
 		});
 
 		const textAfter = await getTextContent(component);
 
 		// Verify indentation is preserved on new line
-		expect(textAfter).toContain('Indented line');
-		expect(textAfter).toContain('New line');
+		expect(textAfter).toContain("Indented line");
+		expect(textAfter).toContain("New line");
 
-		const lines = textAfter.split('\n');
+		const lines = textAfter.split("\n");
 		expect(lines.length).toBeGreaterThanOrEqual(2);
 	});
 
-	test('should increment numbered bullets when pressing Enter', async ({ mount, page }) => {
+	test("should increment numbered bullets when pressing Enter", async ({ mount, page }) => {
 		const component = await mount(IndentPluginTestWrapper, {
 			props: {
-				initialText: ''
-			}
+				initialText: "",
+			},
 		});
 
 		// Wait for initial idle state
 		await waitUntilIdle(page);
 
 		// Focus editor
-		await component.getByTestId('focus-button').click();
+		await component.getByTestId("focus-button").click();
 
 		// Type numbered bullet with idle detection
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('1. First item');
+			await page.keyboard.type("1. First item");
 		});
 
 		// Press Enter - should create "2. "
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.press('Enter');
+			await page.keyboard.press("Enter");
 		});
 
 		// Type second item
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('Second item');
+			await page.keyboard.type("Second item");
 		});
 
 		const textAfter = await getTextContent(component);
 
 		// Verify bullet was incremented
-		expect(textAfter).toContain('1. First item');
-		expect(textAfter).toContain('2. Second item');
+		expect(textAfter).toContain("1. First item");
+		expect(textAfter).toContain("2. Second item");
 	});
 
-	test('should remove empty bullet when pressing Enter', async ({ mount, page }) => {
+	test("should remove empty bullet when pressing Enter", async ({ mount, page }) => {
 		const component = await mount(IndentPluginTestWrapper, {
 			props: {
-				initialText: ''
-			}
+				initialText: "",
+			},
 		});
 
 		// Wait for initial idle state
 		await waitUntilIdle(page);
 
 		// Focus editor
-		await component.getByTestId('focus-button').click();
+		await component.getByTestId("focus-button").click();
 
 		// Type bullet with idle detection
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('- ');
+			await page.keyboard.type("- ");
 		});
 
 		// Press Enter on empty bullet - should remove it
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.press('Enter');
+			await page.keyboard.press("Enter");
 		});
 
 		// Type new text
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('Normal text');
+			await page.keyboard.type("Normal text");
 		});
 
 		const textAfter = await getTextContent(component);
 
 		// Verify bullet was removed
-		expect(textAfter).not.toContain('- -');
-		expect(textAfter).toContain('Normal text');
+		expect(textAfter).not.toContain("- -");
+		expect(textAfter).toContain("Normal text");
 	});
 
-	test('should insert newline with indentation but no bullet when pressing Shift+Enter', async ({
+	test("should insert newline with indentation but no bullet when pressing Shift+Enter", async ({
 		mount,
-		page
+		page,
 	}) => {
 		const component = await mount(IndentPluginTestWrapper, {
 			props: {
-				initialText: ''
-			}
+				initialText: "",
+			},
 		});
 
 		// Wait for initial idle state
 		await waitUntilIdle(page);
 
 		// Focus editor
-		await component.getByTestId('focus-button').click();
+		await component.getByTestId("focus-button").click();
 
 		// Type bullet with idle detection
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('- First item');
+			await page.keyboard.type("- First item");
 		});
 
 		// Press Shift+Enter - should create a new line with indentation but no bullet
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.press('Shift+Enter');
+			await page.keyboard.press("Shift+Enter");
 		});
 
 		// Type continuation text
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.type('Continuation line');
+			await page.keyboard.type("Continuation line");
 		});
 
 		const textAfter = await getTextContent(component);
 
 		// Verify we have the bullet line and continuation line with indentation
-		expect(textAfter).toContain('- First item');
-		expect(textAfter).toContain('Continuation line');
+		expect(textAfter).toContain("- First item");
+		expect(textAfter).toContain("Continuation line");
 
 		// The continuation line should not have a bullet
-		expect(textAfter).not.toContain('- Continuation line');
+		expect(textAfter).not.toContain("- Continuation line");
 
-		const lines = textAfter.split('\n');
+		const lines = textAfter.split("\n");
 		expect(lines.length).toBe(2);
-		expect(lines[0]).toBe('- First item');
+		expect(lines[0]).toBe("- First item");
 		// The second line should have indentation (spaces) but no bullet
 		expect(lines[1]).toMatch(/^\s+Continuation line$/);
 	});
 
-	test('should load and save text with indentation and bullets without changes', async ({
+	test("should load and save text with indentation and bullets without changes", async ({
 		mount,
-		page
+		page,
 	}) => {
 		const initialText = `Normal paragraph
 
@@ -192,12 +192,12 @@ Final normal paragraph`;
 
 		const component = await mount(IndentPluginTestWrapper, {
 			props: {
-				initialText
-			}
+				initialText,
+			},
 		});
 
 		// Wait for content to load
-		await waitForTextContent(component, 'Normal paragraph');
+		await waitForTextContent(component, "Normal paragraph");
 
 		// Wait for browser to be idle after initial load
 		await waitUntilIdle(page);
@@ -209,11 +209,11 @@ Final normal paragraph`;
 		expect(loadedText).toBe(initialText);
 
 		// Focus editor to ensure it's active
-		await component.getByTestId('focus-button').click();
+		await component.getByTestId("focus-button").click();
 
 		// Blur the editor to trigger any save operations with idle detection
 		await doAndWaitForIdle(page, async () => {
-			await page.keyboard.press('Escape');
+			await page.keyboard.press("Escape");
 		});
 
 		// Get the text content after blur
@@ -223,11 +223,11 @@ Final normal paragraph`;
 		expect(savedText).toBe(initialText);
 
 		// Also verify specific formatting is preserved
-		expect(savedText).toContain('    Indented paragraph');
-		expect(savedText).toContain('- Bullet point one');
-		expect(savedText).toContain('  - Nested bullet');
-		expect(savedText).toContain('1. Numbered item one');
-		expect(savedText).toContain('2. Numbered item two');
-		expect(savedText).toContain('    - Bullet in indented block');
+		expect(savedText).toContain("    Indented paragraph");
+		expect(savedText).toContain("- Bullet point one");
+		expect(savedText).toContain("  - Nested bullet");
+		expect(savedText).toContain("1. Numbered item one");
+		expect(savedText).toContain("2. Numbered item two");
+		expect(savedText).toContain("    - Bullet in indented block");
 	});
 });

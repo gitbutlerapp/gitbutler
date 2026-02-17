@@ -1,7 +1,7 @@
 <script lang="ts">
-	import BranchesCardTemplate from '$components/branchesPage/BranchesCardTemplate.svelte';
-	import { Avatar, SeriesLabelsRow, TestId } from '@gitbutler/ui';
-	import type { Author } from '$lib/commits/commit';
+	import BranchesCardTemplate from "$components/branchesPage/BranchesCardTemplate.svelte";
+	import { Avatar, SeriesLabelsRow, TestId } from "@gitbutler/ui";
+	import type { Author } from "$lib/commits/commit";
 	interface Props {
 		originName: string;
 		commitsAmount?: number;
@@ -12,11 +12,11 @@
 
 	const { originName, commitsAmount: commitCount, lastCommit, selected, onclick }: Props = $props();
 
-	const authorName = $derived(lastCommit?.author.name ?? lastCommit?.author.email ?? 'Unknown');
-	const authorAvatar = $derived(lastCommit?.author.gravatarUrl ?? '');
+	const authorName = $derived(lastCommit?.author.name ?? lastCommit?.author.email ?? "Unknown");
+	const authorAvatar = $derived(lastCommit?.author.gravatarUrl ?? "");
 
 	const fromOtherBranch = $derived(
-		lastCommit && originName.endsWith(lastCommit.branch) ? '' : `from ${lastCommit?.branch}`
+		lastCommit && originName.endsWith(lastCommit.branch) ? "" : `from ${lastCommit?.branch}`,
 	);
 </script>
 

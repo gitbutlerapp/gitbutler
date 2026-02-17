@@ -1,13 +1,13 @@
 <script lang="ts">
-	import MergeButton from '$components/MergeButton.svelte';
-	import PullRequestCard from '$components/PullRequestCard.svelte';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { AsyncButton, TestId } from '@gitbutler/ui';
+	import MergeButton from "$components/MergeButton.svelte";
+	import PullRequestCard from "$components/PullRequestCard.svelte";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { AsyncButton, TestId } from "@gitbutler/ui";
 
-	import type { MergeMethod } from '$lib/forge/interface/types';
+	import type { MergeMethod } from "$lib/forge/interface/types";
 
 	interface Props {
 		projectId: string;
@@ -31,7 +31,7 @@
 	const branch = $derived(branchQuery.response);
 	const branchDetailsQuery = $derived(stackService.branchDetails(projectId, stackId, branchName));
 	const branchDetails = $derived(branchDetailsQuery.response);
-	const isPushed = $derived(branchDetails?.pushStatus !== 'completelyUnpushed');
+	const isPushed = $derived(branchDetails?.pushStatus !== "completelyUnpushed");
 	const prQuery = $derived(branch?.prNumber ? prService?.get(branch?.prNumber) : undefined);
 	const pr = $derived(prQuery?.response);
 
@@ -39,10 +39,10 @@
 	const parent = $derived(parentQuery.response);
 	const hasParent = $derived(!!parent);
 	const parentBranchDetailsQuery = $derived(
-		parent ? stackService.branchDetails(projectId, stackId, parent.name) : undefined
+		parent ? stackService.branchDetails(projectId, stackId, parent.name) : undefined,
 	);
 	const parentBranchDetails = $derived(parentBranchDetailsQuery?.response);
-	const parentIsPushed = $derived(parentBranchDetails?.pushStatus !== 'completelyUnpushed');
+	const parentIsPushed = $derived(parentBranchDetails?.pushStatus !== "completelyUnpushed");
 	const childQuery = $derived(stackService.branchChildByName(projectId, stackId, branchName));
 	const child = $derived(childQuery.response);
 
@@ -54,10 +54,10 @@
 	const repoInfo = $derived(repoQuery?.response);
 
 	let shouldUpdateTargetBaseBranch = $derived(
-		repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber
+		repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber,
 	);
 	const baseIsTargetBranch = $derived.by(() => {
-		if (forge.current.name === 'gitlab') return true;
+		if (forge.current.name === "gitlab") return true;
 		return pr
 			? baseBranch?.shortName === pr.baseBranch && baseBranchRepo?.hash === pr.baseRepo?.hash
 			: false;
@@ -77,13 +77,13 @@
 		// In a stack, after merging, update the new bottom PR target
 		// base branch to master if necessary
 		if (baseBranch && shouldUpdateTargetBaseBranch && prService && child?.prNumber) {
-			const targetBase = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, '');
+			const targetBase = baseBranch.branchName.replace(`${baseBranch.remoteName}/`, "");
 			await prService.update(child.prNumber, { targetBase });
 		}
 
 		await Promise.all([
 			baseBranchService.fetchFromRemotes(projectId),
-			baseBranchService.refreshBaseBranch(projectId)
+			baseBranchService.refreshBaseBranch(projectId),
 		]);
 	}
 </script>
@@ -99,7 +99,7 @@
 	poll
 >
 	{#snippet button({ pr, mergeStatus, reopenStatus })}
-		{#if pr.state === 'open'}
+		{#if pr.state === "open"}
 			<MergeButton
 				wide
 				{projectId}

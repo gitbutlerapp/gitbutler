@@ -1,11 +1,11 @@
-import { AIService } from '$lib/ai/service';
+import { AIService } from "$lib/ai/service";
 
-import { GhostTextPlugin } from '@gitbutler/ui';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import type { FileChange } from '$lib/ai/types';
-import type { ChangeDiff } from '$lib/hunks/diffService.svelte';
-import type { UiState } from '$lib/state/uiState.svelte';
-import type { WritableReactive } from '@gitbutler/shared/storeUtils';
+import { GhostTextPlugin } from "@gitbutler/ui";
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import type { FileChange } from "$lib/ai/types";
+import type { ChangeDiff } from "$lib/hunks/diffService.svelte";
+import type { UiState } from "$lib/state/uiState.svelte";
+import type { WritableReactive } from "@gitbutler/shared/storeUtils";
 
 export default class CommitSuggestions {
 	private _ghostTextComponent = $state<ReturnType<typeof GhostTextPlugin> | undefined>();
@@ -19,7 +19,7 @@ export default class CommitSuggestions {
 
 	constructor(
 		private readonly aiService: AIService,
-		uiState: UiState
+		uiState: UiState,
 	) {
 		this._suggestOnType = uiState.global.aiSuggestionsOnType;
 	}
@@ -31,17 +31,17 @@ export default class CommitSuggestions {
 	setStagedChanges(changes: ChangeDiff[]) {
 		this.stagedChanges = changes
 			.map((change) => {
-				if (change.diff?.type !== 'Patch') return;
+				if (change.diff?.type !== "Patch") return;
 				return {
 					path: change.path,
-					diffs: change.diff.subject.hunks.map((hunk) => hunk.diff)
+					diffs: change.diff.subject.hunks.map((hunk) => hunk.diff),
 				};
 			})
 			.filter(isDefined);
 	}
 
 	private async suggest(force?: boolean) {
-		const text = this.textUpToAnchor ?? '';
+		const text = this.textUpToAnchor ?? "";
 		if (!this.canUseAI) return;
 		if (!this.stagedChanges || this.stagedChanges.length === 0) return;
 		if (this.lasSelectedGhostText && text.endsWith(this.lasSelectedGhostText)) return;
@@ -54,8 +54,8 @@ export default class CommitSuggestions {
 		this.lastSentMessage = text;
 		const autoCompletion = await this.aiService.autoCompleteCommitMessage({
 			currentValue: text,
-			suffix: this.textAfterAnchor ?? '',
-			stagedChanges: this.stagedChanges
+			suffix: this.textAfterAnchor ?? "",
+			stagedChanges: this.stagedChanges,
 		});
 
 		if (autoCompletion) {
@@ -65,7 +65,7 @@ export default class CommitSuggestions {
 
 	private canSuggestOnType(text: string): boolean {
 		// Only suggest on type enabled and not on new line.
-		return this._suggestOnType.current && ['\n', '\r', '.'].every((char) => !text.endsWith(char));
+		return this._suggestOnType.current && ["\n", "\r", "."].every((char) => !text.endsWith(char));
 	}
 
 	async onChange(textUpToAnchor: string | undefined, textAfterAnchor: string | undefined) {
@@ -81,7 +81,7 @@ export default class CommitSuggestions {
 	onKeyDown(event: KeyboardEvent | null): boolean {
 		if (this._suggestOnType.current) return false;
 		if (!event) return false;
-		if (event.key === 'g' && (event.ctrlKey || event.metaKey)) {
+		if (event.key === "g" && (event.ctrlKey || event.metaKey)) {
 			this.suggest(true);
 			return true;
 		}

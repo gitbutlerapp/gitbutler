@@ -1,31 +1,31 @@
 <script module lang="ts">
-	import TagInput from '$components/TagInput.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { Tag } from '$components/TagInput.svelte';
+	import TagInput from "$components/TagInput.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
+	import type { Tag } from "$components/TagInput.svelte";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / TagInput',
+		title: "Inputs / TagInput",
 		component: TagInput,
 		args: {
-			placeholder: 'Add tags…',
+			placeholder: "Add tags…",
 			disabled: false,
 			readonly: false,
 			autofocus: false,
 			wide: false,
-			label: '',
-			helperText: 'Press comma or space to add a tag',
-			error: '',
+			label: "",
+			helperText: "Press comma or space to add a tag",
+			error: "",
 			maxTags: undefined,
-			width: undefined
+			width: undefined,
 		},
 		argTypes: {
 			maxTags: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			width: {
-				control: { type: 'number' }
-			}
-		}
+				control: { type: "number" },
+			},
+		},
 	});
 </script>
 

@@ -1,47 +1,47 @@
-import { cpp } from '@codemirror/lang-cpp';
-import { css } from '@codemirror/lang-css';
-import { go } from '@codemirror/lang-go';
-import { html } from '@codemirror/lang-html';
-import { java } from '@codemirror/lang-java';
-import { javascript } from '@codemirror/lang-javascript';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
-import { php } from '@codemirror/lang-php';
-import { python } from '@codemirror/lang-python';
+import { cpp } from "@codemirror/lang-cpp";
+import { css } from "@codemirror/lang-css";
+import { go } from "@codemirror/lang-go";
+import { html } from "@codemirror/lang-html";
+import { java } from "@codemirror/lang-java";
+import { javascript } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
+import { markdown } from "@codemirror/lang-markdown";
+import { php } from "@codemirror/lang-php";
+import { python } from "@codemirror/lang-python";
 // import { svelte } from '@replit/codemirror-lang-svelte';
-import { rust } from '@codemirror/lang-rust';
-import { vue } from '@codemirror/lang-vue';
-import { wast } from '@codemirror/lang-wast';
-import { xml } from '@codemirror/lang-xml';
-import { yaml } from '@codemirror/lang-yaml';
-import { HighlightStyle, StreamLanguage } from '@codemirror/language';
-import { kotlin } from '@codemirror/legacy-modes/mode/clike';
-import { commonLisp } from '@codemirror/legacy-modes/mode/commonlisp';
-import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
-import { jinja2 } from '@codemirror/legacy-modes/mode/jinja2';
-import { lua } from '@codemirror/legacy-modes/mode/lua';
-import { powerShell } from '@codemirror/legacy-modes/mode/powershell';
-import { protobuf } from '@codemirror/legacy-modes/mode/protobuf';
-import { ruby } from '@codemirror/legacy-modes/mode/ruby';
-import { shell } from '@codemirror/legacy-modes/mode/shell';
-import { swift } from '@codemirror/legacy-modes/mode/swift';
-import { toml } from '@codemirror/legacy-modes/mode/toml';
-import { NodeType, Tree, Parser } from '@lezer/common';
-import { tags, highlightTree } from '@lezer/highlight';
-import { nix } from '@replit/codemirror-lang-nix';
-import { elixir } from 'codemirror-lang-elixir';
-import { hcl } from 'codemirror-lang-hcl';
-import diff_match_patch from 'diff-match-patch';
-import type { BrandedId } from '$lib/utils/branding';
+import { rust } from "@codemirror/lang-rust";
+import { vue } from "@codemirror/lang-vue";
+import { wast } from "@codemirror/lang-wast";
+import { xml } from "@codemirror/lang-xml";
+import { yaml } from "@codemirror/lang-yaml";
+import { HighlightStyle, StreamLanguage } from "@codemirror/language";
+import { kotlin } from "@codemirror/legacy-modes/mode/clike";
+import { commonLisp } from "@codemirror/legacy-modes/mode/commonlisp";
+import { dockerFile } from "@codemirror/legacy-modes/mode/dockerfile";
+import { jinja2 } from "@codemirror/legacy-modes/mode/jinja2";
+import { lua } from "@codemirror/legacy-modes/mode/lua";
+import { powerShell } from "@codemirror/legacy-modes/mode/powershell";
+import { protobuf } from "@codemirror/legacy-modes/mode/protobuf";
+import { ruby } from "@codemirror/legacy-modes/mode/ruby";
+import { shell } from "@codemirror/legacy-modes/mode/shell";
+import { swift } from "@codemirror/legacy-modes/mode/swift";
+import { toml } from "@codemirror/legacy-modes/mode/toml";
+import { NodeType, Tree, Parser } from "@lezer/common";
+import { tags, highlightTree } from "@lezer/highlight";
+import { nix } from "@replit/codemirror-lang-nix";
+import { elixir } from "codemirror-lang-elixir";
+import { hcl } from "codemirror-lang-hcl";
+import diff_match_patch from "diff-match-patch";
+import type { BrandedId } from "$lib/utils/branding";
 
 export function parseHunk(hunkStr: string): Hunk {
-	const lines = hunkStr.split('\n');
+	const lines = hunkStr.split("\n");
 	const headerLine = lines[0];
 	const bodyLines = lines.slice(1);
 
 	const hunk: Hunk = {
 		...parseHeader(headerLine),
-		contentSections: []
+		contentSections: [],
 	};
 
 	let lastBefore = hunk.oldStart;
@@ -75,7 +75,7 @@ export function parseHunk(hunkStr: string): Hunk {
 			lastSection.lines.push({
 				afterLineNumber: lastAfter,
 				beforeLineNumber: lastBefore,
-				content: line.slice(1)
+				content: line.slice(1),
 			});
 			lastAfter += 1;
 			lastBefore += 1;
@@ -87,11 +87,11 @@ export function parseHunk(hunkStr: string): Hunk {
 
 export type DependencyLockTarget =
 	| {
-			type: 'stack';
+			type: "stack";
 			subject: string;
 	  }
 	| {
-			type: 'unidentified';
+			type: "unidentified";
 	  };
 
 export type DependencyLock = {
@@ -132,14 +132,14 @@ export type Row = BaseRow & {
 function getLocks(
 	beforeLineNumber: number | undefined,
 	afterLineNumber: number | undefined,
-	lineLocks: LineLock[] | undefined
+	lineLocks: LineLock[] | undefined,
 ): DependencyLock[] | undefined {
 	if (!lineLocks) {
 		return undefined;
 	}
 
 	const lineLock = lineLocks.find(
-		(lineLock) => lineLock.oldLine === beforeLineNumber && lineLock.newLine === afterLineNumber
+		(lineLock) => lineLock.oldLine === beforeLineNumber && lineLock.newLine === afterLineNumber,
 	);
 
 	return lineLock?.locks;
@@ -149,18 +149,18 @@ enum Operation {
 	Equal = 0,
 	Insert = 1,
 	Delete = -1,
-	Edit = 2
+	Edit = 2,
 }
 
 export enum SectionType {
 	AddedLines,
 	RemovedLines,
-	Context
+	Context,
 }
 
 export enum CountColumnSide {
 	Before,
-	After
+	After,
 }
 
 export type Line = {
@@ -196,21 +196,21 @@ function parseHeader(header: string): {
 } {
 	const result = headerRegex.exec(header);
 	if (!result?.groups) {
-		throw new Error('Failed to parse diff header');
+		throw new Error("Failed to parse diff header");
 	}
 	return {
-		oldStart: parseInt(result.groups['beforeStart']),
-		oldLines: parseInt(result.groups['beforeCount'] ?? '1'),
-		newStart: parseInt(result.groups['afterStart']),
-		newLines: parseInt(result.groups['afterCount'] ?? '1'),
-		comment: result.groups['comment']
+		oldStart: parseInt(result.groups["beforeStart"]),
+		oldLines: parseInt(result.groups["beforeCount"] ?? "1"),
+		newStart: parseInt(result.groups["afterStart"]),
+		newLines: parseInt(result.groups["afterCount"] ?? "1"),
+		comment: result.groups["comment"],
 	};
 }
 
 function lineType(line: string): SectionType {
-	if (line.startsWith('+')) {
+	if (line.startsWith("+")) {
 		return SectionType.AddedLines;
-	} else if (line.startsWith('-')) {
+	} else if (line.startsWith("-")) {
 		return SectionType.RemovedLines;
 	} else {
 		return SectionType.Context;
@@ -220,34 +220,34 @@ function lineType(line: string): SectionType {
 const t = tags;
 
 const highlightStyle: HighlightStyle = HighlightStyle.define([
-	{ tag: t.variableName, class: 'token-variable' },
-	{ tag: t.definition(t.variableName), class: 'token-definition' },
-	{ tag: t.propertyName, class: 'token-property' },
-	{ tag: [t.typeName, t.className, t.namespace, t.macroName], class: 'token-type' },
-	{ tag: [t.special(t.name), t.constant(t.className)], class: 'token-variable-special' },
-	{ tag: t.standard(t.variableName), class: 'token-builtin' },
+	{ tag: t.variableName, class: "token-variable" },
+	{ tag: t.definition(t.variableName), class: "token-definition" },
+	{ tag: t.propertyName, class: "token-property" },
+	{ tag: [t.typeName, t.className, t.namespace, t.macroName], class: "token-type" },
+	{ tag: [t.special(t.name), t.constant(t.className)], class: "token-variable-special" },
+	{ tag: t.standard(t.variableName), class: "token-builtin" },
 
-	{ tag: [t.number, t.literal, t.unit], class: 'token-number' },
-	{ tag: t.string, class: 'token-string' },
-	{ tag: [t.special(t.string), t.regexp, t.escape], class: 'token-string-special' },
-	{ tag: [], class: 'token-atom' },
+	{ tag: [t.number, t.literal, t.unit], class: "token-number" },
+	{ tag: t.string, class: "token-string" },
+	{ tag: [t.special(t.string), t.regexp, t.escape], class: "token-string-special" },
+	{ tag: [], class: "token-atom" },
 
-	{ tag: t.keyword, class: 'token-keyword' },
-	{ tag: [t.comment, t.quote], class: 'token-comment' },
-	{ tag: t.meta, class: 'token-meta' },
-	{ tag: t.invalid, class: 'token-invalid' },
+	{ tag: t.keyword, class: "token-keyword" },
+	{ tag: [t.comment, t.quote], class: "token-comment" },
+	{ tag: t.meta, class: "token-meta" },
+	{ tag: t.invalid, class: "token-invalid" },
 
-	{ tag: t.tagName, class: 'token-tag' },
-	{ tag: t.attributeName, class: 'token-attribute' },
-	{ tag: t.attributeValue, class: 'token-attribute-value' },
+	{ tag: t.tagName, class: "token-tag" },
+	{ tag: t.attributeName, class: "token-attribute" },
+	{ tag: t.attributeValue, class: "token-attribute-value" },
 
-	{ tag: t.inserted, class: 'token-inserted' },
-	{ tag: t.deleted, class: 'token-deleted' },
-	{ tag: t.heading, class: 'token-heading' },
-	{ tag: t.link, class: 'token-link' },
-	{ tag: t.strikethrough, class: 'token-strikethrough' },
-	{ tag: t.strong, class: 'token-strong' },
-	{ tag: t.emphasis, class: 'token-emphasis' }
+	{ tag: t.inserted, class: "token-inserted" },
+	{ tag: t.deleted, class: "token-deleted" },
+	{ tag: t.heading, class: "token-heading" },
+	{ tag: t.link, class: "token-link" },
+	{ tag: t.strikethrough, class: "token-strikethrough" },
+	{ tag: t.strong, class: "token-strong" },
+	{ tag: t.emphasis, class: "token-emphasis" },
 ]);
 
 function create(code: string, parser: Parser | undefined): CodeHighlighter {
@@ -262,99 +262,99 @@ function create(code: string, parser: Parser | undefined): CodeHighlighter {
 
 export function parserFromExtension(extension: string): Parser | undefined {
 	switch (extension) {
-		case 'jsx':
-		case 'js':
+		case "jsx":
+		case "js":
 			// We intentionally allow JSX in normal .js as well as .jsx files,
 			// because there are simply too many existing applications and
 			// examples out there that use JSX within .js files, and we don't
 			// want to break them.
 			return javascript({ jsx: true }).language.parser;
-		case 'ts':
+		case "ts":
 			return javascript({ typescript: true }).language.parser;
-		case 'tsx':
+		case "tsx":
 			return javascript({ typescript: true, jsx: true }).language.parser;
-		case 'jsonc':
-		case 'json5':
+		case "jsonc":
+		case "json5":
 			return javascript().language.parser;
 
-		case 'ahk':
+		case "ahk":
 			return StreamLanguage.define(powerShell).parser;
 
-		case 'css':
+		case "css":
 			return css().language.parser;
 
-		case 'html':
+		case "html":
 			return html({ selfClosingTags: true }).language.parser;
 
-		case 'xml':
+		case "xml":
 			return xml().language.parser;
 
-		case 'wasm':
+		case "wasm":
 			return wast().language.parser;
 
-		case 'c':
-		case 'h':
-		case 'cc':
-		case 'cpp':
-		case 'c++':
-		case 'hpp':
-		case 'h++':
-		case 'hxx':
+		case "c":
+		case "h":
+		case "cc":
+		case "cpp":
+		case "c++":
+		case "hpp":
+		case "h++":
+		case "hxx":
 			return cpp().language.parser;
 
-		case 'ex':
-		case 'exs':
+		case "ex":
+		case "exs":
 			return elixir().language.parser;
 
-		case 'go':
+		case "go":
 			return go().language.parser;
 
-		case 'hcl':
-		case 'hcl2':
-		case 'nomad':
-		case 'tf':
-		case 'tfvars':
+		case "hcl":
+		case "hcl2":
+		case "nomad":
+		case "tf":
+		case "tfvars":
 			return hcl().language.parser;
 
-		case 'java':
+		case "java":
 			return java().language.parser;
 
-		case 'j2':
-		case 'jinja':
-		case 'jinja2':
+		case "j2":
+		case "jinja":
+		case "jinja2":
 			return StreamLanguage.define(jinja2).parser;
 
-		case 'kt':
-		case 'kts':
+		case "kt":
+		case "kts":
 			return StreamLanguage.define(kotlin).parser;
 
-		case 'json':
-		case 'jsonl':
+		case "json":
+		case "jsonl":
 			return json().language.parser;
 
-		case 'lisp':
-		case 'lsp':
-		case 'cl': // Common Lisp
-		case 'el': // Emacs Lisp
+		case "lisp":
+		case "lsp":
+		case "cl": // Common Lisp
+		case "el": // Emacs Lisp
 			return StreamLanguage.define(commonLisp).parser;
 
-		case 'lua':
+		case "lua":
 			return StreamLanguage.define(lua).parser;
 
-		case 'php':
+		case "php":
 			return php().language.parser;
 
-		case 'py':
-		case 'python':
+		case "py":
+		case "python":
 			return python().language.parser;
 
-		case 'proto':
+		case "proto":
 			return StreamLanguage.define(protobuf).parser;
 
-		case 'md':
+		case "md":
 			return markdown().language.parser;
 
-		case 'nix':
+		case "nix":
 			return nix().language.parser;
 
 		// case 'text/x-coffeescript':
@@ -381,35 +381,35 @@ export function parserFromExtension(extension: string): Parser | undefined {
 		// case 'text/x-scss':
 		//     return new LanguageSupport(await CodeMirror.scss());
 
-		case 'svelte':
+		case "svelte":
 			// TODO: is codemirror-lang-svelte broken or just not used correctly?
 			// return svelte();
 
 			// highlighting svelte with js + jsx works much better than the above
 			return javascript({ typescript: true, jsx: true }).language.parser;
 
-		case 'sh':
-		case 'bash':
-		case 'zsh':
+		case "sh":
+		case "bash":
+		case "zsh":
 			return StreamLanguage.define(shell).parser;
 
-		case 'swift':
+		case "swift":
 			return StreamLanguage.define(swift).parser;
 
-		case 'vue':
+		case "vue":
 			return vue().language.parser;
 
-		case 'rs':
+		case "rs":
 			return rust().language.parser;
 
-		case 'rb':
+		case "rb":
 			return StreamLanguage.define(ruby).parser;
 
-		case 'toml':
+		case "toml":
 			return StreamLanguage.define(toml).parser;
 
-		case 'yml':
-		case 'yaml':
+		case "yml":
+		case "yaml":
 			return yaml().language.parser;
 
 		default:
@@ -418,11 +418,11 @@ export function parserFromExtension(extension: string): Parser | undefined {
 }
 
 export function parserFromFilename(filename: string): Parser | undefined {
-	const basename = filename.split('/').pop() || '';
-	const ext = basename.split('.').pop()?.toLowerCase();
+	const basename = filename.split("/").pop() || "";
+	const ext = basename.split(".").pop()?.toLowerCase();
 
 	// Handle Dockerfiles (with common variations).
-	if (basename === 'Dockerfile' || basename.startsWith('Dockerfile.') || ext === 'dockerfile') {
+	if (basename === "Dockerfile" || basename.startsWith("Dockerfile.") || ext === "dockerfile") {
 		return StreamLanguage.define(dockerFile).parser;
 	}
 
@@ -433,7 +433,7 @@ export function parserFromFilename(filename: string): Parser | undefined {
 class CodeHighlighter {
 	constructor(
 		readonly code: string,
-		readonly tree: Tree
+		readonly tree: Tree,
 	) {}
 
 	highlight(token: (text: string, style: string) => void): void {
@@ -452,27 +452,27 @@ class CodeHighlighter {
 			this.tree,
 			highlightStyle,
 			(from, to, style) => {
-				flush(from, '');
+				flush(from, "");
 				flush(to, style);
 			},
 			from,
-			to
+			to,
 		);
-		flush(to, '');
+		flush(to, "");
 	}
 }
 
-export type DiffLineKey = BrandedId<'DiffLine'>;
-export type DiffFileKey = BrandedId<'DiffFile'>;
-export type DiffLineRange = BrandedId<'DiffLineRange'>;
-export type DiffFileLineId = BrandedId<'DiffFileLineId'>;
+export type DiffLineKey = BrandedId<"DiffLine">;
+export type DiffFileKey = BrandedId<"DiffFile">;
+export type DiffLineRange = BrandedId<"DiffLineRange">;
+export type DiffFileLineId = BrandedId<"DiffFileLineId">;
 
 export function createDiffLineKey(
 	index: number,
 	oldLine: number | undefined,
-	newLine: number | undefined
+	newLine: number | undefined,
 ): DiffLineKey {
-	return `${index}-${oldLine ?? ''}-${newLine ?? ''}` as DiffLineKey;
+	return `${index}-${oldLine ?? ""}-${newLine ?? ""}` as DiffLineKey;
 }
 
 export type ParsedDiffLineKey = {
@@ -482,7 +482,7 @@ export type ParsedDiffLineKey = {
 };
 
 export function readDiffLineKey(key: DiffLineKey): ParsedDiffLineKey | undefined {
-	const [index, oldLine, newLine] = key.split('-');
+	const [index, oldLine, newLine] = key.split("-");
 
 	if (index === undefined || oldLine === undefined || newLine === undefined) {
 		return undefined;
@@ -490,12 +490,12 @@ export function readDiffLineKey(key: DiffLineKey): ParsedDiffLineKey | undefined
 
 	return {
 		index: parseInt(index),
-		oldLine: oldLine === '' ? undefined : parseInt(oldLine),
-		newLine: newLine === '' ? undefined : parseInt(newLine)
+		oldLine: oldLine === "" ? undefined : parseInt(oldLine),
+		newLine: newLine === "" ? undefined : parseInt(newLine),
 	};
 }
 
-const DIFF_FILE_KEY_SEPARATOR = '%%-%%';
+const DIFF_FILE_KEY_SEPARATOR = "%%-%%";
 
 export function createDiffFileHunkKey(fileName: string, diffSha: string): DiffFileKey {
 	return `${fileName}${DIFF_FILE_KEY_SEPARATOR}${diffSha}` as DiffFileKey;
@@ -513,7 +513,7 @@ export function readDiffFileHunkKey(key: DiffFileKey): [string, string] | undefi
 
 export function encodeSingleDiffLine(
 	oldLine: number | undefined,
-	newLine: number | undefined
+	newLine: number | undefined,
 ): DiffLineRange | undefined {
 	if (newLine !== undefined) {
 		return `R${newLine}` as DiffLineRange;
@@ -544,12 +544,12 @@ export function encodeDiffLineRange(lineSelection: DiffLine[]): DiffLineRange | 
 	const firstLine = encodeSingleDiffLine(lineSelection[0].oldLine, lineSelection[0].newLine);
 	const lastLine = encodeSingleDiffLine(
 		lineSelection[lineSelection.length - 1].oldLine,
-		lineSelection[lineSelection.length - 1].newLine
+		lineSelection[lineSelection.length - 1].newLine,
 	);
 
 	if (firstLine === undefined || lastLine === undefined) {
 		// This should never happen unless data is corrupted
-		throw new Error('Invalid line selection: ' + JSON.stringify(lineSelection));
+		throw new Error("Invalid line selection: " + JSON.stringify(lineSelection));
 	}
 
 	return `${firstLine}-${lastLine}` as DiffLineRange;
@@ -558,11 +558,11 @@ export function encodeDiffLineRange(lineSelection: DiffLine[]): DiffLineRange | 
 export function encodeDiffFileLine(
 	fileName: string,
 	oldLine: number | undefined,
-	newLine: number | undefined
+	newLine: number | undefined,
 ): DiffFileLineId {
 	const encodedLineNumber = encodeSingleDiffLine(oldLine, newLine);
 	if (encodedLineNumber === undefined) {
-		throw new Error('Invalid line number: ' + JSON.stringify({ oldLine, newLine }));
+		throw new Error("Invalid line number: " + JSON.stringify({ oldLine, newLine }));
 	}
 
 	return `${fileName}:${encodedLineNumber}` as DiffFileLineId;
@@ -595,7 +595,7 @@ type SelectionParams = {
 function createBaseRowData(
 	fileName: string,
 	section: ContentSection,
-	parser: Parser | undefined
+	parser: Parser | undefined,
 ): BaseRow[] {
 	return section.lines.map((line) => ({
 		encodedLineId: encodeDiffFileLine(fileName, line.beforeLineNumber, line.afterLineNumber),
@@ -605,12 +605,12 @@ function createBaseRowData(
 		type: section.sectionType,
 		size: line.content.length,
 		isLast: false,
-		isDeltaLine: isDeltaLine(section.sectionType)
+		isDeltaLine: isDeltaLine(section.sectionType),
 	}));
 }
 
 function sanitize(text: string) {
-	const element = document.createElement('div');
+	const element = document.createElement("div");
 	element.innerText = text;
 	return element.innerHTML;
 }
@@ -657,7 +657,7 @@ function getParserCache<V>(
 	cachesByParser: WeakMap<Parser, LRUCache<V>>,
 	noParsersCache: LRUCache<V>,
 	parser: Parser | undefined,
-	cacheSize: number
+	cacheSize: number,
 ): LRUCache<V> {
 	if (parser === undefined) {
 		return noParsersCache;
@@ -699,7 +699,7 @@ function toTokens(inputLine: string, parser: Parser | undefined): string[] {
 }
 
 export function codeContentToTokens(content: string, parser: Parser | undefined): string[][] {
-	const lines = content.split('\n');
+	const lines = content.split("\n");
 	return lines.map((line) => toTokens(line, parser));
 }
 
@@ -707,12 +707,12 @@ function computeBaseWordDiff(
 	filename: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined
+	parser: Parser | undefined,
 ): BaseDiffRows {
 	const numberOfLines = nextSection.lines.length;
 	const returnRows: BaseDiffRows = {
 		prevRows: [],
-		nextRows: []
+		nextRows: [],
 	};
 
 	// Loop through every line in the section
@@ -724,7 +724,7 @@ function computeBaseWordDiff(
 			encodedLineId: encodeDiffFileLine(
 				filename,
 				oldLine.beforeLineNumber,
-				oldLine.afterLineNumber
+				oldLine.afterLineNumber,
 			),
 			beforeLineNumber: oldLine.beforeLineNumber,
 			afterLineNumber: oldLine.afterLineNumber,
@@ -732,13 +732,13 @@ function computeBaseWordDiff(
 			type: prevSection.sectionType,
 			size: oldLine.content.length,
 			isLast: false,
-			isDeltaLine: isDeltaLine(prevSection.sectionType)
+			isDeltaLine: isDeltaLine(prevSection.sectionType),
 		};
 		const nextSectionRow: BaseRow = {
 			encodedLineId: encodeDiffFileLine(
 				filename,
 				newLine.beforeLineNumber,
-				newLine.afterLineNumber
+				newLine.afterLineNumber,
 			),
 			beforeLineNumber: newLine.beforeLineNumber,
 			afterLineNumber: newLine.afterLineNumber,
@@ -746,7 +746,7 @@ function computeBaseWordDiff(
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
-			isDeltaLine: isDeltaLine(nextSection.sectionType)
+			isDeltaLine: isDeltaLine(nextSection.sectionType),
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -760,11 +760,11 @@ function computeBaseWordDiff(
 				nextSectionRow.tokens.push(...toTokens(text, parser));
 			} else if (type === Operation.Insert) {
 				nextSectionRow.tokens.push(
-					`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`
+					`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`,
 				);
 			} else if (type === Operation.Delete) {
 				prevSectionRow.tokens.push(
-					`<span data-no-drag class="token-deleted">${sanitize(text)}</span>`
+					`<span data-no-drag class="token-deleted">${sanitize(text)}</span>`,
 				);
 			}
 		}
@@ -779,7 +779,7 @@ function computeBaseInlineWordDiff(
 	fileName: string,
 	prevSection: ContentSection,
 	nextSection: ContentSection,
-	parser: Parser | undefined
+	parser: Parser | undefined,
 ): BaseRow[] {
 	const numberOfLines = nextSection.lines.length;
 	const rows: BaseRow[] = [];
@@ -794,7 +794,7 @@ function computeBaseInlineWordDiff(
 			encodedLineId: encodeDiffFileLine(
 				fileName,
 				newLine.beforeLineNumber,
-				newLine.afterLineNumber
+				newLine.afterLineNumber,
 			),
 			beforeLineNumber: newLine.beforeLineNumber,
 			afterLineNumber: newLine.afterLineNumber,
@@ -802,7 +802,7 @@ function computeBaseInlineWordDiff(
 			type: nextSection.sectionType,
 			size: newLine.content.length,
 			isLast: false,
-			isDeltaLine: isDeltaLine(nextSection.sectionType)
+			isDeltaLine: isDeltaLine(nextSection.sectionType),
 		};
 
 		const diff = charDiff(oldLine.content, newLine.content);
@@ -815,11 +815,11 @@ function computeBaseInlineWordDiff(
 				sectionRow.tokens.push(...toTokens(text, parser));
 			} else if (type === Operation.Insert) {
 				sectionRow.tokens.push(
-					`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`
+					`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`,
 				);
 			} else if (type === Operation.Delete) {
 				sectionRow.tokens.push(
-					`<span data-no-drag class="token-deleted token-strikethrough">${sanitize(text)}</span>`
+					`<span data-no-drag class="token-deleted token-strikethrough">${sanitize(text)}</span>`,
 				);
 			}
 		}
@@ -863,7 +863,7 @@ function generateBaseRows(
 	filePath: string,
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
-	parser: Parser | undefined
+	parser: Parser | undefined,
 ): BaseRow[] {
 	const rows = subsections.reduce((acc, nextSection, i) => {
 		const prevSection = subsections[i - 1];
@@ -910,7 +910,7 @@ function generateBaseRows(
 				filePath,
 				prevSection,
 				nextSection,
-				parser
+				parser,
 			);
 
 			// Insert returned row datastructures into the correct place
@@ -970,7 +970,7 @@ function getCachedBaseRows(
 	filePath: string,
 	subsections: ContentSection[],
 	inlineUnifiedDiffs: boolean,
-	parser: Parser | undefined
+	parser: Parser | undefined,
 ): BaseRow[] {
 	const cache = getParserCache(baseRowsCacheByParser, baseRowsCacheNoParser, parser, 100);
 
@@ -992,7 +992,7 @@ function getCachedBaseRows(
 function applyRowState(
 	baseRows: BaseRow[],
 	selectedLines: LineSelector[] | undefined,
-	lineLocks: LineLock[] | undefined
+	lineLocks: LineLock[] | undefined,
 ): Row[] {
 	return baseRows.map((baseRow) => {
 		const selectionParams = selectedLines ? getSelectionParamsForRow(baseRow, selectedLines) : {};
@@ -1000,14 +1000,14 @@ function applyRowState(
 		return {
 			...baseRow,
 			locks: getLocks(baseRow.beforeLineNumber, baseRow.afterLineNumber, lineLocks),
-			...selectionParams
+			...selectionParams,
 		};
 	});
 }
 
 function getSelectionParamsForRow(row: BaseRow, selectedLines: LineSelector[]): SelectionParams {
 	const selectedLine = selectedLines.find(
-		(sel) => sel.oldLine === row.beforeLineNumber && sel.newLine === row.afterLineNumber
+		(sel) => sel.oldLine === row.beforeLineNumber && sel.newLine === row.afterLineNumber,
 	);
 
 	if (!selectedLine) {
@@ -1018,7 +1018,7 @@ function getSelectionParamsForRow(row: BaseRow, selectedLines: LineSelector[]): 
 		isSelected: true,
 		isFirstOfSelectionGroup: selectedLine.isFirstOfGroup,
 		isLastOfSelectionGroup: selectedLine.isLastOfGroup,
-		isLastSelected: selectedLine.isLast
+		isLastSelected: selectedLine.isLast,
 	};
 }
 
@@ -1028,7 +1028,7 @@ export function generateRows(
 	inlineUnifiedDiffs: boolean,
 	parser: Parser | undefined,
 	selectedLines: LineSelector[] | undefined,
-	lineLocks: LineLock[] | undefined
+	lineLocks: LineLock[] | undefined,
 ): Row[] {
 	// Get cached base rows (expensive computation)
 	const baseRows = getCachedBaseRows(filePath, subsections, inlineUnifiedDiffs, parser);
@@ -1060,7 +1060,7 @@ export function getHunkLineInfo(subsections: ContentSection[]): DiffHunkLineInfo
 		beforLineStart,
 		beforeLineCount,
 		afterLineStart,
-		afterLineCount
+		afterLineCount,
 	};
 }
 

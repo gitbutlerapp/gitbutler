@@ -1,31 +1,31 @@
 <script module lang="ts">
-	import Button from '$components/Button.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Button from "$components/Button.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Button',
+		title: "Inputs / Button",
 		component: Button,
 		args: {
-			children: 'Button Text' as any,
+			children: "Button Text" as any,
 			disabled: false,
 			loading: false,
 			activated: false,
-			size: 'button',
-			style: 'gray',
-			kind: 'solid',
+			size: "button",
+			style: "gray",
+			kind: "solid",
 			wide: false,
 			grow: false,
 			shrinkable: false,
 			reversedDirection: false,
 			dropdownChild: false,
-			hotkey: '',
-			tooltip: '',
+			hotkey: "",
+			tooltip: "",
 			icon: undefined,
 			onclick: (e: MouseEvent) => {
 				// eslint-disable-next-line no-console
-				console.log('Button clicked', e);
-			}
-		}
+				console.log("Button clicked", e);
+			},
+		},
 	});
 </script>
 

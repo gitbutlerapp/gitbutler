@@ -1,7 +1,7 @@
-import type { BrandedId } from '@gitbutler/shared/utils/branding';
-import type { FileStatus } from '@gitbutler/ui/components/file/types';
+import type { BrandedId } from "@gitbutler/shared/utils/branding";
+import type { FileStatus } from "@gitbutler/ui/components/file/types";
 
-export type WorkspaceRuleId = BrandedId<'WorkspaceRule'>;
+export type WorkspaceRuleId = BrandedId<"WorkspaceRule">;
 /**
  * A workspace rule.
  * @remarks
@@ -29,19 +29,19 @@ export interface WorkspaceRule {
 }
 
 export type AiRule = WorkspaceRule & {
-	trigger: 'claudeCodeHook';
+	trigger: "claudeCodeHook";
 	action: {
-		type: 'explicit';
-		filters: (RuleFilter & { type: 'claudeCodeSessionId' })[];
-		subject: { type: 'assign'; subject: { target: { type: 'stackId' } } };
+		type: "explicit";
+		filters: (RuleFilter & { type: "claudeCodeSessionId" })[];
+		subject: { type: "assign"; subject: { target: { type: "stackId" } } };
 	};
 };
 
 export function isAiRule(rule: WorkspaceRule): rule is AiRule {
-	if (rule.trigger !== 'claudeCodeHook') return false;
-	if (rule.action.type !== 'explicit') return false;
-	if (rule.action.subject.type !== 'assign') return false;
-	if (rule.action.subject.subject.target.type !== 'stackId') return false;
+	if (rule.trigger !== "claudeCodeHook") return false;
+	if (rule.action.type !== "explicit") return false;
+	if (rule.action.subject.type !== "assign") return false;
+	if (rule.action.subject.subject.target.type !== "stackId") return false;
 	return true;
 }
 
@@ -50,28 +50,28 @@ export function isAiRule(rule: WorkspaceRule): rule is AiRule {
  */
 export type Trigger =
 	/** When a file is added, removed or modified in the Git worktree. */
-	| 'fileSytemChange'
+	| "fileSytemChange"
 	/** Whenever a Claude Code hook is invoked. */
-	| 'claudeCodeHook';
+	| "claudeCodeHook";
 
 /**
  * A filter is a condition that determines what files or changes the rule applies to.
  * Multiple conditions in a filter are combined with AND logic.
  */
 export type RuleFilter =
-	| { type: 'pathMatchesRegex'; subject: string } // regex patterns as strings
-	| { type: 'contentMatchesRegex'; subject: string } // regex patterns as strings
-	| { type: 'fileChangeType'; subject: FileStatus }
-	| { type: 'semanticType'; subject: SemanticTypeFilter }
-	| { type: 'claudeCodeSessionId'; subject: string };
+	| { type: "pathMatchesRegex"; subject: string } // regex patterns as strings
+	| { type: "contentMatchesRegex"; subject: string } // regex patterns as strings
+	| { type: "fileChangeType"; subject: FileStatus }
+	| { type: "semanticType"; subject: SemanticTypeFilter }
+	| { type: "claudeCodeSessionId"; subject: string };
 
-export type RuleFilterType = RuleFilter['type'];
+export type RuleFilterType = RuleFilter["type"];
 export const RULE_FILTER_TYPES = [
-	'pathMatchesRegex',
-	'contentMatchesRegex',
-	'fileChangeType',
-	'semanticType',
-	'claudeCodeSessionId'
+	"pathMatchesRegex",
+	"contentMatchesRegex",
+	"fileChangeType",
+	"semanticType",
+	"claudeCodeSessionId",
 ] satisfies RuleFilterType[];
 
 export type RuleFilterMap = {
@@ -92,7 +92,7 @@ export function getFilterCountMap(rules: WorkspaceRule[]): FilterCountMap {
 		contentMatchesRegexCount: 0,
 		fileChangeTypeCount: 0,
 		semanticTypeCount: 0,
-		claudeCodeSessionIdCount: 0
+		claudeCodeSessionIdCount: 0,
 	};
 
 	for (const rule of rules) {
@@ -114,7 +114,7 @@ export function getFilterCountMap(rules: WorkspaceRule[]): FilterCountMap {
 export type RuleFilterSubject<T extends RuleFilterType> = Extract<
 	RuleFilter,
 	{ type: T }
->['subject'];
+>["subject"];
 
 /**
  * Represents the type of change that occurred in the Git worktree.
@@ -124,27 +124,27 @@ export type TreeStatus = FileStatus;
 
 export function treeStatusToString(status: FileStatus): string {
 	switch (status) {
-		case 'addition':
-			return 'Addition';
-		case 'deletion':
-			return 'Deletion';
-		case 'modification':
-			return 'Modification';
-		case 'rename':
-			return 'Rename';
+		case "addition":
+			return "Addition";
+		case "deletion":
+			return "Deletion";
+		case "modification":
+			return "Modification";
+		case "rename":
+			return "Rename";
 	}
 }
 
 export function treeStatusToShortString(status: FileStatus): string {
 	switch (status) {
-		case 'addition':
-			return 'added';
-		case 'deletion':
-			return 'deleted';
-		case 'modification':
-			return 'modified';
-		case 'rename':
-			return 'renamed';
+		case "addition":
+			return "added";
+		case "deletion":
+			return "deleted";
+		case "modification":
+			return "modified";
+		case "rename":
+			return "renamed";
 	}
 }
 
@@ -153,24 +153,24 @@ export function treeStatusToShortString(status: FileStatus): string {
  * Typically this means a heuristic or an LLM determined that a change represents a refactor, a new feature, a bug fix, or documentation update.
  */
 export type SemanticTypeFilter =
-	| { type: 'refactor' }
-	| { type: 'newFeature' }
-	| { type: 'bugFix' }
-	| { type: 'documentation' }
-	| { type: 'userDefined'; subject: string };
+	| { type: "refactor" }
+	| { type: "newFeature" }
+	| { type: "bugFix" }
+	| { type: "documentation" }
+	| { type: "userDefined"; subject: string };
 
-export type SemanticType = SemanticTypeFilter['type'];
+export type SemanticType = SemanticTypeFilter["type"];
 
 export function semanticTypeToString(semanticType: SemanticType): string {
 	switch (semanticType) {
-		case 'refactor':
-			return 'Refactor 🔧';
-		case 'newFeature':
-			return 'New Feature ✨';
-		case 'bugFix':
-			return 'Bug Fix 🐛';
-		case 'documentation':
-			return 'Documentation 📚';
+		case "refactor":
+			return "Refactor 🔧";
+		case "newFeature":
+			return "New Feature ✨";
+		case "bugFix":
+			return "Bug Fix 🐛";
+		case "documentation":
+			return "Documentation 📚";
 		default:
 			return semanticType; // For user-defined types, return the subject directly
 	}
@@ -181,10 +181,10 @@ export function semanticTypeToString(semanticType: SemanticType): string {
  * It's not currently used in the application, but it might be added later.
  */
 export const SEMANTIC_TYPES = [
-	'refactor',
-	'newFeature',
-	'bugFix',
-	'documentation'
+	"refactor",
+	"newFeature",
+	"bugFix",
+	"documentation",
 ] satisfies SemanticType[];
 
 /**
@@ -192,30 +192,30 @@ export const SEMANTIC_TYPES = [
  * An action can be either explicit (user defined) or implicit (determined by heuristics or AI).
  */
 export type RuleAction =
-	| { type: 'explicit'; subject: Operation }
-	| { type: 'implicit'; subject: ImplicitOperation };
+	| { type: "explicit"; subject: Operation }
+	| { type: "implicit"; subject: ImplicitOperation };
 
 /**
  * Represents the operation that a user can configure to be performed in an explicit action.
  */
 export type Operation =
-	| { type: 'assign'; subject: { target: StackTarget } }
-	| { type: 'amend'; subject: { commit_id: string } }
-	| { type: 'newCommit'; subject: { branch_name: string } };
+	| { type: "assign"; subject: { target: StackTarget } }
+	| { type: "amend"; subject: { commit_id: string } }
+	| { type: "newCommit"; subject: { branch_name: string } };
 
 /**
  * The target stack for a given operation. It's either specifying a specific stack ID, or alternaitvely the leftmost or rightmost stack in the workspace.
  */
 type StackIdTarget = {
-	type: 'stackId';
+	type: "stackId";
 	subject: string;
 };
 
-type LeftmostTarget = { type: 'leftmost' };
-type RightmostTarget = { type: 'rightmost' };
+type LeftmostTarget = { type: "leftmost" };
+type RightmostTarget = { type: "rightmost" };
 export type StackTarget = StackIdTarget | LeftmostTarget | RightmostTarget;
 
-type StackTargetType = StackTarget['type'];
+type StackTargetType = StackTarget["type"];
 
 type StackTargetTypeCount = {
 	[K in StackTargetType as `assignmentTargetCount-${K}`]: number;
@@ -223,13 +223,13 @@ type StackTargetTypeCount = {
 
 export function getStackTargetTypeCountMap(rules: WorkspaceRule[]): StackTargetTypeCount {
 	const countMap: StackTargetTypeCount = {
-		'assignmentTargetCount-stackId': 0,
-		'assignmentTargetCount-leftmost': 0,
-		'assignmentTargetCount-rightmost': 0
+		"assignmentTargetCount-stackId": 0,
+		"assignmentTargetCount-leftmost": 0,
+		"assignmentTargetCount-rightmost": 0,
 	};
 
 	for (const rule of rules) {
-		if (rule.action.type === 'explicit' && rule.action.subject.type === 'assign') {
+		if (rule.action.type === "explicit" && rule.action.subject.type === "assign") {
 			const target = rule.action.subject.subject.target;
 			countMap[`assignmentTargetCount-${target.type}`] += 1;
 		}
@@ -238,32 +238,32 @@ export function getStackTargetTypeCountMap(rules: WorkspaceRule[]): StackTargetT
 	return countMap;
 }
 
-const UNIT_SEP = '\u001F';
+const UNIT_SEP = "\u001F";
 
 export function encodeStackTarget(stackTarget: StackTarget): string {
 	switch (stackTarget.type) {
-		case 'stackId':
+		case "stackId":
 			return `${stackTarget.type}${UNIT_SEP}${stackTarget.subject}`;
-		case 'leftmost':
-			return 'leftmost';
-		case 'rightmost':
-			return 'rightmost';
+		case "leftmost":
+			return "leftmost";
+		case "rightmost":
+			return "rightmost";
 	}
 }
 
 export function decodeStackTarget(encoded: string): StackTarget {
-	if (encoded === 'leftmost') {
-		return { type: 'leftmost' };
+	if (encoded === "leftmost") {
+		return { type: "leftmost" };
 	}
 
-	if (encoded === 'rightmost') {
-		return { type: 'rightmost' };
+	if (encoded === "rightmost") {
+		return { type: "rightmost" };
 	}
 
 	const [type, subject] = encoded.split(UNIT_SEP);
 
-	if (type === 'stackId' && subject) {
-		return { type: 'stackId', subject };
+	if (type === "stackId" && subject) {
+		return { type: "stackId", subject };
 	}
 
 	throw new Error(`Unknown stack target type: ${type}`);
@@ -276,27 +276,27 @@ export function compareStackTarget(encoded: string, target: StackTarget | undefi
 }
 
 export function isStackIdTarget(target: StackTarget | string): boolean {
-	const decoded = typeof target === 'string' ? decodeStackTarget(target) : target;
-	return decoded.type === 'stackId';
+	const decoded = typeof target === "string" ? decodeStackTarget(target) : target;
+	return decoded.type === "stackId";
 }
 
 export function isLeftmostTarget(target: StackTarget | string): boolean {
-	const decoded = typeof target === 'string' ? decodeStackTarget(target) : target;
-	return decoded.type === 'leftmost';
+	const decoded = typeof target === "string" ? decodeStackTarget(target) : target;
+	return decoded.type === "leftmost";
 }
 
 export function isRightmostTarget(target: StackTarget | string): boolean {
-	const decoded = typeof target === 'string' ? decodeStackTarget(target) : target;
-	return decoded.type === 'rightmost';
+	const decoded = typeof target === "string" ? decodeStackTarget(target) : target;
+	return decoded.type === "rightmost";
 }
 
 /**
  * Represents the implicit operation that is determined by heuristics or AI.
  */
 export type ImplicitOperation =
-	| { type: 'assignToAppropriateBranch' }
-	| { type: 'absorbIntoDependentCommit' }
-	| { type: 'llmPrompt'; subject: string };
+	| { type: "assignToAppropriateBranch" }
+	| { type: "absorbIntoDependentCommit" }
+	| { type: "llmPrompt"; subject: string };
 
 /**
  * A request to create a new workspace rule.

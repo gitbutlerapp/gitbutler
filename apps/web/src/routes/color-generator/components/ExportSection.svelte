@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { copyCSS, copyJSON } from '../utils/export';
-	import { Button } from '@gitbutler/ui';
+	import { copyCSS, copyJSON } from "../utils/export";
+	import { Button } from "@gitbutler/ui";
 
 	interface Props {
 		currentColors: Record<string, Record<number, string>>;
@@ -31,11 +31,11 @@
 </script>
 
 <div class="export-buttons">
-	<Button onclick={handleCopyCSS} kind="solid" icon={cssCopied ? 'tick-small' : 'copy-small'}>
-		{cssCopied ? 'Copied' : 'Copy CSS'}
+	<Button onclick={handleCopyCSS} kind="solid" icon={cssCopied ? "tick-small" : "copy-small"}>
+		{cssCopied ? "Copied" : "Copy CSS"}
 	</Button>
-	<Button onclick={handleCopyJSON} kind="outline" icon={jsonCopied ? 'tick-small' : undefined}>
-		{jsonCopied ? 'Copied' : 'Copy JSON'}
+	<Button onclick={handleCopyJSON} kind="outline" icon={jsonCopied ? "tick-small" : undefined}>
+		{jsonCopied ? "Copied" : "Copy JSON"}
 	</Button>
 </div>
 

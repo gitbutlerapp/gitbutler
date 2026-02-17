@@ -1,15 +1,15 @@
-import { browser } from '$app/environment';
-import { ApiError } from '$lib/network/types';
-import { InjectionToken } from '@gitbutler/core/context';
-import { derived, get, type Readable } from 'svelte/store';
+import { browser } from "$app/environment";
+import { ApiError } from "$lib/network/types";
+import { InjectionToken } from "@gitbutler/core/context";
+import { derived, get, type Readable } from "svelte/store";
 
-export const HTTP_CLIENT: InjectionToken<HttpClient> = new InjectionToken('HttpClient');
+export const HTTP_CLIENT: InjectionToken<HttpClient> = new InjectionToken("HttpClient");
 
 export const DEFAULT_HEADERS = {
-	'Content-Type': 'application/json'
+	"Content-Type": "application/json",
 };
 
-export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type RequestMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type RequestOptions = {
 	headers?: Record<string, string | undefined>;
@@ -30,9 +30,9 @@ export class HttpClient {
 		public fetch = window.fetch,
 		publicApiBaseUrl: string,
 		private token: Readable<string | undefined>,
-		private credentials: RequestCredentials = 'same-origin'
+		private credentials: RequestCredentials = "same-origin",
 	) {
-		this.apiUrl = new URL('/api/', publicApiBaseUrl);
+		this.apiUrl = new URL("/api/", publicApiBaseUrl);
 
 		this.authenticationAvailable = derived(token, (token) => !!token);
 	}
@@ -43,7 +43,7 @@ export class HttpClient {
 
 	private async request(
 		path: string,
-		opts: RequestOptions & { method: RequestMethod }
+		opts: RequestOptions & { method: RequestMethod },
 	): Promise<Response> {
 		if (!browser) {
 			throw new Error("Can't call fetch in SSR phase");
@@ -52,7 +52,7 @@ export class HttpClient {
 		const butlerHeaders = new Headers(DEFAULT_HEADERS);
 
 		const token = get(this.token);
-		if (token) butlerHeaders.set('X-Auth-Token', token);
+		if (token) butlerHeaders.set("X-Auth-Token", token);
 
 		if (opts.headers) {
 			Object.entries(opts.headers).forEach(([key, value]) => {
@@ -68,7 +68,7 @@ export class HttpClient {
 			method: opts.method,
 			headers: butlerHeaders,
 			body: formatBody(opts.body),
-			credentials: this.credentials
+			credentials: this.credentials,
 		});
 
 		return response;
@@ -76,34 +76,34 @@ export class HttpClient {
 
 	private async requestJson<T>(
 		path: string,
-		opts: RequestOptions & { method: RequestMethod }
+		opts: RequestOptions & { method: RequestMethod },
 	): Promise<T> {
 		const response = await this.request(path, opts);
 		return await parseResponseJSON(response);
 	}
 
-	async get<T>(path: string, opts?: Omit<RequestOptions, 'body'>) {
-		return await this.requestJson<T>(path, { ...opts, method: 'GET' });
+	async get<T>(path: string, opts?: Omit<RequestOptions, "body">) {
+		return await this.requestJson<T>(path, { ...opts, method: "GET" });
 	}
 
 	async post<T>(path: string, opts?: RequestOptions) {
-		return await this.requestJson<T>(path, { ...opts, method: 'POST' });
+		return await this.requestJson<T>(path, { ...opts, method: "POST" });
 	}
 
 	async put<T>(path: string, opts?: RequestOptions) {
-		return await this.requestJson<T>(path, { ...opts, method: 'PUT' });
+		return await this.requestJson<T>(path, { ...opts, method: "PUT" });
 	}
 
 	async patch<T>(path: string, opts?: RequestOptions) {
-		return await this.requestJson<T>(path, { ...opts, method: 'PATCH' });
+		return await this.requestJson<T>(path, { ...opts, method: "PATCH" });
 	}
 
 	async delete<T>(path: string, opts?: RequestOptions) {
-		return await this.requestJson<T>(path, { ...opts, method: 'DELETE' });
+		return await this.requestJson<T>(path, { ...opts, method: "DELETE" });
 	}
 
 	async postRaw(path: string, opts?: RequestOptions) {
-		return await this.request(path, { ...opts, method: 'POST' });
+		return await this.request(path, { ...opts, method: "POST" });
 	}
 }
 

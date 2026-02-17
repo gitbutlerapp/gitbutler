@@ -1,10 +1,10 @@
-import type { EntityState } from '@reduxjs/toolkit';
+import type { EntityState } from "@reduxjs/toolkit";
 
 export type IRCUser = {
 	nick: string;
 	user?: string;
 	host?: string;
-	mode?: 'op' | 'voice' | null; // Op (+@) or Voice (+)
+	mode?: "op" | "voice" | null; // Op (+@) or Voice (+)
 };
 
 export type IrcChannel = {
@@ -36,7 +36,7 @@ export type IrcLog = {
 	msgid?: string;
 } & (
 	| {
-			type: 'incoming';
+			type: "incoming";
 			from: string;
 			to: string;
 			message: string;
@@ -44,19 +44,19 @@ export type IrcLog = {
 			isCTCP?: boolean;
 			ctcpCommand?: string;
 			ctcpParams?: string[];
-			ctcpType?: 'request' | 'reply';
+			ctcpType?: "request" | "reply";
 	  }
 	| {
-			type: 'outgoing';
+			type: "outgoing";
 			from: string;
 			to: string;
 			message: string;
 			error?: any;
 			data?: unknown;
 	  }
-	| { type: 'server'; message: string }
-	| { type: 'notice'; message: string }
-	| { type: 'command'; raw?: string }
+	| { type: "server"; message: string }
+	| { type: "notice"; message: string }
+	| { type: "command"; raw?: string }
 );
 
 export type IRCState = {

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, CardGroup, InfoMessage, Select, SelectItem } from '@gitbutler/ui';
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, CardGroup, InfoMessage, Select, SelectItem } from "@gitbutler/ui";
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -21,10 +21,10 @@
 	const targetChangeDisabled = $derived(!!(stackCount && stackCount > 0));
 
 	function uniqueRemotes(remoteBranches: { name: string }[]): { name: string }[] {
-		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0])))
+		return Array.from(new Set(remoteBranches.map((b) => b.name.split("/")[0])))
 			.filter((name): name is string => !!name)
 			.map((r) => ({
-				name: r
+				name: r,
 			}));
 	}
 
@@ -104,7 +104,7 @@
 				{#if targetChangeDisabled}
 					<InfoMessage filled outlined={false} icon="info">
 						{#snippet content()}
-							You have {stackCount === 1 ? '1 active branch' : `${stackCount} active branches`} in your
+							You have {stackCount === 1 ? "1 active branch" : `${stackCount} active branches`} in your
 							workspace. Please clear the workspace before switching the base branch.
 						{/snippet}
 					</InfoMessage>
@@ -119,8 +119,8 @@
 							targetChangeDisabled}
 					>
 						{targetBranchSwitch.current.isLoading
-							? 'Switching branches...'
-							: 'Update configuration'}
+							? "Switching branches..."
+							: "Update configuration"}
 					</Button>
 				{/if}
 			</CardGroup.Item>

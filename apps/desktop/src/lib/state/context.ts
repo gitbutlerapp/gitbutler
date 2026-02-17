@@ -1,6 +1,6 @@
-import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
-import type { RootState } from '@reduxjs/toolkit/query';
+import type { PostHogWrapper } from "$lib/analytics/posthog";
+import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
+import type { RootState } from "@reduxjs/toolkit/query";
 
 /**
  *	The api is necessary to create the store, so we need to provide

@@ -1,35 +1,35 @@
-import { ghQuery } from '$lib/forge/github/ghQuery';
+import { ghQuery } from "$lib/forge/github/ghQuery";
 import {
 	ghResponseToInstance,
 	parseGitHubDetailedPullRequest,
 	type CreatePrResult,
 	type DetailedGitHubPullRequestWithPermissions,
-	type GitHubRepoPermissions
-} from '$lib/forge/github/types';
+	type GitHubRepoPermissions,
+} from "$lib/forge/github/types";
 import {
 	MergeMethod,
 	type CreatePullRequestArgs,
 	type DetailedPullRequest,
-	type PullRequest
-} from '$lib/forge/interface/types';
-import { eventualConsistencyCheck } from '$lib/forge/shared/progressivePolling';
-import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from '$lib/state/tags';
-import { sleep } from '$lib/utils/sleep';
-import { writable } from 'svelte/store';
-import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { ForgePrService } from '$lib/forge/interface/forgePrService';
-import type { QueryOptions } from '$lib/state/butlerModule';
-import type { GitHubApi } from '$lib/state/clientState.svelte';
-import type { StartQueryActionCreatorOptions } from '@reduxjs/toolkit/query';
+	type PullRequest,
+} from "$lib/forge/interface/types";
+import { eventualConsistencyCheck } from "$lib/forge/shared/progressivePolling";
+import { providesItem, invalidatesItem, ReduxTag, invalidatesList } from "$lib/state/tags";
+import { sleep } from "$lib/utils/sleep";
+import { writable } from "svelte/store";
+import type { PostHogWrapper } from "$lib/analytics/posthog";
+import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+import type { QueryOptions } from "$lib/state/butlerModule";
+import type { GitHubApi } from "$lib/state/clientState.svelte";
+import type { StartQueryActionCreatorOptions } from "@reduxjs/toolkit/query";
 
 export class GitHubPrService implements ForgePrService {
-	readonly unit = { name: 'Pull request', abbr: 'PR', symbol: '#' };
+	readonly unit = { name: "Pull request", abbr: "PR", symbol: "#" };
 	loading = writable(false);
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
 		githubApi: GitHubApi,
-		private posthog?: PostHogWrapper
+		private posthog?: PostHogWrapper,
 	) {
 		this.api = injectEndpoints(githubApi);
 	}
@@ -39,7 +39,7 @@ export class GitHubPrService implements ForgePrService {
 		body,
 		draft,
 		baseBranchName,
-		upstreamName
+		upstreamName,
 	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async () => {
@@ -49,8 +49,8 @@ export class GitHubPrService implements ForgePrService {
 					base: baseBranchName,
 					title,
 					body,
-					draft
-				})
+					draft,
+				}),
 			);
 		};
 
@@ -62,7 +62,7 @@ export class GitHubPrService implements ForgePrService {
 		while (attempts < 4) {
 			try {
 				pr = await request();
-				this.posthog?.capture('PR Successful');
+				this.posthog?.capture("PR Successful");
 				return pr;
 			} catch (err: any) {
 				lastError = err;
@@ -72,7 +72,7 @@ export class GitHubPrService implements ForgePrService {
 				this.loading.set(false);
 			}
 		}
-		this.posthog?.capture('PR Failure');
+		this.posthog?.capture("PR Failure");
 		throw lastError;
 	}
 
@@ -92,13 +92,13 @@ export class GitHubPrService implements ForgePrService {
 	async reopen(number: number) {
 		await this.api.endpoints.updatePr.mutate({
 			number,
-			update: { state: 'open' }
+			update: { state: "open" },
 		});
 	}
 
 	async update(
 		number: number,
-		update: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
+		update: { description?: string; state?: "open" | "closed"; targetBase?: string },
 	) {
 		await this.api.endpoints.updatePr.mutate({ number, update });
 	}
@@ -107,18 +107,18 @@ export class GitHubPrService implements ForgePrService {
 async function fetchRepoPermissions(
 	owner: string,
 	repo: string,
-	extra: unknown
+	extra: unknown,
 ): Promise<GitHubRepoPermissions | undefined> {
 	try {
 		const repoResponse = await ghQuery(
 			{
-				domain: 'repos',
-				action: 'get',
+				domain: "repos",
+				action: "get",
 				parameters: { owner, repo },
-				extra: extra
+				extra: extra,
 			},
 			extra,
-			'required'
+			"required",
 		);
 
 		if (repoResponse.error) {
@@ -139,10 +139,10 @@ function injectEndpoints(api: GitHubApi) {
 				queryFn: async (args, api) => {
 					async function getPrByNumber() {
 						return await ghQuery({
-							domain: 'pulls',
-							action: 'get',
+							domain: "pulls",
+							action: "get",
 							parameters: { pull_number: args.number },
-							extra: api.extra
+							extra: api.extra,
 						});
 					}
 
@@ -168,7 +168,7 @@ function injectEndpoints(api: GitHubApi) {
 
 					const combinedData: DetailedGitHubPullRequestWithPermissions = {
 						...prData,
-						permissions
+						permissions,
 					};
 
 					const finalResult = parseGitHubDetailedPullRequest({ data: combinedData });
@@ -179,7 +179,7 @@ function injectEndpoints(api: GitHubApi) {
 
 					return { data: finalResult.data };
 				},
-				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.number)
+				providesTags: (_result, _error, args) => providesItem(ReduxTag.PullRequests, args.number),
 			}),
 			createPr: build.mutation<
 				CreatePrResult,
@@ -187,20 +187,20 @@ function injectEndpoints(api: GitHubApi) {
 			>({
 				queryFn: async ({ head, base, title, body, draft }, api) =>
 					await ghQuery({
-						domain: 'pulls',
-						action: 'create',
+						domain: "pulls",
+						action: "create",
 						parameters: { head, base, title, body, draft },
-						extra: api.extra
+						extra: api.extra,
 					}),
-				invalidatesTags: (result) => [invalidatesItem(ReduxTag.PullRequests, result?.number)]
+				invalidatesTags: (result) => [invalidatesItem(ReduxTag.PullRequests, result?.number)],
 			}),
 			mergePr: build.mutation<void, { number: number; method: MergeMethod }>({
 				queryFn: async ({ number, method: method }, api) => {
 					const result = await ghQuery({
-						domain: 'pulls',
-						action: 'merge',
+						domain: "pulls",
+						action: "merge",
 						parameters: { pull_number: number, merge_method: method },
-						extra: api.extra
+						extra: api.extra,
 					});
 
 					if (result.error) {
@@ -209,7 +209,7 @@ function injectEndpoints(api: GitHubApi) {
 
 					return { data: undefined };
 				},
-				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
+				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)],
 			}),
 			updatePr: build.mutation<
 				void,
@@ -218,29 +218,29 @@ function injectEndpoints(api: GitHubApi) {
 					update: {
 						targetBase?: string;
 						description?: string;
-						state?: 'open' | 'closed';
+						state?: "open" | "closed";
 					};
 				}
 			>({
 				queryFn: async ({ number, update }, api) => {
 					const result = await ghQuery({
-						domain: 'pulls',
-						action: 'update',
+						domain: "pulls",
+						action: "update",
 						parameters: {
 							pull_number: number,
 							base: update.targetBase,
 							body: update.description,
-							state: update.state
+							state: update.state,
 						},
-						extra: api.extra
+						extra: api.extra,
 					});
 					if (result.error) {
 						return { error: result.error };
 					}
 					return { data: undefined };
 				},
-				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)]
-			})
-		})
+				invalidatesTags: [invalidatesList(ReduxTag.PullRequests)],
+			}),
+		}),
 	});
 }

@@ -1,28 +1,28 @@
 <script lang="ts">
-	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Textbox } from '@gitbutler/ui';
+	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Textbox } from "@gitbutler/ui";
 
 	type Props = {
-		type: 'group' | 'private' | 'server';
-	} & ({ type: 'group'; channel: string } | { type: 'private'; nick: string } | { type: 'server' });
+		type: "group" | "private" | "server";
+	} & ({ type: "group"; channel: string } | { type: "private"; nick: string } | { type: "server" });
 
 	const args: Props = $props();
 
 	const ircService = inject(IRC_SERVICE);
 
-	let input = $state('');
+	let input = $state("");
 
 	async function onclick() {
 		if (!input) return;
-		if (args.type === 'group') {
+		if (args.type === "group") {
 			await ircService.sendToGroup(args.channel, input);
-		} else if (args.type === 'private') {
+		} else if (args.type === "private") {
 			await ircService.sendToNick(args.nick, input);
-		} else if (args.type === 'server') {
+		} else if (args.type === "server") {
 			ircService.send(input);
 		}
-		input = '';
+		input = "";
 	}
 </script>
 
@@ -31,7 +31,7 @@
 		bind:value={input}
 		wide
 		onkeydown={(e) => {
-			if (e.key === 'Enter') onclick();
+			if (e.key === "Enter") onclick();
 		}}
 	/>
 	<Button type="button" size="button" style="pop" {onclick}>send</Button>

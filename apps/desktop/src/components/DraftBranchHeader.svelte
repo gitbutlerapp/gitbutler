@@ -1,13 +1,13 @@
 <script lang="ts">
-	import BranchHeaderIcon from '$components/BranchHeaderIcon.svelte';
-	import BranchLabel from '$components/BranchLabel.svelte';
-	import CommitGoesHere from '$components/CommitGoesHere.svelte';
-	import { TestId } from '@gitbutler/ui';
+	import BranchHeaderIcon from "$components/BranchHeaderIcon.svelte";
+	import BranchLabel from "$components/BranchLabel.svelte";
+	import CommitGoesHere from "$components/CommitGoesHere.svelte";
+	import { TestId } from "@gitbutler/ui";
 
 	type Props = {
 		branchName: string;
 		lineColor: string;
-		mode?: 'commit' | 'codegen';
+		mode?: "commit" | "codegen";
 		isCommitting?: boolean;
 		isCommitTarget?: boolean;
 		commitId?: string;
@@ -19,12 +19,12 @@
 	const {
 		branchName,
 		lineColor,
-		mode = 'commit',
+		mode = "commit",
 		isCommitting = false,
 		commitId,
 		updateBranchName,
 		isUpdatingName,
-		failedToUpdateName
+		failedToUpdateName,
 	}: Props = $props();
 </script>
 
@@ -52,7 +52,7 @@
 			</div>
 
 			<p class="text-12 text-body branch-header__empty-state">
-				A new branch will be created for your {mode === 'commit' ? 'commit' : 'AI session'}.
+				A new branch will be created for your {mode === "commit" ? "commit" : "AI session"}.
 				<br />
 				Click the name to rename it now or later.
 			</p>

@@ -8,10 +8,10 @@ import {
 	type Spread,
 	$isRangeSelection as isRangeSelection,
 	$isTextNode as isTextNode,
-	$createTextNode as createTextNode
-} from 'lexical';
+	$createTextNode as createTextNode,
+} from "lexical";
 
-const MENTION_TRIGGER = '@';
+const MENTION_TRIGGER = "@";
 const MENTION_REGEX = /(^|\s)(@([a-zA-Z0-9_-]*))$/;
 
 export function embedUserMention(id: string, label: string): string {
@@ -52,13 +52,13 @@ export function getMentionMatch(text: string): MentionMatch | null {
 	return {
 		end: endOffset,
 		start: startOffset,
-		username
+		username,
 	};
 }
 
 export type SerializedMentionNode = Spread<
 	{
-		type: 'mention';
+		type: "mention";
 		id: string;
 		label: string;
 	},
@@ -70,7 +70,7 @@ export class MentionNode extends TextNode {
 	__label: string;
 
 	static getType(): string {
-		return 'mention';
+		return "mention";
 	}
 
 	static clone(node: MentionNode): MentionNode {
@@ -84,10 +84,10 @@ export class MentionNode extends TextNode {
 	}
 
 	createDOM(config: EditorConfig): HTMLElement {
-		const dom = document.createElement('span');
+		const dom = document.createElement("span");
 		const inner = super.createDOM(config);
-		dom.className = 'mention';
-		inner.className = 'mention-inner';
+		dom.className = "mention";
+		inner.className = "mention-inner";
 		dom.appendChild(inner);
 		return dom;
 	}
@@ -104,9 +104,9 @@ export class MentionNode extends TextNode {
 	exportJSON(): SerializedMentionNode {
 		return {
 			...super.exportJSON(),
-			type: 'mention',
+			type: "mention",
 			id: this.__id,
-			label: this.__label
+			label: this.__label,
 		};
 	}
 
@@ -138,7 +138,7 @@ export class MentionNode extends TextNode {
 
 export function createMentionNode(id: string, text: string): MentionNode {
 	const label = text;
-	return new MentionNode(id, label).setMode('token');
+	return new MentionNode(id, label).setMode("token");
 }
 
 export function isMentionNode(node: LexicalNode): node is MentionNode {
@@ -148,7 +148,7 @@ export function isMentionNode(node: LexicalNode): node is MentionNode {
 function getTextSurroundingMention(text: string, start: number, end: number): [string, string] {
 	const before = text.slice(0, start);
 	let after = text.slice(end);
-	after = after.startsWith(' ') ? after : ' ' + after;
+	after = after.startsWith(" ") ? after : " " + after;
 
 	return [before, after];
 }

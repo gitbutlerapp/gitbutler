@@ -1,11 +1,11 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
-	import { HunkDiff, FileListItem } from '@gitbutler/ui';
-	import type { TreeChange } from '$lib/hunks/change';
-	import type { DiffHunk } from '$lib/hunks/hunk';
-	import type { IrcLog } from '$lib/irc/types';
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
+	import { HunkDiff, FileListItem } from "@gitbutler/ui";
+	import type { TreeChange } from "$lib/hunks/change";
+	import type { DiffHunk } from "$lib/hunks/hunk";
+	import type { IrcLog } from "$lib/irc/types";
 
 	type Props = {
 		logs: IrcLog[];
@@ -27,9 +27,9 @@
 
 {#snippet logTemplate(log: IrcLog)}
 	{@const timestamp = new Date(log.timestamp).toLocaleTimeString()}
-	<div class="message text-12" class:error={log.type === 'outgoing' && log.error}>
+	<div class="message text-12" class:error={log.type === "outgoing" && log.error}>
 		[{timestamp}]
-		{#if log.type === 'incoming' || log.type === 'outgoing'}
+		{#if log.type === "incoming" || log.type === "outgoing"}
 			{@const blah = log.data ? JSON.parse(atob(log.data as any)) : undefined}
 			{@const { change, diff }: {change: TreeChange, diff: DiffHunk} = blah || {}}
 			{log.from}: {log.message}
@@ -58,15 +58,15 @@
 					</div>
 				</div>
 			{/if}
-		{:else if log.type === 'notice'}
+		{:else if log.type === "notice"}
 			{log.message}
-		{:else if log.type === 'server'}
+		{:else if log.type === "server"}
 			{log.message}
-		{:else if log.type === 'command'}
+		{:else if log.type === "command"}
 			{log.raw}
 		{/if}
 	</div>
-	{#if log.type === 'outgoing' && log.error}
+	{#if log.type === "outgoing" && log.error}
 		{log.error}
 	{/if}
 {/snippet}

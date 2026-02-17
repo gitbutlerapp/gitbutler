@@ -1,16 +1,16 @@
 <script lang="ts">
-	import Badge from '$components/Badge.svelte';
-	import Button from '$components/Button.svelte';
-	import Checkbox from '$components/Checkbox.svelte';
-	import Icon from '$components/Icon.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
-	import ExecutableLabel from '$components/file/ExecutableLabel.svelte';
-	import FileIndent from '$components/file/FileIndent.svelte';
-	import FileName from '$components/file/FileName.svelte';
-	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
-	import { focusable } from '$lib/focus/focusable';
-	import type { FileStatus } from '$components/file/types';
-	import type { FocusableOptions } from '$lib/focus/focusManager';
+	import Badge from "$components/Badge.svelte";
+	import Button from "$components/Button.svelte";
+	import Checkbox from "$components/Checkbox.svelte";
+	import Icon from "$components/Icon.svelte";
+	import Tooltip from "$components/Tooltip.svelte";
+	import ExecutableLabel from "$components/file/ExecutableLabel.svelte";
+	import FileIndent from "$components/file/FileIndent.svelte";
+	import FileName from "$components/file/FileName.svelte";
+	import FileStatusBadge from "$components/file/FileStatusBadge.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import type { FileStatus } from "$components/file/types";
+	import type { FocusableOptions } from "$lib/focus/focusManager";
 
 	interface Props {
 		ref?: HTMLDivElement;
@@ -18,14 +18,14 @@
 		filePath: string;
 		fileStatus?: FileStatus;
 		fileStatusTooltip?: string;
-		fileStatusStyle?: 'dot' | 'full';
+		fileStatusStyle?: "dot" | "full";
 		pathFirst?: boolean;
 		draggable?: boolean;
 		selected?: boolean;
 		focused?: boolean;
 		clickable?: boolean;
 		showCheckbox?: boolean;
-		listMode?: 'list' | 'tree';
+		listMode?: "list" | "tree";
 		depth?: number;
 		checked?: boolean;
 		indeterminate?: boolean;
@@ -41,7 +41,7 @@
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
-			}
+			},
 		) => void;
 		onclick?: (e: MouseEvent) => void;
 		ondblclick?: (e: MouseEvent) => void;
@@ -58,7 +58,7 @@
 		filePath,
 		fileStatus,
 		fileStatusTooltip,
-		fileStatusStyle = 'dot',
+		fileStatusStyle = "dot",
 		pathFirst = true,
 		draggable = false,
 		selected = false,
@@ -72,7 +72,7 @@
 		locked,
 		lockText,
 		active,
-		listMode = 'list',
+		listMode = "list",
 		depth,
 		executable,
 		isLast = false,
@@ -85,7 +85,7 @@
 		onkeydown,
 		oncontextmenu,
 		onlockhover,
-		onlockunhover
+		onlockunhover,
 	}: Props = $props();
 
 	const showIndent = $derived(depth && depth > 0);
@@ -102,7 +102,7 @@
 	class:focused
 	class:draggable
 	class:conflicted
-	class:list-mode={listMode === 'list'}
+	class:list-mode={listMode === "list"}
 	class:is-last={isLast}
 	aria-selected={selected}
 	role="option"
@@ -137,7 +137,7 @@
 		</div>
 	{/if}
 
-	<FileName {filePath} hideFilePath={listMode === 'tree'} {pathFirst} />
+	<FileName {filePath} hideFilePath={listMode === "tree"} {pathFirst} />
 
 	<div class="file-list-item__details">
 		{#if executable}

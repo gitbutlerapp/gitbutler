@@ -1,9 +1,9 @@
 <script lang="ts">
-	import IrcChannel from '$components/IrcChannel.svelte';
-	import FloatingModal from '$lib/floating/FloatingModal.svelte';
-	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button } from '@gitbutler/ui';
+	import IrcChannel from "$components/IrcChannel.svelte";
+	import FloatingModal from "$lib/floating/FloatingModal.svelte";
+	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button } from "@gitbutler/ui";
 
 	const ircService = inject(IRC_SERVICE);
 
@@ -20,7 +20,7 @@
 				minWidth: 260,
 				height: 320,
 				minHeight: 320,
-				snapPosition: 'top-right'
+				snapPosition: "top-right",
 			}}
 			dragHandleElement={ircHeaderEl}
 		>
@@ -36,7 +36,7 @@
 					/>
 					<Button
 						size="icon"
-						icon={collapsed ? 'chevron-down-small' : 'chevron-up-small'}
+						icon={collapsed ? "chevron-down-small" : "chevron-up-small"}
 						kind="ghost"
 						onclick={() => {
 							collapsed = !collapsed;

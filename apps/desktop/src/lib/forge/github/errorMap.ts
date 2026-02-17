@@ -1,8 +1,8 @@
-import type { Toast } from '$lib/notifications/toasts';
+import type { Toast } from "$lib/notifications/toasts";
 
 export function mapErrorToToast(err: any): Toast | undefined {
 	// We expect an object to be thrown by octokit.
-	if (typeof err !== 'object') return;
+	if (typeof err !== "object") return;
 
 	const status = err?.status;
 	const response = err?.response;
@@ -13,9 +13,9 @@ export function mapErrorToToast(err: any): Toast | undefined {
 	// If this expectation isn't met we must be doing something wrong
 	if (status === undefined || message === undefined) return;
 
-	if (message.includes('Draft pull requests are not supported')) {
+	if (message.includes("Draft pull requests are not supported")) {
 		return {
-			title: 'Draft pull requests are not enabled',
+			title: "Draft pull requests are not enabled",
 			message: `
                 It looks like draft pull requests are not enabled in your repository.
 
@@ -23,13 +23,13 @@ export function mapErrorToToast(err: any): Toast | undefined {
                 for additional help.
             `,
 			error: message,
-			style: 'danger'
+			style: "danger",
 		};
 	}
 
-	if (message.includes('enabled OAuth App access restrictions')) {
+	if (message.includes("enabled OAuth App access restrictions")) {
 		return {
-			title: 'OAuth access restricted',
+			title: "OAuth access restricted",
 			message: `
 				It looks like OAuth access has been restricted by your organization.
 
@@ -37,22 +37,22 @@ export function mapErrorToToast(err: any): Toast | undefined {
 				for additional help.
 			`,
 			error: message,
-			style: 'danger'
+			style: "danger",
 		};
 	}
-	if (message.includes('Validation Failed')) {
-		let errorStrings = '';
+	if (message.includes("Validation Failed")) {
+		let errorStrings = "";
 		if (errors instanceof Array) {
 			errorStrings = errors
 				.map((err) => {
 					if (err.message) return err.message;
 					if (err.field && err.code) return `${err.field} ${err.code}`;
-					return 'unknown validation error';
+					return "unknown validation error";
 				})
-				.join('\n');
+				.join("\n");
 		}
 		return {
-			title: 'GitHub validation failed',
+			title: "GitHub validation failed",
 			message: `
                 It seems there was a problem validating the request.
 
@@ -60,7 +60,7 @@ export function mapErrorToToast(err: any): Toast | undefined {
                 for additional help.
             `,
 			error: errorStrings,
-			style: 'danger'
+			style: "danger",
 		};
 	}
 }

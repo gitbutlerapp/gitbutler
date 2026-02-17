@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Checkbox } from '@gitbutler/ui';
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Checkbox } from "@gitbutler/ui";
 
 	type Props = {
 		stackId?: string;
@@ -24,7 +24,7 @@
 
 <Checkbox
 	small
-	checked={checkStatus.current === 'checked' || checkStatus.current === 'indeterminate'}
-	indeterminate={checkStatus.current === 'indeterminate'}
+	checked={checkStatus.current === "checked" || checkStatus.current === "indeterminate"}
+	indeterminate={checkStatus.current === "indeterminate"}
 	onchange={(e) => onCheck(e.currentTarget.checked)}
 />

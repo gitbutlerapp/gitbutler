@@ -24,13 +24,13 @@ the window, then enlarge it and retain the original widths of the layout.
 ```
 -->
 <script lang="ts">
-	import Resizer from '$components/Resizer.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import type { Snippet } from 'svelte';
+	import Resizer from "$components/Resizer.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		testId?: string;
@@ -90,41 +90,41 @@ the window, then enlarge it and retain the original widths of the layout.
 	const marginSum = 1;
 
 	const middleMinWidth = $derived(
-		containerMinWidth - leftMinWidth - pxToRem(previewWidth?.min, zoom) - rightMinWidth - marginSum
+		containerMinWidth - leftMinWidth - pxToRem(previewWidth?.min, zoom) - rightMinWidth - marginSum,
 	);
 
 	const leftMaxWidth = $derived(
-		containerBindWidthRem - previewMinWidth - middleMinWidth - rightMinWidth - marginSum
+		containerBindWidthRem - previewMinWidth - middleMinWidth - rightMinWidth - marginSum,
 	);
 
 	// Calculate derived widths with proper constraints
 	const finalLeftWidth = $derived(
 		Math.min(
 			containerBindWidthRem - previewMinWidth - middleMinWidth - rightMinWidth - marginSum,
-			Math.max(leftMinWidth, leftPreferredWidth)
-		)
+			Math.max(leftMinWidth, leftPreferredWidth),
+		),
 	);
 
 	const previewMaxWidth = $derived(
-		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth - marginSum
+		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth - marginSum,
 	);
 
 	const remainingForPreview = $derived(
-		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth
+		containerBindWidthRem - finalLeftWidth - middleMinWidth - rightMinWidth,
 	);
 	const finalPreviewWidth = $derived(
-		preview ? Math.min(remainingForPreview, Math.max(previewMinWidth, previewPreferredWidth)) : 0
+		preview ? Math.min(remainingForPreview, Math.max(previewMinWidth, previewPreferredWidth)) : 0,
 	);
 
 	const remainingForRight = $derived(
-		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - marginSum
+		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - marginSum,
 	);
 	const finalRightWidth = $derived(
-		Math.min(remainingForRight, Math.max(rightMinWidth, rightPreferredWidth))
+		Math.min(remainingForRight, Math.max(rightMinWidth, rightPreferredWidth)),
 	);
 
 	const rightMaxWidth = $derived(
-		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - 1
+		containerBindWidthRem - finalLeftWidth - finalPreviewWidth - middleMinWidth - 1,
 	);
 </script>
 
@@ -138,8 +138,8 @@ the window, then enlarge it and retain the original widths of the layout.
 		<div
 			class="left-section view-wrapper"
 			bind:this={leftDiv}
-			style:width={finalLeftWidth + 'rem'}
-			style:min-width={leftMinWidth + 'rem'}
+			style:width={finalLeftWidth + "rem"}
+			style:min-width={leftMinWidth + "rem"}
 		>
 			<div class="left-section__content">
 				{@render left()}
@@ -161,8 +161,8 @@ the window, then enlarge it and retain the original widths of the layout.
 			<div
 				class="left-sideview view-wrapper"
 				bind:this={previewDiv}
-				style:width={finalPreviewWidth + 'rem'}
-				style:min-width={previewMinWidth + 'rem'}
+				style:width={finalPreviewWidth + "rem"}
+				style:min-width={previewMinWidth + "rem"}
 				use:focusable={{ vertical: true }}
 			>
 				<div class="left-sideview-content dotted-pattern">
@@ -189,8 +189,8 @@ the window, then enlarge it and retain the original widths of the layout.
 
 	<div
 		class="main-section"
-		style:min-width={middleMinWidth + 'rem'}
-		style:margin-right={right ? '0' : ''}
+		style:min-width={middleMinWidth + "rem"}
+		style:margin-right={right ? "0" : ""}
 	>
 		{@render middle()}
 	</div>
@@ -199,7 +199,7 @@ the window, then enlarge it and retain the original widths of the layout.
 		<div
 			class="right-sideview"
 			bind:this={rightDiv}
-			style:width={finalRightWidth + 'rem'}
+			style:width={finalRightWidth + "rem"}
 			use:focusable
 		>
 			<Resizer

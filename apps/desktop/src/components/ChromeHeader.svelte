@@ -1,22 +1,22 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import CreateBranchModal from '$components/CreateBranchModal.svelte';
-	import IntegrateUpstreamModal from '$components/IntegrateUpstreamModal.svelte';
-	import SyncButton from '$components/SyncButton.svelte';
-	import { BACKEND } from '$lib/backend';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { projectDisableCodegen } from '$lib/config/config';
-	import { ircEnabled } from '$lib/config/uiFeatureFlags';
-	import { IRC_SERVICE } from '$lib/irc/ircService.svelte';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { handleAddProjectOutcome } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { ircPath, isWorkspacePath, projectPath } from '$lib/routes/routes.svelte';
-	import { SHORTCUT_SERVICE } from '$lib/shortcuts/shortcutService';
-	import { useCreateAiStack } from '$lib/stacks/createAiStack.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
+	import { goto } from "$app/navigation";
+	import CreateBranchModal from "$components/CreateBranchModal.svelte";
+	import IntegrateUpstreamModal from "$components/IntegrateUpstreamModal.svelte";
+	import SyncButton from "$components/SyncButton.svelte";
+	import { BACKEND } from "$lib/backend";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { projectDisableCodegen } from "$lib/config/config";
+	import { ircEnabled } from "$lib/config/uiFeatureFlags";
+	import { IRC_SERVICE } from "$lib/irc/ircService.svelte";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { handleAddProjectOutcome } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { ircPath, isWorkspacePath, projectPath } from "$lib/routes/routes.svelte";
+	import { SHORTCUT_SERVICE } from "$lib/shortcuts/shortcutService";
+	import { useCreateAiStack } from "$lib/stacks/createAiStack.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 	import {
 		Button,
 		Icon,
@@ -25,9 +25,9 @@
 		Select,
 		SelectItem,
 		TestId,
-		Tooltip
-	} from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
+		Tooltip,
+	} from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	type Props = {
 		projectId: string;
@@ -56,25 +56,25 @@
 	const mode = $derived(modeService.mode(projectId));
 	const currentMode = $derived(mode.response);
 	const currentBranchName = $derived.by(() => {
-		if (currentMode?.type === 'OpenWorkspace') {
-			return 'gitbutler/workspace';
-		} else if (currentMode?.type === 'OutsideWorkspace') {
-			return currentMode.subject.branchName || 'detached HEAD';
-		} else if (currentMode?.type === 'Edit') {
-			return 'gitbutler/edit';
+		if (currentMode?.type === "OpenWorkspace") {
+			return "gitbutler/workspace";
+		} else if (currentMode?.type === "OutsideWorkspace") {
+			return currentMode.subject.branchName || "detached HEAD";
+		} else if (currentMode?.type === "Edit") {
+			return "gitbutler/edit";
 		}
-		return 'gitbutler/workspace';
+		return "gitbutler/workspace";
 	});
 
 	const isNotInWorkspace = $derived(
-		currentMode?.type !== 'OpenWorkspace' && currentMode?.type !== 'Edit'
+		currentMode?.type !== "OpenWorkspace" && currentMode?.type !== "Edit",
 	);
 	const [switchBackToWorkspace, workspaceSwitch] = baseBranchService.switchBackToWorkspace;
 
 	async function switchToWorkspace() {
 		if (base) {
 			await switchBackToWorkspace({
-				projectId
+				projectId,
 			});
 		}
 	}
@@ -89,8 +89,8 @@
 	const mappedProjects = $derived(
 		projects.response?.map((project) => ({
 			value: project.id,
-			label: project.title
-		})) || []
+			label: project.title,
+		})) || [],
 	);
 
 	let newProjectLoading = $state(false);
@@ -106,9 +106,9 @@
 
 	let createBranchModal = $state<CreateBranchModal>();
 
-	$effect(() => shortcutService.on('create-branch', () => createBranchModal?.show()));
+	$effect(() => shortcutService.on("create-branch", () => createBranchModal?.show()));
 	$effect(() =>
-		shortcutService.on('create-dependent-branch', () => createBranchModal?.show('dependent'))
+		shortcutService.on("create-dependent-branch", () => createBranchModal?.show("dependent")),
 	);
 </script>
 
@@ -118,7 +118,7 @@
 
 <div
 	class="chrome-header"
-	class:mac={backend.platformName === 'macos'}
+	class:mac={backend.platformName === "macos"}
 	data-tauri-drag-region={useCustomTitleBar}
 	class:single-branch={singleBranchMode}
 	use:focusable
@@ -134,7 +134,7 @@
 					onclick={openModal}
 					disabled={!projectId || actionsDisabled}
 				>
-					{upstreamCommits} upstream {upstreamCommits === 1 ? 'commit' : 'commits'}
+					{upstreamCommits} upstream {upstreamCommits === 1 ? "commit" : "commits"}
 				</Button>
 			{:else}
 				<div class="chrome-you-are-up-to-date">
@@ -213,7 +213,7 @@
 					<SelectItem
 						icon="clone"
 						onClick={() => {
-							goto('/onboarding/clone');
+							goto("/onboarding/clone");
 						}}
 					>
 						Clone repository

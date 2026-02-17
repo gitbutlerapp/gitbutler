@@ -5,19 +5,19 @@
 			username: string;
 		}[];
 		maxAvatars?: number;
-		size?: 'small' | 'medium' | 'large';
+		size?: "small" | "medium" | "large";
 		icon?: IconName;
 		iconColor?: ComponentColorType;
 	}
 </script>
 
 <script lang="ts">
-	import Icon, { type IconName } from '$components/Icon.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
-	import Avatar from '$components/avatar/Avatar.svelte';
-	import type { ComponentColorType } from '$lib/utils/colorTypes';
+	import Icon, { type IconName } from "$components/Icon.svelte";
+	import Tooltip from "$components/Tooltip.svelte";
+	import Avatar from "$components/avatar/Avatar.svelte";
+	import type { ComponentColorType } from "$lib/utils/colorTypes";
 
-	const { avatars, maxAvatars = 3, size = 'medium', icon, iconColor }: Props = $props();
+	const { avatars, maxAvatars = 3, size = "medium", icon, iconColor }: Props = $props();
 
 	const maxTooltipLength = 10;
 	const leftAvatars = $derived(avatars.length - maxAvatars);
@@ -27,7 +27,7 @@
 			return avatars
 				.slice(maxAvatars)
 				.map((avatar) => avatar.username)
-				.join(', ');
+				.join(", ");
 		}
 
 		if (leftAvatars > maxTooltipLength) {
@@ -35,7 +35,7 @@
 				avatars
 					.slice(maxAvatars, maxAvatars + maxTooltipLength)
 					.map((avatar) => avatar.username)
-					.join(', ') + ` and ${leftAvatars - maxTooltipLength} more`
+					.join(", ") + ` and ${leftAvatars - maxTooltipLength} more`
 			);
 		}
 	}
@@ -54,7 +54,7 @@
 			{/if}
 		{/each}
 		{#if avatars.length > maxAvatars}
-			<Tooltip text={getTooltipText() || 'mr. unknown'}>
+			<Tooltip text={getTooltipText() || "mr. unknown"}>
 				<div class="avatars-counter">
 					<span class="text-11 text-semibold">+{avatars.length - maxAvatars}</span>
 				</div>

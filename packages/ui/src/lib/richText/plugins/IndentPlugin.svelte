@@ -45,8 +45,8 @@ This component overrides enter key command to handle indentation and bullets in 
 
 			// Set selection after the indentation in the new paragraph
 			const newSelection = createRangeSelection();
-			newSelection.anchor.set(newTextNode.getKey(), indent.length, 'text');
-			newSelection.focus.set(newTextNode.getKey(), indent.length, 'text');
+			newSelection.anchor.set(newTextNode.getKey(), indent.length, "text");
+			newSelection.focus.set(newTextNode.getKey(), indent.length, "text");
 			setSelection(newSelection);
 
 			return true;
@@ -66,7 +66,7 @@ This component overrides enter key command to handle indentation and bullets in 
 			textNode = parent.getFirstChild();
 			// If paragraph has no text node, create one
 			if (!textNode || !isTextNode(textNode)) {
-				textNode = createTextNode('');
+				textNode = createTextNode("");
 				parent.append(textNode);
 				offset = 0;
 			}
@@ -119,7 +119,7 @@ This component overrides enter key command to handle indentation and bullets in 
 		// Check if the next sibling is a continuation line (part of a wrapped paragraph)
 		const nextSibling = parent.getNextSibling();
 		const nextSiblingText =
-			nextSibling && isParagraphNode(nextSibling) ? nextSibling.getTextContent() : '';
+			nextSibling && isParagraphNode(nextSibling) ? nextSibling.getTextContent() : "";
 		const nextSiblingIndent = parseIndent(nextSiblingText);
 		const nextSiblingBullet = parseBullet(nextSiblingText);
 
@@ -135,7 +135,7 @@ This component overrides enter key command to handle indentation and bullets in 
 			if (bulletToCreate.number) {
 				const padding = bulletToCreate.prefix.length - bulletToCreate.prefix.trimStart().length;
 				newIndent =
-					bulletToCreate.prefix.substring(0, padding) + (bulletToCreate.number + 1) + '. ';
+					bulletToCreate.prefix.substring(0, padding) + (bulletToCreate.number + 1) + ". ";
 			} else {
 				newIndent = bulletToCreate.prefix;
 			}
@@ -145,7 +145,7 @@ This component overrides enter key command to handle indentation and bullets in 
 		} else if (bullet?.number) {
 			// Parse and increment numeric bullet point
 			const padding = bullet.prefix.length - bullet.prefix.trimStart().length;
-			newIndent = bullet.prefix.substring(0, padding) + (bullet.number + 1) + '. ';
+			newIndent = bullet.prefix.substring(0, padding) + (bullet.number + 1) + ". ";
 		}
 
 		// Check if we're on an empty bullet line
@@ -179,8 +179,8 @@ This component overrides enter key command to handle indentation and bullets in 
 		// Set selection to after the indent in the new paragraph
 		// Use explicit selection API to ensure it's set correctly
 		const newSelection = createRangeSelection();
-		newSelection.anchor.set(newTextNode.getKey(), newIndent.length, 'text');
-		newSelection.focus.set(newTextNode.getKey(), newIndent.length, 'text');
+		newSelection.anchor.set(newTextNode.getKey(), newIndent.length, "text");
+		newSelection.focus.set(newTextNode.getKey(), newIndent.length, "text");
 		setSelection(newSelection);
 
 		return true;
@@ -188,7 +188,7 @@ This component overrides enter key command to handle indentation and bullets in 
 </script>
 
 <script lang="ts">
-	import { parseIndent, parseBullet } from '$lib/richText/linewrap';
+	import { parseIndent, parseBullet } from "$lib/richText/linewrap";
 
 	import {
 		$createTextNode as createTextNode,
@@ -200,9 +200,9 @@ This component overrides enter key command to handle indentation and bullets in 
 		$isTextNode as isTextNode,
 		$isParagraphNode as isParagraphNode,
 		COMMAND_PRIORITY_CRITICAL,
-		KEY_ENTER_COMMAND
-	} from 'lexical';
-	import { getEditor } from 'svelte-lexical';
+		KEY_ENTER_COMMAND,
+	} from "lexical";
+	import { getEditor } from "svelte-lexical";
 
 	const editor = getEditor();
 
@@ -210,7 +210,7 @@ This component overrides enter key command to handle indentation and bullets in 
 		const unregisterEnter = editor.registerCommand(
 			KEY_ENTER_COMMAND,
 			handleEnter,
-			COMMAND_PRIORITY_CRITICAL
+			COMMAND_PRIORITY_CRITICAL,
 		);
 
 		return () => {

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { featureShowOrganizations, featureShowProjectPage } from '$lib/featureFlags';
-	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
+	import { featureShowOrganizations, featureShowProjectPage } from "$lib/featureFlags";
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
 </script>
 
 <Spacer />

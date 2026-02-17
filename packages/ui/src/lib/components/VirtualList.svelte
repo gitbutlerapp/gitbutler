@@ -26,15 +26,15 @@
 </script>
 
 <script lang="ts" generics="T">
-	import Button from '$components/Button.svelte';
-	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
+	import Button from "$components/Button.svelte";
+	import ScrollableContainer from "$components/scroll/ScrollableContainer.svelte";
 
-	import { debounce } from '$lib/utils/debounce';
+	import { debounce } from "$lib/utils/debounce";
 
-	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { tick, untrack, type Snippet } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import type { ScrollbarVisilitySettings } from '$components/scroll/Scrollbar.svelte';
+	import { resizeObserver } from "$lib/utils/resizeObserver";
+	import { tick, untrack, type Snippet } from "svelte";
+	import { fade } from "svelte/transition";
+	import type { ScrollbarVisilitySettings } from "$components/scroll/Scrollbar.svelte";
 
 	type Props = {
 		/** Array of items to render in the virtual list. */
@@ -117,7 +117,7 @@
 		stickToBottom,
 		startIndex,
 		renderDistance = 0,
-		showBottomButton = false
+		showBottomButton = false,
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -138,7 +138,7 @@
 	let isRecalculating = false;
 
 	let lastScrollTop: number | undefined = undefined;
-	let lastScrollDirection: 'up' | 'down' | undefined;
+	let lastScrollDirection: "up" | "down" | undefined;
 	let lastJumpToIndex: number | undefined;
 	let skipNextScrollEvent = false;
 
@@ -147,7 +147,7 @@
 	const visible = $derived.by(() =>
 		items
 			.slice(visibleRange.start, visibleRange.end)
-			.map((data, i) => ({ id: i + visibleRange.start, data }))
+			.map((data, i) => ({ id: i + visibleRange.start, data })),
 	);
 
 	const itemObserver = new ResizeObserver((entries) => {
@@ -169,7 +169,7 @@
 				}
 
 				if (
-					lastScrollDirection === 'up' &&
+					lastScrollDirection === "up" &&
 					calculateHeightSum(0, visibleRange.start) !== viewport.scrollTop &&
 					visibleRange.start === index
 				) {
@@ -209,7 +209,7 @@
 	const mutationObserver = new MutationObserver((mutations) => {
 		for (const mutation of mutations) {
 			for (const node of mutation.addedNodes) {
-				if (node instanceof HTMLElement && node.matches('[data-index]')) {
+				if (node instanceof HTMLElement && node.matches("[data-index]")) {
 					itemObserver.observe(node);
 				}
 			}
@@ -267,7 +267,7 @@
 	function updateOffsets() {
 		offset = {
 			top: calculateHeightSum(0, visibleRange.start),
-			bottom: calculateHeightSum(visibleRange.end, heightMap.length)
+			bottom: calculateHeightSum(visibleRange.end, heightMap.length),
 		};
 	}
 
@@ -329,7 +329,7 @@
 				// Most likely cause for this is that something else made `visibleRange.end = 0`
 				// during the tick(). This needs debugging, but is not severe enough to warrant
 				// immediate attention.
-				console.warn('Invariant violation - root cause not yet determined.');
+				console.warn("Invariant violation - root cause not yet determined.");
 				return;
 			}
 			heightMap[i] = element.clientHeight;
@@ -347,7 +347,7 @@
 			await tick(); // Wait for element to be added
 			const element = visibleRowElements?.[0];
 			if (!element) {
-				console.warn('Invariant violation - root cause not yet determined.');
+				console.warn("Invariant violation - root cause not yet determined.");
 				return;
 			}
 			const heightDiff = element.clientHeight - (lockedHeights[i] || defaultHeight);
@@ -387,7 +387,7 @@
 		if (newStartIndex !== visibleRange.start || newEndIndex !== visibleRange.end) {
 			visibleRange = {
 				start: calculateVisibleStartIndex(),
-				end: calculateVisibleEndIndex()
+				end: calculateVisibleEndIndex(),
 			};
 			updateOffsets();
 
@@ -417,7 +417,7 @@
 		if (!viewport) return;
 		viewport.scrollTo({
 			top: viewport.scrollHeight - viewport.clientHeight,
-			behavior: 'instant'
+			behavior: "instant",
 		});
 	}
 
@@ -438,7 +438,7 @@
 	$effect(() => {
 		if (container) {
 			mutationObserver.observe(container, { childList: true });
-			for (const el of container.querySelectorAll(':scope > [data-index]')) {
+			for (const el of container.querySelectorAll(":scope > [data-index]")) {
 				itemObserver.observe(el);
 			}
 		}
@@ -450,7 +450,7 @@
 
 	$effect(() => {
 		if (!viewport) return;
-		visibleRowElements = viewport.getElementsByClassName('list-row');
+		visibleRowElements = viewport.getElementsByClassName("list-row");
 	});
 
 	$effect(() => {
@@ -514,9 +514,9 @@
 		}
 		const scrollTop = viewport?.scrollTop;
 		if (lastScrollTop && lastScrollTop > scrollTop) {
-			lastScrollDirection = 'up';
+			lastScrollDirection = "up";
 		} else if (lastScrollTop && lastScrollTop < scrollTop) {
-			lastScrollDirection = 'down';
+			lastScrollDirection = "down";
 		} else {
 			lastScrollDirection = undefined;
 		}
@@ -531,8 +531,8 @@
 		bind:this={container}
 		data-remove-from-panning
 		class="padded-contents"
-		style:padding-top={offset.top + 'px'}
-		style:padding-bottom={offset.bottom + 'px'}
+		style:padding-top={offset.top + "px"}
+		style:padding-bottom={offset.bottom + "px"}
 	>
 		{#each visible as item, i (item.id)}
 			<div

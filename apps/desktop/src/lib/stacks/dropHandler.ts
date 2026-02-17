@@ -1,22 +1,22 @@
-import { BranchDropData } from '$lib/branches/dropHandler';
-import { changesToDiffSpec } from '$lib/commits/utils';
+import { BranchDropData } from "$lib/branches/dropHandler";
+import { changesToDiffSpec } from "$lib/commits/utils";
 import {
 	FileChangeDropData,
 	FolderChangeDropData,
 	HunkDropDataV3,
-	type ChangeDropData
-} from '$lib/dragging/draggables';
-import { unstackPRs, updateStackPrs } from '$lib/forge/shared/prFooter';
-import StackMacros from '$lib/stacks/macros';
-import { handleMoveBranchResult } from '$lib/stacks/stack';
-import { ensureValue } from '$lib/utils/validation';
-import { chipToasts } from '@gitbutler/ui';
-import type { DropzoneHandler } from '$lib/dragging/handler';
-import type { ForgePrService } from '$lib/forge/interface/forgePrService';
-import type { DiffService } from '$lib/hunks/diffService.svelte';
-import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-import type { StackService } from '$lib/stacks/stackService.svelte';
-import type { UiState } from '$lib/state/uiState.svelte';
+	type ChangeDropData,
+} from "$lib/dragging/draggables";
+import { unstackPRs, updateStackPrs } from "$lib/forge/shared/prFooter";
+import StackMacros from "$lib/stacks/macros";
+import { handleMoveBranchResult } from "$lib/stacks/stack";
+import { ensureValue } from "$lib/utils/validation";
+import { chipToasts } from "@gitbutler/ui";
+import type { DropzoneHandler } from "$lib/dragging/handler";
+import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+import type { DiffService } from "$lib/hunks/diffService.svelte";
+import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
+import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { UiState } from "$lib/state/uiState.svelte";
 
 /** Handler when drop changes on a special outside lanes dropzone. */
 export class OutsideLaneDzHandler implements DropzoneHandler {
@@ -29,21 +29,21 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 		private readonly uiState: UiState,
 		private readonly uncommittedService: UncommittedService,
 		private readonly diffService: DiffService,
-		private readonly baseBranchName: string | undefined
+		private readonly baseBranchName: string | undefined,
 	) {
 		this.macros = new StackMacros(this.projectId, this.stackService, this.uiState);
 	}
 
 	private acceptsChangeDropData(data: unknown): data is ChangeDropData {
 		if (!(data instanceof FileChangeDropData || data instanceof FolderChangeDropData)) return false;
-		if (data.selectionId.type === 'commit' && data.stackId === undefined) return false;
+		if (data.selectionId.type === "commit" && data.stackId === undefined) return false;
 		return true;
 	}
 
 	private acceptsHunkDropData(data: unknown): data is HunkDropDataV3 {
 		if (!(data instanceof HunkDropDataV3)) return false;
-		if (data.selectionId.type === 'commit' && data.stackId === undefined) return false;
-		if (data.selectionId.type === 'branch') return false;
+		if (data.selectionId.type === "commit" && data.stackId === undefined) return false;
+		if (data.selectionId.type === "branch") return false;
 		return true;
 	}
 
@@ -65,15 +65,15 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	async ondropChangeData(data: ChangeDropData) {
 		switch (data.selectionId.type) {
-			case 'branch': {
+			case "branch": {
 				const newBranchName = await this.stackService.fetchNewBranchName(this.projectId);
 
 				if (!newBranchName) {
-					throw new Error('Failed to generate a new branch name.');
+					throw new Error("Failed to generate a new branch name.");
 				}
 
 				if (!data.stackId) {
-					throw new Error('Change drop data must specify the source stackId');
+					throw new Error("Change drop data must specify the source stackId");
 				}
 
 				const sourceStackId = data.stackId;
@@ -90,23 +90,23 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 							sourceStackId,
 							sourceBranchName,
 							fileChangesToSplitOff: fileNames,
-							newBranchName: newBranchName
+							newBranchName: newBranchName,
 						});
 					})(),
 					{
-						loading: 'Splitting branch into a new branch...',
-						success: 'Branch split successfully',
-						error: 'Failed to split branch'
-					}
+						loading: "Splitting branch into a new branch...",
+						success: "Branch split successfully",
+						error: "Failed to split branch",
+					},
 				);
 
 				break;
 			}
-			case 'commit': {
+			case "commit": {
 				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
 
 				if (!outcome.newCommit) {
-					throw new Error('Failed to create a new commit');
+					throw new Error("Failed to create a new commit");
 				}
 
 				const sourceStackId = data.stackId;
@@ -119,29 +119,29 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 						sourceStackId,
 						sourceCommitId,
 						branchName,
-						diffSpec
+						diffSpec,
 					);
 				} else {
 					// Should not happen, but just in case
-					throw new Error('Change drop data must specify the source stackId');
+					throw new Error("Change drop data must specify the source stackId");
 				}
 				break;
 			}
-			case 'worktree': {
+			case "worktree": {
 				const stack = await this.stackService.newStackMutation({
 					projectId: this.projectId,
-					branch: { name: undefined }
+					branch: { name: undefined },
 				});
 
 				const changes = await data.treeChanges();
 				const assignments = changes
 					.flatMap((c) =>
-						this.uncommittedService.getAssignmentsByPath(data.stackId ?? null, c.path)
+						this.uncommittedService.getAssignmentsByPath(data.stackId ?? null, c.path),
 					)
 					.map((h) => ({ ...h, stackId: ensureValue(stack.id) }));
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
-					assignments
+					assignments,
 				});
 			}
 		}
@@ -149,19 +149,19 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 
 	async ondropHunkData(data: HunkDropDataV3) {
 		switch (data.selectionId.type) {
-			case 'commit': {
+			case "commit": {
 				if (!data.stackId || !data.commitId) {
-					throw new Error('Hunk drop data must specify the source stackId and commitId');
+					throw new Error("Hunk drop data must specify the source stackId and commitId");
 				}
 
 				const { stack, outcome, branchName } = await this.macros.createNewStackAndCommit();
 
 				if (!outcome.newCommit) {
-					throw new Error('Failed to create a new commit');
+					throw new Error("Failed to create a new commit");
 				}
 
 				const previousPathBytes =
-					data.change.status.type === 'Rename'
+					data.change.status.type === "Rename"
 						? data.change.status.subject.previousPathBytes
 						: null;
 
@@ -180,33 +180,33 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 									oldStart: data.hunk.oldStart,
 									oldLines: data.hunk.oldLines,
 									newStart: data.hunk.newStart,
-									newLines: data.hunk.newLines
-								}
-							]
-						}
-					]
+									newLines: data.hunk.newLines,
+								},
+							],
+						},
+					],
 				);
 				break;
 			}
-			case 'worktree': {
+			case "worktree": {
 				const stack = await this.stackService.newStackMutation({
 					projectId: this.projectId,
-					branch: { name: undefined }
+					branch: { name: undefined },
 				});
 
 				const assignmentReactive = this.uncommittedService.getAssignmentByHeader(
 					data.stackId,
 					data.change.path,
-					data.hunk
+					data.hunk,
 				);
 				const assignment = assignmentReactive.current;
 				if (!assignment) {
-					throw new Error('No hunk assignment found for the dropped worktree hunk');
+					throw new Error("No hunk assignment found for the dropped worktree hunk");
 				}
 
 				await this.diffService.assignHunk({
 					projectId: this.projectId,
-					assignments: [{ ...assignment, stackId: ensureValue(stack.id) }]
+					assignments: [{ ...assignment, stackId: ensureValue(stack.id) }],
 				});
 				break;
 			}
@@ -218,7 +218,7 @@ export class OutsideLaneDzHandler implements DropzoneHandler {
 			.tearOffBranch({
 				projectId: this.projectId,
 				sourceStackId: data.stackId,
-				subjectBranchName: data.branchName
+				subjectBranchName: data.branchName,
 			})
 			.then(async (result) => {
 				handleMoveBranchResult(result);

@@ -1,12 +1,12 @@
 /* eslint-disable no-console */
-import { spawnSync } from 'node:child_process';
+import { spawnSync } from "node:child_process";
 
 export async function spawnAndLog(command: string, args: string[]) {
 	const result = spawnSync(command, args);
-	console.log(`Exec command: ${command} ${args.join(' ')}`);
-	console.log('==== STDOUT ====\n', result.stdout?.toString());
-	console.log('==== STDERR ====\n', result.stderr?.toString());
-	console.log('==== EXIT STATUS ====\n', result.status);
+	console.log(`Exec command: ${command} ${args.join(" ")}`);
+	console.log("==== STDOUT ====\n", result.stdout?.toString());
+	console.log("==== STDERR ====\n", result.stderr?.toString());
+	console.log("==== EXIT STATUS ====\n", result.status);
 	return result.status;
 }
 
@@ -23,6 +23,6 @@ export async function setElementValue(targetElement: WebdriverIO.Element, value:
 			(input as any).value = path;
 		},
 		targetElement,
-		value
+		value,
 	);
 }

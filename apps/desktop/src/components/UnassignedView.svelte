@@ -1,18 +1,18 @@
 <script lang="ts">
-	import RulesList from '$components/RulesList.svelte';
-	import UnassignedFoldButton from '$components/UnassignedFoldButton.svelte';
-	import UnassignedViewForgePrompt from '$components/UnassignedViewForgePrompt.svelte';
-	import WorktreeChanges from '$components/WorktreeChanges.svelte';
-	import { ActionEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import noChanges from '$lib/assets/empty-state/no-new-changes.svg?raw';
-	import { stagingBehaviorFeature } from '$lib/config/uiFeatureFlags';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { createWorktreeSelection } from '$lib/selection/key';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Badge, Button, TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
+	import RulesList from "$components/RulesList.svelte";
+	import UnassignedFoldButton from "$components/UnassignedFoldButton.svelte";
+	import UnassignedViewForgePrompt from "$components/UnassignedViewForgePrompt.svelte";
+	import WorktreeChanges from "$components/WorktreeChanges.svelte";
+	import { ActionEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import noChanges from "$lib/assets/empty-state/no-new-changes.svg?raw";
+	import { stagingBehaviorFeature } from "$lib/config/uiFeatureFlags";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { createWorktreeSelection } from "$lib/selection/key";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Badge, Button, TestId } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
 
 	interface Props {
 		projectId: string;
@@ -30,7 +30,7 @@
 	const projectState = $derived(uiState.project(projectId));
 	const unassignedSidebarFolded = $derived(uiState.global.unassignedSidebarFolded);
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(exclusiveAction?.type === 'commit');
+	const isCommitting = $derived(exclusiveAction?.type === "commit");
 
 	const treeChanges = $derived(uncommittedService.changesByStackId(null));
 	const treeChangesCount = $derived(treeChanges.current.length);
@@ -77,14 +77,14 @@
 
 	function checkFilesForCommit(): true {
 		switch ($stagingBehaviorFeature) {
-			case 'all':
+			case "all":
 				checkAllFiles();
 				return true;
-			case 'selection':
+			case "selection":
 				// We only check the selected files.
 				checkSelectedFilesForCommit();
 				return true;
-			case 'none':
+			case "none":
 				uncheckAll();
 				return true;
 		}
@@ -134,14 +134,14 @@
 						disabled={!!projectState.exclusiveAction.current}
 						onclick={() => {
 							projectState.exclusiveAction.set({
-								type: 'commit',
+								type: "commit",
 								stackId: undefined,
-								branchName: undefined
+								branchName: undefined,
 							});
 							checkFilesForCommit();
 							posthog.captureAction(ActionEvent.CommitToNewBranch);
 						}}
-						icon={isCommitting ? undefined : 'plus-small'}
+						icon={isCommitting ? undefined : "plus-small"}
 						testId={TestId.CommitToNewBranchButton}
 						kind="outline"
 					>
@@ -169,7 +169,7 @@
 
 		<div class="unassigned-folded-content">
 			<Badge>
-				{treeChangesCount > 99 ? '99+' : treeChangesCount}
+				{treeChangesCount > 99 ? "99+" : treeChangesCount}
 			</Badge>
 			<span
 				bind:clientWidth={foldedContentWidth}

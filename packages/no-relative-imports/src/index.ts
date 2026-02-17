@@ -1,7 +1,7 @@
-import { noRelativeImportPaths } from './noRelativeImportPaths.js';
+import { noRelativeImportPaths } from "./noRelativeImportPaths.js";
 
 export default {
 	rules: {
-		'no-relative-import-paths': noRelativeImportPaths
-	}
+		"no-relative-import-paths": noRelativeImportPaths,
+	},
 };

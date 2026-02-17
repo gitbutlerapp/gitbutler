@@ -1,11 +1,11 @@
 <script module lang="ts">
-	import ButPcAvatar from '$components/ButPcAvatar.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import ButPcAvatar from "$components/ButPcAvatar.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Avatar / ButPcAvatar',
+		title: "Avatar / ButPcAvatar",
 		component: ButPcAvatar,
-		args: {}
+		args: {},
 	});
 </script>
 

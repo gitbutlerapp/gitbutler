@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { ButPcAvatar, type faceType } from '@gitbutler/ui';
-	import type { Snippet } from 'svelte';
+	import { ButPcAvatar, type faceType } from "@gitbutler/ui";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		children?: Snippet;
-		style: 'info' | 'pop' | 'error';
+		style: "info" | "pop" | "error";
 		face: faceType;
 		extraContent?: Snippet;
 	};
@@ -20,7 +20,7 @@
 			{#if children}
 				<div
 					class="service-message__bubble service-message__bubble--{style} service-message__bubble--animate"
-					class:service-message__bubble--wiggle={face === 'waiting'}
+					class:service-message__bubble--wiggle={face === "waiting"}
 				>
 					{@render children()}
 				</div>

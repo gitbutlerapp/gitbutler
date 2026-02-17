@@ -1,5 +1,5 @@
 export async function* stringStreamGenerator(
-	reader: ReadableStreamDefaultReader<Uint8Array>
+	reader: ReadableStreamDefaultReader<Uint8Array>,
 ): AsyncGenerator<string, void, void> {
 	try {
 		while (true) {

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ChipToast from '$components/chipToast/ChipToast.svelte';
-	import { chipToasts } from '$components/chipToast/chipToastStore';
-	import { flip } from 'svelte/animate';
+	import ChipToast from "$components/chipToast/ChipToast.svelte";
+	import { chipToasts } from "$components/chipToast/chipToastStore";
+	import { flip } from "svelte/animate";
 </script>
 
 <div class="chip-toast-container">

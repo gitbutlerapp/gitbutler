@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { setContext } from 'svelte';
-	import { writable } from 'svelte/store';
-	import type { SegmentContext } from '$components/segmentControl/segmentTypes';
-	import type { Snippet } from 'svelte';
+	import { setContext } from "svelte";
+	import { writable } from "svelte/store";
+	import type { SegmentContext } from "$components/segmentControl/segmentTypes";
+	import type { Snippet } from "svelte";
 
 	interface SegmentProps {
 		selected?: string;
 		fullWidth?: boolean;
 		shrinkable?: boolean;
-		size?: 'default' | 'small';
+		size?: "default" | "small";
 		onselect?: (id: string) => void;
 		children: Snippet;
 	}
@@ -17,9 +17,9 @@
 		selected,
 		fullWidth = false,
 		shrinkable = false,
-		size = 'default',
+		size = "default",
 		onselect,
-		children
+		children,
 	}: SegmentProps = $props();
 
 	const registeredSegments: string[] = [];
@@ -47,16 +47,16 @@
 		selectSegment: (id: string) => {
 			selectedSegmentId.set(id);
 			onselect?.(id);
-		}
+		},
 	};
 
-	setContext<SegmentContext>('SegmentControl', context);
+	setContext<SegmentContext>("SegmentControl", context);
 </script>
 
 <div
 	class="segment-control-container"
 	class:shrinkable
-	class:small={size === 'small'}
+	class:small={size === "small"}
 	class:full-width={fullWidth}
 >
 	{@render children()}

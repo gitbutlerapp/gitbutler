@@ -1,12 +1,12 @@
 <script module lang="ts">
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import KebabButton from '$components/KebabButton.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import ContextMenuItem from "$components/ContextMenuItem.svelte";
+	import ContextMenuSection from "$components/ContextMenuSection.svelte";
+	import KebabButton from "$components/KebabButton.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Controls / KebabButton',
-		component: KebabButton
+		title: "Controls / KebabButton",
+		component: KebabButton,
 	});
 </script>
 
@@ -26,7 +26,7 @@
 								label="Edit"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('Edit clicked');
+									console.log("Edit clicked");
 									close();
 								}}
 							/>
@@ -34,7 +34,7 @@
 								label="Duplicate"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('Duplicate clicked');
+									console.log("Duplicate clicked");
 									close();
 								}}
 							/>
@@ -42,7 +42,7 @@
 								label="Share"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('Share clicked');
+									console.log("Share clicked");
 									close();
 								}}
 							/>
@@ -52,7 +52,7 @@
 								label="Delete"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('Delete clicked');
+									console.log("Delete clicked");
 									close();
 								}}
 							/>
@@ -76,7 +76,7 @@
 								label="Edit"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('Edit clicked');
+									console.log("Edit clicked");
 									close();
 								}}
 							/>
@@ -84,7 +84,7 @@
 								label="Delete"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('Delete clicked');
+									console.log("Delete clicked");
 									close();
 								}}
 							/>
@@ -108,7 +108,7 @@
 								label="Settings"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('Settings clicked');
+									console.log("Settings clicked");
 									close();
 								}}
 							/>
@@ -116,7 +116,7 @@
 								label="About"
 								onclick={() => {
 									// eslint-disable-next-line no-console
-									console.log('About clicked');
+									console.log("About clicked");
 									close();
 								}}
 							/>

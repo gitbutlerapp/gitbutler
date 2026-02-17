@@ -7,10 +7,10 @@
 </script>
 
 <script lang="ts">
-	import { Button } from '@gitbutler/ui';
-	import type { UserSimple } from '@gitbutler/shared/users/types';
+	import { Button } from "@gitbutler/ui";
+	import type { UserSimple } from "@gitbutler/shared/users/types";
 
-	const UNKNOWN_AUTHOR = 'Unknown author';
+	const UNKNOWN_AUTHOR = "Unknown author";
 
 	type Props = {
 		message: ReplyToMessage;
@@ -21,7 +21,7 @@
 	const { message, clearReply, clickable }: Props = $props();
 
 	const authorName = $derived(
-		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR
+		message.user.login ?? message.user.name ?? message.user.email ?? UNKNOWN_AUTHOR,
 	);
 </script>
 

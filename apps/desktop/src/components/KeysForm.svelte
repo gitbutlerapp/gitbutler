@@ -1,17 +1,17 @@
 <script lang="ts">
-	import CredentialCheck from '$components/CredentialCheck.svelte';
-	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
-	import { showError } from '$lib/notifications/toasts';
-	import { type AuthKey, type KeyType } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { debounce } from '$lib/utils/debounce';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Link, RadioButton, Textbox } from '@gitbutler/ui';
+	import CredentialCheck from "$components/CredentialCheck.svelte";
+	import ProjectNameLabel from "$components/ProjectNameLabel.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import { BASE_BRANCH_SERVICE } from "$lib/baseBranch/baseBranchService.svelte";
+	import { showError } from "$lib/notifications/toasts";
+	import { type AuthKey, type KeyType } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { debounce } from "$lib/utils/debounce";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Link, RadioButton, Textbox } from "@gitbutler/ui";
 
-	import { onMount } from 'svelte';
+	import { onMount } from "svelte";
 
 	interface Props {
 		// Used by credential checker before target branch set
@@ -24,10 +24,10 @@
 
 	const {
 		projectId,
-		remoteName = '',
-		branchName = '',
+		remoteName = "",
+		branchName = "",
 		showProjectName = false,
-		disabled = false
+		disabled = false,
 	}: Props = $props();
 
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
@@ -40,10 +40,10 @@
 	let credentialCheck = $state<CredentialCheck>();
 
 	let selectedType: KeyType = $derived(
-		typeof project?.preferred_key === 'string' ? project?.preferred_key : 'local'
+		typeof project?.preferred_key === "string" ? project?.preferred_key : "local",
 	);
 
-	let privateKeyPath = $state('');
+	let privateKeyPath = $state("");
 
 	async function updateKey(detail: { preferred_key: AuthKey }) {
 		try {
@@ -51,35 +51,35 @@
 				projectsService.updateProject({ ...project, preferred_key: detail.preferred_key });
 			}
 		} catch (err: any) {
-			showError('Failed to update key', err);
+			showError("Failed to update key", err);
 		}
 	}
 
 	let form = $state<HTMLFormElement>();
 
 	const debouncedUpdateLocalKey = debounce((privateKey: string) => {
-		if (privateKey.trim() === '') {
+		if (privateKey.trim() === "") {
 			updateKey({
 				preferred_key: {
 					local: {
-						private_key_path: privateKey.trim()
-					}
-				}
+						private_key_path: privateKey.trim(),
+					},
+				},
 			});
 		}
 	}, 500);
 
 	function onFormChange(selectedType: string) {
 		credentialCheck?.reset();
-		if (selectedType !== 'local') {
+		if (selectedType !== "local") {
 			updateKey({ preferred_key: selectedType as AuthKey });
-		} else if (privateKeyPath.trim() !== '') {
+		} else if (privateKeyPath.trim() !== "") {
 			updateKey({
 				preferred_key: {
 					local: {
-						private_key_path: privateKeyPath.trim()
-					}
-				}
+						private_key_path: privateKeyPath.trim(),
+					},
+				},
 			});
 		}
 	}
@@ -112,7 +112,7 @@
 						bind:this={form}
 						onchange={(e) => {
 							const data = new FormData(e.currentTarget);
-							selectedType = data.get('credentialType') as KeyType;
+							selectedType = data.get("credentialType") as KeyType;
 							onFormChange(selectedType);
 						}}
 					>
@@ -122,7 +122,7 @@
 							{/snippet}
 
 							{#snippet caption()}
-								{#if selectedType === 'systemExecutable'}
+								{#if selectedType === "systemExecutable"}
 									Git executable must be present on your PATH
 								{/if}
 							{/snippet}
@@ -142,13 +142,13 @@
 							{/snippet}
 
 							{#snippet caption()}
-								{#if selectedType === 'local'}
+								{#if selectedType === "local"}
 									Add the path to an existing SSH key that GitButler can use.
 								{/if}
 							{/snippet}
 						</CardGroup.Item>
 
-						{#if selectedType === 'local'}
+						{#if selectedType === "local"}
 							<CardGroup.Item>
 								<div class="inputs-group">
 									<Textbox
@@ -169,7 +169,7 @@
 							{/snippet}
 
 							{#snippet caption()}
-								{#if selectedType === 'gitCredentialsHelper'}
+								{#if selectedType === "gitCredentialsHelper"}
 									GitButler will use the system's git credentials helper.
 									<Link href="https://git-scm.com/doc/credential-helpers">Learn more</Link>
 								{/if}
@@ -187,7 +187,7 @@
 						<CardGroup.Item>
 							<CredentialCheck
 								bind:this={credentialCheck}
-								disabled={selectedType === 'local' && privateKeyPath.trim() === ''}
+								disabled={selectedType === "local" && privateKeyPath.trim() === ""}
 								projectId={project.id}
 								remoteName={remoteName || baseBranch?.remoteName}
 								branchName={branchName || baseBranch?.shortName}

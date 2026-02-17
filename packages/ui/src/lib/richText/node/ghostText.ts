@@ -8,8 +8,8 @@ import {
 	type LexicalEditor,
 	type NodeKey,
 	type SerializedTextNode,
-	type Spread
-} from 'lexical';
+	type Spread,
+} from "lexical";
 
 const APPEAR_DURATION_MS = 400;
 
@@ -20,7 +20,7 @@ type GhostTextOptions = {
 
 export type SerializedGhostTextNode = Spread<
 	{
-		type: 'ghostText';
+		type: "ghostText";
 		index: number | undefined;
 		total: number | undefined;
 	},
@@ -32,7 +32,7 @@ export class GhostText extends TextNode {
 	__total?: number;
 
 	static getType(): string {
-		return 'ghostText';
+		return "ghostText";
 	}
 
 	static clone(node: GhostText): GhostText {
@@ -50,15 +50,15 @@ export class GhostText extends TextNode {
 			const fraction = APPEAR_DURATION_MS / this.__total;
 			return `${this.__index * fraction}ms`;
 		}
-		return '';
+		return "";
 	}
 
 	createDOM(config: EditorConfig): HTMLElement {
-		const dom = document.createElement('span');
+		const dom = document.createElement("span");
 		const inner = super.createDOM(config);
-		dom.className = 'ghost-text';
+		dom.className = "ghost-text";
 		dom.style.animationDelay = this.getAnimationDelay();
-		inner.className = 'ghost-text-inner';
+		inner.className = "ghost-text-inner";
 		dom.appendChild(inner);
 		return dom;
 	}
@@ -66,7 +66,7 @@ export class GhostText extends TextNode {
 	static importJSON(serializedNode: SerializedGhostTextNode): GhostText {
 		const node = createGhostTextNode(serializedNode.text, {
 			index: serializedNode.index,
-			total: serializedNode.total
+			total: serializedNode.total,
 		});
 		node.setFormat(serializedNode.format);
 		node.setDetail(serializedNode.detail);
@@ -78,9 +78,9 @@ export class GhostText extends TextNode {
 	exportJSON(): SerializedGhostTextNode {
 		return {
 			...super.exportJSON(),
-			type: 'ghostText',
+			type: "ghostText",
 			index: this.__index,
-			total: this.__total
+			total: this.__total,
 		};
 	}
 
@@ -114,16 +114,16 @@ export class GhostText extends TextNode {
 
 	getTextContent(): string {
 		// GhostText should not be included in the text content
-		return '';
+		return "";
 	}
 }
 
 export function createGhostTextNode(
 	text: string,
 	options?: GhostTextOptions,
-	key?: NodeKey
+	key?: NodeKey,
 ): GhostText {
-	return new GhostText(text, key, options).setMode('token');
+	return new GhostText(text, key, options).setMode("token");
 }
 
 export function isGhostTextNode(node: TextNode): node is GhostText {
@@ -143,7 +143,7 @@ export function insertGhostTextAtCaret(editor: LexicalEditor, ghostText: string)
 			textToInsert = textToInsert.slice(currentTextContent.length);
 		}
 
-		const words = textToInsert.split(' ');
+		const words = textToInsert.split(" ");
 
 		const key = selection.focus.key;
 		const offset = selection.focus.offset;

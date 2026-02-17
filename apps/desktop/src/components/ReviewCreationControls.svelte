@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { persisted } from '@gitbutler/shared/persisted';
+	import { persisted } from "@gitbutler/shared/persisted";
 
 	import {
 		Button,
 		ContextMenuItem,
 		ContextMenuSection,
 		DropdownButton,
-		TestId
-	} from '@gitbutler/ui';
+		TestId,
+	} from "@gitbutler/ui";
 
 	interface Props {
 		isCreatingPR: boolean;
@@ -26,13 +26,13 @@
 		isFormBusy,
 		onCancel,
 		onSubmit,
-		reviewUnit
+		reviewUnit,
 	}: Props = $props();
 
-	const unit = $derived(reviewUnit ?? 'PR');
+	const unit = $derived(reviewUnit ?? "PR");
 	let commitButton = $state<DropdownButton>();
 
-	const createDraft = persisted<boolean>(false, 'createDraftPr');
+	const createDraft = persisted<boolean>(false, "createDraftPr");
 </script>
 
 <div class="submit-review-actions">

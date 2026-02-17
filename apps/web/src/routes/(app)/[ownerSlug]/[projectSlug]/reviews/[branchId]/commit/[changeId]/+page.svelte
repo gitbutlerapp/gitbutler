@@ -1,32 +1,32 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { ChatMinimize } from '$lib/chat/minimize.svelte';
-	import ChatComponent from '$lib/components/ChatComponent.svelte';
-	import Navigation from '$lib/components/Navigation.svelte';
-	import PrivateProjectError from '$lib/components/errors/PrivateProjectError.svelte';
-	import ChangeActionButton from '$lib/components/review/ChangeActionButton.svelte';
-	import ChangeNavigator from '$lib/components/review/ChangeNavigator.svelte';
-	import ReviewInfo from '$lib/components/review/ReviewInfo.svelte';
-	import ReviewSections from '$lib/components/review/ReviewSections.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { updateFavIcon } from '$lib/utils/faviconUtils';
-	import { inject } from '@gitbutler/core/context';
-	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
-	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
-	import { LATEST_BRANCH_LOOKUP_SERVICE } from '@gitbutler/shared/branches/latestBranchLookupService';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { combine, isFound, map, isError } from '@gitbutler/shared/network/loadable';
-	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
-	import { getPatch } from '@gitbutler/shared/patches/patchCommitsPreview.svelte';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
+	import { goto } from "$app/navigation";
+	import { ChatMinimize } from "$lib/chat/minimize.svelte";
+	import ChatComponent from "$lib/components/ChatComponent.svelte";
+	import Navigation from "$lib/components/Navigation.svelte";
+	import PrivateProjectError from "$lib/components/errors/PrivateProjectError.svelte";
+	import ChangeActionButton from "$lib/components/review/ChangeActionButton.svelte";
+	import ChangeNavigator from "$lib/components/review/ChangeNavigator.svelte";
+	import ReviewInfo from "$lib/components/review/ReviewInfo.svelte";
+	import ReviewSections from "$lib/components/review/ReviewSections.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { updateFavIcon } from "$lib/utils/faviconUtils";
+	import { inject } from "@gitbutler/core/context";
+	import Minimap from "@gitbutler/shared/branches/Minimap.svelte";
+	import { getBranchReview } from "@gitbutler/shared/branches/branchesPreview.svelte";
+	import { lookupLatestBranchUuid } from "@gitbutler/shared/branches/latestBranchLookup.svelte";
+	import { LATEST_BRANCH_LOOKUP_SERVICE } from "@gitbutler/shared/branches/latestBranchLookupService";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { combine, isFound, map, isError } from "@gitbutler/shared/network/loadable";
+	import { lookupProject } from "@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte";
+	import { getPatch } from "@gitbutler/shared/patches/patchCommitsPreview.svelte";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
 	import {
 		WEB_ROUTES_SERVICE,
-		type ProjectReviewCommitParameters
-	} from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button, Markdown } from '@gitbutler/ui';
+		type ProjectReviewCommitParameters,
+	} from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button, Markdown } from "@gitbutler/ui";
 
-	const DESCRIPTION_PLACE_HOLDER = 'No commit message description provided';
+	const DESCRIPTION_PLACE_HOLDER = "No commit message description provided";
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -54,14 +54,14 @@
 			latestBranchLookupService,
 			data.ownerSlug,
 			data.projectSlug,
-			data.branchId
-		)
+			data.branchId,
+		),
 	);
 
 	const branch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
 			return getBranchReview(branchUuid);
-		})
+		}),
 	);
 
 	const patchCommitIds = $derived(map(branch?.current, (b) => b.patchCommitIds));
@@ -69,15 +69,15 @@
 	const patchCommit = $derived(
 		map(branchUuid?.current, (branchUuid) => {
 			return getPatch(branchUuid, data.changeId);
-		})
+		}),
 	);
 
 	const isPatchAuthor = $derived(
 		map(patchCommit?.current, (patch) => {
 			return patch.contributors.some(
-				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id
+				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id,
 			);
-		})
+		}),
 	);
 
 	let headerEl = $state<HTMLDivElement>();
@@ -100,7 +100,7 @@
 	}
 
 	function scrollToTop() {
-		window.scrollTo({ top: 0, behavior: 'smooth' });
+		window.scrollTo({ top: 0, behavior: "smooth" });
 	}
 
 	function goToPatch(changeId: string) {
@@ -108,7 +108,7 @@
 			ownerSlug: data.ownerSlug,
 			projectSlug: data.projectSlug,
 			branchId: data.branchId,
-			changeId
+			changeId,
 		});
 
 		goto(url);
@@ -129,9 +129,9 @@
 
 	$effect(() => {
 		if (isChatTabletMode && !chatMinimizer.value) {
-			document.body.style.overflow = 'hidden';
+			document.body.style.overflow = "hidden";
 		} else {
-			document.body.style.overflow = '';
+			document.body.style.overflow = "";
 		}
 	});
 
@@ -155,22 +155,22 @@
 	function isForbiddenError(data: any) {
 		if (!isError(data)) return false;
 
-		const errorMessage = data.error.message || '';
+		const errorMessage = data.error.message || "";
 		return (
-			(data.error.name === 'ApiError' && errorMessage.includes('403')) ||
-			errorMessage.includes('Forbidden') ||
-			errorMessage.includes('Access denied') ||
-			(typeof errorMessage === 'string' && errorMessage.includes('403'))
+			(data.error.name === "ApiError" && errorMessage.includes("403")) ||
+			errorMessage.includes("Forbidden") ||
+			errorMessage.includes("Access denied") ||
+			(typeof errorMessage === "string" && errorMessage.includes("403"))
 		);
 	}
 
 	// Check for forbidden error in either the branchUuid lookup or the branch data
 	const hasForbiddenError = $derived(
-		isForbiddenError(patchCommit?.current) || isForbiddenError(branch?.current)
+		isForbiddenError(patchCommit?.current) || isForbiddenError(branch?.current),
 	);
 	// Check for any error in the combined loadable
 	const combinedLoadable = $derived(
-		combine([patchCommit?.current, repositoryId.current, branchUuid?.current, branch?.current])
+		combine([patchCommit?.current, repositoryId.current, branchUuid?.current, branch?.current]),
 	);
 	const hasAnyError = $derived(isError(combinedLoadable));
 </script>
@@ -238,7 +238,7 @@
 										href={routes.projectReviewBranchPath({
 											ownerSlug: data.ownerSlug,
 											projectSlug: data.projectSlug,
-											branchId: data.branchId
+											branchId: data.branchId,
 										})}>{branch.title}</a
 									>
 								</p>

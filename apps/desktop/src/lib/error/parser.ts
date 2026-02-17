@@ -1,13 +1,13 @@
-import { getSwallowGitHubOrgAuthErrors } from '$lib/config/config';
-import { KNOWN_ERRORS } from '$lib/error/knownErrors';
+import { getSwallowGitHubOrgAuthErrors } from "$lib/config/config";
+import { KNOWN_ERRORS } from "$lib/error/knownErrors";
 import {
 	isHttpError,
 	isPromiseRejection,
-	isReduxActionError as isReduxActionError
-} from '$lib/error/typeguards';
-import { isReduxError } from '$lib/state/reduxError';
-import { isStr } from '@gitbutler/ui/utils/string';
-import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
+	isReduxActionError as isReduxActionError,
+} from "$lib/error/typeguards";
+import { isReduxError } from "$lib/state/reduxError";
+import { isStr } from "@gitbutler/ui/utils/string";
+import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
 
 export interface ParsedError {
 	message: string;
@@ -19,10 +19,10 @@ export interface ParsedError {
 
 export function isParsedError(something: unknown): something is ParsedError {
 	return (
-		typeof something === 'object' &&
+		typeof something === "object" &&
 		something !== null &&
-		'message' in something &&
-		typeof something.message === 'string'
+		"message" in something &&
+		typeof something.message === "string"
 	);
 }
 
@@ -48,8 +48,8 @@ export function parseError(error: unknown): ParsedError {
 
 	if (isPromiseRejection(error)) {
 		return {
-			name: 'A promise had an unhandled exception.',
-			message: String(error.reason)
+			name: "A promise had an unhandled exception.",
+			message: String(error.reason),
 		};
 	}
 
@@ -60,14 +60,14 @@ export function parseError(error: unknown): ParsedError {
 	}
 
 	if (isReduxActionError(error)) {
-		return { message: error.error + '\n\n' + error.payload };
+		return { message: error.error + "\n\n" + error.payload };
 	}
 
 	if (isHttpError(error)) {
 		// Silence GitHub octokit.js when disconnected. This should ideally be
 		// prevented using `navigator.onLine` to avoid making requests when
 		// working offline.
-		if (error.status === 500 && error.message === 'Load failed') {
+		if (error.status === 500 && error.message === "Load failed") {
 			return { message: error.message, ignored: true };
 		}
 		return { message: error.message };
@@ -80,7 +80,7 @@ export function parseError(error: unknown): ParsedError {
 	return { message: JSON.stringify(error, null, 2) };
 }
 
-const GH_ORG_AUTH_ERROR = 'GitHub Organizations OAuth Error';
+const GH_ORG_AUTH_ERROR = "GitHub Organizations OAuth Error";
 
 export function isGitHubOrgAuthError(title: string): boolean {
 	return title === GH_ORG_AUTH_ERROR;
@@ -98,7 +98,7 @@ export function shouldIgnoreThistError(title: string): boolean {
 }
 
 const CommonErrorMessageStart: Record<string, string> = {
-	'Although you appear to have the correct authorization credentials,': GH_ORG_AUTH_ERROR
+	"Although you appear to have the correct authorization credentials,": GH_ORG_AUTH_ERROR,
 };
 /**
  * Returns an unified title for common error messages.

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import ArrowButton from '$home/components/ArrowButton.svelte';
-	import SectionHeader from '$home/components/SectionHeader.svelte';
-	import quotesJson from '$home/data/social-quotes.json';
-	import { onMount } from 'svelte';
+	import ArrowButton from "$home/components/ArrowButton.svelte";
+	import SectionHeader from "$home/components/SectionHeader.svelte";
+	import quotesJson from "$home/data/social-quotes.json";
+	import { onMount } from "svelte";
 
 	type Quote = {
 		social: string;
@@ -50,7 +50,7 @@
 		slides = [
 			originalSlides[originalSlides.length - 1], // Last slide at the beginning
 			...originalSlides,
-			originalSlides[0] // First slide at the end
+			originalSlides[0], // First slide at the end
 		];
 
 		totalOriginalSlides = originalSlides.length;
@@ -85,10 +85,10 @@
 		}
 
 		checkMobile();
-		window.addEventListener('resize', checkMobile);
+		window.addEventListener("resize", checkMobile);
 
 		return () => {
-			window.removeEventListener('resize', checkMobile);
+			window.removeEventListener("resize", checkMobile);
 		};
 	});
 
@@ -108,7 +108,7 @@
 			// Add gap to scroll to the next card properly
 			const scrollAmount = cardWidth + gap;
 
-			mobileCarouselElement.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+			mobileCarouselElement.scrollBy({ left: scrollAmount, behavior: "smooth" });
 			return;
 		}
 
@@ -142,7 +142,7 @@
 			// Add gap to scroll to the previous card properly
 			const scrollAmount = cardWidth + gap;
 
-			mobileCarouselElement.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+			mobileCarouselElement.scrollBy({ left: -scrollAmount, behavior: "smooth" });
 			return;
 		}
 
@@ -263,7 +263,7 @@
 			width: 40px;
 			height: 100%;
 			background: linear-gradient(to right, var(--clr-bg-2), transparent);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 
@@ -275,7 +275,7 @@
 			width: 40px;
 			height: 100%;
 			background: linear-gradient(to left, var(--clr-bg-2), transparent);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 	}

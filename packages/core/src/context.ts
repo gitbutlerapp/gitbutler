@@ -1,4 +1,4 @@
-import { setContext, getContext as svelteGetContext } from 'svelte';
+import { setContext, getContext as svelteGetContext } from "svelte";
 
 /**
  * Angular inspired injection token.

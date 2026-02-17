@@ -1,32 +1,32 @@
 <script lang="ts">
-	import ChangedFilesContextMenu from '$components/ChangedFilesContextMenu.svelte';
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
+	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
+	import ScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
 	import {
 		conflictEntryHint,
 		getConflictState,
-		type ConflictEntryPresence
-	} from '$lib/conflictEntryPresence';
-	import { FILE_SERVICE } from '$lib/files/fileService';
-	import { MODE_SERVICE, type EditModeMetadata } from '$lib/mode/modeService';
-	import { vscodePath } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { createCommitSelection } from '$lib/selection/key';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { USER } from '$lib/user/user';
-	import { splitMessage } from '$lib/utils/commitMessage';
-	import { computeChangeStatus } from '$lib/utils/fileStatus';
-	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
+		type ConflictEntryPresence,
+	} from "$lib/conflictEntryPresence";
+	import { FILE_SERVICE } from "$lib/files/fileService";
+	import { MODE_SERVICE, type EditModeMetadata } from "$lib/mode/modeService";
+	import { vscodePath } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { createCommitSelection } from "$lib/selection/key";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { USER } from "$lib/user/user";
+	import { splitMessage } from "$lib/utils/commitMessage";
+	import { computeChangeStatus } from "$lib/utils/fileStatus";
+	import { getEditorUri, URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
 
-	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal, TestId } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
-	import type { FileInfo } from '$lib/files/file';
-	import type { TreeChange } from '$lib/hunks/change';
-	import type { FileStatus } from '@gitbutler/ui/components/file/types';
+	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal, TestId } from "@gitbutler/ui";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { SvelteSet } from "svelte/reactivity";
+	import { derived, fromStore, readable, toStore, type Readable } from "svelte/store";
+	import type { FileInfo } from "$lib/files/file";
+	import type { TreeChange } from "$lib/hunks/change";
+	import type { FileStatus } from "@gitbutler/ui/components/file/types";
 
 	type Props = {
 		projectId: string;
@@ -53,7 +53,7 @@
 
 	function readFromWorkspace(
 		filePath: string,
-		projectId: string
+		projectId: string,
 	): Readable<{ data: FileInfo; isLarge: boolean } | undefined> {
 		return readable(undefined as { data: FileInfo; isLarge: boolean } | undefined, (set) => {
 			fileService.readFromWorkspace(filePath, projectId).then(set);
@@ -75,8 +75,8 @@
 
 	const initialFileMap = $derived(
 		new Map<string, { file: TreeChange; conflictEntryPresence?: ConflictEntryPresence }>(
-			initialFiles.response?.map(([f, c]) => [f.path, { file: f, conflictEntryPresence: c }]) || []
-		)
+			initialFiles.response?.map(([f, c]) => [f.path, { file: f, conflictEntryPresence: c }]) || [],
+		),
 	);
 
 	const files = $derived.by(() => {
@@ -88,7 +88,7 @@
 			outputMap.set(initialFile.path, {
 				path: initialFile.path,
 				conflicted: !!conflictEntryPresence,
-				conflictHint: conflictEntryPresence ? conflictEntryHint(conflictEntryPresence) : undefined
+				conflictHint: conflictEntryPresence ? conflictEntryHint(conflictEntryPresence) : undefined,
 			});
 		});
 
@@ -107,7 +107,7 @@
 			outputMap.set(uncommitedFile.path, {
 				path: uncommitedFile.path,
 				conflicted: false,
-				status: computeChangeStatus(uncommitedFile)
+				status: computeChangeStatus(uncommitedFile),
 			});
 		});
 
@@ -130,8 +130,8 @@
 	const filePathToTreeChange = $derived(
 		new Map<string, TreeChange>([
 			...(initialFiles.response?.map(([f]) => [f.path, f] as [string, TreeChange]) || []),
-			...(uncommittedFiles.response?.map((f) => [f.path, f] as [string, TreeChange]) || [])
-		])
+			...(uncommittedFiles.response?.map((f) => [f.path, f] as [string, TreeChange]) || []),
+		]),
 	);
 
 	function getTreeChangeForFile(file: FileEntry): TreeChange | undefined {
@@ -142,25 +142,25 @@
 
 	let manuallyResolvedFiles = new SvelteSet<string>();
 	const filesWithConflictedStatues = $derived(
-		conflictedFiles.map((f) => [f, isConflicted(f)] as [FileEntry, Readable<boolean>])
+		conflictedFiles.map((f) => [f, isConflicted(f)] as [FileEntry, Readable<boolean>]),
 	);
 	const stillConflictedFiles = $derived(
-		filesWithConflictedStatues.filter(([_, status]) => fromStore(status).current).map(([f]) => f)
+		filesWithConflictedStatues.filter(([_, status]) => fromStore(status).current).map(([f]) => f),
 	);
 
 	function isConflicted(fileEntry: FileEntry): Readable<boolean> {
 		const file = readFromWorkspace(fileEntry.path, projectId);
 		const conflictState = derived(file, (file) => {
-			if (!isDefined(file?.data.content)) return 'unknown';
+			if (!isDefined(file?.data.content)) return "unknown";
 			const { conflictEntryPresence } = initialFileMap.get(fileEntry.path) || {};
-			if (!conflictEntryPresence) return 'unknown';
+			if (!conflictEntryPresence) return "unknown";
 			return getConflictState(conflictEntryPresence, file.data.content);
 		});
 
 		const manuallyResolved = toStore(() => manuallyResolvedFiles.has(fileEntry.path));
 
 		return derived([conflictState, manuallyResolved], ([conflictState, manuallyResolved]) => {
-			return fileEntry.conflicted && conflictState === 'conflicted' && !manuallyResolved;
+			return fileEntry.conflicted && conflictState === "conflicted" && !manuallyResolved;
 		});
 	}
 
@@ -187,7 +187,7 @@
 		for (const file of conflictedFiles) {
 			const path = getEditorUri({
 				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
-				path: [vscodePath(projectPath), file.path]
+				path: [vscodePath(projectPath), file.path],
 			});
 			urlService.openExternalUrl(path);
 		}
@@ -223,7 +223,7 @@
 									: undefined}
 								{@const title = splitMessage(commit.message).title}
 								<h3 class="text-13 text-semibold text-body commit-card__title">
-									{title || 'Undefined commit'}
+									{title || "Undefined commit"}
 								</h3>
 
 								{#if commit}
@@ -299,8 +299,8 @@
 								reversedDirection
 								onclick={() => openAllConflictedFiles(project.path)}
 								tooltip={conflictedFiles.length === 1
-									? 'Open the conflicted file in your editor'
-									: 'Open all files with conflicts in your editor'}
+									? "Open the conflicted file in your editor"
+									: "Open all files with conflicts in your editor"}
 							>
 								Open conflicted files
 							</Button>

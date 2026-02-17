@@ -9,8 +9,8 @@
 	const {
 		scriptsData,
 		onScriptChange,
-		selectedScript = 'stacked-branches',
-		scriptProgress = 0
+		selectedScript = "stacked-branches",
+		scriptProgress = 0,
 	}: Props = $props();
 
 	const scripts = Object.values(scriptsData);

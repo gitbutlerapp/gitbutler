@@ -1,15 +1,15 @@
 <script lang="ts">
-	import LoginModal from '$lib/components/LoginModal.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { PATCH_COMMIT_SERVICE } from '@gitbutler/shared/patches/patchCommitService';
-	import { type PatchCommit } from '@gitbutler/shared/patches/types';
+	import LoginModal from "$lib/components/LoginModal.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { PATCH_COMMIT_SERVICE } from "@gitbutler/shared/patches/patchCommitService";
+	import { type PatchCommit } from "@gitbutler/shared/patches/types";
 	import {
 		CommitStatusBadge,
 		ContextMenuItem,
 		ContextMenuSection,
-		DropdownButton
-	} from '@gitbutler/ui';
+		DropdownButton,
+	} from "@gitbutler/ui";
 
 	interface Props {
 		branchUuid: string;
@@ -18,12 +18,12 @@
 	}
 
 	const actionLabels = {
-		approve: 'Approve commit',
-		requestChanges: 'Request changes'
+		approve: "Approve commit",
+		requestChanges: "Request changes",
 	} as const;
 
 	type Action = keyof typeof actionLabels;
-	type UserActionType = 'requested-changes' | 'approved' | 'not-reviewed';
+	type UserActionType = "requested-changes" | "approved" | "not-reviewed";
 
 	const { patch, branchUuid, isUserLoggedIn }: Props = $props();
 
@@ -32,36 +32,36 @@
 	const user = userService.user;
 
 	const userAction = $derived.by<UserActionType>(() => {
-		if (!$user) return 'not-reviewed';
+		if (!$user) return "not-reviewed";
 		if (patch.reviewAll.rejected.some((rejector) => rejector.id === $user.id)) {
-			return 'requested-changes';
+			return "requested-changes";
 		} else if (patch.reviewAll.signedOff.some((approver) => approver.id === $user.id)) {
-			return 'approved';
+			return "approved";
 		}
 
-		return 'not-reviewed';
+		return "not-reviewed";
 	});
 
 	let loginModal = $state<LoginModal>();
-	let action = $state<Action>('approve');
+	let action = $state<Action>("approve");
 	let isExecuting = $state(false);
 	let dropDownButton = $state<ReturnType<typeof DropdownButton>>();
 
 	const buttonColor = $derived.by(() => {
 		switch (action) {
-			case 'approve':
-				return 'pop';
-			case 'requestChanges':
-				return 'warning';
+			case "approve":
+				return "pop";
+			case "requestChanges":
+				return "warning";
 		}
 	});
 
 	const icon = $derived.by(() => {
 		switch (action) {
-			case 'approve':
-				return 'success';
-			case 'requestChanges':
-				return 'refresh-in-circle';
+			case "approve":
+				return "success";
+			case "requestChanges":
+				return "refresh-in-circle";
 		}
 	});
 
@@ -84,10 +84,10 @@
 
 		try {
 			switch (action) {
-				case 'approve':
+				case "approve":
 					await approve();
 					break;
-				case 'requestChanges':
+				case "requestChanges":
 					await requestChanges();
 					break;
 			}
@@ -98,9 +98,9 @@
 
 	function confirmStatusChange(action: Action): boolean {
 		const message =
-			action === 'requestChanges'
-				? 'You have already approved this commit. Do you want to request changes instead?'
-				: 'You have already requested changes for this commit. Do you want to approve it instead?';
+			action === "requestChanges"
+				? "You have already approved this commit. Do you want to request changes instead?"
+				: "You have already requested changes for this commit. Do you want to approve it instead?";
 
 		return confirm(message);
 	}
@@ -113,10 +113,10 @@
 	}
 </script>
 
-{#if userAction === 'approved' || userAction === 'requested-changes'}
+{#if userAction === "approved" || userAction === "requested-changes"}
 	<div class="my-status">
 		<div class="text-12 my-status-text">
-			{#if userAction === 'approved'}
+			{#if userAction === "approved"}
 				<CommitStatusBadge status="approved" kind="icon" />
 				<span>You approved this</span>
 			{:else}
@@ -128,7 +128,7 @@
 		<button
 			class="text-12 change-status-btn"
 			type="button"
-			onclick={() => handleChangeStatus(userAction === 'approved' ? 'requestChanges' : 'approve')}
+			onclick={() => handleChangeStatus(userAction === "approved" ? "requestChanges" : "approve")}
 		>
 			Change status
 		</button>
@@ -148,14 +148,14 @@
 				<ContextMenuItem
 					label={actionLabels.approve}
 					onclick={() => {
-						action = 'approve';
+						action = "approve";
 						dropDownButton?.close();
 					}}
 				/>
 				<ContextMenuItem
 					label={actionLabels.requestChanges}
 					onclick={() => {
-						action = 'requestChanges';
+						action = "requestChanges";
 						dropDownButton?.close();
 					}}
 				/>

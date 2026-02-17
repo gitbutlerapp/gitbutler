@@ -1,24 +1,24 @@
 <script module lang="ts">
-	import LinkButton from '$components/LinkButton.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import LinkButton from "$components/LinkButton.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Navigation / Link Button',
+		title: "Navigation / Link Button",
 		component: LinkButton,
 		args: {
-			icon: 'copy-small',
+			icon: "copy-small",
 			onclick: () => {
 				// eslint-disable-next-line no-console
-				console.log('LinkButton clicked');
-			}
+				console.log("LinkButton clicked");
+			},
 		},
 		argTypes: {
 			icon: {
 				control: {
-					type: 'select'
-				}
-			}
-		}
+					type: "select",
+				},
+			},
+		},
 	});
 </script>
 

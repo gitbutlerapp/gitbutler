@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { MentionSuggestion } from '@gitbutler/ui';
+	import type { MentionSuggestion } from "@gitbutler/ui";
 
 	export interface Props {
 		isLoading: boolean;
@@ -9,9 +9,9 @@
 </script>
 
 <script lang="ts">
-	import MentionSuggestionItem from '$lib/components/chat/MentionSuggestionItem.svelte';
-	import { tooltip } from '@gitbutler/ui/utils/tooltipPosition';
-	import { flyScale } from '@gitbutler/ui/utils/transitions';
+	import MentionSuggestionItem from "$lib/components/chat/MentionSuggestionItem.svelte";
+	import { tooltip } from "@gitbutler/ui/utils/tooltipPosition";
+	import { flyScale } from "@gitbutler/ui/utils/transitions";
 
 	const { suggestions, selectSuggestion, isLoading }: Props = $props();
 
@@ -29,7 +29,7 @@
 	function scrollSuggestionIntoView(index: number) {
 		const suggestionItem = document.getElementById(`suggestion-item-${index}`);
 		if (suggestionItem) {
-			suggestionItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+			suggestionItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
 		}
 	}
 
@@ -73,7 +73,7 @@
 
 	{#if suggestions !== undefined}
 		<div
-			use:tooltip={{ targetEl, position: 'top', align: 'center' }}
+			use:tooltip={{ targetEl, position: "top", align: "center" }}
 			transition:flyScale
 			role="presentation"
 			class="popup-positioner"

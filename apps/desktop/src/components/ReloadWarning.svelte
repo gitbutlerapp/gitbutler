@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { InfoMessage } from '@gitbutler/ui';
+	import { InfoMessage } from "@gitbutler/ui";
 
 	// Number of events received.
 	let count = $state(0);
@@ -8,7 +8,7 @@
 	 * Listens for custom events sent by vite, defined in `vite.config.ts`.
 	 * See: https://vite.dev/guide/api-plugin.html#typescript-for-custom-events
 	 */
-	import.meta.hot?.on('gb:reload', () => {
+	import.meta.hot?.on("gb:reload", () => {
 		count++;
 	});
 </script>

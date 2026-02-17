@@ -1,8 +1,8 @@
 <script lang="ts">
-	import ProfileButton from '$components/ProfileButton.svelte';
-	import { USER } from '$lib/user/user';
-	import { inject } from '@gitbutler/core/context';
-	import { type Snippet } from 'svelte';
+	import ProfileButton from "$components/ProfileButton.svelte";
+	import { USER } from "$lib/user/user";
+	import { inject } from "@gitbutler/core/context";
+	import { type Snippet } from "svelte";
 
 	interface Props {
 		hideDetails?: boolean;

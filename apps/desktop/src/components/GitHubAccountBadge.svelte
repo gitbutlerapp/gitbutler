@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { Badge } from '@gitbutler/ui';
-	import type { ButGitHubToken } from '@gitbutler/core/api';
+	import { Badge } from "@gitbutler/ui";
+	import type { ButGitHubToken } from "@gitbutler/core/api";
 
 	type Props = {
 		account: ButGitHubToken.GithubAccountIdentifier;
@@ -13,28 +13,28 @@
 	// const badgeText = $derived(account.type === 'enterprise' ? account.info.host : account.type);
 	export function badgeText(account: ButGitHubToken.GithubAccountIdentifier): string | null {
 		switch (account.type) {
-			case 'oAuthUsername':
+			case "oAuthUsername":
 				return null;
-			case 'enterprise':
+			case "enterprise":
 				return account.info.host;
-			case 'patUsername':
-				return 'PAT';
+			case "patUsername":
+				return "PAT";
 		}
 	}
 
 	export function tooltipText(account: ButGitHubToken.GithubAccountIdentifier): string {
 		switch (account.type) {
-			case 'oAuthUsername':
-				return '';
-			case 'enterprise':
-				return 'GitHub Enterprise';
-			case 'patUsername':
-				return 'Personal Access Token';
+			case "oAuthUsername":
+				return "";
+			case "enterprise":
+				return "GitHub Enterprise";
+			case "patUsername":
+				return "Personal Access Token";
 		}
 	}
 </script>
 
-{#if account.type !== 'oAuthUsername'}
+{#if account.type !== "oAuthUsername"}
 	<Badge class={className} tooltip={tooltipText(account)}>
 		{badgeText(account)}
 	</Badge>

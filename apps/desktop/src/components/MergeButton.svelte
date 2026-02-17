@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { MergeMethod } from '$lib/forge/interface/types';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { MergeMethod } from "$lib/forge/interface/types";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted, type Persisted } from "@gitbutler/shared/persisted";
 
-	import { ContextMenuItem, ContextMenuSection, DropdownButton } from '@gitbutler/ui';
-	import type { ButtonProps } from '@gitbutler/ui';
+	import { ContextMenuItem, ContextMenuSection, DropdownButton } from "@gitbutler/ui";
+	import type { ButtonProps } from "@gitbutler/ui";
 
 	interface Props {
 		projectId: string;
@@ -13,8 +13,8 @@
 		disabled?: boolean;
 		wide?: boolean;
 		tooltip?: string;
-		style?: ButtonProps['style'];
-		kind?: ButtonProps['kind'];
+		style?: ButtonProps["style"];
+		kind?: ButtonProps["kind"];
 	}
 
 	const {
@@ -22,16 +22,16 @@
 		onclick,
 		disabled = false,
 		wide = false,
-		tooltip = '',
-		style = 'gray',
-		kind = 'outline'
+		tooltip = "",
+		style = "gray",
+		kind = "outline",
 	}: Props = $props();
 
 	const forge = inject(DEFAULT_FORGE_FACTORY);
-	const isGitLab = $derived(forge.current.name === 'gitlab');
+	const isGitLab = $derived(forge.current.name === "gitlab");
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
-		const key = 'projectMergeMethod';
+		const key = "projectMergeMethod";
 		return persisted<MergeMethod>(MergeMethod.Merge, key + projectId);
 	}
 
@@ -51,13 +51,13 @@
 	const availableMethods = $derived(
 		isGitLab
 			? [MergeMethod.Merge, MergeMethod.Squash]
-			: [MergeMethod.Merge, MergeMethod.Rebase, MergeMethod.Squash]
+			: [MergeMethod.Merge, MergeMethod.Rebase, MergeMethod.Squash],
 	);
 
 	const labels = $derived({
-		[MergeMethod.Merge]: 'Merge',
-		[MergeMethod.Rebase]: 'Rebase and merge',
-		[MergeMethod.Squash]: 'Squash and merge'
+		[MergeMethod.Merge]: "Merge",
+		[MergeMethod.Rebase]: "Rebase and merge",
+		[MergeMethod.Squash]: "Squash and merge",
 	});
 </script>
 

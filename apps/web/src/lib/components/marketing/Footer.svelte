@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ThemeSwitcher from '$lib/components/marketing/ThemeSwitcher.svelte';
-	import * as jsonLinks from '$lib/data/links.json';
-	import osIcons from '$lib/data/os-icons.json';
+	import ThemeSwitcher from "$lib/components/marketing/ThemeSwitcher.svelte";
+	import * as jsonLinks from "$lib/data/links.json";
+	import osIcons from "$lib/data/os-icons.json";
 
 	interface Props {
 		showDownloadLinks?: boolean;
@@ -174,7 +174,7 @@
 		width: 900px;
 		height: 800px;
 		transform: rotate(26deg);
-		background-image: url('/images/grainy-gradient-light.png');
+		background-image: url("/images/grainy-gradient-light.png");
 		background-size: 100%;
 		background-repeat: no-repeat;
 		opacity: 0.4;

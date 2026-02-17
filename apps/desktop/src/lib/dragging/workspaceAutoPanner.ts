@@ -1,4 +1,4 @@
-import { on } from 'svelte/events';
+import { on } from "svelte/events";
 
 // 0.25 indicates that each gutter is 25% of the workspace width.
 const GUTTER_WIDTH_RATIO = 0.25;
@@ -71,11 +71,11 @@ export class WorkspaceAutoPanner {
 	}
 
 	private registerListeners() {
-		const mouseMove = on(document, 'mousemove', (e: MouseEvent) => this.setScrollSpeed(e), {
-			capture: true
+		const mouseMove = on(document, "mousemove", (e: MouseEvent) => this.setScrollSpeed(e), {
+			capture: true,
 		});
-		const onDrag = on(document, 'drag', (e: MouseEvent) => this.setScrollSpeed(e), {
-			capture: true
+		const onDrag = on(document, "drag", (e: MouseEvent) => this.setScrollSpeed(e), {
+			capture: true,
 		});
 
 		return () => {

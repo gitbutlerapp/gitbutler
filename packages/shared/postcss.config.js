@@ -1,6 +1,6 @@
-import autoprefixer from 'autoprefixer';
-import postcssNesting from 'postcss-nesting';
-import pxToRem from 'postcss-pxtorem';
+import autoprefixer from "autoprefixer";
+import postcssNesting from "postcss-nesting";
+import pxToRem from "postcss-pxtorem";
 
 /** @type {import('postcss').Config} */
 const config = {
@@ -8,13 +8,13 @@ const config = {
 		pxToRem({
 			rootValue: 16,
 			unitPrecision: 5,
-			propList: ['*'],
+			propList: ["*"],
 			replace: true,
-			mediaQuery: true
+			mediaQuery: true,
 		}),
 		autoprefixer(),
-		postcssNesting()
-	]
+		postcssNesting(),
+	],
 };
 
 export default config;

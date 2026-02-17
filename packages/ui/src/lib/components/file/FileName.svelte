@@ -1,21 +1,21 @@
 <script lang="ts">
-	import Tooltip from '$components/Tooltip.svelte';
-	import FileIcon from '$components/file/FileIcon.svelte';
-	import { splitFilePath } from '$lib/utils/filePath';
+	import Tooltip from "$components/Tooltip.svelte";
+	import FileIcon from "$components/file/FileIcon.svelte";
+	import { splitFilePath } from "$lib/utils/filePath";
 
 	interface Props {
 		filePath: string;
 		hideFilePath?: boolean;
-		textSize?: '12' | '13';
+		textSize?: "12" | "13";
 		pathFirst?: boolean;
 		color?: string;
 	}
 
-	let { filePath, textSize = '12', hideFilePath, pathFirst = true, color }: Props = $props();
+	let { filePath, textSize = "12", hideFilePath, pathFirst = true, color }: Props = $props();
 	const fileNameAndPath = $derived(splitFilePath(filePath));
 	const filePathParts = $derived({
-		first: fileNameAndPath.path.split('/').slice(0, -1).join('/'),
-		last: fileNameAndPath.path.split('/').slice(-1).join('/')
+		first: fileNameAndPath.path.split("/").slice(0, -1).join("/"),
+		last: fileNameAndPath.path.split("/").slice(-1).join("/"),
 	});
 </script>
 

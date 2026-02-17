@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { focusable } from '$lib/focus/focusable';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import Icon from "$components/Icon.svelte";
+	import { focusable } from "$lib/focus/focusable";
+	import type iconsJson from "$lib/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
@@ -27,7 +27,7 @@
 		value = undefined,
 		testId,
 		onClick,
-		children
+		children,
 	}: Props = $props();
 
 	let self = $state<HTMLButtonElement>();
@@ -55,7 +55,7 @@
 	{#if icon || selected}
 		<div class="icon">
 			{#if icon}
-				<Icon name={loading ? 'spinner' : icon} />
+				<Icon name={loading ? "spinner" : icon} />
 			{:else}
 				<Icon name="tick" />
 			{/if}

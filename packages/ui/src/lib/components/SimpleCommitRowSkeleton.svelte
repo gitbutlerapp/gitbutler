@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SkeletonBone from '$components/SkeletonBone.svelte';
+	import SkeletonBone from "$components/SkeletonBone.svelte";
 
 	interface Props {
 		onlyContent?: boolean;

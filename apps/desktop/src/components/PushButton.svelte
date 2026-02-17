@@ -1,24 +1,24 @@
 <script lang="ts">
-	import GerritPushModal from '$components/GerritPushModal.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { commitCreatedAtDate } from '$lib/branches/v3';
-	import { projectRunCommitHooks } from '$lib/config/config';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
+	import GerritPushModal from "$components/GerritPushModal.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { commitCreatedAtDate } from "$lib/branches/v3";
+	import { projectRunCommitHooks } from "$lib/config/config";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
 	import {
 		branchHasConflicts,
 		branchHasUnpushedCommits,
-		partialStackRequestsForcePush
-	} from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { getBranchNameFromRef } from '$lib/utils/branch';
-	import { splitMessage } from '$lib/utils/commitMessage';
-	import { URL_SERVICE } from '$lib/utils/url';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted } from '@gitbutler/shared/persisted';
+		partialStackRequestsForcePush,
+	} from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { combineResults } from "$lib/state/helpers";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { getBranchNameFromRef } from "$lib/utils/branch";
+	import { splitMessage } from "$lib/utils/commitMessage";
+	import { URL_SERVICE } from "$lib/utils/url";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
 	import {
 		Button,
 		Checkbox,
@@ -26,10 +26,10 @@
 		TestId,
 		SimpleCommitRow,
 		ScrollableContainer,
-		chipToasts
-	} from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { GerritPushFlag } from '$lib/stacks/stack';
+		chipToasts,
+	} from "@gitbutler/ui";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import type { GerritPushFlag } from "$lib/stacks/stack";
 
 	type Props = {
 		projectId: string;
@@ -46,7 +46,7 @@
 		stackId,
 		multipleBranches,
 		isFirstBranchInStack,
-		isLastBranchInStack
+		isLastBranchInStack,
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -67,7 +67,7 @@
 	const branchesQuery = $derived(stackService.branches(projectId, stackId));
 	const [pushStack, pushQuery] = stackService.pushStack;
 	const upstreamCommitsQuery = $derived(
-		stackService.upstreamCommits(projectId, stackId, branchName)
+		stackService.upstreamCommits(projectId, stackId, branchName),
 	);
 	const upstreamCommits = $derived(upstreamCommitsQuery.response);
 	const runHooks = $derived(projectRunCommitHooks(projectId));
@@ -104,7 +104,7 @@
 				skipForcePushProtection,
 				branch: branchName,
 				runHooks: $runHooks,
-				pushOpts: gerritFlags
+				pushOpts: gerritFlags,
 			});
 
 			const upstreamBranchNames = pushResult.branchToRemote
@@ -120,7 +120,7 @@
 					: branchName;
 			chipToasts.success(`Pushed ${branchText} successfully`);
 		} catch (error: any) {
-			if (error?.code === 'errors.git.force_push_protection') {
+			if (error?.code === "errors.git.force_push_protection") {
 				forcePushProtectionModal?.show();
 				return;
 			}
@@ -134,36 +134,36 @@
 		hasThingsToPush: boolean,
 		hasConflicts: boolean,
 		withForce: boolean,
-		remoteTrackingBranch: string | null
+		remoteTrackingBranch: string | null,
 	): string | undefined {
 		if (isReadOnly) {
-			return 'Read-only mode';
+			return "Read-only mode";
 		}
 
 		if (!hasThingsToPush) {
-			return 'No commits to push';
+			return "No commits to push";
 		}
 
 		if (hasConflicts) {
-			return 'In order to push, please resolve any conflicted commits.';
+			return "In order to push, please resolve any conflicted commits.";
 		}
 
 		if (multipleBranches && !isLastBranchInStack) {
-			return 'Push this and all branches below';
+			return "Push this and all branches below";
 		}
 
 		if (withForce) {
 			return remoteTrackingBranch
-				? 'Force push this branch'
+				? "Force push this branch"
 				: `Force push this branch to ${remoteTrackingBranch}`;
 		}
 
 		return remoteTrackingBranch
 			? `Push this branch to ${remoteTrackingBranch}`
-			: 'Push this branch';
+			: "Push this branch";
 	}
 
-	const doNotShowPushBelowWarning = persisted<boolean>(false, 'doNotShowPushBelowWarning');
+	const doNotShowPushBelowWarning = persisted<boolean>(false, "doNotShowPushBelowWarning");
 	let confirmationModal = $state<ReturnType<typeof Modal>>();
 	let forcePushProtectionModal = $state<ReturnType<typeof Modal>>();
 	let gerritModal = $state<GerritPushModal>();
@@ -179,7 +179,7 @@
 
 		<Button
 			testId={TestId.StackPushButton}
-			kind={isFirstBranchInStack ? 'solid' : 'outline'}
+			kind={isFirstBranchInStack ? "solid" : "outline"}
 			size="tag"
 			style="gray"
 			{loading}
@@ -188,12 +188,12 @@
 				hasThingsToPush,
 				hasConflicts,
 				withForce,
-				branchDetails.remoteTrackingBranch
+				branchDetails.remoteTrackingBranch,
 			)}
 			onclick={() => handleClick({ withForce, skipForcePushProtection: false, gerritFlags: [] })}
-			icon={multipleBranches && !isLastBranchInStack ? 'push-below' : 'push'}
+			icon={multipleBranches && !isLastBranchInStack ? "push-below" : "push"}
 		>
-			{isGerritMode ? 'Push' : withForce ? 'Force push' : 'Push'}
+			{isGerritMode ? "Push" : withForce ? "Force push" : "Push"}
 		</Button>
 
 		<Modal
@@ -205,7 +205,7 @@
 				push({
 					withForce,
 					skipForcePushProtection: false,
-					gerritFlags: pendingGerritFlags
+					gerritFlags: pendingGerritFlags,
 				});
 				pendingGerritFlags = [];
 			}}
@@ -249,7 +249,7 @@
 				push({
 					withForce,
 					skipForcePushProtection: true,
-					gerritFlags: pendingGerritFlags
+					gerritFlags: pendingGerritFlags,
 				});
 				pendingGerritFlags = [];
 			}}
@@ -257,7 +257,7 @@
 			<p class="description">
 				Your force push was blocked because the remote branch contains <span
 					class="text-bold text-nowrap"
-					>{upstreamCommits?.length === 1 ? '1 commit' : `${upstreamCommits?.length} commits`}</span
+					>{upstreamCommits?.length === 1 ? "1 commit" : `${upstreamCommits?.length} commits`}</span
 				>
 				your local branch doesn’t include. To prevent overwriting history,
 				<span class="text-bold">cancel and pull & integrate</span> the changes.
@@ -268,13 +268,13 @@
 						{#each upstreamCommits as commit}
 							{@const commitUrl = forge.current.commitUrl(commit.id)}
 							<SimpleCommitRow
-								title={splitMessage(commit.message).title ?? ''}
+								title={splitMessage(commit.message).title ?? ""}
 								sha={commit.id}
 								date={commitCreatedAtDate(commit)}
 								author={commit.author.name}
 								url={commitUrl}
 								onOpen={(url) => urlService.openExternalUrl(url)}
-								onCopy={() => clipboardService.write(commit.id, { message: 'Commit hash copied' })}
+								onCopy={() => clipboardService.write(commit.id, { message: "Commit hash copied" })}
 							/>
 						{/each}
 					</ScrollableContainer>

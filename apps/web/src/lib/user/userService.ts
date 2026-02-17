@@ -1,10 +1,10 @@
-import { setSentryUser } from '$lib/analytics/sentry';
-import { InjectionToken } from '@gitbutler/core/context';
-import { apiToBranch } from '@gitbutler/shared/branches/types';
-import { get, writable, type Writable } from 'svelte/store';
-import type { ApiBranch, Branch } from '@gitbutler/shared/branches/types';
-import type { HttpClient } from '@gitbutler/shared/network/httpClient';
-import type { Loadable } from '@gitbutler/shared/network/types';
+import { setSentryUser } from "$lib/analytics/sentry";
+import { InjectionToken } from "@gitbutler/core/context";
+import { apiToBranch } from "@gitbutler/shared/branches/types";
+import { get, writable, type Writable } from "svelte/store";
+import type { ApiBranch, Branch } from "@gitbutler/shared/branches/types";
+import type { HttpClient } from "@gitbutler/shared/network/httpClient";
+import type { Loadable } from "@gitbutler/shared/network/types";
 
 export interface User {
 	id: number;
@@ -27,7 +27,7 @@ export interface User {
 // Define the LoadablePatchStacks type using the shared Loadable type
 export type LoadablePatchStacks = Loadable<Branch[]> & { ownerSlug: string };
 
-export const USER_SERVICE = new InjectionToken<UserService>('UserService');
+export const USER_SERVICE = new InjectionToken<UserService>("UserService");
 
 export class UserService {
 	user: Writable<User | undefined> = writable<User | undefined>(undefined, (set) => {
@@ -48,7 +48,7 @@ export class UserService {
 
 	constructor(private readonly httpClient: HttpClient) {
 		if (!httpClient) {
-			console.error('[UserService] HttpClient was not provided in constructor');
+			console.error("[UserService] HttpClient was not provided in constructor");
 		}
 
 		httpClient.authenticationAvailable.subscribe((available) => {
@@ -70,7 +70,7 @@ export class UserService {
 	}
 
 	private async fetchUser() {
-		const user = await this.httpClient.get<User>('/api/user');
+		const user = await this.httpClient.get<User>("/api/user");
 		setSentryUser(user);
 
 		return user;
@@ -92,10 +92,10 @@ export class UserService {
 
 	async deleteAccount(): Promise<void> {
 		try {
-			await this.httpClient.delete('/api/user');
+			await this.httpClient.delete("/api/user");
 		} catch (error) {
 			this.error.set(error);
-			console.error('Failed to delete account:', error);
+			console.error("Failed to delete account:", error);
 		}
 	}
 
@@ -112,23 +112,23 @@ export class UserService {
 		generate_ssh_token?: boolean;
 	}): Promise<any> {
 		const formData = new FormData();
-		if (params.name) formData.append('name', params.name);
-		if (params.picture) formData.append('avatar', params.picture);
-		if (params.website !== undefined) formData.append('website', params.website);
-		if (params.twitter !== undefined) formData.append('twitter', params.twitter);
-		if (params.bluesky !== undefined) formData.append('bluesky', params.bluesky);
-		if (params.timezone !== undefined) formData.append('timezone', params.timezone);
-		if (params.location !== undefined) formData.append('location', params.location);
+		if (params.name) formData.append("name", params.name);
+		if (params.picture) formData.append("avatar", params.picture);
+		if (params.website !== undefined) formData.append("website", params.website);
+		if (params.twitter !== undefined) formData.append("twitter", params.twitter);
+		if (params.bluesky !== undefined) formData.append("bluesky", params.bluesky);
+		if (params.timezone !== undefined) formData.append("timezone", params.timezone);
+		if (params.location !== undefined) formData.append("location", params.location);
 		if (params.emailShare !== undefined)
-			formData.append('email_share', params.emailShare.toString());
-		if (params.readme !== undefined) formData.append('readme', params.readme);
+			formData.append("email_share", params.emailShare.toString());
+		if (params.readme !== undefined) formData.append("readme", params.readme);
 		if (params.generate_ssh_token !== undefined)
-			formData.append('generate_ssh_token', params.generate_ssh_token.toString());
+			formData.append("generate_ssh_token", params.generate_ssh_token.toString());
 
 		// Content Type must be unset for the right form-data border to be set automatically
-		return await this.httpClient.put('user.json', {
+		return await this.httpClient.put("user.json", {
 			body: formData,
-			headers: { 'Content-Type': undefined }
+			headers: { "Content-Type": undefined },
 		});
 	}
 
@@ -140,23 +140,23 @@ export class UserService {
 	getPatchStacks(ownerSlug: string): Writable<LoadablePatchStacks> {
 		if (!this.patchStackCache.has(ownerSlug)) {
 			// Create a new store for this user's patch stacks
-			const store = writable<LoadablePatchStacks>({ status: 'loading', ownerSlug }, (set) => {
+			const store = writable<LoadablePatchStacks>({ status: "loading", ownerSlug }, (set) => {
 				// Fetch data when the store is first subscribed to
 				this.fetchPatchStacks(ownerSlug)
 					.then((data) => {
-						set({ status: 'found', ownerSlug, value: data } as LoadablePatchStacks);
+						set({ status: "found", ownerSlug, value: data } as LoadablePatchStacks);
 					})
 					.catch((error) => {
 						if (error.response?.status === 404) {
 							set({
-								status: 'not-found',
-								ownerSlug
+								status: "not-found",
+								ownerSlug,
 							} as LoadablePatchStacks);
 						} else {
 							set({
-								status: 'error',
+								status: "error",
 								ownerSlug,
-								error: error.message || 'Unknown error occurred'
+								error: error.message || "Unknown error occurred",
 							} as LoadablePatchStacks);
 						}
 					});
@@ -176,7 +176,7 @@ export class UserService {
 	async fetchPatchStacks(ownerSlug: string): Promise<Branch[]> {
 		// Check if httpClient is defined
 		if (!this.httpClient) {
-			console.error('[UserService] HttpClient is undefined');
+			console.error("[UserService] HttpClient is undefined");
 			return [];
 		}
 
@@ -209,7 +209,7 @@ export class UserService {
 		try {
 			return await this.httpClient.get<any[]>(`/api/user/${login}/projects?limit=6`);
 		} catch (error) {
-			console.error('Failed to fetch recent projects:', error);
+			console.error("Failed to fetch recent projects:", error);
 			return [];
 		}
 	}
@@ -220,9 +220,9 @@ export class UserService {
 	 */
 	async refreshAccessToken(): Promise<void> {
 		try {
-			await this.httpClient.post('/api/user/refresh_access_token');
+			await this.httpClient.post("/api/user/refresh_access_token");
 		} catch (error) {
-			console.error('Failed to refresh access token:', error);
+			console.error("Failed to refresh access token:", error);
 		}
 	}
 }

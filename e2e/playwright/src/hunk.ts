@@ -1,11 +1,11 @@
-import { generateHunkId } from '@gitbutler/ui/utils/hunk';
+import { generateHunkId } from "@gitbutler/ui/utils/hunk";
 
 type HunkLineSelector =
 	| `#hunk-line-${string}\\:R${number} [data-testid="hunk-count-column"]`
 	| `#hunk-line-${string}\\:L${number} [data-testid="hunk-count-column"]`;
 
 function escapeFileName(fileName: string): string {
-	return fileName.replace(/([.*+?^=!:${}()|[\]/\\])/g, '\\$1');
+	return fileName.replace(/([.*+?^=!:${}()|[\]/\\])/g, "\\$1");
 }
 
 /**
@@ -14,13 +14,13 @@ function escapeFileName(fileName: string): string {
 export function getHunkLineSelector(
 	fileName: string,
 	lineNumber: number,
-	type: 'left' | 'right'
+	type: "left" | "right",
 ): HunkLineSelector {
 	const escapedFileName = escapeFileName(fileName);
 	switch (type) {
-		case 'left':
+		case "left":
 			return `#hunk-line-${escapedFileName}\\:L${lineNumber} [data-testid="hunk-count-column"]`;
-		case 'right':
+		case "right":
 			return `#hunk-line-${escapedFileName}\\:R${lineNumber} [data-testid="hunk-count-column"]`;
 	}
 }

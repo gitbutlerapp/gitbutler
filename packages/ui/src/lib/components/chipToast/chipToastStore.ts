@@ -1,5 +1,5 @@
-import { writable } from 'svelte/store';
-import type { ChipToastData, ChipToastOptions } from '$components/chipToast/chipToastTypes';
+import { writable } from "svelte/store";
+import type { ChipToastData, ChipToastOptions } from "$components/chipToast/chipToastTypes";
 
 let toastId = 0;
 
@@ -15,9 +15,9 @@ function createChipToastStore() {
 		const chipToast: ChipToastData = {
 			id,
 			message,
-			type: options.type || 'info',
+			type: options.type || "info",
 			customButton: options.customButton,
-			showDismiss: options.showDismiss
+			showDismiss: options.showDismiss,
 		};
 
 		update((chipToasts) => [...chipToasts, chipToast]);
@@ -41,24 +41,24 @@ function createChipToastStore() {
 	}
 
 	// Convenience methods for different chipToast types
-	function info(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
-		return addChipToast(message, { type: 'info', ...options });
+	function info(message: string, options: Omit<ChipToastOptions, "type"> = {}) {
+		return addChipToast(message, { type: "info", ...options });
 	}
 
-	function success(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
-		return addChipToast(message, { type: 'success', ...options });
+	function success(message: string, options: Omit<ChipToastOptions, "type"> = {}) {
+		return addChipToast(message, { type: "success", ...options });
 	}
 
-	function warning(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
-		return addChipToast(message, { type: 'warning', ...options });
+	function warning(message: string, options: Omit<ChipToastOptions, "type"> = {}) {
+		return addChipToast(message, { type: "warning", ...options });
 	}
 
-	function error(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
-		return addChipToast(message, { type: 'danger', ...options });
+	function error(message: string, options: Omit<ChipToastOptions, "type"> = {}) {
+		return addChipToast(message, { type: "danger", ...options });
 	}
 
 	// Keep loading function for compatibility - just an alias for info
-	function loading(message: string, options: Omit<ChipToastOptions, 'type'> = {}) {
+	function loading(message: string, options: Omit<ChipToastOptions, "type"> = {}) {
 		return info(message, options);
 	}
 
@@ -70,10 +70,10 @@ function createChipToastStore() {
 			success: string;
 			error: string;
 		} = {
-			loading: 'Loading...',
-			success: 'Success!',
-			error: 'Error!'
-		}
+			loading: "Loading...",
+			success: "Success!",
+			error: "Error!",
+		},
 	): Promise<T> {
 		const loadingToastId = loading(opts.loading);
 
@@ -99,7 +99,7 @@ function createChipToastStore() {
 		warning,
 		error,
 		loading,
-		promise
+		promise,
 	};
 }
 

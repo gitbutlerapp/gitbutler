@@ -1,17 +1,17 @@
 <script lang="ts">
-	import CommitMessageEditor from '$components/CommitMessageEditor.svelte';
-	import { projectRunCommitHooks } from '$lib/config/config';
-	import { HOOKS_SERVICE } from '$lib/hooks/hooksService';
-	import { showError, showToast } from '$lib/notifications/toasts';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { createWorktreeSelection } from '$lib/selection/key';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { COMMIT_ANALYTICS } from '$lib/soup/commitAnalytics';
-	import { STACK_SERVICE, type RejectionReason } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE, type NewCommitMessage } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { TestId } from '@gitbutler/ui';
-	import { tick } from 'svelte';
+	import CommitMessageEditor from "$components/CommitMessageEditor.svelte";
+	import { projectRunCommitHooks } from "$lib/config/config";
+	import { HOOKS_SERVICE } from "$lib/hooks/hooksService";
+	import { showError, showToast } from "$lib/notifications/toasts";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { createWorktreeSelection } from "$lib/selection/key";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { COMMIT_ANALYTICS } from "$lib/soup/commitAnalytics";
+	import { STACK_SERVICE, type RejectionReason } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE, type NewCommitMessage } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { TestId } from "@gitbutler/ui";
+	import { tick } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -29,7 +29,7 @@
 
 	const projectState = $derived(uiState.project(projectId));
 	// Using a dummy stackId kind of sucks... but it's fine for now
-	const laneState = $derived(uiState.lane(stackId || 'new-commit-view--new-stack'));
+	const laneState = $derived(uiState.lane(stackId || "new-commit-view--new-stack"));
 
 	const [createCommitInStack, commitCreation] = stackService.createCommit();
 	const [runMessageHook] = hooksService.message;
@@ -37,7 +37,7 @@
 	let isCooking = $state(false);
 
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const commitAction = $derived(exclusiveAction?.type === 'commit' ? exclusiveAction : undefined);
+	const commitAction = $derived(exclusiveAction?.type === "commit" ? exclusiveAction : undefined);
 
 	const selectedLines = $derived(uncommittedService.selectedLines(stackId));
 	const topBranchQuery = $derived(stackId ? stackService.branches(projectId, stackId) : undefined);
@@ -51,7 +51,7 @@
 
 	async function createCommit(message: string) {
 		if (isCooking) {
-			showToast({ message: 'Commit is already in progress', style: 'danger' });
+			showToast({ message: "Commit is already in progress", style: "danger" });
 			return;
 		}
 
@@ -69,7 +69,7 @@
 			if (!finalStackId) {
 				const stack = await createNewStack({
 					projectId,
-					branch: { name: finalBranchName, order: 0 }
+					branch: { name: finalBranchName, order: 0 },
 				});
 				finalStackId = stack.id ?? undefined;
 				finalBranchName = stack.heads[0]?.name; // Updated to access the name property
@@ -77,21 +77,21 @@
 			}
 
 			if (!finalStackId) {
-				throw new Error('No stack selected!');
+				throw new Error("No stack selected!");
 			}
 
 			if (!finalBranchName) {
-				throw new Error('No branch selected!');
+				throw new Error("No branch selected!");
 			}
 
 			// Run commit-msg hook if hooks are enabled
 			let finalMessage = message;
 			if ($runCommitHooks) {
 				const messageHookResult = await runMessageHook({ projectId, message });
-				if (messageHookResult?.status === 'failure') {
-					showError('Commit message hook failed', messageHookResult.error);
+				if (messageHookResult?.status === "failure") {
+					showError("Commit message hook failed", messageHookResult.error);
 					return;
-				} else if (messageHookResult?.status === 'message') {
+				} else if (messageHookResult?.status === "message") {
 					finalMessage = messageHookResult.message;
 				}
 			}
@@ -108,7 +108,7 @@
 				selectedBranchName: finalBranchName,
 				message: finalMessage,
 				parentId,
-				isRichTextMode
+				isRichTextMode,
 			});
 
 			if ($runCommitHooks) {
@@ -122,9 +122,9 @@
 					stackId: finalStackId,
 					message: finalMessage,
 					stackBranchName: finalBranchName,
-					worktreeChanges
+					worktreeChanges,
 				},
-				{ properties: analyticsProperties }
+				{ properties: analyticsProperties },
 			);
 
 			if ($runCommitHooks) {
@@ -135,7 +135,7 @@
 
 			if (newId) {
 				// Clear saved state for commit message editor.
-				laneState.newCommitMessage.set({ title: '', description: '' });
+				laneState.newCommitMessage.set({ title: "", description: "" });
 
 				// Close the drawer.
 				projectState.exclusiveAction.set(undefined);
@@ -151,16 +151,16 @@
 						acc[path] = reason;
 						return acc;
 					},
-					{}
+					{},
 				);
 
 				uiState.global.modal.set({
-					type: 'commit-failed',
+					type: "commit-failed",
 					projectId,
 					targetBranchName: finalBranchName,
 					newCommitId: newId ?? undefined,
-					commitTitle: laneState.newCommitMessage.current?.title || '',
-					pathsToRejectedChanges
+					commitTitle: laneState.newCommitMessage.current?.title || "",
+					pathsToRejectedChanges,
 				});
 			}
 		} finally {
@@ -173,36 +173,36 @@
 	async function handleCommitCreation(title: string, description: string) {
 		laneState.newCommitMessage.set({ title, description });
 
-		const message = description ? title + '\n\n' + description : title;
+		const message = description ? title + "\n\n" + description : title;
 		if (!message) {
-			showToast({ message: 'Commit message is required', style: 'danger' });
+			showToast({ message: "Commit message is required", style: "danger" });
 			return;
 		}
 
 		try {
 			await createCommit(message);
 		} catch (err: unknown) {
-			showError('Failed to commit', err);
+			showError("Failed to commit", err);
 		}
 	}
 
 	function handleMessageUpdate(title?: string, description?: string) {
 		let newCommitMessageUpdate: Partial<NewCommitMessage> | undefined = undefined;
-		if (typeof title === 'string') {
+		if (typeof title === "string") {
 			newCommitMessageUpdate = { title };
 		}
 
-		if (typeof description === 'string') {
+		if (typeof description === "string") {
 			newCommitMessageUpdate = {
 				...newCommitMessageUpdate,
-				description
+				description,
 			};
 		}
 
 		if (newCommitMessageUpdate) {
 			laneState.newCommitMessage.set({
 				...laneState.newCommitMessage.current,
-				...newCommitMessageUpdate
+				...newCommitMessageUpdate,
 			});
 		}
 	}

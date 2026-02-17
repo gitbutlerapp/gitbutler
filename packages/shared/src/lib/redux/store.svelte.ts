@@ -1,24 +1,24 @@
-import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlice';
-import { branchTable } from '$lib/branches/branchesSlice';
-import { latestBranchLookupTable } from '$lib/branches/latestBranchLookupSlice';
-import { chatChannelTable } from '$lib/chat/chatChannelsSlice';
-import { feedsReducer } from '$lib/feeds/feedsSlice';
-import { postsReducer } from '$lib/feeds/postsSlice';
-import { organizationTable } from '$lib/organizations/organizationsSlice';
-import { projectTable } from '$lib/organizations/projectsSlice';
-import { recentlyInteractedProjectIdsReducer } from '$lib/organizations/recentlyInteractedProjectIds';
-import { recentlyPushedProjectIdsReducer } from '$lib/organizations/recentlyPushedProjectIds';
-import { repositoryIdLookupTable } from '$lib/organizations/repositoryIdLookupsSlice';
-import { patchEventsReducer } from '$lib/patchEvents/patchEventsSlice';
-import { patchCommitTable } from '$lib/patches/patchCommitsSlice';
-import { patchIdableTable } from '$lib/patches/patchIdablesSlice';
-import { patchSectionsReducer } from '$lib/patches/patchSectionsSlice';
-import { exampleReducer } from '$lib/redux/example';
-import { rulesTable } from '$lib/rules/rulesSlice';
-import { notificationSettingsTable } from '$lib/settings/notificationSetttingsSlice';
-import { userByLoginTable, userTable } from '$lib/users/usersSlice';
-import { InjectionToken } from '@gitbutler/core/context';
-import { configureStore, createSelector } from '@reduxjs/toolkit';
+import { branchReviewListingTable } from "$lib/branches/branchReviewListingsSlice";
+import { branchTable } from "$lib/branches/branchesSlice";
+import { latestBranchLookupTable } from "$lib/branches/latestBranchLookupSlice";
+import { chatChannelTable } from "$lib/chat/chatChannelsSlice";
+import { feedsReducer } from "$lib/feeds/feedsSlice";
+import { postsReducer } from "$lib/feeds/postsSlice";
+import { organizationTable } from "$lib/organizations/organizationsSlice";
+import { projectTable } from "$lib/organizations/projectsSlice";
+import { recentlyInteractedProjectIdsReducer } from "$lib/organizations/recentlyInteractedProjectIds";
+import { recentlyPushedProjectIdsReducer } from "$lib/organizations/recentlyPushedProjectIds";
+import { repositoryIdLookupTable } from "$lib/organizations/repositoryIdLookupsSlice";
+import { patchEventsReducer } from "$lib/patchEvents/patchEventsSlice";
+import { patchCommitTable } from "$lib/patches/patchCommitsSlice";
+import { patchIdableTable } from "$lib/patches/patchIdablesSlice";
+import { patchSectionsReducer } from "$lib/patches/patchSectionsSlice";
+import { exampleReducer } from "$lib/redux/example";
+import { rulesTable } from "$lib/rules/rulesSlice";
+import { notificationSettingsTable } from "$lib/settings/notificationSetttingsSlice";
+import { userByLoginTable, userTable } from "$lib/users/usersSlice";
+import { InjectionToken } from "@gitbutler/core/context";
+import { configureStore, createSelector } from "@reduxjs/toolkit";
 
 // Individual interfaces to be used when consuming in other services.
 // By specifying only the interfaces you need, IE:
@@ -101,13 +101,13 @@ export type AppRulesState = {
 	readonly rules: ReturnType<typeof rulesTable.reducer>;
 };
 
-export const APP_DISPATCH: InjectionToken<AppDispatch> = new InjectionToken('AppDispatch');
+export const APP_DISPATCH: InjectionToken<AppDispatch> = new InjectionToken("AppDispatch");
 
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
 
-export const APP_STATE: InjectionToken<AppState> = new InjectionToken('AppState');
+export const APP_STATE: InjectionToken<AppState> = new InjectionToken("AppState");
 
 export class AppState
 	implements
@@ -151,7 +151,7 @@ export class AppState
 		patchIdables: patchIdableTable.reducer,
 		recentlyInteractedProjectIds: recentlyInteractedProjectIdsReducer,
 		recentlyPushedProjectIds: recentlyPushedProjectIdsReducer,
-		rules: rulesTable.reducer
+		rules: rulesTable.reducer,
 	};
 
 	/**
@@ -161,7 +161,7 @@ export class AppState
 	 * @private
 	 */
 	readonly _store = configureStore({
-		reducer: this.reducers
+		reducer: this.reducers,
 	});
 
 	readonly appDispatch = new AppDispatch(this._store.dispatch);
@@ -177,70 +177,70 @@ export class AppState
 	}
 	private readonly selectExample = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.examples
+		(rootState) => rootState.examples,
 	);
 	private readonly selectPosts = createSelector([this.selectSelf], (rootState) => rootState.posts);
 	private readonly selectFeeds = createSelector([this.selectSelf], (rootState) => rootState.feeds);
 	private readonly selectOrganizations = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.orgnaizations
+		(rootState) => rootState.orgnaizations,
 	);
 	private readonly selectUsers = createSelector([this.selectSelf], (rootState) => rootState.users);
 	private readonly selectUsersByLogin = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.usersByLogin
+		(rootState) => rootState.usersByLogin,
 	);
 	private readonly selectProjects = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.projects
+		(rootState) => rootState.projects,
 	);
 	private readonly selectPatches = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.patches
+		(rootState) => rootState.patches,
 	);
 	private readonly selectPatchEvents = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.patchEvents
+		(rootState) => rootState.patchEvents,
 	);
 	private readonly selectBranches = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.branches
+		(rootState) => rootState.branches,
 	);
 	private readonly selectPatchSections = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.patchSections
+		(rootState) => rootState.patchSections,
 	);
 	private readonly selectChatChannels = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.chatChannels
+		(rootState) => rootState.chatChannels,
 	);
 	private readonly selectRepositoryIdLookups = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.repositoryIdLookups
+		(rootState) => rootState.repositoryIdLookups,
 	);
 	private readonly selectLatestBranchLookups = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.latestBranchLookups
+		(rootState) => rootState.latestBranchLookups,
 	);
 	private readonly selectBranchReviewListings = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.branchReviewListings
+		(rootState) => rootState.branchReviewListings,
 	);
 	private readonly selectNotificationSettings = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.notificationSettings
+		(rootState) => rootState.notificationSettings,
 	);
 	private readonly selectPatchIdables = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.patchIdables
+		(rootState) => rootState.patchIdables,
 	);
 	private readonly selectRecentlyInteractedProjectIds = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.recentlyInteractedProjectIds
+		(rootState) => rootState.recentlyInteractedProjectIds,
 	);
 	private readonly selectRecentlyPushedProjectIds = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.recentlyPushedProjectIds
+		(rootState) => rootState.recentlyPushedProjectIds,
 	);
 
 	private readonly selectRules = createSelector([this.selectSelf], (rootState) => rootState.rules);
@@ -263,7 +263,7 @@ export class AppState
 	readonly notificationSettings = $derived(this.selectNotificationSettings(this.rootState));
 	readonly patchIdables = $derived(this.selectPatchIdables(this.rootState));
 	readonly recentlyInteractedProjectIds = $derived(
-		this.selectRecentlyInteractedProjectIds(this.rootState)
+		this.selectRecentlyInteractedProjectIds(this.rootState),
 	);
 	readonly recentlyPushedProjectIds = $derived(this.selectRecentlyPushedProjectIds(this.rootState));
 	readonly rules = $derived(this.selectRules(this.rootState));

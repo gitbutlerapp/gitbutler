@@ -1,16 +1,16 @@
-import { feedAppend, feedPrepend } from '$lib/feeds/feedsSlice';
-import { upsertPost, upsertPosts } from '$lib/feeds/postsSlice';
-import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$lib/feeds/types';
-import { InterestStore } from '$lib/interest/interestStore';
-import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
-import { guardReadableTrue } from '$lib/storeUtils';
-import { apiToUser, type LoadableUser } from '$lib/users/types';
-import { userTable } from '$lib/users/usersSlice';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { HttpClient } from '$lib/network/httpClient';
-import type { AppDispatch } from '$lib/redux/store.svelte';
+import { feedAppend, feedPrepend } from "$lib/feeds/feedsSlice";
+import { upsertPost, upsertPosts } from "$lib/feeds/postsSlice";
+import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from "$lib/feeds/types";
+import { InterestStore } from "$lib/interest/interestStore";
+import { POLLING_FAST, POLLING_REGULAR } from "$lib/polling";
+import { guardReadableTrue } from "$lib/storeUtils";
+import { apiToUser, type LoadableUser } from "$lib/users/types";
+import { userTable } from "$lib/users/usersSlice";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { HttpClient } from "$lib/network/httpClient";
+import type { AppDispatch } from "$lib/redux/store.svelte";
 
-export const FEED_SERVICE: InjectionToken<FeedService> = new InjectionToken('FeedService');
+export const FEED_SERVICE: InjectionToken<FeedService> = new InjectionToken("FeedService");
 
 export class FeedService {
 	private readonly feedInterests = new InterestStore<{ identifier: string }>(POLLING_REGULAR);
@@ -18,7 +18,7 @@ export class FeedService {
 
 	constructor(
 		private readonly httpClient: HttpClient,
-		private readonly appDispatch: AppDispatch
+		private readonly appDispatch: AppDispatch,
 	) {}
 
 	/** Fetch and poll the latest entries in the feed */
@@ -42,15 +42,15 @@ export class FeedService {
 	 * TODO(CTO): This function is due some TLC, it has implicit behaviour and does not make me happy
 	 */
 	async getFeedPage(identifier: string, lastPostTimestamp?: string) {
-		const query = lastPostTimestamp ? `?from_created_at=${lastPostTimestamp}` : '';
+		const query = lastPostTimestamp ? `?from_created_at=${lastPostTimestamp}` : "";
 		const apiFeed = await this.httpClient.get<ApiPost[]>(`feed/project/${identifier}${query}`);
 		this.appDispatch.dispatch(upsertPosts(apiFeed.map(apiToPost)));
 		const users = apiFeed.map(
 			(apiPost): LoadableUser => ({
-				status: 'found',
+				status: "found",
 				value: apiToUser(apiPost.user),
-				id: apiPost.user.id
-			})
+				id: apiPost.user.id,
+			}),
 		);
 		this.appDispatch.dispatch(userTable.upsertMany(users));
 
@@ -67,23 +67,23 @@ export class FeedService {
 		projectRepositoryId: string,
 		identifier: string,
 		replyTo?: string,
-		picture?: File
+		picture?: File,
 	): Promise<Post> {
 		await guardReadableTrue(this.httpClient.authenticationAvailable);
 
 		const formData = new FormData();
-		formData.append('content', content);
-		formData.append('project_repository_id', projectRepositoryId);
+		formData.append("content", content);
+		formData.append("project_repository_id", projectRepositoryId);
 		if (replyTo) {
-			formData.append('reply_to', replyTo);
+			formData.append("reply_to", replyTo);
 		}
 		if (picture) {
-			formData.append('picture', picture);
+			formData.append("picture", picture);
 		}
 
-		const apiPost = await this.httpClient.post<ApiPost>('feed/new', {
+		const apiPost = await this.httpClient.post<ApiPost>("feed/new", {
 			body: formData,
-			headers: { 'Content-Type': undefined }
+			headers: { "Content-Type": undefined },
 		});
 
 		const post = apiToPost(apiPost);
@@ -115,10 +115,10 @@ export class FeedService {
 		this.appDispatch.dispatch(upsertPosts(posts));
 		const users = [apiPostWithReplies, ...apiPostWithReplies.replies].map(
 			(apiPost): LoadableUser => ({
-				status: 'found',
+				status: "found",
 				id: apiPost.user.id,
-				value: apiToUser(apiPost.user)
-			})
+				value: apiToUser(apiPost.user),
+			}),
 		);
 		this.appDispatch.dispatch(userTable.upsertMany(users));
 	}

@@ -1,6 +1,6 @@
-import type { ResizeCalculator } from '$lib/floating/resizeCalculator';
-import type { SnapPointManager } from '$lib/floating/snapPointManager';
-import type { ModalBounds, DragState, ResizeState } from '$lib/floating/types';
+import type { ResizeCalculator } from "$lib/floating/resizeCalculator";
+import type { SnapPointManager } from "$lib/floating/snapPointManager";
+import type { ModalBounds, DragState, ResizeState } from "$lib/floating/types";
 
 export class DragResizeHandler {
 	private snapManager: SnapPointManager;
@@ -10,17 +10,17 @@ export class DragResizeHandler {
 		startX: 0,
 		startY: 0,
 		baseX: 0,
-		baseY: 0
+		baseY: 0,
 	};
 	private resizeState: ResizeState = {
 		isResizing: false,
-		direction: '',
+		direction: "",
 		startX: 0,
 		startY: 0,
 		baseX: 0,
 		baseY: 0,
 		baseWidth: 0,
-		baseHeight: 0
+		baseHeight: 0,
 	};
 
 	constructor(snapManager: SnapPointManager, resizeCalculator: ResizeCalculator) {
@@ -34,11 +34,11 @@ export class DragResizeHandler {
 			startX: event.clientX,
 			startY: event.clientY,
 			baseX: currentBounds.x,
-			baseY: currentBounds.y
+			baseY: currentBounds.y,
 		};
 
-		window.addEventListener('pointermove', this.handlePointerMove);
-		window.addEventListener('pointerup', this.handlePointerUp, { once: true });
+		window.addEventListener("pointermove", this.handlePointerMove);
+		window.addEventListener("pointerup", this.handlePointerUp, { once: true });
 	}
 
 	startResize(event: PointerEvent, direction: string, currentBounds: ModalBounds) {
@@ -50,11 +50,11 @@ export class DragResizeHandler {
 			baseX: currentBounds.x,
 			baseY: currentBounds.y,
 			baseWidth: currentBounds.width,
-			baseHeight: currentBounds.height
+			baseHeight: currentBounds.height,
 		};
 
-		window.addEventListener('pointermove', this.handlePointerMove);
-		window.addEventListener('pointerup', this.handlePointerUp, { once: true });
+		window.addEventListener("pointermove", this.handlePointerMove);
+		window.addEventListener("pointerup", this.handlePointerUp, { once: true });
 	}
 
 	private handlePointerMove = (e: PointerEvent) => {
@@ -69,7 +69,7 @@ export class DragResizeHandler {
 				x: this.dragState.baseX + dx,
 				y: this.dragState.baseY + dy,
 				width: 0, // Will be filled by component
-				height: 0
+				height: 0,
 			});
 		} else if (this.resizeState.isResizing) {
 			const dx = e.clientX - this.resizeState.startX;
@@ -79,15 +79,15 @@ export class DragResizeHandler {
 				x: this.resizeState.baseX,
 				y: this.resizeState.baseY,
 				width: this.resizeState.baseWidth,
-				height: this.resizeState.baseHeight
+				height: this.resizeState.baseHeight,
 			};
 
 			const newBounds = this.resizeCalculator.calculateNewDimensions(
 				dx,
 				dy,
 				this.resizeState.direction,
-				this.currentSnapPosition || '',
-				baseBounds
+				this.currentSnapPosition || "",
+				baseBounds,
 			);
 
 			this.onResize?.(newBounds);
@@ -95,14 +95,14 @@ export class DragResizeHandler {
 	};
 
 	private handlePointerUp = () => {
-		window.removeEventListener('pointermove', this.handlePointerMove);
+		window.removeEventListener("pointermove", this.handlePointerMove);
 
 		if (this.dragState.isDragging) {
 			this.dragState.isDragging = false;
 			this.onDragEnd?.();
 		} else if (this.resizeState.isResizing) {
 			this.resizeState.isResizing = false;
-			this.resizeState.direction = '';
+			this.resizeState.direction = "";
 			this.onResizeEnd?.();
 		}
 	};

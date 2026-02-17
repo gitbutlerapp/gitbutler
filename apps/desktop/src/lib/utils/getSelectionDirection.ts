@@ -1,9 +1,9 @@
 export function getSelectionDirection(
 	firstFileIndex: number,
-	lastFileIndex: number
-): 'up' | 'down' {
+	lastFileIndex: number,
+): "up" | "down" {
 	// detect the direction of the selection
-	const selectionDirection = lastFileIndex < firstFileIndex ? 'down' : 'up';
+	const selectionDirection = lastFileIndex < firstFileIndex ? "down" : "up";
 
 	return selectionDirection;
 }

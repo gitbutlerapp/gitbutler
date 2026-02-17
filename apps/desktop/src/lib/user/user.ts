@@ -1,7 +1,7 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import type { Writable } from 'svelte/store';
+import { InjectionToken } from "@gitbutler/core/context";
+import type { Writable } from "svelte/store";
 
-export const USER = new InjectionToken<Writable<User>>('User');
+export const USER = new InjectionToken<Writable<User>>("User");
 
 export type User = {
 	id: number;

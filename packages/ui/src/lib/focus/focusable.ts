@@ -1,6 +1,6 @@
-import { FOCUS_MANAGER, type FocusableOptions } from '$lib/focus/focusManager';
-import { injectOptional } from '@gitbutler/core/context';
-import type { Action } from 'svelte/action';
+import { FOCUS_MANAGER, type FocusableOptions } from "$lib/focus/focusManager";
+import { injectOptional } from "@gitbutler/core/context";
+import type { Action } from "svelte/action";
 
 /**
  * @example
@@ -8,13 +8,13 @@ import type { Action } from 'svelte/action';
  */
 export function focusable(
 	element: HTMLElement,
-	options: FocusableOptions = {}
+	options: FocusableOptions = {},
 ): ReturnType<Action<HTMLElement, FocusableOptions>> {
 	const focusManager = injectOptional(FOCUS_MANAGER, undefined);
 	if (!focusManager) {
 		return {
 			destroy() {},
-			update() {}
+			update() {},
 		};
 	}
 
@@ -28,7 +28,7 @@ export function focusable(
 			focusManager.register(currentOptions, element);
 			isRegistered = true;
 		} catch (error) {
-			console.warn('Error registering focusable element:', error);
+			console.warn("Error registering focusable element:", error);
 		}
 	}
 
@@ -39,7 +39,7 @@ export function focusable(
 			focusManager.unregister(element);
 			isRegistered = false;
 		} catch (error) {
-			console.warn('Error unregistering focusable element:', error);
+			console.warn("Error unregistering focusable element:", error);
 		}
 	}
 
@@ -64,6 +64,6 @@ export function focusable(
 			if (isRegistered && focusManager) {
 				focusManager.updateElementOptions(element, newOptions);
 			}
-		}
+		},
 	};
 }

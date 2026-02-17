@@ -1,11 +1,11 @@
 <script lang="ts">
-	import FloatingModal from '$lib/floating/FloatingModal.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
+	import FloatingModal from "$lib/floating/FloatingModal.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon } from "@gitbutler/ui";
 
-	import { type Snippet } from 'svelte';
-	import type { SnapPositionName } from '$lib/floating/types';
+	import { type Snippet } from "svelte";
+	import type { SnapPositionName } from "$lib/floating/types";
 
 	interface Props {
 		children: Snippet;
@@ -30,7 +30,7 @@
 		height,
 		snapPosition,
 		minWidth: 420,
-		minHeight: 280
+		minHeight: 280,
 	}}
 	onUpdateSize={(newWidth, newHeight) => {
 		uiState.global.floatingBoxSize.set({ width: newWidth, height: newHeight });

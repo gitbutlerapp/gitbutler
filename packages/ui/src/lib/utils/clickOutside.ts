@@ -5,7 +5,7 @@ export type ClickOpts = {
 
 function elementShouldBeExcluded(
 	element: Element | Element[] | undefined,
-	target: HTMLElement
+	target: HTMLElement,
 ): boolean {
 	if (!element) return false;
 	if (Array.isArray(element)) {
@@ -24,12 +24,12 @@ export function clickOutside(node: HTMLElement, params: ClickOpts) {
 			params.handler(event);
 		}
 	}
-	document.addEventListener('pointerdown', onClick, true);
-	document.addEventListener('contextmenu', onClick, true);
+	document.addEventListener("pointerdown", onClick, true);
+	document.addEventListener("contextmenu", onClick, true);
 	return {
 		destroy() {
-			document.removeEventListener('pointerdown', onClick, true);
-			document.removeEventListener('contextmenu', onClick, true);
-		}
+			document.removeEventListener("pointerdown", onClick, true);
+			document.removeEventListener("contextmenu", onClick, true);
+		},
 	};
 }

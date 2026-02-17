@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import type { Snippet } from 'svelte';
+	import { Icon } from "@gitbutler/ui";
+	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		foldable?: boolean;
@@ -13,8 +13,8 @@
 	const {
 		foldable = false,
 		foldedAmount = undefined,
-		foldedHeight = '3rem',
-		children
+		foldedHeight = "3rem",
+		children,
 	}: Props = $props();
 
 	let isOpen: boolean = $state(false);
@@ -44,7 +44,7 @@
 				isOpen = !isOpen;
 			}}
 		>
-			<span class="text-11">{isOpen ? 'Fold files' : `Show ${foldedAmount} files`}</span>
+			<span class="text-11">{isOpen ? "Fold files" : `Show ${foldedAmount} files`}</span>
 			<div class="toggle-btn__icon" style="transform: rotate({isOpen ? '180deg' : '0'})">
 				<Icon name="chevron-down-small" />
 			</div>

@@ -1,17 +1,17 @@
 <script module lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import Textbox from '$components/Textbox.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Icon from "$components/Icon.svelte";
+	import Textbox from "$components/Textbox.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Textbox',
+		title: "Inputs / Textbox",
 		component: Textbox,
 		args: {
-			value: '',
-			placeholder: 'Enter text...',
-			type: 'text',
-			size: 'default',
-			textAlign: 'left',
+			value: "",
+			placeholder: "Enter text...",
+			type: "text",
+			size: "default",
+			textAlign: "left",
 			disabled: false,
 			readonly: false,
 			required: false,
@@ -21,67 +21,67 @@
 			autocorrect: true,
 			autocomplete: true,
 			autofocus: false,
-			label: '',
-			helperText: '',
-			error: '',
+			label: "",
+			helperText: "",
+			error: "",
 			iconLeft: undefined,
 			iconRight: undefined,
 			width: undefined,
 			minVal: undefined,
-			maxVal: undefined
+			maxVal: undefined,
 		},
 		argTypes: {
 			type: {
-				control: { type: 'select' },
-				options: ['text', 'password', 'number', 'tel', 'url', 'search', 'date', 'time']
+				control: { type: "select" },
+				options: ["text", "password", "number", "tel", "url", "search", "date", "time"],
 			},
 			size: {
-				control: { type: 'select' },
-				options: ['default', 'large']
+				control: { type: "select" },
+				options: ["default", "large"],
 			},
 			textAlign: {
-				control: { type: 'select' },
-				options: ['left', 'center', 'right']
+				control: { type: "select" },
+				options: ["left", "center", "right"],
 			},
 			iconLeft: {
-				control: { type: 'text' }
+				control: { type: "text" },
 			},
 			iconRight: {
-				control: { type: 'text' }
-			}
-		}
+				control: { type: "text" },
+			},
+		},
 	});
 </script>
 
 <script lang="ts">
-	let textValue = $state('');
-	let passwordValue = $state('');
-	let numberValue = $state('42');
-	let emailValue = $state('user@example.com');
-	let searchValue = $state('');
+	let textValue = $state("");
+	let passwordValue = $state("");
+	let numberValue = $state("42");
+	let emailValue = $state("user@example.com");
+	let searchValue = $state("");
 
 	// Error state examples with dynamic error handling
-	let emailErrorValue = $state('invalid@email');
-	let passwordErrorValue = $state('123');
-	let requiredErrorValue = $state('');
-	let numberErrorValue = $state('150');
+	let emailErrorValue = $state("invalid@email");
+	let passwordErrorValue = $state("123");
+	let requiredErrorValue = $state("");
+	let numberErrorValue = $state("150");
 
 	// Dynamic error computation
 	let emailError = $derived(
-		(emailErrorValue && !emailErrorValue.includes('@')) || emailErrorValue.endsWith('@')
-			? 'Please enter a valid email address'
-			: ''
+		(emailErrorValue && !emailErrorValue.includes("@")) || emailErrorValue.endsWith("@")
+			? "Please enter a valid email address"
+			: "",
 	);
 	let passwordError = $derived(
 		passwordErrorValue && passwordErrorValue.length < 8
-			? 'Password must be at least 8 characters long'
-			: ''
+			? "Password must be at least 8 characters long"
+			: "",
 	);
-	let requiredError = $derived(!requiredErrorValue.trim() ? 'This field is required' : '');
+	let requiredError = $derived(!requiredErrorValue.trim() ? "This field is required" : "");
 	let numberError = $derived(
 		numberErrorValue && (parseInt(numberErrorValue) < 0 || parseInt(numberErrorValue) > 100)
-			? 'Value must be between 0 and 100'
-			: ''
+			? "Value must be between 0 and 100"
+			: "",
 	);
 </script>
 
@@ -479,7 +479,7 @@
 					placeholder="user@example.com"
 					label="Email"
 					error={emailError}
-					helperText={!emailError ? 'Error disappears when email is valid' : undefined}
+					helperText={!emailError ? "Error disappears when email is valid" : undefined}
 				/>
 			</div>
 			<div class="story-group">
@@ -490,7 +490,7 @@
 					label="Required Field *"
 					required={true}
 					error={requiredError}
-					helperText={!requiredError ? 'Great! Field is no longer empty' : undefined}
+					helperText={!requiredError ? "Great! Field is no longer empty" : undefined}
 				/>
 			</div>
 			<div class="story-group">
@@ -502,7 +502,7 @@
 					placeholder="Enter password"
 					label="Password"
 					error={passwordError}
-					helperText={!passwordError ? 'Password length is valid!' : undefined}
+					helperText={!passwordError ? "Password length is valid!" : undefined}
 				/>
 			</div>
 			<div class="story-group">
@@ -516,7 +516,7 @@
 					placeholder="Enter number"
 					label="Count (0-100)"
 					error={numberError}
-					helperText={!numberError ? 'Perfect! Number is in valid range' : undefined}
+					helperText={!numberError ? "Perfect! Number is in valid range" : undefined}
 				/>
 			</div>
 			<div class="story-group">

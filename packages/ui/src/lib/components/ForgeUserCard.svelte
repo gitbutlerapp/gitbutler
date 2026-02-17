@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import Avatar from '$components/avatar/Avatar.svelte';
-	import type { Snippet } from 'svelte';
+	import Button from "$components/Button.svelte";
+	import Avatar from "$components/avatar/Avatar.svelte";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		username: string;
@@ -22,7 +22,7 @@
 		isLoading,
 		badge,
 		onForget,
-		isForgetLoading
+		isForgetLoading,
 	}: Props = $props();
 </script>
 

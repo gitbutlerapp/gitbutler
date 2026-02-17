@@ -9,8 +9,8 @@ import {
 	type Spread,
 	$isRangeSelection as isRangeSelection,
 	$isTextNode as isTextNode,
-	$createTextNode as createTextNode
-} from 'lexical';
+	$createTextNode as createTextNode,
+} from "lexical";
 
 export type InlineCodeMatch = {
 	end: number;
@@ -20,7 +20,7 @@ export type InlineCodeMatch = {
 
 export type SerializedInlineCodeNode = Spread<
 	{
-		type: 'inline-code';
+		type: "inline-code";
 		code: string;
 	},
 	SerializedTextNode
@@ -28,7 +28,7 @@ export type SerializedInlineCodeNode = Spread<
 
 export class InlineCodeNode extends TextNode {
 	static getType(): string {
-		return 'inline-code';
+		return "inline-code";
 	}
 
 	static clone(node: InlineCodeNode): InlineCodeNode {
@@ -40,10 +40,10 @@ export class InlineCodeNode extends TextNode {
 	}
 
 	createDOM(config: EditorConfig): HTMLElement {
-		const dom = document.createElement('code');
+		const dom = document.createElement("code");
 		const inner = super.createDOM(config);
-		dom.className = 'inline-code';
-		inner.className = 'inline-code-inner';
+		dom.className = "inline-code";
+		inner.className = "inline-code-inner";
 		dom.appendChild(inner);
 		return dom;
 	}
@@ -59,8 +59,8 @@ export class InlineCodeNode extends TextNode {
 	exportJSON(): SerializedInlineCodeNode {
 		return {
 			...super.exportJSON(),
-			type: 'inline-code',
-			code: this.getTextContent()
+			type: "inline-code",
+			code: this.getTextContent(),
 		};
 	}
 
@@ -89,7 +89,7 @@ export class InlineCodeNode extends TextNode {
 		const result = super.spliceText(offset, delCount, newText, moveSelection);
 		const text = this.getLatest().__text;
 
-		if (!text.startsWith('`') || !text.endsWith('`') || text.length < 3) {
+		if (!text.startsWith("`") || !text.endsWith("`") || text.length < 3) {
 			const textNode = createTextNode(text);
 			this.replace(textNode);
 			// Place cursor at the correct position in the replacement node
@@ -106,7 +106,7 @@ export class InlineCodeNode extends TextNode {
 
 	setTextContent(text: string): this {
 		// If the text no longer has backticks on both ends, convert back to a regular text node
-		if (!text.startsWith('`') || !text.endsWith('`') || text.length < 3) {
+		if (!text.startsWith("`") || !text.endsWith("`") || text.length < 3) {
 			const textNode = createTextNode(text);
 			this.replace(textNode);
 			return textNode as any;
@@ -129,7 +129,7 @@ export function isInlineCodeNode(node: LexicalNode): node is InlineCodeNode {
 function getTextSurroundingCode(text: string, start: number, end: number): [string, string] {
 	const before = text.slice(0, start);
 	let after = text.slice(end);
-	after = after.startsWith(' ') ? after : ' ' + after;
+	after = after.startsWith(" ") ? after : " " + after;
 
 	return [before, after];
 }

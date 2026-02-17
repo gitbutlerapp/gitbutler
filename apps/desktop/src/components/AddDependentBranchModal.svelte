@@ -6,10 +6,10 @@
 </script>
 
 <script lang="ts">
-	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Modal, TestId } from '@gitbutler/ui';
+	import BranchNameTextbox from "$components/BranchNameTextbox.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Modal, TestId } from "@gitbutler/ui";
 
 	const { projectId, stackId }: AddDependentBranchModalProps = $props();
 
@@ -28,8 +28,8 @@
 			stackId,
 			request: {
 				targetPatch: undefined,
-				name: slugifiedRefName
-			}
+				name: slugifiedRefName,
+			},
 		});
 
 		close();

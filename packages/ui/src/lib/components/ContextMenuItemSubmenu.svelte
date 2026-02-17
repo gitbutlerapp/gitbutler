@@ -1,13 +1,13 @@
 <script lang="ts">
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import Icon from '$components/Icon.svelte';
-	import { getContext, onDestroy } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import ContextMenu from "$components/ContextMenu.svelte";
+	import ContextMenuItem from "$components/ContextMenuItem.svelte";
+	import Icon from "$components/Icon.svelte";
+	import { getContext, onDestroy } from "svelte";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	// Context key for submenu coordination
-	const SUBMENU_CONTEXT_KEY = 'contextmenu-submenu-coordination';
+	const SUBMENU_CONTEXT_KEY = "contextmenu-submenu-coordination";
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
@@ -16,8 +16,8 @@
 		keyboardShortcut?: string;
 		testId?: string;
 		submenu: Snippet<[{ close: () => void }]>;
-		submenuSide?: 'left' | 'right';
-		submenuVerticalAlign?: 'top' | 'bottom';
+		submenuSide?: "left" | "right";
+		submenuVerticalAlign?: "top" | "bottom";
 	}
 
 	const {
@@ -27,8 +27,8 @@
 		keyboardShortcut,
 		testId,
 		submenu,
-		submenuSide = 'right',
-		submenuVerticalAlign = 'top'
+		submenuSide = "right",
+		submenuVerticalAlign = "top",
 	}: Props = $props();
 
 	let menuItemElement: HTMLDivElement | undefined = $state();
@@ -49,8 +49,8 @@
 		register: () => () => {},
 		hasOpenSubmenus: () => false,
 		getMenuContainer: () => undefined,
-		getMenuId: () => 'unknown',
-		closeEntireMenu: () => {}
+		getMenuId: () => "unknown",
+		closeEntireMenu: () => {},
 	};
 
 	// Register this submenu
@@ -114,24 +114,24 @@
 		if (disabled) return;
 
 		switch (e.key) {
-			case 'ArrowRight':
-				if (submenuSide === 'right') {
+			case "ArrowRight":
+				if (submenuSide === "right") {
 					e.preventDefault();
 					e.stopPropagation();
 					isSubmenuOpen = true;
 					contextMenu?.open();
 				}
 				break;
-			case 'ArrowLeft':
-				if (submenuSide === 'left') {
+			case "ArrowLeft":
+				if (submenuSide === "left") {
 					e.preventDefault();
 					e.stopPropagation();
 					isSubmenuOpen = true;
 					contextMenu?.open();
 				}
 				break;
-			case 'Enter':
-			case ' ':
+			case "Enter":
+			case " ":
 				e.preventDefault();
 				e.stopPropagation();
 				if (disabled) return;
@@ -169,7 +169,7 @@
 	leftClickTrigger={menuItemElement}
 	parentMenuId={submenuCoordination.getMenuId()}
 	side={submenuSide}
-	align={submenuVerticalAlign === 'top' ? 'start' : 'end'}
+	align={submenuVerticalAlign === "top" ? "start" : "end"}
 	onclose={() => {
 		isSubmenuOpen = false;
 		menuItemElement?.focus();

@@ -1,4 +1,4 @@
-import type { LoadableData } from '$lib/network/types';
+import type { LoadableData } from "$lib/network/types";
 
 export type ApiNotificationSettings = {
 	receive_chat_mention_emails: boolean;
@@ -19,7 +19,7 @@ export type NotificationSettings = {
 };
 
 export function apiToNotificationSettings(
-	apiSettings: ApiNotificationSettings
+	apiSettings: ApiNotificationSettings,
 ): NotificationSettings {
 	return {
 		receiveChatMentionEmails: apiSettings.receive_chat_mention_emails,
@@ -27,11 +27,11 @@ export function apiToNotificationSettings(
 		receiveIssueResolutionEmails: apiSettings.receive_issue_resolution_emails,
 		receiveIssueCreationEmails: apiSettings.receive_issue_creation_emails,
 		receiveReviewBranchEmails: apiSettings.receive_review_branch_emails,
-		receiveSignOffEmails: apiSettings.receive_sign_off_emails
+		receiveSignOffEmails: apiSettings.receive_sign_off_emails,
 	};
 }
 
-export const NOTIFICATION_SETTINGS_KEY = 'notification-settings';
+export const NOTIFICATION_SETTINGS_KEY = "notification-settings";
 
 export type LoadableNotificationSettings = LoadableData<
 	NotificationSettings,
@@ -57,7 +57,7 @@ export type ApiPatchNotificationSettingsParams = {
 };
 
 export function notificationSettingsToApi(
-	settings: PatchNotificationSettingsParams
+	settings: PatchNotificationSettingsParams,
 ): ApiPatchNotificationSettingsParams {
 	return {
 		receive_chat_mention_emails: settings.receiveChatMentionEmails,
@@ -65,6 +65,6 @@ export function notificationSettingsToApi(
 		receive_issue_resolution_emails: settings.receiveIssueResolutionEmails,
 		receive_issue_creation_emails: settings.receiveIssueCreationEmails,
 		receive_review_branch_emails: settings.receiveReviewBranchEmails,
-		receive_sign_off_emails: settings.receiveSignOffEmails
+		receive_sign_off_emails: settings.receiveSignOffEmails,
 	};
 }

@@ -1,19 +1,19 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import Chrome from '$components/Chrome.svelte';
-	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
-	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
-	import RemoveProjectButton from '$components/RemoveProjectButton.svelte';
-	import { POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { showError } from '$lib/notifications/toasts';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/core/context';
+	import { goto } from "$app/navigation";
+	import Chrome from "$components/Chrome.svelte";
+	import DecorativeSplitView from "$components/DecorativeSplitView.svelte";
+	import ProjectNameLabel from "$components/ProjectNameLabel.svelte";
+	import ProjectSwitcher from "$components/ProjectSwitcher.svelte";
+	import RemoveProjectButton from "$components/RemoveProjectButton.svelte";
+	import { POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
+	import { showError } from "$lib/notifications/toasts";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { inject } from "@gitbutler/core/context";
 
-	import { Icon, Spacer, chipToasts } from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { onMount } from 'svelte';
+	import { Icon, Spacer, chipToasts } from "@gitbutler/ui";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { onMount } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -34,18 +34,18 @@
 		try {
 			deleteConfirmationModal?.close();
 			await projectsService.deleteProject(projectId);
-			chipToasts.success('Project deleted');
-			goto('/');
+			chipToasts.success("Project deleted");
+			goto("/");
 		} catch (err: any) {
 			console.error(err);
-			showError('Failed to delete project', err);
+			showError("Failed to delete project", err);
 		} finally {
 			loading = false;
 		}
 	}
 
 	onMount(() => {
-		posthog.capture('repo:load_failed', { error_message: String(error) });
+		posthog.capture("repo:load_failed", { error_message: String(error) });
 	});
 </script>
 
@@ -63,7 +63,7 @@
 				<Icon name="error" color="danger" />
 				{#if !isDefined(error)}
 					'An unknown error occured'
-				{:else if error instanceof Object && 'message' in error}
+				{:else if error instanceof Object && "message" in error}
 					{error.message}
 				{:else}
 					{error}

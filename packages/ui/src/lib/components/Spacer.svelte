@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { pxToRem } from "$lib/utils/pxToRem";
 
 	interface Props {
 		margin?: number;
@@ -11,7 +11,7 @@
 
 	function getMargins() {
 		if (margin === undefined) {
-			return '';
+			return "";
 		}
 
 		return `margin-top: ${pxToRem(margin)}rem; margin-bottom: ${pxToRem(margin)}rem;`;

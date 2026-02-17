@@ -1,5 +1,5 @@
-import type { Author } from '$lib/commits/commit';
-import type { RepoInfo } from '$lib/url/gitUrl';
+import type { Author } from "$lib/commits/commit";
+import type { RepoInfo } from "$lib/url/gitUrl";
 
 export interface Label {
 	name: string;
@@ -75,7 +75,7 @@ export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 					name: pr.author.name ?? pr.author.login,
 					email: pr.author.email ?? undefined,
 					gravatarUrl: pr.author.avatarUrl ?? undefined,
-					isBot: pr.author.isBot
+					isBot: pr.author.isBot,
 				}
 			: null,
 		labels: pr.labels,
@@ -83,8 +83,8 @@ export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 		sourceBranch: pr.sourceBranch,
 		targetBranch: pr.targetBranch,
 		sha: pr.sha,
-		createdAt: pr.createdAt ?? '',
-		modifiedAt: pr.modifiedAt ?? '',
+		createdAt: pr.createdAt ?? "",
+		modifiedAt: pr.modifiedAt ?? "",
 		mergedAt: pr.mergedAt ?? undefined,
 		closedAt: pr.closedAt ?? undefined,
 		repositorySshUrl: pr.repositorySshUrl ?? undefined,
@@ -92,9 +92,9 @@ export function mapForgeReviewToPullRequest(pr: ForgeReview): PullRequest {
 		repoOwner: pr.repoOwner ?? undefined,
 		reviewers: pr.reviewers.map((r) => ({
 			id: r.id,
-			srcUrl: r.avatarUrl ?? '',
-			name: r.name ?? r.login
-		}))
+			srcUrl: r.avatarUrl ?? "",
+			name: r.name ?? r.login,
+		})),
 	};
 }
 
@@ -121,7 +121,7 @@ export interface DetailedPullRequest {
 	mergeableState: string;
 	rebaseable: boolean;
 	squashable: boolean;
-	state: 'open' | 'closed';
+	state: "open" | "closed";
 	baseRepo?: RepoInfo | undefined;
 	baseBranch: string;
 	reviewers: { srcUrl: string; username: string }[];
@@ -142,15 +142,15 @@ export type ChecksStatus = {
 };
 
 export enum MergeMethod {
-	Merge = 'merge',
-	Rebase = 'rebase',
-	Squash = 'squash'
+	Merge = "merge",
+	Rebase = "rebase",
+	Squash = "squash",
 }
 
 export type CheckSuite = {
 	name?: string;
 	count: number;
-	status: 'queued' | 'in_progress' | 'completed' | 'waiting' | 'requested' | 'pending' | null;
+	status: "queued" | "in_progress" | "completed" | "waiting" | "requested" | "pending" | null;
 };
 
 export type ForgeArguments = {

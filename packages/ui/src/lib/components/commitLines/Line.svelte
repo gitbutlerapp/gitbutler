@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Cell from '$components/commitLines/Cell.svelte';
-	import CommitNode from '$components/commitLines/CommitNode.svelte';
-	import { getColorFromBranchType } from '$lib/utils/getColorFromBranchType';
-	import type { CellType, CommitNodeData } from '$components/commitLines/types';
+	import Cell from "$components/commitLines/Cell.svelte";
+	import CommitNode from "$components/commitLines/CommitNode.svelte";
+	import { getColorFromBranchType } from "$lib/utils/getColorFromBranchType";
+	import type { CellType, CommitNodeData } from "$components/commitLines/types";
 
 	interface Props {
 		line: CommitNodeData;
@@ -11,7 +11,7 @@
 
 	const { line, isBottom = false }: Props = $props();
 
-	const lineType = $derived<CellType>(line.type ?? 'LocalOnly');
+	const lineType = $derived<CellType>(line.type ?? "LocalOnly");
 </script>
 
 <div class="line" style:--commit-color={getColorFromBranchType(lineType)}>
@@ -22,7 +22,7 @@
 		<CommitNode
 			commitNode={{
 				commit: line.commit,
-				type: line.type
+				type: line.type,
 			}}
 		/>
 	{/if}

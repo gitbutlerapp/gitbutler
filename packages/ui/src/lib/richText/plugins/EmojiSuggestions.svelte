@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { getEditor } from '$lib/richText/context';
-	import { getSelectionPosition } from '$lib/richText/selection';
-	import { clickOutside } from '$lib/utils/clickOutside';
-	import { portal } from '$lib/utils/portal';
+	import { getEditor } from "$lib/richText/context";
+	import { getSelectionPosition } from "$lib/richText/selection";
+	import { clickOutside } from "$lib/utils/clickOutside";
+	import { portal } from "$lib/utils/portal";
 	import {
 		COMMAND_PRIORITY_CRITICAL,
 		KEY_ARROW_DOWN_COMMAND,
 		KEY_ARROW_UP_COMMAND,
 		KEY_ENTER_COMMAND,
-		KEY_ESCAPE_COMMAND
-	} from 'lexical';
-	import { fly } from 'svelte/transition';
-	import type { EmojiInfo } from '$components/emoji/utils';
+		KEY_ESCAPE_COMMAND,
+	} from "lexical";
+	import { fly } from "svelte/transition";
+	import type { EmojiInfo } from "$components/emoji/utils";
 
 	type Props = {
 		suggestedEmojis: EmojiInfo[] | undefined;
@@ -32,7 +32,7 @@
 	function scrollSuggestionIntoView(index: number) {
 		const suggestionItem = document.getElementById(`emoji-suggestion__item-${index}`);
 		if (suggestionItem) {
-			suggestionItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+			suggestionItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
 		}
 	}
 
@@ -106,25 +106,25 @@
 			const unregisterArrowUp = editor.registerCommand(
 				KEY_ARROW_UP_COMMAND,
 				onArrowUp,
-				COMMAND_PRIORITY_CRITICAL
+				COMMAND_PRIORITY_CRITICAL,
 			);
 
 			const unregisterArrowDown = editor.registerCommand(
 				KEY_ARROW_DOWN_COMMAND,
 				onArrowDown,
-				COMMAND_PRIORITY_CRITICAL
+				COMMAND_PRIORITY_CRITICAL,
 			);
 
 			const unregisterEnter = editor.registerCommand(
 				KEY_ENTER_COMMAND,
 				onEnter,
-				COMMAND_PRIORITY_CRITICAL
+				COMMAND_PRIORITY_CRITICAL,
 			);
 
 			const unregisterEscape = editor.registerCommand(
 				KEY_ESCAPE_COMMAND,
 				onExit,
-				COMMAND_PRIORITY_CRITICAL
+				COMMAND_PRIORITY_CRITICAL,
 			);
 
 			return () => {
@@ -144,15 +144,15 @@
 {#if position && suggestedEmojis !== undefined}
 	<div
 		class="floating-popup hide-native-scrollbar"
-		style:left={position.left + 'px'}
-		style:top={position.top - offsetHeight - 6 + 'px'}
+		style:left={position.left + "px"}
+		style:top={position.top - offsetHeight - 6 + "px"}
 		bind:offsetHeight
-		use:portal={'body'}
+		use:portal={"body"}
 		use:clickOutside={{
 			handler: () => {
 				position = undefined;
 				exit();
-			}
+			},
 		}}
 		transition:fly={{ y: 5, duration: 120 }}
 	>

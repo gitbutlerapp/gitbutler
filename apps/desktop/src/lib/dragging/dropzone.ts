@@ -1,5 +1,5 @@
-import type { DropzoneHandler } from '$lib/dragging/handler';
-import type { DropzoneRegistry } from '$lib/dragging/registry';
+import type { DropzoneHandler } from "$lib/dragging/handler";
+import type { DropzoneRegistry } from "$lib/dragging/registry";
 
 export type HoverArgs = {
 	handler?: DropzoneHandler;
@@ -31,7 +31,7 @@ export class Dropzone {
 
 	constructor(
 		private configuration: DropzoneConfiguration,
-		private rootNode: HTMLElement
+		private rootNode: HTMLElement,
 	) {
 		this.boundOnDrop = this.onDrop.bind(this);
 		this.boundOnDragEnter = this.onDragEnter.bind(this);
@@ -102,20 +102,20 @@ export class Dropzone {
 
 	private registerListeners() {
 		// Support both native drag events and pointer-based events
-		this.target.addEventListener('drop', this.boundOnDrop as EventListener);
-		this.target.addEventListener('dragenter', this.boundOnDragEnter as EventListener);
-		this.target.addEventListener('dragleave', this.boundOnDragLeave as EventListener);
-		this.target.addEventListener('dragover', this.boundOnDragOver as EventListener);
-		this.target.addEventListener('mouseup', this.boundOnMouseUp as EventListener);
+		this.target.addEventListener("drop", this.boundOnDrop as EventListener);
+		this.target.addEventListener("dragenter", this.boundOnDragEnter as EventListener);
+		this.target.addEventListener("dragleave", this.boundOnDragLeave as EventListener);
+		this.target.addEventListener("dragover", this.boundOnDragOver as EventListener);
+		this.target.addEventListener("mouseup", this.boundOnMouseUp as EventListener);
 		this.registered = true;
 	}
 
 	private unregisterListeners() {
-		this.target.removeEventListener('drop', this.boundOnDrop as EventListener);
-		this.target.removeEventListener('dragenter', this.boundOnDragEnter as EventListener);
-		this.target.removeEventListener('dragleave', this.boundOnDragLeave as EventListener);
-		this.target.removeEventListener('dragover', this.boundOnDragOver as EventListener);
-		this.target.removeEventListener('mouseup', this.boundOnMouseUp as EventListener);
+		this.target.removeEventListener("drop", this.boundOnDrop as EventListener);
+		this.target.removeEventListener("dragenter", this.boundOnDragEnter as EventListener);
+		this.target.removeEventListener("dragleave", this.boundOnDragLeave as EventListener);
+		this.target.removeEventListener("dragover", this.boundOnDragOver as EventListener);
+		this.target.removeEventListener("mouseup", this.boundOnMouseUp as EventListener);
 		this.registered = false;
 	}
 
@@ -223,6 +223,6 @@ export function dropzone(node: HTMLElement, configuration: DropzoneConfiguration
 		},
 		destroy() {
 			cleanup();
-		}
+		},
 	};
 }

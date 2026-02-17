@@ -1,11 +1,11 @@
-import { defineConfig, devices } from '@playwright/experimental-ct-svelte';
-import { resolve } from 'path';
+import { defineConfig, devices } from "@playwright/experimental-ct-svelte";
+import { resolve } from "path";
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-	testDir: './tests',
+	testDir: "./tests",
 	/* Maximum time one test can run for. */
 	timeout: 10 * 1000,
 	/* Run tests in files in parallel */
@@ -17,7 +17,7 @@ export default defineConfig({
 	/* Opt out of parallel tests on CI. */
 	workers: process.env.CI ? 1 : undefined,
 	/* Reporter to use. See https://playwright.dev/docs/test-reporters */
-	reporter: 'list',
+	reporter: "list",
 
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
@@ -25,25 +25,25 @@ export default defineConfig({
 		ctPort: 3100,
 
 		/* Template for component tests */
-		ctTemplateDir: 'tests',
+		ctTemplateDir: "tests",
 
 		ctViteConfig: {
 			resolve: {
 				alias: {
-					$components: resolve('./src/lib/components'),
-					$lib: resolve('./src/lib')
-				}
-			}
-		}
+					$components: resolve("./src/lib/components"),
+					$lib: resolve("./src/lib"),
+				},
+			},
+		},
 	},
 	projects: [
 		{
-			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] }
+			name: "chromium",
+			use: { ...devices["Desktop Chrome"] },
 		},
 		{
-			name: 'webkit',
-			use: { ...devices['Desktop Safari'] }
-		}
-	]
+			name: "webkit",
+			use: { ...devices["Desktop Safari"] },
+		},
+	],
 });

@@ -37,7 +37,7 @@
 			height: 100%;
 			transform: translateX(-50%);
 			background-color: var(--clr-text-2);
-			content: '';
+			content: "";
 			opacity: 0.2;
 		}
 	}

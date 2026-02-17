@@ -1,11 +1,11 @@
 <script lang="ts">
-	import ImagineCanvas from '$home/sections/ImagineCanvas.svelte';
-	import jsonLinks from '$lib/data/links.json';
-	import osIcons from '$lib/data/os-icons.json';
-	import { latestClientVersion } from '$lib/store';
-	import { onMount } from 'svelte';
+	import ImagineCanvas from "$home/sections/ImagineCanvas.svelte";
+	import jsonLinks from "$lib/data/links.json";
+	import osIcons from "$lib/data/os-icons.json";
+	import { latestClientVersion } from "$lib/store";
+	import { onMount } from "svelte";
 
-	let detectedOS = $state('');
+	let detectedOS = $state("");
 	let selectedDownload = $state(jsonLinks.downloads.appleSilicon);
 	let tiltX = $state(0);
 	let tiltY = $state(0);
@@ -14,22 +14,22 @@
 	// OS detection mapping for cleaner logic
 	const osDetectionMap = [
 		{
-			check: (ua: string) => ua.includes('mac'),
-			os: 'macOS',
+			check: (ua: string) => ua.includes("mac"),
+			os: "macOS",
 			// There is no good way of determining the arminess of a mac, so we
 			// should just assume appleSilicon.
-			getDownload: () => jsonLinks.downloads.appleSilicon
+			getDownload: () => jsonLinks.downloads.appleSilicon,
 		},
 		{
-			check: (ua: string) => ua.includes('windows'),
-			os: 'Windows',
-			getDownload: () => jsonLinks.downloads.windowsMsi
+			check: (ua: string) => ua.includes("windows"),
+			os: "Windows",
+			getDownload: () => jsonLinks.downloads.windowsMsi,
 		},
 		{
-			check: (ua: string) => ua.includes('linux'),
-			os: 'Linux',
-			getDownload: () => jsonLinks.downloads.linuxDeb
-		}
+			check: (ua: string) => ua.includes("linux"),
+			os: "Linux",
+			getDownload: () => jsonLinks.downloads.linuxDeb,
+		},
 	];
 
 	// Function to detect OS and set appropriate download
@@ -43,7 +43,7 @@
 			selectedDownload = detected.getDownload();
 		} else {
 			// Default to macOS Apple Silicon if OS can't be detected
-			detectedOS = 'macOS';
+			detectedOS = "macOS";
 			selectedDownload = jsonLinks.downloads.appleSilicon;
 		}
 	}
@@ -57,7 +57,7 @@
 	// Tilt effect handlers (only for non-touch devices)
 	function handleMouseMove(e: MouseEvent) {
 		// Skip tilt effect on touch devices
-		if (window.matchMedia('(pointer: coarse)').matches) return;
+		if (window.matchMedia("(pointer: coarse)").matches) return;
 
 		const target = e.currentTarget as HTMLElement;
 		const rect = target.getBoundingClientRect();
@@ -75,7 +75,7 @@
 
 	function handleMouseEnter() {
 		// Skip hover effect on touch devices
-		if (window.matchMedia('(pointer: coarse)').matches) return;
+		if (window.matchMedia("(pointer: coarse)").matches) return;
 		isHovering = true;
 	}
 

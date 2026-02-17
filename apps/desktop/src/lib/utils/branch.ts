@@ -1,7 +1,7 @@
-const PREFERRED_REMOTE = 'origin';
-const BRANCH_SEPARATOR = '/';
-const REF_REMOTES_PREFIX = 'refs/remotes/';
-const REF_HEADS_PREFIX = 'refs/heads/';
+const PREFERRED_REMOTE = "origin";
+const BRANCH_SEPARATOR = "/";
+const REF_REMOTES_PREFIX = "refs/remotes/";
+const REF_HEADS_PREFIX = "refs/heads/";
 
 export function createBranchRef(branchName: string, remote: string | undefined): string {
 	if (remote) {
@@ -17,15 +17,15 @@ export function createBranchRef(branchName: string, remote: string | undefined):
  */
 export function getBranchNameFromRef(ref: string, remote?: string): string | undefined {
 	if (ref.startsWith(REF_REMOTES_PREFIX)) {
-		ref = ref.replace(REF_REMOTES_PREFIX, '');
+		ref = ref.replace(REF_REMOTES_PREFIX, "");
 	}
 
 	if (remote !== undefined) {
 		const originPrefix = `${remote}${BRANCH_SEPARATOR}`;
 		if (!ref.startsWith(originPrefix)) {
-			throw new Error('Failed to parse branch name as reference');
+			throw new Error("Failed to parse branch name as reference");
 		}
-		ref = ref.replace(originPrefix, '');
+		ref = ref.replace(originPrefix, "");
 	}
 
 	return ref;
@@ -41,15 +41,15 @@ export function getBranchRemoteFromRef(ref: string): string | undefined {
 }
 
 const BRANCH_RANKING_EXACT: Record<string, number> = {
-	'upstream/main': 100,
-	'upstream/master': 100,
-	'origin/main': 90,
-	'origin/master': 90
+	"upstream/main": 100,
+	"upstream/master": 100,
+	"origin/main": 90,
+	"origin/master": 90,
 };
 
 const BRANCH_RANKING_ENDS_WITH: Record<string, number> = {
-	'/master': 70,
-	'/main': 70
+	"/master": 70,
+	"/main": 70,
 };
 
 function branchRank(branchName: string): number {

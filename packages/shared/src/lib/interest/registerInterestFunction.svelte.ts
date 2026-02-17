@@ -1,4 +1,4 @@
-import type { Interest } from '$lib/interest/interestStore';
+import type { Interest } from "$lib/interest/interestStore";
 
 export type InView = {
 	element?: HTMLElement;
@@ -32,8 +32,8 @@ export function registerInterestInView(interest: Interest, element?: HTMLElement
 					inView = entries[0]?.isIntersecting || false;
 				},
 				{
-					root: null
-				}
+					root: null,
+				},
 			);
 
 			observer.observe(element);

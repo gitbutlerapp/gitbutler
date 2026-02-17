@@ -1,6 +1,6 @@
 <script lang="ts">
-	import profileIconSvg from '$lib/assets/profile-icon.svg?raw';
-	import { useImageLoading } from '$lib/utils/imageLoading.svelte';
+	import profileIconSvg from "$lib/assets/profile-icon.svg?raw";
+	import { useImageLoading } from "$lib/utils/imageLoading.svelte";
 
 	interface Props {
 		onclick: () => void;

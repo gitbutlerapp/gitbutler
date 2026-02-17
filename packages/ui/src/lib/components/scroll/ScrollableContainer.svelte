@@ -13,7 +13,7 @@
 		thickness?: string;
 		horz?: boolean;
 		zIndex?: string;
-		whenToShow?: 'hover' | 'always' | 'scroll';
+		whenToShow?: "hover" | "always" | "scroll";
 		autoScroll?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
@@ -24,16 +24,16 @@
 		viewport?: HTMLDivElement;
 		viewportHeight?: number;
 		childrenWrapHeight?: string;
-		childrenWrapDisplay?: 'block' | 'contents' | 'flex'; // 'contents' is used for virtual lists to avoid unnecessary height calculations
+		childrenWrapDisplay?: "block" | "contents" | "flex"; // 'contents' is used for virtual lists to avoid unnecessary height calculations
 		enableDragScroll?: boolean; // Enable auto-scroll when dragging elements
 	}
 </script>
 
 <script lang="ts">
-	import Scrollbar from '$components/scroll/Scrollbar.svelte';
-	import { passiveScroll } from '$lib/utils/scroll';
-	import { onDestroy } from 'svelte';
-	import type { Snippet } from 'svelte';
+	import Scrollbar from "$components/scroll/Scrollbar.svelte";
+	import { passiveScroll } from "$lib/utils/scroll";
+	import { onDestroy } from "svelte";
+	import type { Snippet } from "svelte";
 
 	let {
 		maxHeight,
@@ -43,7 +43,7 @@
 		shift,
 		thickness,
 		horz,
-		whenToShow = 'hover',
+		whenToShow = "hover",
 		children,
 		onthumbdrag,
 		onscroll,
@@ -54,8 +54,8 @@
 		viewport = $bindable(),
 		viewportHeight = $bindable(),
 		childrenWrapHeight,
-		childrenWrapDisplay = 'block',
-		enableDragScroll = false
+		childrenWrapDisplay = "block",
+		enableDragScroll = false,
 	}: ScrollableProps = $props();
 
 	let scrollTopVisible = $state<boolean>(true);
@@ -122,7 +122,7 @@
 	}
 
 	export function scrollToTop() {
-		scrollTo({ top: 0, behavior: 'smooth' });
+		scrollTo({ top: 0, behavior: "smooth" });
 	}
 
 	export function scrollToBottom(immediate?: boolean) {
@@ -130,7 +130,7 @@
 			viewport.scrollTop = viewport.scrollHeight - viewport.offsetHeight;
 			scrollTo({
 				top: viewport.scrollHeight,
-				behavior: immediate ? undefined : 'smooth'
+				behavior: immediate ? undefined : "smooth",
 			});
 		}
 	}
@@ -143,18 +143,18 @@
 		style:flex-grow={wide ? 1 : 0}
 		use:passiveScroll={handleScroll}
 		class="viewport hide-native-scrollbar"
-		style:padding-left={padding?.left ? padding.left + 'px' : undefined}
-		style:padding-right={padding?.right ? padding.right + 'px' : undefined}
-		style:--overflow-x={horz ? 'auto' : 'hidden'}
-		style:--overflow-y={horz ? 'hidden' : 'auto'}
-		style:--flex-direction={horz ? 'row' : 'column'}
+		style:padding-left={padding?.left ? padding.left + "px" : undefined}
+		style:padding-right={padding?.right ? padding.right + "px" : undefined}
+		style:--overflow-x={horz ? "auto" : "hidden"}
+		style:--overflow-y={horz ? "hidden" : "auto"}
+		style:--flex-direction={horz ? "row" : "column"}
 		data-scrollable-for-dragging={enableDragScroll || undefined}
 	>
 		<div
 			style:min-height={childrenWrapHeight}
 			style:display={childrenWrapDisplay}
-			style:padding-top={padding?.top + 'px'}
-			style:padding-bottom={padding?.bottom + 'px'}
+			style:padding-top={padding?.top + "px"}
+			style:padding-bottom={padding?.bottom + "px"}
 		>
 			{@render children()}
 		</div>

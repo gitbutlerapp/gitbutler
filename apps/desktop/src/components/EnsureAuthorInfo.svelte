@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { GIT_SERVICE } from '$lib/git/gitService';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import { GIT_SERVICE } from "$lib/git/gitService";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
 
 	type Props = {
 		projectId: string;
@@ -19,10 +19,10 @@
 			const { name, email } = authorInfo.response;
 			if (name === null || email === null) {
 				uiState.global.modal.set({
-					type: 'author-missing',
+					type: "author-missing",
 					projectId,
 					authorName: name ?? undefined,
-					authorEmail: email ?? undefined
+					authorEmail: email ?? undefined,
 				});
 			}
 		}

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ThemeSelector from '$components/ThemeSelector.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
+	import ThemeSelector from "$components/ThemeSelector.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		CardGroup,
 		HunkDiff,
@@ -9,9 +9,9 @@
 		Select,
 		SelectItem,
 		Textbox,
-		Toggle
-	} from '@gitbutler/ui';
-	import type { ScrollbarVisilitySettings } from '@gitbutler/ui/components/scroll/Scrollbar.svelte';
+		Toggle,
+	} from "@gitbutler/ui";
+	import type { ScrollbarVisilitySettings } from "@gitbutler/ui/components/scroll/Scrollbar.svelte";
 
 	const userSettings = inject(SETTINGS);
 	const diff = `@@ -56,10 +56,10 @@
@@ -30,12 +30,12 @@
 	function onScrollbarFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
 		const selectedScrollbarVisibility = formData.get(
-			'scrollBarVisibilityType'
+			"scrollBarVisibilityType",
 		) as ScrollbarVisilitySettings;
 
 		userSettings.update((s) => ({
 			...s,
-			scrollbarVisibilityState: selectedScrollbarVisibility
+			scrollbarVisibilityState: selectedScrollbarVisibility,
 		}));
 	}
 </script>
@@ -59,13 +59,13 @@
 			maxWidth={120}
 			value={$userSettings.defaultFileListMode}
 			options={[
-				{ label: 'List view', value: 'list' },
-				{ label: 'Tree view', value: 'tree' }
+				{ label: "List view", value: "list" },
+				{ label: "Tree view", value: "tree" },
 			]}
 			onselect={(value) => {
 				userSettings.update((s) => ({
 					...s,
-					defaultFileListMode: value as 'tree' | 'list'
+					defaultFileListMode: value as "tree" | "list",
 				}));
 			}}
 		>
@@ -92,7 +92,7 @@
 			onclick={() => {
 				userSettings.update((s) => ({
 					...s,
-					pathFirst: !s.pathFirst
+					pathFirst: !s.pathFirst,
 				}));
 			}}
 		/>
@@ -113,7 +113,7 @@
 			onclick={() => {
 				userSettings.update((s) => ({
 					...s,
-					singleDiffView: !s.singleDiffView
+					singleDiffView: !s.singleDiffView,
 				}));
 			}}
 		/>
@@ -154,7 +154,7 @@
 			onchange={(value: string) => {
 				userSettings.update((s) => ({
 					...s,
-					diffFont: value
+					diffFont: value,
 				}));
 			}}
 		/>
@@ -171,7 +171,7 @@
 				onclick={() => {
 					userSettings.update((s) => ({
 						...s,
-						diffLigatures: !$userSettings.diffLigatures
+						diffLigatures: !$userSettings.diffLigatures,
 					}));
 				}}
 			/>
@@ -198,7 +198,7 @@
 				onchange={(value: string) => {
 					userSettings.update((s) => ({
 						...s,
-						tabSize: parseInt(value) || $userSettings.tabSize
+						tabSize: parseInt(value) || $userSettings.tabSize,
 					}));
 				}}
 				placeholder={$userSettings.tabSize.toString()}
@@ -221,7 +221,7 @@
 				onclick={() => {
 					userSettings.update((s) => ({
 						...s,
-						wrapText: !s.wrapText
+						wrapText: !s.wrapText,
 					}));
 				}}
 			/>
@@ -242,7 +242,7 @@
 				onclick={() => {
 					userSettings.update((s) => ({
 						...s,
-						strongContrast: !s.strongContrast
+						strongContrast: !s.strongContrast,
 					}));
 				}}
 			/>
@@ -265,7 +265,7 @@
 				onclick={() => {
 					userSettings.update((s) => ({
 						...s,
-						colorBlindFriendly: !s.colorBlindFriendly
+						colorBlindFriendly: !s.colorBlindFriendly,
 					}));
 				}}
 			/>
@@ -287,7 +287,7 @@
 				onclick={() => {
 					userSettings.update((s) => ({
 						...s,
-						inlineUnifiedDiffs: !s.inlineUnifiedDiffs
+						inlineUnifiedDiffs: !s.inlineUnifiedDiffs,
 					}));
 				}}
 			/>
@@ -309,7 +309,7 @@
 					name="scrollBarVisibilityType"
 					value="scroll"
 					id="scrollbar-on-scroll"
-					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
+					checked={$userSettings.scrollbarVisibilityState === "scroll"}
 				/>
 			{/snippet}
 		</CardGroup.Item>
@@ -326,7 +326,7 @@
 					name="scrollBarVisibilityType"
 					value="hover"
 					id="scrollbar-on-hover"
-					checked={$userSettings.scrollbarVisibilityState === 'hover'}
+					checked={$userSettings.scrollbarVisibilityState === "hover"}
 				/>
 			{/snippet}
 		</CardGroup.Item>
@@ -340,7 +340,7 @@
 					name="scrollBarVisibilityType"
 					value="always"
 					id="scrollbar-always"
-					checked={$userSettings.scrollbarVisibilityState === 'always'}
+					checked={$userSettings.scrollbarVisibilityState === "always"}
 				/>
 			{/snippet}
 		</CardGroup.Item>

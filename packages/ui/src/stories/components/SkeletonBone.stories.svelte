@@ -1,17 +1,17 @@
 <script module lang="ts">
-	import SkeletonBone from '$components/SkeletonBone.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import SkeletonBone from "$components/SkeletonBone.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Components / SkeletonBone',
+		title: "Components / SkeletonBone",
 		component: SkeletonBone,
 		args: {
-			width: '100%',
-			height: '1rem',
-			radius: 'var(--radius-ml)',
-			color: 'var(--clr-text-3)',
-			opacity: 0.14
-		}
+			width: "100%",
+			height: "1rem",
+			radius: "var(--radius-ml)",
+			color: "var(--clr-text-3)",
+			opacity: 0.14,
+		},
 	});
 </script>
 

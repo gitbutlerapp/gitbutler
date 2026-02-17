@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
+	import { Icon } from "@gitbutler/ui";
 
 	interface Props {
 		onclick: () => void;

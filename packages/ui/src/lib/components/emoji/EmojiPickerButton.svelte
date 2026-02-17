@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import EmojiPicker from '$components/emoji/EmojiPicker.svelte';
-	import type { EmojiInfo } from '$components/emoji/utils';
+	import Button from "$components/Button.svelte";
+	import ContextMenu from "$components/ContextMenu.svelte";
+	import EmojiPicker from "$components/emoji/EmojiPicker.svelte";
+	import type { EmojiInfo } from "$components/emoji/utils";
 
 	type Props = {
 		onEmojiSelect: (emoji: EmojiInfo) => void;

@@ -11,8 +11,8 @@ This is needed because the default markdown shortcuts only match at the beginnin
 of a paragraph, but in plaintext mode we work with a single paragraph.
 -->
 <script lang="ts">
-	import TypeAhead, { type Match } from '$lib/richText/plugins/TypeAhead.svelte';
-	import { mergeUnlisten } from '$lib/utils/mergeUnlisten';
+	import TypeAhead, { type Match } from "$lib/richText/plugins/TypeAhead.svelte";
+	import { mergeUnlisten } from "$lib/utils/mergeUnlisten";
 	import {
 		$createTextNode as createTextNode,
 		$createParagraphNode as createParagraphNode,
@@ -24,10 +24,10 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 		KEY_BACKSPACE_COMMAND,
 		KEY_DELETE_COMMAND,
 		KEY_ARROW_DOWN_COMMAND,
-		KEY_ARROW_UP_COMMAND
-	} from 'lexical';
-	import { CodeNode, $createCodeNode as createCodeNode } from 'svelte-lexical';
-	import { getEditor } from 'svelte-lexical';
+		KEY_ARROW_UP_COMMAND,
+	} from "lexical";
+	import { CodeNode, $createCodeNode as createCodeNode } from "svelte-lexical";
+	import { getEditor } from "svelte-lexical";
 
 	// Matches ``` anywhere in the text up to the cursor
 	const CODE_BLOCK_REGEX = /```$/;
@@ -98,7 +98,7 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 				} else {
 					// Create an empty paragraph after the code block for navigation
 					const emptyParagraph = createParagraphNode();
-					emptyParagraph.append(createTextNode(''));
+					emptyParagraph.append(createTextNode(""));
 					codeParagraph.insertAfter(emptyParagraph);
 				}
 
@@ -106,8 +106,8 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 				codeNode.selectStart();
 			},
 			{
-				tag: 'history-merge'
-			}
+				tag: "history-merge",
+			},
 		);
 	}
 
@@ -195,7 +195,7 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 		const cursorOffset = anchor.offset;
 
 		// Determine if we're on the last line
-		const lastLineStart = textContent.lastIndexOf('\n') + 1;
+		const lastLineStart = textContent.lastIndexOf("\n") + 1;
 		const isOnLastLine = cursorOffset >= lastLineStart;
 
 		// Only exit if we're on the last line
@@ -214,7 +214,7 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 		} else {
 			// No next paragraph, create one
 			const newParagraph = createParagraphNode();
-			newParagraph.append(createTextNode(''));
+			newParagraph.append(createTextNode(""));
 			codeParagraph.insertAfter(newParagraph);
 			newParagraph.selectStart();
 			return true;
@@ -260,7 +260,7 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 		if (!prevParagraph || !isParagraphNode(prevParagraph)) {
 			// No previous paragraph, create one
 			const newParagraph = createParagraphNode();
-			newParagraph.append(createTextNode(''));
+			newParagraph.append(createTextNode(""));
 			codeParagraph.insertBefore(newParagraph);
 			newParagraph.selectEnd();
 			e.preventDefault();
@@ -274,8 +274,8 @@ of a paragraph, but in plaintext mode we work with a single paragraph.
 			editor.registerCommand(KEY_BACKSPACE_COMMAND, handleDeletion, COMMAND_PRIORITY_HIGH),
 			editor.registerCommand(KEY_DELETE_COMMAND, handleDeletion, COMMAND_PRIORITY_HIGH),
 			editor.registerCommand(KEY_ARROW_DOWN_COMMAND, handleArrowDown, COMMAND_PRIORITY_HIGH),
-			editor.registerCommand(KEY_ARROW_UP_COMMAND, handleArrowUp, COMMAND_PRIORITY_HIGH)
-		)
+			editor.registerCommand(KEY_ARROW_UP_COMMAND, handleArrowUp, COMMAND_PRIORITY_HIGH),
+		),
 	);
 </script>
 

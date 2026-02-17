@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { getCursorPosition, insertImageAtCaret } from '$lib/richText/selection';
-	import { clickOutside } from '$lib/utils/clickOutside';
-	import { debounce } from '$lib/utils/debounce';
-	import { portal } from '$lib/utils/portal';
-	import { gifPaginator, GiphyFetch } from '@giphy/js-fetch-api';
-	import { Gif } from '@giphy/svelte-components';
-	import { onMount } from 'svelte';
-	import { getEditor } from 'svelte-lexical';
-	import type { IGif } from '@giphy/js-types';
+	import Icon from "$components/Icon.svelte";
+	import { getCursorPosition, insertImageAtCaret } from "$lib/richText/selection";
+	import { clickOutside } from "$lib/utils/clickOutside";
+	import { debounce } from "$lib/utils/debounce";
+	import { portal } from "$lib/utils/portal";
+	import { gifPaginator, GiphyFetch } from "@giphy/js-fetch-api";
+	import { Gif } from "@giphy/svelte-components";
+	import { onMount } from "svelte";
+	import { getEditor } from "svelte-lexical";
+	import type { IGif } from "@giphy/js-types";
 
 	const editor = getEditor();
 
@@ -16,31 +16,31 @@
 
 	onMount(() => {
 		const root = editor.getRootElement();
-		root?.addEventListener('keydown', monitorKeystrokes);
+		root?.addEventListener("keydown", monitorKeystrokes);
 		return () => {
-			root?.removeEventListener('keydown', monitorKeystrokes);
+			root?.removeEventListener("keydown", monitorKeystrokes);
 		};
 	});
 
-	let query = $state('');
+	let query = $state("");
 	let loading = $state(false);
 	let loadingDiv: HTMLDivElement | undefined = $state();
 
 	/** Key sequence that will show the giphy search box. */
-	const matchSequence = '/gif';
+	const matchSequence = "/gif";
 
-	let inputBuffer = '';
+	let inputBuffer = "";
 	let prefixMatched = false;
-	let queryBuffer = '';
+	let queryBuffer = "";
 
 	function monitorKeystrokes(e: KeyboardEvent) {
 		const key = e.key;
 		if (!prefixMatched) {
 			if (key.length === 1 && key.match(/[\w /]/)) {
 				inputBuffer += key;
-				if (inputBuffer.endsWith('/gif ')) {
+				if (inputBuffer.endsWith("/gif ")) {
 					prefixMatched = true;
-					inputBuffer = ''; // Reset buffer, we now track the term
+					inputBuffer = ""; // Reset buffer, we now track the term
 				}
 			} else {
 				reset();
@@ -48,7 +48,7 @@
 		} else {
 			if (key.length === 1 && key.match(/\w/)) {
 				queryBuffer += key;
-			} else if (key === 'Enter') {
+			} else if (key === "Enter") {
 				query = queryBuffer;
 				position = getCursorPosition();
 				e.preventDefault();
@@ -61,10 +61,10 @@
 
 	function reset() {
 		position = undefined;
-		inputBuffer = '';
+		inputBuffer = "";
 		prefixMatched = false;
-		query = '';
-		queryBuffer = '';
+		query = "";
+		queryBuffer = "";
 		gifs = [];
 	}
 
@@ -74,7 +74,7 @@
 	}
 
 	// According to Giphy this key does not need to be kept private.
-	const giphy = new GiphyFetch('vLyzA6m3XQkcikhfQhAMfqkhAASQdjXy');
+	const giphy = new GiphyFetch("vLyzA6m3XQkcikhfQhAMfqkhAASQdjXy");
 	const fetch = $derived(query ? createFetch(query) : undefined);
 	// Awaiting this paginator will return a new list that includes
 	// existing results in addition to new results.
@@ -99,7 +99,7 @@
 		if (query && position) {
 			const observer = new IntersectionObserver(
 				([entry]) => (loading = !!(entry?.isIntersecting && !loading)),
-				{ threshold: 0.01 }
+				{ threshold: 0.01 },
 			);
 			observer.observe(loadingDiv!);
 			return () => observer.disconnect();
@@ -107,8 +107,8 @@
 	});
 
 	function handleClick(gif: IGif) {
-		const url = gif['images']['original']['webp'].split('?')[0]!;
-		const alt = gif['alt_text'] ?? '';
+		const url = gif["images"]["original"]["webp"].split("?")[0]!;
+		const alt = gif["alt_text"] ?? "";
 		insertImageAtCaret(editor, { url, alt, count: matchSequence.length + query.length + 1 });
 		reset();
 	}
@@ -116,10 +116,10 @@
 
 {#if position}
 	<div
-		use:portal={'body'}
+		use:portal={"body"}
 		class="slash"
-		style:left={position.left + 'px'}
-		style:top={position.top + 'px'}
+		style:left={position.left + "px"}
+		style:top={position.top + "px"}
 		use:clickOutside={{ handler: () => reset() }}
 	>
 		{#if query}

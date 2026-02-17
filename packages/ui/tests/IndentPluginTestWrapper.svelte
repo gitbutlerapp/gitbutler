@@ -1,16 +1,16 @@
 <script lang="ts">
-	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
-	import IndentPlugin from '$lib/richText/plugins/IndentPlugin.svelte';
+	import RichTextEditor from "$lib/richText/RichTextEditor.svelte";
+	import IndentPlugin from "$lib/richText/plugins/IndentPlugin.svelte";
 
 	type Props = {
 		initialText?: string;
 	};
 
-	const { initialText = '' }: Props = $props();
+	const { initialText = "" }: Props = $props();
 
 	let editor = $state<RichTextEditor>();
 	let paragraphCountDisplay = $state(0);
-	let textContentDisplay = $state('');
+	let textContentDisplay = $state("");
 	let value = $state(initialText);
 
 	// Update display values from the editor
@@ -18,7 +18,7 @@
 		if (!editor) return;
 		const plaintext = await editor.getPlaintext();
 		const count = await editor.getParagraphCount();
-		textContentDisplay = plaintext || '';
+		textContentDisplay = plaintext || "";
 		paragraphCountDisplay = count || 0;
 	}
 
@@ -44,7 +44,7 @@
 			bind:this={editor}
 			bind:value
 			namespace="test-plaintext-indent"
-			onError={(error) => console.error('Editor error:', error)}
+			onError={(error) => console.error("Editor error:", error)}
 			styleContext="client-editor"
 			{initialText}
 			minHeight="100px"

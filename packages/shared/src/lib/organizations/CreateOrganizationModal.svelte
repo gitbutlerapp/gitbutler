@@ -1,26 +1,26 @@
 <script lang="ts">
-	import { ORGANIZATION_SERVICE } from '$lib/organizations/organizationService';
-	import { inject } from '@gitbutler/core/context';
+	import { ORGANIZATION_SERVICE } from "$lib/organizations/organizationService";
+	import { inject } from "@gitbutler/core/context";
 
-	import { Button, Modal, Textarea, Textbox } from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
+	import { Button, Modal, Textarea, Textbox } from "@gitbutler/ui";
+	import { slugify } from "@gitbutler/ui/utils/string";
 
 	const organizationService = inject(ORGANIZATION_SERVICE);
 
-	let name = $state<string>('');
-	let slug = $state<string>('');
-	const sluggifiedSlug = $derived(slugify(slug || name || '').toLocaleLowerCase());
-	let description = $state<string>('');
+	let name = $state<string>("");
+	let slug = $state<string>("");
+	const sluggifiedSlug = $derived(slugify(slug || name || "").toLocaleLowerCase());
+	let description = $state<string>("");
 
 	const requiredFieldsFilled = $derived(!!(name && sluggifiedSlug));
-	let modalCreationState: 'inert' | 'loading' | 'complete' = $state('inert');
+	let modalCreationState: "inert" | "loading" | "complete" = $state("inert");
 	let submitAttempted = $state(false);
 
 	function onModalClose() {
-		name = '';
-		slug = '';
-		description = '';
-		modalCreationState = 'inert';
+		name = "";
+		slug = "";
+		description = "";
+		modalCreationState = "inert";
 		submitAttempted = false;
 	}
 
@@ -29,9 +29,9 @@
 
 		if (!requiredFieldsFilled) return;
 
-		modalCreationState = 'loading';
+		modalCreationState = "loading";
 		await organizationService.createOrganization(sluggifiedSlug, name, description);
-		modalCreationState = 'complete';
+		modalCreationState = "complete";
 		close();
 	}
 
@@ -61,7 +61,7 @@
 	{#snippet controls(close)}
 		<Button
 			disabled={!requiredFieldsFilled}
-			loading={modalCreationState === 'loading'}
+			loading={modalCreationState === "loading"}
 			onclick={() => create(close)}>Create</Button
 		>
 	{/snippet}

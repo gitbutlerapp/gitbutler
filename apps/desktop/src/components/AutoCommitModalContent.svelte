@@ -1,20 +1,20 @@
 <script lang="ts">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		ModalHeader,
 		ScrollableContainer,
 		SimpleCommitRow,
-		SimpleCommitRowSkeleton
-	} from '@gitbutler/ui';
-	import { untrack } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
-	import type { AutoCommitModalState } from '$lib/state/uiState.svelte';
-	import type { Action } from '@gitbutler/core/api';
+		SimpleCommitRowSkeleton,
+	} from "@gitbutler/ui";
+	import { untrack } from "svelte";
+	import { SvelteMap } from "svelte/reactivity";
+	import type { AutoCommitModalState } from "$lib/state/uiState.svelte";
+	import type { Action } from "@gitbutler/core/api";
 
 	type Props = {
 		data: AutoCommitModalState;
@@ -37,9 +37,9 @@
 				events = [...events, event];
 			});
 
-			if (event.type === 'commitGeneration') {
+			if (event.type === "commitGeneration") {
 				const untrackedMap = untrack(() => commitMessageMap);
-				const currentMessage = untrackedMap.get(event.parent_commit_id) || '';
+				const currentMessage = untrackedMap.get(event.parent_commit_id) || "";
 				untrackedMap.set(event.parent_commit_id, currentMessage + event.token);
 			}
 		});
@@ -50,7 +50,7 @@
 	// Check if generation is complete for a parent commit
 	function isGenerationComplete(
 		parentCommitId: string | undefined,
-		events: Action.AutoCommitEvent[]
+		events: Action.AutoCommitEvent[],
 	): boolean {
 		if (!parentCommitId) return false;
 
@@ -58,11 +58,11 @@
 			const event = events[i];
 			if (!event) continue;
 
-			if (event.type === 'commitGeneration' && event.parent_commit_id === parentCommitId) {
+			if (event.type === "commitGeneration" && event.parent_commit_id === parentCommitId) {
 				// Found the generation, now check if there's a success after it
 				for (let j = i + 1; j < events.length; j++) {
 					const nextEvent = events[j];
-					if (nextEvent?.type === 'commitSuccess') {
+					if (nextEvent?.type === "commitSuccess") {
 						return true;
 					}
 				}
@@ -72,20 +72,20 @@
 		return false;
 	}
 
-	const totalSteps = $derived(events.find((e) => e.type === 'started')?.steps_length);
+	const totalSteps = $derived(events.find((e) => e.type === "started")?.steps_length);
 	const commitsCreated = $derived(
-		events.filter((e) => e.type === 'commitSuccess').map((e) => e.commit_id)
+		events.filter((e) => e.type === "commitSuccess").map((e) => e.commit_id),
 	);
 	const parentOfCommitBeingGenerated = $derived(
 		events
 			.slice()
 			.reverse()
-			.find((e) => e.type === 'commitGeneration')?.parent_commit_id
+			.find((e) => e.type === "commitGeneration")?.parent_commit_id,
 	);
 	const isCurrentGenerationComplete = $derived(
-		isGenerationComplete(parentOfCommitBeingGenerated, events)
+		isGenerationComplete(parentOfCommitBeingGenerated, events),
 	);
-	const isDone = $derived(events.some((e) => e.type === 'completed'));
+	const isDone = $derived(events.some((e) => e.type === "completed"));
 
 	let isScrollTopVisible = $state(true);
 </script>
@@ -112,7 +112,7 @@
 							{@const commit = stackService.commitDetails(data.projectId, commitId)}
 							<ReduxResult projectId={data.projectId} result={commit.result}>
 								{#snippet children(commit)}
-									{@const commitTitle = commit.message.split('\n')[0] ?? 'No commit message'}
+									{@const commitTitle = commit.message.split("\n")[0] ?? "No commit message"}
 									{@const date = new Date(Number(commit.createdAt))}
 
 									<SimpleCommitRow
@@ -122,7 +122,7 @@
 										{date}
 										author={commit.author.name}
 										onCopy={() =>
-											clipboardService.write(commit.id, { message: 'Commit hash copied' })}
+											clipboardService.write(commit.id, { message: "Commit hash copied" })}
 									/>
 								{/snippet}
 
@@ -134,7 +134,7 @@
 
 						{#if parentOfCommitBeingGenerated && !isDone && !isCurrentGenerationComplete}
 							{@const currentMessage = commitMessageMap.get(parentOfCommitBeingGenerated)}
-							{@const title = currentMessage?.split('\n')[0] ?? 'Generating commit message...'}
+							{@const title = currentMessage?.split("\n")[0] ?? "Generating commit message..."}
 							<SimpleCommitRow {title} sha="..." date={new Date()} aiMessage={currentMessage} />
 						{/if}
 

@@ -2,10 +2,10 @@
  * Types for owner data (users and organizations)
  */
 
-import type { Organization } from '$lib/types';
-import type { Organization as SharedOrganization } from '@gitbutler/shared/organizations/types';
-import type { Project } from '@gitbutler/shared/organizations/types';
-import type { User as SharedUser } from '@gitbutler/shared/users/types';
+import type { Organization } from "$lib/types";
+import type { Organization as SharedOrganization } from "@gitbutler/shared/organizations/types";
+import type { Project } from "@gitbutler/shared/organizations/types";
+import type { User as SharedUser } from "@gitbutler/shared/users/types";
 
 export type ProjectPermissions = {
 	can_read: boolean;
@@ -35,20 +35,20 @@ export type ExtendedOrganization = SharedOrganization & {
 
 export type OwnerResponse =
 	| {
-			type: 'user';
+			type: "user";
 			data: ExtendedUser;
 	  }
 	| {
-			type: 'organization';
+			type: "organization";
 			data: ExtendedOrganization;
 	  }
 	| {
-			type: 'not_found';
+			type: "not_found";
 	  };
 
 // Type for loading state
 export type LoadableOwner = {
-	status: 'loading' | 'found' | 'not-found' | 'error';
+	status: "loading" | "found" | "not-found" | "error";
 	slug: string;
 	value?: OwnerResponse;
 	error?: string;

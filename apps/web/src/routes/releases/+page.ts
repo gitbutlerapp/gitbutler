@@ -3,4 +3,4 @@
 //
 // NOTE: This URL (https://gitbutler.com/releases) is referenced by the CLI
 // after performing updates, so maintaining this route is important.
-export { load, csr, ssr } from '../downloads/+page';
+export { load, csr, ssr } from "../downloads/+page";

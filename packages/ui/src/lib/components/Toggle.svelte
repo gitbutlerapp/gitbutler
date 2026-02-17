@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable';
+	import { focusable } from "$lib/focus/focusable";
 
 	interface Props {
 		small?: boolean;
@@ -20,7 +20,7 @@
 		value,
 		id,
 		onclick,
-		onchange
+		onchange,
 	}: Props = $props();
 </script>
 
@@ -34,7 +34,7 @@
 	onchange={(e) => onchange?.(e.currentTarget.checked)}
 	onkeydown={(e) => {
 		// Prevent Enter key from submitting forms, but manually toggle the checkbox
-		if (e.key === 'Enter') {
+		if (e.key === "Enter") {
 			e.preventDefault();
 			const target = e.currentTarget;
 			target.checked = !target.checked;
@@ -117,7 +117,7 @@
 			height: 12px;
 			border-radius: 12px;
 			background-color: var(--clr-core-gray-100);
-			content: '';
+			content: "";
 			transition:
 				background-color var(--transition-fast),
 				transform var(--transition-medium);

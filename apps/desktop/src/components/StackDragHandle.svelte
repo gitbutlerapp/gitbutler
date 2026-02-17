@@ -1,9 +1,9 @@
 <script lang="ts">
-	import CollapseStackButton from '$components/CollapseStackButton.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from '@gitbutler/ui';
-	import type { Stack } from '$lib/stacks/stack';
+	import CollapseStackButton from "$components/CollapseStackButton.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { ContextMenuItem, ContextMenuSection, Icon, KebabButton } from "@gitbutler/ui";
+	import type { Stack } from "$lib/stacks/stack";
 
 	type Props = {
 		stackId?: string;
@@ -21,7 +21,7 @@
 	const stacks = $derived(stacksQuery.response ?? []);
 
 	const currentStackIndex = $derived(
-		stackId ? stacks.findIndex((stack: Stack) => stack.id === stackId) : -1
+		stackId ? stacks.findIndex((stack: Stack) => stack.id === stackId) : -1,
 	);
 	const canMoveLeft = $derived(currentStackIndex > 0);
 	const canMoveRight = $derived(currentStackIndex >= 0 && currentStackIndex < stacks.length - 1);
@@ -40,7 +40,7 @@
 			projectId,
 			stacks: newStacks
 				.map((stack, i) => (stack.id ? { id: stack.id, order: i } : undefined))
-				.filter((s): s is { id: string; order: number } => s !== undefined)
+				.filter((s): s is { id: string; order: number } => s !== undefined),
 		});
 
 		// Refetch to update the UI
@@ -61,7 +61,7 @@
 			projectId,
 			stacks: newStacks
 				.map((stack, i) => (stack.id ? { id: stack.id, order: i } : undefined))
-				.filter((s): s is { id: string; order: number } => s !== undefined)
+				.filter((s): s is { id: string; order: number } => s !== undefined),
 		});
 
 		// Refetch to update the UI
@@ -73,7 +73,7 @@
 
 		await stackService.unapply({
 			projectId,
-			stackId
+			stackId,
 		});
 
 		// Refetch to update the UI

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import DashboardSidebar from '$lib/components/dashboard/DashboardSidebar.svelte';
-	import type { Snippet } from 'svelte';
+	import DashboardSidebar from "$lib/components/dashboard/DashboardSidebar.svelte";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		children: Snippet;

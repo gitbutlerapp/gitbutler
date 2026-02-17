@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { AriaRole } from 'svelte/elements';
+	import { onMount } from "svelte";
+	import type { AriaRole } from "svelte/elements";
 
 	interface Props {
 		children: any;

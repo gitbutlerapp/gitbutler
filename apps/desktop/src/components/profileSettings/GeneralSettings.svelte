@@ -1,16 +1,16 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
-	import CliSymLink from '$components/profileSettings/CliSymLink.svelte';
-	import { BACKEND } from '$lib/backend';
-	import { CLI_MANAGER } from '$lib/cli/cli';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { showError } from '$lib/notifications/toasts';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { SETTINGS, type CodeEditorSettings } from '$lib/settings/userSettings';
-	import { UPDATER_SERVICE } from '$lib/updater/updater';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
+	import { goto } from "$app/navigation";
+	import WelcomeSigninAction from "$components/WelcomeSigninAction.svelte";
+	import CliSymLink from "$components/profileSettings/CliSymLink.svelte";
+	import { BACKEND } from "$lib/backend";
+	import { CLI_MANAGER } from "$lib/cli/cli";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { showError } from "$lib/notifications/toasts";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { SETTINGS, type CodeEditorSettings } from "$lib/settings/userSettings";
+	import { UPDATER_SERVICE } from "$lib/updater/updater";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
 	import {
 		Button,
 		CardGroup,
@@ -21,9 +21,9 @@
 		Spacer,
 		Textbox,
 		Toggle,
-		chipToasts
-	} from '@gitbutler/ui';
-	import type { User } from '$lib/user/user';
+		chipToasts,
+	} from "@gitbutler/ui";
+	import type { User } from "$lib/user/user";
 
 	const userService = inject(USER_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
@@ -42,7 +42,7 @@
 	const appSettings = settingsService.appSettings;
 
 	let saving = $state(false);
-	let newName = $state('');
+	let newName = $state("");
 	let isDeleting = $state(false);
 	let loaded = $state(false);
 
@@ -52,17 +52,17 @@
 
 	const userSettings = inject(SETTINGS);
 	const editorOptions: CodeEditorSettings[] = [
-		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
-		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
-		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
-		{ schemeIdentifer: 'windsurf', displayName: 'Windsurf' },
-		{ schemeIdentifer: 'zed', displayName: 'Zed' },
-		{ schemeIdentifer: 'cursor', displayName: 'Cursor' },
-		{ schemeIdentifer: 'trae', displayName: 'Trae' }
+		{ schemeIdentifer: "vscodium", displayName: "VSCodium" },
+		{ schemeIdentifer: "vscode", displayName: "VSCode" },
+		{ schemeIdentifer: "vscode-insiders", displayName: "VSCode Insiders" },
+		{ schemeIdentifer: "windsurf", displayName: "Windsurf" },
+		{ schemeIdentifer: "zed", displayName: "Zed" },
+		{ schemeIdentifer: "cursor", displayName: "Cursor" },
+		{ schemeIdentifer: "trae", displayName: "Trae" },
 	];
 	const editorOptionsForSelect = editorOptions.map((option) => ({
 		label: option.displayName,
-		value: option.schemeIdentifer
+		value: option.schemeIdentifer,
 	}));
 
 	$effect(() => {
@@ -74,16 +74,16 @@
 					name: cloudUser.name || undefined,
 					email: cloudUser.email || undefined,
 					login: cloudUser.login || undefined,
-					picture: cloudUser.picture || '#',
-					locale: cloudUser.locale || 'en',
-					access_token: cloudUser.access_token || 'impossible-situation',
-					role: cloudUser.role || 'user',
-					supporter: cloudUser.supporter || false
+					picture: cloudUser.picture || "#",
+					locale: cloudUser.locale || "en",
+					access_token: cloudUser.access_token || "impossible-situation",
+					role: cloudUser.role || "user",
+					supporter: cloudUser.supporter || false,
 				};
 				userPicture = userData.picture;
 				userService.setUser(userData);
 			});
-			newName = $user?.name || '';
+			newName = $user?.name || "";
 		}
 	});
 
@@ -98,14 +98,14 @@
 		try {
 			const updatedUser = await userService.updateUser({
 				name: newName,
-				picture: selectedPictureFile
+				picture: selectedPictureFile,
 			});
 			userService.setUser(updatedUser);
-			chipToasts.success('Profile updated');
+			chipToasts.success("Profile updated");
 			selectedPictureFile = undefined;
 		} catch (err: any) {
 			console.error(err);
-			showError('Failed to update user', err);
+			showError("Failed to update user", err);
 		}
 		saving = false;
 	}
@@ -121,11 +121,11 @@
 			await settingsService.deleteAllData();
 			projectsService.unsetLastOpenedProject();
 			await userService.forgetUserCredentials();
-			chipToasts.success('All data deleted');
-			goto('/', { replaceState: true, invalidateAll: true });
+			chipToasts.success("All data deleted");
+			goto("/", { replaceState: true, invalidateAll: true });
 		} catch (err: any) {
 			console.error(err);
-			showError('Failed to delete project', err);
+			showError("Failed to delete project", err);
 		} finally {
 			deleteConfirmationModal?.close();
 			isDeleting = false;
@@ -141,7 +141,7 @@
 			<ProfilePictureUpload
 				bind:picture={userPicture}
 				onFileSelect={onPictureChange}
-				onInvalidFileType={() => chipToasts.error('Please use a valid image file')}
+				onInvalidFileType={() => chipToasts.error("Please use a valid image file")}
 			/>
 
 			<div id="contact-info" class="contact-info">
@@ -239,7 +239,7 @@
 			{#if $appSettings?.ui.cliIsManagedByPackageManager}
 				The <code>but</code> CLI is managed by your package manager. Please use your package manager to
 				install, update, or remove it.
-			{:else if platformName === 'windows'}
+			{:else if platformName === "windows"}
 				On Windows, you can manually copy the executable (<code>`but`</code>) to a directory in your
 				PATH. Click "Show Command" for instructions.
 			{:else}
@@ -252,7 +252,7 @@
 		{#if !$appSettings?.ui.cliIsManagedByPackageManager}
 			<div class="flex flex-col gap-16">
 				<div class="flex gap-8 justify-end">
-					{#if platformName !== 'windows'}
+					{#if platformName !== "windows"}
 						<Button
 							style="pop"
 							icon="play"

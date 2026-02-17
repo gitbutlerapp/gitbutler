@@ -1,11 +1,11 @@
 <script module lang="ts">
-	export type PrStatusInfoType = 'loading' | 'open' | 'merged' | 'closed' | 'draft';
+	export type PrStatusInfoType = "loading" | "open" | "merged" | "closed" | "draft";
 </script>
 
 <script lang="ts">
-	import Badge from '$components/Badge.svelte';
-	import type { ComponentColorType } from '$lib/utils/colorTypes';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import Badge from "$components/Badge.svelte";
+	import type { ComponentColorType } from "$lib/utils/colorTypes";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 	interface Props {
 		status: PrStatusInfoType;
@@ -21,16 +21,16 @@
 
 	const prStatusInfo: StatusInfo = $derived.by(() => {
 		switch (status) {
-			case 'loading':
-				return { text: 'Loading...', icon: 'spinner', style: 'gray' };
-			case 'merged':
-				return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
-			case 'closed':
-				return { text: 'Closed', icon: 'closed-pr-small', style: 'danger' };
-			case 'draft':
-				return { text: 'Draft', icon: 'draft-pr-small', style: 'gray' };
+			case "loading":
+				return { text: "Loading...", icon: "spinner", style: "gray" };
+			case "merged":
+				return { text: "Merged", icon: "merged-pr-small", style: "purple" };
+			case "closed":
+				return { text: "Closed", icon: "closed-pr-small", style: "danger" };
+			case "draft":
+				return { text: "Draft", icon: "draft-pr-small", style: "gray" };
 			default:
-				return { text: 'Open', icon: 'pr-small', style: 'safe' };
+				return { text: "Open", icon: "pr-small", style: "safe" };
 		}
 	});
 </script>

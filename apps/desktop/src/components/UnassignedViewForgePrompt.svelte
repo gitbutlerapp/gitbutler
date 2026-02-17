@@ -1,16 +1,16 @@
 <script lang="ts">
-	import githubLogoSvg from '$lib/assets/unsized-logos/github.svg?raw';
-	import gitlabLogoSvg from '$lib/assets/unsized-logos/gitlab.svg?raw';
-	import { persistedDismissedForgeIntegrationPrompt } from '$lib/config/config';
+	import githubLogoSvg from "$lib/assets/unsized-logos/github.svg?raw";
+	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
+	import { persistedDismissedForgeIntegrationPrompt } from "$lib/config/config";
 	import {
 		availableForgeDocsLink,
 		availableForgeLabel,
 		availableForgeReviewUnit,
-		DEFAULT_FORGE_FACTORY
-	} from '$lib/forge/forgeFactory.svelte';
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Link } from '@gitbutler/ui';
+		DEFAULT_FORGE_FACTORY,
+	} from "$lib/forge/forgeFactory.svelte";
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Link } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -21,7 +21,7 @@
 	const { openGeneralSettings } = useSettingsModal();
 	const forgeFactory = inject(DEFAULT_FORGE_FACTORY);
 	const dismissedTheIntegrationPrompt = $derived(
-		persistedDismissedForgeIntegrationPrompt(projectId)
+		persistedDismissedForgeIntegrationPrompt(projectId),
 	);
 
 	// Delay showing the banner to prevent flickering when auth state changes rapidly
@@ -32,7 +32,7 @@
 		clearTimeout(timeoutId);
 
 		const shouldShow =
-			forgeFactory.determinedForgeType !== 'default' &&
+			forgeFactory.determinedForgeType !== "default" &&
 			!forgeFactory.current.isLoading &&
 			!forgeFactory.current.authenticated &&
 			forgeFactory.canSetupIntegration &&
@@ -48,7 +48,7 @@
 	});
 
 	function configureIntegration(): void {
-		openGeneralSettings('integrations');
+		openGeneralSettings("integrations");
 	}
 
 	function dismissPrompt() {
@@ -64,7 +64,7 @@
 
 	<div class="forge-prompt">
 		<div class="forge-prompt__logo">
-			{@html forgeName === 'github' ? githubLogoSvg : gitlabLogoSvg}
+			{@html forgeName === "github" ? githubLogoSvg : gitlabLogoSvg}
 		</div>
 		<h3 class="text-13 text-body text-bold">It looks like you have a {forgeLabel} remote!</h3>
 		<p class="text-12 text-body m-b-8 clr-text-2">

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import ArrowButton from '$home/components/ArrowButton.svelte';
-	import SectionHeader from '$home/components/SectionHeader.svelte';
-	import ReleaseCard from '$lib/components/marketing/ReleaseCard.svelte';
-	import type { Release } from '$lib/types/releases';
+	import ArrowButton from "$home/components/ArrowButton.svelte";
+	import SectionHeader from "$home/components/SectionHeader.svelte";
+	import ReleaseCard from "$lib/components/marketing/ReleaseCard.svelte";
+	import type { Release } from "$lib/types/releases";
 
 	interface Props {
 		releases: Release[];
@@ -17,7 +17,7 @@
 	}
 
 	function goToFullChangelog() {
-		window.open('/downloads', '_self');
+		window.open("/downloads", "_self");
 	}
 </script>
 
@@ -94,7 +94,7 @@
 			width: 100%;
 			height: 60px;
 			background: linear-gradient(to top, var(--clr-bg-3) 40%, transparent);
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 	}

@@ -1,17 +1,17 @@
 <script module lang="ts">
-	import { sticky } from '$lib/utils/sticky';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import { sticky } from "$lib/utils/sticky";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Utils / Sticky Action',
+		title: "Utils / Sticky Action",
 		parameters: {
 			docs: {
 				description: {
 					component:
-						'A utility action that makes elements sticky with callback support for stuck state changes.'
-				}
-			}
-		}
+						"A utility action that makes elements sticky with callback support for stuck state changes.",
+				},
+			},
+		},
 	});
 </script>
 
@@ -36,10 +36,10 @@
 				scrollContainer: scrollContainer1,
 				onStuck: (stuck) => {
 					isStuck1 = stuck;
-				}
+				},
 			}}
 		>
-			<h3>Sticky Header {isStuck1 ? '(STUCK)' : '(NOT STUCK)'}</h3>
+			<h3>Sticky Header {isStuck1 ? "(STUCK)" : "(NOT STUCK)"}</h3>
 			<p>This header will stick to the top when you scroll.</p>
 		</div>
 
@@ -104,11 +104,11 @@
 					scrollContainer: scrollContainer2,
 					onStuck: (stuck) => {
 						isStuck2 = stuck;
-					}
+					},
 				}}
 			>
 				<h3>Toggleable Sticky Header</h3>
-				<p>Status: {stickyEnabled ? (isStuck2 ? 'STUCK' : 'NOT STUCK') : 'DISABLED'}</p>
+				<p>Status: {stickyEnabled ? (isStuck2 ? "STUCK" : "NOT STUCK") : "DISABLED"}</p>
 			</div>
 
 			<div style="padding: 20px;">

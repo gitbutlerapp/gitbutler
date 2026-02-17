@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import type { Snippet } from 'svelte';
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import type { Snippet } from "svelte";
 
 	type Props = {
 		content: Snippet;
@@ -21,7 +21,7 @@
 	class:selected
 	use:focusable={{
 		focusable: true,
-		onAction: () => onclick?.()
+		onAction: () => onclick?.(),
 	}}
 >
 	<div class="branches-list-card__content">
@@ -57,7 +57,7 @@
 			transform: translateX(-100%);
 			border-radius: 0 var(--radius-m) var(--radius-m) 0;
 			background-color: var(--clr-selected-in-focus-element);
-			content: '';
+			content: "";
 			transition: transform var(--transition-medium);
 		}
 
@@ -89,7 +89,7 @@
 			width: 100%;
 			height: 1px;
 			background-color: var(--clr-text-3);
-			content: '';
+			content: "";
 			opacity: 0.3;
 		}
 

@@ -1,5 +1,5 @@
-import { wrapIfNecessary } from '$lib/richText/linewrap';
-import { handleEnter } from '$lib/richText/plugins/IndentPlugin.svelte';
+import { wrapIfNecessary } from "$lib/richText/linewrap";
+import { handleEnter } from "$lib/richText/plugins/IndentPlugin.svelte";
 import {
 	createEditor,
 	TextNode,
@@ -7,8 +7,8 @@ import {
 	COMMAND_PRIORITY_CRITICAL,
 	KEY_ENTER_COMMAND,
 	type NodeKey,
-	type NodeMutation
-} from 'lexical';
+	type NodeMutation,
+} from "lexical";
 import {
 	$createParagraphNode as createParagraphNode,
 	$createTextNode as createTextNode,
@@ -17,27 +17,27 @@ import {
 	$getSelection as getSelection,
 	$isRangeSelection as isRangeSelection,
 	$isTextNode as isTextNode,
-	type TextNode as LexicalTextNode
-} from 'lexical';
-import { describe, it, expect, beforeEach } from 'vitest';
+	type TextNode as LexicalTextNode,
+} from "lexical";
+import { describe, it, expect, beforeEach } from "vitest";
 
-describe('HardWrapPlugin with multi-paragraph structure', () => {
+describe("HardWrapPlugin with multi-paragraph structure", () => {
 	let editor: LexicalEditor;
 
 	beforeEach(() => {
 		editor = createEditor({
-			namespace: 'test',
+			namespace: "test",
 			onError: (error) => {
 				throw error;
-			}
+			},
 		});
 	});
 
-	it('should wrap a single long line into multiple paragraphs', () => {
+	it("should wrap a single long line into multiple paragraphs", () => {
 		editor.update(() => {
 			const root = getRoot();
 			const paragraph = createParagraphNode();
-			const textNode = createTextNode('This is a very long line that exceeds the maximum length');
+			const textNode = createTextNode("This is a very long line that exceeds the maximum length");
 			paragraph.append(textNode);
 			root.append(paragraph);
 
@@ -54,11 +54,11 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 		});
 	});
 
-	it('should handle wrapping text with indentation', () => {
+	it("should handle wrapping text with indentation", () => {
 		editor.update(() => {
 			const root = getRoot();
 			const paragraph = createParagraphNode();
-			const textNode = createTextNode('  This is an indented line that is very long');
+			const textNode = createTextNode("  This is an indented line that is very long");
 			paragraph.append(textNode);
 			root.append(paragraph);
 
@@ -73,17 +73,17 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			if (children.length > 1) {
 				const secondPara = children[1];
 				const text = secondPara.getTextContent();
-				expect(text.startsWith('  ')).toBe(true);
+				expect(text.startsWith("  ")).toBe(true);
 			}
 		});
 	});
 
-	it('should handle wrapping bullet points', () => {
+	it("should handle wrapping bullet points", () => {
 		editor.update(() => {
 			const root = getRoot();
 			const paragraph = createParagraphNode();
 			const textNode = createTextNode(
-				'- This is a bullet point that is very long and needs wrapping'
+				"- This is a bullet point that is very long and needs wrapping",
 			);
 			paragraph.append(textNode);
 			root.append(paragraph);
@@ -96,22 +96,22 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			const children = root.getChildren();
 
 			// First line should have bullet
-			expect(children[0].getTextContent()).toContain('-');
+			expect(children[0].getTextContent()).toContain("-");
 
 			// Subsequent lines should be indented
 			if (children.length > 1) {
 				const secondPara = children[1];
 				const text = secondPara.getTextContent();
-				expect(text.startsWith('  ')).toBe(true);
+				expect(text.startsWith("  ")).toBe(true);
 			}
 		});
 	});
 
-	it('should not wrap lines that are exempt (code blocks)', () => {
+	it("should not wrap lines that are exempt (code blocks)", () => {
 		editor.update(() => {
 			const root = getRoot();
 			const paragraph = createParagraphNode();
-			const textNode = createTextNode('```typescript');
+			const textNode = createTextNode("```typescript");
 			paragraph.append(textNode);
 			root.append(paragraph);
 
@@ -124,15 +124,15 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 			// Should not have wrapped
 			expect(children.length).toBe(1);
-			expect(children[0].getTextContent()).toBe('```typescript');
+			expect(children[0].getTextContent()).toBe("```typescript");
 		});
 	});
 
-	it('should not wrap lines shorter than maxLength', () => {
+	it("should not wrap lines shorter than maxLength", () => {
 		editor.update(() => {
 			const root = getRoot();
 			const paragraph = createParagraphNode();
-			const textNode = createTextNode('Short line');
+			const textNode = createTextNode("Short line");
 			paragraph.append(textNode);
 			root.append(paragraph);
 
@@ -145,15 +145,15 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 			// Should not have wrapped
 			expect(children.length).toBe(1);
-			expect(children[0].getTextContent()).toBe('Short line');
+			expect(children[0].getTextContent()).toBe("Short line");
 		});
 	});
 
-	it('should handle text without spaces', () => {
+	it("should handle text without spaces", () => {
 		editor.update(() => {
 			const root = getRoot();
 			const paragraph = createParagraphNode();
-			const textNode = createTextNode('verylongtextwithoutspaces');
+			const textNode = createTextNode("verylongtextwithoutspaces");
 			paragraph.append(textNode);
 			root.append(paragraph);
 
@@ -169,14 +169,14 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 		});
 	});
 
-	describe('cursor positioning', () => {
-		it('should maintain cursor position when editing at the start', () => {
-			let textNodeKey = '';
+	describe("cursor positioning", () => {
+		it("should maintain cursor position when editing at the start", () => {
+			let textNodeKey = "";
 
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
-				const textNode = createTextNode('This is a very long line that needs wrapping');
+				const textNode = createTextNode("This is a very long line that needs wrapping");
 				paragraph.append(textNode);
 				root.append(paragraph);
 				textNodeKey = textNode.getKey();
@@ -197,19 +197,19 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 					const offset = selection.anchor.offset;
 
 					// Cursor should still be in the first paragraph
-					expect(anchorNode.getTextContent()).toContain('This is a very long');
+					expect(anchorNode.getTextContent()).toContain("This is a very long");
 					expect(offset).toBe(5);
 				}
 			});
 		});
 
-		it('should move cursor to next paragraph when editing near wrap point', () => {
-			let textNodeKey = '';
+		it("should move cursor to next paragraph when editing near wrap point", () => {
+			let textNodeKey = "";
 
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
-				const textNode = createTextNode('Short text that will become long text after edit');
+				const textNode = createTextNode("Short text that will become long text after edit");
 				paragraph.append(textNode);
 				root.append(paragraph);
 				textNodeKey = textNode.getKey();
@@ -236,13 +236,13 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 		});
 
-		it('should handle cursor at the very end of wrapped text', () => {
-			let textNodeKey = '';
+		it("should handle cursor at the very end of wrapped text", () => {
+			let textNodeKey = "";
 
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
-				const textNode = createTextNode('This is a very long line that definitely needs wrapping');
+				const textNode = createTextNode("This is a very long line that definitely needs wrapping");
 				paragraph.append(textNode);
 				root.append(paragraph);
 				textNodeKey = textNode.getKey();
@@ -273,27 +273,27 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 		});
 	});
 
-	describe('rewrapping paragraphs', () => {
-		it('should rewrap multiple related paragraphs when editing the first one', () => {
+	describe("rewrapping paragraphs", () => {
+		it("should rewrap multiple related paragraphs when editing the first one", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// Create multiple paragraphs that look like they were previously wrapped
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('This is the first'));
+				para1.append(createTextNode("This is the first"));
 				root.append(para1);
 
 				const para2 = createParagraphNode();
-				para2.append(createTextNode('line of a long'));
+				para2.append(createTextNode("line of a long"));
 				root.append(para2);
 
 				const para3 = createParagraphNode();
-				para3.append(createTextNode('paragraph text'));
+				para3.append(createTextNode("paragraph text"));
 				root.append(para3);
 
 				// Now edit the first paragraph to make it longer
 				const textNode = para1.getFirstChild() as LexicalTextNode;
-				textNode.setTextContent('This is the first line that has been made much longer');
+				textNode.setTextContent("This is the first line that has been made much longer");
 
 				// Trigger rewrap
 				wrapIfNecessary({ node: textNode, maxLength: 20 });
@@ -315,14 +315,14 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 		});
 
-		it('should handle editing in the middle of a long unwrapped line', () => {
-			let textNodeKey = '';
+		it("should handle editing in the middle of a long unwrapped line", () => {
+			let textNodeKey = "";
 
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
 				const textNode = createTextNode(
-					'This is a very long line that has not been wrapped yet and needs to be wrapped'
+					"This is a very long line that has not been wrapped yet and needs to be wrapped",
 				);
 				paragraph.append(textNode);
 				root.append(paragraph);
@@ -336,7 +336,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				// Simulate adding text by modifying the content
 				node.setTextContent(
-					'This is a very long line that has not been wrapped yet and definitely needs to be wrapped now'
+					"This is a very long line that has not been wrapped yet and definitely needs to be wrapped now",
 				);
 
 				wrapIfNecessary({ node, maxLength: 25 });
@@ -356,7 +356,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 					// Cursor should be in one of the later paragraphs since edit was at position 60
 					const anchorParent = anchorNode.getParent();
 					const parentIndex = children.findIndex(
-						(child) => child.getKey() === anchorParent?.getKey()
+						(child) => child.getKey() === anchorParent?.getKey(),
 					);
 
 					// Should be in the last few paragraphs
@@ -365,18 +365,18 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			});
 		});
 
-		it('should not rewrap paragraphs with different indentation', () => {
+		it("should not rewrap paragraphs with different indentation", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// First paragraph with no indentation
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('This is a long line that needs wrapping and has no indent'));
+				para1.append(createTextNode("This is a long line that needs wrapping and has no indent"));
 				root.append(para1);
 
 				// Second paragraph with indentation (should not be considered related)
 				const para2 = createParagraphNode();
-				para2.append(createTextNode('  This line has indent'));
+				para2.append(createTextNode("  This line has indent"));
 				root.append(para2);
 
 				// Trigger wrap on first paragraph
@@ -390,24 +390,24 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// Should have wrapped the first paragraph but not touched the indented one
 				const lastPara = children[children.length - 1];
-				expect(lastPara.getTextContent()).toBe('  This line has indent');
+				expect(lastPara.getTextContent()).toBe("  This line has indent");
 			});
 		});
 
-		it('should stop rewrapping at bullet points', () => {
+		it("should stop rewrapping at bullet points", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// First paragraph
 				const para1 = createParagraphNode();
 				para1.append(
-					createTextNode('This is a long line that needs wrapping before the bullet point')
+					createTextNode("This is a long line that needs wrapping before the bullet point"),
 				);
 				root.append(para1);
 
 				// Second paragraph with a bullet (should not be rewrapped)
 				const para2 = createParagraphNode();
-				para2.append(createTextNode('- This is a bullet point'));
+				para2.append(createTextNode("- This is a bullet point"));
 				root.append(para2);
 
 				// Trigger wrap on first paragraph
@@ -421,27 +421,27 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// Should have wrapped the first paragraph but kept bullet separate
 				const lastPara = children[children.length - 1];
-				expect(lastPara.getTextContent()).toBe('- This is a bullet point');
+				expect(lastPara.getTextContent()).toBe("- This is a bullet point");
 			});
 		});
 
-		it('should preserve empty paragraphs as boundaries', () => {
+		it("should preserve empty paragraphs as boundaries", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// First paragraph
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('This is a long line that needs to be wrapped properly'));
+				para1.append(createTextNode("This is a long line that needs to be wrapped properly"));
 				root.append(para1);
 
 				// Empty paragraph (paragraph break)
 				const emptyPara = createParagraphNode();
-				emptyPara.append(createTextNode(''));
+				emptyPara.append(createTextNode(""));
 				root.append(emptyPara);
 
 				// Third paragraph (should not be touched)
 				const para3 = createParagraphNode();
-				para3.append(createTextNode('Another paragraph'));
+				para3.append(createTextNode("Another paragraph"));
 				root.append(para3);
 
 				// Trigger wrap on first paragraph
@@ -455,18 +455,18 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// The last paragraph should still be "Another paragraph"
 				const lastPara = children[children.length - 1];
-				expect(lastPara.getTextContent()).toBe('Another paragraph');
+				expect(lastPara.getTextContent()).toBe("Another paragraph");
 			});
 		});
 
-		it('should cascade rewrap when typing in middle causes overflow', () => {
-			let textNodeKey = '';
+		it("should cascade rewrap when typing in middle causes overflow", () => {
+			let textNodeKey = "";
 
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
 				// Start with a line at exactly the limit
-				const textNode = createTextNode('This is exactly at');
+				const textNode = createTextNode("This is exactly at");
 				paragraph.append(textNode);
 				root.append(paragraph);
 				textNodeKey = textNode.getKey();
@@ -478,7 +478,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			editor.update(() => {
 				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				// Simulate typing " a word" in the middle, making it overflow
-				node.setTextContent('This a word is exactly at');
+				node.setTextContent("This a word is exactly at");
 
 				wrapIfNecessary({ node, maxLength: 20 });
 			});
@@ -502,30 +502,30 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// The overflow word should have moved to the next line, not the word after cursor
 				expect(firstLine).toMatch(/^This a word is$/);
-				expect(children[1].getTextContent()).toBe('exactly at');
+				expect(children[1].getTextContent()).toBe("exactly at");
 			});
 		});
 
-		it('should cascade rewrap through multiple existing paragraphs', () => {
+		it("should cascade rewrap through multiple existing paragraphs", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// Simulate previously wrapped paragraphs
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('First line text'));
+				para1.append(createTextNode("First line text"));
 				root.append(para1);
 
 				const para2 = createParagraphNode();
-				para2.append(createTextNode('second line'));
+				para2.append(createTextNode("second line"));
 				root.append(para2);
 
 				const para3 = createParagraphNode();
-				para3.append(createTextNode('third line'));
+				para3.append(createTextNode("third line"));
 				root.append(para3);
 
 				// Now edit the first paragraph to add more content
 				const textNode = para1.getFirstChild() as LexicalTextNode;
-				textNode.setTextContent('First line text that has been extended');
+				textNode.setTextContent("First line text that has been extended");
 
 				// Trigger rewrap
 				wrapIfNecessary({ node: textNode, maxLength: 20 });
@@ -543,21 +543,21 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// Should have collected and rewrapped all three original paragraphs
 				// The total content should be preserved
-				const allText = children.map((c) => c.getTextContent()).join(' ');
-				expect(allText).toContain('First line text that has been extended');
-				expect(allText).toContain('second line');
-				expect(allText).toContain('third line');
+				const allText = children.map((c) => c.getTextContent()).join(" ");
+				expect(allText).toContain("First line text that has been extended");
+				expect(allText).toContain("second line");
+				expect(allText).toContain("third line");
 			});
 		});
 
-		it('should use greedy line breaking when typing in middle of bullet list item', () => {
-			let textNodeKey = '';
+		it("should use greedy line breaking when typing in middle of bullet list item", () => {
+			let textNodeKey = "";
 
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
 				// Start with a bullet at exactly the limit
-				const textNode = createTextNode('- First second third');
+				const textNode = createTextNode("- First second third");
 				paragraph.append(textNode);
 				root.append(paragraph);
 				textNodeKey = textNode.getKey();
@@ -569,7 +569,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			editor.update(() => {
 				const node = getNodeByKey(textNodeKey) as LexicalTextNode;
 				// Simulate typing "inserted " in the middle, making it overflow
-				node.setTextContent('- First inserted second third');
+				node.setTextContent("- First inserted second third");
 
 				wrapIfNecessary({ node, maxLength: 20 });
 			});
@@ -588,36 +588,36 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// The overflowing word(s) should move to the next line, not the word after cursor
 				// Greedy algorithm should keep as many words as possible on first line
-				expect(firstLine).toBe('- First inserted');
+				expect(firstLine).toBe("- First inserted");
 
 				// Second line should be indented and contain the overflow
 				const secondLine = children[1].getTextContent();
 				expect(secondLine).toMatch(/^ {2}/); // Two-space indent for bullets
 				expect(secondLine.length).toBeLessThanOrEqual(20);
-				expect(secondLine).toBe('  second third');
+				expect(secondLine).toBe("  second third");
 			});
 		});
 
-		it('should cascade rewrap through multiple bullet list continuation lines', () => {
+		it("should cascade rewrap through multiple bullet list continuation lines", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// Simulate a wrapped bullet list item
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('- Short bullet'));
+				para1.append(createTextNode("- Short bullet"));
 				root.append(para1);
 
 				const para2 = createParagraphNode();
-				para2.append(createTextNode('  continuation'));
+				para2.append(createTextNode("  continuation"));
 				root.append(para2);
 
 				const para3 = createParagraphNode();
-				para3.append(createTextNode('  more text'));
+				para3.append(createTextNode("  more text"));
 				root.append(para3);
 
 				// Now edit the first line to make it much longer
 				const textNode = para1.getFirstChild() as LexicalTextNode;
-				textNode.setTextContent('- Short bullet that has been made significantly longer');
+				textNode.setTextContent("- Short bullet that has been made significantly longer");
 
 				// Trigger rewrap
 				wrapIfNecessary({ node: textNode, maxLength: 25 });
@@ -644,33 +644,33 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 
 				// All content should be preserved (strip indentation before checking)
 				const allText = children
-					.map((c) => c.getTextContent().replace(/^- /, '').replace(/^ {2}/, ''))
-					.join(' ');
-				expect(allText).toContain('Short bullet');
-				expect(allText).toContain('made significantly longer');
-				expect(allText).toContain('continuation');
-				expect(allText).toContain('more text');
+					.map((c) => c.getTextContent().replace(/^- /, "").replace(/^ {2}/, ""))
+					.join(" ");
+				expect(allText).toContain("Short bullet");
+				expect(allText).toContain("made significantly longer");
+				expect(allText).toContain("continuation");
+				expect(allText).toContain("more text");
 			});
 		});
 	});
 
-	describe('multiple newlines at end', () => {
-		it('should preserve multiple newlines at the end of text', () => {
+	describe("multiple newlines at end", () => {
+		it("should preserve multiple newlines at the end of text", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// Create a paragraph with text
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('Some text'));
+				para1.append(createTextNode("Some text"));
 				root.append(para1);
 
 				// Add empty paragraphs at the end
 				const emptyPara1 = createParagraphNode();
-				emptyPara1.append(createTextNode(''));
+				emptyPara1.append(createTextNode(""));
 				root.append(emptyPara1);
 
 				const emptyPara2 = createParagraphNode();
-				emptyPara2.append(createTextNode(''));
+				emptyPara2.append(createTextNode(""));
 				root.append(emptyPara2);
 
 				// Trigger wrap on the first paragraph (should not affect empty paragraphs)
@@ -686,15 +686,15 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				expect(children.length).toBe(3);
 
 				// First paragraph should have text
-				expect(children[0].getTextContent()).toBe('Some text');
+				expect(children[0].getTextContent()).toBe("Some text");
 
 				// Second and third paragraphs should be empty
-				expect(children[1].getTextContent()).toBe('');
-				expect(children[2].getTextContent()).toBe('');
+				expect(children[1].getTextContent()).toBe("");
+				expect(children[2].getTextContent()).toBe("");
 			});
 		});
 
-		it('should allow adding multiple newlines at the end by typing', () => {
+		it("should allow adding multiple newlines at the end by typing", () => {
 			const maxLength = 72;
 
 			// Register the IndentPlugin's Enter handler (simulating real editor behavior)
@@ -705,7 +705,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				editor.update(
 					() => {
 						for (const [key, type] of nodes.entries()) {
-							if (type !== 'updated') continue;
+							if (type !== "updated") continue;
 
 							const node = getNodeByKey(key);
 							if (!node || !isTextNode(node)) continue;
@@ -714,8 +714,8 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 						}
 					},
 					{
-						tag: 'history-merge'
-					}
+						tag: "history-merge",
+					},
 				);
 			});
 
@@ -723,7 +723,7 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 			editor.update(() => {
 				const root = getRoot();
 				const paragraph = createParagraphNode();
-				const textNode = createTextNode('Some text');
+				const textNode = createTextNode("Some text");
 				paragraph.append(textNode);
 				root.append(paragraph);
 				// Set cursor at the end
@@ -749,34 +749,34 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				expect(children.length).toBe(3);
 
 				// First paragraph should have text
-				expect(children[0].getTextContent()).toBe('Some text');
+				expect(children[0].getTextContent()).toBe("Some text");
 
 				// Last two paragraphs should be empty
-				expect(children[1].getTextContent()).toBe('');
-				expect(children[2].getTextContent()).toBe('');
+				expect(children[1].getTextContent()).toBe("");
+				expect(children[2].getTextContent()).toBe("");
 			});
 		});
 
-		it('should not remove trailing empty paragraphs when typing in the last one', () => {
+		it("should not remove trailing empty paragraphs when typing in the last one", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// Create initial structure with text followed by empty paragraphs
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('Some text'));
+				para1.append(createTextNode("Some text"));
 				root.append(para1);
 
 				const emptyPara1 = createParagraphNode();
-				emptyPara1.append(createTextNode(''));
+				emptyPara1.append(createTextNode(""));
 				root.append(emptyPara1);
 
 				const emptyPara2 = createParagraphNode();
-				emptyPara2.append(createTextNode(''));
+				emptyPara2.append(createTextNode(""));
 				root.append(emptyPara2);
 
 				// Now type something in the last empty paragraph
 				const lastTextNode = emptyPara2.getFirstChild() as LexicalTextNode;
-				lastTextNode.setTextContent('x');
+				lastTextNode.setTextContent("x");
 
 				// Trigger wrapping on the last paragraph (this simulates what happens when typing)
 				wrapIfNecessary({ node: lastTextNode, maxLength: 72 });
@@ -790,32 +790,32 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				expect(children.length).toBe(3);
 
 				// Check contents
-				expect(children[0].getTextContent()).toBe('Some text');
-				expect(children[1].getTextContent()).toBe('');
-				expect(children[2].getTextContent()).toBe('x');
+				expect(children[0].getTextContent()).toBe("Some text");
+				expect(children[1].getTextContent()).toBe("");
+				expect(children[2].getTextContent()).toBe("x");
 			});
 		});
 
-		it('should not remove trailing empty paragraphs when typing in the first paragraph', () => {
+		it("should not remove trailing empty paragraphs when typing in the first paragraph", () => {
 			editor.update(() => {
 				const root = getRoot();
 
 				// Create initial structure with text followed by empty paragraphs
 				const para1 = createParagraphNode();
-				para1.append(createTextNode('Some text'));
+				para1.append(createTextNode("Some text"));
 				root.append(para1);
 
 				const emptyPara1 = createParagraphNode();
-				emptyPara1.append(createTextNode(''));
+				emptyPara1.append(createTextNode(""));
 				root.append(emptyPara1);
 
 				const emptyPara2 = createParagraphNode();
-				emptyPara2.append(createTextNode(''));
+				emptyPara2.append(createTextNode(""));
 				root.append(emptyPara2);
 
 				// Now add more text to the first paragraph
 				const firstTextNode = para1.getFirstChild() as LexicalTextNode;
-				firstTextNode.setTextContent('Some text with more content added');
+				firstTextNode.setTextContent("Some text with more content added");
 
 				// Trigger wrapping on the first paragraph (this simulates what happens when typing)
 				wrapIfNecessary({ node: firstTextNode, maxLength: 72 });
@@ -829,9 +829,9 @@ describe('HardWrapPlugin with multi-paragraph structure', () => {
 				expect(children.length).toBe(3);
 
 				// Check contents
-				expect(children[0].getTextContent()).toBe('Some text with more content added');
-				expect(children[1].getTextContent()).toBe('');
-				expect(children[2].getTextContent()).toBe('');
+				expect(children[0].getTextContent()).toBe("Some text with more content added");
+				expect(children[1].getTextContent()).toBe("");
+				expect(children[2].getTextContent()).toBe("");
 			});
 		});
 	});

@@ -1,16 +1,16 @@
-import { clickByTestId, fillByTestId, getByTestId, textEditorFillByTestId } from './util.ts';
-import { expect, Locator, Page } from '@playwright/test';
+import { clickByTestId, fillByTestId, getByTestId, textEditorFillByTestId } from "./util.ts";
+import { expect, Locator, Page } from "@playwright/test";
 
 /**
  * Open a commit drawer by clicking on the commit row.
  */
 export async function openCommitDrawer(page: Page, commitTitle: string) {
-	const commitRow = getByTestId(page, 'commit-row').filter({ hasText: commitTitle });
+	const commitRow = getByTestId(page, "commit-row").filter({ hasText: commitTitle });
 	await expect(commitRow).toHaveCount(1);
 	await expect(commitRow).toBeVisible();
 	await commitRow.click();
 
-	const commitDrawer = getByTestId(page, 'commit-drawer');
+	const commitDrawer = getByTestId(page, "commit-drawer");
 	await expect(commitDrawer).toBeVisible();
 	return commitDrawer;
 }
@@ -21,12 +21,12 @@ export async function openCommitDrawer(page: Page, commitTitle: string) {
 export async function verifyCommitDrawerContent(
 	commitDrawer: Locator,
 	expectedTitle: string,
-	expectedDescription: string
+	expectedDescription: string,
 ) {
-	const commitDrawerTitle = commitDrawer.getByTestId('commit-drawer-title');
+	const commitDrawerTitle = commitDrawer.getByTestId("commit-drawer-title");
 	await expect(commitDrawerTitle).toBeVisible();
 	await expect(commitDrawerTitle).toContainText(expectedTitle);
-	const commitDrawerDescription = commitDrawer.getByTestId('commit-drawer-description');
+	const commitDrawerDescription = commitDrawer.getByTestId("commit-drawer-description");
 	await expect(commitDrawerDescription).toBeVisible();
 	await expect(commitDrawerDescription).toContainText(expectedDescription);
 }
@@ -35,10 +35,10 @@ export async function verifyCommitDrawerContent(
  * Open the kebab menu and start editing the commit message.
  */
 export async function startEditingCommitMessage(page: Page, commitDrawer: Locator) {
-	const commitKebabMenuButton = commitDrawer.getByTestId('kebab-menu-btn');
+	const commitKebabMenuButton = commitDrawer.getByTestId("kebab-menu-btn");
 	await expect(commitKebabMenuButton).toBeVisible();
 	await commitKebabMenuButton.click();
-	await clickByTestId(page, 'commit-row-context-menu-edit-message-menu-btn');
+	await clickByTestId(page, "commit-row-context-menu-edit-message-menu-btn");
 }
 
 /**
@@ -47,12 +47,12 @@ export async function startEditingCommitMessage(page: Page, commitDrawer: Locato
 export async function verifyCommitMessageEditor(
 	page: Page,
 	expectedTitle: string,
-	expectedMessage: string
+	expectedMessage: string,
 ) {
-	const commitTitleInput = getByTestId(page, 'commit-drawer-title-input');
+	const commitTitleInput = getByTestId(page, "commit-drawer-title-input");
 	await expect(commitTitleInput).toBeVisible();
 	await expect(commitTitleInput).toHaveValue(expectedTitle);
-	const commitBodyInput = getByTestId(page, 'commit-drawer-description-input');
+	const commitBodyInput = getByTestId(page, "commit-drawer-description-input");
 	await expect(commitBodyInput).toBeVisible();
 	await expect(commitBodyInput).toContainText(expectedMessage);
 }
@@ -61,16 +61,16 @@ export async function verifyCommitMessageEditor(
  * Update the commit title and description in the editor.
  */
 export async function updateCommitMessage(page: Page, newTitle: string, newMessage: string) {
-	await fillByTestId(page, 'commit-drawer-title-input', newTitle);
-	await textEditorFillByTestId(page, 'commit-drawer-description-input', newMessage);
+	await fillByTestId(page, "commit-drawer-title-input", newTitle);
+	await textEditorFillByTestId(page, "commit-drawer-description-input", newMessage);
 }
 
 /**
  * Verify the 'Your commit goes here' placeholder is visible and in the correct position.
  */
 export async function verifyCommitPlaceholderPosition(page: Page) {
-	const commitTargetPosition = getByTestId(page, 'your-commit-goes-here');
+	const commitTargetPosition = getByTestId(page, "your-commit-goes-here");
 	await expect(commitTargetPosition).toBeVisible();
 	await expect(commitTargetPosition).toHaveCount(1);
-	await expect(commitTargetPosition).toContainClass('first');
+	await expect(commitTargetPosition).toContainClass("first");
 }

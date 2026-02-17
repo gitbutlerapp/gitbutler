@@ -1,7 +1,7 @@
 <script lang="ts">
-	import TableHead from '$lib/components/table/TableHead.svelte';
-	import { type ColumnTypes } from '$lib/components/table/types';
-	import { type Snippet } from 'svelte';
+	import TableHead from "$lib/components/table/TableHead.svelte";
+	import { type ColumnTypes } from "$lib/components/table/types";
+	import { type Snippet } from "svelte";
 
 	type Props = {
 		headColumns?: Array<{ key: keyof ColumnTypes; value?: string; tooltip?: string }>;

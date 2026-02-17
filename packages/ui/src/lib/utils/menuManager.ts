@@ -12,16 +12,16 @@ class MenuManager {
 
 	private initGlobalListener() {
 		if (!this.isInitialized) {
-			document.addEventListener('pointerdown', this.clickHandler, true);
-			document.addEventListener('contextmenu', this.clickHandler, true);
+			document.addEventListener("pointerdown", this.clickHandler, true);
+			document.addEventListener("contextmenu", this.clickHandler, true);
 			this.isInitialized = true;
 		}
 	}
 
 	private cleanupGlobalListener() {
 		if (this.isInitialized && this.menus.size === 0) {
-			document.removeEventListener('pointerdown', this.clickHandler, true);
-			document.removeEventListener('contextmenu', this.clickHandler, true);
+			document.removeEventListener("pointerdown", this.clickHandler, true);
+			document.removeEventListener("contextmenu", this.clickHandler, true);
 			this.isInitialized = false;
 		}
 	}
@@ -77,7 +77,7 @@ class MenuManager {
 
 	closeChildren(parentMenuId: string) {
 		const childMenus = Array.from(this.menus.values()).filter(
-			(menu) => menu.parentMenuId === parentMenuId
+			(menu) => menu.parentMenuId === parentMenuId,
 		);
 		for (const child of childMenus) {
 			this.closeMenu(child.id);

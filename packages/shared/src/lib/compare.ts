@@ -4,8 +4,8 @@ export function shallowCompare(left: unknown, right: unknown): boolean {
 	}
 
 	if (
-		typeof left !== 'object' ||
-		typeof right !== 'object' ||
+		typeof left !== "object" ||
+		typeof right !== "object" ||
 		left === undefined ||
 		right === undefined ||
 		left === null ||
@@ -36,8 +36,8 @@ export function deepCompare(left: unknown, right: unknown): boolean {
 	}
 
 	if (
-		typeof left !== 'object' ||
-		typeof right !== 'object' ||
+		typeof left !== "object" ||
+		typeof right !== "object" ||
 		left === undefined ||
 		right === undefined ||
 		left === null ||

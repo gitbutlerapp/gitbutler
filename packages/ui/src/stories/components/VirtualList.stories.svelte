@@ -1,21 +1,21 @@
 <script module lang="ts">
-	import Button from '$components/Button.svelte';
-	import VirtualList from '$lib/components/VirtualList.svelte';
-	import AsyncContent from '$lib/helpers/AsyncContent.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { Component, ComponentProps } from 'svelte';
+	import Button from "$components/Button.svelte";
+	import VirtualList from "$lib/components/VirtualList.svelte";
+	import AsyncContent from "$lib/helpers/AsyncContent.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
+	import type { Component, ComponentProps } from "svelte";
 
 	let items = $state(Array.from({ length: 10 }, (_, i) => `item-${i + 1}`));
 	const defaultHeight = 150;
 
 	const { Story } = defineMeta({
-		title: 'VirtualList',
+		title: "VirtualList",
 		component: VirtualList as Component<ComponentProps<VirtualList<string>>>,
 		args: {
 			items,
-			visibility: 'hover',
-			defaultHeight
-		}
+			visibility: "hover",
+			defaultHeight,
+		},
 	});
 
 	let container = $state<HTMLDivElement>();
@@ -37,8 +37,8 @@
 			<VirtualList bind:this={virtualList} {...args}>
 				{#snippet template(item)}
 					{@const delay = randomDelay(500)}
-					<div class="item" style:min-height={defaultHeight + 'px'}>
-						{item || 'empty'}
+					<div class="item" style:min-height={defaultHeight + "px"}>
+						{item || "empty"}
 						<AsyncContent {delay}>
 							<div class="async-content">async content delay: {delay}</div>
 						</AsyncContent>
@@ -53,7 +53,7 @@
 			<Button
 				onclick={() => {
 					setTimeout(() => {
-						items.push('new item ' + (items.length + 1));
+						items.push("new item " + (items.length + 1));
 					}, 2);
 					toggle = !toggle;
 				}}
@@ -62,7 +62,7 @@
 			</Button>
 			<Button
 				onclick={() => {
-					items.push('new item ' + (items.length + 1));
+					items.push("new item " + (items.length + 1));
 				}}
 			>
 				Add item
@@ -83,10 +83,10 @@
 			</Button>
 			<Button
 				onclick={() => {
-					const items = Array.from(container?.querySelectorAll('.item') || []);
+					const items = Array.from(container?.querySelectorAll(".item") || []);
 					const lastElement = items.at(-1);
 					if (lastElement && lastElement instanceof HTMLDivElement) {
-						lastElement.style.height = 2 * defaultHeight + 'px';
+						lastElement.style.height = 2 * defaultHeight + "px";
 					}
 				}}
 			>

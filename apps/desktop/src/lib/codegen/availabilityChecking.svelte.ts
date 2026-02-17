@@ -1,18 +1,18 @@
-import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
-import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-import { inject } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import { fromStore } from 'svelte/store';
+import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
+import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+import { inject } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import { fromStore } from "svelte/store";
 
 // Global shared state for availability checking
-let globalRecheckedAvailability = $state<'recheck-failed' | 'recheck-succeeded'>();
+let globalRecheckedAvailability = $state<"recheck-failed" | "recheck-succeeded">();
 
 export function useAvailabilityChecking() {
 	const claudeCodeService = inject(CLAUDE_CODE_SERVICE);
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = fromStore(settingsService.appSettings);
 
-	let claudeExecutable = $state('');
+	let claudeExecutable = $state("");
 
 	$effect(() => {
 		if (settingsStore.current?.claude) {
@@ -22,10 +22,10 @@ export function useAvailabilityChecking() {
 
 	async function checkClaudeAvailability() {
 		const recheck = await claudeCodeService.fetchCheckAvailable(undefined, { forceRefetch: true });
-		if (recheck?.status === 'available') {
-			globalRecheckedAvailability = 'recheck-succeeded';
+		if (recheck?.status === "available") {
+			globalRecheckedAvailability = "recheck-succeeded";
 		} else {
-			globalRecheckedAvailability = 'recheck-failed';
+			globalRecheckedAvailability = "recheck-failed";
 		}
 	}
 
@@ -39,6 +39,6 @@ export function useAvailabilityChecking() {
 		claudeExecutable: reactive(() => claudeExecutable),
 		recheckedAvailability: reactive(() => globalRecheckedAvailability),
 		checkClaudeAvailability,
-		updateClaudeExecutable
+		updateClaudeExecutable,
 	};
 }

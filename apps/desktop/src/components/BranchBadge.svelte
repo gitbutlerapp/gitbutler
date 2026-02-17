@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { getBranchStatusLabelAndColor } from '$components/lib';
-	import type { PushStatus } from '$lib/stacks/stack';
+	import { getBranchStatusLabelAndColor } from "$components/lib";
+	import type { PushStatus } from "$lib/stacks/stack";
 
 	type Props = {
 		pushStatus: PushStatus;
@@ -16,7 +16,7 @@
 </script>
 
 <span
-	class={[!unstyled && 'text-11 text-bold branch-badge', 'truncate']}
+	class={[!unstyled && "text-11 text-bold branch-badge", "truncate"]}
 	style:--b-bg-color={bgColor}
 >
 	{label}

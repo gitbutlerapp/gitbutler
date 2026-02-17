@@ -1,6 +1,6 @@
 <script lang="ts">
-	import MarkdownContent from '$components/markdown/MarkdownContent.svelte';
-	import { Lexer } from 'marked';
+	import MarkdownContent from "$components/markdown/MarkdownContent.svelte";
+	import { Lexer } from "marked";
 
 	const options = {
 		async: false,
@@ -10,7 +10,7 @@
 		renderer: null,
 		silent: false,
 		tokenizer: null,
-		walkTokens: null
+		walkTokens: null,
 	};
 
 	interface Props {
@@ -21,7 +21,7 @@
 
 	const tokens = $derived.by(() => {
 		const lexer = new Lexer(options);
-		return lexer.lex(content ?? '');
+		return lexer.lex(content ?? "");
 	});
 </script>
 

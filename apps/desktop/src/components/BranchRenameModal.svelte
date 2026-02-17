@@ -9,10 +9,10 @@
 </script>
 
 <script lang="ts">
-	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, ElementId, Modal, TestId } from '@gitbutler/ui';
+	import BranchNameTextbox from "$components/BranchNameTextbox.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, ElementId, Modal, TestId } from "@gitbutler/ui";
 
 	const { projectId, stackId, laneId, branchName, isPushed }: BranchRenameModalProps = $props();
 	const stackService = inject(STACK_SERVICE);
@@ -36,8 +36,8 @@
 <Modal
 	testId={TestId.BranchHeaderRenameModal}
 	width="small"
-	title={isPushed ? 'Branch has already been pushed' : 'Rename branch'}
-	type={isPushed ? 'warning' : 'info'}
+	title={isPushed ? "Branch has already been pushed" : "Rename branch"}
+	type={isPushed ? "warning" : "info"}
 	bind:this={modal}
 	onSubmit={async (close) => {
 		if (slugifiedRefName) {

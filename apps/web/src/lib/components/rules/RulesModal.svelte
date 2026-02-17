@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { BUTLER_AI_CLIENT, MessageRole } from '$lib/ai/service';
-	import { parseDiffPatchToDiffString } from '$lib/chat/diffPatch';
-	import { inject } from '@gitbutler/core/context';
+	import { BUTLER_AI_CLIENT, MessageRole } from "$lib/ai/service";
+	import { parseDiffPatchToDiffString } from "$lib/chat/diffPatch";
+	import { inject } from "@gitbutler/core/context";
 
-	import { RULES_SERVICE } from '@gitbutler/shared/rules/rulesService';
-	import { Button, Modal, ScrollableContainer, Textarea } from '@gitbutler/ui';
-	import { tick } from 'svelte';
-	import type { ChatMessage } from '@gitbutler/shared/chat/types';
-	import type { CreateRuleParams } from '@gitbutler/shared/rules/types';
+	import { RULES_SERVICE } from "@gitbutler/shared/rules/rulesService";
+	import { Button, Modal, ScrollableContainer, Textarea } from "@gitbutler/ui";
+	import { tick } from "svelte";
+	import type { ChatMessage } from "@gitbutler/shared/chat/types";
+	import type { CreateRuleParams } from "@gitbutler/shared/rules/types";
 
 	type Props = {
 		projectSlug: string;
@@ -16,9 +16,9 @@
 
 	const { message, projectSlug }: Props = $props();
 
-	const diffStringBefore = $derived(parseDiffPatchToDiffString(message.diffPatchArray, 'before'));
-	const diffStringAfter = $derived(parseDiffPatchToDiffString(message.diffPatchArray, 'after'));
-	const fileExtension = $derived(message.diffPath?.split('.').pop() ?? '');
+	const diffStringBefore = $derived(parseDiffPatchToDiffString(message.diffPatchArray, "before"));
+	const diffStringAfter = $derived(parseDiffPatchToDiffString(message.diffPatchArray, "after"));
+	const fileExtension = $derived(message.diffPath?.split(".").pop() ?? "");
 	const aiService = inject(BUTLER_AI_CLIENT);
 	const rulesService = inject(RULES_SERVICE);
 
@@ -35,7 +35,7 @@
 	const effectivePositiveExample = $derived(rulePositiveExample ?? diffStringBefore);
 
 	const shouldShowExample = $derived(
-		message.diffPatchArray !== undefined && message.diffPatchArray.length > 0
+		message.diffPatchArray !== undefined && message.diffPatchArray.length > 0,
 	);
 
 	const SYSTEM_PROMPT = $derived(`
@@ -52,7 +52,7 @@
 			${diffStringAfter}
 			\`\`\`
 	`
-			: ''
+			: "",
 	);
 
 	const TITLE_PROMPT = $derived(
@@ -62,7 +62,7 @@
 		- Comment:
 			${message.comment}
 		${diffPatchContext}
-		`
+		`,
 	);
 
 	const DESCTIPTION_PROMPT = $derived(
@@ -72,7 +72,7 @@
 		- Comment:
 			${message.comment}
 		${diffPatchContext}
-		`
+		`,
 	);
 
 	const NEGATIVE_EXAMPLE_PROMPT = $derived(
@@ -82,7 +82,7 @@
 		- Comment:
 			${message.comment}
 		${diffPatchContext}
-		`
+		`,
 	);
 
 	const POSITIVE_EXAMPLE_PROMPT = $derived(
@@ -92,13 +92,13 @@
 		- Comment:
 			${message.comment}
 		${diffPatchContext}
-		`
+		`,
 	);
 
 	function cleanCodeGenerationText(text: string): string {
 		return text
-			.replace(/^\s*```[a-zA-Z0-9]*\n/, '')
-			.replace(/\n```$/, '')
+			.replace(/^\s*```[a-zA-Z0-9]*\n/, "")
+			.replace(/\n```$/, "")
 			.trim();
 	}
 
@@ -109,8 +109,8 @@
 
 		isGenerating = true;
 
-		ruleTitle = '';
-		ruleDescription = '';
+		ruleTitle = "";
+		ruleDescription = "";
 
 		await tick();
 		const titlePromise = aiService.evaluate(
@@ -118,32 +118,32 @@
 			[{ content: TITLE_PROMPT, role: MessageRole.User }],
 			(token: string) => {
 				ruleTitle += token;
-			}
+			},
 		);
 		const descriptionPromise = aiService.evaluate(
 			SYSTEM_PROMPT,
 			[{ content: DESCTIPTION_PROMPT, role: MessageRole.User }],
 			(token: string) => {
 				ruleDescription += token;
-			}
+			},
 		);
 
 		await Promise.all([titlePromise, descriptionPromise]);
 
 		if (shouldShowExample) {
-			rulePositiveExample = '';
-			ruleNegativeExample = '';
+			rulePositiveExample = "";
+			ruleNegativeExample = "";
 			await tick();
 
-			const negativeExamplePrompt = NEGATIVE_EXAMPLE_PROMPT + '\n' + ruleDescription;
-			const positiveExamplePrompt = POSITIVE_EXAMPLE_PROMPT + '\n' + ruleDescription;
+			const negativeExamplePrompt = NEGATIVE_EXAMPLE_PROMPT + "\n" + ruleDescription;
+			const positiveExamplePrompt = POSITIVE_EXAMPLE_PROMPT + "\n" + ruleDescription;
 			const negativeExamplePromise = aiService
 				.evaluate(
 					SYSTEM_PROMPT,
 					[{ content: negativeExamplePrompt, role: MessageRole.User }],
 					(token: string) => {
 						ruleNegativeExample += token;
-					}
+					},
 				)
 				.then((result) => {
 					ruleNegativeExample = cleanCodeGenerationText(result);
@@ -154,7 +154,7 @@
 					[{ content: positiveExamplePrompt, role: MessageRole.User }],
 					(token: string) => {
 						rulePositiveExample += token;
-					}
+					},
 				)
 				.then((result) => {
 					rulePositiveExample = cleanCodeGenerationText(result);
@@ -169,9 +169,9 @@
 	function validateInputs(): CreateRuleParams | undefined {
 		if (
 			!ruleTitle ||
-			ruleTitle.trim() === '' ||
+			ruleTitle.trim() === "" ||
 			!ruleDescription ||
-			ruleDescription.trim() === ''
+			ruleDescription.trim() === ""
 		) {
 			return undefined;
 		}
@@ -187,7 +187,7 @@
 			title: ruleTitle.trim(),
 			description: ruleDescription.trim(),
 			negativeExample: effectiveNegativeExample,
-			positiveExample: effectivePositiveExample
+			positiveExample: effectivePositiveExample,
 		};
 	}
 

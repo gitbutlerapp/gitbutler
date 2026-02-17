@@ -1,10 +1,10 @@
-import { isBackend, type IBackend } from '$lib/backend';
-import { isReduxError, type ReduxError } from '$lib/state/reduxError';
-import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
-import { type BaseQueryApi, type QueryReturnValue } from '@reduxjs/toolkit/query';
-import type { ExtraOptions } from '$lib/state/butlerModule';
+import { isBackend, type IBackend } from "$lib/backend";
+import { isReduxError, type ReduxError } from "$lib/state/reduxError";
+import { isErrorlike } from "@gitbutler/ui/utils/typeguards";
+import { type BaseQueryApi, type QueryReturnValue } from "@reduxjs/toolkit/query";
+import type { ExtraOptions } from "$lib/state/butlerModule";
 
-import type { BaseQueryFn } from '@reduxjs/toolkit/query';
+import type { BaseQueryFn } from "@reduxjs/toolkit/query";
 
 export type TauriExtraOptions = ExtraOptions & { command?: string };
 export type TauriBaseQueryFn = BaseQueryFn<ApiArgs, unknown, unknown, TauriExtraOptions>;
@@ -13,15 +13,15 @@ export type TauriBaseQueryFn = BaseQueryFn<ApiArgs, unknown, unknown, TauriExtra
 export const tauriBaseQuery: TauriBaseQueryFn = async (
 	args: ApiArgs,
 	api: BaseQueryApi,
-	extra: TauriExtraOptions
+	extra: TauriExtraOptions,
 ): Promise<QueryReturnValue<unknown, ReduxError, undefined>> => {
 	const command = extra.command;
 	if (!command) {
-		return newError('Expected a command!');
+		return newError("Expected a command!");
 	}
 
 	if (!hasBackendExtra(api.extra)) {
-		return newError('Redux dependency Tauri not found!');
+		return newError("Redux dependency Tauri not found!");
 	}
 
 	try {
@@ -45,7 +45,7 @@ export const tauriBaseQuery: TauriBaseQueryFn = async (
 
 function newError(message: string) {
 	return {
-		error: { name: 'Failed to execute Tauri query', message }
+		error: { name: "Failed to execute Tauri query", message },
 	};
 }
 
@@ -59,9 +59,9 @@ export function hasBackendExtra(extra: unknown): extra is {
 } {
 	return (
 		!!extra &&
-		typeof extra === 'object' &&
+		typeof extra === "object" &&
 		extra !== null &&
-		'backend' in extra &&
+		"backend" in extra &&
 		isBackend(extra.backend)
 	);
 }

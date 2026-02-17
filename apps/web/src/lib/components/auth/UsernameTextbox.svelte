@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Textbox } from '@gitbutler/ui';
+	import { Textbox } from "@gitbutler/ui";
 
 	interface Props {
 		// Username-specific props
@@ -14,11 +14,11 @@
 	}
 
 	let {
-		customValidationMessage = 'Please enter a valid username.',
+		customValidationMessage = "Please enter a valid username.",
 		minLength = 3,
 		maxLength = 30,
 		value = $bindable(),
-		label = 'Username',
+		label = "Username",
 		...restProps
 	}: Props = $props();
 
@@ -32,14 +32,14 @@
 		if (val.length < minLength) {
 			return {
 				isValid: false,
-				message: `Username must be at least ${minLength} characters long.`
+				message: `Username must be at least ${minLength} characters long.`,
 			};
 		}
 
 		if (val.length > maxLength) {
 			return {
 				isValid: false,
-				message: `Username must be no more than ${maxLength} characters long.`
+				message: `Username must be no more than ${maxLength} characters long.`,
 			};
 		}
 
@@ -49,7 +49,7 @@
 			return {
 				isValid: false,
 				message:
-					'Username must start with a letter or number and can only contain letters, numbers, underscores, and hyphens.'
+					"Username must start with a letter or number and can only contain letters, numbers, underscores, and hyphens.",
 			};
 		}
 
@@ -57,7 +57,7 @@
 		if (/[-_]$/.test(val)) {
 			return {
 				isValid: false,
-				message: 'Username cannot end with a hyphen or underscore.'
+				message: "Username cannot end with a hyphen or underscore.",
 			};
 		}
 
@@ -65,7 +65,7 @@
 		if (/[-_]{2,}/.test(val)) {
 			return {
 				isValid: false,
-				message: 'Username cannot contain consecutive hyphens or underscores.'
+				message: "Username cannot contain consecutive hyphens or underscores.",
 			};
 		}
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { type Snippet, getContext } from 'svelte';
-	import type { TabContext } from '$lib/tabs';
+	import { type Snippet, getContext } from "svelte";
+	import type { TabContext } from "$lib/tabs";
 
 	interface Props {
 		children: Snippet;
@@ -9,7 +9,7 @@
 
 	const { children, value }: Props = $props();
 
-	const tabStore = getContext<TabContext>('tab');
+	const tabStore = getContext<TabContext>("tab");
 	const selectedIndex = $derived(tabStore.selectedIndex);
 	const isActive = $derived($selectedIndex === value);
 </script>

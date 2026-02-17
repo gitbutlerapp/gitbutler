@@ -1,31 +1,31 @@
 <script lang="ts">
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import ScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import FileList from '$components/FileList.svelte';
-	import FileListMode from '$components/FileListMode.svelte';
-	import WorktreeChangesSelectAll from '$components/WorktreeChangesSelectAll.svelte';
-	import { UncommitDzHandler } from '$lib/commits/dropHandler';
-	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import { AssignmentDropHandler } from '$lib/hunks/dropHandler';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { createWorktreeSelection } from '$lib/selection/key';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import CardOverlay from "$components/CardOverlay.svelte";
+	import ScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import Dropzone from "$components/Dropzone.svelte";
+	import FileList from "$components/FileList.svelte";
+	import FileListMode from "$components/FileListMode.svelte";
+	import WorktreeChangesSelectAll from "$components/WorktreeChangesSelectAll.svelte";
+	import { UncommitDzHandler } from "$lib/commits/dropHandler";
+	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
+	import { AssignmentDropHandler } from "$lib/hunks/dropHandler";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { createWorktreeSelection } from "$lib/selection/key";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
 
-	import { Badge, TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import { type Snippet } from 'svelte';
-	import type { DropzoneHandler } from '$lib/dragging/handler';
+	import { Badge, TestId } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { type Snippet } from "svelte";
+	import type { DropzoneHandler } from "$lib/dragging/handler";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		title: string;
-		mode?: 'unassigned' | 'assigned';
+		mode?: "unassigned" | "assigned";
 		onDropzoneActivated?: (activated: boolean) => void;
 		onDropzoneHovered?: (hovered: boolean) => void;
 		emptyPlaceholder?: Snippet;
@@ -38,13 +38,13 @@
 		projectId,
 		stackId,
 		title,
-		mode = 'unassigned',
+		mode = "unassigned",
 		onDropzoneActivated,
 		onDropzoneHovered,
 		emptyPlaceholder,
 		foldButton,
 		onFileClick,
-		onscrollexists
+		onscrollexists,
 	}: Props = $props();
 
 	// Create a unique persist ID based on stackId and mode (both are static props)
@@ -60,33 +60,33 @@
 	const selectionId = $derived(createWorktreeSelection({ stackId }));
 
 	const uncommitDzHandler = $derived(
-		new UncommitDzHandler(projectId, stackService, uiState, stackId)
+		new UncommitDzHandler(projectId, stackService, uiState, stackId),
 	);
 
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 	const isCommitting = $derived(
-		exclusiveAction?.type === 'commit' &&
-			(exclusiveAction.stackId === stackId || stackId === undefined)
+		exclusiveAction?.type === "commit" &&
+			(exclusiveAction.stackId === stackId || stackId === undefined),
 	);
 
 	const changes = $derived(uncommittedService.changesByStackId(stackId || null));
 
-	let listMode: 'list' | 'tree' = $state('list');
+	let listMode: "list" | "tree" = $state("list");
 
 	let scrollTopIsVisible = $state(true);
 
 	const assignmentDZHandler = $derived(
-		new AssignmentDropHandler(projectId, diffService, uncommittedService, stackId, idSelection)
+		new AssignmentDropHandler(projectId, diffService, uncommittedService, stackId, idSelection),
 	);
 
 	function getDropzoneLabel(handler: DropzoneHandler | undefined): string {
 		if (handler instanceof UncommitDzHandler) {
-			return 'Uncommit';
-		} else if (mode === 'assigned') {
-			return 'Assign';
+			return "Uncommit";
+		} else if (mode === "assigned") {
+			return "Assign";
 		} else {
-			return 'Unassign';
+			return "Unassign";
 		}
 	}
 </script>
@@ -117,12 +117,12 @@
 			{hovered}
 			{activated}
 			label={getDropzoneLabel(handler)}
-			visible={mode === 'assigned' && changes.current.length === 0 && !activated}
+			visible={mode === "assigned" && changes.current.length === 0 && !activated}
 		/>
 	{/snippet}
 
 	<div class="uncommitted-changes-wrap">
-		{#if mode === 'unassigned' || changes.current.length > 0}
+		{#if mode === "unassigned" || changes.current.length > 0}
 			<div
 				role="presentation"
 				data-testid={TestId.UncommittedChanges_Header}
@@ -155,7 +155,7 @@
 				onscrollTop={(visible) => {
 					scrollTopIsVisible = visible;
 				}}
-				enableDragScroll={mode === 'assigned'}
+				enableDragScroll={mode === "assigned"}
 			>
 				{@render fileList()}
 			</ScrollableContainer>

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
+	import { inject } from "@gitbutler/core/context";
+	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
 
-	import { Button, Modal, Textarea, Textbox, chipToasts } from '@gitbutler/ui';
-	import { slugify } from '@gitbutler/ui/utils/string';
+	import { Button, Modal, Textarea, Textbox, chipToasts } from "@gitbutler/ui";
+	import { slugify } from "@gitbutler/ui/utils/string";
 
 	interface Props {
 		organizationSlug: string;
@@ -16,10 +16,10 @@
 	const organizationService = inject(ORGANIZATION_SERVICE);
 
 	// Form state
-	let name = $state('');
-	let slug = $state('');
-	let description = $state('');
-	let originalSlug = $state('');
+	let name = $state("");
+	let slug = $state("");
+	let description = $state("");
+	let originalSlug = $state("");
 
 	// Derived slugified value
 	const sluggifiedSlug = $derived(slugify(slug).toLocaleLowerCase());
@@ -40,14 +40,14 @@
 			const organization = await organizationService.getOrganizationBySlug(organizationSlug);
 
 			if (organization) {
-				name = organization.name || '';
+				name = organization.name || "";
 				slug = organization.slug;
 				originalSlug = organization.slug;
-				description = organization.description || '';
+				description = organization.description || "";
 			}
 		} catch (error) {
 			chipToasts.error(
-				`Failed to fetch organization details: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Failed to fetch organization details: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		} finally {
 			isLoading = false;
@@ -68,10 +68,10 @@
 			await organizationService.updateOrganization(originalSlug, {
 				name,
 				new_slug: hasSlugChanged ? sluggifiedSlug : undefined, // Only send new_slug if it changed
-				description
+				description,
 			});
 
-			chipToasts.success('Organization updated successfully');
+			chipToasts.success("Organization updated successfully");
 
 			// Notify parent component about the update
 			onUpdate(sluggifiedSlug);
@@ -85,7 +85,7 @@
 			}
 		} catch (error) {
 			chipToasts.error(
-				`Failed to update organization: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Failed to update organization: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		} finally {
 			isLoading = false;

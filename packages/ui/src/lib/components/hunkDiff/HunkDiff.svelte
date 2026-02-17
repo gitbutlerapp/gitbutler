@@ -1,21 +1,21 @@
 <script lang="ts" module>
-	import { type LineSelectionParams } from '$components/hunkDiff/lineSelection.svelte';
+	import { type LineSelectionParams } from "$components/hunkDiff/lineSelection.svelte";
 	export type LineClickParams = LineSelectionParams;
 </script>
 
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import HunkDiffBody from '$components/hunkDiff/HunkDiffBody.svelte';
-	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
-	import { focusable } from '$lib/focus/focusable';
+	import Icon from "$components/Icon.svelte";
+	import HunkDiffBody from "$components/hunkDiff/HunkDiffBody.svelte";
+	import ScrollableContainer from "$components/scroll/ScrollableContainer.svelte";
+	import { focusable } from "$lib/focus/focusable";
 	import {
 		type DependencyLock,
 		type LineId,
 		type LineLock,
-		parseHunk
-	} from '$lib/utils/diffParsing';
-	import type { ContextMenuParams } from '$components/hunkDiff/HunkDiffRow.svelte';
-	import type { Snippet } from 'svelte';
+		parseHunk,
+	} from "$lib/utils/diffParsing";
+	import type { ContextMenuParams } from "$components/hunkDiff/HunkDiffRow.svelte";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		id?: string;
@@ -46,7 +46,7 @@
 		hunkStr,
 		tabSize = 4,
 		wrapText = true,
-		diffFont = 'var(--font-mono)',
+		diffFont = "var(--font-mono)",
 		diffLigatures = true,
 		strongContrast = false,
 		colorBlindFriendly = false,
@@ -60,7 +60,7 @@
 		onLineClick,
 		handleLineContextMenu,
 		draggingDisabled,
-		lockWarning
+		lockWarning,
 	}: Props = $props();
 
 	const BORDER_WIDTH = 1;
@@ -70,7 +70,7 @@
 	const hunk = $derived(parseHunk(hunkStr));
 
 	const hunkSummary = $derived(
-		`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`
+		`@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@`,
 	);
 	const showingCheckboxes = $derived(!hideCheckboxes && staged !== undefined);
 	const hunkHasLocks = $derived(lineLocks && lineLocks.length > 0);
@@ -86,7 +86,7 @@
 				event: e instanceof MouseEvent ? e : undefined,
 				target: tableWrapperElem,
 				beforeLineNumber: undefined,
-				afterLineNumber: undefined
+				afterLineNumber: undefined,
 			});
 		}
 	}
@@ -96,17 +96,17 @@
 	{id}
 	use:focusable={{
 		onKeydown: (e) => {
-			if (e.key === 'Control') {
+			if (e.key === "Control") {
 				handleHunkContextMenu(e);
 			}
-		}
+		},
 	}}
 	bind:this={tableWrapperElem}
 	class="table__wrapper"
 	class:contrast-strong={strongContrast}
 	class:colorblind-friendly={colorBlindFriendly}
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
-	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
+	style:font-variant-ligatures={diffLigatures ? "common-ligatures" : "none"}
 >
 	{#if !draggingDisabled}
 		<div class="table__drag-handle">

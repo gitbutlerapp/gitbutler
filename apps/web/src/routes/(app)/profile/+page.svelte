@@ -1,22 +1,22 @@
 <script lang="ts">
-	import ExperimentalSettings from './components/ExperimentalSettings.svelte';
-	import NotificationSettings from './components/NotificationSettings.svelte';
-	import ProfileHeader from './components/ProfileHeader.svelte';
-	import SshKeysSection from './components/SshKeysSection.svelte';
-	import SupporterCard from './components/SupporterCard.svelte';
-	import linksJson from '$lib/data/links.json';
-	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { getRecentlyPushedProjects } from '@gitbutler/shared/organizations/projectsPreview.svelte';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { NOTIFICATION_SETTINGS_SERVICE } from '@gitbutler/shared/settings/notificationSettingsService';
-	import { getNotificationSettingsInterest } from '@gitbutler/shared/settings/notificationSetttingsPreview.svelte';
-	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from '@gitbutler/ui';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
-	import { env } from '$env/dynamic/public';
+	import ExperimentalSettings from "./components/ExperimentalSettings.svelte";
+	import NotificationSettings from "./components/NotificationSettings.svelte";
+	import ProfileHeader from "./components/ProfileHeader.svelte";
+	import SshKeysSection from "./components/SshKeysSection.svelte";
+	import SupporterCard from "./components/SupporterCard.svelte";
+	import linksJson from "$lib/data/links.json";
+	import { SSH_KEY_SERVICE } from "$lib/sshKeyService";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { LOGIN_SERVICE } from "@gitbutler/shared/login/loginService";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { getRecentlyPushedProjects } from "@gitbutler/shared/organizations/projectsPreview.svelte";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { NOTIFICATION_SETTINGS_SERVICE } from "@gitbutler/shared/settings/notificationSettingsService";
+	import { getNotificationSettingsInterest } from "@gitbutler/shared/settings/notificationSetttingsPreview.svelte";
+	import { Button, CardGroup, chipToasts, Icon, Modal, Spacer } from "@gitbutler/ui";
+	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import { env } from "$env/dynamic/public";
 
 	const userService = inject(USER_SERVICE);
 	const appState = inject(APP_STATE);
@@ -27,33 +27,33 @@
 
 	const notificationSettings = getNotificationSettingsInterest(
 		appState,
-		notificationSettingsService
+		notificationSettingsService,
 	);
 
 	const user = $derived(userService.user);
 
 	// Detect user's operating system
 	const detectedOS = $derived.by(() => {
-		if (typeof window === 'undefined') return 'macOS';
+		if (typeof window === "undefined") return "macOS";
 
 		const userAgent = window.navigator.userAgent.toLowerCase();
 
-		if (userAgent.includes('mac')) return 'macOS';
-		if (userAgent.includes('win')) return 'Windows';
-		if (userAgent.includes('linux')) return 'Linux';
+		if (userAgent.includes("mac")) return "macOS";
+		if (userAgent.includes("win")) return "Windows";
+		if (userAgent.includes("linux")) return "Linux";
 
-		return 'macOS'; // default fallback
+		return "macOS"; // default fallback
 	});
 
 	const downloadButtonText = $derived(`Download GitButler for ${detectedOS}`);
 
 	const downloadLink = $derived.by(() => {
 		switch (detectedOS) {
-			case 'Windows':
+			case "Windows":
 				return linksJson.downloads.windowsMsi.url;
-			case 'Linux':
+			case "Linux":
 				return linksJson.downloads.linuxAppimage.url;
-			case 'macOS':
+			case "macOS":
 			default:
 				return linksJson.downloads.appleSilicon.url;
 		}
@@ -61,7 +61,7 @@
 
 	async function refreshAccessToken() {
 		await userService.refreshAccessToken();
-		chipToasts.success('Access token refreshed successfully');
+		chipToasts.success("Access token refreshed successfully");
 	}
 
 	function logout() {
@@ -81,10 +81,10 @@
 
 	async function copyAccessToken() {
 		const response = await loginService.token();
-		if (response.type === 'success' && response.data) {
+		if (response.type === "success" && response.data) {
 			copyToClipboard(response.data);
 		} else {
-			chipToasts.error('Failed to get token');
+			chipToasts.error("Failed to get token");
 		}
 	}
 </script>
@@ -202,7 +202,7 @@
 						</p>
 					</div>
 
-					<Button style="gray" wide onclick={() => window.open(downloadLink, '_blank')}>
+					<Button style="gray" wide onclick={() => window.open(downloadLink, "_blank")}>
 						{downloadButtonText}
 					</Button>
 

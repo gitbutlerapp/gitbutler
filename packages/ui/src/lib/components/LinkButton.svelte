@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { type Snippet } from 'svelte';
-	import type iconsJson from '$lib/data/icons.json';
+	import Icon from "$components/Icon.svelte";
+	import { type Snippet } from "svelte";
+	import type iconsJson from "$lib/data/icons.json";
 
 	interface Props {
 		icon?: keyof typeof iconsJson;
@@ -10,7 +10,7 @@
 		children: Snippet;
 	}
 
-	const { icon = 'open-link', truncate, onclick, children }: Props = $props();
+	const { icon = "open-link", truncate, onclick, children }: Props = $props();
 </script>
 
 <button

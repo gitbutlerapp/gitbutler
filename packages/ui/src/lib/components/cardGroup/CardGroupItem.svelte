@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { focusable } from '$lib/focus/focusable';
-	import type { Snippet } from 'svelte';
+	import { focusable } from "$lib/focus/focusable";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		labelFor?: string;
@@ -8,7 +8,7 @@
 		background?: string;
 		standalone?: boolean;
 		clickable?: boolean;
-		alignment?: 'top' | 'center';
+		alignment?: "top" | "center";
 		iconSide?: Snippet;
 		title?: Snippet;
 		caption?: Snippet;
@@ -18,21 +18,21 @@
 	}
 
 	let {
-		labelFor = '',
+		labelFor = "",
 		disabled = false,
 		clickable = false,
-		alignment = 'top',
+		alignment = "top",
 		standalone = false,
-		background = 'var(--clr-bg-1)',
+		background = "var(--clr-bg-1)",
 		iconSide,
 		title,
 		caption,
 		children,
 		actions,
-		onclick
+		onclick,
 	}: Props = $props();
 
-	const element = $derived(labelFor ? 'label' : 'div');
+	const element = $derived(labelFor ? "label" : "div");
 </script>
 
 <svelte:element
@@ -40,7 +40,7 @@
 	role="presentation"
 	for={labelFor || undefined}
 	class="card-group-item"
-	class:clickable={labelFor !== '' || clickable}
+	class:clickable={labelFor !== "" || clickable}
 	class:disabled
 	class:standalone
 	style:background
@@ -48,7 +48,7 @@
 	{onclick}
 >
 	{#if title || caption || iconSide || actions}
-		<div class="flex full-width gap-16 hide-when-empty" class:center-align={alignment === 'center'}>
+		<div class="flex full-width gap-16 hide-when-empty" class:center-align={alignment === "center"}>
 			{#if iconSide}
 				<div class="card-group-item__icon-side">
 					{@render iconSide?.()}

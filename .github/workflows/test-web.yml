@@ -4,14 +4,14 @@ on:
     branches:
       - master
     paths:
-      - 'apps/web/**'
-      - 'scripts/install.sh'
-      - '.github/workflows/test-web.yml'
+      - "apps/web/**"
+      - "scripts/install.sh"
+      - ".github/workflows/test-web.yml"
   pull_request:
     paths:
-      - 'apps/web/**'
-      - 'scripts/install.sh'
-      - '.github/workflows/test-web.yml'
+      - "apps/web/**"
+      - "scripts/install.sh"
+      - ".github/workflows/test-web.yml"
 
 jobs:
   test:

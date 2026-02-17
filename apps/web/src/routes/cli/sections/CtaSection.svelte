@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CtaButtons from '../components/CtaButtons.svelte';
+	import CtaButtons from "../components/CtaButtons.svelte";
 </script>
 
 <section class="cta-section">
@@ -62,7 +62,7 @@
 	}
 
 	.grainy-bg {
-		background-image: url('/images/grainy-gradient-dark.png');
+		background-image: url("/images/grainy-gradient-dark.png");
 		opacity: 0.14;
 	}
 

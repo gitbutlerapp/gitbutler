@@ -1,5 +1,5 @@
-import { isStr } from '@gitbutler/ui/utils/string';
-import posthog from 'posthog-js';
+import { isStr } from "@gitbutler/ui/utils/string";
+import posthog from "posthog-js";
 
 /**
  * Error type that has both a message and a status. These errors are primarily
@@ -27,7 +27,7 @@ export interface UnhandledPromiseError {
 export class SilentError extends Error {
 	constructor(message: string) {
 		super(message);
-		this.name = 'SilentError';
+		this.name = "SilentError";
 	}
 
 	static from(error: Error): SilentError {
@@ -37,9 +37,9 @@ export class SilentError extends Error {
 	}
 }
 
-const QUERY_ERROR_EVENT_NAME = 'query:error';
-const DEFAULT_ERROR_NAME = 'QUERY:UnknownError';
-const DEFAULT_ERROR_MESSAGE = 'QUERY:An unknown error occurred';
+const QUERY_ERROR_EVENT_NAME = "query:error";
+const DEFAULT_ERROR_NAME = "QUERY:UnknownError";
+const DEFAULT_ERROR_MESSAGE = "QUERY:An unknown error occurred";
 
 interface QueryError {
 	name: string;
@@ -48,13 +48,13 @@ interface QueryError {
 }
 
 function isUnknownObject(error: unknown): error is Record<string, unknown> {
-	return typeof error === 'object' && error !== null;
+	return typeof error === "object" && error !== null;
 }
 
 function getBestName(error: unknown): string {
 	if (isStr(error)) return error;
 
-	if (isUnknownObject(error) && 'name' in error && typeof error.name === 'string') {
+	if (isUnknownObject(error) && "name" in error && typeof error.name === "string") {
 		return error.name;
 	}
 	if (error instanceof Error) {
@@ -65,7 +65,7 @@ function getBestName(error: unknown): string {
 }
 
 function getBestMessage(error: unknown): string {
-	if (isUnknownObject(error) && 'message' in error && typeof error.message === 'string') {
+	if (isUnknownObject(error) && "message" in error && typeof error.message === "string") {
 		return error.message;
 	}
 
@@ -77,7 +77,7 @@ function getBestMessage(error: unknown): string {
 }
 
 function getBestCode(error: unknown): string | undefined {
-	if (isUnknownObject(error) && 'code' in error && typeof error.code === 'string') {
+	if (isUnknownObject(error) && "code" in error && typeof error.code === "string") {
 		return error.code;
 	}
 
@@ -92,7 +92,7 @@ export function parseQueryError(error: unknown): QueryError {
 	return {
 		name,
 		message,
-		code
+		code,
 	};
 }
 
@@ -101,6 +101,6 @@ export function emitQueryError(error: unknown) {
 	posthog.capture(QUERY_ERROR_EVENT_NAME, {
 		erro_title: name,
 		error_message: message,
-		error_code: code
+		error_code: code,
 	});
 }

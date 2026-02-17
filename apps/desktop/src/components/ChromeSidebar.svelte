@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import ProfileButton from '$components/ProfileButton.svelte';
-	import ShareIssueModal from '$components/ShareIssueModal.svelte';
-	import { ircEnabled } from '$lib/config/uiFeatureFlags';
+	import { goto } from "$app/navigation";
+	import ProfileButton from "$components/ProfileButton.svelte";
+	import ShareIssueModal from "$components/ShareIssueModal.svelte";
+	import { ircEnabled } from "$lib/config/uiFeatureFlags";
 	import {
 		branchesPath,
 		ircPath,
@@ -11,15 +11,15 @@
 		isWorkspacePath,
 		historyPath,
 		isHistoryPath,
-		workspacePath
-	} from '$lib/routes/routes.svelte';
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
+		workspacePath,
+	} from "$lib/routes/routes.svelte";
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, ContextMenu, ContextMenuItem, ContextMenuSection, TestId } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
 
-	import { slide } from 'svelte/transition';
+	import { slide } from "svelte/transition";
 
 	const { projectId, disabled = false }: { projectId: string; disabled?: boolean } = $props();
 
@@ -35,7 +35,7 @@
 	<div class="top">
 		<div>
 			{#if isWorkspacePath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				<div class="active-page-indicator" in:slide={{ axis: "x", duration: 150 }}></div>
 			{/if}
 			<Button
 				testId={TestId.NavigationWorkspaceButton}
@@ -43,7 +43,7 @@
 				onclick={() => goto(workspacePath(projectId))}
 				width={34}
 				hotkey="⌘1"
-				class={['btn-square', isWorkspacePath() && 'btn-active']}
+				class={["btn-square", isWorkspacePath() && "btn-active"]}
 				tooltip="Workspace"
 				{disabled}
 			>
@@ -73,14 +73,14 @@
 		</div>
 		<div>
 			{#if isBranchesPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				<div class="active-page-indicator" in:slide={{ axis: "x", duration: 150 }}></div>
 			{/if}
 			<Button
 				testId={TestId.NavigationBranchesButton}
 				kind="outline"
 				onclick={() => goto(branchesPath(projectId))}
 				width={34}
-				class={['btn-square', isBranchesPath() && 'btn-active']}
+				class={["btn-square", isBranchesPath() && "btn-active"]}
 				hotkey="⌘2"
 				tooltip="Branches"
 				{disabled}
@@ -136,13 +136,13 @@
 		</div>
 		<div>
 			{#if isHistoryPath()}
-				<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+				<div class="active-page-indicator" in:slide={{ axis: "x", duration: 150 }}></div>
 			{/if}
 			<Button
 				kind="outline"
 				onclick={() => goto(historyPath(projectId))}
 				width={34}
-				class={['btn-square', isHistoryPath() && 'btn-active']}
+				class={["btn-square", isHistoryPath() && "btn-active"]}
 				hotkey="⌘3"
 				tooltip="Operations history"
 				{disabled}
@@ -179,14 +179,14 @@
 		{#if $ircEnabled}
 			<div>
 				{#if isIrcPath()}
-					<div class="active-page-indicator" in:slide={{ axis: 'x', duration: 150 }}></div>
+					<div class="active-page-indicator" in:slide={{ axis: "x", duration: 150 }}></div>
 				{/if}
 				<Button
 					kind="outline"
 					onclick={() => goto(ircPath(projectId))}
 					icon="chat"
 					width={34}
-					class={['btn-square', isIrcPath() && 'btn-active']}
+					class={["btn-square", isIrcPath() && "btn-active"]}
 					tooltip="History"
 					{disabled}
 				/>
@@ -271,7 +271,7 @@
 			onclick={async () => {
 				userSettings.update((s) => ({
 					...s,
-					theme: 'dark'
+					theme: "dark",
 				}));
 				contextMenuEl?.close();
 			}}
@@ -281,7 +281,7 @@
 			onclick={async () => {
 				userSettings.update((s) => ({
 					...s,
-					theme: 'light'
+					theme: "light",
 				}));
 				contextMenuEl?.close();
 			}}
@@ -291,7 +291,7 @@
 			onclick={async () => {
 				userSettings.update((s) => ({
 					...s,
-					theme: 'system'
+					theme: "system",
 				}));
 				contextMenuEl?.close();
 			}}

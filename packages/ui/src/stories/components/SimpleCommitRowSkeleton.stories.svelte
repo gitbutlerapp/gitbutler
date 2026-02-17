@@ -1,13 +1,13 @@
 <script module lang="ts">
-	import SimpleCommitRowSkeleton from '$components/SimpleCommitRowSkeleton.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import SimpleCommitRowSkeleton from "$components/SimpleCommitRowSkeleton.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Components / SimpleCommitRowSkeleton',
+		title: "Components / SimpleCommitRowSkeleton",
 		component: SimpleCommitRowSkeleton,
 		args: {
-			onlyContent: false
-		}
+			onlyContent: false,
+		},
 	});
 </script>
 

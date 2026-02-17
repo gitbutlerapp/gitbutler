@@ -1,37 +1,37 @@
 <script module lang="ts">
-	import RangeInput from '$components/RangeInput.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import RangeInput from "$components/RangeInput.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Range Input',
+		title: "Inputs / Range Input",
 		component: RangeInput,
 		args: {
 			value: 50,
 			min: 0,
 			max: 100,
 			step: 1,
-			label: '',
-			helperText: '',
-			error: '',
+			label: "",
+			helperText: "",
+			error: "",
 			disabled: false,
 			showValue: false,
 			wide: false,
-			width: undefined
+			width: undefined,
 		},
 		argTypes: {
 			min: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			max: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			step: {
-				control: { type: 'number' }
+				control: { type: "number" },
 			},
 			width: {
-				control: { type: 'number' }
-			}
-		}
+				control: { type: "number" },
+			},
+		},
 	});
 </script>
 
@@ -43,7 +43,7 @@
 	let errorValue = $state(150);
 
 	// Dynamic error computation
-	let errorMessage = $derived(errorValue > 100 ? 'Value cannot exceed 100' : '');
+	let errorMessage = $derived(errorValue > 100 ? "Value cannot exceed 100" : "");
 </script>
 
 <Story name="Default">

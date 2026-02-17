@@ -30,8 +30,8 @@
 		maxHeight?: number;
 		minHeight?: number;
 		searchable?: boolean;
-		popupAlign?: 'left' | 'right' | 'center';
-		popupVerticalAlign?: 'top' | 'bottom';
+		popupAlign?: "left" | "right" | "center";
+		popupVerticalAlign?: "top" | "bottom";
 		customSelectButton?: Snippet;
 		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
@@ -43,16 +43,16 @@
 </script>
 
 <script lang="ts" generics="T extends string">
-	import Textbox from '$components/Textbox.svelte';
-	import ScrollableContainer from '$components/scroll/ScrollableContainer.svelte';
-	import OptionsGroup from '$components/select/OptionsGroup.svelte';
-	import SearchItem from '$components/select/SearchItem.svelte';
-	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import Textbox from "$components/Textbox.svelte";
+	import ScrollableContainer from "$components/scroll/ScrollableContainer.svelte";
+	import OptionsGroup from "$components/select/OptionsGroup.svelte";
+	import SearchItem from "$components/select/SearchItem.svelte";
+	import { portal } from "$lib/utils/portal";
+	import { pxToRem } from "$lib/utils/pxToRem";
+	import { resizeObserver } from "$lib/utils/resizeObserver";
 
-	import { type Snippet } from 'svelte';
-	import type iconsJson from '$lib/data/icons.json';
+	import { type Snippet } from "svelte";
+	import type iconsJson from "$lib/data/icons.json";
 
 	const {
 		id,
@@ -66,19 +66,19 @@
 		flex,
 		options = [],
 		value,
-		placeholder = 'Select an option...',
+		placeholder = "Select an option...",
 		maxHeight,
 		minHeight,
 		searchable,
-		popupAlign = 'left',
-		popupVerticalAlign = 'bottom',
+		popupAlign = "left",
+		popupVerticalAlign = "bottom",
 		customSelectButton,
 		itemSnippet,
 		children,
 		icon,
 		autofocus,
 		onselect,
-		ontoggle
+		ontoggle,
 	}: Props = $props();
 
 	let selectWrapperEl: HTMLElement;
@@ -88,13 +88,13 @@
 	let selectTriggerEl = $state<HTMLElement | { focus(): void }>();
 
 	let highlightedIndex: number | undefined = $state(undefined);
-	let searchValue = $state('');
+	let searchValue = $state("");
 	const filteredOptions = $derived(
 		options.filter(
 			(item) =>
 				item.separator ||
-				(item.label && item.label.toLowerCase().includes(searchValue.toLowerCase()))
-		)
+				(item.label && item.label.toLowerCase().includes(searchValue.toLowerCase())),
+		),
 	);
 
 	// Group options by separators
@@ -122,7 +122,7 @@
 
 	// Flatten grouped options for navigation while preserving order
 	const selectableOptions = $derived.by(
-		() => filteredOptions.filter((item) => !item.separator) as SelectItem<T>[]
+		() => filteredOptions.filter((item) => !item.separator) as SelectItem<T>[],
 	);
 
 	// Auto-highlight first option when search results change, reset when search is cleared
@@ -137,7 +137,7 @@
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
 	let optionsGroupBoundingRect = $state<DOMRect>();
-	let computedVerticalAlign = $state<'top' | 'bottom'>(popupVerticalAlign);
+	let computedVerticalAlign = $state<"top" | "bottom">(popupVerticalAlign);
 
 	const maxBottomPadding = 20;
 
@@ -148,12 +148,12 @@
 		const availableSpaceAbove = rect.top - maxBottomPadding;
 
 		// Auto-position based on minHeight if provided
-		if (minHeight && popupVerticalAlign === 'bottom') {
+		if (minHeight && popupVerticalAlign === "bottom") {
 			if (availableSpaceBelow < minHeight && availableSpaceAbove >= minHeight) {
-				computedVerticalAlign = 'top';
+				computedVerticalAlign = "top";
 				maxHeightState = availableSpaceAbove;
 			} else {
-				computedVerticalAlign = 'bottom';
+				computedVerticalAlign = "bottom";
 				maxHeightState = availableSpaceBelow;
 			}
 		} else {
@@ -218,7 +218,7 @@
 					shift: event.shiftKey,
 					ctrl: event.ctrlKey,
 					alt: event.altKey,
-					meta: event.metaKey
+					meta: event.metaKey,
 				}
 			: undefined;
 		onselect?.(value, modifiers);
@@ -260,28 +260,28 @@
 
 	function handleKeyDown(e: KeyboardEvent) {
 		const { key } = e;
-		if (!['Enter', 'Escape', 'ArrowUp', 'ArrowDown'].includes(key)) return;
+		if (!["Enter", "Escape", "ArrowUp", "ArrowDown"].includes(key)) return;
 
 		e.stopPropagation();
 		e.preventDefault();
 
-		if (key === 'Escape') closeList();
+		if (key === "Escape") closeList();
 		else if (!listOpen) openList();
-		else if (key === 'ArrowUp') handleArrowUp();
-		else if (key === 'ArrowDown') handleArrowDown();
-		else if (key === 'Enter') handleEnter(e);
+		else if (key === "ArrowUp") handleArrowUp();
+		else if (key === "ArrowDown") handleArrowDown();
+		else if (key === "Enter") handleEnter(e);
 	}
 
 	function getTopStyle() {
 		const gap = 4; // Gap between input and dropdown in pixels
 
-		if (computedVerticalAlign === 'bottom') {
+		if (computedVerticalAlign === "bottom") {
 			if (inputBoundingRect?.top) {
 				return `${inputBoundingRect.top + inputBoundingRect.height + gap}px`;
 			}
 		}
 
-		if (computedVerticalAlign === 'top') {
+		if (computedVerticalAlign === "top") {
 			if (inputBoundingRect?.top && optionsGroupBoundingRect) {
 				return `${inputBoundingRect.top - optionsGroupBoundingRect.height - gap}px`;
 			}
@@ -289,26 +289,26 @@
 	}
 
 	function getLeftStyle() {
-		if (inputBoundingRect?.left && popupAlign === 'left') {
+		if (inputBoundingRect?.left && popupAlign === "left") {
 			return `${inputBoundingRect.left}px`;
 		}
 
-		if (optionsGroupBoundingRect && inputBoundingRect && popupAlign === 'center') {
+		if (optionsGroupBoundingRect && inputBoundingRect && popupAlign === "center") {
 			return `${inputBoundingRect.left + inputBoundingRect.width / 2 - optionsGroupBoundingRect.width / 2}px`;
 		}
 
-		if (inputBoundingRect?.left && optionsGroupBoundingRect && popupAlign === 'right') {
+		if (inputBoundingRect?.left && optionsGroupBoundingRect && popupAlign === "right") {
 			return `${inputBoundingRect.left + inputBoundingRect.width - optionsGroupBoundingRect.width}px`;
 		}
 	}
 
 	function getPopupWidthStyle() {
 		if (customWidth) {
-			return '100%';
+			return "100%";
 		}
 
 		if (autoWidth) {
-			return 'fit-content';
+			return "fit-content";
 		}
 
 		return `${inputBoundingRect?.width}px`;
@@ -320,7 +320,7 @@
 	class:wide
 	bind:this={selectWrapperEl}
 	style:flex
-	style:max-width={maxWidth ? `${pxToRem(maxWidth)}rem` : 'none'}
+	style:max-width={maxWidth ? `${pxToRem(maxWidth)}rem` : "none"}
 >
 	{#if label}
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
@@ -360,7 +360,7 @@
 			role="presentation"
 			class="overlay-wrapper"
 			onclick={clickOutside}
-			use:portal={'body'}
+			use:portal={"body"}
 			use:resizeObserver={() => {
 				getInputBoundingRect();
 				setMaxHeight();
@@ -393,7 +393,7 @@
 							<OptionsGroup>
 								{#each group as item}
 									{@const selectableIdx = selectableOptions.findIndex(
-										(opt) => opt.value === item.value && item.value !== undefined
+										(opt) => opt.value === item.value && item.value !== undefined,
 									)}
 									<div
 										class="option"
@@ -404,7 +404,7 @@
 										{@render itemSnippet({
 											item,
 											highlighted: selectableIdx === highlightedIndex,
-											idx: selectableIdx
+											idx: selectableIdx,
 										})}
 									</div>
 								{/each}

@@ -1,14 +1,14 @@
 <script lang="ts">
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
 	import {
 		ircEnabled,
 		ircServer,
 		fModeEnabled,
-		useNewRebaseEngine
-	} from '$lib/config/uiFeatureFlags';
-	import { USER } from '$lib/user/user';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Textbox, Toggle } from '@gitbutler/ui';
+		useNewRebaseEngine,
+	} from "$lib/config/uiFeatureFlags";
+	import { USER } from "$lib/user/user";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Textbox, Toggle } from "@gitbutler/ui";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const settingsStore = settingsService.appSettings;
@@ -70,7 +70,7 @@
 		{/snippet}
 	</CardGroup.Item>
 
-	{#if $user?.role === 'admin'}
+	{#if $user?.role === "admin"}
 		<CardGroup.Item labelFor="single-branch">
 			{#snippet title()}
 				Single-branch mode
@@ -84,7 +84,7 @@
 					checked={$settingsStore?.featureFlags.singleBranch}
 					onclick={() =>
 						settingsService.updateFeatureFlags({
-							singleBranch: !$settingsStore?.featureFlags.singleBranch
+							singleBranch: !$settingsStore?.featureFlags.singleBranch,
 						})}
 				/>
 			{/snippet}

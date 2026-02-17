@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getRelativeTime } from '$lib/utils/dateUtils';
+	import { getRelativeTime } from "$lib/utils/dateUtils";
 
 	interface Project {
 		name: string;
@@ -15,7 +15,7 @@
 		loading?: boolean;
 	}
 
-	let { projects, ownerSlug, sectionTitle = 'Projects', loading = false }: Props = $props();
+	let { projects, ownerSlug, sectionTitle = "Projects", loading = false }: Props = $props();
 </script>
 
 <div class="section-card projects-section">

@@ -1,17 +1,17 @@
 <script lang="ts">
-	import FullviewLoading from '$components/FullviewLoading.svelte';
-	import MainViewport from '$components/MainViewport.svelte';
-	import MultiDiffView from '$components/MultiDiffView.svelte';
-	import MultiStackView from '$components/MultiStackView.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import UnassignedView from '$components/UnassignedView.svelte';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { createWorktreeSelection } from '$lib/selection/key';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { TestId } from '@gitbutler/ui';
+	import FullviewLoading from "$components/FullviewLoading.svelte";
+	import MainViewport from "$components/MainViewport.svelte";
+	import MultiDiffView from "$components/MultiDiffView.svelte";
+	import MultiStackView from "$components/MultiStackView.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import UnassignedView from "$components/UnassignedView.svelte";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { createWorktreeSelection } from "$lib/selection/key";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { TestId } from "@gitbutler/ui";
 
 	interface Props {
 		projectId: string;
@@ -37,7 +37,7 @@
 	const unassignedChanges = $derived(uncommittedService.getChangesByStackId(null));
 	const projectState = $derived(uiState.project(projectId));
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
-	const isCommitting = $derived(exclusiveAction?.type === 'commit');
+	const isCommitting = $derived(exclusiveAction?.type === "commit");
 
 	let multiDiffView = $state<MultiDiffView>();
 	let startIndex = $state(0);
@@ -47,7 +47,7 @@
 	<MultiDiffView
 		{projectId}
 		{startIndex}
-		selectionId={{ type: 'worktree' }}
+		selectionId={{ type: "worktree" }}
 		stackId={undefined}
 		changes={unassignedChanges}
 		bind:this={multiDiffView}

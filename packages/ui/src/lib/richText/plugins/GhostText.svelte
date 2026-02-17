@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { getEditor } from '$lib/richText/context';
+	import { getEditor } from "$lib/richText/context";
 	import {
 		insertGhostTextAtCaret,
 		removeAllGhostText,
-		replaceGhostTextWithText
-	} from '$lib/richText/node/ghostText';
-	import { CLICK_COMMAND, COMMAND_PRIORITY_CRITICAL, KEY_DOWN_COMMAND } from 'lexical';
+		replaceGhostTextWithText,
+	} from "$lib/richText/node/ghostText";
+	import { CLICK_COMMAND, COMMAND_PRIORITY_CRITICAL, KEY_DOWN_COMMAND } from "lexical";
 
 	type Props = {
 		onSelection?: (text: string) => void;
@@ -49,22 +49,22 @@
 	}
 
 	function handleKeyDown(event: KeyboardEvent): boolean {
-		if (event.key === 'Escape') {
+		if (event.key === "Escape") {
 			return handleEscape(event);
-		} else if (event.key === 'Tab') {
+		} else if (event.key === "Tab") {
 			return handleTab(event);
 		}
 
 		if (
 			[
-				'Shift',
-				'Control',
-				'Meta',
-				'Alt',
-				'ArrowUp',
-				'ArrowDown',
-				'ArrowLeft',
-				'ArrowRight'
+				"Shift",
+				"Control",
+				"Meta",
+				"Alt",
+				"ArrowUp",
+				"ArrowDown",
+				"ArrowLeft",
+				"ArrowRight",
 			].includes(event.key)
 		) {
 			return false;
@@ -87,13 +87,13 @@
 		const unregister = editor.registerCommand(
 			KEY_DOWN_COMMAND,
 			handleKeyDown,
-			COMMAND_PRIORITY_CRITICAL
+			COMMAND_PRIORITY_CRITICAL,
 		);
 
 		const unregisterClick = editor.registerCommand(
 			CLICK_COMMAND,
 			handleClick,
-			COMMAND_PRIORITY_CRITICAL
+			COMMAND_PRIORITY_CRITICAL,
 		);
 
 		return () => {

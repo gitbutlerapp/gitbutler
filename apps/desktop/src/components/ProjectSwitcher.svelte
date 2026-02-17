@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { handleAddProjectOutcome } from '$lib/project/project';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { projectPath } from '$lib/routes/routes.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, OptionsGroup, Select, SelectItem } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import { handleAddProjectOutcome } from "$lib/project/project";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { projectPath } from "$lib/routes/routes.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, OptionsGroup, Select, SelectItem } from "@gitbutler/ui";
 
 	const { projectId }: { projectId?: string } = $props();
 
@@ -16,8 +16,8 @@
 	const mappedProjects = $derived(
 		projectsQuery.response?.map((project) => ({
 			value: project.id,
-			label: project.title
-		})) || []
+			label: project.title,
+		})) || [],
 	);
 
 	let newProjectLoading = $state(false);
@@ -68,7 +68,7 @@
 				onClick={async () => {
 					cloneProjectLoading = true;
 					try {
-						goto('/onboarding/clone');
+						goto("/onboarding/clone");
 					} finally {
 						cloneProjectLoading = false;
 					}

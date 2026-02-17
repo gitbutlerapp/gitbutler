@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CodegenServiceMessage from '$components/codegen/CodegenServiceMessage.svelte';
+	import CodegenServiceMessage from "$components/codegen/CodegenServiceMessage.svelte";
 
 	type Props = {
 		startAt: Date;
@@ -10,36 +10,36 @@
 	const { startAt, msSpentWaiting, overrideWord }: Props = $props();
 
 	const words = [
-		'contemplating',
-		'reflecting',
-		'reasoning',
-		'analyzing',
-		'pondering',
-		'deliberating',
-		'mulling',
-		'meditating',
-		'speculating',
-		'conceptualizing',
-		'building',
-		'assembling',
-		'creating',
-		'developing',
-		'forming',
-		'fabricating',
-		'composing',
-		'establishing',
-		'designing',
-		'operating',
-		'functioning',
-		'executing',
-		'acting',
-		'butlering',
-		'producing',
-		'laboring',
-		'performing',
-		'engaging',
-		'applying',
-		'striving'
+		"contemplating",
+		"reflecting",
+		"reasoning",
+		"analyzing",
+		"pondering",
+		"deliberating",
+		"mulling",
+		"meditating",
+		"speculating",
+		"conceptualizing",
+		"building",
+		"assembling",
+		"creating",
+		"developing",
+		"forming",
+		"fabricating",
+		"composing",
+		"establishing",
+		"designing",
+		"operating",
+		"functioning",
+		"executing",
+		"acting",
+		"butlering",
+		"producing",
+		"laboring",
+		"performing",
+		"engaging",
+		"applying",
+		"striving",
 	];
 
 	/**
@@ -59,7 +59,7 @@
 	}
 
 	function milisToEnglish(milis: number) {
-		if (milis === 0) return 'now';
+		if (milis === 0) return "now";
 
 		const seconds = milis / 1000;
 		const minutes = Math.floor(seconds / 60);

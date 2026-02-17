@@ -1,18 +1,18 @@
 <script lang="ts">
-	import MessageHandler from '$lib/chat/message.svelte';
-	import RichText from '$lib/chat/richText.svelte';
-	import SuggestionsHandler from '$lib/chat/suggestions.svelte';
-	import ChatInReplyTo, { type ReplyToMessage } from '$lib/components/chat/ChatInReplyTo.svelte';
-	import MentionSuggestions from '$lib/components/chat/MentionSuggestions.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { getChatChannelParticipants } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
-	import { CHAT_CHANNELS_SERVICE } from '@gitbutler/shared/chat/chatChannelsService';
-	import { uploadFiles } from '@gitbutler/shared/dom';
-	import { PATCH_COMMIT_SERVICE } from '@gitbutler/shared/patches/patchCommitService';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
-	import { NEW_USER_SERVICE } from '@gitbutler/shared/users/userService';
+	import MessageHandler from "$lib/chat/message.svelte";
+	import RichText from "$lib/chat/richText.svelte";
+	import SuggestionsHandler from "$lib/chat/suggestions.svelte";
+	import ChatInReplyTo, { type ReplyToMessage } from "$lib/components/chat/ChatInReplyTo.svelte";
+	import MentionSuggestions from "$lib/components/chat/MentionSuggestions.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { getChatChannelParticipants } from "@gitbutler/shared/chat/chatChannelsPreview.svelte";
+	import { CHAT_CHANNELS_SERVICE } from "@gitbutler/shared/chat/chatChannelsService";
+	import { uploadFiles } from "@gitbutler/shared/dom";
+	import { PATCH_COMMIT_SERVICE } from "@gitbutler/shared/patches/patchCommitService";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { UPLOADS_SERVICE } from "@gitbutler/shared/uploads/uploadsService";
+	import { NEW_USER_SERVICE } from "@gitbutler/shared/users/userService";
 
 	import {
 		Button,
@@ -21,17 +21,17 @@
 		DropdownButton,
 		EmojiPickerButton,
 		Mention as MentionsPlugin,
-		RichTextEditor
-	} from '@gitbutler/ui';
+		RichTextEditor,
+	} from "@gitbutler/ui";
 	import FileUploadPlugin, {
-		type DropFileResult
-	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
+		type DropFileResult,
+	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
 
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
-	import type { PatchCommit } from '@gitbutler/shared/patches/types';
-	import { env } from '$env/dynamic/public';
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import type { PatchCommit } from "@gitbutler/shared/patches/types";
+	import { env } from "$env/dynamic/public";
 
-	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
+	const ACCEPTED_FILE_TYPES = ["image/*", "application/*", "text/*", "audio/*", "video/*"];
 
 	interface Props {
 		projectId: string;
@@ -54,7 +54,7 @@
 		isPatchAuthor,
 		isUserLoggedIn,
 		replyingTo,
-		clearReply
+		clearReply,
 	}: Props = $props();
 
 	const newUserService = inject(NEW_USER_SERVICE);
@@ -67,7 +67,7 @@
 	const uploadsService = inject(UPLOADS_SERVICE);
 	const contributors = $derived(patchCommit.contributors.map((c) => c.user).filter(isDefined));
 	const chatParticipants = $derived(
-		getChatChannelParticipants(appState, chatChannelService, projectId, changeId)
+		getChatChannelParticipants(appState, chatChannelService, projectId, changeId),
 	);
 
 	let isSendingMessage = $state(false);
@@ -111,19 +111,19 @@
 			return suggestions.onSuggestionKeyDown(event);
 		}
 
-		if (event.key === 'Enter' && !event.shiftKey && suggestions.suggestions === undefined) {
+		if (event.key === "Enter" && !event.shiftKey && suggestions.suggestions === undefined) {
 			event.preventDefault();
 			event.stopPropagation();
 			handleSendMessage();
 			return true;
 		}
 
-		if (event.key === 'Escape') {
+		if (event.key === "Escape") {
 			clearReply();
 			return false;
 		}
 
-		if (event.key === 'Backspace' && !messageHandler.message) {
+		if (event.key === "Backspace" && !messageHandler.message) {
 			clearReply();
 			return false;
 		}
@@ -136,20 +136,20 @@
 	}
 
 	const actionLabels = {
-		approve: 'Approve commit',
-		openIssue: 'Open issue',
-		requestChanges: 'Request changes'
+		approve: "Approve commit",
+		openIssue: "Open issue",
+		requestChanges: "Request changes",
 	} as const;
 
 	type Action = keyof typeof actionLabels;
 
-	let action = $state<Action>('approve');
+	let action = $state<Action>("approve");
 	let dropDownButton = $state<ReturnType<typeof DropdownButton>>();
 
 	async function approve() {
 		await patchCommitService.updatePatch(branchUuid, changeId, {
 			signOff: true,
-			message: messageHandler.message
+			message: messageHandler.message,
 		});
 		richText.clearEditor();
 	}
@@ -157,7 +157,7 @@
 	async function requestChanges() {
 		await patchCommitService.updatePatch(branchUuid, changeId, {
 			signOff: false,
-			message: messageHandler.message
+			message: messageHandler.message,
 		});
 		richText.clearEditor();
 	}
@@ -167,13 +167,13 @@
 		isExecuting = true;
 		try {
 			switch (action) {
-				case 'approve':
+				case "approve":
 					await approve();
 					break;
-				case 'requestChanges':
+				case "requestChanges":
 					await requestChanges();
 					break;
-				case 'openIssue':
+				case "openIssue":
 					await handleSendMessage(true);
 					break;
 			}
@@ -183,7 +183,7 @@
 	}
 
 	const actionButtonLabel = $derived.by(() => {
-		const suffix = messageHandler.message ? ' & Comment' : '';
+		const suffix = messageHandler.message ? " & Comment" : "";
 		return actionLabels[action] + suffix;
 	});
 
@@ -192,7 +192,7 @@
 	}
 
 	function isAcceptedFileType(file: File): boolean {
-		const type = file.type.split('/')[0];
+		const type = file.type.split("/")[0];
 		return ACCEPTED_FILE_TYPES.some((acceptedType) => acceptedType.startsWith(type));
 	}
 
@@ -206,14 +206,14 @@
 				return { name: file.name, url: upload.url, isImage: upload.isImage };
 			});
 		const settled = await Promise.allSettled(uploads);
-		const successful = settled.filter((result) => result.status === 'fulfilled');
+		const successful = settled.filter((result) => result.status === "fulfilled");
 		return successful.map((result) => result.value);
 	}
 
 	async function attachFiles() {
 		richText.richTextEditor?.focus();
 
-		const files = await uploadFiles(ACCEPTED_FILE_TYPES.join(','));
+		const files = await uploadFiles(ACCEPTED_FILE_TYPES.join(","));
 
 		if (!files) return;
 		await fileUploadPlugin?.handleFileUpload(files);
@@ -295,21 +295,21 @@
 									<ContextMenuItem
 										label={actionLabels.approve}
 										onclick={() => {
-											action = 'approve';
+											action = "approve";
 											dropDownButton?.close();
 										}}
 									/>
 									<ContextMenuItem
 										label={actionLabels.requestChanges}
 										onclick={() => {
-											action = 'requestChanges';
+											action = "requestChanges";
 											dropDownButton?.close();
 										}}
 									/>
 									<ContextMenuItem
 										label={actionLabels.openIssue}
 										onclick={() => {
-											action = 'openIssue';
+											action = "openIssue";
 											dropDownButton?.close();
 										}}
 									/>
@@ -371,7 +371,7 @@
 			width: calc(100% - 24px);
 			height: 1px;
 			background-color: var(--clr-border-3);
-			content: '';
+			content: "";
 		}
 	}
 

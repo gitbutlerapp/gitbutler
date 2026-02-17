@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Drawer from '$components/Drawer.svelte';
-	import PrStatusBadge from '$components/PrStatusBadge.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { DEFAULT_FORGE_FACTORY } from '$lib/forge/forgeFactory.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Avatar, Link, Markdown, TestId } from '@gitbutler/ui';
+	import Drawer from "$components/Drawer.svelte";
+	import PrStatusBadge from "$components/PrStatusBadge.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { DEFAULT_FORGE_FACTORY } from "$lib/forge/forgeFactory.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Avatar, Link, Markdown, TestId } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -33,8 +33,8 @@
 				<div class="pr-request-data">
 					<Avatar
 						size="medium"
-						srcUrl={pr.author?.gravatarUrl || ''}
-						username={pr.author?.name || 'Unknown Author'}
+						srcUrl={pr.author?.gravatarUrl || ""}
+						username={pr.author?.name || "Unknown Author"}
 					/>
 					<div class="pr-request-data__wrapper">
 						<p class="pr-request-data__sentence text-13">

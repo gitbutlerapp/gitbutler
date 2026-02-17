@@ -1,20 +1,20 @@
-import { goto } from '$app/navigation';
-import { showError } from '$lib/notifications/toasts';
+import { goto } from "$app/navigation";
+import { showError } from "$lib/notifications/toasts";
 import {
 	handleAddProjectOutcome,
 	type AddProjectOutcome,
-	type Project
-} from '$lib/project/project';
-import { projectPath } from '$lib/routes/routes.svelte';
-import { invalidatesList, providesItem, providesList, ReduxTag } from '$lib/state/tags';
-import { getCookie } from '$lib/utils/cookies';
-import { InjectionToken } from '@gitbutler/core/context';
-import { persisted } from '@gitbutler/shared/persisted';
-import { chipToasts } from '@gitbutler/ui';
-import { get } from 'svelte/store';
-import type { IBackend } from '$lib/backend';
-import type { ClientState } from '$lib/state/clientState.svelte';
-import type { ForgeUser } from '@gitbutler/core/api';
+	type Project,
+} from "$lib/project/project";
+import { projectPath } from "$lib/routes/routes.svelte";
+import { invalidatesList, providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import { getCookie } from "$lib/utils/cookies";
+import { InjectionToken } from "@gitbutler/core/context";
+import { persisted } from "@gitbutler/shared/persisted";
+import { chipToasts } from "@gitbutler/ui";
+import { get } from "svelte/store";
+import type { IBackend } from "$lib/backend";
+import type { ClientState } from "$lib/state/clientState.svelte";
+import type { ForgeUser } from "@gitbutler/core/api";
 
 export type ProjectInfo = {
 	is_exclusive: boolean;
@@ -22,16 +22,16 @@ export type ProjectInfo = {
 	headsup?: string;
 };
 
-export const PROJECTS_SERVICE = new InjectionToken<ProjectsService>('ProjectsService');
+export const PROJECTS_SERVICE = new InjectionToken<ProjectsService>("ProjectsService");
 
 export class ProjectsService {
 	private api: ReturnType<typeof injectEndpoints>;
-	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
+	private persistedId = persisted<string | undefined>(undefined, "lastProject");
 
 	constructor(
 		state: ClientState,
 		private homeDir: string | undefined,
-		private backend: IBackend
+		private backend: IBackend,
 	) {
 		this.api = injectEndpoints(state.backendApi);
 	}
@@ -61,7 +61,7 @@ export class ProjectsService {
 
 		await this.updateProject({
 			...project,
-			preferred_forge_user: preferredForgeUser
+			preferred_forge_user: preferredForgeUser,
 		});
 	}
 
@@ -81,19 +81,19 @@ export class ProjectsService {
 	isGerritProject(projectId: string) {
 		return this.api.endpoints.project.useQuery(
 			{ projectId, noValidation: true },
-			{ transform: (data) => data.gerrit_mode }
+			{ transform: (data) => data.gerrit_mode },
 		);
 	}
 
 	async promptForDirectory(): Promise<string | undefined> {
-		const cookiePath = getCookie('test-projectPath');
+		const cookiePath = getCookie("test-projectPath");
 		if (cookiePath) {
 			return cookiePath;
 		}
 		const selectedPath = await this.backend.filePicker({
 			directory: true,
 			recursive: true,
-			defaultPath: this.homeDir
+			defaultPath: this.homeDir,
 		});
 		if (selectedPath) {
 			return selectedPath;
@@ -115,7 +115,7 @@ export class ProjectsService {
 			chipToasts.success(`Project ${project.title} relocated`);
 			window.location.reload();
 		} catch (error: any) {
-			showError('Failed to relocate project:', error.message);
+			showError("Failed to relocate project:", error.message);
 		}
 	}
 
@@ -131,8 +131,8 @@ export class ProjectsService {
 		const outcome = await this.api.endpoints.addProjectWithBestEffort.mutate({ path });
 		if (outcome) {
 			switch (outcome.type) {
-				case 'added':
-				case 'alreadyExists':
+				case "added":
+				case "alreadyExists":
 					goto(projectPath(outcome.subject.id));
 					break;
 				default:
@@ -151,20 +151,20 @@ export class ProjectsService {
 	validateProjectPath(path: string) {
 		if (/^\\\\wsl.localhost/i.test(path)) {
 			const errorMsg =
-				'For WSL2 projects, install the Linux version of GitButler inside of your WSL2 distro';
+				"For WSL2 projects, install the Linux version of GitButler inside of your WSL2 distro";
 			console.error(errorMsg);
-			showError('Use the Linux version of GitButler', errorMsg);
+			showError("Use the Linux version of GitButler", errorMsg);
 
 			return false;
 		}
 
 		if (/^\\\\/i.test(path)) {
 			const errorMsg =
-				'Using git across a network is not recommended. Either clone ' +
-				'the repo locally, or use the NET USE command to map a ' +
-				'network drive';
+				"Using git across a network is not recommended. Either clone " +
+				"the repo locally, or use the NET USE command to map a " +
+				"network drive";
 			console.error(errorMsg);
-			showError('UNC Paths are not directly supported', errorMsg);
+			showError("UNC Paths are not directly supported", errorMsg);
 
 			return false;
 		}
@@ -197,56 +197,56 @@ export class ProjectsService {
 	}
 }
 
-function injectEndpoints(api: ClientState['backendApi']) {
+function injectEndpoints(api: ClientState["backendApi"]) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			listProjects: build.query<Project[], void>({
-				extraOptions: { command: 'list_projects' },
+				extraOptions: { command: "list_projects" },
 				query: () => undefined,
-				providesTags: [providesList(ReduxTag.Project)]
+				providesTags: [providesList(ReduxTag.Project)],
 			}),
 			project: build.query<Project, { projectId: string; noValidation?: boolean }>({
-				extraOptions: { command: 'get_project' },
+				extraOptions: { command: "get_project" },
 				query: (args) => args,
-				providesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.projectId)
+				providesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.projectId),
 			}),
 			addProject: build.mutation<AddProjectOutcome, { path: string }>({
-				extraOptions: { command: 'add_project' },
+				extraOptions: { command: "add_project" },
 				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
+				invalidatesTags: () => [invalidatesList(ReduxTag.Project)],
 			}),
 			addProjectWithBestEffort: build.mutation<AddProjectOutcome, { path: string }>({
-				extraOptions: { command: 'add_project_best_effort' },
+				extraOptions: { command: "add_project_best_effort" },
 				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
+				invalidatesTags: () => [invalidatesList(ReduxTag.Project)],
 			}),
 			deleteProject: build.mutation<Project[], { projectId: string }>({
-				extraOptions: { command: 'delete_project' },
+				extraOptions: { command: "delete_project" },
 				query: (args) => args,
-				invalidatesTags: () => [invalidatesList(ReduxTag.Project)]
+				invalidatesTags: () => [invalidatesList(ReduxTag.Project)],
 			}),
 			setProjectActive: build.mutation<ProjectInfo | null, { id: string }>({
-				extraOptions: { command: 'set_project_active' },
-				query: (args) => args
+				extraOptions: { command: "set_project_active" },
+				query: (args) => args,
 			}),
 			updateProject: build.mutation<
 				void,
 				{ project: Project & { unset_bool?: boolean; unset_forge_override?: boolean } }
 			>({
-				extraOptions: { command: 'update_project' },
+				extraOptions: { command: "update_project" },
 				query: (args) => args,
-				invalidatesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.project.id)
+				invalidatesTags: (_result, _error, args) => providesItem(ReduxTag.Project, args.project.id),
 			}),
 			openProjectInWindow: build.mutation<void, { id: string }>({
-				extraOptions: { command: 'open_project_in_window' },
-				query: (args) => args
+				extraOptions: { command: "open_project_in_window" },
+				query: (args) => args,
 			}),
 			areYouGerritKiddingMe: build.query<boolean, { projectId: string }>({
-				extraOptions: { command: 'is_gerrit' },
+				extraOptions: { command: "is_gerrit" },
 				query: (args) => args,
 				providesTags: (_result, _error, args) =>
-					providesItem(ReduxTag.ProjectGerrit, args.projectId)
-			})
-		})
+					providesItem(ReduxTag.ProjectGerrit, args.projectId),
+			}),
+		}),
 	});
 }

@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { CHERRY_APPLY_SERVICE } from '$lib/cherryApply/cherryApplyService';
-	import { workspacePath } from '$lib/routes/routes.svelte';
-	import { getStackName } from '$lib/stacks/stack';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { combineResults } from '$lib/state/helpers';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, CardGroup, InfoMessage, Modal, RadioButton } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { CHERRY_APPLY_SERVICE } from "$lib/cherryApply/cherryApplyService";
+	import { workspacePath } from "$lib/routes/routes.svelte";
+	import { getStackName } from "$lib/stacks/stack";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { combineResults } from "$lib/state/helpers";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, CardGroup, InfoMessage, Modal, RadioButton } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -23,7 +23,7 @@
 	let modalRef = $state<Modal>();
 
 	const statusResult = $derived(
-		subject ? cherryApplyService.status({ projectId, subject }) : undefined
+		subject ? cherryApplyService.status({ projectId, subject }) : undefined,
 	);
 	const stacksResult = $derived(stackService.stacks(projectId));
 	const status = $derived(statusResult?.response);
@@ -32,7 +32,7 @@
 	const [applyCommit, applyResult] = cherryApplyService.apply();
 
 	$effect(() => {
-		if (status?.type === 'lockedToStack') {
+		if (status?.type === "lockedToStack") {
 			selectedStackId = status.subject;
 		}
 	});
@@ -51,7 +51,7 @@
 		await applyCommit({
 			projectId,
 			subject,
-			target: selectedStackId
+			target: selectedStackId,
 		});
 
 		goto(workspacePath(projectId));
@@ -60,35 +60,35 @@
 	}
 
 	function getStatusMessage(): string {
-		if (!status) return '';
+		if (!status) return "";
 
 		switch (status.type) {
-			case 'applicableToAnyStack':
-				return 'This commit can be applied to any stack. Select a stack below.';
-			case 'lockedToStack':
-				return 'This commit conflicts when applied to the selected stack, as such it must be applied to the selected stack to avoid a workspace conflict.';
-			case 'causesWorkspaceConflict':
+			case "applicableToAnyStack":
+				return "This commit can be applied to any stack. Select a stack below.";
+			case "lockedToStack":
+				return "This commit conflicts when applied to the selected stack, as such it must be applied to the selected stack to avoid a workspace conflict.";
+			case "causesWorkspaceConflict":
 				return "This commit can't be applied since it would cause a workspace conflict.";
-			case 'noStacks':
-				return 'No stacks are currently applied to the workspace.';
+			case "noStacks":
+				return "No stacks are currently applied to the workspace.";
 		}
 	}
 
 	const canApply = $derived(
-		status?.type === 'applicableToAnyStack' || status?.type === 'lockedToStack'
+		status?.type === "applicableToAnyStack" || status?.type === "lockedToStack",
 	);
-	const canSelectStack = $derived(status?.type === 'applicableToAnyStack');
+	const canSelectStack = $derived(status?.type === "applicableToAnyStack");
 	const isApplying = $derived(applyResult.current.isLoading);
 
 	function handleStackSelectionChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
-		const selected = formData.get('stackSelection') as string | null;
+		const selected = formData.get("stackSelection") as string | null;
 		if (selected) {
 			selectedStackId = selected;
 		}
 	}
 
-	const messageStyle = $derived(status?.type === 'causesWorkspaceConflict' ? 'warning' : 'info');
+	const messageStyle = $derived(status?.type === "causesWorkspaceConflict" ? "warning" : "info");
 </script>
 
 <Modal bind:this={modalRef} title="Cherry-pick commit" width={500}>
@@ -114,7 +114,7 @@
 										{/snippet}
 										{#snippet caption()}
 											{stack.heads.length}
-											{stack.heads.length === 1 ? 'branch' : 'branches'}
+											{stack.heads.length === 1 ? "branch" : "branches"}
 										{/snippet}
 										{#snippet actions()}
 											<RadioButton

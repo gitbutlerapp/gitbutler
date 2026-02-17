@@ -18,10 +18,10 @@
 </script>
 
 <script lang="ts">
-	import CopyButton from '$components/CopyButton.svelte';
-	import Icon from '$components/Icon.svelte';
-	import SimpleCommitRowSkeleton from '$components/SimpleCommitRowSkeleton.svelte';
-	import { getTimeAndAuthor } from '$lib/utils/getTimeAndAuthor';
+	import CopyButton from "$components/CopyButton.svelte";
+	import Icon from "$components/Icon.svelte";
+	import SimpleCommitRowSkeleton from "$components/SimpleCommitRowSkeleton.svelte";
+	import { getTimeAndAuthor } from "$lib/utils/getTimeAndAuthor";
 
 	const {
 		title,
@@ -36,7 +36,7 @@
 		onCopy,
 		onCopyUpstream,
 		onOpen,
-		loading
+		loading,
 	}: Props = $props();
 </script>
 
@@ -140,7 +140,7 @@
 				width: 100%;
 				height: 3rem;
 				background: linear-gradient(to bottom, rgba(255, 210, 202, 0) 0%, var(--clr-bg-1) 100%);
-				content: '';
+				content: "";
 			}
 		}
 

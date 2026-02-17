@@ -1,18 +1,18 @@
 <script module lang="ts">
-	import RichTextEditor from '$lib/richText/RichTextEditor.svelte';
-	import Formatter from '$lib/richText/plugins/Formatter.svelte';
-	import UpDownPlugin from '$lib/richText/plugins/UpDownPlugin.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import RichTextEditor from "$lib/richText/RichTextEditor.svelte";
+	import Formatter from "$lib/richText/plugins/Formatter.svelte";
+	import UpDownPlugin from "$lib/richText/plugins/UpDownPlugin.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Editing / RichTextEditor',
+		title: "Editing / RichTextEditor",
 		component: RichTextEditor,
 		args: {
-			styleContext: 'client-editor',
-			namespace: 'commit-message',
+			styleContext: "client-editor",
+			namespace: "commit-message",
 			onError: (error: unknown) => console.error(error),
-			placeholder: 'Type your message here…'
-		}
+			placeholder: "Type your message here…",
+		},
 	});
 </script>
 
@@ -25,10 +25,10 @@
 		<div class="wrap">
 			<div class="text-input">
 				<RichTextEditor
-					namespace={args.namespace || 'commit-message'}
+					namespace={args.namespace || "commit-message"}
 					onError={args.onError || console.error}
-					styleContext={args.styleContext || 'client-editor'}
-					placeholder={args.placeholder || 'Type your message here…'}
+					styleContext={args.styleContext || "client-editor"}
+					placeholder={args.placeholder || "Type your message here…"}
 					initialText={args.initialText}
 				>
 					{#snippet plugins()}

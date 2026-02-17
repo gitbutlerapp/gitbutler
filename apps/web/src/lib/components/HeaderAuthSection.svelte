@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import UserAuthAvatar from '$lib/components/UserAuthAvatar.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { WEB_ROUTES_SERVICE } from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { Button } from '@gitbutler/ui';
+	import { goto } from "$app/navigation";
+	import UserAuthAvatar from "$lib/components/UserAuthAvatar.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { WEB_ROUTES_SERVICE } from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { Button } from "@gitbutler/ui";
 
 	interface Props {
 		hideIfUserAuthenticated?: boolean;

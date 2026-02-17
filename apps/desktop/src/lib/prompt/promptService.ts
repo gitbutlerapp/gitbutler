@@ -1,9 +1,9 @@
-import { sleep } from '$lib/utils/sleep';
-import { InjectionToken } from '@gitbutler/core/context';
-import { writable, type Writable } from 'svelte/store';
-import type { IBackend } from '$lib/backend';
+import { sleep } from "$lib/utils/sleep";
+import { InjectionToken } from "@gitbutler/core/context";
+import { writable, type Writable } from "svelte/store";
+import type { IBackend } from "$lib/backend";
 
-export const PROMPT_SERVICE = new InjectionToken<PromptService>('PromptService');
+export const PROMPT_SERVICE = new InjectionToken<PromptService>("PromptService");
 
 type SystemPrompt = {
 	id: string;
@@ -41,14 +41,14 @@ type FilterEventEntry = [filter: FilterParams, handler: PromptHandler];
 async function handleAbortSignal(
 	signal: AbortSignal,
 	promptStore: Writable<SystemPromptHandle | undefined>,
-	errorStore: Writable<any>
+	errorStore: Writable<any>,
 ): Promise<void> {
 	const signalHandler = new Promise<void>((resolve) => {
-		signal.addEventListener('abort', () => {
+		signal.addEventListener("abort", () => {
 			promptStore.set(undefined);
 			switch (signal.reason) {
-				case 'timeout':
-					errorStore.set('Timed out waiting for response');
+				case "timeout":
+					errorStore.set("Timed out waiting for response");
 					break;
 				default:
 					errorStore.set(undefined);
@@ -82,7 +82,7 @@ export class PromptService {
 	private async handleEvent(e: SystemPrompt): Promise<string | null> {
 		// TODO(qix-): By default we ignore `auto`. Ideally we do this externally (as in, something
 		// TODO(qix-): subscribes to a specific filter) but for now this is sufficient.
-		if (e.context?.action === 'auto') return null;
+		if (e.context?.action === "auto") return null;
 
 		const abortHandle = new AbortController();
 
@@ -101,24 +101,24 @@ export class PromptService {
 				async ([filter, handler]) =>
 					await Promise.race([
 						handler(e, abortHandle.signal).then((response) => {
-							abortHandle.abort('handled');
+							abortHandle.abort("handled");
 							return response;
 						}),
 						filter.timeoutMs
 							? sleep(filter.timeoutMs).then(() => {
-									abortHandle.abort('timeout');
+									abortHandle.abort("timeout");
 									return null;
 								})
-							: new Promise<string | null>(() => null)
-					])
-			)
+							: new Promise<string | null>(() => null),
+					]),
+			),
 		);
 	}
 
 	private subscribe() {
-		this.unsubscriber ??= this.backend.listen<SystemPrompt>('git_prompt', async (e) => {
+		this.unsubscriber ??= this.backend.listen<SystemPrompt>("git_prompt", async (e) => {
 			const response = await this.handleEvent(e.payload);
-			return await this.backend.invoke('submit_prompt_response', { id: e.payload.id, response });
+			return await this.backend.invoke("submit_prompt_response", { id: e.payload.id, response });
 		});
 
 		++this.subscriberCount;
@@ -162,7 +162,7 @@ export class PromptService {
 				respond: async (response: string | null) => {
 					resolver(response);
 					await handleAbortSignal(signal, promptStore, errorStore);
-				}
+				},
 			});
 
 			return await promise;

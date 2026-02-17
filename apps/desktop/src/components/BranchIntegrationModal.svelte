@@ -1,19 +1,19 @@
 <script lang="ts">
-	import CommitLine from '$components/CommitLine.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { CLIPBOARD_SERVICE } from '$lib/backend/clipboard';
+	import CommitLine from "$components/CommitLine.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { CLIPBOARD_SERVICE } from "$lib/backend/clipboard";
 	import {
 		commitCreatedAtDate,
 		extractUpstreamCommitId,
 		isCommit,
 		type Commit,
-		type UpstreamCommit
-	} from '$lib/branches/v3';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from '@gitbutler/ui';
-	import { flip } from 'svelte/animate';
-	import type { InteractiveIntegrationStep } from '$lib/stacks/stack';
+		type UpstreamCommit,
+	} from "$lib/branches/v3";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Modal, ModalFooter, Button, ScrollableContainer, SimpleCommitRow } from "@gitbutler/ui";
+	import { flip } from "svelte/animate";
+	import type { InteractiveIntegrationStep } from "$lib/stacks/stack";
 
 	type Props = {
 		modalRef: Modal | undefined;
@@ -35,17 +35,17 @@
 	const initialIntegrationSteps = stackService.initialIntegrationSteps(
 		projectId,
 		stackId,
-		branchName
+		branchName,
 	);
 
 	let editableSteps = $derived(initialIntegrationSteps.response ?? []);
 
 	// Constants
 	const FLIP_ANIMATION_DURATION = 150;
-	const MAX_SCROLL_HEIGHT = '50vh';
+	const MAX_SCROLL_HEIGHT = "50vh";
 
 	// Helper functions for step manipulation
-	function updateStepType(stepId: string, commitId: string, newType: 'pick' | 'skip') {
+	function updateStepType(stepId: string, commitId: string, newType: "pick" | "skip") {
 		editableSteps = editableSteps.map((step) => {
 			if (step.subject.id === stepId) {
 				return { type: newType, subject: { id: stepId, commitId } };
@@ -58,8 +58,8 @@
 		editableSteps = editableSteps.map((step) => {
 			if (step.subject.id === stepId) {
 				return {
-					type: 'pickUpstream',
-					subject: { id: stepId, commitId, upstreamCommitId }
+					type: "pickUpstream",
+					subject: { id: stepId, commitId, upstreamCommitId },
 				};
 			}
 			return step;
@@ -69,22 +69,22 @@
 	function pickLocalFromStep(stepId: string, commitId: string) {
 		editableSteps = editableSteps.map((step) => {
 			if (step.subject.id === stepId) {
-				return { type: 'pick', subject: { id: stepId, commitId } };
+				return { type: "pick", subject: { id: stepId, commitId } };
 			}
 			return step;
 		});
 	}
 
 	function skipStepById(stepId: string, commitId: string) {
-		updateStepType(stepId, commitId, 'skip');
+		updateStepType(stepId, commitId, "skip");
 	}
 	function pickStepById(stepId: string, commitId: string) {
-		updateStepType(stepId, commitId, 'pick');
+		updateStepType(stepId, commitId, "pick");
 	}
 	async function getCommitMessage(commitIds: string[]): Promise<string> {
-		if (stackId === undefined) return '';
+		if (stackId === undefined) return "";
 		const commitDetails = await stackService.fetchCommitsByIds(projectId, stackId, commitIds);
-		return commitDetails.map((c) => c.message).join('\n\n');
+		return commitDetails.map((c) => c.message).join("\n\n");
 	}
 	function getStepCommitInfo(step: InteractiveIntegrationStep): {
 		id: string;
@@ -92,12 +92,12 @@
 	} {
 		const id = step.subject.id;
 		switch (step.type) {
-			case 'pickUpstream':
+			case "pickUpstream":
 				return { id, commitIds: [step.subject.upstreamCommitId] };
-			case 'pick':
-			case 'skip':
+			case "pick":
+			case "skip":
 				return { id, commitIds: [step.subject.commitId] };
-			case 'squash':
+			case "squash":
 				return { id, commitIds: step.subject.commits };
 		}
 	}
@@ -117,12 +117,12 @@
 		const combinedCommits = [...commitIds, ...targetStepInfo.commitIds];
 		const squashMessage = await getCommitMessage(combinedCommits);
 		newSteps.splice(stepIndex, 2, {
-			type: 'squash',
+			type: "squash",
 			subject: {
 				id: targetStepInfo.id,
 				commits: combinedCommits,
-				message: squashMessage
-			}
+				message: squashMessage,
+			},
 		});
 		editableSteps = newSteps;
 	}
@@ -131,7 +131,7 @@
 		if (stepIndex === -1) return;
 		const newSteps = structuredClone(editableSteps);
 		const stepToSplit = newSteps[stepIndex];
-		if (!stepToSplit || stepToSplit.type !== 'squash') {
+		if (!stepToSplit || stepToSplit.type !== "squash") {
 			return;
 		}
 		const { commits } = stepToSplit.subject;
@@ -144,38 +144,38 @@
 		if (firstGroup.length === 0) return;
 		if (firstGroup.length === 1) {
 			newSteps[stepIndex] = {
-				type: 'pick',
-				subject: { id: stepId, commitId: firstGroup[0]! }
+				type: "pick",
+				subject: { id: stepId, commitId: firstGroup[0]! },
 			};
 		} else {
 			const firstGroupMessage = await getCommitMessage(firstGroup);
 			newSteps[stepIndex] = {
-				type: 'squash',
+				type: "squash",
 				subject: {
 					id: stepId,
 					commits: firstGroup,
-					message: firstGroupMessage
-				}
+					message: firstGroupMessage,
+				},
 			};
 		}
 		if (secondGroup.length === 1) {
 			const newPickStep = {
-				type: 'pick' as const,
+				type: "pick" as const,
 				subject: {
 					id: crypto.randomUUID(),
-					commitId: secondGroup[0]!
-				}
+					commitId: secondGroup[0]!,
+				},
 			};
 			newSteps.splice(stepIndex + 1, 0, newPickStep);
 		} else {
 			const secondGroupMessage = await getCommitMessage(secondGroup);
 			const newSquashStep = {
-				type: 'squash' as const,
+				type: "squash" as const,
 				subject: {
 					id: crypto.randomUUID(),
 					commits: secondGroup,
-					message: secondGroupMessage
-				}
+					message: secondGroupMessage,
+				},
 			};
 			newSteps.splice(stepIndex + 1, 0, newSquashStep);
 		}
@@ -217,13 +217,13 @@
 	}
 	async function handleIntegrate() {
 		if (stackId === undefined) {
-			throw new Error('Stack ID is undefined');
+			throw new Error("Stack ID is undefined");
 		}
 		await integrate({
 			projectId,
 			stackId,
 			branchName,
-			steps: editableSteps
+			steps: editableSteps,
 		});
 		closeModal();
 	}
@@ -265,15 +265,15 @@
 	commit: Commit | UpstreamCommit,
 	stepId: string,
 	commitId: string,
-	stepType: 'pick' | 'skip' | 'squash' | 'pickUpstream',
+	stepType: "pick" | "skip" | "squash" | "pickUpstream",
 	isLastInSquash: boolean = false,
 	isFirstInSquash: boolean = false,
-	squashCommits: string[] = []
+	squashCommits: string[] = [],
 )}
-	{@const isSkipStep = stepType === 'skip'}
-	{@const hideCommitDot = stepType === 'squash' && !isFirstInSquash}
-	{@const upstreamSha = stepType !== 'pickUpstream' ? extractUpstreamCommitId(commit) : undefined}
-	{@render commitLine(commit, hideCommitDot, stepType === 'pickUpstream')}
+	{@const isSkipStep = stepType === "skip"}
+	{@const hideCommitDot = stepType === "squash" && !isFirstInSquash}
+	{@const upstreamSha = stepType !== "pickUpstream" ? extractUpstreamCommitId(commit) : undefined}
+	{@render commitLine(commit, hideCommitDot, stepType === "pickUpstream")}
 	<div class="branch-integration__commit-content">
 		<SimpleCommitRow
 			author={commit.author.name}
@@ -283,17 +283,17 @@
 			{upstreamSha}
 			onCopy={() => {
 				clipboardService.write(commit.id, {
-					message: 'Commit SHA copied'
+					message: "Commit SHA copied",
 				});
 			}}
 			onCopyUpstream={() => {
-				clipboardService.write(upstreamSha ?? '', {
-					message: 'Upstream commit SHA copied'
+				clipboardService.write(upstreamSha ?? "", {
+					message: "Upstream commit SHA copied",
 				});
 			}}
 			onlyContent
 		/>
-		{#if stepType === 'squash' && !isFirstInSquash}
+		{#if stepType === "squash" && !isFirstInSquash}
 			<div class="branch-integration__split-off-button">
 				<Button
 					icon="cut"
@@ -309,7 +309,7 @@
 			</div>
 		{/if}
 		<div class="branch-integration__commit-actions">
-			{#if stepType === 'squash' && isLastInSquash}
+			{#if stepType === "squash" && isLastInSquash}
 				<Button
 					kind="outline"
 					size="tag"
@@ -322,7 +322,7 @@
 				</Button>
 				{@render shiftActions(stepId, isSkipStep)}
 			{/if}
-			{#if stepType === 'skip'}
+			{#if stepType === "skip"}
 				<Button
 					kind="outline"
 					size="tag"
@@ -335,7 +335,7 @@
 				</Button>
 				{@render commitActions(stepId, commitId, true)}
 				{@render shiftActions(stepId, true)}
-			{:else if stepType === 'pick'}
+			{:else if stepType === "pick"}
 				{#if upstreamSha}
 					<Button
 						kind="outline"
@@ -349,7 +349,7 @@
 				{/if}
 				{@render commitActions(stepId, commitId, false)}
 				{@render shiftActions(stepId, false)}
-			{:else if stepType === 'pickUpstream'}
+			{:else if stepType === "pickUpstream"}
 				<Button
 					kind="outline"
 					size="tag"
@@ -367,8 +367,8 @@
 {/snippet}
 
 {#snippet genericStep(step: InteractiveIntegrationStep)}
-	{@const isSquashStep = step.type === 'squash'}
-	{@const isIndividualStep = step.type === 'pick' || step.type === 'skip'}
+	{@const isSquashStep = step.type === "squash"}
+	{@const isIndividualStep = step.type === "pick" || step.type === "skip"}
 	{#if isSquashStep}
 		{@const commitsQuery = stackService.commitsByIds(projectId, stackId, step.subject.commits)}
 		<ReduxResult {projectId} result={commitsQuery.result}>
@@ -381,10 +381,10 @@
 							commit,
 							step.subject.id,
 							commit.id,
-							'squash',
+							"squash",
 							isLastCommit,
 							isFirstCommit,
-							step.subject.commits
+							step.subject.commits,
 						)}
 					</div>
 					{#if !isLastCommit}
@@ -397,7 +397,7 @@
 		{@const commitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
 		<ReduxResult {projectId} result={commitDetails.result}>
 			{#snippet children(commit)}
-				{@const isSkipStep = step.type === 'skip'}
+				{@const isSkipStep = step.type === "skip"}
 				<div class="branch-integration__commit" class:skipped={isSkipStep}>
 					{@render commitItemTemplate(
 						commit,
@@ -405,12 +405,12 @@
 						step.subject.commitId,
 						step.type,
 						false,
-						false
+						false,
 					)}
 				</div>
 			{/snippet}
 		</ReduxResult>
-	{:else if step.type === 'pickUpstream'}
+	{:else if step.type === "pickUpstream"}
 		{@const commitDetails = stackService.commitDetails(projectId, step.subject.upstreamCommitId)}
 		{@const localCommitDetails = stackService.commitById(projectId, stackId, step.subject.commitId)}
 		<ReduxResult {projectId} result={commitDetails.result}>
@@ -425,7 +425,7 @@
 								step.subject.commitId,
 								step.type,
 								false,
-								false
+								false,
 							)}
 						</div>
 					{/snippet}
@@ -439,7 +439,7 @@
 						step.subject.commitId,
 						step.type,
 						false,
-						false
+						false,
 					)}
 				</div>
 			{/snippet}
@@ -498,14 +498,14 @@
 {#snippet commitLine(
 	commit: Commit | UpstreamCommit,
 	hideCommitDot: boolean = true,
-	overrideIsRemote: boolean = false
+	overrideIsRemote: boolean = false,
 )}
 	{#if isCommit(commit) && !overrideIsRemote}
 		<CommitLine
 			commitStatus={commit.state.type}
 			dotOnTop
 			hideDot={hideCommitDot}
-			diverged={commit.state.type === 'LocalAndRemote' && commit.state.subject !== commit.id}
+			diverged={commit.state.type === "LocalAndRemote" && commit.state.subject !== commit.id}
 		/>
 	{:else}
 		<CommitLine hideDot={hideCommitDot} dotOnTop commitStatus="Remote" diverged={false} />

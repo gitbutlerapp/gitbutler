@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Toggle } from '@gitbutler/ui';
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Toggle } from "@gitbutler/ui";
 
 	const { projectId }: { projectId: string } = $props();
 	const projectsService = inject(PROJECTS_SERVICE);
@@ -27,7 +27,7 @@
 						onchange={async (value: boolean) => {
 							await projectsService.updateProject({
 								...project,
-								omit_certificate_check: value
+								omit_certificate_check: value,
 							});
 						}}
 					/>

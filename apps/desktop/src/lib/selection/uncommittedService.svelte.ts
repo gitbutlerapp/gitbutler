@@ -1,5 +1,5 @@
-import { sortLikeFileTree } from '$lib/files/filetreeV3';
-import { isSubmoduleStatus, type TreeChange } from '$lib/hunks/change';
+import { sortLikeFileTree } from "$lib/files/filetreeV3";
+import { isSubmoduleStatus, type TreeChange } from "$lib/hunks/change";
 import {
 	diffToHunkHeaders,
 	hunkHeaderEquals,
@@ -8,31 +8,31 @@ import {
 	type DiffHunk,
 	type DiffSpec,
 	type HunkAssignment,
-	type HunkHeader
-} from '$lib/hunks/hunk';
-import { compositeKey, partialKey, type HunkSelection } from '$lib/selection/entityAdapters';
+	type HunkHeader,
+} from "$lib/hunks/hunk";
+import { compositeKey, partialKey, type HunkSelection } from "$lib/selection/entityAdapters";
 import {
 	uncommittedSelectors,
 	uncommittedSlice,
 	type CheckboxStatus,
-	uncommittedActions
-} from '$lib/selection/uncommitted';
-import { InjectionToken } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import { type Reactive } from '@gitbutler/shared/storeUtils';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { type ThunkDispatch, type UnknownAction } from '@reduxjs/toolkit';
-import { persistReducer } from 'redux-persist';
-import storage from 'redux-persist/es/storage';
-import type { UnifiedDiff } from '$lib/hunks/diff';
-import type { ChangeDiff, DiffService } from '$lib/hunks/diffService.svelte';
-import type { ClientState } from '$lib/state/clientState.svelte';
-import type { WorktreeService } from '$lib/worktree/worktreeService.svelte';
-import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+	uncommittedActions,
+} from "$lib/selection/uncommitted";
+import { InjectionToken } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import { type Reactive } from "@gitbutler/shared/storeUtils";
+import { isDefined } from "@gitbutler/ui/utils/typeguards";
+import { type ThunkDispatch, type UnknownAction } from "@reduxjs/toolkit";
+import { persistReducer } from "redux-persist";
+import storage from "redux-persist/es/storage";
+import type { UnifiedDiff } from "$lib/hunks/diff";
+import type { ChangeDiff, DiffService } from "$lib/hunks/diffService.svelte";
+import type { ClientState } from "$lib/state/clientState.svelte";
+import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
+import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
-export const UNCOMMITTED_SERVICE = new InjectionToken<UncommittedService>('UncommittedService');
+export const UNCOMMITTED_SERVICE = new InjectionToken<UncommittedService>("UncommittedService");
 
-type PreprocessedHunkHeaderType = 'complete' | 'partial';
+type PreprocessedHunkHeaderType = "complete" | "partial";
 
 interface BasePreprocessedHunkHeader {
 	readonly type: PreprocessedHunkHeaderType;
@@ -40,12 +40,12 @@ interface BasePreprocessedHunkHeader {
 }
 
 interface CompletePreprocessedHunkHeader extends BasePreprocessedHunkHeader {
-	readonly type: 'complete';
+	readonly type: "complete";
 	readonly header: HunkHeader;
 }
 
 interface PartialPreprocessedHunkHeader extends BasePreprocessedHunkHeader {
-	readonly type: 'partial';
+	readonly type: "partial";
 	readonly selectedLines: LineId[];
 }
 
@@ -59,17 +59,17 @@ export class UncommittedService {
 	constructor(
 		clientState: ClientState,
 		private worktreeService: WorktreeService,
-		private diffService: DiffService
+		private diffService: DiffService,
 	) {
 		this.dispatch = clientState.dispatch;
 		const persistConfig = {
 			key: uncommittedSlice.reducerPath,
-			storage: storage
+			storage: storage,
 		};
 
 		clientState.inject(
 			uncommittedSlice.reducerPath,
-			persistReducer(persistConfig, uncommittedSlice.reducer)
+			persistReducer(persistConfig, uncommittedSlice.reducer),
 		);
 
 		$effect(() => {
@@ -91,20 +91,20 @@ export class UncommittedService {
 	async getUnifiedDiff(projectId: string, change: TreeChange): Promise<UnifiedDiff> {
 		const changeDiff = await this.diffService.fetchDiff(projectId, change);
 		if (!changeDiff) {
-			throw new Error('Failed to fetch diff');
+			throw new Error("Failed to fetch diff");
 		}
 		return changeDiff;
 	}
 
 	findHunkDiff(changeDiff: UnifiedDiff, hunk: HunkHeader): DiffHunk | undefined {
-		if (changeDiff?.type !== 'Patch') return undefined;
+		if (changeDiff?.type !== "Patch") return undefined;
 
 		const hunkDiff = changeDiff.subject.hunks.find(
 			(hunkDiff) =>
 				hunkDiff.oldStart === hunk.oldStart &&
 				hunkDiff.oldLines === hunk.oldLines &&
 				hunkDiff.newStart === hunk.newStart &&
-				hunkDiff.newLines === hunk.newLines
+				hunkDiff.newLines === hunk.newLines,
 		);
 		return hunkDiff;
 	}
@@ -113,7 +113,7 @@ export class UncommittedService {
 	 * Check whether the given hunks represent a completely selected file.
 	 */
 	isCompletelySelectedFile(changeDiff: UnifiedDiff, hunkHeaders: HunkHeader[]): boolean {
-		if (changeDiff?.type !== 'Patch') return false;
+		if (changeDiff?.type !== "Patch") return false;
 		const fileHunks = changeDiff.subject.hunks;
 
 		if (fileHunks.length !== hunkHeaders.length) {
@@ -126,7 +126,7 @@ export class UncommittedService {
 					hunkDiff.oldStart === hunkHeader.oldStart &&
 					hunkDiff.oldLines === hunkHeader.oldLines &&
 					hunkDiff.newStart === hunkHeader.newStart &&
-					hunkDiff.newLines === hunkHeader.newLines
+					hunkDiff.newLines === hunkHeader.newLines,
 			);
 
 			if (!matchingHunk) {
@@ -139,12 +139,12 @@ export class UncommittedService {
 
 	processHunkHeaders(
 		changeDiff: UnifiedDiff,
-		preprocessedHeaders: PreprocessedHunkHeader[]
+		preprocessedHeaders: PreprocessedHunkHeader[],
 	): HunkHeader[] {
 		const finalHunkHeaders: HunkHeader[] = [];
 
 		// Check if all hunks are completely selected.
-		if (preprocessedHeaders.every((h) => h.type === 'complete')) {
+		if (preprocessedHeaders.every((h) => h.type === "complete")) {
 			const hunkHeaders = preprocessedHeaders.map((h) => h.header);
 			const completelySelected = this.isCompletelySelectedFile(changeDiff, hunkHeaders);
 			if (completelySelected) {
@@ -156,18 +156,18 @@ export class UncommittedService {
 
 		for (const preprocessedHeader of preprocessedHeaders) {
 			switch (preprocessedHeader.type) {
-				case 'complete': {
+				case "complete": {
 					// Turn the complete hunk into a list of 0-anchored hunk headers.
-					const generatedHeaders = diffToHunkHeaders(preprocessedHeader.hunkDiff.diff, 'commit');
+					const generatedHeaders = diffToHunkHeaders(preprocessedHeader.hunkDiff.diff, "commit");
 					finalHunkHeaders.push(...generatedHeaders);
 					break;
 				}
-				case 'partial': {
+				case "partial": {
 					// Turn the selected lines into individual 0-anchored hunk headers.
 					const generatedHeaders = lineIdsToHunkHeaders(
 						preprocessedHeader.selectedLines,
 						preprocessedHeader.hunkDiff.diff,
-						'commit'
+						"commit",
 					);
 					finalHunkHeaders.push(...generatedHeaders);
 					break;
@@ -213,13 +213,13 @@ export class UncommittedService {
 			const change = uncommittedSelectors.treeChanges.selectById(state.treeChanges, path)!;
 
 			const status = change.status;
-			const previousPathBytes = status.type === 'Rename' ? status.subject.previousPathBytes : null;
+			const previousPathBytes = status.type === "Rename" ? status.subject.previousPathBytes : null;
 
 			if (selection.length === 0) {
 				worktreeChanges.push({
 					pathBytes: change.pathBytes,
 					previousPathBytes,
-					hunkHeaders: []
+					hunkHeaders: [],
 				});
 				continue;
 			}
@@ -229,7 +229,7 @@ export class UncommittedService {
 				worktreeChanges.push({
 					pathBytes: change.pathBytes,
 					previousPathBytes,
-					hunkHeaders: []
+					hunkHeaders: [],
 				});
 				continue;
 			}
@@ -239,21 +239,21 @@ export class UncommittedService {
 				// We want to use `null` to commit from unassigned changes if new stack was created.
 				const assignment = uncommittedSelectors.hunkAssignments.selectById(
 					state.hunkAssignments,
-					assignmentId
+					assignmentId,
 				)!;
 
 				if (assignment.hunkHeader !== null) {
 					const hunkDiff = this.findHunkDiff(changeDiff, assignment.hunkHeader);
 					if (!hunkDiff) {
-						throw new Error('Hunk not found while commiting');
+						throw new Error("Hunk not found while commiting");
 					}
 
 					if (lines.length === 0) {
 						// A complete hunk is selected.
 						preprocessedHeaders.push({
-							type: 'complete',
+							type: "complete",
 							header: assignment.hunkHeader,
-							hunkDiff
+							hunkDiff,
 						});
 						continue;
 					}
@@ -261,9 +261,9 @@ export class UncommittedService {
 					if (hunkDiff)
 						// Only some lines within the hunk are selected.
 						preprocessedHeaders.push({
-							type: 'partial',
+							type: "partial",
 							selectedLines: lines,
-							hunkDiff
+							hunkDiff,
 						});
 					continue;
 				}
@@ -272,7 +272,7 @@ export class UncommittedService {
 			worktreeChanges.push({
 				pathBytes: change.pathBytes,
 				previousPathBytes,
-				hunkHeaders: await this.processHunkHeaders(changeDiff, preprocessedHeaders)
+				hunkHeaders: await this.processHunkHeaders(changeDiff, preprocessedHeaders),
 			});
 		}
 
@@ -293,7 +293,7 @@ export class UncommittedService {
 		const key = partialKey(stackId ?? null);
 		const selection = uncommittedSelectors.hunkSelection.selectByPrefix(
 			this.state.hunkSelection,
-			key
+			key,
 		);
 
 		for (const item of selection) {
@@ -304,7 +304,7 @@ export class UncommittedService {
 			const nullKey = partialKey(null);
 			const nulls = uncommittedSelectors.hunkSelection.selectByPrefix(
 				this.state.hunkSelection,
-				nullKey
+				nullKey,
 			);
 			for (const item of nulls) {
 				pathSet.add(item.path);
@@ -313,7 +313,7 @@ export class UncommittedService {
 
 		const changes = uncommittedSelectors.treeChanges.selectByIds(
 			this.state.treeChanges,
-			Array.from(pathSet)
+			Array.from(pathSet),
 		);
 
 		return sortLikeFileTree(changes);
@@ -340,14 +340,14 @@ export class UncommittedService {
 				if (hunksAtPath.length === 0) return undefined;
 
 				// If the diff is not a patch, we can't/don't need to filter it.
-				if (diff.diff?.type !== 'Patch') return diff;
+				if (diff.diff?.type !== "Patch") return diff;
 
 				// Select the diff hunks that are also in the list of relevant hunks.
 				const filteredDiff = diff.diff.subject.hunks.filter((h) => {
 					return hunksAtPath.some((l) => {
 						const assignment = uncommittedSelectors.hunkAssignments.selectById(
 							this.state.hunkAssignments,
-							l.assignmentId
+							l.assignmentId,
 						);
 						if (!assignment?.hunkHeader) return false;
 
@@ -361,9 +361,9 @@ export class UncommittedService {
 						...diff.diff,
 						subject: {
 							...diff.diff.subject,
-							hunks: filteredDiff
-						}
-					}
+							hunks: filteredDiff,
+						},
+					},
 				};
 			})
 			.filter(isDefined);
@@ -378,7 +378,7 @@ export class UncommittedService {
 	selectedLines(stackId?: string) {
 		const globalLines = uncommittedSelectors.hunkSelection.selectByPrefix(
 			this.state.hunkSelection,
-			partialKey(null)
+			partialKey(null),
 		);
 		const result = $derived(
 			// TODO: Rewrite in some more intelligent way.
@@ -386,17 +386,17 @@ export class UncommittedService {
 				stackId
 					? uncommittedSelectors.hunkSelection.selectByPrefix(
 							this.state.hunkSelection,
-							partialKey(stackId)
+							partialKey(stackId),
 						)
-					: []
-			)
+					: [],
+			),
 		);
 		return reactive(() => result);
 	}
 
 	getChangesByStackId(stackId: string | null): TreeChange[] {
 		const stackIdChanges = sortLikeFileTree(
-			uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId)
+			uncommittedSelectors.treeChanges.selectByStackId(this.state, stackId),
 		);
 		return stackIdChanges;
 	}
@@ -409,7 +409,7 @@ export class UncommittedService {
 	getAssignmentsByPath(stackId: string | null, path: string): HunkAssignment[] {
 		return uncommittedSelectors.hunkAssignments.selectByPrefix(
 			this.state.hunkAssignments,
-			partialKey(stackId, path)
+			partialKey(stackId, path),
 		);
 	}
 
@@ -424,7 +424,7 @@ export class UncommittedService {
 	getAssignmentsByStackId(stackId: string): HunkAssignment[] {
 		return uncommittedSelectors.hunkAssignments.selectByPrefix(
 			this.state.hunkAssignments,
-			partialKey(stackId)
+			partialKey(stackId),
 		);
 	}
 
@@ -441,14 +441,14 @@ export class UncommittedService {
 		const assignments = $derived(
 			uncommittedSelectors.hunkAssignments.selectByPrefix(
 				this.state.hunkAssignments,
-				partialKey(stackId || null)
-			)
+				partialKey(stackId || null),
+			),
 		);
 		const unassigned = $derived(
 			uncommittedSelectors.hunkAssignments.selectByPrefix(
 				this.state.hunkAssignments,
-				partialKey(null)
-			)
+				partialKey(null),
+			),
 		);
 		return reactive(() => assignments.length + unassigned.length > 0);
 	}
@@ -456,13 +456,13 @@ export class UncommittedService {
 	getAssignmentByHeader(
 		stackId: string | null,
 		path: string,
-		hunkHeader: HunkHeader
+		hunkHeader: HunkHeader,
 	): Reactive<HunkAssignment | undefined> {
 		const assignments = $derived(
 			uncommittedSelectors.hunkAssignments.selectById(
 				this.state?.hunkAssignments,
-				compositeKey({ stackId, path, hunkHeader })
-			)
+				compositeKey({ stackId, path, hunkHeader }),
+			),
 		);
 		return reactive(() => assignments);
 	}
@@ -472,8 +472,8 @@ export class UncommittedService {
 			uncommittedSelectors.hunkSelection.hunkCheckStatus(this.state, {
 				stackId: stackId || null,
 				path,
-				hunkHeader: header
-			})
+				hunkHeader: header,
+			}),
 		);
 		return reactive(() => result);
 	}
@@ -482,8 +482,8 @@ export class UncommittedService {
 		const result = $derived(
 			uncommittedSelectors.hunkSelection.fileCheckStatus(this.state, {
 				stackId: stackId || null,
-				path
-			})
+				path,
+			}),
 		);
 		return reactive(() => result);
 	}
@@ -492,8 +492,8 @@ export class UncommittedService {
 		const result = $derived(
 			uncommittedSelectors.hunkSelection.folderCheckStatus(this.state, {
 				stackId: stackId || null,
-				path: prefix
-			})
+				path: prefix,
+			}),
 		);
 		return reactive(() => result);
 	}
@@ -501,8 +501,8 @@ export class UncommittedService {
 	stackCheckStatus(stackId: string | undefined): Reactive<CheckboxStatus> {
 		const result = $derived(
 			uncommittedSelectors.hunkSelection.stackCheckStatus(this.state, {
-				stackId: stackId || null
-			})
+				stackId: stackId || null,
+			}),
 		);
 		return reactive(() => result);
 	}
@@ -516,10 +516,10 @@ export class UncommittedService {
 		path: string,
 		header: HunkHeader,
 		line: LineId,
-		allLinesInHunk: LineId[]
+		allLinesInHunk: LineId[],
 	) {
 		this.dispatch(
-			uncommittedActions.uncheckLine({ stackId, path, hunkHeader: header, line, allLinesInHunk })
+			uncommittedActions.uncheckLine({ stackId, path, hunkHeader: header, line, allLinesInHunk }),
 		);
 	}
 

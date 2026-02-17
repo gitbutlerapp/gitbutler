@@ -16,10 +16,10 @@ A simple toast notification system for the GitButler UI package.
 
 ```svelte
 <script>
-	import { toasts, ToastContainer } from '@gitbutler/ui';
+	import { toasts, ToastContainer } from "@gitbutler/ui";
 
 	function showToast() {
-		toasts.success('Operation completed!');
+		toasts.success("Operation completed!");
 	}
 </script>
 
@@ -32,27 +32,27 @@ A simple toast notification system for the GitButler UI package.
 ### Toast Types
 
 ```javascript
-import { toasts } from '@gitbutler/ui';
+import { toasts } from "@gitbutler/ui";
 
 // Different toast types
-toasts.info('This is a info message');
-toasts.success('Operation completed successfully!');
-toasts.warning('Please review your changes');
-toasts.error('Something went wrong');
+toasts.info("This is a info message");
+toasts.success("Operation completed successfully!");
+toasts.warning("Please review your changes");
+toasts.error("Something went wrong");
 ```
 
 ### Promise Integration
 
 ```javascript
-import { toasts } from '@gitbutler/ui';
+import { toasts } from "@gitbutler/ui";
 
 async function handleAsyncOperation() {
-	const myPromise = fetch('/api/data');
+	const myPromise = fetch("/api/data");
 
 	await toasts.promise(myPromise, {
-		loading: 'Loading data...',
-		success: 'Data loaded successfully!',
-		error: 'Failed to load data'
+		loading: "Loading data...",
+		success: "Data loaded successfully!",
+		error: "Failed to load data",
 	});
 }
 ```

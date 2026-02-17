@@ -1,6 +1,6 @@
 export function throttle<T extends (...args: any[]) => any>(
 	fn: T,
-	wait: number
+	wait: number,
 ): (...args: Parameters<T>) => ReturnType<T> {
 	let inThrottle: boolean;
 	let lastResult: ReturnType<T>;

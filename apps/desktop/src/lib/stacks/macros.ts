@@ -1,14 +1,14 @@
-import { getStackName } from '$lib/stacks/stack';
-import { ensureValue } from '$lib/utils/validation';
-import type { DiffSpec } from '$lib/hunks/hunk';
+import { getStackName } from "$lib/stacks/stack";
+import { ensureValue } from "$lib/utils/validation";
+import type { DiffSpec } from "$lib/hunks/hunk";
 import type {
 	CreateCommitRequestWorktreeChanges,
 	RejectionReason,
-	StackService
-} from '$lib/stacks/stackService.svelte';
-import type { UiState } from '$lib/state/uiState.svelte';
+	StackService,
+} from "$lib/stacks/stackService.svelte";
+import type { UiState } from "$lib/state/uiState.svelte";
 
-const STUB_COMMIT_MESSAGE = 'New commit';
+const STUB_COMMIT_MESSAGE = "New commit";
 
 export type BranchChangesParams = {
 	branchName?: string;
@@ -20,7 +20,7 @@ export default class StackMacros {
 	constructor(
 		private readonly projectId: string,
 		private readonly stackService: StackService,
-		private readonly uiState: UiState
+		private readonly uiState: UiState,
 	) {}
 
 	/**
@@ -34,14 +34,14 @@ export default class StackMacros {
 		const { stack, outcome, branchName } = await this.createNewStackAndCommit(
 			params.worktreeChanges,
 			params.branchName,
-			params.commitMessage
+			params.commitMessage,
 		);
 		if (!stack.id) return;
 		if (outcome.newCommit) {
 			this.uiState.lane(stack.id).selection.set({
 				branchName,
 				commitId: outcome.newCommit,
-				previewOpen: true
+				previewOpen: true,
 			});
 		}
 	}
@@ -52,11 +52,11 @@ export default class StackMacros {
 	async createNewStackAndCommit(
 		worktreeChanges: CreateCommitRequestWorktreeChanges[] = [],
 		name?: string,
-		message?: string
+		message?: string,
 	) {
 		const stack = await this.stackService.newStackMutation({
 			projectId: this.projectId,
-			branch: { name }
+			branch: { name },
 		});
 		const branchName = getStackName(stack);
 		const outcome = await this.stackService.createCommitMutation({
@@ -65,7 +65,7 @@ export default class StackMacros {
 			stackBranchName: branchName,
 			parentId: undefined,
 			message: message ?? STUB_COMMIT_MESSAGE,
-			worktreeChanges
+			worktreeChanges,
 		});
 
 		if (outcome.pathsToRejectedChanges.length > 0) {
@@ -74,16 +74,16 @@ export default class StackMacros {
 					acc[path] = reason;
 					return acc;
 				},
-				{}
+				{},
 			);
 
 			this.uiState.global.modal.set({
-				type: 'commit-failed',
+				type: "commit-failed",
 				projectId: this.projectId,
 				targetBranchName: branchName,
 				newCommitId: outcome.newCommit ?? undefined,
 				commitTitle: message ?? STUB_COMMIT_MESSAGE,
-				pathsToRejectedChanges
+				pathsToRejectedChanges,
 			});
 		}
 		return { stack, outcome, branchName };
@@ -98,7 +98,7 @@ export default class StackMacros {
 		sourceStackId: string,
 		sourceCommitId: string,
 		branchName: string,
-		changes: DiffSpec[]
+		changes: DiffSpec[],
 	) {
 		const { replacedCommits } = await this.stackService.moveChangesBetweenCommits({
 			projectId: this.projectId,
@@ -106,13 +106,13 @@ export default class StackMacros {
 			destinationCommitId: destinationCommitId,
 			sourceStackId,
 			sourceCommitId,
-			changes
+			changes,
 		});
 
 		const newCommitId = replacedCommits.find(([before]) => before === destinationCommitId)?.[1];
 		if (!newCommitId) {
 			// This happened only if something went wrong
-			throw new Error('No new commit id found for the moved changes');
+			throw new Error("No new commit id found for the moved changes");
 		}
 
 		const previewOpen =
@@ -120,7 +120,7 @@ export default class StackMacros {
 		this.uiState.lane(destinationStackId).selection.set({
 			branchName,
 			commitId: newCommitId,
-			previewOpen
+			previewOpen,
 		});
 	}
 }

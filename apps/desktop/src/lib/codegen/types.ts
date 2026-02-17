@@ -1,22 +1,22 @@
-import type { Message, MessageParam, Usage } from '@anthropic-ai/sdk/resources/index.mjs';
+import type { Message, MessageParam, Usage } from "@anthropic-ai/sdk/resources/index.mjs";
 
 /**
  * Represents a file attachment with full content (used in API input).
  */
 export type PromptAttachment =
-	| { type: 'file'; path: string; commitId?: string }
-	| { type: 'lines'; path: string; start: number; end: number; commitId?: string }
-	| { type: 'commit'; commitId: string }
-	| { type: 'directory'; path: string }
-	| { type: 'folder'; path: string };
+	| { type: "file"; path: string; commitId?: string }
+	| { type: "lines"; path: string; start: number; end: number; commitId?: string }
+	| { type: "commit"; commitId: string }
+	| { type: "directory"; path: string }
+	| { type: "folder"; path: string };
 
 /**
  * Result of checking Claude Code availability
  */
 export type ClaudeCheckResult =
-	| { status: 'available'; version: string }
-	| { status: 'execution_failed'; stdout: string; stderr: string }
-	| { status: 'not_available' };
+	| { status: "available"; version: string }
+	| { status: "execution_failed"; stdout: string; stderr: string }
+	| { status: "not_available" };
 
 /**
  * Represents different types of events that can occur during Claude code interactions
@@ -24,7 +24,7 @@ export type ClaudeCheckResult =
 export type ClaudeCodeMessage =
 	/** An assistant message */
 	| {
-			type: 'assistant';
+			type: "assistant";
 			/** Message from Anthropic SDK */
 			message: Message;
 			session_id: string;
@@ -32,7 +32,7 @@ export type ClaudeCodeMessage =
 
 	/** A user message */
 	| {
-			type: 'user';
+			type: "user";
 			/** Message from Anthropic SDK */
 			message: MessageParam;
 			session_id: string;
@@ -40,8 +40,8 @@ export type ClaudeCodeMessage =
 
 	/** Emitted as the last message */
 	| {
-			type: 'result';
-			subtype: 'success';
+			type: "result";
+			subtype: "success";
 			duration_ms: number;
 			duration_api_ms: number;
 			is_error: boolean;
@@ -54,8 +54,8 @@ export type ClaudeCodeMessage =
 
 	/** Emitted as the last message, when we've reached the maximum number of turns */
 	| {
-			type: 'result';
-			subtype: 'error_max_turns' | 'error_during_execution';
+			type: "result";
+			subtype: "error_max_turns" | "error_during_execution";
 			duration_ms: number;
 			duration_api_ms: number;
 			is_error: boolean;
@@ -67,8 +67,8 @@ export type ClaudeCodeMessage =
 
 	/** Emitted as the first message at the start of a conversation */
 	| {
-			type: 'system';
-			subtype: 'init';
+			type: "system";
+			subtype: "init";
 			apiKeySource: string;
 			cwd: string;
 			session_id: string;
@@ -78,7 +78,7 @@ export type ClaudeCodeMessage =
 				status: string;
 			}[];
 			model: string;
-			permissionMode: 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan';
+			permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan";
 	  };
 
 /**
@@ -117,13 +117,13 @@ export type ClaudeMessage<T extends MessagePayload = MessagePayload> = {
  */
 export type MessagePayload =
 	/** Output from Claude Code CLI stdout stream */
-	| ({ source: 'claude' } & ClaudeOutput)
+	| ({ source: "claude" } & ClaudeOutput)
 	/** Input provided by the user */
-	| ({ source: 'user' } & UserInput)
+	| ({ source: "user" } & UserInput)
 	/** System message from GitButler about the session */
-	| ({ source: 'system' } & SystemMessage)
+	| ({ source: "system" } & SystemMessage)
 	/** Updates by GitButler */
-	| ({ source: 'gitButler' } & GitButlerUpdate);
+	| ({ source: "gitButler" } & GitButlerUpdate);
 
 /**
  * Raw output from Claude API
@@ -143,22 +143,22 @@ export type UserInput = {
  */
 export type SystemMessage =
 	| {
-			type: 'claudeExit';
+			type: "claudeExit";
 			code: number;
 			message: string;
 	  }
 	| {
-			type: 'userAbort';
+			type: "userAbort";
 	  }
 	| {
-			type: 'unhandledException';
+			type: "unhandledException";
 			message: string;
 	  }
 	| {
-			type: 'compactStart';
+			type: "compactStart";
 	  }
 	| {
-			type: 'compactFinished';
+			type: "compactFinished";
 			summary: string;
 	  };
 
@@ -166,7 +166,7 @@ export type SystemMessage =
  * System messages from GitButler about the Claude session state.
  */
 export type GitButlerUpdate = {
-	type: 'commitCreated';
+	type: "commitCreated";
 	stackId?: string;
 	branchName?: string;
 	commitIds: string[];
@@ -185,20 +185,20 @@ export function sessionMessage(sessionDetails: ClaudeSessionDetails): string | u
 	return sessionDetails.summary ?? sessionDetails.lastPrompt ?? undefined;
 }
 
-export type ClaudeStatus = 'disabled' | 'enabled' | 'running' | 'compacting';
+export type ClaudeStatus = "disabled" | "enabled" | "running" | "compacting";
 
 /**
  * Represents a permission decision with both the action (allow/deny) and scope.
  */
 export type PermissionDecision =
-	| 'allowOnce'
-	| 'allowSession'
-	| 'allowProject'
-	| 'allowAlways'
-	| 'denyOnce'
-	| 'denySession'
-	| 'denyProject'
-	| 'denyAlways';
+	| "allowOnce"
+	| "allowSession"
+	| "allowProject"
+	| "allowAlways"
+	| "denyOnce"
+	| "denySession"
+	| "denyProject"
+	| "denyAlways";
 
 export type ClaudePermissionRequest = {
 	/** Maps to the tool_use_id from the MCP request */
@@ -238,15 +238,15 @@ export type AskUserQuestion = {
 };
 
 export type ClaudeTodo = {
-	status: 'pending' | 'in_progress' | 'completed';
+	status: "pending" | "in_progress" | "completed";
 	content: string;
 };
 
-export type ThinkingLevel = 'normal' | 'think' | 'megaThink' | 'ultraThink';
+export type ThinkingLevel = "normal" | "think" | "megaThink" | "ultraThink";
 
-export type ModelType = 'haiku' | 'sonnet' | 'sonnet[1m]' | 'opus' | 'opusplan';
+export type ModelType = "haiku" | "sonnet" | "sonnet[1m]" | "opus" | "opusplan";
 
-export type PermissionMode = 'default' | 'plan' | 'acceptEdits';
+export type PermissionMode = "default" | "plan" | "acceptEdits";
 
 export type PromptTemplate = {
 	fileName: string;

@@ -1,28 +1,28 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import BranchCommitsTable from '$lib/components/changes/BranchCommitsTable.svelte';
-	import PrivateProjectError from '$lib/components/errors/PrivateProjectError.svelte';
-	import Factoid from '$lib/components/infoFlexRow/Factoid.svelte';
-	import InfoFlexRow from '$lib/components/infoFlexRow/InfoFlexRow.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { updateFavIcon } from '$lib/utils/faviconUtils';
-	import { inject } from '@gitbutler/core/context';
-	import BranchStatusBadge from '@gitbutler/shared/branches/BranchStatusBadge.svelte';
-	import Minimap from '@gitbutler/shared/branches/Minimap.svelte';
-	import { BRANCH_SERVICE } from '@gitbutler/shared/branches/branchService';
-	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
-	import { lookupLatestBranchUuid } from '@gitbutler/shared/branches/latestBranchLookup.svelte';
-	import { LATEST_BRANCH_LOOKUP_SERVICE } from '@gitbutler/shared/branches/latestBranchLookupService';
-	import { BranchStatus, type Branch } from '@gitbutler/shared/branches/types';
-	import { getContributorsWithAvatars } from '@gitbutler/shared/contributors';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound, and, isError, map } from '@gitbutler/shared/network/loadable';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
+	import { goto } from "$app/navigation";
+	import BranchCommitsTable from "$lib/components/changes/BranchCommitsTable.svelte";
+	import PrivateProjectError from "$lib/components/errors/PrivateProjectError.svelte";
+	import Factoid from "$lib/components/infoFlexRow/Factoid.svelte";
+	import InfoFlexRow from "$lib/components/infoFlexRow/InfoFlexRow.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { updateFavIcon } from "$lib/utils/faviconUtils";
+	import { inject } from "@gitbutler/core/context";
+	import BranchStatusBadge from "@gitbutler/shared/branches/BranchStatusBadge.svelte";
+	import Minimap from "@gitbutler/shared/branches/Minimap.svelte";
+	import { BRANCH_SERVICE } from "@gitbutler/shared/branches/branchService";
+	import { getBranchReview } from "@gitbutler/shared/branches/branchesPreview.svelte";
+	import { lookupLatestBranchUuid } from "@gitbutler/shared/branches/latestBranchLookup.svelte";
+	import { LATEST_BRANCH_LOOKUP_SERVICE } from "@gitbutler/shared/branches/latestBranchLookupService";
+	import { BranchStatus, type Branch } from "@gitbutler/shared/branches/types";
+	import { getContributorsWithAvatars } from "@gitbutler/shared/contributors";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { isFound, and, isError, map } from "@gitbutler/shared/network/loadable";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
 	import {
 		WEB_ROUTES_SERVICE,
-		type ProjectReviewParameters
-	} from '@gitbutler/shared/routing/webRoutes.svelte';
-	import { UPLOADS_SERVICE } from '@gitbutler/shared/uploads/uploadsService';
+		type ProjectReviewParameters,
+	} from "@gitbutler/shared/routing/webRoutes.svelte";
+	import { UPLOADS_SERVICE } from "@gitbutler/shared/uploads/uploadsService";
 
 	import {
 		AsyncButton,
@@ -32,16 +32,16 @@
 		Markdown,
 		RichTextEditor,
 		Textarea,
-		chipToasts
-	} from '@gitbutler/ui';
+		chipToasts,
+	} from "@gitbutler/ui";
 	import FileUploadPlugin, {
-		type DropFileResult
-	} from '@gitbutler/ui/richText/plugins/FileUpload.svelte';
-	import { copyToClipboard } from '@gitbutler/ui/utils/clipboard';
-	import dayjs from 'dayjs';
-	import relativeTime from 'dayjs/plugin/relativeTime';
+		type DropFileResult,
+	} from "@gitbutler/ui/richText/plugins/FileUpload.svelte";
+	import { copyToClipboard } from "@gitbutler/ui/utils/clipboard";
+	import dayjs from "dayjs";
+	import relativeTime from "dayjs/plugin/relativeTime";
 
-	const ACCEPTED_FILE_TYPES = ['image/*', 'application/*', 'text/*', 'audio/*', 'video/*'];
+	const ACCEPTED_FILE_TYPES = ["image/*", "application/*", "text/*", "audio/*", "video/*"];
 
 	dayjs.extend(relativeTime);
 
@@ -65,46 +65,46 @@
 			latestBranchLookupService,
 			data.ownerSlug,
 			data.projectSlug,
-			data.branchId
-		)
+			data.branchId,
+		),
 	);
 
 	const branch = $derived(
 		map(branchUuid?.current, (branchUuid) => {
 			return getBranchReview(branchUuid);
-		})
+		}),
 	);
 
 	const isBranchAuthor = $derived(
 		map(branch?.current, (branch) => {
 			return branch.contributors.some(
-				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id
+				(contributor) => contributor.user?.id !== undefined && contributor.user?.id === $user?.id,
 			);
-		})
+		}),
 	);
 
 	const contributors = $derived(
 		isFound(branch?.current)
 			? getContributorsWithAvatars(branch.current.value)
-			: Promise.resolve([])
+			: Promise.resolve([]),
 	);
 
 	// Check if there's a 403 error in either branchUuid or branch
 	function isForbiddenError(data: any) {
 		if (!isError(data)) return false;
 
-		const errorMessage = data.error.message || '';
+		const errorMessage = data.error.message || "";
 		return (
-			(data.error.name === 'ApiError' && errorMessage.includes('403')) ||
-			errorMessage.includes('Forbidden') ||
-			errorMessage.includes('Access denied') ||
-			(typeof errorMessage === 'string' && errorMessage.includes('403'))
+			(data.error.name === "ApiError" && errorMessage.includes("403")) ||
+			errorMessage.includes("Forbidden") ||
+			errorMessage.includes("Access denied") ||
+			(typeof errorMessage === "string" && errorMessage.includes("403"))
 		);
 	}
 
 	// Check if there's a 403 error
 	const hasForbiddenError = $derived(
-		isForbiddenError(branchUuid?.current) || isForbiddenError(branch?.current)
+		isForbiddenError(branchUuid?.current) || isForbiddenError(branch?.current),
 	);
 
 	// Check for any error in the combined loadable
@@ -115,24 +115,24 @@
 		if ((branch.patchCommitIds?.length || 0) === 0) return;
 
 		goto(
-			routes.projectReviewBranchCommitPath({ ...data, changeId: branch.patchCommitIds.at(-1)! })
+			routes.projectReviewBranchCommitPath({ ...data, changeId: branch.patchCommitIds.at(-1)! }),
 		);
 	}
 
 	let editingSummary = $state(false);
-	let summary = $state('');
-	let title = $state('');
+	let summary = $state("");
+	let title = $state("");
 
 	function editSummary() {
 		if (!isFound(branch?.current)) return;
 		// Make sure we're not dealing with a reference to the original
-		summary = structuredClone(branch.current.value.description || '');
-		title = structuredClone(branch.current.value.title || '');
+		summary = structuredClone(branch.current.value.description || "");
+		title = structuredClone(branch.current.value.title || "");
 		editingSummary = true;
 	}
 
 	function abortEditingSummary() {
-		if (!confirm('Canceling will lose any changes made')) {
+		if (!confirm("Canceling will lose any changes made")) {
 			return;
 		}
 
@@ -145,9 +145,9 @@
 		try {
 			await branchService.updateBranch(branch.current.value.uuid, {
 				title: title,
-				description: summary
+				description: summary,
 			});
-			chipToasts.success('Updated review status');
+			chipToasts.success("Updated review status");
 		} finally {
 			editingSummary = false;
 		}
@@ -157,9 +157,9 @@
 		if (!isFound(branch?.current)) return;
 
 		await branchService.updateBranch(branch.current.value.uuid, {
-			status
+			status,
 		});
-		chipToasts.success('Saved review summary');
+		chipToasts.success("Saved review summary");
 	}
 
 	function copyLocation() {
@@ -167,7 +167,7 @@
 	}
 
 	function isAcceptedFileType(file: File): boolean {
-		const type = file.type.split('/')[0];
+		const type = file.type.split("/")[0];
 		return ACCEPTED_FILE_TYPES.some((acceptedType) => acceptedType.startsWith(type));
 	}
 
@@ -180,7 +180,7 @@
 				return { name: file.name, url: upload.url, isImage: upload.isImage };
 			});
 		const settled = await Promise.allSettled(uploads);
-		const successful = settled.filter((result) => result.status === 'fulfilled');
+		const successful = settled.filter((result) => result.status === "fulfilled");
 		return successful.map((result) => result.value);
 	}
 
@@ -262,7 +262,7 @@
 						</Factoid>
 						{#if branch.forgeUrl}
 							<Factoid label="PR"
-								><Link href={branch.forgeUrl}>{branch.forgeDescription || '#unknown'}</Link
+								><Link href={branch.forgeUrl}>{branch.forgeDescription || "#unknown"}</Link
 								></Factoid
 							>
 						{/if}

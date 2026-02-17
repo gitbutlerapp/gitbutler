@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import iconsJson from '@gitbutler/ui/data/icons.json';
+	import iconsJson from "@gitbutler/ui/data/icons.json";
 	// This module script is necessary to make Svelte recognize the generics in the component
 	export type Page = {
 		id: string;
@@ -11,12 +11,12 @@
 </script>
 
 <script lang="ts" generics="T extends Page">
-	import ConfigurableScrollableContainer from '$components/ConfigurableScrollableContainer.svelte';
-	import { Icon } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { type Snippet } from 'svelte';
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import { Icon } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { type Snippet } from "svelte";
 
-	type PageId = T['id'];
+	type PageId = T["id"];
 
 	type Props = {
 		title: string;
@@ -30,7 +30,7 @@
 
 	const { title, pages, selectedId, isAdmin, onSelectPage, content, footer }: Props = $props();
 
-	let currentSelectedId = $derived(selectedId || pages[0]?.id || '');
+	let currentSelectedId = $derived(selectedId || pages[0]?.id || "");
 	const currentPage = $derived(pages.find((p) => p.id === currentSelectedId));
 	let scrollableContainer: ConfigurableScrollableContainer;
 
@@ -147,7 +147,7 @@
 			transform: translateY(-50%) translateX(-100%);
 			border-radius: 0 var(--radius-m) var(--radius-m) 0;
 			background-color: var(--clr-selected-in-focus-element);
-			content: '';
+			content: "";
 			transition:
 				background-color var(--transition-fast),
 				transform var(--transition-medium);

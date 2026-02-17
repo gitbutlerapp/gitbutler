@@ -1,35 +1,35 @@
 <script lang="ts">
-	import HunkContextMenu from '$components/HunkContextMenu.svelte';
-	import ImageDiff from '$components/ImageDiff.svelte';
-	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
-	import LineLocksWarning from '$components/LineLocksWarning.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import binarySvg from '$lib/assets/empty-state/binary.svg?raw';
-	import emptyFileSvg from '$lib/assets/empty-state/empty-file.svg?raw';
-	import tooLargeSvg from '$lib/assets/empty-state/too-large.svg?raw';
-	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
-	import { draggableChips } from '$lib/dragging/draggable';
-	import { HunkDropDataV3 } from '$lib/dragging/draggables';
-	import { DROPZONE_REGISTRY } from '$lib/dragging/registry';
+	import HunkContextMenu from "$components/HunkContextMenu.svelte";
+	import ImageDiff from "$components/ImageDiff.svelte";
+	import LargeDiffMessage from "$components/LargeDiffMessage.svelte";
+	import LineLocksWarning from "$components/LineLocksWarning.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import binarySvg from "$lib/assets/empty-state/binary.svg?raw";
+	import emptyFileSvg from "$lib/assets/empty-state/empty-file.svg?raw";
+	import tooLargeSvg from "$lib/assets/empty-state/too-large.svg?raw";
+	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
+	import { draggableChips } from "$lib/dragging/draggable";
+	import { HunkDropDataV3 } from "$lib/dragging/draggables";
+	import { DROPZONE_REGISTRY } from "$lib/dragging/registry";
 	import {
 		canBePartiallySelected,
 		getLineLocks,
 		hunkHeaderEquals,
-		type DiffHunk
-	} from '$lib/hunks/hunk';
-	import { type SelectionId } from '$lib/selection/key';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { isImageFile } from '@gitbutler/shared/utils/file';
-	import { EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from '@gitbutler/ui';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { parseHunk } from '@gitbutler/ui/utils/diffParsing';
-	import type { FileDependencies } from '$lib/dependencies/dependencies';
-	import type { TreeChange } from '$lib/hunks/change';
-	import type { UnifiedDiff } from '$lib/hunks/diff';
-	import type { LineId } from '@gitbutler/ui/utils/diffParsing';
+		type DiffHunk,
+	} from "$lib/hunks/hunk";
+	import { type SelectionId } from "$lib/selection/key";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { isImageFile } from "@gitbutler/shared/utils/file";
+	import { EmptyStatePlaceholder, generateHunkId, HunkDiff, TestId } from "@gitbutler/ui";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { parseHunk } from "@gitbutler/ui/utils/diffParsing";
+	import type { FileDependencies } from "$lib/dependencies/dependencies";
+	import type { TreeChange } from "$lib/hunks/change";
+	import type { UnifiedDiff } from "$lib/hunks/diff";
+	import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
 	const LARGE_DIFF_THRESHOLD = 1000;
 
@@ -54,7 +54,7 @@
 		stackId,
 		commitId,
 		draggable,
-		topPadding
+		topPadding,
 	}: Props = $props();
 
 	const uiState = inject(UI_STATE);
@@ -69,18 +69,18 @@
 	const exclusiveAction = $derived(projectState.exclusiveAction.current);
 
 	const isCommitting = $derived(
-		exclusiveAction?.type === 'commit' && selectionId.type === 'worktree'
+		exclusiveAction?.type === "commit" && selectionId.type === "worktree",
 	);
 
-	const isUncommittedChange = $derived(selectionId.type === 'worktree');
+	const isUncommittedChange = $derived(selectionId.type === "worktree");
 
 	const uncommittedService = inject(UNCOMMITTED_SERVICE);
 	const dependencyService = inject(DEPENDENCY_SERVICE);
 
 	const fileDependenciesQuery = $derived(
-		selectionId.type === 'worktree'
+		selectionId.type === "worktree"
 			? dependencyService.fileDependencies(projectId, change.path)
-			: undefined
+			: undefined,
 	);
 
 	const userSettings = inject(SETTINGS);
@@ -88,13 +88,13 @@
 	const assignments = $derived(uncommittedService.assignmentsByPath(stackId || null, change.path));
 
 	function filter(hunks: DiffHunk[]): DiffHunk[] {
-		if (selectionId.type !== 'worktree') return hunks;
+		if (selectionId.type !== "worktree") return hunks;
 		// TODO: It does concern me that this is an N+1;
 		// We could have an encoding for hunk-headers that we can then put into
 		// a hash set.
 		const filtered = hunks.filter((hunk) => {
 			return assignments.current.some((assignment) =>
-				assignment?.hunkHeader === null ? true : hunkHeaderEquals(hunk, assignment.hunkHeader)
+				assignment?.hunkHeader === null ? true : hunkHeaderEquals(hunk, assignment.hunkHeader),
 			);
 		});
 		return filtered;
@@ -104,7 +104,7 @@
 		newStart: number | undefined,
 		oldStart: number | undefined,
 		selected: boolean,
-		lines: LineId[]
+		lines: LineId[],
 	) {
 		if (!selected) return false;
 		return (
@@ -128,7 +128,7 @@
 			.filter((line) => line.beforeLineNumber !== undefined || line.afterLineNumber !== undefined)
 			.map((line) => ({
 				newLine: line.afterLineNumber,
-				oldLine: line.beforeLineNumber
+				oldLine: line.beforeLineNumber,
 			}));
 
 		const selection = uncommittedService.hunkCheckStatus(stackId, change.path, hunk);
@@ -147,8 +147,8 @@
 				(line) =>
 					!currentSelectedLines.some(
 						(selectedLine) =>
-							selectedLine.newLine === line.newLine && selectedLine.oldLine === line.oldLine
-					)
+							selectedLine.newLine === line.newLine && selectedLine.oldLine === line.oldLine,
+					),
 			);
 
 			// First unselect all lines
@@ -183,7 +183,7 @@
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
-		{:else if diff.type === 'Patch'}
+		{:else if diff.type === "Patch"}
 			{@const linesModified = diff.subject.linesAdded + diff.subject.linesRemoved}
 			{#if linesModified > LARGE_DIFF_THRESHOLD && !showAnyways}
 				<LargeDiffMessage
@@ -199,19 +199,19 @@
 					<div
 						class="hunk-content"
 						use:draggableChips={{
-							label: hunk.diff.split('\n')[0],
+							label: hunk.diff.split("\n")[0],
 							data: new HunkDropDataV3(
 								change,
 								hunk,
 								isUncommittedChange,
 								stackId || null,
 								commitId,
-								selectionId
+								selectionId,
 							),
 							disabled: !draggable,
-							chipType: 'hunk',
+							chipType: "hunk",
 							dropzoneRegistry,
-							dragStateService
+							dragStateService,
 						}}
 					>
 						<HunkDiff
@@ -240,12 +240,12 @@
 										p.newLine,
 										p.oldLine,
 										selection.current.selected,
-										selection.current.lines
+										selection.current.lines,
 									)
 								) {
 									uncommittedService.checkLine(stackId || null, change.path, hunk, {
 										newLine: p.newLine,
-										oldLine: p.oldLine
+										oldLine: p.oldLine,
 									});
 								} else {
 									const allLines =
@@ -253,7 +253,7 @@
 											?.filter((l) => l.isDeltaLine)
 											.map((l) => ({
 												newLine: l.afterLineNumber,
-												oldLine: l.beforeLineNumber
+												oldLine: l.beforeLineNumber,
 											})) ?? [];
 									uncommittedService.uncheckLine(
 										stackId || null,
@@ -261,9 +261,9 @@
 										hunk,
 										{
 											newLine: p.newLine,
-											oldLine: p.oldLine
+											oldLine: p.oldLine,
 										},
-										allLines
+										allLines,
 									);
 								}
 							}}
@@ -280,7 +280,7 @@
 									hunk,
 									selectedLines: selection.current.lines,
 									beforeLineNumber: params.beforeLineNumber,
-									afterLineNumber: params.afterLineNumber
+									afterLineNumber: params.afterLineNumber,
 								});
 							}}
 						>
@@ -312,7 +312,7 @@
 				{unselectAllHunkLines}
 				{invertHunkSelection}
 			/>
-		{:else if diff.type === 'TooLarge'}
+		{:else if diff.type === "TooLarge"}
 			<div class="hunk-placehoder">
 				<EmptyStatePlaceholder image={tooLargeSvg} gap={12} topBottomPadding={34}>
 					{#snippet caption()}
@@ -320,7 +320,7 @@
 					{/snippet}
 				</EmptyStatePlaceholder>
 			</div>
-		{:else if diff.type === 'Binary'}
+		{:else if diff.type === "Binary"}
 			{#if isImageFile(change.path)}
 				<ImageDiff {projectId} {change} {commitId} />
 			{:else}

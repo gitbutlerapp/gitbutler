@@ -1,10 +1,10 @@
-import { FileChangeDropData, FolderChangeDropData, HunkDropDataV3 } from '$lib/dragging/draggables';
-import { updateStackPrs } from '$lib/forge/shared/prFooter';
-import type { DropzoneHandler } from '$lib/dragging/handler';
-import type { ForgePrService } from '$lib/forge/interface/forgePrService';
-import type { UncommittedService } from '$lib/selection/uncommittedService.svelte';
-import type { StackService } from '$lib/stacks/stackService.svelte';
-import type { UiState } from '$lib/state/uiState.svelte';
+import { FileChangeDropData, FolderChangeDropData, HunkDropDataV3 } from "$lib/dragging/draggables";
+import { updateStackPrs } from "$lib/forge/shared/prFooter";
+import type { DropzoneHandler } from "$lib/dragging/handler";
+import type { ForgePrService } from "$lib/forge/interface/forgePrService";
+import type { UncommittedService } from "$lib/selection/uncommittedService.svelte";
+import type { StackService } from "$lib/stacks/stackService.svelte";
+import type { UiState } from "$lib/state/uiState.svelte";
 
 export class BranchDropData {
 	constructor(
@@ -14,7 +14,7 @@ export class BranchDropData {
 		readonly numberOfBranchesInStack: number,
 		readonly numberOfCommits: number,
 		readonly prNumber: number | undefined,
-		readonly allOtherPrNumbersInStack: number[]
+		readonly allOtherPrNumbersInStack: number[],
 	) {}
 
 	print(): string {
@@ -29,7 +29,7 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 		private readonly projectId: string,
 		private readonly stackId: string,
 		private readonly branchName: string,
-		private readonly baseBranchName: string | undefined
+		private readonly baseBranchName: string | undefined,
 	) {}
 
 	print(): string {
@@ -50,7 +50,7 @@ export class MoveBranchDzHandler implements DropzoneHandler {
 			sourceStackId: data.stackId,
 			subjectBranchName: data.branchName,
 			targetBranchName: this.branchName,
-			targetStackId: this.stackId
+			targetStackId: this.stackId,
 		});
 
 		if (!this.prService) return;
@@ -72,7 +72,7 @@ export class StartCommitDzHandler implements DropzoneHandler {
 		private readonly uncommittedService: UncommittedService,
 		private readonly projectId: string,
 		private readonly stackId: string | undefined,
-		private readonly branchName: string
+		private readonly branchName: string,
 	) {}
 
 	print(): string {
@@ -90,7 +90,7 @@ export class StartCommitDzHandler implements DropzoneHandler {
 		if (data instanceof HunkDropDataV3) {
 			// Only accept uncommitted hunks
 			if (!data.uncommitted) return false;
-			if (data.selectionId.type !== 'worktree') return false;
+			if (data.selectionId.type !== "worktree") return false;
 			// Only accept unassigned hunks or those assigned to the same stack
 			if (data.stackId !== undefined && data.stackId !== this.stackId) return false;
 			return true;
@@ -101,14 +101,14 @@ export class StartCommitDzHandler implements DropzoneHandler {
 	private startCommitting() {
 		const projectState = this.uiState.project(this.projectId);
 		projectState.exclusiveAction.set({
-			type: 'commit',
+			type: "commit",
 			stackId: this.stackId,
-			branchName: this.branchName
+			branchName: this.branchName,
 		});
 	}
 
 	private async checkDropData(
-		data: FileChangeDropData | FolderChangeDropData | HunkDropDataV3
+		data: FileChangeDropData | FolderChangeDropData | HunkDropDataV3,
 	): Promise<true> {
 		if (data instanceof FileChangeDropData || data instanceof FolderChangeDropData) {
 			const changes = await data.treeChanges();

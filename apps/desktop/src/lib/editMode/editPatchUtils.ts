@@ -1,4 +1,4 @@
-import type { ModeService } from '$lib/mode/modeService';
+import type { ModeService } from "$lib/mode/modeService";
 
 export interface EditPatchParams {
 	modeService: ModeService | undefined;
@@ -13,12 +13,12 @@ export interface EditPatchParams {
  */
 export async function editPatch(params: EditPatchParams): Promise<void> {
 	if (!params.modeService) {
-		console.warn('Mode service not available for edit patch operation');
+		console.warn("Mode service not available for edit patch operation");
 		return;
 	}
 
 	if (!params.commitId || !params.stackId || !params.projectId) {
-		console.warn('Missing required parameters for edit patch operation', params);
+		console.warn("Missing required parameters for edit patch operation", params);
 		return;
 	}
 
@@ -26,10 +26,10 @@ export async function editPatch(params: EditPatchParams): Promise<void> {
 		await params.modeService.enterEditMode({
 			commitId: params.commitId,
 			stackId: params.stackId,
-			projectId: params.projectId
+			projectId: params.projectId,
 		});
 	} catch (error) {
-		console.error('Failed to enter edit mode:', error);
+		console.error("Failed to enter edit mode:", error);
 		throw error;
 	}
 }

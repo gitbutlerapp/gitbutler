@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
-	import { Scrollbar } from '@gitbutler/ui';
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
+	import { Scrollbar } from "@gitbutler/ui";
 
 	interface Props {
 		viewport: HTMLDivElement;
@@ -18,12 +18,12 @@
 	const {
 		viewport,
 		initiallyVisible = false,
-		thickness = '0.563rem',
-		shift = '0',
+		thickness = "0.563rem",
+		shift = "0",
 		horz = false,
-		zIndex = 'var(--z-lifted)',
+		zIndex = "var(--z-lifted)",
 		onthumbdrag,
-		onscroll
+		onscroll,
 	}: Props = $props();
 
 	const userSettings = inject(SETTINGS);

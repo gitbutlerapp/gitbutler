@@ -1,13 +1,13 @@
 <script lang="ts">
-	import GitlabUserLoginState from '$components/GitlabUserLoginState.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { OnboardingEvent, POSTHOG_WRAPPER } from '$lib/analytics/posthog';
-	import gitlabLogoSvg from '$lib/assets/unsized-logos/gitlab.svg?raw';
-	import { GITLAB_USER_SERVICE } from '$lib/forge/gitlab/gitlabUserService.svelte';
-	import { inject } from '@gitbutler/core/context';
+	import GitlabUserLoginState from "$components/GitlabUserLoginState.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { OnboardingEvent, POSTHOG_WRAPPER } from "$lib/analytics/posthog";
+	import gitlabLogoSvg from "$lib/assets/unsized-logos/gitlab.svg?raw";
+	import { GITLAB_USER_SERVICE } from "$lib/forge/gitlab/gitlabUserService.svelte";
+	import { inject } from "@gitbutler/core/context";
 
-	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from '@gitbutler/ui';
-	import { fade } from 'svelte/transition';
+	import { AddForgeAccountButton, Button, CardGroup, Link, Textbox } from "@gitbutler/ui";
+	import { fade } from "svelte/transition";
 
 	const gitlabUserService = inject(GITLAB_USER_SERVICE);
 	const posthog = inject(POSTHOG_WRAPPER);
@@ -17,7 +17,7 @@
 	const [storeSelfHostedPat, storeSelfHostedPatResult] = gitlabUserService.storeGitLabEnterprisePat;
 	const accounts = gitlabUserService.accounts();
 
-	let showingFlow = $state<'pat' | 'selfHosted'>();
+	let showingFlow = $state<"pat" | "selfHosted">();
 
 	// PAT flow state
 	let patInput = $state<string>();
@@ -49,7 +49,7 @@
 	}
 
 	function startPatFlow() {
-		showingFlow = 'pat';
+		showingFlow = "pat";
 	}
 
 	async function storePersonalAccessToken() {
@@ -60,14 +60,14 @@
 			posthog.captureOnboarding(OnboardingEvent.GitLabStorePat);
 			cleanupPatFlow();
 		} catch (err: any) {
-			console.error('Failed to store GitLab PAT:', err);
-			patError = 'Invalid token or network error';
+			console.error("Failed to store GitLab PAT:", err);
+			patError = "Invalid token or network error";
 			posthog.captureOnboarding(OnboardingEvent.GitLabStorePatFailed);
 		}
 	}
 
 	function startSelfHostedFlow() {
-		showingFlow = 'selfHosted';
+		showingFlow = "selfHosted";
 	}
 
 	async function storeSelfHostedToken() {
@@ -79,8 +79,8 @@
 			posthog.captureOnboarding(OnboardingEvent.GitLabStoreSelfHostedPat);
 			cleanupSelfHostedFlow();
 		} catch (err: any) {
-			console.error('Failed to store self-hosted GitLab PAT:', err);
-			selfHostedPatError = 'Invalid token or host';
+			console.error("Failed to store self-hosted GitLab PAT:", err);
+			selfHostedPatError = "Invalid token or host";
 			posthog.captureOnboarding(OnboardingEvent.GitLabStoreSelfHostedPatFailed);
 		}
 	}
@@ -110,7 +110,7 @@
 					<GitlabUserLoginState {account} />
 				{/each}
 
-				<CardGroup.Item background={accounts.length > 0 ? 'var(--clr-bg-2)' : undefined}>
+				<CardGroup.Item background={accounts.length > 0 ? "var(--clr-bg-2)" : undefined}>
 					{#snippet iconSide()}
 						<div class="icon-wrapper__logo">
 							{@html gitlabLogoSvg}
@@ -134,7 +134,7 @@
 	</CardGroup>
 
 	<!-- PAT FLOW -->
-	{#if showingFlow === 'pat'}
+	{#if showingFlow === "pat"}
 		<div in:fade={{ duration: 100 }}>
 			<CardGroup>
 				<CardGroup.Item>
@@ -166,7 +166,7 @@
 				</CardGroup.Item>
 			</CardGroup>
 		</div>
-	{:else if showingFlow === 'selfHosted'}
+	{:else if showingFlow === "selfHosted"}
 		<div in:fade={{ duration: 100 }}>
 			<CardGroup>
 				<CardGroup.Item>
@@ -228,12 +228,12 @@
 		disabled={showingFlow !== undefined}
 		loading={storePatResult.current.isLoading || storeSelfHostedPatResult.current.isLoading}
 		menuItems={[
-			{ label: 'Add Personal Access Token', icon: 'token-lock', onclick: startPatFlow },
+			{ label: "Add Personal Access Token", icon: "token-lock", onclick: startPatFlow },
 			{
-				label: 'Add Self-Hosted GitLab Account',
-				icon: 'enterprise',
-				onclick: startSelfHostedFlow
-			}
+				label: "Add Self-Hosted GitLab Account",
+				icon: "enterprise",
+				onclick: startSelfHostedFlow,
+			},
 		]}
 	/>
 {/snippet}

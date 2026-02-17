@@ -1,25 +1,25 @@
 <script lang="ts">
-	import FloatingCommitBox from '$components/FloatingCommitBox.svelte';
-	import EditorFooter from '$components/editor/EditorFooter.svelte';
-	import MessageEditor, { type AiButtonClickParams } from '$components/editor/MessageEditor.svelte';
-	import MessageEditorInput from '$components/editor/MessageEditorInput.svelte';
-	import CommitSuggestions from '$components/editor/commitSuggestions.svelte';
-	import DiffInputContext, { type DiffInputContextArgs } from '$lib/ai/diffInputContext.svelte';
-	import AIMacros from '$lib/ai/macros.svelte';
-	import { PROMPT_SERVICE } from '$lib/ai/promptService';
-	import { AI_SERVICE } from '$lib/ai/service';
-	import { projectAiGenEnabled } from '$lib/config/config';
-	import { DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
-	import { UNCOMMITTED_SERVICE } from '$lib/selection/uncommittedService.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { splitMessage } from '$lib/utils/commitMessage';
-	import { WORKTREE_SERVICE } from '$lib/worktree/worktreeService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, TestId } from '@gitbutler/ui';
-	import { IME_COMPOSITION_HANDLER } from '@gitbutler/ui/utils/imeHandling';
+	import FloatingCommitBox from "$components/FloatingCommitBox.svelte";
+	import EditorFooter from "$components/editor/EditorFooter.svelte";
+	import MessageEditor, { type AiButtonClickParams } from "$components/editor/MessageEditor.svelte";
+	import MessageEditorInput from "$components/editor/MessageEditorInput.svelte";
+	import CommitSuggestions from "$components/editor/commitSuggestions.svelte";
+	import DiffInputContext, { type DiffInputContextArgs } from "$lib/ai/diffInputContext.svelte";
+	import AIMacros from "$lib/ai/macros.svelte";
+	import { PROMPT_SERVICE } from "$lib/ai/promptService";
+	import { AI_SERVICE } from "$lib/ai/service";
+	import { projectAiGenEnabled } from "$lib/config/config";
+	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
+	import { UNCOMMITTED_SERVICE } from "$lib/selection/uncommittedService.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { splitMessage } from "$lib/utils/commitMessage";
+	import { WORKTREE_SERVICE } from "$lib/worktree/worktreeService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, TestId } from "@gitbutler/ui";
+	import { IME_COMPOSITION_HANDLER } from "@gitbutler/ui/utils/imeHandling";
 
-	import { tick } from 'svelte';
+	import { tick } from "svelte";
 
 	type Props = {
 		projectId: string;
@@ -49,8 +49,8 @@
 		loading,
 		title,
 		description,
-		floatingBoxHeader = 'Create commit',
-		existingCommitId
+		floatingBoxHeader = "Create commit",
+		existingCommitId,
 	}: Props = $props();
 
 	const uiState = inject(UI_STATE);
@@ -74,11 +74,11 @@
 	const suggestionsHandler = new CommitSuggestions(aiService, uiState);
 	const diffInputArgs = $derived<DiffInputContextArgs>(
 		existingCommitId
-			? { type: 'commit', projectId, commitId: existingCommitId }
-			: { type: 'change-selection', projectId, uncommittedService, stackId }
+			? { type: "commit", projectId, commitId: existingCommitId }
+			: { type: "change-selection", projectId, uncommittedService, stackId },
 	);
 	const diffInputContext = $derived(
-		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs)
+		new DiffInputContext(worktreeService, diffService, stackService, diffInputArgs),
 	);
 	const aiMacros = $derived(new AIMacros(projectId, aiService, promptService, diffInputContext));
 
@@ -91,7 +91,7 @@
 		aiMacros.setGenAIEnabled($aiGenEnabled);
 	});
 
-	let generatedText = $state<string>('');
+	let generatedText = $state<string>("");
 
 	$effect(() => {
 		if (generatedText) {
@@ -102,9 +102,9 @@
 	});
 
 	function beginGeneration() {
-		title = '';
-		composer?.setText('');
-		generatedText = '';
+		title = "";
+		composer?.setText("");
+		generatedText = "";
 	}
 
 	async function onAiButtonClick(params: AiButtonClickParams = {}) {
@@ -126,7 +126,7 @@
 					const updatedText = generatedText + t;
 					generatedText = updatedText;
 				},
-				...params
+				...params,
 			});
 
 			if (output) {
@@ -140,7 +140,7 @@
 	}
 
 	async function getDescription() {
-		return (await composer?.getPlaintext()) || '';
+		return (await composer?.getPlaintext()) || "";
 	}
 
 	async function emitAction() {
@@ -169,17 +169,17 @@
 		}}
 		oninput={imeHandler.handleInput()}
 		onkeydown={imeHandler.handleKeydown(async (e: KeyboardEvent) => {
-			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				if (title.trim()) {
 					emitAction();
 				}
 			}
-			if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+			if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
 				e.preventDefault();
 				composer?.focus();
 			}
-			if (e.key === 'Escape') {
+			if (e.key === "Escape") {
 				e.preventDefault();
 				handleCancel();
 			}
@@ -205,19 +205,19 @@
 			onChange?.({ description: value });
 		}}
 		onKeyDown={(e: KeyboardEvent) => {
-			if (e.key === 'Tab' && e.shiftKey) {
+			if (e.key === "Tab" && e.shiftKey) {
 				e.preventDefault();
 				titleInput?.focus();
 				return true;
 			}
-			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				if (title.trim()) {
 					emitAction();
 				}
 				return true;
 			}
-			if (e.key === 'Escape') {
+			if (e.key === "Escape") {
 				e.preventDefault();
 				handleCancel();
 				return true;
@@ -232,7 +232,7 @@
 			style="pop"
 			onclick={emitAction}
 			disabled={disabledAction || !title.trim()}
-			tooltip={!title.trim() ? 'Commit title is required' : undefined}
+			tooltip={!title.trim() ? "Commit title is required" : undefined}
 			hotkey="⌘↵"
 			{loading}
 			wide>{actionLabel}</Button

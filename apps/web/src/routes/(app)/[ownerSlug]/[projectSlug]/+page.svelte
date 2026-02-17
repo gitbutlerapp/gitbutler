@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import ProjectConnectModal from '$lib/components/ProjectConnectModal.svelte';
-	import ReviewsSection from '$lib/components/ReviewsSection.svelte';
-	import { featureShowProjectPage } from '$lib/featureFlags';
-	import { getTimeSince } from '$lib/utils/dateUtils';
-	import { inject } from '@gitbutler/core/context';
-	import PermissionsSelector from '@gitbutler/shared/organizations/PermissionsSelector.svelte';
-	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
+	import { goto } from "$app/navigation";
+	import ProjectConnectModal from "$lib/components/ProjectConnectModal.svelte";
+	import ReviewsSection from "$lib/components/ReviewsSection.svelte";
+	import { featureShowProjectPage } from "$lib/featureFlags";
+	import { getTimeSince } from "$lib/utils/dateUtils";
+	import { inject } from "@gitbutler/core/context";
+	import PermissionsSelector from "@gitbutler/shared/organizations/PermissionsSelector.svelte";
+	import { PROJECT_SERVICE } from "@gitbutler/shared/organizations/projectService";
 	import {
 		WEB_ROUTES_SERVICE,
-		type ProjectParameters
-	} from '@gitbutler/shared/routing/webRoutes.svelte';
+		type ProjectParameters,
+	} from "@gitbutler/shared/routing/webRoutes.svelte";
 
-	import { AsyncButton, Button, Markdown, Modal, chipToasts } from '@gitbutler/ui';
+	import { AsyncButton, Button, Markdown, Modal, chipToasts } from "@gitbutler/ui";
 
 	interface Props {
 		data: ProjectParameters;
@@ -51,7 +51,7 @@
 
 	// Start editing the README
 	function startEditingReadme(currentReadme: string | undefined) {
-		readmeContent = currentReadme || '';
+		readmeContent = currentReadme || "";
 		editingReadme = true;
 	}
 
@@ -70,14 +70,14 @@
 			// Update the local project data with the new README
 			projectData = {
 				...projectData,
-				readme: readmeContent
+				readme: readmeContent,
 			};
 
 			editingReadme = false;
-			chipToasts.success('README updated successfully');
+			chipToasts.success("README updated successfully");
 		} catch (error) {
 			chipToasts.error(
-				`Failed to update README: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Failed to update README: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		} finally {
 			isSavingReadme = false;
@@ -86,21 +86,21 @@
 
 	// README editing state
 	let editingReadme = $state(false);
-	let readmeContent = $state('');
+	let readmeContent = $state("");
 	let isSavingReadme = $state(false);
 
 	// Project edit state and modal reference
 	let editProjectModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
-	let editedName = $state('');
-	let editedSlug = $state('');
-	let editedDescription = $state('');
+	let editedName = $state("");
+	let editedSlug = $state("");
+	let editedDescription = $state("");
 	let isUpdatingProject = $state(false);
 
 	// Open edit project modal
 	function openEditProjectModal() {
-		editedName = projectData.name || '';
-		editedSlug = projectData.slug || '';
-		editedDescription = projectData.description || '';
+		editedName = projectData.name || "";
+		editedSlug = projectData.slug || "";
+		editedDescription = projectData.description || "";
 		editProjectModal?.show();
 	}
 
@@ -112,7 +112,7 @@
 			const updateParams = {
 				name: editedName,
 				slug: editedSlug,
-				description: editedDescription
+				description: editedDescription,
 			};
 
 			const updatedProject = await projectService.updateProject(repositoryId, updateParams);
@@ -120,25 +120,25 @@
 			// Update the local project data
 			projectData = {
 				...projectData,
-				...updatedProject
+				...updatedProject,
 			};
 
 			editProjectModal?.close();
-			chipToasts.success('Project updated successfully');
+			chipToasts.success("Project updated successfully");
 
 			// If the slug changed, redirect to the new URL
 			if (editedSlug !== data.projectSlug) {
 				goto(
 					routes.projectPath({
 						ownerSlug: data.ownerSlug,
-						projectSlug: editedSlug
-					})
+						projectSlug: editedSlug,
+					}),
 				);
 			}
 		} catch (error) {
 			chipToasts.error(`Failed to update project`);
 			console.error(
-				`Failed to update project: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Failed to update project: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		} finally {
 			isUpdatingProject = false;
@@ -146,7 +146,7 @@
 	}
 
 	async function deleteProject(repositoryId: string) {
-		if (!confirm('Are you sure you want to delete this project?')) {
+		if (!confirm("Are you sure you want to delete this project?")) {
 			return;
 		}
 
@@ -155,7 +155,7 @@
 	}
 
 	async function handleDisconnectFromParent() {
-		if (!confirm('Are you sure you want to disconnect this project from its parent?')) {
+		if (!confirm("Are you sure you want to disconnect this project from its parent?")) {
 			return;
 		}
 
@@ -164,13 +164,13 @@
 			projectData = {
 				...projectData,
 				parentProject: undefined,
-				parentProjectRepositoryId: undefined
+				parentProjectRepositoryId: undefined,
 			};
-			chipToasts.success('Project unlinked from parent');
+			chipToasts.success("Project unlinked from parent");
 		} catch (error) {
 			chipToasts.error(`Failed to unlink project`);
 			console.error(
-				`Failed to unlink project: ${error instanceof Error ? error.message : 'Unknown error'}`
+				`Failed to unlink project: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		}
 	}
@@ -187,7 +187,7 @@
 		<div class="project-page">
 			<header class="project-header">
 				<div class="breadcrumb">
-					<a href={routes.projectPath({ ownerSlug: data.ownerSlug, projectSlug: '' })}>
+					<a href={routes.projectPath({ ownerSlug: data.ownerSlug, projectSlug: "" })}>
 						{data.ownerSlug}
 					</a>
 					<span>/</span>
@@ -199,7 +199,7 @@
 						<a
 							href={routes.projectPath({
 								ownerSlug: projectData.parentProject.owner,
-								projectSlug: projectData.parentProject.slug
+								projectSlug: projectData.parentProject.slug,
 							})}
 						>
 							{projectData.parentProject.owner}/{projectData.parentProject.slug}
@@ -216,7 +216,7 @@
 					{:then _}
 						<ReviewsSection
 							reviews={patchStacksData || []}
-							status={patchStacksData && patchStacksData.length > 0 ? 'found' : 'not-found'}
+							status={patchStacksData && patchStacksData.length > 0 ? "found" : "not-found"}
 							sectionTitle="Active Reviews"
 							allReviewsUrl={routes.projectReviewPath(data)}
 							reviewsCount={projectData.activeReviewsCount || 0}
@@ -224,7 +224,7 @@
 					{:catch error}
 						<ReviewsSection reviews={[]} status="error" sectionTitle="Active Reviews" />
 						<div class="error-text">
-							Error loading reviews: {error.message || 'Unknown error'}
+							Error loading reviews: {error.message || "Unknown error"}
 						</div>
 					{/await}
 
@@ -332,7 +332,7 @@
 												style="pop"
 												onclick={() => {
 													navigator.clipboard.writeText(projectData.codeGitUrl);
-													chipToasts.success('copied to clipboard');
+													chipToasts.success("copied to clipboard");
 												}}
 											>
 												Copy
@@ -354,7 +354,7 @@
 										<a
 											href={routes.projectPath({
 												ownerSlug: projectData.parentProject?.owner || data.ownerSlug,
-												projectSlug: projectData.parentProject?.slug || ''
+												projectSlug: projectData.parentProject?.slug || "",
 											})}
 										>
 											{projectData.parentProject?.owner || data.ownerSlug}/{projectData
@@ -370,7 +370,7 @@
 								</div>
 							</div>
 						</section>
-					{:else if projectData.ownerType === 'user' && projectData.permissions?.canWrite}
+					{:else if projectData.ownerType === "user" && projectData.permissions?.canWrite}
 						<section class="card">
 							<h2 class="card-title">Connect to Organization</h2>
 							<div class="card-content">
@@ -490,7 +490,7 @@
 {:catch error}
 	<div class="error-message">
 		<h2>Error Loading Project</h2>
-		<p>There was a problem loading the project: {error.message || 'Unknown error'}</p>
+		<p>There was a problem loading the project: {error.message || "Unknown error"}</p>
 		<Button onclick={() => goto(routes.projectsPath())}>Return to Projects</Button>
 	</div>
 {/await}

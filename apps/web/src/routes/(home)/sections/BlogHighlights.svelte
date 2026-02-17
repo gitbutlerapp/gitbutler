@@ -1,7 +1,7 @@
 <script lang="ts">
-	import ArrowButton from '$home/components/ArrowButton.svelte';
-	import SectionHeader from '$home/components/SectionHeader.svelte';
-	import { formatDate } from '$lib/utils/formatDate';
+	import ArrowButton from "$home/components/ArrowButton.svelte";
+	import SectionHeader from "$home/components/SectionHeader.svelte";
+	import { formatDate } from "$lib/utils/formatDate";
 
 	interface BlogPost {
 		title: string;
@@ -18,32 +18,32 @@
 
 	async function fetchRSSFeed() {
 		try {
-			const response = await fetch('https://blog.gitbutler.com/rss/3/featured');
+			const response = await fetch("https://blog.gitbutler.com/rss/3/featured");
 			const text = await response.text();
 			const parser = new DOMParser();
-			const xml = parser.parseFromString(text, 'text/xml');
-			const items = xml.querySelectorAll('item');
+			const xml = parser.parseFromString(text, "text/xml");
+			const items = xml.querySelectorAll("item");
 
 			const parsedPosts: BlogPost[] = [];
 			items.forEach((item) => {
-				const title = item.querySelector('title')?.textContent || '';
-				const url = item.querySelector('link')?.textContent || '';
-				const pubDate = item.querySelector('pubDate')?.textContent || '';
-				const description = item.querySelector('description')?.textContent || '';
+				const title = item.querySelector("title")?.textContent || "";
+				const url = item.querySelector("link")?.textContent || "";
+				const pubDate = item.querySelector("pubDate")?.textContent || "";
+				const description = item.querySelector("description")?.textContent || "";
 
 				// Extract author from the author tag with format "email (Name)"
-				const authorText = item.querySelector('author')?.textContent || '';
+				const authorText = item.querySelector("author")?.textContent || "";
 				const authorMatch = authorText.match(/\(([^)]+)\)/);
-				const creator = authorMatch ? authorMatch[1] : 'GitButler Team';
+				const creator = authorMatch ? authorMatch[1] : "GitButler Team";
 
 				// Extract image from enclosure tag
-				const enclosure = item.querySelector('enclosure');
+				const enclosure = item.querySelector("enclosure");
 				const feature_image =
-					enclosure?.getAttribute('url') ||
-					'https://blog.gitbutler.com/content/images/2023/10/gitbutler-og.png';
+					enclosure?.getAttribute("url") ||
+					"https://blog.gitbutler.com/content/images/2023/10/gitbutler-og.png";
 
 				// Extract excerpt from description, removing HTML tags
-				const custom_excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200) + '...';
+				const custom_excerpt = description.replace(/<[^>]*>/g, "").substring(0, 200) + "...";
 
 				parsedPosts.push({
 					title,
@@ -51,13 +51,13 @@
 					feature_image,
 					published_at: pubDate,
 					custom_excerpt,
-					primary_author: { name: creator }
+					primary_author: { name: creator },
 				});
 			});
 
 			posts = parsedPosts;
 		} catch (error) {
-			console.error('Failed to fetch RSS feed:', error);
+			console.error("Failed to fetch RSS feed:", error);
 		}
 	}
 
@@ -73,7 +73,7 @@
 		{#snippet buttons()}
 			<ArrowButton
 				label="Read more"
-				onclick={() => window.open('https://blog.gitbutler.com', '_blank')}
+				onclick={() => window.open("https://blog.gitbutler.com", "_blank")}
 			/>
 		{/snippet}
 	</SectionHeader>
@@ -89,7 +89,7 @@
 						{posts?.[0]?.title}
 					</h3>
 					<span class="blog-post__meta">
-						{formatDate(posts?.[0]?.published_at ?? '')} by {posts?.[0]?.primary_author?.name}
+						{formatDate(posts?.[0]?.published_at ?? "")} by {posts?.[0]?.primary_author?.name}
 					</span>
 				</div>
 				<div class="blog-post__body">
@@ -109,7 +109,7 @@
 							{posts?.[1]?.title}
 						</h3>
 						<span class="blog-post__meta">
-							{formatDate(posts?.[1]?.published_at ?? '')} by {posts?.[1]?.primary_author?.name}
+							{formatDate(posts?.[1]?.published_at ?? "")} by {posts?.[1]?.primary_author?.name}
 						</span>
 					</div>
 					<div class="blog-post__body">
@@ -127,7 +127,7 @@
 							{posts?.[2]?.title}
 						</h3>
 						<span class="blog-post__meta">
-							{formatDate(posts?.[2]?.published_at ?? '')} by {posts?.[2]?.primary_author?.name}
+							{formatDate(posts?.[2]?.published_at ?? "")} by {posts?.[2]?.primary_author?.name}
 						</span>
 					</div>
 					<div class="blog-post__body">

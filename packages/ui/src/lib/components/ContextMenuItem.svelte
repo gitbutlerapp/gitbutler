@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import { keysStringToArr } from '$lib/utils/hotkeys';
-	import { getContext } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { Snippet } from 'svelte';
+	import Icon from "$components/Icon.svelte";
+	import { keysStringToArr } from "$lib/utils/hotkeys";
+	import { getContext } from "svelte";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
+	import type { Snippet } from "svelte";
 
 	// Context key for submenu coordination
-	const SUBMENU_CONTEXT_KEY = 'contextmenu-submenu-coordination';
+	const SUBMENU_CONTEXT_KEY = "contextmenu-submenu-coordination";
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
@@ -31,7 +31,7 @@
 		control,
 		keyboardShortcut,
 		caption,
-		testId
+		testId,
 	}: Props = $props();
 
 	// Get submenu coordination context if available
@@ -61,7 +61,7 @@
 	data-testid={testId}
 	type="button"
 	class="menu-item no-select"
-	style:--item-height={caption ? 'auto' : '1.625rem'}
+	style:--item-height={caption ? "auto" : "1.625rem"}
 	class:disabled
 	{disabled}
 	onclick={handleClick}

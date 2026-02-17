@@ -1,14 +1,14 @@
-import { persistSwallowGitHubOrgAuthErrors } from '$lib/config/config';
+import { persistSwallowGitHubOrgAuthErrors } from "$lib/config/config";
 import {
 	getTitleFromCommonErrorMessage,
 	isBundlingError,
 	isGitHubOrgAuthError,
 	parseError,
-	shouldIgnoreThistError
-} from '$lib/error/parser';
-import posthog from 'posthog-js';
-import { writable, type Writable } from 'svelte/store';
-import type { MessageStyle } from '@gitbutler/ui';
+	shouldIgnoreThistError,
+} from "$lib/error/parser";
+import posthog from "posthog-js";
+import { writable, type Writable } from "svelte/store";
+import type { MessageStyle } from "@gitbutler/ui";
 
 type ExtraAction = {
 	label: string;
@@ -32,28 +32,28 @@ let idCounter = 0;
 
 export function showToast(toast: Toast) {
 	if (toast.error) {
-		posthog.capture('toast:show_error', {
+		posthog.capture("toast:show_error", {
 			error_test_id: toast.testId,
 			error_title: toast.title,
-			error_message: String(toast.error)
+			error_message: String(toast.error),
 		});
 	}
 
-	if (toast.style === 'warning') {
-		posthog.capture('toast:show_warning', {
+	if (toast.style === "warning") {
+		posthog.capture("toast:show_warning", {
 			warning_test_id: toast.testId,
 			warning_title: toast.title,
-			warning_message: toast.message
+			warning_message: toast.message,
 		});
 	}
 
-	toast.message = toast.message?.replace(/^ */gm, '');
+	toast.message = toast.message?.replace(/^ */gm, "");
 	if (!toast.id) {
 		toast = { ...toast, id: `${idCounter++}` };
 	}
 	toastStore.update((items) => [
 		...items.filter((t) => toast.id === undefined || t.id !== toast.id),
-		toast
+		toast,
 	]);
 }
 
@@ -61,9 +61,9 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 	const { name, message, description, ignored } = parseError(error);
 	if (isBundlingError(message)) {
 		console.warn(
-			'You are likely experiencing a dev mode bundling error, ' +
-				'try disabling the cache from the network tab and ' +
-				'reload the page.'
+			"You are likely experiencing a dev mode bundling error, " +
+				"try disabling the cache from the network tab and " +
+				"reload the page.",
 		);
 		return;
 	}
@@ -80,7 +80,7 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 						label: "Don't show this again",
 						onClick: () => {
 							persistSwallowGitHubOrgAuthErrors(true);
-						}
+						},
 					}
 				: undefined);
 
@@ -89,18 +89,18 @@ export function showError(title: string, error: unknown, extraAction?: ExtraActi
 			title: actualTitle,
 			message: description,
 			error: message,
-			style: 'danger',
-			extraAction: actualExtraAction
+			style: "danger",
+			extraAction: actualExtraAction,
 		});
 	}
 }
 
 export function showInfo(title: string, message: string, extraAction?: ExtraAction) {
-	showToast({ title, message, style: 'info', extraAction });
+	showToast({ title, message, style: "info", extraAction });
 }
 
 export function showWarning(title: string, message: string, extraAction?: ExtraAction) {
-	showToast({ title, message, style: 'warning', extraAction });
+	showToast({ title, message, style: "warning", extraAction });
 }
 
 export function dismissToast(messageId: string | undefined) {

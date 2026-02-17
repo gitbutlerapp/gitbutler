@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted } from '@gitbutler/shared/persisted';
-	import { SegmentControl, TestId } from '@gitbutler/ui';
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
+	import { SegmentControl, TestId } from "@gitbutler/ui";
 
-	type Mode = 'tree' | 'list';
+	type Mode = "tree" | "list";
 	type Props = {
 		mode: Mode;
 		persistId: string;

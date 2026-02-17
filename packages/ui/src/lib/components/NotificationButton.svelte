@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Button from '$components/Button.svelte';
-	import { cubicOut } from 'svelte/easing';
-	import { scale } from 'svelte/transition';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import Button from "$components/Button.svelte";
+	import { cubicOut } from "svelte/easing";
+	import { scale } from "svelte/transition";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 	interface Props {
 		icon?: keyof typeof iconsJson;
@@ -10,7 +10,7 @@
 		onclick: (event?: any) => void;
 	}
 
-	const { icon = 'bell', hasUnread, onclick }: Props = $props();
+	const { icon = "bell", hasUnread, onclick }: Props = $props();
 </script>
 
 <div class="bell-btn">
@@ -18,7 +18,7 @@
 		<div transition:scale={{ duration: 200, easing: cubicOut }} class="bell-btn__indication"></div>
 	{/if}
 
-	<Button type="button" kind="ghost" {icon} {onclick} iconClass={hasUnread ? 'bell-shake' : ''} />
+	<Button type="button" kind="ghost" {icon} {onclick} iconClass={hasUnread ? "bell-shake" : ""} />
 </div>
 
 <style lang="postcss">

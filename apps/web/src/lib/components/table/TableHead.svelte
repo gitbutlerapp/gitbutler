@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type ColumnTypes } from '$lib/components/table/types';
+	import { type ColumnTypes } from "$lib/components/table/types";
 
 	type Props = {
 		columns: Array<{

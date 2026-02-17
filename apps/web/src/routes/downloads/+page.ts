@@ -1,5 +1,5 @@
-import { fetchAndProcessReleases, createLatestReleaseBuilds } from '$lib/utils/releaseUtils';
-import type { PageLoad } from './$types';
+import { fetchAndProcessReleases, createLatestReleaseBuilds } from "$lib/utils/releaseUtils";
+import type { PageLoad } from "./$types";
 
 // Enable client-side navigation for this page
 export const csr = true;
@@ -18,8 +18,8 @@ export const load: PageLoad = async () => {
 		return cachedData;
 	}
 
-	const releases = await fetchAndProcessReleases(10, 'release');
-	const nightlies = await fetchAndProcessReleases(15, 'nightly');
+	const releases = await fetchAndProcessReleases(10, "release");
+	const nightlies = await fetchAndProcessReleases(15, "nightly");
 	const latestRelease = releases[0];
 
 	const latestReleaseBuilds = createLatestReleaseBuilds(latestRelease);
@@ -28,7 +28,7 @@ export const load: PageLoad = async () => {
 		nightlies,
 		releases,
 		latestRelease,
-		latestReleaseBuilds
+		latestReleaseBuilds,
 	};
 
 	// Cache the data

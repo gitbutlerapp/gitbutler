@@ -1,4 +1,4 @@
-import { debouncePromise } from '$lib/utils/misc';
+import { debouncePromise } from "$lib/utils/misc";
 
 async function playSoundImpl(soundUrl: string) {
 	const audio = new Audio(soundUrl);

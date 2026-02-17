@@ -1,9 +1,9 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import { type ScrollbarVisilitySettings } from '@gitbutler/ui';
-import { get, writable, type Writable } from 'svelte/store';
+import { InjectionToken } from "@gitbutler/core/context";
+import { type ScrollbarVisilitySettings } from "@gitbutler/ui";
+import { get, writable, type Writable } from "svelte/store";
 
-const SETTINGS_KEY = 'settings-json';
-export const SETTINGS = new InjectionToken<Writable<Settings>>('Settings');
+const SETTINGS_KEY = "settings-json";
+export const SETTINGS = new InjectionToken<Writable<Settings>>("Settings");
 
 export type CodeEditorSettings = {
 	schemeIdentifer: string;
@@ -31,7 +31,7 @@ export interface Settings {
 	strongContrast: boolean;
 	colorBlindFriendly: boolean;
 	defaultCodeEditor: CodeEditorSettings;
-	defaultFileListMode: 'tree' | 'list';
+	defaultFileListMode: "tree" | "list";
 	pathFirst: boolean;
 	singleDiffView: boolean;
 }
@@ -47,24 +47,24 @@ const defaults: Settings = {
 	defaultTreeHeight: 100,
 	stashedBranchesHeight: 150,
 	zoom: 1,
-	scrollbarVisibilityState: 'scroll',
+	scrollbarVisibilityState: "scroll",
 	tabSize: 4,
 	wrapText: false,
-	diffFont: 'Geist Mono, Menlo, monospace',
+	diffFont: "Geist Mono, Menlo, monospace",
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
 	strongContrast: false,
 	colorBlindFriendly: false,
-	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
-	defaultFileListMode: 'list',
+	defaultCodeEditor: { schemeIdentifer: "vscode", displayName: "VSCode" },
+	defaultFileListMode: "list",
 	pathFirst: true,
-	singleDiffView: false
+	singleDiffView: false,
 };
 
 export function loadUserSettings(): Writable<Settings> {
 	let obj: any;
 	try {
-		obj = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '');
+		obj = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "");
 	} catch {
 		obj = {};
 	}
@@ -76,6 +76,6 @@ export function loadUserSettings(): Writable<Settings> {
 		update: (updater) => {
 			store.update(updater);
 			localStorage.setItem(SETTINGS_KEY, JSON.stringify(get(store)));
-		}
+		},
 	};
 }

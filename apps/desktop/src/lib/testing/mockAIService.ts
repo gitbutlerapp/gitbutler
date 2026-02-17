@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 export function getAIServiceMock() {
 	const AIServiceMock = vi.fn();

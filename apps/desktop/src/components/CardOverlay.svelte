@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { injectOptional } from '@gitbutler/core/context';
-	import { DRAG_STATE_SERVICE } from '@gitbutler/ui/drag/dragStateService.svelte';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { injectOptional } from "@gitbutler/core/context";
+	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
+	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
 
 	interface Props {
 		hovered: boolean;
@@ -16,7 +16,7 @@
 		};
 	}
 
-	const { visible, hovered, activated, label = 'Drop here', extraPaddings }: Props = $props();
+	const { visible, hovered, activated, label = "Drop here", extraPaddings }: Props = $props();
 	let defaultPadding = 4;
 	const dragStateService = injectOptional(DRAG_STATE_SERVICE, undefined);
 
@@ -42,9 +42,9 @@
 	class:activated
 	class:hovered
 	style="--padding-top: {pxToRem(defaultPadding + extraPaddingTop)}rem; --padding-right: {pxToRem(
-		defaultPadding + extraPaddingRight
+		defaultPadding + extraPaddingRight,
 	)}rem; --padding-bottom: {pxToRem(
-		defaultPadding + extraPaddingBottom
+		defaultPadding + extraPaddingBottom,
 	)}rem; --padding-left: {pxToRem(defaultPadding + extraPaddingLeft)}rem"
 >
 	<div class="container">

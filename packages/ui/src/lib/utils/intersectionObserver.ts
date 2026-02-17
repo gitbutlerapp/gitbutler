@@ -3,21 +3,21 @@ export function intersectionObserver(
 	{
 		isDisabled,
 		callback,
-		options
+		options,
 	}: {
 		isDisabled?: boolean;
 		callback: (
 			entry: IntersectionObserverEntry | undefined,
-			observer: IntersectionObserver
+			observer: IntersectionObserver,
 		) => void;
 		options?: IntersectionObserverInit;
-	}
+	},
 ) {
 	if (isDisabled) return;
 
 	const observer = new IntersectionObserver(
 		([entry], observer) => callback(entry, observer),
-		options
+		options,
 	);
 
 	observer.observe(node);
@@ -25,6 +25,6 @@ export function intersectionObserver(
 	return {
 		destroy() {
 			observer.disconnect();
-		}
+		},
 	};
 }

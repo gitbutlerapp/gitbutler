@@ -1,7 +1,7 @@
 export enum ShareLevel {
-	Public = 'public',
-	Private = 'private',
-	Unlisted = 'unlisted'
+	Public = "public",
+	Private = "private",
+	Unlisted = "unlisted",
 }
 
 export type ApiPermissions = {
@@ -20,6 +20,6 @@ export function apiToPermissions(api: ApiPermissions): Permissions {
 	return {
 		canRead: api.can_read,
 		canWrite: api.can_write,
-		shareLevel: api.share_level
+		shareLevel: api.share_level,
 	};
 }

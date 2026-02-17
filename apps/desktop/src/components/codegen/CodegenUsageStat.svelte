@@ -2,19 +2,19 @@
 	type Props = {
 		label: string;
 		value: string;
-		valueSize?: 'small' | 'large';
+		valueSize?: "small" | "large";
 	};
 
-	const { label, value, valueSize = 'small' }: Props = $props();
+	const { label, value, valueSize = "small" }: Props = $props();
 </script>
 
 <div class="usage-stat">
 	<p class="text-12 clr-text-2">{label}</p>
 	<div class="usage-stat-spacer"></div>
 	<p
-		class:text-12={valueSize === 'small'}
-		class:text-13={valueSize === 'large'}
-		class:text-bold={valueSize === 'large'}
+		class:text-12={valueSize === "small"}
+		class:text-13={valueSize === "large"}
+		class:text-bold={valueSize === "large"}
 	>
 		{value}
 	</p>

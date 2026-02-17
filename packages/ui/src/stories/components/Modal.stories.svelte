@@ -1,12 +1,12 @@
 <script module lang="ts">
-	import Button from '$components/Button.svelte';
-	import Modal from '$components/Modal.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Button from "$components/Button.svelte";
+	import Modal from "$components/Modal.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Overlays / Modal',
+		title: "Overlays / Modal",
 		args: {},
-		argTypes: {}
+		argTypes: {},
 	});
 </script>
 
@@ -29,7 +29,7 @@
 			{...args}
 			onSubmit={() => {
 				// eslint-disable-next-line no-console
-				console.log('submitted');
+				console.log("submitted");
 			}}
 		>
 			A branch with the same name already exists. Do you want to merge this branch into the current
@@ -41,7 +41,7 @@
 					type="submit"
 					onclick={() => {
 						// eslint-disable-next-line no-console
-						console.log('clicked');
+						console.log("clicked");
 					}}>Merge</Button
 				>
 			{/snippet}

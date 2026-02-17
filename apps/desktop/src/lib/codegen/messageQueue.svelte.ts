@@ -1,27 +1,27 @@
-import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from '$lib/codegen/claude';
+import { CLAUDE_CODE_SERVICE, ClaudeCodeService } from "$lib/codegen/claude";
 import {
 	messageQueueSelectors,
 	messageQueueSlice,
-	type MessageQueue
-} from '$lib/codegen/messageQueueSlice';
-import { currentStatus, isCompletedWithStatus } from '$lib/codegen/messages';
-import { CODEGEN_ANALYTICS, CodegenAnalytics } from '$lib/soup/codegenAnalytics';
-import { CLIENT_STATE, type ClientState } from '$lib/state/clientState.svelte';
+	type MessageQueue,
+} from "$lib/codegen/messageQueueSlice";
+import { currentStatus, isCompletedWithStatus } from "$lib/codegen/messages";
+import { CODEGEN_ANALYTICS, CodegenAnalytics } from "$lib/soup/codegenAnalytics";
+import { CLIENT_STATE, type ClientState } from "$lib/state/clientState.svelte";
 import {
 	UI_STATE,
 	type GlobalStore,
 	type StackState,
-	type UiState
-} from '$lib/state/uiState.svelte';
-import { inject } from '@gitbutler/core/context';
-import { chipToasts } from '@gitbutler/ui';
+	type UiState,
+} from "$lib/state/uiState.svelte";
+import { inject } from "@gitbutler/core/context";
+import { chipToasts } from "@gitbutler/ui";
 import type {
 	ModelType,
 	PermissionMode,
 	PromptAttachment,
-	ThinkingLevel
-} from '$lib/codegen/types';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
+	ThinkingLevel,
+} from "$lib/codegen/types";
+import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 /**
  * Performs the actual message sending logic.
@@ -37,7 +37,7 @@ async function performSend({
 	laneState,
 	claudeCodeService,
 	codegenAnalytics,
-	attachments
+	attachments,
 }: {
 	prompt: string;
 	projectId: string;
@@ -50,17 +50,17 @@ async function performSend({
 	codegenAnalytics: CodegenAnalytics;
 	attachments?: PromptAttachment[];
 }) {
-	if (prompt.startsWith('/compact')) {
+	if (prompt.startsWith("/compact")) {
 		await claudeCodeService.compactHistory({
 			projectId,
-			stackId
+			stackId,
 		});
 		return;
 	}
 
 	// Handle /add-dir command
-	if (prompt.startsWith('/add-dir ')) {
-		const path = prompt.slice('/add-dir '.length).trim();
+	if (prompt.startsWith("/add-dir ")) {
+		const path = prompt.slice("/add-dir ".length).trim();
 		if (path) {
 			const isValid = await claudeCodeService.verifyPath({ projectId, path });
 			if (isValid) {
@@ -72,8 +72,8 @@ async function performSend({
 		return;
 	}
 
-	if (prompt.startsWith('/')) {
-		chipToasts.warning('Slash commands are not yet supported');
+	if (prompt.startsWith("/")) {
+		chipToasts.warning("Slash commands are not yet supported");
 		return;
 	}
 
@@ -83,7 +83,7 @@ async function performSend({
 		stackId,
 		message: prompt,
 		thinkingLevel,
-		model
+		model,
 	});
 
 	claudeCodeService.sendMessage[0](
@@ -96,9 +96,9 @@ async function performSend({
 			permissionMode,
 			disabledMcpServers: laneState?.disabledMcpServers.current ?? [],
 			addDirs: laneState?.addedDirs.current ?? [],
-			attachments
+			attachments,
 		},
-		{ properties: analyticsProperties }
+		{ properties: analyticsProperties },
 	);
 }
 
@@ -136,8 +136,8 @@ export class MessageQueueProcessor {
 				this.clientState.dispatch(
 					messageQueueSlice.actions.upsert({
 						...queue,
-						isProcessing: false
-					})
+						isProcessing: false,
+					}),
 				);
 			}
 		});
@@ -145,7 +145,7 @@ export class MessageQueueProcessor {
 		const isActive = this.claudeCodeService.isStackActive(queue.projectId, queue.stackId);
 		const events = this.claudeCodeService.messages({
 			projectId: queue.projectId,
-			stackId: queue.stackId
+			stackId: queue.stackId,
 		});
 
 		$effect(() => {
@@ -160,16 +160,16 @@ export class MessageQueueProcessor {
 				const laneState = this.uiState.lane(queue.stackId);
 
 				if (
-					(status.type === 'completed' && status.code === 0) ||
-					status.type === 'noMessagesSent'
+					(status.type === "completed" && status.code === 0) ||
+					status.type === "noMessagesSent"
 				) {
 					const message = queue.messages[0]!;
 					this.clientState.dispatch(
 						messageQueueSlice.actions.upsert({
 							...queue,
 							messages: queue.messages.slice(1),
-							isProcessing: true
-						})
+							isProcessing: true,
+						}),
 					);
 
 					performSend({
@@ -182,18 +182,18 @@ export class MessageQueueProcessor {
 						laneState,
 						claudeCodeService: this.claudeCodeService,
 						codegenAnalytics: this.codegenAnalytics,
-						attachments: message.attachments
+						attachments: message.attachments,
 					}).finally(() => {
 						const queue2 = messageQueueSelectors.selectById(
 							this.clientState.messageQueue,
-							queue.stackId
+							queue.stackId,
 						);
 						if (!queue2) return;
 						this.clientState.dispatch(
 							messageQueueSlice.actions.upsert({
 								...queue2,
-								isProcessing: false
-							})
+								isProcessing: false,
+							}),
 						);
 					});
 				}
@@ -218,7 +218,7 @@ export class MessageSender {
 		selectedBranch,
 		thinkingLevel,
 		model,
-		permissionMode
+		permissionMode,
 	}: {
 		projectId: Reactive<string>;
 		selectedBranch: Reactive<{ stackId: string; head: string } | undefined>;
@@ -244,7 +244,7 @@ export class MessageSender {
 				(q) =>
 					q.head === this.selectedBranch.current?.head &&
 					q.stackId === this.selectedBranch.current?.stackId &&
-					q.projectId === this.projectId.current
+					q.projectId === this.projectId.current,
 			);
 	}
 
@@ -255,7 +255,7 @@ export class MessageSender {
 	}
 
 	get prompt() {
-		return this.selectedBranch.current ? (this.laneState?.prompt.current ?? '') : '';
+		return this.selectedBranch.current ? (this.laneState?.prompt.current ?? "") : "";
 	}
 
 	setPrompt(prompt: string) {
@@ -267,16 +267,16 @@ export class MessageSender {
 
 		const isActive = await this.claudeCodeService.fetchIsStackActive({
 			projectId: this.projectId.current,
-			stackId: this.selectedBranch.current.stackId
+			stackId: this.selectedBranch.current.stackId,
 		});
 		const events = await this.claudeCodeService.fetchMessages({
 			projectId: this.projectId.current,
-			stackId: this.selectedBranch.current.stackId
+			stackId: this.selectedBranch.current.stackId,
 		});
 
 		const status = currentStatus(events, isActive);
 		const canSendImmediately =
-			(status === 'disabled' || status === 'enabled') &&
+			(status === "disabled" || status === "enabled") &&
 			!this.queue?.isProcessing &&
 			(this.queue?.messages.length || 0) === 0;
 
@@ -291,7 +291,7 @@ export class MessageSender {
 				laneState: this.laneState,
 				claudeCodeService: this.claudeCodeService,
 				codegenAnalytics: this.codegenAnalytics,
-				attachments
+				attachments,
 			});
 		} else {
 			const message = {
@@ -299,15 +299,15 @@ export class MessageSender {
 				thinkingLevel: this.thinkingLevel.current,
 				model: this.model.current,
 				permissionMode: this.permissionMode.current,
-				attachments
+				attachments,
 			};
 
 			if (this.queue) {
 				this.clientState.dispatch(
 					messageQueueSlice.actions.upsert({
 						...this.queue,
-						messages: [...this.queue.messages, message]
-					})
+						messages: [...this.queue.messages, message],
+					}),
 				);
 			} else {
 				this.clientState.dispatch(
@@ -316,12 +316,12 @@ export class MessageSender {
 						stackId: this.selectedBranch.current.stackId,
 						head: this.selectedBranch.current.head,
 						isProcessing: false,
-						messages: [message]
-					})
+						messages: [message],
+					}),
 				);
 			}
 		}
 
-		this.setPrompt('');
+		this.setPrompt("");
 	}
 }

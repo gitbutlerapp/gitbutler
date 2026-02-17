@@ -1,15 +1,15 @@
 <script lang="ts">
-	import FileList from '$components/FileList.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import SnapshotAttachment from '$components/SnapshotAttachment.svelte';
-	import { createdOnDay, HISTORY_SERVICE } from '$lib/history/history';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { toHumanReadableTime } from '$lib/utils/time';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, Icon, ScrollableContainer } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import FileList from "$components/FileList.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import SnapshotAttachment from "$components/SnapshotAttachment.svelte";
+	import { createdOnDay, HISTORY_SERVICE } from "$lib/history/history";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { toHumanReadableTime } from "$lib/utils/time";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, Icon, ScrollableContainer } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import type { Snapshot, SnapshotDetails } from "$lib/history/types";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 	interface Props {
 		entry: Snapshot;
@@ -22,7 +22,7 @@
 	const { projectId, entry, isWithinRestore = true, onRestoreClick, onDiffClick }: Props = $props();
 
 	function getShortSha(sha: string | undefined) {
-		if (!sha) return '';
+		if (!sha) return "";
 
 		return `${sha.slice(0, 7)}`;
 	}
@@ -33,8 +33,8 @@
 	}
 
 	function camelToTitleCase(str: string | undefined) {
-		if (!str) return '';
-		const lowerCaseStr = str.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+		if (!str) return "";
+		const lowerCaseStr = str.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
 		return lowerCaseStr.charAt(0).toUpperCase() + lowerCaseStr.slice(1);
 	}
 
@@ -43,127 +43,127 @@
 		icon?: keyof typeof iconsJson;
 		commitMessage?: string;
 	} {
-		if (!snapshotDetails) return { text: '', icon: 'commit' };
+		if (!snapshotDetails) return { text: "", icon: "commit" };
 
 		switch (snapshotDetails.operation) {
 			// BRANCH OPERATIONS
-			case 'DeleteBranch':
+			case "DeleteBranch":
 				return {
-					text: `Delete branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
-					icon: 'item-cross'
+					text: `Delete branch "${entry.details?.trailers.find((t) => t.key === "name")?.value}"`,
+					icon: "item-cross",
 				};
-			case 'ApplyBranch':
+			case "ApplyBranch":
 				return {
-					text: `Apply branch "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
-					icon: 'item-tick'
+					text: `Apply branch "${entry.details?.trailers.find((t) => t.key === "name")?.value}"`,
+					icon: "item-tick",
 				};
-			case 'UnapplyBranch':
+			case "UnapplyBranch":
 				return {
-					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`,
-					icon: 'item-dashed'
+					text: `Unapply branch "${snapshotDetails.trailers.find((t) => t.key === "name")?.value}"`,
+					icon: "item-dashed",
 				};
-			case 'UpdateBranchName':
+			case "UpdateBranchName":
 				return {
-					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
-					icon: 'item-slash'
+					text: `Renamed branch "${snapshotDetails.trailers.find((t) => t.key === "before")?.value}" to "${snapshotDetails.trailers.find((t) => t.key === "after")?.value}"`,
+					icon: "item-slash",
 				};
-			case 'CreateBranch':
+			case "CreateBranch":
 				return {
-					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key === 'name')?.value}"`,
-					icon: 'item-plus'
+					text: `Create branch "${snapshotDetails.trailers.find((t) => t.key === "name")?.value}"`,
+					icon: "item-plus",
 				};
-			case 'ReorderBranches':
+			case "ReorderBranches":
 				return {
-					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" and "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
-					icon: 'item-link'
+					text: `Reorder branches "${snapshotDetails.trailers.find((t) => t.key === "before")?.value}" and "${snapshotDetails.trailers.find((t) => t.key === "after")?.value}"`,
+					icon: "item-link",
 				};
-			case 'SelectDefaultVirtualBranch':
+			case "SelectDefaultVirtualBranch":
 				return {
-					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
-					icon: 'item-dot'
+					text: `Select default virtual branch "${snapshotDetails.trailers.find((t) => t.key === "after")?.value}"`,
+					icon: "item-dot",
 				};
-			case 'UpdateBranchRemoteName':
+			case "UpdateBranchRemoteName":
 				return {
-					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key === 'before')?.value}" to "${snapshotDetails.trailers.find((t) => t.key === 'after')?.value}"`,
-					icon: 'item-slash'
+					text: `Update branch remote name "${snapshotDetails.trailers.find((t) => t.key === "before")?.value}" to "${snapshotDetails.trailers.find((t) => t.key === "after")?.value}"`,
+					icon: "item-slash",
 				};
-			case 'SetBaseBranch':
-				return { text: 'Set base branch', icon: 'item-slash' };
-			case 'GenericBranchUpdate':
-				return { text: 'Generic branch update', icon: 'item-slash' };
+			case "SetBaseBranch":
+				return { text: "Set base branch", icon: "item-slash" };
+			case "GenericBranchUpdate":
+				return { text: "Generic branch update", icon: "item-slash" };
 
 			// COMMIT OPERATIONS
-			case 'CreateCommit':
+			case "CreateCommit":
 				return {
-					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key === 'sha')?.value)}`,
-					icon: 'new-commit',
-					commitMessage: entry.details?.trailers.find((t) => t.key === 'message')?.value
+					text: `Create commit ${getShortSha(entry.details?.trailers.find((t) => t.key === "sha")?.value)}`,
+					icon: "new-commit",
+					commitMessage: entry.details?.trailers.find((t) => t.key === "message")?.value,
 				};
-			case 'UndoCommit':
+			case "UndoCommit":
 				return {
-					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key === 'sha')?.value)}`,
-					icon: 'undo-commit',
-					commitMessage: entry.details?.trailers.find((t) => t.key === 'message')?.value
+					text: `Undo commit ${getShortSha(entry.details?.trailers.find((t) => t.key === "sha")?.value)}`,
+					icon: "undo-commit",
+					commitMessage: entry.details?.trailers.find((t) => t.key === "message")?.value,
 				};
-			case 'AmendCommit':
-				return { text: 'Amend commit', icon: 'amend-commit' };
-			case 'SquashCommit':
-				return { text: 'Squash commit', icon: 'squash-commit' };
-			case 'UpdateCommitMessage':
-				return { text: 'Update commit message', icon: 'edit' };
-			case 'MoveCommit':
-				return { text: 'Move commit', icon: 'move-commit' };
-			case 'MoveBranch':
-				return { text: 'Move branch', icon: 'move-commit' };
-			case 'TearOffBranch':
-				return { text: 'Tear off branch', icon: 'move-commit' };
-			case 'ReorderCommit':
-				return { text: 'Reorder commit', icon: 'move-commit' };
-			case 'InsertBlankCommit':
-				return { text: 'Insert blank commit', icon: 'blank-commit' };
-			case 'MoveCommitFile':
-				return { text: 'Move commit file', icon: 'move-commit-file-small' };
+			case "AmendCommit":
+				return { text: "Amend commit", icon: "amend-commit" };
+			case "SquashCommit":
+				return { text: "Squash commit", icon: "squash-commit" };
+			case "UpdateCommitMessage":
+				return { text: "Update commit message", icon: "edit" };
+			case "MoveCommit":
+				return { text: "Move commit", icon: "move-commit" };
+			case "MoveBranch":
+				return { text: "Move branch", icon: "move-commit" };
+			case "TearOffBranch":
+				return { text: "Tear off branch", icon: "move-commit" };
+			case "ReorderCommit":
+				return { text: "Reorder commit", icon: "move-commit" };
+			case "InsertBlankCommit":
+				return { text: "Insert blank commit", icon: "blank-commit" };
+			case "MoveCommitFile":
+				return { text: "Move commit file", icon: "move-commit-file-small" };
 
 			// FILE OPERATIONS
-			case 'MoveHunk':
+			case "MoveHunk":
 				return {
-					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
-					icon: 'item-move'
+					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key === "name")?.value}"`,
+					icon: "item-move",
 				};
-			case 'DiscardLines':
-				return { text: 'Discard lines', icon: 'item-cross' };
-			case 'DiscardHunk':
-				return { text: 'Discard change', icon: 'item-cross' };
-			case 'DiscardFile':
-				return { text: 'Discard file', icon: 'discard-file-small' };
-			case 'FileChanges':
-				return { text: 'File changes', icon: 'file-changes-small' };
+			case "DiscardLines":
+				return { text: "Discard lines", icon: "item-cross" };
+			case "DiscardHunk":
+				return { text: "Discard change", icon: "item-cross" };
+			case "DiscardFile":
+				return { text: "Discard file", icon: "discard-file-small" };
+			case "FileChanges":
+				return { text: "File changes", icon: "file-changes-small" };
 
 			// OTHER OPERATIONS
-			case 'MergeUpstream':
-				return { text: 'Merge upstream', icon: 'merged-pr-small' };
-			case 'UpdateWorkspaceBase':
-				return { text: 'Update workspace base', icon: 'rebase' };
-			case 'EnterEditMode':
-				return { text: 'Enter Edit Mode', icon: 'edit' };
-			case 'RestoreFromSnapshot':
-				return { text: 'Revert snapshot' };
-			case 'SplitBranch':
-				return { text: 'Split branch', icon: 'branch-local' };
-			case 'OnDemandSnapshot':
+			case "MergeUpstream":
+				return { text: "Merge upstream", icon: "merged-pr-small" };
+			case "UpdateWorkspaceBase":
+				return { text: "Update workspace base", icon: "rebase" };
+			case "EnterEditMode":
+				return { text: "Enter Edit Mode", icon: "edit" };
+			case "RestoreFromSnapshot":
+				return { text: "Revert snapshot" };
+			case "SplitBranch":
+				return { text: "Split branch", icon: "branch-local" };
+			case "OnDemandSnapshot":
 				return {
 					text: snapshotDetails.body
 						? `Manual snapshot: ${snapshotDetails.body}`
-						: 'Manual snapshot',
-					icon: 'camera'
+						: "Manual snapshot",
+					icon: "camera",
 				};
 			default:
-				return { text: snapshotDetails.operation, icon: 'commit' };
+				return { text: snapshotDetails.operation, icon: "commit" };
 		}
 	}
 
-	const isRestoreSnapshot = entry.details?.operation === 'RestoreFromSnapshot';
-	const error = entry.details?.trailers.find((t) => t.key === 'error')?.value;
+	const isRestoreSnapshot = entry.details?.operation === "RestoreFromSnapshot";
+	const error = entry.details?.trailers.find((t) => t.key === "error")?.value;
 
 	const operation = mapOperation(entry.details);
 
@@ -188,7 +188,7 @@
 				onclick={() => {
 					onRestoreClick();
 				}}
-				disabled={mode.response?.type !== 'OpenWorkspace'}>Revert</Button
+				disabled={mode.response?.type !== "OpenWorkspace"}>Revert</Button
 			>
 		</div>
 		<span class="snapshot-time text-11">
@@ -229,7 +229,7 @@
 					>
 						<ScrollableContainer>
 							<FileList
-								selectionId={{ type: 'snapshot', snapshotId: entry.id }}
+								selectionId={{ type: "snapshot", snapshotId: entry.id }}
 								{projectId}
 								stackId={undefined}
 								changes={files}
@@ -255,15 +255,15 @@
 					<div class="restored-attacment__content">
 						<h4 class="text-13 text-semibold">
 							{camelToTitleCase(
-								entry.details?.trailers.find((t) => t.key === 'restored_operation')?.value
+								entry.details?.trailers.find((t) => t.key === "restored_operation")?.value,
 							)}
 						</h4>
 						<span class="restored-attacment__details text-12">
-							{getShortSha(entry.details?.trailers.find((t) => t.key === 'restored_from')?.value)} •
+							{getShortSha(entry.details?.trailers.find((t) => t.key === "restored_from")?.value)} •
 							{createdOnDayAndTime(
 								parseInt(
-									entry.details?.trailers.find((t) => t.key === 'restored_date')?.value || ''
-								)
+									entry.details?.trailers.find((t) => t.key === "restored_date")?.value || "",
+								),
 							)}
 						</span>
 					</div>
@@ -343,7 +343,7 @@
 			height: calc(100% - 14px);
 			min-height: 8px;
 			background-color: var(--clr-border-2);
-			content: '';
+			content: "";
 		}
 	}
 

@@ -1,17 +1,17 @@
-import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 type RecentProjects = {
 	recentlyInteractedProjectIds: string[];
 };
 
 const slice = createSlice({
-	name: 'recentlyInteractedProjects',
+	name: "recentlyInteractedProjects",
 	initialState: { recentlyInteractedProjectIds: [] } as RecentProjects,
 	reducers: {
 		updateRecentlyInteractedProjectIds(state, action: PayloadAction<string[]>) {
 			state.recentlyInteractedProjectIds = action.payload;
-		}
-	}
+		},
+	},
 });
 
 export const recentlyInteractedProjectIdsReducer = slice.reducer;

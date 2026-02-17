@@ -1,9 +1,9 @@
-import { providesItem, providesList, ReduxTag } from '$lib/state/tags';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { BackendApi } from '$lib/state/clientState.svelte';
-import type { ButGitHub, ButGitHubToken } from '@gitbutler/core/api';
+import { providesItem, providesList, ReduxTag } from "$lib/state/tags";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { ButGitHub, ButGitHubToken } from "@gitbutler/core/api";
 
-export const GITHUB_USER_SERVICE = new InjectionToken<GitHubUserService>('GitHubUserService');
+export const GITHUB_USER_SERVICE = new InjectionToken<GitHubUserService>("GitHubUserService");
 
 type Verification = {
 	user_code: string;
@@ -12,16 +12,16 @@ type Verification = {
 
 export function isSameGitHubAccountIdentifier(
 	a: ButGitHubToken.GithubAccountIdentifier,
-	b: ButGitHubToken.GithubAccountIdentifier
+	b: ButGitHubToken.GithubAccountIdentifier,
 ): boolean {
 	if (a.type !== b.type) {
 		return false;
 	}
 	switch (a.type) {
-		case 'oAuthUsername':
-		case 'patUsername':
+		case "oAuthUsername":
+		case "patUsername":
 			return a.info.username === (b as typeof a).info.username;
-		case 'enterprise':
+		case "enterprise":
 			return (
 				a.info.host === (b as typeof a).info.host &&
 				a.info.username === (b as typeof a).info.username
@@ -29,33 +29,33 @@ export function isSameGitHubAccountIdentifier(
 	}
 }
 
-export type GitHubAccountIdentifierType = ButGitHubToken.GithubAccountIdentifier['type'];
+export type GitHubAccountIdentifierType = ButGitHubToken.GithubAccountIdentifier["type"];
 
 function isGitHubAccountIdentifierType(text: unknown): text is GitHubAccountIdentifierType {
-	if (typeof text !== 'string') {
+	if (typeof text !== "string") {
 		return false;
 	}
-	return text === 'oAuthUsername' || text === 'patUsername' || text === 'enterprise';
+	return text === "oAuthUsername" || text === "patUsername" || text === "enterprise";
 }
 
 // ASCII Unit Separator, used to separate data units within a record or field.
-const UNIT_SEP = '\u001F';
+const UNIT_SEP = "\u001F";
 
 export function githubAccountIdentifierToString(
-	account: ButGitHubToken.GithubAccountIdentifier
+	account: ButGitHubToken.GithubAccountIdentifier,
 ): string {
 	switch (account.type) {
-		case 'oAuthUsername':
+		case "oAuthUsername":
 			return `${account.type}${UNIT_SEP}${account.info.username}`;
-		case 'patUsername':
+		case "patUsername":
 			return `${account.type}${UNIT_SEP}${account.info.username}`;
-		case 'enterprise':
+		case "enterprise":
 			return `${account.type}${UNIT_SEP}${account.info.host}${UNIT_SEP}${account.info.username}`;
 	}
 }
 
 export function stringToGitHubAccountIdentifier(
-	str: string
+	str: string,
 ): ButGitHubToken.GithubAccountIdentifier | null {
 	const parts = str.split(UNIT_SEP);
 	if (parts.length < 2) {
@@ -68,32 +68,32 @@ export function stringToGitHubAccountIdentifier(
 	}
 
 	switch (type) {
-		case 'oAuthUsername':
+		case "oAuthUsername":
 			if (infoParts.length < 1) return null;
 			return {
-				type: 'oAuthUsername',
+				type: "oAuthUsername",
 				info: {
-					username: infoParts[0]!
-				}
+					username: infoParts[0]!,
+				},
 			};
-		case 'patUsername':
+		case "patUsername":
 			if (infoParts.length < 1) return null;
 
 			return {
-				type: 'patUsername',
+				type: "patUsername",
 				info: {
-					username: infoParts[0]!
-				}
+					username: infoParts[0]!,
+				},
 			};
-		case 'enterprise':
+		case "enterprise":
 			if (infoParts.length < 2) return null;
 
 			return {
-				type: 'enterprise',
+				type: "enterprise",
 				info: {
 					host: infoParts[0]!,
-					username: infoParts[1]!
-				}
+					username: infoParts[1]!,
+				},
 			};
 	}
 }
@@ -142,81 +142,81 @@ function injectBackendEndpoints(api: BackendApi) {
 		endpoints: (build) => ({
 			forgetGitHubAccount: build.mutation<void, ButGitHubToken.GithubAccountIdentifier>({
 				extraOptions: {
-					command: 'forget_github_account',
-					actionName: 'Forget GitHub Username'
+					command: "forget_github_account",
+					actionName: "Forget GitHub Username",
 				},
 				query: (account) => ({
-					account
+					account,
 				}),
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
 			}),
 			initDeviceOauth: build.mutation<Verification, void>({
 				extraOptions: {
-					command: 'init_github_device_oauth',
-					actionName: 'Init GitHub Device OAuth'
+					command: "init_github_device_oauth",
+					actionName: "Init GitHub Device OAuth",
 				},
-				query: () => ({})
+				query: () => ({}),
 			}),
 			checkAuthStatus: build.mutation<
 				ButGitHub.AuthStatusResponseSensitive,
 				{ deviceCode: string }
 			>({
 				extraOptions: {
-					command: 'check_github_auth_status',
-					actionName: 'Check GitHub Auth Status'
+					command: "check_github_auth_status",
+					actionName: "Check GitHub Auth Status",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
 			}),
 			getGitHubUser: build.query<
 				ButGitHub.AuthenticatedUserSensitive | null,
 				{ account: ButGitHubToken.GithubAccountIdentifier }
 			>({
 				extraOptions: {
-					command: 'get_gh_user'
+					command: "get_gh_user",
 				},
 				query: (args) => args,
 				providesTags: (_result, _error, username) => [
-					...providesItem(ReduxTag.ForgeUser, `github:${username}`)
-				]
+					...providesItem(ReduxTag.ForgeUser, `github:${username}`),
+				],
 			}),
 			listKnownGitHubAccounts: build.query<ButGitHubToken.GithubAccountIdentifier[], void>({
 				extraOptions: {
-					command: 'list_known_github_accounts'
+					command: "list_known_github_accounts",
 				},
 				query: () => ({}),
-				providesTags: [providesList(ReduxTag.GitHubUserList)]
+				providesTags: [providesList(ReduxTag.GitHubUserList)],
 			}),
 			clearAllGitHubAccounts: build.mutation<void, void>({
 				extraOptions: {
-					command: 'clear_all_github_tokens',
-					actionName: 'Clear All GitHub Accounts'
+					command: "clear_all_github_tokens",
+					actionName: "Clear All GitHub Accounts",
 				},
 				query: () => ({}),
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
 			}),
 			storeGitHubPat: build.mutation<
 				ButGitHub.AuthStatusResponseSensitive,
 				{ accessToken: string }
 			>({
 				extraOptions: {
-					command: 'store_github_pat',
-					actionName: 'Store GitHub PAT'
+					command: "store_github_pat",
+					actionName: "Store GitHub PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
 			}),
 			storeGithuibEnterprisePat: build.mutation<
 				ButGitHub.AuthStatusResponseSensitive,
 				{ host: string; accessToken: string }
 			>({
 				extraOptions: {
-					command: 'store_github_enterprise_pat',
-					actionName: 'Store GitHub Enterprise PAT'
+					command: "store_github_enterprise_pat",
+					actionName: "Store GitHub Enterprise PAT",
 				},
 				query: (args) => args,
-				invalidatesTags: [providesList(ReduxTag.GitHubUserList)]
-			})
-		})
+				invalidatesTags: [providesList(ReduxTag.GitHubUserList)],
+			}),
+		}),
 	});
 }

@@ -1,43 +1,43 @@
 <!-- This is a V3 replacement for `BranchFileList.svelte` -->
 <script lang="ts">
-	import EditPatchConfirmModal from '$components/EditPatchConfirmModal.svelte';
-	import FileListItemWrapper from '$components/FileListItemWrapper.svelte';
-	import FileTreeNode from '$components/FileTreeNode.svelte';
-	import LazyList from '$components/LazyList.svelte';
-	import { ACTION_SERVICE } from '$lib/actions/actionService.svelte';
-	import { AI_SERVICE } from '$lib/ai/service';
-	import { projectAiGenEnabled } from '$lib/config/config';
-	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import EditPatchConfirmModal from "$components/EditPatchConfirmModal.svelte";
+	import FileListItemWrapper from "$components/FileListItemWrapper.svelte";
+	import FileTreeNode from "$components/FileTreeNode.svelte";
+	import LazyList from "$components/LazyList.svelte";
+	import { ACTION_SERVICE } from "$lib/actions/actionService.svelte";
+	import { AI_SERVICE } from "$lib/ai/service";
+	import { projectAiGenEnabled } from "$lib/config/config";
+	import { conflictEntryHint } from "$lib/conflictEntryPresence";
 	import {
 		getLockedCommitIds,
 		getLockedTargets,
-		isFileLocked
-	} from '$lib/dependencies/dependencies';
-	import { DEPENDENCY_SERVICE } from '$lib/dependencies/dependencyService.svelte';
-	import { editPatch } from '$lib/editMode/editPatchUtils';
-	import { abbreviateFolders, changesToFileTree } from '$lib/files/filetreeV3';
-	import { type TreeChange, isExecutableStatus } from '$lib/hunks/change';
-	import { MODE_SERVICE } from '$lib/mode/modeService';
-	import { showToast } from '$lib/notifications/toasts';
-	import { FILE_SELECTION_MANAGER } from '$lib/selection/fileSelectionManager.svelte';
-	import { selectFilesInList, updateSelection } from '$lib/selection/fileSelectionUtils';
-	import { type SelectionId } from '$lib/selection/key';
-	import { SETTINGS } from '$lib/settings/userSettings';
-	import { inject, injectOptional } from '@gitbutler/core/context';
-	import { AsyncButton, FileListItem, TestId } from '@gitbutler/ui';
-	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { untrack } from 'svelte';
-	import { get } from 'svelte/store';
-	import type { ConflictEntriesObj } from '$lib/files/conflicts';
+		isFileLocked,
+	} from "$lib/dependencies/dependencies";
+	import { DEPENDENCY_SERVICE } from "$lib/dependencies/dependencyService.svelte";
+	import { editPatch } from "$lib/editMode/editPatchUtils";
+	import { abbreviateFolders, changesToFileTree } from "$lib/files/filetreeV3";
+	import { type TreeChange, isExecutableStatus } from "$lib/hunks/change";
+	import { MODE_SERVICE } from "$lib/mode/modeService";
+	import { showToast } from "$lib/notifications/toasts";
+	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
+	import { selectFilesInList, updateSelection } from "$lib/selection/fileSelectionUtils";
+	import { type SelectionId } from "$lib/selection/key";
+	import { SETTINGS } from "$lib/settings/userSettings";
+	import { inject, injectOptional } from "@gitbutler/core/context";
+	import { AsyncButton, FileListItem, TestId } from "@gitbutler/ui";
+	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { untrack } from "svelte";
+	import { get } from "svelte/store";
+	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 
-	const DEFAULT_MODEL = 'gpt-4.1';
+	const DEFAULT_MODEL = "gpt-4.1";
 
 	type Props = {
 		projectId: string;
 		stackId?: string;
 		changes: TreeChange[];
-		listMode: 'list' | 'tree';
+		listMode: "list" | "tree";
 		showCheckboxes?: boolean;
 		selectionId: SelectionId;
 		conflictEntries?: ConflictEntriesObj;
@@ -62,7 +62,7 @@
 		onFileClick,
 		allowUnselect = true,
 		showLockedIndicator = false,
-		dataTestId
+		dataTestId,
 	}: Props = $props();
 
 	const focusManager = inject(FOCUS_MANAGER);
@@ -77,11 +77,11 @@
 	const [branchChanges] = actionService.branchChanges;
 
 	let editPatchModal: EditPatchConfirmModal | undefined = $state();
-	let selectedFilePath = $state('');
+	let selectedFilePath = $state("");
 
 	const filePaths = $derived(changes.map((change) => change.path));
 	const fileDependenciesQuery = $derived(
-		showLockedIndicator ? dependencyService.filesDependencies(projectId, filePaths) : null
+		showLockedIndicator ? dependencyService.filesDependencies(projectId, filePaths) : null,
 	);
 	const fileDependencies = $derived(fileDependenciesQuery?.result.data || []);
 
@@ -96,13 +96,13 @@
 			modeService,
 			commitId: ancestorMostConflictedCommitId!,
 			stackId: stackId!,
-			projectId
+			projectId,
 		});
 	}
 
 	function handleCancelEditPatch() {
 		editPatchModal?.hide();
-		selectedFilePath = '';
+		selectedFilePath = "";
 	}
 
 	let aiConfigurationValid = $state(false);
@@ -130,49 +130,49 @@
 	 */
 	async function branchSelection() {
 		const selectedFiles = idSelection.values(selectionId);
-		if (selectionId.type !== 'worktree' || selectedFiles.length === 0 || !canUseGBAI) return;
+		if (selectionId.type !== "worktree" || selectedFiles.length === 0 || !canUseGBAI) return;
 
 		showToast({
-			style: 'info',
-			title: 'Creating a branch and committing the changes',
-			message: 'This may take a few seconds.'
+			style: "info",
+			title: "Creating a branch and committing the changes",
+			message: "This may take a few seconds.",
 		});
 
 		const treeChanges = changes.filter((change) =>
-			selectedFiles.some((file) => file.path === change.path)
+			selectedFiles.some((file) => file.path === change.path),
 		);
 
 		await branchChanges({
 			projectId,
 			changes: treeChanges,
-			model: DEFAULT_MODEL
+			model: DEFAULT_MODEL,
 		});
 
 		showToast({
-			style: 'success',
-			title: 'And... done!',
-			message: `Now, you're free to continue`
+			style: "success",
+			title: "And... done!",
+			message: `Now, you're free to continue`,
 		});
 	}
 
 	async function autoCommitSelection() {
 		const selectedFiles = idSelection.values(selectionId);
-		if (selectionId.type !== 'worktree' || selectedFiles.length === 0) return;
+		if (selectionId.type !== "worktree" || selectedFiles.length === 0) return;
 
 		const treeChanges = changes.filter((change) =>
-			selectedFiles.some((file) => file.path === change.path)
+			selectedFiles.some((file) => file.path === change.path),
 		);
 
 		await autoCommit({
 			projectId,
 			target: {
-				type: 'treeChanges',
+				type: "treeChanges",
 				subject: {
 					changes: treeChanges,
-					assigned_stack_id: stackId ?? null
-				}
+					assigned_stack_id: stackId ?? null,
+				},
 			},
-			useAi: $aiGenEnabled
+			useAi: $aiGenEnabled,
 		});
 	}
 
@@ -181,13 +181,13 @@
 
 		return Object.fromEntries(
 			Object.entries(conflictEntries.entries).filter(([key, _value]) =>
-				changes.every((change) => change.path !== key)
-			)
+				changes.every((change) => change.path !== key),
+			),
 		);
 	});
 
 	function handleKeyDown(change: TreeChange, idx: number, e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === ' ' || e.key === 'l') {
+		if (e.key === "Enter" || e.key === " " || e.key === "l") {
 			e.stopPropagation();
 			selectFilesInList(
 				e,
@@ -198,19 +198,19 @@
 				true,
 				idx,
 				selectionId,
-				allowUnselect
+				allowUnselect,
 			);
 			onFileClick?.(idx);
 			return true;
 		}
 
-		if (e.code === 'KeyB' && (e.ctrlKey || e.metaKey) && e.altKey) {
+		if (e.code === "KeyB" && (e.ctrlKey || e.metaKey) && e.altKey) {
 			branchSelection();
 			e.preventDefault();
 			return;
 		}
 
-		if (e.code === 'KeyC' && (e.ctrlKey || e.metaKey) && e.altKey) {
+		if (e.code === "KeyC" && (e.ctrlKey || e.metaKey) && e.altKey) {
 			autoCommitSelection();
 			e.preventDefault();
 			return;
@@ -228,7 +228,7 @@
 				selectedFileIds,
 				fileIdSelection: idSelection,
 				selectionId: selectionId,
-				preventDefault: () => e.preventDefault()
+				preventDefault: () => e.preventDefault(),
 			})
 		) {
 			const lastAdded = get(idSelection.getById(selectionId).lastAdded);
@@ -280,7 +280,7 @@
 		showCheckbox={showCheckboxes}
 		focusableOpts={{
 			onKeydown: (e) => handleKeyDown(change, idx, e),
-			focusable: true
+			focusable: true,
 		}}
 		onclick={(e) => {
 			e.stopPropagation();
@@ -293,7 +293,7 @@
 				true,
 				idx,
 				selectionId,
-				allowUnselect
+				allowUnselect,
 			);
 			if (idSelection.has(change.path, selectionId)) {
 				onFileClick?.(idx);
@@ -308,7 +308,7 @@
 	class="file-list"
 	use:focusable={{
 		vertical: true,
-		onActive: (value) => (active = value)
+		onActive: (value) => (active = value),
 	}}
 >
 	<!-- Conflicted changes -->
@@ -348,7 +348,7 @@
 								modeService,
 								commitId: ancestorMostConflictedCommitId!,
 								stackId: stackId!,
-								projectId
+								projectId,
 							})}
 					>
 						Resolve conflicts
@@ -360,7 +360,7 @@
 
 	<!-- Other changes -->
 	{#if changes.length > 0}
-		{#if listMode === 'tree'}
+		{#if listMode === "tree"}
 			<!--
 				We need to use sortedChanges here because otherwise we will end up
 				with incorrect indexes

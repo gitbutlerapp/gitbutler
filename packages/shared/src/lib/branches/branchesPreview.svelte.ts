@@ -1,25 +1,25 @@
-import { branchReviewListingTable } from '$lib/branches/branchReviewListingsSlice';
-import { BRANCH_SERVICE } from '$lib/branches/branchService';
-import { branchTable } from '$lib/branches/branchesSlice';
+import { branchReviewListingTable } from "$lib/branches/branchReviewListingsSlice";
+import { BRANCH_SERVICE } from "$lib/branches/branchService";
+import { branchTable } from "$lib/branches/branchesSlice";
 import {
 	branchReviewListingKey,
 	BranchStatus,
 	type Branch,
-	type LoadableBranch
-} from '$lib/branches/types';
-import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
-import { isFound } from '$lib/network/loadable';
-import { APP_STATE } from '$lib/redux/store.svelte';
-import { inject } from '@gitbutler/core/context';
-import type { Loadable } from '$lib/network/types';
-import type { Reactive } from '$lib/storeUtils';
+	type LoadableBranch,
+} from "$lib/branches/types";
+import { registerInterest, type InView } from "$lib/interest/registerInterestFunction.svelte";
+import { isFound } from "$lib/network/loadable";
+import { APP_STATE } from "$lib/redux/store.svelte";
+import { inject } from "@gitbutler/core/context";
+import type { Loadable } from "$lib/network/types";
+import type { Reactive } from "$lib/storeUtils";
 
 /** Returns a 2D List of branches. Branches grouped in a sub-array are stack*/
 export function getBranchReviewsForRepository(
 	ownerSlug: string,
 	projectSlug: string,
 	status: BranchStatus = BranchStatus.All,
-	inView?: InView
+	inView?: InView,
 ): Reactive<Loadable<Branch[][]>> {
 	const appState = inject(APP_STATE);
 	const branchService = inject(BRANCH_SERVICE);
@@ -30,8 +30,8 @@ export function getBranchReviewsForRepository(
 	const branchListing = $derived(
 		branchReviewListingTable.selectors.selectById(
 			appState.branchReviewListings,
-			branchReviewListingKey(ownerSlug, projectSlug, status)
-		)
+			branchReviewListingKey(ownerSlug, projectSlug, status),
+		),
 	);
 
 	const branchReviews = $derived.by(() => {
@@ -57,20 +57,20 @@ export function getBranchReviewsForRepository(
 			value: [...groupedBranches.values()].sort((a, b) => {
 				return new Date(b[0]!.updatedAt).getTime() - new Date(a[0]!.updatedAt).getTime();
 			}),
-			status: 'found'
+			status: "found",
 		} as Loadable<Branch[][]>;
 	});
 
 	return {
 		get current() {
 			return branchReviews;
-		}
+		},
 	};
 }
 
 export function getBranchReview(
 	uuid: string,
-	inView?: InView
+	inView?: InView,
 ): Reactive<LoadableBranch | undefined> {
 	const branchService = inject(BRANCH_SERVICE);
 	const appState = inject(APP_STATE);
@@ -82,6 +82,6 @@ export function getBranchReview(
 	return {
 		get current() {
 			return branchReview;
-		}
+		},
 	};
 }

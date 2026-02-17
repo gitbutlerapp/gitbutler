@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import type { ScriptStep } from './terminal-types';
+	import { untrack } from "svelte";
+	import type { ScriptStep } from "./terminal-types";
 
 	interface Props {
 		height: string;
@@ -14,10 +14,10 @@
 	const {
 		height,
 		script = [],
-		bottomPadding = '24px',
+		bottomPadding = "24px",
 		typingSpeed = 55,
 		onComplete,
-		onProgress
+		onProgress,
 	}: Props = $props();
 
 	// Timing constants for consistent animation
@@ -26,21 +26,21 @@
 	const OUTPUT_PAUSE_MS = 1000; // Pause after output to let users read
 
 	// Detect OS from user agent
-	function detectOS(): 'macOS' | 'Windows' | 'Linux' {
+	function detectOS(): "macOS" | "Windows" | "Linux" {
 		const userAgent = navigator.userAgent.toLowerCase();
 
-		if (userAgent.includes('mac')) {
-			return 'macOS';
-		} else if (userAgent.includes('win')) {
-			return 'Windows';
+		if (userAgent.includes("mac")) {
+			return "macOS";
+		} else if (userAgent.includes("win")) {
+			return "Windows";
 		} else {
-			return 'Linux';
+			return "Linux";
 		}
 	}
 
 	const os = detectOS();
 
-	let displayedLines = $state<Array<{ text: string; type: 'input' | 'output' }>>([]);
+	let displayedLines = $state<Array<{ text: string; type: "input" | "output" }>>([]);
 	let currentStepIndex = 0;
 	let currentLineIndex = 0;
 	let currentCharIndex = 0;
@@ -80,7 +80,7 @@
 		const avgTypingDelay = typingSpeed; // Use base typing speed for estimation
 
 		script.forEach((step) => {
-			if (step.type === 'input') {
+			if (step.type === "input") {
 				step.lines.forEach((line) => {
 					total += line.length * avgTypingDelay; // Time to type characters
 					total += LINE_DELAY_MS; // Delay between lines
@@ -158,10 +158,10 @@
 
 		const step = script[currentStepIndex];
 
-		if (step.type === 'output') {
+		if (step.type === "output") {
 			// Output: show all lines immediately
 			step.lines.forEach((line) => {
-				displayedLines = [...displayedLines, { text: line, type: 'output' }];
+				displayedLines = [...displayedLines, { text: line, type: "output" }];
 			});
 			currentStepIndex++;
 			timeoutId = setTimeout(() => playNextStep(), OUTPUT_PAUSE_MS); // Pause after output to let users read
@@ -175,7 +175,7 @@
 		if (!isPlaying) return;
 
 		const step = script[currentStepIndex];
-		if (!step || step.type !== 'input') return;
+		if (!step || step.type !== "input") return;
 
 		if (currentLineIndex >= step.lines.length) {
 			// Finished this input step, move to next
@@ -190,7 +190,7 @@
 
 		if (currentCharIndex === 0) {
 			// Start new line
-			displayedLines = [...displayedLines, { text: '', type: 'input' }];
+			displayedLines = [...displayedLines, { text: "", type: "input" }];
 		}
 
 		if (currentCharIndex < currentLine.length) {
@@ -199,7 +199,7 @@
 			const newLines = [...displayedLines];
 			newLines[lastIndex] = {
 				...newLines[lastIndex],
-				text: currentLine.substring(0, currentCharIndex + 1)
+				text: currentLine.substring(0, currentCharIndex + 1),
 			};
 			displayedLines = newLines;
 			currentCharIndex++;
@@ -219,23 +219,23 @@
 
 <div
 	class="terminal-mockup"
-	class:macos={os === 'macOS'}
-	class:windows={os === 'Windows'}
-	class:linux={os === 'Linux'}
+	class:macos={os === "macOS"}
+	class:windows={os === "Windows"}
+	class:linux={os === "Linux"}
 	style="height: {height};"
 >
 	<div class="terminal-mockup__header">
-		{#if os === 'macOS'}
+		{#if os === "macOS"}
 			<div class="terminal-mockup__window-controls">
 				<img src="/images/cli/mac-window-controls.svg" alt="Window controls" />
 			</div>
 			<div class="terminal-mockup__title">GitButler CLI</div>
-		{:else if os === 'Windows'}
+		{:else if os === "Windows"}
 			<div class="terminal-mockup__title">GitButler CLI</div>
 			<div class="terminal-mockup__window-controls">
 				<img src="/images/cli/windows-window-controls.svg" alt="Window controls" />
 			</div>
-		{:else if os === 'Linux'}
+		{:else if os === "Linux"}
 			<div class="terminal-mockup__title">GitButler CLI</div>
 			<div class="terminal-mockup__window-controls">
 				<img src="/images/cli/linux-window-controls.svg" alt="Window controls" />
@@ -250,9 +250,9 @@
 	>
 		<code class="terminal-mockup__code">
 			{#each displayedLines as line, index}
-				{#if line.type === 'input'}
+				{#if line.type === "input"}
 					<span class="terminal-mockup__line terminal-mockup__input">{@html line.text}</span
-					>{#if isPlaying && index === displayedLines.length - 1 && line.type === 'input'}<span
+					>{#if isPlaying && index === displayedLines.length - 1 && line.type === "input"}<span
 							class="terminal-mockup__cursor"
 						></span>{/if}
 				{:else}
@@ -360,7 +360,7 @@
 		color: #d4d4d4;
 		font-size: 14px;
 		line-height: 1.5;
-		font-family: 'Source Code Pro', monospace;
+		font-family: "Source Code Pro", monospace;
 		scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 
 		/* Custom scrollbar for Firefox */

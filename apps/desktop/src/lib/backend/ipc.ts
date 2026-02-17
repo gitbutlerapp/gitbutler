@@ -1,4 +1,4 @@
-import { Code } from '$lib/error/knownErrors';
+import { Code } from "$lib/error/knownErrors";
 
 export class UserError extends Error {
 	code!: Code;

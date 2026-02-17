@@ -1,6 +1,6 @@
 export function isTouchDevice() {
 	return (
-		'ontouchstart' in window ||
+		"ontouchstart" in window ||
 		navigator.maxTouchPoints > 0 ||
 		(navigator as any).msMaxTouchPoints > 0
 	);
@@ -16,7 +16,7 @@ export function isMobileDevice() {
 		/iPad/i,
 		/iPod/i,
 		/BlackBerry/i,
-		/Windows Phone/i
+		/Windows Phone/i,
 	];
 
 	return toMatch.some((toMatchItem) => {

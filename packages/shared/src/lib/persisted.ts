@@ -1,8 +1,8 @@
 /**
  * This is simplified copy of the persisted store in square/svelte-store.
  */
-import lscache from 'lscache';
-import { writable, type Writable } from 'svelte/store';
+import lscache from "lscache";
+import { writable, type Writable } from "svelte/store";
 export type Persisted<T> = Writable<T> & { synchronize: () => void };
 
 // Using a WeakRef means that if all the users of the persisted go away, the
@@ -21,7 +21,7 @@ export function getStorageItem(key: string): unknown {
 
 export function getBooleanStorageItem(key: string): boolean | undefined {
 	const item = getStorageItem(key);
-	if (typeof item === 'boolean') {
+	if (typeof item === "boolean") {
 		return item;
 	}
 	return undefined;
@@ -62,7 +62,7 @@ export function persisted<T>(initial: T, key: string): Persisted<T> {
 	}
 
 	function update() {
-		throw 'Not implemented';
+		throw "Not implemented";
 	}
 
 	const thisStore = writable<T>(initial, (set) => {
@@ -79,7 +79,7 @@ export function persisted<T>(initial: T, key: string): Persisted<T> {
 		subscribe,
 		set,
 		update,
-		synchronize: () => synchronize(thisStore.set)
+		synchronize: () => synchronize(thisStore.set),
 	};
 
 	// Store the instance with a WeakRef
@@ -91,7 +91,7 @@ export function persisted<T>(initial: T, key: string): Persisted<T> {
 export function setEphemeralStorageItem(
 	key: string,
 	value: unknown,
-	expirationInMinutes: number
+	expirationInMinutes: number,
 ): void {
 	lscache.set(key, JSON.stringify(value), expirationInMinutes);
 }
@@ -117,7 +117,7 @@ export function getEphemeralStorageItem(key: string): unknown {
 export function persistWithExpiration<T>(
 	initial: T,
 	key: string,
-	expirationInMinutes: number
+	expirationInMinutes: number,
 ): Persisted<T> {
 	// Check if we already have an instance for this key
 	const instance = persistedInstancesWithExpiration.get(key)?.deref();
@@ -141,7 +141,7 @@ export function persistWithExpiration<T>(
 	}
 
 	function update() {
-		throw 'Not implemented';
+		throw "Not implemented";
 	}
 
 	const thisStore = writable<T>(initial, (set) => {
@@ -158,7 +158,7 @@ export function persistWithExpiration<T>(
 		subscribe,
 		set,
 		update,
-		synchronize: () => synchronize(thisStore.set)
+		synchronize: () => synchronize(thisStore.set),
 	};
 
 	persistedInstancesWithExpiration.set(key, new WeakRef(persistedStore));

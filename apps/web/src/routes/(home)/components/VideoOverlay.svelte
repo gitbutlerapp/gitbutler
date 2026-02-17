@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount } from "svelte";
 
 	interface Props {
 		videoUrl: string;
@@ -11,9 +11,9 @@
 	// Convert YouTube URL to embed URL with autoplay
 	function getYouTubeEmbedUrl(url: string): string {
 		// If it's already an embed URL, just add/update autoplay parameter
-		if (url.includes('/embed/')) {
+		if (url.includes("/embed/")) {
 			const urlObj = new URL(url);
-			urlObj.searchParams.set('autoplay', '1');
+			urlObj.searchParams.set("autoplay", "1");
 			return urlObj.toString();
 		}
 
@@ -32,15 +32,15 @@
 	onMount(() => {
 		// Handle escape key
 		function handleKeydown(e: KeyboardEvent) {
-			if (e.key === 'Escape') {
+			if (e.key === "Escape") {
 				onClose();
 			}
 		}
 
-		window.addEventListener('keydown', handleKeydown);
+		window.addEventListener("keydown", handleKeydown);
 
 		return () => {
-			window.removeEventListener('keydown', handleKeydown);
+			window.removeEventListener("keydown", handleKeydown);
 		};
 	});
 
@@ -51,7 +51,7 @@
 	}
 
 	function handleBackdropKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter' || e.key === ' ') {
+		if (e.key === "Enter" || e.key === " ") {
 			e.preventDefault();
 			onClose();
 		}

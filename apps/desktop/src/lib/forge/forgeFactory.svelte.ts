@@ -1,21 +1,21 @@
-import { AZURE_DOMAIN, AzureDevOps } from '$lib/forge/azure/azure';
-import { BitBucket, BITBUCKET_DOMAIN } from '$lib/forge/bitbucket/bitbucket';
-import { DefaultForge } from '$lib/forge/default/default';
-import { GitHub, GITHUB_DOMAIN } from '$lib/forge/github/github';
-import { GitHubClient } from '$lib/forge/github/githubClient';
-import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from '$lib/forge/gitlab/gitlab';
-import { InjectionToken } from '@gitbutler/core/context';
-import { deepCompare } from '@gitbutler/shared/compare';
-import type { PostHogWrapper } from '$lib/analytics/posthog';
-import type { ForgeProvider } from '$lib/baseBranch/baseBranch';
-import type { GitLabClient } from '$lib/forge/gitlab/gitlabClient.svelte';
-import type { Forge, ForgeName } from '$lib/forge/interface/forge';
-import type { BackendApi, GitHubApi, GitLabApi } from '$lib/state/clientState.svelte';
-import type { ReduxTag } from '$lib/state/tags';
-import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
-import type { ThunkDispatch, UnknownAction } from '@reduxjs/toolkit';
-import type { TagDescription } from '@reduxjs/toolkit/query';
+import { AZURE_DOMAIN, AzureDevOps } from "$lib/forge/azure/azure";
+import { BitBucket, BITBUCKET_DOMAIN } from "$lib/forge/bitbucket/bitbucket";
+import { DefaultForge } from "$lib/forge/default/default";
+import { GitHub, GITHUB_DOMAIN } from "$lib/forge/github/github";
+import { GitHubClient } from "$lib/forge/github/githubClient";
+import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from "$lib/forge/gitlab/gitlab";
+import { InjectionToken } from "@gitbutler/core/context";
+import { deepCompare } from "@gitbutler/shared/compare";
+import type { PostHogWrapper } from "$lib/analytics/posthog";
+import type { ForgeProvider } from "$lib/baseBranch/baseBranch";
+import type { GitLabClient } from "$lib/forge/gitlab/gitlabClient.svelte";
+import type { Forge, ForgeName } from "$lib/forge/interface/forge";
+import type { BackendApi, GitHubApi, GitLabApi } from "$lib/state/clientState.svelte";
+import type { ReduxTag } from "$lib/state/tags";
+import type { RepoInfo } from "$lib/url/gitUrl";
+import type { Reactive } from "@gitbutler/shared/storeUtils";
+import type { ThunkDispatch, UnknownAction } from "@reduxjs/toolkit";
+import type { TagDescription } from "@reduxjs/toolkit/query";
 
 export type ForgeConfig = {
 	repo?: RepoInfo;
@@ -29,17 +29,17 @@ export type ForgeConfig = {
 	forgeOverride?: ForgeName;
 };
 
-export const DEFAULT_FORGE_FACTORY = new InjectionToken<DefaultForgeFactory>('DefaultForgeFactory');
+export const DEFAULT_FORGE_FACTORY = new InjectionToken<DefaultForgeFactory>("DefaultForgeFactory");
 
 export class DefaultForgeFactory implements Reactive<Forge> {
 	private default = new DefaultForge();
 	private _forge = $state<Forge>(this.default);
 	private _config: any = undefined;
-	private _determinedForgeType = $state<ForgeName>('default');
+	private _determinedForgeType = $state<ForgeName>("default");
 	private _githubError = $state<{ code: string; message: string } | undefined>(undefined);
 	private _canSetupIntegration = $derived.by(() => {
 		// Don't show the setup prompt if there's a network error
-		if (this._githubError?.code === 'errors.network') {
+		if (this._githubError?.code === "errors.network") {
 			return undefined;
 		}
 		return isAvalilableForge(this._determinedForgeType) &&
@@ -58,7 +58,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			gitLabApi: GitLabApi;
 			posthog: PostHogWrapper;
 			dispatch: ThunkDispatch<any, any, UnknownAction>;
-		}
+		},
 	) {}
 
 	get current(): Forge {
@@ -77,21 +77,21 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	 * Get review unit abbreviation with fallback to 'PR'
 	 */
 	get reviewUnitAbbr(): string {
-		return this._forge.prService?.unit.abbr ?? 'PR';
+		return this._forge.prService?.unit.abbr ?? "PR";
 	}
 
 	/**
 	 * Get review unit name with fallback to 'Pull request'
 	 */
 	get reviewUnitName(): string {
-		return this._forge.prService?.unit.name ?? 'Pull request';
+		return this._forge.prService?.unit.name ?? "Pull request";
 	}
 
 	/**
 	 * Get review unit symbol with fallback to '#'
 	 */
 	get reviewUnitSymbol(): string {
-		return this._forge.prService?.unit.symbol ?? '#';
+		return this._forge.prService?.unit.symbol ?? "#";
 	}
 
 	setConfig(config: ForgeConfig) {
@@ -108,7 +108,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			githubError,
 			gitlabAuthenticated,
 			detectedForgeProvider,
-			forgeOverride
+			forgeOverride,
 		} = config;
 		this._githubError = githubError;
 		if (repo && baseBranch) {
@@ -121,10 +121,10 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				forgeIsLoading,
 				gitlabAuthenticated,
 				detectedForgeProvider,
-				forgeOverride
+				forgeOverride,
 			});
 		} else {
-			this._determinedForgeType = 'default';
+			this._determinedForgeType = "default";
 			this._forge = this.default;
 		}
 	}
@@ -137,7 +137,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		forgeIsLoading,
 		gitlabAuthenticated,
 		detectedForgeProvider,
-		forgeOverride
+		forgeOverride,
 	}: {
 		repo: RepoInfo;
 		pushRepo?: RepoInfo;
@@ -149,7 +149,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		forgeOverride: ForgeName | undefined;
 	}): Forge {
 		let forgeType = this.determineForgeType(repo, detectedForgeProvider);
-		if (forgeType === 'default' && forgeOverride) {
+		if (forgeType === "default" && forgeOverride) {
 			forgeType = forgeOverride;
 		}
 		const forkStr =
@@ -159,10 +159,10 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 			repo,
 			baseBranch,
 			forkStr,
-			authenticated: false
+			authenticated: false,
 		};
 
-		if (forgeType === 'github') {
+		if (forgeType === "github") {
 			const { gitHubClient, gitHubApi, posthog, backendApi, dispatch } = this.params;
 			return new GitHub({
 				...baseParams,
@@ -172,10 +172,10 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				client: gitHubClient,
 				posthog: posthog,
 				authenticated: !!githubAuthenticated,
-				isLoading: forgeIsLoading ?? false
+				isLoading: forgeIsLoading ?? false,
 			});
 		}
-		if (forgeType === 'gitlab') {
+		if (forgeType === "gitlab") {
 			const { gitLabClient, gitLabApi, posthog, dispatch } = this.params;
 			return new GitLab({
 				...baseParams,
@@ -184,13 +184,13 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 				posthog: posthog,
 				authenticated: !!gitlabAuthenticated,
 				dispatch,
-				isLoading: forgeIsLoading ?? false
+				isLoading: forgeIsLoading ?? false,
 			});
 		}
-		if (forgeType === 'bitbucket') {
+		if (forgeType === "bitbucket") {
 			return new BitBucket(baseParams);
 		}
-		if (forgeType === 'azure') {
+		if (forgeType === "azure") {
 			return new AzureDevOps(baseParams);
 		}
 		return this.default;
@@ -198,7 +198,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 
 	private determineForgeType(
 		repo: RepoInfo,
-		detectedForgeProvider: ForgeProvider | undefined
+		detectedForgeProvider: ForgeProvider | undefined,
 	): ForgeName {
 		if (detectedForgeProvider) {
 			return detectedForgeProvider;
@@ -206,23 +206,23 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 		const domain = repo.domain;
 
 		if (domain.includes(GITHUB_DOMAIN)) {
-			return 'github';
+			return "github";
 		}
 		if (
 			domain === GITLAB_DOMAIN ||
-			domain.startsWith(GITLAB_SUB_DOMAIN + '.') ||
-			domain.startsWith('xy' + GITLAB_SUB_DOMAIN + '.') // Temporary workaround until we have foerge overrides implemented
+			domain.startsWith(GITLAB_SUB_DOMAIN + ".") ||
+			domain.startsWith("xy" + GITLAB_SUB_DOMAIN + ".") // Temporary workaround until we have foerge overrides implemented
 		) {
-			return 'gitlab';
+			return "gitlab";
 		}
 		if (domain.includes(BITBUCKET_DOMAIN)) {
-			return 'bitbucket';
+			return "bitbucket";
 		}
 		if (domain.includes(AZURE_DOMAIN)) {
-			return 'azure';
+			return "azure";
 		}
 
-		return 'default';
+		return "default";
 	}
 
 	invalidate(tags: TagDescription<ReduxTag>[]) {
@@ -234,7 +234,7 @@ export class DefaultForgeFactory implements Reactive<Forge> {
 	}
 }
 
-const AVAILABLE_FORGES = ['github', 'gitlab'] satisfies ForgeName[];
+const AVAILABLE_FORGES = ["github", "gitlab"] satisfies ForgeName[];
 export type AvailableForge = (typeof AVAILABLE_FORGES)[number];
 
 function isAvalilableForge(forge: ForgeName): forge is AvailableForge {
@@ -243,27 +243,27 @@ function isAvalilableForge(forge: ForgeName): forge is AvailableForge {
 
 export function availableForgeLabel(forge: AvailableForge): string {
 	switch (forge) {
-		case 'github':
-			return 'GitHub';
-		case 'gitlab':
-			return 'GitLab';
+		case "github":
+			return "GitHub";
+		case "gitlab":
+			return "GitLab";
 	}
 }
 
 export function availableForgeReviewUnit(forge: AvailableForge): string {
 	switch (forge) {
-		case 'github':
-			return 'Pull Requests';
-		case 'gitlab':
-			return 'Merge Requests';
+		case "github":
+			return "Pull Requests";
+		case "gitlab":
+			return "Merge Requests";
 	}
 }
 
 export function availableForgeDocsLink(forge: AvailableForge): string {
 	switch (forge) {
-		case 'github':
-			return 'https://docs.gitbutler.com/features/forge-integration/github-integration';
-		case 'gitlab':
-			return 'https://docs.gitbutler.com/features/forge-integration/gitlab-integration';
+		case "github":
+			return "https://docs.gitbutler.com/features/forge-integration/github-integration";
+		case "gitlab":
+			return "https://docs.gitbutler.com/features/forge-integration/gitlab-integration";
 	}
 }

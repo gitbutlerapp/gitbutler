@@ -1,15 +1,15 @@
 <script module lang="ts">
-	import Codeblock from '$components/Codeblock.svelte';
-	import { defineMeta } from '@storybook/addon-svelte-csf';
+	import Codeblock from "$components/Codeblock.svelte";
+	import { defineMeta } from "@storybook/addon-svelte-csf";
 
 	const { Story } = defineMeta({
-		title: 'Display / Codeblock',
+		title: "Display / Codeblock",
 		component: Codeblock,
 		args: {
 			label: undefined,
 			content: 'const example = "Hello, World!";\nconsole.log(example);',
-			marginBottom: undefined
-		}
+			marginBottom: undefined,
+		},
 	});
 </script>
 

@@ -1,12 +1,12 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
+	import Icon from "$components/Icon.svelte";
 
 	interface Props {
 		searchValue: string;
 		placeholder?: string;
 	}
 
-	let { placeholder = 'Search…', searchValue = $bindable() }: Props = $props();
+	let { placeholder = "Search…", searchValue = $bindable() }: Props = $props();
 
 	let inputEl: HTMLInputElement;
 
@@ -15,7 +15,7 @@
 	}
 
 	function resetFilter() {
-		searchValue = '';
+		searchValue = "";
 		inputEl.focus();
 	}
 
@@ -28,7 +28,7 @@
 
 		// Allow arrow keys, Enter, and Escape to bubble up to the parent Select
 		// for dropdown navigation while keeping the search input focused
-		if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'Enter' || key === 'Escape') {
+		if (key === "ArrowUp" || key === "ArrowDown" || key === "Enter" || key === "Escape") {
 			// Don't prevent default for arrow keys so cursor behavior in input is preserved
 			// but don't stop propagation so parent can handle navigation
 			return;

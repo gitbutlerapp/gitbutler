@@ -1,16 +1,16 @@
-import { loadableUpsert, loadableUpsertMany } from '$lib/network/loadable';
-import { type LoadablePatchEventChannel } from '$lib/patchEvents/types';
-import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
+import { loadableUpsert, loadableUpsertMany } from "$lib/network/loadable";
+import { type LoadablePatchEventChannel } from "$lib/patchEvents/types";
+import { createEntityAdapter, createSlice } from "@reduxjs/toolkit";
 
 const patchEventsAdapter = createEntityAdapter<
 	LoadablePatchEventChannel,
-	LoadablePatchEventChannel['id']
+	LoadablePatchEventChannel["id"]
 >({
-	selectId: (patchEvent) => patchEvent.id
+	selectId: (patchEvent) => patchEvent.id,
 });
 
 const patchEventsSlice = createSlice({
-	name: 'patchEvents',
+	name: "patchEvents",
 	initialState: patchEventsAdapter.getInitialState(),
 	reducers: {
 		addPatchEvent: patchEventsAdapter.addOne,
@@ -18,8 +18,8 @@ const patchEventsSlice = createSlice({
 		removePatchEvent: patchEventsAdapter.removeOne,
 		removePatchEvents: patchEventsAdapter.removeMany,
 		upsertPatchEvent: loadableUpsert(patchEventsAdapter),
-		upsertPatchEvents: loadableUpsertMany(patchEventsAdapter)
-	}
+		upsertPatchEvents: loadableUpsertMany(patchEventsAdapter),
+	},
 });
 
 export const patchEventsReducer = patchEventsSlice.reducer;
@@ -31,5 +31,5 @@ export const {
 	removePatchEvent,
 	removePatchEvents,
 	upsertPatchEvent,
-	upsertPatchEvents
+	upsertPatchEvents,
 } = patchEventsSlice.actions;

@@ -1,8 +1,8 @@
-import { InjectionToken } from '@gitbutler/core/context';
-import { chipToasts } from '@gitbutler/ui';
-import type { IBackend } from '$lib/backend/backend';
+import { InjectionToken } from "@gitbutler/core/context";
+import { chipToasts } from "@gitbutler/ui";
+import type { IBackend } from "$lib/backend/backend";
 
-export const CLIPBOARD_SERVICE = new InjectionToken<ClipboardService>('ClipboardService');
+export const CLIPBOARD_SERVICE = new InjectionToken<ClipboardService>("ClipboardService");
 export default class ClipboardService {
 	constructor(private backend: IBackend) {}
 
@@ -19,16 +19,16 @@ export default class ClipboardService {
 		opt: {
 			errorMessage?: string;
 			message?: string;
-		} = {}
+		} = {},
 	) {
 		const { errorMessage, message } = opt;
 		await this.backend
 			.writeTextToClipboard(text)
 			.then(() => {
-				chipToasts.success(message || 'Copied to clipboard');
+				chipToasts.success(message || "Copied to clipboard");
 			})
 			.catch((err) => {
-				chipToasts.error(errorMessage || 'Failed to copy');
+				chipToasts.error(errorMessage || "Failed to copy");
 				console.error(errorMessage, err);
 			});
 	}

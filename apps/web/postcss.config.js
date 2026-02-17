@@ -1,11 +1,11 @@
-import postcssGlobalData from '@csstools/postcss-global-data';
-import autoprefixer from 'autoprefixer';
-import postcssCustomMedia from 'postcss-custom-media';
-import postcssNesting from 'postcss-nesting';
-import pxToRem from 'postcss-pxtorem';
-import path from 'path';
+import postcssGlobalData from "@csstools/postcss-global-data";
+import autoprefixer from "autoprefixer";
+import postcssCustomMedia from "postcss-custom-media";
+import postcssNesting from "postcss-nesting";
+import pxToRem from "postcss-pxtorem";
+import path from "path";
 
-const mediaQueriesCssPath = path.resolve('src/styles/media-queries.css');
+const mediaQueriesCssPath = path.resolve("src/styles/media-queries.css");
 
 /** @type {import('postcss-load-config').Config} */
 const config = {
@@ -14,13 +14,13 @@ const config = {
 		autoprefixer(),
 		pxToRem({
 			rootValue: 16,
-			mediaQuery: true
+			mediaQuery: true,
 		}),
 		postcssGlobalData({
-			files: [mediaQueriesCssPath]
+			files: [mediaQueriesCssPath],
 		}),
-		postcssCustomMedia()
-	]
+		postcssCustomMedia(),
+	],
 };
 
 export default config;

@@ -1,14 +1,14 @@
-import type { DiffHunk } from '$lib/hunks/hunk';
+import type { DiffHunk } from "$lib/hunks/hunk";
 
 export type DependencyError = {
 	description: string;
 };
 
 export function shouldRaiseDependencyError(
-	error: DependencyError | null
+	error: DependencyError | null,
 ): error is DependencyError {
 	if (!error) return false;
-	if (error.description === 'errors.projects.default_target.not_found') return false;
+	if (error.description === "errors.projects.default_target.not_found") return false;
 	return true;
 }
 
@@ -33,11 +33,11 @@ export type CalculationError = {
 
 export type HunkLockTarget =
 	| {
-			type: 'stack';
+			type: "stack";
 			subject: string;
 	  }
 	| {
-			type: 'unidentified';
+			type: "unidentified";
 	  };
 
 /**
@@ -136,7 +136,7 @@ export type FileDependencies = {
  * // ]
  */
 export function aggregateFileDependencies(
-	hunkDependencies: HunkDependencies
+	hunkDependencies: HunkDependencies,
 ): [string[], FileDependencies[]] {
 	const filePaths: string[] = [];
 	const fileDependencies = hunkDependencies.diffs.reduce<FileDependencies[]>(
@@ -146,7 +146,7 @@ export function aggregateFileDependencies(
 			if (exisitingDependency) {
 				exisitingDependency.dependencies.push({
 					hunk,
-					locks
+					locks,
 				});
 				return acc;
 			}
@@ -160,13 +160,13 @@ export function aggregateFileDependencies(
 					dependencies: [
 						{
 							hunk,
-							locks
-						}
-					]
-				}
+							locks,
+						},
+					],
+				},
 			];
 		},
-		[]
+		[],
 	);
 
 	return [filePaths, fileDependencies];
@@ -193,7 +193,7 @@ export function isFileLocked(filePath: string, fileDependencies: FileDependencie
  */
 export function getLockedCommitIds(
 	filePath: string,
-	fileDependencies: FileDependencies[]
+	fileDependencies: FileDependencies[],
 ): string[] {
 	const deps = fileDependencies.find((dep) => dep.path === filePath);
 	if (!deps) return [];
@@ -214,7 +214,7 @@ export function getLockedCommitIds(
  */
 export function getLockedTargets(
 	filePath: string,
-	fileDependencies: FileDependencies[]
+	fileDependencies: FileDependencies[],
 ): HunkLockTarget[] {
 	const deps = fileDependencies.find((dep) => dep.path === filePath);
 	if (!deps) return [];
@@ -231,9 +231,9 @@ export function getLockedTargets(
 }
 
 export function targetEqual(a: HunkLockTarget, b: HunkLockTarget) {
-	if (a.type === 'stack' && a.type === b.type) {
+	if (a.type === "stack" && a.type === b.type) {
 		return a.subject === b.subject;
-	} else if (a.type === 'unidentified' && a.type === b.type) {
+	} else if (a.type === "unidentified" && a.type === b.type) {
 		return true;
 	} else {
 		return false;

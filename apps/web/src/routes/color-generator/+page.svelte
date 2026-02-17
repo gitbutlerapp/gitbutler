@@ -1,10 +1,10 @@
 <script lang="ts">
-	import appPreviewSvg from './assets/app-preview.svg?raw';
-	import artPreviewSvg from './assets/art-preview.svg?raw';
-	import ColorScaleDisplay from './components/ColorScaleDisplay.svelte';
-	import ExportSection from './components/ExportSection.svelte';
-	import IllustrationColors from './components/IllustrationColors.svelte';
-	import SemanticZones from './components/SemanticZones.svelte';
+	import appPreviewSvg from "./assets/app-preview.svg?raw";
+	import artPreviewSvg from "./assets/art-preview.svg?raw";
+	import ColorScaleDisplay from "./components/ColorScaleDisplay.svelte";
+	import ExportSection from "./components/ExportSection.svelte";
+	import IllustrationColors from "./components/IllustrationColors.svelte";
+	import SemanticZones from "./components/SemanticZones.svelte";
 
 	import {
 		SCALES,
@@ -12,15 +12,15 @@
 		DEFAULT_SATURATIONS,
 		DEFAULT_SHADE_50_LIGHTNESS,
 		ART_COLORS_LIGHT,
-		ART_COLORS_DARK
-	} from './constants/colorScales';
-	import { generateScale } from './utils/colorScale';
-	import Header from '$lib/components/marketing/Header.svelte';
-	import ThemeSwitcher from '$lib/components/marketing/ThemeSwitcher.svelte';
-	import { effectiveThemeStore } from '$lib/utils/theme.svelte';
+		ART_COLORS_DARK,
+	} from "./constants/colorScales";
+	import { generateScale } from "./utils/colorScale";
+	import Header from "$lib/components/marketing/Header.svelte";
+	import ThemeSwitcher from "$lib/components/marketing/ThemeSwitcher.svelte";
+	import { effectiveThemeStore } from "$lib/utils/theme.svelte";
 
 	let scaleSaturations: Record<string, number> = $state({
-		...DEFAULT_SATURATIONS
+		...DEFAULT_SATURATIONS,
 	});
 	let scaleHues: Record<string, number | null> = $state({
 		gray: null,
@@ -28,30 +28,30 @@
 		err: null,
 		warn: null,
 		succ: null,
-		purp: null
+		purp: null,
 	});
 	let scaleShade50Lightness: Record<string, number> = $state({
-		...DEFAULT_SHADE_50_LIGHTNESS
+		...DEFAULT_SHADE_50_LIGHTNESS,
 	});
 
 	let artColorOverridesLight: Record<string, { h: number; s: number; l: number }> = $state({});
 	let artColorOverridesDark: Record<string, { h: number; s: number; l: number }> = $state({});
 
 	let illustrationColors = $derived({
-		...($effectiveThemeStore === 'dark' ? ART_COLORS_DARK : ART_COLORS_LIGHT),
-		...($effectiveThemeStore === 'dark' ? artColorOverridesDark : artColorOverridesLight)
+		...($effectiveThemeStore === "dark" ? ART_COLORS_DARK : ART_COLORS_LIGHT),
+		...($effectiveThemeStore === "dark" ? artColorOverridesDark : artColorOverridesLight),
 	});
 
 	let currentArtColorsLight = $derived({ ...ART_COLORS_LIGHT, ...artColorOverridesLight });
 	let currentArtColorsDark = $derived({ ...ART_COLORS_DARK, ...artColorOverridesDark });
 
-	let expandedScaleId: string | null = $state('pop');
+	let expandedScaleId: string | null = $state("pop");
 
 	const baseHue = 180;
 
 	// Generate colors reactively whenever dependencies change
 	let currentColors = $derived(
-		generateScale(SCALES, SHADES, scaleSaturations, scaleHues, baseHue, scaleShade50Lightness)
+		generateScale(SCALES, SHADES, scaleSaturations, scaleHues, baseHue, scaleShade50Lightness),
 	);
 
 	// Apply CSS variables to document root
@@ -89,7 +89,7 @@
 	}
 
 	function updateArtColor(colorId: string, hsl: { h: number; s: number; l: number }) {
-		if ($effectiveThemeStore === 'dark') {
+		if ($effectiveThemeStore === "dark") {
 			artColorOverridesDark[colorId] = hsl;
 		} else {
 			artColorOverridesLight[colorId] = hsl;
@@ -146,14 +146,14 @@
 		<IllustrationColors
 			colors={illustrationColors}
 			onColorChange={updateArtColor}
-			isExpanded={expandedScaleId === 'art'}
-			onToggle={() => toggleScale('art')}
+			isExpanded={expandedScaleId === "art"}
+			onToggle={() => toggleScale("art")}
 		/>
 	</div>
 
 	<div class="app-mockup-wrapper">
 		<div class="app-mockup">
-			{#if expandedScaleId === 'art'}
+			{#if expandedScaleId === "art"}
 				{@html artPreviewSvg}
 			{:else}
 				{@html appPreviewSvg}

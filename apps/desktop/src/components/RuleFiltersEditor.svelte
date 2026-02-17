@@ -1,6 +1,6 @@
 <script lang="ts">
-	import ClaudeCodeSessionFilter from '$components/ClaudeCodeSessionFilter.svelte';
-	import NewRuleMenu from '$components/NewRuleMenu.svelte';
+	import ClaudeCodeSessionFilter from "$components/ClaudeCodeSessionFilter.svelte";
+	import NewRuleMenu from "$components/NewRuleMenu.svelte";
 	import {
 		type SemanticType,
 		type RuleFilterType,
@@ -9,13 +9,13 @@
 		treeStatusToString,
 		semanticTypeToString,
 		canAddMoreFilters,
-		type RuleFilterMap
-	} from '$lib/rules/rule';
-	import { typedKeys } from '$lib/utils/object';
-	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from '@gitbutler/ui';
-	import type { FileStatus } from '@gitbutler/ui/components/file/types';
+		type RuleFilterMap,
+	} from "$lib/rules/rule";
+	import { typedKeys } from "$lib/utils/object";
+	import { Button, Select, SelectItem, Textbox, FileStatusBadge } from "@gitbutler/ui";
+	import type { FileStatus } from "@gitbutler/ui/components/file/types";
 
-	const FILE_STATUS_OPTIONS: FileStatus[] = ['addition', 'modification', 'deletion', 'rename'];
+	const FILE_STATUS_OPTIONS: FileStatus[] = ["addition", "modification", "deletion", "rename"];
 
 	type Props = {
 		projectId: string;
@@ -31,15 +31,15 @@
 
 	let pathRegex = $state<string | undefined>(initialFilterValues.pathMatchesRegex ?? undefined);
 	let contentRegex = $state<string | undefined>(
-		initialFilterValues.contentMatchesRegex ?? undefined
+		initialFilterValues.contentMatchesRegex ?? undefined,
 	);
 	let treeChangeType = $state<FileStatus | undefined>(
-		initialFilterValues.fileChangeType ?? undefined
+		initialFilterValues.fileChangeType ?? undefined,
 	);
 	let semanticType = $state<SemanticType | undefined>(initialFilterValues.semanticType?.type);
 
 	const ruleFilterTypes = $derived(typedKeys(initialFilterValues));
-	const hasClaudeSession = $derived(ruleFilterTypes.includes('claudeCodeSessionId'));
+	const hasClaudeSession = $derived(ruleFilterTypes.includes("claudeCodeSessionId"));
 	const claudeCodeSessionId = $derived.by(() => {
 		if (!hasClaudeSession) return undefined;
 		return initialFilterValues.claudeCodeSessionId;
@@ -50,12 +50,12 @@
 		contentMatchesRegex: 1,
 		fileChangeType: 2,
 		semanticType: 3,
-		claudeCodeSessionId: 4
+		claudeCodeSessionId: 4,
 	};
 
 	function isLastFilterType(type: RuleFilterType): boolean {
-		if (type === 'claudeCodeSessionId') return false;
-		const regularFilters = ruleFilterTypes.filter((t) => t !== 'claudeCodeSessionId');
+		if (type === "claudeCodeSessionId") return false;
+		const regularFilters = ruleFilterTypes.filter((t) => t !== "claudeCodeSessionId");
 		if (regularFilters.length === 0) return false;
 		const orderValue = orderMap[type];
 		const allFilterOrderValue = regularFilters.map((t) => orderMap[t]);
@@ -65,20 +65,20 @@
 
 	function isFilterTypeReady(type: RuleFilterType): boolean {
 		switch (type) {
-			case 'pathMatchesRegex':
-				return pathRegex !== undefined && pathRegex.trim() !== '';
-			case 'contentMatchesRegex':
-				return contentRegex !== undefined && contentRegex.trim() !== '';
-			case 'fileChangeType':
+			case "pathMatchesRegex":
+				return pathRegex !== undefined && pathRegex.trim() !== "";
+			case "contentMatchesRegex":
+				return contentRegex !== undefined && contentRegex.trim() !== "";
+			case "fileChangeType":
 				return treeChangeType !== undefined;
-			case 'semanticType':
+			case "semanticType":
 				// For now, user defined is not considered ready
-				return semanticType !== undefined && semanticType !== 'userDefined';
-			case 'claudeCodeSessionId':
+				return semanticType !== undefined && semanticType !== "userDefined";
+			case "claudeCodeSessionId":
 				return (
 					claudeCodeSessionId !== undefined &&
 					claudeCodeSessionId !== null &&
-					claudeCodeSessionId.trim() !== ''
+					claudeCodeSessionId.trim() !== ""
 				);
 		}
 	}
@@ -91,7 +91,7 @@
 	}
 
 	const filtersAreReady = $derived(areDraftRuleFiltersReady(ruleFilterTypes));
-	const regularFilters = $derived(ruleFilterTypes.filter((t) => t !== 'claudeCodeSessionId'));
+	const regularFilters = $derived(ruleFilterTypes.filter((t) => t !== "claudeCodeSessionId"));
 	const canAddMore = $derived(canAddMoreFilters(regularFilters));
 
 	function handleAddFilter(e: MouseEvent) {
@@ -104,28 +104,28 @@
 
 		const filters: RuleFilter[] = [];
 
-		if (ruleFilterTypes.includes('pathMatchesRegex') && pathRegex) {
-			filters.push({ type: 'pathMatchesRegex', subject: pathRegex });
+		if (ruleFilterTypes.includes("pathMatchesRegex") && pathRegex) {
+			filters.push({ type: "pathMatchesRegex", subject: pathRegex });
 		}
 
-		if (ruleFilterTypes.includes('contentMatchesRegex') && contentRegex) {
-			filters.push({ type: 'contentMatchesRegex', subject: contentRegex });
+		if (ruleFilterTypes.includes("contentMatchesRegex") && contentRegex) {
+			filters.push({ type: "contentMatchesRegex", subject: contentRegex });
 		}
 
-		if (ruleFilterTypes.includes('fileChangeType') && treeChangeType) {
-			filters.push({ type: 'fileChangeType', subject: treeChangeType });
+		if (ruleFilterTypes.includes("fileChangeType") && treeChangeType) {
+			filters.push({ type: "fileChangeType", subject: treeChangeType });
 		}
 
 		if (
-			ruleFilterTypes.includes('semanticType') &&
+			ruleFilterTypes.includes("semanticType") &&
 			semanticType &&
-			semanticType !== 'userDefined'
+			semanticType !== "userDefined"
 		) {
-			filters.push({ type: 'semanticType', subject: { type: semanticType } });
+			filters.push({ type: "semanticType", subject: { type: semanticType } });
 		}
 
-		if (ruleFilterTypes.includes('claudeCodeSessionId') && claudeCodeSessionId) {
-			filters.push({ type: 'claudeCodeSessionId', subject: claudeCodeSessionId });
+		if (ruleFilterTypes.includes("claudeCodeSessionId") && claudeCodeSessionId) {
+			filters.push({ type: "claudeCodeSessionId", subject: claudeCodeSessionId });
 		}
 
 		return filters;
@@ -134,7 +134,7 @@
 	export const imports = {
 		get filtersValid() {
 			return filtersAreReady;
-		}
+		},
 	};
 </script>
 
@@ -166,7 +166,7 @@
 		value={treeChangeType}
 		options={FILE_STATUS_OPTIONS.map((type) => ({
 			label: treeStatusToString(type),
-			value: type
+			value: type,
 		}))}
 		placeholder="Change type..."
 		flex="1"
@@ -210,13 +210,13 @@
 <!-- This is the parent component, wraps around the rule input -->
 {#snippet ruleFilterRow(type: RuleFilterType)}
 	<div class="rule-filter-row">
-		{#if type === 'pathMatchesRegex'}
+		{#if type === "pathMatchesRegex"}
 			{@render pathMatchesRegex()}
-		{:else if type === 'contentMatchesRegex'}
+		{:else if type === "contentMatchesRegex"}
 			{@render contentMatchesRegex()}
-		{:else if type === 'fileChangeType'}
+		{:else if type === "fileChangeType"}
 			{@render fileChangeType()}
-		{:else if type === 'semanticType'}
+		{:else if type === "semanticType"}
 			{@render semanticTypeFilter()}
 		{/if}
 
@@ -250,20 +250,20 @@
 {:else}
 	<h3 class="text-13 text-semibold m-b-10">Filters</h3>
 
-	{#if ruleFilterTypes.includes('pathMatchesRegex')}
-		{@render ruleFilterRow('pathMatchesRegex')}
+	{#if ruleFilterTypes.includes("pathMatchesRegex")}
+		{@render ruleFilterRow("pathMatchesRegex")}
 	{/if}
 
-	{#if ruleFilterTypes.includes('contentMatchesRegex')}
-		{@render ruleFilterRow('contentMatchesRegex')}
+	{#if ruleFilterTypes.includes("contentMatchesRegex")}
+		{@render ruleFilterRow("contentMatchesRegex")}
 	{/if}
 
-	{#if ruleFilterTypes.includes('fileChangeType')}
-		{@render ruleFilterRow('fileChangeType')}
+	{#if ruleFilterTypes.includes("fileChangeType")}
+		{@render ruleFilterRow("fileChangeType")}
 	{/if}
 
-	{#if ruleFilterTypes.includes('semanticType')}
-		{@render ruleFilterRow('semanticType')}
+	{#if ruleFilterTypes.includes("semanticType")}
+		{@render ruleFilterRow("semanticType")}
 	{/if}
 {/if}
 

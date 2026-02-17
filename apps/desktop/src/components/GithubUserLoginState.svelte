@@ -1,11 +1,11 @@
 <script lang="ts">
-	import GitHubAccountBadge from '$components/GitHubAccountBadge.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { GITHUB_USER_SERVICE } from '$lib/forge/github/githubUserService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { ForgeUserCard } from '@gitbutler/ui';
-	import { QueryStatus } from '@reduxjs/toolkit/query';
-	import type { ButGitHubToken } from '@gitbutler/core/api';
+	import GitHubAccountBadge from "$components/GitHubAccountBadge.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { GITHUB_USER_SERVICE } from "$lib/forge/github/githubUserService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { ForgeUserCard } from "@gitbutler/ui";
+	import { QueryStatus } from "@reduxjs/toolkit/query";
+	import type { ButGitHubToken } from "@gitbutler/core/api";
 
 	type Props = {
 		account: ButGitHubToken.GithubAccountIdentifier;

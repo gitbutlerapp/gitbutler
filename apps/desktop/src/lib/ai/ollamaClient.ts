@@ -1,14 +1,14 @@
 import {
 	LONG_DEFAULT_BRANCH_TEMPLATE,
 	LONG_DEFAULT_COMMIT_TEMPLATE,
-	SHORT_DEFAULT_PR_TEMPLATE
-} from '$lib/ai/prompts';
-import { type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
-import { isNonEmptyObject } from '@gitbutler/ui/utils/typeguards';
-import { Ollama } from 'ollama/browser';
+	SHORT_DEFAULT_PR_TEMPLATE,
+} from "$lib/ai/prompts";
+import { type PromptMessage, type AIClient, type Prompt } from "$lib/ai/types";
+import { isNonEmptyObject } from "@gitbutler/ui/utils/typeguards";
+import { Ollama } from "ollama/browser";
 
-export const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
-export const DEFAULT_OLLAMA_MODEL_NAME = 'llama3';
+export const DEFAULT_OLLAMA_ENDPOINT = "http://127.0.0.1:11434";
+export const DEFAULT_OLLAMA_MODEL_NAME = "llama3";
 
 interface OllamaRequestOptions {
 	/**
@@ -36,8 +36,8 @@ function isOllamaChatResponse(response: unknown): response is OllamaChatResponse
 
 	return (
 		isNonEmptyObject(response.message) &&
-		typeof response.message.role === 'string' &&
-		typeof response.message.content === 'string'
+		typeof response.message.role === "string" &&
+		typeof response.message.content === "string"
 	);
 }
 
@@ -50,10 +50,10 @@ export class OllamaClient implements AIClient {
 
 	constructor(
 		private endpoint: string,
-		private modelName: string
+		private modelName: string,
 	) {
 		this.ollama = new Ollama({
-			host: this.endpoint
+			host: this.endpoint,
 		});
 	}
 
@@ -71,17 +71,17 @@ export class OllamaClient implements AIClient {
 	 */
 	private async chat(
 		messages: Prompt,
-		options?: OllamaRequestOptions
+		options?: OllamaRequestOptions,
 	): Promise<OllamaChatResponse> {
 		const result = await this.ollama.chat({
 			model: this.modelName,
 			messages,
 			stream: false,
-			options
+			options,
 		});
 
 		if (!isOllamaChatResponse(result)) {
-			throw new Error('Invalid response: ' + JSON.stringify(result));
+			throw new Error("Invalid response: " + JSON.stringify(result));
 		}
 
 		return result;

@@ -1,16 +1,16 @@
 <script lang="ts">
-	import Icon from '$components/Icon.svelte';
-	import SkeletonBone from '$components/SkeletonBone.svelte';
-	import Tooltip from '$components/Tooltip.svelte';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { ComponentColorType } from '$lib/utils/colorTypes';
-	import type { Snippet } from 'svelte';
+	import Icon from "$components/Icon.svelte";
+	import SkeletonBone from "$components/SkeletonBone.svelte";
+	import Tooltip from "$components/Tooltip.svelte";
+	import type iconsJson from "$lib/data/icons.json";
+	import type { ComponentColorType } from "$lib/utils/colorTypes";
+	import type { Snippet } from "svelte";
 
 	interface Props {
 		testId?: string;
 		style?: ComponentColorType;
-		kind?: 'solid' | 'soft';
-		size?: 'icon' | 'tag';
+		kind?: "solid" | "soft";
+		size?: "icon" | "tag";
 		class?: string;
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -23,25 +23,25 @@
 
 	const {
 		testId,
-		style = 'gray',
-		kind = 'solid',
-		size = 'icon',
-		class: className = '',
+		style = "gray",
+		kind = "solid",
+		size = "icon",
+		class: className = "",
 		icon,
 		tooltip,
 		skeleton,
 		skeletonWidth,
 		children,
 		onclick,
-		reversedDirection
+		reversedDirection,
 	}: Props = $props();
 </script>
 
 {#if skeleton}
 	<SkeletonBone
 		radius="3rem"
-		width={skeletonWidth ?? (size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)')}
-		height={size === 'icon' ? 'var(--size-icon)' : 'var(--size-tag)'}
+		width={skeletonWidth ?? (size === "icon" ? "var(--size-icon)" : "var(--size-tag)")}
+		height={size === "icon" ? "var(--size-icon)" : "var(--size-tag)"}
 	/>
 {:else}
 	<Tooltip text={tooltip}>

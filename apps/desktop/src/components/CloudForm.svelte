@@ -1,12 +1,12 @@
 <script lang="ts">
-	import AiPromptSelect from '$components/AIPromptSelect.svelte';
-	import SettingsSection from '$components/SettingsSection.svelte';
-	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
-	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from '$lib/config/config';
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
-	import { USER_SERVICE } from '$lib/user/userService';
-	import { inject } from '@gitbutler/core/context';
-	import { Button, CardGroup, Spacer, Toggle } from '@gitbutler/ui';
+	import AiPromptSelect from "$components/AIPromptSelect.svelte";
+	import SettingsSection from "$components/SettingsSection.svelte";
+	import WelcomeSigninAction from "$components/WelcomeSigninAction.svelte";
+	import { projectAiExperimentalFeaturesEnabled, projectAiGenEnabled } from "$lib/config/config";
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { USER_SERVICE } from "$lib/user/userService";
+	import { inject } from "@gitbutler/core/context";
+	import { Button, CardGroup, Spacer, Toggle } from "@gitbutler/ui";
 
 	const { projectId }: { projectId: string } = $props();
 
@@ -91,7 +91,7 @@
 				You can apply your own custom prompts to the project. By default, the project uses GitButler
 				prompts, but you can create your own prompts in the general settings.
 			</p>
-			<Button kind="outline" icon="edit" onclick={() => openGeneralSettings('ai')}
+			<Button kind="outline" icon="edit" onclick={() => openGeneralSettings("ai")}
 				>Customize prompts</Button
 			>
 		</CardGroup.Item>

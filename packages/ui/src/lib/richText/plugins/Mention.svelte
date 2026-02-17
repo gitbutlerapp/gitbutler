@@ -10,10 +10,10 @@
 </script>
 
 <script lang="ts">
-	import { getEditor } from '$lib/richText/context';
-	import { getMentionMatch, insertMention, type MentionMatch } from '$lib/richText/node/mention';
-	import TypeAhead from '$lib/richText/plugins/TypeAhead.svelte';
-	import { $getSelection as getSelection } from 'lexical';
+	import { getEditor } from "$lib/richText/context";
+	import { getMentionMatch, insertMention, type MentionMatch } from "$lib/richText/node/mention";
+	import TypeAhead from "$lib/richText/plugins/TypeAhead.svelte";
+	import { $getSelection as getSelection } from "lexical";
 
 	type Props = {
 		getSuggestionItems: (q: string) => Promise<MentionSuggestion[]>;
@@ -54,10 +54,10 @@
 					start: mentionStart,
 					end: mentionEnd,
 					id: suggestion.id,
-					label: suggestion.label
+					label: suggestion.label,
 				});
 			},
-			{ tag: 'history-merge' }
+			{ tag: "history-merge" },
 		);
 
 		exit();

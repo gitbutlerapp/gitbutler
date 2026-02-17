@@ -1,16 +1,16 @@
 <script lang="ts">
-	import GithubIntegration from '$components/GithubIntegration.svelte';
-	import GitlabIntegration from '$components/GitlabIntegration.svelte';
-	import { SETTINGS_SERVICE } from '$lib/config/appSettingsV2';
-	import { inject } from '@gitbutler/core/context';
-	import { CardGroup, Spacer, Toggle } from '@gitbutler/ui';
+	import GithubIntegration from "$components/GithubIntegration.svelte";
+	import GitlabIntegration from "$components/GitlabIntegration.svelte";
+	import { SETTINGS_SERVICE } from "$lib/config/appSettingsV2";
+	import { inject } from "@gitbutler/core/context";
+	import { CardGroup, Spacer, Toggle } from "@gitbutler/ui";
 
 	const settingsService = inject(SETTINGS_SERVICE);
 	const appSettings = settingsService.appSettings;
 
 	async function toggleAutoFillPrDescription() {
 		await settingsService.updateReviews({
-			autoFillPrDescriptionFromCommit: !$appSettings?.reviews.autoFillPrDescriptionFromCommit
+			autoFillPrDescriptionFromCommit: !$appSettings?.reviews.autoFillPrDescriptionFromCommit,
 		});
 	}
 </script>

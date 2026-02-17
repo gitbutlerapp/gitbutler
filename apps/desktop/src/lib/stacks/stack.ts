@@ -1,7 +1,7 @@
-import { showToast } from '$lib/notifications/toasts';
-import { TestId } from '@gitbutler/ui';
-import type { Workspace, WorkspaceLegacy } from '@gitbutler/core/api';
-import type iconsJson from '@gitbutler/ui/data/icons.json';
+import { showToast } from "$lib/notifications/toasts";
+import { TestId } from "@gitbutler/ui";
+import type { Workspace, WorkspaceLegacy } from "@gitbutler/core/api";
+import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 export type CreateBranchFromBranchOutcome = {
 	stackId: string;
@@ -11,9 +11,9 @@ export type CreateBranchFromBranchOutcome = {
 
 function stackCount(numStacks: number): string {
 	if (numStacks === 1) {
-		return 'one stack';
+		return "one stack";
 	} else {
-		return 'some stacks';
+		return "some stacks";
 	}
 }
 
@@ -24,7 +24,7 @@ function prettyNamedListIfPossible(expectedNames: number, names: string[]): stri
 		return stackCount(expectedNames);
 	}
 	if (names.length === 0) {
-		return '';
+		return "";
 	} else if (names.length === 1) {
 		return `stack ${names[0]}`;
 	} else if (names.length === 2) {
@@ -34,7 +34,7 @@ function prettyNamedListIfPossible(expectedNames: number, names: string[]): stri
 	const allButLast = names.slice(0, -1);
 	const last = names[names.length - 1];
 
-	return `${allButLast.map((n) => `stack ${n}`).join(', ')}, and stack ${last}`;
+	return `${allButLast.map((n) => `stack ${n}`).join(", ")}, and stack ${last}`;
 }
 
 export function handleCreateBranchFromBranchOutcome(outcome: CreateBranchFromBranchOutcome) {
@@ -43,7 +43,7 @@ export function handleCreateBranchFromBranchOutcome(outcome: CreateBranchFromBra
 			testId: TestId.StacksUnappliedToast,
 			title: `Heads up: We had to unapply ${stackCount(outcome.unappliedStacks.length)} to apply this one`,
 			message: `There were some conflicts detected when applying this branch into your workspace, so we automatically unapplied ${prettyNamedListIfPossible(outcome.unappliedStacks.length, outcome.unappliedStacksShortNames)}.
-You can always re-apply them later from the branches page.`
+You can always re-apply them later from the branches page.`,
 		});
 	}
 }
@@ -54,11 +54,11 @@ You can always re-apply them later from the branches page.`
 export type Stack = WorkspaceLegacy.StackEntry;
 
 export type GerritPushFlag =
-	| { type: 'wip' }
-	| { type: 'ready' }
-	| { type: 'private' }
-	| { type: 'hashtag'; subject: string }
-	| { type: 'topic'; subject: string };
+	| { type: "wip" }
+	| { type: "ready" }
+	| { type: "private" }
+	| { type: "hashtag"; subject: string }
+	| { type: "topic"; subject: string };
 
 /**
  * Return (future) type of Tauri `stacks` command.
@@ -99,7 +99,7 @@ export type StackOpt = {
 export function getStackName(stack: Stack): string {
 	if (stack.heads.length === 0) {
 		// Should not happen
-		throw new Error('Stack has no heads');
+		throw new Error("Stack has no heads");
 	}
 	const lastBranch = stack.heads.at(0)!.name;
 	return lastBranch;
@@ -117,27 +117,27 @@ export type PushStatus = Workspace.PushStatus;
  */
 export function getColorFromPushStatus(pushStatus: PushStatus): string {
 	switch (pushStatus) {
-		case 'nothingToPush':
-		case 'unpushedCommits':
-		case 'unpushedCommitsRequiringForce':
-			return 'var(--clr-commit-remote)';
-		case 'completelyUnpushed':
-			return 'var(--clr-commit-local)';
-		case 'integrated':
-			return 'var(--clr-commit-integrated)';
+		case "nothingToPush":
+		case "unpushedCommits":
+		case "unpushedCommitsRequiringForce":
+			return "var(--clr-commit-remote)";
+		case "completelyUnpushed":
+			return "var(--clr-commit-local)";
+		case "integrated":
+			return "var(--clr-commit-integrated)";
 	}
 }
 
 export function pushStatusToIcon(pushStatus: PushStatus): keyof typeof iconsJson {
 	switch (pushStatus) {
-		case 'nothingToPush':
-		case 'unpushedCommits':
-		case 'unpushedCommitsRequiringForce':
-			return 'branch-remote';
-		case 'completelyUnpushed':
-			return 'branch-local';
-		case 'integrated':
-			return 'branch-remote';
+		case "nothingToPush":
+		case "unpushedCommits":
+		case "unpushedCommitsRequiringForce":
+			return "branch-remote";
+		case "completelyUnpushed":
+			return "branch-local";
+		case "integrated":
+			return "branch-remote";
 	}
 }
 
@@ -145,11 +145,11 @@ export type BranchDetails = Workspace.BranchDetails;
 export type StackDetails = Workspace.StackDetails;
 
 export function stackRequiresForcePush(stack: StackDetails): boolean {
-	return stack.pushStatus === 'unpushedCommitsRequiringForce';
+	return stack.pushStatus === "unpushedCommitsRequiringForce";
 }
 
 export function branchRequiresForcePush(branch: BranchDetails): boolean {
-	return branch.pushStatus === 'unpushedCommitsRequiringForce';
+	return branch.pushStatus === "unpushedCommitsRequiringForce";
 }
 
 /**
@@ -160,7 +160,7 @@ export function branchRequiresForcePush(branch: BranchDetails): boolean {
  */
 export function partialStackRequestsForcePush(
 	branchName: string,
-	allBranches: BranchDetails[]
+	allBranches: BranchDetails[],
 ): boolean {
 	let foundBranch = false;
 
@@ -193,16 +193,16 @@ export function branchHasUnpushedCommits(branch: BranchDetails): boolean {
 
 export function requiresPush(status: PushStatus): boolean {
 	return (
-		status === 'unpushedCommits' ||
-		status === 'unpushedCommitsRequiringForce' ||
-		status === 'completelyUnpushed'
+		status === "unpushedCommits" ||
+		status === "unpushedCommitsRequiringForce" ||
+		status === "completelyUnpushed"
 	);
 }
 
-export type AnchorPosition = 'Above' | 'Below';
+export type AnchorPosition = "Above" | "Below";
 
 export type AtCommitAnchor = {
-	type: 'atCommit';
+	type: "atCommit";
 	subject: {
 		readonly commit_id: string;
 		readonly position: AnchorPosition;
@@ -210,7 +210,7 @@ export type AtCommitAnchor = {
 };
 
 export type AtReferenceAnchor = {
-	type: 'atReference';
+	type: "atReference";
 	subject: {
 		readonly short_name: string;
 		readonly position: AnchorPosition;
@@ -226,21 +226,21 @@ export type CreateRefRequest = {
 
 export type InteractiveIntegrationStep =
 	| {
-			type: 'skip';
+			type: "skip";
 			subject: {
 				id: string;
 				commitId: string;
 			};
 	  }
 	| {
-			type: 'pick';
+			type: "pick";
 			subject: {
 				id: string;
 				commitId: string;
 			};
 	  }
 	| {
-			type: 'pickUpstream';
+			type: "pickUpstream";
 			subject: {
 				id: string;
 				commitId: string;
@@ -248,7 +248,7 @@ export type InteractiveIntegrationStep =
 			};
 	  }
 	| {
-			type: 'squash';
+			type: "squash";
 			subject: {
 				id: string;
 				commits: string[];
@@ -265,9 +265,9 @@ export function handleMoveBranchResult(result: MoveBranchResult) {
 	if (result.unappliedStacks.length > 0) {
 		showToast({
 			testId: TestId.StacksUnappliedToast,
-			title: 'Heads up: We had to unapply some stacks to move this branch',
-			message: `It seems that the branch moved couldn't be applied cleanly alongside your other ${result.unappliedStacks.length} ${result.unappliedStacks.length === 1 ? 'stack' : 'stacks'}.
-You can always re-apply them later from the branches page.`
+			title: "Heads up: We had to unapply some stacks to move this branch",
+			message: `It seems that the branch moved couldn't be applied cleanly alongside your other ${result.unappliedStacks.length} ${result.unappliedStacks.length === 1 ? "stack" : "stacks"}.
+You can always re-apply them later from the branches page.`,
 		});
 	}
 }

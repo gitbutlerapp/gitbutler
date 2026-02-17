@@ -1,5 +1,5 @@
 <script lang="ts">
-	import RangeControl from './RangeControl.svelte';
+	import RangeControl from "./RangeControl.svelte";
 
 	interface IllustrationColor {
 		h: number;
@@ -20,7 +20,7 @@
 		return `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
 	}
 
-	function updateColor(colorId: string, prop: 'h' | 's' | 'l', value: number) {
+	function updateColor(colorId: string, prop: "h" | "s" | "l", value: number) {
 		const updated = { ...colors[colorId], [prop]: value };
 		onColorChange(colorId, updated);
 	}
@@ -29,17 +29,17 @@
 	function getContrastColor(color: IllustrationColor): string {
 		// Return black for light backgrounds, white for dark backgrounds
 		// Using 50% lightness as the threshold
-		return color.l > 50 ? '#000' : '#fff';
+		return color.l > 50 ? "#000" : "#fff";
 	}
 
 	const colorLabels: Record<string, string> = {
-		'art-scene-bg': 'Art background',
-		'art-scene-fill': 'Fill',
-		'art-scene-outline': 'Outline'
+		"art-scene-bg": "Art background",
+		"art-scene-fill": "Fill",
+		"art-scene-outline": "Outline",
 	};
 
 	const colorDescriptions: Record<string, string> = {
-		'art-scene-bg': 'Dark mode is separate. Switch themes to edit.'
+		"art-scene-bg": "Dark mode is separate. Switch themes to edit.",
 	};
 </script>
 
@@ -62,7 +62,7 @@
 						<div class="stack-v gap-14">
 							<div class="stack-v gap-4">
 								<span class="text-15 text-body text-bold scale-name">{colorLabels[colorId]}</span>
-								<span class="text-12 text-body op-60">{colorDescriptions[colorId] ?? ' '}</span>
+								<span class="text-12 text-body op-60">{colorDescriptions[colorId] ?? " "}</span>
 							</div>
 
 							<RangeControl
@@ -70,7 +70,7 @@
 								min={0}
 								max={360}
 								bind:value={color.h}
-								oninput={() => updateColor(colorId, 'h', color.h)}
+								oninput={() => updateColor(colorId, "h", color.h)}
 								suffix="°"
 							/>
 							<RangeControl
@@ -78,14 +78,14 @@
 								min={0}
 								max={100}
 								bind:value={color.s}
-								oninput={() => updateColor(colorId, 's', color.s)}
+								oninput={() => updateColor(colorId, "s", color.s)}
 							/>
 							<RangeControl
 								label="Lightness"
 								min={0}
 								max={100}
 								bind:value={color.l}
-								oninput={() => updateColor(colorId, 'l', color.l)}
+								oninput={() => updateColor(colorId, "l", color.l)}
 							/>
 						</div>
 					</div>

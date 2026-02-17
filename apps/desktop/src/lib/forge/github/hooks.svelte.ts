@@ -1,12 +1,12 @@
 import {
 	GITHUB_USER_SERVICE,
-	isSameGitHubAccountIdentifier
-} from '$lib/forge/github/githubUserService.svelte';
-import { PROJECTS_SERVICE } from '$lib/project/projectsService';
-import { inject } from '@gitbutler/core/context';
-import { reactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import type { ButGitHubToken } from '@gitbutler/core/api';
-import type { Reactive } from '@gitbutler/shared/storeUtils';
+	isSameGitHubAccountIdentifier,
+} from "$lib/forge/github/githubUserService.svelte";
+import { PROJECTS_SERVICE } from "$lib/project/projectsService";
+import { inject } from "@gitbutler/core/context";
+import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
+import type { ButGitHubToken } from "@gitbutler/core/api";
+import type { Reactive } from "@gitbutler/shared/storeUtils";
 
 type GitHubPreferences = {
 	preferredGitHubAccount: Reactive<ButGitHubToken.GithubAccountIdentifier | undefined>;
@@ -33,7 +33,7 @@ export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubP
 		if (
 			project === undefined ||
 			project.preferred_forge_user === null ||
-			project.preferred_forge_user.provider !== 'github'
+			project.preferred_forge_user.provider !== "github"
 		) {
 			return githubAccounts.at(0);
 		}
@@ -42,14 +42,14 @@ export function usePreferredGitHubUsername(projectId: Reactive<string>): GitHubP
 
 		return (
 			githubAccounts.find((account) =>
-				isSameGitHubAccountIdentifier(account, preferredForgeUser)
+				isSameGitHubAccountIdentifier(account, preferredForgeUser),
 			) ?? githubAccounts.at(0)
 		);
 	});
 
 	return {
 		preferredGitHubAccount: reactive(() => preferredUser),
-		githubAccounts: reactive(() => githubAccounts)
+		githubAccounts: reactive(() => githubAccounts),
 	};
 }
 
@@ -73,7 +73,7 @@ export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess 
 	});
 	const aceessToken = $derived(ghUserResponse?.response?.accessToken);
 	const host = $derived.by(() => {
-		if (preferredGitHubAccount.current?.type === 'enterprise') {
+		if (preferredGitHubAccount.current?.type === "enterprise") {
 			return preferredGitHubAccount.current.info.host;
 		}
 		return undefined;
@@ -83,8 +83,8 @@ export function useGitHubAccessToken(projectId: Reactive<string>): GitHubAccess 
 		accessToken: reactive(() => aceessToken),
 		isLoading: reactive(() => ghUserResponse?.result.isLoading ?? false),
 		error: reactive(
-			() => ghUserResponse?.result.error as { code: string; message: string } | undefined
+			() => ghUserResponse?.result.error as { code: string; message: string } | undefined,
 		),
-		isError: reactive(() => ghUserResponse?.result.isError ?? false)
+		isError: reactive(() => ghUserResponse?.result.isError ?? false),
 	};
 }

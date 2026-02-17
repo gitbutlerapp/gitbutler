@@ -1,8 +1,8 @@
 <script lang="ts">
-	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
-	import ProjectSwitcher from '$components/ProjectSwitcher.svelte';
-	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { InfoMessage } from '@gitbutler/ui';
+	import DecorativeSplitView from "$components/DecorativeSplitView.svelte";
+	import ProjectSwitcher from "$components/ProjectSwitcher.svelte";
+	import loadErrorSvg from "$lib/assets/illustrations/load-error.svg?raw";
+	import { InfoMessage } from "@gitbutler/ui";
 
 	interface Props {
 		projectId?: string;
@@ -18,7 +18,7 @@
 
 		<InfoMessage filled outlined={false} style="danger" icon="info">
 			{#snippet content()}
-				{error ? error : 'An unknown error occurred'}
+				{error ? error : "An unknown error occurred"}
 			{/snippet}
 		</InfoMessage>
 

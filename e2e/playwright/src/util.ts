@@ -1,5 +1,5 @@
-import { TestId } from '@gitbutler/ui/utils/testIds';
-import { type Locator, type Page } from '@playwright/test';
+import { TestId } from "@gitbutler/ui/utils/testIds";
+import { type Locator, type Page } from "@playwright/test";
 
 type TestIdValues = `${TestId}`;
 
@@ -20,7 +20,7 @@ export async function waitForTestId(page: Page, testId: TestIdValues): Promise<L
 
 export async function waitForTestIdToNotExist(page: Page, testId: TestIdValues): Promise<void> {
 	const element = getByTestId(page, testId);
-	await element.waitFor({ state: 'detached' });
+	await element.waitFor({ state: "detached" });
 }
 
 /**
@@ -29,11 +29,11 @@ export async function waitForTestIdToNotExist(page: Page, testId: TestIdValues):
 export async function clickByTestId(
 	page: Page,
 	testId: TestIdValues,
-	force?: boolean
+	force?: boolean,
 ): Promise<Locator> {
 	const element = await waitForTestId(page, testId);
 	await element.click({
-		force
+		force,
 	});
 	return element;
 }
@@ -41,7 +41,7 @@ export async function clickByTestId(
 export async function rightClickByTestId(page: Page, testId: TestIdValues): Promise<Locator> {
 	const element = await waitForTestId(page, testId);
 	await element.click({
-		button: 'right'
+		button: "right",
 	});
 	return element;
 }
@@ -52,7 +52,7 @@ export async function rightClickByTestId(page: Page, testId: TestIdValues): Prom
 export async function dragAndDropByTestId(
 	page: Page,
 	sourceId: TestIdValues,
-	targetId: TestIdValues
+	targetId: TestIdValues,
 ) {
 	const source = await waitForTestId(page, sourceId);
 	const target = await waitForTestId(page, targetId);
@@ -79,7 +79,7 @@ export async function dragAndDropByLocator(
 	page: Page,
 	source: Locator,
 	target: Locator,
-	options: DropOptions = {}
+	options: DropOptions = {},
 ) {
 	await source.hover();
 	await page.mouse.down();
@@ -91,7 +91,7 @@ export async function dragAndDropByLocator(
 export async function fillByTestId(
 	page: Page,
 	testId: TestIdValues,
-	value: string
+	value: string,
 ): Promise<Locator> {
 	const element = await waitForTestId(page, testId);
 	await element.fill(value);

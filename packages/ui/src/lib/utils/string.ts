@@ -5,7 +5,7 @@ export function camelCaseToTitleCase(input: string) {
 			input.charAt(i) === input.charAt(i).toUpperCase() &&
 			input.charAt(i) !== input.charAt(i).toLowerCase()
 		) {
-			result += ' ' + input.charAt(i);
+			result += " " + input.charAt(i);
 		} else {
 			result += input.charAt(i);
 		}
@@ -29,19 +29,19 @@ export function isChar(char: string) {
 }
 
 export function isStr(s: unknown): s is string {
-	return typeof s === 'string';
+	return typeof s === "string";
 }
 
 export function isWhiteSpaceString(s: string) {
-	return s.trim() === '';
+	return s.trim() === "";
 }
 
 export function slugify(input: string) {
 	return String(input)
-		.normalize('NFKD')
-		.replace(/[\u0300-\u036f]/g, '')
+		.normalize("NFKD")
+		.replace(/[\u0300-\u036f]/g, "")
 		.trim()
-		.replace(/[^A-Za-z0-9._/ -]/g, '')
-		.replace(/\s+/g, '-')
-		.replace(/-+/g, '-');
+		.replace(/[^A-Za-z0-9._/ -]/g, "")
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-");
 }

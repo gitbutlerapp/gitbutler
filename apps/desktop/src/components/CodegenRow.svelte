@@ -1,30 +1,30 @@
 <script lang="ts">
-	import CardOverlay from '$components/CardOverlay.svelte';
-	import Dropzone from '$components/Dropzone.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import { ATTACHMENT_SERVICE } from '$lib/codegen/attachmentService.svelte';
-	import { CLAUDE_CODE_SERVICE } from '$lib/codegen/claude';
+	import CardOverlay from "$components/CardOverlay.svelte";
+	import Dropzone from "$components/Dropzone.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import { ATTACHMENT_SERVICE } from "$lib/codegen/attachmentService.svelte";
+	import { CLAUDE_CODE_SERVICE } from "$lib/codegen/claude";
 	import {
 		CodegenCommitDropHandler,
 		CodegenFileDropHandler,
-		CodegenHunkDropHandler
-	} from '$lib/codegen/dropzone';
+		CodegenHunkDropHandler,
+	} from "$lib/codegen/dropzone";
 	import {
 		extractLastMessage,
 		formatMessages,
 		getTodos,
 		hasPendingAskUserQuestion,
-		userFeedbackStatus
-	} from '$lib/codegen/messages';
-	import { combineResults } from '$lib/state/helpers';
-	import { UI_STATE } from '$lib/state/uiState.svelte';
-	import { truncate } from '$lib/utils/string';
-	import { inject } from '@gitbutler/core/context';
-	import { Badge, Icon } from '@gitbutler/ui';
-	import { focusable } from '@gitbutler/ui/focus/focusable';
-	import { slide } from 'svelte/transition';
-	import type { ClaudeStatus, PromptAttachment } from '$lib/codegen/types';
-	import type iconsJson from '@gitbutler/ui/data/icons.json';
+		userFeedbackStatus,
+	} from "$lib/codegen/messages";
+	import { combineResults } from "$lib/state/helpers";
+	import { UI_STATE } from "$lib/state/uiState.svelte";
+	import { truncate } from "$lib/utils/string";
+	import { inject } from "@gitbutler/core/context";
+	import { Badge, Icon } from "@gitbutler/ui";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { slide } from "svelte/transition";
+	import type { ClaudeStatus, PromptAttachment } from "$lib/codegen/types";
+	import type iconsJson from "@gitbutler/ui/data/icons.json";
 
 	type Props = {
 		projectId?: string;
@@ -43,7 +43,7 @@
 		selected = false,
 		status,
 		onclick,
-		draft = false
+		draft = false,
 	}: Props = $props();
 
 	const uiState = draft ? undefined : inject(UI_STATE);
@@ -53,20 +53,20 @@
 	const messages =
 		draft || !projectId || !stackId ? undefined : claudeService?.messages({ projectId, stackId });
 	const permissionRequests = $derived(
-		draft || !projectId ? undefined : claudeService?.permissionRequests({ projectId })
+		draft || !projectId ? undefined : claudeService?.permissionRequests({ projectId }),
 	);
 
 	let active = $state(false);
 
 	function getCurrentIconName(hasPendingApproval: boolean): keyof typeof iconsJson {
 		if (hasPendingApproval) {
-			return 'attention';
+			return "attention";
 		}
 
-		if (status === 'running' || status === 'compacting') {
-			return 'spinner';
+		if (status === "running" || status === "compacting") {
+			return "spinner";
 		}
-		return 'ai';
+		return "ai";
 	}
 
 	const attachmentService = draft ? undefined : inject(ATTACHMENT_SERVICE);
@@ -82,15 +82,15 @@
 			: [
 					new CodegenCommitDropHandler(stackId, addAttachment),
 					new CodegenFileDropHandler(stackId, branchName, addAttachment),
-					new CodegenHunkDropHandler(stackId, addAttachment)
-				]
+					new CodegenHunkDropHandler(stackId, addAttachment),
+				],
 	);
 
 	function toggleSelection() {
 		if (draft) return; // Don't allow selection in draft mode
 		if (!branchName || !laneState) return;
 		laneState.selection.set(
-			selected ? undefined : { branchName, codegen: true, previewOpen: true }
+			selected ? undefined : { branchName, codegen: true, previewOpen: true },
 		);
 		onclick?.();
 	}
@@ -113,9 +113,9 @@
 				{@const lastMessage = extractLastMessage(messages)}
 				{@const lastSummary = lastMessage ? truncate(lastMessage, 360, 8) : undefined}
 				{@const todos = getTodos(messages)}
-				{@const completedCount = todos.filter((t) => t.status === 'completed').length}
+				{@const completedCount = todos.filter((t) => t.status === "completed").length}
 				{@const totalCount = todos.length}
-				{@const formattedMessages = formatMessages(messages, permissionReqs, status === 'running')}
+				{@const formattedMessages = formatMessages(messages, permissionReqs, status === "running")}
 				{@const feedbackStatus = userFeedbackStatus(formattedMessages)}
 				{@const hasPendingQuestion = hasPendingAskUserQuestion(formattedMessages)}
 				{@const hasPendingApproval = feedbackStatus.waitingForFeedback}
@@ -131,7 +131,7 @@
 					use:focusable={{
 						onAction: toggleSelection,
 						onActive: (value) => (active = value),
-						focusable: true
+						focusable: true,
 					}}
 				>
 					{#if selected}
@@ -139,7 +139,7 @@
 							class="indicator"
 							class:selected
 							class:active
-							in:slide={{ axis: 'x', duration: 150 }}
+							in:slide={{ axis: "x", duration: 150 }}
 						></div>
 					{/if}
 
@@ -184,7 +184,7 @@
 		transition: background-color var(--transition-fast);
 
 		&.active.selected,
-		&[type='button']:hover {
+		&[type="button"]:hover {
 			background-color: var(--hover-purple-bg);
 		}
 	}

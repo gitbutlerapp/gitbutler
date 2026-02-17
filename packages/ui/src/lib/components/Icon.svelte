@@ -1,13 +1,13 @@
 <script lang="ts" module>
-	import iconsJson from '$lib/data/icons.json';
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import iconsJson from "$lib/data/icons.json";
+	import { pxToRem } from "$lib/utils/pxToRem";
 
 	export type IconColor = ComponentColorType | undefined;
 	export type IconName = keyof typeof iconsJson;
 </script>
 
 <script lang="ts">
-	import type { ComponentColorType } from '$lib/utils/colorTypes';
+	import type { ComponentColorType } from "$lib/utils/colorTypes";
 
 	interface Props {
 		name: IconName;
@@ -30,20 +30,20 @@
 		rotate,
 		verticalAlign,
 		noEvents,
-		zIndex
+		zIndex,
 	}: Props = $props();
 
 	// Check if color is a predefined type or custom color
 	function getGenericColors(): string | undefined {
 		switch (color) {
-			case 'safe':
-				return 'var(--clr-theme-safe-element)';
-			case 'danger':
-				return 'var(--clr-theme-danger-element)';
-			case 'pop':
-				return 'var(--clr-theme-pop-element)';
-			case 'warning':
-				return 'var(--clr-theme-warn-element)';
+			case "safe":
+				return "var(--clr-theme-safe-element)";
+			case "danger":
+				return "var(--clr-theme-danger-element)";
+			case "pop":
+				return "var(--clr-theme-pop-element)";
+			case "warning":
+				return "var(--clr-theme-warn-element)";
 			default:
 				return color;
 		}
@@ -61,11 +61,11 @@
 	style:transform={rotate ? `rotate(${rotate}deg)` : undefined}
 	style:vertical-align={verticalAlign}
 	style:z-index={zIndex}
-	style:pointer-events={noEvents ? 'none' : undefined}
+	style:pointer-events={noEvents ? "none" : undefined}
 	style="--spinner-radius: {spinnerRadius}; --custom-icon-color: {getGenericColors()};"
 >
-	{#if name === 'spinner'}
-		<g class:spinner={name === 'spinner'}>
+	{#if name === "spinner"}
+		<g class:spinner={name === "spinner"}>
 			<circle class="spinner-path" cx="8" cy="8" r={spinnerRadius} fill="none" />
 			<circle
 				class="spinner-back-path"

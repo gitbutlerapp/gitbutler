@@ -1,13 +1,13 @@
 <script lang="ts">
-	import BranchNameTextbox from '$components/BranchNameTextbox.svelte';
-	import dependentBranchSvg from '$components/stackTabs/assets/dependent-branch.svg?raw';
-	import newStackLefttSvg from '$components/stackTabs/assets/new-stack-left.svg?raw';
-	import newStackRightSvg from '$components/stackTabs/assets/new-stack-right.svg?raw';
-	import { autoSelectBranchCreationFeature } from '$lib/config/uiFeatureFlags';
-	import { useSettingsModal } from '$lib/settings/settingsModal.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { persisted } from '@gitbutler/shared/persisted';
+	import BranchNameTextbox from "$components/BranchNameTextbox.svelte";
+	import dependentBranchSvg from "$components/stackTabs/assets/dependent-branch.svg?raw";
+	import newStackLefttSvg from "$components/stackTabs/assets/new-stack-left.svg?raw";
+	import newStackRightSvg from "$components/stackTabs/assets/new-stack-right.svg?raw";
+	import { autoSelectBranchCreationFeature } from "$lib/config/uiFeatureFlags";
+	import { useSettingsModal } from "$lib/settings/settingsModal.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { persisted } from "@gitbutler/shared/persisted";
 
 	import {
 		Button,
@@ -18,9 +18,9 @@
 		RadioButton,
 		Select,
 		SelectItem,
-		TestId
-	} from '@gitbutler/ui';
-	import { isDefined } from '@gitbutler/ui/utils/typeguards';
+		TestId,
+	} from "@gitbutler/ui";
+	import { isDefined } from "@gitbutler/ui/utils/typeguards";
 
 	type Props = {
 		projectId: string;
@@ -35,12 +35,12 @@
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName = $state<string>();
-	let createRefType = $state<'stack' | 'dependent'>('stack');
+	let createRefType = $state<"stack" | "dependent">("stack");
 	let selectedStackId = $state<string>();
 	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 
 	// Persisted preference for branch placement
-	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
+	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 
 	let slugifiedRefName: string | undefined = $state();
 
@@ -56,10 +56,10 @@
 				const firstBranchName = stack.heads[0]?.name ?? `Stack ${stack?.id.slice(0, 8)}`;
 				return {
 					label: firstBranchName,
-					value: stack.id
+					value: stack.id,
 				};
 			})
-			.filter(isDefined)
+			.filter(isDefined),
 	);
 
 	// Set default selected stack and handle if current selected stack is no longer available
@@ -67,8 +67,8 @@
 		if (stackOptions.length === 0) {
 			selectedStackId = undefined;
 			// If no stacks available and dependent is selected, switch to stack
-			if (createRefType === 'dependent') {
-				createRefType = 'stack';
+			if (createRefType === "dependent") {
+				createRefType = "stack";
 			}
 			return;
 		}
@@ -83,19 +83,19 @@
 
 	function handleOptionSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
-		createRefType = target.id === 'new-stack' ? 'stack' : 'dependent';
+		createRefType = target.id === "new-stack" ? "stack" : "dependent";
 	}
 
 	async function addNew() {
-		if (createRefType === 'stack') {
+		if (createRefType === "stack") {
 			await createNewStack({
 				projectId,
 				branch: {
 					name: slugifiedRefName,
 					// If addToLeftmost is true, place at position 0 (leftmost)
 					// Otherwise, leave undefined to append to the right
-					order: $addToLeftmost ? 0 : undefined
-				}
+					order: $addToLeftmost ? 0 : undefined,
+				},
 			});
 			createRefModal?.close();
 		} else {
@@ -106,7 +106,7 @@
 			await createNewBranch({
 				projectId,
 				stackId: selectedStackId,
-				request: { targetPatch: undefined, name: slugifiedRefName }
+				request: { targetPatch: undefined, name: slugifiedRefName },
 			});
 			createRefModal?.close();
 		}
@@ -118,7 +118,7 @@
 
 	const isAddingNew = $derived(stackCreation.current.isLoading || branchCreation.current.isLoading);
 
-	export async function show(initialType?: 'stack' | 'dependent') {
+	export async function show(initialType?: "stack" | "dependent") {
 		createRefModal?.show();
 		createRefName = await stackService.fetchNewBranchName(projectId);
 
@@ -129,7 +129,7 @@
 		// Reset selected stack to default
 		selectedStackId = undefined;
 		// Set branch type - default to 'stack' unless explicitly provided
-		createRefType = initialType ?? 'stack';
+		createRefType = initialType ?? "stack";
 	}
 
 	export function close() {
@@ -150,10 +150,10 @@
 
 		<div class="options-wrap" role="radiogroup" aria-label="Branch type selection">
 			<!-- Option 1 -->
-			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === 'stack'}>
+			<label for="new-stack" class="radio-label" class:radio-selected={createRefType === "stack"}>
 				<div class="radio-btn">
 					<RadioButton
-						checked={createRefType === 'stack'}
+						checked={createRefType === "stack"}
 						name="create-new"
 						id="new-stack"
 						onchange={handleOptionSelect}
@@ -179,12 +179,12 @@
 			<label
 				for="new-dependent"
 				class="radio-label"
-				class:radio-selected={createRefType === 'dependent'}
+				class:radio-selected={createRefType === "dependent"}
 				class:disabled={allStacks.length === 0}
 			>
 				<div class="radio-btn">
 					<RadioButton
-						checked={createRefType === 'dependent'}
+						checked={createRefType === "dependent"}
 						name="create-new"
 						id="new-dependent"
 						disabled={allStacks.length === 0}
@@ -209,7 +209,7 @@
 			</label>
 		</div>
 
-		{#if createRefType === 'dependent'}
+		{#if createRefType === "dependent"}
 			<Select
 				options={stackOptions}
 				value={selectedStackId}
@@ -230,7 +230,7 @@
 			<span>└</span>
 
 			<p>
-				{#if createRefType === 'stack'}
+				{#if createRefType === "stack"}
 					The new branch will be applied in parallel with other stacks in the workspace.
 					<br />
 					Adjust branch placement and preferences in
@@ -239,7 +239,7 @@
 						class="settings-link underline-dotted"
 						onclick={() => {
 							createRefModal?.close();
-							openGeneralSettings('lanes-and-branches');
+							openGeneralSettings("lanes-and-branches");
 						}}
 					>
 						Settings → Lanes & branches
@@ -270,7 +270,7 @@
 					style="pop"
 					type="submit"
 					onclick={addNew}
-					disabled={!createRefName || (createRefType === 'dependent' && !selectedStackId)}
+					disabled={!createRefName || (createRefType === "dependent" && !selectedStackId)}
 					loading={isAddingNew}
 					testId={TestId.ConfirmSubmit}
 				>

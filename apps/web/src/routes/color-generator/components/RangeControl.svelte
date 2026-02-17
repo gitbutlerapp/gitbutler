@@ -8,7 +8,7 @@
 		suffix?: string;
 	}
 
-	let { label, min, max, value = $bindable(), oninput, suffix = '%' }: Props = $props();
+	let { label, min, max, value = $bindable(), oninput, suffix = "%" }: Props = $props();
 </script>
 
 <div class="scale-control">
@@ -42,7 +42,7 @@
 		pointer-events: none;
 	}
 
-	.scale-control input[type='range'] {
+	.scale-control input[type="range"] {
 		-webkit-appearance: none;
 		appearance: none;
 		width: 100%;
@@ -52,7 +52,7 @@
 		background: var(--card-ui-color);
 	}
 
-	.scale-control input[type='range']::-webkit-slider-thumb {
+	.scale-control input[type="range"]::-webkit-slider-thumb {
 		-webkit-appearance: none;
 		appearance: none;
 		width: 14px;
@@ -62,7 +62,7 @@
 		cursor: pointer;
 	}
 
-	.scale-control input[type='range']::-moz-range-thumb {
+	.scale-control input[type="range"]::-moz-range-thumb {
 		width: var(--range-thumb-size);
 		height: var(--range-thumb-size);
 		border-radius: 50%;
@@ -70,7 +70,7 @@
 		cursor: pointer;
 	}
 
-	.scale-control input[type='range']::-moz-range-track {
+	.scale-control input[type="range"]::-moz-range-track {
 		height: var(--range-track-height);
 		border-radius: 2px;
 		background: var(--card-ui-color);

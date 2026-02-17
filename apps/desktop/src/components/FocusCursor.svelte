@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import { FOCUS_MANAGER } from '@gitbutler/ui/focus/focusManager';
+	import { inject } from "@gitbutler/core/context";
+	import { FOCUS_MANAGER } from "@gitbutler/ui/focus/focusManager";
 
 	const focusManager = inject(FOCUS_MANAGER);
 	const { cursor: target, outline } = focusManager;
@@ -22,14 +22,14 @@
 
 	function isRelativePos(element: HTMLElement) {
 		const style = element.computedStyleMap();
-		const position = style.get('position')?.toString();
-		return position === 'relative';
+		const position = style.get("position")?.toString();
+		return position === "relative";
 	}
 
 	function createCursor(target: HTMLElement) {
 		const insertionPoint = findNearestRelativeDiv(target);
-		const element = document.createElement('div');
-		element.classList.add('focus-cursor');
+		const element = document.createElement("div");
+		element.classList.add("focus-cursor");
 		insertionPoint?.appendChild(element);
 		return element;
 	}
@@ -40,11 +40,11 @@
 		const width = from.offsetWidth;
 		const height = from.offsetHeight;
 
-		to.style.left = left + 'px';
-		to.style.top = top + 'px';
+		to.style.left = left + "px";
+		to.style.top = top + "px";
 
-		to.style.width = width + 'px';
-		to.style.height = height + 'px';
+		to.style.width = width + "px";
+		to.style.height = height + "px";
 	}
 
 	$effect(() => {
@@ -52,7 +52,7 @@
 			return;
 		}
 
-		$target.classList.add('focused');
+		$target.classList.add("focused");
 		const element = createCursor($target);
 		copyPosition($target, element);
 
@@ -65,7 +65,7 @@
 		observer.observe($target);
 
 		return () => {
-			$target.classList.remove('focused');
+			$target.classList.remove("focused");
 			element.remove();
 			observer.disconnect();
 		};

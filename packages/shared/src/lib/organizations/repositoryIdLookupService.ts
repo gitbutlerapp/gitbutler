@@ -1,23 +1,23 @@
-import { InterestStore, type Interest } from '$lib/interest/interestStore';
-import { errorToLoadable } from '$lib/network/loadable';
-import { repositoryIdLookupTable } from '$lib/organizations/repositoryIdLookupsSlice';
-import { stringifyProjectIdentity } from '$lib/organizations/types';
-import { POLLING_GLACIALLY } from '$lib/polling';
-import { InjectionToken } from '@gitbutler/core/context';
-import type { HttpClient } from '$lib/network/httpClient';
-import type { AppDispatch } from '$lib/redux/store.svelte';
+import { InterestStore, type Interest } from "$lib/interest/interestStore";
+import { errorToLoadable } from "$lib/network/loadable";
+import { repositoryIdLookupTable } from "$lib/organizations/repositoryIdLookupsSlice";
+import { stringifyProjectIdentity } from "$lib/organizations/types";
+import { POLLING_GLACIALLY } from "$lib/polling";
+import { InjectionToken } from "@gitbutler/core/context";
+import type { HttpClient } from "$lib/network/httpClient";
+import type { AppDispatch } from "$lib/redux/store.svelte";
 
 export const REPOSITORY_ID_LOOKUP_SERVICE: InjectionToken<RepositoryIdLookupService> =
-	new InjectionToken('RepositoryIdLookupService');
+	new InjectionToken("RepositoryIdLookupService");
 
 export class RepositoryIdLookupService {
 	private readonly projectLookupInterests = new InterestStore<{ identity: string }>(
-		POLLING_GLACIALLY
+		POLLING_GLACIALLY,
 	);
 
 	constructor(
 		private readonly httpClient: HttpClient,
-		private readonly appDispatch: AppDispatch
+		private readonly appDispatch: AppDispatch,
 	) {}
 
 	getRepositoryIdInterest(owner: string, slug: string): Interest {
@@ -25,7 +25,7 @@ export class RepositoryIdLookupService {
 		return this.projectLookupInterests
 			.findOrCreateSubscribable({ identity }, async () => {
 				this.appDispatch.dispatch(
-					repositoryIdLookupTable.addOne({ status: 'loading', id: identity })
+					repositoryIdLookupTable.addOne({ status: "loading", id: identity }),
 				);
 
 				try {
@@ -35,14 +35,14 @@ export class RepositoryIdLookupService {
 
 					this.appDispatch.dispatch(
 						repositoryIdLookupTable.upsertOne({
-							status: 'found',
+							status: "found",
 							id: identity,
-							value: repositoryId
-						})
+							value: repositoryId,
+						}),
 					);
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(
-						repositoryIdLookupTable.addOne(errorToLoadable(error, identity))
+						repositoryIdLookupTable.addOne(errorToLoadable(error, identity)),
 					);
 				}
 			})

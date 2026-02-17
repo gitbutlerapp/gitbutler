@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { Icon } from '@gitbutler/ui';
+	import { Icon } from "@gitbutler/ui";
 	interface Props {
 		projectName?: string;
 	}
 
-	const { projectName = '' }: Props = $props();
+	const { projectName = "" }: Props = $props();
 </script>
 
 <div class="project-name">

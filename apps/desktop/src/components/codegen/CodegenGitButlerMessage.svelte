@@ -1,11 +1,11 @@
 <script lang="ts">
-	import CommitDetails from '$components/CommitDetails.svelte';
-	import ReduxResult from '$components/ReduxResult.svelte';
-	import ExpandableSection from '$components/codegen/ExpandableSection.svelte';
-	import { STACK_SERVICE } from '$lib/stacks/stackService.svelte';
-	import { inject } from '@gitbutler/core/context';
-	import { Icon } from '@gitbutler/ui';
-	import type { GitButlerUpdate } from '$lib/codegen/types';
+	import CommitDetails from "$components/CommitDetails.svelte";
+	import ReduxResult from "$components/ReduxResult.svelte";
+	import ExpandableSection from "$components/codegen/ExpandableSection.svelte";
+	import { STACK_SERVICE } from "$lib/stacks/stackService.svelte";
+	import { inject } from "@gitbutler/core/context";
+	import { Icon } from "@gitbutler/ui";
+	import type { GitButlerUpdate } from "$lib/codegen/types";
 
 	interface Props {
 		projectId: string;
@@ -17,7 +17,7 @@
 	const stackService = inject(STACK_SERVICE);
 </script>
 
-{#if message.type === 'commitCreated'}
+{#if message.type === "commitCreated"}
 	<div class="system-message">
 		<ExpandableSection root label="New commit{message.commitIds.length > 1 ? 's' : ''} created">
 			{#snippet summary()}

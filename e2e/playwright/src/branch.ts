@@ -1,16 +1,16 @@
-import { clickByTestId, getByTestId, waitForTestId } from './util.ts';
-import { expect, Page } from '@playwright/test';
-import { execSync } from 'child_process';
+import { clickByTestId, getByTestId, waitForTestId } from "./util.ts";
+import { expect, Page } from "@playwright/test";
+import { execSync } from "child_process";
 
 export async function openBranchContextMenu(page: Page, branchName: string) {
-	const branchHeader = getByTestId(page, 'branch-header').filter({
-		hasText: branchName
+	const branchHeader = getByTestId(page, "branch-header").filter({
+		hasText: branchName,
 	});
 	await expect(branchHeader).toBeVisible();
-	branchHeader.click({ button: 'right' });
+	branchHeader.click({ button: "right" });
 
 	// The context menu should be visible
-	await waitForTestId(page, 'branch-header-context-menu');
+	await waitForTestId(page, "branch-header-context-menu");
 }
 
 /**
@@ -21,12 +21,12 @@ export async function deleteBranch(page: Page, branchName: string) {
 	await openBranchContextMenu(page, branchName);
 
 	// Click the delete branch option
-	await clickByTestId(page, 'branch-header-context-menu-delete');
+	await clickByTestId(page, "branch-header-context-menu-delete");
 
 	// The confirmation modal should be visible
-	await waitForTestId(page, 'branch-header-delete-modal');
+	await waitForTestId(page, "branch-header-delete-modal");
 	// Confirm the deletion
-	await clickByTestId(page, 'branch-header-delete-modal-action-button');
+	await clickByTestId(page, "branch-header-delete-modal-action-button");
 }
 
 export async function unapplyStack(page: Page, branchName: string) {
@@ -34,26 +34,26 @@ export async function unapplyStack(page: Page, branchName: string) {
 	await openBranchContextMenu(page, branchName);
 
 	// Click the unapply stack option
-	await clickByTestId(page, 'branch-header-context-menu-unapply-branch');
+	await clickByTestId(page, "branch-header-context-menu-unapply-branch");
 }
 
 /**
  * Create a new branch with the given name.
  */
 export async function createNewBranch(page: Page, branchName: string) {
-	await clickByTestId(page, 'chrome-header-create-branch-button');
-	const modal = await waitForTestId(page, 'create-new-branch-modal');
+	await clickByTestId(page, "chrome-header-create-branch-button");
+	const modal = await waitForTestId(page, "create-new-branch-modal");
 
-	const input = modal.locator('#new-branch-name-input');
+	const input = modal.locator("#new-branch-name-input");
 	await input.fill(branchName);
-	await clickByTestId(page, 'confirm-submit');
+	await clickByTestId(page, "confirm-submit");
 }
 
 export async function assertBranch(branchName: string, pathToRepo: string): Promise<void> {
 	expect
 		.poll(() => execSync(`git branch --show-current`, { cwd: pathToRepo }), {
 			message: `Expected branch name to be "${branchName}"`,
-			intervals: [100, 200, 500, 1000]
+			intervals: [100, 200, 500, 1000],
 		})
 		.toBe(branchName);
 }

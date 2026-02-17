@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Loading from '$lib/network/Loading.svelte';
-	import { PROJECT_SERVICE } from '$lib/organizations/projectService';
-	import { getProjectByRepositoryId } from '$lib/organizations/projectsPreview.svelte';
-	import { ShareLevel } from '$lib/permissions';
-	import { inject } from '@gitbutler/core/context';
-	import { ContextMenuItem, ContextMenuSection, DropdownButton } from '@gitbutler/ui';
+	import Loading from "$lib/network/Loading.svelte";
+	import { PROJECT_SERVICE } from "$lib/organizations/projectService";
+	import { getProjectByRepositoryId } from "$lib/organizations/projectsPreview.svelte";
+	import { ShareLevel } from "$lib/permissions";
+	import { inject } from "@gitbutler/core/context";
+	import { ContextMenuItem, ContextMenuSection, DropdownButton } from "@gitbutler/ui";
 
 	type Props = {
 		repositoryId: string;
@@ -18,17 +18,17 @@
 
 	const options = [
 		{
-			label: 'Private',
-			key: ShareLevel.Private
+			label: "Private",
+			key: ShareLevel.Private,
 		},
 		{
-			label: 'Unlisted',
-			key: ShareLevel.Unlisted
+			label: "Unlisted",
+			key: ShareLevel.Unlisted,
 		},
 		{
-			label: 'Public',
-			key: ShareLevel.Public
-		}
+			label: "Public",
+			key: ShareLevel.Public,
+		},
 	];
 
 	async function updatePermission(shareLevel: ShareLevel) {

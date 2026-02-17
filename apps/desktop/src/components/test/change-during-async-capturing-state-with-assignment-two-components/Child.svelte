@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ExternallyResolvedPromise } from '$lib/utils/resolveExternally';
+	import type { ExternallyResolvedPromise } from "$lib/utils/resolveExternally";
 
 	type Props = {
 		promise: ExternallyResolvedPromise<undefined>;

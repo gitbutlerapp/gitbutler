@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { inject } from '@gitbutler/core/context';
-	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
-	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { ORGANIZATION_SERVICE } from '@gitbutler/shared/organizations/organizationService';
-	import { organizationTable } from '@gitbutler/shared/organizations/organizationsSlice';
-	import { PROJECT_SERVICE } from '@gitbutler/shared/organizations/projectService';
-	import { projectTable } from '@gitbutler/shared/organizations/projectsSlice';
-	import { APP_STATE } from '@gitbutler/shared/redux/store.svelte';
-	import { Button, CardGroup, Modal } from '@gitbutler/ui';
+	import { inject } from "@gitbutler/core/context";
+	import RegisterInterest from "@gitbutler/shared/interest/RegisterInterest.svelte";
+	import Loading from "@gitbutler/shared/network/Loading.svelte";
+	import { ORGANIZATION_SERVICE } from "@gitbutler/shared/organizations/organizationService";
+	import { organizationTable } from "@gitbutler/shared/organizations/organizationsSlice";
+	import { PROJECT_SERVICE } from "@gitbutler/shared/organizations/projectService";
+	import { projectTable } from "@gitbutler/shared/organizations/projectsSlice";
+	import { APP_STATE } from "@gitbutler/shared/redux/store.svelte";
+	import { Button, CardGroup, Modal } from "@gitbutler/ui";
 
 	type Props = {
 		organizationSlug: string;
@@ -21,39 +21,39 @@
 	const appState = inject(APP_STATE);
 
 	const organizationInterest = $derived(
-		organizationService.getOrganizationWithDetailsInterest(organizationSlug)
+		organizationService.getOrganizationWithDetailsInterest(organizationSlug),
 	);
 	const projectInterest = $derived(projectsService.getProjectInterest(projectRepositoryId));
 
 	const chosenOrganization = $derived(
-		organizationTable.selectors.selectById(appState.organizations, organizationSlug)
+		organizationTable.selectors.selectById(appState.organizations, organizationSlug),
 	);
 	const targetProject = $derived(
-		projectTable.selectors.selectById(appState.projects, projectRepositoryId)
+		projectTable.selectors.selectById(appState.projects, projectRepositoryId),
 	);
 
 	const organizationProjects = $derived.by(() => {
-		if (chosenOrganization?.status !== 'found') return [];
+		if (chosenOrganization?.status !== "found") return [];
 		return (
 			chosenOrganization.value.projectRepositoryIds?.map((repositoryId) => ({
 				project: projectTable.selectors.selectById(appState.projects, repositoryId),
-				interest: projectsService.getProjectInterest(repositoryId)
+				interest: projectsService.getProjectInterest(repositoryId),
 			})) || []
 		);
 	});
 
 	function connectToOrganization(projectSlug?: string) {
-		if (targetProject?.status !== 'found' || chosenOrganization?.status !== 'found') return;
+		if (targetProject?.status !== "found" || chosenOrganization?.status !== "found") return;
 
 		projectsService.connectProjectToOrganization(
 			targetProject.value.repositoryId,
 			chosenOrganization.value.slug,
-			projectSlug
+			projectSlug,
 		);
 	}
 
 	const title = $derived.by(() => {
-		if (targetProject?.status !== 'found' || chosenOrganization?.status !== 'found') return;
+		if (targetProject?.status !== "found" || chosenOrganization?.status !== "found") return;
 
 		return `Join ${targetProject.value.name} into ${chosenOrganization.value.name}`;
 	});

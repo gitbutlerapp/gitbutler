@@ -69,7 +69,7 @@
 			width: 45%;
 			height: 100%;
 			border: var(--border-width) solid var(--border-color);
-			content: '';
+			content: "";
 			transition:
 				var(--transition),
 				opacity var(--transition-fast);

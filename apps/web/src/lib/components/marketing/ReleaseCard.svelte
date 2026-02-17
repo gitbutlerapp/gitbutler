@@ -1,7 +1,7 @@
 <script lang="ts">
-	import osIcons from '$lib/data/os-icons.json';
-	import Markdown from 'svelte-exmarkdown';
-	import type { Release } from '$lib/types/releases';
+	import osIcons from "$lib/data/os-icons.json";
+	import Markdown from "svelte-exmarkdown";
+	import type { Release } from "$lib/types/releases";
 
 	interface Props {
 		release: Release;
@@ -23,11 +23,11 @@
 					acc[build.os].push(build);
 					return acc;
 				},
-				{} as Record<string, typeof release.builds>
+				{} as Record<string, typeof release.builds>,
 			) || {};
 
 		// Sort OS entries: macOS (darwin) first, then Windows, then Linux
-		const osOrder = ['darwin', 'windows', 'linux'];
+		const osOrder = ["darwin", "windows", "linux"];
 		return Object.fromEntries(
 			Object.entries(builds).sort(([a], [b]) => {
 				const aIndex = osOrder.indexOf(a);
@@ -35,21 +35,21 @@
 				const aOrder = aIndex === -1 ? osOrder.length : aIndex;
 				const bOrder = bIndex === -1 ? osOrder.length : bIndex;
 				return aOrder - bOrder;
-			})
+			}),
 		);
 	});
 
 	function getBuildDisplayName(build: any): string {
-		if (build.os === 'darwin') {
-			return build.arch === 'aarch64' ? 'Apple Silicon' : 'Intel';
+		if (build.os === "darwin") {
+			return build.arch === "aarch64" ? "Apple Silicon" : "Intel";
 		}
-		if (build.os === 'windows') {
-			return 'MSI';
+		if (build.os === "windows") {
+			return "MSI";
 		}
-		if (build.os === 'linux') {
-			if (build.platform.includes('appimage')) return 'AppImage';
-			if (build.platform.includes('deb')) return 'Deb';
-			if (build.platform.includes('rpm')) return 'RPM';
+		if (build.os === "linux") {
+			if (build.platform.includes("appimage")) return "AppImage";
+			if (build.platform.includes("deb")) return "Deb";
+			if (build.platform.includes("rpm")) return "RPM";
 		}
 		return build.platform;
 	}
@@ -59,10 +59,10 @@
 	<div class="release-header">
 		<h3 class="release-version">{release.version}</h3>
 		<span class="release-date">
-			{new Date(release.released_at).toLocaleDateString('en-GB', {
-				day: 'numeric',
-				month: 'short',
-				year: 'numeric'
+			{new Date(release.released_at).toLocaleDateString("en-GB", {
+				day: "numeric",
+				month: "short",
+				year: "numeric",
 			})}
 		</span>
 	</div>
@@ -97,7 +97,7 @@
 								xmlns="http://www.w3.org/2000/svg"
 							>
 								<path
-									d={osIcons[os === 'darwin' ? 'macos' : (os as keyof typeof osIcons)]}
+									d={osIcons[os === "darwin" ? "macos" : (os as keyof typeof osIcons)]}
 									fill="currentColor"
 								/>
 							</svg>
@@ -139,7 +139,7 @@
 				transparent 6px
 			);
 
-			content: '';
+			content: "";
 			pointer-events: none;
 		}
 

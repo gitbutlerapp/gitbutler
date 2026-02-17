@@ -1,13 +1,13 @@
-import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { Post } from '$lib/feeds/types';
+import { createEntityAdapter, createSlice } from "@reduxjs/toolkit";
+import type { Post } from "$lib/feeds/types";
 
 const postsAdapter = createEntityAdapter({
 	selectId: (post: Post) => post.uuid,
-	sortComparer: (a: Post, b: Post) => a.content.localeCompare(b.content)
+	sortComparer: (a: Post, b: Post) => a.content.localeCompare(b.content),
 });
 
 const postsSlice = createSlice({
-	name: 'posts',
+	name: "posts",
 	initialState: postsAdapter.getInitialState(),
 	reducers: {
 		addPost: postsAdapter.addOne,
@@ -15,8 +15,8 @@ const postsSlice = createSlice({
 		removePost: postsAdapter.removeOne,
 		removePosts: postsAdapter.removeMany,
 		upsertPost: postsAdapter.upsertOne,
-		upsertPosts: postsAdapter.upsertMany
-	}
+		upsertPosts: postsAdapter.upsertMany,
+	},
 });
 
 export const postsReducer = postsSlice.reducer;
