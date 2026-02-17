@@ -1,6 +1,5 @@
 import { InjectionToken } from '@gitbutler/core/context';
 import { type ScrollbarVisilitySettings } from '@gitbutler/ui';
-import { platform } from '@tauri-apps/plugin-os';
 import { get, writable, type Writable } from 'svelte/store';
 
 const SETTINGS_KEY = 'settings-json';
@@ -17,8 +16,8 @@ export type TerminalSettings = {
 	platform: 'macos' | 'windows' | 'linux';
 };
 
-function defaultTerminalForPlatform(): TerminalSettings {
-	switch (platform()) {
+function defaultTerminalForPlatform(platformName: string): TerminalSettings {
+	switch (platformName) {
 		case 'windows':
 			return { identifier: 'powershell', displayName: 'PowerShell', platform: 'windows' };
 		case 'linux':
@@ -81,8 +80,8 @@ const defaults: Settings = {
 	singleDiffView: false
 };
 
-export function loadUserSettings(): Writable<Settings> {
-	let obj: any;
+export function loadUserSettings(platformName: string): Writable<Settings> {
+	let obj: Partial<Settings>;
 	try {
 		obj = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '');
 	} catch {
@@ -91,7 +90,7 @@ export function loadUserSettings(): Writable<Settings> {
 
 	// If no terminal was persisted, resolve to the platform default.
 	if (!obj.defaultTerminal) {
-		obj.defaultTerminal = defaultTerminalForPlatform();
+		obj.defaultTerminal = defaultTerminalForPlatform(platformName);
 	}
 
 	const store = writable<Settings>({ ...defaults, ...obj });

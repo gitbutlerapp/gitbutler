@@ -241,32 +241,34 @@
 			</Select>
 		{/snippet}
 	</CardGroup.Item>
-	<CardGroup.Item alignment="center">
-		{#snippet title()}
-			Default terminal
-		{/snippet}
-		{#snippet actions()}
-			<Select
-				value={$userSettings.defaultTerminal.identifier}
-				options={terminalOptionsForSelect}
-				onselect={(value) => {
-					const selected = terminalOptions.find((option) => option.identifier === value);
-					if (selected) {
-						userSettings.update((s) => ({ ...s, defaultTerminal: selected }));
-					}
-				}}
-			>
-				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem
-						selected={item.value === $userSettings.defaultTerminal.identifier}
-						{highlighted}
-					>
-						{item.label}
-					</SelectItem>
-				{/snippet}
-			</Select>
-		{/snippet}
-	</CardGroup.Item>
+	{#if platformName !== 'web'}
+		<CardGroup.Item alignment="center">
+			{#snippet title()}
+				Default terminal
+			{/snippet}
+			{#snippet actions()}
+				<Select
+					value={$userSettings.defaultTerminal.identifier}
+					options={terminalOptionsForSelect}
+					onselect={(value) => {
+						const selected = terminalOptions.find((option) => option.identifier === value);
+						if (selected) {
+							userSettings.update((s) => ({ ...s, defaultTerminal: selected }));
+						}
+					}}
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem
+							selected={item.value === $userSettings.defaultTerminal.identifier}
+							{highlighted}
+						>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+			{/snippet}
+		</CardGroup.Item>
+	{/if}
 </CardGroup>
 
 <CardGroup>
