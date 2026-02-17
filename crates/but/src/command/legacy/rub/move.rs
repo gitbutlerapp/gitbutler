@@ -167,9 +167,9 @@ pub(crate) fn handle(
         bail!(
             "Cannot move {} ({}) to {} ({}).\n\
             Valid moves: commit→commit, commit→branch, or committed-file→commit",
-            source_id.to_short_string().blue().underline(),
+            source_id.to_short_string().blue().bold(),
             source_id.kind_for_humans().yellow(),
-            target_id.to_short_string().blue().underline(),
+            target_id.to_short_string().blue().bold(),
             target_id.kind_for_humans().yellow()
         );
     };

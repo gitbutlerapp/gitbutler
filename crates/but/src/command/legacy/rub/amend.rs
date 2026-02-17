@@ -32,7 +32,7 @@ pub(crate) fn uncommitted_to_commit(
             .new_commit
             .map(|c| {
                 let s = c.to_string();
-                format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
+                format!("{}{}", s[..2].blue().bold(), s[2..7].blue())
             })
             .unwrap_or_default();
         writeln!(out, "Amended {description} → {new_commit}")?;
@@ -64,7 +64,7 @@ pub(crate) fn assignments_to_commit(
             .new_commit
             .map(|c| {
                 let s = c.to_string();
-                format!("{}{}", s[..2].blue().underline(), s[2..7].blue())
+                format!("{}{}", s[..2].blue().bold(), s[2..7].blue())
             })
             .unwrap_or_default();
         if let Some(branch_name) = branch_name {

@@ -2,6 +2,7 @@
   <style>
     .fg { fill: #AAAAAA }
     .bg { fill: #000000 }
+    .fg-blue { fill: #0000AA }
     .fg-cyan { fill: #00AAAA }
     .fg-green { fill: #00AA00 }
     .fg-yellow { fill: #AA5500 }
@@ -11,7 +12,6 @@
     }
     .bold { font-weight: bold; }
     .italic { font-style: italic; }
-    .underline { text-decoration-line: underline; }
     .dimmed { opacity: 0.7; }
     tspan {
       font: 14px SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace;
@@ -23,33 +23,33 @@
   <rect width="100%" height="100%" y="0" rx="4.5" class="bg" />
 
   <text xml:space="preserve" class="container fg">
-    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="underline">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>] </tspan>
+    <tspan x="10px" y="28px"><tspan>╭┄</tspan><tspan class="fg-blue bold">zz</tspan><tspan> [</tspan><tspan class="fg-cyan bold">unstaged changes</tspan><tspan>] </tspan>
 </tspan>
     <tspan x="10px" y="46px"><tspan>┊     </tspan><tspan class="italic dimmed">no changes</tspan>
 </tspan>
     <tspan x="10px" y="64px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="underline">ma</tspan><tspan> [</tspan><tspan class="fg-green bold">main</tspan><tspan>] </tspan><tspan class="italic dimmed">(no commits)</tspan><tspan> </tspan>
+    <tspan x="10px" y="82px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">ma</tspan><tspan> [</tspan><tspan class="fg-green bold">main</tspan><tspan>] </tspan><tspan class="italic dimmed">(no commits)</tspan><tspan> </tspan>
 </tspan>
     <tspan x="10px" y="100px"><tspan>├╯</tspan>
 </tspan>
     <tspan x="10px" y="118px"><tspan>┊</tspan>
 </tspan>
-    <tspan x="10px" y="136px"><tspan>┊╭┄</tspan><tspan class="underline">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>] </tspan><tspan> </tspan>
+    <tspan x="10px" y="136px"><tspan>┊╭┄</tspan><tspan class="fg-blue bold">g0</tspan><tspan> [</tspan><tspan class="fg-green bold">A</tspan><tspan>] </tspan><tspan> </tspan>
 </tspan>
     <tspan x="10px" y="154px"><tspan>┊┊</tspan>
 </tspan>
     <tspan x="10px" y="172px"><tspan>┊╭┄┄</tspan><tspan class="fg-yellow">(upstream: on origin/A)</tspan>
 </tspan>
-    <tspan x="10px" y="190px"><tspan>┊</tspan><tspan class="fg-yellow">●</tspan><tspan>   </tspan><tspan class="underline dimmed">28</tspan><tspan class="dimmed">baf9a</tspan><tspan class="dimmed"> add only-on-remote</tspan><tspan>  </tspan>
+    <tspan x="10px" y="190px"><tspan>┊</tspan><tspan class="fg-yellow">●</tspan><tspan>   </tspan><tspan class="fg-blue bold dimmed">28</tspan><tspan class="dimmed">baf9a</tspan><tspan class="dimmed"> add only-on-remote</tspan><tspan>  </tspan>
 </tspan>
     <tspan x="10px" y="208px"><tspan>┊│     A </tspan><tspan class="fg-green">only-on-remote</tspan>
 </tspan>
     <tspan x="10px" y="226px"><tspan>┊-</tspan>
 </tspan>
-    <tspan x="10px" y="244px"><tspan>┊●   </tspan><tspan class="underline">64</tspan><tspan class="dimmed">3ade3</tspan><tspan> add only-on-local  </tspan>
+    <tspan x="10px" y="244px"><tspan>┊●   </tspan><tspan class="fg-blue bold">64</tspan><tspan class="dimmed">3ade3</tspan><tspan> add only-on-local  </tspan>
 </tspan>
-    <tspan x="10px" y="262px"><tspan>┊│     </tspan><tspan class="underline">64:tp</tspan><tspan> A </tspan><tspan class="fg-green">only-on-local</tspan>
+    <tspan x="10px" y="262px"><tspan>┊│     </tspan><tspan class="fg-blue bold">64:tp</tspan><tspan> A </tspan><tspan class="fg-green">only-on-local</tspan>
 </tspan>
     <tspan x="10px" y="280px"><tspan>├╯</tspan>
 </tspan>

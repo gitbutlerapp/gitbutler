@@ -65,7 +65,7 @@ pub(crate) fn show_oplog(
 
             let commit_id = format!(
                 "{}{}",
-                &snapshot.commit_id.to_string()[..7].blue().underline(),
+                &snapshot.commit_id.to_string()[..7].blue().bold(),
                 &snapshot.commit_id.to_string()[7..12].blue().dimmed()
             );
 
@@ -189,7 +189,7 @@ pub(crate) fn restore_to_oplog(
         use std::fmt::Write;
         writeln!(out, "{}", "Restoring to oplog snapshot...".blue().bold())?;
         writeln!(out, "  Target: {} ({})", target_operation.green(), target_time.dimmed())?;
-        writeln!(out, "  Snapshot: {}", commit_sha_string[..7].cyan().underline())?;
+        writeln!(out, "  Snapshot: {}", commit_sha_string[..7].cyan().bold())?;
 
         // Confirm the restoration (safety check)
         if !force {
@@ -259,7 +259,7 @@ pub(crate) fn undo_last_operation(ctx: &mut but_ctx::Context, out: &mut OutputCh
     if let Some(out) = out.for_human() {
         let restore_commit_short = format!(
             "{}{}",
-            &target_snapshot.commit_id.to_string()[..7].blue().underline(),
+            &target_snapshot.commit_id.to_string()[..7].blue().bold(),
             &target_snapshot.commit_id.to_string()[7..12].blue().dimmed()
         );
 
@@ -297,7 +297,7 @@ pub(crate) fn create_snapshot(
         writeln!(
             out,
             "  Snapshot ID: {}{}",
-            snapshot_id.to_string()[..7].blue().underline(),
+            snapshot_id.to_string()[..7].blue().bold(),
             snapshot_id.to_string()[7..12].blue().dimmed()
         )?;
 
