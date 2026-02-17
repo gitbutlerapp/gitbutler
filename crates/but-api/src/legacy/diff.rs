@@ -34,12 +34,13 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
 
     let dependencies =
         hunk_dependencies_for_workspace_changes_by_worktree_dir(&repo, &ws, Some(changes.changes.clone()));
+    let mut trans = db.immediate_transaction()?;
 
     // If the dependencies calculation failed, we still want to try to get assignments
     // so we pass an empty HunkDependencies in that case.
     let (assignments, assignments_error) = match &dependencies {
         Ok(dependencies) => but_hunk_assignment::assignments_with_fallback(
-            db.hunk_assignments_mut()?,
+            trans.hunk_assignments_mut()?,
             &repo,
             &ws,
             false,
@@ -48,7 +49,7 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
             context_lines,
         )?,
         Err(_) => but_hunk_assignment::assignments_with_fallback(
-            db.hunk_assignments_mut()?,
+            trans.hunk_assignments_mut()?,
             &repo,
             &ws,
             false,
@@ -58,6 +59,7 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
         )?,
     };
 
+    trans.commit()?;
     drop((repo, ws, db));
     but_rules::handler::process_workspace_rules(
         ctx,
