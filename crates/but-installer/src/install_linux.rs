@@ -4,11 +4,11 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail};
 
 use crate::config::{Channel, InstallerConfig};
-use crate::download::download_file;
-use crate::install::{but_binary_path, validate_installed_binary};
+use crate::download::{download_file, download_to_string};
+use crate::install::{but_binary_path, validate_installed_binary, verify_signature};
 use crate::release::validate_download_url;
 use crate::release::{PlatformInfo, Release};
 use crate::ui::info;
@@ -28,27 +28,34 @@ pub(crate) fn download_and_install_app(
         )
     })?;
 
-    // Note: For now we find the CLI by convention on Linux, but we should update the API to point
-    // to its location at some point.
+    // Note: For now we find the CLI and signature by convention on Linux, but we should update the
+    // API (or create a new one) to contain this information.
     let filename = "but";
-    let download_url = appimage_download_url
+    let base_download_url = appimage_download_url
         .rsplit_once('/')
-        .map(|(base, _)| format!("{base}/{filename}"))
+        .map(|(base, _)| base.to_string())
         .ok_or_else(|| anyhow::anyhow!("Failed to construct but cli URL"))?;
-    let download_url = download_url.as_str();
+    let download_url = format!("{base_download_url}/{filename}");
+    let signature_url = format!("{download_url}.sig");
 
-    validate_download_url(download_url)?;
-
+    validate_download_url(&signature_url)?;
+    validate_download_url(&download_url)?;
     info(&format!("Download URL: {download_url}"));
 
     let temp_dir = tempfile::Builder::new().prefix("gitbutler-install.").tempdir()?;
     let tmp_filepath = temp_dir.path().join(filename);
 
     info(&format!("Downloading GitButler {}...", release.version));
-    download_file(download_url, &tmp_filepath)?;
+    download_file(&download_url, &tmp_filepath)?;
     info("Download completed successfully");
 
-    // TODO verify signature
+    if std::env::var_os("CI").is_some() {
+        warn("Temporarily skipping signature verification in CI to circumvent chicken-or-egg problem ...");
+    } else {
+        let signature_b64 = download_to_string(&signature_url)
+            .with_context(|| anyhow!("Failed to get signature for but, requested version may be too old"))?;
+        verify_signature(&tmp_filepath, &signature_b64, temp_dir.path())?;
+    }
 
     // Install the app bundle
     install_app(&tmp_filepath, &config.home_dir, channel)?;

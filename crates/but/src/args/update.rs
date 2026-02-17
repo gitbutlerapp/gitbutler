@@ -19,17 +19,18 @@ pub enum Subcommands {
         days: u32,
     },
 
-    /// Install or update the GitButler desktop application (macOS only)
+    /// Install or update the GitButler desktop application.
     ///
-    /// Downloads and installs the GitButler desktop app. The CLI (but) is included
-    /// with the app and will also be updated.
+    /// By default, auto-detects your current channel (release/nightly) and installs the latest
+    /// version for that channel.
     ///
-    /// By default, auto-detects your current channel (release/nightly) and installs
-    /// the latest version for that channel.
+    /// macOS: Installs the full GitButler desktop application. The CLI (but) is included with the
+    /// app and will also be updated.
     ///
-    /// Note: Currently only supported on macOS. For other platforms, download from
-    /// <https://gitbutler.com/downloads>
-    #[cfg(target_os = "macos")]
+    /// Linux: Installs and updates only the CLI itself.
+    ///
+    /// Note: For other platforms and install forms, see <https://gitbutler.com/downloads>
+    #[cfg(unix)]
     Install {
         /// What to install: "nightly", "release", or a version like "0.18.7"
         ///
