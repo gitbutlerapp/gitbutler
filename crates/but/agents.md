@@ -9,6 +9,9 @@ Usable output goes to `out: &mut OutputChannel`
 - For humans, use `if let Some(out) = out.for_human() { writeln!(out, “{…}")?; }`
 - For shell, use `if let Some(out) = out.for_shell() { writeln!(out, “{…}")?; }`
 - For JSON, use `if let Some(out) = out.for_json() { out.write_value(json)?; }`
+- If intentionally ignoring output-write errors, use:
+  - Single-line statements: replace `let _ = ...;` with `....ok();`, but ensure the statement remains on a single line after formatting.
+  - Multi-line statements: use `_ = ` instead of `let _ = ` and keep the rest unchanged.
 
 ### Context
 

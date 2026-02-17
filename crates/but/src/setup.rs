@@ -363,15 +363,15 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     let mut progress = out.progress_channel();
 
     // Progress channel only writes when output is for humans, so we can write unconditionally
-    let _ = writeln!(
+    _ = writeln!(
         progress,
         "The current project is not configured to be managed by GitButler.\n"
     );
-    let _ = writeln!(progress, "{}\n", message.red());
+    writeln!(progress, "{}\n", message.red()).ok();
 
     // Check if we have an interactive terminal and prompt the user
     let user_declined_in_interactive_mode = if let Some(mut inout) = out.prepare_for_terminal_input() {
-        let _ = writeln!(
+        _ = writeln!(
             progress,
             "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
         );
@@ -391,7 +391,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     // Now handle the declined/non-interactive cases with a fresh borrow
     if user_declined_in_interactive_mode {
         // User declined in interactive mode
-        let _ = writeln!(
+        _ = writeln!(
             progress,
             "{}",
             "Please run `but setup` to switch to GitButler management.\n".yellow()
@@ -399,7 +399,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
     }
 
     if let Some(json_out) = out.for_json() {
-        let _ = json_out.write_value(serde_json::json!({
+        _ = json_out.write_value(serde_json::json!({
             "error": "setup_required",
             "message": message.to_string(),
             "hint": "run `but setup` to configure the project"
