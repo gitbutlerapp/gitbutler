@@ -159,20 +159,18 @@ fn show_status_impl(ctx: &mut Context, out: &mut OutputChannel, prompt_to_finali
 
     let mut progress = out.progress_channel();
 
-    if out.for_human().is_some() {
-        writeln!(
-            progress,
-            "{}\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
-            "You are currently in conflict resolution mode.".bold(),
-            "but resolve finish".green().bold(),
-            "but resolve cancel".red().bold()
-        )?;
-    }
+    writeln!(
+        progress,
+        "{}\n - resolve all conflicts \n - finalize with {} \n - OR cancel with {}\n",
+        "You are currently in conflict resolution mode.".bold(),
+        "but resolve finish".green().bold(),
+        "but resolve cancel".red().bold()
+    )?;
 
     let all_resolved = show_conflicted_files(ctx, out)?;
 
     // If all conflicts are resolved and we're in human mode, offer to finalize
-    if all_resolved && out.for_human().is_some() && prompt_to_finalize {
+    if all_resolved && prompt_to_finalize {
         writeln!(progress)?;
         writeln!(progress, "{}", "All conflicts have been resolved!".green().bold())?;
 
@@ -241,16 +239,14 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
     let all_resolved = still_conflicted.is_empty();
 
     if all_resolved {
-        if out.for_human().is_some() {
-            writeln!(progress, "{}", "No conflicted files remaining!".green())?;
-            if !resolved.is_empty() {
-                writeln!(progress, "{} resolved:", "Files".green())?;
-                for change in &resolved {
-                    writeln!(progress, "  {} {}", "✓".green(), change.path.to_str_lossy().green())?;
-                }
+        writeln!(progress, "{}", "No conflicted files remaining!".green())?;
+        if !resolved.is_empty() {
+            writeln!(progress, "{} resolved:", "Files".green())?;
+            for change in &resolved {
+                writeln!(progress, "  {} {}", "✓".green(), change.path.to_str_lossy().green())?;
             }
         }
-    } else if out.for_human().is_some() {
+    } else {
         writeln!(progress, "{}:", "Conflicted files remaining".yellow().bold())?;
         for change in &still_conflicted {
             writeln!(progress, "  {} {}", "✗".red(), change.path.to_str_lossy().yellow())?;
@@ -261,7 +257,9 @@ fn show_conflicted_files(ctx: &mut Context, out: &mut OutputChannel) -> Result<b
                 writeln!(progress, "  {} {}", "✓".green(), change.path.to_str_lossy().green())?;
             }
         }
-    } else if let Some(out) = out.for_json() {
+    }
+
+    if let Some(out) = out.for_json() {
         let conflicted_list: Vec<String> = still_conflicted
             .iter()
             .map(|change| change.path.to_str_lossy().to_string())
@@ -525,7 +523,10 @@ fn check_and_prompt_for_conflicts(ctx: &mut Context, out: &mut OutputChannel) ->
         // Find the bottom-most commit (first in topological order) on the first branch
         let default_commit = all_commits.first();
 
-        if let Some(default) = default_commit {
+        // Interactive prompting only for human output mode with terminal
+        if out.can_prompt()
+            && let Some(default) = default_commit
+        {
             write!(
                 progress,
                 "Enter commit ID to resolve [default: {}]: ",

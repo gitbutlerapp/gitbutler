@@ -474,11 +474,9 @@ fn check_skills(
 
     // Auto-update if requested (do this before displaying results)
     if auto_update && !outdated_paths.is_empty() {
-        if out.for_human().is_some() {
-            let mut progress = out.progress_channel();
-            writeln!(progress, "{}", "Updating outdated skills...".bold())?;
-            writeln!(progress)?;
-        }
+        let mut progress = out.progress_channel();
+        writeln!(progress, "{}", "Updating outdated skills...".bold())?;
+        writeln!(progress)?;
 
         for path_str in &outdated_paths {
             // Pass None for ctx since the paths are already absolute and don't require repo context
@@ -859,7 +857,7 @@ fn install_skill(
 
     // Check if files already exist and warn user
     let skill_md_path = install_path.join("SKILL.md");
-    if skill_md_path.exists() && out.for_human().is_some() {
+    if skill_md_path.exists() {
         writeln!(progress)?;
         writeln!(
             progress,
@@ -897,22 +895,22 @@ fn install_skill(
     }
 
     // Output success message
-    if out.for_human().is_some() {
-        writeln!(progress)?;
-        writeln!(
-            progress,
-            "{} GitButler skill installed successfully!",
-            "✓".green().bold()
-        )?;
-        writeln!(progress)?;
-        writeln!(progress, "  Location: {}", install_path.display().to_string().cyan())?;
-        writeln!(progress)?;
-        writeln!(progress, "  Files installed:")?;
-        for file in SKILL_FILES {
-            writeln!(progress, "    • {}", file.path)?;
-        }
-        writeln!(progress)?;
-    } else if let Some(out) = out.for_json() {
+    writeln!(progress)?;
+    writeln!(
+        progress,
+        "{} GitButler skill installed successfully!",
+        "✓".green().bold()
+    )?;
+    writeln!(progress)?;
+    writeln!(progress, "  Location: {}", install_path.display().to_string().cyan())?;
+    writeln!(progress)?;
+    writeln!(progress, "  Files installed:")?;
+    for file in SKILL_FILES {
+        writeln!(progress, "    • {}", file.path)?;
+    }
+    writeln!(progress)?;
+
+    if let Some(out) = out.for_json() {
         let file_paths: Vec<&str> = SKILL_FILES.iter().map(|f| f.path).collect();
         let result = serde_json::json!({
             "success": true,

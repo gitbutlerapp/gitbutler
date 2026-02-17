@@ -12,7 +12,7 @@ use owo_colors::{OwoColorize, Stream};
 /// For an installer, we don't want to fail just because we can't write output.
 /// The installation itself is more important than the output.
 fn print_stdout(s: &str) {
-    let _ = writeln!(io::stdout(), "{s}");
+    writeln!(io::stdout(), "{s}").ok();
 }
 
 /// Print a line to stderr, ignoring all I/O errors
@@ -20,7 +20,7 @@ fn print_stdout(s: &str) {
 /// For an installer, we don't want to fail just because we can't write output.
 /// The installation itself is more important than the output.
 fn print_stderr(s: &str) {
-    let _ = writeln!(io::stderr(), "{s}");
+    writeln!(io::stderr(), "{s}").ok();
 }
 
 /// Prints a warning message to stderr in yellow.
@@ -66,6 +66,6 @@ pub fn println_empty() {
 /// Useful for progress indicators that overwrite themselves with `\r`.
 pub fn print(s: &str) {
     let mut stdout = io::stdout();
-    let _ = write!(stdout, "{s}");
-    let _ = stdout.flush();
+    write!(stdout, "{s}").ok();
+    stdout.flush().ok();
 }

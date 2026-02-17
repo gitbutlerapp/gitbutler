@@ -36,9 +36,7 @@ use crate::utils::OutputChannel;
 pub fn generate_commit_message(out: &mut OutputChannel, diff: &str, user_summary: Option<String>) -> Result<String> {
     let mut progress = out.progress_channel();
 
-    if out.for_human().is_some() {
-        writeln!(progress, "{}", "Generating commit message...".bright_cyan())?;
-    }
+    writeln!(progress, "{}", "Generating commit message...".bright_cyan())?;
     let llm = LLMProvider::default_openai()
         .ok_or_else(|| anyhow::anyhow!("Failed to initialize default OpenAI LLM provider"))?;
     let system_message = "You are a version control assistant that helps with Git branch committing.".to_string();
@@ -99,9 +97,7 @@ pub fn generate_commit_message_from_multiple_messages(
     user_summary: Option<String>,
 ) -> Result<String> {
     let mut progress = out.progress_channel();
-    if out.for_human().is_some() {
-        writeln!(progress, "{}", "Generating commit message...".bright_cyan())?;
-    }
+    writeln!(progress, "{}", "Generating commit message...".bright_cyan())?;
     let llm = LLMProvider::default_openai()
         .ok_or_else(|| anyhow::anyhow!("Failed to initialize default OpenAI LLM provider"))?;
     let system_message = "You are a version control assistant that helps with Git branch committing.".to_string();

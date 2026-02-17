@@ -942,13 +942,8 @@ async fn target_config(ctx: &mut Context, out: &mut OutputChannel, branch: Optio
                 );
             }
 
-            if out.for_human().is_some() {
-                writeln!(
-                    out.for_human().unwrap(),
-                    "{} Changing target branch to '{}'",
-                    "✓".green(),
-                    new_branch.cyan()
-                )?;
+            if let Some(out) = out.for_human() {
+                writeln!(out, "{} Changing target branch to '{}'", "✓".green(), new_branch.cyan())?;
             }
 
             // from the new_branch string, we need to parse out the remote name and branch name

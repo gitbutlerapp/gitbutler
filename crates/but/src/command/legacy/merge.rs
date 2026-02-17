@@ -34,14 +34,12 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
 
     // Check if target is gb-local
     if target_remote == "gb-local" {
-        if out.for_human().is_some() {
-            writeln!(
-                progress,
-                "Merging branch {} into target {}",
-                branch_name.bright_cyan(),
-                format!("{}/{}", target_remote, base_branch.branch_name).bright_cyan()
-            )?;
-        }
+        writeln!(
+            progress,
+            "Merging branch {} into target {}",
+            branch_name.bright_cyan(),
+            format!("{}/{}", target_remote, base_branch.branch_name).bright_cyan()
+        )?;
 
         // Extract the local branch name from the base branch
         // The branch_name might be "gb-local/main" or "gb-local/feature/foo", so strip the "gb-local/" prefix
@@ -64,16 +62,14 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
             .ok_or_else(|| anyhow::anyhow!("Branch {branch_name} not found"))?
             .into_fully_peeled_id()?;
 
-        if out.for_human().is_some() {
-            writeln!(
-                progress,
-                "Merging {} ({}) into {} ({})",
-                branch_name.bright_cyan(),
-                merge_in_branch_head_oid.to_string()[..7].bright_black(),
-                local_branch_name.bright_cyan(),
-                local_branch_head_oid.to_string()[..7].bright_black()
-            )?;
-        }
+        writeln!(
+            progress,
+            "Merging {} ({}) into {} ({})",
+            branch_name.bright_cyan(),
+            merge_in_branch_head_oid.to_string()[..7].bright_black(),
+            local_branch_name.bright_cyan(),
+            local_branch_head_oid.to_string()[..7].bright_black()
+        )?;
 
         // do the merge
         let mut merge_result = repo.merge_commits(
@@ -99,9 +95,7 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
             vec![merge_in_branch_head_oid, local_branch_head_oid],
         )?;
 
-        if out.for_human().is_some() {
-            writeln!(progress, "\nUpdating {}", local_branch_name.blue())?;
-        }
+        writeln!(progress, "\nUpdating {}", local_branch_name.blue())?;
 
         // update the local branch
         let branch_ref_name: gix::refs::FullName = format!("refs/heads/{local_branch_name}").try_into()?;
@@ -114,9 +108,7 @@ pub async fn handle(ctx: &mut Context, out: &mut OutputChannel, branch_id: &str)
 
         crate::command::legacy::pull::handle(ctx, out, false).await?;
 
-        if out.for_human().is_some() {
-            writeln!(progress, "\n{}", "Merge and update complete!".green().bold())?;
-        }
+        writeln!(progress, "\n{}", "Merge and update complete!".green().bold())?;
     } else {
         bail!("Target remote is {target_remote}, not gb-local. This command only works with gb-local targets.");
     }
