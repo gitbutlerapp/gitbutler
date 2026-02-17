@@ -150,7 +150,6 @@ struct EditorApp {
     scroll_row: usize,
     scroll_col: usize,
     modified: bool,
-    filename: String,
     should_quit: bool,
     save_on_quit: bool,
     word_wrap: bool,
@@ -169,7 +168,7 @@ struct EditorApp {
 }
 
 impl EditorApp {
-    fn new(filename: &str, content: &str, mode: EditorMode) -> Self {
+    fn new(_filename: &str, content: &str, mode: EditorMode) -> Self {
         let lines: Vec<String> = if content.is_empty() {
             vec![String::new()]
         } else {
@@ -184,7 +183,6 @@ impl EditorApp {
             scroll_row: 0,
             scroll_col: 0,
             modified: false,
-            filename: filename.to_string(),
             should_quit: false,
             save_on_quit: false,
             word_wrap: false,
@@ -785,8 +783,17 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
 
 fn render_status_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
     let modified_indicator = if app.modified { "*" } else { "" };
+
+    // Mode name for display
+    let mode_name = match app.mode {
+        EditorMode::CommitMessage => "Commit Message",
+        EditorMode::PullRequest => "Plain",
+        EditorMode::BranchName => "Branch Name",
+    };
+
     let left = format!(
-        " [UTF-8] [Spaces:4] {}:{} {}",
+        " [{}] {}:{} {}",
+        mode_name,
         app.cursor_row + 1,
         app.cursor_col + 1,
         modified_indicator,
@@ -802,13 +809,11 @@ fn render_status_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
         Style::default().fg(STATUS_BAR_FG).bg(STATUS_BAR_BG)
     };
 
-    let right = format!("[{}]  ", app.filename);
     let ctrl_q_hint = "Ctrl-Q to save ";
 
-    let total_right_len = right.len() + ctrl_q_hint.len();
     let padding = area
         .width
-        .saturating_sub(left.len() as u16 + total_right_len as u16);
+        .saturating_sub(left.len() as u16 + ctrl_q_hint.len() as u16);
 
     let line = Line::from(vec![
         Span::styled(&left, Style::default().fg(STATUS_BAR_FG).bg(STATUS_BAR_BG)),
@@ -817,7 +822,6 @@ fn render_status_bar(frame: &mut ratatui::Frame, app: &EditorApp, area: Rect) {
             Style::default().bg(STATUS_BAR_BG),
         ),
         Span::styled(ctrl_q_hint, ctrl_q_style),
-        Span::styled(&right, Style::default().fg(STATUS_BAR_FG).bg(STATUS_BAR_BG)),
     ]);
     frame.render_widget(Paragraph::new(line), area);
 }
