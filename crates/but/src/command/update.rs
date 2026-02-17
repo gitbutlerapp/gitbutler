@@ -1,5 +1,5 @@
 use anyhow::Result;
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 use but_installer::VersionRequest;
 use but_settings::AppSettings;
 use but_update::{AppName, CheckUpdateStatus, check_status};
@@ -11,7 +11,7 @@ pub fn handle(cmd: update::Subcommands, out: &mut OutputChannel, app_settings: &
     match cmd {
         update::Subcommands::Check => check_for_updates(out, app_settings),
         update::Subcommands::Suppress { days } => suppress_updates(out, days),
-        #[cfg(target_os = "macos")]
+        #[cfg(unix)]
         update::Subcommands::Install { target } => install(out, target),
     }
 }
@@ -105,7 +105,7 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
     // Installation requires interactive output and cannot be used with JSON mode
     // because the installer writes directly to stdout/stderr
