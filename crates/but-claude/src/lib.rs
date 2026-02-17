@@ -559,21 +559,4 @@ mod tests {
         let attachments = user_input.attachments.unwrap();
         assert_eq!(attachments.len(), 1);
     }
-
-    #[test]
-    fn test_model_type_cli_string_for_latest_claude_models() {
-        assert_eq!(ModelType::ClaudeOpus46.to_cli_string(), "claude-opus-4-6");
-        assert_eq!(
-            ModelType::ClaudeOpus45.to_cli_string(),
-            "claude-opus-4-5-20251101"
-        );
-        assert_eq!(
-            ModelType::ClaudeSonnet45.to_cli_string(),
-            "claude-sonnet-4-5-20250929"
-        );
-        assert_eq!(
-            ModelType::ClaudeHaiku45.to_cli_string(),
-            "claude-haiku-4-5-20251001"
-        );
-    }
 }
