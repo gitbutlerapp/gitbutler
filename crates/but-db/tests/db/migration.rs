@@ -1,5 +1,6 @@
 mod run {
     use but_db::{M, migration};
+    use std::time::{Duration, Instant};
 
     use crate::migration::util::{dump_data, dump_schema};
 
@@ -32,11 +33,24 @@ mod run {
         {
             let _blocking_trans = db1.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
-            db2.busy_timeout(Default::default())?;
+            let start = Instant::now();
+            let busy_timeout = Duration::from_millis(100);
+            db2.busy_timeout(busy_timeout)?;
             let err = migration::run(&mut db2, migrations).unwrap_err();
             assert!(
-                matches!(err, backoff::Error::Transient { .. }),
+                matches!(
+                    err,
+                    backoff::Error::Transient {
+                        ref err,
+                        ..
+                    } if err.sqlite_error_code() == Some(rusqlite::ErrorCode::DatabaseBusy)
+                ),
                 "it wants to write, but can't, but knows it's a locking issue"
+            );
+            assert!(
+                start.elapsed() >= busy_timeout,
+                "busy timeout should block: {:?}",
+                start.elapsed()
             );
         }
 
@@ -75,6 +89,47 @@ mod run {
         Table: T2
         first
         "#);
+        Ok(())
+    }
+
+    #[test]
+    fn waits_for_locks_with_busy_timeout_in_threads() -> anyhow::Result<()> {
+        use rusqlite::TransactionBehavior;
+
+        let tmp = tempfile::TempDir::new()?;
+        let db_path = tmp.path().join("db");
+        let mut db = rusqlite::Connection::open(&db_path)?;
+        let blocking_trans = db.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let hold_lock = Duration::from_millis(250);
+        let busy_timeout = Duration::from_secs(1);
+
+        let (started_tx, started_rx) = std::sync::mpsc::sync_channel(0);
+        let thread = std::thread::spawn({
+            let db_path = db_path.clone();
+            move || -> anyhow::Result<Duration> {
+                let mut db = rusqlite::Connection::open(&db_path)?;
+                db.busy_timeout(busy_timeout)?;
+
+                started_tx.send(())?;
+                let start = Instant::now();
+                let migrations = [M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );")];
+                let count = migration::run(&mut db, migrations)?;
+                assert_eq!(count, 1, "migration succeeds once the lock is released");
+                Ok(start.elapsed())
+            }
+        });
+
+        started_rx.recv().expect("worker starts before we release the lock");
+        std::thread::sleep(hold_lock);
+        // Release the DB lock.
+        drop(blocking_trans);
+
+        let elapsed = thread.join().expect("worker did not panic")?;
+        let safety_margin = Duration::from_millis(75);
+        assert!(
+            elapsed >= hold_lock - safety_margin,
+            "busy timeout should wait for lock release, elapsed={elapsed:?}"
+        );
         Ok(())
     }
 
