@@ -134,7 +134,10 @@ mod watch_mode {
         assert_eq!("modern".parse::<WatchMode>().ok(), Some(WatchMode::Modern));
         assert_eq!("Legacy".parse::<WatchMode>().ok(), Some(WatchMode::Legacy));
         assert_eq!("MODERN".parse::<WatchMode>().ok(), Some(WatchMode::Modern));
-        assert!("auto".parse::<WatchMode>().is_err());
+        assert!(
+            "auto".parse::<WatchMode>().is_err(),
+            "'auto' is now unsupported, and was used previously to enable plan-mode only under WSL"
+        );
         assert!("invalid".parse::<WatchMode>().is_err());
     }
 }

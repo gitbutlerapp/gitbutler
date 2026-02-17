@@ -232,7 +232,7 @@ pub fn spawn(
     project_id: ProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
-    watch_mode: WatchMode,
+    mut watch_mode: WatchMode,
 ) -> Result<FileMonitorHandle> {
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
     let (notify_tx, notify_rx) = std::sync::mpsc::channel();
@@ -251,13 +251,20 @@ pub fn spawn(
             setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
         }
         WatchMode::Modern => {
-            setup_watch_plan(&mut debouncer, project_id, &repo, &worktree_path, &git_dir)?;
+            if let Err(err) = setup_watch_plan(&mut debouncer, project_id, &repo, &worktree_path, &git_dir) {
+                tracing::warn!(
+                    %project_id,
+                    ?err,
+                    "watch-plan setup failed; falling back to legacy watch mode"
+                );
+                watch_mode = WatchMode::Legacy;
+                setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
+            }
         }
     }
     tracing::debug!(
         %project_id,
-        requested = ?watch_mode,
-        effective = ?watch_mode,
+        ?watch_mode,
         "file watcher started"
     );
 
