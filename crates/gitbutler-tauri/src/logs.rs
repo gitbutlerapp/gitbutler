@@ -1,9 +1,9 @@
 use std::{fs, net::Ipv4Addr, path::Path, time::Duration};
 
 use tauri::{AppHandle, Manager};
-use tracing::{instrument, metadata::LevelFilter, subscriber::set_global_default};
+use tracing::{Level, instrument, metadata::LevelFilter, subscriber::set_global_default};
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
-use tracing_subscriber::{Layer, fmt::format::FmtSpan, layer::SubscriberExt};
+use tracing_subscriber::{Layer, filter::filter_fn, fmt::format::FmtSpan, layer::SubscriberExt};
 
 pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) {
     fs::create_dir_all(logs_dir).expect("failed to create logs dir");
@@ -37,6 +37,7 @@ pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) 
         .to_lowercase()
         .parse()
         .unwrap_or(LevelFilter::INFO);
+    let log_level = log_level_filter.into_level();
 
     let use_colors_in_logs = cfg!(not(feature = "windows"));
     let subscriber = tracing_subscriber::registry()
@@ -56,7 +57,7 @@ pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) 
                 .with_ansi(false)
                 .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
                 .with_writer(file_writer)
-                .with_filter(log_level_filter),
+                .with_filter(filter_fn(move |meta| should_log(log_level, meta))),
         );
     if performance_logging {
         set_global_default(
@@ -64,7 +65,7 @@ pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) 
                 tracing_forest::ForestLayer::from(
                     tracing_forest::printer::PrettyPrinter::new().writer(std::io::stdout),
                 )
-                .with_filter(log_level_filter),
+                .with_filter(filter_fn(move |meta| should_log(log_level, meta))),
             ),
         )
     } else {
@@ -75,11 +76,36 @@ pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) 
                     .event_format(format_for_humans)
                     .with_ansi(use_colors_in_logs)
                     .with_span_events(FmtSpan::CLOSE)
-                    .with_filter(log_level_filter),
+                    .with_filter(filter_fn(move |meta| should_log(log_level, meta))),
             ),
         )
     }
     .expect("failed to set subscriber");
+}
+
+/// This function is much like `LevelFilter`, but it also filters based on the module path.
+/// This is necessary, stangely enough, in release builds only, but is the same in the `but` CLI builds as well.
+/// It is pretty much the same as `LevelFilter` in debug builds.
+fn should_log(level: Option<Level>, meta: &tracing::Metadata<'_>) -> bool {
+    let Some(level) = level else {
+        return false;
+    };
+    if *meta.level() > level {
+        return false;
+    }
+    if level > Level::DEBUG {
+        return true;
+    }
+    if meta.module_path().is_some_and(|p| {
+        p == "gitbutler_tauri"
+            || p.starts_with("gitbutler_tauri::")
+            || p == "but"
+            || p.starts_with("but::")
+            || p.starts_with("but_")
+    }) {
+        return true;
+    }
+    false
 }
 
 fn get_server_addr(app_handle: &AppHandle) -> (Ipv4Addr, u16) {
