@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
-use but_core::{RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId};
+use but_core::{
+    RepositoryExt, TreeChange, commit::Headers, ref_metadata::StackId, worktree::checkout::UncommitedWorktreeChanges,
+};
 use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
@@ -195,20 +197,26 @@ pub(crate) fn enter_edit_mode(
 }
 
 pub(crate) fn abort_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclusive) -> Result<()> {
-    let repo = &*ctx.git2_repo.get()?;
-    let gix_repo = &*ctx.repo.get()?;
+    let git2_repo = &*ctx.git2_repo.get()?;
+    let repo = &*ctx.repo.get()?;
 
-    let current_tree = gix_repo.head_tree_id_or_empty()?;
+    let current_tree = repo.head_tree_id_or_empty()?;
 
     let uncommited_changes = get_uncommited_changes(ctx)?.to_gix();
-    but_core::worktree::safe_checkout(current_tree.detach(), uncommited_changes, gix_repo, Default::default())
-        .context(but_error::Context::new_static(
-            Code::EditModeSafeCheckoutFailed,
-            "Could not safely return to workspace",
-        ))?;
+    but_core::worktree::safe_checkout(
+        current_tree.detach(),
+        uncommited_changes,
+        repo,
+        but_core::worktree::checkout::Options {
+            uncommitted_changes: UncommitedWorktreeChanges::KeepAndAbortOnConflict,
+            skip_head_update: true,
+        },
+    )
+    .context(Code::EditModeSafeCheckoutFailed)?;
 
     // Checkout gitbutler workspace branch
-    repo.set_head(WORKSPACE_BRANCH_REF)
+    git2_repo
+        .set_head(WORKSPACE_BRANCH_REF)
         .context("Failed to set head reference")?;
 
     Ok(())

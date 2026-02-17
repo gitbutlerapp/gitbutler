@@ -68,13 +68,13 @@ fn aborting_edit_mode_fails_safely_if_checkout_would_overwrite_changes() -> Resu
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
     let repo = ctx.git2_repo.get()?;
 
-    let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
+    let first_parent_to_head = repo.head()?.peel_to_commit()?.parent(0)?.id();
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = vb_state.list_stacks_in_workspace()?;
     let stack = stacks.first().unwrap();
     drop(repo);
-    enter_edit_mode(&mut ctx, foobar, stack.id)?;
+    enter_edit_mode(&mut ctx, first_parent_to_head, stack.id)?;
 
     let repo = ctx.git2_repo.get()?;
     std::fs::write(repo.path().parent().unwrap().join("file"), "c\n")?;

@@ -48,8 +48,6 @@ The database was changed by a more recent version of GitButler - cannot safely o
 	[Code.EditModeSafeCheckoutFailed]: `
 GitButler couldn't safely return to the workspace because doing so would overwrite local changes.
 
-Please manually switch to \`gitbutler/workspace\` (or any other branch) with:
-
-    git checkout -f gitbutler/workspace
-	`
+Please manually stash or save your changes and try again.
+  `
 };
