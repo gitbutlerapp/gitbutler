@@ -4,6 +4,7 @@ use serde::Serialize;
 /// Represents the author of a commit.
 #[derive(Serialize, Hash, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./workspace/index.ts"))]
 pub struct Author {
@@ -13,6 +14,7 @@ pub struct Author {
     pub email: String,
     /// A URL to a gravatar image for the email from the commit signature
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::url"))]
     pub gravatar_url: url::Url,
 }
 

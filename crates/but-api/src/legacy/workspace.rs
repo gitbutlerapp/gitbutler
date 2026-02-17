@@ -35,7 +35,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
     .and_then(|info| but_workspace::ui::RefInfo::for_ui(info, &repo).map(|ref_info| ref_info.pruned_to_entrypoint()))
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn stacks(ctx: &Context, filter: Option<but_workspace::legacy::StacksFilter>) -> Result<Vec<StackEntry>> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;
@@ -94,7 +94,7 @@ pub fn show_graph_svg(ctx: &Context) -> Result<()> {
     Ok(())
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn stack_details(ctx: &Context, stack_id: Option<StackId>) -> Result<but_workspace::ui::StackDetails> {
     let mut details = {

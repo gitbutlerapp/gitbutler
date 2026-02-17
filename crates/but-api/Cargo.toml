@@ -25,7 +25,7 @@ napi = ["dep:napi", "dep:napi-derive", "legacy"]
 ## for lossless use.
 path-bytes = []
 ## Generate JSON schemas for TypeScript type generation via schemars.
-export-schema = []
+export-schema = ["but-workspace/export-schema"]
 ## Make legacy functionality available.
 legacy = [
     "but-ctx/legacy",

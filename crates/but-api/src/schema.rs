@@ -37,5 +37,26 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
 mod registrations {
     // use super::TypeSchemaEntry;
 
-    // TODO: Add schemas to the inventory here.
+    use but_workspace::{
+        legacy::{StacksFilter, ui::StackEntry},
+        ui::StackDetails,
+    };
+    use schemars::schema_for;
+
+    use crate::schema::TypeSchemaEntry;
+
+    inventory::submit! { TypeSchemaEntry {
+        name: "StackDetails",
+        schema_fn: || schema_for!(StackDetails)
+    }}
+
+    inventory::submit! { TypeSchemaEntry {
+        name: "StacksFilter",
+        schema_fn: || schema_for!(StacksFilter)
+    }}
+
+    inventory::submit! {TypeSchemaEntry {
+        name: "StackEntry",
+        schema_fn: || schema_for!(StackEntry)
+    }}
 }
