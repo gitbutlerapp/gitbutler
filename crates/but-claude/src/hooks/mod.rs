@@ -1,6 +1,6 @@
 use std::{collections::HashMap, path::Path, str::FromStr};
 
-use anyhow::{Context as _, Result, anyhow};
+use anyhow::{Context as _, Result};
 use but_action::{ActionHandler, Source, rename_branch::RenameBranchParams, reword::CommitEvent};
 use but_ctx::{Context, access::RepoExclusive};
 use but_hunk_assignment::HunkAssignmentRequest;
@@ -80,33 +80,20 @@ pub struct ClaudeStopInput {
     pub stop_hook_active: Option<bool>,
 }
 
-pub fn handle_stop(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
+pub fn handle_stop(ctx: Context, read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudeStopInput =
         serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
-    handle_stop_from_input(&input.session_id, &input.transcript_path)
+    handle_session_stop(ctx, &input.session_id, &input.transcript_path, false)
 }
 
-/// Core stop handler logic that can be called from both external hook invocations and SDK callbacks.
-/// When `skip_gui_check` is true, the should_exit_early check is skipped (used by SDK callbacks
-/// which always run in the GUI context).
-pub fn handle_stop_from_input(session_id: &str, transcript_path: &str) -> anyhow::Result<ClaudeHookOutput> {
-    handle_stop_from_input_inner(session_id, transcript_path, false)
-}
-
-/// SDK variant that skips the GUI check since SDK callbacks always run in GUI context.
-pub fn handle_stop_from_input_for_sdk(session_id: &str, transcript_path: &str) -> anyhow::Result<ClaudeHookOutput> {
-    handle_stop_from_input_inner(session_id, transcript_path, true)
-}
-
-fn handle_stop_from_input_inner(
+pub fn handle_session_stop(
+    mut ctx: Context,
     session_id: &str,
     transcript_path: &str,
     skip_gui_check: bool,
 ) -> anyhow::Result<ClaudeHookOutput> {
     let transcript = Transcript::from_file(Path::new(transcript_path))?;
-    let cwd = transcript.dir()?;
-    let mut ctx = Context::discover(cwd)?;
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
 
     // This is a naive way of handling this case.
@@ -338,20 +325,9 @@ pub struct ClaudePreToolUseInput {
     pub tool_input: ToolInput,
 }
 
-pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
-    let mut input: ClaudePreToolUseInput =
+pub fn handle_pre_tool_call(mut ctx: Context, read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
+    let input: ClaudePreToolUseInput =
         serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
-
-    let dir = std::path::Path::new(&input.tool_input.file_path)
-        .parent()
-        .ok_or(anyhow!("Failed to get parent directory of file path"))?;
-    let mut ctx = Context::discover(dir)?;
-    let worktree_dir = ctx.workdir_or_fail()?;
-    let relative_file_path = std::path::PathBuf::from(&input.tool_input.file_path)
-        .strip_prefix(worktree_dir)?
-        .to_string_lossy()
-        .to_string();
-    input.tool_input.file_path = relative_file_path;
 
     let session_id = original_session_id(&mut ctx, input.session_id.clone())?;
 
@@ -363,7 +339,7 @@ pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHo
         });
     }
 
-    file_lock::obtain_or_insert(&mut ctx, session_id, input.tool_input.file_path.clone())?;
+    file_lock::obtain_or_insert(&mut ctx, session_id, input.tool_input.file_path)?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -374,19 +350,13 @@ pub fn handle_pre_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHo
 
 /// SDK variant of pre-tool-call handler that performs file locking.
 /// This is called from the SDK hook and skips the GUI check.
-pub fn handle_pre_tool_call_for_sdk(session_id: &str, file_path: &str) -> anyhow::Result<ClaudeHookOutput> {
-    let dir = std::path::Path::new(file_path)
-        .parent()
-        .ok_or(anyhow!("Failed to get parent directory of file path"))?;
-    let mut ctx = Context::discover(dir)?;
-    let worktree_dir = ctx.workdir_or_fail()?;
-    let relative_file_path = std::path::PathBuf::from(file_path)
-        .strip_prefix(worktree_dir)?
-        .to_string_lossy()
-        .to_string();
-
-    // Skip the GUI check - SDK hooks always run in GUI context
-    file_lock::obtain_or_insert(&mut ctx, session_id.into(), relative_file_path)?;
+pub fn lock_file_for_tool_call(
+    sync_ctx: but_ctx::ThreadSafeContext,
+    session_id: &str,
+    file_path: &str,
+) -> anyhow::Result<ClaudeHookOutput> {
+    let mut ctx: Context = sync_ctx.into_thread_local();
+    file_lock::obtain_or_insert(&mut ctx, session_id.into(), file_path.to_string())?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -395,53 +365,27 @@ pub fn handle_pre_tool_call_for_sdk(session_id: &str, file_path: &str) -> anyhow
     })
 }
 
-pub fn handle_post_tool_call(read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
+pub fn handle_post_tool_call(ctx: Context, read: impl std::io::Read) -> anyhow::Result<ClaudeHookOutput> {
     let input: ClaudePostToolUseInput =
         serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
-    handle_post_tool_call_from_input(
+    assign_hunks_post_tool_call(
+        ctx,
         &input.session_id,
         &input.tool_response.file_path,
         &input.tool_response.structured_patch,
+        false,
     )
 }
 
-/// Core post-tool-call handler that can be called from both external hook invocations and SDK callbacks.
-/// This assigns hunks modified by the tool to the session's stack.
-pub fn handle_post_tool_call_from_input(
-    session_id: &str,
-    file_path: &str,
-    structured_patch: &[StructuredPatch],
-) -> anyhow::Result<ClaudeHookOutput> {
-    handle_post_tool_call_from_input_inner(session_id, file_path, structured_patch, false)
-}
-
-/// SDK variant that skips the GUI check since SDK callbacks always run in GUI context.
-pub fn handle_post_tool_call_from_input_for_sdk(
-    session_id: &str,
-    file_path: &str,
-    structured_patch: &[StructuredPatch],
-) -> anyhow::Result<ClaudeHookOutput> {
-    handle_post_tool_call_from_input_inner(session_id, file_path, structured_patch, true)
-}
-
-fn handle_post_tool_call_from_input_inner(
+pub fn assign_hunks_post_tool_call(
+    mut ctx: Context,
     session_id: &str,
     file_path: &str,
     structured_patch: &[StructuredPatch],
     skip_gui_check: bool,
 ) -> anyhow::Result<ClaudeHookOutput> {
     let hook_headers: Vec<HunkHeader> = structured_patch.iter().map(|p| p.into()).collect();
-    let dir = std::path::Path::new(file_path)
-        .parent()
-        .ok_or(anyhow!("Failed to get parent directory of file path"))?;
-    let mut ctx = Context::discover(dir)?;
-    let worktree_dir = ctx.workdir_or_fail()?;
-
-    let relative_file_path = std::path::PathBuf::from(file_path)
-        .strip_prefix(&worktree_dir)?
-        .to_string_lossy()
-        .to_string();
 
     if !skip_gui_check && should_exit_early(&mut ctx, session_id)? {
         return Ok(ClaudeHookOutput {
@@ -451,14 +395,20 @@ fn handle_post_tool_call_from_input_inner(
         });
     }
 
+    let relative_file_path = ctx.workdir_or_fail().ok().and_then(|worktree_dir| {
+        std::path::PathBuf::from(file_path)
+            .strip_prefix(worktree_dir)
+            .ok()
+            .map(|rel| rel.to_string_lossy().to_string())
+    });
+
     let session_id = original_session_id(&mut ctx, session_id.to_string())?;
     let mut defer = ClearLocksGuard {
         ctx,
         session_id: session_id.clone(),
-        file_path: Some(relative_file_path.clone()),
+        file_path: Some(file_path.to_string()),
     };
 
-    // Create repo and workspace once at the entry point
     let mut guard = defer.ctx.exclusive_worktree_access();
     let stacks = list_stacks(&defer.ctx)?;
 
@@ -481,14 +431,17 @@ fn handle_post_tool_call_from_input_inner(
         .into_iter()
         .filter(|a| a.stack_id.is_none())
         .filter(|a| {
-            // If the hook_headers is empty, we probably created a file.
+            let Some(ref relative_file_path) = relative_file_path else {
+                return false;
+            };
+            let path_matches = a.path.to_lowercase() == relative_file_path.to_lowercase();
             if hook_headers.is_empty() {
-                a.path.to_lowercase() == relative_file_path.to_lowercase()
-            } else if a.path.to_lowercase() == relative_file_path.to_lowercase() {
+                path_matches
+            } else if path_matches {
                 if let Some(a) = a.hunk_header {
                     hook_headers.iter().any(|h| h.new_range().intersects(a.new_range()))
                 } else {
-                    true // If no header is present, then the whole file is considered, in which case intersection is true
+                    true
                 }
             } else {
                 false

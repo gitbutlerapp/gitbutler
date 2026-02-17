@@ -357,9 +357,9 @@ impl Claudes {
         // PreToolUse hook for file locking and keeping stream open for can_use_tool
         let pretool_hook = create_pretool_use_hook(sync_ctx.clone(), stack_id);
         // Add PostToolUse hook to assign hunks to the session's stack (critical for commit creation)
-        let posttool_hook = create_post_tool_use_hook();
+        let posttool_hook = create_post_tool_use_hook(sync_ctx.clone());
         // Add Stop hook to handle commit creation when Claude finishes
-        let stop_hook = create_stop_hook();
+        let stop_hook = create_stop_hook(sync_ctx.clone());
         let mut hooks = std::collections::HashMap::new();
         hooks.insert(
             claude_agent_sdk_rs::HookEvent::PreToolUse,
@@ -1516,32 +1516,30 @@ fn create_pretool_use_hook(
 
     Arc::new(
         move |input: HookInput, _tool_use_id: Option<String>, _context: HookContext| {
+            let sync_ctx = sync_ctx.clone();
             async move {
                 if let HookInput::PreToolUse(pre_tool_input) = input {
-                    // Extract file_path from tool_input for file locking
                     let file_path = pre_tool_input.tool_input.get("file_path").and_then(|v| v.as_str());
-
                     if let Some(file_path) = file_path {
-                        tracing::info!(
-                            "PreToolUse hook: tool_name={}, session_id={}, file_path={}",
-                            pre_tool_input.tool_name,
-                            pre_tool_input.session_id,
-                            file_path
-                        );
-
-                        // Perform file locking using the SDK variant
                         let session_id = pre_tool_input.session_id.clone();
                         let file_path_owned = file_path.to_string();
-                        let file_path_for_log = file_path_owned.clone();
-                        let result = crate::hooks::handle_pre_tool_call_for_sdk(&session_id, &file_path_owned);
+                        let result = tokio::task::spawn_blocking(move || {
+                            crate::hooks::lock_file_for_tool_call(sync_ctx, &session_id, &file_path_owned)
+                        })
+                        .await;
 
                         match result {
-                            Ok(_) => {}
-                            Err(e) => {
+                            Ok(Ok(_)) => {}
+                            Ok(Err(e)) => {
                                 tracing::warn!(
-                                    file_path = %file_path_for_log,
                                     error = %e,
                                     "PreToolUse file locking failed - continuing without lock"
+                                );
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    error = %e,
+                                    "PreToolUse file locking task failed"
                                 );
                             }
                         }
@@ -1562,13 +1560,14 @@ fn create_pretool_use_hook(
 /// Creates a PostToolUse hook that assigns hunks to the session's stack.
 /// This is critical - without it, changes made by Claude won't be assigned to the stack
 /// and won't be committed when the session ends.
-fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
+fn create_post_tool_use_hook(sync_ctx: ThreadSafeContext) -> claude_agent_sdk_rs::HookCallback {
     use claude_agent_sdk_rs::{HookContext, HookInput, HookJsonOutput, SyncHookJsonOutput};
     use futures::FutureExt;
     use std::sync::Arc;
 
     Arc::new(
         move |input: HookInput, _tool_use_id: Option<String>, _context: HookContext| {
+            let sync_ctx = sync_ctx.clone();
             async move {
                 tracing::info!(
                     "PostToolUse hook called, input type: {:?}",
@@ -1617,16 +1616,16 @@ fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
                         });
                     }
 
-                    // Use the _for_sdk variant which skips the GUI check (SDK hooks always run in GUI context)
-                    // Use spawn_blocking to avoid blocking the async runtime with file I/O
                     let session_id = post_tool_input.session_id.clone();
                     let file_path_owned = file_path.to_string();
                     let file_path_for_log = file_path_owned.clone();
                     let result = tokio::task::spawn_blocking(move || {
-                        crate::hooks::handle_post_tool_call_from_input_for_sdk(
+                        crate::hooks::assign_hunks_post_tool_call(
+                            sync_ctx.into_thread_local(),
                             &session_id,
                             &file_path_owned,
                             &structured_patch,
+                            true,
                         )
                     })
                     .await;
@@ -1681,13 +1680,14 @@ fn create_post_tool_use_hook() -> claude_agent_sdk_rs::HookCallback {
 
 /// Creates a Stop hook that handles commit creation when Claude finishes.
 /// This is the SDK equivalent of the binary's Stop hook configured via --settings.
-fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
+fn create_stop_hook(sync_ctx: ThreadSafeContext) -> claude_agent_sdk_rs::HookCallback {
     use claude_agent_sdk_rs::{HookContext, HookInput, HookJsonOutput, SyncHookJsonOutput};
     use futures::FutureExt;
     use std::sync::Arc;
 
     Arc::new(
         move |input: HookInput, _tool_use_id: Option<String>, _context: HookContext| {
+            let sync_ctx = sync_ctx.clone();
             async move {
                 tracing::info!("Stop hook called, input type: {:?}", std::mem::discriminant(&input));
                 if let HookInput::Stop(stop_input) = input {
@@ -1696,14 +1696,17 @@ fn create_stop_hook() -> claude_agent_sdk_rs::HookCallback {
                         stop_input.session_id,
                         stop_input.transcript_path
                     );
-                    // Use the _for_sdk variant which skips the GUI check (SDK hooks always run in GUI context)
-                    // Wrap in spawn_blocking since handle_stop_from_input_for_sdk performs blocking I/O
                     let session_id = stop_input.session_id.clone();
                     let transcript_path = stop_input.transcript_path.clone();
                     let session_id_for_log = session_id.clone();
                     let transcript_path_for_log = transcript_path.clone();
                     let result = tokio::task::spawn_blocking(move || {
-                        crate::hooks::handle_stop_from_input_for_sdk(&session_id, &transcript_path)
+                        crate::hooks::handle_session_stop(
+                            sync_ctx.into_thread_local(),
+                            &session_id,
+                            &transcript_path,
+                            true,
+                        )
                     })
                     .await;
 
