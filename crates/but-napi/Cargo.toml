@@ -1,0 +1,31 @@
+[package]
+name = "but-napi"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "GitButler Node.js SDK via napi-rs"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["legacy", "napi-auto"]
+## Make legacy functionality available - required for most operations.
+legacy = ["but-api/legacy", "but-ctx/legacy"]
+## Enable auto-generated napi functions from the `#[but_api]` macro.
+napi-auto = ["but-api/napi"]
+
+[dependencies]
+but-api.workspace = true
+but-ctx.workspace = true
+
+napi = { version = "3.0.0", features = ["serde-json"] }
+napi-derive = "3.0.0"
+
+[build-dependencies]
+napi-build = "2"

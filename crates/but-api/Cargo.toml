@@ -18,9 +18,14 @@ default = []
 ## Provide Tauri commands automatically where possible, to avoid duplication.
 ## Needs "legacy" as long as it needs `ProjectId` and is not switched to `ProjectHandle`.
 tauri = ["dep:tauri", "legacy"]
+## Provide napi bindings for Node.js via napi-rs.
+## Needs "legacy" as long as it needs `LegacyProjectId`.
+napi = ["dep:napi", "dep:napi-derive", "legacy"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.
 path-bytes = []
+## Generate JSON schemas for TypeScript type generation via schemars.
+export-schema = []
 ## Make legacy functionality available.
 legacy = [
     "but-ctx/legacy",
@@ -46,8 +51,6 @@ legacy = [
     "dep:but-cherry-apply",
     "dep:url",
 ]
-## Collect JSON schemas for TS generation.
-export-schema = []
 
 [dependencies]
 but-serde.workspace = true
@@ -103,6 +106,12 @@ gitbutler-git = { workspace = true, optional = true }
 tauri = { version = "^2.9.5", features = [
     "unstable",
 ], optional = true } # For the #[tauri::command(async)] macro only
+
+napi = { version = "3.0.0", features = [
+    "serde-json",
+    "tokio_rt",
+], optional = true }
+napi-derive = { version = "3.0.0", optional = true }
 
 boolean-enums = { version = "0.4.1", features = ["serde"] }
 bstr = { workspace = true }

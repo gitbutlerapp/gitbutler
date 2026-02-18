@@ -1,0 +1,9 @@
+# Ignore build artifacts
+*.node
+
+# Ignore platform-specific directories
+npm/
+
+# Test output
+test-results/
+coverage/

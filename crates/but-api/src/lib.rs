@@ -5,7 +5,8 @@
 //! For them to behave correctly in multi-threaded scenarios, be sure to use an *exclusive or shared* lock
 //! on this level.
 //! Lower-level crates like `but-workspace` won't use filesystem-based locking beyond what Git offers natively.
-#![forbid(unsafe_code)]
+#![cfg_attr(not(feature = "napi"), forbid(unsafe_code))]
+#![cfg_attr(feature = "napi", deny(unsafe_code))]
 #![deny(missing_docs)]
 
 #[cfg(feature = "legacy")]
