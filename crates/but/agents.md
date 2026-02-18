@@ -21,6 +21,7 @@ Usable output goes to `out: &mut OutputChannel`
 
 - Do not re-discover Git repositories, instead take them as inputs to functions and methods. They can be retrieved from contexed via `ctx.repo.get()?`
   and passed as parameter.
+- Prefer `repo` APIs (for example `repo.rev_parse_single(...)`) over shelling out to `git`; only shell out when there is no equivalent API.
 - Avoid implicitly using the current time like `std::time::SystemTime::now()`, instead pass the current time as argument.
 
 ### Testing
@@ -29,6 +30,10 @@ Usable output goes to `out: &mut OutputChannel`
   and auto-update expectations with `SNAPSHOTS=overwrite cargo test -p but`.
 * When color is involved, use with `.stdout_eq(snapbox::file!["snapshots/<test-name>/<invocation>.stdout.term.svg"])`, and update it 
   with `SNAPSHOT=overwrite cargo test -p but`.
+* In `crates/but/tests/`, prefer `env.but(...).assert().success()/failure().stdout_eq(str![...]).stderr_eq(str![...])` for CLI output checks.
+* Avoid `env.but(...).output()` followed by direct `stdout`/`stderr` assertions (for example, `String::from_utf8_lossy(&output.stdout)` with `assert_*`).
+* If only part of output matters, use `snapbox::str!` wildcards (`..`) to ignore unstable sections.
+* Do not use `anyhow::ensure!` in tests; use panicking assertions (`assert!`, `assert_eq!`, `assert_ne!`) so failures are test panics.
 
 ### Linting
 
