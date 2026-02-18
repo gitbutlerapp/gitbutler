@@ -1,7 +1,7 @@
 use std::io::{IsTerminal, Write};
 
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use minus::ExitStrategy;
-use rustyline::error::ReadlineError;
 
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
@@ -258,16 +258,54 @@ impl std::fmt::Write for InputOutputChannel<'_> {
 
 impl InputOutputChannel<'_> {
     fn readline(&mut self, prompt: &str) -> anyhow::Result<ReadlineInput> {
-        let mut editor = rustyline::DefaultEditor::new()?;
-        let line = match editor.readline(prompt) {
-            Ok(line) => line.trim().to_owned(),
-            Err(ReadlineError::Eof | ReadlineError::Interrupted) => return Ok(ReadlineInput::EndOfInput),
-            Err(err) => return Err(err.into()),
-        };
-        if line.is_empty() {
-            return Ok(ReadlineInput::Empty);
+        self.out.stdout.write_all(prompt.as_bytes())?;
+        self.out.stdout.flush()?;
+
+        let _raw_mode = RawModeGuard::new()?;
+        let mut line = String::new();
+
+        loop {
+            match event::read()? {
+                Event::Key(key) => match key_to_edit_action(key, line.is_empty()) {
+                    KeyEditAction::Insert(ch) => {
+                        line.push(ch);
+                        write!(self.out.stdout, "{ch}")?;
+                        self.out.stdout.flush()?;
+                    }
+                    KeyEditAction::Backspace => {
+                        if line.pop().is_some() {
+                            // Move back, erase one char, then move back again.
+                            self.out.stdout.write_all(b"\x08 \x08")?;
+                            self.out.stdout.flush()?;
+                        }
+                    }
+                    KeyEditAction::Submit => {
+                        self.out.stdout.write_all(b"\n")?;
+                        self.out.stdout.flush()?;
+                        let trimmed = line.trim().to_owned();
+                        return if trimmed.is_empty() {
+                            Ok(ReadlineInput::Empty)
+                        } else {
+                            Ok(ReadlineInput::Text(trimmed))
+                        };
+                    }
+                    KeyEditAction::EndOfInput => {
+                        self.out.stdout.write_all(b"\n")?;
+                        self.out.stdout.flush()?;
+                        return Ok(ReadlineInput::EndOfInput);
+                    }
+                    KeyEditAction::Ignore => {}
+                },
+                Event::Paste(text) => {
+                    if !text.is_empty() {
+                        line.push_str(&text);
+                        self.out.stdout.write_all(text.as_bytes())?;
+                        self.out.stdout.flush()?;
+                    }
+                }
+                _ => {}
+            }
         }
-        Ok(ReadlineInput::Text(line))
     }
 
     /// Prompt a non-empty string from the user, or `None` if the input was
@@ -344,10 +382,65 @@ impl InputOutputChannel<'_> {
     }
 }
 
+/// Normalized result of collecting one line of terminal input.
 enum ReadlineInput {
+    /// User entered non-empty text and submitted it.
     Text(String),
+    /// User submitted an empty line (pressed Enter without text).
     Empty,
+    /// Input ended without a submission (for example Ctrl-C, Ctrl-D, or Esc).
     EndOfInput,
+}
+
+/// Editing operation derived from a terminal key event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KeyEditAction {
+    /// Insert the provided character into the current input buffer.
+    Insert(char),
+    /// Delete one character from the input buffer.
+    Backspace,
+    /// Submit the current input buffer as a completed line.
+    Submit,
+    /// End input without submitting a line.
+    EndOfInput,
+    /// Ignore this key event because it does not affect editing.
+    Ignore,
+}
+
+fn key_to_edit_action(key: KeyEvent, line_is_empty: bool) -> KeyEditAction {
+    if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
+        return KeyEditAction::Ignore;
+    }
+    match key.code {
+        KeyCode::Enter => KeyEditAction::Submit,
+        KeyCode::Backspace => KeyEditAction::Backspace,
+        KeyCode::Tab => KeyEditAction::Insert('\t'),
+        KeyCode::Esc => KeyEditAction::EndOfInput,
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => KeyEditAction::EndOfInput,
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) && line_is_empty => {
+            KeyEditAction::EndOfInput
+        }
+        KeyCode::Char(ch) if !key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) => {
+            KeyEditAction::Insert(ch)
+        }
+        _ => KeyEditAction::Ignore,
+    }
+}
+
+/// RAII guard that enables terminal raw mode on creation and restores normal mode on drop.
+struct RawModeGuard;
+
+impl RawModeGuard {
+    fn new() -> std::io::Result<Self> {
+        crossterm::terminal::enable_raw_mode()?;
+        Ok(Self)
+    }
+}
+
+impl Drop for RawModeGuard {
+    fn drop(&mut self) {
+        crossterm::terminal::disable_raw_mode().ok();
+    }
 }
 
 /// Be sure to flush everything written after the prompt as well - the output channel may be buffered.
@@ -410,5 +503,32 @@ impl Drop for OutputChannel {
         if let Some(pager) = self.pager.take() {
             minus::page_all(pager).ok();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    use super::{KeyEditAction, key_to_edit_action};
+
+    #[test]
+    fn ctrl_c_ends_input() {
+        assert_eq!(
+            key_to_edit_action(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL), true),
+            KeyEditAction::EndOfInput
+        );
+    }
+
+    #[test]
+    fn ctrl_d_only_ends_input_when_line_is_empty() {
+        assert_eq!(
+            key_to_edit_action(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL), true),
+            KeyEditAction::EndOfInput
+        );
+        assert_eq!(
+            key_to_edit_action(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL), false),
+            KeyEditAction::Ignore
+        );
     }
 }
