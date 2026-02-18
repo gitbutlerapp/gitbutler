@@ -105,7 +105,7 @@ export function initDependencies(args: {
 	// FOUNDATION LAYER - Core services that others depend on
 	// ============================================================================
 
-	const userSettings = loadUserSettings();
+	const userSettings = loadUserSettings(backend.platformName);
 	const appState = new AppState();
 
 	// ============================================================================

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { BACKEND } from '$lib/backend';
 	import { FILE_SERVICE } from '$lib/files/fileService';
+	import { showError } from '$lib/notifications/toasts';
 	import { vscodePath } from '$lib/project/project';
 	import { PROJECTS_SERVICE } from '$lib/project/projectsService';
 	import { historyPath } from '$lib/routes/routes.svelte';
@@ -13,6 +15,7 @@
 
 	const { projectId }: { projectId: string } = $props();
 
+	const backend = inject(BACKEND);
 	const projectsService = inject(PROJECTS_SERVICE);
 	const urlService = inject(URL_SERVICE);
 	const { openProjectSettings } = useSettingsModal();
@@ -49,6 +52,22 @@
 				}
 				// Show the project directory in the default file manager (cross-platform)
 				await fileService.showFileInFolder(project.path);
+			}),
+			shortcutService.on('open-in-terminal', async () => {
+				// TODO: once projectId is a project handle, it can be sent to the
+				// backend directly and we don't need to fetch.
+				const project = await projectsService.fetchProject(projectId);
+				if (!project) {
+					throw new Error(`Project not found: ${projectId}`);
+				}
+				try {
+					await backend.invoke('open_in_terminal', {
+						terminalId: $userSettings.defaultTerminal.identifier,
+						path: project.path
+					});
+				} catch (err: unknown) {
+					showError('Failed to open terminal', err);
+				}
 			})
 		)
 	);

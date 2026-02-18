@@ -137,6 +137,7 @@ pub enum Code {
     GitForcePushProtection,
     NetworkError,
     ProjectDatabaseIncompatible,
+    DefaultTerminalNotFound,
 }
 
 impl std::fmt::Display for Code {
@@ -157,6 +158,7 @@ impl std::fmt::Display for Code {
             Code::GitForcePushProtection => "errors.git.force_push_protection",
             Code::NetworkError => "errors.network",
             Code::ProjectDatabaseIncompatible => "errors.projectdb.migration",
+            Code::DefaultTerminalNotFound => "errors.terminal.not_found",
         };
         f.write_str(code)
     }

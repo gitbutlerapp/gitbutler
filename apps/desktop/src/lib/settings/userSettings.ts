@@ -10,6 +10,23 @@ export type CodeEditorSettings = {
 	displayName: string;
 };
 
+export type TerminalSettings = {
+	identifier: string;
+	displayName: string;
+	platform: 'macos' | 'windows' | 'linux';
+};
+
+function defaultTerminalForPlatform(platformName: string): TerminalSettings {
+	switch (platformName) {
+		case 'windows':
+			return { identifier: 'powershell', displayName: 'PowerShell', platform: 'windows' };
+		case 'linux':
+			return { identifier: 'gnome-terminal', displayName: 'GNOME Terminal', platform: 'linux' };
+		default:
+			return { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' };
+	}
+}
+
 export interface Settings {
 	aiSummariesEnabled?: boolean;
 	bottomPanelExpanded: boolean;
@@ -31,6 +48,7 @@ export interface Settings {
 	strongContrast: boolean;
 	colorBlindFriendly: boolean;
 	defaultCodeEditor: CodeEditorSettings;
+	defaultTerminal: TerminalSettings;
 	defaultFileListMode: 'tree' | 'list';
 	pathFirst: boolean;
 	singleDiffView: boolean;
@@ -56,17 +74,23 @@ const defaults: Settings = {
 	strongContrast: false,
 	colorBlindFriendly: false,
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' },
+	defaultTerminal: { identifier: 'terminal', displayName: 'Terminal', platform: 'macos' },
 	defaultFileListMode: 'list',
 	pathFirst: true,
 	singleDiffView: false
 };
 
-export function loadUserSettings(): Writable<Settings> {
-	let obj: any;
+export function loadUserSettings(platformName: string): Writable<Settings> {
+	let obj: Partial<Settings>;
 	try {
 		obj = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '');
 	} catch {
 		obj = {};
+	}
+
+	// If no terminal was persisted, resolve to the platform default.
+	if (!obj.defaultTerminal) {
+		obj.defaultTerminal = defaultTerminalForPlatform(platformName);
 	}
 
 	const store = writable<Settings>({ ...defaults, ...obj });
