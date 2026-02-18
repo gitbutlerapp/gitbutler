@@ -165,11 +165,28 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
             // The default alias expands to "status" which provides a helpful entry point
             let default_args = vec![OsString::from("but"), OsString::from("default")];
             let expanded = alias::expand_aliases(default_args)?;
-            let mut new_args: Args = clap::Parser::parse_from(expanded);
+            let mut default_alias_args: Args = clap::Parser::parse_from(expanded);
 
-            // Take the command from the newly parsed args and execute it
-            match new_args.cmd.take() {
-                Some(cmd) => match_subcommand(cmd, new_args, app_settings, out).await,
+            // Preserve globals from the default alias, while letting explicit user globals
+            // take precedence (e.g. `but -C <dir>` without a subcommand).
+            if args.trace > 0 {
+                default_alias_args.trace = args.trace;
+            }
+            if args.current_dir != std::path::Path::new(".") {
+                default_alias_args.current_dir = args.current_dir.clone();
+            }
+            if !matches!(args.format, OutputFormat::Human) {
+                default_alias_args.format = args.format;
+            }
+            if args.json {
+                default_alias_args.json = true;
+            }
+            if args.status_after {
+                default_alias_args.status_after = true;
+            }
+
+            match default_alias_args.cmd.take() {
+                Some(cmd) => match_subcommand(cmd, default_alias_args, app_settings, out).await,
                 None => {
                     // Fallback to help if default alias somehow doesn't resolve
                     command::help::print_grouped(&mut out)?;
