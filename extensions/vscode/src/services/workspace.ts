@@ -90,7 +90,25 @@ export class WorkspaceService implements vscode.Disposable {
       const headInfo =
         headInfoResult.status === 'fulfilled' ? headInfoResult.value : null;
 
-
+      // Debug: log stacks, segments, and assignments
+      if (headInfo?.stacks) {
+        for (const stack of headInfo.stacks) {
+          console.log(`[GitButler] Stack ${stack.id}: ${stack.segments.length} segments`);
+          for (const seg of stack.segments) {
+            console.log(`[GitButler]   segment refName=${seg.refName?.displayName || '(none)'} commits=${seg.commits.length} pushStatus=${seg.pushStatus}`);
+          }
+        }
+      }
+      if (worktreeChanges?.assignments) {
+        const byStack = new Map<string, number>();
+        for (const a of worktreeChanges.assignments) {
+          const key = a.stackId || 'unassigned';
+          byStack.set(key, (byStack.get(key) || 0) + 1);
+        }
+        for (const [stackId, count] of byStack) {
+          console.log(`[GitButler] Assignments: ${count} hunks -> stack ${stackId}`);
+        }
+      }
 
       const newState = this.buildState(worktreeChanges, headInfo);
       this._state = newState;
@@ -114,9 +132,16 @@ export class WorkspaceService implements vscode.Disposable {
     const assignments: HunkAssignment[] = worktree?.assignments || [];
 
     // Build assignment map: path -> stackId
+    // A file has multiple hunk assignments. If ANY hunk is assigned to a stack, the file is assigned.
     const assignmentMap = new Map<string, string | null>();
     for (const assignment of assignments) {
-      assignmentMap.set(assignment.path, assignment.stackId);
+      const existing = assignmentMap.get(assignment.path);
+      // Keep existing non-null stackId; only overwrite if we have a non-null one
+      if (existing === undefined) {
+        assignmentMap.set(assignment.path, assignment.stackId);
+      } else if (existing === null && assignment.stackId !== null) {
+        assignmentMap.set(assignment.path, assignment.stackId);
+      }
     }
 
     for (const treeChange of treeChanges) {

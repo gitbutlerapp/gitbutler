@@ -432,10 +432,10 @@ export function registerCommands(
           await api.createReference({
             newName: name,
             anchor: {
-              type: 'AtReference',
+              type: 'atReference',
               subject: {
                 shortName: parentPick.label,
-                position: 'Above',
+                position: 'above',
               },
             },
           });

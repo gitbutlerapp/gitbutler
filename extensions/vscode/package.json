@@ -24,7 +24,7 @@
   "main": "./dist/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run build",
-    "build": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "build": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap && node -e \"const fs=require('fs'),p=require('path'),s=p.join('node_modules','@vscode','codicons','dist'),d='dist';fs.copyFileSync(p.join(s,'codicon.css'),p.join(d,'codicon.css'));fs.copyFileSync(p.join(s,'codicon.ttf'),p.join(d,'codicon.ttf'))\"",
     "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
     "lint": "eslint src --ext ts",
     "compile": "npm run build"
@@ -121,7 +121,6 @@
         "category": "GitButler",
         "icon": "$(plus)"
       },
-
       {
         "command": "gitbutler.deleteBranch",
         "title": "Delete Branch",
@@ -217,7 +216,20 @@
         "icon": "$(link-external)"
       }
     ],
-    "menus": {},
+    "menus": {
+      "view/title": [
+        {
+          "command": "gitbutler.createBranch",
+          "when": "view == gitbutlerPanel",
+          "group": "navigation"
+        },
+        {
+          "command": "gitbutler.refresh",
+          "when": "view == gitbutlerPanel",
+          "group": "navigation"
+        }
+      ]
+    },
     "colors": [
       {
         "id": "gitbutler.addedForeground",
@@ -262,6 +274,7 @@
     ]
   },
   "dependencies": {
+    "@vscode/codicons": "^0.0.44",
     "ws": "^8.19.0"
   }
 }

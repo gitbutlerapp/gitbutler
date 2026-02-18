@@ -11,7 +11,7 @@ import type { FileChange, Stack, Segment } from '../types/gitbutler';
 export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private state: WorkspaceState | null = null;
-  private codiconUri: vscode.Uri | null = null;
+
 
   constructor(
     private readonly workspace: WorkspaceService,
@@ -35,11 +35,6 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
       enableScripts: true,
       localResourceRoots: [this.extensionUri],
     };
-
-    // Build codicon font URI from VS Code's built-in codicons
-    this.codiconUri = webviewView.webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'node_modules', '@vscode/codicons', 'dist', 'codicon.css')
-    );
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage(async (message) => {
@@ -169,12 +164,15 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
 
   private async handleMove(filePath: string, targetStackId: string): Promise<void> {
     try {
-      await this.api.assignHunk([{
+      const rejections = await this.api.assignHunk([{
         hunkHeader: null,
         pathBytes: pathToBytes(filePath),
         stackId: targetStackId,
-      }]);
+      }]) as any[];
       await this.workspace.refresh();
+      if (rejections && rejections.length > 0) {
+        vscode.window.showWarningMessage(`GitButler: Some hunks could not be moved (locked by existing commits)`);
+      }
     } catch (err: any) {
       vscode.window.showErrorMessage(`Move failed: ${err?.detail || err?.message || err}`);
     }
@@ -221,12 +219,15 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
 
   private async handleMoveFiles(filePaths: string[], targetStackId: string): Promise<void> {
     try {
-      await this.api.assignHunk(filePaths.map((fp) => ({
+      const rejections = await this.api.assignHunk(filePaths.map((fp) => ({
         hunkHeader: null,
         pathBytes: pathToBytes(fp),
         stackId: targetStackId,
-      })));
+      }))) as any[];
       await this.workspace.refresh();
+      if (rejections && rejections.length > 0) {
+        vscode.window.showWarningMessage(`GitButler: ${rejections.length} hunk(s) could not be moved (locked by existing commits)`);
+      }
     } catch (err: any) {
       vscode.window.showErrorMessage(`Move failed: ${err?.detail || err?.message || err}`);
     }
@@ -298,10 +299,25 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
       }))
     );
 
+    const codiconCssUri = this.view!.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'dist', 'codicon.css')
+    );
+    const codiconFontUri = this.view!.webview.asWebviewUri(
+      vscode.Uri.joinPath(this.extensionUri, 'dist', 'codicon.ttf')
+    );
+
     return /* html */ `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
+<link rel="stylesheet" href="${codiconCssUri}">
+<style>
+  @font-face {
+    font-family: "codicon";
+    font-display: block;
+    src: url("${codiconFontUri}") format("truetype");
+  }
+</style>
 <style>
   :root {
     --vscode-font-family: var(--vscode-editor-font-family, sans-serif);
@@ -341,10 +357,6 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     font-size: 14px;
     width: 16px;
     text-align: center;
-    transition: transform 0.1s;
-  }
-  .section-header .chevron.collapsed {
-    transform: rotate(-90deg);
   }
   .section-header .badge {
     margin-left: auto;
@@ -434,11 +446,7 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     opacity: 1;
     background: var(--vscode-toolbar-hoverBackground);
   }
-  .ai-btn svg {
-    width: 14px;
-    height: 14px;
-    fill: currentColor;
-  }
+
   .commit-btn {
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
@@ -592,48 +600,30 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     font-size: 12px;
   }
 
-  .toolbar {
-    display: flex;
-    padding: 4px 8px;
-    gap: 4px;
-    border-bottom: 1px solid var(--vscode-panel-border, transparent);
-  }
-  .toolbar button {
-    background: none;
-    border: none;
-    color: var(--vscode-foreground);
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 13px;
-    opacity: 0.7;
-  }
-  .toolbar button:hover {
-    opacity: 1;
-    background: var(--vscode-toolbar-hoverBackground);
-  }
+
 </style>
 </head>
 <body>
-  <div class="toolbar">
-    <button onclick="send({type:'createBranch'})" title="Create Branch">+ Branch</button>
-    <button onclick="send({type:'refresh'})" title="Refresh">↻ Refresh</button>
-  </div>
-
   ${!isReady ? '<div class="empty-msg">GitButler is initializing...</div>' : this.renderBranches(stacks, stagedChanges) + this.renderUnassigned(changes, branchData)}
 
   <script>
     const vscode = acquireVsCodeApi();
     function send(msg) { vscode.postMessage(msg); }
 
+    // Toggle chevron helper
+    function toggleChevron(chevron) {
+      if (!chevron) return;
+      chevron.classList.toggle('codicon-chevron-down');
+      chevron.classList.toggle('codicon-chevron-right');
+    }
+
     // Toggle sections
     document.querySelectorAll('.section-header').forEach(h => {
       h.addEventListener('click', (e) => {
         if (e.target.closest('.actions') || e.target.closest('button')) return;
         const body = h.nextElementSibling;
-        const chevron = h.querySelector('.chevron');
         if (body) body.classList.toggle('collapsed');
-        if (chevron) chevron.classList.toggle('collapsed');
+        toggleChevron(h.querySelector('.chevron'));
       });
     });
 
@@ -642,11 +632,10 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
       f.addEventListener('click', (e) => {
         if (e.target.closest('.file-actions') || e.target.closest('button')) return;
         const children = f.nextElementSibling;
-        const chevron = f.querySelector('.chevron');
         if (children && children.classList.contains('folder-children')) {
           children.classList.toggle('collapsed');
         }
-        if (chevron) chevron.classList.toggle('collapsed');
+        toggleChevron(f.querySelector('.chevron'));
       });
     });
 
@@ -693,37 +682,69 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
       });
     });
 
-    document.querySelectorAll('[data-drop-stack-id]').forEach(target => {
-      target.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        target.classList.add('drop-target');
-      });
-      target.addEventListener('dragleave', () => {
-        target.classList.remove('drop-target');
-      });
-      target.addEventListener('drop', (e) => {
-        e.preventDefault();
-        target.classList.remove('drop-target');
-        if (!dragData || dragData.paths.length === 0) return;
-        const targetStackId = target.dataset.dropStackId;
-        if (dragData.paths.length === 1) {
-          // Single file — use existing handlers
-          if (targetStackId === 'unassigned') {
-            send({ type: 'unstage', filePath: dragData.paths[0] });
-          } else {
-            send({ type: 'moveToBranch', filePath: dragData.paths[0], targetStackId });
-          }
+    // Drop targets — use closest section to resolve the right target
+    let currentDropTarget = null;
+
+    function findDropSection(el) {
+      if (!el || !el.closest) return null;
+      return el.closest('[data-drop-stack-id]');
+    }
+
+    document.addEventListener('dragover', (e) => {
+      if (!dragData) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const section = findDropSection(e.target);
+      if (section !== currentDropTarget) {
+        if (currentDropTarget) currentDropTarget.classList.remove('drop-target');
+        currentDropTarget = section;
+        if (currentDropTarget) currentDropTarget.classList.add('drop-target');
+      }
+    });
+
+    document.addEventListener('dragleave', (e) => {
+      if (!e.relatedTarget || !document.contains(e.relatedTarget)) {
+        if (currentDropTarget) currentDropTarget.classList.remove('drop-target');
+        currentDropTarget = null;
+      }
+    });
+
+    document.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (currentDropTarget) currentDropTarget.classList.remove('drop-target');
+      if (!dragData || dragData.paths.length === 0) { currentDropTarget = null; return; }
+
+      const section = findDropSection(e.target);
+      if (!section) {
+        console.log('[GitButler DnD] drop: no section found for', e.target);
+        currentDropTarget = null; dragData = null; return;
+      }
+
+      const targetStackId = section.dataset.dropStackId;
+      const sourceStackId = dragData.stackId || '';
+      console.log('[GitButler DnD] drop:', dragData.paths.length, 'files from stack', sourceStackId, 'onto', targetStackId);
+
+      // Don't drop onto the same stack (unless moving to/from unassigned)
+      if (targetStackId === sourceStackId && targetStackId !== 'unassigned' && sourceStackId !== '') {
+        console.log('[GitButler DnD] same stack, ignoring');
+        currentDropTarget = null; dragData = null; return;
+      }
+
+      if (dragData.paths.length === 1) {
+        if (targetStackId === 'unassigned') {
+          send({ type: 'unstage', filePath: dragData.paths[0] });
         } else {
-          // Multiple files — use batch handlers
-          if (targetStackId === 'unassigned') {
-            send({ type: 'unstageFiles', filePaths: dragData.paths });
-          } else {
-            send({ type: 'moveFiles', filePaths: dragData.paths, targetStackId });
-          }
+          send({ type: 'moveToBranch', filePath: dragData.paths[0], targetStackId });
         }
-        dragData = null;
-      });
+      } else {
+        if (targetStackId === 'unassigned') {
+          send({ type: 'unstageFiles', filePaths: dragData.paths });
+        } else {
+          send({ type: 'moveFiles', filePaths: dragData.paths, targetStackId });
+        }
+      }
+      currentDropTarget = null;
+      dragData = null;
     });
 
     // Listen for messages from the extension (e.g. AI-generated commit messages)
@@ -751,40 +772,46 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
       if (!stack.id) return '';
       const segments = stack.segments.filter((s) => s.refName);
       const files = stagedChanges.filter((c) => c.stackId === stack.id);
+      // The first segment (index 0) is the tip — that's where new commits go
+      // and where uncommitted worktree changes should be shown.
 
-      return segments.map((seg) => {
+      return segments.map((seg, segIdx) => {
         const name = seg.refName?.displayName || '(unnamed)';
         const pushIcon = this.pushStatusIcon(seg.pushStatus);
+        const isTip = segIdx === 0;
+        // Only show files & commit input on the tip branch
+        const segFiles = isTip ? files : [];
 
         return `
           <div class="section" data-drop-stack-id="${stack.id}">
             <div class="section-header">
-              <span class="chevron">▾</span>
+              <span class="chevron codicon codicon-chevron-down"></span>
               ${pushIcon} ${this.esc(name)}
+              ${!isTip ? '<span class="push-status">(base)</span>' : ''}
               <span class="push-status">${seg.pushStatus === 'completelyUnpushed' ? '(new)' : ''}</span>
               <div class="actions">
-                <button onclick="event.stopPropagation(); send({type:'pushBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Push Branch">↑</button>
-                <button onclick="send({type:'refresh'})" title="Refresh">↻</button>
-                <button onclick="event.stopPropagation(); send({type:'deleteBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Delete Branch">🗑</button>
+                <button onclick="event.stopPropagation(); send({type:'pushBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Push Branch"><span class="codicon codicon-cloud-upload"></span></button>
+                <button onclick="send({type:'refresh'})" title="Refresh"><span class="codicon codicon-refresh"></span></button>
+                <button onclick="event.stopPropagation(); send({type:'deleteBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Delete Branch"><span class="codicon codicon-trash"></span></button>
               </div>
-              ${files.length > 0 ? `<span class="badge">${files.length}</span>` : ''}
+              ${segFiles.length > 0 ? `<span class="badge">${segFiles.length}</span>` : ''}
             </div>
             <div class="section-body">
-              <div class="commit-area">
+              ${isTip ? `<div class="commit-area">
                 <div class="commit-input-wrap">
                   <textarea class="commit-input" rows="1"
                     placeholder="Message (Ctrl+Enter to commit on &quot;${this.esc(name)}&quot;)"
                     data-stack-id="${stack.id}"
                     data-branch-name="${this.esc(name)}"></textarea>
-                  <button class="ai-btn" onclick="event.stopPropagation(); send({type:'generateCommitMessage', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Generate commit message with AI"><svg viewBox="0 0 16 16"><path d="M3.5 3L5 0l1.5 3L9.5 3 8 6 6.5 3zM10 6l1 -2 1 2 2 0-1 2 1 2-2 0-1 2-1-2-2 0 1-2-1-2zM3.5 9L5 7l1.5 2L9.5 9 8 11l1.5 2L6.5 13 5 15 3.5 13 0.5 13 2 11 0.5 9z"/></svg></button>
+                  <button class="ai-btn" onclick="event.stopPropagation(); send({type:'generateCommitMessage', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Generate commit message with AI"><span class="codicon codicon-sparkle"></span></button>
                 </div>
                 <button class="commit-btn" onclick="
                   const input = this.closest('.commit-area').querySelector('.commit-input');
                   const msg = input.value.trim();
                   if (msg) { send({type:'commit', stackId:'${stack.id}', branchName:'${this.esc(name)}', message: msg}); input.value=''; }
-                ">&#10003; Commit</button>
-              </div>
-              ${files.length > 0 ? this.renderFileTree(files, stack.id!) : '<div class="empty-msg">No assigned files. Drag files here.</div>'}
+                "><span class="codicon codicon-check"></span> Commit</button>
+              </div>` : ''}
+              ${segFiles.length > 0 ? this.renderFileTree(segFiles, stack.id!) : (isTip ? '<div class="empty-msg">No assigned files. Drag files here.</div>' : '')}
               ${seg.commits.length > 0 ? this.renderCommits(seg) : ''}
             </div>
           </div>`;
@@ -796,7 +823,7 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     return `
       <div class="section" data-drop-stack-id="unassigned">
         <div class="section-header">
-          <span class="chevron">▾</span>
+          <span class="chevron codicon codicon-chevron-down"></span>
           Unassigned Changes
           ${changes.length > 0 ? `<span class="badge">${changes.length}</span>` : ''}
         </div>
@@ -810,10 +837,10 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     const tree = this.buildTree(files);
     const allPaths = this.collectAllPaths(tree);
     const allPathsJson = JSON.stringify(allPaths).replace(/"/g, '&quot;');
-    const rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'unstageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths)})" title="Unassign all">−</button></div>`;
+    const rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'unstageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths)})" title="Unassign all"><span class="codicon codicon-remove"></span></button></div>`;
     const rootHandle = files.length > 1
       ? `<div class="folder-item root-drag" draggable="true" data-paths="${allPathsJson}" data-stack-id="${stackId}">
-           <span class="icon">📂</span> <span class="name">Changes</span>
+           <span class="icon codicon codicon-folder-opened"></span> <span class="name">Changes</span>
            <span class="badge" style="margin-left:auto">${files.length}</span>
            ${rootActions}
          </div>`
@@ -828,17 +855,17 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     let rootActions = '';
     if (branchData && branchData.length > 0) {
       if (branchData.length === 1) {
-        rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${branchData[0].stackId}'})" title="Assign all to ${this.esc(branchData[0].name)}">+</button></div>`;
+        rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${branchData[0].stackId}'})" title="Assign all to ${this.esc(branchData[0].name)}"><span class="codicon codicon-add"></span></button></div>`;
       } else {
         const btns = branchData.map((b) =>
-          `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${b.stackId}'})" title="Assign all to ${this.esc(b.name)}" style="font-size:11px">→${this.esc(b.name.substring(0, 8))}</button>`
+          `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${b.stackId}'})" title="Assign all to ${this.esc(b.name)}" style="font-size:11px"><span class="codicon codicon-arrow-right"></span>${this.esc(b.name.substring(0, 8))}</button>`
         ).join('');
         rootActions = `<div class="file-actions">${btns}</div>`;
       }
     }
     const rootHandle = files.length > 1
       ? `<div class="folder-item root-drag" draggable="true" data-paths="${allPathsJson}" data-stack-id="">
-           <span class="icon">📂</span> <span class="name">All Changes</span>
+           <span class="icon codicon codicon-folder-opened"></span> <span class="name">All Changes</span>
            <span class="badge" style="margin-left:auto">${files.length}</span>
            ${rootActions}
          </div>`
@@ -905,21 +932,21 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
         if (isUnassigned) {
           if (branchData && branchData.length > 0) {
             if (branchData.length === 1) {
-              folderActions = `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${branchData[0].stackId}'})" title="Assign all to ${this.esc(branchData[0].name)}">+</button>`;
+              folderActions = `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${branchData[0].stackId}'})" title="Assign all to ${this.esc(branchData[0].name)}"><span class="codicon codicon-add"></span></button>`;
             } else {
               folderActions = branchData.map((b) =>
-                `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${b.stackId}'})" title="Assign all to ${this.esc(b.name)}" style="font-size:11px">→${this.esc(b.name.substring(0, 8))}</button>`
+                `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${b.stackId}'})" title="Assign all to ${this.esc(b.name)}" style="font-size:11px"><span class="codicon codicon-arrow-right"></span>${this.esc(b.name.substring(0, 8))}</button>`
               ).join('');
             }
           }
         } else {
-          folderActions = `<button onclick="event.stopPropagation(); send({type:'unstageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths)})" title="Unassign all">−</button>`;
+          folderActions = `<button onclick="event.stopPropagation(); send({type:'unstageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths)})" title="Unassign all"><span class="codicon codicon-remove"></span></button>`;
         }
 
         return `
           <div class="folder-item" draggable="true" data-paths="${folderPathsJson}" data-stack-id="${stackId}">
-            <span class="chevron">▾</span>
-            📁 ${this.esc(node.name)}
+            <span class="chevron codicon codicon-chevron-down"></span>
+            <span class="codicon codicon-folder"></span> ${this.esc(node.name)}
             <span class="badge" style="margin-left:auto">${folderPaths.length}</span>
             <div class="file-actions">${folderActions}</div>
           </div>
@@ -937,19 +964,19 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
         // Stage buttons — one per branch
         if (branchData && branchData.length > 0) {
           if (branchData.length === 1) {
-            actions = `<button onclick="event.stopPropagation(); send({type:'stage', filePath:'${this.escJs(file.path)}', stackId:'${branchData[0].stackId}'})" title="Assign to ${this.esc(branchData[0].name)}">+</button>`;
+            actions = `<button onclick="event.stopPropagation(); send({type:'stage', filePath:'${this.escJs(file.path)}', stackId:'${branchData[0].stackId}'})" title="Assign to ${this.esc(branchData[0].name)}"><span class="codicon codicon-add"></span></button>`;
           } else {
             // Show first branch as default, right-click for others
             actions = branchData.map((b) =>
-              `<button onclick="event.stopPropagation(); send({type:'stage', filePath:'${this.escJs(file.path)}', stackId:'${b.stackId}'})" title="Assign to ${this.esc(b.name)}" style="font-size:11px">→${this.esc(b.name.substring(0, 8))}</button>`
+              `<button onclick="event.stopPropagation(); send({type:'stage', filePath:'${this.escJs(file.path)}', stackId:'${b.stackId}'})" title="Assign to ${this.esc(b.name)}" style="font-size:11px"><span class="codicon codicon-arrow-right"></span>${this.esc(b.name.substring(0, 8))}</button>`
             ).join('');
           }
         }
-        actions += `<button onclick="event.stopPropagation(); send({type:'discard', filePath:'${this.escJs(file.path)}'})" title="Discard">✕</button>`;
+        actions += `<button onclick="event.stopPropagation(); send({type:'discard', filePath:'${this.escJs(file.path)}'})" title="Discard"><span class="codicon codicon-discard"></span></button>`;
       } else {
         actions = `
-          <button onclick="event.stopPropagation(); send({type:'unstage', filePath:'${this.escJs(file.path)}'})" title="Unassign">−</button>
-          <button onclick="event.stopPropagation(); send({type:'discard', filePath:'${this.escJs(file.path)}'})" title="Discard">✕</button>`;
+          <button onclick="event.stopPropagation(); send({type:'unstage', filePath:'${this.escJs(file.path)}'})" title="Unassign"><span class="codicon codicon-remove"></span></button>
+          <button onclick="event.stopPropagation(); send({type:'discard', filePath:'${this.escJs(file.path)}'})" title="Discard"><span class="codicon codicon-discard"></span></button>`;
       }
 
       return `
@@ -970,7 +997,7 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
       const msg = c.message.split('\n')[0] || '';
       const sha = c.id.substring(0, 7);
       return `<div class="file-item" style="padding-left:20px;opacity:0.8">
-        <span class="icon">●</span>
+        <span class="icon codicon codicon-git-commit"></span>
         <span class="name" style="font-size:12px">${this.esc(msg.substring(0, 60))}</span>
         <span style="color:var(--vscode-descriptionForeground);font-size:11px;margin-left:auto">${sha}</span>
       </div>`;
@@ -982,12 +1009,12 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
 
   private pushStatusIcon(status: string): string {
     switch (status) {
-      case 'nothingToPush': return '✓';
-      case 'unpushedCommits': return '↑';
-      case 'unpushedCommitsRequiringForce': return '⚠';
-      case 'completelyUnpushed': return '◌';
-      case 'integrated': return '✓';
-      default: return '○';
+      case 'nothingToPush': return '<span class="codicon codicon-check"></span>';
+      case 'unpushedCommits': return '<span class="codicon codicon-cloud-upload"></span>';
+      case 'unpushedCommitsRequiringForce': return '<span class="codicon codicon-warning"></span>';
+      case 'completelyUnpushed': return '<span class="codicon codicon-circle-outline"></span>';
+      case 'integrated': return '<span class="codicon codicon-check"></span>';
+      default: return '<span class="codicon codicon-circle-outline"></span>';
     }
   }
 

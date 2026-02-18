@@ -300,11 +300,11 @@ export class ButApiClient implements vscode.Disposable {
   async createReference(opts: {
     newName: string;
     anchor?: {
-      type: 'AtCommit' | 'AtReference';
+      type: 'atCommit' | 'atReference';
       subject: {
         commitId?: string;
         shortName?: string;
-        position: 'Above' | 'Below';
+        position: 'above' | 'below';
       };
     } | null;
   }): Promise<unknown> {
