@@ -21,7 +21,7 @@
 		"@gitbutler/ui": "workspace:*",
 		"@playwright/test": "1.47.0",
 		"@reduxjs/toolkit": "catalog:redux",
-		"@sveltejs/adapter-vercel": "^5.6.3",
+		"@sveltejs/adapter-vercel": "^6.3.1",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@testing-library/jest-dom": "^6.6.3",
