@@ -209,6 +209,7 @@ impl From<crossterm::event::KeyCode> for Key {
             crossterm::event::KeyCode::Char(c) => Key::Char(c),
             crossterm::event::KeyCode::Null => Key::Esc,
             crossterm::event::KeyCode::Esc => Key::Esc,
+            _ => Key::Esc,
         }
     }
 }
