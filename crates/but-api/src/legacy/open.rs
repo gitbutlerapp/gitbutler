@@ -137,13 +137,39 @@ pub fn open_url(url: String) -> Result<()> {
 /// - The terminal application is not installed or not found in PATH
 /// - The specified path does not exist or is not accessible
 /// - The terminal_id is not recognized for the current platform
-/// - The terminal fails to launch
-///   - On macOS/Linux, this includes the terminal process exiting immediately with a non-zero status code
-///   - On Windows, only spawn failures are detected; the terminal's later exit status is not checked
+/// - On all platforms, only spawn failures are detected; the terminal's later exit status is not checked
 #[but_api]
 #[instrument(err(Debug))]
 pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
     use std::process::Command;
+
+    /// Spawn a terminal process and reap it on a background thread.
+    ///
+    /// Terminal launches are fire-and-forget from the caller perspective, but we still
+    /// wait on the child process asynchronously to avoid leaving zombie processes behind.
+    fn spawn_and_reap(mut cmd: Command, terminal_name: &str, path: &str) -> Result<()> {
+        tracing::info!(?cmd, "terminal command");
+        let mut child = cmd
+            .spawn()
+            .with_context(|| format!("Failed to launch {terminal_name} at '{path}'"))?;
+
+        let terminal_name = terminal_name.to_owned();
+        let thread_terminal_name = terminal_name.clone();
+        std::thread::Builder::new()
+            .name(format!("reap-{terminal_name}"))
+            .stack_size(512 * 1024)
+            .spawn(move || match child.wait() {
+                Ok(stat) => if !stat.success() {
+                    tracing::warn!(terminal = %thread_terminal_name, status = ?stat, "Terminal process exited with error");
+                },
+                Err(err) => {
+                    tracing::warn!(terminal = %thread_terminal_name, error = %err, "Failed to reap terminal process")
+                }
+            })
+            .ok();
+
+        Ok(())
+    }
 
     if cfg!(target_os = "macos") {
         use std::process::Stdio;
@@ -244,33 +270,26 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
             return Err(anyhow::anyhow!("'{binary}' was not found.").context(but_error::Code::DefaultTerminalNotFound));
         }
 
-        // Use spawn() (fire-and-forget) rather than output() for Linux terminals.
-        // Most terminal emulators return immediately after spawning a window, so output()
-        // doesn't provide meaningful post-launch diagnostics — only spawn failures matter.
         match terminal_id.as_str() {
             // Terminals that inherit parent process CWD (no explicit flags needed).
             // Note: `binary` is used instead of the terminal ID because some terminals
             // have a different binary name (e.g. "warp" launches "warp-terminal").
             "gnome-terminal" | "konsole" | "xfce4-terminal" | "alacritty" | "ghostty" | "warp" => {
-                Command::new(binary)
-                    .current_dir(&path)
-                    .spawn()
-                    .with_context(|| format!("Failed to launch {binary} at '{path}'"))?;
+                let mut cmd = Command::new(binary);
+                cmd.current_dir(&path);
+                spawn_and_reap(cmd, binary, &path)?;
             }
             // Hyper accepts path as argument (Electron app doesn't use parent CWD)
             "hyper" => {
-                Command::new("hyper")
-                    .arg(&path)
-                    .spawn()
-                    .with_context(|| format!("Failed to launch hyper at '{path}'"))?;
+                let mut cmd = Command::new("hyper");
+                cmd.arg(&path);
+                spawn_and_reap(cmd, "hyper", &path)?;
             }
             // WezTerm does not respect parent CWD and requires explicit --cwd
             "wezterm" => {
-                Command::new("wezterm")
-                    .args(["start", "--cwd"])
-                    .arg(&path)
-                    .spawn()
-                    .with_context(|| format!("Failed to launch wezterm at '{path}'"))?;
+                let mut cmd = Command::new("wezterm");
+                cmd.args(["start", "--cwd"]).arg(&path);
+                spawn_and_reap(cmd, "wezterm", &path)?;
             }
             _ => bail!("Unknown terminal: {terminal_id}"),
         };
@@ -318,26 +337,28 @@ pub fn open_in_terminal(terminal_id: String, path: String) -> Result<()> {
 
         match terminal_id.as_str() {
             "wt" => {
-                // Windows Terminal detaches automatically, just check if it launches
-                create_new_console(Command::new("wt").arg("-d").arg(canonical_path))
-                    .spawn()
-                    .with_context(|| format!("Failed to launch Windows Terminal at '{canonical_path}'"))?;
+                let mut cmd = Command::new("wt");
+                cmd.arg("-d").arg(canonical_path);
+                create_new_console(&mut cmd);
+                spawn_and_reap(cmd, "Windows Terminal", canonical_path)?;
             }
             "powershell" => {
                 // Set the working directory directly instead of using cd command
-                create_new_console(Command::new("powershell").current_dir(canonical_path))
+                let mut cmd = Command::new("powershell");
+                cmd.current_dir(canonical_path)
                     // Keep the window open
-                    .arg("-NoExit")
-                    .spawn()
-                    .with_context(|| format!("Failed to launch PowerShell at '{canonical_path}'"))?;
+                    .arg("-NoExit");
+                create_new_console(&mut cmd);
+                spawn_and_reap(cmd, "PowerShell", canonical_path)?;
             }
             "cmd" => {
                 // Set the working directory directly - OS handles path format
-                create_new_console(Command::new("cmd").current_dir(canonical_path))
+                let mut cmd = Command::new("cmd");
+                cmd.current_dir(canonical_path)
                     // Keep the window open
-                    .arg("/K")
-                    .spawn()
-                    .with_context(|| format!("Failed to launch Command Prompt at '{canonical_path}'"))?;
+                    .arg("/K");
+                create_new_console(&mut cmd);
+                spawn_and_reap(cmd, "Command Prompt", canonical_path)?;
             }
             _ => bail!("Unknown terminal: {terminal_id}"),
         };
