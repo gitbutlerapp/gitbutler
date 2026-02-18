@@ -45,13 +45,18 @@ pub(crate) fn open_that(target_url: &Url) -> anyhow::Result<()> {
 
     let mut cmd_errors = Vec::new();
 
-    let url = if target_url.scheme() == "file" {
-        target_url.path()
+    let commands = if target_url.scheme() == "file" {
+        open::commands(
+            target_url
+                .to_file_path()
+                .ok()
+                .with_context(|| format!("Couldn't turn {target_url} into a file path"))?,
+        )
     } else {
-        target_url.as_str()
+        open::commands(target_url.as_str())
     };
 
-    for mut cmd in open::commands(url) {
+    for mut cmd in commands {
         let cleaned_vars = clean_env_vars(&[
             "APPDIR",
             "GDK_PIXBUF_MODULE_FILE",
