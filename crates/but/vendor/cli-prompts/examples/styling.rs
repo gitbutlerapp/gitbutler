@@ -1,9 +1,9 @@
 use std::io::Result;
 
 use cli_prompts::{
-    DisplayPrompt,
     prompts::{Confirmation, Input},
     style::{Color, ConfirmationStyle, Formatting, InputStyle, LabelStyle},
+    DisplayPrompt,
 };
 
 fn name_validation(input: &str) -> std::result::Result<String, String> {

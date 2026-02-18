@@ -3,7 +3,6 @@ use crate::{engine::CommandBuffer, prompts::options::Options, style::LabelStyle}
 /// Helper trait that simplifies the implementation of the prompts that have multiple options to
 /// choose from. It handles filtering, pagination, drawing prompt header and options.
 pub trait MultiOptionPrompt<T> {
-
     /// Maximum number of options that can be displayed on the screen
     fn max_options_count(&self) -> u16;
 

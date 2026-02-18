@@ -1,6 +1,7 @@
 //! Module for handling input
 
 /// Represents different keyboard keys
+#[derive(Debug, PartialEq, Eq)]
 pub enum Key {
     /// Backspace key
     Backspace,
@@ -22,7 +23,7 @@ pub enum Key {
 
     /// Home key
     Home,
-    
+
     /// End key
     End,
 
@@ -49,6 +50,9 @@ pub enum Key {
 
     /// All the character keys
     Char(char),
+
+    /// A character key pressed with Ctrl
+    Ctrl(char),
 
     /// Esc key
     Esc,

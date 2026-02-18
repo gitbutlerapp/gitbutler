@@ -1,6 +1,6 @@
+pub mod multioption_prompt;
 pub mod multiselect;
 pub mod selection;
-pub mod multioption_prompt;
 
 /// A helper struct for the multi-option prompts
 pub struct Options<T> {
@@ -70,4 +70,4 @@ impl<T> Options<T> {
     pub fn transformed_options(&self) -> &[String] {
         &self.transformed_options
     }
-} 
+}

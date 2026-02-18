@@ -1986,8 +1986,6 @@ dependencies = [
 [[package]]
 name = "cli-prompts"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b683c917349f99b2e634c2d46f571401ce2bd167969c702446e37d38561bec15"
 dependencies = [
  "crossterm 0.23.2",
 ]

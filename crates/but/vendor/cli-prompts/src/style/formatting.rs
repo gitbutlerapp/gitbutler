@@ -48,7 +48,6 @@ impl Default for Formatting {
 }
 
 impl Formatting {
-
     /// Set the text color
     pub fn foreground_color(mut self, color: Color) -> Self {
         self.foreground_color = Some(color);

@@ -34,7 +34,6 @@ pub struct Confirmation {
 }
 
 impl Confirmation {
-
     /// Constructs a new prompt with a given label
     pub fn new<S: Into<String>>(label: S) -> Self {
         Confirmation {

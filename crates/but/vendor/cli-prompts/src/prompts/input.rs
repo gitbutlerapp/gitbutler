@@ -40,8 +40,8 @@ use crate::{
 ///     match lunch_time {
 ///         Ok(time) => println!("You eat lunch at {} o'clock", time),
 ///         Err(abort_reason) => match abort_reason {
-///             Interrupt => println!("The prompt was interrupted by pressing the ESC key"),
-///             Error(err) => println!("I/O error has occured: {:?}", err),
+///             AbortReason::Interrupt => println!("The prompt was interrupted by pressing ESC or Ctrl+C"),
+///             Error(err) => println!("I/O error has occurred: {:?}", err),
 ///         }
 ///     }
 ///     

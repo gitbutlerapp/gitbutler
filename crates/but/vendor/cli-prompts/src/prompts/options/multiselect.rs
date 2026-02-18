@@ -57,7 +57,6 @@ impl<T> Multiselect<T>
 where
     T: Into<String> + Clone,
 {
-
     /// Create new prompt with the given label and the iterator over a type that is convertable to
     /// `String`
     pub fn new<S, I>(label: S, options: I) -> Self
@@ -71,7 +70,6 @@ where
 }
 
 impl<T> Multiselect<T> {
-    
     /// Create new prompt with the given label and a transformation function that will convert the
     /// iterator items to strings
     pub fn new_transformed<S, I, F>(label: S, options: I, transformation: F) -> Self

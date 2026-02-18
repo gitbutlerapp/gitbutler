@@ -1,8 +1,8 @@
-//! The module that contains the high-level abstractions for the prompts. 
+//! The module that contains the high-level abstractions for the prompts.
 //!
-//! To implement a new prompt, you need to implement the `Prompt` trait, which 
+//! To implement a new prompt, you need to implement the `Prompt` trait, which
 //! requires a method to draw the prompt and to react to input. Having implemented
-//! this trait, you will be able to call `display()` on your prompt object which 
+//! this trait, you will be able to call `display()` on your prompt object which
 //! handle the rest
 
 mod confirmation;
@@ -13,7 +13,7 @@ pub use confirmation::Confirmation;
 pub use input::Input;
 pub use options::multiselect::Multiselect;
 pub use options::selection::Selection;
-pub use options::{Options, multioption_prompt::MultiOptionPrompt};
+pub use options::{multioption_prompt::MultiOptionPrompt, Options};
 
 use std::io::stdout;
 
@@ -25,7 +25,6 @@ use crate::{
 /// Describes the reason for prompt abortion
 #[derive(Debug)]
 pub enum AbortReason {
-
     /// The prompt was interrupted by the user
     Interrupt,
 
@@ -36,7 +35,6 @@ pub enum AbortReason {
 /// This describes the final result of the prompt
 #[derive(Debug)]
 pub enum EventOutcome<T> {
-
     /// The prompt has successfully completed.
     /// The inner field will contain the result.
     Done(T),
@@ -81,20 +79,19 @@ pub enum EventOutcome<T> {
 ///               EventOutcome::Continue
 ///           },
 ///           Key::Enter => EventOutcome::Done(self.name.clone()),
-///           Key::Esc => EventOutcome::Abort(AbortReason::Interrupt),
+///           Key::Esc | Key::Ctrl('c') | Key::Ctrl('C') => EventOutcome::Abort(AbortReason::Interrupt),
 ///           _ => EventOutcome::Continue,
 ///       }
 ///    }
 /// }
 /// ```
 pub trait Prompt<TOut> {
-
     /// Defines how to draw the prompt with a set of commands.
     /// The goal of this method is to populate the `commands` buffer
     /// with a set of commands that will draw your prompt to the screen.
     fn draw(&self, commands: &mut impl CommandBuffer);
 
-    /// This should handle the keyboard key presses. Should return the 
+    /// This should handle the keyboard key presses. Should return the
     /// outcome of the keypress:
     /// - EventOutcome::Continue - the input was handled and the prompt should continue displaying
     /// - EventOutcome::Done(TOut) - the prompt has successfully completed. Pass the result as the
@@ -107,7 +104,6 @@ pub trait Prompt<TOut> {
 /// A trait that is implemented for every type that implements `Prompt`. Provides a convenient way
 /// to display a prompt on the screen, handle the input, raw mode, etc.
 pub trait DisplayPrompt<T> {
-
     /// Draws the prompt on the screen and handles the input.
     /// - Returns `Ok(T)` if the prompt is completed successfully.
     /// - Returns `Err(AbortReason)` if it failed. Check the `AbortReason` to find out why
@@ -128,6 +124,9 @@ where
             engine.render(&commands)?;
 
             let key_pressed = engine.read_key()?;
+            if matches!(key_pressed, Key::Ctrl('c') | Key::Ctrl('C')) {
+                return Err(AbortReason::Interrupt);
+            }
             match self.on_key_pressed(key_pressed) {
                 EventOutcome::Done(result) => {
                     commands.clear();

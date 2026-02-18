@@ -17,7 +17,6 @@ use std::io::Result;
 
 /// Represents the backend to draw prompts on the screen and handle input
 pub trait Engine {
-
     /// Type of the corresponding command buffer
     type Buffer: CommandBuffer + Clear;
 
@@ -36,14 +35,12 @@ pub trait Engine {
 
 /// Suplementary trait to the `CommandBuffer`
 pub trait Clear {
-
     /// Clear the contents of the buffer
     fn clear(&mut self);
 }
 
 /// Represents the set of rendering commands
 pub trait CommandBuffer {
-
     /// Move the cursor to the new line
     fn new_line(&mut self);
 

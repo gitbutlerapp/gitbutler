@@ -2,7 +2,7 @@ use std::io::{Result, Write};
 
 use crossterm::{
     cursor::{position, MoveTo, MoveToPreviousLine},
-    event::{read, Event},
+    event::{read, Event, KeyEvent, KeyModifiers},
     execute, queue,
     style::{Attribute, Attributes, Color as Cc, Colors, Print, SetAttributes, SetColors},
     terminal::{disable_raw_mode, enable_raw_mode, is_raw_mode_enabled, Clear, ClearType},
@@ -10,7 +10,7 @@ use crossterm::{
 
 use crate::{
     input::Key,
-    style::{Color, Formatting, FormattingOption}
+    style::{Color, Formatting, FormattingOption},
 };
 
 use super::{CommandBuffer, Engine};
@@ -73,7 +73,7 @@ impl<W: Write> Engine for CrosstermEngine<W> {
             match read() {
                 Ok(evt) => {
                     if let Event::Key(key) = evt {
-                        return Ok(key.code.into());
+                        return Ok(key.into());
                     } else {
                         continue;
                     }
@@ -210,6 +210,36 @@ impl From<crossterm::event::KeyCode> for Key {
             crossterm::event::KeyCode::Null => Key::Esc,
             crossterm::event::KeyCode::Esc => Key::Esc,
         }
+    }
+}
+
+impl From<KeyEvent> for Key {
+    fn from(key_event: KeyEvent) -> Self {
+        if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+            if let crossterm::event::KeyCode::Char(c) = key_event.code {
+                return Key::Ctrl(c);
+            }
+        }
+
+        key_event.code.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyCode;
+
+    #[test]
+    fn maps_ctrl_c_to_ctrl_key_variant() {
+        let key_event = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert_eq!(Key::from(key_event), Key::Ctrl('c'));
+    }
+
+    #[test]
+    fn keeps_esc_mapping_intact() {
+        let key_event = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(Key::from(key_event), Key::Esc);
     }
 }
 

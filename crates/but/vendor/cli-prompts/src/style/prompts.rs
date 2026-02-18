@@ -75,7 +75,7 @@ pub mod confirmation {
     pub struct ConfirmationStyle {
         /// Style for the prompt itself
         pub label_style: LabelStyle,
-        
+
         /// Style for the user's input
         pub input_formatting: Formatting,
 
@@ -223,7 +223,6 @@ pub mod multiselection {
         /// Formatting for the filter string
         pub filter_formatting: Formatting,
 
-
         /// Formatting for the help message
         pub help_message_formatting: Formatting,
 
@@ -238,7 +237,7 @@ pub mod multiselection {
     }
 
     /// Marker for the options. It consists of the opening and closing symbols and the symbol that
-    /// is put in the middle when the option is selected. Example: 
+    /// is put in the middle when the option is selected. Example:
     /// Not selected: [ ]
     /// Selected:     [X]
     pub struct Marker {
@@ -287,7 +286,6 @@ pub mod multiselection {
     }
 
     impl MultiselectionStyle {
-
         /// Prints the option with the given text along with the marker to the provided command
         /// buffer
         pub fn print_option(

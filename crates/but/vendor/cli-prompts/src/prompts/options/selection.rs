@@ -46,7 +46,6 @@ pub struct Selection<T> {
 }
 
 impl<T> Selection<T> {
-
     /// Create new prompt with the given label and the iterator over a type that is convertable to
     /// `String`
     pub fn new<S, I>(label: S, options: I) -> Self
@@ -61,7 +60,6 @@ impl<T> Selection<T> {
 }
 
 impl<T> Selection<T> {
-
     /// Create new prompt with the given label and a transformation function that will convert the
     /// iterator items to strings
     pub fn new_with_transformation<S, I, F>(label: S, options: I, transformation: F) -> Self
@@ -126,9 +124,7 @@ impl<T> MultiOptionPrompt<T> for Selection<T> {
                 .print(option_label, cmd_buffer);
         } else {
             self.style.not_selected_marker.print(cmd_buffer);
-            self.style
-                .option_formatting
-                .print(option_label, cmd_buffer)
+            self.style.option_formatting.print(option_label, cmd_buffer)
         }
     }
 

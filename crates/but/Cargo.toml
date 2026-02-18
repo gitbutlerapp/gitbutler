@@ -121,7 +121,7 @@ tracing-subscriber = { workspace = true, features = [
     "fmt",
 ] }
 tracing-forest.workspace = true
-cli-prompts = "0.1.0"
+cli-prompts.path = "vendor/cli-prompts"
 dirs.workspace = true
 minus = { version = "5.6.1", default-features = false, features = [
     "static_output",

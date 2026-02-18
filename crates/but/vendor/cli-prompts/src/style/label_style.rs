@@ -11,7 +11,6 @@ pub struct LabelStyle {
 }
 
 impl LabelStyle {
-
     /// Sets the string that is displayed before the user's input
     pub fn prefix<S: Into<String>>(mut self, p: S) -> Self {
         self.prefix = p.into();
