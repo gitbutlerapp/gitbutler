@@ -458,7 +458,10 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     white-space: nowrap;
     height: 26px;
     width: 100%;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
   }
   .commit-btn:hover {
     background: var(--vscode-button-hoverBackground);
@@ -789,12 +792,12 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
               ${pushIcon} ${this.esc(name)}
               ${!isTip ? '<span class="push-status">(base)</span>' : ''}
               <span class="push-status">${seg.pushStatus === 'completelyUnpushed' ? '(new)' : ''}</span>
+              ${segFiles.length > 0 ? `<span class="badge">${segFiles.length}</span>` : ''}
               <div class="actions">
                 <button onclick="event.stopPropagation(); send({type:'pushBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Push Branch"><span class="codicon codicon-cloud-upload"></span></button>
                 <button onclick="send({type:'refresh'})" title="Refresh"><span class="codicon codicon-refresh"></span></button>
                 <button onclick="event.stopPropagation(); send({type:'deleteBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Delete Branch"><span class="codicon codicon-trash"></span></button>
               </div>
-              ${segFiles.length > 0 ? `<span class="badge">${segFiles.length}</span>` : ''}
             </div>
             <div class="section-body">
               ${isTip ? `<div class="commit-area">
