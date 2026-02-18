@@ -103,7 +103,7 @@ export function reverseMessages(messages: Message[]): Message[] {
 export function formatMessages(
 	events: ClaudeMessage[],
 	permissionRequests: ClaudePermissionRequest[],
-	isActive: boolean
+	isActive?: boolean
 ): Message[] {
 	const permReqsById: Record<string, ClaudePermissionRequest> = {};
 	for (const request of permissionRequests) {
@@ -551,7 +551,7 @@ function findModelPricing(name: string) {
 /**
  * Based on the current event log, determine the current status
  */
-export function currentStatus(events: ClaudeMessage[], isActive: boolean): ClaudeStatus {
+export function currentStatus(events: ClaudeMessage[], isActive?: boolean): ClaudeStatus {
 	if (events.length === 0) return 'disabled';
 	const lastEvent = events.at(-1)!;
 	if (lastEvent.payload.source === 'claude' && lastEvent.payload.data.type === 'result') {

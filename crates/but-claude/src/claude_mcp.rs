@@ -23,11 +23,22 @@ struct Project {
     mcp_servers: Option<McpServerMap>,
 }
 
-/// MCP config format for .mcp.json files and API responses.
+/// The on-disk format of a `.mcp.json` file.
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+struct McpJsonFile {
+    mcp_servers: McpServerMap,
+}
+
+/// Claude integration config returned to the frontend via `claude_get_config`.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct McpConfig {
+pub struct ClaudeConfig {
     pub mcp_servers: McpServerMap,
+    /// Whether this project has been registered in `~/.claude.json`. When
+    /// `false` the user should run `claude` in the project directory first so
+    /// Claude Code picks it up and adds it to the projects map.
+    pub project_registered: bool,
 }
 
 /// Map of server name to server configuration.
@@ -52,14 +63,14 @@ pub struct McpServer {
 }
 
 #[derive(Debug, Clone)]
-pub struct ClaudeMcpConfig {
+pub struct ClaudeProjectConfig {
     settings: ClaudeSettings,
     project_path: PathBuf,
     claude_json: Option<ClaudeJson>,
-    mcp_json: Option<McpConfig>,
+    mcp_json: Option<McpJsonFile>,
 }
 
-impl ClaudeMcpConfig {
+impl ClaudeProjectConfig {
     pub async fn open(settings: &ClaudeSettings, project_path: &Path) -> Self {
         Self {
             claude_json: read_claude_json().await,
@@ -69,10 +80,11 @@ impl ClaudeMcpConfig {
         }
     }
 
-    /// Returns all MCP servers as a JSON-serializable config (for API/UI).
-    pub fn mcp_servers(&self) -> McpConfig {
-        McpConfig {
+    /// Returns the Claude integration config for the API/UI.
+    pub fn config(&self) -> ClaudeConfig {
+        ClaudeConfig {
             mcp_servers: self.collect_servers(),
+            project_registered: self.is_project_registered(),
         }
     }
 
@@ -88,6 +100,20 @@ impl ClaudeMcpConfig {
         }
 
         convert_to_sdk_format(servers)
+    }
+
+    /// Returns `true` if this project path appears in the `projects` map of
+    /// `~/.claude.json`, meaning the user has already run `claude` in this
+    /// directory and Claude Code has registered it.
+    fn is_project_registered(&self) -> bool {
+        let Some(claude_json) = &self.claude_json else {
+            return false;
+        };
+        let Some(projects) = &claude_json.projects else {
+            return false;
+        };
+        let path_str = self.project_path.to_string_lossy().to_string();
+        projects.contains_key(&path_str)
     }
 
     /// Collects servers from all sources, applying settings filters.
@@ -169,6 +195,21 @@ fn convert_to_sdk_format(servers: McpServerMap) -> McpServers {
     McpServers::Dict(sdk_servers)
 }
 
+/// Lightweight check that only reads `~/.claude.json` to see if the
+/// project path is listed in its `projects` map.  This avoids parsing
+/// `.mcp.json` or settings files, making it suitable for gating the SDK
+/// before a full `ClaudeProjectConfig::open`.
+pub async fn is_project_registered(project_path: &Path) -> bool {
+    let Some(claude_json) = read_claude_json().await else {
+        return false;
+    };
+    let Some(projects) = &claude_json.projects else {
+        return false;
+    };
+    let path_str = project_path.to_string_lossy().to_string();
+    projects.contains_key(&path_str)
+}
+
 async fn read_claude_json() -> Option<ClaudeJson> {
     let home = dirs::home_dir()?;
     let path = home.join(".claude.json");
@@ -177,7 +218,7 @@ async fn read_claude_json() -> Option<ClaudeJson> {
     Some(out)
 }
 
-async fn read_mcp_json(project_path: &Path) -> Option<McpConfig> {
+async fn read_mcp_json(project_path: &Path) -> Option<McpJsonFile> {
     let path = project_path.join(".mcp.json");
     let string = fs::read_to_string(&path).await.ok()?;
     let out = serde_json_lenient::from_str(&string).ok()?;

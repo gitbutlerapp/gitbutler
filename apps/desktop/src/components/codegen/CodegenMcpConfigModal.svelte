@@ -9,15 +9,15 @@
 		ScrollableContainer,
 		Toggle
 	} from '@gitbutler/ui';
-	import type { McpConfig, McpServer } from '$lib/codegen/types';
+	import type { ClaudeConfig, McpServer } from '$lib/codegen/types';
 
 	type Props = {
-		mcpConfig: McpConfig;
+		claudeConfig: ClaudeConfig;
 		disabledServers: string[];
 		toggleServer: (server: string) => void;
 	};
 
-	const { mcpConfig, disabledServers, toggleServer }: Props = $props();
+	const { claudeConfig, disabledServers, toggleServer }: Props = $props();
 
 	let modal = $state<Modal>();
 
@@ -29,11 +29,13 @@
 <Modal
 	bind:this={modal}
 	width={480}
-	title={Object.entries(mcpConfig.mcpServers).length > 0 ? 'MCP server configuration' : undefined}
+	title={Object.entries(claudeConfig.mcpServers).length > 0
+		? 'MCP server configuration'
+		: undefined}
 >
 	<ScrollableContainer>
 		<div class="flex flex-col gap-8">
-			{#if Object.entries(mcpConfig.mcpServers).length === 0}
+			{#if Object.entries(claudeConfig.mcpServers).length === 0}
 				<EmptyStatePlaceholder image={emptyFolderSvg} width={300} topBottomPadding={38}>
 					{#snippet title()}
 						No MCP servers available
@@ -53,7 +55,7 @@
 					>
 				</p>
 				<CardGroup>
-					{#each Object.entries(mcpConfig.mcpServers) as [name, server]}
+					{#each Object.entries(claudeConfig.mcpServers) as [name, server]}
 						{@render mcpServer(name, server)}
 					{/each}
 				</CardGroup>
