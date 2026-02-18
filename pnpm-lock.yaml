@@ -184,8 +184,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: 1.7.4
-        version: 1.7.4
+        specifier: 1.7.6
+        version: 1.7.6
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -386,8 +386,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/core
       '@gitbutler/design-core':
-        specifier: 1.7.4
-        version: 1.7.4
+        specifier: 1.7.6
+        version: 1.7.6
       '@gitbutler/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -792,8 +792,8 @@ importers:
         specifier: ^2.0.8
         version: 2.0.8(postcss@8.5.6)
       '@gitbutler/design-core':
-        specifier: 1.7.4
-        version: 1.7.4
+        specifier: 1.7.6
+        version: 1.7.6
       '@lezer/common':
         specifier: ^1.2.3
         version: 1.4.0
@@ -1805,8 +1805,8 @@ packages:
     resolution: {integrity: sha512-oC5cM6jS7aFOp0luTw5mWSRuMgdxwHRLZQ/aWkI+ETMfsprR/HyxsXfljlMY/XJ/fRxTbRJiodR5Axf66WjO3w==}
     engines: {node: '>=18.20.0'}
 
-  '@gitbutler/design-core@1.7.4':
-    resolution: {integrity: sha512-4o5iWoTwBWQcbyl78VILZO0Bja8Ztfhhi8IcLFmUAN+RO4rrcoKWIZuOjJJ6aT5IZ28pKfRF6mOI/EP6MWvlpw==}
+  '@gitbutler/design-core@1.7.6':
+    resolution: {integrity: sha512-BvRA7hVhJjkQYHpPS9NtzfdzUcB7wESRDPT3xcvoySA7vRl0Wopl/TKTauOijbnIHXV3zNG0SBx6bt7JE2frvw==}
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -9390,7 +9390,7 @@ snapshots:
       '@gitbeaker/core': 42.5.0
       '@gitbeaker/requester-utils': 42.5.0
 
-  '@gitbutler/design-core@1.7.4': {}
+  '@gitbutler/design-core@1.7.6': {}
 
   '@humanfs/core@0.19.1': {}
 
@@ -11803,27 +11803,6 @@ snapshots:
       - utf-8-validate
       - vite
 
-  '@vitest/browser@3.2.4(playwright@1.57.0)(vite@6.4.1(@types/node@24.10.4)(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2))(vitest@3.2.4)(webdriverio@9.21.0)':
-    dependencies:
-      '@testing-library/dom': 10.4.1
-      '@testing-library/user-event': 14.6.1(@testing-library/dom@10.4.1)
-      '@vitest/mocker': 3.2.4(vite@6.4.1(@types/node@24.10.4)(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2))
-      '@vitest/utils': 3.2.4
-      magic-string: 0.30.21
-      sirv: 3.0.2
-      tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@24.10.4)(@vitest/browser@3.2.4)(@vitest/ui@3.2.4)(jsdom@27.3.0(postcss@8.5.6))(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2)
-      ws: 8.18.3
-    optionalDependencies:
-      playwright: 1.57.0
-      webdriverio: 9.21.0
-    transitivePeerDependencies:
-      - bufferutil
-      - msw
-      - utf-8-validate
-      - vite
-    optional: true
-
   '@vitest/expect@3.2.4':
     dependencies:
       '@types/chai': 5.2.3
@@ -11847,15 +11826,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 6.3.5(@types/node@24.10.4)(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  '@vitest/mocker@3.2.4(vite@6.4.1(@types/node@24.10.4)(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2))':
-    dependencies:
-      '@vitest/spy': 3.2.4
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 6.4.1(@types/node@24.10.4)(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2)
-    optional: true
 
   '@vitest/pretty-format@2.1.9':
     dependencies:
@@ -16755,7 +16725,7 @@ snapshots:
     optionalDependencies:
       '@types/debug': 4.1.12
       '@types/node': 24.10.4
-      '@vitest/browser': 3.2.4(playwright@1.57.0)(vite@6.4.1(@types/node@24.10.4)(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2))(vitest@3.2.4)(webdriverio@9.21.0)
+      '@vitest/browser': 3.2.4(playwright@1.57.0)(vite@6.3.5(@types/node@24.10.4)(sass-embedded@1.96.0)(sass@1.96.0)(tsx@4.21.0)(yaml@2.8.2))(vitest@3.2.4)(webdriverio@9.21.0)
       '@vitest/ui': 3.2.4(vitest@3.2.4)
       jsdom: 27.3.0(postcss@8.5.6)
     transitivePeerDependencies:
