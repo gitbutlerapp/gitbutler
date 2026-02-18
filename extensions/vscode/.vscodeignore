@@ -1,0 +1,9 @@
+.vscode/**
+.vscode-test/**
+src/**
+node_modules/**
+tsconfig.json
+**/*.map
+**/*.ts
+!dist/**
+!bin/**

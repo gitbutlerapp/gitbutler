@@ -1,0 +1,267 @@
+{
+  "name": "gitbutler-vscode",
+  "displayName": "GitButler",
+  "description": "Manage git changes using GitButler virtual branches — visual source control powered by the `but` CLI",
+  "version": "0.1.0",
+  "publisher": "gitbutler",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers"
+  ],
+  "keywords": [
+    "git",
+    "gitbutler",
+    "virtual branches",
+    "stacking",
+    "source control"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
+    "watch": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
+    "lint": "eslint src --ext ts",
+    "compile": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.1",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  },
+  "contributes": {
+    "views": {
+      "scm": [
+        {
+          "type": "webview",
+          "id": "gitbutlerPanel",
+          "name": "GitButler"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "GitButler",
+      "properties": {
+        "gitbutler.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the `but-server` binary. Leave empty to use the bundled server."
+        },
+        "gitbutler.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh status when files change"
+        },
+        "gitbutler.refreshInterval": {
+          "type": "number",
+          "default": 3000,
+          "description": "Auto-refresh interval in milliseconds"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "gitbutler.refresh",
+        "title": "Refresh",
+        "category": "GitButler",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitbutler.commit",
+        "title": "Commit",
+        "category": "GitButler",
+        "icon": "$(check)"
+      },
+      {
+        "command": "gitbutler.commitToBranch",
+        "title": "Commit to Branch...",
+        "category": "GitButler",
+        "icon": "$(git-commit)"
+      },
+      {
+        "command": "gitbutler.stage",
+        "title": "Stage Changes",
+        "category": "GitButler",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitbutler.unstage",
+        "title": "Unstage Changes",
+        "category": "GitButler",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "gitbutler.discard",
+        "title": "Discard Changes",
+        "category": "GitButler",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "gitbutler.openFile",
+        "title": "Open File",
+        "category": "GitButler",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "gitbutler.openDiff",
+        "title": "Open Changes",
+        "category": "GitButler",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "gitbutler.createBranch",
+        "title": "Create Branch...",
+        "category": "GitButler",
+        "icon": "$(plus)"
+      },
+
+      {
+        "command": "gitbutler.deleteBranch",
+        "title": "Delete Branch",
+        "category": "GitButler",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "gitbutler.push",
+        "title": "Push",
+        "category": "GitButler",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "gitbutler.pull",
+        "title": "Pull",
+        "category": "GitButler",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "gitbutler.undo",
+        "title": "Undo Last Operation",
+        "category": "GitButler",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "gitbutler.stageFile",
+        "title": "Stage File",
+        "category": "GitButler",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitbutler.unstageFile",
+        "title": "Unstage File",
+        "category": "GitButler",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "gitbutler.discardFile",
+        "title": "Discard File Changes",
+        "category": "GitButler",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "gitbutler.stageAll",
+        "title": "Stage All Changes",
+        "category": "GitButler",
+        "icon": "$(add)"
+      },
+      {
+        "command": "gitbutler.unstageAll",
+        "title": "Unstage All Changes",
+        "category": "GitButler",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "gitbutler.showBranchCommits",
+        "title": "Show Branch Commits",
+        "category": "GitButler"
+      },
+      {
+        "command": "gitbutler.pushBranch",
+        "title": "Push Branch",
+        "category": "GitButler",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "gitbutler.commitToStack",
+        "title": "Commit to Branch",
+        "category": "GitButler",
+        "icon": "$(check)"
+      },
+      {
+        "command": "gitbutler.moveToBranch",
+        "title": "Move to Branch...",
+        "category": "GitButler",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "gitbutler.generateCommitMessage",
+        "title": "Generate Commit Message",
+        "category": "GitButler",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "gitbutler.setup",
+        "title": "Setup GitButler for this repository",
+        "category": "GitButler"
+      },
+      {
+        "command": "gitbutler.openInGUI",
+        "title": "Open in GitButler Desktop",
+        "category": "GitButler",
+        "icon": "$(link-external)"
+      }
+    ],
+    "menus": {},
+    "colors": [
+      {
+        "id": "gitbutler.addedForeground",
+        "description": "Color for added files",
+        "defaults": {
+          "dark": "#73c991",
+          "light": "#587c0c",
+          "highContrast": "#73c991",
+          "highContrastLight": "#587c0c"
+        }
+      },
+      {
+        "id": "gitbutler.modifiedForeground",
+        "description": "Color for modified files",
+        "defaults": {
+          "dark": "#e2c08d",
+          "light": "#895503",
+          "highContrast": "#e2c08d",
+          "highContrastLight": "#895503"
+        }
+      },
+      {
+        "id": "gitbutler.deletedForeground",
+        "description": "Color for deleted files",
+        "defaults": {
+          "dark": "#c74e39",
+          "light": "#ad0707",
+          "highContrast": "#c74e39",
+          "highContrastLight": "#ad0707"
+        }
+      },
+      {
+        "id": "gitbutler.renamedForeground",
+        "description": "Color for renamed files",
+        "defaults": {
+          "dark": "#73c991",
+          "light": "#587c0c",
+          "highContrast": "#73c991",
+          "highContrastLight": "#587c0c"
+        }
+      }
+    ]
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}

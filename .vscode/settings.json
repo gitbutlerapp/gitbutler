@@ -39,5 +39,6 @@
 	},
 	"svelte.plugin.css.globals": "packages/ui/src/**/*.css",
 	"typescript.preferences.importModuleSpecifier": "non-relative",
-	"javascript.preferences.importModuleSpecifier": "non-relative"
+	"javascript.preferences.importModuleSpecifier": "non-relative",
+	"git.enabled": true
 }
