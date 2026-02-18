@@ -401,14 +401,23 @@ fn build_status_details(app: &App) -> Vec<Line<'static>> {
         StatusItem::UnassignedFile(idx) => {
             if let Some(file) = app.unassigned_files.get(idx) {
                 let path = file.path.to_str_lossy().into_owned();
-                vec![
+                let mut lines = vec![
                     Line::from(vec![
                         Span::styled("File: ", Style::default().add_modifier(Modifier::BOLD)),
                         Span::styled(path, Style::default().fg(Color::Yellow)),
                     ]),
                     Line::from(""),
-                    Line::from(format!("{} hunk(s)", file.assignments.len())),
-                ]
+                ];
+                for assignment in &file.assignments {
+                    lines.extend(render_hunk_diff(&assignment.inner));
+                }
+                if file.assignments.is_empty() {
+                    lines.push(Line::from(Span::styled(
+                        "(no diff available)",
+                        Style::default().fg(Color::DarkGray),
+                    )));
+                }
+                lines
             } else {
                 vec![]
             }
@@ -1031,6 +1040,93 @@ fn commit_status_dot(state: &but_workspace::ui::CommitState) -> Span<'static> {
             Span::styled("●", Style::default().fg(Color::Magenta))
         }
     }
+}
+
+/// Render a single `HunkAssignment` as a list of ratatui `Line`s for the details pane.
+fn render_hunk_diff(assignment: &but_hunk_assignment::HunkAssignment) -> Vec<Line<'static>> {
+    use bstr::ByteSlice;
+
+    let mut lines = Vec::new();
+
+    let (diff_bytes, header) = match (&assignment.diff, &assignment.hunk_header) {
+        (Some(diff), Some(header)) => (diff, header),
+        _ => {
+            lines.push(Line::from(Span::styled(
+                "(no diff available)",
+                Style::default().fg(Color::DarkGray),
+            )));
+            return lines;
+        }
+    };
+
+    // Hunk header line
+    lines.push(Line::from(Span::styled(
+        format!(
+            "@@ -{},{} +{},{} @@",
+            header.old_start, header.old_lines, header.new_start, header.new_lines
+        ),
+        Style::default().fg(Color::Cyan),
+    )));
+
+    let mut old_line = header.old_start;
+    let mut new_line = header.new_start;
+    let max_old = header.old_start + header.old_lines;
+    let max_new = header.new_start + header.new_lines;
+    let width = std::cmp::max(max_old.to_string().len(), max_new.to_string().len());
+
+    for raw_line in diff_bytes.lines() {
+        if raw_line.is_empty() || raw_line.starts_with(b"@@") {
+            continue;
+        }
+
+        let (prefix, content) = if let Some(rest) = raw_line.strip_prefix(b"+") {
+            ('+', rest)
+        } else if let Some(rest) = raw_line.strip_prefix(b"-") {
+            ('-', rest)
+        } else if let Some(rest) = raw_line.strip_prefix(b" ") {
+            (' ', rest)
+        } else {
+            (' ', raw_line)
+        };
+
+        let content_str = content.to_str_lossy().into_owned();
+
+        match prefix {
+            '+' => {
+                let line_nums = format!("{:>width$} {:>width$}", "", new_line, width = width);
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{line_nums}│+{content_str}"),
+                        Style::default().fg(Color::Green),
+                    ),
+                ]));
+                new_line += 1;
+            }
+            '-' => {
+                let line_nums = format!("{:>width$} {:>width$}", old_line, "", width = width);
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{line_nums}│-{content_str}"),
+                        Style::default().fg(Color::Red),
+                    ),
+                ]));
+                old_line += 1;
+            }
+            _ => {
+                let line_nums = format!("{old_line:>width$} {new_line:>width$}");
+                lines.push(Line::from(vec![
+                    Span::styled(
+                        format!("{line_nums}│ {content_str}"),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]));
+                old_line += 1;
+                new_line += 1;
+            }
+        }
+    }
+
+    lines
 }
 
 fn format_relative_time(ms: u128) -> String {
