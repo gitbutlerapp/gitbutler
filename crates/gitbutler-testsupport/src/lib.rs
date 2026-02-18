@@ -96,7 +96,7 @@ pub mod writable {
         let root = gix_testtools::scripted_fixture_writable_with_args(
             script_name,
             Some(DRIVER.display().to_string()),
-            gix_testtools::Creation::ExecuteScript,
+            gix_testtools::Creation::Execute,
         )
         .expect("script execution always succeeds");
 
@@ -128,7 +128,7 @@ pub mod writable {
         let root = gix_testtools::scripted_fixture_writable_with_args(
             script_name,
             Some(BUT_DRIVER.display().to_string()),
-            gix_testtools::Creation::ExecuteScript,
+            gix_testtools::Creation::Execute,
         )
         .expect("script execution always succeeds");
 

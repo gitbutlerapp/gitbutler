@@ -860,7 +860,7 @@ fn ambiguous_worktrees() -> anyhow::Result<()> {
 
 #[test]
 fn commit_with_two_parents() -> anyhow::Result<()> {
-    let (tmp, repo) = rust_fixture_writable("empty", 2, Creation::ExecuteScript, |fixture| {
+    let (tmp, repo) = rust_fixture_writable("empty", 2, Creation::Execute, |fixture| {
         let open_opts = but_testsupport::open_repo_config()?;
         Ok(match fixture {
             FixtureState::Uninitialized(path) => gix::ThreadSafeRepository::init_opts(

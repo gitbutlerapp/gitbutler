@@ -425,7 +425,7 @@ pub fn writable_scenario_with_args(
 pub fn writable_scenario_slow(name: &str) -> (gix::Repository, tempfile::TempDir) {
     let (a, b, _) = writable_scenario_inner(
         name,
-        Creation::ExecuteScript,
+        Creation::Execute,
         None::<String>,
         None::<(_, fn(FixtureState<'_>) -> PostResult<()>)>,
     )
