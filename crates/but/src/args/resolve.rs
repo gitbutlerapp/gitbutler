@@ -13,5 +13,9 @@ pub enum Subcommands {
     ///
     /// This discards all changes made during resolution and restores
     /// the workspace to its pre-resolution state.
-    Cancel,
+    Cancel {
+        /// Forcibly remove any changes made
+        #[clap(short = 'f', long)]
+        force: bool,
+    },
 }

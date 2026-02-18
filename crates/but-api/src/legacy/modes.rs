@@ -60,8 +60,8 @@ pub fn enter_edit_mode(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context) -> Result<()> {
-    gitbutler_edit_mode::commands::abort_and_return_to_workspace(ctx)?;
+pub fn abort_edit_and_return_to_workspace(ctx: &mut but_ctx::Context, force: bool) -> Result<()> {
+    gitbutler_edit_mode::commands::abort_and_return_to_workspace(ctx, force)?;
 
     Ok(())
 }

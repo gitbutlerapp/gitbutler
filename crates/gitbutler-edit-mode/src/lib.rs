@@ -193,7 +193,13 @@ pub(crate) fn enter_edit_mode(
     Ok(edit_mode_metadata)
 }
 
-pub(crate) fn abort_and_return_to_workspace(ctx: &Context, _perm: &mut RepoExclusive) -> Result<()> {
+pub(crate) fn abort_and_return_to_workspace(ctx: &Context, force: bool, perm: &mut RepoExclusive) -> Result<()> {
+    if !force && !changes_from_initial(ctx, perm.read_permission())?.is_empty() {
+        bail!(
+            "The working tree differs from the original commit. A forced abort is necessary.\nIf you are seeing this message, please report it as a bug. The UI should have prevented this line getting hit."
+        );
+    }
+
     let repo = &*ctx.git2_repo.get()?;
 
     // Checkout gitbutler workspace branch

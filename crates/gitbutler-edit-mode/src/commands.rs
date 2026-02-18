@@ -40,12 +40,12 @@ pub fn save_and_return_to_workspace(ctx: &mut Context) -> Result<()> {
     crate::save_and_return_to_workspace(ctx, guard.write_permission())
 }
 
-pub fn abort_and_return_to_workspace(ctx: &mut Context) -> Result<()> {
+pub fn abort_and_return_to_workspace(ctx: &mut Context, force: bool) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
 
     ensure_edit_mode(ctx).context("Edit mode may only be left while in edit mode")?;
 
-    crate::abort_and_return_to_workspace(ctx, guard.write_permission())
+    crate::abort_and_return_to_workspace(ctx, force, guard.write_permission())
 }
 
 pub fn starting_index_state(ctx: &mut Context) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
