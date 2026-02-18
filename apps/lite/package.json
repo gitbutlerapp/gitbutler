@@ -1,0 +1,55 @@
+{
+	"name": "@gitbutler/lite",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"main": "dist/electron/main.js",
+	"imports": {
+		"#electron/*": "./dist/electron/*.js"
+	},
+	"scripts": {
+		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",
+		"dev:ui": "vite dev --config ui/vite.config.ts --host 0.0.0.0",
+		"dev:electron": "pnpm build:electron && wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron dist/electron/main.js",
+		"build": "pnpm build:ui && pnpm build:electron",
+		"build:ui": "vite build --config ui/vite.config.ts",
+		"build:electron": "tsc -p electron/tsconfig.json",
+		"check": "tsc -p ui/tsconfig.json --noEmit && tsc -p electron/tsconfig.json --noEmit",
+		"test": "vitest run --config ui/vitest.config.ts --passWithNoTests",
+		"bundle": "pnpm build && electron-builder"
+	},
+	"build": {
+		"appId": "com.gitbutler.lite",
+		"directories": {
+			"output": "release"
+		},
+		"files": [
+			"dist/ui/**/*",
+			"dist/electron/**/*",
+			"package.json"
+		],
+		"mac": {
+			"target": "dmg"
+		}
+	},
+	"dependencies": {
+		"@tanstack/react-router": "^1.132.12",
+		"react": "^19.1.1",
+		"react-dom": "^19.1.1"
+	},
+	"devDependencies": {
+		"@types/node": "^22.17.0",
+		"@types/react": "^19.1.10",
+		"@types/react-dom": "^19.1.7",
+		"@vitejs/plugin-react": "^5.0.2",
+		"concurrently": "^9.2.1",
+		"cross-env": "^10.1.0",
+		"electron": "^37.4.0",
+		"electron-builder": "^26.0.12",
+		"jsdom": "26.1.0",
+		"typescript": "catalog:",
+		"vite": "catalog:",
+		"vitest": "catalog:",
+		"wait-on": "^8.0.5"
+	}
+}
