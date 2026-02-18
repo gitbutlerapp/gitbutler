@@ -42,3 +42,61 @@ Please run 'but setup' to initialize the project.
 
     Ok(())
 }
+
+#[test]
+#[cfg(feature = "legacy")]
+fn default_command_respects_c_flag_for_setup_checks() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    env.invoke_bash("git init repo");
+
+    env.but("-C repo")
+        .assert()
+        .stderr_eq(snapbox::str![[r#"
+Error: Setup required: No GitButler project found at repo
+
+"#]])
+        .failure();
+
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "legacy")]
+fn default_alias_can_provide_c_flag_for_implicit_default_command() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    env.invoke_bash(
+        r#"
+git init .
+git init repo
+git config but.alias.default "-C repo status"
+"#,
+    );
+
+    env.but("").assert().failure().stderr_eq(snapbox::str![[r#"
+Error: Setup required: No GitButler project found at repo
+
+"#]]);
+
+    Ok(())
+}
+
+#[test]
+#[cfg(feature = "legacy")]
+fn explicit_c_flag_overrides_default_alias_c_flag() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    env.invoke_bash(
+        r#"
+git init .
+git init repo
+git init repo2
+git config but.alias.default "-C repo status"
+"#,
+    );
+
+    env.but("-C repo2").assert().failure().stderr_eq(snapbox::str![[r#"
+Error: Setup required: No GitButler project found at repo2
+
+"#]]);
+
+    Ok(())
+}

@@ -1,5 +1,6 @@
 use std::io::{IsTerminal, Write};
 
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use minus::ExitStrategy;
 
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
@@ -157,7 +158,7 @@ impl OutputChannel {
             tracing::warn!("Stdin is a terminal, and output wasn't configured for human consumption");
             return None;
         }
-        Some(InputOutputChannel { out: self, stdin })
+        Some(InputOutputChannel { out: self })
     }
 }
 
@@ -245,7 +246,6 @@ impl std::fmt::Write for OutputChannel {
 /// A channel to obtain various kinds of user input from a terminal, bypassing the pager.
 pub struct InputOutputChannel<'out> {
     out: &'out mut OutputChannel,
-    stdin: std::io::Stdin,
 }
 
 impl std::fmt::Write for InputOutputChannel<'_> {
@@ -257,6 +257,57 @@ impl std::fmt::Write for InputOutputChannel<'_> {
 }
 
 impl InputOutputChannel<'_> {
+    fn readline(&mut self, prompt: &str) -> anyhow::Result<ReadlineInput> {
+        self.out.stdout.write_all(prompt.as_bytes())?;
+        self.out.stdout.flush()?;
+
+        let _raw_mode = RawModeGuard::new()?;
+        let mut line = String::new();
+
+        loop {
+            match event::read()? {
+                Event::Key(key) => match key_to_edit_action(key, line.is_empty()) {
+                    KeyEditAction::Insert(ch) => {
+                        line.push(ch);
+                        write!(self.out.stdout, "{ch}")?;
+                        self.out.stdout.flush()?;
+                    }
+                    KeyEditAction::Backspace => {
+                        if line.pop().is_some() {
+                            // Move back, erase one char, then move back again.
+                            self.out.stdout.write_all(b"\x08 \x08")?;
+                            self.out.stdout.flush()?;
+                        }
+                    }
+                    KeyEditAction::Submit => {
+                        self.out.stdout.write_all(b"\n")?;
+                        self.out.stdout.flush()?;
+                        let trimmed = line.trim().to_owned();
+                        return if trimmed.is_empty() {
+                            Ok(ReadlineInput::Empty)
+                        } else {
+                            Ok(ReadlineInput::Text(trimmed))
+                        };
+                    }
+                    KeyEditAction::EndOfInput => {
+                        self.out.stdout.write_all(b"\n")?;
+                        self.out.stdout.flush()?;
+                        return Ok(ReadlineInput::EndOfInput);
+                    }
+                    KeyEditAction::Ignore => {}
+                },
+                Event::Paste(text) => {
+                    if !text.is_empty() {
+                        line.push_str(&text);
+                        self.out.stdout.write_all(text.as_bytes())?;
+                        self.out.stdout.flush()?;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
     /// Prompt a non-empty string from the user, or `None` if the input was
     /// empty.
     ///
@@ -270,19 +321,10 @@ impl InputOutputChannel<'_> {
     /// // >
     /// ```
     pub fn prompt(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<Option<String>> {
-        use std::fmt::Write;
-        let prompt = prompt.as_ref();
-        writeln!(self, "{prompt}")?;
-        write!(self, "> ")?;
-        std::io::Write::flush(&mut self.out.stdout)?;
-
-        let mut input = String::new();
-        self.stdin.read_line(&mut input)?;
-        let input = input.trim().to_owned();
-        if input.is_empty() {
-            return Ok(None);
-        }
-        Ok(Some(input))
+        Ok(match self.readline(&format!("{}\n> ", prompt.as_ref()))? {
+            ReadlineInput::Text(line) => Some(line),
+            ReadlineInput::Empty | ReadlineInput::EndOfInput => None,
+        })
     }
 
     /// Prompt for y/n confirmation with a default value. Automatically appends
@@ -296,29 +338,24 @@ impl InputOutputChannel<'_> {
     /// // Are you sure you want to do this? [Y/n]:
     /// ```
     pub fn confirm(&mut self, prompt: impl AsRef<str>, default: ConfirmDefault) -> anyhow::Result<Confirm> {
-        use std::fmt::Write;
         let suffix = match default {
             ConfirmDefault::Yes => "[Y/n]",
             ConfirmDefault::No => "[y/N]",
         };
-        write!(self, "{} {}: ", prompt.as_ref(), suffix)?;
-        std::io::Write::flush(&mut self.out.stdout)?;
-
-        let mut input = String::new();
-        self.stdin.read_line(&mut input)?;
-        let input = input.trim().to_lowercase();
-
-        if input.is_empty() {
-            return Ok(match default {
+        match self.readline(&format!("{} {}: ", prompt.as_ref(), suffix))? {
+            ReadlineInput::Text(input) => {
+                if input.to_lowercase().starts_with('y') {
+                    Ok(Confirm::Yes)
+                } else {
+                    Ok(Confirm::No)
+                }
+            }
+            ReadlineInput::Empty => Ok(match default {
                 ConfirmDefault::Yes => Confirm::Yes,
                 ConfirmDefault::No => Confirm::No,
-            });
-        }
-
-        if input.starts_with('y') {
-            Ok(Confirm::Yes)
-        } else {
-            Ok(Confirm::No)
+            }),
+            // Ctrl-D/Ctrl-C should not auto-accept a default action.
+            ReadlineInput::EndOfInput => Ok(Confirm::No),
         }
     }
 
@@ -332,23 +369,82 @@ impl InputOutputChannel<'_> {
     /// // Are you sure you want to do this? [y/n]:
     /// ```
     pub fn confirm_no_default(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<ConfirmOrEmpty> {
-        use std::fmt::Write;
-        write!(self, "{} [y/n]: ", prompt.as_ref())?;
-        std::io::Write::flush(&mut self.out.stdout)?;
-
-        let mut input = String::new();
-        self.stdin.read_line(&mut input)?;
-        let input = input.trim().to_lowercase();
-
-        if input.is_empty() {
-            return Ok(ConfirmOrEmpty::NoInput);
+        match self.readline(&format!("{} [y/n]: ", prompt.as_ref()))? {
+            ReadlineInput::Text(input) => {
+                if input.to_lowercase().starts_with('y') {
+                    Ok(ConfirmOrEmpty::Yes)
+                } else {
+                    Ok(ConfirmOrEmpty::No)
+                }
+            }
+            ReadlineInput::Empty | ReadlineInput::EndOfInput => Ok(ConfirmOrEmpty::NoInput),
         }
+    }
+}
 
-        if input.starts_with('y') {
-            Ok(ConfirmOrEmpty::Yes)
-        } else {
-            Ok(ConfirmOrEmpty::No)
+/// Normalized result of collecting one line of terminal input.
+enum ReadlineInput {
+    /// User entered non-empty text and submitted it.
+    Text(String),
+    /// User submitted an empty line (pressed Enter without text).
+    Empty,
+    /// Input ended without a submission (for example Ctrl-C, Ctrl-D, or Esc).
+    EndOfInput,
+}
+
+/// Editing operation derived from a terminal key event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KeyEditAction {
+    /// Insert the provided character into the current input buffer.
+    Insert(char),
+    /// Delete one character from the input buffer.
+    Backspace,
+    /// Submit the current input buffer as a completed line.
+    Submit,
+    /// End input without submitting a line.
+    EndOfInput,
+    /// Ignore this key event because it does not affect editing.
+    Ignore,
+}
+
+/// Map a terminal key event to a normalized line-editing action.
+///
+/// Only `Press` and `Repeat` events are handled; key releases are ignored.
+/// `line_is_empty` is used to model terminal EOF behavior: `Ctrl-D` ends input
+/// only when nothing has been typed on the current line.
+fn key_to_edit_action(key: KeyEvent, line_is_empty: bool) -> KeyEditAction {
+    if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
+        return KeyEditAction::Ignore;
+    }
+    match key.code {
+        KeyCode::Enter => KeyEditAction::Submit,
+        KeyCode::Backspace => KeyEditAction::Backspace,
+        KeyCode::Tab => KeyEditAction::Insert('\t'),
+        KeyCode::Esc => KeyEditAction::EndOfInput,
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => KeyEditAction::EndOfInput,
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::CONTROL) && line_is_empty => {
+            KeyEditAction::EndOfInput
         }
+        KeyCode::Char(ch) if !key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) => {
+            KeyEditAction::Insert(ch)
+        }
+        _ => KeyEditAction::Ignore,
+    }
+}
+
+/// RAII guard that enables terminal raw mode on creation and restores normal mode on drop.
+struct RawModeGuard;
+
+impl RawModeGuard {
+    fn new() -> std::io::Result<Self> {
+        crossterm::terminal::enable_raw_mode()?;
+        Ok(Self)
+    }
+}
+
+impl Drop for RawModeGuard {
+    fn drop(&mut self) {
+        crossterm::terminal::disable_raw_mode().ok();
     }
 }
 
@@ -412,5 +508,32 @@ impl Drop for OutputChannel {
         if let Some(pager) = self.pager.take() {
             minus::page_all(pager).ok();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    use super::{KeyEditAction, key_to_edit_action};
+
+    #[test]
+    fn ctrl_c_ends_input() {
+        assert_eq!(
+            key_to_edit_action(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL), true),
+            KeyEditAction::EndOfInput
+        );
+    }
+
+    #[test]
+    fn ctrl_d_only_ends_input_when_line_is_empty() {
+        assert_eq!(
+            key_to_edit_action(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL), true),
+            KeyEditAction::EndOfInput
+        );
+        assert_eq!(
+            key_to_edit_action(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL), false),
+            KeyEditAction::Ignore
+        );
     }
 }

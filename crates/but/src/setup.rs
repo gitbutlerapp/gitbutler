@@ -5,7 +5,10 @@ use but_ctx::Context;
 use colored::Colorize;
 use command_group::AsyncCommandGroup;
 
-use crate::{args::Args, utils::OutputChannel};
+use crate::{
+    args::Args,
+    utils::{Confirm, ConfirmDefault, OutputChannel},
+};
 
 #[derive(Default)]
 pub(crate) enum BackgroundSync {
@@ -376,11 +379,8 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
             "In order to manage projects with GitButler, we need to do some changes:\n\n - Switch you to a special `gitbutler/workspace` branch to enable parallel branches\n - Install Git hooks to help manage the tooling\n\nYou can go back to normal git workflows at any time by either:\n\n - Running `but teardown`\n - Manually checking out a normal branch with `git checkout <branch>`\n",
         );
 
-        if let Ok(Some(response)) = inout.prompt("Would you like to run setup now? [Y/n]: ") {
-            let response = response.trim().to_lowercase();
-            if response.is_empty() || response == "y" || response == "yes" {
-                return SetupPromptResult::RunSetup;
-            }
+        if let Ok(Confirm::Yes) = inout.confirm("Would you like to run setup now?", ConfirmDefault::Yes) {
+            return SetupPromptResult::RunSetup;
         }
         // User declined
         true // indicates interactive terminal was available
@@ -404,7 +404,7 @@ fn prompt_for_setup(out: &mut OutputChannel, message: &str) -> SetupPromptResult
             "message": message.to_string(),
             "hint": "run `but setup` to configure the project"
         }));
-    } else if out.for_human().is_some() {
+    } else if out.for_human().is_some() && !user_declined_in_interactive_mode {
         // Non-interactive terminal, just show the hint
         _ = writeln!(
             progress,

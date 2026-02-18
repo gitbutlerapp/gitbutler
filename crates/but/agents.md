@@ -2,6 +2,10 @@
 
 * Avoid using code from `gitbutler-`-prefixed crates, and prefer code from `but-` prefixed crates as long as it's not in the `legacy` module.
 
+### Documentation
+
+* Always add documentation comments for every struct, each struct field, and every function you create.
+
 ### Output
 
 Usable output goes to `out: &mut OutputChannel`
