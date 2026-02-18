@@ -9,7 +9,6 @@
 	import FileName from '$components/file/FileName.svelte';
 	import FileStatusBadge from '$components/file/FileStatusBadge.svelte';
 	import { focusable } from '$lib/focus/focusable';
-	import { slide } from 'svelte/transition';
 	import type { FileStatus } from '$components/file/types';
 	import type { FocusableOptions } from '$lib/focus/focusManager';
 
@@ -129,18 +128,14 @@
 		</div>
 	{/if}
 
+	{#if notched}
+		<div class="commit-row__notch"></div>
+	{/if}
+
 	{#if showIndent || showCheckbox}
 		<div class="file-list-item__indicators">
 			{#if showIndent}
 				<FileIndent {depth} />
-			{/if}
-
-			{#if notched}
-				<div
-					class="commit-row__select-indicator"
-					class:active
-					in:slide={{ axis: 'x', duration: 150 }}
-				></div>
 			{/if}
 
 			{#if showCheckbox}
@@ -289,7 +284,19 @@
 			border-bottom: none;
 		}
 
-		.draggable-handle {
+		&.active.selected .conflicted-icon {
+			color: var(--clr-theme-pop-on-element);
+		}
+
+		&.notched {
+			padding-left: 18px;
+		}
+
+		&.notched .draggable-handle {
+			left: 8px;
+		}
+
+		& .draggable-handle {
 			display: none;
 			position: absolute;
 			top: 50%;
@@ -302,14 +309,10 @@
 			opacity: 0.6;
 		}
 
-		.conflicted-icon {
+		& .conflicted-icon {
 			display: flex;
 			margin-right: -2px;
 			color: var(--clr-theme-danger-element);
-		}
-
-		&.active.selected .conflicted-icon {
-			color: var(--clr-theme-pop-on-element);
 		}
 	}
 
@@ -318,7 +321,15 @@
 		align-items: center;
 		height: 100%;
 		gap: 6px;
-		/* background-color: rgba(64, 224, 208, 0.218); */
+	}
+
+	.commit-row__notch {
+		position: absolute;
+		top: -1px;
+		left: 0;
+		width: 4px;
+		height: calc(100% + 2px);
+		background-color: var(--clr-theme-pop-element);
 	}
 
 	.file-list-item__details {
@@ -331,9 +342,5 @@
 			display: flex;
 			color: var(--clr-change-icon-modification);
 		}
-	}
-
-	.notched {
-		margin-left: 6px;
 	}
 </style>
