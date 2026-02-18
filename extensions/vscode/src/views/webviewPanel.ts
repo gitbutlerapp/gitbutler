@@ -98,6 +98,10 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
           await this.handleGenerateCommitMessage(message.stackId, message.branchName);
           break;
         }
+        case 'pushBranch': {
+          await this.handlePushBranch(message.stackId, message.branchName);
+          break;
+        }
         case 'deleteBranch': {
           await this.handleDeleteBranch(message.stackId, message.branchName);
           break;
@@ -244,6 +248,19 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
       }
     } catch (err: any) {
       vscode.window.showErrorMessage(`AI generate failed: ${err?.detail || err?.message || err}`);
+    }
+  }
+
+  private async handlePushBranch(stackId: string, branchName: string): Promise<void> {
+    try {
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: `Pushing ${branchName}...` },
+        () => this.api.pushStack({ stackId, branch: branchName })
+      );
+      await this.workspace.refresh();
+      vscode.window.showInformationMessage(`GitButler: Pushed "${branchName}"`);
+    } catch (err: any) {
+      vscode.window.showErrorMessage(`Push failed: ${err?.detail || err?.message || err}`);
     }
   }
 
@@ -746,6 +763,7 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
               ${pushIcon} ${this.esc(name)}
               <span class="push-status">${seg.pushStatus === 'completelyUnpushed' ? '(new)' : ''}</span>
               <div class="actions">
+                <button onclick="event.stopPropagation(); send({type:'pushBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Push Branch">↑</button>
                 <button onclick="send({type:'refresh'})" title="Refresh">↻</button>
                 <button onclick="event.stopPropagation(); send({type:'deleteBranch', stackId:'${stack.id}', branchName:'${this.escJs(name)}'})" title="Delete Branch">🗑</button>
               </div>
@@ -792,8 +810,7 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     const tree = this.buildTree(files);
     const allPaths = this.collectAllPaths(tree);
     const allPathsJson = JSON.stringify(allPaths).replace(/"/g, '&quot;');
-    const allPathsJs = JSON.stringify(allPaths).replace(/'/g, "\\'");
-    const rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'unstageFiles', filePaths:${allPathsJs}})" title="Unassign all">−</button></div>`;
+    const rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'unstageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths)})" title="Unassign all">−</button></div>`;
     const rootHandle = files.length > 1
       ? `<div class="folder-item root-drag" draggable="true" data-paths="${allPathsJson}" data-stack-id="${stackId}">
            <span class="icon">📂</span> <span class="name">Changes</span>
@@ -808,14 +825,13 @@ export class GitButlerWebviewProvider implements vscode.WebviewViewProvider {
     const tree = this.buildTree(files);
     const allPaths = this.collectAllPaths(tree);
     const allPathsJson = JSON.stringify(allPaths).replace(/"/g, '&quot;');
-    const allPathsJs = JSON.stringify(allPaths).replace(/'/g, "\\'");
     let rootActions = '';
     if (branchData && branchData.length > 0) {
       if (branchData.length === 1) {
-        rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:${allPathsJs}, stackId:'${branchData[0].stackId}'})" title="Assign all to ${this.esc(branchData[0].name)}">+</button></div>`;
+        rootActions = `<div class="file-actions"><button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${branchData[0].stackId}'})" title="Assign all to ${this.esc(branchData[0].name)}">+</button></div>`;
       } else {
         const btns = branchData.map((b) =>
-          `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:${allPathsJs}, stackId:'${b.stackId}'})" title="Assign all to ${this.esc(b.name)}" style="font-size:11px">→${this.esc(b.name.substring(0, 8))}</button>`
+          `<button onclick="event.stopPropagation(); send({type:'stageFiles', filePaths:JSON.parse(this.closest('.folder-item').dataset.paths), stackId:'${b.stackId}'})" title="Assign all to ${this.esc(b.name)}" style="font-size:11px">→${this.esc(b.name.substring(0, 8))}</button>`
         ).join('');
         rootActions = `<div class="file-actions">${btns}</div>`;
       }
