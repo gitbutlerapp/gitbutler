@@ -8,6 +8,8 @@
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 
 use anyhow::Result;
 use gitbutler_repo::managed_hooks::{HookInstallationResult, install_managed_hooks, uninstall_managed_hooks};
@@ -364,8 +366,8 @@ fn test_hook_manually_modified_after_install() -> Result<()> {
 fn test_respects_core_hooks_path() -> Result<()> {
     let (_temp, repo) = create_test_repo()?;
 
-    // Create a custom hooks directory
-    let custom_hooks = _temp.path().join("custom-hooks");
+    // Create a custom hooks directory inside the repository boundary
+    let custom_hooks = repo.workdir().expect("non-bare").join(".custom-hooks");
     fs::create_dir_all(&custom_hooks)?;
 
     // Configure core.hooksPath
@@ -389,6 +391,129 @@ fn test_respects_core_hooks_path() -> Result<()> {
     assert!(
         !repo.path().join("hooks").join("pre-commit").exists(),
         "Hook should not be in default location"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_rejects_relative_traversal_core_hooks_path() -> Result<()> {
+    let (_temp, repo) = create_test_repo()?;
+    let outside = tempfile::Builder::new()
+        .prefix("gitbutler-hooks-outside-")
+        .tempdir_in(_temp.path().parent().expect("has parent"))?;
+    let relative_outside = format!("../{}", outside.path().file_name().expect("name").to_string_lossy());
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", &relative_outside)?;
+
+    let result = install_managed_hooks(&repo)?;
+    assert!(
+        matches!(result, HookInstallationResult::PartialSuccess { .. }),
+        "Traversal path should be rejected"
+    );
+    assert!(
+        !outside.path().join("pre-commit").exists(),
+        "Should not write managed hook outside repository"
+    );
+    assert!(
+        !outside.path().join("post-checkout").exists(),
+        "Should not write managed hook outside repository"
+    );
+    Ok(())
+}
+
+#[test]
+fn test_rejects_absolute_outside_core_hooks_path() -> Result<()> {
+    let (_temp, repo) = create_test_repo()?;
+    let outside = TempDir::new()?;
+    let outside_hooks = outside.path().join("outside-hooks");
+    fs::create_dir_all(&outside_hooks)?;
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", outside_hooks.to_str().expect("utf-8 path"))?;
+
+    let result = install_managed_hooks(&repo)?;
+    assert!(
+        matches!(result, HookInstallationResult::PartialSuccess { .. }),
+        "Absolute outside path should be rejected"
+    );
+    assert!(
+        !outside_hooks.join("pre-commit").exists(),
+        "Should not write managed hook outside repository"
+    );
+    assert!(
+        !outside_hooks.join("post-checkout").exists(),
+        "Should not write managed hook outside repository"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn test_rejects_symlinked_hooks_directory_escape() -> Result<()> {
+    let (_temp, repo) = create_test_repo()?;
+    let outside = TempDir::new()?;
+    let outside_hooks = outside.path().join("outside-hooks");
+    fs::create_dir_all(&outside_hooks)?;
+
+    let linked_hooks = repo.workdir().expect("non-bare").join(".linked-hooks");
+    symlink(&outside_hooks, &linked_hooks)?;
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", ".linked-hooks")?;
+
+    let result = install_managed_hooks(&repo)?;
+    assert!(
+        matches!(result, HookInstallationResult::PartialSuccess { .. }),
+        "Symlink escape path should be rejected"
+    );
+    assert!(
+        !outside_hooks.join("pre-commit").exists(),
+        "Should not write managed hook outside repository"
+    );
+    assert!(
+        !outside_hooks.join("post-checkout").exists(),
+        "Should not write managed hook outside repository"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn test_does_not_overwrite_symlinked_hook_files() -> Result<()> {
+    let (_temp, repo) = create_test_repo()?;
+    let hooks_dir = repo.path().join("hooks");
+    fs::create_dir_all(&hooks_dir)?;
+
+    let outside = TempDir::new()?;
+    let pre_commit_target = outside.path().join("pre-commit-target");
+    let post_checkout_target = outside.path().join("post-checkout-target");
+    fs::write(&pre_commit_target, "original pre-commit target")?;
+    fs::write(&post_checkout_target, "original post-checkout target")?;
+
+    let pre_commit_link = hooks_dir.join("pre-commit");
+    let post_checkout_link = hooks_dir.join("post-checkout");
+    symlink(&pre_commit_target, &pre_commit_link)?;
+    symlink(&post_checkout_target, &post_checkout_link)?;
+
+    let result = install_managed_hooks(&repo)?;
+    assert!(
+        matches!(result, HookInstallationResult::PartialSuccess { .. }),
+        "Symlinked hooks should be rejected"
+    );
+
+    assert_eq!(fs::read_to_string(&pre_commit_target)?, "original pre-commit target");
+    assert_eq!(
+        fs::read_to_string(&post_checkout_target)?,
+        "original post-checkout target"
+    );
+    assert!(
+        fs::symlink_metadata(&pre_commit_link)?.file_type().is_symlink(),
+        "pre-commit link should remain a symlink"
+    );
+    assert!(
+        fs::symlink_metadata(&post_checkout_link)?.file_type().is_symlink(),
+        "post-checkout link should remain a symlink"
     );
     Ok(())
 }

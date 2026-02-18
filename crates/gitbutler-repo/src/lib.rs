@@ -13,6 +13,7 @@ pub use repository_ext::RepositoryExt;
 pub mod credentials;
 
 mod config;
+mod hooks_path;
 use config::Config;
 pub mod hooks;
 pub mod managed_hooks;

@@ -1,4 +1,4 @@
-use std::{io::Write, process::Stdio};
+use std::{io::Write, path::PathBuf, process::Stdio};
 
 use anyhow::Result;
 use bstr::ByteSlice;
@@ -6,7 +6,10 @@ use but_ctx::Context;
 use git2_hooks::{self, HookResult as H};
 use serde::Serialize;
 
-use crate::staging;
+use crate::{
+    hooks_path::{path_within_repo_roots, repo_roots, resolve_safe_hooks_dir},
+    staging,
+};
 
 #[derive(Serialize, PartialEq, Debug, Clone)]
 pub struct MessageData {
@@ -118,11 +121,20 @@ pub fn pre_push(
     local_commit: git2::Oid,
     remote_tracking_branch: &gitbutler_reference::RemoteRefname,
 ) -> Result<HookResult> {
-    let hooks_dir = repo
-        .config()
-        .and_then(|config| config.get_path("core.hooksPath"))
-        .unwrap_or_else(|_| repo.path().join("hooks"));
-    let hooks_path = hooks_dir.join("pre-push");
+    let roots = match repo_roots(repo) {
+        Ok(roots) => roots,
+        Err(error) => {
+            tracing::warn!("Failed to resolve repository roots for pre-push hook execution: {error}");
+            return Ok(HookResult::NotConfigured);
+        }
+    };
+    let hooks_path = match resolve_safe_hooks_dir(repo) {
+        Ok(hooks_dir) => Some(hooks_dir.join("pre-push")),
+        Err(error) => {
+            tracing::warn!("Ignoring unsafe core.hooksPath while searching pre-push hook: {error}");
+            None
+        }
+    };
     let husky_path = repo
         .path()
         .parent()
@@ -131,9 +143,13 @@ pub fn pre_push(
 
     // Check for hook in .git/hooks/pre-push first, then ../.husky/pre-push
     let hook_path = hooks_path
-        .exists()
-        .then_some(hooks_path)
-        .or_else(|| husky_path.filter(|path| path.exists()));
+        .filter(|path| path.exists())
+        .and_then(|path| safe_hook_path(path, &roots, "repository hook"))
+        .or_else(|| {
+            husky_path
+                .filter(|path| path.exists())
+                .and_then(|path| safe_hook_path(path, &roots, "husky hook"))
+        });
 
     let Some(hook_path) = hook_path else {
         return Ok(HookResult::NotConfigured);
@@ -203,4 +219,37 @@ fn join_output(stdout: String, stderr: String, code: Option<i32>) -> String {
         return stdout;
     }
     format!("stdout:\n{stdout}\n\nstderr:\n{stderr}{code}")
+}
+
+fn safe_hook_path(path: PathBuf, roots: &[PathBuf], hook_type: &str) -> Option<PathBuf> {
+    let resolved = match gix::path::realpath(&path) {
+        Ok(path) => path,
+        Err(error) => {
+            tracing::warn!(
+                "Ignoring {hook_type} at '{}' because it cannot be resolved: {error}",
+                path.display()
+            );
+            return None;
+        }
+    };
+
+    if !path_within_repo_roots(&resolved, roots) {
+        tracing::warn!(
+            "Ignoring {hook_type} at '{}' because it resolves outside repository roots to '{}'",
+            path.display(),
+            resolved.display()
+        );
+        return None;
+    }
+
+    if resolved.is_dir() {
+        tracing::warn!(
+            "Ignoring {hook_type} at '{}' because resolved path '{}' is a directory",
+            path.display(),
+            resolved.display()
+        );
+        return None;
+    }
+
+    Some(resolved)
 }

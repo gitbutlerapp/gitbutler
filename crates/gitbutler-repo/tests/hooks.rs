@@ -1,6 +1,8 @@
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 
 use gitbutler_repo::hooks::{HookResult, pre_push};
 use gitbutler_testsupport::TestProject;
@@ -85,5 +87,100 @@ fn pre_push_hook_failure() -> anyhow::Result<()> {
         }
         _ => panic!("Expected hook failure"),
     }
+    Ok(())
+}
+
+#[test]
+fn pre_push_ignores_unsafe_outside_core_hooks_path() -> anyhow::Result<()> {
+    let test_project = TestProject::default();
+    let repo = &test_project.local_repo;
+    let outside = tempfile::TempDir::new()?;
+    let outside_hooks = outside.path().join("outside-hooks");
+    fs::create_dir_all(&outside_hooks)?;
+    let hook_path = outside_hooks.join("pre-push");
+
+    fs::write(&hook_path, "#!/bin/sh\ntouch outside-executed\n")?;
+    #[cfg(unix)]
+    fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", outside_hooks.to_str().expect("utf-8 path"))?;
+
+    let result = pre_push(
+        repo,
+        "origin",
+        "https://github.com/test/repo.git",
+        repo.head()?.target().expect("not detached"),
+        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+    )?;
+    assert_eq!(result, HookResult::NotConfigured);
+    assert!(
+        !repo.workdir().expect("non-bare").join("outside-executed").exists(),
+        "Outside hook must not execute"
+    );
+    Ok(())
+}
+
+#[test]
+fn pre_push_respects_safe_in_repo_core_hooks_path() -> anyhow::Result<()> {
+    let test_project = TestProject::default();
+    let repo = &test_project.local_repo;
+    let custom_hooks = repo.workdir().expect("non-bare").join(".custom-hooks");
+    fs::create_dir_all(&custom_hooks)?;
+    let hook_path = custom_hooks.join("pre-push");
+    fs::write(&hook_path, "#!/bin/sh\ntouch custom-hook-executed\n")?;
+
+    #[cfg(unix)]
+    fs::set_permissions(&hook_path, fs::Permissions::from_mode(0o755))?;
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", ".custom-hooks")?;
+
+    let result = pre_push(
+        repo,
+        "origin",
+        "https://github.com/test/repo.git",
+        repo.head()?.target().expect("not detached"),
+        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+    )?;
+    assert_eq!(result, HookResult::Success);
+    assert!(
+        repo.workdir().expect("non-bare").join("custom-hook-executed").exists(),
+        "In-repo custom hook should execute"
+    );
+    Ok(())
+}
+
+#[test]
+#[cfg(unix)]
+fn pre_push_ignores_symlinked_pre_push_escaping_repo() -> anyhow::Result<()> {
+    let test_project = TestProject::default();
+    let repo = &test_project.local_repo;
+    let custom_hooks = repo.workdir().expect("non-bare").join(".custom-hooks");
+    fs::create_dir_all(&custom_hooks)?;
+
+    let outside = tempfile::TempDir::new()?;
+    let outside_hook = outside.path().join("outside-pre-push");
+    fs::write(&outside_hook, "#!/bin/sh\ntouch symlink-hook-executed\n")?;
+    fs::set_permissions(&outside_hook, fs::Permissions::from_mode(0o755))?;
+
+    let linked_hook = custom_hooks.join("pre-push");
+    symlink(&outside_hook, &linked_hook)?;
+
+    let mut config = repo.config()?;
+    config.set_str("core.hooksPath", ".custom-hooks")?;
+
+    let result = pre_push(
+        repo,
+        "origin",
+        "https://github.com/test/repo.git",
+        repo.head()?.target().expect("not detached"),
+        &gitbutler_reference::RemoteRefname::new("origin", "master"),
+    )?;
+    assert_eq!(result, HookResult::NotConfigured);
+    assert!(
+        !repo.workdir().expect("non-bare").join("symlink-hook-executed").exists(),
+        "Escaping symlinked hook must not execute"
+    );
     Ok(())
 }

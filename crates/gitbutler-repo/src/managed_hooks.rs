@@ -11,6 +11,8 @@ use std::{
 
 use anyhow::{Context, Result};
 
+use crate::hooks_path::{HooksPathValidationError, path_within_repo_roots, repo_roots, resolve_safe_hooks_dir};
+
 /// Marker comment to identify GitButler-managed hooks
 const GITBUTLER_HOOK_SIGNATURE: &str = "# GITBUTLER_MANAGED_HOOK_V1";
 
@@ -177,10 +179,33 @@ impl ManagedHookType {
 }
 
 /// Get the hooks directory, respecting core.hooksPath configuration
-fn get_hooks_dir(repo: &git2::Repository) -> PathBuf {
-    repo.config()
-        .and_then(|config| config.get_path("core.hooksPath"))
-        .unwrap_or_else(|_| repo.path().join("hooks"))
+fn get_hooks_dir(repo: &git2::Repository) -> std::result::Result<PathBuf, HooksPathValidationError> {
+    resolve_safe_hooks_dir(repo)
+}
+
+fn unsafe_hooks_path_warning(action: &str, error: &impl std::fmt::Display) -> String {
+    format!("Refusing to {action} managed hooks because core.hooksPath is unsafe: {error}")
+}
+
+fn ensure_path_is_safe(path: &Path, roots: &[PathBuf], label: &str) -> Result<()> {
+    let resolved =
+        gix::path::realpath(path).with_context(|| format!("Failed to resolve {label}: {}", path.display()))?;
+    if !path_within_repo_roots(&resolved, roots) {
+        anyhow::bail!(
+            "Resolved {label} path '{}' escapes repository roots",
+            resolved.display()
+        );
+    }
+    Ok(())
+}
+
+fn ensure_not_symlink(path: &Path, label: &str) -> Result<()> {
+    if let Ok(metadata) = fs::symlink_metadata(path)
+        && metadata.file_type().is_symlink()
+    {
+        anyhow::bail!("Refusing to operate on symlinked {label}: {}", path.display());
+    }
+    Ok(())
 }
 
 /// Check if a hook file contains our signature
@@ -203,7 +228,7 @@ fn set_hook_executable(path: &Path) -> Result<()> {
 }
 
 /// Install a single managed hook
-fn install_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookInstallationResult> {
+fn install_hook(hooks_dir: &Path, roots: &[PathBuf], hook_type: ManagedHookType) -> Result<HookInstallationResult> {
     let hook_path = hooks_dir.join(hook_type.hook_name());
     let user_backup_path = hooks_dir.join(hook_type.user_backup_name());
 
@@ -211,6 +236,11 @@ fn install_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookInst
     if !hooks_dir.exists() {
         fs::create_dir_all(hooks_dir).context("Failed to create hooks directory")?;
     }
+    ensure_path_is_safe(hooks_dir, roots, "hooks directory")?;
+    ensure_path_is_safe(&hook_path, roots, "hook file")?;
+    ensure_path_is_safe(&user_backup_path, roots, "hook backup file")?;
+    ensure_not_symlink(&hook_path, "hook file")?;
+    ensure_not_symlink(&user_backup_path, "hook backup file")?;
 
     // Check if our hook is already installed
     if hook_path.exists() && is_gitbutler_managed_hook(&hook_path) {
@@ -233,9 +263,15 @@ fn install_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookInst
 }
 
 /// Uninstall a single managed hook and restore user's original
-fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookInstallationResult> {
+fn uninstall_hook(hooks_dir: &Path, roots: &[PathBuf], hook_type: ManagedHookType) -> Result<HookInstallationResult> {
     let hook_path = hooks_dir.join(hook_type.hook_name());
     let user_backup_path = hooks_dir.join(hook_type.user_backup_name());
+
+    ensure_path_is_safe(hooks_dir, roots, "hooks directory")?;
+    ensure_path_is_safe(&hook_path, roots, "hook file")?;
+    ensure_path_is_safe(&user_backup_path, roots, "hook backup file")?;
+    ensure_not_symlink(&hook_path, "hook file")?;
+    ensure_not_symlink(&user_backup_path, "hook backup file")?;
 
     // Only remove if it's our managed hook
     if hook_path.exists() {
@@ -260,12 +296,31 @@ fn uninstall_hook(hooks_dir: &Path, hook_type: ManagedHookType) -> Result<HookIn
 ///
 /// Called after switching HEAD to gitbutler/workspace
 pub fn install_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
-    let hooks_dir = get_hooks_dir(repo);
+    let hooks_dir = match get_hooks_dir(repo) {
+        Ok(hooks_dir) => hooks_dir,
+        Err(error) => {
+            let warning = unsafe_hooks_path_warning("install", &error);
+            tracing::warn!("{warning}");
+            return Ok(HookInstallationResult::PartialSuccess {
+                warnings: vec![warning],
+            });
+        }
+    };
+    let roots = match repo_roots(repo) {
+        Ok(roots) => roots,
+        Err(error) => {
+            let warning = unsafe_hooks_path_warning("install", &error);
+            tracing::warn!("{warning}");
+            return Ok(HookInstallationResult::PartialSuccess {
+                warnings: vec![warning],
+            });
+        }
+    };
     let mut warnings = Vec::new();
     let mut already_configured_count = 0;
 
     for hook_type in [ManagedHookType::PreCommit, ManagedHookType::PostCheckout] {
-        match install_hook(&hooks_dir, hook_type) {
+        match install_hook(&hooks_dir, &roots, hook_type) {
             Ok(HookInstallationResult::Success) => {
                 tracing::debug!("Installed {} hook", hook_type.hook_name());
             }
@@ -296,11 +351,30 @@ pub fn install_managed_hooks(repo: &git2::Repository) -> Result<HookInstallation
 ///
 /// Called during teardown
 pub fn uninstall_managed_hooks(repo: &git2::Repository) -> Result<HookInstallationResult> {
-    let hooks_dir = get_hooks_dir(repo);
+    let hooks_dir = match get_hooks_dir(repo) {
+        Ok(hooks_dir) => hooks_dir,
+        Err(error) => {
+            let warning = unsafe_hooks_path_warning("uninstall", &error);
+            tracing::warn!("{warning}");
+            return Ok(HookInstallationResult::PartialSuccess {
+                warnings: vec![warning],
+            });
+        }
+    };
+    let roots = match repo_roots(repo) {
+        Ok(roots) => roots,
+        Err(error) => {
+            let warning = unsafe_hooks_path_warning("uninstall", &error);
+            tracing::warn!("{warning}");
+            return Ok(HookInstallationResult::PartialSuccess {
+                warnings: vec![warning],
+            });
+        }
+    };
     let mut warnings = Vec::new();
 
     for hook_type in [ManagedHookType::PreCommit, ManagedHookType::PostCheckout] {
-        match uninstall_hook(&hooks_dir, hook_type) {
+        match uninstall_hook(&hooks_dir, &roots, hook_type) {
             Ok(HookInstallationResult::Success) => {
                 tracing::debug!("Uninstalled {} hook", hook_type.hook_name());
             }
