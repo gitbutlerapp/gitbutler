@@ -123,10 +123,7 @@ tracing-subscriber = { workspace = true, features = [
 tracing-forest.workspace = true
 cli-prompts.path = "vendor/cli-prompts"
 dirs.workspace = true
-minus = { version = "5.6.1", default-features = false, features = [
-    "static_output",
-    "search",
-] }
+sapling-streampager = "0.12.0"
 unicode-width = "0.2"
 cfg-if = "1.0.4"
 ratatui.workspace = true

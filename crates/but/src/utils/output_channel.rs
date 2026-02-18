@@ -1,7 +1,7 @@
 use std::io::{IsTerminal, Write};
+use std::thread::JoinHandle;
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
-use minus::ExitStrategy;
 
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
@@ -33,11 +33,47 @@ pub struct OutputChannel {
     format: OutputFormat,
     /// The output to use if there is no pager.
     stdout: std::io::Stdout,
-    /// Possibly a pager we are using. If `Some`, the pager itself is used for output instead of `stdout`.
-    pager: Option<minus::Pager>,
+    /// Optional streaming pager output.
+    pager: Option<PagerOutput>,
     /// When `Some`, JSON values written via `write_value` are captured here instead of going to stdout.
     /// Used by `--status-after` to buffer mutation JSON before combining with status JSON.
     json_buffer: Option<serde_json::Value>,
+}
+
+/// Streaming pager session.
+struct PagerOutput {
+    out_wr: std::io::PipeWriter,
+    pager_thread: JoinHandle<streampager::Result<()>>,
+}
+
+impl PagerOutput {
+    fn new() -> streampager::Result<Self> {
+        let config = streampager::config::Config {
+            interface_mode: streampager::config::InterfaceMode::Hybrid,
+            wrapping_mode: streampager::config::WrappingMode::GraphemeBoundary,
+            show_ruler: false,
+            scroll_past_eof: false,
+            ..Default::default()
+        };
+        let mut pager = streampager::Pager::new_using_system_terminal_with_config(config)?;
+        let (out_rd, out_wr) = std::io::pipe()?;
+        pager.add_stream(out_rd, "")?;
+        let pager_thread = std::thread::spawn(|| pager.run());
+        Ok(Self { out_wr, pager_thread })
+    }
+
+    fn write_all_ignoring_broken_pipe(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        self.out_wr.write_all(bytes).or_else(ignore_broken_pipe)
+    }
+
+    fn finalize(self) -> Result<(), String> {
+        drop(self.out_wr);
+        match self.pager_thread.join() {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(err)) => Err(format!("failed to run pager: {err}")),
+            Err(_) => Err("pager thread panicked".to_owned()),
+        }
+    }
 }
 
 /// A channel that implements [`std::io::Write`], to make unbuffered writes to [`std::io::stderr`]
@@ -105,6 +141,18 @@ impl OutputChannel {
     /// Get the output format setting.
     pub fn format(&self) -> OutputFormat {
         self.format
+    }
+
+    fn write_stdout_ignoring_broken_pipe(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        self.stdout.write_all(bytes).or_else(ignore_broken_pipe)
+    }
+
+    fn write_output_ignoring_broken_pipe(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        if let Some(pager) = self.pager.as_mut() {
+            pager.write_all_ignoring_broken_pipe(bytes)
+        } else {
+            self.write_stdout_ignoring_broken_pipe(bytes)
+        }
     }
 }
 
@@ -216,24 +264,10 @@ impl OutputChannel {
 
 impl std::fmt::Write for OutputChannel {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
-        use std::io::Write;
         match self.format {
-            OutputFormat::Human | OutputFormat::Shell => {
-                if let Some(out) = self.pager.as_mut() {
-                    out.write_str(s)
-                } else {
-                    self.stdout.write_all(s.as_bytes()).or_else(|err| {
-                        if err.kind() == std::io::ErrorKind::BrokenPipe {
-                            // Ignore broken pipes and keep writing.
-                            // This allows the caller to use `?` without having to think
-                            // about ignoring errors selectively.
-                            Ok(())
-                        } else {
-                            Err(std::fmt::Error)
-                        }
-                    })
-                }
-            }
+            OutputFormat::Human | OutputFormat::Shell => self
+                .write_output_ignoring_broken_pipe(s.as_bytes())
+                .map_err(|_| std::fmt::Error),
             OutputFormat::Json | OutputFormat::None => {
                 // It's not an error to try to write in JSON mode, it's a feature.
                 // However, the only way to write JSON is to use [Self::write_value()].
@@ -463,18 +497,25 @@ impl OutputChannel {
     /// It's configured to print to stdout unless [`OutputFormat::Json`] is used, then it prints everything
     /// to a `/dev/null` equivalent, so callers never have to worry if they interleave JSON with other output.
     pub fn new_with_optional_pager(format: OutputFormat, use_pager: bool) -> Self {
+        let stdout = std::io::stdout();
+        let use_streaming_pager = matches!(format, OutputFormat::Human)
+            && std::env::var_os("NOPAGER").is_none()
+            && use_pager
+            && stdout.is_terminal();
         OutputChannel {
             format,
-            stdout: std::io::stdout(),
-            pager: if !matches!(format, OutputFormat::Human) || std::env::var_os("NOPAGER").is_some() || !use_pager {
-                None
+            pager: if use_streaming_pager {
+                match PagerOutput::new() {
+                    Ok(pager) => Some(pager),
+                    Err(err) => {
+                        eprintln!("warning: failed to set up pager: {err}");
+                        None
+                    }
+                }
             } else {
-                let pager = minus::Pager::new();
-                let msg = "can talk to newly created pager";
-                pager.set_exit_strategy(ExitStrategy::PagerQuit).expect(msg);
-                pager.set_prompt("GitButler").expect(msg);
-                Some(pager)
+                None
             },
+            stdout,
             json_buffer: None,
         }
     }
@@ -505,8 +546,10 @@ impl Drop for OutputChannel {
         {
             eprintln!("warning: failed to flush buffered JSON on drop: {err}");
         }
-        if let Some(pager) = self.pager.take() {
-            minus::page_all(pager).ok();
+        if let Some(pager) = self.pager.take()
+            && let Err(err) = pager.finalize()
+        {
+            eprintln!("warning: {err}");
         }
     }
 }
