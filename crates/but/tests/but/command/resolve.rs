@@ -105,12 +105,45 @@ fn resolve_cancel_works_in_edit_mode() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     enter_edit_mode_with_conflicted_commit(&env)?;
 
-    let cancel_output = env.but("resolve cancel").output()?;
+    let cancel_output = env.but("resolve cancel --force").output()?;
     let cancel_stderr = String::from_utf8_lossy(&cancel_output.stderr);
     anyhow::ensure!(cancel_output.status.success(), "resolve cancel should succeed");
     anyhow::ensure!(
         !cancel_stderr.contains("Setup required:"),
         "resolve cancel should not fail setup checks"
+    );
+
+    assert_eq!(current_branch_name(&env)?, "gitbutler/workspace");
+    Ok(())
+}
+
+#[test]
+fn resolve_cancel_requires_force_when_changes_were_made() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
+    enter_edit_mode_with_conflicted_commit(&env)?;
+
+    env.file("test-file.txt", "resolved content with additional edits\n");
+
+    let cancel_output = env.but("resolve cancel").output()?;
+    let cancel_stderr = String::from_utf8_lossy(&cancel_output.stderr);
+    anyhow::ensure!(
+        !cancel_output.status.success(),
+        "resolve cancel should fail without force"
+    );
+    anyhow::ensure!(
+        cancel_stderr.contains("--force"),
+        "resolve cancel without force should explain how to proceed; stderr was: {cancel_stderr}"
+    );
+
+    let force_cancel_output = env.but("resolve cancel --force").output()?;
+    let force_cancel_stderr = String::from_utf8_lossy(&force_cancel_output.stderr);
+    anyhow::ensure!(
+        force_cancel_output.status.success(),
+        "resolve cancel --force should succeed"
+    );
+    anyhow::ensure!(
+        !force_cancel_stderr.contains("Setup required:"),
+        "resolve cancel --force should not fail setup checks"
     );
 
     assert_eq!(current_branch_name(&env)?, "gitbutler/workspace");

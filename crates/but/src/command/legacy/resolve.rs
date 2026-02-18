@@ -12,6 +12,7 @@ use but_api::legacy::modes::{
 use but_ctx::Context;
 use colored::Colorize;
 use gitbutler_commit::commit_ext::{CommitExt, CommitMessageBstr};
+use gitbutler_edit_mode::commands::changes_from_initial;
 use gitbutler_operating_modes::OperatingMode;
 
 use crate::{
@@ -30,7 +31,7 @@ pub(crate) fn handle(
     match cmd {
         Some(Subcommands::Status) => show_status(ctx, out),
         Some(Subcommands::Finish) => finish_resolution(ctx, out),
-        Some(Subcommands::Cancel) => cancel_resolution(ctx, out),
+        Some(Subcommands::Cancel { force }) => cancel_resolution(ctx, out, force),
         None => {
             // Default action: enter resolution mode for the specified commit
             if let Some(commit_id_str) = commit_id {
@@ -315,7 +316,7 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     Ok(())
 }
 
-fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
+fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> Result<()> {
     // Check if we're in edit mode
     let mode = gitbutler_operating_modes::operating_mode(ctx);
     if !matches!(mode, OperatingMode::Edit(_)) {
@@ -323,8 +324,14 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
         return show_workflow_help(out);
     }
 
+    if !force && !changes_from_initial(ctx)?.is_empty() {
+        bail!(
+            "There are changes that differ from the original commit you were editing. Canceling will drop those changes.\n\nIf you want to go through with this, please re-run with `--force`.\n\nIf you want to keep the changes you have made, consider finishing the resolution and then moving the changes with the rub command."
+        )
+    }
+
     // Abort and return to workspace
-    abort_edit_and_return_to_workspace(ctx).context("Failed to cancel resolution and return to workspace")?;
+    abort_edit_and_return_to_workspace(ctx, force).context("Failed to cancel resolution and return to workspace")?;
 
     if let Some(out) = out.for_human() {
         writeln!(out, "{}", "Conflict resolution cancelled.".yellow())?;

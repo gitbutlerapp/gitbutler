@@ -20,7 +20,16 @@
 	import { getEditorUri, URL_SERVICE } from '$lib/utils/url';
 	import { inject } from '@gitbutler/core/context';
 
-	import { Avatar, Badge, Button, FileListItem, InfoButton, Modal, TestId } from '@gitbutler/ui';
+	import {
+		AsyncButton,
+		Avatar,
+		Badge,
+		Button,
+		FileListItem,
+		InfoButton,
+		Modal,
+		TestId
+	} from '@gitbutler/ui';
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { derived, fromStore, readable, toStore, type Readable } from 'svelte/store';
@@ -164,9 +173,9 @@
 		});
 	}
 
-	async function abort() {
+	async function abort(force: boolean) {
 		if (loading) return;
-		await abortEdit({ projectId });
+		await abortEdit({ projectId, force });
 	}
 
 	async function save() {
@@ -196,7 +205,31 @@
 	let isCommitListScrolled = $state(false);
 
 	const loading = $derived(savingEdit.current.isLoading || abortingEdit.current.isLoading);
+
+	let abortModal = $state<Modal>();
 </script>
+
+<Modal bind:this={abortModal} title="Forcibly abort edit mode">
+	<p>
+		There are changes that differ from the commit you started editing. Aborting edit mode now will
+		remove those changes. Are you sure you want to abort edit mode?
+	</p>
+	<br />
+	<p>
+		If you want to keep the changes but place them elsewhere, you can save and exit and then
+		reorganise the changes via drag and drop.
+	</p>
+	{#snippet controls(close)}
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<AsyncButton
+			style="danger"
+			action={async () => {
+				await abort(true);
+				close();
+			}}>Abort Edit Mode</AsyncButton
+		>
+	{/snippet}
+</Modal>
 
 <div class="editmode-wrapper" data-testid={TestId.EditMode}>
 	<ReduxResult {projectId} result={projectQuery.result}>
@@ -306,7 +339,22 @@
 							</Button>
 						{/if}
 					</div>
-					<Button kind="outline" onclick={abort} disabled={loading} {loading}>Cancel</Button>
+					<ReduxResult result={uncommittedFiles.result} {projectId}>
+						{#snippet children(uncommittedFiles, { projectId: _projectId })}
+							{#if uncommittedFiles.length === 0}
+								<Button kind="outline" onclick={() => abort(false)} disabled={loading} {loading}
+									>Abort</Button
+								>
+							{:else}
+								<Button
+									kind="outline"
+									onclick={() => abortModal?.show()}
+									disabled={loading}
+									{loading}>Abort</Button
+								>
+							{/if}
+						{/snippet}
+					</ReduxResult>
 					<Button
 						testId={TestId.EditModeSaveAndExitButton}
 						style="pop"

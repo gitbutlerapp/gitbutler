@@ -102,7 +102,7 @@ function injectEndpoints(api: ClientState['backendApi']) {
 					]
 				}
 			),
-			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string }>({
+			abortEditAndReturnToWorkspace: build.mutation<void, { projectId: string; force: boolean }>({
 				extraOptions: { command: 'abort_edit_and_return_to_workspace' },
 				query: (args) => args,
 				invalidatesTags: [invalidatesList(ReduxTag.HeadMetadata)]
