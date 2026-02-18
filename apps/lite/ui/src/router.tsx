@@ -1,4 +1,5 @@
 import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
+import type { ProjectForFrontend } from '@gitbutler/but-sdk';
 
 function RootLayout(): React.JSX.Element {
 	return (
@@ -9,14 +10,6 @@ function RootLayout(): React.JSX.Element {
 	);
 }
 
-function HomePage(): React.JSX.Element {
-	return (
-		<section>
-			<p>Electron + Vite + TanStack Router scaffold is ready.</p>
-		</section>
-	);
-}
-
 const rootRoute = createRootRoute({
 	component: RootLayout
 });
@@ -24,8 +17,40 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: '/',
-	component: HomePage
+	component: HomePage,
+	loader: async () => {
+		const projects = await window.lite.listProjects();
+		return { projects };
+	}
 });
+
+function HomePage(): React.JSX.Element {
+	const { projects } = indexRoute.useLoaderData();
+	return (
+		<section>
+			<p>Electron + Vite + TanStack Router scaffold is ready.</p>
+			<h2>Projects list</h2>
+			<ProjectsList projects={projects} />
+		</section>
+	);
+}
+
+interface ProjectsListProps {
+	projects: ProjectForFrontend[];
+}
+
+function ProjectsList(props: ProjectsListProps) {
+	if (props.projects.length === 0) {
+		return <p> no projects :(</p>;
+	}
+	return (
+		<div>
+			{props.projects.map((project) => (
+				<p key={project.id}>{project.title}</p>
+			))}
+		</div>
+	);
+}
 
 const routeTree = rootRoute.addChildren([indexRoute]);
 

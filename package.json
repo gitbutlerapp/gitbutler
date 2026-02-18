@@ -70,7 +70,22 @@
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"@prisma/client"
+			"@ffmpeg-installer/darwin-arm64",
+			"@prisma/client",
+			"core-js",
+			"electron",
+			"electron-winstaller"
+		],
+		"ignoredBuiltDependencies": [
+			"@parcel/watcher",
+			"@sentry/cli",
+			"cypress",
+			"edgedriver",
+			"esbuild",
+			"geckodriver",
+			"leveldown",
+			"playwright-webkit",
+			"unrs-resolver"
 		]
 	}
 }

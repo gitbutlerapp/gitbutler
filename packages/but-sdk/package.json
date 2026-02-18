@@ -45,19 +45,19 @@
 		"ts-node": "^10.9.2"
 	},
 	"files": [
-		"index.js",
-		"index.d.ts",
-		"*.node"
+		"./src/generated/index.js",
+		"./src/generated/index.d.ts",
+		"./src/generated/*.node"
 	],
 	"exports": {
 		".": {
 			"import": {
-				"types": "./index.d.ts",
-				"default": "./index.js"
+				"types": "./src/generated/index.d.ts",
+				"default": "./src/generated/index.js"
 			},
 			"require": {
-				"types": "./index.d.ts",
-				"default": "./index.js"
+				"types": "./src/generated/index.d.ts",
+				"default": "./src/generated/index.js"
 			}
 		}
 	}

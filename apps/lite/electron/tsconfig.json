@@ -7,7 +7,7 @@
 		"sourceMap": true,
 		"outDir": "../dist/electron",
 		"rootDir": "./src",
-		"verbatimModuleSyntax": true,
+		"verbatimModuleSyntax": false,
 		"baseUrl": "./src",
 		"paths": {
 			"@electron/*": ["./*"]
