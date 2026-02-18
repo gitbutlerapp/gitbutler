@@ -48,6 +48,16 @@ If you talked it over with us, and we agree that it's something we would take,
 please do the familiar GitHub dance of forking the repository and submitting
 a Pull Request, so we can review and possibly merge it.
 
+## Signed Commits Are Required
+
+To help keep contributions secure and traceable, all commits in pull requests
+must be signed and show as **Verified** on GitHub.
+If a commit is unsigned, we may ask you to re-sign or rewrite it before review
+or merge.
+
+If you have not set up commit signing yet, start here:
+[About commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification)
+
 Any contributions sent to us implicitly give us the right to redistribute that
 work under the same license and rights.
 
