@@ -242,13 +242,14 @@
 	/* ERROR BLOCK */
 	.info-message__error-block {
 		max-height: 350px;
-		padding: 10px 10px 0;
+		padding: 10px;
 		overflow: auto;
 		border-radius: var(--radius-s);
 		background-color: var(--clr-theme-danger-bg);
 		color: var(--clr-theme-danger-text);
 		font-size: 12px;
-		white-space: pre;
+		white-space: pre-wrap;
+		overflow-wrap: break-word;
 		user-select: text;
 
 		/* selection */
