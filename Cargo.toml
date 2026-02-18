@@ -45,6 +45,8 @@ members = [
     "crates/but-path",              # 📄Provide paths interesting to the application, with global redirects for testing.
     # 👉Lacks docs and tests, and overview, but still useful and simple enough to 'just works'
     "crates/but-serde",             # 📄Serde attributes for ser-de of custom datatypes.
+    # 👉Lacks docs and tests. Centralized simple utility schema generation modules.
+    "crates/but-schemars",          # 📄`schemars` json schema generation utilities.
     # 👉Feels overengingeered, uses `but-ctx` and legacy crates.
     "crates/but-worktrees",         # 📄Worktree creation and removal;
     # 👉Could be exemplary after review.
@@ -165,6 +167,7 @@ but-github = { path = "crates/but-github" }
 but-gitlab = { path = "crates/but-gitlab" }
 but-error = { path = "crates/but-error" }
 but-serde = { path = "crates/but-serde" }
+but-schemars = { path = "crates/but-schemars" }
 but-update = { path = "crates/but-update" }
 but-installer = { path = "crates/but-installer" }
 but-secret = { path = "crates/but-secret" }

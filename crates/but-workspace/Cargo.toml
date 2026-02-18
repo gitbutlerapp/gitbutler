@@ -20,6 +20,7 @@ legacy = [
     "dep:gitbutler-repo",
 ]
 export-ts = ["dep:ts-rs", "but-core/export-ts"]
+export-schema = ["dep:schemars", "dep:but-schemars"]
 
 [dependencies]
 but-core.workspace = true
@@ -28,14 +29,14 @@ but-rebase.workspace = true
 but-error.workspace = true
 but-serde.workspace = true
 but-oxidize.workspace = true
-but-meta = { workspace = true, features = ["legacy"], optional = true}
-but-ctx = { workspace = true, optional = true}
+but-meta = { workspace = true, features = ["legacy"], optional = true }
+but-ctx = { workspace = true, optional = true }
 
-gitbutler-stack = { workspace = true, optional = true}
-gitbutler-cherry-pick = { workspace = true, optional = true}
-gitbutler-project = { workspace = true, optional = true}
-gitbutler-commit = { workspace = true, optional = true}
-gitbutler-repo = { workspace = true, optional = true}
+gitbutler-stack = { workspace = true, optional = true }
+gitbutler-cherry-pick = { workspace = true, optional = true }
+gitbutler-project = { workspace = true, optional = true }
+gitbutler-commit = { workspace = true, optional = true }
+gitbutler-repo = { workspace = true, optional = true }
 
 anyhow.workspace = true
 bstr.workspace = true
@@ -51,6 +52,8 @@ tracing.workspace = true
 flume = "0.11.1"
 tempfile.workspace = true
 ts-rs = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 # We just want to test everything, with the goal that 'legacy' can one day go away.
