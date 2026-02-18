@@ -407,6 +407,11 @@ enum KeyEditAction {
     Ignore,
 }
 
+/// Map a terminal key event to a normalized line-editing action.
+///
+/// Only `Press` and `Repeat` events are handled; key releases are ignored.
+/// `line_is_empty` is used to model terminal EOF behavior: `Ctrl-D` ends input
+/// only when nothing has been typed on the current line.
 fn key_to_edit_action(key: KeyEvent, line_is_empty: bool) -> KeyEditAction {
     if !matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) {
         return KeyEditAction::Ignore;
