@@ -698,15 +698,17 @@ fn get_pr_title_and_body_from_editor(
     }
 
     // Add instructions as comments
-    template.push_str("\n# PR Title and Description for branch: ");
-    template.push_str(branch_name);
-    template.push_str("\n#\n");
-    template.push_str("# The FIRST LINE of this file will be the PR title.\n");
-    template.push_str("# Everything AFTER the first line will be the PR description.\n");
-    template.push_str("#\n");
-    template.push_str("# Lines starting with '#' will be ignored.\n");
-    template.push_str("# An empty title (first line) aborts the operation.\n");
-    template.push_str("#\n");
+    let mut instructions = format!(
+        "
+# Creating PR for branch: {branch_name}
+
+Save and exit this file to create a PR for branch {branch_name} with the commits detailed below.
+
+The FIRST LINE becomes the title. Leaving it empty ABORTS the operation.
+EVERYTHING ELSE becomes the description.
+HTML comments are stripped before submit.
+"
+    );
 
     // Add commit list with modified files as context
     if let Ok(stack_details) = but_api::legacy::workspace::stack_details(ctx, stack_id)
@@ -716,8 +718,7 @@ fn get_pr_title_and_body_from_editor(
             .find(|h| h.name.to_str().unwrap_or("") == branch_name)
         && !branch.commits.is_empty()
     {
-        template.push_str("# Commits in this PR:\n");
-        template.push_str("#\n");
+        instructions.push_str("\n# Commits in this PR:\n\n");
 
         // Get the repository for diff operations
         let repo = ctx.repo.get()?;
@@ -729,8 +730,8 @@ fn get_pr_title_and_body_from_editor(
                 .next()
                 .and_then(|l| l.to_str().ok())
                 .unwrap_or("");
-            template.push_str(&format!(
-                "# {}. {} ({})\n",
+            instructions.push_str(&format!(
+                "{}. {} ({})\n",
                 idx + 1,
                 commit_title,
                 commit.id.to_hex_with_len(7)
@@ -739,33 +740,39 @@ fn get_pr_title_and_body_from_editor(
             // Get the files modified in this commit
             let parent = commit.parent_ids.first().copied();
             if let Ok(changes) = but_core::diff::TreeChanges::from_trees(&repo, parent, commit.id) {
-                let mut file_paths: Vec<String> = changes
+                let mut changes: Vec<String> = changes
                     .0
                     .iter()
                     .map(|change| {
                         let tree_change: but_core::TreeChange = change.clone().into();
-                        tree_change.path.to_string()
+                        let status = match tree_change.status.kind() {
+                            but_core::TreeStatusKind::Addition => "A",
+                            but_core::TreeStatusKind::Deletion => "D",
+                            but_core::TreeStatusKind::Modification => "M",
+                            but_core::TreeStatusKind::Rename => "R",
+                        };
+                        format!("{status} {}", tree_change.path)
                     })
                     .collect();
-                file_paths.sort();
+                changes.sort();
 
-                if !file_paths.is_empty() {
-                    template.push_str("#    Modified files:\n");
-                    for file in file_paths.iter().take(10) {
-                        template.push_str(&format!("#      - {file}\n"));
+                if !changes.is_empty() {
+                    for change in changes.iter().take(10) {
+                        instructions.push_str(&format!("    - {change}\n"));
                     }
-                    if file_paths.len() > 10 {
-                        template.push_str(&format!("#      ... and {} more files\n", file_paths.len() - 10));
+                    if changes.len() > 10 {
+                        instructions.push_str(&format!("    ... and {} more files\n", changes.len() - 10));
                     }
                 }
             }
-            template.push_str("#\n");
         }
     }
-    template.push_str("#\n");
 
-    let content = get_text::from_editor_no_comments("pr_message", &template)?.to_string();
-    let message = parse_review_message(&content)?;
+    template.push_str(&format!("<!-- GITBUTLER INSTRUCTIONS{instructions}-->"));
+
+    let content = get_text::from_editor("pr_message", &template, ".md")?.to_string();
+    let content_without_comments = get_text::strip_html_comments(&content);
+    let message = parse_review_message(&content_without_comments)?;
     Ok((message.title, message.body))
 }
 
