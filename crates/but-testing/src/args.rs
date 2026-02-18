@@ -132,7 +132,7 @@ pub enum Subcommands {
     },
     Watch {
         /// How to watch the current working directory.
-        #[clap(long, short = 'm', value_parser = ["legacy", "modern", "auto"], env = "GITBUTLER_WATCH_MODE")]
+        #[clap(long, short = 'm', value_parser = ["legacy", "modern"], env = "GITBUTLER_WATCH_MODE")]
         mode: Option<String>,
     },
     WatchDb,
