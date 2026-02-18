@@ -1,0 +1,15 @@
+[package]
+name = "cli-prompts"
+version = "0.1.0"
+description = "Interactive prompts for the command line"
+repository = "https://github.com/Melesar/cli-prompts"
+edition = "2021"
+license = "MIT"
+readme = "README.md"
+categories = ["command-line-utilities"]
+
+[dependencies]
+crossterm = "0.28"
+
+[lints]
+workspace = true
