@@ -3,9 +3,9 @@ description: Prepare Node.js Environment
 runs:
   using: 'composite'
   steps:
-    - uses: pnpm/action-setup@v4
+    - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
       name: Install pnpm
-    - uses: actions/setup-node@v4
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
       name: Setup node
       with:
         cache: pnpm
