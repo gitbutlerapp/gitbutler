@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::default_true::DefaultTrue;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum AuthKey {
     GitCredentialsHelper,
@@ -22,6 +23,7 @@ pub enum AuthKey {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct ApiProject {
     pub name: String,
     pub description: Option<String>,
@@ -43,6 +45,7 @@ pub struct ApiProject {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub enum FetchResult {
     Fetched { timestamp: time::SystemTime },
@@ -58,8 +61,10 @@ impl FetchResult {
 }
 
 #[derive(Debug, Deserialize, Serialize, Copy, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct CodePushState {
     #[serde(with = "but_serde::oid")]
+    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::oid"))]
     pub id: git2::Oid,
     pub timestamp: time::SystemTime,
 }
@@ -67,9 +72,11 @@ pub struct CodePushState {
 pub type ProjectId = but_core::Id<'P'>;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct Project {
     // TODO: We shouldn't need these IDs and most definitely shouldn't persist them.
     //       A project is a `git_dir`, and from there all other project data can be derived.
+    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::project_id"))]
     pub id: ProjectId,
     pub title: String,
     pub description: Option<String>,
@@ -95,6 +102,7 @@ pub struct Project {
     /// if ok_with_force_push is true, we'll not try to avoid force pushing
     /// for example, when updating base branch
     #[serde(default)]
+    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::default_true"))]
     pub ok_with_force_push: DefaultTrue,
     /// Force push protection uses safer force push flags instead of doing straight force pushes
     #[serde(default)]

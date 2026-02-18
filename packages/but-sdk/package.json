@@ -11,7 +11,7 @@
 		"build": "pnpm build:napi && pnpm build:types",
 		"build:debug": "napi build --platform --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir . --verbose",
 		"prepublishOnly": "napi prepublish -t npm",
-		"test": "node --test test/*.test.js",
+		"testTypes": "ts-node ./src/test.ts",
 		"universal": "napi universal"
 	},
 	"napi": {
@@ -41,7 +41,8 @@
 		"node": ">= 18"
 	},
 	"devDependencies": {
-		"@napi-rs/cli": "^3.5.1"
+		"@napi-rs/cli": "^3.5.1",
+		"ts-node": "^10.9.2"
 	},
 	"files": [
 		"index.js",

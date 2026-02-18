@@ -79,6 +79,7 @@ pub fn log_target_first_parent(
 }
 /// A filter for the list of stacks.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub enum StacksFilter {
     /// Show all stacks
     All,

@@ -38,7 +38,7 @@ pub fn get_project(project_id: ProjectId, no_validation: Option<bool>) -> Result
     }
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFrontend>> {
     gitbutler_project::assure_app_can_startup_or_fix_it(
@@ -77,6 +77,7 @@ pub fn is_gerrit(ctx: &but_ctx::Context) -> Result<bool> {
 }
 
 #[derive(serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct ProjectForFrontend {
     #[serde(flatten)]
     pub inner: gitbutler_project::api::Project,

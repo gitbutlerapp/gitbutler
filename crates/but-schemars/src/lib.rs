@@ -27,3 +27,15 @@ pub fn ref_full_name(generate: &mut schemars::SchemaGenerator) -> schemars::Sche
 pub fn url(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<String>()
 }
+
+pub fn project_id(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+pub fn default_true(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<bool>()
+}
+
+pub fn oid(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
