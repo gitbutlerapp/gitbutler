@@ -17,6 +17,14 @@ Usable output goes to `out: &mut OutputChannel`
   - Single-line statements: replace `let _ = ...;` with `....ok();`, but ensure the statement remains on a single line after formatting.
   - Multi-line statements: use `_ = ` instead of `let _ = ` and keep the rest unchanged.
 
+### Stdin
+
+* Do not read from `std::io::stdin()` directly in command/business logic and *human* input.
+* For free-form terminal input, gate with `out.can_prompt()` *or* collect input via `out.prepare_for_terminal_input()`.
+* Consider using `cli-prompts` for preset choices.
+* For machine/piped input, take a `read: impl std::io::Read` parameter and parse from that reader so tests can inject input.
+* Keep any `stdin().lock()` usage at the top-level CLI wiring only (for example in `lib.rs`), and pass readers downward.
+
 ### Context
 
 - Do not re-discover Git repositories, instead take them as inputs to functions and methods. They can be retrieved from contexed via `ctx.repo.get()?`
