@@ -6,6 +6,7 @@ use cli_prompts::{
 #[derive(Debug)]
 enum CarModel {
     Audi,
+    #[allow(clippy::upper_case_acronyms)]
     BMW,
     Chevrolet,
 }
@@ -55,9 +56,9 @@ fn main() {
     let car = car_selection.display();
     let subjects = subjects_selection.display();
 
-    println!("Name: {:?}", name);
-    println!("Is coffee: {:?}", is_coffee);
-    println!("Dessert: {:?}", dessert);
-    println!("Car: {:?}", car);
-    println!("Subjects: {:?}", subjects);
+    println!("Name: {name:?}");
+    println!("Is coffee: {is_coffee:?}");
+    println!("Dessert: {dessert:?}");
+    println!("Car: {car:?}");
+    println!("Subjects: {subjects:?}");
 }

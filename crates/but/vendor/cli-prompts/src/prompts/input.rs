@@ -111,10 +111,10 @@ where
         if let Some(error) = self.error.as_ref() {
             self.style
                 .error_formatting
-                .print(format!("[{}]", error), commands);
+                .print(format!("[{error}]"), commands);
         } else if self.is_submitted {
             self.style.submitted_formatting.print(&self.input, commands);
-        } else if self.is_first_input && self.input.len() > 0 {
+        } else if self.is_first_input && !self.input.is_empty() {
             self.style
                 .default_value_formatting
                 .print(format!("[{}]", self.input), commands);
@@ -125,7 +125,7 @@ where
         if let Some(help_message) = self.help_message.as_ref() {
             self.style
                 .help_message_formatting
-                .print(format!("[{}]", help_message), commands);
+                .print(format!("[{help_message}]"), commands);
         }
     }
 

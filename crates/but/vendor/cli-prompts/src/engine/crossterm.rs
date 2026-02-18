@@ -225,24 +225,6 @@ impl From<KeyEvent> for Key {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crossterm::event::KeyCode;
-
-    #[test]
-    fn maps_ctrl_c_to_ctrl_key_variant() {
-        let key_event = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
-        assert_eq!(Key::from(key_event), Key::Ctrl('c'));
-    }
-
-    #[test]
-    fn keeps_esc_mapping_intact() {
-        let key_event = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
-        assert_eq!(Key::from(key_event), Key::Esc);
-    }
-}
-
 impl From<Color> for Cc {
     fn from(value: Color) -> Self {
         match value {
@@ -266,5 +248,23 @@ impl From<Color> for Cc {
             Color::Rgb { r, g, b } => Cc::Rgb { r, g, b },
             Color::AnsiValue(c) => Cc::AnsiValue(c),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::KeyCode;
+
+    #[test]
+    fn maps_ctrl_c_to_ctrl_key_variant() {
+        let key_event = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert_eq!(Key::from(key_event), Key::Ctrl('c'));
+    }
+
+    #[test]
+    fn keeps_esc_mapping_intact() {
+        let key_event = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+        assert_eq!(Key::from(key_event), Key::Esc);
     }
 }

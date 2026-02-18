@@ -2,9 +2,9 @@
 //!
 //! It consists of the multiple traits:
 //! - `Engine` trait, that represents the backend which draws content on the
-//! screen and handles the input;
+//!   screen and handles the input;
 //! - `CommandBuffer` trait that represents the set of rendering commands to display
-//! the given prompt.
+//!   the given prompt.
 //! - `Clear` trait that is complemetary to the `CommandBuffer` and allows to clear its contents
 //!
 //! Submodules are meant to implement the above traits using terminal manipulation libraries

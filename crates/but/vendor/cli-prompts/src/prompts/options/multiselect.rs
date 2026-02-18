@@ -191,7 +191,7 @@ impl<T> Prompt<Vec<T>> for Multiselect<T> {
                         self.selected_options.push(selected_option_index);
                     }
 
-                    if self.filter.len() > 0 {
+                    if !self.filter.is_empty() {
                         self.filter.clear();
                         self.options.filter(&self.filter);
                         self.currently_selected_index = 0;
@@ -204,13 +204,13 @@ impl<T> Prompt<Vec<T>> for Multiselect<T> {
                     EventOutcome::Continue
                 }
             }
-            Key::Backspace if self.filter.len() > 0 => {
+            Key::Backspace if !self.filter.is_empty() => {
                 self.filter.pop();
                 self.options.filter(&self.filter);
                 self.currently_selected_index = 0;
                 EventOutcome::Continue
             }
-            Key::Enter if self.selected_options.len() > 0 => {
+            Key::Enter if !self.selected_options.is_empty() => {
                 self.is_submitted = true;
                 self.selected_options.sort();
 

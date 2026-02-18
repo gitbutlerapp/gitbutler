@@ -161,7 +161,7 @@ impl<T> Prompt<T> for Selection<T> {
                 self.current_selection = 0;
                 EventOutcome::Continue
             }
-            Key::Backspace if self.current_filter.len() > 0 => {
+            Key::Backspace if !self.current_filter.is_empty() => {
                 self.current_filter.pop();
                 self.options.filter(&self.current_filter);
                 self.current_selection = 0;
@@ -175,7 +175,7 @@ impl<T> Prompt<T> for Selection<T> {
                 self.current_selection += 1;
                 EventOutcome::Continue
             }
-            Key::Enter if self.options.filtered_options().len() > 0 => {
+            Key::Enter if !self.options.filtered_options().is_empty() => {
                 self.is_submitted = true;
                 let selected_option_index = self.options.filtered_options()[self.current_selection];
                 let result = self.options.all_options_mut().remove(selected_option_index);

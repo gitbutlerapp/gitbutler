@@ -95,9 +95,9 @@ pub trait Prompt<TOut> {
     /// outcome of the keypress:
     /// - EventOutcome::Continue - the input was handled and the prompt should continue displaying
     /// - EventOutcome::Done(TOut) - the prompt has successfully completed. Pass the result as the
-    /// enum's field
+    ///   enum's field
     /// - EventOutcome::Abort(AbortReason) - the prompt has finished abruptly. Specify a reason in
-    /// the enum's field
+    ///   the enum's field
     fn on_key_pressed(&mut self, key: Key) -> EventOutcome<TOut>;
 }
 

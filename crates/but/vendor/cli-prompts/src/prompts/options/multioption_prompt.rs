@@ -44,14 +44,12 @@ pub trait MultiOptionPrompt<T> {
         let max_options_count: usize = self.max_options_count().into();
         let mut start_from = self
             .currently_selected_index()
-            .checked_sub(max_options_count / 2)
-            .unwrap_or(0);
+            .saturating_sub(max_options_count / 2);
         start_from = start_from.min(
             self.options()
                 .filtered_options()
                 .len()
-                .checked_sub(max_options_count)
-                .unwrap_or(0),
+                .saturating_sub(max_options_count),
         );
 
         let displayed_option_indices = self

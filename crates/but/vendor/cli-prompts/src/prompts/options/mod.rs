@@ -9,20 +9,16 @@ pub struct Options<T> {
     filtered_options: Vec<usize>,
 }
 
-impl<T> Options<T>
+impl<T> std::iter::FromIterator<T> for Options<T>
 where
     T: Into<String> + Clone,
 {
-    /// Create `Options` from an iterator over a type that is convertable to `String`
-    pub fn from_iter<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = T>,
-    {
-        let options: Vec<T> = iter.collect();
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let options: Vec<T> = iter.into_iter().collect();
         let options_count = options.len();
         Options {
             all_options: options.clone(),
-            transformed_options: options.into_iter().map(|s| s.into()).collect(),
+            transformed_options: options.into_iter().map(|s: T| s.into()).collect(),
             filtered_options: (0..options_count).collect(),
         }
     }

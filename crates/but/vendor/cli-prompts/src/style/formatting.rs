@@ -25,7 +25,7 @@ pub enum FormattingOption {
 /// - Color of the text
 /// - Color of the background
 /// - Text formatting options
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Formatting {
     /// Text color
     pub foreground_color: Option<Color>,
@@ -35,16 +35,6 @@ pub struct Formatting {
 
     /// List of formatting options
     pub text_formatting: Vec<FormattingOption>,
-}
-
-impl Default for Formatting {
-    fn default() -> Self {
-        Formatting {
-            foreground_color: None,
-            background_color: None,
-            text_formatting: vec![],
-        }
-    }
 }
 
 impl Formatting {

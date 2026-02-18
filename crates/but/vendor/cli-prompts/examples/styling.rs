@@ -7,7 +7,7 @@ use cli_prompts::{
 };
 
 fn name_validation(input: &str) -> std::result::Result<String, String> {
-    if input.len() > 0 {
+    if !input.is_empty() {
         Ok(input.to_string())
     } else {
         Err(String::from("Name must not be empty"))
@@ -44,8 +44,8 @@ fn main() -> Result<()> {
         )
         .display();
 
-    println!("Name: {:?}", name);
-    println!("Coffee: {:?}", coffee);
+    println!("Name: {name:?}");
+    println!("Coffee: {coffee:?}");
 
     Ok(())
 }
