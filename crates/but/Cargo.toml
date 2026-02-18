@@ -122,6 +122,7 @@ tracing-subscriber = { workspace = true, features = [
 ] }
 tracing-forest.workspace = true
 cli-prompts = "0.1.0"
+rustyline = "15.0.0"
 dirs.workspace = true
 minus = { version = "5.6.1", default-features = false, features = [
     "static_output",

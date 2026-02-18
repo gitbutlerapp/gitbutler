@@ -1,6 +1,7 @@
 use std::io::{IsTerminal, Write};
 
 use minus::ExitStrategy;
+use rustyline::error::ReadlineError;
 
 use crate::{args::OutputFormat, utils::json_pretty_to_stdout};
 
@@ -157,7 +158,7 @@ impl OutputChannel {
             tracing::warn!("Stdin is a terminal, and output wasn't configured for human consumption");
             return None;
         }
-        Some(InputOutputChannel { out: self, stdin })
+        Some(InputOutputChannel { out: self })
     }
 }
 
@@ -245,7 +246,6 @@ impl std::fmt::Write for OutputChannel {
 /// A channel to obtain various kinds of user input from a terminal, bypassing the pager.
 pub struct InputOutputChannel<'out> {
     out: &'out mut OutputChannel,
-    stdin: std::io::Stdin,
 }
 
 impl std::fmt::Write for InputOutputChannel<'_> {
@@ -257,6 +257,19 @@ impl std::fmt::Write for InputOutputChannel<'_> {
 }
 
 impl InputOutputChannel<'_> {
+    fn readline(&mut self, prompt: &str) -> anyhow::Result<ReadlineInput> {
+        let mut editor = rustyline::DefaultEditor::new()?;
+        let line = match editor.readline(prompt) {
+            Ok(line) => line.trim().to_owned(),
+            Err(ReadlineError::Eof | ReadlineError::Interrupted) => return Ok(ReadlineInput::EndOfInput),
+            Err(err) => return Err(err.into()),
+        };
+        if line.is_empty() {
+            return Ok(ReadlineInput::Empty);
+        }
+        Ok(ReadlineInput::Text(line))
+    }
+
     /// Prompt a non-empty string from the user, or `None` if the input was
     /// empty.
     ///
@@ -270,19 +283,10 @@ impl InputOutputChannel<'_> {
     /// // >
     /// ```
     pub fn prompt(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<Option<String>> {
-        use std::fmt::Write;
-        let prompt = prompt.as_ref();
-        writeln!(self, "{prompt}")?;
-        write!(self, "> ")?;
-        std::io::Write::flush(&mut self.out.stdout)?;
-
-        let mut input = String::new();
-        self.stdin.read_line(&mut input)?;
-        let input = input.trim().to_owned();
-        if input.is_empty() {
-            return Ok(None);
-        }
-        Ok(Some(input))
+        Ok(match self.readline(&format!("{}\n> ", prompt.as_ref()))? {
+            ReadlineInput::Text(line) => Some(line),
+            ReadlineInput::Empty | ReadlineInput::EndOfInput => None,
+        })
     }
 
     /// Prompt for y/n confirmation with a default value. Automatically appends
@@ -296,29 +300,24 @@ impl InputOutputChannel<'_> {
     /// // Are you sure you want to do this? [Y/n]:
     /// ```
     pub fn confirm(&mut self, prompt: impl AsRef<str>, default: ConfirmDefault) -> anyhow::Result<Confirm> {
-        use std::fmt::Write;
         let suffix = match default {
             ConfirmDefault::Yes => "[Y/n]",
             ConfirmDefault::No => "[y/N]",
         };
-        write!(self, "{} {}: ", prompt.as_ref(), suffix)?;
-        std::io::Write::flush(&mut self.out.stdout)?;
-
-        let mut input = String::new();
-        self.stdin.read_line(&mut input)?;
-        let input = input.trim().to_lowercase();
-
-        if input.is_empty() {
-            return Ok(match default {
+        match self.readline(&format!("{} {}: ", prompt.as_ref(), suffix))? {
+            ReadlineInput::Text(input) => {
+                if input.to_lowercase().starts_with('y') {
+                    Ok(Confirm::Yes)
+                } else {
+                    Ok(Confirm::No)
+                }
+            }
+            ReadlineInput::Empty => Ok(match default {
                 ConfirmDefault::Yes => Confirm::Yes,
                 ConfirmDefault::No => Confirm::No,
-            });
-        }
-
-        if input.starts_with('y') {
-            Ok(Confirm::Yes)
-        } else {
-            Ok(Confirm::No)
+            }),
+            // Ctrl-D/Ctrl-C should not auto-accept a default action.
+            ReadlineInput::EndOfInput => Ok(Confirm::No),
         }
     }
 
@@ -332,24 +331,23 @@ impl InputOutputChannel<'_> {
     /// // Are you sure you want to do this? [y/n]:
     /// ```
     pub fn confirm_no_default(&mut self, prompt: impl AsRef<str>) -> anyhow::Result<ConfirmOrEmpty> {
-        use std::fmt::Write;
-        write!(self, "{} [y/n]: ", prompt.as_ref())?;
-        std::io::Write::flush(&mut self.out.stdout)?;
-
-        let mut input = String::new();
-        self.stdin.read_line(&mut input)?;
-        let input = input.trim().to_lowercase();
-
-        if input.is_empty() {
-            return Ok(ConfirmOrEmpty::NoInput);
-        }
-
-        if input.starts_with('y') {
-            Ok(ConfirmOrEmpty::Yes)
-        } else {
-            Ok(ConfirmOrEmpty::No)
+        match self.readline(&format!("{} [y/n]: ", prompt.as_ref()))? {
+            ReadlineInput::Text(input) => {
+                if input.to_lowercase().starts_with('y') {
+                    Ok(ConfirmOrEmpty::Yes)
+                } else {
+                    Ok(ConfirmOrEmpty::No)
+                }
+            }
+            ReadlineInput::Empty | ReadlineInput::EndOfInput => Ok(ConfirmOrEmpty::NoInput),
         }
     }
+}
+
+enum ReadlineInput {
+    Text(String),
+    Empty,
+    EndOfInput,
 }
 
 /// Be sure to flush everything written after the prompt as well - the output channel may be buffered.
