@@ -94,7 +94,7 @@ impl Sandbox {
     /// Like [`Self::init_scenario_with_target_and_default_settings`], Execute the script at `name` instead of
     /// copying it - necessary if Git places absolute paths.
     pub fn init_scenario_with_target_and_default_settings_slow(name: &str) -> anyhow::Result<Sandbox> {
-        Self::open_or_init_scenario_with_target_inner(name, Creation::ExecuteScript, InitMetadata::Allow)
+        Self::open_or_init_scenario_with_target_inner(name, Creation::Execute, InitMetadata::Allow)
     }
 
     fn open_or_init_scenario_with_target_inner(

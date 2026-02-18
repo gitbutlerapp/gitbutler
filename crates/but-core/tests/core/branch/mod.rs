@@ -11,7 +11,7 @@ mod safe_delete {
         let root = gix_testtools::scripted_fixture_writable_with_args(
             "delete-references.sh",
             None::<String>,
-            Creation::ExecuteScript,
+            Creation::Execute,
         )
         .map_err(anyhow::Error::from_boxed)?;
         let repo = gix::open_opts(root.path().join("prime"), gix::open::Options::isolated())?;

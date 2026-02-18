@@ -194,7 +194,7 @@ rusqlite = { version = "0.38.0", features = ["bundled"] }
 backoff = "0.4.0"
 bstr = "1.12.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { version = "0.78.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
+gix = { version = "0.79.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main", default-features = false, features = [] }
 gix-testtools = { version = "0.18.0", git = "https://github.com/GitoxideLabs/gitoxide", branch = "main" }
 
 ts-rs = { version = "11.1.0", features = ["serde-compat", "no-serde-warnings"] }
