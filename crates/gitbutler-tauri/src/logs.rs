@@ -5,7 +5,7 @@ use tracing::{Level, instrument, metadata::LevelFilter, subscriber::set_global_d
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{Layer, filter::filter_fn, fmt::format::FmtSpan, layer::SubscriberExt};
 
-pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) {
+pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool, tokio_console_enabled: bool) {
     fs::create_dir_all(logs_dir).expect("failed to create logs dir");
 
     let log_prefix = "GitButler";
@@ -40,9 +40,8 @@ pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) 
     let log_level = log_level_filter.into_level();
 
     let use_colors_in_logs = cfg!(not(feature = "windows"));
-    let subscriber = tracing_subscriber::registry()
-        .with(
-            // subscriber for https://github.com/tokio-rs/console
+    let console_layer = if tokio_console_enabled {
+        Some(
             console_subscriber::ConsoleLayer::builder()
                 .server_addr(get_server_addr(app_handle))
                 .retention(Duration::from_secs(3600)) // 1h
@@ -50,15 +49,18 @@ pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool) 
                 .recording_path(logs_dir.join("tokio-console"))
                 .spawn(),
         )
-        .with(
-            // subscriber that writes spans to a file
-            tracing_subscriber::fmt::layer()
-                .event_format(format_for_humans.clone())
-                .with_ansi(false)
-                .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-                .with_writer(file_writer)
-                .with_filter(filter_fn(move |meta| should_log(log_level, meta))),
-        );
+    } else {
+        None
+    };
+    let subscriber = tracing_subscriber::registry().with(console_layer).with(
+        // subscriber that writes spans to a file
+        tracing_subscriber::fmt::layer()
+            .event_format(format_for_humans.clone())
+            .with_ansi(false)
+            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+            .with_writer(file_writer)
+            .with_filter(filter_fn(move |meta| should_log(log_level, meta))),
+    );
     if performance_logging {
         set_global_default(
             subscriber.with(
