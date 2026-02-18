@@ -8,6 +8,7 @@
 use std::fs;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::process::Command;
 
 use anyhow::Result;
 use gitbutler_repo::managed_hooks::{HookInstallationResult, install_managed_hooks, uninstall_managed_hooks};
@@ -42,6 +43,17 @@ fn hook_exists(repo: &git2::Repository, hook_name: &str) -> bool {
 fn read_hook(repo: &git2::Repository, hook_name: &str) -> Result<String> {
     let path = repo.path().join("hooks").join(hook_name);
     Ok(fs::read_to_string(path)?)
+}
+
+fn run_git(repo: &git2::Repository, args: &[&str]) -> Result<std::process::Output> {
+    let output = Command::new("git").arg("-C").arg(repo.workdir().expect("non-bare")).args(args).output()?;
+    anyhow::ensure!(
+        output.status.success(),
+        "git {} failed: {}",
+        args.join(" "),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(output)
 }
 
 /// Helper to check if hook is executable on Unix
@@ -480,5 +492,48 @@ fn test_concurrent_installs_with_backup_present() -> Result<()> {
 
     let backup = read_hook(&repo, "pre-commit-user")?;
     assert_eq!(backup, backup_content, "Existing backup should not be modified");
+    Ok(())
+}
+
+#[test]
+fn test_direct_checkout_restores_and_runs_user_hooks() -> Result<()> {
+    let (_temp, repo) = create_test_repo()?;
+    let workdir = repo.workdir().expect("non-bare");
+
+    run_git(&repo, &["config", "user.name", "Test User"])?;
+    run_git(&repo, &["config", "user.email", "test@example.com"])?;
+
+    fs::write(workdir.join("tracked.txt"), "base\n")?;
+    run_git(&repo, &["add", "tracked.txt"])?;
+    run_git(&repo, &["commit", "-m", "initial commit"])?;
+
+    let default_branch = String::from_utf8(run_git(&repo, &["branch", "--show-current"])?.stdout)?
+        .trim()
+        .to_owned();
+    run_git(&repo, &["checkout", "-b", "gitbutler/workspace"])?;
+
+    let user_pre_commit_hook =
+        "#!/bin/sh\necho pre-commit-user >> \"$(dirname \"$0\")/hooks-ran\"\n";
+    let user_post_checkout_hook =
+        "#!/bin/sh\necho post-checkout-user >> \"$(dirname \"$0\")/hooks-ran\"\n";
+
+    create_user_hook(&repo, "pre-commit", user_pre_commit_hook)?;
+    create_user_hook(&repo, "post-checkout", user_post_checkout_hook)?;
+    install_managed_hooks(&repo)?;
+
+    run_git(&repo, &["checkout", &default_branch])?;
+
+    assert_eq!(read_hook(&repo, "pre-commit")?, user_pre_commit_hook);
+    assert_eq!(read_hook(&repo, "post-checkout")?, user_post_checkout_hook);
+    assert!(!hook_exists(&repo, "pre-commit-user"));
+    assert!(!hook_exists(&repo, "post-checkout-user"));
+
+    fs::write(workdir.join("tracked.txt"), "updated\n")?;
+    run_git(&repo, &["add", "tracked.txt"])?;
+    run_git(&repo, &["commit", "-m", "commit after checkout"])?;
+
+    let hook_runs = fs::read_to_string(repo.path().join("hooks").join("hooks-ran"))?;
+    assert!(hook_runs.contains("post-checkout-user"), "post-checkout hook should run");
+    assert!(hook_runs.contains("pre-commit-user"), "pre-commit hook should run");
     Ok(())
 }
