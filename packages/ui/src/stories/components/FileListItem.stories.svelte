@@ -159,3 +159,59 @@
 		</div>
 	{/snippet}
 </Story>
+
+<Story name="Notched List">
+	{#snippet template()}
+		<div
+			style="width: 500px; display: flex; flex-direction: column; border: 1px solid var(--clr-border-3); border-radius: var(--radius-m); overflow: hidden;"
+		>
+			<FileListItem
+				filePath="src/components/Sidebar.svelte"
+				fileStatus="modification"
+				fileStatusStyle="dot"
+				clickable={true}
+				notched={true}
+				checked={true}
+				showCheckbox={true}
+			/>
+			<FileListItem
+				filePath="src/lib/api/client.ts"
+				fileStatus="addition"
+				fileStatusStyle="dot"
+				clickable={true}
+				notched={true}
+				checked={false}
+				showCheckbox={true}
+			/>
+			<FileListItem
+				filePath="src/routes/dashboard/+page.svelte"
+				fileStatus="deletion"
+				fileStatusStyle="dot"
+				clickable={true}
+				notched={true}
+				selected={true}
+				active={true}
+				checked={true}
+				showCheckbox={true}
+			/>
+			<FileListItem
+				filePath="src/styles/theme.css"
+				fileStatus="modification"
+				fileStatusStyle="dot"
+				clickable={true}
+				notched={false}
+				checked={true}
+				showCheckbox={true}
+			/>
+			<FileListItem
+				filePath="tests/integration/api.test.ts"
+				fileStatus="rename"
+				fileStatusStyle="dot"
+				clickable={true}
+				notched={false}
+				checked={false}
+				showCheckbox={true}
+			/>
+		</div>
+	{/snippet}
+</Story>
