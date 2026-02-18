@@ -1,14 +1,14 @@
 use anyhow::Context as _;
-use serde_json::Value;
+use snapbox::str;
 
 use crate::utils::{CommandExt as _, Sandbox};
 
-fn status_json(env: &Sandbox) -> anyhow::Result<Value> {
+fn status_json(env: &Sandbox) -> anyhow::Result<serde_json::Value> {
     let output = env.but("--json status").allow_json().output()?;
     serde_json::from_slice(&output.stdout).context("status output should be valid JSON")
 }
 
-fn find_branch<'a>(status: &'a Value, branch_name: &str) -> anyhow::Result<&'a Value> {
+fn find_branch<'a>(status: &'a serde_json::Value, branch_name: &str) -> anyhow::Result<&'a serde_json::Value> {
     status["stacks"]
         .as_array()
         .context("status.stacks should be an array")?
@@ -24,15 +24,11 @@ fn find_branch<'a>(status: &'a Value, branch_name: &str) -> anyhow::Result<&'a V
 }
 
 fn current_branch_name(env: &Sandbox) -> anyhow::Result<String> {
-    let output = std::process::Command::new("git")
-        .arg("-C")
-        .arg(env.projects_root())
-        .arg("rev-parse")
-        .arg("--abbrev-ref")
-        .arg("HEAD")
-        .output()?;
-    anyhow::ensure!(output.status.success(), "failed to read current branch");
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+    let repo = env.open_repo()?;
+    repo.rev_parse_single("HEAD").context("HEAD should resolve")?;
+    repo.head_name()?
+        .map(|name| name.as_ref().shorten().to_string())
+        .context("HEAD should point to a branch")
 }
 
 fn enter_edit_mode_with_conflicted_commit(env: &Sandbox) -> anyhow::Result<()> {
@@ -77,24 +73,12 @@ fn resolve_status_and_finish_work_in_edit_mode() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     enter_edit_mode_with_conflicted_commit(&env)?;
 
-    let status_output = env.but("resolve status").output()?;
-    let status_stderr = String::from_utf8_lossy(&status_output.stderr);
-    anyhow::ensure!(status_output.status.success(), "resolve status should succeed");
-    anyhow::ensure!(
-        !status_stderr.contains("Setup required:"),
-        "resolve status should not fail setup checks"
-    );
+    env.but("resolve status").assert().success().stderr_eq(str![""]);
 
     env.file("test-file.txt", "resolved content\n");
     env.invoke_git("add test-file.txt");
 
-    let finish_output = env.but("resolve finish").output()?;
-    let finish_stderr = String::from_utf8_lossy(&finish_output.stderr);
-    anyhow::ensure!(finish_output.status.success(), "resolve finish should succeed");
-    anyhow::ensure!(
-        !finish_stderr.contains("Setup required:"),
-        "resolve finish should not fail setup checks"
-    );
+    env.but("resolve finish").assert().success().stderr_eq(str![""]);
 
     assert_eq!(current_branch_name(&env)?, "gitbutler/workspace");
     Ok(())
@@ -105,14 +89,7 @@ fn resolve_cancel_works_in_edit_mode() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("one-stack")?;
     enter_edit_mode_with_conflicted_commit(&env)?;
 
-    let cancel_output = env.but("resolve cancel --force").output()?;
-    let cancel_stderr = String::from_utf8_lossy(&cancel_output.stderr);
-    anyhow::ensure!(cancel_output.status.success(), "resolve cancel should succeed");
-    anyhow::ensure!(
-        !cancel_stderr.contains("Setup required:"),
-        "resolve cancel should not fail setup checks"
-    );
-
+    env.but("resolve cancel --force").assert().stderr_eq(str![""]).success();
     assert_eq!(current_branch_name(&env)?, "gitbutler/workspace");
     Ok(())
 }
