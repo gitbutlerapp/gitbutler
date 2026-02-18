@@ -153,7 +153,7 @@ dependencies = [
  "anstyle-lossy",
  "anstyle-parse",
  "html-escape",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -802,12 +802,12 @@ dependencies = [
  "insta",
  "itertools",
  "machine-uid",
- "minus",
  "nonempty",
  "posthog-rs",
  "ratatui",
  "regex",
  "rmcp",
+ "sapling-streampager",
  "schemars 1.2.1",
  "self_cell",
  "serde",
@@ -822,7 +822,7 @@ dependencies = [
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -3017,6 +3017,18 @@ name = "endi"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "66b7e2430c6dff6a955451e2cfc438f09cea1965a9d6f87f7e3b90decc014099"
+
+[[package]]
+name = "enum_dispatch"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa18ce2bc66555b3218614519ac839ddb759a7d6720732f979ef8d13be147ecd"
+dependencies = [
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
 
 [[package]]
 name = "enumflags2"
@@ -6605,19 +6617,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minus"
-version = "5.6.1"
-source = "git+https://github.com/arijit79/minus?rev=57f1848f831d153a10d65060562ce1fdde938a01#57f1848f831d153a10d65060562ce1fdde938a01"
-dependencies = [
- "crossbeam-channel",
- "crossterm",
- "parking_lot",
- "regex",
- "textwrap",
- "thiserror 2.0.18",
-]
-
-[[package]]
 name = "mio"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8379,7 +8378,7 @@ dependencies = [
  "thiserror 2.0.18",
  "unicode-segmentation",
  "unicode-truncate",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -8430,7 +8429,7 @@ dependencies = [
  "strum",
  "time",
  "unicode-segmentation",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
 
 [[package]]
@@ -8973,6 +8972,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "sapling-streampager"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17810e56620c313aa7ee8b1ffcd6b148e84061a9f80fbc609df0495c4b4a6172"
+dependencies = [
+ "dirs 6.0.0",
+ "enum_dispatch",
+ "lru",
+ "memmap2",
+ "regex",
+ "scopeguard",
+ "serde",
+ "smallvec",
+ "terminfo",
+ "termwiz",
+ "thiserror 2.0.18",
+ "unicode-segmentation",
+ "unicode-width 0.1.14",
+ "vec_map",
 ]
 
 [[package]]
@@ -10580,15 +10601,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "textwrap"
-version = "0.16.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
-dependencies = [
- "unicode-width",
-]
-
-[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11287,8 +11299,14 @@ checksum = "16b380a1238663e5f8a691f9039c73e1cdae598a30e9855f541d29b08b53e9a5"
 dependencies = [
  "itertools",
  "unicode-segmentation",
- "unicode-width",
+ "unicode-width 0.2.2",
 ]
+
+[[package]]
+name = "unicode-width"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
 
 [[package]]
 name = "unicode-width"
@@ -11393,6 +11411,12 @@ name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
+
+[[package]]
+name = "vec_map"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
 
 [[package]]
 name = "version-compare"
