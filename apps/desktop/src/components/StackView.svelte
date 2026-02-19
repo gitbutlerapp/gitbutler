@@ -410,14 +410,14 @@
 >
 	<ReduxResult
 		projectId={stableProjectId}
-		result={combineResults(branchesQuery.result, hasRulesToClear.result)}
+		result={combineResults(branchesQuery.result, hasRulesToClear.result, claudeConfigQuery.result)}
 	>
 		{#snippet loading()}
 			<div style:width="{$persistedStackWidth}rem" class="lane-skeleton">
 				<FullviewLoading />
 			</div>
 		{/snippet}
-		{#snippet children([branches, hasRulesToClear])}
+		{#snippet children([branches, hasRulesToClear, claudeConfig])}
 			<ConfigurableScrollableContainer childrenWrapHeight="100%" enableDragScroll>
 				<div
 					class="stack-view"
@@ -566,7 +566,7 @@
 							sessionId={sessionId.response}
 							{isStackActive}
 							{hasRulesToClear}
-							projectRegistered={claudeConfigQuery.response?.projectRegistered ?? true}
+							projectRegistered={claudeConfig.projectRegistered}
 							onRetryConfig={async () => {
 								await claudeCodeService.fetchClaudeConfig({ projectId }, { forceRefetch: true });
 							}}

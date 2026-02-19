@@ -483,18 +483,6 @@
 							</p>
 						</div>
 					</ConfigurableScrollableContainer>
-				{:else if !projectRegistered && formattedMessages.length === 0}
-					<ConfigurableScrollableContainer childrenWrapDisplay="contents">
-						<div class="no-agent-placeholder">
-							<div class="no-agent-placeholder__content">
-								{@html noClaudeCodeSvg}
-								<h2 class="text-serif-42">Set up Claude Code</h2>
-								<p class="text-13 text-body clr-text-2">
-									Run <code>claude</code> in this project's directory to finish setting up the integration.
-								</p>
-							</div>
-						</div>
-					</ConfigurableScrollableContainer>
 				{:else if !isStackActive && formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
 						<EmptyStatePlaceholder
