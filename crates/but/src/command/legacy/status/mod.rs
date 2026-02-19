@@ -14,6 +14,7 @@ use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
 use terminal_size::Width;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::{
     CLI_DATE,
@@ -28,18 +29,40 @@ fn terminal_width() -> usize {
     terminal_size::terminal_size().map_or(80, |(Width(w), _)| w as usize)
 }
 
-/// Truncate `text` to fit within `max_width` characters.
-/// If the text is longer, it is truncated and a `…` character is appended.
+// Truncate `text` to fit within `max_width` display columns
+// Uses [`unicode_width`] so that CJK / emoji characters (which occupy
+// two terminal columns each) are measured correctly. When truncation
+// occurs an `…` character (1 column wide) is appended and the total
+// result is guaranteed to be ≤ `max_width` columns
 fn truncate_text(text: &str, max_width: usize) -> String {
-    let char_count = text.chars().count();
-    if char_count <= max_width {
-        text.to_string()
-    } else if max_width > 1 {
-        let truncated: String = text.chars().take(max_width - 1).collect();
-        format!("{truncated}…")
-    } else {
-        "…".to_string()
+    if max_width == 0 {
+        return String::new();
     }
+
+    let mut width = 0;
+    let mut result = String::new();
+
+    for ch in text.chars() {
+        let ch_width = ch.width().unwrap_or(0);
+        if width + ch_width > max_width {
+            // Text will be truncated – reserve 1 column for '…'
+            // Walk back if needed so the ellipsis still fits
+            while width >= max_width {
+                if let Some(last) = result.pop() {
+                    width -= last.width().unwrap_or(0);
+                } else {
+                    break;
+                }
+            }
+            result.push('…');
+            return result;
+        }
+        result.push(ch);
+        width += ch_width;
+    }
+
+    // No truncation needed.
+    result
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -195,13 +218,10 @@ pub(crate) async fn worktree(
                         let commit_id = base_branch.current_sha;
                         repo.find_commit(commit_id.to_gix()).ok().and_then(|commit_obj| {
                             let commit = commit_obj.decode().ok()?;
-                            let commit_message = commit
-                                .message
-                                .to_string()
-                                .replace('\n', " ")
-                                .chars()
-                                .take(30)
-                                .collect::<String>();
+                            let commit_message = {
+                                let raw = commit.message.to_string().replace('\n', " ");
+                                truncate_text(&raw, 30)
+                            };
 
                             let formatted_date = commit.committer().ok()?.time().ok()?.format_or_unix(DATE_ONLY);
 
@@ -344,18 +364,17 @@ pub(crate) async fn worktree(
             {
                 let commits = base_branch.upstream_commits.iter().take(8);
                 for commit in commits {
+                    // Measure prefix width using plain text (no ANSI codes)
+                    let prefix_width = format!("┊● {} ", &commit.id[..7]).width();
+                    let max_msg_width = terminal_width().saturating_sub(prefix_width);
                     writeln!(
                         out,
                         "┊{dot} {} {}",
                         commit.id[..7].yellow(),
-                        commit
-                            .description
-                            .to_string()
-                            .replace('\n', " ")
-                            .chars()
-                            .take(72)
-                            .collect::<String>()
-                            .dimmed()
+                        {
+                            let raw = commit.description.to_string().replace('\n', " ");
+                            truncate_text(&raw, max_msg_width).dimmed()
+                        }
                     )?;
                 }
                 let hidden_commits = base_branch.behind.saturating_sub(8);
@@ -377,16 +396,22 @@ pub(crate) async fn worktree(
     }
 
     let first_line = common_merge_base_data.message.lines().next().unwrap_or("");
-    // The common base prefix is roughly: "┴ <7-char-hash> [<branch>] <date> " which varies
-    // Use a conservative estimate for the fixed-width prefix portion
-    const BASE_PREFIX_ESTIMATE: usize = 40;
-    let max_width = terminal_width().saturating_sub(BASE_PREFIX_ESTIMATE).max(20);
+    let connector = if upstream_state.is_some() { "├╯" } else { "┴" };
+    // Build the prefix so we can measure its exact display width
+    let prefix = format!(
+        "{} {} [{}] {} ",
+        connector,
+        common_merge_base_data.common_merge_base,
+        common_merge_base_data.target_name,
+        common_merge_base_data.commit_date,
+    );
+    let max_width = terminal_width().saturating_sub(prefix.width());
     let display_message = truncate_text(first_line, max_width);
 
     writeln!(
         out,
         "{} {} [{}] {} {}",
-        if upstream_state.is_some() { "├╯" } else { "┴" },
+        connector,
         common_merge_base_data.common_merge_base.dimmed(),
         common_merge_base_data.target_name.green().bold(),
         common_merge_base_data.commit_date.dimmed(),
@@ -791,6 +816,23 @@ fn print_commit(
 
     let upstream_commit = matches!(commit_changes, CommitChanges::Remote(_));
 
+    // Build the plain-text equivalent of the trailing suffix that appears
+    // after details_string: "┊{dot}   {details} {review_url} {mark}".
+    // We intentionally omit ANSI styling — escape codes are invisible and
+    // occupy zero display columns, so plain text gives the correct width.
+    let mut trailing_suffix = String::new();
+    if let Some(r) = &review_url {
+        trailing_suffix.push(' ');
+        trailing_suffix.push('◖');
+        trailing_suffix.push_str(r);
+        trailing_suffix.push('◗');
+    }
+    if marked {
+        trailing_suffix.push(' ');
+        trailing_suffix.push_str("◀ Marked ▶");
+    }
+    let trailing_width = trailing_suffix.width();
+
     let details_string = display_cli_commit_details(
         short_id,
         commit,
@@ -799,6 +841,7 @@ fn print_commit(
             CommitChanges::Remote(tree_changes) => !tree_changes.is_empty(),
         },
         verbose,
+        trailing_width,
     );
     let details_string = if upstream_commit {
         details_string.dimmed().to_string()
@@ -817,11 +860,19 @@ fn print_commit(
                 .unwrap_or_default(),
             mark.unwrap_or_default()
         )?;
-        let message = CommitMessage(commit.message.clone()).display_cli(verbose);
-        let message = if upstream_commit {
-            message.dimmed().to_string()
-        } else {
-            message
+        let prefix = "┊│     ";
+        let max_width = terminal_width().saturating_sub(prefix.width());
+        let message = CommitMessage(commit.message.clone()).text(verbose);
+        let message = match message {
+            Some(text) => {
+                let truncated = truncate_text(&text, max_width);
+                if upstream_commit {
+                    truncated.dimmed().to_string()
+                } else {
+                    truncated
+                }
+            }
+            None => "(no commit message)".dimmed().italic().to_string(),
         };
         writeln!(out, "┊│     {message}")?;
     } else {
@@ -872,6 +923,7 @@ fn display_cli_commit_details(
     commit: &but_workspace::ref_info::Commit,
     has_changes: bool,
     verbose: bool,
+    extra_suffix_width: usize,
 ) -> String {
     let end_id = if short_id.len() >= 7 {
         "".to_string()
@@ -907,15 +959,29 @@ fn display_cli_commit_details(
             conflicted_str,
         )
     } else {
-        let message = CommitMessage(commit.message.clone()).display_cli(verbose);
+        // Measure the line prefix and suffixes so we know exactly how much
+        // space is left for the commit message.
+        let prefix = format!("┊●   {short_id_placeholder} ", short_id_placeholder = "x".repeat(7));
+        let suffix_width = if has_changes { 0 } else { " (no changes)".width() }
+            + if commit.has_conflicts { " {conflicted}".width() } else { 0 }
+            + extra_suffix_width;
+        let max_width = terminal_width().saturating_sub(prefix.width() + suffix_width);
+        let message = CommitMessage(commit.message.clone()).text(verbose);
+        let message = match message {
+            Some(text) => truncate_text(&text, max_width),
+            None => "(no commit message)".dimmed().italic().to_string(),
+        };
         format!("{start_id}{end_id} {message}{no_changes}{conflicted_str}",)
     }
 }
 
 struct CommitMessage(pub BString);
 
-impl CliDisplay for CommitMessage {
-    fn display_cli(&self, verbose: bool) -> String {
+impl CommitMessage {
+    /// Return the plain (uncolored, unstyled) message text.
+    /// First line only for inline mode, all lines joined for verbose.
+    /// Returns `None` when the commit has no message.
+    fn text(&self, verbose: bool) -> Option<String> {
         let message = self.0.to_string();
         let text = if verbose {
             message.replace('\n', " ")
@@ -923,15 +989,7 @@ impl CliDisplay for CommitMessage {
             message.lines().next().unwrap_or("").to_string()
         };
 
-        if text.is_empty() {
-            return "(no commit message)".dimmed().italic().to_string();
-        }
-
-        // The commit line prefix is roughly: "┊●   <7-char-hash> " = ~13 visible chars
-        // Use a generous prefix estimate so the message fits within the terminal
-        const PREFIX_ESTIMATE: usize = 15;
-        let max_width = terminal_width().saturating_sub(PREFIX_ESTIMATE).max(20);
-        truncate_text(&text, max_width).normal().to_string()
+        if text.is_empty() { None } else { Some(text) }
     }
 }
 
@@ -944,16 +1002,10 @@ impl CliDisplay for ForgeReview {
                 self.html_url.underline().blue(),
             )
         } else {
-            // The PR info prefix is roughly: "┊●   <hash> #{number}: " which varies
-            const PREFIX_ESTIMATE: usize = 25;
-            let max_width = terminal_width().saturating_sub(PREFIX_ESTIMATE).max(20);
-            // Trim non-ASCII/non-alphanumeric trailing chars from the raw title first
-            // so truncation's `…` suffix is preserved
-            let cleaned_title = self
-                .title
-                .trim_end_matches(|c: char| !c.is_ascii() && !c.is_alphanumeric());
-            let title = truncate_text(cleaned_title, max_width);
-            format!("#{}: {}", self.number.to_string().bold(), title)
+            // In non-verbose mode, show PR number and title without truncation.
+            // This method can't know the actual prefix width since ForgeReview
+            // appears on branch header lines with dynamic preceding content.
+            format!("#{}: {}", self.number.to_string().bold(), self.title)
         }
     }
 }
@@ -1064,6 +1116,7 @@ async fn compute_branch_merge_statuses(ctx: &Context) -> anyhow::Result<BTreeMap
 #[cfg(test)]
 mod tests {
     use super::truncate_text;
+    use unicode_width::UnicodeWidthStr;
 
     #[test]
     fn short_text_is_not_truncated() {
@@ -1086,14 +1139,37 @@ mod tests {
     }
 
     #[test]
+    fn max_width_of_zero_gives_empty_string() {
+        assert_eq!(truncate_text("hello", 0), "");
+    }
+
+    #[test]
     fn max_width_of_one_gives_ellipsis_only() {
         assert_eq!(truncate_text("hello", 1), "…");
     }
 
     #[test]
-    fn unicode_characters_are_handled() {
-        // Each character counts as 1 regardless of byte length
+    fn unicode_single_width_characters_are_handled() {
+        // ü is a single-width character (1 display column)
         assert_eq!(truncate_text("über-cool", 5), "über…");
+    }
+
+    #[test]
+    fn cjk_double_width_characters_are_handled() {
+        // Each CJK character occupies 2 display columns.
+        // 你(2) + 好(2) = 4 cols, + …(1) = 5 cols total.
+        assert_eq!(truncate_text("你好世界", 5), "你好…");
+        assert_eq!(truncate_text("你好世界", 5).width(), 5);
+    }
+
+    #[test]
+    fn cjk_truncation_does_not_exceed_max_width() {
+        // With max_width 4, a second CJK char (2 cols) leaves no room
+        // for the ellipsis alongside it, so only the first char + … fits.
+        // 你(2) + …(1) = 3 cols ≤ 4
+        let result = truncate_text("你好世界", 4);
+        assert!(result.width() <= 4);
+        assert_eq!(result, "你…");
     }
 
     #[test]
@@ -1101,7 +1177,28 @@ mod tests {
         let msg = "this is a overly long commit message to demonstrate truncation";
         let result = truncate_text(msg, 60);
         assert!(result.ends_with('…'));
-        // 59 chars + ellipsis = 60 visible chars
-        assert_eq!(result.chars().count(), 60);
+        // For ASCII text, display width == char count
+        assert_eq!(result.width(), 60);
+    }
+
+    #[test]
+    fn emoji_characters_are_handled() {
+        // Many emoji are wide characters (2 display columns each)
+        let single = "🙂";
+        let single_width = single.width();
+        assert!(single_width >= 1);
+        assert_eq!(truncate_text(single, single_width), single);
+        // Repeated emoji should truncate without exceeding max_width
+        let repeated = "🙂🙂🙂";
+        let result = truncate_text(repeated, single_width * 2);
+        assert!(result.width() <= single_width * 2);
+    }
+
+    #[test]
+    fn zero_width_combining_characters_are_handled() {
+        // "a" + COMBINING ACUTE ACCENT; display width should be 1
+        let text = "a\u{0301}";
+        assert_eq!(text.width(), 1);
+        assert_eq!(truncate_text(text, 1), text);
     }
 }
