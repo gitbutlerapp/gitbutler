@@ -1,8 +1,8 @@
+import { liteIpcChannels } from '#electron/ipc';
+import { listProjects } from '#electron/model/projects';
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { liteIpcChannels } from '#electron/ipc';
-import { listProjects } from '#electron/model/projects';
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);

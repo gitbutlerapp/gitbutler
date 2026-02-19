@@ -1,6 +1,6 @@
-import { ProjectForFrontend } from '@gitbutler/but-sdk';
 import { contextBridge, ipcRenderer } from 'electron';
-import { LiteElectronApi } from '#electron/ipc';
+import type { LiteElectronApi } from '#electron/ipc';
+import type { ProjectForFrontend } from '@gitbutler/but-sdk';
 
 const api: LiteElectronApi = {
 	async ping(input: string): Promise<string> {

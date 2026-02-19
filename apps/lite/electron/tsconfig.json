@@ -10,7 +10,7 @@
 		"verbatimModuleSyntax": false,
 		"baseUrl": "./src",
 		"paths": {
-			"@electron/*": ["./*"]
+			"#electron/*": ["./*"]
 		},
 		"types": ["node"],
 		"skipLibCheck": true

@@ -1,8 +1,8 @@
 {
-  "compilerOptions": {
-    "strict": true,
-    "skipLibCheck": false,
-    "composite": true
-  },
-  "include": ["src/generated/**/*.ts"]
+	"compilerOptions": {
+		"strict": true,
+		"skipLibCheck": false,
+		"composite": true
+	},
+	"include": ["src/generated/**/*.ts"]
 }
