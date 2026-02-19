@@ -196,9 +196,7 @@ fn convert_to_sdk_format(servers: McpServerMap) -> McpServers {
 }
 
 /// Lightweight check that only reads `~/.claude.json` to see if the
-/// project path is listed in its `projects` map.  This avoids parsing
-/// `.mcp.json` or settings files, making it suitable for gating the SDK
-/// before a full `ClaudeProjectConfig::open`.
+/// project path is listed in its `projects` map.
 pub async fn is_project_registered(project_path: &Path) -> bool {
     let Some(claude_json) = read_claude_json().await else {
         return false;
