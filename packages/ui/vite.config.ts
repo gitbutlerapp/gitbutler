@@ -1,8 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
-import { defineConfig } from 'vitest/config';
 import path from 'path';
 
-export default defineConfig({
+export default {
 	plugins: [sveltekit()],
 	resolve: {
 		alias: {
@@ -15,4 +14,4 @@ export default defineConfig({
 	build: {
 		sourcemap: true
 	}
-});
+};
