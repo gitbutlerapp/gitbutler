@@ -369,3 +369,58 @@ fn commit_with_two_parents() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn three_parallel_empty_branches() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-three-empty-stacks")?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 3, "stack-3", StackState::InWorkspace, &[]);
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * 2ae9d9a (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    * f555940 (origin/main, stack-3, stack-2, stack-1, main) Commit A
+    * d664be0 Commit B
+    * fafd9d0 init
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·2ae9d9a (⌂|🏘|01)
+    │       ├── 📙►:3[1]:stack-1
+    │       │   └── ►:2[2]:main <> origin/main →:1:
+    │       │       ├── ·f555940 (⌂|🏘|✓|11)
+    │       │       ├── ·d664be0 (⌂|🏘|✓|11)
+    │       │       └── ·fafd9d0 (⌂|🏘|✓|11)
+    │       ├── 📙►:4[1]:stack-2
+    │       │   └── →:2: (main →:1:)
+    │       └── 📙►:5[1]:stack-3
+    │           └── →:2: (main →:1:)
+    └── ►:1[0]:origin/main →:2:
+        └── →:2: (main →:1:)
+    ");
+
+    let editor = graph.to_editor(&repo)?;
+
+    insta::assert_snapshot!(editor.steps_ascii(), @"
+    ◎ refs/heads/gitbutler/workspace
+    ● 2ae9d9a GitButler Workspace Commit
+    ├─
+    ◎ refs/heads/stack-3
+    ◎ refs/heads/stack-2
+    ◎ refs/heads/stack-1
+    ◎ refs/heads/main
+    ● f555940 Commit A
+    ● d664be0 Commit B
+    ● fafd9d0 init
+    ╵
+    ");
+
+    panic!("We should be seeing stack-3, stack-2, and stack-1 all in parallel");
+
+    Ok(())
+}
