@@ -2,8 +2,8 @@
 	"name": "@gitbutler/but-sdk",
 	"version": "0.0.1",
 	"description": "GitButler JS but SDK",
-	"main": "index.js",
-	"types": "index.d.ts",
+	"main": "src/generated/index.js",
+	"types": "src/generated/index.d.ts",
 	"scripts": {
 		"artifacts": "napi artifacts",
 		"build:types": "cargo run -p but-schema-gen -- --output ./src/generated/index.d.ts",
@@ -45,20 +45,18 @@
 		"ts-node": "^10.9.2"
 	},
 	"files": [
-		"index.js",
-		"index.d.ts",
-		"*.node"
+		"src/generated/**"
 	],
 	"exports": {
 		".": {
 			"import": {
-				"types": "./index.d.ts",
-				"default": "./index.js"
-			},
-			"require": {
-				"types": "./index.d.ts",
-				"default": "./index.js"
+					"types": "./src/generated/index.d.ts",
+					"default": "./src/generated/index.js"
+				},
+				"require": {
+					"types": "./src/generated/index.d.ts",
+					"default": "./src/generated/index.js"
+				}
 			}
 		}
-	}
 }
