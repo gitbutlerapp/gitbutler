@@ -79,6 +79,7 @@ fn main() -> anyhow::Result<()> {
     std::fs::create_dir_all(&app_cache_dir).context("failed to create app cache dir")?;
     std::fs::create_dir_all(&app_log_dir).context("failed to create app log dir")?;
 
+    let tokio_debug = matches!(std::env::var("GITBUTLER_TOKIO_DEBUG").as_deref(), Ok("1"));
     let app_settings_for_menu = app_settings.clone();
     runtime.block_on(async {
         tauri::async_runtime::set(tokio::runtime::Handle::current());
@@ -110,7 +111,7 @@ fn main() -> anyhow::Result<()> {
 
                 let app_handle = tauri_app.handle();
 
-                logs::init(app_handle, &app_log_dir, performance_logging);
+                logs::init(app_handle, &app_log_dir, performance_logging, tokio_debug);
 
                 but_action::cli::auto_fix_broken_but_cli_symlink();
                 inherit_interactive_login_shell_environment_if_not_launched_from_terminal();
