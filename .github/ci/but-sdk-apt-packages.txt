@@ -1,0 +1,2 @@
+libdbus-1-dev
+pkg-config

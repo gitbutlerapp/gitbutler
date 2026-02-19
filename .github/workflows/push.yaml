@@ -19,6 +19,7 @@ jobs:
       node: ${{ steps.filter.outputs.node }}
       rust: ${{ steps.filter.outputs.rust }}
       ui: ${{ steps.filter.outputs.ui }}
+      but_sdk: ${{ steps.filter.outputs.but_sdk }}
       docs: ${{ steps.filter.outputs.docs }}
       but_installer: ${{ steps.filter.outputs.but_installer }}
       install_script: ${{ steps.filter.outputs.install_script }}
@@ -43,6 +44,14 @@ jobs:
               - 'pnpm-lock.yaml'
             ui:
               - 'packages/ui/**'
+            but_sdk:
+              - 'crates/**'
+              - *workflows
+              - 'Cargo.lock'
+              - 'Cargo.toml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'packages/but-sdk/**'
             common-rust: &rust
               - *workflows
               - 'Cargo.lock'
@@ -121,6 +130,38 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
       - run: pnpm test
+
+  but-sdk-build-check:
+    needs: changes
+    if: ${{ needs.changes.outputs.but_sdk == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Cache apt archives
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        with:
+          path: .apt-cache
+          key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('.github/ci/but-sdk-apt-packages.txt') }}
+      - name: Install dependencies for but-sdk
+        run: |
+          sudo mkdir -p "$PWD/.apt-cache/partial"
+          sudo apt-get update
+          sudo xargs -a .github/ci/but-sdk-apt-packages.txt apt-get -o dir::cache::archives="$PWD/.apt-cache" install -y --no-install-recommends
+          sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
+      - uses: ./.github/actions/init-env-node
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        with:
+          shared-key: but-sdk-build-check
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+      - name: Build but-sdk
+        run: pnpm --filter @gitbutler/but-sdk build
+      - name: Check but-sdk
+        run: pnpm --filter @gitbutler/but-sdk check
 
   rust-lint:
     needs: changes
@@ -466,6 +507,7 @@ jobs:
       - rust-lint
       - cargo-doc
       - build-installer
+      - but-sdk-build-check
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
