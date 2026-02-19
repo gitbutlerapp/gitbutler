@@ -168,7 +168,7 @@ impl App {
             show_help: false,
             help_scroll: 0,
             command_log: Vec::new(),
-            command_log_visible: true,
+            command_log_visible: false,
             oplog_visible: crossterm::terminal::size().map_or(true, |(_, h)| h >= 30),
             show_commit_modal: false,
             commit_focus: CommitModalFocus::BranchSelect,
