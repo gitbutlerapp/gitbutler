@@ -10,6 +10,7 @@
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
+		"dev:lite": "turbo watch --filter @gitbutler/lite dev",
 		"dev:desktop": "cross-env CARGO_TARGET_DIR=\"$PNPM_SCRIPT_SRC_DIR/target/tauri\" pnpm dev:desktop-with-env",
 		"dev:desktop-http": "cross-env VITE_BUTLER_PORT=6978 VITE_BUTLER_HOST=localhost VITE_BUILD_TARGET=web turbo watch dev --filter=...@gitbutler/desktop",
 		"dev:desktop-with-env": "cargo build -p but && cargo build -p gitbutler-git && pnpm tauri dev",
@@ -24,6 +25,7 @@
 		"act:test:e2e": "act -j test -W .github/workflows/test-e2e.yml -P catthehacker/ubuntu:act-22.04",
 		"build": "turbo run build --no-daemon",
 		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
+		"build:lite": "turbo run --filter @gitbutler/lite build --no-daemon",
 		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json -- --profile dev",
 		"start:desktop": "pnpm --filter @gitbutler/desktop run preview",
 		"check": "turbo run check --no-daemon",
@@ -68,7 +70,22 @@
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"@prisma/client"
+			"@ffmpeg-installer/darwin-arm64",
+			"@prisma/client",
+			"core-js",
+			"electron",
+			"electron-winstaller"
+		],
+		"ignoredBuiltDependencies": [
+			"@parcel/watcher",
+			"@sentry/cli",
+			"cypress",
+			"edgedriver",
+			"esbuild",
+			"geckodriver",
+			"leveldown",
+			"playwright-webkit",
+			"unrs-resolver"
 		]
 	}
 }
