@@ -49,13 +49,9 @@ pub(crate) fn download_and_install_app(
     download_file(&download_url, &tmp_filepath)?;
     info("Download completed successfully");
 
-    if std::env::var_os("CI").is_some() {
-        warn("Temporarily skipping signature verification in CI to circumvent chicken-or-egg problem ...");
-    } else {
-        let signature_b64 = download_to_string(&signature_url)
-            .with_context(|| anyhow!("Failed to get signature for but, requested version may be too old"))?;
-        verify_signature(&tmp_filepath, &signature_b64, temp_dir.path())?;
-    }
+    let signature_b64 = download_to_string(&signature_url)
+        .with_context(|| anyhow!("Failed to get signature for but, requested version may be too old"))?;
+    verify_signature(&tmp_filepath, &signature_b64, temp_dir.path())?;
 
     // Install the app bundle
     install_app(&tmp_filepath, &config.home_dir, channel)?;
