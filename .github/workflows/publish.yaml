@@ -37,10 +37,6 @@ jobs:
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
-      - name: Trigger Sentry Cron - In Progress
-        if: ${{ github.event_name == 'schedule' }}
-        shell: bash
-        run: curl "${{ secrets.SENTRY_CRONS }}?status=in_progress"
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Consume input variables
         shell: bash
@@ -476,7 +472,3 @@ jobs:
             delete_tag "$TAG_NAME"
           fi
           create_tag "$TAG_NAME"
-      - name: Trigger Sentry Cron - Complete
-        if: ${{ github.event_name == 'schedule' }}
-        shell: bash
-        run: curl "${{ secrets.SENTRY_CRONS }}?status=ok"
