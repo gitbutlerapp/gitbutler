@@ -719,6 +719,7 @@ fn render_help_overlay(f: &mut Frame, app: &App, area: Rect) {
         help_line("h / l / ← / →", "Focus details / back"),
         help_line("f", "Fetch from upstream"),
         help_line("Ctrl+R", "Refresh data"),
+        help_line("o", "Jump to oplog"),
         help_line("~", "Toggle command log"),
         Line::from(""),
         help_line("c", "Commit changes"),

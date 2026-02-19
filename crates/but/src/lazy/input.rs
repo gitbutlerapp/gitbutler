@@ -99,6 +99,12 @@ impl App {
                 self.fetch_upstream(ctx);
             }
 
+            // Jump to oplog panel
+            KeyCode::Char('o') => {
+                self.active_panel = Panel::Oplog;
+                self.details_selected = false;
+            }
+
             // Toggle command log
             KeyCode::Char('~') => {
                 self.command_log_visible = !self.command_log_visible;
