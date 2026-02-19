@@ -129,6 +129,7 @@ pub(super) struct App {
     pub help_scroll: u16,
     pub command_log: Vec<String>,
     pub command_log_visible: bool,
+    pub oplog_visible: bool,
 
     // Commit modal
     pub show_commit_modal: bool,
@@ -168,6 +169,7 @@ impl App {
             help_scroll: 0,
             command_log: Vec::new(),
             command_log_visible: true,
+            oplog_visible: crossterm::terminal::size().map_or(true, |(_, h)| h >= 30),
             show_commit_modal: false,
             commit_focus: CommitModalFocus::BranchSelect,
             commit_branch_options: Vec::new(),
@@ -479,7 +481,15 @@ impl App {
         self.details_selected = false;
         self.active_panel = match self.active_panel {
             Panel::Upstream => Panel::Status,
-            Panel::Status => Panel::Oplog,
+            Panel::Status => {
+                if self.oplog_visible {
+                    Panel::Oplog
+                } else if self.upstream_info.is_some() {
+                    Panel::Upstream
+                } else {
+                    Panel::Status
+                }
+            }
             Panel::Oplog => {
                 if self.upstream_info.is_some() {
                     Panel::Upstream
@@ -493,12 +503,20 @@ impl App {
     pub fn prev_panel(&mut self) {
         self.details_selected = false;
         self.active_panel = match self.active_panel {
-            Panel::Upstream => Panel::Oplog,
+            Panel::Upstream => {
+                if self.oplog_visible {
+                    Panel::Oplog
+                } else {
+                    Panel::Status
+                }
+            }
             Panel::Status => {
                 if self.upstream_info.is_some() {
                     Panel::Upstream
-                } else {
+                } else if self.oplog_visible {
                     Panel::Oplog
+                } else {
+                    Panel::Status
                 }
             }
             Panel::Oplog => Panel::Status,

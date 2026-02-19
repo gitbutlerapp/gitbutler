@@ -39,30 +39,23 @@ pub(super) fn ui(f: &mut Frame, app: &App) {
 
     // Left side: vertical split into upstream + status + oplog
     let has_upstream = app.upstream_info.is_some();
-    let left_chunks = if has_upstream {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(3),
-                Constraint::Min(8),
-                Constraint::Length(10),
-            ])
-            .split(h_chunks[0])
-    } else {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(0),
-                Constraint::Min(8),
-                Constraint::Length(10),
-            ])
-            .split(h_chunks[0])
-    };
+    let upstream_height = if has_upstream { 3 } else { 0 };
+    let oplog_height = if app.oplog_visible { 10 } else { 0 };
+    let left_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(upstream_height),
+            Constraint::Min(8),
+            Constraint::Length(oplog_height),
+        ])
+        .split(h_chunks[0]);
 
     // Render panels
     render_upstream_panel(f, app, left_chunks[0]);
     render_status_panel(f, app, left_chunks[1]);
-    render_oplog_panel(f, app, left_chunks[2]);
+    if app.oplog_visible {
+        render_oplog_panel(f, app, left_chunks[2]);
+    }
     render_details_panel(f, app, h_chunks[1]);
 
     // Command log
@@ -719,7 +712,7 @@ fn render_help_overlay(f: &mut Frame, app: &App, area: Rect) {
         help_line("h / l / ← / →", "Focus details / back"),
         help_line("f", "Fetch from upstream"),
         help_line("Ctrl+R", "Refresh data"),
-        help_line("o", "Jump to oplog"),
+        help_line("o", "Toggle oplog"),
         help_line("~", "Toggle command log"),
         Line::from(""),
         help_line("c", "Commit changes"),
