@@ -5,7 +5,7 @@ use tracing::{Level, instrument, metadata::LevelFilter, subscriber::set_global_d
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{Layer, filter::filter_fn, fmt::format::FmtSpan, layer::SubscriberExt};
 
-pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool, tokio_console_enabled: bool) {
+pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool, enable_tokio_console_log: bool) {
     fs::create_dir_all(logs_dir).expect("failed to create logs dir");
 
     let log_prefix = "GitButler";
@@ -40,7 +40,7 @@ pub fn init(app_handle: &AppHandle, logs_dir: &Path, performance_logging: bool, 
     let log_level = log_level_filter.into_level();
 
     let use_colors_in_logs = cfg!(not(feature = "windows"));
-    let console_layer = if tokio_console_enabled {
+    let console_layer = if enable_tokio_console_log {
         Some(
             console_subscriber::ConsoleLayer::builder()
                 .server_addr(get_server_addr(app_handle))
