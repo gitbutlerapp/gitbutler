@@ -765,12 +765,36 @@ fn build_napi_params<'a>(
                 }
                 _ => {
                     // For all other types: check for napi-incompatible types first
-                    if let Some((napi_ty, cast_expr)) = napi_type_remap(base_ty) {
+                    if let Some(napi_ty) = napi_type_remap(base_ty) {
                         // Type needs remapping (e.g., usize → i64)
                         params.push(quote! { #ident: #napi_ty });
-                        conversions.push(quote! {
-                            let #ident = #ident #cast_expr;
-                        });
+                        let arg_name = ident.to_string();
+                        let conversion = match type_name.as_deref() {
+                            Some("usize") => quote! {
+                                let #ident: usize = ::std::convert::TryFrom::try_from(#ident).map_err(|_| {
+                                    napi::Error::new(
+                                        napi::Status::InvalidArg,
+                                        format!(
+                                            "argument '{}' must be a non-negative integer that fits in usize",
+                                            #arg_name
+                                        ),
+                                    )
+                                })?;
+                            },
+                            Some("isize") => quote! {
+                                let #ident: isize = ::std::convert::TryFrom::try_from(#ident).map_err(|_| {
+                                    napi::Error::new(
+                                        napi::Status::InvalidArg,
+                                        format!(
+                                            "argument '{}' must be an integer that fits in isize",
+                                            #arg_name
+                                        ),
+                                    )
+                                })?;
+                            },
+                            _ => quote! {},
+                        };
+                        conversions.push(conversion);
                         call_arg_idents.push(quote! { #ident });
                     } else if is_simple_napi_type(base_ty) {
                         // Simple types (String, bool, numbers) can be passed directly
@@ -824,13 +848,13 @@ fn is_simple_napi_type(ty: &syn::Type) -> bool {
 }
 
 /// Check if a Rust type needs to be remapped for napi compatibility.
-/// Returns Some(napi_type, conversion_code) if the type needs remapping.
-fn napi_type_remap(ty: &syn::Type) -> Option<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+/// Returns Some(napi_type) if the type needs remapping.
+fn napi_type_remap(ty: &syn::Type) -> Option<proc_macro2::TokenStream> {
     let name = type_last_segment_name(ty)?;
     match name.as_str() {
         // napi doesn't support usize/isize — remap to i64
-        "usize" => Some((quote! { i64 }, quote! { as usize })),
-        "isize" => Some((quote! { i64 }, quote! { as isize })),
+        "usize" => Some(quote! { i64 }),
+        "isize" => Some(quote! { i64 }),
         _ => None,
     }
 }
