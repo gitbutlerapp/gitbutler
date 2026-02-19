@@ -10,7 +10,7 @@ use bstr::{BStr, BString, ByteSlice};
 ///
 /// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
 pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
-    let content = from_editor(filename_safe_intent, initial_text)?;
+    let content = from_editor(filename_safe_intent, initial_text, ".txt")?;
 
     // Strip comment lines (starting with '#')
     let filtered_lines: Vec<&BStr> = content
@@ -27,13 +27,22 @@ pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -
 /// Note that this string must be valid in filenames.
 ///
 /// Returns the edited text (*without known encoding*) verbatim.
-pub fn from_editor(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
+pub fn from_editor(filename_safe_intent: &str, initial_text: &str, file_suffix: &str) -> Result<BString> {
+    const ALLOWED_SUFFIXES: &[&str] = &[".txt", ".md"]; // feel free to add more allowed suffixes
+    if !ALLOWED_SUFFIXES.contains(&file_suffix) {
+        bail!(
+            "File suffix '{}' is not allowed. Must be one of: {}",
+            file_suffix,
+            ALLOWED_SUFFIXES.join(", ")
+        );
+    }
+
     let editor_cmd = get_editor_command()?;
 
     // Create a temporary file with the initial text
     let tempfile = tempfile::Builder::new()
         .prefix(&format!("but_{filename_safe_intent}_"))
-        .suffix(".txt")
+        .suffix(file_suffix)
         .tempfile()?;
     std::fs::write(&tempfile, initial_text)?;
 
@@ -89,10 +98,36 @@ fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(env: impl IntoIterator<Item = 
     Ok(PLATFORM_EDITOR.into())
 }
 
+pub fn strip_html_comments(s: &str) -> String {
+    const START_MARKER: &str = "<!--";
+    const END_MARKER: &str = "-->";
+
+    let comment_start_positions = s.match_indices(START_MARKER).map(|(pos, _)| pos);
+    let mut comment_end_positions = s.match_indices(END_MARKER).map(|(pos, _)| pos);
+
+    let comment_ranges = comment_start_positions.map(|start| {
+        comment_end_positions
+            .find(|end| end > &start)
+            .map(|end| (start, end + END_MARKER.len()))
+    });
+
+    let mut result = String::new();
+    let mut last_end = 0;
+    for (start, end) in comment_ranges.map_while(|range| range) {
+        result.push_str(&s[last_end..start]);
+        last_end = end;
+    }
+    result.push_str(&s[last_end..]);
+
+    result
+}
+
 const PLATFORM_EDITOR: &str = if cfg!(windows) { "notepad" } else { "vi" };
 
 #[cfg(test)]
 mod tests {
+    use std::{thread, time::Duration};
+
     use super::*;
 
     #[test]
@@ -115,5 +150,87 @@ mod tests {
             ["notepad", "vim", "vi"].contains(&actual.as_str()),
             "Should fall back to vi/vim/notepad when nothing is set, got: {actual}"
         );
+    }
+
+    #[test]
+    fn from_editor_bails_on_bad_suffix() {
+        // Note: Need to run this test with a timeout, as if we get past the suffix check for
+        // whatever reason, everything may just hang waiting for user input in an editor.
+        //
+        // The controlling terminal tends to go insane when this test fails, but at least it
+        // doesn't hang forever :)
+        let (tx, rx) = std::sync::mpsc::channel();
+        thread::spawn(move || tx.send(from_editor("filename", "", ".notasuffix")));
+        let err = rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("Test timed out after 1 second")
+            .unwrap_err();
+        assert!(
+            err.to_string().contains("is not allowed"),
+            "Expected 'is not allowed' error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn strip_html_comments_removes_all_html_comments() {
+        let input = "
+This should remain<!-- but not this -->, and so should this.
+<!--This
+entire
+block should go -->
+And this should stay here!
+";
+        let expected_output = "
+This should remain, and so should this.
+
+And this should stay here!
+";
+
+        let stripped = strip_html_comments(input);
+
+        assert_eq!(stripped, expected_output)
+    }
+
+    #[test]
+    fn strip_html_comments_does_not_remove_unterminated_html_comment() {
+        let input = "
+This should remain<!-- and so should this
+as there's a start of a comment, but no end!
+";
+
+        let stripped = strip_html_comments(input);
+
+        assert_eq!(stripped, input)
+    }
+
+    #[test]
+    fn strip_html_comments_does_not_remove_comment_termination_without_start() {
+        let input = "
+This should remain<!-- but this should be stripped -->
+but this comment terminator should remain --> as it has no associated start token
+";
+        let expected_output = "
+This should remain
+but this comment terminator should remain --> as it has no associated start token
+";
+
+        let stripped = strip_html_comments(input);
+
+        assert_eq!(stripped, expected_output)
+    }
+
+    #[test]
+    fn strip_html_comments_correctly_strips_comments_that_start_within_another_comment() {
+        let input = "
+This should remain<!-- but this should be stripped
+<!-- along with this comment marker, which means nothing as it's in the middle of a comment -->
+";
+        let expected_output = "
+This should remain
+";
+
+        let stripped = strip_html_comments(input);
+
+        assert_eq!(stripped, expected_output)
     }
 }
