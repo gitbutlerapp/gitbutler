@@ -97,6 +97,12 @@
 		 * Defaults to false.
 		 */
 		showBottomButton?: boolean;
+		/**
+		 * Callback for when the visible items change. Note that this is not necessarily the
+		 * same as the rendered range when `renderDistance !== 0`.
+		 * @param change
+		 */
+		onVisibleChange?: (change: { start: number; end: number }) => void;
 	};
 
 	const SCROLL_DOWN_THRESHOLD = 600;
@@ -117,7 +123,8 @@
 		stickToBottom,
 		startIndex,
 		renderDistance = 0,
-		showBottomButton = false
+		showBottomButton = false,
+		onVisibleChange
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -130,7 +137,11 @@
 	let viewportHeight = $state(0);
 	let previousViewportHeight = 0;
 
+	/* Item index range that are rendered. */
+	let renderRange = $state({ start: 0, end: 0 });
+	/* Item index range that are visible in the viewport. */
 	let visibleRange = $state({ start: 0, end: 0 });
+
 	let offset = $state({ top: 0, bottom: 0 });
 	let previousDistance = $state(0);
 	let previousCount = $state(items.length);
@@ -146,8 +157,8 @@
 
 	const visible = $derived.by(() =>
 		items
-			.slice(visibleRange.start, visibleRange.end)
-			.map((data, i) => ({ id: i + visibleRange.start, data }))
+			.slice(renderRange.start, renderRange.end)
+			.map((data, i) => ({ id: i + renderRange.start, data }))
 	);
 
 	const itemObserver = new ResizeObserver((entries) => {
@@ -170,8 +181,8 @@
 
 				if (
 					lastScrollDirection === 'up' &&
-					calculateHeightSum(0, visibleRange.start) !== viewport.scrollTop &&
-					visibleRange.start === index
+					calculateHeightSum(0, renderRange.start) !== viewport.scrollTop &&
+					renderRange.start === index
 				) {
 					// When scrolling up, compensate for the height change of the topmost
 					// visible element to prevent content from jumping downward.
@@ -202,7 +213,7 @@
 		}
 
 		if (shouldRecalculate) {
-			recalculateVisibleRange();
+			recalculateRanges();
 		}
 	});
 
@@ -222,7 +233,7 @@
 	});
 
 	function isInitialized() {
-		return visibleRange.end !== 0;
+		return renderRange.end !== 0;
 	}
 
 	function calculateHeightSum(startIndex: number, endIndex: number): number {
@@ -266,8 +277,8 @@
 	 */
 	function updateOffsets() {
 		offset = {
-			top: calculateHeightSum(0, visibleRange.start),
-			bottom: calculateHeightSum(visibleRange.end, heightMap.length)
+			top: calculateHeightSum(0, renderRange.start),
+			bottom: calculateHeightSum(renderRange.end, heightMap.length)
 		};
 	}
 
@@ -283,46 +294,57 @@
 		return result;
 	}
 
-	function calculateVisibleStartIndex(): number {
-		if (items.length === 0 || !viewport) return 0;
+	function calculateStartIndex(): [number, number] {
+		if (items.length === 0 || !viewport) return [0, 0];
 
+		let renderStart = -1;
 		let accumulatedHeight = 0;
+
 		for (let i = 0; i < items.length; i++) {
-			const rowHeight = visibleRowElements?.[i - visibleRange.start]?.clientHeight;
+			const rowHeight = visibleRowElements?.[i - renderRange.start]?.clientHeight;
 			const heightToUse = rowHeight || heightMap[i] || defaultHeight;
 			accumulatedHeight += heightToUse;
-			if (accumulatedHeight > viewport.scrollTop - renderDistance) {
-				return i;
+			if (renderStart === -1 && accumulatedHeight >= viewport.scrollTop - renderDistance) {
+				renderStart = i;
+			}
+			if (accumulatedHeight > viewport.scrollTop) {
+				return [renderStart, i];
 			}
 		}
-		return items.length - 1;
+		return [items.length - 1, items.length - 1];
 	}
 
-	function calculateVisibleEndIndex(): number {
-		if (!viewport) return items.length;
+	/**
+	 * Important: This index is not inclusive.
+	 */
+	function calculateEndIndex(): [number, number] {
+		const count = items.length;
+		if (!viewport) return [count, count];
 
+		let visibleEnd = -1;
 		let accumulatedHeight = offset.top - viewport.scrollTop;
-		for (let i = visibleRange.start; i < items.length; i++) {
+		for (let i = renderRange.start; i < count; i++) {
 			accumulatedHeight += heightMap[i] || defaultHeight;
+			if (visibleEnd === -1 && accumulatedHeight > viewport.clientHeight) {
+				visibleEnd = i + 1;
+			}
 			if (accumulatedHeight > viewport.clientHeight + renderDistance) {
-				return i + 1;
+				return [i + 1, visibleEnd];
 			}
 		}
-		return items.length;
+		return [count, count];
 	}
 
 	async function initializeAt(startingAt: number): Promise<void> {
 		if (!viewport) return;
-		// Save viewport height, it might be unset after `tick()`.
-		const viewportHeight = viewport.clientHeight;
 
 		// Initialize from start position downwards
-		visibleRange.start = startingAt;
+		renderRange.start = startingAt;
 		for (let i = startingAt; i < items.length; i++) {
 			if (heightMap[i] !== undefined) {
 				lockRowHeight(i);
 			}
-			visibleRange.end = i + 1;
+			renderRange.end = i + 1;
 			await tick(); // Wait for element to be added
 			const element = visibleRowElements?.[i - startingAt];
 			if (!element) {
@@ -333,7 +355,10 @@
 				return;
 			}
 			heightMap[i] = element.clientHeight;
-			if (calculateHeightSum(startingAt, visibleRange.end) > viewportHeight + renderDistance) {
+			if (
+				calculateHeightSum(startingAt, renderRange.end) >
+				viewport.clientHeight + renderDistance
+			) {
 				break;
 			}
 		}
@@ -343,7 +368,7 @@
 			if (heightMap[i] !== undefined) {
 				lockRowHeight(i);
 			}
-			visibleRange.start = i;
+			renderRange.start = i;
 			await tick(); // Wait for element to be added
 			const element = visibleRowElements?.[0];
 			if (!element) {
@@ -355,7 +380,7 @@
 				viewport.scrollTop += heightDiff;
 			}
 			heightMap[i] = element.clientHeight;
-			if (calculateHeightSum(visibleRange.start, startingAt) > renderDistance) {
+			if (calculateHeightSum(renderRange.start, startingAt) > renderDistance) {
 				break;
 			}
 		}
@@ -373,25 +398,23 @@
 		if (viewport) viewport.scrollTop = calculateHeightSum(0, startingAt);
 	}
 
-	async function recalculateVisibleRange(): Promise<void> {
+	async function recalculateRanges(): Promise<void> {
 		if (!viewport || !visibleRowElements || !isInitialized() || isRecalculating) return;
 
 		isRecalculating = true;
 
-		const oldStart = visibleRange.start;
-		const oldEnd = visibleRange.end;
+		const oldStart = renderRange.start;
+		const oldEnd = renderRange.end;
 		const bottomDistance = getDistanceFromBottom();
 
-		const newStartIndex = calculateVisibleStartIndex();
-		const newEndIndex = calculateVisibleEndIndex();
-		if (newStartIndex !== visibleRange.start || newEndIndex !== visibleRange.end) {
-			visibleRange = {
-				start: calculateVisibleStartIndex(),
-				end: calculateVisibleEndIndex()
-			};
+		const [start, visibleStart] = calculateStartIndex();
+		const [end, visibleEnd] = calculateEndIndex();
+
+		if (start !== renderRange.start || end !== renderRange.end) {
+			renderRange = { start, end };
 			updateOffsets();
 
-			const newIndices = getNewIndices(oldStart, oldEnd, visibleRange.start, visibleRange.end);
+			const newIndices = getNewIndices(oldStart, oldEnd, renderRange.start, renderRange.end);
 			for (const index of newIndices) {
 				if (heightMap[index]) {
 					lockRowHeight(index);
@@ -399,6 +422,10 @@
 			}
 
 			await tick();
+		}
+
+		if (visibleStart !== visibleRange.start || visibleEnd !== visibleRange.end) {
+			visibleRange = { start: visibleStart, end: visibleEnd };
 		}
 
 		if (stickToBottom && bottomDistance === 0 && bottomDistance !== getDistanceFromBottom()) {
@@ -455,9 +482,9 @@
 
 	$effect(() => {
 		if (viewportHeight && viewportHeight < previousViewportHeight) {
-			const nearBottom = previousDistance < STICKY_DISTANCE;
 			untrack(async () => {
-				await recalculateVisibleRange();
+				const nearBottom = previousDistance < STICKY_DISTANCE;
+				await recalculateRanges();
 				if (stickToBottom && nearBottom) {
 					scrollToBottom();
 				}
@@ -480,7 +507,7 @@
 
 				if (stickToBottom) {
 					if (previousDistance < STICKY_DISTANCE) {
-						await recalculateVisibleRange();
+						await recalculateRanges();
 						if (getDistanceFromBottom() !== 0) {
 							scrollToBottom();
 						}
@@ -496,8 +523,14 @@
 	});
 
 	$effect(() => {
-		if (hasNewItemsAtBottom && visibleRange.end === items.length) {
+		if (hasNewItemsAtBottom && renderRange.end === items.length) {
 			hasNewItemsAtBottom = false;
+		}
+	});
+
+	$effect(() => {
+		if (visibleRange.end !== 0) {
+			onVisibleChange?.(visibleRange);
 		}
 	});
 </script>
@@ -520,7 +553,7 @@
 		} else {
 			lastScrollDirection = undefined;
 		}
-		recalculateVisibleRange();
+		recalculateRanges();
 		lastScrollTop = viewport.scrollTop;
 	}}
 	wide={grow}
@@ -537,12 +570,12 @@
 		{#each visible as item, i (item.id)}
 			<div
 				class="list-row"
-				data-index={i + visibleRange.start}
-				style:height={lockedHeights[i + visibleRange.start]
-					? `${lockedHeights[i + visibleRange.start]}px`
+				data-index={i + renderRange.start}
+				style:height={lockedHeights[i + renderRange.start]
+					? `${lockedHeights[i + renderRange.start]}px`
 					: undefined}
 			>
-				{@render template(item.data, visibleRange.start + i)}
+				{@render template(item.data, renderRange.start + i)}
 			</div>
 		{/each}
 		<div

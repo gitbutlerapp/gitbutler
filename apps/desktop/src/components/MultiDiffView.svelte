@@ -33,6 +33,7 @@
 		startIndex?: number;
 		selectionId: SelectionId;
 		onclose?: () => void;
+		onVisibleChange?: (change: { start: number; end: number }) => void;
 	};
 
 	let {
@@ -45,7 +46,8 @@
 		showRoundedEdges = true,
 		startIndex,
 		selectionId,
-		onclose
+		onclose,
+		onVisibleChange
 	}: Props = $props();
 
 	const diffService = inject(DIFF_SERVICE);
@@ -195,6 +197,7 @@
 				defaultHeight={102}
 				visibility="scroll"
 				renderDistance={100}
+				{onVisibleChange}
 			>
 				{#snippet template(change, index)}
 					{@render changeItem(change, index, true)}

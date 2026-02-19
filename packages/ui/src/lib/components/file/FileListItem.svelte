@@ -37,6 +37,7 @@
 		executable?: boolean;
 		isLast?: boolean;
 		actionOpts?: FocusableOptions;
+		notched?: boolean;
 		oncheckclick?: (e: MouseEvent) => void;
 		oncheck?: (
 			e: Event & {
@@ -77,6 +78,7 @@
 		executable,
 		isLast = false,
 		actionOpts,
+		notched,
 		oncheck,
 		oncheckclick,
 		onclick,
@@ -102,6 +104,7 @@
 	class:focused
 	class:draggable
 	class:conflicted
+	class:notched
 	class:list-mode={listMode === 'list'}
 	class:is-last={isLast}
 	aria-selected={selected}
@@ -123,6 +126,10 @@
 		<div class="draggable-handle">
 			<Icon name="draggable-narrow" />
 		</div>
+	{/if}
+
+	{#if notched}
+		<div class="commit-row__notch"></div>
 	{/if}
 
 	{#if showIndent || showCheckbox}
@@ -277,7 +284,19 @@
 			border-bottom: none;
 		}
 
-		.draggable-handle {
+		&.active.selected .conflicted-icon {
+			color: var(--clr-theme-pop-on-element);
+		}
+
+		&.notched {
+			padding-left: 18px;
+		}
+
+		&.notched .draggable-handle {
+			left: 8px;
+		}
+
+		& .draggable-handle {
 			display: none;
 			position: absolute;
 			top: 50%;
@@ -290,14 +309,10 @@
 			opacity: 0.6;
 		}
 
-		.conflicted-icon {
+		& .conflicted-icon {
 			display: flex;
 			margin-right: -2px;
 			color: var(--clr-theme-danger-element);
-		}
-
-		&.active.selected .conflicted-icon {
-			color: var(--clr-theme-pop-on-element);
 		}
 	}
 
@@ -306,7 +321,15 @@
 		align-items: center;
 		height: 100%;
 		gap: 6px;
-		/* background-color: rgba(64, 224, 208, 0.218); */
+	}
+
+	.commit-row__notch {
+		position: absolute;
+		top: -1px;
+		left: 0;
+		width: 4px;
+		height: calc(100% + 2px);
+		background-color: var(--clr-theme-pop-element);
 	}
 
 	.file-list-item__details {

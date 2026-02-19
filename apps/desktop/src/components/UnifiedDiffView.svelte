@@ -299,19 +299,6 @@
 					</div>
 				{/each}
 			{/if}
-
-			<!-- The context menu should be outside the each block. -->
-			<HunkContextMenu
-				bind:this={contextMenu}
-				trigger={viewport}
-				{projectId}
-				{change}
-				discardable={isUncommittedChange}
-				{selectable}
-				{selectAllHunkLines}
-				{unselectAllHunkLines}
-				{invertHunkSelection}
-			/>
 		{:else if diff.type === 'TooLarge'}
 			<div class="hunk-placehoder">
 				<EmptyStatePlaceholder image={tooLargeSvg} gap={12} topBottomPadding={34}>
@@ -333,6 +320,18 @@
 				</div>
 			{/if}
 		{/if}
+		<!-- The context menu should be outside the each block. -->
+		<HunkContextMenu
+			bind:this={contextMenu}
+			trigger={viewport}
+			{projectId}
+			{change}
+			discardable={isUncommittedChange}
+			{selectable}
+			{selectAllHunkLines}
+			{unselectAllHunkLines}
+			{invertHunkSelection}
+		/>
 	</div>
 {/snippet}
 

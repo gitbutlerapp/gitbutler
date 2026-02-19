@@ -368,6 +368,12 @@
 	const assignedFiles = $derived(uncommittedService.getChangesByStackId(stackId || null));
 
 	let multiDiffView = $state<MultiDiffView>();
+
+	let visibleRange = $state({ start: 0, end: 0 });
+
+	function onVisibleChange(change: { start: number; end: number }) {
+		visibleRange = change;
+	}
 </script>
 
 <div
@@ -503,6 +509,7 @@
 							onFileClick={(index) => {
 								multiDiffView?.jumpToIndex(index);
 							}}
+							{visibleRange}
 						/>
 					</div>
 
@@ -638,6 +645,7 @@
 														draggable={true}
 														selectable={false}
 														startIndex={$activeLastAdded?.index}
+														{onVisibleChange}
 													/>
 												{/snippet}
 											</ReduxResult>
@@ -673,6 +681,7 @@
 											draggable={true}
 											selectable={false}
 											startIndex={$activeLastAdded?.index}
+											{onVisibleChange}
 										/>
 									{/snippet}
 								</ReduxResult>
@@ -688,6 +697,7 @@
 								selectable={isCommitting}
 								onclose={onclosePreview}
 								startIndex={$activeLastAdded.index}
+								{onVisibleChange}
 							/>
 						{/if}
 					{/if}
