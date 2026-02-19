@@ -86,13 +86,7 @@ fn main() -> anyhow::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
-    let mut final_output = ts_output.clone();
-    if output_path.exists() {
-        let existing = std::fs::read_to_string(&output_path)?;
-        final_output = format!("{}\n{}", existing, ts_output);
-    }
-
-    std::fs::write(&output_path, &final_output)?;
+    std::fs::write(&output_path, &ts_output)?;
     eprintln!("Written to {}", output_path.display());
 
     Ok(())
