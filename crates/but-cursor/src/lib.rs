@@ -118,6 +118,10 @@ fn cursor_path_to_pathbuf(input: &str) -> PathBuf {
 pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
     let mut input: FileEditEvent =
         serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
+    let conversation_id = input
+        .conversation_id
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Invalid conversation_id: {e}"))?;
     let hook_headers = input
         .edits
         .last()
@@ -145,7 +149,7 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
     let mut guard = ctx.exclusive_worktree_access();
     let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
     let stack_id =
-        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), &input.conversation_id, stacks)?;
+        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), conversation_id, stacks)?;
 
     let changes = but_core::diff::ui::worktree_changes(&*ctx.repo.get()?)?.changes;
     let context_lines = ctx.settings.context_lines;
@@ -199,6 +203,10 @@ pub async fn handle_after_edit(read: impl std::io::Read) -> anyhow::Result<Curso
 pub async fn handle_stop(nightly: bool, read: impl std::io::Read) -> anyhow::Result<CursorHookOutput> {
     let input: StopEvent =
         serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
+    let conversation_id = input
+        .conversation_id
+        .parse()
+        .map_err(|e| anyhow::anyhow!("Invalid conversation_id: {e}"))?;
     let dir = input
         .workspace_roots
         .first()
@@ -218,7 +226,7 @@ pub async fn handle_stop(nightly: bool, read: impl std::io::Read) -> anyhow::Res
     let mut guard = ctx.exclusive_worktree_access();
     let stacks = but_workspace::legacy::stacks_v3(&*ctx.repo.get()?, &meta, StacksFilter::default(), None)?;
     let stack_id =
-        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), &input.conversation_id, stacks)?;
+        but_claude::hooks::get_or_create_session(&mut ctx, guard.write_permission(), conversation_id, stacks)?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
     // lock so we need to drop this here to ensure we don't end up with a deadlock.

@@ -53,6 +53,13 @@ struct AppState {
     app_settings: AppSettingsWithDiskSync,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ClaudeGetSessionDetailsParams {
+    project_id: ProjectId,
+    session_id: uuid::Uuid,
+}
+
 /// Wraps a synchronous command handler that takes `serde_json::Value` params and returns
 /// `anyhow::Result<serde_json::Value>` into an axum handler.
 // TODO: implement these as actual `Handler`s so that boxing isn't required.
@@ -1009,15 +1016,9 @@ async fn handle_command(
             }
         }
         "claude_get_session_details" => {
-            #[derive(Deserialize)]
-            #[serde(rename_all = "camelCase")]
-            struct Params {
-                project_id: ProjectId,
-                session_id: String,
-            }
             let params = deserialize_json(request.params);
             match params {
-                Ok(Params { project_id, session_id }) => {
+                Ok(ClaudeGetSessionDetailsParams { project_id, session_id }) => {
                     let ctx = Context::new_from_legacy_project_id(project_id)?;
                     let result = legacy::claude::claude_get_session_details(ctx.into_sync(), session_id).await;
                     result.map(|r| json!(r))
@@ -1093,4 +1094,23 @@ fn to_json_or_panic(value: impl serde::Serialize) -> serde_json::Value {
 
 fn deserialize_json<T: serde::de::DeserializeOwned>(value: serde_json::Value) -> anyhow::Result<T> {
     Ok(serde_json::from_value(value)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn claude_get_session_details_params_deserialize_uuid_string() {
+        let project_id = uuid::Uuid::new_v4();
+        let session_id = uuid::Uuid::new_v4();
+        let params: ClaudeGetSessionDetailsParams = deserialize_json(json!({
+            "projectId": project_id,
+            "sessionId": session_id,
+        }))
+        .expect("params should deserialize");
+
+        assert_eq!(params.project_id.to_string(), project_id.to_string());
+        assert_eq!(params.session_id, session_id);
+    }
 }
