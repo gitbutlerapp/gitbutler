@@ -209,15 +209,20 @@
 	let abortModal = $state<Modal>();
 </script>
 
-<Modal bind:this={abortModal} title="Forcibly abort edit mode">
+<Modal
+	bind:this={abortModal}
+	type="warning"
+	width={420}
+	title="Are you sure you want to abort edit mode?"
+>
 	<p>
 		There are changes that differ from the commit you started editing. Aborting edit mode now will
-		remove those changes. Are you sure you want to abort edit mode?
+		remove those changes.
 	</p>
 	<br />
-	<p>
+	<p class="clr-text-2">
 		If you want to keep the changes but place them elsewhere, you can save and exit and then
-		reorganise the changes via drag and drop.
+		reorganize the changes via drag and drop.
 	</p>
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
