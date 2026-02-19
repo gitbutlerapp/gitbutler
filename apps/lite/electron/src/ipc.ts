@@ -1,4 +1,4 @@
-import { ProjectForFrontend } from '@gitbutler/but-sdk';
+import type { ProjectForFrontend } from '@gitbutler/but-sdk';
 
 export interface LiteElectronApi {
 	ping(input: string): Promise<string>;
