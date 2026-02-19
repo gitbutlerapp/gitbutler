@@ -398,10 +398,14 @@ jobs:
           path: .
       - run: chmod +x ./but-installer
       - name: Install release
+        env:
+          GITBUTLER_SKIP_SIGNATURE_VERIFICATION: ${{ startsWith(matrix.platform, 'ubuntu') && '1' || '0' }}
         run: ./but-installer
       - name: Validate release version
         run: but --version | grep "but $LATEST_RELEASE_VERSION"
       - name: Install nightly
+        env:
+          GITBUTLER_SKIP_SIGNATURE_VERIFICATION: ${{ startsWith(matrix.platform, 'ubuntu') && '1' || '0' }}
         run: ./but-installer nightly
       - name: Validate nightly version
         run: but --version | grep "but $LATEST_NIGHTLY_VERSION"

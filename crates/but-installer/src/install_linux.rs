@@ -49,8 +49,11 @@ pub(crate) fn download_and_install_app(
     download_file(&download_url, &tmp_filepath)?;
     info("Download completed successfully");
 
-    if std::env::var_os("CI").is_some() {
-        warn("Temporarily skipping signature verification in CI to circumvent chicken-or-egg problem ...");
+    if std::env::var("GITBUTLER_SKIP_SIGNATURE_VERIFICATION")
+        .map(|v| v == "1")
+        .unwrap_or(false)
+    {
+        warn("Skipping signature verification because GITBUTLER_SKIP_SIGNATURE_VERIFICATION=1");
     } else {
         let signature_b64 = download_to_string(&signature_url)
             .with_context(|| anyhow!("Failed to get signature for but, requested version may be too old"))?;
