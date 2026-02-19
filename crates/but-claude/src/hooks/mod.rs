@@ -230,7 +230,7 @@ pub fn handle_session_stop(
 
             // Write commit notification messages to the database
             // These will be broadcasted by the main process after Claude completes
-            let session_uuid = uuid::Uuid::parse_str(session_id)?;
+            let session_uuid = uuid::Uuid::parse_str(&resolved_session_id)?;
             let commit_message =
                 crate::MessagePayload::GitButler(crate::GitButlerUpdate::CommitCreated(crate::CommitCreatedDetails {
                     stack_id: Some(branch.stack_id.to_string()),
