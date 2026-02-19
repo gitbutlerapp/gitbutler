@@ -20,5 +20,8 @@
 		"rootDir": "src"
 	},
 	"include": ["src/**/*"],
-	"exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.spec.ts"]
+	"exclude": ["dist", "node_modules", "**/*.test.ts", "**/*.spec.ts", "src/generated"],
+	"references": [ {
+		"path": "tsconfig.generated.json"
+	}]
 }
