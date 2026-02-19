@@ -29,19 +29,15 @@ on:
           - minor
           - major
 
+permissions: {}
+
 jobs:
   build-sveltekit:
     runs-on: ubuntu-latest
     env:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
-      - name: Trigger Sentry Cron - In Progress
-        if: ${{ github.event_name == 'schedule' }}
-        shell: bash
-        run: curl "${{ secrets.SENTRY_CRONS }}?status=in_progress"
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          token: ${{ secrets.PAT_JUNON }}
       - name: Consume input variables
         shell: bash
         if: ${{ !github.event.workflow_run }}
@@ -127,8 +123,6 @@ jobs:
           echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
       - name: Set Cargo build target to ${{ matrix.target }}
         shell: bash
         if: matrix.target != ''
@@ -336,7 +330,6 @@ jobs:
   sign-but:
     needs: build-tauri
     runs-on: ubuntu-latest
-    permissions: {}
     strategy:
       fail-fast: false
       matrix:
@@ -401,8 +394,6 @@ jobs:
             target: ''
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
       - name: Set artifact name suffix
         shell: bash
         run: |
@@ -481,7 +472,3 @@ jobs:
             delete_tag "$TAG_NAME"
           fi
           create_tag "$TAG_NAME"
-      - name: Trigger Sentry Cron - Complete
-        if: ${{ github.event_name == 'schedule' }}
-        shell: bash
-        run: curl "${{ secrets.SENTRY_CRONS }}?status=ok"
