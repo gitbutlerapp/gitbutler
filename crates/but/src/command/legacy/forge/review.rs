@@ -71,6 +71,7 @@ pub async fn create_review(
     with_force: bool,
     run_hooks: bool,
     default: bool,
+    draft: bool,
     message: Option<ForgeReviewMessage>,
     out: &mut OutputChannel,
 ) -> anyhow::Result<()> {
@@ -99,8 +100,9 @@ pub async fn create_review(
             let mut inout = out
                 .prepare_for_terminal_input()
                 .context("Terminal input not available. Please specify a branch using command line arguments.")?;
+            let draftiness = if draft { "draft " } else { "" };
             if inout.confirm(
-                format!("Do you want to open a new review on branch '{branch_name}'?"),
+                format!("Do you want to open a new {draftiness}review on branch '{branch_name}'?"),
                 ConfirmDefault::Yes,
             )? == Confirm::Yes
             {
@@ -122,6 +124,7 @@ pub async fn create_review(
         with_force,
         run_hooks,
         default,
+        draft,
         message.as_ref(),
         out,
         maybe_branch_names,
@@ -231,6 +234,7 @@ pub async fn handle_multiple_branches_in_workspace(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
+    draft: bool,
     message: Option<&ForgeReviewMessage>,
     out: &mut OutputChannel,
     selected_branches: Option<Vec<String>>,
@@ -271,6 +275,7 @@ pub async fn handle_multiple_branches_in_workspace(
             with_force,
             run_hooks,
             default_message,
+            draft,
             message,
             out,
         )
@@ -390,6 +395,7 @@ async fn publish_reviews_for_branch_and_dependents(
     with_force: bool,
     run_hooks: bool,
     default_message: bool,
+    draft: bool,
     message: Option<&ForgeReviewMessage>,
     out: &mut OutputChannel,
 ) -> Result<PublishReviewsOutcome, anyhow::Error> {
@@ -435,10 +441,12 @@ async fn publish_reviews_for_branch_and_dependents(
     let mut current_target_branch = base_branch.short_name();
     for head in stack_entry.heads.iter().rev() {
         if let Some(out) = out.for_human() {
+            let draftiness = if draft { "draft " } else { "" };
             write!(out, "{} ", "→".cyan())?;
             writeln!(
                 out,
-                "Creating PR for {} {} {}...",
+                "Creating {}review for {} {} {}...",
+                draftiness,
                 head.name.to_string().green().bold(),
                 "→".dimmed(),
                 current_target_branch.cyan()
@@ -453,6 +461,7 @@ async fn publish_reviews_for_branch_and_dependents(
             current_target_branch,
             review_map,
             default_message,
+            draft,
             message_for_head,
         )
         .await?;
@@ -522,13 +531,16 @@ fn print_new_pr_info(review: &but_forge::ForgeReview, out: &mut dyn std::fmt::Wr
         out,
         "{} {} {}{}",
         "✓".green().bold(),
-        "Created PR".green(),
+        "Created review".green(),
         review.unit_symbol.cyan(),
         review.number.to_string().cyan().bold()
     )?;
     writeln!(out, "  {} {}", "Title:".dimmed(), review.title.bold())?;
     writeln!(out, "  {} {}", "Branch:".dimmed(), review.source_branch.green())?;
     writeln!(out, "  {} {}", "URL:".dimmed(), review.html_url.underline().blue())?;
+    if review.draft {
+        writeln!(out, "  {}", "Draft only".dimmed())?;
+    }
 
     Ok(())
 }
@@ -586,6 +598,7 @@ pub fn parse_review_message(content: &str) -> anyhow::Result<ForgeReviewMessage>
     Ok(ForgeReviewMessage { title, body })
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn publish_review_for_branch(
     ctx: &mut Context,
     stack_id: Option<StackId>,
@@ -593,6 +606,7 @@ async fn publish_review_for_branch(
     target_branch: &str,
     review_map: &std::collections::HashMap<String, Vec<but_forge::ForgeReview>>,
     default_message: bool,
+    draft: bool,
     message: Option<&ForgeReviewMessage>,
 ) -> anyhow::Result<PublishReviewResult> {
     // Check if a review already exists for the branch.
@@ -627,7 +641,7 @@ async fn publish_review_for_branch(
             body,
             source_branch: branch_name.to_string(),
             target_branch: target_branch.to_string(),
-            draft: false,
+            draft,
         },
     )
     .await

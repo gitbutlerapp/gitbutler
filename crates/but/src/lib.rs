@@ -798,7 +798,10 @@ async fn match_subcommand(
                 .emit_metrics(metrics_ctx)
         }
         #[cfg(feature = "legacy")]
-        Subcommands::Pr(forge::pr::Platform { cmd }) => {
+        Subcommands::Pr(forge::pr::Platform {
+            cmd,
+            draft: top_level_draft,
+        }) => {
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -816,7 +819,9 @@ async fn match_subcommand(
                     with_force,
                     run_hooks,
                     default,
+                    draft,
                 }) => {
+                    let draft = top_level_draft || draft;
                     // Read message content from file or inline
                     let message_content = match &file {
                         Some(path) => Some(std::fs::read_to_string(path).with_context(|| {
@@ -847,6 +852,7 @@ async fn match_subcommand(
                         with_force,
                         run_hooks,
                         default,
+                        draft,
                         review_message,
                         out,
                     )
@@ -861,10 +867,20 @@ async fn match_subcommand(
                 }
                 None => {
                     // Default to `pr new` when no subcommand is provided
-                    command::legacy::forge::review::create_review(&mut ctx, None, false, true, true, false, None, out)
-                        .await
-                        .context("Failed to create forge review for branch.")
-                        .emit_metrics(metrics_ctx)
+                    command::legacy::forge::review::create_review(
+                        &mut ctx,
+                        None,
+                        false,
+                        true,
+                        true,
+                        false,
+                        top_level_draft,
+                        None,
+                        out,
+                    )
+                    .await
+                    .context("Failed to create forge review for branch.")
+                    .emit_metrics(metrics_ctx)
                 }
             }
         }

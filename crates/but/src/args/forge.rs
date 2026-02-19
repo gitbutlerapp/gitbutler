@@ -3,20 +3,23 @@ pub mod pr {
     pub struct Platform {
         #[clap(subcommand)]
         pub cmd: Option<Subcommands>,
+        /// Whether to create reviews as a draft.
+        #[clap(long, short = 'd', default_value_t = false)]
+        pub draft: bool,
     }
     #[derive(Debug, clap::Subcommand)]
     pub enum Subcommands {
-        /// Create a new pull request for a branch.
+        /// Create a new review for a branch.
         /// If no branch is specified, you will be prompted to select one.
-        /// If there is only one branch without a PR, you will be asked to confirm.
+        /// If there is only one branch without a review, you will be asked to confirm.
         New {
-            /// The branch to create a PR for.
+            /// The branch to create a review for.
             #[clap(value_name = "BRANCH")]
             branch: Option<String>,
-            /// PR title and description. The first line is the title, the rest is the description.
+            /// review title and description. The first line is the title, the rest is the description.
             #[clap(short = 'm', long = "message", conflicts_with_all = &["file", "default"])]
             message: Option<String>,
-            /// Read PR title and description from file. The first line is the title, the rest is the description.
+            /// Read review title and description from file. The first line is the title, the rest is the description.
             #[clap(short = 'F', long = "file", value_name = "FILE", conflicts_with_all = &["message", "default"])]
             file: Option<std::path::PathBuf>,
             /// Force push even if it's not fast-forward (defaults to true).
@@ -28,15 +31,18 @@ pub mod pr {
             /// Run pre-push hooks (defaults to true).
             #[clap(long, short = 'r', default_value_t = true)]
             run_hooks: bool,
-            /// Use the default content for the PR title and description, skipping any prompts.
+            /// Use the default content for the review title and description, skipping any prompts.
             /// If the branch contains only a single commit, the commit message will be used.
             #[clap(long, short = 't', default_value_t = false)]
             default: bool,
+            /// Whether to create reviews as a draft.
+            #[clap(long, short = 'd', default_value_t = false)]
+            draft: bool,
         },
-        /// Configure the template to use for PR descriptions.
+        /// Configure the template to use for review descriptions.
         /// This will list all available templates found in the repository and allow you to select one.
         Template {
-            /// Path to the PR template file within the repository.
+            /// Path to the review template file within the repository.
             template_path: Option<String>,
         },
     }
