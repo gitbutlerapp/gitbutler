@@ -20,7 +20,7 @@ use crate::claude_transcript::Transcript;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudePostToolUseInput {
-    pub session_id: String,
+    pub session_id: Uuid,
     pub transcript_path: String,
     pub hook_event_name: String,
     pub tool_name: String,
@@ -74,7 +74,7 @@ impl From<&StructuredPatch> for HunkHeader {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudeStopInput {
-    pub session_id: String,
+    pub session_id: Uuid,
     pub transcript_path: String,
     pub hook_event_name: String,
     pub stop_hook_active: Option<bool>,
@@ -84,18 +84,17 @@ pub fn handle_stop(ctx: Context, read: impl std::io::Read) -> anyhow::Result<Cla
     let input: ClaudeStopInput =
         serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
-    handle_session_stop(ctx, &input.session_id, &input.transcript_path, false)
+    handle_session_stop(ctx, input.session_id, &input.transcript_path, false)
 }
 
 /// `maybe_unused_session_id` is the session ID that was passed to the hook, and it should always be the same as the
 /// one that is stored. The code behaves like that's not the case, but we just go with it.
 pub fn handle_session_stop(
     mut ctx: Context,
-    maybe_unused_session_id: &str,
+    maybe_unused_session_id: Uuid,
     transcript_path: &str,
     skip_gui_check: bool,
 ) -> anyhow::Result<ClaudeHookOutput> {
-    let maybe_unused_session_id = Uuid::parse_str(maybe_unused_session_id)?;
     let session_id = stable_session_id(&mut ctx, maybe_unused_session_id)?.unwrap_or(maybe_unused_session_id);
 
     // ClearLocksGuard ensures all file locks for this session are cleared on drop,
@@ -148,12 +147,7 @@ pub fn handle_session_stop(
 
     // If the session stopped, but there's no session persisted in the database, we create a new one.
     // If the session is already persisted, we just retrieve it.
-    let stack_id = get_or_create_session(
-        &mut defer.ctx,
-        guard.write_permission(),
-        &session_id.to_string(),
-        stacks,
-    )?;
+    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), session_id, stacks)?;
 
     // Drop the guard we made above, certain commands below are also getting their own exclusive
     // lock so we need to drop this here to ensure we don't end up with a deadlock.
@@ -327,7 +321,7 @@ pub fn is_branch_eligible_for_rename(
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ClaudePreToolUseInput {
-    pub session_id: String,
+    pub session_id: Uuid,
     pub transcript_path: String,
     pub hook_event_name: String,
     pub tool_name: String,
@@ -338,7 +332,7 @@ pub fn handle_pre_tool_call(mut ctx: Context, read: impl std::io::Read) -> anyho
     let input: ClaudePreToolUseInput =
         serde_json::from_reader(read).map_err(|e| anyhow::anyhow!("Failed to parse input JSON: {e}"))?;
 
-    let session_id = input.session_id.parse()?;
+    let session_id = input.session_id;
     let session_id = stable_session_id(&mut ctx, session_id)?.unwrap_or(session_id);
 
     if should_exit_early(&mut ctx, session_id)? {
@@ -349,7 +343,7 @@ pub fn handle_pre_tool_call(mut ctx: Context, read: impl std::io::Read) -> anyho
         });
     }
 
-    file_lock::obtain_or_insert(&mut ctx, session_id.to_string(), input.tool_input.file_path)?;
+    file_lock::obtain_or_insert(&mut ctx, session_id, input.tool_input.file_path)?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -362,13 +356,12 @@ pub fn handle_pre_tool_call(mut ctx: Context, read: impl std::io::Read) -> anyho
 /// This is called from the SDK hook and skips the GUI check.
 pub fn lock_file_for_tool_call(
     sync_ctx: but_ctx::ThreadSafeContext,
-    session_id: &str,
+    session_id: Uuid,
     file_path: &str,
 ) -> anyhow::Result<ClaudeHookOutput> {
     let mut ctx: Context = sync_ctx.into_thread_local();
-    let session_id = session_id.parse()?;
     let resolved_session_id = stable_session_id(&mut ctx, session_id)?.unwrap_or(session_id);
-    file_lock::obtain_or_insert(&mut ctx, resolved_session_id.to_string(), file_path.to_string())?;
+    file_lock::obtain_or_insert(&mut ctx, resolved_session_id, file_path.to_string())?;
 
     Ok(ClaudeHookOutput {
         do_continue: true,
@@ -383,7 +376,7 @@ pub fn handle_post_tool_call(ctx: Context, read: impl std::io::Read) -> anyhow::
 
     assign_hunks_post_tool_call(
         ctx,
-        &input.session_id,
+        input.session_id,
         &input.tool_response.file_path,
         &input.tool_response.structured_patch,
         false,
@@ -392,14 +385,13 @@ pub fn handle_post_tool_call(ctx: Context, read: impl std::io::Read) -> anyhow::
 
 pub fn assign_hunks_post_tool_call(
     mut ctx: Context,
-    session_id: &str,
+    session_id: Uuid,
     file_path: &str,
     structured_patch: &[StructuredPatch],
     skip_gui_check: bool,
 ) -> anyhow::Result<ClaudeHookOutput> {
     let hook_headers: Vec<HunkHeader> = structured_patch.iter().map(|p| p.into()).collect();
 
-    let session_id = session_id.parse()?;
     let resolved_session_id = stable_session_id(&mut ctx, session_id)?.unwrap_or(session_id);
 
     // ClearLocksGuard ensures the file lock is cleared on drop, including early returns.
@@ -427,12 +419,7 @@ pub fn assign_hunks_post_tool_call(
     let mut guard = defer.ctx.exclusive_worktree_access();
     let stacks = list_stacks(&defer.ctx)?;
 
-    let stack_id = get_or_create_session(
-        &mut defer.ctx,
-        guard.write_permission(),
-        &resolved_session_id.to_string(),
-        stacks,
-    )?;
+    let stack_id = get_or_create_session(&mut defer.ctx, guard.write_permission(), resolved_session_id, stacks)?;
 
     let changes = but_core::diff::ui::worktree_changes(&*defer.ctx.repo.get()?)?.changes;
     let context_lines = defer.ctx.settings.context_lines;
@@ -499,10 +486,9 @@ fn stable_session_id(ctx: &mut Context, current_id: Uuid) -> Result<Option<Uuid>
 pub fn get_or_create_session(
     ctx: &mut Context,
     perm: &mut RepoExclusive,
-    session_id: &str,
+    session_id: Uuid,
     stacks: Vec<but_workspace::legacy::ui::StackEntry>,
 ) -> Result<StackId, anyhow::Error> {
-    let session_id = Uuid::parse_str(session_id)?;
     if crate::db::get_session_by_id(ctx, session_id)?.is_none() {
         crate::db::save_new_session(ctx, session_id)?;
     }
@@ -564,7 +550,7 @@ pub(crate) struct ClearLocksGuard {
 
 impl Drop for ClearLocksGuard {
     fn drop(&mut self) {
-        file_lock::clear(&mut self.ctx, self.session_id.to_string(), self.file_path.clone()).ok();
+        file_lock::clear(&mut self.ctx, self.session_id, self.file_path.clone()).ok();
     }
 }
 

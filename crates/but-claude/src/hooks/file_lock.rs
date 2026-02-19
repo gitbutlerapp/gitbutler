@@ -1,6 +1,8 @@
 use but_ctx::Context;
+use uuid::Uuid;
 
-pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path: String) -> anyhow::Result<()> {
+pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: Uuid, file_path: String) -> anyhow::Result<()> {
+    let owner = session_id.to_string();
     let mut db = ctx.db.get_mut()?;
     let mut locks_mut = db.file_write_locks_mut();
     let max_wait_time = std::time::Duration::from_secs(30);
@@ -10,7 +12,7 @@ pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path:
         let locks = locks_mut.to_ref().list()?;
 
         if let Some(lock) = locks.into_iter().find(|l| l.path == file_path) {
-            if lock.owner == session_id {
+            if lock.owner == owner {
                 return Ok(());
             } else {
                 if start.elapsed() > max_wait_time {
@@ -24,7 +26,7 @@ pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path:
             let lock = but_db::FileWriteLock {
                 path: file_path.clone(),
                 created_at: chrono::Local::now().naive_local(),
-                owner: session_id.clone(),
+                owner: owner.clone(),
             };
             locks_mut
                 .insert(lock)
@@ -36,7 +38,8 @@ pub(crate) fn obtain_or_insert(ctx: &mut Context, session_id: String, file_path:
 
 /// If file_path is provided, it will clear the lock for that file.
 /// Otherwise, it will clear all locks for the session_id.
-pub fn clear(ctx: &mut Context, session_id: String, file_path: Option<String>) -> anyhow::Result<()> {
+pub fn clear(ctx: &mut Context, session_id: Uuid, file_path: Option<String>) -> anyhow::Result<()> {
+    let owner = session_id.to_string();
     let mut db = ctx.db.get_mut()?;
     let mut trans = db.transaction()?;
 
@@ -44,10 +47,10 @@ pub fn clear(ctx: &mut Context, session_id: String, file_path: Option<String>) -
     let locks_to_remove: Vec<_> = if let Some(ref path) = file_path {
         locks
             .into_iter()
-            .filter(|l| l.path == *path && l.owner == session_id)
+            .filter(|l| l.path == *path && l.owner == owner)
             .collect()
     } else {
-        locks.into_iter().filter(|l| l.owner == session_id).collect()
+        locks.into_iter().filter(|l| l.owner == owner).collect()
     };
 
     for lock in &locks_to_remove {

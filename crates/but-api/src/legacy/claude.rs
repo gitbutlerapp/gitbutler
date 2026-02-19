@@ -56,11 +56,10 @@ pub fn claude_get_messages(claude: &Claude, params: GetMessagesParams) -> Result
 #[instrument(err(Debug))]
 pub async fn claude_get_session_details(
     ctx: ThreadSafeContext,
-    session_id: String,
+    session_id: uuid::Uuid,
 ) -> Result<but_claude::ClaudeSessionDetails> {
     let (worktree_dir, session) = {
         let ctx = ctx.into_thread_local();
-        let session_id = uuid::Uuid::parse_str(&session_id).map_err(anyhow::Error::from)?;
         let session = but_claude::db::get_session_by_id(&ctx, session_id)?.context("Could not find session")?;
         let worktree_dir = ctx.workdir_or_fail()?;
         (worktree_dir, session)
