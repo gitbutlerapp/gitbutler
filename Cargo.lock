@@ -889,6 +889,7 @@ dependencies = [
  "but-settings",
  "but-workspace",
  "but-worktrees",
+ "futures",
  "git2",
  "gitbutler-branch",
  "gitbutler-branch-actions",

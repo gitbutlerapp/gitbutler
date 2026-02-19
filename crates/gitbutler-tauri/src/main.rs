@@ -23,6 +23,7 @@ use tauri_plugin_log::{Target, TargetKind};
 use tokio::sync::Mutex;
 
 fn main() -> anyhow::Result<()> {
+    but_api::panic_capture::install_panic_hook();
     let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
     #[cfg(feature = "builtin-but")]
     {

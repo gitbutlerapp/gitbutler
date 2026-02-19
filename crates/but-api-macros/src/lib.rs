@@ -164,9 +164,27 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 
     let call_fn_args = if asyncness.is_some() {
-        quote! { #fn_name(#(#call_arg_idents),*).await }
+        quote! {{
+            let __call_result =
+                ::futures::FutureExt::catch_unwind(::std::panic::AssertUnwindSafe(async {
+                    #fn_name(#(#call_arg_idents),*).await
+                }))
+                .await
+                .map_err(|__panic_payload| {
+                    crate::panic_capture::panic_payload_to_anyhow(stringify!(#fn_name), __panic_payload)
+                })?;
+            __call_result
+        }}
     } else {
-        quote! { #fn_name(#(#call_arg_idents),*) }
+        quote! {{
+            let __call_result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
+                #fn_name(#(#call_arg_idents),*)
+            }))
+            .map_err(|__panic_payload| {
+                crate::panic_capture::panic_payload_to_anyhow(stringify!(#fn_name), __panic_payload)
+            })?;
+            __call_result
+        }}
     };
 
     // Build napi-specific parameter list and conversions.

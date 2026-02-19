@@ -110,6 +110,7 @@ async fn localhost_only_middleware(
 }
 
 pub async fn run() {
+    but_api::panic_capture::install_panic_hook();
     let cors = CorsLayer::new()
         .allow_methods(cors::Any)
         .allow_origin(cors::AllowOrigin::predicate(|origin, _parts| {
