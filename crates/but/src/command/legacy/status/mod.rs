@@ -13,6 +13,7 @@ use gitbutler_branch_actions::upstream_integration::BranchStatus as UpstreamBran
 use gitbutler_stack::StackId;
 use gix::date::time::CustomFormat;
 use serde::Serialize;
+use terminal_size::Width;
 
 use crate::{
     CLI_DATE,
@@ -21,6 +22,25 @@ use crate::{
 };
 
 const DATE_ONLY: CustomFormat = CustomFormat::new("%Y-%m-%d");
+
+/// Returns the current terminal width, defaulting to 80 columns.
+fn terminal_width() -> usize {
+    terminal_size::terminal_size().map_or(80, |(Width(w), _)| w as usize)
+}
+
+/// Truncate `text` to fit within `max_width` characters.
+/// If the text is longer, it is truncated and a `…` character is appended.
+fn truncate_text(text: &str, max_width: usize) -> String {
+    let char_count = text.chars().count();
+    if char_count <= max_width {
+        text.to_string()
+    } else if max_width > 1 {
+        let truncated: String = text.chars().take(max_width - 1).collect();
+        format!("{truncated}…")
+    } else {
+        "…".to_string()
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum CommitClassification {
@@ -356,14 +376,12 @@ pub(crate) async fn worktree(
         }
     }
 
-    let display_message = common_merge_base_data
-        .message
-        .lines()
-        .next()
-        .unwrap_or("")
-        .chars()
-        .take(40)
-        .collect::<String>();
+    let first_line = common_merge_base_data.message.lines().next().unwrap_or("");
+    // The common base prefix is roughly: "┴ <7-char-hash> [<branch>] <date> " which varies
+    // Use a conservative estimate for the fixed-width prefix portion
+    const BASE_PREFIX_ESTIMATE: usize = 40;
+    let max_width = terminal_width().saturating_sub(BASE_PREFIX_ESTIMATE).max(20);
+    let display_message = truncate_text(first_line, max_width);
 
     writeln!(
         out,
@@ -905,13 +923,15 @@ impl CliDisplay for CommitMessage {
             message.lines().next().unwrap_or("").to_string()
         };
 
-        let truncated: String = text.chars().take(50).collect();
-
-        if truncated.is_empty() {
-            "(no commit message)".dimmed().italic().to_string()
-        } else {
-            truncated.normal().to_string()
+        if text.is_empty() {
+            return "(no commit message)".dimmed().italic().to_string();
         }
+
+        // The commit line prefix is roughly: "┊●   <7-char-hash> " = ~13 visible chars
+        // Use a generous prefix estimate so the message fits within the terminal
+        const PREFIX_ESTIMATE: usize = 15;
+        let max_width = terminal_width().saturating_sub(PREFIX_ESTIMATE).max(20);
+        truncate_text(&text, max_width).normal().to_string()
     }
 }
 
@@ -924,15 +944,16 @@ impl CliDisplay for ForgeReview {
                 self.html_url.underline().blue(),
             )
         } else {
-            format!(
-                "#{}: {}",
-                self.number.to_string().bold(),
-                self.title
-                    .chars()
-                    .take(50)
-                    .collect::<String>()
-                    .trim_end_matches(|c: char| !c.is_ascii() && !c.is_alphanumeric())
-            )
+            // The PR info prefix is roughly: "┊●   <hash> #{number}: " which varies
+            const PREFIX_ESTIMATE: usize = 25;
+            let max_width = terminal_width().saturating_sub(PREFIX_ESTIMATE).max(20);
+            // Trim non-ASCII/non-alphanumeric trailing chars from the raw title first
+            // so truncation's `…` suffix is preserved
+            let cleaned_title = self
+                .title
+                .trim_end_matches(|c: char| !c.is_ascii() && !c.is_alphanumeric());
+            let title = truncate_text(cleaned_title, max_width);
+            format!("#{}: {}", self.number.to_string().bold(), title)
         }
     }
 }
@@ -1038,4 +1059,49 @@ async fn compute_branch_merge_statuses(ctx: &Context) -> anyhow::Result<BTreeMap
     }
 
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::truncate_text;
+
+    #[test]
+    fn short_text_is_not_truncated() {
+        assert_eq!(truncate_text("hello", 10), "hello");
+    }
+
+    #[test]
+    fn text_at_exact_limit_is_not_truncated() {
+        assert_eq!(truncate_text("hello", 5), "hello");
+    }
+
+    #[test]
+    fn text_exceeding_limit_is_truncated_with_ellipsis() {
+        assert_eq!(truncate_text("hello world", 5), "hell…");
+    }
+
+    #[test]
+    fn empty_text_stays_empty() {
+        assert_eq!(truncate_text("", 10), "");
+    }
+
+    #[test]
+    fn max_width_of_one_gives_ellipsis_only() {
+        assert_eq!(truncate_text("hello", 1), "…");
+    }
+
+    #[test]
+    fn unicode_characters_are_handled() {
+        // Each character counts as 1 regardless of byte length
+        assert_eq!(truncate_text("über-cool", 5), "über…");
+    }
+
+    #[test]
+    fn truncation_preserves_exact_boundary() {
+        let msg = "this is a overly long commit message to demonstrate truncation";
+        let result = truncate_text(msg, 60);
+        assert!(result.ends_with('…'));
+        // 59 chars + ellipsis = 60 visible chars
+        assert_eq!(result.chars().count(), 60);
+    }
 }
