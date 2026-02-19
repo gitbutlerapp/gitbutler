@@ -1521,12 +1521,12 @@ fn create_pretool_use_hook(
                 if let HookInput::PreToolUse(pre_tool_input) = input {
                     let file_path = pre_tool_input.tool_input.get("file_path").and_then(|v| v.as_str());
                     if let Some(file_path) = file_path {
-                        let raw_session_id = pre_tool_input.session_id.clone();
-                        let session_id = match uuid::Uuid::parse_str(&raw_session_id) {
+                        let session_id_str = pre_tool_input.session_id;
+                        let session_id = match uuid::Uuid::parse_str(&session_id_str) {
                             Ok(id) => id,
                             Err(e) => {
                                 tracing::warn!(
-                                    session_id = %raw_session_id,
+                                    session_id = %session_id_str,
                                     error = %e,
                                     "PreToolUse hook received invalid session ID - skipping file lock"
                                 );
@@ -1630,12 +1630,12 @@ fn create_post_tool_use_hook(sync_ctx: ThreadSafeContext) -> claude_agent_sdk_rs
                         });
                     }
 
-                    let raw_session_id = post_tool_input.session_id.clone();
-                    let session_id = match uuid::Uuid::parse_str(&raw_session_id) {
+                    let session_id_str = post_tool_input.session_id;
+                    let session_id = match uuid::Uuid::parse_str(&session_id_str) {
                         Ok(id) => id,
                         Err(e) => {
                             tracing::warn!(
-                                session_id = %raw_session_id,
+                                session_id = %session_id_str,
                                 error = %e,
                                 "PostToolUse hook received invalid session ID - skipping hunk assignment"
                             );
@@ -1724,12 +1724,12 @@ fn create_stop_hook(sync_ctx: ThreadSafeContext) -> claude_agent_sdk_rs::HookCal
                         stop_input.session_id,
                         stop_input.transcript_path
                     );
-                    let raw_session_id = stop_input.session_id.clone();
-                    let session_id = match uuid::Uuid::parse_str(&raw_session_id) {
+                    let session_id_str = stop_input.session_id;
+                    let session_id = match uuid::Uuid::parse_str(&session_id_str) {
                         Ok(id) => id,
                         Err(e) => {
                             tracing::warn!(
-                                session_id = %raw_session_id,
+                                session_id = %session_id_str,
                                 error = %e,
                                 "Stop hook received invalid session ID - skipping stop handling"
                             );
@@ -1740,7 +1740,7 @@ fn create_stop_hook(sync_ctx: ThreadSafeContext) -> claude_agent_sdk_rs::HookCal
                         }
                     };
                     let transcript_path = stop_input.transcript_path.clone();
-                    let session_id_for_log = raw_session_id;
+                    let session_id_for_log = session_id_str;
                     let transcript_path_for_log = transcript_path.clone();
                     let result = tokio::task::spawn_blocking(move || {
                         crate::hooks::handle_session_stop(
