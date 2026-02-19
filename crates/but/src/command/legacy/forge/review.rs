@@ -12,7 +12,7 @@ use tracing::instrument;
 
 use crate::{
     CliId, IdMap,
-    tui::get_text,
+    tui::get_text::{self, HTML_COMMENT_END_MARKER, HTML_COMMENT_START_MARKER},
     utils::{Confirm, ConfirmDefault, OutputChannel},
 };
 
@@ -688,9 +688,9 @@ fn get_pr_title_and_body_from_editor(
     let mut template = String::new();
 
     // Use the first line of the commit message as the default title if available
-    let commit_title = extract_commit_title(commit);
+    let commit_title = extract_commit_title(commit).map(|s| s.replace(HTML_COMMENT_START_MARKER, "<\\!--"));
     if let Some(commit_title) = commit_title {
-        template.push_str(commit_title);
+        template.push_str(&commit_title);
     } else {
         template.push_str(branch_name);
     }
@@ -743,7 +743,10 @@ HTML comments are stripped before submit.
                 .lines()
                 .next()
                 .and_then(|l| l.to_str().ok())
-                .unwrap_or("");
+                .unwrap_or("")
+                // Note: Must strip away any comment end markers to prevent prematurely closing the
+                // instructions comment
+                .replace(HTML_COMMENT_END_MARKER, "--\\>");
             instructions.push_str(&format!(
                 "{}. {} ({})\n",
                 idx + 1,

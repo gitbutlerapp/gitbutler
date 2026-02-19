@@ -98,17 +98,17 @@ fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(env: impl IntoIterator<Item = 
     Ok(PLATFORM_EDITOR.into())
 }
 
-pub fn strip_html_comments(s: &str) -> String {
-    const START_MARKER: &str = "<!--";
-    const END_MARKER: &str = "-->";
+pub const HTML_COMMENT_START_MARKER: &str = "<!--";
+pub const HTML_COMMENT_END_MARKER: &str = "-->";
 
-    let comment_start_positions = s.match_indices(START_MARKER).map(|(pos, _)| pos);
-    let mut comment_end_positions = s.match_indices(END_MARKER).map(|(pos, _)| pos);
+pub fn strip_html_comments(s: &str) -> String {
+    let comment_start_positions = s.match_indices(HTML_COMMENT_START_MARKER).map(|(pos, _)| pos);
+    let mut comment_end_positions = s.match_indices(HTML_COMMENT_END_MARKER).map(|(pos, _)| pos);
 
     let comment_ranges = comment_start_positions.map(|start| {
         comment_end_positions
             .find(|end| end > &start)
-            .map(|end| (start, end + END_MARKER.len()))
+            .map(|end| (start, end + HTML_COMMENT_END_MARKER.len()))
     });
 
     let mut result = String::new();
