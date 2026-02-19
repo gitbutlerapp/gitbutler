@@ -13,7 +13,8 @@
 		"check": "tsc -p tsconfig.generated.json --noEmit",
 		"prepublishOnly": "napi prepublish -t npm",
 		"testTypes": "ts-node ./src/test.ts",
-		"universal": "napi universal"
+		"universal": "napi universal",
+		"package": "pnpm build"
 	},
 	"napi": {
 		"binaryName": "gitbutler-sdk",
