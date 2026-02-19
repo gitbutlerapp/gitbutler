@@ -259,8 +259,10 @@ export type PromptDir = {
 	filters: string[];
 };
 
-export type McpConfig = {
+export type ClaudeConfig = {
 	mcpServers: Record<string, McpServer>;
+	/** Whether this project appears in ~/.claude.json's projects map. False means the user needs to run `claude` in the project directory first. */
+	projectRegistered: boolean;
 };
 
 export type McpServer = {

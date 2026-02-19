@@ -352,7 +352,7 @@ fn main() -> anyhow::Result<()> {
                 legacy::claude::tauri_claude_list_prompt_templates::claude_list_prompt_templates,
                 legacy::claude::tauri_claude_get_prompt_dirs::claude_get_prompt_dirs,
                 legacy::claude::tauri_claude_maybe_create_prompt_dir::claude_maybe_create_prompt_dir,
-                legacy::claude::tauri_claude_get_mcp_config::claude_get_mcp_config,
+                legacy::claude::tauri_claude_get_config::claude_get_config,
                 legacy::claude::tauri_claude_get_sub_agents::claude_get_sub_agents,
                 legacy::claude::tauri_claude_verify_path::claude_verify_path,
                 legacy::claude::tauri_claude_get_user_message::claude_get_user_message,

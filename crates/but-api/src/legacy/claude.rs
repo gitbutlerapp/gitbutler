@@ -2,7 +2,7 @@ use anyhow::{Context as _, Result};
 use but_api_macros::but_api;
 use but_claude::{
     Claude, ClaudeCheckResult, ClaudeMessage, ClaudeUserParams, Transcript,
-    claude_mcp::{ClaudeMcpConfig, McpConfig},
+    claude_mcp::{ClaudeConfig, ClaudeProjectConfig},
     claude_settings::ClaudeSettings,
     prompt_templates,
 };
@@ -190,11 +190,11 @@ pub fn claude_maybe_create_prompt_dir(ctx: &but_ctx::Context, path: String) -> R
 
 #[but_api]
 #[instrument(err(Debug))]
-pub async fn claude_get_mcp_config(ctx: ThreadSafeContext) -> Result<McpConfig> {
+pub async fn claude_get_config(ctx: ThreadSafeContext) -> Result<ClaudeConfig> {
     let worktree_dir = ctx.into_thread_local().workdir_or_fail()?;
     let settings = ClaudeSettings::open(&worktree_dir).await;
-    let mcp_config = ClaudeMcpConfig::open(&settings, &worktree_dir).await;
-    Ok(mcp_config.mcp_servers())
+    let project_config = ClaudeProjectConfig::open(&settings, &worktree_dir).await;
+    Ok(project_config.config())
 }
 
 #[but_api]

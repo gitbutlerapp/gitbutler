@@ -9,7 +9,7 @@ import {
 	type PermissionDecision,
 	type PromptTemplate,
 	type PromptDir,
-	type McpConfig,
+	type ClaudeConfig,
 	type SubAgent,
 	type PromptAttachment
 } from '$lib/codegen/types';
@@ -115,8 +115,12 @@ export class ClaudeCodeService {
 		return this.api.endpoints.createPromptDir.mutate;
 	}
 
-	get mcpConfig() {
-		return this.api.endpoints.getMcpConfig.useQuery;
+	get claudeConfig() {
+		return this.api.endpoints.getConfig.useQuery;
+	}
+
+	get fetchClaudeConfig() {
+		return this.api.endpoints.getConfig.fetch;
 	}
 
 	get subAgents() {
@@ -321,8 +325,8 @@ function injectEndpoints(api: ClientState['backendApi']) {
 				},
 				query: (args) => args
 			}),
-			getMcpConfig: build.query<McpConfig, { projectId: string }>({
-				extraOptions: { command: 'claude_get_mcp_config' },
+			getConfig: build.query<ClaudeConfig, { projectId: string }>({
+				extraOptions: { command: 'claude_get_config' },
 				query: (args) => args
 			}),
 			getSubAgents: build.query<SubAgent[], { projectId: string }>({

@@ -319,7 +319,7 @@
 
 	let mcpConfigModal = $state<CodegenMcpConfigModal>();
 
-	const mcpConfigQuery = $derived(claudeCodeService.mcpConfig({ projectId }));
+	const claudeConfigQuery = $derived(claudeCodeService.claudeConfig({ projectId }));
 	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
 	const isStackActive = $derived(isStackActiveQuery?.response || false);
 	const events = $derived(claudeCodeService.messages({ projectId, stackId }));
@@ -566,6 +566,10 @@
 							sessionId={sessionId.response}
 							{isStackActive}
 							{hasRulesToClear}
+							projectRegistered={claudeConfigQuery.response?.projectRegistered ?? true}
+							onRetryConfig={async () => {
+								await claudeCodeService.fetchClaudeConfig({ projectId }, { forceRefetch: true });
+							}}
 							onAnswerQuestion={handleAnswerQuestion}
 						/>
 					{:else}
@@ -722,13 +726,13 @@
 	</ReduxResult>
 </div>
 
-<ReduxResult result={mcpConfigQuery.result} {projectId} {stackId} hideError>
-	{#snippet children(mcpConfig, { stackId })}
+<ReduxResult result={claudeConfigQuery.result} {projectId} {stackId} hideError>
+	{#snippet children(claudeConfig, { stackId })}
 		{@const laneState = stackId ? uiState.lane(stackId) : undefined}
 		<CodegenMcpConfigModal
 			disabledServers={laneState?.disabledMcpServers.current || []}
 			bind:this={mcpConfigModal}
-			{mcpConfig}
+			{claudeConfig}
 			toggleServer={(server) => {
 				const disabledServers = laneState?.disabledMcpServers.current;
 				if (disabledServers) {

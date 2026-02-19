@@ -6,6 +6,7 @@
 	import ClaudeCheck from '$components/codegen/ClaudeCheck.svelte';
 	import CodegenAskUserQuestion from '$components/codegen/CodegenAskUserQuestion.svelte';
 	import CodegenChatClaudeNotAvaliableBanner from '$components/codegen/CodegenChatClaudeNotAvaliableBanner.svelte';
+	import CodegenChatClaudeNotRegistered from '$components/codegen/CodegenChatClaudeNotRegistered.svelte';
 	import CodegenClaudeMessage from '$components/codegen/CodegenClaudeMessage.svelte';
 	import CodegenInput from '$components/codegen/CodegenInput.svelte';
 	import CodegenPromptConfigModal from '$components/codegen/CodegenPromptConfigModal.svelte';
@@ -64,6 +65,7 @@
 		laneId: string;
 		initialPrompt?: string;
 		isStackActive?: boolean;
+		projectRegistered?: boolean;
 		events: ClaudeMessage[];
 		permissionRequests: ClaudePermissionRequest[];
 		sessionId?: string;
@@ -74,6 +76,7 @@
 		onAbort?: () => Promise<void>;
 		onSubmit?: (prompt: string) => Promise<void>;
 		onAnswerQuestion?: (answers: Record<string, string>) => Promise<void>;
+		onRetryConfig?: () => Promise<void>;
 	};
 	const {
 		projectId,
@@ -81,7 +84,8 @@
 		laneId,
 		branchName,
 		initialPrompt,
-		isStackActive = false,
+		isStackActive,
+		projectRegistered,
 		events,
 		permissionRequests,
 		sessionId,
@@ -91,7 +95,8 @@
 		onAbort,
 		onSubmit,
 		onMcpSettings,
-		onAnswerQuestion
+		onAnswerQuestion,
+		onRetryConfig
 	}: Props = $props();
 
 	const stableBranchName = $derived(branchName);
@@ -478,6 +483,18 @@
 							</p>
 						</div>
 					</ConfigurableScrollableContainer>
+				{:else if !projectRegistered && formattedMessages.length === 0}
+					<ConfigurableScrollableContainer childrenWrapDisplay="contents">
+						<div class="no-agent-placeholder">
+							<div class="no-agent-placeholder__content">
+								{@html noClaudeCodeSvg}
+								<h2 class="text-serif-42">Set up Claude Code</h2>
+								<p class="text-13 text-body clr-text-2">
+									Run <code>claude</code> in this project's directory to finish setting up the integration.
+								</p>
+							</div>
+						</div>
+					</ConfigurableScrollableContainer>
 				{:else if !isStackActive && formattedMessages.length === 0}
 					<div class="chat-view__placeholder">
 						<EmptyStatePlaceholder
@@ -546,6 +563,10 @@
 							});
 						}}
 					/>
+				{/if}
+			{:else if !projectRegistered}
+				{#if formattedMessages.length > 0}
+					<CodegenChatClaudeNotRegistered {onRetryConfig} />
 				{/if}
 			{:else}
 				{@const status = currentStatus(events, isStackActive)}

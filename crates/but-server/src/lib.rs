@@ -994,7 +994,7 @@ async fn handle_command(
             let result = legacy::claude::claude_send_message(&app, params).await;
             result.map(|r| json!(r))
         }
-        "claude_get_mcp_config" => {
+        "claude_get_config" => {
             #[derive(Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Params {
@@ -1002,7 +1002,7 @@ async fn handle_command(
             }
             let params = serde_json::from_value::<Params>(request.params)?;
             let ctx = Context::new_from_legacy_project_id(params.project_id)?;
-            let result = legacy::claude::claude_get_mcp_config(ctx.into_sync()).await;
+            let result = legacy::claude::claude_get_config(ctx.into_sync()).await;
             result.map(|r| json!(r))
         }
         "claude_get_messages" => {

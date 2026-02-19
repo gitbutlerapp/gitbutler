@@ -35,7 +35,7 @@ use crate::{
     Broadcaster, ClaudeMessage, ClaudeOutput, ClaudeUserParams, MessagePayload, PermissionMode, PromptAttachment,
     SystemMessage, ThinkingLevel, Transcript, UserInput,
     broadcaster::FrontendEvent,
-    claude_mcp::ClaudeMcpConfig,
+    claude_mcp::ClaudeProjectConfig,
     claude_settings::ClaudeSettings,
     db::{self, list_messages_by_session},
     rules::{create_claude_assignment_rule, list_claude_assignment_rules},
@@ -71,6 +71,17 @@ impl Claudes {
             bail!(
                 "Claude is currently thinking, please wait for it to complete before sending another message.\n\nIf claude is stuck thinking, try restarting the application."
             );
+        }
+
+        // Verify the project has been registered with Claude Code.
+        {
+            let workdir = ctx.clone().into_thread_local().workdir_or_fail()?;
+            if !crate::claude_mcp::is_project_registered(&workdir).await {
+                bail!(
+                    "This project has not been set up with Claude Code yet. \
+                     Please run `claude` in the project directory first."
+                );
+            }
         }
 
         // Spawn the Claude session as a background task to avoid blocking the caller.
@@ -303,9 +314,9 @@ impl Claudes {
 
         // Build MCP server configuration
         let cc_settings = ClaudeSettings::open(&project_workdir).await;
-        let mcp_config = ClaudeMcpConfig::open(&cc_settings, &project_workdir).await;
+        let project_config = ClaudeProjectConfig::open(&cc_settings, &project_workdir).await;
         let disabled_servers: Vec<&str> = user_params.disabled_mcp_servers.iter().map(String::as_str).collect();
-        let mcp_servers = mcp_config.mcp_servers_for_sdk(&disabled_servers);
+        let mcp_servers = project_config.mcp_servers_for_sdk(&disabled_servers);
 
         // Build system prompt with branch info
         let system_prompt_append = {
