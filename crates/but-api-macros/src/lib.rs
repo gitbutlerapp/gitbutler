@@ -165,7 +165,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let call_fn_args = if asyncness.is_some() {
         quote! {{
-            crate::panic_capture::prepare_for_call();
             let __call_result =
                 ::futures::FutureExt::catch_unwind(::std::panic::AssertUnwindSafe(async {
                     #fn_name(#(#call_arg_idents),*).await
@@ -178,7 +177,6 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }}
     } else {
         quote! {{
-            crate::panic_capture::prepare_for_call();
             let __call_result = ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(|| {
                 #fn_name(#(#call_arg_idents),*)
             }))

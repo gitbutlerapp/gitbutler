@@ -37,4 +37,4 @@ pub mod platform;
 /// Functions related to the generation of TS types out of schemas
 pub mod schema;
 
-mod panic_capture;
+pub mod panic_capture;
