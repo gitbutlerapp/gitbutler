@@ -218,7 +218,7 @@
 	.download-link {
 		width: fit-content;
 		background-color: var(--clr-bg-2);
-		font-size: 12px;
+		font-size: 14px;
 		font-family: var(--font-mono);
 		text-decoration: underline;
 		text-underline-offset: 2px;
