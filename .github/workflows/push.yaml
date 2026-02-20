@@ -145,12 +145,10 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
         with:
           path: .apt-cache
-          key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('.github/ci/but-sdk-apt-packages.txt') }}
+          key: ${{ runner.os }}-apt-but-sdk-${{ hashFiles('scripts/install-minimal-debian-dependencies.sh') }}
       - name: Install dependencies for but-sdk
         run: |
-          sudo mkdir -p "$PWD/.apt-cache/partial"
-          sudo apt-get update
-          sudo xargs -a .github/ci/but-sdk-apt-packages.txt apt-get -o dir::cache::archives="$PWD/.apt-cache" install -y --no-install-recommends
+          sudo ./scripts/install-minimal-debian-dependencies.sh "$PWD/.apt-cache"
           sudo chown -R "$(id -u)":"$(id -g)" "$PWD/.apt-cache"
       - uses: ./.github/actions/init-env-node
       - name: Rust Cache
