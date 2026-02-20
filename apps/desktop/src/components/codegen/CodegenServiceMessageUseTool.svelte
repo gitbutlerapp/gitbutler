@@ -64,7 +64,7 @@
 <CodegenServiceMessage style="info" face="waiting">
 	<div class="flex flex-col gap-2">
 		<p class="text-13 text-semibold text-body clr-text-1">Claude Code wants to {wantsToDo} 👆</p>
-		<p class="text-13 text-italic text-body opacity-60">
+		<p class="text-13 text-italic text-body op-60">
 			Review the {actionName} above, then approve or reject.
 		</p>
 	</div>
