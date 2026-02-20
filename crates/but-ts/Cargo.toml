@@ -1,0 +1,22 @@
+[package]
+name = "but-ts"
+version = "0.0.0"
+edition.workspace = true
+repository.workspace = true
+license-file = "../../LICENSE.md"
+description = "Generate TypeScript type definitions from JSON schemas collected by #[but_api]"
+authors.workspace = true
+readme = "../../README.md"
+publish = false
+rust-version.workspace = true
+
+[[bin]]
+name = "but-ts"
+path = "src/main.rs"
+
+[dependencies]
+but-api = { workspace = true, features = ["legacy", "export-schema"] }
+
+schemars.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
