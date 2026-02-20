@@ -12,7 +12,7 @@ This crate is the schema-to-TypeScript half of the `@gitbutler/but-sdk` declarat
 ## Why is this needed?
 Napi RS can generate TypeScript types for structs and enums as well, but it would require us to tag them with the `#[napi]` macro & re-export the type from `but-napi`.
 
-1. This would become a bit messy. Specially taking into account that we have a custom setup in which the `but_api` macro is the one marking the functions as *napi export targets*.
+1. This would become a bit messy. Especially taking into account that we have a custom setup in which the `but_api` macro is the one marking the functions as *napi export targets*.
 2. We already have another system in place for TypeScript-from-Rust generation for the desktop application.
 
 This crate allows us to fully control how and where the types are generated.
