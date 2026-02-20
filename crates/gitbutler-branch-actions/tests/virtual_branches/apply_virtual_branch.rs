@@ -523,3 +523,107 @@ fn upstream_integration_status_with_different_branch_pr() {
         StackStatuses::UpToDate => panic!("Expected UpdatesRequired status"),
     }
 }
+
+#[test]
+fn integrate_upstream_with_conflicting_local_branch() {
+    use gitbutler_branch_actions::upstream_integration::{Resolution, ResolutionApproach};
+
+    let Test { repo, ctx, .. } = &Test::default();
+
+    // Setup: Remote has commit A (initial) -> commit B (modifies file.txt)
+    // Local will diverge from A with a commit C that also modifies file.txt (conflict)
+    let first_commit_oid = {
+        fs::write(repo.path().join("file.txt"), "initial").unwrap();
+        let first_commit_oid = repo.commit_all("commit A - initial");
+        // Create second commit on remote that modifies file.txt
+        fs::write(repo.path().join("file.txt"), "remote change").unwrap();
+        repo.commit_all("commit B - remote change");
+        repo.push();
+        // Reset local to first commit (commit A)
+        repo.reset_hard(Some(first_commit_oid));
+        first_commit_oid
+    };
+
+    // Set up GitButler with base branch at commit A
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        ctx.exclusive_worktree_access().write_permission(),
+    )
+    .unwrap();
+
+    // Create a virtual branch with a commit that conflicts with the remote's second commit
+    let stack_id = {
+        let stack_entry = gitbutler_branch_actions::create_virtual_branch(
+            ctx,
+            &BranchCreateRequest {
+                name: Some("conflicting-branch".to_string()),
+                ..Default::default()
+            },
+            ctx.exclusive_worktree_access().write_permission(),
+        )
+        .unwrap();
+
+        // Create commit C that modifies the same file as commit B (conflict)
+        fs::write(repo.path().join("file.txt"), "local conflicting change").unwrap();
+        super::create_commit(ctx, stack_entry.id, "commit C - local conflicting change").unwrap();
+
+        stack_entry.id
+    };
+
+    // Verify the status shows the branch as conflicted
+    let empty_review_map = HashMap::new();
+    let statuses =
+        gitbutler_branch_actions::upstream_integration_statuses(ctx, None, &empty_review_map)
+            .unwrap();
+
+    match &statuses {
+        StackStatuses::UpdatesRequired {
+            statuses,
+            worktree_conflicts,
+        } => {
+            assert_eq!(statuses.len(), 1);
+            assert_eq!(statuses[0].0, Some(stack_id));
+            assert_eq!(statuses[0].1.branch_statuses.len(), 1);
+            assert_eq!(statuses[0].1.branch_statuses[0].name, "conflicting-branch");
+            // The branch should be marked as conflicted since commit C conflicts with commit B
+            assert_eq!(
+                statuses[0].1.branch_statuses[0].status,
+                BranchStatus::Conflicted { rebasable: false }
+            );
+            assert!(worktree_conflicts.is_empty());
+        }
+        StackStatuses::UpToDate => panic!("Expected UpdatesRequired status"),
+    }
+
+    // Now perform the integration with merge strategy
+    let resolutions = vec![Resolution {
+        stack_id,
+        approach: ResolutionApproach::Merge,
+        delete_integrated_branches: false,
+    }];
+
+    gitbutler_branch_actions::integrate_upstream(ctx, &resolutions, None, &empty_review_map)
+        .unwrap();
+
+    // After integration, verify the stack structure is intact
+    let stacks = stack_details(ctx);
+    assert_eq!(stacks.len(), 1, "Should have exactly one stack");
+    assert_eq!(stacks[0].0, stack_id);
+
+    // With merge strategy, the stack should have exactly one branch (the original conflicting-branch)
+    // BUG: Currently this assertion fails because the merge commit's second parent (origin/master)
+    // causes the graph traversal to include "master" as a separate segment in the stack.
+    assert_eq!(
+        stacks[0].1.branch_details.len(),
+        1,
+        "Stack should have exactly one branch after merge integration, got: {:?}",
+        stacks[0]
+            .1
+            .branch_details
+            .iter()
+            .map(|b| &b.name)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(stacks[0].1.branch_details[0].name, "conflicting-branch");
+}
