@@ -100,32 +100,14 @@
 							<path d={osIcons.macos} fill="currentColor" />
 						</svg>
 						<div class="download-options">
-							{#if latestNightlyBuilds.darwin_x86_64}
-								<a href={latestNightlyBuilds.darwin_x86_64.url} class="download-link">
-									Intel Mac
-								</a>
-							{/if}
 							{#if latestNightlyBuilds.darwin_aarch64}
 								<a href={latestNightlyBuilds.darwin_aarch64.url} class="download-link">
 									Apple Silicon
 								</a>
 							{/if}
-						</div>
-					</div>
-
-					<div class="download-category">
-						<svg
-							class="download-icon"
-							viewBox="0 0 22 22"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<path d={osIcons.windows} fill="currentColor" />
-						</svg>
-						<div class="download-options">
-							{#if latestNightlyBuilds.windows_x86_64}
-								<a href={latestNightlyBuilds.windows_x86_64.url} class="download-link">
-									Windows (MSI)
+							{#if latestNightlyBuilds.darwin_x86_64}
+								<a href={latestNightlyBuilds.darwin_x86_64.url} class="download-link">
+									Intel Mac
 								</a>
 							{/if}
 						</div>
@@ -169,6 +151,24 @@
 							{#if latestNightlyBuilds.linux_rpm_aarch64}
 								<a href={latestNightlyBuilds.linux_rpm_aarch64.url} class="download-link">
 									Linux ARM64 (RPM)
+								</a>
+							{/if}
+						</div>
+					</div>
+
+					<div class="download-category">
+						<svg
+							class="download-icon"
+							viewBox="0 0 22 22"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<path d={osIcons.windows} fill="currentColor" />
+						</svg>
+						<div class="download-options">
+							{#if latestNightlyBuilds.windows_x86_64}
+								<a href={latestNightlyBuilds.windows_x86_64.url} class="download-link">
+									Windows (MSI)
 								</a>
 							{/if}
 						</div>
