@@ -185,10 +185,10 @@ if [ "$OS" = "windows" ]; then
   #          Should it be re-added, please ensure that `but` is built
   #          as part of the 'beforeBuildCommand' in tauri.conf AND it must be injected
   #          via 'inject-git-binaries.sh'.
-  EXTERNAL_BIN='["gitbutler-git-setsid", "gitbutler-git-askpass", "but"]'
+  EXTERNAL_BIN='["gitbutler-git-askpass", "but"]'
 	FEATURES="windows"
 else
-  EXTERNAL_BIN='["gitbutler-git-setsid", "gitbutler-git-askpass"]'
+  EXTERNAL_BIN='["gitbutler-git-askpass"]'
 	FEATURES="builtin-but"
 fi
 
