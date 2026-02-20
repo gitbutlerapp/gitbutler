@@ -306,7 +306,7 @@ fn commit_from_conflicted_tree<'repo>(
     let conflicted_files_string = toml::to_string(&conflicted_files)?;
     let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;
 
-    let mut tree = repo.empty_tree().edit()?;
+    let mut tree = repo.find_tree(resolved_tree_id)?.edit()?;
 
     tree.upsert(TreeKind::Ours.as_tree_entry_name(), EntryKind::Tree, ours_tree_id)?;
     tree.upsert(TreeKind::Theirs.as_tree_entry_name(), EntryKind::Tree, theirs_tree_id)?;
@@ -317,7 +317,7 @@ fn commit_from_conflicted_tree<'repo>(
         resolved_tree_id,
     )?;
     tree.upsert(".conflict-files", EntryKind::Blob, conflicted_files_blob)?;
-    tree.upsert("README.txt", EntryKind::Blob, readme_blob)?;
+    tree.upsert("CONFLICT-README.txt", EntryKind::Blob, readme_blob)?;
 
     let mut headers = to_rebase
         .headers()

@@ -195,7 +195,7 @@ pub(crate) mod function {
         let conflicted_files_string = toml::to_string(&conflicted_files)?;
         let conflicted_files_blob = repo.write_blob(conflicted_files_string.as_bytes())?;
 
-        let mut tree = repo.empty_tree().edit()?;
+        let mut tree = repo.find_tree(resolved_tree_id)?.edit()?;
 
         // save the state of the conflict, so we can recreate it later
         let (base_tree_id, ours_tree_id, theirs_tree_id) = find_cherry_pick_trees(&head, &to_rebase)?;
@@ -208,7 +208,7 @@ pub(crate) mod function {
             resolved_tree_id,
         )?;
         tree.upsert(".conflict-files", EntryKind::Blob, conflicted_files_blob)?;
-        tree.upsert("README.txt", EntryKind::Blob, readme_blob)?;
+        tree.upsert("CONFLICT-README.txt", EntryKind::Blob, readme_blob)?;
 
         let mut headers = to_rebase
             .headers()
