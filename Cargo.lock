@@ -1410,16 +1410,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "but-schema-gen"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "but-api",
- "schemars 1.2.0",
- "serde_json",
-]
-
-[[package]]
 name = "but-schemars"
 version = "0.0.0"
 dependencies = [
@@ -1579,6 +1569,16 @@ dependencies = [
  "schemars 1.2.0",
  "serde",
  "serde-error",
+ "serde_json",
+]
+
+[[package]]
+name = "but-ts"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-api",
+ "schemars 1.2.0",
  "serde_json",
 ]
 

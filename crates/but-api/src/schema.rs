@@ -4,7 +4,7 @@
 //! can be registered. New types can be added incrementally as `JsonSchema` is derived
 //! on more types across the codebase.
 //!
-//! The `but-schema-gen` tool reads these registrations and produces TypeScript definitions.
+//! The `but-ts` tool reads these registrations and produces TypeScript definitions.
 
 /// A registry entry for a type's JSON schema.
 pub struct TypeSchemaEntry {
@@ -17,7 +17,7 @@ pub struct TypeSchemaEntry {
 /// Collect all registered type schemas.
 ///
 /// Returns a list of `(name, schema)` pairs for all registered types.
-/// This is used by the `but-schema-gen` tool to produce TypeScript definitions.
+/// This is used by the `but-ts` tool to produce TypeScript definitions.
 pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
     #[cfg(feature = "export-schema")]
     {

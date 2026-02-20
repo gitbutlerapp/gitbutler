@@ -7,7 +7,7 @@
 	"types": "./src/generated/index.d.ts",
 	"scripts": {
 		"artifacts": "napi artifacts",
-		"build:types": "cargo run -p but-schema-gen -- --output ./src/generated/index.d.ts",
+		"build:types": "cargo run -p but-ts -- --output ./src/generated/index.d.ts",
 		"build:napi": "napi build --platform --release --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir ./src/generated/.",
 		"build": "pnpm build:napi && pnpm build:types",
 		"build:debug": "napi build --platform --esm --manifest-path ../../crates/but-napi/Cargo.toml --js index.js --dts index.d.ts --output-dir . --verbose",

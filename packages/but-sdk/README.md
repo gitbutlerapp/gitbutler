@@ -15,7 +15,7 @@ The generated SDK surface is produced in two parts and merged into a single decl
      - `src/generated/index.d.ts` (N-API function declarations)
 
 2. **Schema-derived TypeScript types (structs/enums)**
-   - `but-schema-gen` collects registered JSON schemas from `but-api` (`but_api::schema` module) and emits TS type aliases.
+   - `but-ts` collects registered JSON schemas from `but-api` (`but_api::schema` module) and emits TS type aliases.
    - These emitted type aliases are appended to `src/generated/index.d.ts`.
 
 
@@ -128,7 +128,7 @@ See `src/generated/index.d.ts` for the complete generated API and type surface.
 ## See also
 
 - [but-napi](../../crates/but-napi/README.md)
-- [but-schema-gen](../../crates/but-schema-gen/README.md)
+- [but-ts](../../crates/but-ts/README.md)
 
 ## License
 
