@@ -29,7 +29,9 @@ on:
           - minor
           - major
 
-permissions: {}
+permissions:
+  contents: read
+  actions: write
 
 jobs:
   build-sveltekit:
