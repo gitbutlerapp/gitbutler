@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { getOS } from '$lib/utils/getOS';
+	import { onMount } from 'svelte';
+
 	interface Props {
 		darkMode?: boolean;
 	}
@@ -6,6 +9,11 @@
 	const { darkMode = false }: Props = $props();
 
 	let copied = $state(false);
+	let isLinux = $state(false);
+
+	onMount(() => {
+		isLinux = getOS() === 'Linux';
+	});
 
 	function handleCopy() {
 		navigator.clipboard.writeText('curl -fsSL https://gitbutler.com/install.sh | sh');
@@ -19,7 +27,33 @@
 <section class="cta-wrap" class:dark-mode={darkMode}>
 	<button type="button" class="copy-button" class:copied onclick={handleCopy}>
 		<h3>Get the But CLI</h3>
-		<code>curl -fsSL https://gitbutler.com/install.sh | sh</code>
+
+		{#if isLinux}
+			<code class="subtitle-text">curl -fsSL https://gitbutler.com/install.sh | sh</code>
+			<code class="subtitle-text-pop"
+				>or <a
+					class="subtitle-link"
+					href="#"
+					onclick={(e) => e.stopPropagation()}
+					onmousedown={(e) => e.stopPropagation()}>Download the binary</a
+				>
+				<svg
+					class="subtitle-icon"
+					width="12"
+					height="13"
+					viewBox="0 0 12 13"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M0.34375 12H11.3438M0.34375 3.68421L5.84375 8.94737M5.84375 8.94737L11.3438 3.68421M5.84375 8.94737V0"
+						stroke="var(--copy-code)"
+					/>
+				</svg>
+			</code>
+		{:else}
+			<code class="subtitle-text-pop op-80">curl -fsSL https://gitbutler.com/install.sh | sh</code>
+		{/if}
 
 		<svg
 			class="copy-button__tick-icon"
@@ -148,9 +182,29 @@
 		}
 
 		& code {
-			color: var(--copy-code);
 			font-size: 14px;
+		}
+
+		& .subtitle-text {
+			color: var(--copy-text);
 			opacity: 0.7;
+		}
+
+		& .subtitle-link {
+			text-decoration: underline dotted;
+
+			&:hover {
+				text-decoration-style: wavy;
+			}
+		}
+
+		& .subtitle-text-pop {
+			color: var(--copy-code);
+		}
+
+		& .subtitle-icon {
+			display: inline-flex;
+			transform: translateY(3px);
 		}
 
 		&:hover {

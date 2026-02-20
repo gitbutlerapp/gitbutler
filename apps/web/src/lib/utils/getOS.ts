@@ -3,18 +3,16 @@
  * best-effort way w/ normalized output.
  */
 
-declare const navigator: any;
+export type OS = 'macOS' | 'Windows' | 'Linux' | 'unknown';
 
-export function getOS(): string {
-	if (navigator.userAgentData) return 'unknown';
+export function getOS(): OS {
+	if (typeof navigator === 'undefined') return 'unknown';
 
-	// Use the modern 'web hints' provided by
-	// 'userAgentData' if available, else use
-	// the deprecated 'platform' as fallback.
-	const platform = (navigator.userAgentData?.platform || navigator.platform)?.toLowerCase();
+	const userAgent = navigator.userAgent.toLowerCase();
 
-	if (platform.startsWith('win')) return 'windows';
-	if (platform.startsWith('mac')) return 'macos';
-	if (platform.startsWith('linux')) return 'linux';
+	if (userAgent.includes('mac')) return 'macOS';
+	if (userAgent.includes('win')) return 'Windows';
+	if (userAgent.includes('linux')) return 'Linux';
+
 	return 'unknown';
 }

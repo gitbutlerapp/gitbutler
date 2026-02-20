@@ -7,6 +7,7 @@
 	import linksJson from '$lib/data/links.json';
 	import { SSH_KEY_SERVICE } from '$lib/sshKeyService';
 	import { USER_SERVICE } from '$lib/user/userService';
+	import { getOS } from '$lib/utils/getOS';
 	import { inject } from '@gitbutler/core/context';
 	import { LOGIN_SERVICE } from '@gitbutler/shared/login/loginService';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
@@ -32,17 +33,9 @@
 
 	const user = $derived(userService.user);
 
-	// Detect user's operating system
 	const detectedOS = $derived.by(() => {
-		if (typeof window === 'undefined') return 'macOS';
-
-		const userAgent = window.navigator.userAgent.toLowerCase();
-
-		if (userAgent.includes('mac')) return 'macOS';
-		if (userAgent.includes('win')) return 'Windows';
-		if (userAgent.includes('linux')) return 'Linux';
-
-		return 'macOS'; // default fallback
+		const os = getOS();
+		return os === 'unknown' ? 'macOS' : os;
 	});
 
 	const downloadButtonText = $derived(`Download GitButler for ${detectedOS}`);

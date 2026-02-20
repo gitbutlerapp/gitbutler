@@ -3,6 +3,7 @@
 	import jsonLinks from '$lib/data/links.json';
 	import osIcons from '$lib/data/os-icons.json';
 	import { latestClientVersion } from '$lib/store';
+	import { getOS, type OS } from '$lib/utils/getOS';
 	import { onMount } from 'svelte';
 
 	let detectedOS = $state('');
@@ -11,41 +12,24 @@
 	let tiltY = $state(0);
 	let isHovering = $state(false);
 
-	// OS detection mapping for cleaner logic
-	const osDetectionMap = [
-		{
-			check: (ua: string) => ua.includes('mac'),
-			os: 'macOS',
-			// There is no good way of determining the arminess of a mac, so we
-			// should just assume appleSilicon.
-			getDownload: () => jsonLinks.downloads.appleSilicon
-		},
-		{
-			check: (ua: string) => ua.includes('windows'),
-			os: 'Windows',
-			getDownload: () => jsonLinks.downloads.windowsMsi
-		},
-		{
-			check: (ua: string) => ua.includes('linux'),
-			os: 'Linux',
-			getDownload: () => jsonLinks.downloads.linuxDeb
-		}
-	];
+	// Map detected OS to the appropriate download link
+	const downloadMap: Record<
+		OS,
+		{ os: string; download: (typeof jsonLinks.downloads)[keyof typeof jsonLinks.downloads] }
+	> = {
+		// There is no good way of determining the arminess of a mac, so we
+		// should just assume appleSilicon.
+		macOS: { os: 'macOS', download: jsonLinks.downloads.appleSilicon },
+		Windows: { os: 'Windows', download: jsonLinks.downloads.windowsMsi },
+		Linux: { os: 'Linux', download: jsonLinks.downloads.linuxDeb },
+		unknown: { os: 'macOS', download: jsonLinks.downloads.appleSilicon }
+	};
 
-	// Function to detect OS and set appropriate download
 	function detectOS() {
-		const userAgent = navigator.userAgent.toLowerCase();
-
-		const detected = osDetectionMap.find((config) => config.check(userAgent));
-
-		if (detected) {
-			detectedOS = detected.os;
-			selectedDownload = detected.getDownload();
-		} else {
-			// Default to macOS Apple Silicon if OS can't be detected
-			detectedOS = 'macOS';
-			selectedDownload = jsonLinks.downloads.appleSilicon;
-		}
+		const os = getOS();
+		const mapping = downloadMap[os];
+		detectedOS = mapping.os;
+		selectedDownload = mapping.download;
 	}
 
 	// Function to get OS-specific SVG icon
