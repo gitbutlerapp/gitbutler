@@ -101,12 +101,12 @@
 						<div class="download-options">
 							{#if latestNightlyBuilds.darwin_x86_64}
 								<a href={latestNightlyBuilds.darwin_x86_64.url} class="download-link">
-									macOS Intel
+									Intel Mac
 								</a>
 							{/if}
 							{#if latestNightlyBuilds.darwin_aarch64}
 								<a href={latestNightlyBuilds.darwin_aarch64.url} class="download-link">
-									macOS Apple Silicon
+									Apple Silicon
 								</a>
 							{/if}
 						</div>
@@ -248,9 +248,9 @@
 								<a href={build.url} class="download-link">
 									{#if build.os === 'darwin'}
 										{#if build.platform.includes('aarch64')}
-											macOS Apple Silicon
+											Apple Silicon
 										{:else if build.platform.includes('x86_64')}
-											macOS Intel
+											Intel Mac
 										{:else}
 											macOS {build.platform}
 										{/if}

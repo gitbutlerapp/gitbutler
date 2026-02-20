@@ -47,12 +47,12 @@
 			return 'MSI';
 		}
 		if (build.os === 'linux') {
-			const arch = build.arch === 'aarch64' ? 'ARM64' : 'x86_64';
+			const arch = build.arch === 'aarch64' ? 'ARM64' : 'Intel';
 			const file: string = build.file?.toLowerCase() ?? '';
-			if (file.includes('appimage')) return `${arch} (AppImage)`;
-			if (file.includes('.deb')) return `${arch} (Debian)`;
-			if (file.includes('.rpm')) return `${arch} (RPM)`;
-			return arch;
+			if (file.includes('appimage')) return `Linux ${arch} (AppImage)`;
+			if (file.includes('.deb')) return `Linux ${arch} (Deb)`;
+			if (file.includes('.rpm')) return `Linux ${arch} (RPM)`;
+			return `Linux ${arch} (CLI)`;
 		}
 		return build.platform;
 	}
