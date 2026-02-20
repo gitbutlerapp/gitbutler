@@ -18,14 +18,11 @@ export-schema = ["dep:schemars"]
 doctest = false
 
 [dependencies]
-but-settings.workspace = true
 but-secret.workspace = true
 but-forge-storage.workspace = true
 but-error.workspace = true
-
 serde.workspace = true
 anyhow.workspace = true
-serde_json.workspace = true
 reqwest = { workspace = true, features = ["json"] }
 urlencoding = "2.1"
 ts-rs = { workspace = true, optional = true }
@@ -33,7 +30,6 @@ schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["blocking"] }
-http = "1"
 
 [lints]
 workspace = true

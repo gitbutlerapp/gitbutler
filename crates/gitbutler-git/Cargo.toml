@@ -20,8 +20,7 @@ path = "src/bin/setsid.rs"
 test = false
 
 [features]
-default = ["serde", "tokio"]
-serde = ["dep:serde"]
+default = ["tokio"]
 tokio = ["dep:tokio"]
 ## a flag to indicate benchmarks are run
 benches = []
@@ -32,7 +31,6 @@ askpass = []
 tracing.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
-serde = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = [
     "process",
     "time",

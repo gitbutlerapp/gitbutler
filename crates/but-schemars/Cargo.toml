@@ -10,14 +10,10 @@ rust-version.workspace = true
 doctest = false
 
 [features]
-legacy = ["dep:git2"]
+legacy = []
 
 [dependencies]
-git2 = { workspace = true, optional = true }
-
-gix.workspace = true
 schemars.workspace = true
-bstr.workspace = true
 
 [lints]
 workspace = true

@@ -11,9 +11,7 @@ description = "LLM client interface"
 [dependencies]
 but-secret.workspace = true
 but-tools.workspace = true
-
 async-openai.workspace = true
-
 serde.workspace = true
 futures = "0.3.31"
 tracing.workspace = true
@@ -22,9 +20,8 @@ schemars.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 strum = { version = "0.27", features = ["derive"] }
-reqwest.workspace = true
-uuid.workspace = true
 gix.workspace = true
+reqwest.workspace = true
 
 [lints]
 workspace = true
