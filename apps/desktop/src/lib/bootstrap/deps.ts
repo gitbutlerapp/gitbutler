@@ -37,6 +37,10 @@ import { DiffService, DIFF_SERVICE } from '$lib/hunks/diffService.svelte';
 import { IrcClient, IRC_CLIENT } from '$lib/irc/ircClient.svelte';
 import { IrcService, IRC_SERVICE } from '$lib/irc/ircService.svelte';
 import { ModeService, MODE_SERVICE } from '$lib/mode/modeService';
+import {
+	NETWORK_STATUS_SERVICE,
+	NetworkStatusService
+} from '$lib/network/networkStatusService.svelte';
 import { ProjectsService, PROJECTS_SERVICE } from '$lib/project/projectsService';
 import { PROMPT_SERVICE, PromptService } from '$lib/prompt/promptService';
 import { REMOTES_SERVICE, RemotesService } from '$lib/remotes/remotesService';
@@ -304,6 +308,7 @@ export function initDependencies(args: {
 	const externalLinkService = {
 		open: async (url) => await urlService.openExternalUrl(url)
 	} satisfies ExternalLinkService;
+	const networkStatusService = new NetworkStatusService();
 
 	// ============================================================================
 	// DEPENDENCY INJECTION REGISTRATION
@@ -374,6 +379,7 @@ export function initDependencies(args: {
 		[USER, userService.user],
 		[USER_SERVICE, userService],
 		[WORKTREE_SERVICE, worktreeService],
-		[EXTERNAL_LINK_SERVICE, externalLinkService]
+		[EXTERNAL_LINK_SERVICE, externalLinkService],
+		[NETWORK_STATUS_SERVICE, networkStatusService]
 	]);
 }
