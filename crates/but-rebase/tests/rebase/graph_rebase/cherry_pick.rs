@@ -14,6 +14,115 @@ fn get_parents(id: &gix::Id) -> Result<Vec<gix::ObjectId>> {
         .collect())
 }
 
+// cherry-pick scenario:
+// * d9352c0 base-conflicting
+// diff --git a/base-f b/base-f
+// new file mode 100644
+// index 0000000..7898192
+// --- /dev/null
+// +++ b/base-f
+// @@ -0,0 +1 @@
+// +a
+// diff --git a/target-f b/target-f
+// new file mode 100644
+// index 0000000..9b1719f
+// --- /dev/null
+// +++ b/target-f
+// @@ -0,0 +1 @@
+// +conflict
+// *   bec85a3 merge-clean-commit
+// |\
+// | | *   f2bc072 merge-clean-commit-conflicting-parents
+// | | |\
+// | | |/
+// | |/|
+// | | * 5183ac6 second-conflicting-parent
+// | | | diff --git a/clean-f b/clean-f
+// | | | new file mode 100644
+// | | | index 0000000..9b1719f
+// | | | --- /dev/null
+// | | | +++ b/clean-f
+// | | | @@ -0,0 +1 @@
+// | | | +conflict
+// | | | * 2743aa7 merge-conflicting-commit
+// | |_|/|
+// |/| |/
+// | |/|
+// * | | cabbc10 second-clean-parent
+// | |/
+// |/|
+// | |   diff --git a/clean-2-f b/clean-2-f
+// | |   new file mode 100644
+// | |   index 0000000..13e9394
+// | |   --- /dev/null
+// | |   +++ b/clean-2-f
+// | |   @@ -0,0 +1 @@
+// | |   +clean 2
+// | | * 16cfd2c second-conflicting-target
+// | |/
+// |/|
+// | |   diff --git a/target-f b/target-f
+// | |   new file mode 100644
+// | |   index 0000000..caac8f9
+// | |   --- /dev/null
+// | |   +++ b/target-f
+// | |   @@ -0,0 +1 @@
+// | |   +target 2
+// | | * efef751 second-target
+// | |/
+// |/|
+// | |   diff --git a/target-2-f b/target-2-f
+// | |   new file mode 100644
+// | |   index 0000000..caac8f9
+// | |   --- /dev/null
+// | |   +++ b/target-2-f
+// | |   @@ -0,0 +1 @@
+// | |   +target 2
+// | | * fc463b1 single-clean-commit
+// | |/
+// | |   diff --git a/clean-commit-f b/clean-commit-f
+// | |   new file mode 100644
+// | |   index 0000000..20a3acd
+// | |   --- /dev/null
+// | |   +++ b/clean-commit-f
+// | |   @@ -0,0 +1 @@
+// | |   +clean-commit
+// | | * b23d933 single-conflicting-commit
+// | |/
+// | |   diff --git a/target-f b/target-f
+// | |   new file mode 100644
+// | |   index 0000000..9b1719f
+// | |   --- /dev/null
+// | |   +++ b/target-f
+// | |   @@ -0,0 +1 @@
+// | |   +conflict
+// | * a3e84fb single-clean-parent
+// |/
+// |   diff --git a/clean-f b/clean-f
+// |   new file mode 100644
+// |   index 0000000..8312630
+// |   --- /dev/null
+// |   +++ b/clean-f
+// |   @@ -0,0 +1 @@
+// |   +clean
+// | * cc8998c single-target
+// |/
+// |   diff --git a/target-f b/target-f
+// |   new file mode 100644
+// |   index 0000000..eb5a316
+// |   --- /dev/null
+// |   +++ b/target-f
+// |   @@ -0,0 +1 @@
+// |   +target
+// * 7a74966 base
+// diff --git a/base-f b/base-f
+// new file mode 100644
+// index 0000000..7898192
+// --- /dev/null
+// +++ b/base-f
+// @@ -0,0 +1 @@
+// +a
+
 #[test]
 fn basic_cherry_pick_clean() -> Result<()> {
     let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
@@ -21,7 +130,7 @@ fn basic_cherry_pick_clean() -> Result<()> {
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto], true)?;
+    let result = cherry_pick(&repo, target, &[onto], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(
@@ -52,7 +161,7 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
     let target = repo.rev_parse_single("single-conflicting-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto], true)?;
+    let result = cherry_pick(&repo, target, &[onto], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
@@ -94,7 +203,7 @@ fn basic_cherry_pick_identity() -> Result<()> {
 
     let target = repo.rev_parse_single("single-conflicting-commit")?;
     let parents = get_parents(&target)?;
-    let result = cherry_pick(&repo, target.detach(), &parents, true)?;
+    let result = cherry_pick(&repo, target.detach(), &parents, true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Identity(
@@ -113,7 +222,7 @@ fn single_parent_to_multiple_parents_clean() -> Result<()> {
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(
@@ -147,7 +256,7 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
@@ -194,7 +303,7 @@ fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-conflicting-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
@@ -213,6 +322,39 @@ fn single_parent_to_multiple_parents_parents_conflict() -> Result<()> {
     Ok(())
 }
 
+// single parent to multiple parents - parents conflict - auto resolved
+#[test]
+fn single_parent_to_multiple_parents_parents_conflict_auto_resolved() -> Result<()> {
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
+
+    let target = repo.rev_parse_single("single-clean-commit")?.detach();
+    let onto = repo.rev_parse_single("single-target")?.detach();
+    let onto2 = repo.rev_parse_single("second-conflicting-target")?.detach();
+
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, true)?;
+
+    insta::assert_debug_snapshot!(result, @"
+    Commit(
+        Sha1(801eb0d2fc9f168a4eaad48393a96586795da66d),
+    )
+    ");
+
+    let CherryPickOutcome::Commit(id) = result else {
+        bail!("impossible");
+    };
+
+    assert_eq!(&get_parents(&id.attach(&repo))?, &[onto, onto2]);
+
+    insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
+    96a9057
+    ├── base-f:100644:7898192 "a\n"
+    ├── clean-commit-f:100644:20a3acd "clean-commit\n"
+    └── target-f:100644:eb5a316 "target\n"
+    "#);
+
+    Ok(())
+}
+
 // multiple parent to single parent - clean
 #[test]
 fn multiple_parents_to_single_parent_clean() -> Result<()> {
@@ -221,7 +363,7 @@ fn multiple_parents_to_single_parent_clean() -> Result<()> {
     let target = repo.rev_parse_single("merge-clean-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto], true)?;
+    let result = cherry_pick(&repo, target, &[onto], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(
@@ -253,7 +395,7 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
     let target = repo.rev_parse_single("merge-conflicting-commit")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto], true)?;
+    let result = cherry_pick(&repo, target, &[onto], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
@@ -301,7 +443,7 @@ fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
         .detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto], true)?;
+    let result = cherry_pick(&repo, target, &[onto], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
@@ -320,6 +462,53 @@ fn multiple_parents_to_single_parent_parents_conflict() -> Result<()> {
     Ok(())
 }
 
+// multiple parent to single parent - parents conflict - auto resolve
+#[test]
+fn multiple_parents_to_single_parent_parents_conflict_auto_resolve() -> Result<()> {
+    let (repo, _tmpdir, _meta) = fixture_writable("cherry-pick")?;
+
+    let target = repo
+        .rev_parse_single("merge-clean-commit-conflicting-parents")?
+        .detach();
+    let onto = repo.rev_parse_single("single-target")?.detach();
+
+    let result = cherry_pick(&repo, target, &[onto], true, true)?;
+
+    insta::assert_debug_snapshot!(result, @"
+    ConflictedCommit(
+        Sha1(1fd3180b560f27bee8d03185cf0081626cb1c223),
+    )
+    ");
+
+    let CherryPickOutcome::ConflictedCommit(id) = result else {
+        bail!("impossible");
+    };
+
+    assert_eq!(&get_parents(&id.attach(&repo))?, &[onto]);
+
+    insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
+    8b8f3c9
+    ├── .auto-resolution:96a9057 
+    │   ├── base-f:100644:7898192 "a\n"
+    │   ├── clean-commit-f:100644:20a3acd "clean-commit\n"
+    │   └── target-f:100644:eb5a316 "target\n"
+    ├── .conflict-base-0:8a69542 
+    │   ├── base-f:100644:7898192 "a\n"
+    │   └── clean-f:100644:9b1719f "conflict\n"
+    ├── .conflict-files:100644:1ac0e9f "ancestorEntries = []\nourEntries = [\"clean-f\"]\ntheirEntries = [\"clean-f\"]\n"
+    ├── .conflict-side-0:aa3d213 
+    │   ├── base-f:100644:7898192 "a\n"
+    │   └── target-f:100644:eb5a316 "target\n"
+    ├── .conflict-side-1:2b62238 
+    │   ├── base-f:100644:7898192 "a\n"
+    │   ├── clean-commit-f:100644:20a3acd "clean-commit\n"
+    │   └── clean-f:100644:2ab19ae "resolved\n"
+    └── README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    "#);
+
+    Ok(())
+}
+
 // multiple parents to multiple parents - clean
 #[test]
 fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
@@ -329,7 +518,7 @@ fn multiple_parents_to_multiple_parents_clean() -> Result<()> {
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(
@@ -363,7 +552,7 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
@@ -414,7 +603,7 @@ fn multiple_parents_to_multiple_parents_base_parents_conflict() -> Result<()> {
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
@@ -441,7 +630,7 @@ fn multiple_parents_to_multiple_parents_target_parents_conflict() -> Result<()> 
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-conflicting-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target, &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     FailedToMergeBases {
@@ -468,7 +657,7 @@ fn multiple_parents_to_multiple_parents_identity() -> Result<()> {
     let target = repo.rev_parse_single("merge-clean-commit")?;
     let parents = get_parents(&target)?;
 
-    let result = cherry_pick(&repo, target.detach(), &parents, true)?;
+    let result = cherry_pick(&repo, target.detach(), &parents, true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Identity(
@@ -486,7 +675,7 @@ fn no_parents_identity() -> Result<()> {
 
     let target = repo.rev_parse_single("base")?;
 
-    let result = cherry_pick(&repo, target.detach(), &[], true)?;
+    let result = cherry_pick(&repo, target.detach(), &[], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Identity(
@@ -504,7 +693,7 @@ fn single_parent_to_no_parents_clean() -> Result<()> {
 
     let target = repo.rev_parse_single("single-clean-commit")?.detach();
 
-    let result = cherry_pick(&repo, target, &[], true)?;
+    let result = cherry_pick(&repo, target, &[], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(
@@ -534,7 +723,7 @@ fn no_parents_to_single_parent_clean() -> Result<()> {
     let target = repo.rev_parse_single("base")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto], true)?;
+    let result = cherry_pick(&repo, target, &[onto], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(
@@ -565,7 +754,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
     let target = repo.rev_parse_single("base-conflicting")?.detach();
     let onto = repo.rev_parse_single("single-target")?.detach();
 
-    let result = cherry_pick(&repo, target, &[onto], true)?;
+    let result = cherry_pick(&repo, target, &[onto], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
@@ -607,7 +796,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
     let onto = repo.rev_parse_single("single-target")?.detach();
     let onto2 = repo.rev_parse_single("second-target")?.detach();
 
-    let result = cherry_pick(&repo, target.detach(), &[onto, onto2], true)?;
+    let result = cherry_pick(&repo, target.detach(), &[onto, onto2], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
@@ -621,7 +810,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     assert_eq!(&get_parents(&id.attach(&repo))?, &[onto, onto2]);
 
-    let result = cherry_pick(&repo, id, &parents, true)?;
+    let result = cherry_pick(&repo, id, &parents, true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(
@@ -666,7 +855,7 @@ fn cherry_pick_recursive_merge() -> Result<()> {
     let onto2 = repo.rev_parse_single("second-parent")?.detach();
     let onto3 = repo.rev_parse_single("third-parent")?.detach();
 
-    let result = cherry_pick(&repo, target.detach(), &[onto, onto2, onto3], true)?;
+    let result = cherry_pick(&repo, target.detach(), &[onto, onto2, onto3], true, false)?;
 
     insta::assert_debug_snapshot!(result, @"
     Commit(

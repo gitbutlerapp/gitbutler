@@ -5,10 +5,10 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
 use but_core::{
-    RepositoryExt as _,
+    RepositoryExt,
     commit::{HEADERS_CONFLICTED_FIELD, Headers, TreeKind},
 };
-use gix::{objs::tree::EntryKind, prelude::ObjectIdExt as _};
+use gix::{merge::tree::TreatAsUnresolved, objs::tree::EntryKind, prelude::ObjectIdExt as _};
 
 use crate::{cherry_pick::function::ConflictEntries, commit::DateMode};
 
@@ -56,6 +56,7 @@ pub fn cherry_pick(
     repo: &gix::Repository,
     target: gix::ObjectId,
     ontos: &[gix::ObjectId],
+    auto_resolve_bases: bool,
     sign_if_configured: bool,
 ) -> Result<CherryPickOutcome> {
     let target = but_core::Commit::from_id(target.attach(repo))?;
@@ -64,11 +65,11 @@ pub fn cherry_pick(
         return Ok(CherryPickOutcome::Identity(target.id.detach()));
     }
 
-    let base_t = find_base_tree(&target)?;
+    let base_t = find_base_tree(&target, auto_resolve_bases)?;
     // We always want the "theirs-ist" side of the target if it's conflicted.
     let target_t = find_real_tree(&target, TreeKind::Theirs)?;
     // We want to cherry-pick onto the merge result.
-    let onto_t = tree_from_merging_commits(repo, ontos, TreeKind::AutoResolution)?;
+    let onto_t = tree_from_merging_commits(repo, ontos, TreeKind::AutoResolution, auto_resolve_bases)?;
 
     match (&base_t, &onto_t) {
         (MergeOutcome::NoCommit, MergeOutcome::NoCommit) => {
@@ -115,7 +116,7 @@ pub fn cherry_pick(
             )?;
             let tree_id = outcome.tree.write()?;
 
-            let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+            let conflict_kind = TreatAsUnresolved::forced_resolution();
             if outcome.has_unresolved_conflicts(conflict_kind) {
                 let conflicted_commit = commit_from_conflicted_tree(
                     ontos,
@@ -157,11 +158,11 @@ impl MergeOutcome {
     }
 }
 
-fn find_base_tree(target: &but_core::Commit) -> Result<MergeOutcome> {
+fn find_base_tree(target: &but_core::Commit, auto_resolve: bool) -> Result<MergeOutcome> {
     if target.is_conflicted() {
         Ok(MergeOutcome::Success(find_real_tree(target, TreeKind::Base)?.detach()))
     } else {
-        tree_from_merging_commits(target.id.repo, &target.parents, TreeKind::AutoResolution)
+        tree_from_merging_commits(target.id.repo, &target.parents, TreeKind::AutoResolution, auto_resolve)
     }
 }
 
@@ -170,6 +171,7 @@ fn tree_from_merging_commits(
     repo: &gix::Repository,
     commits: &[gix::ObjectId],
     preference: TreeKind,
+    auto_resolve: bool,
 ) -> Result<MergeOutcome> {
     let mut to_merge = commits.to_vec();
     to_merge.reverse();
@@ -195,7 +197,11 @@ fn tree_from_merging_commits(
 
         let commit = but_core::Commit::from_id(commit.attach(repo))?;
         let tree = find_real_tree(&commit, preference)?;
-        let (options, conflicts) = repo.merge_options_fail_fast()?;
+        let (options, conflicts) = if auto_resolve {
+            (repo.merge_options_force_ours()?, TreatAsUnresolved::default())
+        } else {
+            repo.merge_options_fail_fast()?
+        };
 
         let mut output = repo.merge_trees(
             peel_to_tree_or_empty(repo, base)?,
