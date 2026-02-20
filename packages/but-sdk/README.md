@@ -57,7 +57,7 @@ You should see a new `*Napi` export in `src/generated/index.d.ts`.
 ### Add a new generated TypeScript type
 
 1. Make sure the Rust type derives `schemars::JsonSchema`.
-2. Register the type in `crates/but-api/src/schema.rs` using `TypeSchemaEntry` (`inventory::submit!`).
+2. Register the type in `crates/but-api/src/schema.rs` using `TypeSchemaEntry`.
 3. Re-run:
 
 ```bash
