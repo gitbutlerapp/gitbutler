@@ -3,6 +3,7 @@
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import ReduxResult from '$components/ReduxResult.svelte';
 	import SettingsSection from '$components/SettingsSection.svelte';
+	import { BACKEND } from '$lib/backend';
 	import { BASE_BRANCH_SERVICE } from '$lib/baseBranch/baseBranchService.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { type AuthKey, type KeyType } from '$lib/project/project';
@@ -36,11 +37,18 @@
 	const projectsService = inject(PROJECTS_SERVICE);
 	const projectQuery = $derived(projectsService.getProject(projectId));
 	const project = $derived(projectQuery.response);
+	const backend = inject(BACKEND);
+	const isWindows = $derived(backend.platformName === 'windows');
 
 	let credentialCheck = $state<CredentialCheck>();
 
+	function getDefaultCredentialType(): KeyType {
+		// Use systemExecutable on Windows since other options are not available
+		return isWindows ? 'systemExecutable' : 'local';
+	}
+
 	let selectedType: KeyType = $derived(
-		typeof project?.preferred_key === 'string' ? project?.preferred_key : 'local'
+		typeof project?.preferred_key === 'string' ? project?.preferred_key : getDefaultCredentialType()
 	);
 
 	let privateKeyPath = $state('');
@@ -104,6 +112,11 @@
 				{#snippet description()}
 					Configure the authentication flow for GitButler when authenticating with your Git remote
 					provider.
+					{#if isWindows}
+						<br /><br />
+						<strong>On Windows,</strong> only the Git executable option is available for compatibility
+						reasons.
+					{/if}
 				{/snippet}
 				<CardGroup>
 					<form
@@ -132,57 +145,59 @@
 							{/snippet}
 						</CardGroup.Item>
 
-						<CardGroup.Item labelFor="credential-local">
-							{#snippet title()}
-								Use existing SSH key
-							{/snippet}
+						{#if !isWindows}
+							<CardGroup.Item labelFor="credential-local">
+								{#snippet title()}
+									Use existing SSH key
+								{/snippet}
 
-							{#snippet actions()}
-								<RadioButton name="credentialType" id="credential-local" value="local" />
-							{/snippet}
+								{#snippet actions()}
+									<RadioButton name="credentialType" id="credential-local" value="local" />
+								{/snippet}
 
-							{#snippet caption()}
-								{#if selectedType === 'local'}
-									Add the path to an existing SSH key that GitButler can use.
-								{/if}
-							{/snippet}
-						</CardGroup.Item>
+								{#snippet caption()}
+									{#if selectedType === 'local'}
+										Add the path to an existing SSH key that GitButler can use.
+									{/if}
+								{/snippet}
+							</CardGroup.Item>
 
-						{#if selectedType === 'local'}
-							<CardGroup.Item>
-								<div class="inputs-group">
-									<Textbox
-										label="Path to private key"
-										placeholder="for example: ~/.ssh/id_rsa"
-										bind:value={privateKeyPath}
-										oninput={(value) => {
-											debouncedUpdateLocalKey(value);
-										}}
+							{#if selectedType === 'local'}
+								<CardGroup.Item>
+									<div class="inputs-group">
+										<Textbox
+											label="Path to private key"
+											placeholder="for example: ~/.ssh/id_rsa"
+											bind:value={privateKeyPath}
+											oninput={(value) => {
+												debouncedUpdateLocalKey(value);
+											}}
+										/>
+									</div>
+								</CardGroup.Item>
+							{/if}
+
+							<CardGroup.Item labelFor="credential-helper">
+								{#snippet title()}
+									Use a Git credentials helper
+								{/snippet}
+
+								{#snippet caption()}
+									{#if selectedType === 'gitCredentialsHelper'}
+										GitButler will use the system's git credentials helper.
+										<Link href="https://git-scm.com/doc/credential-helpers">Learn more</Link>
+									{/if}
+								{/snippet}
+
+								{#snippet actions()}
+									<RadioButton
+										name="credentialType"
+										value="gitCredentialsHelper"
+										id="credential-helper"
 									/>
-								</div>
+								{/snippet}
 							</CardGroup.Item>
 						{/if}
-
-						<CardGroup.Item labelFor="credential-helper">
-							{#snippet title()}
-								Use a Git credentials helper
-							{/snippet}
-
-							{#snippet caption()}
-								{#if selectedType === 'gitCredentialsHelper'}
-									GitButler will use the system's git credentials helper.
-									<Link href="https://git-scm.com/doc/credential-helpers">Learn more</Link>
-								{/if}
-							{/snippet}
-
-							{#snippet actions()}
-								<RadioButton
-									name="credentialType"
-									value="gitCredentialsHelper"
-									id="credential-helper"
-								/>
-							{/snippet}
-						</CardGroup.Item>
 
 						<CardGroup.Item>
 							<CredentialCheck
