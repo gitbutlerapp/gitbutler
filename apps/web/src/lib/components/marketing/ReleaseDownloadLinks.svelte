@@ -21,11 +21,14 @@
 			if (build.arch === 'x86_64' || platform.includes('intel') || platform.includes('x86_64')) {
 				return 'Intel Mac';
 			}
-			return build.platform.startsWith('macOS') ? build.platform : `macOS ${build.platform}`;
+			return platform.startsWith('macos') ? build.platform : `macOS ${build.platform}`;
 		}
 
 		if (build.os === 'windows') {
-			return 'Windows (MSI)';
+			const file = build.file.toLowerCase();
+			if (file.includes('msi')) return 'Windows (MSI)';
+			if (file.includes('exe')) return 'Windows (EXE)';
+			return 'Windows';
 		}
 
 		if (build.os === 'linux') {
@@ -47,11 +50,12 @@
 	}
 
 	const groupedBuilds = $derived.by(() => {
-		const seenLabels = new Set<string>();
+		const seenBuilds = new Set<string>();
 		const uniqueBuilds = builds.filter((build) => {
 			const label = getBuildDisplayName(build);
-			if (seenLabels.has(label)) return false;
-			seenLabels.add(label);
+			const key = `${label}::${build.url}`;
+			if (seenBuilds.has(key)) return false;
+			seenBuilds.add(key);
 			return true;
 		});
 
