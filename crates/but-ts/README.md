@@ -1,13 +1,13 @@
-# but-schema-gen
+# but-ts
 
-`but-schema-gen` generates TypeScript type declarations from JSON schemas registered in `but-api`.
+`but-ts` generates TypeScript type declarations from JSON schemas registered in `but-api`.
 
 ## High-level
 
 This crate is the schema-to-TypeScript half of the `@gitbutler/but-sdk` declaration pipeline:
 
 - `napi-rs` writes function bindings (`*Napi`) and corresponding type declarations into `index.d.ts`.
-- `but-schema-gen` appends Rust-struct/enum-based type aliases into the same `index.d.ts`.
+- `but-ts` appends Rust-struct/enum-based type aliases into the same `index.d.ts`.
 
 ## Why is this needed?
 Napi RS can generate TypeScript types for structs and enums as well, but it would require us to tag them with the `#[napi]` macro & re-export the type from `but-napi`.
@@ -28,7 +28,7 @@ This crate is intended to be the single solution for TypeScript type generation.
 ## How it works
 
 1. `but-api` registers schema entries in `but_api::schema`.
-2. `but-schema-gen` collects the registry (`collect_all_schemas`).
+2. `but-ts` collects the registry (`collect_all_schemas`).
 3. It converts schema definitions into TypeScript declarations.
 4. It writes/appends output to the target file (`--output`).
 

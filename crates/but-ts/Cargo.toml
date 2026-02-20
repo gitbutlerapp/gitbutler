@@ -1,5 +1,5 @@
 [package]
-name = "but-schema-gen"
+name = "but-ts"
 version = "0.0.0"
 edition.workspace = true
 repository.workspace = true
@@ -11,7 +11,7 @@ publish = false
 rust-version.workspace = true
 
 [[bin]]
-name = "but-schema-gen"
+name = "but-ts"
 path = "src/main.rs"
 
 [dependencies]

@@ -118,7 +118,7 @@ members = [
     ### Utilities
     ##
     # Generate TypeScript types out of JSON schemas.
-    "crates/but-schema-gen",
+    "crates/but-ts",
     # Node.js SDK via napi-rs
     "crates/but-napi",
 
