@@ -132,7 +132,6 @@ open.workspace = true
 url = { version = "2.5", optional = true }
 uuid.workspace = true
 which = "8.0.0"
-inventory.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

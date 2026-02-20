@@ -14,64 +14,61 @@ pub struct TypeSchemaEntry {
     pub schema_fn: fn() -> schemars::Schema,
 }
 
-inventory::collect!(TypeSchemaEntry);
-
 /// Collect all registered type schemas.
 ///
 /// Returns a list of `(name, schema)` pairs for all registered types.
 /// This is used by the `but-schema-gen` tool to produce TypeScript definitions.
 pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
-    let mut schemas: Vec<_> = inventory::iter::<TypeSchemaEntry>
+    #[cfg(feature = "export-schema")]
+    {
+        use but_workspace::{
+            legacy::{StacksFilter, ui::StackEntry},
+            ui::StackDetails,
+        };
+        use schemars::schema_for;
+
+        use crate::legacy::projects::ProjectForFrontend;
+
+        // Register types that have JsonSchema derives. Add more entries here as derives
+        // are added across the codebase.
+        let mut schemas: Vec<_> = [
+            TypeSchemaEntry {
+                name: "StackDetails",
+                schema_fn: || schema_for!(StackDetails),
+            },
+            TypeSchemaEntry {
+                name: "StacksFilter",
+                schema_fn: || schema_for!(StacksFilter),
+            },
+            TypeSchemaEntry {
+                name: "StackEntry",
+                schema_fn: || schema_for!(StackEntry),
+            },
+            TypeSchemaEntry {
+                name: "StackId",
+                schema_fn: || schema_for!(String),
+            },
+            TypeSchemaEntry {
+                name: "ProjectId",
+                schema_fn: || schema_for!(String),
+            },
+            TypeSchemaEntry {
+                name: "ProjectForFrontend",
+                schema_fn: || schema_for!(ProjectForFrontend),
+            },
+        ]
         .into_iter()
         .map(|entry| (entry.name, (entry.schema_fn)()))
         .collect();
-    // Deduplicate by name (same type may be registered by multiple functions)
-    schemas.sort_by_key(|(name, _)| *name);
-    schemas.dedup_by_key(|(name, _)| *name);
-    schemas
-}
 
-// Register types that have JsonSchema derives.
-// Add more registrations here as JsonSchema is derived on more types.
-#[cfg(feature = "export-schema")]
-mod registrations {
-    // use super::TypeSchemaEntry;
+        // Keep deterministic output and deduplicate by name in case of accidental duplicates.
+        schemas.sort_by_key(|(name, _)| *name);
+        schemas.dedup_by_key(|(name, _)| *name);
+        schemas
+    }
 
-    use but_workspace::{
-        legacy::{StacksFilter, ui::StackEntry},
-        ui::StackDetails,
-    };
-    use schemars::schema_for;
-
-    use crate::{legacy::projects::ProjectForFrontend, schema::TypeSchemaEntry};
-
-    inventory::submit! { TypeSchemaEntry {
-        name: "StackDetails",
-        schema_fn: || schema_for!(StackDetails)
-    }}
-
-    inventory::submit! { TypeSchemaEntry {
-        name: "StacksFilter",
-        schema_fn: || schema_for!(StacksFilter)
-    }}
-
-    inventory::submit! {TypeSchemaEntry {
-        name: "StackEntry",
-        schema_fn: || schema_for!(StackEntry)
-    }}
-
-    inventory::submit! {TypeSchemaEntry {
-        name: "StackId",
-        schema_fn: || schema_for!(String)
-    }}
-
-    inventory::submit! {TypeSchemaEntry {
-        name: "ProjectId",
-        schema_fn: || schema_for!(String)
-    }}
-
-    inventory::submit! {TypeSchemaEntry {
-        name: "ProjectForFrontend",
-        schema_fn: || schema_for!(ProjectForFrontend)
-    }}
+    #[cfg(not(feature = "export-schema"))]
+    {
+        Vec::new()
+    }
 }

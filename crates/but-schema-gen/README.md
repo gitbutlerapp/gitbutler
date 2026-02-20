@@ -27,7 +27,7 @@ This crate is intended to be the single solution for TypeScript type generation.
 
 ## How it works
 
-1. `but-api` registers schema entries in `but_api::schema` using `inventory::submit!`.
+1. `but-api` registers schema entries in `but_api::schema`.
 2. `but-schema-gen` collects the registry (`collect_all_schemas`).
 3. It converts schema definitions into TypeScript declarations.
 4. It writes/appends output to the target file (`--output`).

@@ -1,7 +1,7 @@
 //! Generate TypeScript type definitions from JSON schemas registered by `#[but_api]` functions.
 //!
-//! This binary collects all type schemas registered via the `inventory` crate
-//! in the `but-api` crate, converts them to TypeScript type definitions, and
+//! This binary collects all type schemas registered in the `but-api` crate,
+//! converts them to TypeScript type definitions, and
 //! writes them to a `.d.ts` file.
 //!
 //! Usage:
@@ -23,7 +23,7 @@ use std::path::PathBuf;
 fn main() -> anyhow::Result<()> {
     let output_path = parse_args()?;
 
-    // Collect schemas from the but-api inventory registry
+    // Collect schemas from the but-api schema registry
     let schemas = but_api::schema::collect_all_schemas();
 
     eprintln!("Collected {} unique type schemas", schemas.len());
