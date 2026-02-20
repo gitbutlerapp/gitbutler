@@ -5,7 +5,7 @@ use std::time::Duration;
 use anyhow::{Context, Result};
 use curl::easy::Easy;
 
-const REQUEST_TIMEOUT_SECS: u64 = 30;
+const REQUEST_TIMEOUT_SECS: u64 = 300;
 const CONNECT_TIMEOUT_SECS: u64 = 10;
 const MAX_REDIRECTS: u32 = 5;
 const USER_AGENT: &str = concat!("GitButler-Installer/", env!("CARGO_PKG_VERSION"), " (Rust installer)");

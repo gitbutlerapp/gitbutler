@@ -46,7 +46,7 @@ trap 'rm -f "$INSTALLER_JSON" "$INSTALLER_BIN"' EXIT INT TERM
 INSTALLER_API_URL="https://app.gitbutler.com/installers/info/$INSTALLER_OS/$INSTALLER_ARCH"
 echo "Fetching installer information..."
 
-EFFECTIVE_URL=$(curl --fail --silent --show-error --location --max-redirs 5 --max-time 30 \
+EFFECTIVE_URL=$(curl --fail --silent --show-error --location --max-redirs 5 --max-time 300 \
     -o "$INSTALLER_JSON" -w '%{url_effective}' "$INSTALLER_API_URL") || {
     echo "Error: Failed to fetch installer information from $INSTALLER_API_URL" >&2
     exit 1
