@@ -1,6 +1,6 @@
 //! GitButler Node.js SDK
 //!
-//! This crate provides Node.js bindings for GitButler's Rust APIs via napi-rs.
+//! This crate generates Node.js bindings for GitButler's Rust APIs via napi-rs.
 //! It exposes the same functionality available in the `but-api` crate to JavaScript/TypeScript
 //! applications like Electron.
 //!
