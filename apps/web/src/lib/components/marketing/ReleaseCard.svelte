@@ -47,9 +47,12 @@
 			return 'MSI';
 		}
 		if (build.os === 'linux') {
-			if (build.platform.includes('appimage')) return 'AppImage';
-			if (build.platform.includes('deb')) return 'Deb';
-			if (build.platform.includes('rpm')) return 'RPM';
+			const arch = build.arch === 'aarch64' ? 'ARM64' : 'x86_64';
+			const file: string = build.file?.toLowerCase() ?? '';
+			if (file.includes('appimage')) return `${arch} (AppImage)`;
+			if (file.includes('.deb')) return `${arch} (Debian)`;
+			if (file.includes('.rpm')) return `${arch} (RPM)`;
+			return arch;
 		}
 		return build.platform;
 	}
