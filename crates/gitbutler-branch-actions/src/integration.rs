@@ -95,11 +95,10 @@ pub fn update_workspace_commit(
         message.push_str("This is placeholder commit and will be replaced by a merge of your ");
         message.push_str("virtual branches.\n\n");
     }
-    message.push_str("Due to GitButler managing multiple virtual branches, you cannot switch back and\n");
-    message.push_str("forth between git branches and virtual branches easily. \n\n");
+    message.push_str("For GitButler to manage multiple parallel branches, we maintain this commit\n");
+    message.push_str("automatically so other tooling works properly.\n\n");
 
-    message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
-    message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
+    message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n\n");
     if !virtual_branches.is_empty() {
         message.push_str("Here are the branches that are currently applied:\n");
         for branch in &virtual_branches {
@@ -123,8 +122,8 @@ pub fn update_workspace_commit(
         message.push_str(&prev_branch.sha);
         message.push_str("\n\n");
     }
-    message.push_str("For more information about what we're doing here, check out our docs:\n");
-    message.push_str("https://docs.gitbutler.com/features/branch-management/integration-branch\n");
+    message.push_str("\nFor more information about what we're doing here, check out our docs:\n");
+    message.push_str("https://docs.gitbutler.com/features/workspace-branch\n");
 
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;

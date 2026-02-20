@@ -203,9 +203,7 @@
 					automatically manages a special branch <span class="text-bold">gitbutler/workspace</span>.
 					You can always switch back and forth as needed between normal git branches and the
 					Gitbutler workspace.
-					<Link href="https://docs.gitbutler.com/features/branch-management/integration-branch"
-						>Learn more</Link
-					>
+					<Link href="https://docs.gitbutler.com/workspace-branch">Learn more</Link>
 				</p>
 			{/if}
 		</div>
