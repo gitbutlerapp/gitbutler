@@ -2,6 +2,8 @@ import { getValidReleases, type Build, type Release } from '$lib/types/releases'
 
 const API_BASE_URL = 'https://app.gitbutler.com/api/downloads';
 
+export const RELEASE_OS_ORDER = ['darwin', 'linux', 'windows'] as const;
+
 /**
  * Process builds by filtering out .zip files, removing duplicates, and sorting by platform
  */

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import osIcons from '$lib/data/os-icons.json';
+	import { RELEASE_OS_ORDER } from '$lib/utils/releaseUtils';
 	import type { Build } from '$lib/types/releases';
 
 	interface Props {
@@ -68,7 +69,7 @@
 			{} as Record<string, Build[]>
 		);
 
-		const osOrder = ['darwin', 'windows', 'linux'];
+		const osOrder: readonly string[] = RELEASE_OS_ORDER;
 		return Object.entries(grouped).sort(([a], [b]) => {
 			const aIndex = osOrder.indexOf(a);
 			const bIndex = osOrder.indexOf(b);
