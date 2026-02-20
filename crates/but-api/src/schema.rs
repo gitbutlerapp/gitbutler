@@ -27,8 +27,6 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
         };
         use schemars::schema_for;
 
-        use crate::legacy::projects::ProjectForFrontend;
-
         // Register types that have JsonSchema derives. Add more entries here as derives
         // are added across the codebase.
         let mut schemas: Vec<_> = [
@@ -52,9 +50,10 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 name: "ProjectId",
                 schema_fn: || schema_for!(String),
             },
+            #[cfg(feature = "legacy")]
             TypeSchemaEntry {
                 name: "ProjectForFrontend",
-                schema_fn: || schema_for!(ProjectForFrontend),
+                schema_fn: || schema_for!(crate::legacy::projects::ProjectForFrontend),
             },
         ]
         .into_iter()
