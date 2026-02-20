@@ -91,10 +91,8 @@
 	const groupedBuilds = $derived.by(() => {
 		const seenBuilds = new Set<string>();
 		const uniqueBuilds = builds.filter((build) => {
-			const label = getBuildDisplayName(build);
-			const key = `${label}::${build.url}`;
-			if (seenBuilds.has(key)) return false;
-			seenBuilds.add(key);
+			if (seenBuilds.has(build.url)) return false;
+			seenBuilds.add(build.url);
 			return true;
 		});
 
