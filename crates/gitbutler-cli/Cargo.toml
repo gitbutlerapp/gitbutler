@@ -13,7 +13,7 @@ doctest = false
 
 [features]
 # To help produce stable commits in test-cases.
-testing = []
+testing = ["dep:gitbutler-commit"]
 
 [dependencies]
 but-workspace.workspace = true
@@ -33,6 +33,8 @@ anyhow.workspace = true
 tracing-forest.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
+
+gitbutler-commit = { workspace = true, optional = true, features = ["testing"] }
 
 [lints]
 workspace = true

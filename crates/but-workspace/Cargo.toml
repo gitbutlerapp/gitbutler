@@ -33,7 +33,6 @@ but-ctx = { workspace = true, optional = true }
 
 gitbutler-stack = { workspace = true, optional = true }
 gitbutler-cherry-pick = { workspace = true, optional = true }
-
 gitbutler-commit = { workspace = true, optional = true }
 gitbutler-repo = { workspace = true, optional = true }
 
