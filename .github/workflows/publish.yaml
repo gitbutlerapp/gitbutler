@@ -3,10 +3,6 @@ on:
   schedule:
     # every day at 1am UTC, 3AM CEST or 2AM CET.
     - cron: '0 1 * * *'
-  workflow_run:
-    workflows: ['Nightly build']
-    types:
-      - completed
 
   workflow_dispatch:
     inputs:
@@ -40,7 +36,6 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Consume input variables
         shell: bash
-        if: ${{ !github.event.workflow_run }}
         run: |
           VITEMODE=nightly
           if [[ "${{ github.event.inputs.channel }}" == "release" ]]; then
@@ -139,7 +134,6 @@ jobs:
 
       - name: Consume input variables
         shell: bash
-        if: ${{ !github.event.workflow_run }}
         run: |
           echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
           echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
