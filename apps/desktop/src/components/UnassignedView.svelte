@@ -17,9 +17,10 @@
 	interface Props {
 		projectId: string;
 		onFileClick?: (index: number) => void;
+		visibleRange?: { start: number; end: number };
 	}
 
-	const { projectId, onFileClick }: Props = $props();
+	const { projectId, onFileClick, visibleRange }: Props = $props();
 
 	const selectionId = createWorktreeSelection({ stackId: undefined });
 
@@ -110,6 +111,7 @@
 					mode="unassigned"
 					{foldButton}
 					{onFileClick}
+					{visibleRange}
 				>
 					{#snippet emptyPlaceholder()}
 						<div class="unassigned-empty">

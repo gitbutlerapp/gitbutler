@@ -32,6 +32,7 @@
 		foldButton?: Snippet;
 		onFileClick?: (index: number) => void;
 		onscrollexists?: (exists: boolean) => void;
+		visibleRange?: { start: number; end: number };
 	};
 
 	let {
@@ -44,7 +45,8 @@
 		emptyPlaceholder,
 		foldButton,
 		onFileClick,
-		onscrollexists
+		onscrollexists,
+		visibleRange
 	}: Props = $props();
 
 	// Create a unique persist ID based on stackId and mode (both are static props)
@@ -102,6 +104,7 @@
 		{listMode}
 		{stackId}
 		{onFileClick}
+		{visibleRange}
 		showLockedIndicator
 	/>
 {/snippet}

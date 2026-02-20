@@ -41,6 +41,12 @@
 
 	let multiDiffView = $state<MultiDiffView>();
 	let startIndex = $state(0);
+
+	let visibleRange = $state({ start: 0, end: 0 });
+
+	function onVisibleChange(change: { start: number; end: number }) {
+		visibleRange = change;
+	}
 </script>
 
 {#snippet leftPreview()}
@@ -55,6 +61,7 @@
 		selectable={isCommitting}
 		showBorder={false}
 		showRoundedEdges={false}
+		{onVisibleChange}
 		onclose={() => {
 			idSelection.clear(selectionId);
 		}}
@@ -72,6 +79,7 @@
 	{#snippet left()}
 		<UnassignedView
 			{projectId}
+			{visibleRange}
 			onFileClick={(index) => {
 				startIndex = index;
 				multiDiffView?.jumpToIndex(index);
