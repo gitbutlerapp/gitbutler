@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Footer from '$lib/components/marketing/Footer.svelte';
 	import Header from '$lib/components/marketing/Header.svelte';
+	import ReleaseDownloadLinks from '$lib/components/marketing/ReleaseDownloadLinks.svelte';
 	import osIcons from '$lib/data/os-icons.json';
 	import { Icon } from '@gitbutler/ui';
 	import type { Release } from '$lib/types/releases';
@@ -242,49 +243,9 @@
 				</button>
 
 				{#if expandedRelease === release.version}
-					<div class="release-row__links">
-						{#if release.builds && release.builds.length > 0}
-							{#each release.builds as build}
-								<a href={build.url} class="download-link">
-									{#if build.os === 'darwin'}
-										{#if build.platform.includes('aarch64')}
-											Apple Silicon
-										{:else if build.platform.includes('x86_64')}
-											Intel Mac
-										{:else}
-											macOS {build.platform}
-										{/if}
-									{:else if build.os === 'windows'}
-										MSI
-									{:else if build.os === 'linux'}
-										{#if build.arch === 'x86_64'}
-											{#if build.file.includes('AppImage')}
-												Linux Intel (AppImage)
-											{:else if build.file.includes('deb')}
-												Linux Intel (Deb)
-											{:else if build.file.includes('rpm')}
-												Linux Intel (RPM)
-											{:else}
-												Linux {build.platform}
-											{/if}
-										{:else if build.arch === 'aarch64'}
-											{#if build.file.includes('AppImage')}
-												Linux ARM64 (AppImage)
-											{:else if build.file.includes('deb')}
-												Linux ARM64 (Deb)
-											{:else if build.file.includes('rpm')}
-												Linux ARM64 (RPM)
-											{:else}
-												Linux {build.platform}
-											{/if}
-										{/if}
-									{:else}
-										{build.os} {build.platform}
-									{/if}
-								</a>
-							{/each}
-						{/if}
-					</div>
+					{#if release.builds && release.builds.length > 0}
+						<ReleaseDownloadLinks builds={release.builds} />
+					{/if}
 				{/if}
 			</div>
 		{/each}
@@ -551,20 +512,6 @@
 		}
 	}
 
-	.release-row__links {
-		display: flex;
-		flex-wrap: wrap;
-		padding: 24px;
-		gap: 18px 20px;
-		background-image: radial-gradient(var(--clr-border-2) 1px, transparent 1px);
-		background-size: 6px 6px;
-		font-size: 13px;
-
-		& .download-link {
-			background-color: var(--clr-bg-2);
-		}
-	}
-
 	.grainy-1 {
 		top: -40%;
 		right: -45%;
@@ -620,10 +567,6 @@
 
 		.release-row__version {
 			font-size: 16px;
-		}
-
-		.release-row__links {
-			padding: 16px;
 		}
 	}
 </style>
