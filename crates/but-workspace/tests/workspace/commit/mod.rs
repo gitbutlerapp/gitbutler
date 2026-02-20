@@ -1,3 +1,4 @@
+mod commit_create;
 mod insert_blank_commit;
 mod move_changes;
 mod reword;

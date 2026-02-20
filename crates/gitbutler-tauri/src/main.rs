@@ -390,6 +390,7 @@ fn main() -> anyhow::Result<()> {
                 claude::claude_compact_history,
                 commit::tauri_commit_reword::commit_reword,
                 commit::tauri_commit_insert_blank::commit_insert_blank,
+                commit::tauri_commit_create::commit_create,
                 commit::tauri_commit_move_changes_between::commit_move_changes_between,
                 commit::tauri_commit_uncommit_changes::commit_uncommit_changes,
                 platform::tauri_build_type::build_type,
