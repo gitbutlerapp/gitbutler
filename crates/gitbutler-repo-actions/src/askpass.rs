@@ -1,32 +1,46 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    sync::{Arc, OnceLock},
+};
 
 use gitbutler_stack::StackId;
 use serde::Serialize;
 use tokio::sync::{Mutex, oneshot};
 
-static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
+static GLOBAL_ASKPASS_BROKER: OnceLock<Option<AskpassBroker>> = OnceLock::new();
 
 /// Initialize the global askpass broker.
 ///
 /// # Safety
-/// This function **must** be called **at least once**, from only one thread at a time,
-/// before any other function from this module is called. **Calls to [`get_broker`] before [`init`] will panic.**
-///
-/// This function is **NOT** thread safe.
-#[expect(static_mut_refs)]
-pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
-    unsafe {
-        GLOBAL_ASKPASS_BROKER.replace(AskpassBroker::init(submit_prompt));
-    }
+/// This function should be called **exactly once** during startup if the custom askpass broker
+/// needs to be used (currently only needed for GUI functionality). Otherwise, call [disable] at
+/// startup instead.
+pub fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
+    GLOBAL_ASKPASS_BROKER
+        .set(Some(AskpassBroker::init(submit_prompt)))
+        .unwrap_or_else(|_| panic!("broker already configured"))
 }
 
-/// Get the global askpass broker.
+/// Explicitly disable the global askpass broker.
 ///
-/// # Panics
-/// Will panic if [`init`] was not called before this function.
-#[expect(static_mut_refs)]
-pub fn get_broker() -> &'static AskpassBroker {
-    unsafe { GLOBAL_ASKPASS_BROKER.as_ref().expect("askpass broker not initialized") }
+/// # Safety
+/// This function should be called **exactly once** during startup if the custom askpass broker
+/// should **not** be used (currently the sensible approach for CLI). Otherwise, call [init] at
+/// startup instead.
+pub fn disable() {
+    GLOBAL_ASKPASS_BROKER
+        .set(None)
+        .unwrap_or_else(|_| panic!("broker already configured"))
+}
+
+/// Get the global askpass broker, assuming it's initialized.
+///
+/// Panics if neither [init] nor [disable] has been called.
+pub fn get_broker() -> Option<AskpassBroker> {
+    match GLOBAL_ASKPASS_BROKER.get() {
+        Some(broker_state) => broker_state.to_owned(),
+        None => panic!("broker has not been configured"),
+    }
 }
 
 pub struct AskpassRequest {

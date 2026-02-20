@@ -29,6 +29,7 @@ fn main() -> anyhow::Result<()> {
     {
         let exe = std::env::current_exe()?;
         if exe.file_stem().is_some_and(|stem| stem == "but") || std::env::args_os().count() > 1 {
+            gitbutler_repo_actions::askpass::disable();
             return runtime.block_on(but::handle_args(std::env::args_os()));
         }
     }
@@ -127,18 +128,15 @@ fn main() -> anyhow::Result<()> {
                     tracing::info!("SHELL env: {var:?}", var = std::env::var_os("SHELL"));
                 }
 
-                // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
-                // SAFETY(qix-): before any other threads would ever access it.
-                unsafe {
-                    gitbutler_repo_actions::askpass::init({
-                        let handle = app_handle.clone();
-                        move |event| {
-                            handle
-                                .emit("git_prompt", event)
-                                .expect("tauri event emission doesn't fail in practice")
-                        }
-                    });
-                }
+                gitbutler_repo_actions::askpass::init({
+                    let handle = app_handle.clone();
+                    move |event| {
+                        handle
+                            .emit("git_prompt", event)
+                            .expect("tauri event emission doesn't fail in practice")
+                    }
+                });
+
 
                 tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");

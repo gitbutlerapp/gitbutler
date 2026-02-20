@@ -791,6 +791,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-repo-actions",
  "gitbutler-stack",
  "gix",
  "insta",

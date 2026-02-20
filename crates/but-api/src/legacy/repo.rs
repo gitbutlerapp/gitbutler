@@ -23,12 +23,17 @@ pub fn check_signing_settings(ctx: &Context) -> Result<bool> {
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn git_clone_repository(repository_url: String, target_dir: PathBuf) -> Result<()> {
+    let handle_prompt = if askpass::get_broker().is_some() {
+        Some(|prompt: String| handle_git_prompt_clone(prompt, repository_url.clone()))
+    } else {
+        None
+    };
+
     gitbutler_git::clone(
         &repository_url,
         &target_dir,
         gitbutler_git::tokio::TokioExecutor,
-        handle_git_prompt_clone,
-        repository_url.clone(),
+        handle_prompt,
     )
     .await?;
     Ok(())
@@ -37,6 +42,7 @@ pub async fn git_clone_repository(repository_url: String, target_dir: PathBuf) -
 async fn handle_git_prompt_clone(prompt: String, url: String) -> Option<String> {
     tracing::info!("received prompt for clone of {url}: {prompt:?}");
     askpass::get_broker()
+        .expect("failed to get askpass broker")
         .submit_prompt(prompt, askpass::Context::Clone { url })
         .await
 }
