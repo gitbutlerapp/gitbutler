@@ -14,12 +14,20 @@
 	interface Props {
 		entry: Snapshot;
 		isWithinRestore?: boolean;
+		restoring?: boolean;
 		onRestoreClick: () => void;
 		onDiffClick: (filePath: string) => void;
 		projectId: string;
 	}
 
-	const { projectId, entry, isWithinRestore = true, onRestoreClick, onDiffClick }: Props = $props();
+	const {
+		projectId,
+		entry,
+		isWithinRestore = true,
+		restoring = false,
+		onRestoreClick,
+		onDiffClick
+	}: Props = $props();
 
 	function getShortSha(sha: string | undefined) {
 		if (!sha) return '';
@@ -188,7 +196,8 @@
 				onclick={() => {
 					onRestoreClick();
 				}}
-				disabled={mode.response?.type !== 'OpenWorkspace'}>Revert</Button
+				disabled={restoring || mode.response?.type !== 'OpenWorkspace'}
+				loading={restoring}>Revert</Button
 			>
 		</div>
 		<span class="snapshot-time text-11">
