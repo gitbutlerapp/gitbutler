@@ -96,7 +96,7 @@ impl From<Project> for UpdateRequest {
             gitbutler_data_last_fetched: gitbutler_data_last_fetch,
             preferred_key: Some(preferred_key),
             ok_with_force_push: Some(ok_with_force_push.into()),
-            force_push_protection: Some(force_push_protection),
+            force_push_protection: Some(force_push_protection.into()),
             gitbutler_code_push_state,
             project_data_last_fetched: project_data_last_fetch,
             omit_certificate_check,
@@ -238,7 +238,7 @@ impl Storage {
         }
 
         if let Some(force_push_protection) = force_push_protection {
-            project.force_push_protection = force_push_protection;
+            *project.force_push_protection = force_push_protection;
         }
 
         if let Some(omit_certificate_check) = omit_certificate_check {

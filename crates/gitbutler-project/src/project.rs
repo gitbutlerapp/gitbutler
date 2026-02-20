@@ -106,7 +106,8 @@ pub struct Project {
     pub ok_with_force_push: DefaultTrue,
     /// Force push protection uses safer force push flags instead of doing straight force pushes
     #[serde(default)]
-    pub force_push_protection: bool,
+    #[cfg_attr(feature = "export-schema", schemars(schema_with = "but_schemars::default_true"))]
+    pub force_push_protection: DefaultTrue,
     pub api: Option<ApiProject>,
     #[serde(default)]
     pub gitbutler_data_last_fetch: Option<FetchResult>,
@@ -135,7 +136,7 @@ impl Project {
             git_dir: Default::default(),
             preferred_key: Default::default(),
             ok_with_force_push: Default::default(),
-            force_push_protection: false,
+            force_push_protection: Default::default(),
             api: None,
             gitbutler_data_last_fetch: None,
             gitbutler_code_push_state: None,
