@@ -35,7 +35,7 @@ fn by_default_conflicts_are_allowed() -> Result<()> {
 
     // We expect to see conflicted headers
     insta::assert_snapshot!(cat_commit(&repo, "c")?, @"
-    tree 7c4363d235e51107d74c858038cfab0d192db092
+    tree c199bde16a034b8588f7c896ec3640c40ad017dd
     parent 5e0ba4636be91de6216903697b269915d3db6c53
     author author <author@example.com> 946684800 +0000
     committer Committer (Memory Override) <committer@example.com> 946771200 +0000
