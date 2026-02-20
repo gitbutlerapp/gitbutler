@@ -243,7 +243,6 @@ pub fn create(
     let window = tauri::WebviewWindowBuilder::new(handle, label, tauri::WebviewUrl::App(window_relative_url.into()))
         .resizable(true)
         .title(handle.package_info().name.clone())
-        .disable_drag_drop_handler()
         .min_inner_size(1000.0, 600.0)
         .inner_size(1160.0, 720.0)
         .build()?;
@@ -268,7 +267,6 @@ pub fn create(
         .title(handle.package_info().name.clone())
         .min_inner_size(1000.0, 600.0)
         .inner_size(1160.0, 720.0)
-        .disable_drag_drop_handler()
         .hidden_title(!use_native_title_bar)
         .title_bar_style(if use_native_title_bar {
             tauri::TitleBarStyle::Visible
