@@ -50,6 +50,44 @@
 		return 'linux';
 	}
 
+	function getBuildSortRank(build: Build): number {
+		if (build.os === 'darwin') {
+			if (build.arch === 'aarch64') return 0;
+			if (build.arch === 'x86_64') return 1;
+			return 2;
+		}
+
+		if (build.os === 'windows') {
+			const file = build.file.toLowerCase();
+			if (file.includes('msi')) return 0;
+			if (file.includes('exe')) return 1;
+			return 2;
+		}
+
+		if (build.os === 'linux') {
+			const archRank = build.arch === 'aarch64' ? 1 : 0;
+			const file = build.file.toLowerCase();
+			let packageRank = 3;
+			if (file.includes('appimage')) packageRank = 0;
+			else if (file.includes('deb')) packageRank = 1;
+			else if (file.includes('rpm')) packageRank = 2;
+
+			return archRank * 10 + packageRank;
+		}
+
+		return 99;
+	}
+
+	function compareBuildsWithinOs(a: Build, b: Build): number {
+		const rankDiff = getBuildSortRank(a) - getBuildSortRank(b);
+		if (rankDiff !== 0) return rankDiff;
+
+		const labelDiff = getBuildDisplayName(a).localeCompare(getBuildDisplayName(b));
+		if (labelDiff !== 0) return labelDiff;
+
+		return a.url.localeCompare(b.url);
+	}
+
 	const groupedBuilds = $derived.by(() => {
 		const seenBuilds = new Set<string>();
 		const uniqueBuilds = builds.filter((build) => {
@@ -68,6 +106,10 @@
 			},
 			{} as Record<string, Build[]>
 		);
+
+		for (const osBuilds of Object.values(grouped)) {
+			osBuilds.sort(compareBuildsWithinOs);
+		}
 
 		const osOrder: readonly string[] = RELEASE_OS_ORDER;
 		return Object.entries(grouped).sort(([a], [b]) => {
