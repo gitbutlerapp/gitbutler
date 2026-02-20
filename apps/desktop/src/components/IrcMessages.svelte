@@ -48,6 +48,7 @@
 							filePath={change.path}
 							hunkStr={diff.diff}
 							diffLigatures={$userSettings.diffLigatures}
+							diffFontSize={$userSettings.diffFontSize}
 							tabSize={$userSettings.tabSize}
 							wrapText={$userSettings.wrapText}
 							diffFont={$userSettings.diffFont}

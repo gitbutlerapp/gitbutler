@@ -19,6 +19,10 @@
 		document.documentElement.style.fontSize = zoom + 'rem';
 	}
 
+	function setDomFontScale(scale: number) {
+		document.documentElement.style.setProperty('--ui-font-scale', String(scale));
+	}
+
 	function updateZoom(newZoom: number) {
 		zoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
 		setDomZoom(zoom);
@@ -38,6 +42,10 @@
 			})
 		)
 	);
+
+	$effect(() => {
+		setDomFontScale($userSettings.uiFontScale);
+	});
 
 	onMount(() => {
 		if (zoom !== DEFAULT_ZOOM) {

@@ -326,7 +326,7 @@
 		border: none;
 		background: none;
 		color: var(--clr-text-2);
-		font-size: 11px;
+		font-size: calc(11px * var(--ui-font-scale, 1));
 		text-decoration: underline dotted;
 		cursor: pointer;
 	}

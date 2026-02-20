@@ -39,10 +39,12 @@ export interface Settings {
 	defaultFileWidth: number;
 	defaultTreeHeight: number;
 	zoom: number;
+	uiFontScale: number;
 	scrollbarVisibilityState: ScrollbarVisilitySettings;
 	tabSize: number;
 	wrapText: boolean;
 	diffFont: string;
+	diffFontSize: number;
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
 	strongContrast: boolean;
@@ -65,10 +67,12 @@ const defaults: Settings = {
 	defaultTreeHeight: 100,
 	stashedBranchesHeight: 150,
 	zoom: 1,
+	uiFontScale: 1,
 	scrollbarVisibilityState: 'scroll',
 	tabSize: 4,
 	wrapText: false,
 	diffFont: 'Geist Mono, Menlo, monospace',
+	diffFontSize: 12,
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
 	strongContrast: false,

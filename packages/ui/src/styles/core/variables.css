@@ -35,7 +35,7 @@
 	--lexical-input-background: var(--clr-bg-1);
 	--lexical-input-client-padding: 12px;
 	--lexical-input-client-toolbar-height: 48px;
-	--lexical-input-font-size: 13px;
+	--lexical-input-font-size: calc(13px * var(--ui-font-scale, 1));
 }
 
 :root.dark {

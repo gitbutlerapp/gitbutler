@@ -343,12 +343,12 @@
 
 		& :global(h1) {
 			margin-top: 6px;
-			font-size: 15px;
+			font-size: calc(15px * var(--ui-font-scale, 1));
 		}
 
 		& :global(h2) {
 			margin-top: 6px;
-			font-size: 13px;
+			font-size: calc(13px * var(--ui-font-scale, 1));
 		}
 	}
 

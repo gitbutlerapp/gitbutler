@@ -281,7 +281,7 @@
 	/* HUNK DRAG */
 	.dragchip-hunk-container {
 		display: flex;
-		font-size: 12px;
+		font-size: calc(12px * var(--ui-font-scale, 1));
 		font-family: var(--font-mono);
 	}
 

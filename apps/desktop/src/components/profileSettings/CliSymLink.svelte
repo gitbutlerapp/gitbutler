@@ -46,7 +46,7 @@
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-muted);
 		color: var(--clr-text-1);
-		font-size: 12px;
+		font-size: calc(12px * var(--ui-font-scale, 1));
 		font-family: var(--font-mono);
 		word-break: break-all;
 	}

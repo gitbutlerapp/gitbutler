@@ -223,7 +223,7 @@
 	.table__textContent {
 		width: 100%;
 		padding-left: 4px;
-		font-size: 12px;
+		font-size: var(--diff-font-size, 12px);
 		line-height: 1.25;
 		white-space: var(--pre-wrap);
 		cursor: text;
@@ -273,8 +273,8 @@
 		border-right: 1px solid var(--clr-diff-count-border);
 		background-color: var(--clr-diff-count-bg);
 		color: var(--clr-diff-count-text);
-		font-size: 11px;
-		line-height: 1.5; /* Visually centered with 12px font size that diff lines have */
+		font-size: calc(var(--diff-font-size, 12px) - 1px);
+		line-height: 1.5; /* May need adjustment at extreme font sizes */
 		text-align: right;
 		vertical-align: top;
 		touch-action: none;
