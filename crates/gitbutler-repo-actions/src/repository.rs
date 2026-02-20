@@ -174,6 +174,12 @@ impl RepoActionsExt for Context {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if use_git_executable {
+            let on_prompt = if askpass::get_broker().is_some() {
+                Some(move |prompt: String| handle_git_prompt_push(prompt, askpass_broker))
+            } else {
+                None
+            };
+
             let repo_path = self.workdir_or_gitdir()?;
             let remote = branch.remote().to_string();
             match std::thread::spawn(move || {
@@ -186,8 +192,7 @@ impl RepoActionsExt for Context {
                         gitbutler_git::RefSpec::parse(refspec).unwrap(),
                         with_force,
                         force_push_protection,
-                        handle_git_prompt_push,
-                        askpass_broker,
+                        on_prompt,
                         push_opts,
                     ))
             })
@@ -274,6 +279,12 @@ impl RepoActionsExt for Context {
         // NOTE(qix-): work around a time-sensitive change that was necessary
         // NOTE(qix-): without having to refactor a large portion of the codebase.
         if self.legacy_project.preferred_key == AuthKey::SystemExecutable {
+            let on_prompt = if askpass::get_broker().is_some() {
+                Some(move |prompt: String| handle_git_prompt_fetch(prompt, askpass.clone()))
+            } else {
+                None
+            };
+
             let repo_path = self.workdir_or_gitdir()?;
             let remote = remote_name.to_string();
             return std::thread::spawn(move || {
@@ -282,8 +293,7 @@ impl RepoActionsExt for Context {
                     gitbutler_git::tokio::TokioExecutor,
                     &remote,
                     gitbutler_git::RefSpec::parse(refspec).unwrap(),
-                    handle_git_prompt_fetch,
-                    askpass,
+                    on_prompt,
                 ))
             })
             .join()
@@ -335,6 +345,7 @@ async fn handle_git_prompt_push(prompt: String, askpass: Option<Option<StackId>>
     if let Some(branch_id) = askpass {
         tracing::info!("received prompt for branch push {branch_id:?}: {prompt:?}");
         askpass::get_broker()
+            .expect("failed to get askpass broker")
             .submit_prompt(prompt, askpass::Context::Push { branch_id })
             .await
     } else {
@@ -347,6 +358,7 @@ async fn handle_git_prompt_fetch(prompt: String, askpass: Option<String>) -> Opt
     if let Some(action) = askpass {
         tracing::info!("received prompt for fetch with action {action:?}: {prompt:?}");
         askpass::get_broker()
+            .expect("filed to get get askpass broker")
             .submit_prompt(prompt, askpass::Context::Fetch { action })
             .await
     } else {

@@ -38,7 +38,7 @@ but-hunk-assignment.workspace = true
 gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
-gitbutler-git = { workspace = true, features = ["askpass"] }
+gitbutler-git = { workspace = true }
 
 tauri = { version = "^2.9.5", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }

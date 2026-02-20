@@ -63,6 +63,9 @@ but-api = { workspace = true, features = ["path-bytes"] }
 but-graph.workspace = true
 but-llm.workspace = true
 
+# this crate is only required so we can disable the askpass broker
+gitbutler-repo-actions.workspace = true
+
 # What follows is *basically* newly written crates that are built on top of legacy,
 # so need some refactoring/rethinking to become usable.
 but-action = { workspace = true, optional = true }
