@@ -1,35 +1,63 @@
-use std::{collections::HashMap, sync::Arc};
+//! This is the global askpass broker. Its purpose is to ferry prompts and responses for
+//! credentials from Git (or more accurately, from SSH) to our app.
+//!
+//! On application startup, the broker must be explicitly initialized with [init] or disabled with
+//! [disable]. This allows us to use the state of the broker as a proxy for whether we should
+//! divert SSH_ASKPASS to our custom askpass machinery, or if we should simply let the current
+//! configuration decide. If we were to default to either initialized or disabled, utilizing the
+//! state to decide whether or not to use the broker could lead to subtle bugs.
+//!
+//! The GUI utilizes the broker to be able to prompt the user in-app, and as such the broker should
+//! always be enabled when running the GUI. The CLI has no use of this mechanism at present as
+//! there are well-defined ways to handle prompting in the terminal. It may however make sense to
+//! incorporate this broker for a TUI, however.
+
+use std::{
+    collections::HashMap,
+    sync::{Arc, OnceLock},
+};
 
 use gitbutler_stack::StackId;
 use serde::Serialize;
 use tokio::sync::{Mutex, oneshot};
 
-static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
+static GLOBAL_ASKPASS_BROKER: OnceLock<Option<AskpassBroker>> = OnceLock::new();
 
 /// Initialize the global askpass broker.
 ///
-/// # Safety
-/// This function **must** be called **at least once**, from only one thread at a time,
-/// before any other function from this module is called. **Calls to [`get_broker`] before [`init`] will panic.**
-///
-/// This function is **NOT** thread safe.
-#[expect(static_mut_refs)]
-pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
-    unsafe {
-        GLOBAL_ASKPASS_BROKER.replace(AskpassBroker::init(submit_prompt));
-    }
+/// # Panics
+/// This function should be called **exactly once** during startup if the custom askpass broker
+/// needs to be used (currently only needed for GUI functionality). Otherwise, call [disable] at
+/// startup instead.
+pub fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
+    GLOBAL_ASKPASS_BROKER
+        .set(Some(AskpassBroker::init(submit_prompt)))
+        .unwrap_or_else(|_| panic!("broker already configured"))
 }
 
-/// Get the global askpass broker.
+/// Explicitly disable the global askpass broker.
 ///
 /// # Panics
-/// Will panic if [`init`] was not called before this function.
-#[expect(static_mut_refs)]
-pub fn get_broker() -> &'static AskpassBroker {
-    unsafe {
-        GLOBAL_ASKPASS_BROKER
-            .as_ref()
-            .expect("askpass broker not initialized")
+/// This function should be called **exactly once** during startup if the custom askpass broker
+/// should **not** be used (currently the sensible approach for CLI). Otherwise, call [init] at
+/// startup instead.
+pub fn disable() {
+    GLOBAL_ASKPASS_BROKER
+        .set(None)
+        .unwrap_or_else(|_| panic!("broker already configured"))
+}
+
+/// Get the global askpass broker, assuming it's configured.
+///
+/// Panics if neither [init] nor [disable] has been called. This is an important property as we use
+/// the state of the broker to determine whether to use our askpass overrides or not. If it's not
+/// explicitly set, there is no way to tell the intent and bugs may hide in unexpected places as a
+/// consequence. For example, if not initialized for the GUI, the prompt may show up in the
+/// terminal that started the GUI.
+pub fn get_broker() -> Option<AskpassBroker> {
+    match GLOBAL_ASKPASS_BROKER.get() {
+        Some(broker_state) => broker_state.to_owned(),
+        None => panic!("broker has not been configured"),
     }
 }
 

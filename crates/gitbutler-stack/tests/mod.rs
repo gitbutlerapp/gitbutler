@@ -16,6 +16,12 @@ use gix::refs::transaction::PreviousValue;
 use itertools::Itertools;
 use tempfile::TempDir;
 
+#[ctor::ctor]
+fn init() {
+    // These tests do not function with the askpass broker enabled
+    gitbutler_repo_actions::askpass::disable();
+}
+
 #[test]
 fn add_series_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;

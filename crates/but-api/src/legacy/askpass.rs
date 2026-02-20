@@ -1,4 +1,5 @@
 //! In place of commands.rs
+use anyhow::anyhow;
 use gitbutler_repo_actions::askpass::{self, AskpassRequestId};
 use serde::Deserialize;
 
@@ -11,6 +12,7 @@ pub struct SubmitPromptResponseParams {
 
 pub async fn submit_prompt_response(params: SubmitPromptResponseParams) -> anyhow::Result<()> {
     askpass::get_broker()
+        .ok_or(anyhow!("askpass broker must be initialized"))?
         .handle_response(params.id, params.response)
         .await;
     Ok(())

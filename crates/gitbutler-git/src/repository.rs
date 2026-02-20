@@ -1,17 +1,12 @@
-#[cfg(feature = "askpass")]
-use std::time::Duration;
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, time::Duration};
 
-#[cfg(feature = "askpass")]
 use futures::{FutureExt, select};
 use gix::bstr::ByteSlice;
-#[cfg(feature = "askpass")]
 use rand::{Rng, SeedableRng};
 
 use super::executor::{AskpassServer, GitExecutor, Pid, Socket};
 use crate::RefSpec;
 
-#[cfg(feature = "askpass")]
 /// The number of characters in the secret used for checking
 /// askpass invocations by ssh/git when connecting to our process.
 const ASKPASS_SECRET_LENGTH: usize = 24;
@@ -76,46 +71,40 @@ enum HarnessEnv<P: AsRef<Path>> {
 }
 
 #[cold]
-async fn execute_with_auth_harness<P, F, Fut, E, Extra>(
+async fn execute_with_auth_harness<P, F, Fut, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
     envs: Option<HashMap<String, String>>,
-    // below arguments only used if askpass is enabled
-    mut _on_prompt: F,
-    _extra: Extra,
+    on_prompt: Option<F>,
 ) -> Result<(usize, String, String), Error<E>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: FnMut(String, Extra) -> Fut,
+    F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
-    Extra: Send + Clone,
 {
-    #[cfg(feature = "askpass")]
-    return execute_with_indirect_askpass(harness_env, executor, args, envs, _on_prompt, _extra)
-        .await;
-    #[cfg(not(feature = "askpass"))]
-    return execute_direct(harness_env, executor, args, envs).await;
+    if let Some(on_prompt) = on_prompt {
+        execute_with_indirect_askpass(harness_env, executor, args, envs, on_prompt).await
+    } else {
+        execute_direct(harness_env, executor, args, envs).await
+    }
 }
 
-#[cfg(feature = "askpass")]
 /// Askpass-aware execution of Git commands, allowing the GUI to communicate with the askpass
 /// process over a pipe.
-async fn execute_with_indirect_askpass<P, F, Fut, E, Extra>(
+async fn execute_with_indirect_askpass<P, F, Fut, E>(
     harness_env: HarnessEnv<P>,
     executor: &E,
     args: &[&str],
     envs: Option<HashMap<String, String>>,
     mut on_prompt: F,
-    extra: Extra,
 ) -> Result<(usize, String, String), Error<E>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: FnMut(String, Extra) -> Fut,
+    F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
-    Extra: Send + Clone,
 {
     let mut current_exe = std::env::current_exe().map_err(Error::<E>::NoSelfExe)?;
     // On Windows, we get these \\? prefix that have issues. Let's do nothing there for now,
@@ -278,7 +267,7 @@ where
                 let prompt = sock.read_line().await.map_err(Error::<E>::AskpassIo)?;
 
                 // call the prompt handler
-                let response = on_prompt(prompt.clone(), extra.clone()).await;
+                let response = on_prompt(prompt.clone()).await;
                 if let Some(response) = response {
                     sock.write_line(&response).await.map_err(Error::<E>::AskpassIo)?;
                 } else {
@@ -289,7 +278,6 @@ where
     }
 }
 
-#[cfg(not(feature = "askpass"))]
 /// Directly execute the Git command without invoking the askpass pipe machinery. This is useful
 /// for the CLI, as the child process simply inherits stdin from the parent process and therefore
 /// doesn't need the askpass mechanism.
@@ -374,24 +362,24 @@ where
 }
 
 /// Fetches the given refspec from the given remote in the repository
-/// at the given path. Any prompts for the user are passed to the asynchronous
-/// callback `on_prompt` which should return the user's response or `None` if the
-/// operation should be aborted, in which case an `Err` value is returned from this
-/// function.
-pub async fn fetch<P, F, Fut, E, Extra>(
+/// at the given path.
+///
+/// If `on_prompt` is provided, we override SSH_ASKPASS to point to our custom askpass client to
+/// ferry prompts and responses between the SSH process and this process. This should be used
+/// carefully as it will unceremoniously override any askpass configuration the user might have,
+/// making it unsuitable for use in e.g. the CLI. It is designed to be used with a GUI/TUI.
+pub async fn fetch<P, F, Fut, E>(
     repo_path: P,
     executor: E,
     remote: &str,
     refspec: RefSpec,
-    on_prompt: F,
-    extra: Extra,
+    on_prompt: Option<F>,
 ) -> Result<(), crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: FnMut(String, Extra) -> Fut,
+    F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
-    Extra: Send + Clone,
 {
     let mut args = vec!["fetch", "--quiet", "--prune"];
 
@@ -406,7 +394,6 @@ where
         &args,
         None,
         on_prompt,
-        extra,
     )
     .await?;
 
@@ -439,27 +426,27 @@ where
 }
 
 /// Pushes a refspec to the given remote in the repository at the given path.
-/// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
-/// which should return the user's response or `None` if the operation should be
-/// aborted, in which case an `Err` value is returned from this function.
+///
+/// If `on_prompt` is provided, we override SSH_ASKPASS to point to our custom askpass client to
+/// ferry prompts and responses between the SSH process and this process. This should be used
+/// carefully as it will unceremoniously override any askpass configuration the user might have,
+/// making it unsuitable for use in e.g. the CLI. It is designed to be used with a GUI/TUI.
 #[expect(clippy::too_many_arguments)]
-pub async fn push<P, F, Fut, E, Extra>(
+pub async fn push<P, F, Fut, E>(
     repo_path: P,
     executor: E,
     remote: &str,
     refspec: RefSpec,
     force: bool,
     force_push_protection: bool,
-    on_prompt: F,
-    extra: Extra,
+    on_prompt: Option<F>,
     push_opts: Vec<String>,
 ) -> Result<String, crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: FnMut(String, Extra) -> Fut,
+    F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
-    Extra: Send + Clone,
 {
     let mut args = vec!["push", "--quiet", "--no-verify"];
 
@@ -488,7 +475,6 @@ where
         &args,
         None,
         on_prompt,
-        extra,
     )
     .await?;
 
@@ -528,25 +514,25 @@ where
 }
 
 /// Clones the given repository URL to the target directory.
-/// Any prompts for the user are passed to the asynchronous callback `on_prompt`,
-/// which should return the user's response or `None` if the operation should be
-/// aborted, in which case an `Err` value is returned from this function.
+///
+/// If `on_prompt` is provided, we override SSH_ASKPASS to point to our custom askpass client to
+/// ferry prompts and responses between the SSH process and this process. This should be used
+/// carefully as it will unceremoniously override any askpass configuration the user might have,
+/// making it unsuitable for use in e.g. the CLI. It is designed to be used with a GUI/TUI.
 ///
 /// Unlike fetch/push, this function always uses the Git CLI regardless of any
 /// backend selection, as it needs to work before a repository exists.
-pub async fn clone<P, F, Fut, E, Extra>(
+pub async fn clone<P, F, Fut, E>(
     repository_url: &str,
     target_dir: P,
     executor: E,
-    on_prompt: F,
-    extra: Extra,
+    on_prompt: Option<F>,
 ) -> Result<(), crate::Error<Error<E>>>
 where
     P: AsRef<Path>,
     E: GitExecutor,
-    F: FnMut(String, Extra) -> Fut,
+    F: FnMut(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
-    Extra: Send + Clone,
 {
     let target_dir = target_dir.as_ref();
 
@@ -562,7 +548,6 @@ where
         &args,
         None,
         on_prompt,
-        extra,
     )
     .await?;
 

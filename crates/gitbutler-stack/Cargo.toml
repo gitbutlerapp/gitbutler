@@ -39,6 +39,7 @@ gitbutler-repo-actions.workspace = true
 tempfile.workspace = true
 but-db.workspace = true
 filetime = "0.2"
+ctor = "0.6.3"
 
 [lints]
 workspace = true

@@ -10,8 +10,6 @@ rust-version.workspace = true
 ignored = [
     # Only used when the optional `error-context` feature enables backtrace capture.
     "backtrace",
-    # We include this only to set the askpass feature flag when compiling. This little hack will be removed in future update.
-    "gitbutler-git"
 ]
 
 [lib]
@@ -46,7 +44,6 @@ but-hunk-assignment.workspace = true
 gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
-gitbutler-git = { workspace = true, features = ["askpass"] }
 gitbutler-oplog.workspace = true
 tauri = { version = "^2.10.2", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
