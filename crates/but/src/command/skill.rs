@@ -141,6 +141,11 @@ const SKILL_FORMATS: &[SkillFormat] = &[
         availability: SkillFormatAvailability::LocalAndGlobal,
         path: ".windsurf/skills/gitbutler",
     },
+    SkillFormat {
+        name: "Gemini CLI",
+        description: "Gemini CLI skill format",
+        path: ".gemini/skills/gitbutler",
+    },
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

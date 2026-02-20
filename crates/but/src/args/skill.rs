@@ -8,10 +8,9 @@ pub struct Platform {
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Install the GitButler CLI skill files for Coding agents
-    ///
     /// By default, the command prompts you to choose installation scope first
     /// (current repository or global home directory), then prompts you to
-    /// select a skill folder format (Claude Code, OpenCode, Codex, GitHub
+    /// select a skill folder format (Claude Code, OpenCode, Gemini CLI, Codex, GitHub
     /// Copilot, Cursor, Windsurf) unless you specify a custom path with --path.
     /// When run outside a git repository, local scope is unavailable and the
     /// default install location is global (home directory). You can still
