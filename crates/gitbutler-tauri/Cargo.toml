@@ -55,6 +55,7 @@ anyhow.workspace = true
 
 # For error casting
 rusqlite.workspace = true
+backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.5.0"
 gix = { workspace = true, features = ["max-performance", "worktree-mutation"] }
 serde.workspace = true
@@ -105,3 +106,6 @@ devtools = ["tauri/devtools"]
 ## This feature is used for production builds where `devPath` points to the filesystem
 # DO NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
+
+## Add support for backtraces on any error.
+error-context = ["dep:backtrace"]
