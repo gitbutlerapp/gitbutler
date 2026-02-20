@@ -446,6 +446,7 @@
 									projectId={stableProjectId}
 									stackId={stableStackId}
 									mode="assigned"
+									{visibleRange}
 									onDropzoneActivated={(activated) => {
 										dropzoneActivated = activated;
 									}}
