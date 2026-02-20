@@ -27,13 +27,24 @@
 							>
 								<path d={osIcons.macos} fill="currentColor" />
 							</svg>
-							<div class="download-options">
-								<a href={jsonLinks.downloads.intelMac.url} class="download-link">
-									{jsonLinks.downloads.intelMac.label}
-								</a>
-								<a href={jsonLinks.downloads.appleSilicon.url} class="download-link">
-									{jsonLinks.downloads.appleSilicon.label}
-								</a>
+
+							<a href={jsonLinks.downloads.appleSilicon.url} class="download-link">
+								MacOS ({jsonLinks.downloads.appleSilicon.label})
+							</a>
+						</div>
+
+						<div class="download-category">
+							<svg
+								class="download-icon"
+								viewBox="0 0 22 22"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<path d={osIcons.linux} fill="currentColor" />
+							</svg>
+							<div class="flex gap-12">
+								<a href={jsonLinks.downloads.linuxDeb.url} class="download-link"> .DEB </a>
+								<a href={jsonLinks.downloads.linuxRpm.url} class="download-link"> .RPM </a>
 							</div>
 						</div>
 
@@ -46,34 +57,24 @@
 							>
 								<path d={osIcons.windows} fill="currentColor" />
 							</svg>
-							<div class="download-options">
-								<a href={jsonLinks.downloads.windowsMsi.url} class="download-link">
-									{jsonLinks.downloads.windowsMsi.label}
-								</a>
-							</div>
-						</div>
 
-						<div class="download-category">
-							<svg
-								class="download-icon"
-								viewBox="0 0 22 22"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path d={osIcons.linux} fill="currentColor" />
-							</svg>
-							<div class="download-options">
-								<a href={jsonLinks.downloads.linuxAppimage.url} class="download-link"> AppImage </a>
-								<a href={jsonLinks.downloads.linuxDeb.url} class="download-link"> Deb </a>
-								<a href={jsonLinks.downloads.linuxRpm.url} class="download-link"> RPM </a>
-							</div>
+							<a href={jsonLinks.downloads.windowsMsi.url} class="download-link">
+								{jsonLinks.downloads.windowsMsi.label}
+							</a>
 						</div>
 					</div>
 				</div>
 
-				<div class="banner-nightly-text">
-					<span class="opacity-50">Experience GitButler's newest features before anyone else.</span>
-					<a href="/nightly" class="nightly-link"> Get Nightly </a>
+				<div class="stack-v gap-8">
+					<p class="banner-nightly-text">
+						<span class="op-50">Not your system? See more</span>
+						<a href="/downloads" class="nightly-link"> download options </a>
+					</p>
+
+					<p class="banner-nightly-text">
+						<span class="op-50">Experience GitButler's newest features before anyone else.</span>
+						<a href="/nightly" class="nightly-link"> Get Nightly </a>
+					</p>
 				</div>
 			</div>
 		{:else}
@@ -150,7 +151,7 @@
 		display: flex;
 		position: relative;
 		flex: 3.2;
-		padding: 36px 0 0 48px;
+		padding: 36px 48px;
 	}
 
 	.banner-bg {
@@ -210,20 +211,14 @@
 	}
 
 	.download-links {
-		column-gap: 32px;
+		column-gap: 16px;
 		max-width: 400px;
-		columns: 2;
-	}
-
-	.download-category {
-		margin-bottom: 32px;
-		break-inside: avoid;
 	}
 
 	.download-category {
 		display: flex;
 		align-items: flex-start;
-		margin-bottom: 32px;
+		margin-bottom: 16px;
 		gap: 24px;
 		break-inside: avoid;
 	}
@@ -255,12 +250,14 @@
 
 	.banner-image {
 		width: 320px;
-		transform: translateX(20px) translateY(10px);
+		margin-top: -40px;
+		margin-right: -40px;
+		transform: translateX(20px) translateY(50px);
 	}
 
 	.banner-nightly-text {
 		display: inline;
-		margin-bottom: 40px;
+		/* margin-bottom: 40px; */
 		font-size: 14px;
 		line-height: 1.6;
 	}
@@ -349,10 +346,6 @@
 		}
 
 		.banner-image {
-			display: none;
-		}
-
-		.banner-nightly-text {
 			display: none;
 		}
 
