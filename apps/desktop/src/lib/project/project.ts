@@ -113,7 +113,7 @@ export function handleAddProjectOutcome(
 				testId: TestId.AddProjectAlreadyExistsModal,
 				style: 'warning',
 				title: `Project '${outcome.subject.title}' already exists`,
-				message: `The project at "${outcome.subject.path}" is already added`,
+				message: `The project at "${outcome.subject.path}" is already added.`,
 				extraAction: {
 					label: 'Open project',
 					testId: TestId.AddProjectAlreadyExistsModalOpenProjectButton,
