@@ -14,7 +14,6 @@ doctest = false
 export-ts = ["dep:ts-rs"]
 ## Make legacy functionality available.
 legacy = []
-export-schema = ["dep:schemars"]
 
 [dependencies]
 but-error.workspace = true
@@ -48,9 +47,6 @@ uuid.workspace = true
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
 ts-rs = { workspace = true, optional = true }
-
-# For generating JSON schemas
-schemars = { workspace = true, optional = true }
 
 # For generating change-ids
 rand.workspace = true

@@ -32,7 +32,6 @@ schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 reqwest = { workspace = true, features = ["blocking"] }
-http = "1"
 
 [lints]
 workspace = true

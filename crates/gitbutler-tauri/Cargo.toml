@@ -38,8 +38,6 @@ but-hunk-assignment.workspace = true
 gitbutler-repo-actions.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-project.workspace = true
-gitbutler-git = { workspace = true, features = ["askpass"] }
-
 tauri = { version = "^2.9.5", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 tauri-plugin-dialog = "2.4.2"
@@ -53,13 +51,10 @@ tauri-plugin-store = "2.4.1"
 tauri-plugin-updater = "2.9.0"
 tauri-plugin-window-state = "2.4.1"
 tauri-plugin-clipboard-manager = "2.3.2"
-
-
 anyhow.workspace = true
 
 # For error casting
 rusqlite.workspace = true
-
 backtrace = { version = "0.3.76", optional = true }
 console-subscriber = "0.5.0"
 gix = { workspace = true, features = ["max-performance", "worktree-mutation"] }
