@@ -166,7 +166,7 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
     env:
       CARGO_TERM_COLOR: always
     steps:
@@ -265,7 +265,7 @@ jobs:
     if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
     env:
       CARGO_TERM_COLOR: always
     defaults:
@@ -549,7 +549,7 @@ jobs:
     if: ${{ needs.changes.outputs.ui == 'true' }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/gitbutlerapp/ci-base-image:latest
+      image: ghcr.io/gitbutlerapp/ci-base-image@sha256:3eaeae1b07072796a53dc1e7585cdc1f462d0b11d10ecd3685c6fa8082d647dd
     env:
       CARGO_TERM_COLOR: always
     steps:
