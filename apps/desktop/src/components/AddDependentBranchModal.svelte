@@ -19,6 +19,7 @@
 	let modal = $state<Modal>();
 	let branchName = $state<string>();
 	let slugifiedRefName: string | undefined = $state();
+	let isBranchNameValid = $state(false);
 
 	async function handleAddDependentBranch(close: () => void) {
 		if (!slugifiedRefName) return;
@@ -53,6 +54,7 @@
 			bind:value={branchName}
 			autofocus
 			onslugifiedvalue={(value) => (slugifiedRefName = value)}
+			onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 		/>
 	</div>
 	{#snippet controls(close)}
@@ -61,7 +63,7 @@
 			testId={TestId.BranchHeaderAddDependanttBranchModal_ActionButton}
 			style="pop"
 			type="submit"
-			disabled={!slugifiedRefName}
+			disabled={!isBranchNameValid}
 			loading={branchCreation.current.isLoading}>Add branch</Button
 		>
 	{/snippet}

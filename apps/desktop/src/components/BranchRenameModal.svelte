@@ -21,6 +21,7 @@
 
 	let newName: string | undefined = $state();
 	let slugifiedRefName: string | undefined = $state();
+	let isBranchNameValid = $state(false);
 	let modal: Modal | undefined = $state();
 
 	let branchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
@@ -53,6 +54,7 @@
 		bind:value={newName}
 		autofocus
 		onslugifiedvalue={(value) => (slugifiedRefName = value)}
+		onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 	/>
 
 	{#if isPushed}
@@ -68,7 +70,7 @@
 			testId={TestId.BranchHeaderRenameModal_ActionButton}
 			style="pop"
 			type="submit"
-			disabled={!slugifiedRefName}
+			disabled={!isBranchNameValid}
 			loading={renameQuery.current.isLoading}>Rename</Button
 		>
 	{/snippet}

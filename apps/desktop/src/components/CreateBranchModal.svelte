@@ -43,6 +43,7 @@
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
 
 	let slugifiedRefName: string | undefined = $state();
+	let isBranchNameValid = $state(false);
 
 	// Get all stacks in the workspace
 	const allStacksQuery = $derived(stackService.stacks(projectId));
@@ -146,6 +147,7 @@
 			value={createRefName}
 			autofocus
 			onslugifiedvalue={(value) => (slugifiedRefName = value)}
+			onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 		/>
 
 		<div class="options-wrap" role="radiogroup" aria-label="Branch type selection">
@@ -270,7 +272,7 @@
 					style="pop"
 					type="submit"
 					onclick={addNew}
-					disabled={!createRefName || (createRefType === 'dependent' && !selectedStackId)}
+					disabled={!isBranchNameValid || (createRefType === 'dependent' && !selectedStackId)}
 					loading={isAddingNew}
 					testId={TestId.ConfirmSubmit}
 				>
