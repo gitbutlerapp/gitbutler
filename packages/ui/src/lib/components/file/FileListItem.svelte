@@ -122,7 +122,7 @@
 		}
 	}}
 >
-	{#if draggable && !showCheckbox}
+	{#if draggable && !showCheckbox && !notched}
 		<div class="draggable-handle">
 			<Icon name="draggable-narrow" />
 		</div>
@@ -288,13 +288,13 @@
 			color: var(--clr-theme-pop-on-element);
 		}
 
-		&.notched {
+		/* &.notched {
 			padding-left: 18px;
 		}
 
 		&.notched .draggable-handle {
 			left: 8px;
-		}
+		} */
 
 		& .draggable-handle {
 			display: none;
@@ -327,9 +327,9 @@
 		position: absolute;
 		top: -1px;
 		left: 0;
-		width: 4px;
+		width: 3px;
 		height: calc(100% + 2px);
-		background-color: var(--clr-theme-pop-element);
+		background-color: var(--clr-border-2);
 	}
 
 	.file-list-item__details {
