@@ -182,6 +182,7 @@ impl Subcommands {
                 skill::Subcommands::Install { .. } => SkillInstall,
                 skill::Subcommands::Check { .. } => SkillCheck,
             },
+            Subcommands::Edit { .. } => Edit,
             Subcommands::Onboarding | Subcommands::EvalHook => Unknown,
         }
     }

@@ -8,6 +8,7 @@ pub use table::types::Table;
 pub mod get_text;
 
 pub(crate) mod diff_viewer;
+pub mod editor;
 pub(crate) mod stage_viewer;
 
 use std::io;

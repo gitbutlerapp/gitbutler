@@ -153,7 +153,7 @@ async fn show_overview(ctx: &mut Context, out: &mut OutputChannel) -> Result<()>
         out.write_value(serde_json::json!(ConfigOverview {
             name: user_info.name,
             email: user_info.email,
-            editor: Some(user_info.editor),
+            editor: user_info.editor,
             target_branch,
             forge_accounts,
         }))?;
@@ -242,7 +242,7 @@ pub(crate) fn load_app_settings_sync() -> Result<AppSettingsWithDiskSync> {
 struct UserConfigInfo {
     name: Option<String>,
     email: Option<String>,
-    editor: String,
+    editor: Option<String>,
     name_scope: Option<String>,
     email_scope: Option<String>,
     editor_scope: Option<String>,
@@ -255,7 +255,7 @@ fn get_user_config_info(config: &git2::Config) -> Result<UserConfigInfo> {
     let name_scope = get_config_scope(config, "user.name");
     let email_scope = get_config_scope(config, "user.email");
     let editor_scope = get_config_scope(config, "core.editor");
-    let editor = tui::get_text::get_editor_command()?;
+    let editor = tui::get_text::get_editor_command();
 
     Ok(UserConfigInfo {
         name,
@@ -293,7 +293,7 @@ fn write_user_config_human(out: &mut dyn std::fmt::Write, info: &UserConfigInfo)
         out,
         "  {}: {} {}",
         "Editor".dimmed(),
-        info.editor.cyan(),
+        info.editor.as_deref().unwrap_or("(built-in)").cyan(),
         format_scope(&info.editor_scope)
     )?;
     writeln!(out)?;

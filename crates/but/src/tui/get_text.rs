@@ -1,4 +1,6 @@
 //! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
+//!
+//! When no external editor is configured, falls back to the built-in TUI editor.
 use std::ffi::OsStr;
 
 use anyhow::{Result, bail};
@@ -26,6 +28,9 @@ pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
 /// Note that this string must be valid in filenames.
 ///
+/// If the user has an external editor configured (via `GIT_EDITOR`, `core.editor`, or `EDITOR`),
+/// that editor is used. Otherwise, the built-in TUI editor is launched.
+///
 /// Returns the edited text (*without known encoding*) verbatim.
 pub fn from_editor(filename_safe_intent: &str, initial_text: &str, file_suffix: &str) -> Result<BString> {
     const ALLOWED_SUFFIXES: &[&str] = &[".txt", ".md"]; // feel free to add more allowed suffixes
@@ -37,8 +42,19 @@ pub fn from_editor(filename_safe_intent: &str, initial_text: &str, file_suffix: 
         );
     }
 
-    let editor_cmd = get_editor_command()?;
+    match get_editor_command() {
+        Some(editor_cmd) => from_external_editor(&editor_cmd, filename_safe_intent, initial_text, file_suffix),
+        None => from_builtin_editor(filename_safe_intent, initial_text),
+    }
+}
 
+/// Launch an external editor (vim, code, etc.) to edit text via a temporary file.
+fn from_external_editor(
+    editor_cmd: &str,
+    filename_safe_intent: &str,
+    initial_text: &str,
+    file_suffix: &str,
+) -> Result<BString> {
     // Create a temporary file with the initial text
     let tempfile = tempfile::Builder::new()
         .prefix(&format!("but_{filename_safe_intent}_"))
@@ -62,40 +78,100 @@ pub fn from_editor(filename_safe_intent: &str, initial_text: &str, file_suffix: 
     Ok(std::fs::read(&tempfile)?.into())
 }
 
-/// Get the user's preferred editor command.
+/// Launch the built-in TUI editor.
+fn from_builtin_editor(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
+    // Determine editor mode based on the intent
+    let mode = if filename_safe_intent.contains("commit") {
+        super::editor::EditorMode::CommitMessage
+    } else if filename_safe_intent.contains("branch") {
+        super::editor::EditorMode::BranchName
+    } else {
+        super::editor::EditorMode::PullRequest
+    };
+
+    match super::editor::run_builtin_editor(filename_safe_intent, initial_text, mode)? {
+        Some(content) => Ok(content.into()),
+        None => bail!("Editor cancelled"),
+    }
+}
+
+/// Get the user's preferred editor command, if one is configured.
+///
 /// Runs `git var GIT_EDITOR`, which lets git do its resolution of the editor command.
 /// This typically uses the git config value for `core.editor`, and env vars like `GIT_EDITOR` or `EDITOR`.
-/// We fall back to notepad (Windows) or vi otherwise just in case we don't get something usable from `git var`.
+///
+/// Returns `None` when no editor is configured, signalling that the built-in editor should be used.
 ///
 /// Note: Because git config parsing is used, the current directory matters for potential local git config overrides.
-pub fn get_editor_command() -> Result<String> {
+pub fn get_editor_command() -> Option<String> {
     get_editor_command_impl(std::env::vars_os())
 }
 
 /// Internal implementation that can be tested with the controlled environment `env`.
-fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>) -> Result<String> {
-    // Run git var with the controlled environment
-    let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
-    let res = cmd.args(["var", "GIT_EDITOR"]).env_clear().envs(env).output();
-    if res.is_err() {
-        // Avoid logging explicit env vars
-        cmd.env_clear();
-        tracing::warn!(
-            ?res,
-            ?cmd,
-            "Git could not be invoked even though we expect this to work"
-        );
+///
+/// Checks the standard Git editor sources in precedence order:
+/// 1. `GIT_EDITOR` env var
+/// 2. `core.editor` git config
+/// 3. `VISUAL` env var
+/// 4. `EDITOR` env var
+///
+/// Unlike `git var GIT_EDITOR`, this does NOT fall back to `vi` when nothing
+/// is configured — it returns `None` so the caller can use the built-in editor.
+fn get_editor_command_impl<AsOsStr: AsRef<OsStr>>(
+    env: impl IntoIterator<Item = (AsOsStr, AsOsStr)>,
+) -> Option<String> {
+    let env: Vec<(String, String)> = env
+        .into_iter()
+        .filter_map(|(k, v)| {
+            Some((
+                k.as_ref().to_str()?.to_owned(),
+                v.as_ref().to_str()?.to_owned(),
+            ))
+        })
+        .collect();
+
+    let lookup_env = |name: &str| -> Option<String> {
+        env.iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.clone())
+            .filter(|v| !v.is_empty())
+    };
+
+    // 1. GIT_EDITOR environment variable
+    if let Some(editor) = lookup_env("GIT_EDITOR") {
+        return Some(editor);
     }
-    if let Ok(output) = res
-        && output.status.success()
+
+    // 2. core.editor from git config
     {
-        let editor = output.stdout.as_bstr().trim();
-        if !editor.is_empty() {
-            return Ok(editor.as_bstr().to_string());
+        let mut cmd = std::process::Command::new(gix::path::env::exe_invocation());
+        let res = cmd
+            .args(["config", "core.editor"])
+            .env_clear()
+            .envs(env.iter().map(|(k, v)| (k.as_str(), v.as_str())))
+            .output();
+        if let Ok(output) = res
+            && output.status.success()
+        {
+            let editor = output.stdout.as_bstr().trim().as_bstr().to_string();
+            if !editor.is_empty() {
+                return Some(editor);
+            }
         }
     }
-    // fallback to platform defaults to have *something*.
-    Ok(PLATFORM_EDITOR.into())
+
+    // 3. VISUAL environment variable
+    if let Some(editor) = lookup_env("VISUAL") {
+        return Some(editor);
+    }
+
+    // 4. EDITOR environment variable
+    if let Some(editor) = lookup_env("EDITOR") {
+        return Some(editor);
+    }
+
+    // No configured editor — the caller should use the built-in editor.
+    None
 }
 
 pub const HTML_COMMENT_START_MARKER: &str = "<!--";
@@ -122,8 +198,6 @@ pub fn strip_html_comments(s: &str) -> String {
     result
 }
 
-const PLATFORM_EDITOR: &str = if cfg!(windows) { "notepad" } else { "vi" };
-
 #[cfg(test)]
 mod tests {
     use std::{thread, time::Duration};
@@ -132,23 +206,37 @@ mod tests {
 
     #[test]
     fn git_editor_takes_precedence() {
-        let git_editor_env = Some(("GIT_EDITOR", "from-GIT_EDITOR"));
-        let actual = get_editor_command_impl(git_editor_env).unwrap();
-        assert_eq!(
-            actual, "from-GIT_EDITOR",
-            "GIT_EDITOR should take precedence if git is executed correctly"
-        );
+        let env = vec![
+            ("GIT_EDITOR", "from-GIT_EDITOR"),
+            ("VISUAL", "from-VISUAL"),
+            ("EDITOR", "from-EDITOR"),
+        ];
+        let actual = get_editor_command_impl(env);
+        assert_eq!(actual.as_deref(), Some("from-GIT_EDITOR"));
     }
 
     #[test]
-    fn falls_back_when_nothing_set() {
-        // Empty environment, git considers this "dumb terminal" and `git var` will return empty string
-        // so our own fallback will be used
+    fn visual_used_when_no_git_editor() {
+        let env = vec![("VISUAL", "from-VISUAL"), ("EDITOR", "from-EDITOR")];
+        let actual = get_editor_command_impl(env);
+        assert_eq!(actual.as_deref(), Some("from-VISUAL"));
+    }
+
+    #[test]
+    fn editor_used_as_last_env_fallback() {
+        let env = vec![("EDITOR", "from-EDITOR")];
+        let actual = get_editor_command_impl(env);
+        assert_eq!(actual.as_deref(), Some("from-EDITOR"));
+    }
+
+    #[test]
+    fn falls_back_to_builtin_when_nothing_set() {
         let no_env = None::<(String, String)>;
-        let actual = get_editor_command_impl(no_env).unwrap();
+        let actual = get_editor_command_impl(no_env);
         assert!(
-            ["notepad", "vim", "vi"].contains(&actual.as_str()),
-            "Should fall back to vi/vim/notepad when nothing is set, got: {actual}"
+            actual.is_none(),
+            "Should return None when no editor is configured, got: {:?}",
+            actual
         );
     }
 
