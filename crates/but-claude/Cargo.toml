@@ -20,12 +20,10 @@ but-workspace = { workspace = true, features = ["legacy"] }
 but-path.workspace = true
 but-ctx.workspace = true
 but-llm.workspace = true
-
 gitbutler-branch.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-project.workspace = true
 gitbutler-branch-actions.workspace = true
-
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -36,9 +34,7 @@ uuid.workspace = true
 gix.workspace = true
 tokio = { workspace = true, features = ["full"] }
 dirs.workspace = true
-rmcp.workspace = true
 tracing.workspace = true
-nix = { version = "0.30.1", features = ["signal"] }
 notify-rust = { workspace = true }
 url.workspace = true
 futures.workspace = true

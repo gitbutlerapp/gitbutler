@@ -75,9 +75,6 @@ but-hunk-assignment.workspace = true
 but-hunk-dependency.workspace = true
 but-github.workspace = true
 but-gitlab.workspace = true
-
-# 'legacy' is needed while we only have `virtual-branches.toml`
-but-meta = { workspace = true, features = ["legacy"] }
 # 'legacy' is needed while this is only a sketch of what the oplog could be.
 # For single-branch testing, we also want the oplog and just take it as it is.
 but-oplog = { workspace = true, features = ["legacy"] }
@@ -91,7 +88,6 @@ but-claude = { workspace = true, optional = true }
 but-rules = { workspace = true, optional = true }
 but-gerrit = { workspace = true, optional = true }
 but-worktrees = { workspace = true, optional = true }
-
 gitbutler-user = { workspace = true, optional = true }
 gitbutler-project = { workspace = true, optional = true }
 gitbutler-branch = { workspace = true, optional = true }
@@ -105,17 +101,9 @@ gitbutler-edit-mode = { workspace = true, optional = true }
 gitbutler-operating-modes = { workspace = true, optional = true }
 gitbutler-oplog = { workspace = true, optional = true }
 gitbutler-git = { workspace = true, optional = true }
-
-tauri = { version = "^2.9.5", features = [
-    "unstable",
-], optional = true } # For the #[tauri::command(async)] macro only
-
-napi = { version = "3.0.0", features = [
-    "serde-json",
-    "tokio_rt",
-], optional = true }
+tauri = { version = "^2.9.5", features = ["unstable"], optional = true } # For the #[tauri::command(async)] macro only
+napi = { version = "3.0.0", features = ["serde-json", "tokio_rt"], optional = true }
 napi-derive = { version = "3.0.0", optional = true }
-
 boolean-enums = { version = "0.4.1", features = ["serde"] }
 bstr = { workspace = true }
 schemars.workspace = true

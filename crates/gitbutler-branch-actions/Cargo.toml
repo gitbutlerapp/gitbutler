@@ -58,8 +58,6 @@ gix = { workspace = true, features = [] }
 glob = "0.3.3"
 tempfile.workspace = true
 but-hunk-assignment.workspace = true
-# Needed to make tests work with stable change ids
-gitbutler-git = { workspace = true }
 
 [lints]
 workspace = true
