@@ -780,52 +780,75 @@ fn render_editor(frame: &mut ratatui::Frame, app: &mut EditorApp, area: Rect) {
         if line_idx < app.lines.len() {
             let line = &app.lines[line_idx];
             let display_start = if app.word_wrap { 0 } else { app.scroll_col };
-            let display_line: String = line.chars().skip(display_start).take(text_width).collect();
 
-            // Build spans with cursor and 72-char guide
             let mut spans = Vec::new();
-            let mut col = display_start;
-            for ch in display_line.chars() {
-                let is_cursor = line_idx == app.cursor_row && col == app.cursor_col;
-                let is_guide = guide_col.map_or(false, |g| col == g);
+            let mut byte_col = 0usize; // byte offset — used for cursor detection
+            let mut vis_col = 0usize;  // visual column accounting for tab expansion
+            let mut rendered = 0usize; // visual columns placed in text_area so far
 
-                let style = if is_cursor {
-                    Style::default().fg(CURSOR_FG).bg(CURSOR_BG)
-                } else if is_guide {
-                    // Subtle guide line
-                    Style::default().fg(EDITOR_FG).bg(Color::Rgb(60, 62, 74))
+            for ch in line.chars() {
+                // Tab width: advance to the next 4-space tab stop
+                let tab_w = if ch == '\t' { 4 - (vis_col % 4) } else { 1 };
+
+                // Skip chars before the horizontal scroll offset (byte-based)
+                if byte_col < display_start {
+                    byte_col += ch.len_utf8();
+                    vis_col += tab_w;
+                    continue;
+                }
+
+                if rendered >= text_width { break; }
+
+                let is_cursor = line_idx == app.cursor_row && byte_col == app.cursor_col;
+
+                if ch == '\t' {
+                    // Render tab as spaces up to the next tab stop (clamped to area width)
+                    let spaces = tab_w.min(text_width - rendered);
+                    for i in 0..spaces {
+                        let is_guide = guide_col.map_or(false, |g| vis_col + i == g);
+                        let style = if is_cursor && i == 0 {
+                            Style::default().fg(CURSOR_FG).bg(CURSOR_BG)
+                        } else if is_guide {
+                            Style::default().fg(EDITOR_FG).bg(Color::Rgb(60, 62, 74))
+                        } else {
+                            Style::default().fg(EDITOR_FG).bg(EDITOR_BG)
+                        };
+                        spans.push(Span::styled(" ", style));
+                    }
+                    rendered += spaces;
                 } else {
-                    Style::default().fg(EDITOR_FG).bg(EDITOR_BG)
-                };
-                spans.push(Span::styled(ch.to_string(), style));
-                col += ch.len_utf8();
+                    let is_guide = guide_col.map_or(false, |g| vis_col == g);
+                    let style = if is_cursor {
+                        Style::default().fg(CURSOR_FG).bg(CURSOR_BG)
+                    } else if is_guide {
+                        Style::default().fg(EDITOR_FG).bg(Color::Rgb(60, 62, 74))
+                    } else {
+                        Style::default().fg(EDITOR_FG).bg(EDITOR_BG)
+                    };
+                    spans.push(Span::styled(ch.to_string(), style));
+                    rendered += 1;
+                }
+
+                byte_col += ch.len_utf8();
+                vis_col += tab_w;
             }
 
             // Cursor at end of line
-            if line_idx == app.cursor_row && app.cursor_col >= col && app.cursor_col <= line.len() {
-                let remaining = text_width.saturating_sub(display_line.len());
-                if remaining > 0 {
+            if line_idx == app.cursor_row && app.cursor_col >= byte_col && app.cursor_col <= line.len() {
+                if rendered < text_width {
                     spans.push(Span::styled(" ", Style::default().fg(CURSOR_FG).bg(CURSOR_BG)));
-                    col += 1;
-                    if remaining > 1 {
-                        // Continue with guide line if needed
-                        for _ in 1..remaining {
-                            let is_guide = guide_col.map_or(false, |g| col == g);
-                            let bg = if is_guide { Color::Rgb(60, 62, 74) } else { EDITOR_BG };
-                            spans.push(Span::styled(" ", Style::default().bg(bg)));
-                            col += 1;
-                        }
-                    }
+                    rendered += 1;
+                    vis_col += 1;
                 }
-            } else {
-                // Fill remaining space with guide line if needed
-                let remaining = text_width.saturating_sub(display_line.len());
-                for _ in 0..remaining {
-                    let is_guide = guide_col.map_or(false, |g| col == g);
-                    let bg = if is_guide { Color::Rgb(60, 62, 74) } else { EDITOR_BG };
-                    spans.push(Span::styled(" ", Style::default().bg(bg)));
-                    col += 1;
-                }
+            }
+
+            // Fill remaining space
+            while rendered < text_width {
+                let is_guide = guide_col.map_or(false, |g| vis_col == g);
+                let bg = if is_guide { Color::Rgb(60, 62, 74) } else { EDITOR_BG };
+                spans.push(Span::styled(" ", Style::default().bg(bg)));
+                rendered += 1;
+                vis_col += 1;
             }
 
             frame.render_widget(Paragraph::new(Line::from(spans)), text_area);
