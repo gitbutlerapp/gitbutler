@@ -365,7 +365,7 @@ pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {
         target.sha,
         &target.branch,
         with_force,
-        ctx.legacy_project.force_push_protection,
+        ctx.legacy_project.force_push_protection.into(),
         None,
         None,
         vec![],

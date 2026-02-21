@@ -157,7 +157,7 @@ pub fn push_stack(
     };
     let gerrit_mode = gix_repo.git_settings()?.gitbutler_gerrit_mode.unwrap_or(false);
 
-    let force_push_protection = !skip_force_push_protection && ctx.legacy_project.force_push_protection;
+    let force_push_protection = !skip_force_push_protection && ctx.legacy_project.force_push_protection.into();
 
     drop(git2_repo);
     for branch in stack_branches {
