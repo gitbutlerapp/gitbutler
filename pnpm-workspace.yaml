@@ -33,7 +33,7 @@ catalogs:
     '@sveltejs/kit': '2.27.3'
     '@sveltejs/package': '2.5.7'
     '@sveltejs/vite-plugin-svelte': '6.1.4'
-    'svelte': '5.38.10'
+    'svelte': '5.51.5'
     'svelte-check': '4.3.6'
   redux:
     '@reduxjs/toolkit': '2.8.2'
