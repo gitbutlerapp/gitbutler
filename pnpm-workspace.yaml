@@ -28,12 +28,12 @@ catalogs:
     'postcss-nesting': '12.1.5'
     'postcss-pxtorem': '6.1.0'
   svelte:
-    '@sentry/sveltekit': '10.2.0'
+    '@sentry/sveltekit': '10.38.0'
     '@sveltejs/adapter-static': '3.0.10'
     '@sveltejs/kit': '2.27.3'
     '@sveltejs/package': '2.5.7'
-    '@sveltejs/vite-plugin-svelte': '6.1.4'
-    'svelte': '5.38.10'
-    'svelte-check': '4.3.6'
+    '@sveltejs/vite-plugin-svelte': '6.2.4'
+    'svelte': '5.51.1'
+    'svelte-check': '4.4.0'
   redux:
-    '@reduxjs/toolkit': '2.8.2'
+    '@reduxjs/toolkit': '2.11.2'
