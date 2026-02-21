@@ -297,6 +297,7 @@
 		position: relative;
 		flex-grow: 1;
 		width: 100%;
+		font-variant-ligatures: none;
 
 		&.size-default {
 			height: var(--size-cta);

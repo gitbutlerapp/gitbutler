@@ -47,7 +47,7 @@
 		"@codemirror/language": "^6.12.1",
 		"@codemirror/legacy-modes": "^6.5.2",
 		"@csstools/postcss-bundler": "^2.0.8",
-		"@gitbutler/design-core": "1.7.6",
+		"@gitbutler/design-core": "1.7.7",
 		"@lezer/common": "^1.5.1",
 		"@lezer/highlight": "^1.2.1",
 		"@playwright/experimental-ct-svelte": "^1.57.0",

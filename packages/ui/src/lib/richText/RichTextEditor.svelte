@@ -317,6 +317,7 @@
 		z-index: -1;
 		position: relative;
 		flex: auto;
+		font-variant-ligatures: none;
 		resize: vertical;
 	}
 
