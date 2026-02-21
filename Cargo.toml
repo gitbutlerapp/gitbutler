@@ -285,7 +285,7 @@ tracing-forest = { version = "0.3.0" }
 sysinfo = { version = "0.37.2", default-features = false }
 shell-words = "1.1.1"
 nonempty = "0.12.0"
-ratatui = "0.29"
+ratatui = "0.30"
 crossterm = "0.28"
 self_cell = "1.2.2"
 unicode-segmentation = "1.12.0"
