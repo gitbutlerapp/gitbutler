@@ -43,7 +43,7 @@ enum ReconcileWithWorkspace {
 
 impl Snapshot {
     fn from_path(path: PathBuf) -> anyhow::Result<Self> {
-        let content = fs::read_toml_file_or_default(&path)?;
+        let content = crate::legacy_storage::read_synced_virtual_branches(&path)?;
         Ok(Self {
             path,
             changed_at: None,
@@ -53,14 +53,7 @@ impl Snapshot {
 
     fn write_if_changed(&mut self, reconcile: ReconcileWithWorkspace) -> anyhow::Result<()> {
         if self.changed_at.is_some() || self.has_null_head_hash() || self.clone().enforce_constraints(None) {
-            if self.content == Default::default() {
-                std::fs::remove_file(&self.path)?;
-            } else {
-                if let Some(dir) = self.path.parent() {
-                    std::fs::create_dir_all(dir)?;
-                }
-                fs::write(&self.path, toml::to_string(&self.to_consistent_data(reconcile))?)?;
-            }
+            crate::legacy_storage::write_virtual_branches_and_sync(&self.path, &self.to_consistent_data(reconcile))?;
             self.changed_at.take();
         }
         Ok(())
@@ -74,11 +67,6 @@ impl Snapshot {
                 self.path.display()
             );
         }
-    }
-
-    /// Assure we don't think the content changed, so writing it if changed will do nothing.
-    fn claim_unchanged(&mut self) {
-        self.changed_at.take();
     }
 
     /// The vb.toml snapshot held internally is marked as changed so it will be written back to disk on drop.
@@ -723,19 +711,10 @@ impl RefMetadata for VirtualBranchesTomlMetadata {
         if is_workspace_ref_name(ref_name) {
             // There is only one workspace, and it's the same as deleting everything.
             // The real implementation of this would just delete data associated with a ref, no special case needed there.
-            if let Err(err) = std::fs::remove_file(&self.snapshot.path) {
-                if err.kind() != std::io::ErrorKind::NotFound {
-                    Err(err.into())
-                } else {
-                    Ok(false)
-                }
-            } else {
-                let existed_as_non_default = Self::workspace_from_data(self.data()) != default_workspace();
-                self.snapshot.content = Default::default();
-                // Make sure it's not going to be written in its default state.
-                self.snapshot.claim_unchanged();
-                Ok(existed_as_non_default)
-            }
+            let existed_as_non_default = Self::workspace_from_data(self.data()) != default_workspace();
+            self.snapshot.content = Default::default();
+            self.snapshot.set_changed_to_necessitate_write();
+            Ok(existed_as_non_default)
         } else {
             Ok(self.remove_branch(ref_name)?.is_some())
         }
@@ -935,57 +914,4 @@ fn order_then_name(a: &&Stack, b: &&Stack) -> Ordering {
             .cmp(&b.derived_name().ok())
             .then_with(|| a.id.cmp(&b.id))
     })
-}
-
-/// Copied from `gitbutler-fs` - shouldn't be needed anymore in future.
-mod fs {
-    use std::{
-        fs::File,
-        io::{Read, Write},
-        path::Path,
-    };
-
-    use anyhow::Context as _;
-    use gix::tempfile::{AutoRemove, ContainingDirectory};
-    use serde::de::DeserializeOwned;
-
-    /// Write a single file so that the write either fully succeeds, or fully fails,
-    /// assuming the containing directory already exists.
-    pub fn write<P: AsRef<Path>>(file_path: P, contents: impl AsRef<[u8]>) -> anyhow::Result<()> {
-        let mut temp_file = gix::tempfile::new(
-            file_path.as_ref().parent().unwrap(),
-            ContainingDirectory::Exists,
-            AutoRemove::Tempfile,
-        )?;
-        temp_file.write_all(contents.as_ref())?;
-        Ok(persist_tempfile(temp_file, file_path)?)
-    }
-
-    fn persist_tempfile(
-        tempfile: gix::tempfile::Handle<gix::tempfile::handle::Writable>,
-        to_path: impl AsRef<Path>,
-    ) -> std::io::Result<()> {
-        match tempfile.persist(to_path) {
-            Ok(Some(_opened_file)) => Ok(()),
-            Ok(None) => {
-                unreachable!("BUG: a signal has caused the tempfile to be removed, but we didn't install a handler")
-            }
-            Err(err) => Err(err.error),
-        }
-    }
-
-    /// Reads and parses the state file.
-    ///
-    /// If the file does not exist, it will be created.
-    pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> anyhow::Result<T> {
-        let mut file = match File::open(path) {
-            Ok(f) => f,
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
-            Err(err) => return Err(err.into()),
-        };
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        let value: T = toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
-        Ok(value)
-    }
 }

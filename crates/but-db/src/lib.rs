@@ -69,6 +69,7 @@ pub use table::{
     gerrit_metadata::GerritMeta,
     forge_reviews::ForgeReview,
     ci_checks::CiCheck,
+    virtual_branches::{VbBranchTarget, VbStack, VbStackHead, VbState, VirtualBranchesSnapshot},
 };
 
 /// The migrations to run, in any order, as ordering is maintained by their date number.
@@ -83,6 +84,7 @@ pub const MIGRATIONS: &[&[M<'static>]] = &[
     table::gerrit_metadata::M,
     table::forge_reviews::M,
     table::ci_checks::M,
+    table::virtual_branches::M,
 ];
 
 /// A migration and all the necessary data associated with it to perform it once.

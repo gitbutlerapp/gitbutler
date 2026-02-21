@@ -1,8 +1,14 @@
-use anyhow::Result;
+use std::{fs, path::Path, thread, time::Duration};
+
+use anyhow::{Context as _, Result, bail};
 use but_core::Reference;
 use but_ctx::Context;
+use but_db::DbHandle;
+use but_meta::virtual_branches_legacy_types as legacy_types;
 use but_oxidize::{ObjectIdExt, OidExt};
+use filetime::{FileTime, set_file_mtime};
 use git2::Commit;
+use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{PatchReferenceUpdate, Stack, StackBranch, VirtualBranchesHandle};
@@ -766,4 +772,197 @@ fn next_available_name_avoids_remote_tracking_branches() -> Result<()> {
     );
 
     Ok(())
+}
+
+#[test]
+fn storage_sync_bootstraps_db_from_existing_toml() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let expected = legacy_with_target("main", "1111111111111111111111111111111111111111")?;
+    write_legacy_toml(&toml_path, &expected)?;
+
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let state = handle.read_file()?;
+    let target = state
+        .default_target
+        .context("expected default target from TOML bootstrap")?;
+    assert_eq!(target.branch.branch(), "main");
+    assert_eq!(target.sha.to_string(), "1111111111111111111111111111111111111111");
+
+    let db = DbHandle::new_in_directory(tmp.path())?;
+    let snapshot = db
+        .virtual_branches()
+        .get_snapshot()?
+        .context("expected DB snapshot after bootstrap")?;
+    assert!(snapshot.state.initialized);
+    assert_eq!(snapshot.state.default_target_branch_name.as_deref(), Some("main"));
+
+    Ok(())
+}
+
+#[test]
+fn storage_sync_recreates_toml_when_missing() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    assert!(toml_path.exists(), "initial sync creates TOML");
+
+    fs::remove_file(&toml_path)?;
+    assert!(!toml_path.exists(), "sanity check");
+
+    let _ = handle.read_file()?;
+    assert!(toml_path.exists(), "TOML should be recreated from DB");
+    Ok(())
+}
+
+#[test]
+fn storage_sync_db_mutation_always_updates_toml_mirror() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    fs::remove_file(&toml_path)?;
+    assert!(!toml_path.exists(), "sanity check");
+
+    handle.set_default_target(stack_target("mirror", "5555555555555555555555555555555555555555")?)?;
+
+    assert!(toml_path.exists(), "DB mutation should recreate TOML mirror");
+    let mirror: legacy_types::VirtualBranches = toml::from_str(&fs::read_to_string(&toml_path)?)?;
+    let mirror_target = mirror
+        .default_target
+        .context("mirror TOML should include the mutated default target")?;
+    assert_eq!(mirror_target.branch.branch(), "mirror");
+    assert_eq!(
+        mirror_target.sha.to_string(),
+        "5555555555555555555555555555555555555555"
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_newer_toml_overwrites_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    handle.set_default_target(stack_target("main", "1111111111111111111111111111111111111111")?)?;
+
+    thread::sleep(Duration::from_millis(5));
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    write_legacy_toml(
+        &toml_path,
+        &legacy_with_target("next", "2222222222222222222222222222222222222222")?,
+    )?;
+
+    let target = handle.get_default_target()?;
+    assert_eq!(target.branch.branch(), "next");
+    assert_eq!(target.sha.to_string(), "2222222222222222222222222222222222222222");
+    Ok(())
+}
+
+#[test]
+fn storage_sync_equal_mtime_and_changed_hash_overwrites_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    handle.set_default_target(stack_target("main", "1111111111111111111111111111111111111111")?)?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    let mtime_before = fs::metadata(&toml_path)?.modified()?;
+    write_legacy_toml(
+        &toml_path,
+        &legacy_with_target("equal", "3333333333333333333333333333333333333333")?,
+    )?;
+    let duration = mtime_before
+        .duration_since(std::time::UNIX_EPOCH)
+        .or_else(|_| std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH))?;
+    set_file_mtime(
+        &toml_path,
+        FileTime::from_unix_time(duration.as_secs() as i64, duration.subsec_nanos()),
+    )?;
+
+    let target = handle.get_default_target()?;
+    assert_eq!(target.branch.branch(), "equal");
+    assert_eq!(target.sha.to_string(), "3333333333333333333333333333333333333333");
+    Ok(())
+}
+
+#[test]
+fn storage_sync_invalid_newer_toml_is_rewritten_from_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    handle.set_default_target(stack_target("main", "1111111111111111111111111111111111111111")?)?;
+
+    thread::sleep(Duration::from_millis(5));
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    fs::write(&toml_path, "this is not valid toml = [")?;
+
+    let target = handle.get_default_target()?;
+    assert_eq!(target.branch.branch(), "main");
+    assert_eq!(target.sha.to_string(), "1111111111111111111111111111111111111111");
+
+    let rewritten: legacy_types::VirtualBranches = toml::from_str(&fs::read_to_string(&toml_path)?)?;
+    let rewritten_target = rewritten
+        .default_target
+        .context("rewritten TOML should contain default target from DB")?;
+    assert_eq!(rewritten_target.branch.branch(), "main");
+    assert_eq!(
+        rewritten_target.sha.to_string(),
+        "1111111111111111111111111111111111111111"
+    );
+    Ok(())
+}
+
+#[test]
+fn storage_sync_restore_import_helper_imports_toml_into_db() -> Result<()> {
+    let tmp = tempfile::tempdir()?;
+    let handle = VirtualBranchesHandle::new(tmp.path());
+    let _ = handle.read_file()?;
+    handle.set_default_target(stack_target("db-main", "1111111111111111111111111111111111111111")?)?;
+
+    let toml_path = tmp.path().join("virtual_branches.toml");
+    write_legacy_toml(
+        &toml_path,
+        &legacy_with_target("restored", "4444444444444444444444444444444444444444")?,
+    )?;
+
+    handle.import_toml_into_db_for_restore()?;
+    let target = handle.get_default_target()?;
+    assert_eq!(target.branch.branch(), "restored");
+    assert_eq!(target.sha.to_string(), "4444444444444444444444444444444444444444");
+    Ok(())
+}
+
+fn write_legacy_toml(path: &Path, data: &legacy_types::VirtualBranches) -> Result<()> {
+    let content = toml::to_string(data)?;
+    fs::write(path, content)?;
+    Ok(())
+}
+
+fn legacy_with_target(branch: &str, sha: &str) -> Result<legacy_types::VirtualBranches> {
+    Ok(legacy_types::VirtualBranches {
+        default_target: Some(legacy_types::Target {
+            branch: RemoteRefname::new("origin", branch),
+            remote_url: "https://example.invalid/repo".into(),
+            sha: gix::ObjectId::from_hex(sha.as_bytes())?,
+            push_remote_name: Some("origin".into()),
+        }),
+        branch_targets: Default::default(),
+        branches: Default::default(),
+        last_pushed_base: None,
+    })
+}
+
+fn stack_target(branch: &str, sha: &str) -> Result<gitbutler_stack::Target> {
+    let oid = git2::Oid::from_str(sha)?;
+    if oid.is_zero() {
+        bail!("test target oid must not be zero");
+    }
+    Ok(gitbutler_stack::Target {
+        branch: RemoteRefname::new("origin", branch),
+        remote_url: "https://example.invalid/repo".into(),
+        sha: oid,
+        push_remote_name: Some("origin".into()),
+    })
 }

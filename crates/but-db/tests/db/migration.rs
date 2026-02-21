@@ -300,6 +300,64 @@ mod run {
         	PRIMARY KEY(`path`, `hunk_header`)
         );
 
+        -- table vb_branch_targets
+        CREATE TABLE `vb_branch_targets`(
+        	`stack_id` TEXT NOT NULL PRIMARY KEY,
+        	`remote_name` TEXT NOT NULL,
+        	`branch_name` TEXT NOT NULL,
+        	`remote_url` TEXT NOT NULL,
+        	`sha` TEXT NOT NULL,
+        	`push_remote_name` TEXT,
+        	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
+        );
+
+        -- table vb_stack_heads
+        CREATE TABLE `vb_stack_heads`(
+        	`stack_id` TEXT NOT NULL,
+        	`position` INTEGER NOT NULL,
+        	`name` TEXT NOT NULL,
+        	`head_sha` TEXT NOT NULL,
+        	`pr_number` INTEGER,
+        	`archived` INTEGER NOT NULL DEFAULT 0,
+        	`review_id` TEXT,
+        	PRIMARY KEY(`stack_id`, `position`),
+        	FOREIGN KEY(`stack_id`) REFERENCES `vb_stacks`(`id`) ON DELETE CASCADE
+        );
+
+        -- table vb_stacks
+        CREATE TABLE `vb_stacks`(
+        	`id` TEXT NOT NULL PRIMARY KEY,
+        	`source_refname` TEXT,
+        	`upstream_remote_name` TEXT,
+        	`upstream_branch_name` TEXT,
+        	`sort_order` INTEGER NOT NULL,
+        	`in_workspace` INTEGER NOT NULL,
+        	`legacy_name` TEXT NOT NULL DEFAULT '',
+        	`legacy_notes` TEXT NOT NULL DEFAULT '',
+        	`legacy_ownership` TEXT NOT NULL DEFAULT '',
+        	`legacy_allow_rebasing` INTEGER NOT NULL DEFAULT 1,
+        	`legacy_post_commits` INTEGER NOT NULL DEFAULT 0,
+        	`legacy_tree_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
+        	`legacy_head_sha` TEXT NOT NULL DEFAULT '0000000000000000000000000000000000000000',
+        	`legacy_created_timestamp_ms` TEXT NOT NULL DEFAULT '0',
+        	`legacy_updated_timestamp_ms` TEXT NOT NULL DEFAULT '0'
+        );
+
+        -- table vb_state
+        CREATE TABLE `vb_state`(
+        	`id` INTEGER PRIMARY KEY CHECK (`id` = 1),
+        	`initialized` INTEGER NOT NULL DEFAULT 0,
+        	`default_target_remote_name` TEXT,
+        	`default_target_branch_name` TEXT,
+        	`default_target_remote_url` TEXT,
+        	`default_target_sha` TEXT,
+        	`default_target_push_remote_name` TEXT,
+        	`last_pushed_base_sha` TEXT,
+        	`toml_last_seen_mtime_ns` INTEGER,
+        	`toml_last_seen_sha256` TEXT,
+        	`toml_mirror_dirty` INTEGER NOT NULL DEFAULT 0
+        );
+
         -- table workflows
         CREATE TABLE `workflows`(
         	`id` TEXT NOT NULL PRIMARY KEY,
@@ -327,6 +385,15 @@ mod run {
 
         -- index idx_ci_checks_reference
         CREATE INDEX `idx_ci_checks_reference` ON `ci_checks`(`reference`);
+
+        -- index idx_vb_stack_heads_stack_id
+        CREATE INDEX `idx_vb_stack_heads_stack_id` ON `vb_stack_heads`(`stack_id`);
+
+        -- index idx_vb_stacks_in_workspace
+        CREATE INDEX `idx_vb_stacks_in_workspace` ON `vb_stacks`(`in_workspace`);
+
+        -- index idx_vb_stacks_sort_order
+        CREATE INDEX `idx_vb_stacks_sort_order` ON `vb_stacks`(`sort_order`);
 
         -- index index_claude_messages_on_created_at
         CREATE INDEX index_claude_messages_on_created_at ON claude_messages (created_at);
@@ -367,6 +434,7 @@ mod run {
         Text("20251110103940")
         Text("20260101223932")
         Text("20260105095934")
+        Text("20260219130000")
 
         Table: hunk_assignments
         hunk_header | path | path_bytes | stack_id | id
@@ -400,6 +468,18 @@ mod run {
 
         Table: ci_checks
         id | name | output_summary | output_text | output_title | started_at | status_type | status_conclusion | status_completed_at | head_sha | url | html_url | details_url | pull_requests | reference | last_sync_at | struct_version
+
+        Table: vb_state
+        id | initialized | default_target_remote_name | default_target_branch_name | default_target_remote_url | default_target_sha | default_target_push_remote_name | last_pushed_base_sha | toml_last_seen_mtime_ns | toml_last_seen_sha256 | toml_mirror_dirty
+
+        Table: vb_stacks
+        id | source_refname | upstream_remote_name | upstream_branch_name | sort_order | in_workspace | legacy_name | legacy_notes | legacy_ownership | legacy_allow_rebasing | legacy_post_commits | legacy_tree_sha | legacy_head_sha | legacy_created_timestamp_ms | legacy_updated_timestamp_ms
+
+        Table: vb_stack_heads
+        stack_id | position | name | head_sha | pr_number | archived | review_id
+
+        Table: vb_branch_targets
+        stack_id | remote_name | branch_name | remote_url | sha | push_remote_name
         "#);
 
         let count = migration::run(&mut db, but_db::migration::ours())?;
