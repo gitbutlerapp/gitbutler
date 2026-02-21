@@ -56,7 +56,7 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
-        Sha1(92a5de18951fc289787883411346bf5151f9c854),
+        Sha1(e9ee7b59aff786fc970c30f6965d1de1913c7ec4),
     )
     ");
 
@@ -67,7 +67,7 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
     assert_eq!(&get_parents(&id.attach(&repo))?, &[onto]);
 
     insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
-    3417b4c
+    0367fb7
     ├── .auto-resolution:aa3d213 
     │   ├── base-f:100644:7898192 "a\n"
     │   └── target-f:100644:eb5a316 "target\n"
@@ -82,7 +82,9 @@ fn basic_cherry_pick_cp_conflicts() -> Result<()> {
     │   ├── base-f:100644:7898192 "a\n"
     │   ├── clean-f:100644:8312630 "clean\n"
     │   └── target-f:100644:9b1719f "conflict\n"
-    └── README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── CONFLICT-README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── base-f:100644:7898192 "a\n"
+    └── target-f:100644:eb5a316 "target\n"
     "#);
 
     Ok(())
@@ -151,7 +153,7 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
-        Sha1(e0da7f3ff8f416b3f93c84a5e737b265021897f1),
+        Sha1(0fcbe01202743fa55f1a1e07342ad26f2e7a0abe),
     )
     ");
 
@@ -162,7 +164,7 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
     assert_eq!(&get_parents(&id.attach(&repo))?, &[onto, onto2]);
 
     insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
-    75fdd2c
+    1804f3d
     ├── .auto-resolution:744efa9 
     │   ├── base-f:100644:7898192 "a\n"
     │   ├── target-2-f:100644:caac8f9 "target 2\n"
@@ -179,7 +181,10 @@ fn single_parent_to_multiple_parents_cp_conflicts() -> Result<()> {
     │   ├── base-f:100644:7898192 "a\n"
     │   ├── clean-f:100644:8312630 "clean\n"
     │   └── target-f:100644:9b1719f "conflict\n"
-    └── README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── CONFLICT-README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── base-f:100644:7898192 "a\n"
+    ├── target-2-f:100644:caac8f9 "target 2\n"
+    └── target-f:100644:eb5a316 "target\n"
     "#);
 
     Ok(())
@@ -257,7 +262,7 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
-        Sha1(b31d986b2deb4337c487ae0f431fe37688fa2197),
+        Sha1(28fa7c91af8652f4e69c1e3184f92569a3468a34),
     )
     ");
 
@@ -268,7 +273,7 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
     assert_eq!(&get_parents(&id.attach(&repo))?, &[onto]);
 
     insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
-    fde5970
+    91fe014
     ├── .auto-resolution:aa3d213 
     │   ├── base-f:100644:7898192 "a\n"
     │   └── target-f:100644:eb5a316 "target\n"
@@ -285,7 +290,9 @@ fn multiple_parents_to_single_parent_cp_conflicts() -> Result<()> {
     │   ├── clean-2-f:100644:13e9394 "clean 2\n"
     │   ├── clean-f:100644:8312630 "clean\n"
     │   └── target-f:100644:9b1719f "conflict\n"
-    └── README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── CONFLICT-README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── base-f:100644:7898192 "a\n"
+    └── target-f:100644:eb5a316 "target\n"
     "#);
 
     Ok(())
@@ -367,7 +374,7 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
-        Sha1(ef56061bb8c852be7983011e1a59fe80eefcf31d),
+        Sha1(2e6cb06fe98780bb8c7a301a522edd98805d1499),
     )
     ");
 
@@ -378,7 +385,7 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
     assert_eq!(&get_parents(&id.attach(&repo))?, &[onto, onto2]);
 
     insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
-    acdd833
+    0aeaf79
     ├── .auto-resolution:744efa9 
     │   ├── base-f:100644:7898192 "a\n"
     │   ├── target-2-f:100644:caac8f9 "target 2\n"
@@ -397,7 +404,10 @@ fn multiple_parents_to_multiple_parents_cp_conflicts() -> Result<()> {
     │   ├── clean-2-f:100644:13e9394 "clean 2\n"
     │   ├── clean-f:100644:8312630 "clean\n"
     │   └── target-f:100644:9b1719f "conflict\n"
-    └── README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── CONFLICT-README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── base-f:100644:7898192 "a\n"
+    ├── target-2-f:100644:caac8f9 "target 2\n"
+    └── target-f:100644:eb5a316 "target\n"
     "#);
 
     Ok(())
@@ -569,7 +579,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
-        Sha1(fc01136874918a3912b3a5ff76e625d46dda7cb6),
+        Sha1(28f862257bff139659b763a2c873b8d3f0f780b0),
     )
     ");
 
@@ -580,7 +590,7 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
     assert_eq!(&get_parents(&id.attach(&repo))?, &[onto]);
 
     insta::assert_snapshot!(visualize_tree(id.attach(&repo)), @r#"
-    d92cbc8
+    1267a55
     ├── .auto-resolution:aa3d213 
     │   ├── base-f:100644:7898192 "a\n"
     │   └── target-f:100644:eb5a316 "target\n"
@@ -592,7 +602,9 @@ fn no_parents_to_single_parent_cp_conflicts() -> Result<()> {
     ├── .conflict-side-1:144e5f5 
     │   ├── base-f:100644:7898192 "a\n"
     │   └── target-f:100644:9b1719f "conflict\n"
-    └── README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── CONFLICT-README.txt:100644:2af04b7 "You have checked out a GitButler Conflicted commit. You probably didn\'t mean to do this."
+    ├── base-f:100644:7898192 "a\n"
+    └── target-f:100644:eb5a316 "target\n"
     "#);
 
     Ok(())
@@ -611,7 +623,7 @@ fn cherry_pick_back_to_original_parents_unconflicts() -> Result<()> {
 
     insta::assert_debug_snapshot!(result, @"
     ConflictedCommit(
-        Sha1(ef56061bb8c852be7983011e1a59fe80eefcf31d),
+        Sha1(2e6cb06fe98780bb8c7a301a522edd98805d1499),
     )
     ");
 
