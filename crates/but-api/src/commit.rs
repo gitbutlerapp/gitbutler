@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 
+use anyhow::bail;
 use bstr::{BString, ByteSlice};
 use but_api_macros::but_api;
-use but_core::sync::RepoExclusive;
+use but_core::{DiffSpec, sync::RepoExclusive};
 use but_hunk_assignment::HunkAssignmentRequest;
 use but_oplog::legacy::{OperationKind, SnapshotDetails};
 use but_rebase::graph_rebase::{
@@ -152,6 +153,102 @@ pub fn commit_insert_blank(
 
     let mut guard = ctx.exclusive_worktree_access();
     let res = commit_insert_blank_only_impl(ctx, relative_to, side, guard.write_permission());
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
+        snapshot.commit(ctx, guard.write_permission()).ok();
+    };
+    res
+}
+
+/// Creates and inserts a commit relative to either a commit or a reference.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn commit_create_only(
+    ctx: &mut but_ctx::Context,
+    relative_to: ui::RelativeTo,
+    side: InsertSide,
+    changes: Vec<DiffSpec>,
+    message: String,
+) -> anyhow::Result<json::UICommitCreateResult> {
+    let context_lines = ctx.settings.context_lines;
+    let mut guard = ctx.exclusive_worktree_access();
+    commit_create_only_impl(
+        ctx,
+        relative_to,
+        side,
+        changes,
+        message,
+        context_lines,
+        guard.write_permission(),
+    )
+}
+
+/// Creates and inserts a commit relative to either a commit or a reference.
+pub(crate) fn commit_create_only_impl(
+    ctx: &mut but_ctx::Context,
+    relative_to: ui::RelativeTo,
+    side: InsertSide,
+    changes: Vec<DiffSpec>,
+    message: String,
+    context_lines: u32,
+    perm: &mut RepoExclusive,
+) -> anyhow::Result<json::UICommitCreateResult> {
+    let meta = ctx.meta()?;
+    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(perm)?;
+    let editor = ws.graph.to_editor(&repo)?;
+    let relative_to: RelativeTo = (&relative_to).into();
+
+    let but_workspace::commit::CommitCreateOutcome {
+        rebase,
+        commit_selector,
+        rejected_specs,
+        changed_tree_pre_cherry_pick: _,
+    } = but_workspace::commit::commit_create(editor, changes, relative_to, side, &message, context_lines)?;
+
+    let new_commit = match (rebase, commit_selector) {
+        (Some(rebase), Some(commit_selector)) => {
+            let materialized = rebase.materialize()?;
+            Some(materialized.lookup_pick(commit_selector)?)
+        }
+        (None, None) => None,
+        (Some(_), None) | (None, Some(_)) => bail!("BUG: inconsistent commit outcome"),
+    };
+
+    ws.refresh_from_head(&repo, &meta)?;
+
+    Ok(json::UICommitCreateResult {
+        new_commit: new_commit.map(Into::into),
+        paths_to_rejected_changes: rejected_specs
+            .into_iter()
+            .map(|(reason, spec)| (reason, spec.path.into()))
+            .collect(),
+    })
+}
+
+/// Creates and inserts a commit relative to either a commit or a reference, with oplog support.
+#[but_api]
+#[instrument(err(Debug))]
+pub fn commit_create(
+    ctx: &mut but_ctx::Context,
+    relative_to: ui::RelativeTo,
+    side: InsertSide,
+    changes: Vec<DiffSpec>,
+    message: String,
+) -> anyhow::Result<json::UICommitCreateResult> {
+    let context_lines = ctx.settings.context_lines;
+    let maybe_oplog_entry =
+        but_oplog::UnmaterializedOplogSnapshot::from_details(ctx, SnapshotDetails::new(OperationKind::CreateCommit))
+            .ok();
+
+    let mut guard = ctx.exclusive_worktree_access();
+    let res = commit_create_only_impl(
+        ctx,
+        relative_to,
+        side,
+        changes,
+        message,
+        context_lines,
+        guard.write_permission(),
+    );
     if let Some(snapshot) = maybe_oplog_entry.filter(|_| res.is_ok()) {
         snapshot.commit(ctx, guard.write_permission()).ok();
     };

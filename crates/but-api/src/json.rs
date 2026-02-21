@@ -426,3 +426,16 @@ pub struct UIMoveChangesResult {
     /// Commits that have been mapped from one thing to another
     pub replaced_commits: Vec<(HexHash, HexHash)>,
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+/// UI type for creating a commit in the rebase graph.
+pub struct UICommitCreateResult {
+    /// The new commit if one was created.
+    pub new_commit: Option<HexHash>,
+    /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
+    pub paths_to_rejected_changes: Vec<(
+        but_core::tree::create_tree::RejectionReason,
+        but_serde::BStringForFrontend,
+    )>,
+}

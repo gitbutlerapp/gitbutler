@@ -515,11 +515,19 @@ export class StackService {
 	}
 
 	createCommit() {
-		return this.api.endpoints.createCommit.useMutation();
+		if (get(useNewRebaseEngine)) {
+			return this.api.endpoints.commitCreate.useMutation();
+		} else {
+			return this.api.endpoints.legacyCreateCommit.useMutation();
+		}
 	}
 
 	get createCommitMutation() {
-		return this.api.endpoints.createCommit.mutate;
+		if (get(useNewRebaseEngine)) {
+			return this.api.endpoints.commitCreate.mutate;
+		} else {
+			return this.api.endpoints.legacyCreateCommit.mutate;
+		}
 	}
 
 	filePathsChangedInCommits(projectId: string, commitIds: string[]) {
@@ -956,6 +964,31 @@ function transformStacksResponse(response: Stack[]) {
 	return stackAdapter.addMany(stackAdapter.getInitialState(), response);
 }
 
+function toCommitCreatePlacement(args: CreateCommitRequest): {
+	relativeTo: RelativeTo;
+	side: 'above' | 'below';
+} {
+	if (args.parentId) {
+		return {
+			relativeTo: {
+				type: 'commit',
+				subject: args.parentId
+			},
+			side: 'above'
+		};
+	}
+
+	return {
+		relativeTo: {
+			type: 'reference',
+			subject: args.stackBranchName.startsWith('refs/')
+				? args.stackBranchName
+				: `refs/heads/${args.stackBranchName}`
+		},
+		side: 'below'
+	};
+}
+
 function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
@@ -1143,7 +1176,7 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					return invalidations;
 				}
 			}),
-			createCommit: build.mutation<
+			legacyCreateCommit: build.mutation<
 				CreateCommitOutcome,
 				{ projectId: string } & CreateCommitRequest
 			>({
@@ -1152,6 +1185,30 @@ function injectEndpoints(api: ClientState['backendApi'], uiState: UiState) {
 					actionName: 'Commit'
 				},
 				query: (args) => args,
+				invalidatesTags: [
+					invalidatesList(ReduxTag.WorktreeChanges),
+					invalidatesList(ReduxTag.UpstreamIntegrationStatus),
+					invalidatesList(ReduxTag.HeadSha)
+				]
+			}),
+			commitCreate: build.mutation<
+				CreateCommitOutcome,
+				{ projectId: string } & CreateCommitRequest
+			>({
+				extraOptions: {
+					command: 'commit_create',
+					actionName: 'Commit'
+				},
+				query: (args) => {
+					const { relativeTo, side } = toCommitCreatePlacement(args);
+					return {
+						projectId: args.projectId,
+						relativeTo,
+						side,
+						changes: args.worktreeChanges,
+						message: args.message
+					};
+				},
 				invalidatesTags: [
 					invalidatesList(ReduxTag.WorktreeChanges),
 					invalidatesList(ReduxTag.UpstreamIntegrationStatus),

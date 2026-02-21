@@ -682,6 +682,10 @@ pub async fn run() {
             post(json_response(commit::commit_reword_cmd)),
         )
         .route(
+            "/commit_create",
+            post(json_response(commit::commit_create_cmd)),
+        )
+        .route(
             "/commit_move_changes_between",
             post(json_response(commit::commit_move_changes_between_cmd)),
         )

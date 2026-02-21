@@ -6,6 +6,8 @@ use crate::WorkspaceCommit;
 
 pub mod reword;
 pub use reword::function::reword;
+pub mod commit_create;
+pub use commit_create::function::{CommitCreateOutcome, commit_create};
 pub mod insert_blank_commit;
 pub use insert_blank_commit::function::insert_blank_commit;
 pub mod move_changes;
