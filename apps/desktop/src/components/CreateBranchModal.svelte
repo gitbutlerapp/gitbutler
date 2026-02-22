@@ -42,7 +42,8 @@
 	// Persisted preference for branch placement
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
 
-	let slugifiedRefName: string | undefined = $state();
+	let normalizedRefName: string | undefined = $state();
+	let isBranchNameValid = $state(false);
 
 	// Get all stacks in the workspace
 	const allStacksQuery = $derived(stackService.stacks(projectId));
@@ -91,7 +92,7 @@
 			await createNewStack({
 				projectId,
 				branch: {
-					name: slugifiedRefName,
+					name: normalizedRefName,
 					// If addToLeftmost is true, place at position 0 (leftmost)
 					// Otherwise, leave undefined to append to the right
 					order: $addToLeftmost ? 0 : undefined
@@ -99,14 +100,14 @@
 			});
 			createRefModal?.close();
 		} else {
-			if (!selectedStackId || !slugifiedRefName) {
+			if (!selectedStackId || !normalizedRefName) {
 				// TODO: Add input validation.
 				return;
 			}
 			await createNewBranch({
 				projectId,
 				stackId: selectedStackId,
-				request: { targetPatch: undefined, name: slugifiedRefName }
+				request: { targetPatch: undefined, name: normalizedRefName }
 			});
 			createRefModal?.close();
 		}
@@ -145,7 +146,8 @@
 			id={ElementId.NewBranchNameInput}
 			value={createRefName}
 			autofocus
-			onslugifiedvalue={(value) => (slugifiedRefName = value)}
+			onnormalizedvalue={(value) => (normalizedRefName = value)}
+			onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 		/>
 
 		<div class="options-wrap" role="radiogroup" aria-label="Branch type selection">
@@ -270,7 +272,7 @@
 					style="pop"
 					type="submit"
 					onclick={addNew}
-					disabled={!createRefName || (createRefType === 'dependent' && !selectedStackId)}
+					disabled={!isBranchNameValid || (createRefType === 'dependent' && !selectedStackId)}
 					loading={isAddingNew}
 					testId={TestId.ConfirmSubmit}
 				>

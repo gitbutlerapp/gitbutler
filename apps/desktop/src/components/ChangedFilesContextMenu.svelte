@@ -168,7 +168,8 @@
 	}
 
 	let stashBranchName = $state<string>();
-	let slugifiedRefName: string | undefined = $state();
+	let normalizedRefName: string | undefined = $state();
+	let isStashBranchNameValid = $state(false);
 	let stashBranchNameInput = $state<ReturnType<typeof BranchNameTextbox>>();
 	let absorbPlan = $state<HunkAssignment.CommitAbsorption[]>([]);
 
@@ -639,7 +640,8 @@
 	type="info"
 	title="Stash changes into a new branch"
 	bind:this={stashConfirmationModal}
-	onSubmit={(_, item) => isChangedFilesItem(item) && confirmStashIntoBranch(item, slugifiedRefName)}
+	onSubmit={(_, item) =>
+		isChangedFilesItem(item) && confirmStashIntoBranch(item, normalizedRefName)}
 >
 	{#snippet children(item)}
 		<div class="content-wrap">
@@ -649,7 +651,8 @@
 				placeholder="Enter your branch name..."
 				bind:value={stashBranchName}
 				autofocus
-				onslugifiedvalue={(value) => (slugifiedRefName = value)}
+				onnormalizedvalue={(value) => (normalizedRefName = value)}
+				onvalidationchange={(isValid) => (isStashBranchNameValid = isValid)}
 			/>
 			<div class="explanation">
 				<p class="primary-text">
@@ -675,9 +678,9 @@
 		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
 		<AsyncButton
 			style="pop"
-			disabled={!slugifiedRefName}
+			disabled={!isStashBranchNameValid}
 			type="submit"
-			action={async () => await confirmStashIntoBranch(item, slugifiedRefName)}
+			action={async () => await confirmStashIntoBranch(item, normalizedRefName)}
 		>
 			Stash into branch
 		</AsyncButton>

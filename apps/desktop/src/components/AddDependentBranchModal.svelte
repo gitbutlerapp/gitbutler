@@ -18,17 +18,18 @@
 
 	let modal = $state<Modal>();
 	let branchName = $state<string>();
-	let slugifiedRefName: string | undefined = $state();
+	let normalizedRefName: string | undefined = $state();
+	let isBranchNameValid = $state(false);
 
 	async function handleAddDependentBranch(close: () => void) {
-		if (!slugifiedRefName) return;
+		if (!normalizedRefName) return;
 
 		await createNewBranch({
 			projectId,
 			stackId,
 			request: {
 				targetPatch: undefined,
-				name: slugifiedRefName
+				name: normalizedRefName
 			}
 		});
 
@@ -52,7 +53,8 @@
 			placeholder="Branch name"
 			bind:value={branchName}
 			autofocus
-			onslugifiedvalue={(value) => (slugifiedRefName = value)}
+			onnormalizedvalue={(value) => (normalizedRefName = value)}
+			onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 		/>
 	</div>
 	{#snippet controls(close)}
@@ -61,7 +63,7 @@
 			testId={TestId.BranchHeaderAddDependanttBranchModal_ActionButton}
 			style="pop"
 			type="submit"
-			disabled={!slugifiedRefName}
+			disabled={!isBranchNameValid}
 			loading={branchCreation.current.isLoading}>Add branch</Button
 		>
 	{/snippet}
