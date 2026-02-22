@@ -1,5 +1,7 @@
 # but-napi
 
+This is a trivial change
+
 `but-napi` is used to build GitButler's Node native add-on via `napi-rs`.
 
 ## High-level
