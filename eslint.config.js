@@ -101,7 +101,8 @@ export default ts.config(
 			'svelte/no-inspect': 'error',
 			'svelte/no-at-debug-tags': 'error',
 			'svelte/no-unused-props': 'error',
-			'svelte/prefer-svelte-reactivity': 'off'
+			'svelte/prefer-svelte-reactivity': 'off',
+			'svelte/no-navigation-without-resolve': 'off'
 		},
 
 		settings: {

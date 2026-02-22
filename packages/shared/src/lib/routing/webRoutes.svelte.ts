@@ -49,53 +49,61 @@ export class WebRoutesService {
 
 	private toUrl(path: string) {
 		const baseUrl = this.baseUrl.replace(/\/$/, '');
+		if (baseUrl !== '' && (path === baseUrl || path.startsWith(`${baseUrl}/`))) {
+			return path;
+		}
 		return `${baseUrl}${path}`;
 	}
 
+	private toBasePath(path: string) {
+		const basePath = this.baseUrl === '/' ? '' : this.baseUrl.replace(/\/$/, '');
+		return `${basePath}${path}`;
+	}
+
 	homePath() {
-		return `/`;
+		return this.toBasePath('/');
 	}
 	homeUrl() {
 		return this.toUrl(this.homePath());
 	}
 
 	loginPath() {
-		return `/login`;
+		return this.toBasePath('/login');
 	}
 	loginUrl() {
 		return this.toUrl(this.loginPath());
 	}
 
 	resetPasswordPath() {
-		return `/login/forgot-password`;
+		return this.toBasePath('/login/forgot-password');
 	}
 	resetPasswordUrl() {
 		return this.toUrl(this.resetPasswordPath());
 	}
 
 	signupPath() {
-		return `/signup`;
+		return this.toBasePath('/signup');
 	}
 	signupUrl() {
 		return this.toUrl(this.signupPath());
 	}
 
 	projectsPath() {
-		return `/`;
+		return this.toBasePath('/');
 	}
 	projectsUrl() {
 		return this.toUrl(this.projectsPath());
 	}
 
 	finalizeAccountPath() {
-		return '/profile/finalize';
+		return this.toBasePath('/profile/finalize');
 	}
 	finalizeAccountUrl() {
 		return this.toUrl(this.finalizeAccountPath());
 	}
 
 	profilePath() {
-		return '/profile';
+		return this.toBasePath('/profile');
 	}
 	profileUrl() {
 		return this.toUrl(this.profilePath());
@@ -107,7 +115,7 @@ export class WebRoutesService {
 	isProjectsPageSubset = $derived(isUrlSubset<{}>(this.isWeb, '/projects'));
 
 	ownerPath(parameters: OwnerParameters) {
-		return `/${parameters.ownerSlug}`;
+		return this.toBasePath(`/${parameters.ownerSlug}`);
 	}
 	ownerUrl(parameters: OwnerParameters) {
 		return this.toUrl(this.ownerPath(parameters));
@@ -116,7 +124,7 @@ export class WebRoutesService {
 	isOwnerPageSubset = $derived(isUrlSubset<OwnerParameters>(this.isWeb, '/(app)/[ownerSlug]'));
 
 	projectPath(parameters: ProjectParameters) {
-		return `/${parameters.ownerSlug}/${parameters.projectSlug}`;
+		return this.toBasePath(`/${parameters.ownerSlug}/${parameters.projectSlug}`);
 	}
 	projectUrl(parameters: ProjectParameters) {
 		return this.toUrl(this.projectPath(parameters));
@@ -129,7 +137,7 @@ export class WebRoutesService {
 	);
 
 	projectReviewPath(parameters: ProjectParameters) {
-		return `/${parameters.ownerSlug}/${parameters.projectSlug}/reviews`;
+		return this.toBasePath(`/${parameters.ownerSlug}/${parameters.projectSlug}/reviews`);
 	}
 	projectReviewUrl(parameters: ProjectParameters) {
 		return this.toUrl(this.projectReviewPath(parameters));
@@ -142,7 +150,9 @@ export class WebRoutesService {
 	);
 
 	projectReviewBranchPath(parameters: ProjectReviewParameters) {
-		return `/${parameters.ownerSlug}/${parameters.projectSlug}/reviews/${parameters.branchId}`;
+		return this.toBasePath(
+			`/${parameters.ownerSlug}/${parameters.projectSlug}/reviews/${parameters.branchId}`
+		);
 	}
 	projectReviewBranchUrl(parameters: ProjectReviewParameters) {
 		return this.toUrl(this.projectReviewBranchPath(parameters));
@@ -161,7 +171,9 @@ export class WebRoutesService {
 	);
 
 	projectReviewBranchCommitPath(parameters: ProjectReviewCommitParameters) {
-		return `/${parameters.ownerSlug}/${parameters.projectSlug}/reviews/${parameters.branchId}/commit/${parameters.changeId}`;
+		return this.toBasePath(
+			`/${parameters.ownerSlug}/${parameters.projectSlug}/reviews/${parameters.branchId}/commit/${parameters.changeId}`
+		);
 	}
 	projectReviewBranchCommitUrl(parameters: ProjectReviewCommitParameters) {
 		return this.toUrl(this.projectReviewBranchCommitPath(parameters));
