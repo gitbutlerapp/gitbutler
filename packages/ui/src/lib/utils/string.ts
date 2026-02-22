@@ -45,3 +45,18 @@ export function slugify(input: string) {
 		.replace(/\s+/g, '-')
 		.replace(/-+/g, '-');
 }
+
+/**
+ * Branch-name-aware slugify that preserves characters valid in git ref names
+ * (like `#`) which the generic `slugify` strips. Git allows `#` in branch
+ * names (e.g. `feat/#1234-ticket-name`), so this variant keeps them.
+ */
+export function slugifyBranchName(input: string) {
+	return String(input)
+		.normalize('NFKD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.trim()
+		.replace(/[^A-Za-z0-9._/#@ -]/g, '')
+		.replace(/\s+/g, '-')
+		.replace(/-+/g, '-');
+}
