@@ -139,16 +139,13 @@
 			}
 		});
 	}
-
-	$effect(() => {
-		setAIConfigurationValid();
-	});
 </script>
 
 <KebabButton
 	contextElement={rightClickTrigger}
 	testId={TestId.KebabMenuButton}
 	contextMenuTestId={TestId.BranchHeaderContextMenu}
+	onMenuOpen={setAIConfigurationValid}
 >
 	{#snippet contextMenu({ close })}
 		{@const { branch, prNumber, first, stackLength } = contextData}

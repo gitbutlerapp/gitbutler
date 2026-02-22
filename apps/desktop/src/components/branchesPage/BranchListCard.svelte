@@ -47,40 +47,42 @@
 		let canceled = false;
 
 		if (ownedByUser) {
-			gitConfigService.get('user.name').then((userName) => {
-				if (canceled) return;
-
-				if (userName) {
-					lastCommitDetails = { authorName: userName };
-				} else {
-					lastCommitDetails = undefined;
-				}
-			});
+			setOwnedUserDetails(canceled);
 		} else {
 			lastCommitDetails = {
 				authorName: branchListing.lastCommiter.name || unknownName,
 				lastCommitAt: new Date(branchListing.updatedAt)
 			};
+			setAvatars(branchListingDetails);
 		}
+
+		return () => {
+			canceled = true;
+		};
 	});
 
 	let avatars = $state<{ username: string; srcUrl: string }[]>([]);
 
-	$effect(() => {
-		setAvatars(ownedByUser, branchListingDetails);
-	});
+	async function setOwnedUserDetails(canceled: boolean) {
+		const name = (await gitConfigService.get('user.name')) || unknownName;
+		const email = (await gitConfigService.get('user.email')) || unknownEmail;
 
-	async function setAvatars(ownedByUser: boolean, branchListingDetails?: BranchListingDetails) {
-		if (ownedByUser) {
-			const name = (await gitConfigService.get('user.name')) || unknownName;
-			const email = (await gitConfigService.get('user.email')) || unknownEmail;
-			const srcUrl =
-				email.toLowerCase() === $user?.email?.toLowerCase() && $user?.picture
-					? $user?.picture
-					: await gravatarUrlFromEmail(email);
+		if (canceled) return;
 
-			avatars = [{ username: name, srcUrl: srcUrl }];
-		} else if (branchListingDetails) {
+		lastCommitDetails = name !== unknownName ? { authorName: name } : undefined;
+
+		const srcUrl =
+			email.toLowerCase() === $user?.email?.toLowerCase() && $user?.picture
+				? $user?.picture
+				: await gravatarUrlFromEmail(email);
+
+		if (canceled) return;
+
+		avatars = [{ username: name, srcUrl: srcUrl }];
+	}
+
+	async function setAvatars(branchListingDetails?: BranchListingDetails) {
+		if (branchListingDetails) {
 			avatars = branchListingDetails.authors
 				? await Promise.all(
 						branchListingDetails.authors.map(async (author) => {
