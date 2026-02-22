@@ -20,7 +20,7 @@
 	const [renameBranch, renameQuery] = stackService.updateBranchName;
 
 	let newName: string | undefined = $state();
-	let slugifiedRefName: string | undefined = $state();
+	let normalizedRefName: string | undefined = $state();
 	let isBranchNameValid = $state(false);
 	let modal: Modal | undefined = $state();
 
@@ -41,8 +41,8 @@
 	type={isPushed ? 'warning' : 'info'}
 	bind:this={modal}
 	onSubmit={async (close) => {
-		if (slugifiedRefName) {
-			renameBranch({ projectId, stackId, laneId, branchName, newName: slugifiedRefName });
+		if (normalizedRefName) {
+			renameBranch({ projectId, stackId, laneId, branchName, newName: normalizedRefName });
 		}
 		close();
 	}}
@@ -53,7 +53,7 @@
 		id={ElementId.NewBranchNameInput}
 		bind:value={newName}
 		autofocus
-		onslugifiedvalue={(value) => (slugifiedRefName = value)}
+		onnormalizedvalue={(value) => (normalizedRefName = value)}
 		onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 	/>
 

@@ -42,7 +42,7 @@
 	// Persisted preference for branch placement
 	const addToLeftmost = persisted<boolean>(false, 'branch-placement-leftmost');
 
-	let slugifiedRefName: string | undefined = $state();
+	let normalizedRefName: string | undefined = $state();
 	let isBranchNameValid = $state(false);
 
 	// Get all stacks in the workspace
@@ -92,7 +92,7 @@
 			await createNewStack({
 				projectId,
 				branch: {
-					name: slugifiedRefName,
+					name: normalizedRefName,
 					// If addToLeftmost is true, place at position 0 (leftmost)
 					// Otherwise, leave undefined to append to the right
 					order: $addToLeftmost ? 0 : undefined
@@ -100,14 +100,14 @@
 			});
 			createRefModal?.close();
 		} else {
-			if (!selectedStackId || !slugifiedRefName) {
+			if (!selectedStackId || !normalizedRefName) {
 				// TODO: Add input validation.
 				return;
 			}
 			await createNewBranch({
 				projectId,
 				stackId: selectedStackId,
-				request: { targetPatch: undefined, name: slugifiedRefName }
+				request: { targetPatch: undefined, name: normalizedRefName }
 			});
 			createRefModal?.close();
 		}
@@ -146,7 +146,7 @@
 			id={ElementId.NewBranchNameInput}
 			value={createRefName}
 			autofocus
-			onslugifiedvalue={(value) => (slugifiedRefName = value)}
+			onnormalizedvalue={(value) => (normalizedRefName = value)}
 			onvalidationchange={(isValid) => (isBranchNameValid = isValid)}
 		/>
 

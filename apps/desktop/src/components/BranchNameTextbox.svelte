@@ -7,7 +7,7 @@
 	type Props = {
 		value?: string;
 		helperText?: string;
-		onslugifiedvalue?: (slugified: string | undefined) => void;
+		onnormalizedvalue?: (normalized: string | undefined) => void;
 		onvalidationchange?: (isValid: boolean) => void;
 		[key: string]: any;
 	};
@@ -15,7 +15,7 @@
 	let {
 		value = $bindable(),
 		helperText,
-		onslugifiedvalue,
+		onnormalizedvalue,
 		onvalidationchange,
 		...restProps
 	}: Props = $props();
@@ -25,6 +25,7 @@
 	let textbox = $state<ReturnType<typeof Textbox>>();
 	let isValidating = $state(false);
 	let validationError = $state<string | undefined>();
+	let validationCounter = $state(0);
 
 	let normalizedResult = $state<{ fromValue: string; normalized: string } | undefined>();
 
@@ -49,29 +50,31 @@
 			isValidating = false;
 			validationError = undefined;
 			normalizedResult = undefined;
-			onslugifiedvalue?.(undefined);
+			onnormalizedvalue?.(undefined);
 			return;
 		}
 
+		const currentValidation = ++validationCounter;
 		isValidating = true;
 		validationError = undefined;
 
 		try {
 			const result = await stackService.normalizeBranchName(inputValue);
 			// Only update if the value hasn't changed during the async call
-			if (value === inputValue) {
+			// and no newer validation has started
+			if (value === inputValue && currentValidation === validationCounter) {
 				normalizedResult = { fromValue: inputValue, normalized: result };
-				onslugifiedvalue?.(result);
+				onnormalizedvalue?.(result);
 				validationError = undefined;
 			}
 		} catch {
-			if (value === inputValue) {
+			if (value === inputValue && currentValidation === validationCounter) {
 				normalizedResult = undefined;
-				onslugifiedvalue?.(undefined);
+				onnormalizedvalue?.(undefined);
 				validationError = 'Invalid branch name';
 			}
 		} finally {
-			if (value === inputValue) {
+			if (currentValidation === validationCounter) {
 				isValidating = false;
 			}
 		}
