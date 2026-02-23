@@ -529,7 +529,7 @@ fn amend_command_with_multiple_files() -> anyhow::Result<()> {
     let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
     let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
         .as_str()
-        .expect("commit id");
+        .expect("failed to extract commit cliId from status JSON");
     let file_1_id = status_json["stacks"][0]["assignedChanges"]
         .as_array()
         .and_then(|changes| {
@@ -538,7 +538,7 @@ fn amend_command_with_multiple_files() -> anyhow::Result<()> {
                 .find(|change| change["filePath"] == "file-1.txt")
                 .and_then(|change| change["cliId"].as_str())
         })
-        .expect("file-1 id");
+        .expect("failed to find cliId for file-1.txt in assigned changes");
     let file_2_id = status_json["stacks"][0]["assignedChanges"]
         .as_array()
         .and_then(|changes| {
@@ -547,7 +547,7 @@ fn amend_command_with_multiple_files() -> anyhow::Result<()> {
                 .find(|change| change["filePath"] == "file-2.txt")
                 .and_then(|change| change["cliId"].as_str())
         })
-        .expect("file-2 id");
+        .expect("failed to find cliId for file-2.txt in assigned changes");
 
     env.but(format!("amend {file_1_id},{file_2_id} {commit_id}"))
         .assert()
@@ -563,7 +563,7 @@ fn amend_command_with_multiple_files() -> anyhow::Result<()> {
 
     let changes = status_json["stacks"][0]["branches"][0]["commits"][0]["changes"]
         .as_array()
-        .expect("changes");
+        .expect("failed to extract changes array from commit");
     let file_paths: Vec<&str> = changes
         .iter()
         .filter_map(|change| change["filePath"].as_str())
