@@ -13,7 +13,7 @@ pub(crate) fn uncommitted_to_commit(
     uncommitted_cli_id: UncommittedCliId,
     oid: &ObjectId,
     out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<ObjectId>> {
     let description = uncommitted_cli_id.describe();
 
     let first_hunk_assignment = uncommitted_cli_id.hunk_assignments.first();
@@ -42,7 +42,7 @@ pub(crate) fn uncommitted_to_commit(
             "new_commit_id": outcome.new_commit.map(|c| c.to_string()),
         }))?;
     }
-    Ok(())
+    Ok(outcome.new_commit)
 }
 
 pub(crate) fn assignments_to_commit(
@@ -50,7 +50,7 @@ pub(crate) fn assignments_to_commit(
     branch_name: Option<&str>,
     oid: &ObjectId,
     out: &mut OutputChannel,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Option<ObjectId>> {
     let stack_id = branch_name_to_stack_id(ctx, branch_name)?;
     let diff_specs: Vec<DiffSpec> = wt_assignments(ctx)?
         .into_iter()
@@ -83,7 +83,7 @@ pub(crate) fn assignments_to_commit(
             "new_commit_id": outcome.new_commit.map(|c| c.to_string()),
         }))?;
     }
-    Ok(())
+    Ok(outcome.new_commit)
 }
 
 fn wt_assignments(ctx: &mut Context) -> anyhow::Result<Vec<HunkAssignment>> {

@@ -515,6 +515,66 @@ Failed to uncommit. Cannot uncommit A - it is a branch. Only commits and files-i
 }
 
 #[test]
+fn amend_command_with_multiple_files() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+    env.setup_metadata(&["A", "B"])?;
+    commit_two_files_as_two_hunks_each(&env, "A", "base-a.txt", "base-b.txt", "first commit");
+
+    env.file("file-1.txt", "first\n");
+    env.file("file-2.txt", "second\n");
+    env.but("stage file-1.txt A").assert().success();
+    env.but("stage file-2.txt A").assert().success();
+
+    let status_output = env.but("--json status -f").allow_json().output()?;
+    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    let commit_id = status_json["stacks"][0]["branches"][0]["commits"][0]["cliId"]
+        .as_str()
+        .expect("commit id");
+    let file_1_id = status_json["stacks"][0]["assignedChanges"]
+        .as_array()
+        .and_then(|changes| {
+            changes
+                .iter()
+                .find(|change| change["filePath"] == "file-1.txt")
+                .and_then(|change| change["cliId"].as_str())
+        })
+        .expect("file-1 id");
+    let file_2_id = status_json["stacks"][0]["assignedChanges"]
+        .as_array()
+        .and_then(|changes| {
+            changes
+                .iter()
+                .find(|change| change["filePath"] == "file-2.txt")
+                .and_then(|change| change["cliId"].as_str())
+        })
+        .expect("file-2 id");
+
+    env.but(format!("amend {file_1_id},{file_2_id} {commit_id}"))
+        .assert()
+        .success();
+
+    let status_output = env.but("--json status -f").allow_json().output()?;
+    let status_json: serde_json::Value = serde_json::from_slice(&status_output.stdout)?;
+    assert_eq!(status_json["unassignedChanges"], serde_json::json!([]));
+    assert_eq!(
+        status_json["stacks"][0]["assignedChanges"],
+        serde_json::json!([])
+    );
+
+    let changes = status_json["stacks"][0]["branches"][0]["commits"][0]["changes"]
+        .as_array()
+        .expect("changes");
+    let file_paths: Vec<&str> = changes
+        .iter()
+        .filter_map(|change| change["filePath"].as_str())
+        .collect();
+    assert!(file_paths.contains(&"file-1.txt"));
+    assert!(file_paths.contains(&"file-2.txt"));
+
+    Ok(())
+}
+
+#[test]
 fn stage_command() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
