@@ -28,7 +28,7 @@ catalogs:
     "postcss-nesting": "12.1.5"
     "postcss-pxtorem": "6.1.0"
   svelte:
-    "@sentry/sveltekit": "10.38.0"
+    "@sentry/sveltekit": "10.39.0"
     "@sveltejs/adapter-static": "3.0.10"
     "@sveltejs/kit": "2.52.2"
     "@sveltejs/package": "2.5.7"

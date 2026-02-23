@@ -52,8 +52,8 @@ catalogs:
       version: 2.11.2
   svelte:
     '@sentry/sveltekit':
-      specifier: 10.38.0
-      version: 10.38.0
+      specifier: 10.39.0
+      version: 10.39.0
     '@sveltejs/adapter-static':
       specifier: 3.0.10
       version: 3.0.10
@@ -235,7 +235,7 @@ importers:
         version: 2.11.2(react@19.2.4)
       '@sentry/sveltekit':
         specifier: catalog:svelte
-        version: 10.38.0(@sveltejs/kit@2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(encoding@0.1.13)(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2))
+        version: 10.39.0(@sveltejs/kit@2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(encoding@0.1.13)(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2))
       '@sveltejs/adapter-static':
         specifier: catalog:svelte
         version: 3.0.10(@sveltejs/kit@2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))
@@ -446,7 +446,7 @@ importers:
     dependencies:
       '@sentry/sveltekit':
         specifier: catalog:svelte
-        version: 10.38.0(@sveltejs/kit@2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(encoding@0.1.13)(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2))
+        version: 10.39.0(@sveltejs/kit@2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(encoding@0.1.13)(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2))
       '@tryghost/content-api':
         specifier: ^1.12.3
         version: 1.12.3
@@ -592,10 +592,10 @@ importers:
     devDependencies:
       '@napi-rs/cli':
         specifier: ^3.5.1
-        version: 3.5.1(@emnapi/runtime@1.7.1)(@types/node@24.10.4)(node-addon-api@7.1.1)
+        version: 3.5.1(@emnapi/runtime@1.7.1)(@types/node@22.19.11)(node-addon-api@7.1.1)
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@24.10.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@22.19.11)(typescript@5.9.3)
 
   packages/core:
     dependencies:
@@ -3580,28 +3580,28 @@ packages:
   '@sec-ant/readable-stream@0.4.1':
     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
 
-  '@sentry-internal/browser-utils@10.38.0':
-    resolution: {integrity: sha512-UOJtYmdcxHCcV0NPfXFff/a95iXl/E0EhuQ1y0uE0BuZDMupWSF5t2BgC4HaE5Aw3RTjDF3XkSHWoIF6ohy7eA==}
+  '@sentry-internal/browser-utils@10.39.0':
+    resolution: {integrity: sha512-W6WODonMGiI13Az5P7jd/m2lj/JpIyuVKg7wE4X+YdlMehLspAv6I7gRE4OBSumS14ZjdaYDpD/lwtnBwKAzcA==}
     engines: {node: '>=18'}
 
-  '@sentry-internal/feedback@10.38.0':
-    resolution: {integrity: sha512-JXneg9zRftyfy1Fyfc39bBlF/Qd8g4UDublFFkVvdc1S6JQPlK+P6q22DKz3Pc8w3ySby+xlIq/eTu9Pzqi4KA==}
+  '@sentry-internal/feedback@10.39.0':
+    resolution: {integrity: sha512-cRXmmDeOr5FzVsBNRLU4WDEuC3fhuD0XV362EWl4DI3XBGao8ukaueKcLIKic5WZx6uXimjWw/UJmDLgxeCqkg==}
     engines: {node: '>=18'}
 
-  '@sentry-internal/replay-canvas@10.38.0':
-    resolution: {integrity: sha512-OXWM9jEqNYh4VTvrMu7v+z1anz+QKQ/fZXIZdsO7JTT2lGNZe58UUMeoq386M+Saxen8F9SUH7yTORy/8KI5qw==}
+  '@sentry-internal/replay-canvas@10.39.0':
+    resolution: {integrity: sha512-TTiX0XWCcqTqFGJjEZYObk93j/sJmXcqPzcu0cN2mIkKnnaHDY3w74SHZCshKqIr0AOQdt1HDNa36s3TCdt0Jw==}
     engines: {node: '>=18'}
 
-  '@sentry-internal/replay@10.38.0':
-    resolution: {integrity: sha512-YWIkL6/dnaiQyFiZXJ/nN+NXGv/15z45ia86bE/TMq01CubX/DUOilgsFz0pk2v/pg3tp/U2MskLO9Hz0cnqeg==}
+  '@sentry-internal/replay@10.39.0':
+    resolution: {integrity: sha512-obZoYOrUfxIYBHkmtPpItRdE38VuzF1VIxSgZ8Mbtq/9UvCWh+eOaVWU2stN/cVu1KYuYX0nQwBvdN28L6y/JA==}
     engines: {node: '>=18'}
 
   '@sentry/babel-plugin-component-annotate@4.9.1':
     resolution: {integrity: sha512-0gEoi2Lb54MFYPOmdTfxlNKxI7kCOvNV7gP8lxMXJ7nCazF5OqOOZIVshfWjDLrc0QrSV6XdVvwPV9GDn4wBMg==}
     engines: {node: '>= 14'}
 
-  '@sentry/browser@10.38.0':
-    resolution: {integrity: sha512-3phzp1YX4wcQr9mocGWKbjv0jwtuoDBv7+Y6Yfrys/kwyaL84mDLjjQhRf4gL5SX7JdYkhBp4WaiNlR0UC4kTA==}
+  '@sentry/browser@10.39.0':
+    resolution: {integrity: sha512-I50W/1PDJWyqgNrGufGhBYCmmO3Bb159nx2Ut2bKoVveTfgH/hLEtDyW0kHo8Fu454mW+ukyXfU4L4s+kB9aaw==}
     engines: {node: '>=18'}
 
   '@sentry/bundler-plugin-core@4.9.1':
@@ -3660,8 +3660,8 @@ packages:
     engines: {node: '>= 10'}
     hasBin: true
 
-  '@sentry/cloudflare@10.38.0':
-    resolution: {integrity: sha512-g008TNjxPbS5csEem3u6jBO40qNY4Vky5q1hJXlUjoNnCDt+5vMLPMzVqJVVbAzWWU+dwjdiMzGeNjwn0RYwcQ==}
+  '@sentry/cloudflare@10.39.0':
+    resolution: {integrity: sha512-x0DDNJJ1sDuHosFKURcn6I7eMQfJKNF317NclARgE6a+sg0Ty5OpaNMaQF9VlPVDB7JGXohADJ+88I1x0mB87g==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cloudflare/workers-types': ^4.x
@@ -3669,12 +3669,12 @@ packages:
       '@cloudflare/workers-types':
         optional: true
 
-  '@sentry/core@10.38.0':
-    resolution: {integrity: sha512-1pubWDZE5y5HZEPMAZERP4fVl2NH3Ihp1A+vMoVkb3Qc66Diqj1WierAnStlZP7tCx0TBa0dK85GTW/ZFYyB9g==}
+  '@sentry/core@10.39.0':
+    resolution: {integrity: sha512-xCLip2mBwCdRrvXHtVEULX0NffUTYZZBhEUGht0WFL+GNdNQ7gmBOGOczhZlrf2hgFFtDO0fs1xiP9bqq5orEQ==}
     engines: {node: '>=18'}
 
-  '@sentry/node-core@10.38.0':
-    resolution: {integrity: sha512-ErXtpedrY1HghgwM6AliilZPcUCoNNP1NThdO4YpeMq04wMX9/GMmFCu46TnCcg6b7IFIOSr2S4yD086PxLlHQ==}
+  '@sentry/node-core@10.39.0':
+    resolution: {integrity: sha512-xdeBG00TmtAcGvXnZNbqOCvnZ5kY3s5aT/L8wUQ0w0TT2KmrC9XL/7UHUfJ45TLbjl10kZOtaMQXgUjpwSJW+g==}
     engines: {node: '>=18'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
@@ -3684,13 +3684,28 @@ packages:
       '@opentelemetry/resources': ^1.30.1 || ^2.1.0
       '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
       '@opentelemetry/semantic-conventions': ^1.39.0
+    peerDependenciesMeta:
+      '@opentelemetry/api':
+        optional: true
+      '@opentelemetry/context-async-hooks':
+        optional: true
+      '@opentelemetry/core':
+        optional: true
+      '@opentelemetry/instrumentation':
+        optional: true
+      '@opentelemetry/resources':
+        optional: true
+      '@opentelemetry/sdk-trace-base':
+        optional: true
+      '@opentelemetry/semantic-conventions':
+        optional: true
 
-  '@sentry/node@10.38.0':
-    resolution: {integrity: sha512-wriyDtWDAoatn8EhOj0U4PJR1WufiijTsCGALqakOHbFiadtBJANLe6aSkXoXT4tegw59cz1wY4NlzHjYksaPw==}
+  '@sentry/node@10.39.0':
+    resolution: {integrity: sha512-dx66DtU/xkCTPEDsjU+mYSIEbzu06pzKNQcDA2wvx7wvwsUciZ5yA32Ce/o6p2uHHgy0/joJX9rP5J/BIijaOA==}
     engines: {node: '>=18'}
 
-  '@sentry/opentelemetry@10.38.0':
-    resolution: {integrity: sha512-YPVhWfYmC7nD3EJqEHGtjp4fp5LwtAbE5rt9egQ4hqJlYFvr8YEz9sdoqSZxO0cZzgs2v97HFl/nmWAXe52G2Q==}
+  '@sentry/opentelemetry@10.39.0':
+    resolution: {integrity: sha512-eU8t/pyxjy7xYt6PNCVxT+8SJw5E3pnupdcUNN4ClqG4O5lX4QCDLtId48ki7i30VqrLtR7vmCHMSvqXXdvXPA==}
     engines: {node: '>=18'}
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
@@ -3699,14 +3714,14 @@ packages:
       '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
       '@opentelemetry/semantic-conventions': ^1.39.0
 
-  '@sentry/svelte@10.38.0':
-    resolution: {integrity: sha512-z/l7lb5BrUtw9Bmuk+m/gCphUvXxH4k5BUjrgGqVN6qAEsDzVk8X0jqmK93N53P5CM4M2wKnBhqr6aror2a13g==}
+  '@sentry/svelte@10.39.0':
+    resolution: {integrity: sha512-a3rEIHi1fWGMbsWnQeOPlKH4+917vLDD0HvzJnUBPQzVkVAB585pR2qjE5DVryiXOjRiRw7JdCCw9jINaiwmrA==}
     engines: {node: '>=18'}
     peerDependencies:
       svelte: 3.x || 4.x || 5.x
 
-  '@sentry/sveltekit@10.38.0':
-    resolution: {integrity: sha512-ZJ0+YPf56E6uNntnxpmZLNPTGeMNxWRYUwKRu0K9mnMsL26Lu5JdP667BDIiegoDwkNfIHiE5DTKxpNkMNzddA==}
+  '@sentry/sveltekit@10.39.0':
+    resolution: {integrity: sha512-PBHlFTffSk7Lvm3z6iho1Yr8e/7VrOAuWrNOkgjF4Xh3gXnDjXgKwB9YAVDwFr8RWkpkMceZBYgwFNrgSRT46w==}
     engines: {node: '>=18'}
     peerDependencies:
       '@sveltejs/kit': 2.x
@@ -10560,14 +10575,14 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/checkbox@5.0.6(@types/node@24.10.4)':
+  '@inquirer/checkbox@5.0.6(@types/node@22.19.11)':
     dependencies:
       '@inquirer/ansi': 2.0.3
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
       '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/confirm@5.1.21(@types/node@22.19.11)':
     dependencies:
@@ -10576,12 +10591,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/confirm@6.0.6(@types/node@24.10.4)':
+  '@inquirer/confirm@6.0.6(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/core@10.3.2(@types/node@22.19.11)':
     dependencies:
@@ -10596,17 +10611,17 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/core@11.1.3(@types/node@24.10.4)':
+  '@inquirer/core@11.1.3(@types/node@22.19.11)':
     dependencies:
       '@inquirer/ansi': 2.0.3
       '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
       cli-width: 4.1.0
       fast-wrap-ansi: 0.2.0
       mute-stream: 3.0.0
       signal-exit: 4.1.0
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/editor@4.2.23(@types/node@22.19.11)':
     dependencies:
@@ -10616,13 +10631,13 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/editor@5.0.6(@types/node@24.10.4)':
+  '@inquirer/editor@5.0.6(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
-      '@inquirer/external-editor': 2.0.3(@types/node@24.10.4)
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
+      '@inquirer/external-editor': 2.0.3(@types/node@22.19.11)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/expand@4.0.23(@types/node@22.19.11)':
     dependencies:
@@ -10632,12 +10647,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/expand@5.0.6(@types/node@24.10.4)':
+  '@inquirer/expand@5.0.6(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/external-editor@1.0.3(@types/node@22.19.11)':
     dependencies:
@@ -10646,12 +10661,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/external-editor@2.0.3(@types/node@24.10.4)':
+  '@inquirer/external-editor@2.0.3(@types/node@22.19.11)':
     dependencies:
       chardet: 2.1.1
       iconv-lite: 0.7.2
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/figures@1.0.15': {}
 
@@ -10664,12 +10679,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/input@5.0.6(@types/node@24.10.4)':
+  '@inquirer/input@5.0.6(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/number@3.0.23(@types/node@22.19.11)':
     dependencies:
@@ -10678,12 +10693,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/number@4.0.6(@types/node@24.10.4)':
+  '@inquirer/number@4.0.6(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/password@4.0.23(@types/node@22.19.11)':
     dependencies:
@@ -10693,13 +10708,13 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/password@5.0.6(@types/node@24.10.4)':
+  '@inquirer/password@5.0.6(@types/node@22.19.11)':
     dependencies:
       '@inquirer/ansi': 2.0.3
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/prompts@7.10.1(@types/node@22.19.11)':
     dependencies:
@@ -10716,20 +10731,20 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/prompts@8.2.1(@types/node@24.10.4)':
+  '@inquirer/prompts@8.2.1(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/checkbox': 5.0.6(@types/node@24.10.4)
-      '@inquirer/confirm': 6.0.6(@types/node@24.10.4)
-      '@inquirer/editor': 5.0.6(@types/node@24.10.4)
-      '@inquirer/expand': 5.0.6(@types/node@24.10.4)
-      '@inquirer/input': 5.0.6(@types/node@24.10.4)
-      '@inquirer/number': 4.0.6(@types/node@24.10.4)
-      '@inquirer/password': 5.0.6(@types/node@24.10.4)
-      '@inquirer/rawlist': 5.2.2(@types/node@24.10.4)
-      '@inquirer/search': 4.1.2(@types/node@24.10.4)
-      '@inquirer/select': 5.0.6(@types/node@24.10.4)
+      '@inquirer/checkbox': 5.0.6(@types/node@22.19.11)
+      '@inquirer/confirm': 6.0.6(@types/node@22.19.11)
+      '@inquirer/editor': 5.0.6(@types/node@22.19.11)
+      '@inquirer/expand': 5.0.6(@types/node@22.19.11)
+      '@inquirer/input': 5.0.6(@types/node@22.19.11)
+      '@inquirer/number': 4.0.6(@types/node@22.19.11)
+      '@inquirer/password': 5.0.6(@types/node@22.19.11)
+      '@inquirer/rawlist': 5.2.2(@types/node@22.19.11)
+      '@inquirer/search': 4.1.2(@types/node@22.19.11)
+      '@inquirer/select': 5.0.6(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/rawlist@4.1.11(@types/node@22.19.11)':
     dependencies:
@@ -10739,12 +10754,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/rawlist@5.2.2(@types/node@24.10.4)':
+  '@inquirer/rawlist@5.2.2(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/search@3.2.2(@types/node@22.19.11)':
     dependencies:
@@ -10755,13 +10770,13 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/search@4.1.2(@types/node@24.10.4)':
+  '@inquirer/search@4.1.2(@types/node@22.19.11)':
     dependencies:
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
       '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/select@4.4.2(@types/node@22.19.11)':
     dependencies:
@@ -10773,22 +10788,22 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/select@5.0.6(@types/node@24.10.4)':
+  '@inquirer/select@5.0.6(@types/node@22.19.11)':
     dependencies:
       '@inquirer/ansi': 2.0.3
-      '@inquirer/core': 11.1.3(@types/node@24.10.4)
+      '@inquirer/core': 11.1.3(@types/node@22.19.11)
       '@inquirer/figures': 2.0.3
-      '@inquirer/type': 4.0.3(@types/node@24.10.4)
+      '@inquirer/type': 4.0.3(@types/node@22.19.11)
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@inquirer/type@3.0.10(@types/node@22.19.11)':
     optionalDependencies:
       '@types/node': 22.19.11
 
-  '@inquirer/type@4.0.3(@types/node@24.10.4)':
+  '@inquirer/type@4.0.3(@types/node@22.19.11)':
     optionalDependencies:
-      '@types/node': 24.10.4
+      '@types/node': 22.19.11
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -11084,9 +11099,9 @@ snapshots:
       '@types/react': 19.2.14
       react: 19.2.4
 
-  '@napi-rs/cli@3.5.1(@emnapi/runtime@1.7.1)(@types/node@24.10.4)(node-addon-api@7.1.1)':
+  '@napi-rs/cli@3.5.1(@emnapi/runtime@1.7.1)(@types/node@22.19.11)(node-addon-api@7.1.1)':
     dependencies:
-      '@inquirer/prompts': 8.2.1(@types/node@24.10.4)
+      '@inquirer/prompts': 8.2.1(@types/node@22.19.11)
       '@napi-rs/cross-toolchain': 1.0.3
       '@napi-rs/wasm-tools': 1.0.1
       '@octokit/rest': 22.0.1
@@ -11508,7 +11523,7 @@ snapshots:
   '@opentelemetry/core@2.2.0(@opentelemetry/api@1.9.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
-      '@opentelemetry/semantic-conventions': 1.38.0
+      '@opentelemetry/semantic-conventions': 1.39.0
 
   '@opentelemetry/core@2.5.0(@opentelemetry/api@1.9.0)':
     dependencies:
@@ -11787,7 +11802,7 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/core': 2.2.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/resources': 2.2.0(@opentelemetry/api@1.9.0)
-      '@opentelemetry/semantic-conventions': 1.38.0
+      '@opentelemetry/semantic-conventions': 1.39.0
 
   '@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0)':
     dependencies:
@@ -12083,33 +12098,33 @@ snapshots:
 
   '@sec-ant/readable-stream@0.4.1': {}
 
-  '@sentry-internal/browser-utils@10.38.0':
+  '@sentry-internal/browser-utils@10.39.0':
     dependencies:
-      '@sentry/core': 10.38.0
+      '@sentry/core': 10.39.0
 
-  '@sentry-internal/feedback@10.38.0':
+  '@sentry-internal/feedback@10.39.0':
     dependencies:
-      '@sentry/core': 10.38.0
+      '@sentry/core': 10.39.0
 
-  '@sentry-internal/replay-canvas@10.38.0':
+  '@sentry-internal/replay-canvas@10.39.0':
     dependencies:
-      '@sentry-internal/replay': 10.38.0
-      '@sentry/core': 10.38.0
+      '@sentry-internal/replay': 10.39.0
+      '@sentry/core': 10.39.0
 
-  '@sentry-internal/replay@10.38.0':
+  '@sentry-internal/replay@10.39.0':
     dependencies:
-      '@sentry-internal/browser-utils': 10.38.0
-      '@sentry/core': 10.38.0
+      '@sentry-internal/browser-utils': 10.39.0
+      '@sentry/core': 10.39.0
 
   '@sentry/babel-plugin-component-annotate@4.9.1': {}
 
-  '@sentry/browser@10.38.0':
+  '@sentry/browser@10.39.0':
     dependencies:
-      '@sentry-internal/browser-utils': 10.38.0
-      '@sentry-internal/feedback': 10.38.0
-      '@sentry-internal/replay': 10.38.0
-      '@sentry-internal/replay-canvas': 10.38.0
-      '@sentry/core': 10.38.0
+      '@sentry-internal/browser-utils': 10.39.0
+      '@sentry-internal/feedback': 10.39.0
+      '@sentry-internal/replay': 10.39.0
+      '@sentry-internal/replay-canvas': 10.39.0
+      '@sentry/core': 10.39.0
 
   '@sentry/bundler-plugin-core@4.9.1(encoding@0.1.13)':
     dependencies:
@@ -12169,16 +12184,20 @@ snapshots:
       - encoding
       - supports-color
 
-  '@sentry/cloudflare@10.38.0':
+  '@sentry/cloudflare@10.39.0':
     dependencies:
       '@opentelemetry/api': 1.9.0
-      '@sentry/core': 10.38.0
+      '@sentry/core': 10.39.0
 
-  '@sentry/core@10.38.0': {}
+  '@sentry/core@10.39.0': {}
 
-  '@sentry/node-core@10.38.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.211.0(@opentelemetry/api@1.9.0))(@opentelemetry/resources@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)':
+  '@sentry/node-core@10.39.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.211.0(@opentelemetry/api@1.9.0))(@opentelemetry/resources@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)':
     dependencies:
       '@apm-js-collab/tracing-hooks': 0.3.1
+      '@sentry/core': 10.39.0
+      '@sentry/opentelemetry': 10.39.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)
+      import-in-the-middle: 2.0.6
+    optionalDependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/context-async-hooks': 2.5.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/core': 2.5.1(@opentelemetry/api@1.9.0)
@@ -12186,13 +12205,10 @@ snapshots:
       '@opentelemetry/resources': 2.5.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-trace-base': 2.5.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.39.0
-      '@sentry/core': 10.38.0
-      '@sentry/opentelemetry': 10.38.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)
-      import-in-the-middle: 2.0.6
     transitivePeerDependencies:
       - supports-color
 
-  '@sentry/node@10.38.0':
+  '@sentry/node@10.39.0':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/context-async-hooks': 2.5.1(@opentelemetry/api@1.9.0)
@@ -12224,37 +12240,37 @@ snapshots:
       '@opentelemetry/sdk-trace-base': 2.5.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.39.0
       '@prisma/instrumentation': 7.2.0(@opentelemetry/api@1.9.0)
-      '@sentry/core': 10.38.0
-      '@sentry/node-core': 10.38.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.211.0(@opentelemetry/api@1.9.0))(@opentelemetry/resources@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)
-      '@sentry/opentelemetry': 10.38.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)
+      '@sentry/core': 10.39.0
+      '@sentry/node-core': 10.39.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.211.0(@opentelemetry/api@1.9.0))(@opentelemetry/resources@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)
+      '@sentry/opentelemetry': 10.39.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)
       import-in-the-middle: 2.0.6
       minimatch: 9.0.5
     transitivePeerDependencies:
       - supports-color
 
-  '@sentry/opentelemetry@10.38.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)':
+  '@sentry/opentelemetry@10.39.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.5.1(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.39.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/context-async-hooks': 2.5.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/core': 2.5.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/sdk-trace-base': 2.5.1(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.39.0
-      '@sentry/core': 10.38.0
+      '@sentry/core': 10.39.0
 
-  '@sentry/svelte@10.38.0(svelte@5.51.5)':
+  '@sentry/svelte@10.39.0(svelte@5.51.5)':
     dependencies:
-      '@sentry/browser': 10.38.0
-      '@sentry/core': 10.38.0
+      '@sentry/browser': 10.39.0
+      '@sentry/core': 10.39.0
       magic-string: 0.30.21
       svelte: 5.51.5
 
-  '@sentry/sveltekit@10.38.0(@sveltejs/kit@2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(encoding@0.1.13)(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2))':
+  '@sentry/sveltekit@10.39.0(@sveltejs/kit@2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(encoding@0.1.13)(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@babel/parser': 7.26.9
-      '@sentry/cloudflare': 10.38.0
-      '@sentry/core': 10.38.0
-      '@sentry/node': 10.38.0
-      '@sentry/svelte': 10.38.0(svelte@5.51.5)
+      '@sentry/cloudflare': 10.39.0
+      '@sentry/core': 10.39.0
+      '@sentry/node': 10.39.0
+      '@sentry/svelte': 10.39.0(svelte@5.51.5)
       '@sentry/vite-plugin': 4.9.1(encoding@0.1.13)
       '@sveltejs/kit': 2.52.2(@opentelemetry/api@1.9.0)(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.51.5)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)))(svelte@5.51.5)(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2))
       magic-string: 0.30.7
@@ -12860,6 +12876,7 @@ snapshots:
   '@types/node@24.10.4':
     dependencies:
       undici-types: 7.16.0
+    optional: true
 
   '@types/normalize-package-data@2.4.4': {}
 
@@ -18393,24 +18410,6 @@ snapshots:
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
 
-  ts-node@10.9.2(@types/node@24.10.4)(typescript@5.9.3):
-    dependencies:
-      '@cspotcode/source-map-support': 0.8.1
-      '@tsconfig/node10': 1.0.12
-      '@tsconfig/node12': 1.0.11
-      '@tsconfig/node14': 1.0.3
-      '@tsconfig/node16': 1.0.4
-      '@types/node': 24.10.4
-      acorn: 8.15.0
-      acorn-walk: 8.3.4
-      arg: 4.1.3
-      create-require: 1.1.1
-      diff: 4.0.2
-      make-error: 1.3.6
-      typescript: 5.9.3
-      v8-compile-cache-lib: 3.0.1
-      yn: 3.1.1
-
   tslib@2.8.1: {}
 
   tsx@4.21.0:
@@ -18491,7 +18490,8 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici-types@7.16.0: {}
+  undici-types@7.16.0:
+    optional: true
 
   undici@6.23.0: {}
 
