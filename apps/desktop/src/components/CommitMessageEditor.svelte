@@ -47,11 +47,16 @@
 		noPadding,
 		disabledAction,
 		loading,
-		title,
-		description,
+		title: initialTitle,
+		description: initialDescription,
 		floatingBoxHeader = "Create commit",
 		existingCommitId,
 	}: Props = $props();
+
+	// Own the draft state so that parent reactive re-evaluations
+	// (e.g. query refetches) don't clobber in-progress user edits.
+	let title = $state(initialTitle);
+	let description = $state(initialDescription);
 
 	const uiState = inject(UI_STATE);
 	const aiService = inject(AI_SERVICE);
@@ -199,8 +204,6 @@
 		{suggestionsHandler}
 		useRuler={uiState.global.useRuler.current}
 		onChange={(value) => {
-			// Updating the description prevents resetting the editor value
-			// when toggling between inline and modal view.
 			description = value;
 			onChange?.({ description: value });
 		}}
