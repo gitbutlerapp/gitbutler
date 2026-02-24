@@ -19,7 +19,6 @@ use but_core::{
     sync::{RepoExclusive, RepoShared},
 };
 use but_ctx::{Context, ThreadSafeContext};
-use gitbutler_stack::VirtualBranchesHandle;
 use gix::bstr::ByteSlice;
 use serde::Serialize;
 use tokio::{
@@ -922,7 +921,7 @@ fn format_branch_info(ctx: &mut Context, stack_id: StackId, perm: &RepoShared) -
         consider both committed and uncommitted changes.\n\n",
     );
 
-    append_target_branch_info(&mut output, ctx);
+    append_target_branch_info(&mut output, ctx, perm);
     append_stack_branches_info(&mut output, stack_id, ctx);
     append_assigned_files_info(&mut output, stack_id, ctx, perm).ok();
 
@@ -931,15 +930,19 @@ fn format_branch_info(ctx: &mut Context, stack_id: StackId, perm: &RepoShared) -
 }
 
 /// Appends target branch (upstream) information to the output
-fn append_target_branch_info(output: &mut String, ctx: &Context) {
-    let state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    match state.get_default_target() {
-        Ok(target) => {
-            output.push_str(&format!(
-                "Target branch (upstream): {}/{}\n\n",
-                target.branch.remote(),
-                target.branch.branch()
-            ));
+fn append_target_branch_info(output: &mut String, ctx: &Context, perm: &RepoShared) {
+    match ctx.workspace_and_db_with_perm(perm) {
+        Ok((_repo, ws, _db)) => {
+            if let Some(target_ref) = ws.target_ref.as_ref() {
+                output.push_str(&format!(
+                    "Target branch (upstream): {}\n\n",
+                    target_ref.ref_name.shorten()
+                ));
+            } else {
+                tracing::warn!(
+                    "Failed to fetch target branch information: no target ref in workspace"
+                );
+            }
         }
         Err(e) => {
             tracing::warn!("Failed to fetch target branch information: {}", e);
@@ -1260,7 +1263,7 @@ or commits, is unspecified.
 fn create_can_use_tool_callback(
     sync_ctx: ThreadSafeContext,
     broadcaster: Arc<Mutex<Broadcaster>>,
-    stack_id: gitbutler_stack::StackId,
+    stack_id: but_core::ref_metadata::StackId,
     auto_approve_tools: bool,
     session_id: uuid::Uuid,
 ) -> claude_agent_sdk_rs::CanUseToolCallback {
@@ -1494,7 +1497,7 @@ fn create_can_use_tool_callback(
 /// Handle AskUserQuestion tool - waits for user answers via in-memory channel
 async fn handle_ask_user_question(
     sync_ctx: ThreadSafeContext,
-    stack_id: gitbutler_stack::StackId,
+    stack_id: but_core::ref_metadata::StackId,
     session_id: uuid::Uuid,
     tool_input: serde_json::Value,
 ) -> claude_agent_sdk_rs::PermissionResult {
@@ -1590,7 +1593,7 @@ async fn handle_ask_user_question(
 #[allow(unused_variables)]
 fn create_pretool_use_hook(
     sync_ctx: ThreadSafeContext,
-    stack_id: gitbutler_stack::StackId,
+    stack_id: but_core::ref_metadata::StackId,
 ) -> claude_agent_sdk_rs::HookCallback {
     use std::sync::Arc;
 

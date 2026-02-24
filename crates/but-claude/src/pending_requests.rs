@@ -159,7 +159,7 @@ impl PendingRequests {
     /// Gets a pending question request by stack ID.
     pub fn get_question_by_stack(
         &self,
-        stack_id: &gitbutler_stack::StackId,
+        stack_id: &but_core::ref_metadata::StackId,
     ) -> Option<ClaudeAskUserQuestionRequest> {
         let questions = self.questions.lock().unwrap();
         questions

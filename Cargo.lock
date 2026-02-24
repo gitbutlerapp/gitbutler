@@ -1022,7 +1022,6 @@ dependencies = [
  "futures",
  "gitbutler-branch",
  "gitbutler-branch-actions",
- "gitbutler-stack",
  "gix",
  "notify-rust",
  "serde",
