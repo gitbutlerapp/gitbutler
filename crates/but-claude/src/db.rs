@@ -231,7 +231,7 @@ pub fn answer_ask_user_question(
 /// Returns true if an update was made, false if no pending request was found for the stack.
 pub fn set_ask_user_question_answers_by_stack(
     _ctx: &mut Context,
-    stack_id: gitbutler_stack::StackId,
+    stack_id: but_core::ref_metadata::StackId,
     answers: std::collections::HashMap<String, String>,
 ) -> anyhow::Result<bool> {
     let pending = crate::pending_requests::pending_requests();
