@@ -78,9 +78,13 @@ fn extract_conflicted_files(
 
 /// Merge two commits together
 ///
-/// The `target_commit` and `incoming_commit` must have a common ancestor.
+/// The returned merge commit will have `target_commit` as its first parent and
+/// `incoming_commit` as its second. If there is a merge conflict, the trees
+/// are written **swapped**: the tree of `incoming_commit` is written first as
+/// "ours" and the tree of `target_commit` is written second as "theirs". The
+/// autoresolution tree favors *our* side, the `incoming_commit`.
 ///
-/// If there is a merge conflict, we will **auto-resolve** to favor *our* side, the `incoming_commit`.
+/// The `target_commit` and `incoming_commit` must have a common ancestor.
 pub fn merge_commits(
     gix_repository: &gix::Repository,
     target_commit: gix::ObjectId,
