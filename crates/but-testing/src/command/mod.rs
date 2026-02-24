@@ -389,7 +389,11 @@ pub fn watch_db(args: &super::Args) -> anyhow::Result<()> {
 
 pub fn operating_mode(args: &super::Args) -> anyhow::Result<()> {
     let ctx = Context::discover(&args.current_dir)?;
-    debug_print(gitbutler_operating_modes::operating_mode(&ctx))
+    let guard = ctx.shared_worktree_access();
+    debug_print(gitbutler_operating_modes::operating_mode(
+        &ctx,
+        guard.read_permission(),
+    )?)
 }
 
 pub fn ref_info(args: &super::Args, ref_name: Option<&str>, expensive: bool) -> anyhow::Result<()> {

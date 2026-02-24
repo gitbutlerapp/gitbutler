@@ -16,8 +16,6 @@ but-core.workspace = true
 but-fs.workspace = true
 but-ctx.workspace = true
 
-gitbutler-stack.workspace = true
-
 serde.workspace = true
 tracing.workspace = true
 git2.workspace = true
