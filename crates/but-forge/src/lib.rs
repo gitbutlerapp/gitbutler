@@ -72,6 +72,17 @@ fn match_host_to_accounts_custom_host(host: &str, accounts: &[ForgeUser]) -> Opt
     }
 }
 
+/// Checks if an account's custom host matches a repository host.
+///
+/// This function supports subdomain matching, where an account's custom host that is a
+/// subdomain of the repository host will match. For example:
+/// - Account host: `api.example.com`, Repository host: `example.com` → matches
+/// - Account host: `gitlab.mycompany.com`, Repository host: `mycompany.com` → matches
+/// - Account host: `example.com`, Repository host: `example.com` → matches (exact match)
+///
+/// The logic first normalizes both hosts (removing schemes, paths, ports, etc.) and then
+/// checks if they are identical or if the account host ends with the repository host
+/// prefixed by a dot (indicating it's a subdomain).
 fn custom_host_matches_repository_host(repository_host: &str, account_custom_host: &str) -> bool {
     let normalized_repository_host = normalize_host_for_comparison(repository_host);
     let normalized_account_host = normalize_host_for_comparison(account_custom_host);
