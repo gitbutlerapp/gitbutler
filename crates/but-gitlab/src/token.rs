@@ -91,6 +91,14 @@ impl GitlabAccountIdentifier {
             }
         }
     }
+
+    /// Retrieve the custom forge host, if this is a Self-Hosted account.
+    pub fn custom_host(&self) -> Option<String> {
+        match self {
+            GitlabAccountIdentifier::SelfHosted { host, .. } => Some(host.to_string()),
+            GitlabAccountIdentifier::PatUsername { .. } => None,
+        }
+    }
 }
 
 impl std::fmt::Display for GitlabAccountIdentifier {

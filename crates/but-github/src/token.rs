@@ -99,6 +99,15 @@ impl GithubAccountIdentifier {
             }
         }
     }
+
+    /// Retrieve the custom forge host, if this is an Enterprise account.
+    pub fn custom_host(&self) -> Option<String> {
+        match self {
+            GithubAccountIdentifier::Enterprise { host, .. } => Some(host.to_string()),
+            GithubAccountIdentifier::OAuthUsername { .. } => None,
+            GithubAccountIdentifier::PatUsername { .. } => None,
+        }
+    }
 }
 
 impl std::fmt::Display for GithubAccountIdentifier {

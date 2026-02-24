@@ -1130,6 +1130,7 @@ dependencies = [
  "but-fs",
  "but-github",
  "but-gitlab",
+ "but-path",
  "chrono",
  "git-url-parse",
  "schemars 1.2.1",

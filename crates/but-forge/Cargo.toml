@@ -24,6 +24,7 @@ but-github.workspace = true
 but-gitlab.workspace = true
 but-forge-storage.workspace = true
 but-db.workspace = true
+but-path.workspace = true
 
 chrono.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
