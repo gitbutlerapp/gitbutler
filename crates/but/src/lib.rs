@@ -108,6 +108,8 @@ pub async fn handle_args(args: impl Iterator<Item = OsString>) -> Result<()> {
     // Determine if pager should be used based on the command
     let use_pager = match args.cmd {
         #[cfg(feature = "legacy")]
+        Some(Subcommands::Status { .. }) => true,
+        #[cfg(feature = "legacy")]
         Some(Subcommands::Diff { tui, .. }) => !tui,
         #[cfg(feature = "legacy")]
         Some(Subcommands::Stage {
