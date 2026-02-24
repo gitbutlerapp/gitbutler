@@ -14,12 +14,13 @@ use crate::json::Error;
 #[serde(rename_all = "camelCase")]
 pub struct HeadAndMode {
     pub head: Option<String>,
-    pub operating_mode: Option<OperatingMode>,
+    pub operating_mode: OperatingMode,
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
+    let guard = ctx.shared_worktree_access();
     let repo = ctx.repo.get()?;
     let head = repo.head();
     let head_ref_short = match head.as_ref().map(|head| head.referent_name()) {
@@ -29,7 +30,7 @@ pub fn operating_mode(ctx: &Context) -> Result<HeadAndMode, Error> {
 
     Ok(HeadAndMode {
         head: head_ref_short,
-        operating_mode: Some(gitbutler_operating_modes::operating_mode(ctx)),
+        operating_mode: gitbutler_operating_modes::operating_mode(ctx, guard.read_permission()),
     })
 }
 

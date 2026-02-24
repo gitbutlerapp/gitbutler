@@ -342,9 +342,9 @@ pub struct ConflictEntryPresence {
 
 pub(crate) fn starting_index_state(
     ctx: &Context,
-    _perm: &RepoShared,
+    perm: &RepoShared,
 ) -> Result<Vec<(TreeChange, Option<ConflictEntryPresence>)>> {
-    let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
+    let OperatingMode::Edit(metadata) = operating_mode(ctx, perm) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
@@ -404,8 +404,8 @@ pub(crate) fn starting_index_state(
     Ok(outcome)
 }
 
-pub(crate) fn changes_from_initial(ctx: &Context, _perm: &RepoShared) -> Result<Vec<TreeChange>> {
-    let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
+pub(crate) fn changes_from_initial(ctx: &Context, perm: &RepoShared) -> Result<Vec<TreeChange>> {
+    let OperatingMode::Edit(metadata) = operating_mode(ctx, perm) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
 

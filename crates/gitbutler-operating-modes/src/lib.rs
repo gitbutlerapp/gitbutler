@@ -2,10 +2,9 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use bstr::BString;
-use but_core::ref_metadata::StackId;
+use but_core::{ref_metadata::StackId, sync::RepoShared};
 use but_ctx::Context;
 use but_serde::BStringForFrontend;
-use gitbutler_stack::VirtualBranchesHandle;
 use serde::{Deserialize, Serialize};
 
 /// The reference the app will checkout when the workspace is open
@@ -84,17 +83,17 @@ pub enum OperatingMode {
     Edit(EditModeMetadata),
 }
 
-pub fn operating_mode(ctx: &Context) -> OperatingMode {
+pub fn operating_mode(ctx: &Context, perm: &RepoShared) -> OperatingMode {
     let repo = ctx.git2_repo.get().unwrap();
     let Ok(head_ref) = repo.head() else {
         return OperatingMode::OutsideWorkspace(
-            outside_workspace_metadata(ctx).unwrap_or_default(),
+            outside_workspace_metadata(ctx, perm).unwrap_or_default(),
         );
     };
 
     let Some(head_ref_name) = head_ref.name() else {
         return OperatingMode::OutsideWorkspace(
-            outside_workspace_metadata(ctx).unwrap_or_default(),
+            outside_workspace_metadata(ctx, perm).unwrap_or_default(),
         );
     };
 
@@ -110,15 +109,20 @@ pub fn operating_mode(ctx: &Context) -> OperatingMode {
                     "Failed to open in edit mode, falling back to outside workspace {}",
                     error
                 );
-                OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx).unwrap_or_default())
+                OperatingMode::OutsideWorkspace(
+                    outside_workspace_metadata(ctx, perm).unwrap_or_default(),
+                )
             }
         }
     } else {
-        OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx).unwrap_or_default())
+        OperatingMode::OutsideWorkspace(outside_workspace_metadata(ctx, perm).unwrap_or_default())
     }
 }
 
-fn outside_workspace_metadata(ctx: &Context) -> Result<OutsideWorkspaceMetadata> {
+fn outside_workspace_metadata(
+    ctx: &Context,
+    perm: &RepoShared,
+) -> Result<OutsideWorkspaceMetadata> {
     // We do a virtual-merge, extracting conflicts.
     let gix_repo = ctx.clone_repo_for_merging_non_persisting()?;
 
@@ -127,10 +131,8 @@ fn outside_workspace_metadata(ctx: &Context) -> Result<OutsideWorkspaceMetadata>
         .referent_name()
         .map(|r| r.as_partial_name().as_bstr().to_owned());
 
-    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-    let applied_stacks = vb_state.list_stacks_in_workspace()?;
-
-    if vb_state.maybe_get_default_target()?.is_none() || applied_stacks.is_empty() {
+    let (_repo, ws, _db) = ctx.workspace_and_db_with_perm(perm)?;
+    if ws.target_ref.is_none() || ws.stacks.is_empty() {
         // Nothing to conflict
         return Ok(OutsideWorkspaceMetadata {
             branch_name,
@@ -153,35 +155,38 @@ fn outside_workspace_metadata(ctx: &Context) -> Result<OutsideWorkspaceMetadata>
     })
 }
 
-pub fn in_open_workspace_mode(ctx: &Context) -> bool {
-    operating_mode(ctx) == OperatingMode::OpenWorkspace
+pub fn in_open_workspace_mode(ctx: &Context, perm: &RepoShared) -> bool {
+    operating_mode(ctx, perm) == OperatingMode::OpenWorkspace
 }
 
-pub fn ensure_open_workspace_mode(ctx: &Context) -> Result<()> {
-    if in_open_workspace_mode(ctx) {
+pub fn ensure_open_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<()> {
+    if in_open_workspace_mode(ctx, perm) {
         Ok(())
     } else {
         bail!("Expected to be in open workspace mode")
     }
 }
 
-pub fn in_edit_mode(ctx: &Context) -> bool {
-    matches!(operating_mode(ctx), OperatingMode::Edit(_))
+pub fn in_edit_mode(ctx: &Context, perm: &RepoShared) -> bool {
+    matches!(operating_mode(ctx, perm), OperatingMode::Edit(_))
 }
 
-pub fn ensure_edit_mode(ctx: &Context) -> Result<EditModeMetadata> {
-    match operating_mode(ctx) {
+pub fn ensure_edit_mode(ctx: &Context, perm: &RepoShared) -> Result<EditModeMetadata> {
+    match operating_mode(ctx, perm) {
         OperatingMode::Edit(edit_mode_metadata) => Ok(edit_mode_metadata),
         _ => bail!("Expected to be in edit mode"),
     }
 }
 
-pub fn in_outside_workspace_mode(ctx: &Context) -> bool {
-    matches!(operating_mode(ctx), OperatingMode::OutsideWorkspace(_))
+pub fn in_outside_workspace_mode(ctx: &Context, perm: &RepoShared) -> bool {
+    matches!(
+        operating_mode(ctx, perm),
+        OperatingMode::OutsideWorkspace(_)
+    )
 }
 
-pub fn ensure_outside_workspace_mode(ctx: &Context) -> Result<()> {
-    if in_outside_workspace_mode(ctx) {
+pub fn ensure_outside_workspace_mode(ctx: &Context, perm: &RepoShared) -> Result<()> {
+    if in_outside_workspace_mode(ctx, perm) {
         Ok(())
     } else {
         bail!("Expected to be in outside workspace mode")

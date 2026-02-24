@@ -82,7 +82,7 @@ fn handle_changes_simple_inner(
     perm: &mut RepoExclusive,
     exclusive_stack: Option<StackId>,
 ) -> anyhow::Result<Outcome> {
-    match gitbutler_operating_modes::operating_mode(ctx) {
+    match gitbutler_operating_modes::operating_mode(ctx, perm.read_permission()) {
         OperatingMode::OpenWorkspace => {
             // No action needed, we're already in the workspace
         }

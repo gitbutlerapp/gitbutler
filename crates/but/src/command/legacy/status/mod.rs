@@ -85,7 +85,7 @@ pub(crate) async fn worktree(
     hint: bool,
 ) -> anyhow::Result<()> {
     // Check if we're in edit mode first, before doing any expensive operations
-    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
     if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
         // In edit mode, show the conflict resolution status
         return show_edit_mode_status(ctx, out);

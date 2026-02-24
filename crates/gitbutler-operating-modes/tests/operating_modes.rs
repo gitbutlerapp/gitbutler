@@ -40,7 +40,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/workspace");
 
-            let in_open_workspace = in_open_workspace_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_open_workspace = in_open_workspace_mode(ctx, guard.read_permission());
             assert!(in_open_workspace);
         }
 
@@ -51,7 +52,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/edit");
 
-            let in_open_workspace = in_open_workspace_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_open_workspace = in_open_workspace_mode(ctx, guard.read_permission());
             assert!(!in_open_workspace);
         }
 
@@ -62,7 +64,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "testeroni");
 
-            let in_open_workspace = in_open_workspace_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_open_workspace = in_open_workspace_mode(ctx, guard.read_permission());
             assert!(!in_open_workspace);
         }
 
@@ -73,7 +76,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/workspace");
 
-            assert!(ensure_open_workspace_mode(ctx).is_ok());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_open_workspace_mode(ctx, guard.read_permission()).is_ok());
         }
 
         #[test]
@@ -83,7 +87,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/edit");
 
-            assert!(ensure_open_workspace_mode(ctx).is_err());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_open_workspace_mode(ctx, guard.read_permission()).is_err());
         }
 
         #[test]
@@ -93,7 +98,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "testeroni");
 
-            assert!(ensure_open_workspace_mode(ctx).is_err());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_open_workspace_mode(ctx, guard.read_permission()).is_err());
         }
     }
 
@@ -110,7 +116,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "testeroni");
 
-            let in_outside_workspace = in_outside_workspace_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_outside_workspace = in_outside_workspace_mode(ctx, guard.read_permission());
             assert!(in_outside_workspace);
         }
 
@@ -122,7 +129,8 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "gitbutler/edit");
             create_edit_mode_metadata(ctx);
 
-            let in_outside_worskpace = in_outside_workspace_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_outside_worskpace = in_outside_workspace_mode(ctx, guard.read_permission());
             assert!(!in_outside_worskpace);
         }
 
@@ -133,7 +141,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/workspace");
 
-            let in_outside_worskpace = in_outside_workspace_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_outside_worskpace = in_outside_workspace_mode(ctx, guard.read_permission());
             assert!(!in_outside_worskpace);
         }
 
@@ -144,7 +153,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "testeroni");
 
-            assert!(ensure_outside_workspace_mode(ctx).is_ok());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_outside_workspace_mode(ctx, guard.read_permission()).is_ok());
         }
 
         #[test]
@@ -155,7 +165,8 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "gitbutler/edit");
             create_edit_mode_metadata(ctx);
 
-            assert!(ensure_outside_workspace_mode(ctx).is_err());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_outside_workspace_mode(ctx, guard.read_permission()).is_err());
         }
 
         #[test]
@@ -165,7 +176,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/workspace");
 
-            assert!(ensure_outside_workspace_mode(ctx).is_err());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_outside_workspace_mode(ctx, guard.read_permission()).is_err());
         }
     }
 
@@ -183,7 +195,8 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "gitbutler/edit");
             create_edit_mode_metadata(ctx);
 
-            let in_edit_mode = in_edit_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_edit_mode = in_edit_mode(ctx, guard.read_permission());
             assert!(in_edit_mode);
         }
 
@@ -194,7 +207,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/edit");
 
-            let in_edit_mode = in_edit_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_edit_mode = in_edit_mode(ctx, guard.read_permission());
             assert!(!in_edit_mode);
         }
 
@@ -206,7 +220,8 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "testeroni");
             create_edit_mode_metadata(ctx);
 
-            let in_edit_mode = in_edit_mode(ctx);
+            let guard = ctx.shared_worktree_access();
+            let in_edit_mode = in_edit_mode(ctx, guard.read_permission());
             assert!(!in_edit_mode);
         }
 
@@ -218,7 +233,8 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "gitbutler/edit");
             create_edit_mode_metadata(ctx);
 
-            assert!(ensure_edit_mode(ctx).is_ok());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_edit_mode(ctx, guard.read_permission()).is_ok());
         }
 
         #[test]
@@ -228,7 +244,8 @@ mod operating_modes {
 
             create_and_checkout_branch(ctx, "gitbutler/edit");
 
-            assert!(ensure_edit_mode(ctx).is_err());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_edit_mode(ctx, guard.read_permission()).is_err());
         }
 
         #[test]
@@ -239,7 +256,8 @@ mod operating_modes {
             create_and_checkout_branch(ctx, "testeroni");
             create_edit_mode_metadata(ctx);
 
-            assert!(ensure_edit_mode(ctx).is_err());
+            let guard = ctx.shared_worktree_access();
+            assert!(ensure_edit_mode(ctx, guard.read_permission()).is_err());
         }
     }
 }

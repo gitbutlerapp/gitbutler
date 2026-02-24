@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_api::legacy::modes::{
-    abort_edit_and_return_to_workspace, edit_initial_index_state, enter_edit_mode,
+    abort_edit_and_return_to_workspace, edit_initial_index_state, enter_edit_mode, operating_mode,
     save_edit_and_return_to_workspace_with_output,
 };
 use but_ctx::Context;
@@ -38,7 +38,7 @@ pub(crate) fn handle(
                 enter_resolution(ctx, out, &commit_id_str)
             } else {
                 // Check if we're already in edit mode
-                let mode = gitbutler_operating_modes::operating_mode(ctx);
+                let mode = operating_mode(ctx)?.operating_mode;
                 if matches!(mode, OperatingMode::Edit(_)) {
                     // If in edit mode, show status instead of help
                     show_status(ctx, out)
@@ -158,7 +158,7 @@ fn show_status_impl(
     prompt_to_finalize: bool,
 ) -> Result<()> {
     // Check if we're in edit mode
-    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
         // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
@@ -319,7 +319,7 @@ fn has_conflict_markers(content: &str) -> bool {
 
 fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
     // Check if we're in edit mode
-    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
         // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
@@ -354,7 +354,7 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
 
 fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) -> Result<()> {
     // Check if we're in edit mode
-    let mode = gitbutler_operating_modes::operating_mode(ctx);
+    let mode = operating_mode(ctx)?.operating_mode;
     if !matches!(mode, OperatingMode::Edit(_)) {
         // Not in edit mode, show the workflow help instead
         return show_workflow_help(out);
