@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{Context as _, Result, bail};
 use bstr::{BString, ByteSlice};
@@ -19,7 +19,10 @@ use gitbutler_operating_modes::{
 };
 use gitbutler_repo::{RepositoryExt as _, SignaturePurpose, signature};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_workspace::branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree};
+use gitbutler_workspace::{
+    branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree},
+    submodules::has_submodules_configured,
+};
 use serde::Serialize;
 
 pub mod commands;
@@ -149,29 +152,158 @@ fn get_uncommited_changes(ctx: &Context) -> Result<git2::Oid> {
     Ok(uncommited_changes)
 }
 
+fn sync_configured_submodules(repo: &git2::Repository) {
+    let Ok(mut submodules) = repo.submodules() else {
+        return;
+    };
+
+    for submodule in &mut submodules {
+        let _ = submodule.update(true, None);
+    }
+}
+
+fn configured_submodule_paths(repo: &git2::Repository) -> Vec<String> {
+    let mut paths = HashSet::new();
+
+    if let Ok(submodules) = repo.submodules() {
+        for submodule in submodules {
+            paths.insert(submodule.path().to_string_lossy().to_string());
+        }
+    }
+
+    // When only .git/modules entries exist, derive logical submodule paths from that layout.
+    let modules_root = repo.path().join("modules");
+    if modules_root.exists() {
+        let mut stack = vec![modules_root.clone()];
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if !path.is_dir() {
+                    continue;
+                }
+
+                if path.join("HEAD").is_file()
+                    && let Ok(relative) = path.strip_prefix(&modules_root)
+                {
+                    paths.insert(relative.to_string_lossy().to_string());
+                }
+
+                stack.push(path);
+            }
+        }
+    }
+
+    let mut output = paths.into_iter().collect::<Vec<_>>();
+    output.sort();
+    output
+}
+
+fn is_submodule_related_path(path: &str, submodule_paths: &[String]) -> bool {
+    submodule_paths
+        .iter()
+    .any(|sm| path == sm || path.strip_prefix(sm).is_some_and(|rest| rest.starts_with('/')))
+}
+
+fn collect_checkout_paths(
+    repo: &git2::Repository,
+    baseline: &git2::Tree,
+    target: &git2::Tree,
+    submodule_paths: &[String],
+) -> Result<Vec<String>> {
+    let mut paths = HashSet::new();
+    let diff = repo.diff_tree_to_tree(Some(baseline), Some(target), None)?;
+
+    for delta in diff.deltas() {
+        if let Some(path) = delta.old_file().path() {
+            let path = path.to_string_lossy().to_string();
+            if !is_submodule_related_path(&path, submodule_paths) {
+                paths.insert(path);
+            }
+        }
+        if let Some(path) = delta.new_file().path() {
+            let path = path.to_string_lossy().to_string();
+            if !is_submodule_related_path(&path, submodule_paths) {
+                paths.insert(path);
+            }
+        }
+    }
+
+    let mut output = paths.into_iter().collect::<Vec<_>>();
+    output.sort();
+    Ok(output)
+}
+
 fn checkout_edit_branch(ctx: &Context, commit: git2::Commit) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
+    let has_submodules = has_submodules_configured(repo);
+    let submodule_paths = if has_submodules {
+        configured_submodule_paths(repo)
+    } else {
+        Vec::new()
+    };
+    let result = (|| -> Result<()> {
+        let current_head_tree = repo.head()?.peel_to_tree()?;
 
-    // Checkout commits's parent
-    let commit_parent = find_or_create_base_commit(repo, &commit)?;
-    repo.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
-    repo.set_head(EDIT_BRANCH_REF)?;
-    repo.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
+        // Checkout commits's parent
+        let commit_parent = find_or_create_base_commit(repo, &commit)?;
+        let commit_parent_tree = commit_parent.tree()?;
+        let checkout_head_paths = collect_checkout_paths(
+            repo,
+            &current_head_tree,
+            &commit_parent_tree,
+            &submodule_paths,
+        )?;
 
-    // Checkout the commit as unstaged changes
-    let mut index = get_commit_index(ctx, &commit)?;
+        repo.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
+        repo.set_head(EDIT_BRANCH_REF)?;
+        let mut checkout_head = CheckoutBuilder::new();
+        checkout_head.force();
+        if !has_submodules {
+            checkout_head.remove_untracked(true);
+        } else {
+            for path in &checkout_head_paths {
+                checkout_head.path(path);
+            }
+        }
+        if !has_submodules || !checkout_head_paths.is_empty() {
+            repo.checkout_head(Some(&mut checkout_head))?;
+        }
 
-    repo.checkout_index(
-        Some(&mut index),
-        Some(
-            CheckoutBuilder::new()
-                .force()
-                .remove_untracked(true)
-                .conflict_style_diff3(true),
-        ),
-    )?;
+        // Checkout the commit as unstaged changes
+        let mut index = get_commit_index(ctx, &commit)?;
+        let commit_tree = commit.tree()?;
+        let checkout_index_paths = collect_checkout_paths(
+            repo,
+            &commit_parent_tree,
+            &commit_tree,
+            &submodule_paths,
+        )?;
+        let mut checkout_index = CheckoutBuilder::new();
+        checkout_index.force().conflict_style_diff3(true);
+        if !has_submodules {
+            checkout_index.remove_untracked(true);
+        } else {
+            for path in &checkout_index_paths {
+                checkout_index.path(path);
+            }
+        }
 
-    Ok(())
+        if !has_submodules || !checkout_index_paths.is_empty() {
+            repo.checkout_index(Some(&mut index), Some(&mut checkout_index))?;
+        }
+
+        // Keep configured submodule worktrees populated after moving into edit mode.
+        if has_submodules {
+            sync_configured_submodules(repo);
+        }
+
+        Ok(())
+    })();
+    result
 }
 
 pub(crate) fn enter_edit_mode(
@@ -208,6 +340,7 @@ pub(crate) fn abort_and_return_to_workspace(
     }
 
     let repo = &*ctx.git2_repo.get()?;
+    let has_submodules = has_submodules_configured(repo);
 
     // Checkout gitbutler workspace branch
     repo.set_head(WORKSPACE_BRANCH_REF)
@@ -216,10 +349,12 @@ pub(crate) fn abort_and_return_to_workspace(
     let uncommited_changes = get_uncommited_changes(ctx)?;
     let uncommited_changes = repo.find_tree(uncommited_changes)?;
 
-    repo.checkout_tree(
-        uncommited_changes.as_object(),
-        Some(CheckoutBuilder::new().force().remove_untracked(true)),
-    )?;
+    let mut checkout_tree = CheckoutBuilder::new();
+    checkout_tree.force();
+    if !has_submodules {
+        checkout_tree.remove_untracked(true);
+    }
+    repo.checkout_tree(uncommited_changes.as_object(), Some(&mut checkout_tree))?;
 
     Ok(())
 }

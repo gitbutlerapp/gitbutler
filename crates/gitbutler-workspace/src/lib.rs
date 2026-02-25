@@ -1,4 +1,5 @@
 pub mod branch_trees;
+pub mod submodules;
 
 use anyhow::Result;
 use but_ctx::{Context, access::RepoShared};

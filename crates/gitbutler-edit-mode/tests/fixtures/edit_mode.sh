@@ -38,3 +38,22 @@ git clone repo conficted_entries_get_written_when_leaving_edit_mode
   $CLI branches create --set-default branchy
   $CLI branches commit  branchy --message foobar
 )
+
+git init submodule-source
+(cd submodule-source
+  git config user.name "Author"
+  git config user.email "author@example.com"
+  echo "probe" > probe.txt
+  git add . && git commit -m "init submodule"
+)
+
+git clone repo save_and_return_to_workspace_preserves_submodule_worktree
+(cd save_and_return_to_workspace_preserves_submodule_worktree
+  git config user.name "Author"
+  git config user.email "author@example.com"
+  git -c protocol.file.allow=always submodule add ../submodule-source submodules/test-module
+  git add . && git commit -m "add submodule"
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name origin/main)"
+  $CLI branches create --set-default branchy
+  $CLI branches commit branchy --message foobar
+)
