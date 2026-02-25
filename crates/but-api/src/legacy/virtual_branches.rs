@@ -530,8 +530,8 @@ async fn resolve_review_map(
         local: None,
         applied: Some(true),
     });
+    let ctx = ctx.into_thread_local();
     let (branches, preferred_forge_user) = {
-        let ctx = ctx.into_thread_local();
         let preferred_forge_user = ctx.legacy_project.preferred_forge_user.clone();
         (list_branches(&ctx, filter)?, preferred_forge_user)
     };
@@ -541,13 +541,18 @@ async fn resolve_review_map(
         }
         acc
     });
+    let mut ctx = ctx;
     let mut resolved_reviews = HashMap::new();
+    let db = &mut *ctx.db.get_mut()?;
     let storage = but_forge_storage::Controller::from_path(but_path::app_data_dir()?);
     for (key, pr_number) in reviews.drain() {
-        if let Ok(resolved) =
-            but_forge::get_forge_review(&preferred_forge_user, forge_repo_info, pr_number, &storage)
-                .await
-        {
+        if let Ok(resolved) = but_forge::get_forge_review(
+            &preferred_forge_user,
+            forge_repo_info,
+            pr_number,
+            db,
+            &storage,
+        ) {
             resolved_reviews.insert(key, resolved);
         }
     }

@@ -106,6 +106,13 @@ pub(crate) fn cache_reviews(
         .map_err(Into::into)
 }
 
+pub(crate) fn upsert_review(db: &mut but_db::DbHandle, review: &ForgeReview) -> anyhow::Result<()> {
+    let db_review: but_db::ForgeReview = review.clone().try_into()?;
+    db.forge_reviews_mut()?
+        .upsert(db_review)
+        .map_err(Into::into)
+}
+
 use super::CiCheck;
 
 impl TryFrom<CiCheck> for but_db::CiCheck {

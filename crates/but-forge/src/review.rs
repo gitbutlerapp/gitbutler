@@ -762,8 +762,7 @@ fn filter_mrs(
         .collect()
 }
 
-/// Get a specific review (e.g. pull request) for a given forge repository
-pub async fn get_forge_review(
+async fn get_forge_review_inner(
     preferred_forge_user: &Option<crate::ForgeUser>,
     forge_repo_info: &crate::forge::ForgeRepoInfo,
     review_number: usize,
@@ -790,6 +789,38 @@ pub async fn get_forge_review(
             "Getting reviews for forge {forge:?} is not implemented yet.",
         ))),
     }
+}
+
+/// Get a specific review (e.g. pull request) for a given forge repository
+///
+/// The resulting review will be cached.
+pub fn get_forge_review(
+    preferred_forge_user: &Option<crate::ForgeUser>,
+    forge_repo_info: &crate::forge::ForgeRepoInfo,
+    review_number: usize,
+    db: &mut but_db::DbHandle,
+    storage: &but_forge_storage::Controller,
+) -> Result<ForgeReview> {
+    let preferred_forge_user = preferred_forge_user.clone();
+    let forge_repo_info = forge_repo_info.clone();
+    let storage = storage.clone();
+
+    let review = std::thread::spawn(move || {
+        tokio::runtime::Runtime::new()
+            .unwrap()
+            .block_on(get_forge_review_inner(
+                &preferred_forge_user,
+                &forge_repo_info,
+                review_number,
+                &storage,
+            ))
+    })
+    .join()
+    .map_err(|e| anyhow::anyhow!("Failed to join thread: {e:?}"))??;
+
+    // Cache the review and ignore any issues, if any.
+    crate::db::upsert_review(db, &review).ok();
+    Ok(review)
 }
 
 /// Merge a review to it's target branch

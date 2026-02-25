@@ -27,9 +27,6 @@ pub async fn enable_auto_merge(
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
-    let reviews =
-        but_api::legacy::forge::list_reviews(ctx, Some(but_forge::CacheConfig::CacheOnly))
-            .unwrap_or_default();
     let review_ids = resolve_review_selection(ctx, selector)?;
 
     if review_ids.is_empty() {
@@ -45,9 +42,8 @@ pub async fn enable_auto_merge(
 
     // Iterate over the reviews that need to be mutated. Skip if their in an invalid state.
     for review_id in review_ids {
-        let review_numeric_id: Option<i64> = review_id.try_into().ok();
-        let review = review_numeric_id
-            .and_then(|review_numeric_id| reviews.iter().find(|r| r.number == review_numeric_id));
+        // Fetch the latest information about the review
+        let review = but_api::legacy::forge::get_review(ctx, review_id).ok();
 
         if let Some(review) = review {
             if review.draft {
@@ -125,9 +121,6 @@ pub async fn set_draftiness(
     // Fail fast if no forge user is authenticated, before pushing or prompting.
     ensure_forge_authentication(ctx).await?;
 
-    let reviews =
-        but_api::legacy::forge::list_reviews(ctx, Some(but_forge::CacheConfig::CacheOnly))
-            .unwrap_or_default();
     let review_ids = resolve_review_selection(ctx, selector)?;
 
     if review_ids.is_empty() {
@@ -141,9 +134,8 @@ pub async fn set_draftiness(
 
     // Iterate over the reviews and validate the state, before mutating.
     for review_id in review_ids {
-        let review_numeric_id: Option<i64> = review_id.try_into().ok();
-        let review = review_numeric_id
-            .and_then(|review_numeric_id| reviews.iter().find(|r| r.number == review_numeric_id));
+        // Fetch the latest information about the review
+        let review = but_api::legacy::forge::get_review(ctx, review_id).ok();
 
         if let Some(review) = review {
             if !review.is_open() {
