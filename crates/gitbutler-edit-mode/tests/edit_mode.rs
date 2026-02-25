@@ -25,7 +25,6 @@ fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
 fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     let (mut ctx, _tempdir) = command_ctx("conficted_entries_get_written_when_leaving_edit_mode")?;
     let repo = ctx.git2_repo.get()?;
-
     let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
@@ -101,6 +100,38 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     assert_eq!(
         ctx.git2_repo.get()?.head()?.name(),
         Some(WORKSPACE_BRANCH_REF)
+    );
+
+    Ok(())
+}
+
+#[test]
+fn save_and_return_to_workspace_preserves_submodule_worktree() -> Result<()> {
+    let (mut ctx, _tempdir) = command_ctx("save_and_return_to_workspace_preserves_submodule_worktree")?;
+    let (foobar, worktree_dir) = {
+        let repo = ctx.git2_repo.get()?;
+        let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
+        (foobar, repo.path().parent().unwrap().to_path_buf())
+    };
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    let stacks = vb_state.list_stacks_in_workspace()?;
+    let stack = stacks.first().unwrap();
+    let submodule_probe = worktree_dir.join("submodules/test-module/probe.txt");
+    assert!(
+        submodule_probe.exists(),
+        "fixture should start with populated submodule worktree"
+    );
+
+    enter_edit_mode(&mut ctx, foobar, stack.id)?;
+    assert!(
+        submodule_probe.exists(),
+        "submodule file should remain after entering edit mode"
+    );
+    save_and_return_to_workspace(&mut ctx)?;
+
+    assert!(
+        submodule_probe.exists(),
+        "submodule file should remain after leaving edit mode"
     );
 
     Ok(())
