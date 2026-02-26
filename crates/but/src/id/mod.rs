@@ -36,28 +36,32 @@ const UNASSIGNED: &str = "zz";
 
 /// Create a CLI ID for the given staged file (if `stack_id` is `Some`) or the
 /// given unstaged file or committed file (if `stack_id` is `None`).
+///
+/// A reverse hex is always 32 bytes long.
 fn create_reverse_hex_id(
     path_bytes: &[u8],
     stack_id: Option<&StackId>,
 ) -> anyhow::Result<ChangeId> {
-    Ok(
-        if stack_id.is_none() && path_bytes.iter().all(|c| b'k' <= *c && *c <= b'z') {
-            ChangeId::from(BString::from(path_bytes))
-        } else {
-            let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
-            hasher.update(path_bytes);
-            if let Some(stack_id) = stack_id {
-                hasher.update(stack_id.0.as_bytes());
-            }
-            let object_id = hasher.try_finalize()?;
-            ChangeId::from_bytes(object_id.as_bytes())
-        },
-    )
+    // Historical note: We previously allowed paths to be their own reverse hexes in the case that
+    // they were composed only of characters that fit in a reverse hex.
+    //
+    // This became problematic with very short paths as they could become impossible to
+    // disambiguate against e.g. branch substrings. Therefore, reverse hexes are now of a constant
+    // size. Please do not change the size of this ID without careful consideration.
+    Ok({
+        let mut hasher = gix::hash::hasher(gix::hash::Kind::Sha1);
+        hasher.update(path_bytes);
+        if let Some(stack_id) = stack_id {
+            hasher.update(stack_id.0.as_bytes());
+        }
+        let object_id = hasher.try_finalize()?;
+        ChangeId::from_bytes(object_id.as_bytes())
+    })
 }
 
-/// Assign short IDs to each `Some` entry such that they are unambiguous with
-/// respect to every other entry. `reverse_hex_short_ids` must already be
-/// sorted.
+/// Assign short IDs to each `Some` entry such that they are unambiguous with respect to every
+/// other entry. `reverse_hex_short_ids` must already be sorted and the caller must ensure there
+/// are no duplicate change IDs, or disambiguation becomes impossible.
 fn assign_short_ids(
     reverse_hex_short_ids: &mut [(ChangeId, Option<&mut ShortId>)],
 ) -> anyhow::Result<()> {
@@ -71,7 +75,8 @@ fn assign_short_ids(
             });
         if let Some(short_id) = short_id {
             short_id.push_str(str::from_utf8(
-                &reverse_hex[..(1 + 1.max(common_with_previous_len).max(common_with_next_len))],
+                &reverse_hex[..(1 + 1.max(common_with_previous_len).max(common_with_next_len))
+                    .min(reverse_hex.len())],
             )?);
         }
         common_with_previous_len = common_with_next_len;
@@ -451,7 +456,10 @@ impl IdMap {
                 stack_id,
                 ..
             } = hunk_assignments.first();
+
+            // Invariant: Reverse hex is 32 bytes
             let reverse_hex = create_reverse_hex_id(path_bytes, stack_id.as_ref())?;
+
             // Ensure that uncommitted files do not collide with CLI IDs generated after
             if let Some(uint_id) = UintId::from_name(&reverse_hex[..2]) {
                 id_usage.mark_used(uint_id);
@@ -476,7 +484,12 @@ impl IdMap {
                 (reverse_hex.clone(), Some(&mut uncommitted_file.short_id))
             })
             .collect();
-        // Ensure that uncommitted files do not collide with branch substrings
+
+        // Ensure that uncommitted files do not collide with branch substrings by adding all
+        // existing short IDs to the reverse hexes as dummy entries.
+        //
+        // For proper disambiguation here, it's important that the reverse hex IDs are
+        // "sufficiently long" (32 bytes at present).
         for short_id in short_ids_to_count.keys() {
             reverse_hex_short_ids.push((ChangeId::from(BString::from(short_id.as_str())), None));
         }

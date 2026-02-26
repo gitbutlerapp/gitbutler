@@ -834,6 +834,7 @@ fn longer_id_is_ok() -> anyhow::Result<()> {
 }
 
 #[test]
+#[ignore = "Letting paths be their own IDs can cause substring collisions with branches. This is probably fixable but time is tight and the value of the self-id thing is small."]
 fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
     let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
     let hunk_assignments = vec![hunk_assignment("klmxyz", None)];
@@ -860,6 +861,103 @@ fn reverse_hex_filename_is_its_own_id() -> anyhow::Result<()> {
                         hunk_header: None,
                         path: "",
                         path_bytes: "klmxyz",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    Ok(())
+}
+
+#[test]
+fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
+    let stacks = vec![stack([segment("foo", [id(1)], None, [])])];
+    let hunk_assignments = vec![
+        hunk_assignment("k", None),
+        hunk_assignment("kl", None),
+        hunk_assignment("klm", None),
+    ];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        Ok(if commit_id == id(1) && parent_id.is_none() {
+            vec![]
+        } else {
+            bail!("unexpected IDs {commit_id} {parent_id:?}");
+        })
+    };
+
+    insta::assert_debug_snapshot!(id_map.parse("k", Box::new(changed_paths_fn))?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "yw",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "k",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    insta::assert_debug_snapshot!(id_map.parse("kl", Box::new(changed_paths_fn))?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "xv",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "kl",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: true,
+            },
+        ),
+    ]
+    "#);
+
+    insta::assert_debug_snapshot!(id_map.parse("klm", Box::new(changed_paths_fn))?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "ly",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: None,
+                        path: "",
+                        path_bytes: "klm",
                         stack_id: None,
                         hunk_locks: None,
                         line_nums_added: None,
