@@ -25,9 +25,10 @@
 		"check": {
 			"dependsOn": ["package"]
 		},
+		"playwright:install:ci": {},
 		"playwright:install": {},
 		"test": {
-			"dependsOn": ["package", "playwright:install"]
+			"dependsOn": ["package", "playwright:install:ci"]
 		},
 		"test:e2e:playwright": {
 			"env": ["PLAYWRIGHT_BROWSERS_PATH"],

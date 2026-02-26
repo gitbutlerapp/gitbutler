@@ -26,6 +26,7 @@
 		"test:watch": "vitest --watch --mode development",
 		"test:ct": "playwright test -c playwright-ct.config.ts",
 		"test:ct:ui": "playwright test -c playwright-ct.config.ts --ui",
+		"playwright:install:ci": "playwright install --with-deps chromium",
 		"playwright:install": "playwright install --with-deps chromium webkit"
 	},
 	"devDependencies": {

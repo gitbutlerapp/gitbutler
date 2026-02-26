@@ -133,6 +133,17 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/init-env-node
+      - id: get_playwright_version
+        uses: eviden-actions/get-playwright-version@4ab3bd9361d018d7931275b5106f2290fa54cfb6 # v1
+      - name: Cache playwright binaries
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - run: pnpm ui:playwright:install:ci
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
       - run: pnpm test
 
   but-sdk-build-check:
@@ -601,10 +612,10 @@ jobs:
           path: |
             ~/.cache/ct-playwright
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
-      - run: cd packages/ui && pnpm exec playwright install --with-deps
+      - run: pnpm ui:playwright:install:ci
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
       - name: run playwright tests
-        run: pnpm exec turbo run test:ct
+        run: pnpm test:ct
         if: ${{ github.ref != 'refs/heads/master' }}
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         if: ${{ !cancelled() }}

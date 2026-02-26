@@ -16,6 +16,7 @@
 		"dev:desktop-with-env": "cargo build -p but && cargo build -p gitbutler-git && pnpm tauri dev",
 		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
 		"package": "turbo run package",
+		"ui:playwright:install:ci": "turbo run --filter @gitbutler/ui playwright:install:ci",
 		"test": "turbo run test --no-daemon",
 		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
 		"test:ct": "turbo run --filter @gitbutler/ui test:ct",
