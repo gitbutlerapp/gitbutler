@@ -71,6 +71,7 @@ export interface IBackend {
 	readTextFromClipboard: () => Promise<string>;
 	/**
 	 * Loads a disk store from a file.
+	 * Add a change to trigger the unit-test changes
 	 */
 	loadDiskStore: (fileName: string) => Promise<DiskStore>;
 	/**
