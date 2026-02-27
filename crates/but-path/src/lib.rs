@@ -1,5 +1,8 @@
 //! A version of `tauri::AppHandle::path()` for use outside `tauri`.
-use std::{env, path::PathBuf};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, bail};
 
@@ -89,6 +92,31 @@ pub fn app_cache_dir() -> anyhow::Result<PathBuf> {
     dirs::cache_dir()
         .ok_or(anyhow::anyhow!("Could not get app cache dir"))
         .map(|dir| dir.join(identifier()))
+}
+
+/// Returns the per-repository GitButler data directory path.
+///
+/// Defaults to `<git_dir>/gitbutler` for stable/release builds.
+/// For non-stable channels it defaults to `<git_dir>/gitbutler.<channel>`.
+///
+/// Set `GITBUTLER_PROJECT_DATA_DIR` to override the location.
+pub fn project_data_dir(git_dir: &Path) -> PathBuf {
+    if let Some(path) = std::env::var_os("GITBUTLER_PROJECT_DATA_DIR") {
+        let path = PathBuf::from(path);
+        return if path.is_absolute() {
+            path
+        } else {
+            git_dir.join(path)
+        };
+    }
+    git_dir.join(default_project_data_dir_name())
+}
+
+fn default_project_data_dir_name() -> String {
+    match option_env!("CHANNEL") {
+        Some("release" | "stable") | None => "gitbutler".to_string(),
+        Some(channel) => format!("gitbutler.{channel}"),
+    }
 }
 
 pub fn identifier() -> &'static str {
@@ -210,4 +238,42 @@ fn clean_env_vars<'a, 'b>(
                     .join(":"),
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::project_data_dir;
+
+    #[test]
+    fn project_data_dir_default_is_channel_aware() {
+        let actual = project_data_dir(Path::new("/tmp/repo/.git"));
+        let expected_name = match option_env!("CHANNEL") {
+            Some("release" | "stable") | None => "gitbutler".to_string(),
+            Some(channel) => format!("gitbutler.{channel}"),
+        };
+        assert_eq!(actual, Path::new("/tmp/repo/.git").join(expected_name));
+    }
+
+    #[test]
+    fn project_data_dir_can_be_overridden() {
+        let override_path = "/tmp/custom-gb-dir";
+        unsafe { std::env::set_var("GITBUTLER_PROJECT_DATA_DIR", override_path) };
+        assert_eq!(
+            project_data_dir(Path::new("/tmp/repo/.git")),
+            Path::new(override_path)
+        );
+        unsafe { std::env::remove_var("GITBUTLER_PROJECT_DATA_DIR") };
+    }
+
+    #[test]
+    fn relative_override_is_resolved_against_git_dir() {
+        unsafe { std::env::set_var("GITBUTLER_PROJECT_DATA_DIR", "gitbutler.custom") };
+        assert_eq!(
+            project_data_dir(Path::new("/tmp/repo/.git")),
+            Path::new("/tmp/repo/.git/gitbutler.custom")
+        );
+        unsafe { std::env::remove_var("GITBUTLER_PROJECT_DATA_DIR") };
+    }
 }

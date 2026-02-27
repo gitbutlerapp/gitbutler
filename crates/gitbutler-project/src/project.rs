@@ -340,8 +340,9 @@ impl Project {
     /// Returns the path to the directory containing the `GitButler` state for this project.
     ///
     /// Normally this is `.git/gitbutler` in the project's repository.
+    /// For non-stable channels it defaults to `.git/gitbutler.<channel>`.
     pub(crate) fn gb_dir(&self) -> PathBuf {
-        self.git_dir().join("gitbutler")
+        but_path::project_data_dir(self.git_dir())
     }
 }
 

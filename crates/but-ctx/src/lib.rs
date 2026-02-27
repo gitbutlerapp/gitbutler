@@ -708,7 +708,7 @@ impl Context {
 }
 
 fn project_data_dir(gitdir: &Path) -> PathBuf {
-    gitdir.join("gitbutler")
+    but_path::project_data_dir(gitdir)
 }
 
 /// For now, always make sure we have object caches setup to make diffs fast in the common case.

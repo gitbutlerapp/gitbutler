@@ -20,6 +20,24 @@ mod add {
             project.title,
             path.iter().next_back().unwrap().to_str().unwrap()
         );
+        assert!(
+            repo.path()
+                .join(".git")
+                .join(expected_project_data_dir_name())
+                .exists()
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn custom_gitbutler_project_data_dir() -> anyhow::Result<()> {
+        let tmp = paths::data_dir();
+        let repo = gitbutler_testsupport::TestProject::default();
+        unsafe { std::env::set_var("GITBUTLER_PROJECT_DATA_DIR", "gitbutler.custom") };
+        let _project =
+            gitbutler_project::add_at_app_data_dir(tmp.path(), repo.path())?.try_project()?;
+        unsafe { std::env::remove_var("GITBUTLER_PROJECT_DATA_DIR") };
+        assert!(repo.path().join(".git").join("gitbutler.custom").exists());
         Ok(())
     }
 
@@ -160,7 +178,13 @@ mod delete {
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok()); // idempotent
         assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
         assert!(repo.path().exists());
-        assert!(!repo.path().join("gitbutler").exists());
+        assert!(
+            !repo
+                .path()
+                .join(".git")
+                .join(expected_project_data_dir_name())
+                .exists()
+        );
     }
 
     #[test]
@@ -250,7 +274,13 @@ mod delete {
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
         assert!(repo.path().exists());
-        assert!(!repo.path().join("gitbutler").exists());
+        assert!(
+            !repo
+                .path()
+                .join(".git")
+                .join(expected_project_data_dir_name())
+                .exists()
+        );
 
         // Nothing changed - no reference was touched.
         insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
@@ -270,5 +300,12 @@ mod delete {
             .all()?
             .map(|r| r.unwrap().name().as_bstr().to_string())
             .collect())
+    }
+}
+
+fn expected_project_data_dir_name() -> String {
+    match option_env!("CHANNEL") {
+        Some("release" | "stable") | None => "gitbutler".to_string(),
+        Some(channel) => format!("gitbutler.{channel}"),
     }
 }
