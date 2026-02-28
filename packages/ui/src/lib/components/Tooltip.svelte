@@ -9,7 +9,6 @@
 
 <script lang="ts">
 	import { DRAG_STATE_SERVICE } from "$lib/drag/dragStateService.svelte";
-
 	import { portal } from "$lib/utils/portal";
 	import { pxToRem } from "$lib/utils/pxToRem";
 	import { tooltip } from "$lib/utils/tooltipPosition";
