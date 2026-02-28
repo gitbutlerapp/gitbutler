@@ -4,7 +4,7 @@
 	import AuthorizationBanner from "$components/AuthorizationBanner.svelte";
 	import SettingsSection from "$components/SettingsSection.svelte";
 	import { AISecretHandle, AI_SERVICE, GitAIConfigKey, KeyOption } from "$lib/ai/service";
-	import { OpenAIModelName, AnthropicModelName, ModelKind } from "$lib/ai/types";
+	import { OpenAIModelName, AnthropicModelName, ModelKind, type OpenRouterModelName } from "$lib/ai/types";
 	import { GIT_CONFIG_SERVICE } from "$lib/config/gitConfigService";
 	import { SECRET_SERVICE } from "$lib/secrets/secretsService";
 	import { USER_SERVICE } from "$lib/user/userService";
@@ -44,6 +44,8 @@
 	let ollamaModel: string | undefined = $state();
 	let lmStudioEndpoint: string | undefined = $state();
 	let lmStudioModel: string | undefined = $state();
+	let openRouterKey: string | undefined = $state();
+	let openRouterModel: string | undefined = $state();
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -74,6 +76,9 @@
 
 		lmStudioEndpoint = await aiService.getLMStudioEndpoint();
 		lmStudioModel = await aiService.getLMStudioModelName();
+
+		openRouterKey = await aiService.getOpenRouterKey();
+		openRouterModel = await aiService.getOpenRouterModelName();
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -192,6 +197,12 @@
 		setConfiguration(GitAIConfigKey.LMStudioModelName, lmStudioModel);
 	});
 	run(() => {
+		setSecret(AISecretHandle.OpenRouterKey, openRouterKey);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.OpenRouterModelName, openRouterModel);
+	});
+	run(() => {
 		if (form) form.modelKind.value = modelKind;
 	});
 </script>
@@ -204,8 +215,8 @@
 {/snippet}
 
 <p class="text-13 text-body ai-settings__about-text">
-	GitButler supports multiple AI providers: OpenAI and Anthropic (via API or your own key), plus
-	local models through Ollama and LM Studio.
+	GitButler supports multiple AI providers: OpenAI and Anthropic (via API or your own key),
+	OpenRouter for access to hundreds of models, plus local models through Ollama and LM Studio.
 </p>
 
 <CardGroup>
@@ -414,6 +425,32 @@
 						</div>
 					{/snippet}
 				</InfoMessage>
+			</CardGroup.Item>
+		{/if}
+
+		<CardGroup.Item labelFor="openrouter">
+			{#snippet title()}
+				OpenRouter
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton name="modelKind" id="openrouter" value={ModelKind.OpenRouter} />
+			{/snippet}
+		</CardGroup.Item>
+		{#if modelKind === ModelKind.OpenRouter}
+			<CardGroup.Item>
+				<Textbox
+					label="API key"
+					type="password"
+					bind:value={openRouterKey}
+					required
+					placeholder="sk-or-..."
+				/>
+
+				<Textbox
+					label="Model"
+					bind:value={openRouterModel}
+					placeholder="openai/gpt-4.1-mini"
+				/>
 			</CardGroup.Item>
 		{/if}
 
