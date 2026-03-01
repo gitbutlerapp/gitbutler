@@ -65,7 +65,7 @@
 <style lang="postcss">
 	.overflow-actions-btn {
 		--label-clr: var(--clr-btn-gray-outline-text);
-		--icon-opacity: var(--opacity-btn-icon-outline);
+		--icon-opacity: var(--opacity-mix-btn-outline-icon);
 		--btn-bg: var(--clr-bg-1);
 		--opacity-btn-bg: 0%;
 		display: flex;
