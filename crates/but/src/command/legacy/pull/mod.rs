@@ -300,7 +300,7 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
             )?;
 
             // Show upstream commits (actual new commits to integrate)
-            let repo = ctx.repo.get()?;
+            let repo = ctx.repo.get()?.clone().for_commit_shortening();
             for commit_info in &pull_result.recent_commits {
                 let msg = commit_info
                     .message
@@ -311,7 +311,6 @@ async fn handle_pull(ctx: &Context, out: &mut OutputChannel) -> anyhow::Result<(
                     .take(65)
                     .collect::<String>();
                 let commit_short = shorten_hex_object_id(&repo, &commit_info.id);
-
                 writeln!(out, "   {} {}", commit_short.bright_black(), msg)?;
             }
 

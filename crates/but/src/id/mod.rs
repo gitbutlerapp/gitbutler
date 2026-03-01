@@ -32,7 +32,7 @@ mod uncommitted_info;
 mod tests;
 
 /// A helper to indicate that this is a short-id as a user would see.
-pub type ShortId = String;
+pub(crate) type ShortId = String;
 
 const UNASSIGNED: &str = "zz";
 

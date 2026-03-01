@@ -597,7 +597,7 @@ fn push_single_branch(
     )?;
     writeln!(progress)?;
     if !result.branch_sha_updates.is_empty() {
-        let repo = ctx.repo.get()?;
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         for (branch, before_sha, after_sha) in &result.branch_sha_updates {
             let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                 "(new branch)".to_string()
