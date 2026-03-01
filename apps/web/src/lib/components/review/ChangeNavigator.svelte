@@ -74,11 +74,7 @@
 		padding: 0 10px;
 
 		border: 1px solid
-			color-mix(
-				in srgb,
-				var(--btn-border-clr, transparent),
-				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
-			);
+			color-mix(in srgb, var(--btn-border-clr, transparent) var(--btn-border-opacity), transparent);
 		color: var(--label-clr);
 	}
 </style>
