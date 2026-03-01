@@ -1,6 +1,6 @@
 use anyhow::bail;
 use bstr::BStr;
-use but_core::ref_metadata::StackId;
+use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
 use colored::Colorize;
 mod amend;
@@ -17,7 +17,10 @@ use gitbutler_oplog::{
 };
 use nonempty::NonEmpty;
 
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    utils::{OutputChannel, shorten_object_id},
+};
 
 /// Serialize a [`gitbutler_branch_actions::MoveCommitIllegalAction`] to a structured JSON value.
 ///
@@ -461,6 +464,7 @@ fn makes_no_sense_error(source: &CliId, target: &CliId) -> String {
 /// # Errors
 /// Returns an error if the environment is non-interactive or if the user cancels the selection
 fn prompt_for_disambiguation(
+    ctx: &Context,
     entity_str: &str,
     matches: Vec<CliId>,
     context: &str,
@@ -497,6 +501,7 @@ fn prompt_for_disambiguation(
     }
 
     // Build options with clear descriptions
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
     let options: Vec<String> = matches
         .iter()
         .map(|id| {
@@ -510,7 +515,7 @@ fn prompt_for_disambiguation(
                         "{} - {} (commit {})",
                         short_id,
                         kind,
-                        &commit_id.to_string()[..7]
+                        shorten_object_id(&repo, *commit_id)
                     )
                 }
                 CliId::Branch { name, .. } => {
@@ -524,7 +529,7 @@ fn prompt_for_disambiguation(
                         short_id,
                         kind,
                         path,
-                        &commit_id.to_string()[..7]
+                        shorten_object_id(&repo, *commit_id)
                     )
                 }
                 CliId::Uncommitted(uncommitted) => {
@@ -620,7 +625,7 @@ fn ids(
     }
 
     // Still ambiguous even after filtering by validity - prompt the user
-    let selected_target = prompt_for_disambiguation(target, valid_targets, "the target", out)?;
+    let selected_target = prompt_for_disambiguation(ctx, target, valid_targets, "the target", out)?;
     Ok((sources, selected_target))
 }
 
@@ -655,7 +660,7 @@ fn parse_sources_with_disambiguation(
 
     if source_result.len() > 1 {
         // Ambiguous - prompt the user to disambiguate
-        let selected = prompt_for_disambiguation(source, source_result, "the source", out)?;
+        let selected = prompt_for_disambiguation(ctx, source, source_result, "the source", out)?;
         return Ok(vec![selected]);
     }
 
@@ -814,8 +819,13 @@ fn parse_list_with_disambiguation(
             result.push(matches[0].clone());
         } else {
             // Ambiguous - prompt the user to disambiguate
-            let selected =
-                prompt_for_disambiguation(part, matches, &format!("item '{part}' in list"), out)?;
+            let selected = prompt_for_disambiguation(
+                ctx,
+                part,
+                matches,
+                &format!("item '{part}' in list"),
+                out,
+            )?;
             result.push(selected);
         }
     }
@@ -907,7 +917,7 @@ fn resolve_single_id(
     }
 
     // Multiple matches - use disambiguation
-    prompt_for_disambiguation(entity_str, matches, context, out)
+    prompt_for_disambiguation(ctx, entity_str, matches, context, out)
 }
 
 /// Handler for `but uncommit <source>` - runs `but rub <source> zz`

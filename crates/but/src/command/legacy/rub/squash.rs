@@ -7,7 +7,11 @@ use colored::Colorize;
 use gix::ObjectId;
 
 use super::undo::stack_id_by_commit_id;
-use crate::{CliId, IdMap, command::legacy::ai, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    command::legacy::ai,
+    utils::{OutputChannel, shorten_object_id},
+};
 
 pub(crate) fn commits(
     ctx: &mut Context,
@@ -277,13 +281,15 @@ fn squash_commits_internal(
 
     // Output message based on context
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
+        let final_short = shorten_object_id(&repo, final_commit_oid.to_gix());
         if source_oids.len() == 1 {
             // Single commit squash (for backwards compatibility with `but rub`)
             writeln!(
                 out,
                 "Squashed {} → {}",
-                source_oids[0].to_string()[..7].blue(),
-                final_commit_oid.to_gix().to_string()[..7].blue()
+                shorten_object_id(&repo, source_oids[0]).blue(),
+                final_short.blue()
             )?
         } else {
             // Multiple commits squash
@@ -291,7 +297,7 @@ fn squash_commits_internal(
                 out,
                 "Squashed {} commits → {}",
                 source_oids.len(),
-                final_commit_oid.to_gix().to_string()[..7].blue()
+                final_short.blue()
             )?
         }
     } else if let Some(out) = out.for_json() {

@@ -6,7 +6,7 @@ use colored::Colorize;
 
 use crate::{
     CLI_DATE, CliId, IdMap,
-    utils::{OutputChannel, time::format_relative_time},
+    utils::{OutputChannel, shorten_object_id, time::format_relative_time},
 };
 
 pub(crate) fn show_commit(
@@ -591,7 +591,7 @@ fn get_branch_commits(
 
         commits.push(BranchCommitInfo {
             sha: oid.to_string(),
-            short_sha: oid.to_string()[..7].to_string(),
+            short_sha: shorten_object_id(&gix_repo, info.id),
             message,
             full_message,
             author_name: author.name().unwrap_or("Unknown").to_string(),
@@ -619,7 +619,7 @@ fn get_branch_commits(
 
         Some(BranchCommitInfo {
             sha: merge_base_git2.to_string(),
-            short_sha: merge_base_git2.to_string()[..7].to_string(),
+            short_sha: shorten_object_id(&gix_repo, merge_base),
             message: base_message,
             full_message: None,
             author_name: base_author.name().unwrap_or("Unknown").to_string(),

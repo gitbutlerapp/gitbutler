@@ -5,7 +5,7 @@ use colored::Colorize;
 use gix::refs::transaction::PreviousValue;
 use serde::Serialize;
 
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, shorten_object_id};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -59,10 +59,12 @@ pub(crate) fn teardown(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Re
     let snapshot_id = snapshot.to_string();
 
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
+        let snapshot_short = shorten_object_id(&repo, snapshot);
         writeln!(
             out,
             "  {}",
-            format!("✓ Snapshot created: {}", &snapshot_id[..7]).green()
+            format!("✓ Snapshot created: {snapshot_short}").green()
         )?;
         writeln!(out)?;
     }
@@ -261,15 +263,12 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
     } else {
         // soft reset to the first workspace commit
         let target_commit = commit.id();
+        let target_short = shorten_object_id(&repo, target_commit);
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
                 "{}",
-                format!(
-                    "→ Resetting gitbutler/workspace to {}",
-                    &target_commit.to_string()[..7]
-                )
-                .dimmed()
+                format!("→ Resetting gitbutler/workspace to {target_short}").dimmed()
             )?;
         }
         repo.reference(
@@ -282,11 +281,7 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
             writeln!(
                 out,
                 "  {}",
-                format!(
-                    "✓ gitbutler/workspace reset to {}",
-                    &target_commit.to_string()[..7]
-                )
-                .green()
+                format!("✓ gitbutler/workspace reset to {target_short}").green()
             )?;
         }
 
@@ -306,7 +301,12 @@ fn try_stack_fixes(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result
             for commit in &dangling_commits {
                 let message = String::from_utf8_lossy(commit.message_raw().unwrap_or((&[]).into()));
                 let first_line = message.lines().next().unwrap_or("");
-                writeln!(out, "    {}: {}", &commit.id().to_string()[..7], first_line)?;
+                writeln!(
+                    out,
+                    "    {}: {}",
+                    shorten_object_id(&repo, commit.id()),
+                    first_line
+                )?;
             }
             writeln!(out)?;
         }

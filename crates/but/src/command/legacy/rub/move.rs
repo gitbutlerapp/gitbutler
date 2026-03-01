@@ -8,7 +8,10 @@ use gitbutler_stack::VirtualBranchesHandle;
 use gix::ObjectId;
 
 use super::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    utils::{OutputChannel, shorten_object_id},
+};
 
 /// Represents the operation to perform for a given source and target combination in `but move`.
 #[derive(Debug)]
@@ -216,6 +219,9 @@ fn move_to_commit(
     } else {
         // Different stacks - API limitation: can't move to specific position in another stack
         let target_stack_head_branch = get_topmost_branch_name(ctx, target_stack_id)?;
+        let repo = ctx.repo.get()?;
+        let source_short = shorten_object_id(&repo, *source_oid);
+        let target_short = shorten_object_id(&repo, *target_oid);
 
         if let Some(out) = out.for_human() {
             writeln!(
@@ -227,18 +233,17 @@ fn move_to_commit(
             writeln!(
                 out,
                 "The commit {} is in a different stack than the target commit {}.",
-                source_oid.to_string()[..7].blue(),
-                target_oid.to_string()[..7].blue()
+                source_short.blue(),
+                target_short.blue()
             )?;
             writeln!(out)?;
             writeln!(out, "{}", "You can do this in two steps:".yellow())?;
             writeln!(out)?;
-            let source_str = source_oid.to_string();
             writeln!(
                 out,
                 "  {}  {}",
                 "1.".cyan(),
-                format!("but move {} {}", &source_str[..7], target_stack_head_branch).green()
+                format!("but move {source_short} {target_stack_head_branch}").green()
             )?;
             writeln!(
                 out,
@@ -268,7 +273,7 @@ fn move_to_commit(
                 "error": "cross_stack_position",
                 "hint": format!(
                     "Move to branch first with 'but move {} {}', then reposition",
-                    &source_oid.to_string()[..7],
+                    source_short,
                     target_stack_head_branch
                 ),
             }))?;
@@ -315,10 +320,12 @@ fn move_to_branch(
         gitbutler_branch_actions::reorder_stack(ctx, source_stack_id, stack_order)?;
 
         if let Some(out) = out.for_human() {
+            let repo = ctx.repo.get()?;
+            let source_short = shorten_object_id(&repo, *source_oid);
             writeln!(
                 out,
                 "Moved {} → {}",
-                source_oid.to_string()[..7].blue(),
+                source_short.blue(),
                 format!("[{target_branch_name}]").green()
             )?;
 
@@ -337,8 +344,7 @@ fn move_to_branch(
                     "To move it to a specific position within the branch, you can run:"
                 )?;
                 writeln!(out)?;
-                let source_str = source_oid.to_string();
-                let cmd = format!("but move {} <target-commit> [--after]", &source_str[..7]);
+                let cmd = format!("but move {source_short} <target-commit> [--after]");
                 writeln!(out, "  {}", cmd.green())?;
             }
         } else if let Some(out) = out.for_json() {
@@ -384,10 +390,12 @@ fn move_to_branch(
         }
 
         if let Some(out) = out.for_human() {
+            let repo = ctx.repo.get()?;
+            let source_short = shorten_object_id(&repo, *source_oid);
             writeln!(
                 out,
                 "Moved {} → {}",
-                source_oid.to_string()[..7].blue(),
+                source_short.blue(),
                 format!("[{target_branch_name}]").green()
             )?;
 
@@ -406,8 +414,7 @@ fn move_to_branch(
                     "To move it to a specific position within the branch, you can run:"
                 )?;
                 writeln!(out)?;
-                let source_str = source_oid.to_string();
-                let cmd = format!("but move {} <target-commit> [--after]", &source_str[..7]);
+                let cmd = format!("but move {source_short} <target-commit> [--after]");
                 writeln!(out, "  {}", cmd.green())?;
             }
         } else if let Some(out) = out.for_json() {
@@ -501,12 +508,13 @@ fn move_within_stack(
 
     if let Some(out) = out.for_human() {
         let position_desc = if after { "after" } else { "before" };
+        let repo = ctx.repo.get()?;
         writeln!(
             out,
             "Moved {} {} {}",
-            source_oid.to_string()[..7].blue(),
+            shorten_object_id(&repo, *source_oid).blue(),
             position_desc,
-            target_oid.to_string()[..7].blue()
+            shorten_object_id(&repo, *target_oid).blue()
         )?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({"ok": true}))?;

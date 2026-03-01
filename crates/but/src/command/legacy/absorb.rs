@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use but_core::sync::RepoExclusiveGuard;
+use but_core::{RepositoryExt, sync::RepoExclusiveGuard};
 use but_ctx::Context;
 use but_hunk_assignment::{
     AbsorptionTarget, CommitAbsorption, HunkAssignment, JsonAbsorbOutput, JsonCommitAbsorption,
@@ -14,7 +14,10 @@ use gitbutler_oplog::{
 use itertools::Itertools;
 
 use crate::{
-    CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel,
+    CliId, IdMap,
+    command::legacy::rub::parse_sources,
+    id::UncommittedCliId,
+    utils::{OutputChannel, shorten_object_id},
 };
 /// Amends changes into the appropriate commits where they belong.
 ///
@@ -77,7 +80,10 @@ pub(crate) fn handle(
     // Display the plan (in JSON mode for non-dry-run, collect without writing — we'll
     // combine it with the result in absorb_assignments to avoid a double-write that
     // would overwrite the plan in the JSON buffer).
-    let plan_json = display_absorption_plan(&absorption_plan, out, new, dry_run)?;
+    let plan_json = {
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
+        display_absorption_plan(&absorption_plan, &repo, out, new, dry_run)?
+    };
 
     if dry_run {
         // Nothing more to do
@@ -204,6 +210,7 @@ fn get_hunk_ranges(assignment: &HunkAssignment) -> Vec<String> {
 /// in a single JSON write — avoiding a double-write that would overwrite the buffer.
 fn display_absorption_plan(
     commit_absorptions: &[CommitAbsorption],
+    repo: &gix::Repository,
     out: &mut OutputChannel,
     new: bool,
     write_json: bool,
@@ -275,7 +282,7 @@ fn display_absorption_plan(
         writeln!(out)?;
 
         for absorption in commit_absorptions {
-            let short_hash = &absorption.commit_id.to_hex().to_string()[..7];
+            let short_hash = shorten_object_id(repo, absorption.commit_id);
             let verb = if new {
                 "Created on top of commit"
             } else {
