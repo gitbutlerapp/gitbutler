@@ -4,7 +4,7 @@ use but_oxidize::ObjectIdExt;
 use colored::Colorize;
 use gix::ObjectId;
 
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, shorten_object_id};
 
 pub(crate) fn commit(
     ctx: &mut Context,
@@ -13,7 +13,8 @@ pub(crate) fn commit(
 ) -> anyhow::Result<()> {
     gitbutler_branch_actions::undo_commit(ctx, stack_id_by_commit_id(ctx, oid)?, oid.to_git2())?;
     if let Some(out) = out.for_human() {
-        writeln!(out, "Uncommitted {}", oid.to_string()[..7].blue())?;
+        let repo = ctx.repo.get()?;
+        writeln!(out, "Uncommitted {}", shorten_object_id(&repo, *oid).blue())?;
     } else if let Some(out) = out.for_json() {
         out.write_value(serde_json::json!({"ok": true}))?;
     }

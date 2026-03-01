@@ -7,7 +7,7 @@ use colored::Colorize;
 use crate::{
     CliId, IdMap,
     args::branch,
-    utils::{Confirm, ConfirmDefault, OutputChannel},
+    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
 };
 
 pub mod apply;
@@ -117,15 +117,19 @@ pub fn handle(
                 None
             };
 
-            let anchor_display = anchor.as_ref().map(|anchor_ref| match anchor_ref {
-                but_api::legacy::stack::create_reference::Anchor::AtReference {
-                    short_name,
-                    ..
-                } => short_name.clone(),
-                but_api::legacy::stack::create_reference::Anchor::AtCommit {
-                    commit_id, ..
-                } => commit_id.to_string()[..7].to_string(),
-            });
+            let anchor_display = {
+                let repo = ctx.repo.get()?;
+                anchor.as_ref().map(|anchor_ref| match anchor_ref {
+                    but_api::legacy::stack::create_reference::Anchor::AtReference {
+                        short_name,
+                        ..
+                    } => short_name.clone(),
+                    but_api::legacy::stack::create_reference::Anchor::AtCommit {
+                        commit_id,
+                        ..
+                    } => shorten_object_id(&repo, commit_id.0),
+                })
+            };
 
             but_api::legacy::stack::create_reference(
                 ctx,
