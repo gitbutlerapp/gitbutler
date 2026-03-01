@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use assignment::FileAssignment;
 use bstr::{BStr, BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
-use but_core::{TreeStatus, ui};
+use but_core::{RepositoryExt, TreeStatus, ui};
 use but_ctx::Context;
 use but_forge::ForgeReview;
 use but_oxidize::OidExt;
@@ -570,7 +570,10 @@ pub fn print_group(
     out: &mut dyn WriteWithUtils,
     id_map: &IdMap,
 ) -> anyhow::Result<()> {
-    let repo = ctx.legacy_project.open_isolated_repo()?;
+    let repo = ctx
+        .legacy_project
+        .open_isolated_repo()?
+        .for_commit_shortening();
     if let Some(stack_with_id) = stack_with_id {
         let mut first = true;
         for segment in &stack_with_id.segments {
