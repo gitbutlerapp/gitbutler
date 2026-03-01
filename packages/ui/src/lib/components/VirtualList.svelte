@@ -313,6 +313,7 @@
 			}
 			renderRange.end = i + 1;
 			await tick(); // Wait for element to be added
+			if (!viewport) return;
 			const element = visibleRowElements?.[i - startingAt];
 			if (!element) {
 				// Can happen if a concurrent reactive update resets renderRange during tick().
@@ -335,6 +336,7 @@
 			}
 			renderRange.start = i;
 			await tick(); // Wait for element to be added
+			if (!viewport) return;
 			const element = visibleRowElements?.[0];
 			if (!element) {
 				console.warn("[VList:init] element missing after tick, aborting");
