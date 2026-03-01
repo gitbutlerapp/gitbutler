@@ -91,11 +91,12 @@ export class FocusManager {
 			return;
 		}
 
+		this.setOutline(false);
+
 		if (e.target instanceof HTMLElement) {
 			const focusableNode = this.findNearestFocusableElement(e.target);
 			if (focusableNode && focusableNode.element.contains(e.target)) {
 				this.setActiveNode(focusableNode, true);
-				this.setOutline(false);
 			}
 		}
 

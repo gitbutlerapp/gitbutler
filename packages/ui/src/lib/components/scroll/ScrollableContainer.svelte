@@ -17,6 +17,7 @@
 		autoScroll?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
+		actions?: Snippet;
 		onscrollTop?: (visible: boolean) => void;
 		onscrollEnd?: (visible: boolean) => void;
 		onscroll?: (e: Event) => void;
@@ -56,6 +57,7 @@
 		childrenWrapHeight,
 		childrenWrapDisplay = "block",
 		enableDragScroll = false,
+		actions,
 	}: ScrollableProps = $props();
 
 	let scrollTopVisible = $state<boolean>(true);
@@ -170,6 +172,7 @@
 		{onscrollexists}
 		{onthumbdrag}
 	/>
+	{@render actions?.()}
 </div>
 
 <style lang="postcss">

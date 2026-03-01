@@ -57,7 +57,7 @@
 	let items = $state(Array.from({ length: itemCount }, (_, i) => `Item ${i + 1}`));
 	let container = $state<HTMLDivElement>();
 	let loadMoreCallCount = $state(0);
-	let virtualList = $state<any>();
+	let virtualList = $state<VirtualList<any>>();
 	let showFooter = $state(false);
 	let visibleStart = $state(-1);
 	let visibleEnd = $state(-1);
@@ -168,8 +168,19 @@
 		}
 	}
 
+	function handleScrollToTop() {
+		if (virtualList) {
+			virtualList.jumpToIndex(0);
+		}
+	}
+
 	function toggleFooter() {
 		showFooter = !showFooter;
+	}
+
+	function toggleFooterAndAddItem() {
+		showFooter = !showFooter;
+		items.push(`Item ${items.length + 1}`);
 	}
 </script>
 
@@ -240,6 +251,13 @@
 		<button type="button" onclick={toggleFooter} data-testid="toggle-footer-button">
 			Toggle Footer
 		</button>
+		<button
+			type="button"
+			onclick={toggleFooterAndAddItem}
+			data-testid="toggle-footer-and-add-item-button"
+		>
+			Toggle Footer + Add
+		</button>
 		<input
 			type="number"
 			bind:value={jumpToIndexValue}
@@ -251,6 +269,9 @@
 		</button>
 		<button type="button" onclick={handleScrollToBottom} data-testid="scroll-to-bottom-button">
 			Scroll To Bottom
+		</button>
+		<button type="button" onclick={handleScrollToTop} data-testid="scroll-to-top-button">
+			Scroll To Top
 		</button>
 	</div>
 </div>

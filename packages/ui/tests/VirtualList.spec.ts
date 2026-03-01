@@ -329,9 +329,8 @@ test("should stick to bottom when footer toggled in children snippet", async ({ 
 	// Record scrollHeight before toggling footer
 	const { scrollHeight: scrollHeightBefore } = await getScrollProperties(viewport);
 
-	// Toggle footer on (adds 200px element)
-	const toggleButton = component.getByTestId("toggle-footer-button");
-	await toggleButton.click();
+	// Toggle footer on (adds 200px element) in the children snippet
+	await component.getByTestId("toggle-footer-button").click();
 
 	// Wait for footer to appear
 	const footer = component.getByTestId("footer");
@@ -341,6 +340,46 @@ test("should stick to bottom when footer toggled in children snippet", async ({ 
 	await waitForScrollStability(viewport);
 
 	// Verify scrollHeight increased (footer was added)
+	const { scrollHeight: scrollHeightAfter } = await getScrollProperties(viewport);
+	expect(scrollHeightAfter).toBeGreaterThan(scrollHeightBefore);
+
+	// Should STILL be at bottom (stickToBottom should have auto-scrolled)
+	await expectAtBottom(viewport);
+});
+
+test("should stick to bottom when footer toggled and item appended simultaneously", async ({
+	mount,
+}) => {
+	// Reproduces a race between the items $effect (tail append) and the children
+	// resizeObserver (footer appears) when both state changes are batched into a
+	// single Svelte update. The footer is 200px > NEAR_BOTTOM_THRESHOLD.
+	const component = await mount(VirtualListTestWrapper, {
+		props: {
+			...config,
+			stickToBottom: true,
+		},
+	});
+
+	const viewport = component.locator(".viewport");
+	await waitForScrollStability(viewport);
+
+	// Initially at bottom
+	await expectAtBottom(viewport);
+
+	// Record scrollHeight before the combined action
+	const { scrollHeight: scrollHeightBefore } = await getScrollProperties(viewport);
+
+	// Toggle footer on AND append an item in a single batched state update
+	await component.getByTestId("toggle-footer-and-add-item-button").click();
+
+	// Wait for footer to appear
+	const footer = component.getByTestId("footer");
+	await expect(footer).toBeVisible();
+
+	// Wait for scroll to stabilize
+	await waitForScrollStability(viewport);
+
+	// Verify scrollHeight increased (both footer and new item were added)
 	const { scrollHeight: scrollHeightAfter } = await getScrollProperties(viewport);
 	expect(scrollHeightAfter).toBeGreaterThan(scrollHeightBefore);
 
@@ -583,6 +622,7 @@ test("should not crash when items are removed", async ({ mount }) => {
 
 test("should show 'New unread' when batch items added while scrolled up with stickToBottom", async ({
 	mount,
+	page,
 }) => {
 	// When stickToBottom is on but user has scrolled up, adding many items at once
 	// should show the "New unread" indicator, not force-scroll to bottom.
@@ -598,12 +638,14 @@ test("should show 'New unread' when batch items added while scrolled up with sti
 	await waitForScrollStability(viewport);
 	await expectAtBottom(viewport);
 
-	// Scroll to top
-	await scrollTo(viewport, 0);
+	const scrollButton = component.getByTestId("scroll-to-top-button");
+	await scrollButton.click();
+
 	await waitForScrollStability(viewport);
 	await expectNotAtBottom(viewport);
 
 	// Add 10 items at once
+	await page.waitForTimeout(1000);
 	await component.getByTestId("add-batch-button").click();
 	await waitForScrollStability(viewport);
 
@@ -1229,9 +1271,7 @@ const ircConfig = {
 	asyncContent: undefined,
 };
 
-test("IRC regression: should stick to bottom with 200 items and small defaultHeight", async ({
-	mount,
-}) => {
+test("should stick to bottom with 200 items and small defaultHeight", async ({ mount }) => {
 	// Core scenario: 200 items with defaultHeight=16 but actual height ~100px.
 	// The massive height mismatch (16 vs 100) means initializeAt calculates
 	// scroll positions using wrong estimates for unmeasured items.
@@ -1253,9 +1293,7 @@ test("IRC regression: should stick to bottom with 200 items and small defaultHei
 	expect(visibleIndices).toContain(199);
 });
 
-test("IRC regression: should stick to bottom when loadMore prepends items during init", async ({
-	mount,
-}) => {
+test("should stick to bottom when loadMore prepends items during init", async ({ mount }) => {
 	// The critical bug: with stickToBottom + small defaultHeight, during
 	// initializeAt the scroll position is temporarily 0. shouldTriggerLoadMore
 	// checks getDistanceFromTop() < 300 for stickToBottom mode, which is true
@@ -1279,9 +1317,7 @@ test("IRC regression: should stick to bottom when loadMore prepends items during
 	await expectAtBottom(viewport);
 });
 
-test("IRC regression: loadMore should not fire excessively during stickToBottom init", async ({
-	mount,
-}) => {
+test("should not fire loadMore excessively during stickToBottom init", async ({ mount }) => {
 	// If loadMore fires during initialization, it means the component
 	// is incorrectly detecting a "near top" scroll position before
 	// the scroll position has been properly set by initializeAt.
@@ -1307,9 +1343,7 @@ test("IRC regression: loadMore should not fire excessively during stickToBottom 
 	expect(loadMoreCallCount).toBeLessThanOrEqual(1);
 });
 
-test("IRC regression: should stick to bottom with async content and loadMore prepending", async ({
-	mount,
-}) => {
+test("should stick to bottom with async content and loadMore prepending", async ({ mount }) => {
 	// Closest reproduction of the real IrcMessages scenario:
 	// - Many items with defaultHeight far smaller than actual rendered height
 	// - stickToBottom + renderDistance=100
@@ -1338,9 +1372,7 @@ test("IRC regression: should stick to bottom with async content and loadMore pre
 	await expectAtBottom(viewport);
 });
 
-test("IRC regression: loadMore should not spiral with async content resizing", async ({
-	mount,
-}) => {
+test("should not spiral loadMore with async content resizing", async ({ mount }) => {
 	// Tests the specific failure mode: async content causes item resizes
 	// which trigger itemObserver → recalculateRanges → shouldTriggerLoadMore.
 	// With stickToBottom and inaccurate defaultHeight, the estimated scroll
@@ -1372,7 +1404,7 @@ test("IRC regression: loadMore should not spiral with async content resizing", a
 	await expectAtBottom(viewport);
 });
 
-test("IRC regression: should stick to bottom with variable-height items", async ({ mount }) => {
+test("should stick to bottom with variable-height items", async ({ mount }) => {
 	// Real IRC messages have wildly different heights (16px short text to 300px+
 	// code blocks). With defaultHeight=16, the estimate is close for short
 	// messages but 10-20x wrong for long ones. This creates asymmetric errors
@@ -1404,9 +1436,7 @@ test("IRC regression: should stick to bottom with variable-height items", async 
 // 3. Switching views (both head+tail changed) must re-initialize cleanly
 // ---------------------------------------------------------------------------
 
-test("bug fix: HEAD prepend should preserve bottom position with large batch", async ({
-	mount,
-}) => {
+test("should preserve bottom position when prepending large batch", async ({ mount }) => {
 	// Regression for the bug where scrollBy(countDelta * defaultHeight) used wrong
 	// estimates. With defaultHeight=16 and actual heights ~100px, the 50*16=800px
 	// compensation was far too small. The fix shifts renderRange and heightMap so
@@ -1442,7 +1472,7 @@ test("bug fix: HEAD prepend should preserve bottom position with large batch", a
 	await expectAtBottom(viewport);
 });
 
-test("bug fix: multiple sequential HEAD prepends should stay at bottom", async ({ mount }) => {
+test("should stay at bottom after multiple sequential prepends", async ({ mount }) => {
 	// Tests that the heightMap shifting works correctly across multiple prepends.
 	// Each prepend must shift the existing cached heights further right.
 	const component = await mount(VirtualListTestWrapper, {
@@ -1471,7 +1501,7 @@ test("bug fix: multiple sequential HEAD prepends should stay at bottom", async (
 	expect(indices).toContain(199);
 });
 
-test("bug fix: switching chats should re-initialize at bottom with stickToBottom", async ({
+test("should re-initialize at bottom when items are fully replaced with stickToBottom", async ({
 	mount,
 }) => {
 	// Regression for the bug where switching IRC channels left the list in the
@@ -1503,7 +1533,7 @@ test("bug fix: switching chats should re-initialize at bottom with stickToBottom
 	await expect(firstItem).toContainText("Chat1");
 });
 
-test("bug fix: rapid chat switching should always end at bottom", async ({ mount }) => {
+test("should end at bottom after rapid item replacement with stickToBottom", async ({ mount }) => {
 	// Multiple rapid switches stress-test the re-initialization path.
 	// Each switch clears stale state and re-initializes from scratch.
 	const component = await mount(VirtualListTestWrapper, {
@@ -1536,7 +1566,7 @@ test("bug fix: rapid chat switching should always end at bottom", async ({ mount
 	await expect(firstItem).toContainText("Chat4");
 });
 
-test("bug fix: switching chat then loading history should end at bottom", async ({ mount }) => {
+test("should end at bottom after item replacement then prepend", async ({ mount }) => {
 	// The full IRC sequence: switch chat → initialize → loadMore fires →
 	// history prepended. Tests the interaction between the re-initialization
 	// fix and the HEAD prepend fix.
@@ -1566,7 +1596,7 @@ test("bug fix: switching chat then loading history should end at bottom", async 
 	await expectAtBottom(viewport);
 });
 
-test("bug fix: observer should not cascade when already at bottom", async ({ mount }) => {
+test("should not cascade observer when already at bottom", async ({ mount }) => {
 	// Regression for the observer path3 subpixel oscillation bug.
 	// After initializeAt completes at the bottom (distFromBottom ≈ 0.27px),
 	// observer path3 used to call scrollToBottom repeatedly. The scrollHeight
@@ -1593,7 +1623,7 @@ test("bug fix: observer should not cascade when already at bottom", async ({ mou
 	await expectAtBottom(viewport);
 });
 
-test("bug fix: replacing items should not produce degenerate 0..0 range", async ({ mount }) => {
+test("should not produce degenerate range when replacing items", async ({ mount }) => {
 	// Regression for recalculateRanges producing start=0, end=0 when items
 	// change dramatically. The degenerate range guard prevents this, and the
 	// explicit headChanged && tailChanged handler in the items effect ensures
@@ -1627,7 +1657,7 @@ test("bug fix: replacing items should not produce degenerate 0..0 range", async 
 	await expect(firstItem).toContainText("Replaced");
 });
 
-test("bug fix: HEAD prepend at scrollTop=0 should still work correctly", async ({ mount }) => {
+test("should handle prepend at scrollTop=0 correctly", async ({ mount }) => {
 	// Edge case: if the user is already at the top when a HEAD prepend occurs
 	// (e.g., they scrolled up manually), the scrollBy compensation should
 	// shift the scroll position so the original items stay in view.
@@ -1665,9 +1695,7 @@ test("bug fix: HEAD prepend at scrollTop=0 should still work correctly", async (
 	expect(hasOriginalItems).toBe(true);
 });
 
-test("bug fix: initial load (0 to N items) should not trigger items-replaced reset", async ({
-	mount,
-}) => {
+test("should not trigger items-replaced reset on initial load", async ({ mount }) => {
 	// Regression: when previousItems is empty (length 0), both headChanged and
 	// tailChanged default to true (ternary fallback). Without the
 	// previousItems.length > 0 guard, this incorrectly enters the "items replaced"
