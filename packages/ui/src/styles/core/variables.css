@@ -19,7 +19,7 @@
 	--hover-pop: color-mix(
 		in srgb,
 		var(--clr-theme-pop-element),
-		var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
+		var(--clr-core-gray-0) var(--opacity-mix-btn-solid-hover)
 	);
 	--hover-bg-1: color-mix(in srgb, var(--clr-bg-1), var(--clr-core-gray-0) 4%);
 	--hover-bg-muted: color-mix(in srgb, var(--clr-bg-muted), var(--clr-core-gray-0) 4%);

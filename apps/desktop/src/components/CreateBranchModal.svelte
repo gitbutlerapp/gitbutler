@@ -309,9 +309,9 @@
 	.radio-label {
 		/* variables */
 		--btn-bg: var(--clr-btn-gray-outline-bg);
-		--btn-bg-opacity: 0;
+		--btn-bg-opacity: 0%;
 		--btn-border-clr: var(--clr-btn-gray-outline);
-		--btn-border-opacity: var(--opacity-btn-outline);
+		--btn-border-opacity: var(--opacity-mix-btn-outline-border);
 		--content-opacity: 1;
 		/* illustration */
 		--image-outline: var(--clr-border-2);
@@ -329,28 +329,28 @@
 			color-mix(
 				in srgb,
 				var(--btn-border-clr, transparent),
-				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
+				transparent calc(100% - var(--btn-border-opacity))
 			);
 
 		border-radius: var(--radius-m);
 		background: color-mix(
 			in srgb,
 			var(--btn-bg, transparent),
-			transparent calc((1 - var(--btn-bg-opacity, 1)) * 100%)
+			transparent calc(100% - var(--btn-bg-opacity))
 		);
 		transition:
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
 
 		&:not(.radio-selected)&:not(.disabled):hover {
-			--btn-bg-opacity: 0.14;
+			--btn-bg-opacity: 14%;
 		}
 
 		&.disabled {
 			--btn-bg: var(--clr-btn-gray-outline-bg);
-			--btn-bg-opacity: 0.1;
+			--btn-bg-opacity: 10%;
 			--btn-border-clr: var(--clr-btn-gray-outline);
-			--btn-border-opacity: 0.1;
+			--btn-border-opacity: 10%;
 			--image-outline: var(--clr-border-1);
 			--image-accent-outline: var(--clr-text-3);
 			--image-accent-bg: var(--clr-bg-2);
@@ -401,9 +401,9 @@
 	/* MODIFIERS */
 	.radio-selected {
 		--btn-bg: var(--clr-theme-pop-bg);
-		--btn-bg-opacity: 1;
+		--btn-bg-opacity: 100%;
 		--btn-border-clr: var(--clr-btn-pop-outline);
-		--btn-border-opacity: 0.6;
+		--btn-border-opacity: 60%;
 		/* illustration */
 		--image-outline: var(--clr-border-1);
 		--image-accent-outline: var(--clr-theme-pop-element);
