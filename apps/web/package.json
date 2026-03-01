@@ -16,7 +16,7 @@
 	"devDependencies": {
 		"@csstools/postcss-global-data": "^3.0.0",
 		"@gitbutler/core": "workspace:*",
-		"@gitbutler/design-core": "1.7.7",
+		"@gitbutler/design-core": "1.8.3",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
 		"@playwright/test": "1.58.2",

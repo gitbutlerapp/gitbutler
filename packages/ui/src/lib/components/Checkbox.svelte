@@ -213,6 +213,8 @@
 	}
 
 	.checkbox-input {
+		-webkit-appearance: none;
+		-moz-appearance: none;
 		appearance: none;
 		z-index: 1;
 		position: absolute;
