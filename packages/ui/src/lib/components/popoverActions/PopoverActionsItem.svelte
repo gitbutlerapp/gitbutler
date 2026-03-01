@@ -67,20 +67,18 @@
 		--label-clr: var(--clr-btn-gray-outline-text);
 		--icon-opacity: var(--opacity-btn-icon-outline);
 		--btn-bg: var(--clr-bg-1);
-		--opacity-btn-bg: 0;
+		--opacity-btn-bg: 0%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-
 		padding: 3px 5px;
 		border: 1px solid var(--clr-border-2);
 		border-right: none;
 		background: color-mix(
 			in srgb,
 			var(--btn-bg, transparent),
-			var(--clr-btn-gray-outline-bg) calc(var(--opacity-btn-bg, 0) * 100%)
+			var(--clr-btn-gray-outline-bg) var(--opacity-btn-bg, 0%)
 		);
-
 		color: var(--label-clr);
 		transition:
 			background-color var(--transition-fast),
@@ -88,11 +86,7 @@
 
 		&:hover:not(:disabled),
 		&.activated:not(:disabled) {
-			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
-
-			.overflow-actions-btn__icon {
-				--icon-opacity: var(--opacity-btn-icon-outline-hover);
-			}
+			--opacity-btn-bg: var(--opacity-mix-btn-outline-bg-hover);
 		}
 
 		&:disabled {

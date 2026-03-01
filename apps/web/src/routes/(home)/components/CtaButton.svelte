@@ -137,9 +137,7 @@
 		will-change: transform;
 
 		&:hover {
-			background-color: hsl(
-				from var(--clr-theme-pop-soft) h s calc(l - (var(--opacity-btn-solid-hover) * 50))
-			);
+			background-color: hsl(from var(--clr-theme-pop-soft) h s calc(l - 5));
 			box-shadow: 0 12px 26px color-mix(in srgb, var(--clr-theme-pop-element) 30%, transparent);
 		}
 	}

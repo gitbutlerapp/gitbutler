@@ -13,7 +13,6 @@
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
 		width?: number | string | undefined;
-		maxWidth?: number | undefined;
 		size?: "tag" | "button";
 		wide?: boolean;
 		grow?: boolean;
@@ -34,7 +33,6 @@
 		tooltipPosition?: TooltipPosition;
 		tooltipAlign?: TooltipAlign;
 		tooltipDelay?: number;
-		tooltipMaxWidth?: number;
 		testId?: string;
 		// Events
 		onclick?: ((e: MouseEvent) => Promise<void>) | ((e: MouseEvent) => void);
@@ -71,7 +69,6 @@
 		shrinkable = false,
 		reversedDirection = false,
 		width,
-		maxWidth,
 		size = "button",
 		wide = false,
 		grow = false,
@@ -91,7 +88,6 @@
 		tooltipPosition,
 		tooltipAlign,
 		tooltipDelay,
-		tooltipMaxWidth,
 		onclick,
 		onmousedown: onmousedownExternal,
 		oncontextmenu,
@@ -105,10 +101,32 @@
 		if (loading || disabled) {
 			e.preventDefault();
 			e.stopPropagation();
-		} else {
-			await onclick?.(e);
+			return;
 		}
+
+		await onclick?.(e);
 	}
+
+	const hasChildren = $derived(Boolean(children));
+	const isDisabled = $derived(disabled || loading);
+	const resolvedWidth = $derived(
+		width !== undefined ? (typeof width === "number" ? `${pxToRem(width)}rem` : width) : undefined,
+	);
+
+	const buttonClasses = $derived([
+		"btn",
+		style,
+		kind,
+		size && `${size}-size`,
+		activated && "activated",
+		grow && "grow",
+		wide && "wide",
+		shrinkable && "shrinkable",
+		reversedDirection && "reversed-direction",
+		dropdownChild && "is-dropdown",
+		!hasChildren && !wide && "fixed-width",
+		className,
+	]);
 
 	const displayHotkey = $derived(hotkey ? formatHotkeyForPlatform(hotkey) : undefined);
 	let tooltipInstance = $state<Tooltip>();
@@ -134,7 +152,6 @@
 	position={tooltipPosition}
 	delay={tooltipDelay}
 	hotkey={displayHotkey}
-	maxWidth={tooltipMaxWidth}
 >
 	<button
 		bind:this={el}
@@ -145,29 +162,11 @@
 				el?.click();
 			},
 		}}
-		class={[
-			"btn",
-			style,
-			kind,
-			size && `${size}-size`,
-			activated && "activated",
-			grow && "grow",
-			wide && "wide",
-			shrinkable && "shrinkable",
-			reversedDirection && "reversed-direction",
-			dropdownChild && "is-dropdown",
-			!children && !wide && "fixed-width",
-			className,
-		]}
+		class={buttonClasses}
 		style:align-self={align}
-		style:width={width !== undefined
-			? typeof width === "number"
-				? `${pxToRem(width)}rem`
-				: width
-			: undefined}
-		style:max-width={maxWidth !== undefined ? `${pxToRem(maxWidth)}rem` : undefined}
+		style:width={resolvedWidth}
 		style={customStyle}
-		disabled={disabled || loading}
+		disabled={isDisabled}
 		onclick={handleAction}
 		{onmousedown}
 		{oncontextmenu}
@@ -175,7 +174,7 @@
 		{type}
 		{id}
 		{tabindex}
-		{...testId ? { "data-testid": testId } : null}
+		{...testId ? { "data-testid": testId } : {}}
 	>
 		{#if children}
 			<span class="btn-label text-semibold truncate text-12">
@@ -215,10 +214,11 @@
 </Tooltip>
 
 <style lang="postcss">
-	/* :where approach applies a lower specificity to the styles,
-	   allowing for easier overrides and better maintainability.
-	 */
 	:where(.btn) {
+		/* ---- Shared mix ratios ---- */
+		--_outline-base-mix: 0%;
+
+		/* ---- Base layout ---- */
 		display: inline-flex;
 		position: relative;
 		align-items: center;
@@ -226,11 +226,7 @@
 		transform-style: preserve-3d;
 		border-radius: var(--radius-btn);
 		backface-visibility: hidden;
-		background: color-mix(
-			in srgb,
-			var(--btn-bg, transparent),
-			transparent calc((1 - var(--opacity-btn-bg, 1)) * 100%)
-		);
+		background: var(--btn-bg);
 		color: var(--label-clr);
 		cursor: pointer;
 
@@ -241,41 +237,7 @@
 			max-width var(--transition-medium);
 		user-select: none;
 
-		/* Consolidated outline and ghost styles */
-
-		/* All outline and ghost buttons share the same icon opacity */
-		:where(&.outline),
-		:where(&.ghost) {
-			--icon-opacity: var(--opacity-btn-icon-outline);
-		}
-
-		/* All outline buttons except gray get a slight background by default */
-		:where(&.outline:not(.gray)) {
-			--opacity-btn-bg: 0.1;
-		}
-
-		/* Ghost buttons and gray outline buttons keep transparent background by default */
-		:where(&.ghost),
-		:where(&.outline.gray) {
-			--opacity-btn-bg: 0;
-		} /* All outline and ghost buttons hover with darker background */
-		:where(&.outline:not(:disabled):hover),
-		:where(&.ghost:not(:disabled):hover),
-		:where(&.outline.activated),
-		:where(&.ghost.activated) {
-			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
-		}
-
-		:where(&.outline) {
-			border: 1px solid
-				color-mix(
-					in srgb,
-					var(--btn-border-clr, transparent),
-					transparent calc((1 - var(--opacity-btn-outline, 1)) * 100%)
-				);
-		}
-
-		/* Child elements */
+		/* ---- Child elements ---- */
 		.btn-label {
 			padding: 0 3px;
 			overflow: hidden;
@@ -303,109 +265,128 @@
 			opacity: 0.5;
 		}
 
-		/* Theme Variables - All themes use the same pattern */
+		/* ---- Theme tokens ---- */
 		:where(&.gray) {
-			--theme-outline-text: var(--clr-btn-gray-outline-text);
-			--theme-outline-bg: var(--clr-btn-gray-outline-bg);
-			--theme-outline-border: var(--clr-btn-gray-outline);
-			--theme-solid-text: var(--clr-theme-gray-on-element);
-			--theme-solid-bg: var(--clr-theme-gray-element);
-			--theme-focus-color: var(--clr-theme-pop-element);
-			--theme-focus-mix-ratio: 100%;
+			--_solid-bg: var(--clr-theme-gray-element);
+			--_solid-fg: var(--clr-theme-gray-on-element);
+			--_outline-text: var(--clr-btn-gray-outline-text);
+			--_outline-bg: var(--clr-btn-gray-outline-bg);
+			--_outline-border: var(--clr-btn-gray-outline);
+			--_focus-ring: var(--clr-theme-pop-element);
+			--_focus-solid-mix: 100%;
 		}
 
 		:where(&.pop) {
-			--theme-outline-text: var(--clr-btn-pop-outline-text);
-			--theme-outline-bg: var(--clr-btn-pop-outline-bg);
-			--theme-outline-border: var(--clr-btn-pop-outline);
-			--theme-solid-text: var(--clr-theme-pop-on-element);
-			--theme-solid-bg: var(--clr-theme-pop-element);
-			--theme-focus-color: var(--clr-theme-pop-element);
+			--_solid-bg: var(--clr-theme-pop-element);
+			--_solid-fg: var(--clr-theme-pop-on-element);
+			--_outline-text: var(--clr-btn-pop-outline-text);
+			--_outline-bg: var(--clr-btn-pop-outline-bg);
+			--_outline-border: var(--clr-btn-pop-outline);
+			--_focus-ring: var(--clr-theme-pop-element);
 		}
 
 		:where(&.safe) {
-			--theme-outline-text: var(--clr-btn-safe-outline-text);
-			--theme-outline-bg: var(--clr-btn-safe-outline-bg);
-			--theme-outline-border: var(--clr-btn-safe-outline);
-			--theme-solid-text: var(--clr-theme-safe-on-element);
-			--theme-solid-bg: var(--clr-theme-safe-element);
-			--theme-focus-color: var(--clr-theme-safe-element);
+			--_solid-bg: var(--clr-theme-safe-element);
+			--_solid-fg: var(--clr-theme-safe-on-element);
+			--_outline-text: var(--clr-btn-safe-outline-text);
+			--_outline-bg: var(--clr-btn-safe-outline-bg);
+			--_outline-border: var(--clr-btn-safe-outline);
+			--_focus-ring: var(--clr-theme-safe-element);
 		}
 
 		:where(&.danger) {
-			--theme-outline-text: var(--clr-btn-danger-outline-text);
-			--theme-outline-bg: var(--clr-btn-danger-outline-bg);
-			--theme-outline-border: var(--clr-btn-danger-outline);
-			--theme-solid-text: var(--clr-theme-danger-on-element);
-			--theme-solid-bg: var(--clr-theme-danger-element);
-			--theme-focus-color: var(--clr-theme-danger-element);
+			--_solid-bg: var(--clr-theme-danger-element);
+			--_solid-fg: var(--clr-theme-danger-on-element);
+			--_outline-text: var(--clr-btn-danger-outline-text);
+			--_outline-bg: var(--clr-btn-danger-outline-bg);
+			--_outline-border: var(--clr-btn-danger-outline);
+			--_focus-ring: var(--clr-theme-danger-element);
 		}
 
 		:where(&.warning) {
-			--theme-outline-text: var(--clr-btn-warn-outline-text);
-			--theme-outline-bg: var(--clr-btn-warn-outline-bg);
-			--theme-outline-border: var(--clr-btn-warn-outline);
-			--theme-solid-text: var(--clr-theme-warn-on-element);
-			--theme-solid-bg: var(--clr-theme-warn-element);
-			--theme-focus-color: var(--clr-theme-warn-element);
+			--_solid-bg: var(--clr-theme-warn-element);
+			--_solid-fg: var(--clr-theme-warn-on-element);
+			--_outline-text: var(--clr-btn-warn-outline-text);
+			--_outline-bg: var(--clr-btn-warn-outline-bg);
+			--_outline-border: var(--clr-btn-warn-outline);
+			--_focus-ring: var(--clr-theme-warn-element);
 		}
 
 		:where(&.purple) {
-			--theme-outline-text: var(--clr-btn-purple-outline-text);
-			--theme-outline-bg: var(--clr-btn-purple-outline-bg);
-			--theme-outline-border: var(--clr-btn-purple-outline);
-			--theme-solid-text: var(--clr-theme-purple-on-element);
-			--theme-solid-bg: var(--clr-theme-purple-element);
-			--theme-focus-color: var(--clr-theme-purple-element);
+			--_solid-bg: var(--clr-theme-purple-element);
+			--_solid-fg: var(--clr-theme-purple-on-element);
+			--_outline-text: var(--clr-btn-purple-outline-text);
+			--_outline-bg: var(--clr-btn-purple-outline-bg);
+			--_outline-border: var(--clr-btn-purple-outline);
+			--_focus-ring: var(--clr-theme-purple-element);
 		}
 
-		/* Focus styles for all themed buttons */
+		/* ---- Variants ---- */
+		:where(&.solid) {
+			--icon-opacity: var(--opacity-mix-btn-solid-icon);
+			--label-clr: var(--_solid-fg);
+			--btn-bg: var(--_solid-bg);
+			--_solid-hover-bg: color-mix(
+				in srgb,
+				var(--_solid-bg),
+				var(--clr-core-gray-0) var(--opacity-mix-btn-solid-hover)
+			);
+		}
+
+		:where(&.outline),
+		:where(&.ghost) {
+			--icon-opacity: var(--opacity-mix-btn-outline-icon);
+			--label-clr: var(--_outline-text);
+		}
+
+		:where(&.outline) {
+			--btn-bg: color-mix(in srgb, var(--_outline-bg) var(--_outline-base-mix), transparent);
+			border: 1px solid
+				color-mix(
+					in srgb,
+					var(--_outline-border) var(--opacity-mix-btn-outline-border),
+					transparent
+				);
+		}
+
+		:where(&.outline:not(.gray)) {
+			--_outline-base-mix: 10%;
+		}
+
+		:where(&.ghost) {
+			--btn-bg: transparent;
+		}
+
+		:where(&.solid:not(:disabled):hover),
+		:where(&.solid.activated) {
+			--btn-bg: var(--_solid-hover-bg);
+		}
+
+		:where(&.outline:not(:disabled):hover),
+		:where(&.ghost:not(:disabled):hover),
+		:where(&.outline.activated),
+		:where(&.ghost.activated) {
+			--btn-bg: color-mix(
+				in srgb,
+				var(--_outline-bg) var(--opacity-mix-btn-outline-bg-hover),
+				transparent
+			);
+		}
+
+		/* ---- Focus ---- */
 		:where(&.outline:focus-visible),
 		:where(&.ghost:focus-visible) {
-			outline: 2px solid var(--theme-focus-color);
+			outline: 2px solid var(--_focus-ring);
 			outline-offset: -2px;
 		}
 
 		:where(&.solid:focus-visible) {
 			outline: 2px solid
-				color-mix(
-					in srgb,
-					var(--theme-focus-color) var(--theme-focus-mix-ratio, 50%),
-					var(--clr-text-1)
-				);
+				color-mix(in srgb, var(--_focus-ring) var(--_focus-solid-mix, 50%), var(--clr-text-1));
 			outline-offset: -2px;
 		}
 
-		/* Apply patterns using consolidated theme variables */
-		:where(&.outline),
-		:where(&.ghost) {
-			--label-clr: var(--theme-outline-text);
-			--btn-bg: var(--theme-outline-bg);
-		}
-
-		/* Hover and activated states maintain the same text color as default state */
-
-		:where(&.outline) {
-			--btn-border-clr: var(--theme-outline-border);
-		}
-
-		:where(&.solid) {
-			--icon-opacity: var(--opacity-btn-icon-solid);
-			--label-clr: var(--theme-solid-text);
-			--btn-bg: var(--theme-solid-bg);
-			--theme-solid-bg-hover: color-mix(
-				in srgb,
-				var(--theme-solid-bg),
-				var(--clr-core-gray-0) calc((var(--opacity-btn-solid-hover) * 100%))
-			);
-		}
-
-		:where(&.solid:not(:disabled):hover),
-		:where(&.solid.activated) {
-			--btn-bg: var(--theme-solid-bg-hover);
-		}
-
-		/* Size modifiers with size variables */
+		/* ---- Sizes ---- */
 		&.tag-size {
 			--btn-size: var(--size-tag);
 			--btn-padding: 2px 4px;
@@ -418,19 +399,17 @@
 			--btn-gap: 2px;
 		}
 
-		/* Apply size variables */
 		&[class*="-size"] {
 			height: var(--btn-size);
 			padding: var(--btn-padding);
 			gap: var(--btn-gap);
 		}
 
-		/* Fixed width variants */
 		&.fixed-width[class*="-size"] {
 			width: var(--btn-size);
 		}
 
-		/* Dropdown styles */
+		/* ---- Dropdown split-button ---- */
 		&.is-dropdown:first-of-type {
 			flex: 1;
 			border-right: none;
@@ -455,13 +434,12 @@
 			border-bottom-left-radius: 0;
 		}
 
-		/* State modifiers */
+		/* ---- State + layout modifiers ---- */
 		&:disabled {
 			cursor: not-allowed;
 			opacity: 0.5;
 		}
 
-		/* Layout modifiers */
 		&.wide {
 			display: flex;
 			width: 100%;
@@ -480,7 +458,7 @@
 			overflow: hidden;
 		}
 
-		&.shrinkable .label {
+		&.shrinkable .btn-label {
 			display: inline-block;
 			overflow: hidden;
 			text-overflow: ellipsis;
