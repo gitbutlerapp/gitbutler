@@ -595,10 +595,10 @@ importers:
     devDependencies:
       '@napi-rs/cli':
         specifier: ^3.5.1
-        version: 3.5.1(@emnapi/runtime@1.7.1)(@types/node@24.10.4)(node-addon-api@7.1.1)
+        version: 3.5.1(@emnapi/runtime@1.7.1)(@types/node@22.19.11)(node-addon-api@7.1.1)
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@24.10.4)(typescript@5.9.3)
+        version: 10.9.2(@types/node@22.19.11)(typescript@5.9.3)
 
   packages/core:
     dependencies:
