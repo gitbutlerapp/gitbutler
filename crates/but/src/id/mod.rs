@@ -790,10 +790,26 @@ impl IdMap {
     ) -> anyhow::Result<Vec<CliId>> {
         let mut cli_ids = Vec::new();
         if let Some((lhs, rhs)) = entity.split_once(':') {
-            for node in self.parse_element(lhs)? {
-                for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
-                    if let Some(cli_id) = node.to_cli_id(entity, self)? {
-                        cli_ids.push(cli_id);
+            if let Some((mhs, rhs)) = rhs.rsplit_once(':') {
+                // 2 colons is the limit. This allows filenames with
+                // colons to be specified in the middle part (e.g.
+                // `a:filename:with:colon:b` will parse to `a`,
+                // `filename:with:colon`, `b`).
+                for node in self.parse_element(lhs)? {
+                    for node in node.parse(mhs, self, &mut changes_in_commit_fn)? {
+                        for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
+                            if let Some(cli_id) = node.to_cli_id(entity, self)? {
+                                cli_ids.push(cli_id);
+                            }
+                        }
+                    }
+                }
+            } else {
+                for node in self.parse_element(lhs)? {
+                    for node in node.parse(rhs, self, &mut changes_in_commit_fn)? {
+                        if let Some(cli_id) = node.to_cli_id(entity, self)? {
+                            cli_ids.push(cli_id);
+                        }
                     }
                 }
             }

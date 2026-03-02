@@ -1332,6 +1332,33 @@ fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
         ),
     ]
     "#);
+    // Files can also be accessed through zz
+    insta::assert_debug_snapshot!(id_map.parse("zz:uncommitted1.txt:0", Box::new(changed_paths_fn))?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "j0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-1,2", "+1,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+    ]
+    "#);
 
     Ok(())
 }
