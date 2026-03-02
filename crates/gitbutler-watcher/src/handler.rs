@@ -46,15 +46,17 @@ impl Handler {
     ) -> Result<()> {
         match event {
             InternalEvent::ProjectFilesChange(project_id, paths) => {
-                let mut ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                let mut ctx =
+                    self.open_command_context(project_id.clone(), app_settings.get()?.clone())?;
                 let mut guard = ctx.exclusive_worktree_access();
-                self.project_files_change(paths, &mut ctx, guard.write_permission())
+                self.project_files_change(project_id, paths, &mut ctx, guard.write_permission())
             }
 
             InternalEvent::GitFilesChange(project_id, paths) => {
-                let mut ctx = self.open_command_context(project_id, app_settings.get()?.clone())?;
+                let mut ctx =
+                    self.open_command_context(project_id.clone(), app_settings.get()?.clone())?;
                 let mut guard = ctx.exclusive_worktree_access();
-                self.git_files_change(paths, &mut ctx, guard.write_permission())
+                self.git_files_change(project_id, paths, &mut ctx, guard.write_permission())
                     .context("failed to handle git file change event")
             }
         }
@@ -77,15 +79,21 @@ impl Handler {
     #[instrument(skip_all, fields(paths = paths.len()))]
     fn project_files_change(
         &self,
+        project_id: ProjectHandleOrLegacyProjectId,
         paths: Vec<PathBuf>,
         ctx: &mut Context,
         perm: &mut RepoExclusive,
     ) -> Result<()> {
-        _ = self.emit_worktree_changes(ctx, perm);
+        _ = self.emit_worktree_changes(project_id, ctx, perm);
         Ok(())
     }
 
-    fn emit_worktree_changes(&self, ctx: &mut Context, perm: &mut RepoExclusive) -> Result<()> {
+    fn emit_worktree_changes(
+        &self,
+        project_id: ProjectHandleOrLegacyProjectId,
+        ctx: &mut Context,
+        perm: &mut RepoExclusive,
+    ) -> Result<()> {
         let context_lines = ctx.settings.context_lines;
         let (repo, ws, mut db) = ctx.workspace_and_db_mut_with_perm(perm.read_permission())?;
 
@@ -146,7 +154,7 @@ impl Handler {
             };
         }
         let _ = self.emit_app_event(Change::WorktreeChanges {
-            project_id: ctx.legacy_project.id.clone(),
+            project_id,
             changes,
         });
         Ok(())
@@ -154,12 +162,12 @@ impl Handler {
 
     pub fn git_files_change(
         &self,
+        project_id: ProjectHandleOrLegacyProjectId,
         paths: Vec<PathBuf>,
         ctx: &mut Context,
         perm: &mut RepoExclusive,
     ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
-        let project_id = ctx.legacy_project.id.clone();
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
@@ -182,7 +190,7 @@ impl Handler {
                     })?;
                 }
                 INDEX => {
-                    let _ = self.emit_worktree_changes(ctx, perm);
+                    let _ = self.emit_worktree_changes(project_id.clone(), ctx, perm);
                 }
                 HEAD => {
                     let git2_repo = ctx.git2_repo.get()?;

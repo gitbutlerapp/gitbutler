@@ -93,7 +93,7 @@ pub mod writable {
         let (project, tempdir) = fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)?;
         Ok((ctx, tempdir))
     }
     pub fn fixture_project(
@@ -111,6 +111,7 @@ pub mod writable {
             project_directory.to_owned(),
             root.path().join(project_directory),
         );
+        crate::set_storage_path_for_testing(project.git_dir())?;
         Ok((project, root))
     }
 
@@ -131,7 +132,7 @@ pub mod writable {
         let (project, tempdir) = but_fixture_project(script_name, project_directory)?;
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)?;
         Ok((ctx, tempdir))
     }
 
@@ -151,6 +152,7 @@ pub mod writable {
             project_directory.to_owned(),
             root.path().join(project_directory),
         );
+        crate::set_storage_path_for_testing(project.git_dir())?;
         Ok((project, root))
     }
 }
@@ -256,10 +258,7 @@ pub mod read_only {
     /// Returns the project that is strictly for read-only use.
     pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        Ok(Context::new_from_legacy_project_and_settings(
-            &project,
-            AppSettings::default(),
-        ))
+        Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
     }
 
     /// As [fixture()], but allows setting `features` in the app settings
@@ -269,13 +268,13 @@ pub mod read_only {
         features: FeatureFlags,
     ) -> anyhow::Result<Context> {
         let project = fixture_project(script_name, project_directory)?;
-        Ok(Context::new_from_legacy_project_and_settings(
+        Context::new_from_legacy_project_and_settings(
             &project,
             AppSettings {
                 feature_flags: features,
                 ..Default::default()
             },
-        ))
+        )
     }
 
     /// Like [`fixture()`], but will return only the `Project` at `project_directory` after executing `script_name`.
@@ -305,7 +304,23 @@ pub mod read_only {
                 project_worktree_dir,
             )
         };
+        super::set_storage_path_for_testing(project.git_dir())?;
         Ok(project)
+    }
+}
+
+fn set_storage_path_for_testing(git_dir: &Path) -> anyhow::Result<()> {
+    git2::Repository::open(git_dir)?
+        .config()?
+        .set_str(&storage_path_key(), "gitbutler")?;
+    Ok(())
+}
+
+fn storage_path_key() -> String {
+    match option_env!("CHANNEL") {
+        Some("release") => "gitbutler.storagePath".to_string(),
+        Some(channel) => format!("gitbutler.{channel}.storagePath"),
+        None => "gitbutler.dev.storagePath".to_string(),
     }
 }
 

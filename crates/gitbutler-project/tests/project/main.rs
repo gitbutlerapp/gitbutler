@@ -1,8 +1,13 @@
+use but_core::RepositoryExt;
 use gitbutler_testsupport::{self, paths};
 use tempfile::TempDir;
 
 pub fn new() -> TempDir {
     paths::data_dir()
+}
+
+fn storage_key() -> String {
+    but_project_handle::storage_path_config_key().to_owned()
 }
 
 mod add {
@@ -20,6 +25,42 @@ mod add {
             project.title,
             path.iter().next_back().unwrap().to_str().unwrap()
         );
+        Ok(())
+    }
+
+    #[test]
+    fn creates_configured_storage_dir() -> anyhow::Result<()> {
+        let data_dir = paths::data_dir();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let key = storage_key();
+        git2::Repository::open(repo.path())?
+            .config()?
+            .set_str(&key, "gitbutler-custom")?;
+
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
+        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        assert!(gb_dir.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn get_recreates_configured_storage_dir() -> anyhow::Result<()> {
+        let data_dir = paths::data_dir();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let key = storage_key();
+        git2::Repository::open(repo.path())?
+            .config()?
+            .set_str(&key, "gitbutler-custom")?;
+
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), repo.path())?.unwrap_project();
+        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        std::fs::remove_dir_all(&gb_dir)?;
+        assert!(!gb_dir.exists(), "sanity check");
+
+        let _project = gitbutler_project::get_with_path(data_dir.path(), project.id)?;
+        assert!(gb_dir.exists(), "storage dir should be recreated on get");
         Ok(())
     }
 
@@ -161,7 +202,14 @@ mod delete {
         assert!(gitbutler_project::delete_with_path(data_dir.path(), project_id.clone()).is_ok()); // idempotent
         assert!(gitbutler_project::get_with_path(data_dir.path(), project_id).is_err());
         assert!(repo.path().exists());
-        assert!(!repo.path().join("gitbutler").exists());
+        assert!(
+            !project
+                .open_isolated_repo()
+                .unwrap()
+                .gitbutler_storage_path()
+                .unwrap()
+                .exists()
+        );
     }
 
     #[test]
@@ -251,7 +299,7 @@ mod delete {
         gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
 
         assert!(repo.path().exists());
-        assert!(!repo.path().join("gitbutler").exists());
+        assert!(!repo.gitbutler_storage_path()?.exists());
 
         // Nothing changed - no reference was touched.
         insta::assert_debug_snapshot!(all_refs(&repo)?, @r#"
@@ -262,6 +310,25 @@ mod delete {
         ]
         "#);
 
+        Ok(())
+    }
+
+    #[test]
+    fn removes_configured_storage_dir() -> anyhow::Result<()> {
+        let data_dir = paths::data_dir();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let key = storage_key();
+        git2::Repository::open(repo.path())?
+            .config()?
+            .set_str(&key, "gitbutler-custom")?;
+        let path = repo.path();
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
+        let gb_dir = project.open_isolated_repo()?.gitbutler_storage_path()?;
+        assert!(gb_dir.exists());
+
+        gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
+        assert!(!gb_dir.exists());
         Ok(())
     }
 

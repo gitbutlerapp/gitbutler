@@ -165,9 +165,16 @@ impl Controller {
             .add(&project)
             .context("failed to add project to storage")?;
 
-        // Create a .git/gitbutler directory for app data
-        if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
-            tracing::error!(project_id = %project.id, ?error, "failed to create {:?} on project add", project.gb_dir());
+        // Create the repository-local GitButler storage directory for app data.
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if let Err(error) = std::fs::create_dir_all(&gb_dir) {
+                    tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project add", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project add");
+            }
         }
 
         Ok(AddProjectOutcome::Added(project))
@@ -245,10 +252,17 @@ impl Controller {
             }
         }
 
-        if !project.gb_dir().exists()
-            && let Err(error) = std::fs::create_dir_all(project.gb_dir())
-        {
-            tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if !gb_dir.exists()
+                    && let Err(error) = std::fs::create_dir_all(&gb_dir)
+                {
+                    tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project get");
+            }
         }
         // Clean up old virtual_branches.toml that was never used
         let old_virtual_branches_path = project.git_dir().join("virtual_branches.toml");
@@ -284,10 +298,17 @@ impl Controller {
             tracing::error!(project_id = %id, ?error, "failed to remove project data",);
         }
 
-        if project.gb_dir().exists()
-            && let Err(error) = std::fs::remove_dir_all(project.gb_dir())
-        {
-            tracing::error!(project_id = %project.id, ?error, "failed to remove {:?} on project delete", project.gb_dir());
+        match project.gb_dir() {
+            Ok(gb_dir) => {
+                if gb_dir.exists()
+                    && let Err(error) = std::fs::remove_dir_all(&gb_dir)
+                {
+                    tracing::error!(project_id = %project.id, ?error, "failed to remove \"{}\" on project delete", gb_dir.display());
+                }
+            }
+            Err(error) => {
+                tracing::error!(project_id = %project.id, ?error, "failed to resolve storage directory on project delete");
+            }
         }
 
         // Delete references in the gitbutler namespace

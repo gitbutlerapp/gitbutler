@@ -1043,6 +1043,7 @@ dependencies = [
  "bstr",
  "but-error",
  "but-oxidize",
+ "but-project-handle",
  "but-schemars",
  "but-serde",
  "but-testsupport",
@@ -1416,10 +1417,13 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
- "but-core",
+ "but-path",
+ "but-testsupport",
  "gix",
  "serde",
  "serde_json",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
