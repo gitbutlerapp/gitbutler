@@ -569,6 +569,23 @@ fn stage_command() -> anyhow::Result<()> {
 }
 
 #[test]
+fn stage_command_path_prefix() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("path/a.txt", "text\n");
+    env.but("stage path/ A")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Staged hunk(s) → [A].
+
+"#]]);
+    Ok(())
+}
+
+#[test]
 fn unstage_command() -> anyhow::Result<()> {
     let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
 
@@ -625,6 +642,28 @@ fn unstage_command() -> anyhow::Result<()> {
 
 "#]]);
 
+    Ok(())
+}
+
+#[test]
+fn unstage_command_path_prefix() -> anyhow::Result<()> {
+    let env = Sandbox::init_scenario_with_target_and_default_settings("two-stacks")?;
+
+    env.setup_metadata(&["A", "B"])?;
+    env.file("path/a.txt", "text\n");
+
+    // First stage the file to A
+    env.but("stage path/a.txt A").assert().success();
+
+    // Now unstage it, giving a path prefix
+    env.but("unstage A@{stack}:path/ A")
+        .assert()
+        .success()
+        .stderr_eq(snapbox::str![])
+        .stdout_eq(snapbox::str![[r#"
+Unstaged hunk(s)
+
+"#]]);
     Ok(())
 }
 

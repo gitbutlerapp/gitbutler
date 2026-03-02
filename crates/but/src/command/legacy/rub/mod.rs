@@ -987,7 +987,7 @@ pub(crate) fn handle_amend(
 }
 
 /// Handler for `but stage <file_or_hunk> <branch>` - runs `but rub <file_or_hunk> <branch>`
-/// Validates that file_or_hunk is uncommitted and branch is a branch.
+/// Validates that file_or_hunk is uncommitted or a path prefix, and that branch is a branch.
 pub(crate) fn handle_stage(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -998,10 +998,10 @@ pub(crate) fn handle_stage(
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
     let branch = resolve_single_id(ctx, &id_map, branch_str, "Branch", out)?;
 
-    // Validate that all files are uncommitted
+    // Validate that all files are uncommitted or a path prefix
     for file in &files {
         match file {
-            CliId::Uncommitted(_) => {
+            CliId::Uncommitted(_) | CliId::PathPrefix { .. } => {
                 // Valid type for stage
             }
             _ => {
@@ -1142,7 +1142,8 @@ pub(crate) fn handle_stage_tui(
 }
 
 /// Handler for `but unstage <file_or_hunk> [branch]` - runs `but rub <file_or_hunk> zz`
-/// Validates that file_or_hunk is uncommitted. Optionally validates it's assigned to the specified branch.
+/// Validates that file_or_hunk is uncommitted or a path prefix. Optionally
+/// validates it's assigned to the specified branch.
 pub(crate) fn handle_unstage(
     ctx: &mut Context,
     out: &mut OutputChannel,
@@ -1152,10 +1153,10 @@ pub(crate) fn handle_unstage(
     let id_map = IdMap::new_from_context(ctx, None)?;
     let files = parse_sources_with_disambiguation(ctx, &id_map, file_or_hunk_str, out)?;
 
-    // Validate that all files are uncommitted
+    // Validate that all files are uncommitted or a path prefix
     for file in &files {
         match file {
-            CliId::Uncommitted(_) => {
+            CliId::Uncommitted(_) | CliId::PathPrefix { .. } => {
                 // Valid type for unstage
             }
             _ => {
