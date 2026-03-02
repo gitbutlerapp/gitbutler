@@ -1,0 +1,5 @@
+error: unexpected token
+ --> tests/ui/fail/napi_list_attr_unsupported.rs:9:15
+  |
+9 | #[but_api(napi, try_from = json::HexHash)]
+  |               ^

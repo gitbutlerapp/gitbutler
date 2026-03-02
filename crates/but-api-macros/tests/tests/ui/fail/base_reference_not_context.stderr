@@ -1,0 +1,5 @@
+error: Only `&Context` or `&but_ctx::Context` may be references
+ --> tests/ui/fail/base_reference_not_context.rs:9:28
+  |
+9 | fn wrong_reference(_value: &String) -> anyhow::Result<String> {
+  |                            ^^^^^^^

@@ -938,6 +938,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-api-macros-tests"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "but-api-macros",
+ "but-ctx",
+ "but-error",
+ "futures",
+ "gix",
+ "napi",
+ "napi-derive",
+ "serde",
+ "serde_json",
+ "tauri",
+ "trybuild",
+]
+
+[[package]]
 name = "but-bot"
 version = "0.1.0"
 dependencies = [
@@ -10042,6 +10061,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
+name = "target-triple"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "591ef38edfb78ca4771ee32cf494cb8771944bee237a9b91fc9c1424ac4b777b"
+
+[[package]]
 name = "tauri"
 version = "2.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10901,6 +10926,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml"
+version = "1.0.3+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c7614eaf19ad818347db24addfa201729cf2a9b6fdfd9eb0ab870fcacc606c0c"
+dependencies = [
+ "indexmap 2.13.0",
+ "serde_core",
+ "serde_spanned 1.0.4",
+ "toml_datetime 1.0.0+spec-1.1.0",
+ "toml_parser",
+ "toml_writer",
+ "winnow 0.7.14",
+]
+
+[[package]]
 name = "toml_datetime"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10914,6 +10954,15 @@ name = "toml_datetime"
 version = "0.7.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "toml_datetime"
+version = "1.0.0+spec-1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32c2555c699578a4f59f0cc68e5116c8d7cabbd45e1409b989d4be085b53f13e"
 dependencies = [
  "serde_core",
 ]
@@ -11187,6 +11236,21 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "trybuild"
+version = "1.0.116"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47c635f0191bd3a2941013e5062667100969f8c4e9cd787c14f977265d73616e"
+dependencies = [
+ "glob",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "target-triple",
+ "termcolor",
+ "toml 1.0.3+spec-1.1.0",
+]
 
 [[package]]
 name = "ts-rs"

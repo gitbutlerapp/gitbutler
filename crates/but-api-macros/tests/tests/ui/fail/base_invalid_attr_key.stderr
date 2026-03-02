@@ -1,0 +1,5 @@
+error: Need `try_from = path` to use try-from instead of from
+ --> tests/ui/fail/base_invalid_attr_key.rs:8:11
+  |
+8 | #[but_api(from = json::HexHash)]
+  |           ^^^^

@@ -1,0 +1,36 @@
+[package]
+name = "but-api-macros-tests"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+default = []
+legacy = []
+tauri = ["dep:tauri", "legacy"]
+napi = ["dep:napi", "dep:napi-derive", "legacy"]
+
+[dependencies]
+but-api-macros = { path = ".." }
+but-error.workspace = true 
+but-ctx = { workspace = true , features = ["legacy"] }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+gix.workspace = true
+futures.workspace = true
+bstr = { workspace = true, features = ["serde"] }
+tauri = { version = "^2.9.5", features = ["unstable"], optional = true }
+napi = { version = "3.0.0", features = ["serde-json", "tokio_rt"], optional = true }
+napi-derive = { version = "3.0.0", optional = true }
+
+[dev-dependencies]
+trybuild = "1.0.114"
+
+[lints]
+workspace = true

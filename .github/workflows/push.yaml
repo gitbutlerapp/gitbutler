@@ -339,6 +339,8 @@ jobs:
             cargo check -p gitbutler-tauri --no-default-features --features "$feature"
           done
         name: Test Tauri and Check Tauri App Features
+      - name: Test but-api-macros feature matrix
+        run: make test-but-api-macros
 
   check-rust-windows:
     needs: changes
