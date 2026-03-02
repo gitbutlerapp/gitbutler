@@ -38,7 +38,7 @@ impl FileAssignment {
                     })
                     .assignments
             };
-            for hunk_assignment in &uncommitted_file.hunk_assignments {
+            for hunk_assignment in uncommitted_file.hunk_assignments() {
                 assignments.push(CLIHunkAssignment {
                     inner: hunk_assignment.clone(),
                     cli_id: uncommitted_file.short_id.clone(),

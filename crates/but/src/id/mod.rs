@@ -370,7 +370,8 @@ impl<'a> Node<'a> for &'a StackWithId {
             return Ok(id_map.parse_uncommitted_path_prefix(self.id, element));
         }
         for uncommitted_file in id_map.uncommitted_files.values() {
-            let hunk_assignment = uncommitted_file.hunk_assignments.first();
+            let hunk_assignments = uncommitted_file.hunk_assignments();
+            let hunk_assignment = hunk_assignments.first();
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
@@ -465,7 +466,8 @@ impl IdMap {
                 reverse_hex,
                 UncommittedFile {
                     short_id: ShortId::default(),
-                    hunk_assignments,
+                    short_id_hunk_assignments: hunk_assignments
+                        .map(|hunk_assignment| (ShortId::default(), hunk_assignment)),
                 },
             );
             // Skip an ID for stability of other IDs below with respect to older
@@ -486,10 +488,13 @@ impl IdMap {
         assign_short_ids(&mut reverse_hex_short_ids)?;
 
         let mut uncommitted_hunks = HashMap::new();
-        for uncommitted_file in uncommitted_files.values() {
-            for hunk_assignment in uncommitted_file.hunk_assignments.iter() {
+        for uncommitted_file in uncommitted_files.values_mut() {
+            for (short_id, hunk_assignment) in uncommitted_file.short_id_hunk_assignments.iter_mut()
+            {
+                let new_short_id = id_usage.next_available()?.to_short_id();
+                short_id.push_str(&new_short_id);
                 uncommitted_hunks.insert(
-                    id_usage.next_available()?.to_short_id(),
+                    new_short_id,
                     UncommittedHunk {
                         hunk_assignment: hunk_assignment.clone(),
                     },
@@ -573,7 +578,8 @@ impl IdMap {
     ) -> Vec<Box<dyn Node<'a> + 'a>> {
         let mut matches = Vec::<Box<dyn Node<'a> + 'a>>::new();
         for uncommitted_file in self.uncommitted_files.values() {
-            let hunk_assignment = uncommitted_file.hunk_assignments.first();
+            let hunk_assignments = uncommitted_file.hunk_assignments();
+            let hunk_assignment = hunk_assignments.first();
             // TODO once the set of allowed CLI IDs is determined and the
             // access patterns of `uncommitted_files` are known, change its data
             // structure to be more efficient than the current linear search.
@@ -1066,25 +1072,33 @@ pub struct UncommittedFile {
     pub short_id: ShortId,
     /// Every element has the same [HunkAssignment::stack_id] and [HunkAssignment::path_bytes],
     /// so the first assignment can be used to obtain both.
-    pub hunk_assignments: NonEmpty<HunkAssignment>,
+    pub short_id_hunk_assignments: NonEmpty<(ShortId, HunkAssignment)>,
 }
 
 impl UncommittedFile {
     /// Return the file's stack if it is associated to one, or `None` if the Stack is unknown/has no ID.
     pub fn stack_id(&self) -> Option<StackId> {
-        self.hunk_assignments.first().stack_id
+        self.hunk_assignments().first().stack_id
     }
     /// The path of the uncommitted file.
     pub fn path(&self) -> &BStr {
-        self.hunk_assignments.first().path_bytes.as_ref()
+        self.hunk_assignments().first().path_bytes.as_ref()
     }
     /// Turn this instance into a [CliId].
     pub fn to_id(&self) -> CliId {
         CliId::Uncommitted(UncommittedCliId {
-            hunk_assignments: self.hunk_assignments.clone(),
+            hunk_assignments: self
+                .hunk_assignments()
+                .map(|hunk_assignment| hunk_assignment.to_owned()),
             id: self.short_id.clone(),
             is_entire_file: true,
         })
+    }
+    /// Hunk assignments.
+    pub fn hunk_assignments(&self) -> NonEmpty<&HunkAssignment> {
+        self.short_id_hunk_assignments
+            .as_ref()
+            .map(|(_, hunk_assignment)| hunk_assignment)
     }
 }
 impl<'a> Node<'a> for &'a UncommittedFile {
@@ -1104,7 +1118,9 @@ impl<'a> Node<'a> for &'a UncommittedFile {
     ) -> anyhow::Result<Option<CliId>> {
         Ok(Some(CliId::Uncommitted(UncommittedCliId {
             id: self.short_id.clone(),
-            hunk_assignments: self.hunk_assignments.clone(),
+            hunk_assignments: self
+                .hunk_assignments()
+                .map(|hunk_assignment| hunk_assignment.to_owned()),
             is_entire_file: true,
         })))
     }
