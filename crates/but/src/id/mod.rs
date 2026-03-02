@@ -7,6 +7,7 @@
 #![forbid(missing_docs)]
 
 use std::collections::{BTreeMap, HashMap};
+use std::str::FromStr as _;
 
 use bstr::{BStr, BString, ByteSlice};
 use but_core::{ChangeId, ref_metadata::StackId};
@@ -1104,10 +1105,20 @@ impl UncommittedFile {
 impl<'a> Node<'a> for &'a UncommittedFile {
     fn parse(
         self: Box<Self>,
-        _element: &str,
+        element: &str,
         _id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        if let Ok(index) = usize::from_str(element)
+            && let Some((short_id, hunk_assignment)) = self.short_id_hunk_assignments.get(index)
+        {
+            let cli_id = CliId::Uncommitted(UncommittedCliId {
+                id: short_id.to_owned(),
+                hunk_assignments: NonEmpty::new(hunk_assignment.to_owned()),
+                is_entire_file: false,
+            });
+            return Ok(vec![Box::new(Leaf { cli_id })]);
+        }
         Ok(Vec::new())
     }
 
