@@ -13,7 +13,7 @@ const DEFAULT_PAGER: &str = "less";
 /// - `F`: Quit if content fits on screen.
 /// - `X`: Don't clear the screen on exit.
 /// - `R`: Recognize ANSI color escape sequences and use them verbatim to *keep* styling.
-/// - `S`: Don't wrap long lines. We don't want wrapping as we control the layour carefully.
+/// - `S`: Don't wrap long lines. We don't want wrapping as we control the layout carefully.
 const DEFAULT_PAGER_ARGS: &str = "FXRS";
 const DEFAULT_PAGER_ENV_VAR: &str = "LESS";
 
@@ -49,11 +49,9 @@ pub(crate) fn try_init_pager() -> Option<Pager> {
 fn try_spawn_external_pager() -> Option<(std::process::Child, std::process::ChildStdin)> {
     use std::process::{Command, Stdio};
 
-    let pager_override = std::env::var("BUT_PAGER")
-        .or_else(|_| std::env::var("PAGER"))
-        .ok();
-    let program = if let Some(cmd) = &pager_override {
-        cmd
+    let pager_override = std::env::var("BUT_PAGER").ok();
+    let (program, is_default) = if let Some(cmd) = &pager_override {
+        (cmd.as_ref(), false)
     } else if Command::new(DEFAULT_PAGER)
         .arg("--version")
         .stdout(Stdio::null())
@@ -61,7 +59,7 @@ fn try_spawn_external_pager() -> Option<(std::process::Child, std::process::Chil
         .status()
         .is_ok()
     {
-        DEFAULT_PAGER
+        (DEFAULT_PAGER, true)
     } else {
         return None;
     };
@@ -69,7 +67,15 @@ fn try_spawn_external_pager() -> Option<(std::process::Child, std::process::Chil
     let mut cmd = Command::new(program);
     cmd.stdin(Stdio::piped());
 
-    if program == DEFAULT_PAGER && std::env::var_os(DEFAULT_PAGER_ENV_VAR).is_none() {
+    if is_default {
+        // If we use the default pager, we're going to forcefully set our intended default
+        // configuration for it. If a user wishes to have different configuration, they must
+        // explicitly set the pager with e.g. `BUT_PAGER` (even if that explicitly makes it the
+        // default pager).
+        //
+        // This could be considered a user configuration issue, but as it seems like macOS systems
+        // tend to have some rather exotic configuration for less which messes with our intended
+        // experience, we'll just set our own preference here.
         cmd.env(DEFAULT_PAGER_ENV_VAR, DEFAULT_PAGER_ARGS);
     }
 
