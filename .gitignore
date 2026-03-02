@@ -52,10 +52,6 @@ playwright-report
 *storybook.log
 storybook-static
 
-# Cypress
-**/cypress/screenshots
-packages/ui/tests/.cache
-
 # Vercel
 .vercel
 
