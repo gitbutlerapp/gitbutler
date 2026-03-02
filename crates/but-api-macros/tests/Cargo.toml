@@ -18,7 +18,7 @@ napi = ["dep:napi", "dep:napi-derive", "dep:tokio", "legacy"]
 [dependencies]
 but-api-macros = { path = ".." }
 but-error.workspace = true 
-but-ctx = { workspace = true , features = ["legacy"] }
+but-ctx = { workspace = true, features = ["legacy"] }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true

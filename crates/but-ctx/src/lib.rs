@@ -41,6 +41,19 @@ use crate::ondemand_cache::OnDemandCache;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ProjectHandle(String);
 
+/// JSON input for `project_id` parameters.
+///
+/// This accepts a [`ProjectHandle`] in all builds, and also accepts a legacy [`LegacyProjectId`]
+/// when the `legacy` feature is enabled.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ProjectHandleOrLegacyProjectId {
+    /// Self-describing project handle.
+    ProjectHandle(ProjectHandle),
+    /// Legacy UUID project identifier.
+    #[cfg(feature = "legacy")]
+    LegacyProjectId(LegacyProjectId),
+}
+
 /// A context specific to a repository, along with commonly used information to make higher-level functions
 /// more convenient to implement.
 /// This type is *not* thread-safe, and cheap to clone. That way it may own per-thread caches.
