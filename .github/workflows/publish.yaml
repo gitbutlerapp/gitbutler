@@ -420,19 +420,33 @@ jobs:
           source_dir: "release-s3/"
           destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
 
-      # tell our server to update with the version number
+  notify-gitbutler-api:
+    needs: [build-tauri, publish-tauri]
+    permissions: {}
+    runs-on: ubuntu-latest
+    steps:
       - name: Notify GitButler API of new release
         shell: bash
+        env:
+          CHANNEL: ${{ needs.build-tauri.outputs.channel }}
+          VERSION: ${{ needs.publish-tauri.outputs.version }}-${{ github.run_number }}
+          SHA: ${{ github.sha }}
+          BOT_AUTH_TOKEN: ${{ secrets.BOT_AUTH_TOKEN }}
         run: |
+          payload=$(jq -n \
+            --arg channel "$CHANNEL" \
+            --arg version "$VERSION" \
+            --arg sha "$SHA" \
+            '{channel: $channel, version: $version, sha: $sha}')
           curl 'https://app.gitbutler.com/api/releases' \
             --fail \
             --request POST \
             --header 'Content-Type: application/json' \
-            --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-            --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+            --header "X-Auth-Token: ${BOT_AUTH_TOKEN}" \
+            --data "$payload"
 
   create-git-tag:
-    needs: [publish-tauri, build-tauri]
+    needs: [notify-gitbutler-api, build-tauri, publish-tauri]
     runs-on: ubuntu-latest
     permissions:
       contents: write # needed to push tags
