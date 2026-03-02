@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getOS } from "$lib/utils/getOS";
-	import { fetchAndProcessReleases, findBuild } from "$lib/utils/releaseUtils";
+	import { fetchAndProcessReleases, findLinuxCliBuild } from "$lib/utils/releaseUtils";
 	import { onMount } from "svelte";
 
 	interface Props {
@@ -19,7 +19,7 @@
 			try {
 				const releases = await fetchAndProcessReleases(1, "release");
 				if (releases[0]) {
-					const build = findBuild(releases[0].builds, "linux");
+					const build = findLinuxCliBuild(releases[0].builds, "x86_64");
 					cliBinaryUrl = build?.url;
 				}
 			} catch {

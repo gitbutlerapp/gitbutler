@@ -59,16 +59,11 @@ export interface LatestReleaseBuilds {
 }
 
 /**
- * Find a CLI-only build (not AppImage, deb, or rpm) for a given arch
+ * Find a Linux-specific CLI-only build (not AppImage, deb, or rpm) for a given arch
  */
-function findCliBuild(builds: Build[], arch: "x86_64" | "aarch64"): Build | undefined {
+export function findLinuxCliBuild(builds: Build[], arch: "x86_64" | "aarch64"): Build | undefined {
 	return builds.find(
-		(build) =>
-			build.os === "linux" &&
-			build.arch === arch &&
-			!build.file.toLowerCase().includes("appimage") &&
-			!build.file.toLowerCase().includes(".deb") &&
-			!build.file.toLowerCase().includes(".rpm"),
+		(build) => build.os === "linux" && build.arch === arch && build.file.toLowerCase() === "but",
 	);
 }
 
@@ -83,8 +78,8 @@ export function createLatestReleaseBuilds(latestRelease: Release): LatestRelease
 		linux_appimage_aarch64: findBuild(latestRelease.builds, "linux", "aarch64", "AppImage"),
 		linux_deb_aarch64: findBuild(latestRelease.builds, "linux", "aarch64", "deb"),
 		linux_rpm_aarch64: findBuild(latestRelease.builds, "linux", "aarch64", "rpm"),
-		linux_cli_x86_64: findCliBuild(latestRelease.builds, "x86_64"),
-		linux_cli_aarch64: findCliBuild(latestRelease.builds, "aarch64"),
+		linux_cli_x86_64: findLinuxCliBuild(latestRelease.builds, "x86_64"),
+		linux_cli_aarch64: findLinuxCliBuild(latestRelease.builds, "aarch64"),
 	};
 }
 
