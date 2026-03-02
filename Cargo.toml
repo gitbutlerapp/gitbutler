@@ -251,6 +251,7 @@ reqwest = { version = "0.12.28", default-features = false, features = [
     "json",
 ] }
 chrono = { version = "0.4.42", default-features = false, features = ["std"] }
+hex = "0.4.3"
 md5 = "0.8.0"
 sha2 = "0.10"
 bitflags = "2.9.4"
@@ -289,6 +290,7 @@ ratatui = "0.30"
 crossterm = "0.29"
 self_cell = "1.2.2"
 unicode-segmentation = "1.12.0"
+urlencoding = "2.1"
 
 [workspace.lints.clippy]
 all = "deny"
