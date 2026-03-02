@@ -28,6 +28,7 @@
 		{ label: "GitLab", value: "gitlab" },
 		{ label: "Azure", value: "azure" },
 		{ label: "BitBucket", value: "bitbucket" },
+		{ label: "Gitea", value: "gitea" },
 	];
 
 	const { projectId }: { projectId: string } = $props();
@@ -95,7 +96,7 @@
 				<br />
 				To enable Forge integration, please select your Forge from the dropdown below.
 				<br />
-				<span class="text-bold">Note:</span> Currently, only GitHub and GitLab support pull request creation.
+				<span class="text-bold">Note:</span> Currently, only GitHub, GitLab, and Gitea support pull request creation.
 			{:else}
 				We’ve detected that you’re using <span class="text-bold"
 					>{forge.determinedForgeType.toUpperCase()}</span
