@@ -1256,6 +1256,114 @@ fn short_uncommitted_files_are_properly_reverse_hexed() -> anyhow::Result<()> {
 }
 
 #[test]
+fn uncommitted_hunks_by_numeric_index() -> anyhow::Result<()> {
+    let stacks = vec![Stack {
+        id: Some(StackId::from_number_for_testing(1)),
+        ..stack([segment("foo", [id(2)], Some(id(1)), [])])
+    }];
+    let hunk_assignments = vec![
+        HunkAssignment {
+            hunk_header: Some(hunk_header("-1,2", "+1,2")),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
+        HunkAssignment {
+            hunk_header: Some(hunk_header("-3,2", "+3,2")),
+            ..hunk_assignment("uncommitted1.txt", None)
+        },
+        hunk_assignment("uncommitted2.txt", None),
+    ];
+    let id_map = IdMap::new(stacks, hunk_assignments)?;
+    let changed_paths_fn = |commit_id: gix::ObjectId,
+                            parent_id: Option<gix::ObjectId>|
+     -> anyhow::Result<Vec<but_core::TreeChange>> {
+        bail!("unexpected IDs {commit_id} {parent_id:?}");
+    };
+
+    insta::assert_debug_snapshot!(id_map.parse("uncommitted1.txt:0", Box::new(changed_paths_fn))?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "j0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-1,2", "+1,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+    ]
+    "#);
+    // Short IDs for the filename part also work; should return exactly the same as above
+    insta::assert_debug_snapshot!(id_map.parse("ro:0", Box::new(changed_paths_fn))?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "j0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-1,2", "+1,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+    ]
+    "#);
+    // Files can also be accessed through zz
+    insta::assert_debug_snapshot!(id_map.parse("zz:uncommitted1.txt:0", Box::new(changed_paths_fn))?, @r#"
+    [
+        Uncommitted(
+            UncommittedCliId {
+                id: "j0",
+                hunk_assignments: NonEmpty {
+                    head: HunkAssignment {
+                        id: None,
+                        hunk_header: Some(
+                            HunkHeader("-1,2", "+1,2"),
+                        ),
+                        path: "",
+                        path_bytes: "uncommitted1.txt",
+                        stack_id: None,
+                        hunk_locks: None,
+                        line_nums_added: None,
+                        line_nums_removed: None,
+                        diff: None,
+                    },
+                    tail: [],
+                },
+                is_entire_file: false,
+            },
+        ),
+    ]
+    "#);
+
+    Ok(())
+}
+
+#[test]
 fn commit_matches_are_deduplicated_by_commit_oid() -> anyhow::Result<()> {
     let commit_id = id(2);
     let stacks = vec![stack([segment(
