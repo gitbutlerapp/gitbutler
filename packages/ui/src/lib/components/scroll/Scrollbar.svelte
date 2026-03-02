@@ -197,7 +197,7 @@
 	function setupTrack(track: Element) {
 		if (!track) return;
 
-		track.addEventListener("mousedown", onThumbClick, { passive: true });
+		track.addEventListener("mousedown", onThumbClick);
 		track.addEventListener("mouseenter", onTrackEnter);
 		track.addEventListener("mouseleave", onTrackLeave);
 
@@ -214,7 +214,7 @@
 	function setupThumb(thumb: Element) {
 		if (!thumb) return;
 
-		thumb.addEventListener("mousedown", onThumbClick, { passive: true });
+		thumb.addEventListener("mousedown", onThumbClick);
 		return () => {
 			thumb.removeEventListener("mousedown", onThumbClick);
 		};

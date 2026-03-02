@@ -755,7 +755,7 @@
 							tooltip="Scroll to bottom"
 							onclick={() => {
 								if (items && items.length > 0) {
-									initializeAt(items.length - 1);
+									scrollToBottom();
 								}
 							}}
 						/>
