@@ -365,6 +365,10 @@ impl<'a> Node<'a> for &'a StackWithId {
         id_map: &'a IdMap,
         _changes_in_commit_fn: &mut ChangesInCommitFn<'a>,
     ) -> anyhow::Result<Vec<Box<dyn Node<'a> + 'a>>> {
+        // Parse known suffixes.
+        if element.ends_with('/') {
+            return Ok(id_map.parse_uncommitted_path_prefix(self.id, element));
+        }
         for uncommitted_file in id_map.uncommitted_files.values() {
             let hunk_assignment = uncommitted_file.hunk_assignments.first();
             // TODO once the set of allowed CLI IDs is determined and the
