@@ -4,6 +4,8 @@ fn macro_features_compile_without_optional_features() {
     let t = trybuild::TestCases::new();
     t.pass("tests/ui/pass/default_*.rs");
     t.compile_fail("tests/ui/fail/base_*.rs");
+    #[cfg(not(feature = "legacy"))]
+    t.compile_fail("tests/ui/fail/default_*.rs");
 }
 
 #[cfg(all(feature = "legacy", not(any(feature = "tauri", feature = "napi"))))]

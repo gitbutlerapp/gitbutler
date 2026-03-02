@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, bail};
 
-use crate::ProjectHandle;
+use crate::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 
 /// Lifecycle
 impl ProjectHandle {
@@ -42,6 +42,15 @@ impl std::fmt::Display for ProjectHandle {
 impl std::fmt::Debug for ProjectHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ProjectHandle").field(&self.0).finish()
+    }
+}
+
+impl std::str::FromStr for ProjectHandle {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let path = encoded_str_to_path(value)?;
+        path_to_string(&path).map(Self)
     }
 }
 
@@ -125,6 +134,89 @@ fn validate_encoded(encoded: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+impl<'de> serde::Deserialize<'de> for ProjectHandle {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <String as serde::Deserialize>::deserialize(deserializer)?;
+        value.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+impl std::str::FromStr for ProjectHandleOrLegacyProjectId {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        if let Ok(handle) = value.parse::<ProjectHandle>() {
+            return Ok(Self::ProjectHandle(handle));
+        }
+        #[cfg(feature = "legacy")]
+        if let Ok(project_id) = value.parse::<crate::LegacyProjectId>() {
+            return Ok(Self::LegacyProjectId(project_id));
+        }
+        #[cfg(feature = "legacy")]
+        return Err(anyhow::anyhow!(
+            "Expected `project_id` to be either a ProjectHandle or a legacy ProjectId, got '{value}'"
+        ));
+        #[cfg(not(feature = "legacy"))]
+        return Err(anyhow::anyhow!(
+            "Expected `project_id` to be a ProjectHandle, got '{value}'"
+        ));
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ProjectHandleOrLegacyProjectId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <String as serde::Deserialize>::deserialize(deserializer)?;
+        value.parse().map_err(serde::de::Error::custom)
+    }
+}
+
+impl serde::Serialize for ProjectHandleOrLegacyProjectId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            ProjectHandleOrLegacyProjectId::ProjectHandle(handle) => {
+                serializer.serialize_str(&handle.to_string())
+            }
+            #[cfg(feature = "legacy")]
+            ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => {
+                serializer.serialize_str(&project_id.to_string())
+            }
+        }
+    }
+}
+
+impl TryFrom<ProjectHandleOrLegacyProjectId> for crate::Context {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ProjectHandleOrLegacyProjectId) -> Result<Self, Self::Error> {
+        match value {
+            ProjectHandleOrLegacyProjectId::ProjectHandle(project_handle) => {
+                crate::Context::try_from(project_handle)
+            }
+            #[cfg(feature = "legacy")]
+            ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => {
+                crate::Context::try_from(project_id)
+            }
+        }
+    }
+}
+
+impl TryFrom<ProjectHandleOrLegacyProjectId> for crate::ThreadSafeContext {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ProjectHandleOrLegacyProjectId) -> Result<Self, Self::Error> {
+        Ok(crate::Context::try_from(value)?.into_sync())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -149,6 +241,18 @@ mod tests {
         let decoded = handle.to_path()?;
         assert_eq!(decoded, gix::path::realpath(input)?);
         Ok(())
+    }
+
+    #[test]
+    fn from_str_round_trip() -> anyhow::Result<()> {
+        let handle: ProjectHandle = "%2Ftmp%2Fread%20me".parse()?;
+        assert_eq!(handle.to_path()?, PathBuf::from("/tmp/read me"));
+        Ok(())
+    }
+
+    #[test]
+    fn from_str_rejects_relative_payloads() {
+        assert!("relative%2Fpath".parse::<ProjectHandle>().is_err());
     }
 
     #[test]
@@ -323,6 +427,63 @@ mod tests {
             let one_hex_digit = "/tmp/%2";
             assert!(encoded_str_to_path(one_hex_digit).is_err());
 
+            Ok(())
+        }
+    }
+
+    mod project_handle_or_legacy_project_id {
+        use crate::ProjectHandleOrLegacyProjectId;
+
+        #[test]
+        fn project_handle_or_legacy_project_id_deserializes_project_handle() -> anyhow::Result<()> {
+            let value: ProjectHandleOrLegacyProjectId = serde_json::from_str(r#""%2Ftmp""#)?;
+            match value {
+                ProjectHandleOrLegacyProjectId::ProjectHandle(handle) => {
+                    assert_eq!(handle.to_string(), "%2Ftmp");
+                }
+                #[cfg_attr(not(feature = "legacy"), allow(unreachable_patterns))]
+                other => unreachable!("expected project handle variant, got {other:?}"),
+            }
+            Ok(())
+        }
+
+        #[test]
+        fn project_handle_or_legacy_project_id_round_trips_project_handle() -> anyhow::Result<()> {
+            let value: ProjectHandleOrLegacyProjectId = serde_json::from_str(r#""%2Ftmp""#)?;
+            let serialized = serde_json::to_string(&value)?;
+            assert_eq!(serialized, r#""%2Ftmp""#);
+            let decoded: ProjectHandleOrLegacyProjectId = serde_json::from_str(&serialized)?;
+            assert_eq!(decoded, value);
+            Ok(())
+        }
+
+        #[test]
+        #[cfg(feature = "legacy")]
+        fn project_handle_or_legacy_project_id_deserializes_legacy_project_id() -> anyhow::Result<()>
+        {
+            let expected = "00000000-0000-0000-0000-000000000000";
+            let value: ProjectHandleOrLegacyProjectId =
+                serde_json::from_str(&format!(r#""{expected}""#))?;
+            match value {
+                ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => {
+                    assert_eq!(project_id.to_string(), expected);
+                }
+                other => panic!("expected legacy project id variant, got {other:?}"),
+            }
+            Ok(())
+        }
+
+        #[test]
+        #[cfg(feature = "legacy")]
+        fn project_handle_or_legacy_project_id_round_trips_legacy_project_id() -> anyhow::Result<()>
+        {
+            let expected = "00000000-0000-0000-0000-000000000000";
+            let expected_json = format!(r#""{expected}""#);
+            let value: ProjectHandleOrLegacyProjectId = serde_json::from_str(&expected_json)?;
+            let serialized = serde_json::to_string(&value)?;
+            assert_eq!(serialized, expected_json);
+            let decoded: ProjectHandleOrLegacyProjectId = serde_json::from_str(&serialized)?;
+            assert_eq!(decoded, value);
             Ok(())
         }
     }

@@ -18,7 +18,7 @@ napi = ["dep:napi", "dep:napi-derive", "legacy"]
 [dependencies]
 but-api-macros = { path = ".." }
 but-error.workspace = true 
-but-ctx = { workspace = true , features = ["legacy"] }
+but-ctx = { workspace = true, features = ["legacy"] }
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -34,3 +34,6 @@ trybuild = "1.0.114"
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-machete]
+ignored = ["futures", "napi", "napi-derive", "tauri", "but-error"]

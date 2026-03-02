@@ -28,7 +28,9 @@ use syn::{Expr, FnArg, ItemFn, Pat, parse_macro_input};
 ///     - This is also annotated with the `tauri` macro when the feature is enabled in the `but-api` crate.
 ///     - **Parameter Transformation**
 ///         - It supports `but_ctx::Context`, `&Context`, `&mut Context` or `ThreadSafeContext` as parameter,
-///           which will be translated to `LegacyProjectId` with the `project_id` parameter name.
+///           which will be translated to `project_id`:
+///           - in legacy builds: `ProjectHandleOrLegacyProjectId`
+///           - without legacy: `ProjectHandle`
 ///         - `gix::ObjectId` will be translated into `json::HexHash`.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
 ///     - It performs all **Parameter Transformations** of `func_json`.
@@ -358,7 +360,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn keep_json(_json: #json_ty) {}
         };
 
-        /// Cmd function - this is legacy just while most of its functionality depend on `LegacyProjectId`.
+        /// Cmd function - this is legacy while most of its functionality depends on legacy project integration.
         /// parameter struct input via json value, json output.
         #[cfg(feature = "legacy")]
         #vis #asyncness fn #fn_cmd_name(
@@ -457,7 +459,7 @@ fn build_json_type_mapping<'a>(
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
-                    json_ty: syn::parse_str("but_ctx::LegacyProjectId")?,
+                    json_ty: syn::parse_str("but_ctx::ProjectHandleOrLegacyProjectId")?,
                     json_ident: Some(syn::parse_str("project_id")?),
                     from_mode: FromMode::TryFrom,
                 },
@@ -704,7 +706,7 @@ fn build_napi_params<'a>(
             let last_segment = mapping.json_ty.segments.last().unwrap();
             let last_ident = &last_segment.ident;
 
-            if *last_ident == "LegacyProjectId" {
+            if *last_ident == "LegacyProjectId" || *last_ident == "ProjectHandleOrLegacyProjectId" {
                 // Context → String project_id, then convert to Context
                 params.push(quote! { #param_name: String });
                 // Determine the actual type we need to produce (stripping references)
@@ -712,9 +714,10 @@ fn build_napi_params<'a>(
                     syn::Type::Reference(r) => &*r.elem,
                     other => other,
                 };
+                let json_ty = &mapping.json_ty;
                 conversions.push(quote! {
-                    let project_id: but_ctx::LegacyProjectId = #param_name.parse()
-                        .map_err(|e: <but_ctx::LegacyProjectId as ::std::str::FromStr>::Err| {
+                    let project_id: #json_ty = #param_name.parse()
+                        .map_err(|e: <#json_ty as ::std::str::FromStr>::Err| {
                             napi::Error::new(napi::Status::InvalidArg, format!("{e:#}"))
                         })?;
                     let mut #ident = <#actual_ty>::try_from(project_id)

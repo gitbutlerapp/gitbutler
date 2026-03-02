@@ -1079,6 +1079,8 @@ dependencies = [
  "gitbutler-project",
  "gix",
  "hex",
+ "serde",
+ "serde_json",
  "tracing",
  "urlencoding",
 ]
