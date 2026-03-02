@@ -13,7 +13,8 @@ fn twice() {
             .expect("failed to add project")
             .unwrap_project();
         let mut ctx =
-            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+            Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+                .expect("can create context");
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -33,7 +34,8 @@ fn twice() {
             .unwrap()
             .unwrap_project();
         let mut ctx =
-            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+            Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+                .expect("can create context");
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             &ctx,

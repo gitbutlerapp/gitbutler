@@ -12,6 +12,7 @@ fn context_for_repo(repo: &git2::Repository) -> Context {
         projects::AuthKey::default(),
     );
     Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+        .expect("can create context")
 }
 
 #[test]

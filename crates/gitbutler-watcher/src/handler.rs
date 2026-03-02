@@ -71,10 +71,7 @@ impl Handler {
         app_settings: AppSettings,
     ) -> Result<Context> {
         let project = gitbutler_project::get(project_id).context("failed to get project")?;
-        Ok(Context::new_from_legacy_project_and_settings(
-            &project,
-            app_settings,
-        ))
+        Context::new_from_legacy_project_and_settings(&project, app_settings)
     }
 
     #[instrument(skip_all, fields(paths = paths.len()))]

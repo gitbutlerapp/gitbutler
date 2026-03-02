@@ -4,13 +4,25 @@ use gix::{
     merge::tree::{Options, TreatAsUnresolved},
     prelude::ObjectIdExt,
 };
+use std::path::PathBuf;
 
 use crate::{GitConfigSettings, commit::TreeKind};
+
+const GITBUTLER_STORAGE_PATH: &str = "gitbutler.storagePath";
 
 /// Easy access of settings relevant to GitButler for retrieval and storage in Git settings.
 pub trait RepositoryExt: Sized {
     /// Returns a bundle of settings by querying the git configuration itself, assuring fresh data is loaded.
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings>;
+    /// Return the path to store per-project GitButler data.
+    ///
+    /// Resolution:
+    /// * `gitbutler.storagePath` on release builds, or `gitbutler.<channel>.storagePath`
+    ///   on non-release builds.
+    /// * If it is relative, it is interpreted relative to [`gix::Repository::git_dir`].
+    /// * Otherwise defaults to `<git-dir>/gitbutler` for release builds and
+    ///   `<git-dir>/gitbutler.<channel>` for non-release builds.
+    fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf>;
     /// Set all fields in `config` that are not `None` to disk into local repository configuration, or none of them.
     fn set_git_settings(&self, config: &GitConfigSettings) -> anyhow::Result<()>;
     /// Return all signatures that would be needed to perform a commit as configured in Git: `(author, committer)`.
@@ -143,6 +155,34 @@ impl RepositoryExt for gix::Repository {
         GitConfigSettings::try_from_snapshot(&self.config_snapshot())
     }
 
+    fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf> {
+        let git_dir = self.git_dir();
+        let storage_key = storage_path_config_key(option_env!("CHANNEL"));
+        let (storage_path, source) =
+            if let Some(path) = self.config_snapshot().string(storage_key.as_str()) {
+                let path = gix::path::try_from_bstr(path.as_ref())
+                    .with_context(|| format!("{storage_key} contains an invalid path"))?;
+                let path = if path.is_absolute() {
+                    path.into_owned()
+                } else {
+                    git_dir.join(path.as_ref())
+                };
+                (path, "git-config")
+            } else {
+                (
+                    git_dir.join(default_gitbutler_storage_dir_name(option_env!("CHANNEL"))),
+                    "default",
+                )
+            };
+        tracing::info!(
+            storage_path = %storage_path.display(),
+            config_key = %storage_key,
+            source,
+            "Resolved GitButler storage path; set this config key to override"
+        );
+        Ok(storage_path)
+    }
+
     fn set_git_settings(&self, settings: &GitConfigSettings) -> anyhow::Result<()> {
         settings.persist_to_local_config(self)
     }
@@ -248,4 +288,59 @@ fn commit_time(overriding_variable_name: &str) -> gix::date::Time {
         .ok()
         .and_then(|time| gix::date::parse(&time, Some(std::time::SystemTime::now())).ok())
         .unwrap_or_else(gix::date::Time::now_local_or_utc)
+}
+
+fn default_gitbutler_storage_dir_name(channel: Option<&str>) -> String {
+    match channel {
+        Some("release") => "gitbutler".to_string(),
+        Some(channel) => format!("gitbutler.{channel}"),
+        None => "gitbutler.dev".to_string(),
+    }
+}
+
+fn storage_path_config_key(channel: Option<&str>) -> String {
+    match channel {
+        Some("release") => GITBUTLER_STORAGE_PATH.to_string(),
+        Some(channel) => format!("gitbutler.{channel}.storagePath"),
+        None => "gitbutler.dev.storagePath".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{default_gitbutler_storage_dir_name, storage_path_config_key};
+
+    #[test]
+    fn storage_dir_name_from_channel() {
+        assert_eq!(
+            default_gitbutler_storage_dir_name(Some("release")),
+            "gitbutler"
+        );
+        assert_eq!(
+            default_gitbutler_storage_dir_name(Some("nightly")),
+            "gitbutler.nightly"
+        );
+        assert_eq!(
+            default_gitbutler_storage_dir_name(Some("beta")),
+            "gitbutler.beta"
+        );
+        assert_eq!(default_gitbutler_storage_dir_name(None), "gitbutler.dev");
+    }
+
+    #[test]
+    fn storage_key_from_channel() {
+        assert_eq!(
+            storage_path_config_key(Some("release")),
+            "gitbutler.storagePath"
+        );
+        assert_eq!(
+            storage_path_config_key(Some("nightly")),
+            "gitbutler.nightly.storagePath"
+        );
+        assert_eq!(
+            storage_path_config_key(Some("beta")),
+            "gitbutler.beta.storagePath"
+        );
+        assert_eq!(storage_path_config_key(None), "gitbutler.dev.storagePath");
+    }
 }

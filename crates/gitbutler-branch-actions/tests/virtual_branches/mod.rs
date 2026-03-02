@@ -30,7 +30,8 @@ impl Test {
         let project = outcome.unwrap_project();
         let mut settings = AppSettings::default();
         change_settings(&mut settings);
-        let ctx = Context::new_from_legacy_project_and_settings(&project, settings);
+        let ctx = Context::new_from_legacy_project_and_settings(&project, settings)
+            .expect("can create context");
         Self {
             repo: test_project,
             project_id: project.id,

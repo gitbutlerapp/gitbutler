@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::Context as _;
+use but_core::RepositoryExt;
 use serde::{Deserialize, Serialize};
 
 use crate::default_true::DefaultTrue;
@@ -339,9 +340,11 @@ impl Project {
 
     /// Returns the path to the directory containing the `GitButler` state for this project.
     ///
-    /// Normally this is `.git/gitbutler` in the project's repository.
-    pub(crate) fn gb_dir(&self) -> PathBuf {
-        self.git_dir().join("gitbutler")
+    /// By default this is `.git/gitbutler` for release builds and `.git/gitbutler.<channel>`
+    /// for non-release builds. It can be overridden by setting `gitbutler.storagePath`
+    /// on release, or `gitbutler.<channel>.storagePath` on non-release builds.
+    pub(crate) fn gb_dir(&self) -> anyhow::Result<PathBuf> {
+        self.open_isolated_repo()?.gitbutler_storage_path()
     }
 }
 
