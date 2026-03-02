@@ -1,5 +1,7 @@
 //! Operations for mutating the editor
 
+use std::collections::HashSet;
+
 use anyhow::{Result, anyhow};
 use petgraph::{Direction, visit::EdgeRef};
 use serde::{Deserialize, Serialize};
@@ -22,6 +24,112 @@ pub enum InsertSide {
     ///
     /// IE: Any parent commits will become a parent of what is getting inserted.
     Below,
+}
+
+/// Defines the start and end of a segment by pointing to it's parent-most and child-most nodes.
+#[derive(Debug, Clone)]
+pub struct SegmentDelimiter<C, P>
+where
+    C: ToSelector,
+    P: ToSelector,
+{
+    /// The child-most node contained within the segment being defined.
+    pub child: C,
+    /// The parent-most node contained within the segment being defined.
+    pub parent: P,
+}
+
+/// A set of some selectors
+#[derive(Debug, Clone)]
+pub struct SomeSelectors {
+    selectors: Vec<AnySelector>,
+}
+
+impl SomeSelectors {
+    /// Creates a set of selectors from different selector input types.
+    ///
+    /// Errors out if the selectors iterator is empty.
+    pub fn new<T>(selectors: impl IntoIterator<Item = T>) -> Result<Self>
+    where
+        T: Into<AnySelector>,
+    {
+        let selectors: Vec<AnySelector> = selectors.into_iter().map(Into::into).collect();
+
+        if selectors.is_empty() {
+            return Err(anyhow!("Invalid selector set: This cannot be empty"));
+        }
+
+        Ok(Self { selectors })
+    }
+
+    /// Returns selectors as a slice.
+    pub fn as_slice(&self) -> &[AnySelector] {
+        &self.selectors
+    }
+}
+
+/// A heterogeneous selector input.
+#[derive(Debug, Clone)]
+pub enum AnySelector {
+    /// A selector that already points into the current graph revision.
+    Selector(Selector),
+    /// A commit id that should resolve to a pick step.
+    Commit(gix::ObjectId),
+    /// A reference name that should resolve to a reference step.
+    Reference(gix::refs::FullName),
+}
+
+impl ToSelector for AnySelector {
+    fn to_selector(&self, editor: &Editor) -> Result<Selector> {
+        match self {
+            Self::Selector(selector) => selector.to_selector(editor),
+            Self::Commit(id) => editor.select_commit(*id),
+            Self::Reference(reference) => editor.select_reference(reference.as_ref()),
+        }
+    }
+}
+
+impl From<Selector> for AnySelector {
+    fn from(value: Selector) -> Self {
+        Self::Selector(value)
+    }
+}
+
+impl From<gix::ObjectId> for AnySelector {
+    fn from(value: gix::ObjectId) -> Self {
+        Self::Commit(value)
+    }
+}
+
+impl From<gix::refs::FullName> for AnySelector {
+    fn from(value: gix::refs::FullName) -> Self {
+        Self::Reference(value)
+    }
+}
+
+impl<T> TryFrom<Vec<T>> for SomeSelectors
+where
+    T: Into<AnySelector>,
+{
+    type Error = anyhow::Error;
+
+    fn try_from(value: Vec<T>) -> std::result::Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+/// Defines a set of node children or parents, to perform an action on.
+///
+/// Currently, this is used in the disconnect functionality.
+#[derive(Debug, Clone, Default)]
+pub enum SelectorSet {
+    /// Select all of the children or parents.
+    #[default]
+    All,
+    /// No children or parents should be selected.
+    None,
+    /// A subset of children or parents should be selected.
+    Some(SomeSelectors),
 }
 
 /// An enum that is helpful for describing where something should be inserted
@@ -123,49 +231,221 @@ impl Editor {
         Ok(old)
     }
 
-    /// Connect all the children of A to all the parents of B
+    /// Disconnect a segment from a parent segment.
     ///
-    /// This removes all the children edges of A and all the parent edges of B.
-    /// The intended usage is to 'remove' a segment from the graph.
+    /// `target` - The segment to disconnect.
+    /// `children_to_disconnect` - Child nodes to disconnect from `target.child`.
+    /// If `SelectorSet::All`, all incoming children of `target.child` are disconnected.
     ///
-    /// It's possible for both targets to be the same.
-    pub fn disconnect(
+    /// `parents_to_disconnect` - Parent nodes to disconnect from `target.parent`.
+    /// If `SelectorSet::All`, all outgoing parents of `target.parent` are disconnected.
+    ///
+    /// `target` delimiter's child and parent can be the same node.
+    /// This is the way to disconnect a single node.
+    ///
+    /// Returns an error when:
+    /// - `parents_to_disconnect` is `SelectorSet::None`
+    /// - `parents_to_disconnect` contains any parent that is not a direct parent of `target.parent`
+    /// - `children_to_disconnect` contains any child that is not a direct parent of `target.child`
+    pub fn disconnect_segment_from<C, P>(
         &mut self,
-        target_a: impl ToSelector,
-        target_b: impl ToSelector,
-    ) -> Result<()> {
-        let target_a = self
-            .history
-            .normalize_selector(target_a.to_selector(self)?)?;
-        let target_b = self
-            .history
-            .normalize_selector(target_b.to_selector(self)?)?;
+        target: SegmentDelimiter<C, P>,
+        children_to_disconnect: SelectorSet,
+        parents_to_disconnect: SelectorSet,
+    ) -> Result<()>
+    where
+        C: ToSelector,
+        P: ToSelector,
+    {
+        let SegmentDelimiter { child, parent } = target;
+        let target_child = self.history.normalize_selector(child.to_selector(self)?)?;
+        let target_parent = self.history.normalize_selector(parent.to_selector(self)?)?;
+        let children_to_disconnect = match children_to_disconnect {
+            SelectorSet::All => None,
+            SelectorSet::None => Some(Vec::new()),
+            SelectorSet::Some(children) => Some(
+                children
+                    .as_slice()
+                    .iter()
+                    .map(|from_child| from_child.to_selector(self))
+                    .collect::<Result<Vec<_>>>()?
+                    .into_iter()
+                    .map(|selector| self.history.normalize_selector(selector))
+                    .collect::<Result<Vec<_>>>()?,
+            ),
+        };
+
+        let parents_to_disconnect = match parents_to_disconnect {
+            SelectorSet::All => None,
+            SelectorSet::None => {
+                return Err(anyhow!(
+                    "Invalid parents to disconnect: SelectorSet::None is not allowed"
+                ));
+            }
+            SelectorSet::Some(parents) => Some(
+                parents
+                    .as_slice()
+                    .iter()
+                    .map(|from_parent| from_parent.to_selector(self))
+                    .collect::<Result<Vec<_>>>()?
+                    .into_iter()
+                    .map(|selector| self.history.normalize_selector(selector))
+                    .collect::<Result<Vec<_>>>()?,
+            ),
+        };
 
         // Edges to children.
         let incoming_edges = self
             .graph
-            .edges_directed(target_a.id, Direction::Incoming)
+            .edges_directed(target_child.id, Direction::Incoming)
             .map(|e| (e.id(), e.weight().to_owned(), e.source()))
             .collect::<Vec<_>>();
 
         // Edges to parents.
         let outgoing_edges = self
             .graph
-            .edges_directed(target_b.id, Direction::Outgoing)
+            .edges_directed(target_parent.id, Direction::Outgoing)
             .map(|e| (e.id(), e.weight().to_owned(), e.target()))
             .collect::<Vec<_>>();
 
-        // Disconnect all parents from the target node.
-        for (edge_id, _, _) in &outgoing_edges {
-            self.graph.remove_edge(*edge_id);
+        // All available parents
+        let available_parents = outgoing_edges
+            .iter()
+            .map(|(_, _, edge_target)| *edge_target)
+            .collect::<HashSet<_>>();
+        let available_children = incoming_edges
+            .iter()
+            .map(|(_, _, edge_source)| *edge_source)
+            .collect::<HashSet<_>>();
+
+        // 1. Verify that all parents and children to disconnect are directly connected to the target segment.
+        if let Some(parents_to_disconnect) = parents_to_disconnect.as_ref() {
+            for selector in parents_to_disconnect {
+                if !available_parents.contains(&selector.id) {
+                    return Err(anyhow!(
+                        "Invalid parent delimitation: requested parent is not a direct parent of target.parent"
+                    ));
+                }
+            }
         }
 
-        // Connect all the children to all parents.
+        if let Some(children_to_disconnect) = children_to_disconnect.as_ref() {
+            for selector in children_to_disconnect {
+                if !available_children.contains(&selector.id) {
+                    return Err(anyhow!(
+                        "Invalid parent delimitation: requested child is not a direct parent of target.child"
+                    ));
+                }
+            }
+        }
+
+        let parent_ids_to_disconnect = parents_to_disconnect
+            .as_ref()
+            .map(|parents| parents.iter().map(|s| s.id).collect::<HashSet<_>>());
+        let child_ids_to_disconnect = children_to_disconnect
+            .as_ref()
+            .map(|children| children.iter().map(|s| s.id).collect::<HashSet<_>>());
+
+        let mut disconnected_parent_edges = Vec::new();
+        // 2. Disconnect parents.
+        for (edge_id, edge_weight, edge_target) in outgoing_edges {
+            let should_disconnect = parent_ids_to_disconnect
+                .as_ref()
+                .is_none_or(|ids| ids.contains(&edge_target));
+            if should_disconnect {
+                self.graph.remove_edge(edge_id);
+                disconnected_parent_edges.push((edge_weight, edge_target));
+            }
+        }
+
+        // 3. Disconnect children and reconnect to the disconnected parents.
         for (edge_id, _, edge_source) in incoming_edges {
-            self.graph.remove_edge(edge_id);
-            for (_, parent_edge_weight, parent_edge_target) in &outgoing_edges {
-                self.graph
-                    .add_edge(edge_source, *parent_edge_target, parent_edge_weight.clone());
+            let should_disconnect = child_ids_to_disconnect
+                .as_ref()
+                .is_none_or(|ids| ids.contains(&edge_source));
+            if should_disconnect {
+                self.reconnect_edges_to_parents(&disconnected_parent_edges, edge_id, edge_source);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Remove the child edge, and reconnect to the right parents.
+    fn reconnect_edges_to_parents(
+        &mut self,
+        disconnected_parent_edges: &[(Edge, petgraph::prelude::NodeIndex)],
+        child_edge_id: petgraph::prelude::EdgeIndex,
+        child_node: petgraph::prelude::NodeIndex,
+    ) {
+        // Remove the child edge.
+        self.graph.remove_edge(child_edge_id);
+        // Reconnect the child node to all the disconnected parents.
+        for (parent_edge_weight, edge_target) in disconnected_parent_edges {
+            self.graph
+                .add_edge(child_node, *edge_target, parent_edge_weight.clone());
+        }
+    }
+
+    /// Insert a segement relative to a selector.
+    ///
+    /// The segment is described by its delimiter: First (parent-most) and last (child-most) node.
+    ///
+    /// If inserted above, all the target selector's children will be disconnected and reconnected to the last
+    /// node of the segment.
+    ///
+    pub fn insert_segment<C, P>(
+        &mut self,
+        target: impl ToSelector,
+        delimiter: SegmentDelimiter<C, P>,
+        side: InsertSide,
+    ) -> Result<()>
+    where
+        C: ToSelector,
+        P: ToSelector,
+    {
+        let SegmentDelimiter { child, parent } = delimiter;
+        let target = self.history.normalize_selector(target.to_selector(self)?)?;
+        let child = self.history.normalize_selector(child.to_selector(self)?)?;
+        let parent = self.history.normalize_selector(parent.to_selector(self)?)?;
+
+        match side {
+            InsertSide::Above => {
+                // Children edges of target.
+                let edges = self
+                    .graph
+                    .edges_directed(target.id, Direction::Incoming)
+                    .map(|e| (e.id(), e.weight().to_owned(), e.source()))
+                    .collect::<Vec<_>>();
+
+                // Connect all target's children with the child-most node in the given segment.
+                for (edge_id, edge_weight, edge_source) in edges {
+                    self.graph.remove_edge(edge_id);
+                    // TODO: we should test for weight collisions
+                    self.graph.add_edge(edge_source, child.id, edge_weight);
+                }
+
+                // Connect the target to the parent-most node in the given segment.
+                // TODO: we should test for weight collisions
+                self.graph.add_edge(parent.id, target.id, Edge { order: 0 });
+            }
+            InsertSide::Below => {
+                let edges = self
+                    .graph
+                    .edges_directed(target.id, Direction::Outgoing)
+                    .map(|e| (e.id(), e.weight().to_owned(), e.target()))
+                    .collect::<Vec<_>>();
+
+                // Connectt all target's parents to the parent-most node in the given segment.
+                for (edge_id, edge_weight, edge_target) in edges {
+                    self.graph.remove_edge(edge_id);
+                    // TODO: we should test for weight collisions
+                    self.graph.add_edge(parent.id, edge_target, edge_weight);
+                }
+
+                // Connect the target to the child-most node in the given segment.
+                // TODO: we should test for weight collisions
+                self.graph.add_edge(target.id, child.id, Edge { order: 0 });
             }
         }
 
@@ -229,5 +509,23 @@ impl Editor {
                 })
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use super::*;
+
+    #[test]
+    fn empty_selector_set_creation_fails() {
+        let empty_parent_set = SomeSelectors::new(Vec::<gix::ObjectId>::new())
+            .expect_err("expected empty selector set creation to fail");
+        assert!(
+            empty_parent_set
+                .to_string()
+                .contains("Invalid selector set: This cannot be empty"),
+            "unexpected error: {empty_parent_set:#}"
+        );
     }
 }
