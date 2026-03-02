@@ -156,6 +156,37 @@ fn generate_unified_diff(
     Ok(diff_output)
 }
 
+fn build_diff_specs(files_to_commit: &[FileAssignment], changes: &[TreeChange]) -> Vec<DiffSpec> {
+    files_to_commit
+        .iter()
+        .map(|fa| {
+            // Collect hunk headers from all assignments for this file
+            let hunk_headers: Vec<but_core::HunkHeader> = fa
+                .assignments
+                .iter()
+                .filter_map(|assignment| assignment.inner.hunk_header)
+                .collect();
+
+            let previous_path = changes
+                .iter()
+                .find(|change| change.path_bytes == fa.path)
+                .and_then(|change| match &change.status {
+                    but_core::ui::TreeStatus::Rename {
+                        previous_path_bytes,
+                        ..
+                    } => Some(previous_path_bytes.clone()),
+                    _ => None,
+                });
+
+            DiffSpec {
+                previous_path,
+                path: fa.path.clone(),
+                hunk_headers,
+            }
+        })
+        .collect()
+}
+
 /// Resolves file CliIDs to their corresponding FileAssignments.
 /// Returns an error if any ID is invalid, ambiguous, or assigned to a different stack.
 /// Deduplicates by file path to handle cases where the same file is passed multiple times.
@@ -329,23 +360,7 @@ pub(crate) fn commit(
     }
 
     // Convert files to DiffSpec early so we can run pre-commit hooks before prompting for message
-    let diff_specs: Vec<DiffSpec> = files_to_commit
-        .iter()
-        .map(|fa| {
-            // Collect hunk headers from all assignments for this file
-            let hunk_headers: Vec<but_core::HunkHeader> = fa
-                .assignments
-                .iter()
-                .filter_map(|assignment| assignment.inner.hunk_header)
-                .collect();
-
-            DiffSpec {
-                previous_path: None,
-                path: fa.path.clone(),
-                hunk_headers,
-            }
-        })
-        .collect();
+    let diff_specs = build_diff_specs(&files_to_commit, &changes);
 
     // Run pre-commit hook unless --no-hooks was specified
     // This runs BEFORE getting the commit message so the user doesn't waste time writing a message
@@ -688,4 +703,62 @@ fn get_status_char(path: &BString, changes: &[TreeChange]) -> &'static str {
         }
     }
     "modified:" // fallback
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    fn dummy_file_assignment(path: &str) -> FileAssignment {
+        FileAssignment {
+            path: path.into(),
+            assignments: vec![CLIHunkAssignment {
+                inner: but_hunk_assignment::HunkAssignment {
+                    id: None,
+                    hunk_header: None,
+                    path: path.to_owned(),
+                    path_bytes: path.as_bytes().into(),
+                    stack_id: None,
+                    hunk_locks: None,
+                    line_nums_added: None,
+                    line_nums_removed: None,
+                    diff: None,
+                },
+                cli_id: path.to_owned(),
+            }],
+        }
+    }
+
+    fn dummy_state() -> but_core::ui::ChangeState {
+        but_core::ui::ChangeState {
+            id: gix::ObjectId::from_str("0000000000000000000000000000000000000000").unwrap(),
+            kind: gix::object::tree::EntryKind::Blob,
+        }
+    }
+
+    fn dummy_rename_change(path: &str, previous_path: &str) -> TreeChange {
+        TreeChange {
+            path: path.into(),
+            path_bytes: path.as_bytes().into(),
+            status: but_core::ui::TreeStatus::Rename {
+                previous_path: previous_path.into(),
+                previous_path_bytes: previous_path.as_bytes().into(),
+                previous_state: dummy_state(),
+                state: dummy_state(),
+                flags: None,
+            },
+        }
+    }
+
+    #[test]
+    fn build_diff_specs_copies_previous_path_for_rename() {
+        let files_to_commit = vec![dummy_file_assignment("new.txt")];
+        let changes = vec![dummy_rename_change("new.txt", "old.txt")];
+
+        let diff_specs = build_diff_specs(&files_to_commit, &changes);
+
+        assert_eq!(diff_specs.len(), 1);
+        assert_eq!(diff_specs[0].previous_path, Some("old.txt".into()));
+    }
 }
