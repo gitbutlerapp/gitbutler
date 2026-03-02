@@ -1076,10 +1076,13 @@ dependencies = [
  "but-meta",
  "but-path",
  "but-settings",
+ "but-testsupport",
  "git2",
  "gitbutler-project",
  "gix",
+ "hex",
  "tracing",
+ "urlencoding",
 ]
 
 [[package]]

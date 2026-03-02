@@ -30,6 +30,11 @@ tracing.workspace = true
 anyhow.workspace = true
 gix.workspace = true
 git2.workspace = true
+hex.workspace = true
+urlencoding.workspace = true
+
+[dev-dependencies]
+but-testsupport.workspace = true
 
 [lints]
 workspace = true
