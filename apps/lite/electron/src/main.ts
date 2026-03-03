@@ -1,5 +1,16 @@
+import type { TreeChange, DiffSpec, HunkAssignmentRequest, StackId } from "@gitbutler/but-sdk";
 import { liteIpcChannels } from "#electron/ipc";
-import { headInfoNapi, listProjectsStatelessNapi } from "@gitbutler/but-sdk";
+import {
+	assignHunkNapi,
+	changesInWorktreeNapi,
+	commitAmendNapi,
+	commitUncommitChangesNapi,
+	headInfoNapi,
+	commitDetailsWithLineStatsNapi,
+	commitMoveChangesBetweenNapi,
+	listProjectsStatelessNapi,
+	treeChangeDiffsNapi,
+} from "@gitbutler/but-sdk";
 import { app, BrowserWindow, ipcMain } from "electron";
 import { REACT_DEVELOPER_TOOLS, installExtension } from "electron-devtools-installer";
 import path from "node:path";
@@ -9,11 +20,47 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
 function registerIpcHandlers(): void {
+	ipcMain.handle(
+		liteIpcChannels.assignHunk,
+		(_e, projectId: string, assignments: Array<HunkAssignmentRequest>) =>
+			assignHunkNapi(projectId, assignments),
+	);
+	ipcMain.handle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
+		changesInWorktreeNapi(projectId),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitAmend,
+		(_e, projectId: string, commitId: string, changes: Array<DiffSpec>) =>
+			commitAmendNapi(projectId, commitId, changes),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitDetailsWithLineStats,
+		(_e, projectId: string, commitId: string) =>
+			commitDetailsWithLineStatsNapi(projectId, commitId),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitMoveChangesBetween,
+		(
+			_e,
+			projectId: string,
+			sourceCommitId: string,
+			destinationCommitId: string,
+			changes: Array<DiffSpec>,
+		) => commitMoveChangesBetweenNapi(projectId, sourceCommitId, destinationCommitId, changes),
+	);
+	ipcMain.handle(
+		liteIpcChannels.commitUncommitChanges,
+		(_e, projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: StackId | null) =>
+			commitUncommitChangesNapi(projectId, commitId, changes, assignTo),
+	);
 	ipcMain.handle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
 	ipcMain.handle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfoNapi(projectId));
 	ipcMain.handle(liteIpcChannels.listProjects, () => listProjectsStatelessNapi());
 	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
 		Promise.resolve(`pong: ${input}`),
+	);
+	ipcMain.handle(liteIpcChannels.treeChangeDiffs, (_e, projectId: string, change: TreeChange) =>
+		treeChangeDiffsNapi(projectId, change),
 	);
 }
 
