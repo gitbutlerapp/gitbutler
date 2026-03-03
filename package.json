@@ -35,7 +35,7 @@
 		"tauri": "cross-env \"CARGO_TARGET_DIR=$PNPM_SCRIPT_SRC_DIR/target/tauri\" tauri",
 		"tauri-for-release": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
-		"globallint": "prettier --check . && eslint .",
+		"globallint": "prettier --check . && eslint . && pnpm --filter @gitbutler/lite run oxlint",
 		"prettier": "prettier --check .",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
