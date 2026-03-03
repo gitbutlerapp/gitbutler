@@ -4,7 +4,6 @@ import { defineConfig } from "eslint/config";
 import prettier from "eslint-config-prettier";
 import { createNextImportResolver } from "eslint-import-resolver-next";
 import pluginImportX from "eslint-plugin-import-x";
-import reactHooks from "eslint-plugin-react-hooks";
 import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import ts from "typescript-eslint";
@@ -133,14 +132,8 @@ export default defineConfig(
 		},
 	},
 	{
-		files: ["apps/lite/ui/src/**/*.{ts,tsx,jsx}"],
-		plugins: {
-			"react-hooks": reactHooks,
-		},
-		rules: reactHooks.configs.recommended.rules,
-	},
-	{
 		ignores: [
+			"apps/lite/**",
 			"**/.*", // dotfiles aren't ignored by default in FlatConfig
 			".*", // dotfiles aren't ignored by default in FlatConfig
 			"**/.DS_Store",
