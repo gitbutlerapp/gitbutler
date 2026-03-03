@@ -3,7 +3,7 @@ import type { ProjectForFrontend, RefInfo } from "@gitbutler/but-sdk";
 export interface LiteElectronApi {
 	ping(input: string): Promise<string>;
 	getVersion(): Promise<string>;
-	listProjects(): Promise<ProjectForFrontend[]>;
+	listProjects(): Promise<Array<ProjectForFrontend>>;
 	headInfo(projectId: string): Promise<RefInfo>;
 }
 

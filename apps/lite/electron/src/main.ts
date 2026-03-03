@@ -10,13 +10,15 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
 function registerIpcHandlers(): void {
-	ipcMain.handle(liteIpcChannels.ping, async (_event, input: string): Promise<string> => {
-		return await Promise.resolve(`pong: ${input}`);
-	});
+	ipcMain.handle(
+		liteIpcChannels.ping,
+		async (_event, input: string): Promise<string> => await Promise.resolve(`pong: ${input}`),
+	);
 
-	ipcMain.handle(liteIpcChannels.getVersion, async (): Promise<string> => {
-		return await Promise.resolve(app.getVersion());
-	});
+	ipcMain.handle(
+		liteIpcChannels.getVersion,
+		async (): Promise<string> => await Promise.resolve(app.getVersion()),
+	);
 }
 
 async function createMainWindow(): Promise<void> {
@@ -31,7 +33,7 @@ async function createMainWindow(): Promise<void> {
 	});
 
 	const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-	if (devServerUrl) {
+	if (devServerUrl !== undefined) {
 		await mainWindow.loadURL(devServerUrl);
 		mainWindow.webContents.openDevTools({ mode: "detach" });
 		return;
@@ -40,27 +42,22 @@ async function createMainWindow(): Promise<void> {
 	await mainWindow.loadFile(path.join(currentDirPath, "../ui/index.html"));
 }
 
-app.whenReady().then(async () => {
+void app.whenReady().then(async () => {
 	if (!app.isPackaged) await installExtension(REACT_DEVELOPER_TOOLS);
 	registerIpcHandlers();
 	await createMainWindow();
 
 	app.on("activate", () => {
-		if (BrowserWindow.getAllWindows().length === 0) {
-			void createMainWindow();
-		}
+		if (BrowserWindow.getAllWindows().length === 0) void createMainWindow();
 	});
 });
 
 app.on("window-all-closed", () => {
-	if (process.platform !== "darwin") {
-		app.quit();
-	}
+	if (process.platform !== "darwin") app.quit();
 });
 
-ipcMain.handle(liteIpcChannels.listProjects, async () => {
-	return await listProjects();
-});
-ipcMain.handle(liteIpcChannels.headInfo, async (_e, projectId: string) => {
-	return await headInfo(projectId);
-});
+ipcMain.handle(liteIpcChannels.listProjects, async () => await listProjects());
+ipcMain.handle(
+	liteIpcChannels.headInfo,
+	async (_e, projectId: string) => await headInfo(projectId),
+);
