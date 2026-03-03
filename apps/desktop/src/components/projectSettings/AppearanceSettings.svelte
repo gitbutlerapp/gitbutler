@@ -99,26 +99,51 @@
 	{/snippet}
 </CardGroup.Item>
 
-<CardGroup.Item labelFor="singleDiffView" standalone>
-	{#snippet title()}
-		Single diff view
-	{/snippet}
-	{#snippet caption()}
-		Show only the selected file's diff instead of a scrollable list of all file diffs.
-	{/snippet}
-	{#snippet actions()}
-		<Toggle
-			id="singleDiffView"
-			checked={$userSettings.singleDiffView}
-			onclick={() => {
-				userSettings.update((s) => ({
-					...s,
-					singleDiffView: !s.singleDiffView,
-				}));
-			}}
-		/>
-	{/snippet}
-</CardGroup.Item>
+<CardGroup>
+	<CardGroup.Item labelFor="allInOneDiff">
+		{#snippet title()}
+			All-in-one diff
+		{/snippet}
+		{#snippet caption()}
+			Show a scrollable list of all file diffs instead of only the selected file's diff.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="allInOneDiff"
+				checked={$userSettings.allInOneDiff}
+				onclick={() => {
+					userSettings.update((s) => ({
+						...s,
+						allInOneDiff: !s.allInOneDiff,
+					}));
+				}}
+			/>
+		{/snippet}
+	</CardGroup.Item>
+
+	{#if $userSettings.allInOneDiff}
+		<CardGroup.Item labelFor="highlightDiffs">
+			{#snippet title()}
+				Highlight active diff
+			{/snippet}
+			{#snippet caption()}
+				Highlight the currently selected file's diff in the all-in-one diff view.
+			{/snippet}
+			{#snippet actions()}
+				<Toggle
+					id="highlightDiffs"
+					checked={$userSettings.highlightDiffs}
+					onclick={() => {
+						userSettings.update((s) => ({
+							...s,
+							highlightDiffs: !s.highlightDiffs,
+						}));
+					}}
+				/>
+			{/snippet}
+		</CardGroup.Item>
+	{/if}
+</CardGroup>
 
 <CardGroup>
 	<CardGroup.Item alignment="center">

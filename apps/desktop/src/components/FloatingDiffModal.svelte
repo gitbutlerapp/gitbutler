@@ -42,7 +42,8 @@
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const userSettings = inject(SETTINGS);
 
-	const singleDiffView = $derived($userSettings.singleDiffView);
+	const allInOneDiff = $derived($userSettings.allInOneDiff);
+	const highlightDiffs = $derived($userSettings.highlightDiffs);
 
 	// Track expanded/collapsed state for each diff (for virtual list mode)
 	const diffExpandedState = new Map<string, boolean>();
@@ -69,7 +70,7 @@
 
 	function selectChange(index: number) {
 		selectedIndex = index;
-		if (!singleDiffView) {
+		if (allInOneDiff) {
 			// In virtual list mode, scroll to the selected file
 			virtualList?.jumpToIndex(index);
 		}
@@ -140,7 +141,7 @@
 			</div>
 			<!-- Diff area (single-file or virtual list depending on user setting) -->
 			<div class="diff-area" bind:this={diffScrollContainer}>
-				{#if singleDiffView}
+				{#if !allInOneDiff}
 					<!-- Single-file mode: show selected file with header -->
 					{#if selectedChange}
 						{@const diffQuery = diffService.getDiff(projectId, selectedChange)}
@@ -254,7 +255,7 @@
 								scrollRoot={diffScrollContainer}
 								collapsable
 								defaultCollapsed={isCollapsed}
-								highlighted={selectedIndex === index}
+								highlighted={allInOneDiff && highlightDiffs && selectedIndex === index}
 								ontoggle={(collapsed) => {
 									diffExpandedState.set(change.path, collapsed);
 								}}

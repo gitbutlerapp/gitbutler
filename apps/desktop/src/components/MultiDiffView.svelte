@@ -62,7 +62,8 @@
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const userSettings = inject(SETTINGS);
 
-	const singleDiffView = $derived($userSettings.singleDiffView);
+	const allInOneDiff = $derived($userSettings.allInOneDiff);
+	const highlightDiffs = $derived($userSettings.highlightDiffs);
 
 	// Track expanded/collapsed state for each diff by file path
 	// This persists across re-renders (e.g., when VirtualList recycles items)
@@ -80,7 +81,7 @@
 
 	export function jumpToIndex(index: number) {
 		highlightedIndex = index;
-		if (!singleDiffView) {
+		if (allInOneDiff) {
 			virtualList?.jumpToIndex(index);
 		}
 	}
@@ -99,14 +100,14 @@
 	{@const isCollapsed = diffExpandedState.get(change.path) ?? false}
 	<Drawer
 		noshrink
-		stickyHeader={!singleDiffView}
+		stickyHeader={allInOneDiff}
 		reserveSpaceOnStuck={!!onclose}
 		closeButtonPlaceholder={!!onclose}
 		scrollRoot={scrollContainer}
-		collapsable={!singleDiffView}
+		collapsable={allInOneDiff}
 		defaultCollapsed={isCollapsed}
-		highlighted={highlight && highlightedIndex === index}
-		onclose={singleDiffView ? onclose : undefined}
+		highlighted={allInOneDiff && highlightDiffs && highlight && highlightedIndex === index}
+		onclose={!allInOneDiff ? onclose : undefined}
 		ontoggle={(collapsed) => {
 			diffExpandedState.set(change.path, collapsed);
 		}}
@@ -188,7 +189,7 @@
 	class:no-border={!showBorder}
 	class:no-rounded={!showRoundedEdges}
 >
-	{#if onclose && !singleDiffView}
+	{#if onclose && allInOneDiff}
 		<div class="floating-actions">
 			<Button
 				kind="ghost"
@@ -205,7 +206,7 @@
 	{/if}
 
 	{#if changes && changes.length > 0}
-		{#if singleDiffView}
+		{#if !allInOneDiff}
 			{@const index = highlightedIndex ?? startIndex ?? 0}
 			{@const change = changes[index]}
 			{#if change}
