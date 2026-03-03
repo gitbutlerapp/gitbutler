@@ -9,7 +9,6 @@
 		"allowImportingTsExtensions": true,
 		"isolatedModules": true,
 		"skipLibCheck": true,
-		"baseUrl": ".",
 		"paths": {
 			"@/*": ["./src/*"],
 			"#electron/*": ["../electron/src/*"]
