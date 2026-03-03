@@ -160,6 +160,9 @@ importers:
       globals:
         specifier: ^15.15.0
         version: 15.15.0
+      oxlint-tsgolint:
+        specifier: ^0.15.0
+        version: 0.15.0
       postcss:
         specifier: catalog:postcss
         version: 8.5.6
@@ -441,9 +444,6 @@ importers:
       oxlint:
         specifier: ^1.50.0
         version: 1.50.0(oxlint-tsgolint@0.15.0)
-      oxlint-tsgolint:
-        specifier: ^0.15.0
-        version: 0.15.0
       vite:
         specifier: 'catalog:'
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(sass-embedded@1.97.3)(sass@1.97.3)(tsx@4.21.0)(yaml@2.8.2)

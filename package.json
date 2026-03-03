@@ -63,6 +63,7 @@
 		"eslint-plugin-storybook": "10.2.12",
 		"eslint-plugin-svelte": "3.15.0",
 		"globals": "^15.15.0",
+		"oxlint-tsgolint": "^0.15.0",
 		"postcss": "catalog:postcss",
 		"prettier": "^3.8.1",
 		"prettier-plugin-css-order": "^2.2.0",
