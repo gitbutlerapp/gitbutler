@@ -333,6 +333,57 @@ fn workspace_with_empty_stack() -> Result<()> {
 }
 
 #[test]
+fn workspace_with_three_empty_stacks() -> Result<()> {
+    let (repo, _tmpdir, mut meta) = fixture_writable("workspace-with-three-empty-stacks")?;
+
+    add_stack_with_segments(&mut meta, 1, "stack-1", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 2, "stack-2", StackState::InWorkspace, &[]);
+    add_stack_with_segments(&mut meta, 3, "stack-3", StackState::InWorkspace, &[]);
+
+    insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
+    * a26ae77 (HEAD -> gitbutler/workspace) GitButler Workspace Commit
+    | * 1cf9cf4 (origin/main, main) Commit X
+    |/  
+    * fafd9d0 (stack-3, stack-2, stack-1) init
+    ");
+
+    let graph = Graph::from_head(&repo, &*meta, standard_options())?.validated()?;
+
+    insta::assert_snapshot!(graph_tree(&graph), @"
+
+    ├── 👉📕►►►:0[0]:gitbutler/workspace[🌳]
+    │   └── ·a26ae77 (⌂|🏘|01)
+    │       ├── 📙►:4[1]:stack-1
+    │       │   └── ►:3[2]:anon:
+    │       │       └── ·fafd9d0 (⌂|🏘|✓|11)
+    │       ├── 📙►:5[1]:stack-2
+    │       │   └── →:3:
+    │       └── 📙►:6[1]:stack-3
+    │           └── →:3:
+    └── ►:1[0]:origin/main →:2:
+        └── ►:2[1]:main <> origin/main →:1:
+            └── ·1cf9cf4 (⌂|✓|10)
+                └── →:3:
+    ");
+
+    let editor = graph.to_editor(&repo)?;
+
+    insta::assert_snapshot!(editor.steps_ascii(), @"
+    ◎ refs/heads/gitbutler/workspace
+    ● a26ae77 GitButler Workspace Commit
+    ├─┬─╮
+    ◎ │ │ refs/heads/stack-1
+    │ ◎ │ refs/heads/stack-2
+    │ │ ◎ refs/heads/stack-3
+    ├─┴─╯
+    ● fafd9d0 init
+    ╵
+    ");
+
+    Ok(())
+}
+
+#[test]
 fn commit_with_two_parents() -> Result<()> {
     let (repo, _tmpdir, meta) = fixture_writable("single-commit")?;
 
