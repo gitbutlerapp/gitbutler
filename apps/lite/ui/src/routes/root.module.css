@@ -1,0 +1,30 @@
+.layout {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	min-height: 100dvh;
+}
+
+.sidebar {
+	display: flex;
+	row-gap: 16px;
+	flex-direction: column;
+	padding: 16px;
+	border-right: 1px solid;
+}
+
+.sidebarNav {
+	display: flex;
+	row-gap: 8px;
+	flex-direction: column;
+}
+
+.navLinkActive {
+	font-weight: 700;
+}
+
+.content {
+	display: flex;
+	flex-direction: column;
+	padding: 16px;
+	overflow: auto;
+}

@@ -1,0 +1,16 @@
+.toastViewport {
+	display: flex;
+	position: fixed;
+	right: 16px;
+	bottom: 16px;
+	row-gap: 8px;
+	flex-direction: column;
+	align-items: flex-end;
+	max-width: 400px;
+}
+
+.toastRoot {
+	padding: 8px;
+	border: 1px solid;
+	background-color: white;
+}
