@@ -8,6 +8,11 @@ pub type Error = backoff::Error<rusqlite::Error>;
 
 /// The time we wait at most if the database is locked or busy before giving up acquiring a lock.
 pub(crate) const BUSY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// Monotonic forward-compatibility marker stored in `PRAGMA user_version`.
+///
+/// Increase this only when a newer database must not be opened by older binaries, even when
+/// migrations are otherwise compatible.
+const FORWARD_COMPATIBILITY_VERSION: u32 = 0;
 
 /// Return a sequence of our own, well known migrations.
 ///
@@ -35,6 +40,23 @@ pub fn run<'m>(
     conn: &mut rusqlite::Connection,
     migrations: impl IntoIterator<Item = M<'m>>,
 ) -> Result<usize, Error> {
+    let db_forward_compatibility_version = db_forward_compatibility_version(conn)?;
+    if db_forward_compatibility_version > FORWARD_COMPATIBILITY_VERSION {
+        return Err(backoff::Error::permanent(
+            rusqlite::Error::ToSqlConversionFailure(
+                format!(
+                    "Database forward-compatibility version is {actual}, but this binary only supports up to {expected}",
+                    actual = db_forward_compatibility_version,
+                    expected = FORWARD_COMPATIBILITY_VERSION
+                )
+                .into(),
+            ),
+        ));
+    }
+
+    let should_bump_forward_compatibility_version =
+        db_forward_compatibility_version < FORWARD_COMPATIBILITY_VERSION;
+
     let trans = conn
         // Use deferred to allow ourselves to read first without running into locks.
         // That read can determine that nothing needs to be done, saving a lot of time.
@@ -50,6 +72,10 @@ pub fn run<'m>(
     if let Some(count) = maybe_num_applied_versions
         && count == migrations.len()
     {
+        if should_bump_forward_compatibility_version {
+            set_db_forward_compatibility_version(&trans)?;
+            trans.commit().map_err(transient_if_locked)?;
+        }
         return Ok(0);
     }
 
@@ -82,8 +108,25 @@ pub fn run<'m>(
         count += 1;
     }
 
+    if should_bump_forward_compatibility_version {
+        set_db_forward_compatibility_version(&trans)?;
+    }
+
     trans.commit().map_err(transient_if_locked)?;
     Ok(count)
+}
+
+fn db_forward_compatibility_version(conn: &rusqlite::Connection) -> Result<u32, Error> {
+    conn.query_row("PRAGMA user_version", [], |row| row.get(0))
+        .map_err(transient_if_locked)
+}
+
+fn set_db_forward_compatibility_version(conn: &rusqlite::Connection) -> Result<(), Error> {
+    conn.execute_batch(&format!(
+        "PRAGMA user_version = {FORWARD_COMPATIBILITY_VERSION};"
+    ))
+    .map_err(transient_if_locked)?;
+    Ok(())
 }
 
 fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result<usize, Error> {
@@ -105,14 +148,7 @@ fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result
             .parse()
             .map_err(|_| backoff::Error::permanent(rusqlite::Error::InvalidQuery))?;
 
-        let err: Option<String> = if idx >= migrations.len() {
-            format!(
-                "Cannot reduce migration count: database has {num_existing} migrations but only {actual} provided",
-                actual = migrations.len(),
-                num_existing = existing_versions.len()
-            )
-            .into()
-        } else {
+        let err: Option<String> = if idx < migrations.len() {
             let candidate_m = migrations[idx];
             (candidate_m.up_created_at != existing_version).then(|| {
                 format!(
@@ -121,6 +157,8 @@ fn num_applied_versions(conn: &rusqlite::Connection, migrations: &[M]) -> Result
                     actual = candidate_m.up_created_at
                 )
             })
+        } else {
+            None
         };
         if let Some(err) = err {
             return Err(backoff::Error::permanent(
