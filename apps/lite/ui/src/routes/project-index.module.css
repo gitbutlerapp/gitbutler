@@ -1,0 +1,82 @@
+.lanes {
+	display: flex;
+	column-gap: 16px;
+	flex-grow: 1;
+	padding-left: 0;
+	list-style: none;
+
+	/* Temporary hack to prevent scroll jumping when diff view collapses. */
+	&:after {
+		flex-shrink: 0;
+		width: 1000px;
+		content: "";
+	}
+}
+
+.unassignedChanges {
+	flex-grow: 1;
+	min-height: 300px;
+	border: 1px dotted;
+}
+
+.assignedChanges {
+	min-height: 80px;
+	border: 1px dotted;
+}
+
+.commitForm {
+	display: flex;
+	flex-direction: column;
+}
+
+.segments {
+	display: flex;
+	row-gap: 16px;
+	flex-direction: column;
+	padding-left: 0;
+	list-style: none;
+}
+
+.commitRow {
+	display: flex;
+	column-gap: 4px;
+}
+
+.commitMessageInput {
+	flex-grow: 1;
+	field-sizing: content;
+}
+
+.dragging {
+	opacity: 0.1;
+}
+
+.hunkListItem {
+	display: flex;
+	align-items: start;
+}
+
+.tooltip {
+	padding: 4px 8px;
+	border: 1px solid;
+	background-color: white;
+}
+
+.menuPopup {
+	border: 1px solid;
+	background-color: white;
+}
+
+.menuItem {
+	padding: 4px;
+	border: 1px solid;
+	cursor: default;
+
+	&[data-disabled] {
+		opacity: 0.5;
+	}
+}
+
+.stackMenu {
+	align-self: end;
+}

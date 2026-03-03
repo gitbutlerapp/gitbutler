@@ -6,6 +6,7 @@
 	"main": "dist/electron/main.js",
 	"imports": {
 		"#ui/*": "./ui/src/*.tsx",
+		"#ui/hooks/*": "./ui/src/hooks/*.ts",
 		"#electron/*": {
 			"types": "./electron/src/*.ts",
 			"default": "./dist/electron/*.js"
@@ -39,10 +40,12 @@
 		}
 	},
 	"dependencies": {
+		"@base-ui/react": "^1.2.0",
 		"@gitbutler/but-sdk": "workspace:*",
 		"@tanstack/react-query": "^5.90.21",
 		"@tanstack/react-query-devtools": "^5.90.21",
 		"@tanstack/react-router": "^1.163.2",
+		"effect": "^3.19.19",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
