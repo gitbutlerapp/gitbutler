@@ -144,6 +144,9 @@
 	const commitQuery = $derived(
 		commitId ? stackService.commitById(stableProjectId, stableStackId, commitId) : undefined,
 	);
+	const commitFiles = $derived(
+		commitId ? stackService.commitChanges(stableProjectId, commitId) : undefined,
+	);
 	const runHooks = $derived(projectRunCommitHooks(stableProjectId));
 	const isCommitView = $derived(!!(branchName && commitId));
 
@@ -606,7 +609,6 @@
 									})
 								: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
 						{#if branchName && commitId}
-							{@const commitFiles = stackService.commitChanges(projectId, commitId)}
 							<Dropzone
 								handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
 								fillHeight
