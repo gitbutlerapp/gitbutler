@@ -6,12 +6,14 @@
 	import { SvelteMap } from "svelte/reactivity";
 	import type { TreeNode } from "$lib/files/filetreeV3";
 	import type { TreeChange } from "$lib/hunks/change";
+	import type { FocusableOptions } from "@gitbutler/ui/focus/focusManager";
 
 	type Props = {
 		changes: TreeChange[];
 		selectedIndex?: number;
 		visibleRange?: { start: number; end: number };
 		listMode?: "list" | "tree";
+		getItemFocusableOpts?: (index: number) => FocusableOptions;
 		onFileClick?: (index: number) => void;
 		onFileContextMenu?: (e: MouseEvent, change: TreeChange) => void;
 	};
@@ -21,6 +23,7 @@
 		selectedIndex,
 		visibleRange,
 		listMode = "list",
+		getItemFocusableOpts,
 		onFileClick,
 		onFileContextMenu,
 	}: Props = $props();
@@ -48,6 +51,7 @@
 				node.index < visibleRange.end}
 			listMode="tree"
 			{depth}
+			actionOpts={getItemFocusableOpts?.(node.index)}
 			onclick={() => onFileClick?.(node.index)}
 			oncontextmenu={(e) => onFileContextMenu?.(e, node.change)}
 		/>
@@ -85,6 +89,7 @@
 				index < visibleRange.end}
 			listMode="list"
 			isLast={index === changes.length - 1}
+			actionOpts={getItemFocusableOpts?.(index)}
 			onclick={() => onFileClick?.(index)}
 			oncontextmenu={(e) => onFileContextMenu?.(e, change)}
 		/>

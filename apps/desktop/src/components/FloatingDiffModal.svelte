@@ -15,6 +15,9 @@
 	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
 	import { Button, FileViewHeader, HunkDiffSkeleton, Icon, VirtualList } from "@gitbutler/ui";
+	import { FOCUS_MANAGER, type FocusableOptions } from "@gitbutler/ui/focus/focusManager";
+	import { focusable } from "@gitbutler/ui/focus/focusable";
+	import { tick } from "svelte";
 
 	interface Props {
 		projectId: string;
@@ -41,6 +44,7 @@
 	const diffService = inject(DIFF_SERVICE);
 	const idSelection = inject(FILE_SELECTION_MANAGER);
 	const userSettings = inject(SETTINGS);
+	const focusManager = inject(FOCUS_MANAGER);
 
 	const allInOneDiff = $derived($userSettings.allInOneDiff);
 	const highlightDiffs = $derived($userSettings.highlightDiffs);
@@ -75,6 +79,33 @@
 			virtualList?.jumpToIndex(index);
 		}
 	}
+
+	function getItemFocusableOpts(index: number): FocusableOptions {
+		return {
+			focusable: true,
+			onActive: (value) => {
+				if (value) selectChange(index);
+			},
+			onEsc: () => {
+				onclose();
+				return true;
+			},
+		};
+	}
+
+	// After all components (including FloatingModal's trap container) have mounted,
+	// explicitly re-register the initial item with activate:true so it claims
+	// currentNode from the modal's own activate:true trap.
+	$effect(() => {
+		if (!fileListEl) return;
+		tick().then(() => {
+			const items = fileListEl?.querySelectorAll<HTMLElement>(".file-list-item");
+			const targetEl = items?.[initialIndex];
+			if (targetEl) {
+				focusManager.register({ ...getItemFocusableOpts(initialIndex), activate: true }, targetEl);
+			}
+		});
+	});
 </script>
 
 <FloatingModal
@@ -113,7 +144,7 @@
 					fileCount={changes.length}
 				/>
 			</div>
-			<div class="file-list" bind:this={fileListEl}>
+			<div class="file-list" bind:this={fileListEl} use:focusable={{ vertical: true }}>
 				<ChangedFilesContextMenu
 					bind:this={fileListContextMenu}
 					{projectId}
@@ -126,6 +157,7 @@
 					{listMode}
 					{selectedIndex}
 					{visibleRange}
+					{getItemFocusableOpts}
 					onFileClick={selectChange}
 					onFileContextMenu={(e, change) => {
 						fileListContextMenu?.open(e, { changes: [change] });
