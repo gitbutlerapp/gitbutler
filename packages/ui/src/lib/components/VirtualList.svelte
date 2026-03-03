@@ -145,8 +145,10 @@
 	let visibleRowElements: HTMLCollectionOf<Element> | undefined;
 
 	// Height tracking — maps item index to measured pixel height
-	let previousItems: T[] = [];
-	let heightMap: number[] = $state([]);
+	let previousLength = 0;
+	let previousHeadId: string | undefined;
+	let previousTailId: string | undefined;
+	let heightMap: number[] = [];
 	let lockedHeights = $state<number[]>([]);
 	let heightUnlockTimeouts: number[] = [];
 	let viewportHeight = $state(0);
@@ -161,6 +163,7 @@
 	let previousDistance = $state(0);
 	let hasNewItemsAtBottom = $state(false);
 	let isRecalculating = false;
+	let isInitializing = false;
 	let lastScrollTop: number | undefined = undefined;
 	let lastScrollDirection: "up" | "down" | undefined;
 	let lastJumpToIndex: number | undefined;
@@ -239,6 +242,11 @@
 		}, HEIGHT_LOCK_DURATION);
 	}
 
+	// Tracks the item count when offsets were last fully recomputed.
+	// The incremental offset update in recalculateRanges is only valid when
+	// the item count hasn't changed since the last full recompute.
+	let lastOffsetItemCount = 0;
+
 	/**
 	 * Sets top/bottom padding to represent the total height of items outside
 	 * the render range. This keeps the scrollbar size and position accurate
@@ -249,15 +257,15 @@
 			top: calculateHeightSum(0, renderRange.start),
 			bottom: calculateHeightSum(renderRange.end, heightMap.length),
 		};
+		lastOffsetItemCount = heightMap.length;
 	}
 
 	/**
-	 * Single-pass calculation of both render and visible ranges.
-	 * Walks from item 0, accumulating heights, and records four boundaries:
-	 *   renderStart  — first item within (scrollTop - renderDistance)
-	 *   visibleStart — first item whose bottom edge crosses scrollTop
-	 *   visibleEnd   — first item whose top edge crosses viewport bottom (exclusive)
-	 *   renderEnd    — first item past (viewport bottom + renderDistance) (exclusive)
+	 * Calculates both render and visible ranges by scanning from the current
+	 * renderRange.start (using offset.top as the pre-accumulated height) instead
+	 * of from index 0. This reduces per-scroll work from O(totalItems) to
+	 * O(visibleItems + scrollDelta). Scans backward when scrolling above the
+	 * current render start.
 	 */
 	function calculateVisibleRange(): {
 		renderStart: number;
@@ -270,18 +278,39 @@
 			return { renderStart: 0, renderEnd: 0, visibleStart: 0, visibleEnd: 0 };
 		}
 
+		const scrollTop = viewport.scrollTop;
+		const viewBottom = scrollTop + viewport.clientHeight;
+		const renderTop = scrollTop - renderDistance;
+
+		// Start scanning from the current render range start, using the
+		// already-computed offset.top as the accumulated height up to that point.
+		let scanStart = renderRange.start;
+		let accumulatedHeight = offset.top;
+
+		// If the viewport has scrolled above the current render start,
+		// walk backward to find the new starting point.
+		if (accumulatedHeight > renderTop && scanStart > 0) {
+			for (let i = scanStart - 1; i >= 0; i--) {
+				accumulatedHeight -= getItemHeight(i);
+				scanStart = i;
+				if (accumulatedHeight <= renderTop) break;
+			}
+		}
+
 		let renderStart = -1;
 		let visibleStart = -1;
 		let visibleEnd = -1;
-		let accumulatedHeight = 0;
-		const scrollTop = viewport.scrollTop;
-		const viewBottom = scrollTop + viewport.clientHeight;
 
-		for (let i = 0; i < count; i++) {
-			const rowHeight = visibleRowElements?.[i - renderRange.start]?.clientHeight;
-			accumulatedHeight += rowHeight || getItemHeight(i);
+		// Forward scan: find render start, visible start/end, and render end.
+		for (let i = scanStart; i < count; i++) {
+			// Only read live DOM heights for items within the current render range.
+			const inRenderRange = i >= renderRange.start && i < renderRange.end;
+			const rowHeight = inRenderRange
+				? visibleRowElements?.[i - renderRange.start]?.clientHeight || getItemHeight(i)
+				: getItemHeight(i);
+			accumulatedHeight += rowHeight;
 
-			if (renderStart === -1 && accumulatedHeight >= scrollTop - renderDistance) {
+			if (renderStart === -1 && accumulatedHeight >= renderTop) {
 				renderStart = i;
 			}
 			if (visibleStart === -1 && accumulatedHeight >= scrollTop + 1) {
@@ -306,6 +335,7 @@
 
 	async function initializeAt(startingAt: number): Promise<void> {
 		if (!viewport) return;
+		isInitializing = true;
 		renderRange.start = startingAt;
 		for (let i = startingAt; i < items.length; i++) {
 			if (heightMap[i] !== undefined) {
@@ -366,10 +396,13 @@
 		if (viewport) {
 			viewport.scrollTop = calculateHeightSum(0, startingAt);
 		}
+
+		isInitializing = false;
 	}
 
 	async function recalculateRanges(): Promise<void> {
-		if (!viewport || !visibleRowElements || !isInitialized() || isRecalculating) return;
+		if (!viewport || !visibleRowElements || !isInitialized() || isRecalculating || isInitializing)
+			return;
 
 		isRecalculating = true;
 
@@ -391,7 +424,27 @@
 				return;
 			}
 			renderRange = { start, end };
-			updateOffsets();
+
+			// Incremental offset update: adjust by the delta between old and new
+			// range boundaries. O(|delta|) instead of O(totalItems). Only safe
+			// when item count hasn't changed since the last full recompute.
+			if (heightMap.length === lastOffsetItemCount) {
+				let newTop = offset.top;
+				let newBottom = offset.bottom;
+				if (start < oldStart) {
+					newTop -= calculateHeightSum(start, oldStart);
+				} else if (start > oldStart) {
+					newTop += calculateHeightSum(oldStart, start);
+				}
+				if (end < oldEnd) {
+					newBottom += calculateHeightSum(end, oldEnd);
+				} else if (end > oldEnd) {
+					newBottom -= calculateHeightSum(oldEnd, end);
+				}
+				offset = { top: newTop, bottom: newBottom };
+			} else {
+				updateOffsets();
+			}
 
 			// Lock heights for items entering the render range (below old range, then above)
 			for (let i = start; i < Math.min(end, oldStart); i++) {
@@ -430,12 +483,22 @@
 
 	export async function jumpToIndex(index: number) {
 		// Guard: items can be undefined during unmount due to reactive teardown.
-		if (!items || index < 0 || index > items.length - 1) {
+		if (!viewport || !items || index < 0 || index > items.length - 1) {
 			return;
 		}
 		lastScrollDirection = undefined;
-		skipNextScrollEvent = true;
 		lastJumpToIndex = index;
+
+		// Fast path: if the target is already within the render range, just
+		// scroll to it without tearing down and rebuilding the DOM.
+		if (isInitialized() && index >= renderRange.start && index < renderRange.end) {
+			skipNextScrollEvent = true;
+			viewport.scrollTop = offset.top + calculateHeightSum(renderRange.start, index);
+			await recalculateRanges();
+			return;
+		}
+
+		skipNextScrollEvent = true;
 		lockRowHeight(index);
 		initializeAt(index);
 	}
@@ -445,7 +508,7 @@
 	 * shifts on prepend, or adjusts length for appends/removals.
 	 */
 	function updateHeightMap(countDelta: number, headChanged: boolean, tailChanged: boolean): void {
-		if (headChanged && tailChanged && previousItems.length > 0) {
+		if (headChanged && tailChanged && previousLength > 0) {
 			// Items completely replaced (e.g., switching views) — clear stale
 			// heights and renderRange so isInitialized() returns false below.
 			heightMap = new Array(items.length);
@@ -453,7 +516,7 @@
 		} else if (headChanged && !tailChanged && countDelta > 0) {
 			// Prepend: shift cached heights to match new indices.
 			const shifted: number[] = new Array(items.length);
-			for (let i = 0; i < previousItems.length; i++) {
+			for (let i = 0; i < previousLength; i++) {
 				if (heightMap[i] !== undefined) {
 					shifted[i + countDelta] = heightMap[i]!;
 				}
@@ -538,7 +601,7 @@
 
 		if (
 			lastScrollDirection === "up" &&
-			calculateHeightSum(0, renderRange.start) !== viewport.scrollTop &&
+			offset.top !== viewport.scrollTop &&
 			renderRange.start === index
 		) {
 			// When scrolling up, compensate for the height change of the topmost
@@ -653,13 +716,16 @@
 	$effect(() => {
 		if (!viewport) return;
 		if (!items || items.length === 0) return;
-		const countDelta = items.length - previousItems.length;
-		const headChanged = !previousItems[0] || getId(items[0]) !== getId(previousItems[0]);
-		const tailChanged =
-			!previousItems.at(-1) || getId(items.at(-1)!) !== getId(previousItems.at(-1)!);
+		const currentHeadId = getId(items[0]);
+		const currentTailId = getId(items.at(-1)!);
+		const countDelta = items.length - previousLength;
+		const headChanged = previousLength === 0 || currentHeadId !== previousHeadId;
+		const tailChanged = previousLength === 0 || currentTailId !== previousTailId;
 
 		untrack(() => handleItemsChanged(countDelta, headChanged, tailChanged));
-		previousItems = [...items];
+		previousLength = items.length;
+		previousHeadId = currentHeadId;
+		previousTailId = currentTailId;
 	});
 
 	// Clear "new items at bottom" indicator once the user scrolls far enough
@@ -706,14 +772,10 @@
 		style:padding-bottom={offset.bottom + "px"}
 	>
 		{#each renderItems as data, i (renderRange.start + i)}
-			<div
-				class="list-row"
-				data-index={i + renderRange.start}
-				style:height={lockedHeights[i + renderRange.start]
-					? `${lockedHeights[i + renderRange.start]}px`
-					: undefined}
-			>
-				{@render template(data, renderRange.start + i)}
+			{@const absIndex = renderRange.start + i}
+			{@const locked = lockedHeights[absIndex]}
+			<div class="list-row" data-index={absIndex} style:height={locked ? `${locked}px` : undefined}>
+				{@render template(data, absIndex)}
 			</div>
 		{/each}
 		<div
