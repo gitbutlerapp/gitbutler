@@ -2,7 +2,8 @@
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"jsPlugins": [
 		// The builtin plugin isn't 1:1 at time of writing.
-		{ "name": "react-hooks-js", "specifier": "eslint-plugin-react-hooks" }
+		{ "name": "react-hooks-js", "specifier": "eslint-plugin-react-hooks" },
+		{ "name": "react-query-js", "specifier": "@tanstack/eslint-plugin-query" }
 	],
 	"plugins": ["eslint", "jsx-a11y", "oxc", "react", "typescript", "unicorn"],
 	"rules": {
@@ -106,6 +107,13 @@
 		"react-hooks-js/set-state-in-render": "error",
 		"react-hooks-js/static-components": "error",
 		"react-hooks-js/unsupported-syntax": "error",
-		"react-hooks-js/use-memo": "error"
+		"react-hooks-js/use-memo": "error",
+
+		// Enable the recommended rules in the JS plugin.
+		"react-query-js/exhaustive-deps": "error",
+		"react-query-js/no-rest-destructuring": "warn",
+		"react-query-js/stable-query-client": "error",
+		"react-query-js/no-unstable-deps": "error",
+		"react-query-js/infinite-query-property-order": "error"
 	}
 }
