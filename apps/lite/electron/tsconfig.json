@@ -4,6 +4,7 @@
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
 		"strict": true,
+		"noUncheckedIndexedAccess": true,
 		"sourceMap": true,
 		"outDir": "../dist/electron",
 		"rootDir": "./src",
