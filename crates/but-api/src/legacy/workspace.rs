@@ -19,7 +19,7 @@ use tracing::instrument;
 
 use crate::json::HexHash;
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
     let repo = ctx.clone_repo_for_merging_non_persisting()?;

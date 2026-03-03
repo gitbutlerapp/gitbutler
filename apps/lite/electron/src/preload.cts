@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { LiteElectronApi } from "#electron/ipc";
-import type { ProjectForFrontend } from "@gitbutler/but-sdk";
+import type { ProjectForFrontend, RefInfo } from "@gitbutler/but-sdk";
 
 const api: LiteElectronApi = {
 	async ping(input: string): Promise<string> {
@@ -11,6 +11,9 @@ const api: LiteElectronApi = {
 	},
 	async listProjects(): Promise<ProjectForFrontend[]> {
 		return await ipcRenderer.invoke("projects:list");
+	},
+	async headInfo(projectId: string): Promise<RefInfo> {
+		return await ipcRenderer.invoke("workspace:head-info", projectId);
 	},
 };
 

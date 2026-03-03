@@ -23,7 +23,10 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
     {
         use but_workspace::{
             legacy::{StacksFilter, ui::StackEntry},
-            ui::StackDetails,
+            ui::{
+                StackDetails,
+                ref_info::{BranchReference, RemoteTrackingReference, Segment, Stack, Target},
+            },
         };
         use schemars::schema_for;
 
@@ -49,6 +52,30 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
             TypeSchemaEntry {
                 name: "ProjectId",
                 schema_fn: || schema_for!(String),
+            },
+            TypeSchemaEntry {
+                name: "RefInfo",
+                schema_fn: || schema_for!(but_workspace::ui::RefInfo),
+            },
+            TypeSchemaEntry {
+                name: "BranchReference",
+                schema_fn: || schema_for!(BranchReference),
+            },
+            TypeSchemaEntry {
+                name: "RemoteTrackingReference",
+                schema_fn: || schema_for!(RemoteTrackingReference),
+            },
+            TypeSchemaEntry {
+                name: "Target",
+                schema_fn: || schema_for!(Target),
+            },
+            TypeSchemaEntry {
+                name: "Stack",
+                schema_fn: || schema_for!(Stack),
+            },
+            TypeSchemaEntry {
+                name: "Segment",
+                schema_fn: || schema_for!(Segment),
             },
             #[cfg(feature = "legacy")]
             TypeSchemaEntry {

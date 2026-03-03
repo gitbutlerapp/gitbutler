@@ -19,7 +19,7 @@ legacy = [
     "dep:gitbutler-repo",
 ]
 export-ts = ["dep:ts-rs", "but-core/export-ts"]
-export-schema = ["dep:schemars", "dep:but-schemars"]
+export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
 
 [dependencies]
 but-core.workspace = true

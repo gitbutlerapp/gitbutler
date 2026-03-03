@@ -12,6 +12,7 @@ doctest = false
 
 [features]
 export-ts = ["dep:ts-rs"]
+export-schema = ["dep:schemars", "dep:but-schemars"]
 ## Make legacy functionality available.
 legacy = []
 
@@ -47,6 +48,8 @@ uuid.workspace = true
 fslock = "0.2.1"
 parking_lot = { workspace = true, features = ["arc_lock"] }
 ts-rs = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 # For generating change-ids
 rand.workspace = true
