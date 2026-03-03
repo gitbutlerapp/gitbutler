@@ -32,6 +32,9 @@ export function getToolIcon(toolName: string): IconName {
 	if (name.includes("exit")) {
 		return "logout";
 	}
+	if (name.includes("agent")) {
+		return "spinner";
+	}
 	if (name.includes("task")) {
 		return "spinner";
 	}
@@ -46,6 +49,8 @@ export function getToolLabel(toolName: string): string {
 	switch (toolName) {
 		case "AskUserQuestion":
 			return "Ask user";
+		case "Agent":
+			return "Subagent";
 		default:
 			return toolName;
 	}
@@ -67,6 +72,7 @@ const KNOWN_TOOLS = [
 	"AskUserQuestion",
 	"Skill",
 	"NotebookEdit",
+	"Agent",
 	"EnterPlanMode",
 	"ExitPlanMode",
 ] as const;
@@ -95,6 +101,12 @@ export function formatToolCall(toolCall: ToolCall): string {
 
 		case "Task":
 			return input["description"] || "Running subtask";
+
+		case "Agent": {
+			const agentType = input["subagent_type"] || "agent";
+			const desc = input["description"];
+			return desc ? `${agentType}: ${desc}` : `Running ${agentType} agent`;
+		}
 
 		case "TodoWrite": {
 			const todos = input["todos"];
