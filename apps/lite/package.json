@@ -54,7 +54,6 @@
 		"electron-devtools-installer": "^4.0.0",
 		"jsdom": "26.1.0",
 		"oxlint": "^1.50.0",
-		"oxlint-tsgolint": "^0.15.0",
 		"vite": "catalog:",
 		"vitest": "catalog:",
 		"wait-on": "^8.0.5"
