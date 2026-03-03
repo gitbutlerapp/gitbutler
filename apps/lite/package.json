@@ -36,11 +36,14 @@
 	},
 	"dependencies": {
 		"@gitbutler/but-sdk": "workspace:*",
+		"@tanstack/react-query": "^5.90.21",
+		"@tanstack/react-query-devtools": "^5.90.21",
 		"@tanstack/react-router": "^1.163.2",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4"
 	},
 	"devDependencies": {
+		"@tanstack/eslint-plugin-query": "^5.91.4",
 		"@types/node": "^22.19.11",
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.1.7",
