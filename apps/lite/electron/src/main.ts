@@ -18,6 +18,11 @@ function registerIpcHandlers(): void {
 		liteIpcChannels.getVersion,
 		async (): Promise<string> => await Promise.resolve(app.getVersion()),
 	);
+	ipcMain.handle(liteIpcChannels.listProjects, async () => await listProjects());
+	ipcMain.handle(
+		liteIpcChannels.headInfo,
+		async (_e, projectId: string) => await headInfo(projectId),
+	);
 }
 
 async function createMainWindow(): Promise<void> {
@@ -55,9 +60,3 @@ void app.whenReady().then(async () => {
 app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") app.quit();
 });
-
-ipcMain.handle(liteIpcChannels.listProjects, async () => await listProjects());
-ipcMain.handle(
-	liteIpcChannels.headInfo,
-	async (_e, projectId: string) => await headInfo(projectId),
-);
