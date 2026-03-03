@@ -223,7 +223,16 @@
 				defaultHeight={102}
 				visibility="scroll"
 				renderDistance={100}
-				{onVisibleChange}
+				onVisibleChange={(range) => {
+					if (range) {
+						highlightedIndex = range.start;
+						const firstVisibleChange = changes[range.start];
+						if (firstVisibleChange) {
+							idSelection.set(firstVisibleChange.path, selectionId, range.start);
+						}
+					}
+					onVisibleChange?.(range);
+				}}
 				getId={(change) => change.path}
 			>
 				{#snippet template(change, index)}

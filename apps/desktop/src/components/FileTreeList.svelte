@@ -42,6 +42,7 @@
 			fileStatus={computeChangeStatus(node.change)}
 			executable={isExecutableStatus(node.change.status)}
 			selected={selectedIndex === node.index}
+			active={selectedIndex === node.index}
 			notched={visibleRange !== undefined &&
 				node.index >= visibleRange.start &&
 				node.index < visibleRange.end}
@@ -78,6 +79,7 @@
 			fileStatus={computeChangeStatus(change)}
 			executable={isExecutableStatus(change.status)}
 			selected={selectedIndex === index}
+			active={selectedIndex === index}
 			notched={visibleRange !== undefined &&
 				index >= visibleRange.start &&
 				index < visibleRange.end}
