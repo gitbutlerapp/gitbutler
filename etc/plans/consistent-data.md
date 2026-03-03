@@ -174,6 +174,16 @@ Remove `but-meta` in favor of a `but-db` implementation of the `RefMetadata` tra
 
 - [ ] Not started
 
+## `ProjectId` to `ProjectHandle`
+
+A transition from `ProjectId` to `ProjectHandle` to leverage the usability of `ProjectHandle` as `ProjectId`.
+This means that all places that previously used `ProjectId` may now support `ProjectHandle` transparently
+_as long_ as they are run through the `but-api` or use `ProjectHandleOrLegacyProjectId` explicitly.
+
+- [x] implement `ProjectHandleOrLegacyProjectId`
+- [x] Replace all manual mentions of `ProjectId` with `ProjectHandleOrLegacyProjectId`
+- [x] Let `add_project` return a `ProjectHandle`
+
 ## DB for application data
 
 ### 5. Migrate application-wide metadata into `but-db`
@@ -183,5 +193,6 @@ Migrate app-support JSON metadata into SQLite-backed application data and remove
 - [ ] `<app-support/projects.json>` into `but_db::DbHandle`
   - [ ] recent projects as identified by `but_ctx::ProjectHandle` to `but_db::AppCache`
   - [ ] `but_ctx::LegacyProject` is removed
+  - [ ] Replace `ProjectHandleOrLegacyProjectId` with `ProjectHandle` and remove the type.
 - [ ] `<app-support>/forge_settings.json` to `but_db::AppDb` (`but_ctx::AppDb` also is guaranteed to be available just like a cache)
 - [ ] `<app-general>/settings.json` should rather be per application-channel (nightly, stable, dev), i.e. in `<app-support>/settings.json`
