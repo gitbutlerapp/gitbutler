@@ -8,6 +8,9 @@
 	"editor.defaultFormatter": null,
 	"oxc.typeAware": true,
 	"oxc.unusedDisableDirectives": "warn",
+	"files.associations": {
+		"*.cts": "typescript"
+	},
 	"rust-analyzer.check.command": "clippy",
 	"rust-analyzer.check.allTargets": true,
 	"rust-analyzer.check.features": "all",
