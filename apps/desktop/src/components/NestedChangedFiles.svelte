@@ -1,11 +1,11 @@
 <script lang="ts">
+	import ChangedFileStats from "$components/ChangedFileStats.svelte";
 	import FileList from "$components/FileList.svelte";
-	import FileListMode from "$components/FileListMode.svelte";
 	import emptyFolderSvg from "$lib/assets/empty-state/empty-folder.svg?raw";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { readStableSelectionKey, stableSelectionKey, type SelectionId } from "$lib/selection/key";
 	import { inject } from "@gitbutler/core/context";
-	import { Badge, LineStats, EmptyStatePlaceholder, Icon } from "@gitbutler/ui";
+	import { EmptyStatePlaceholder, Icon } from "@gitbutler/ui";
 
 	import type { ConflictEntriesObj } from "$lib/files/conflicts";
 	import type { TreeChange, TreeStats } from "$lib/hunks/change";
@@ -54,7 +54,11 @@
 
 	let listMode: "list" | "tree" = $state("tree");
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
-	let folded = $state(foldedByDefault);
+	// eslint-disable-next-line svelte/prefer-writable-derived
+	let folded = $state(false);
+	$effect(() => {
+		folded = foldedByDefault;
+	});
 
 	$effect(() => {
 		if (changes.length === 0 && !hasConflicts) {
@@ -81,30 +85,27 @@
 				folded = !folded;
 			}}
 		>
-			<div class="stack-h gap-4">
-				<button
-					type="button"
-					class="filelist-header__chevron"
-					class:rotated={folded}
-					onclick={(e) => {
-						e.stopPropagation();
-						folded = !folded;
-					}}
-					aria-label="Toggle file list"
-					aria-expanded={!folded}
-				>
-					<Icon name="chevron-down" />
-				</button>
-				<h4 class="text-14 text-semibold truncate">{title}</h4>
-				<div class="text-11 header-stats">
-					<Badge>{changes.length}</Badge>
-					{#if stats}
-						<LineStats linesAdded={stats.linesAdded} linesRemoved={stats.linesRemoved} />
-					{/if}
-				</div>
-			</div>
-
-			<FileListMode bind:mode={listMode} persistId={`changed-files-${persistId}`} />
+			<button
+				type="button"
+				class="filelist-header__chevron"
+				class:rotated={folded}
+				onclick={(e) => {
+					e.stopPropagation();
+					folded = !folded;
+				}}
+				aria-label="Toggle file list"
+				aria-expanded={!folded}
+			>
+				<Icon name="chevron-down" />
+			</button>
+			<ChangedFileStats
+				{title}
+				bind:mode={listMode}
+				persistId={`changed-files-${persistId}`}
+				fileCount={changes.length}
+				linesAdded={stats?.linesAdded}
+				linesRemoved={stats?.linesRemoved}
+			/>
 		</div>
 
 		{#if !folded}
@@ -151,12 +152,6 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-ml);
 		background-color: var(--clr-bg-1);
-	}
-
-	.header-stats {
-		display: flex;
-		align-items: center;
-		gap: 8px;
 	}
 
 	.filelist-header {

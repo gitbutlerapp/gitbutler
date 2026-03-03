@@ -1,6 +1,8 @@
 <script lang="ts">
+	import ChangedFileStats from "$components/ChangedFileStats.svelte";
 	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
 	import Drawer from "$components/Drawer.svelte";
+	import FileTreeList from "$components/FileTreeList.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import Resizer from "$components/Resizer.svelte";
 	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
@@ -12,14 +14,7 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
-	import {
-		Button,
-		FileListItem,
-		FileViewHeader,
-		HunkDiffSkeleton,
-		Icon,
-		VirtualList,
-	} from "@gitbutler/ui";
+	import { Button, FileViewHeader, HunkDiffSkeleton, Icon, VirtualList } from "@gitbutler/ui";
 
 	interface Props {
 		projectId: string;
@@ -52,18 +47,38 @@
 	// Track expanded/collapsed state for each diff (for virtual list mode)
 	const diffExpandedState = new Map<string, boolean>();
 
-	let selectedIndex = $state(initialIndex);
-	let visibleRange = $state<{ start: number; end: number } | undefined>(undefined);
+	let listMode: "list" | "tree" = $state("list");
+	// eslint-disable-next-line svelte/prefer-writable-derived
+	let selectedIndex = $state(0);
+	$effect(() => {
+		selectedIndex = initialIndex;
+	});
 	let headerElRef = $state<HTMLDivElement | undefined>(undefined);
 	let leftPanelEl = $state<HTMLDivElement | undefined>(undefined);
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let diffScrollContainer = $state<HTMLElement | null>(null);
+	let fileListEl = $state<HTMLDivElement>();
+	let fileListContextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
+	let visibleRange = $state<{ start: number; end: number } | undefined>(undefined);
 	let contextMenus = $state<Record<string, ReturnType<typeof ChangedFilesContextMenu>>>({});
 	let headerTriggers = $state<Record<string, HTMLElement>>({});
 	let buttonElements = $state<Record<string, HTMLElement>>({});
 	let menuOpenStates = $state<Record<string, boolean>>({});
 
 	const selectedChange = $derived(changes[selectedIndex]);
+
+	const totalLinesAdded = $derived(
+		changes.reduce((sum, change) => {
+			const diff = diffService.getDiff(projectId, change).response;
+			return sum + (diff?.type === "Patch" ? diff.subject.linesAdded : 0);
+		}, 0),
+	);
+	const totalLinesRemoved = $derived(
+		changes.reduce((sum, change) => {
+			const diff = diffService.getDiff(projectId, change).response;
+			return sum + (diff?.type === "Patch" ? diff.subject.linesRemoved : 0);
+		}, 0),
+	);
 
 	function selectChange(index: number) {
 		selectedIndex = index;
@@ -103,43 +118,48 @@
 				<div class="drag-handle">
 					<Icon name="drag-square" />
 				</div>
-				<span class="text-14 text-semibold modal-title">File diff viewer</span>
-				<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
+				<ChangedFileStats
+					title="Files changed"
+					bind:mode={listMode}
+					persistId="floating-diff-modal"
+					fileCount={changes.length}
+					linesAdded={totalLinesAdded}
+					linesRemoved={totalLinesRemoved}
+				/>
 			</div>
-			<div class="file-list">
-				{#each changes as change, index}
-					<FileListItem
-						filePath={change.path}
-						fileStatus={computeChangeStatus(change)}
-						executable={isExecutableStatus(change.status)}
-						selected={selectedIndex === index}
-						notched={visibleRange !== undefined &&
-							index >= visibleRange.start &&
-							index < visibleRange.end}
-						listMode="list"
-						isLast={index === changes.length - 1}
-						onclick={() => selectChange(index)}
-					/>
-				{/each}
+			<div class="file-list" bind:this={fileListEl}>
+				<ChangedFilesContextMenu
+					bind:this={fileListContextMenu}
+					{projectId}
+					{stackId}
+					{selectionId}
+					trigger={fileListEl}
+				/>
+				<FileTreeList
+					{changes}
+					{listMode}
+					{selectedIndex}
+					{visibleRange}
+					onFileClick={selectChange}
+					onFileContextMenu={(e, change) => {
+						fileListContextMenu?.open(e, { changes: [change] });
+					}}
+				/>
 			</div>
 		</div>
 
 		<!-- Right panel: diff area -->
 		<div class="right-panel">
+			<div class="floating-actions">
+				<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
+			</div>
 			<!-- Diff area (single-file or virtual list depending on user setting) -->
 			<div class="diff-area" bind:this={diffScrollContainer}>
 				{#if singleDiffView}
 					<!-- Single-file mode: show selected file with header -->
 					{#if selectedChange}
 						{@const diffQuery = diffService.getDiff(projectId, selectedChange)}
-						<Drawer
-							noshrink
-							stickyHeader
-							closeButtonPlaceholder
-							reserveSpaceOnStuck
-							scrollRoot={diffScrollContainer}
-							highlighted={false}
-						>
+						<Drawer noshrink stickyHeader scrollRoot={diffScrollContainer} highlighted={false}>
 							{#snippet header()}
 								<div class="diff-preview-header">
 									<FileViewHeader
@@ -243,6 +263,9 @@
 							<Drawer
 								noshrink
 								stickyHeader
+								reserveSpaceOnStuck
+								closeButtonPlaceholder
+								closeButtonPlaceholderWidth="1.375rem"
 								scrollRoot={diffScrollContainer}
 								collapsable
 								defaultCollapsed={isCollapsed}
@@ -369,13 +392,6 @@
 		color: var(--clr-text-3);
 	}
 
-	.modal-title {
-		flex: 1;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
 	/* File list */
 	.file-list {
 		display: flex;
@@ -392,6 +408,20 @@
 		flex: 1;
 		flex-direction: column;
 		overflow: hidden;
+	}
+
+	.floating-actions {
+		display: flex;
+		z-index: var(--z-lifted);
+		position: absolute;
+		top: 6px;
+		right: 6px;
+		padding: 2px;
+		gap: 2px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1);
+		box-shadow: var(--fx-shadow-s);
 	}
 
 	/* Diff area (shared scroll root for virtual list, or single-file container) */

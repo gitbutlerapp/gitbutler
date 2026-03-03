@@ -101,7 +101,7 @@
 		noshrink
 		stickyHeader={!singleDiffView}
 		reserveSpaceOnStuck={!!onclose}
-		closeButtonPlaceholder
+		closeButtonPlaceholder={!!onclose}
 		scrollRoot={scrollContainer}
 		collapsable={!singleDiffView}
 		defaultCollapsed={isCollapsed}
@@ -189,7 +189,7 @@
 	class:no-rounded={!showRoundedEdges}
 >
 	{#if onclose && !singleDiffView}
-		<div class="floating-close">
+		<div class="floating-actions">
 			<Button
 				kind="ghost"
 				icon="pop-out-bottom-right"
@@ -271,7 +271,7 @@
 		}
 	}
 
-	.floating-close {
+	.floating-actions {
 		display: flex;
 		z-index: var(--z-lifted);
 		position: absolute;

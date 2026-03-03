@@ -13,6 +13,7 @@
 		sticky?: boolean;
 		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
+		closeButtonPlaceholderWidth?: string;
 		scrollRoot?: HTMLElement | null;
 		onclose?: () => void;
 		/**
@@ -31,6 +32,7 @@
 		sticky,
 		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
+		closeButtonPlaceholderWidth = "3rem",
 		scrollRoot,
 		onclose,
 		ondblclick,
@@ -101,7 +103,7 @@
 					{/if}
 
 					{#if (closeButtonPlaceholder && !actions) || isStuck}
-						<div class="close-button-placeholder"></div>
+						<div class="close-button-placeholder" style:width={closeButtonPlaceholderWidth}></div>
 					{/if}
 
 					{#if onclose}
@@ -170,7 +172,6 @@
 	}
 
 	.close-button-placeholder {
-		width: 48px;
 		height: var(--size-button);
 	}
 </style>

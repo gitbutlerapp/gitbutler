@@ -32,6 +32,7 @@
 		rounded?: boolean;
 		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
+		closeButtonPlaceholderWidth?: string;
 		scrollRoot?: HTMLElement | null;
 		highlighted?: boolean;
 		onclose?: () => void;
@@ -60,6 +61,7 @@
 		rounded,
 		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
+		closeButtonPlaceholderWidth,
 		scrollRoot,
 		highlighted,
 		ontoggle,
@@ -135,6 +137,7 @@
 		{onclose}
 		ondblclick={toggleCollapsed}
 		{closeButtonPlaceholder}
+		{closeButtonPlaceholderWidth}
 	>
 		{#snippet content()}
 			{#if collapsable}
