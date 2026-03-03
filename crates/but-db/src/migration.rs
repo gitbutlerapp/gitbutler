@@ -45,9 +45,7 @@ pub fn run<'m>(
         return Err(backoff::Error::permanent(
             rusqlite::Error::ToSqlConversionFailure(
                 format!(
-                    "Database forward-compatibility version is {actual}, but this binary only supports up to {expected}",
-                    actual = db_forward_compatibility_version,
-                    expected = FORWARD_COMPATIBILITY_VERSION
+                    "Database forward-compatibility version is {db_forward_compatibility_version}, but this binary only supports up to {FORWARD_COMPATIBILITY_VERSION}"
                 )
                 .into(),
             ),
@@ -55,7 +53,7 @@ pub fn run<'m>(
     }
 
     let should_bump_forward_compatibility_version =
-        db_forward_compatibility_version < FORWARD_COMPATIBILITY_VERSION;
+        db_forward_compatibility_version != FORWARD_COMPATIBILITY_VERSION;
 
     let trans = conn
         // Use deferred to allow ourselves to read first without running into locks.
