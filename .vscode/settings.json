@@ -46,5 +46,6 @@
 		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
 	"svelte.plugin.css.globals": "packages/ui/src/**/*.css",
-	"js/ts.preferences.importModuleSpecifier": "non-relative"
+	"js/ts.preferences.importModuleSpecifier": "non-relative",
+	"editor.formatOnSave": true
 }
