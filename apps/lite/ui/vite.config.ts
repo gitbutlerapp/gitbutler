@@ -8,7 +8,13 @@ const currentDirPath = path.dirname(currentFilePath);
 
 export default defineConfig({
 	root: currentDirPath,
-	plugins: [react()],
+	plugins: [
+		react({
+			babel: {
+				plugins: ["babel-plugin-react-compiler"],
+			},
+		}),
+	],
 	build: {
 		outDir: "../dist/ui",
 		emptyOutDir: true,
