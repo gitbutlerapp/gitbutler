@@ -14,6 +14,11 @@ name = "gitbutler-git-askpass"
 path = "src/bin/askpass.rs"
 test = false
 
+[[bin]] # we need this binary only for backwards compatibility with old bundled CLI installers that validate that it's there
+name = "gitbutler-git-setsid"
+path = "src/bin/noop.rs"
+test = false
+
 [features]
 default = ["tokio"]
 tokio = ["dep:tokio"]
