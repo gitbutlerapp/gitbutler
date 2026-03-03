@@ -5,9 +5,8 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use but_api::json;
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_project::ProjectId;
 use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;
@@ -44,16 +43,18 @@ pub fn set_project_active(
     window_state: State<'_, WindowState>,
     app_settings_sync: tauri::State<'_, AppSettingsWithDiskSync>,
     window: Window,
-    id: ProjectId,
+    id: ProjectHandleOrLegacyProjectId,
 ) -> Result<Option<ProjectInfo>, json::Error> {
-    let project = match gitbutler_project::get_validated(id).ok() {
-        Some(project) => project,
-        None => {
-            tracing::warn!("Project with ID {id} not found, cannot set it active");
+    // We don't get the legcay object in a validated fashion anymore, but that should be fine
+    // as this only tries to open a Repo, and that's something we do later here as well.
+    let mut ctx: Context = match id.clone().try_into() {
+        Ok(ctx) => ctx,
+        Err(err) => {
+            tracing::warn!("Project with ID {id:?} not found, cannot set it active: {err}");
             return Ok(None);
         }
     };
-    let repo = git2::Repository::open(project.git_dir())
+    let repo = git2::Repository::open(&ctx.gitdir)
         // Only capture this information here to prevent spawning too many errors because of this
         // (the UI has many parallel calls in flight).
         .map_err(|err| {
@@ -66,7 +67,7 @@ pub fn set_project_active(
             }
         })?;
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
-    let mut ctx = Context::new_from_legacy_project(project.clone())?.with_git2_repo(repo);
+    ctx = ctx.with_git2_repo(repo);
 
     {
         let mut guard = ctx.exclusive_worktree_access();
@@ -102,7 +103,10 @@ pub fn set_project_active(
 /// without having to lock explicitly.
 #[tauri::command]
 #[instrument(skip(handle), err(Debug))]
-pub fn open_project_in_window(handle: tauri::AppHandle, id: ProjectId) -> Result<(), json::Error> {
+pub fn open_project_in_window(
+    handle: tauri::AppHandle,
+    id: ProjectHandleOrLegacyProjectId,
+) -> Result<(), json::Error> {
     let label = std::time::UNIX_EPOCH
         .elapsed()
         .or_else(|_| std::time::UNIX_EPOCH.duration_since(std::time::SystemTime::now()))

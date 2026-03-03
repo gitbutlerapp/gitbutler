@@ -2,20 +2,25 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use but_api_macros::but_api;
-use gitbutler_project::{self as projects, ProjectId};
+use but_ctx::Context;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use tracing::instrument;
+
+use super::legacy_project;
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn update_project(project: projects::UpdateRequest) -> Result<projects::api::Project> {
+pub fn update_project(
+    project: gitbutler_project::UpdateRequest,
+) -> Result<gitbutler_project::api::Project> {
     Ok(gitbutler_project::update(project)?.into())
 }
 
 /// Adds an existing git repository as a GitButler project.
-/// If the directory is not a git repository, an error is returned.
+/// `path` is the Git repository to remember as project.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome> {
+pub fn add_project(path: PathBuf) -> Result<gitbutler_project::AddProjectOutcome> {
     gitbutler_project::add(&path)
 }
 
@@ -24,26 +29,46 @@ pub fn add_project(path: PathBuf) -> Result<projects::AddProjectOutcome> {
 /// to them, allowing to open projects from paths within the repository.
 #[but_api]
 #[instrument(err(Debug))]
-pub fn add_project_best_effort(path: PathBuf) -> Result<projects::AddProjectOutcome> {
+pub fn add_project_best_effort(path: PathBuf) -> Result<gitbutler_project::AddProjectOutcome> {
     gitbutler_project::add_with_best_effort(&path)
 }
 
 #[but_api]
 #[instrument(err(Debug))]
 pub fn get_project(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     no_validation: Option<bool>,
-) -> Result<projects::api::Project> {
-    if no_validation.unwrap_or(false) {
-        Ok(gitbutler_project::get_raw(project_id)?.migrated()?.into())
-    } else {
-        Ok(gitbutler_project::get_validated(project_id)?.into())
+) -> Result<gitbutler_project::api::Project> {
+    let no_validation = no_validation.unwrap_or(false);
+    match project_id {
+        ProjectHandleOrLegacyProjectId::ProjectHandle(handle) => {
+            let ctx = Context::new_from_project_handle(handle)?;
+            if no_validation {
+                Ok(ctx.legacy_project.migrated()?.into())
+            } else {
+                Ok(gitbutler_project::get_validated(ctx.legacy_project.id)?.into())
+            }
+        }
+        ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => {
+            if no_validation {
+                Ok(gitbutler_project::get_raw(project_id)?.migrated()?.into())
+            } else {
+                Ok(gitbutler_project::get_validated(project_id)?.into())
+            }
+        }
     }
 }
 
 #[but_api(napi)]
 #[instrument(err(Debug))]
-pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFrontend>> {
+pub fn list_projects(
+    opened_projects: Vec<ProjectHandleOrLegacyProjectId>,
+) -> Result<Vec<ProjectForFrontend>> {
+    let opened_projects: std::collections::HashSet<_> = opened_projects
+        .into_iter()
+        .map(|project_id| legacy_project(project_id).map(|project| project.id))
+        .collect::<Result<_>>()?;
+
     gitbutler_project::assure_app_can_startup_or_fix_it(
         gitbutler_project::dangerously_list_projects_without_migration(),
     )
@@ -69,8 +94,9 @@ pub fn list_projects(opened_projects: Vec<ProjectId>) -> Result<Vec<ProjectForFr
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn delete_project(project_id: ProjectId) -> Result<()> {
-    gitbutler_project::delete(project_id)
+pub fn delete_project(project_id: ProjectHandleOrLegacyProjectId) -> Result<()> {
+    let project = legacy_project(project_id)?;
+    gitbutler_project::delete(project.id)
 }
 
 #[but_api]

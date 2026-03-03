@@ -28,10 +28,10 @@ doctest = false
 [features]
 default = []
 ## Provide Tauri commands automatically where possible, to avoid duplication.
-## Needs "legacy" as long as it needs `ProjectId` and is not switched to `ProjectHandle`.
+## Needs "legacy" as long as it needs legacy project support.
 tauri = ["dep:tauri", "legacy"]
 ## Provide napi bindings for Node.js via napi-rs.
-## Needs "legacy" as long as it needs `LegacyProjectId`.
+## Needs "legacy" as long as it needs legacy project support.
 napi = ["dep:napi", "dep:napi-derive", "legacy"]
 ## When paths are turned into strings they are lossy. Also provide a `_bytes` variant of such fields with the original value
 ## for lossless use.

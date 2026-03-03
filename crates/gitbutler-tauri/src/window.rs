@@ -2,17 +2,16 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
-    use but_ctx::Context;
+    use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
     use but_settings::AppSettingsWithDiskSync;
-    use gitbutler_project::ProjectId;
     use tauri::AppHandle;
     use tracing::instrument;
 
     pub(crate) mod event {
         use anyhow::{Context as _, Result};
+        use but_ctx::{LegacyProjectId, ProjectHandleOrLegacyProjectId};
         use but_db::poll::ItemKind;
         use but_settings::AppSettings;
-        use gitbutler_project::ProjectId;
         use gitbutler_watcher::Change;
         use tauri::Emitter;
 
@@ -21,7 +20,7 @@ pub(crate) mod state {
         pub struct ChangeForFrontend {
             name: String,
             payload: serde_json::Value,
-            project_id: ProjectId,
+            project_id: ProjectHandleOrLegacyProjectId,
         }
 
         impl From<Change> for ChangeForFrontend {
@@ -30,7 +29,7 @@ pub(crate) mod state {
                     Change::GitFetch(project_id) => ChangeForFrontend {
                         name: format!("project://{project_id}/git/fetch"),
                         payload: serde_json::json!({}),
-                        project_id,
+                        project_id: ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id),
                     },
                     Change::GitHead {
                         project_id,
@@ -39,7 +38,7 @@ pub(crate) mod state {
                     } => ChangeForFrontend {
                         name: format!("project://{project_id}/git/head"),
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
-                        project_id,
+                        project_id: ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id),
                     },
                     Change::GitActivity {
                         project_id,
@@ -49,7 +48,7 @@ pub(crate) mod state {
                         payload: serde_json::json!({
                             "headSha": head_sha,
                         }),
-                        project_id,
+                        project_id: ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id),
                     },
                     Change::WorktreeChanges {
                         project_id,
@@ -57,7 +56,7 @@ pub(crate) mod state {
                     } => ChangeForFrontend {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
-                        project_id,
+                        project_id: ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id),
                     },
                 }
             }
@@ -69,7 +68,9 @@ pub(crate) mod state {
                     name: "settings://update".to_string(),
                     payload: serde_json::json!(settings),
                     // TODO: remove dummy project id
-                    project_id: ProjectId::generate(),
+                    project_id: ProjectHandleOrLegacyProjectId::LegacyProjectId(
+                        LegacyProjectId::generate(),
+                    ),
                 }
             }
         }
@@ -101,7 +102,7 @@ pub(crate) mod state {
 
     struct State {
         /// The id of the project displayed by the window.
-        project_id: ProjectId,
+        project_id: ProjectHandleOrLegacyProjectId,
         /// The watcher of the currently active project.
         watcher: gitbutler_watcher::WatcherHandle,
         /// An active lock to signal that the entire project is locked for the Window this state belongs to.

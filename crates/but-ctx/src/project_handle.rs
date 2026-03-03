@@ -193,6 +193,18 @@ impl serde::Serialize for ProjectHandleOrLegacyProjectId {
     }
 }
 
+impl std::fmt::Display for ProjectHandleOrLegacyProjectId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProjectHandleOrLegacyProjectId::ProjectHandle(handle) => write!(f, "{handle}"),
+            #[cfg(feature = "legacy")]
+            ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => {
+                write!(f, "{project_id}")
+            }
+        }
+    }
+}
+
 impl TryFrom<ProjectHandleOrLegacyProjectId> for crate::Context {
     type Error = anyhow::Error;
 

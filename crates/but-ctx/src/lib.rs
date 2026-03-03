@@ -45,7 +45,7 @@ pub struct ProjectHandle(String);
 ///
 /// This accepts a [`ProjectHandle`] in all builds, and also accepts a legacy [`LegacyProjectId`]
 /// when the `legacy` feature is enabled.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ProjectHandleOrLegacyProjectId {
     /// Self-describing project handle.
     ProjectHandle(ProjectHandle),
