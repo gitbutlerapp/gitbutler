@@ -109,7 +109,7 @@
 		panel2: {
 			minWidth: 20,
 			maxWidth: 64,
-			defaultValue: 32,
+			defaultValue: 37,
 		},
 	};
 

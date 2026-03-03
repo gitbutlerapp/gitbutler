@@ -21,14 +21,7 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
-	import {
-		Button,
-		FileViewHeader,
-		HunkDiffSkeleton,
-		Tooltip,
-		Icon,
-		VirtualList,
-	} from "@gitbutler/ui";
+	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
