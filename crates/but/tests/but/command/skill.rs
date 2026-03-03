@@ -108,6 +108,78 @@ fn skill_install_absolute_path_outside_repo_does_not_require_global() -> anyhow:
         json.get("path").and_then(|v| v.as_str()),
         Some(expected_path.as_str())
     );
+    assert_eq!(json.get("with_link").and_then(|v| v.as_bool()), Some(false));
+
+    let installed_skill = std::fs::read_to_string(install_dir.join("SKILL.md"))?;
+    assert!(
+        !installed_skill.contains("but link read --agent-id <id>"),
+        "Default install should not include with-link coordination workflow"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn skill_install_with_link_installs_coordination_variant() -> anyhow::Result<()> {
+    let env = Sandbox::empty()?;
+    let install_dir = env.projects_root().join("abs-skill-install-with-link");
+
+    let output = env
+        .but("")
+        .arg("skill")
+        .arg("install")
+        .arg("--json")
+        .arg("--with-link")
+        .arg("--path")
+        .arg(&install_dir)
+        .allow_json()
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+
+    let json: serde_json::Value = serde_json::from_slice(&output)?;
+    assert_eq!(json.get("success").and_then(|v| v.as_bool()), Some(true));
+    assert_eq!(json.get("with_link").and_then(|v| v.as_bool()), Some(true));
+
+    let installed_skill = std::fs::read_to_string(install_dir.join("SKILL.md"))?;
+    assert!(
+        installed_skill.contains("but link read --agent-id <id>"),
+        "--with-link install should include coordination workflow"
+    );
+    assert!(
+        installed_skill.contains("but link acquire --path <file> --agent-id <id> --ttl 15m"),
+        "--with-link install should teach acquire as the default edit workflow"
+    );
+    assert!(
+        installed_skill.contains("but link plan \"<what you're about to do>\" --agent-id <id>"),
+        "--with-link install should teach agents to publish intended work before acquiring files"
+    );
+    assert!(
+        installed_skill.contains("Use one stable `agent-id` for the entire user session"),
+        "--with-link install should teach session-stable agent ids"
+    );
+    assert!(
+        installed_skill.contains("Review / triage task (no file edits)"),
+        "--with-link install should include read-only coordination workflow"
+    );
+    let installed_link_reference =
+        std::fs::read_to_string(install_dir.join("references").join("link.md"))?;
+    assert!(
+        installed_link_reference.contains("## Read-Only Checklist (No File Edits)"),
+        "--with-link install should include read-only checklist in link reference"
+    );
+    assert!(
+        installed_link_reference
+            .contains("but link acquire --path <file1> --path <file2> --ttl 15m --agent-id <id>"),
+        "--with-link install should teach acquire in the link reference"
+    );
+    assert!(
+        installed_link_reference
+            .contains("This is what makes your intended work show up in the TUI immediately"),
+        "--with-link install should explain why agents publish a plan before acquiring files"
+    );
 
     Ok(())
 }

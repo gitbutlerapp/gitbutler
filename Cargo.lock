@@ -764,6 +764,7 @@ dependencies = [
  "but-graph",
  "but-hunk-assignment",
  "but-installer",
+ "but-link",
  "but-llm",
  "but-oxidize",
  "but-path",
@@ -1308,6 +1309,21 @@ dependencies = [
  "tempfile",
  "url",
  "xattr",
+]
+
+[[package]]
+name = "but-link"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "crossterm",
+ "ratatui",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "time",
 ]
 
 [[package]]
