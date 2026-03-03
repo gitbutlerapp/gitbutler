@@ -2,6 +2,7 @@ import { liteIpcChannels } from "#electron/ipc";
 import { listProjects } from "#electron/model/projects";
 import { headInfo } from "#electron/model/workspace";
 import { app, BrowserWindow, ipcMain } from "electron";
+import { REACT_DEVELOPER_TOOLS, installExtension } from "electron-devtools-installer";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -40,6 +41,8 @@ async function createMainWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+	// TODO: if (!app.isPackaged)
+	await installExtension(REACT_DEVELOPER_TOOLS);
 	registerIpcHandlers();
 	await createMainWindow();
 

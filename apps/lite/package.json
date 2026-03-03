@@ -49,6 +49,7 @@
 		"cross-env": "^10.1.0",
 		"electron": "^37.4.0",
 		"electron-builder": "^26.8.1",
+		"electron-devtools-installer": "^4.0.0",
 		"jsdom": "26.1.0",
 		"vite": "catalog:",
 		"vitest": "catalog:",
