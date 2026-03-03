@@ -8,9 +8,8 @@
 		"outDir": "../dist/electron",
 		"rootDir": "./src",
 		"verbatimModuleSyntax": false,
-		"baseUrl": "./src",
 		"paths": {
-			"#electron/*": ["./*"]
+			"#electron/*": ["./src/*"]
 		},
 		"types": ["node"],
 		"skipLibCheck": true
