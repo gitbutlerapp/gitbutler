@@ -35,6 +35,7 @@
 		ontoggle?: (collapsed: boolean) => void;
 		onerror: (err: unknown) => void;
 		onclose?: () => void;
+		onpopout?: () => void;
 	};
 
 	let {
@@ -49,6 +50,7 @@
 		ontoggle,
 		onerror,
 		onclose,
+		onpopout,
 	}: Props & { isInEditMessageMode?: boolean } = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -165,6 +167,17 @@
 			bottomBorder={false}
 			noshrink
 		>
+			{#snippet closeActions()}
+				{#if onpopout}
+					<Button
+						kind="ghost"
+						icon="pop-out-bottom-right"
+						size="tag"
+						tooltip="Pop out diff view"
+						onclick={onpopout}
+					/>
+				{/if}
+			{/snippet}
 			{#snippet header()}
 				<CommitTitle
 					truncate

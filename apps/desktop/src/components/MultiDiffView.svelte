@@ -11,6 +11,7 @@
 	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
 	import Drawer from "$components/Drawer.svelte";
 	import FilePreviewPlaceholder from "$components/FilePreviewPlaceholder.svelte";
+	import FloatingDiffModal from "$components/FloatingDiffModal.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
 	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
@@ -20,7 +21,14 @@
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
-	import { Button, FileViewHeader, HunkDiffSkeleton, VirtualList } from "@gitbutler/ui";
+	import {
+		Button,
+		FileViewHeader,
+		HunkDiffSkeleton,
+		Tooltip,
+		Icon,
+		VirtualList,
+	} from "@gitbutler/ui";
 
 	type Props = {
 		projectId: string;
@@ -67,12 +75,19 @@
 	let headerTriggers = $state<Record<string, HTMLElement>>({});
 	let buttonElements = $state<Record<string, HTMLElement>>({});
 	let menuOpenStates = $state<Record<string, boolean>>({});
+	let floatingDiffOpen = $state(false);
+	let floatingDiffInitialIndex = $state(0);
 
 	export function jumpToIndex(index: number) {
 		highlightedIndex = index;
 		if (!singleDiffView) {
 			virtualList?.jumpToIndex(index);
 		}
+	}
+
+	export function openFloatingDiff(index = 0) {
+		floatingDiffInitialIndex = index;
+		floatingDiffOpen = true;
 	}
 </script>
 
@@ -175,6 +190,16 @@
 >
 	{#if onclose && !singleDiffView}
 		<div class="floating-close">
+			<Button
+				kind="ghost"
+				icon="pop-out-bottom-right"
+				size="tag"
+				tooltip="Pop in diff view"
+				onclick={() => {
+					floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
+					floatingDiffOpen = true;
+				}}
+			/>
 			<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
 		</div>
 	{/if}
@@ -210,6 +235,21 @@
 	{/if}
 </div>
 
+{#if floatingDiffOpen}
+	<FloatingDiffModal
+		{projectId}
+		{stackId}
+		{changes}
+		{selectionId}
+		{draggable}
+		{selectable}
+		initialIndex={floatingDiffInitialIndex}
+		onclose={() => {
+			floatingDiffOpen = false;
+		}}
+	/>
+{/if}
+
 <style>
 	.multi-diff-view {
 		display: flex;
@@ -235,11 +275,14 @@
 		display: flex;
 		z-index: var(--z-lifted);
 		position: absolute;
-		top: 9px;
-		right: 9px;
+		top: 6px;
+		right: 6px;
+		padding: 2px;
+		gap: 2px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background-color: var(--clr-bg-1);
+		/* background-color: var(--clr-bg-2); */
 		box-shadow: var(--fx-shadow-s);
 	}
 

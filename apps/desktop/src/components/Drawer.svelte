@@ -13,6 +13,7 @@
 	type Props = {
 		header: Snippet<[HTMLDivElement]>;
 		actions?: Snippet<[element: HTMLElement]>;
+		closeActions?: Snippet;
 		children: Snippet;
 		testId?: string;
 		collapsable?: boolean;
@@ -40,6 +41,7 @@
 	let {
 		header,
 		actions,
+		closeActions,
 		children,
 		testId,
 		collapsable = true,
@@ -124,6 +126,7 @@
 >
 	<PreviewHeader
 		{actions}
+		{closeActions}
 		bind:headerHeight
 		{transparent}
 		sticky={stickyHeader}

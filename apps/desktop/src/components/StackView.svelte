@@ -637,6 +637,7 @@
 										rounded
 										{onerror}
 										onclose={onclosePreview}
+										onpopout={() => multiDiffView?.openFloatingDiff()}
 									/>
 									{#if commitFiles}
 										{@const commitResult = commitFiles?.result}
@@ -676,6 +677,7 @@
 									{onerror}
 									onclose={onclosePreview}
 									rounded
+									onpopout={() => multiDiffView?.openFloatingDiff()}
 								/>
 								<ReduxResult {projectId} {stackId} result={changesQuery.result}>
 									{#snippet children(result)}
