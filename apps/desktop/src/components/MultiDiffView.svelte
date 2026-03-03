@@ -85,6 +85,19 @@
 	}
 </script>
 
+{#snippet popOutSnippet()}
+	<Button
+		kind="ghost"
+		icon="pop-out-bottom-right"
+		size="tag"
+		tooltip="Pop in diff view"
+		onclick={() => {
+			floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
+			floatingDiffOpen = true;
+		}}
+	/>
+{/snippet}
+
 {#snippet changeItem(change: TreeChange, index?: number, highlight?: boolean)}
 	{@const diffQuery = diffService.getDiff(projectId, change)}
 	{@const diffData = diffQuery.response}
@@ -104,6 +117,7 @@
 		ontoggle={(collapsed) => {
 			diffExpandedState.set(change.path, collapsed);
 		}}
+		closeActions={!allInOneDiff && onclose ? popOutSnippet : undefined}
 	>
 		{#snippet header()}
 			<div class="full-width" bind:this={headerTriggers[change.path]}>

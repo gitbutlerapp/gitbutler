@@ -136,66 +136,70 @@
 
 		<!-- Right panel: diff area -->
 		<div class="right-panel">
-			<div class="floating-actions">
-				<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
-			</div>
+			{#if allInOneDiff}
+				<div class="floating-actions">
+					<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
+				</div>
+			{/if}
 			<!-- Diff area (single-file or virtual list depending on user setting) -->
 			<div class="diff-area" bind:this={diffScrollContainer}>
 				{#if !allInOneDiff}
 					<!-- Single-file mode: show selected file with header -->
 					{#if selectedChange}
 						{@const diffQuery = diffService.getDiff(projectId, selectedChange)}
-						<Drawer noshrink stickyHeader scrollRoot={diffScrollContainer} highlighted={false}>
+						<Drawer
+							noshrink
+							stickyHeader
+							collapsable={false}
+							scrollRoot={diffScrollContainer}
+							highlighted={false}
+							{onclose}
+						>
 							{#snippet header()}
-								<div class="diff-preview-header">
-									<FileViewHeader
-										filePath={selectedChange.path}
-										fileStatus={computeChangeStatus(selectedChange)}
-										executable={isExecutableStatus(selectedChange.status)}
-									/>
-									<div class="diff-preview-header-actions">
-										<ChangedFilesContextMenu
-											bind:this={contextMenus[selectedChange.path]}
-											{projectId}
-											{stackId}
-											{selectionId}
-											leftClickTrigger={buttonElements[selectedChange.path]}
-											trigger={buttonElements[selectedChange.path]}
-											onopen={() => {
-												menuOpenStates[selectedChange.path] = true;
-											}}
-											onclose={() => {
-												menuOpenStates[selectedChange.path] = false;
-											}}
-										/>
-										<Button
-											bind:el={buttonElements[selectedChange.path]}
-											kind="ghost"
-											icon="kebab"
-											size="tag"
-											activated={menuOpenStates[selectedChange.path]}
-											onclick={async () => {
-												const contextMenu = contextMenus[selectedChange.path];
-												const buttonEl = buttonElements[selectedChange.path];
-												if (!contextMenu || !buttonEl) return;
-
-												const allChanges = await idSelection.treeChanges(projectId, selectionId);
-												if (
-													idSelection.has(selectedChange.path, selectionId) &&
-													allChanges.length > 0
-												) {
-													contextMenu.open(buttonEl, { changes: allChanges });
-												} else {
-													contextMenu.open(buttonEl, { changes: [selectedChange] });
-												}
-											}}
-										/>
-									</div>
-								</div>
+								<FileViewHeader
+									filePath={selectedChange.path}
+									fileStatus={computeChangeStatus(selectedChange)}
+									executable={isExecutableStatus(selectedChange.status)}
+								/>
 							{/snippet}
 
 							{#snippet actions()}
-								<!-- actions slot intentionally empty; kebab is in header -->
+								<ChangedFilesContextMenu
+									bind:this={contextMenus[selectedChange.path]}
+									{projectId}
+									{stackId}
+									{selectionId}
+									leftClickTrigger={buttonElements[selectedChange.path]}
+									trigger={buttonElements[selectedChange.path]}
+									onopen={() => {
+										menuOpenStates[selectedChange.path] = true;
+									}}
+									onclose={() => {
+										menuOpenStates[selectedChange.path] = false;
+									}}
+								/>
+								<Button
+									bind:el={buttonElements[selectedChange.path]}
+									kind="ghost"
+									icon="kebab"
+									size="tag"
+									activated={menuOpenStates[selectedChange.path]}
+									onclick={async () => {
+										const contextMenu = contextMenus[selectedChange.path];
+										const buttonEl = buttonElements[selectedChange.path];
+										if (!contextMenu || !buttonEl) return;
+
+										const allChanges = await idSelection.treeChanges(projectId, selectionId);
+										if (
+											idSelection.has(selectedChange.path, selectionId) &&
+											allChanges.length > 0
+										) {
+											contextMenu.open(buttonEl, { changes: allChanges });
+										} else {
+											contextMenu.open(buttonEl, { changes: [selectedChange] });
+										}
+									}}
+								/>
 							{/snippet}
 
 							<ReduxResult {projectId} hideLoading result={diffQuery.result}>
@@ -417,22 +421,6 @@
 		flex-direction: column;
 		overflow-x: hidden;
 		overflow-y: auto;
-	}
-
-	/* Single-file mode header */
-	.diff-preview-header {
-		display: flex;
-		flex: 1;
-		align-items: center;
-		justify-content: space-between;
-		overflow: hidden;
-		gap: 8px;
-	}
-
-	.diff-preview-header-actions {
-		display: flex;
-		flex-shrink: 0;
-		align-items: center;
 	}
 
 	.no-file-selected {

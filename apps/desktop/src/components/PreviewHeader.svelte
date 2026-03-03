@@ -92,7 +92,7 @@
 				</div>
 			{/if}
 
-			{#if (onclose && actions) || (closeButtonPlaceholder && isStuck)}
+			{#if ((onclose || closeActions) && actions) || (closeButtonPlaceholder && isStuck)}
 				<div class="divider"></div>
 			{/if}
 
