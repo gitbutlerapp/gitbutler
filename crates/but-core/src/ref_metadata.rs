@@ -294,6 +294,7 @@ impl Workspace {
 /// Metadata about branches, associated with any Git branch.
 #[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -360,17 +361,27 @@ impl<T: std::fmt::Debug> std::fmt::Debug for MaybeDebug<'_, T> {
 /// bit of information.
 #[derive(serde::Serialize, Default, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
     ts(export, export_to = "./core/refMetadata/index.ts")
 )]
+#[cfg_attr(feature = "export-schema", schemars(rename = "MetadataRefInfo"))]
 pub struct RefInfo {
     /// The time of creation, *if we created the reference*.
     #[cfg_attr(feature = "export-ts", ts(type = "number | null"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::gix_time_opt")
+    )]
     pub created_at: Option<gix::date::Time>,
     /// The time at which the reference was last modified if we modified it.
     #[cfg_attr(feature = "export-ts", ts(type = "number | null"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::gix_time_opt")
+    )]
     pub updated_at: Option<gix::date::Time>,
 }
 
@@ -525,6 +536,7 @@ impl WorkspaceStack {
 /// Metadata about branches, associated with any Git branch.
 #[derive(serde::Serialize, Clone, Eq, PartialEq, Default)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",

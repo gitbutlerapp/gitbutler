@@ -268,7 +268,14 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
                 "number" | "integer" => "number".to_string(),
                 "boolean" => "boolean".to_string(),
                 "null" => "null".to_string(),
-                "array" => "Array<any>".to_string(),
+                "array" => {
+                    if let Some(items) = obj.get("items") {
+                        let item_ty = schema_to_ts(items, indent);
+                        format!("Array<{item_ty}>")
+                    } else {
+                        "Array<any>".to_string()
+                    }
+                }
                 "object" => "Record<string, unknown>".to_string(),
                 _ => "any".to_string(),
             })

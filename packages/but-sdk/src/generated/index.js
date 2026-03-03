@@ -579,7 +579,8 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { listProjectsNapi, stackDetailsNapi, stacksNapi } = nativeBinding
+const { headInfoNapi, listProjectsNapi, stackDetailsNapi, stacksNapi } = nativeBinding
+export { headInfoNapi }
 export { listProjectsNapi }
 export { stackDetailsNapi }
 export { stacksNapi }

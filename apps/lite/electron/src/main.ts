@@ -1,5 +1,6 @@
 import { liteIpcChannels } from "#electron/ipc";
 import { listProjects } from "#electron/model/projects";
+import { headInfo } from "#electron/model/workspace";
 import { app, BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -57,4 +58,7 @@ app.on("window-all-closed", () => {
 
 ipcMain.handle(liteIpcChannels.listProjects, () => {
 	return listProjects();
+});
+ipcMain.handle(liteIpcChannels.headInfo, (_e, projectId: string) => {
+	return headInfo(projectId);
 });
