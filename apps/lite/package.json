@@ -44,6 +44,7 @@
 		"@types/react-dom": "^19.1.7",
 		"@typescript/native-preview": "7.0.0-dev.20260301.1",
 		"@vitejs/plugin-react": "^5.0.2",
+		"babel-plugin-react-compiler": "^1.0.0",
 		"concurrently": "^9.2.1",
 		"cross-env": "^10.1.0",
 		"electron": "^37.4.0",
