@@ -1,5 +1,12 @@
-import type { TreeChange, DiffSpec, HunkAssignmentRequest, StackId } from "@gitbutler/but-sdk";
-import { liteIpcChannels } from "#electron/ipc";
+import {
+	liteIpcChannels,
+	type AssignHunkParams,
+	type CommitAmendParams,
+	type CommitDetailsWithLineStatsParams,
+	type CommitMoveChangesBetweenParams,
+	type CommitUncommitChangesParams,
+	type TreeChangeDiffParams,
+} from "#electron/ipc";
 import {
 	assignHunkNapi,
 	changesInWorktreeNapi,
@@ -20,37 +27,32 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
 function registerIpcHandlers(): void {
-	ipcMain.handle(
-		liteIpcChannels.assignHunk,
-		(_e, projectId: string, assignments: Array<HunkAssignmentRequest>) =>
-			assignHunkNapi(projectId, assignments),
+	ipcMain.handle(liteIpcChannels.assignHunk, (_e, { projectId, assignments }: AssignHunkParams) =>
+		assignHunkNapi(projectId, assignments),
 	);
 	ipcMain.handle(liteIpcChannels.changesInWorktree, (_e, projectId: string) =>
 		changesInWorktreeNapi(projectId),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitAmend,
-		(_e, projectId: string, commitId: string, changes: Array<DiffSpec>) =>
+		(_e, { projectId, commitId, changes }: CommitAmendParams) =>
 			commitAmendNapi(projectId, commitId, changes),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitDetailsWithLineStats,
-		(_e, projectId: string, commitId: string) =>
+		(_e, { projectId, commitId }: CommitDetailsWithLineStatsParams) =>
 			commitDetailsWithLineStatsNapi(projectId, commitId),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitMoveChangesBetween,
 		(
 			_e,
-			projectId: string,
-			sourceCommitId: string,
-			destinationCommitId: string,
-			changes: Array<DiffSpec>,
+			{ projectId, sourceCommitId, destinationCommitId, changes }: CommitMoveChangesBetweenParams,
 		) => commitMoveChangesBetweenNapi(projectId, sourceCommitId, destinationCommitId, changes),
 	);
 	ipcMain.handle(
 		liteIpcChannels.commitUncommitChanges,
-		(_e, projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: StackId | null) =>
+		(_e, { projectId, commitId, changes, assignTo }: CommitUncommitChangesParams) =>
 			commitUncommitChangesNapi(projectId, commitId, changes, assignTo),
 	);
 	ipcMain.handle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
@@ -59,8 +61,9 @@ function registerIpcHandlers(): void {
 	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
 		Promise.resolve(`pong: ${input}`),
 	);
-	ipcMain.handle(liteIpcChannels.treeChangeDiffs, (_e, projectId: string, change: TreeChange) =>
-		treeChangeDiffsNapi(projectId, change),
+	ipcMain.handle(
+		liteIpcChannels.treeChangeDiffs,
+		(_e, { projectId, change }: TreeChangeDiffParams) => treeChangeDiffsNapi(projectId, change),
 	);
 }
 
