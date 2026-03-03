@@ -25,6 +25,125 @@ use tracing::instrument;
 use super::BranchManager;
 use crate::{VirtualBranchesExt, integration::update_workspace_commit};
 
+const CHECKOUT_OVERWRITE_PREFIX: &str = "Worktree changes would be overwritten by checkout:";
+const DIFF_PREVIEW_CHAR_LIMIT: usize = 1200;
+
+#[derive(Debug)]
+struct OverwriteFileDiagnostic {
+    path: String,
+    has_any_textual_changes: bool,
+    has_significant_changes_ignoring_whitespace: bool,
+    diff_preview: String,
+}
+
+fn extract_overwritten_paths(message: &str) -> Vec<String> {
+    let Some((_, paths_csv)) = message.split_once(CHECKOUT_OVERWRITE_PREFIX) else {
+        return Vec::new();
+    };
+
+    paths_csv
+        .split(',')
+        .map(str::trim)
+        .map(|s| s.trim_matches('"'))
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn build_overwrite_file_diagnostic(
+    repo: &git2::Repository,
+    target_tree: &git2::Tree<'_>,
+    path: &str,
+) -> Result<OverwriteFileDiagnostic> {
+    let mut full_opts = git2::DiffOptions::new();
+    full_opts.pathspec(path);
+    full_opts.context_lines(2);
+    let full_diff = repo.diff_tree_to_workdir_with_index(Some(target_tree), Some(&mut full_opts))?;
+    let has_any_textual_changes = full_diff.deltas().len() > 0;
+
+    let mut significant_opts = git2::DiffOptions::new();
+    significant_opts.pathspec(path);
+    significant_opts.context_lines(0);
+    significant_opts.ignore_whitespace_change(true);
+    let significant_diff =
+        repo.diff_tree_to_workdir_with_index(Some(target_tree), Some(&mut significant_opts))?;
+    let has_significant_changes_ignoring_whitespace = significant_diff.deltas().len() > 0;
+
+    let mut diff_preview = String::new();
+    full_diff.print(git2::DiffFormat::Patch, |_delta, _hunk, line| {
+        let content = String::from_utf8_lossy(line.content());
+        diff_preview.push_str(content.as_ref());
+        true
+    })?;
+
+    if diff_preview.len() > DIFF_PREVIEW_CHAR_LIMIT {
+        diff_preview.truncate(DIFF_PREVIEW_CHAR_LIMIT);
+        diff_preview.push_str("\n... (diff preview truncated)");
+    }
+
+    Ok(OverwriteFileDiagnostic {
+        path: path.to_string(),
+        has_any_textual_changes,
+        has_significant_changes_ignoring_whitespace,
+        diff_preview,
+    })
+}
+
+fn enrich_checkout_overwrite_error(
+    repo: &git2::Repository,
+    target_ref: &str,
+    error_message: &str,
+) -> Option<String> {
+    let overwritten_paths = extract_overwritten_paths(error_message);
+    if overwritten_paths.is_empty() {
+        return None;
+    }
+
+    let target_tree = repo
+        .revparse_single(target_ref)
+        .ok()?
+        .peel_to_commit()
+        .ok()?
+        .tree()
+        .ok()?;
+
+    let diagnostics = overwritten_paths
+        .iter()
+        .filter_map(|path| build_overwrite_file_diagnostic(repo, &target_tree, path).ok())
+        .collect::<Vec<_>>();
+
+    if diagnostics.is_empty() {
+        return None;
+    }
+
+    let mut details = String::from(
+        "\n\nDetailed file diagnostics (worktree compared to target branch, including index):",
+    );
+
+    for diagnostic in diagnostics {
+        let significance = if !diagnostic.has_any_textual_changes {
+            "no textual diff detected"
+        } else if diagnostic.has_significant_changes_ignoring_whitespace {
+            "contains substantive changes"
+        } else {
+            "only whitespace-style changes detected"
+        };
+
+        details.push_str(&format!(
+            "\n- {}: {}\n{}",
+            diagnostic.path,
+            significance,
+            if diagnostic.diff_preview.trim().is_empty() {
+                "  (no patch preview available)".to_string()
+            } else {
+                format!("  diff preview:\n{}", diagnostic.diff_preview)
+            }
+        ));
+    }
+
+    Some(format!("{error_message}{details}"))
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateBranchFromBranchOutcome {
@@ -118,7 +237,7 @@ impl BranchManager<'_> {
 
             let target = target.to_string();
             let branch_to_apply = target.as_str().try_into()?;
-            let mut out = but_workspace::branch::apply(
+            let mut out = match but_workspace::branch::apply(
                 branch_to_apply,
                 &ws,
                 &repo,
@@ -132,14 +251,43 @@ impl BranchManager<'_> {
                     order: None,
                     new_stack_id: None,
                 },
-            )?;
+            ) {
+                Ok(out) => out,
+                Err(err) => {
+                    let git2_repo = self.ctx.git2_repo.get()?;
+                    if let Some(enriched) =
+                        enrich_checkout_overwrite_error(&git2_repo, &target, &err.to_string())
+                    {
+                        return Err(anyhow!(enriched));
+                    }
+                    return Err(err);
+                }
+            };
             let ws = out.workspace.into_owned();
-            let applied_branch_stack_id = ws
-                .find_segment_and_stack_by_refname(out.applied_branches.pop().context("BUG: must mention the actually applied branch last")?.as_ref())
+            let applied_branch = out
+                .applied_branches
+                .pop()
+                .context("BUG: must mention the actually applied branch last")?;
+            tracing::debug!(
+                applied_branch = ?applied_branch,
+                conflicting_stack_ids = ?out.conflicting_stack_ids,
+                "apply3 produced branch application result"
+            );
+            let applied_stack_segment = ws
+                .find_segment_and_stack_by_refname(applied_branch.as_ref())
                 .context(
                     "BUG: Can't find the branch to apply in workspace, but the 'apply' function should have failed instead"
                 )?
-                .0
+                .0;
+            if applied_stack_segment.id.is_none() {
+                tracing::error!(
+                    applied_branch = ?applied_branch,
+                    conflicting_stack_ids = ?out.conflicting_stack_ids,
+                    metadata_present = ws.metadata.is_some(),
+                    "applied branch resolved to workspace segment without stack id"
+                );
+            }
+            let applied_branch_stack_id = applied_stack_segment
                 .id
                 .context("BUG: newly applied stacks should always have a stack id")?;
             let conflicted_stack_short_names_for_display = ws

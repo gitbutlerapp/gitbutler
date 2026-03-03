@@ -328,10 +328,21 @@ fn finish_resolution(ctx: &mut Context, out: &mut OutputChannel) -> Result<()> {
 
     // Capture conflicted commits BEFORE the rebase
     let conflicts_before = find_conflicted_commits(ctx)?;
+    let conflicts_before_count: usize = conflicts_before.values().map(Vec::len).sum();
+    tracing::info!(
+        conflicted_commits_before = conflicts_before_count,
+        "finalizing conflict resolution"
+    );
 
     // Save and return to workspace, capturing the rebase output
-    save_edit_and_return_to_workspace_with_output(ctx)
-        .context("Failed to save resolution and return to workspace")?;
+    if let Err(err) = save_edit_and_return_to_workspace_with_output(ctx) {
+        tracing::error!(
+            error = %err,
+            conflicted_commits_before = conflicts_before_count,
+            "failed to save conflict resolution and return to workspace"
+        );
+        return Err(err).context("Failed to save resolution and return to workspace");
+    }
 
     if let Some(human_out) = out.for_human() {
         writeln!(

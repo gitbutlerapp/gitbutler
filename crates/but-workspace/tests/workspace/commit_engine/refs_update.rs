@@ -307,10 +307,10 @@ fn new_stack_receives_commit_and_adds_it_to_workspace_commit() -> anyhow::Result
     // head was updated to point to the new workspace commit.
     insta::assert_snapshot!(visualize_commit_graph(&repo, repo.head_id()?)?, @r"
     *   48b7ef5 (HEAD -> main) GitButler Workspace Commit
-    |\  
+    |\
     | * 5e3da89 (s2/top) new file with 15 lines
     * | b451685 (s1/top, feat1) insert 5 lines to the top
-    |/  
+    |/
     * d15b5ae (tag: first-commit) init
     ");
 
@@ -774,7 +774,7 @@ fn deletions() -> anyhow::Result<()> {
     insta::assert_snapshot!(but_testsupport::visualize_tree(head_commit.object()?.peel_to_tree()?.id()), @r#"
     cecc2da
     ├── .gitmodules:100644:51f8807 "[submodule \"submodule\"]\n\tpath = submodule\n\turl = ./embedded-repository\n"
-    ├── embedded-repository:160000:a047f81 
+    ├── embedded-repository:160000:a047f81
     ├── executable:100755:86daf54 "exe\n"
     ├── file-to-remain:100644:d95f3ad "content\n"
     ├── link:120000:b158162 "file-to-remain"
@@ -813,10 +813,10 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
     let head_commit_id = repo.head_id()?.detach();
     insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
     *   77dbf51 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 3538622 (A) add 10 to the beginning
     * | e81b470 (B) add 10 to the end
-    |/  
+    |/
     * 9cf2979 (main) init
     ");
 
@@ -850,11 +850,11 @@ fn insert_commits_into_workspace() -> anyhow::Result<()> {
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   6d12065 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 3538622 (A) add 10 to the beginning
     * | 4eb3345 (s1-b/init) add 10 more lines at end
     * | e81b470 (B) add 10 to the end
-    |/  
+    |/
     * 9cf2979 (main) init
     ");
     // The new result is like we'd expect so 10 more lines are added to the full merge result.
@@ -879,10 +879,10 @@ fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
     let head_commit_id = repo.head_id()?.detach();
     insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
     *   77dbf51 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 3538622 (A) add 10 to the beginning
     * | e81b470 (B) add 10 to the end
-    |/  
+    |/
     * 9cf2979 (main) init
     ");
 
@@ -983,10 +983,10 @@ fn insert_commits_into_workspace_with_conflict() -> anyhow::Result<()> {
     // there was no change to HEAD.
     insta::assert_snapshot!(visualize_commit_graph(&repo, unchanged_head_id)?, @r"
     *   77dbf51 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 3538622 (A) add 10 to the beginning
     * | e81b470 (B) add 10 to the end
-    |/  
+    |/
     * 9cf2979 (s1-b/init, main) init
     ");
 
@@ -1001,10 +1001,10 @@ fn workspace_commit_with_merge_conflict() -> anyhow::Result<()> {
     let initial_state = visualize_commit_graph(&repo, head_commit_id)?;
     insta::assert_snapshot!(initial_state, @r"
     *   076bc28 (HEAD -> merge) merge A and B with forced resolution
-    |\  
+    |\
     | * 88d7acc (A) 10 to 20
     * | 47334c6 (B) 20 to 30
-    |/  
+    |/
     * 15bcd1b (main) init
     ");
 
@@ -1073,10 +1073,10 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
     let head_commit_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
     *   bc9cc8a (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * eede47d (A) add 10 to the beginning
     * | 16fe86e (B) add 10 to the end
-    |/  
+    |/
     * 6074509 (main) init
     ");
     assert!(
@@ -1116,11 +1116,11 @@ fn merge_commit_remains_unsigned_in_remerge() -> anyhow::Result<()> {
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   857fde7 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 6b03af0 (s1-b/top) remove 5 lines from beginning
     | * eede47d (A) add 10 to the beginning
     * | 16fe86e (B) add 10 to the end
-    |/  
+    |/
     * 6074509 (main) init
     ");
     assert!(
@@ -1272,10 +1272,10 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     let head_commit_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
     *   2a6d103 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 7f389ed (A) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
 
@@ -1328,11 +1328,11 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   e4aa59d (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 548fec8 (s1-b/top) remove 5 lines from beginning
     | * 7f389ed (s1-b/below-top, A) add 10 to the beginning
     * | 91ef6f6 (s2-b/top, s2-b/below-top, B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
 
@@ -1415,12 +1415,12 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     // The B-segment refs moved
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   dc36f9d (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 548fec8 (s1-b/top) remove 5 lines from beginning
     | * 7f389ed (s1-b/below-top, A) add 10 to the beginning
     * | 5f2b7c7 (s2-b/top) remove 5 lines from the end
     * | 91ef6f6 (s2-b/below-top, B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
 
@@ -1484,13 +1484,13 @@ fn commit_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     // The empty commit was inserted.
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   f1de5bd (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 548fec8 (s1-b/top) remove 5 lines from beginning
     | * 7f389ed (s1-b/below-top, A) add 10 to the beginning
     * | 1ad95b4 (s2-b/top) empty commit
     * | 5f2b7c7 remove 5 lines from the end
     * | 91ef6f6 (s2-b/below-top, B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
     Ok(())
@@ -1503,10 +1503,10 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     let head_commit_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
     *   2a6d103 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 7f389ed (A) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
 
@@ -1539,10 +1539,10 @@ fn amend_on_top_of_branch_in_workspace() -> anyhow::Result<()> {
     let rewritten_head_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   f0eab2c (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * c73ae7d (s1-b/top, A) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
 
@@ -1575,10 +1575,10 @@ fn amend_edit_message_only() -> anyhow::Result<()> {
     let head_commit_id = repo.head_id()?;
     insta::assert_snapshot!(visualize_commit_graph(&repo, head_commit_id)?, @r"
     *   2a6d103 (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 7f389ed (A) add 10 to the beginning
     * | 91ef6f6 (B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
 
@@ -1613,10 +1613,10 @@ fn amend_edit_message_only() -> anyhow::Result<()> {
     // TODO: make some change observable.
     insta::assert_snapshot!(visualize_commit_graph(&repo, rewritten_head_id)?, @r"
     *   df59d2a (HEAD -> merge) Merge branch 'A' into merge
-    |\  
+    |\
     | * 2ab2b22 (s1-b/top, A) add 10 to the beginning (amended)
     * | 91ef6f6 (B) add 10 to the end
-    |/  
+    |/
     * ff045ef (main) init
     ");
 

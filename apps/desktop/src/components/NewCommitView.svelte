@@ -153,6 +153,7 @@
 					},
 					{},
 				);
+				const requiredSteps = response.requiredSteps;
 
 				uiState.global.modal.set({
 					type: "commit-failed",
@@ -161,6 +162,7 @@
 					newCommitId: newId ?? undefined,
 					commitTitle: laneState.newCommitMessage.current?.title || "",
 					pathsToRejectedChanges,
+					requiredSteps,
 				});
 			}
 		} finally {

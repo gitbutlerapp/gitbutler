@@ -211,6 +211,13 @@ impl Rebase<'_> {
             bail!("{kind} commit cannot be the base commit");
         }
         if self.steps.iter().any(|s| s.commit_id() == Some(commit_id)) {
+            tracing::warn!(
+                kind,
+                commit_id = %commit_id,
+                base = ?self.base,
+                steps_len = self.steps.len(),
+                "rejecting rebase plan because commit is picked more than once"
+            );
             bail!("Picked commit already exists in a previous step");
         }
         Ok(())

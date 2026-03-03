@@ -1147,3 +1147,4 @@ fn commit_single_hunk_leaves_other_hunks_uncommitted() -> anyhow::Result<()> {
 
     Ok(())
 }
+

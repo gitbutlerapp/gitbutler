@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { goto } from "$app/navigation";
 	import CommitFailedFileEntry from "$components/CommitFailedFileEntry.svelte";
 	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
+	import { branchesPath } from "$lib/routes/routes.svelte";
 	import { REJECTTION_REASONS, type RejectionReason } from "$lib/stacks/stackService.svelte";
-	import { Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui";
+	import { Button, Icon, ModalHeader, TestId, Tooltip } from "@gitbutler/ui";
 	import type { CommitFailedModalState } from "$lib/state/uiState.svelte";
 
 	type Props = {
@@ -20,6 +22,8 @@
 
 	function getReadableRejectionReason(reason: RejectionReason): string {
 		switch (reason) {
+			case "workspaceMergeConflictOfUnrelatedFile":
+				return "Workspace merge conflict (unrelated file)";
 			case "cherryPickMergeConflict":
 				return "Cherry-pick merge conflict";
 			case "noEffectiveChanges":
@@ -38,6 +42,8 @@
 				return "Unsupported tree entry";
 			case "missingDiffSpecAssociation":
 				return "Missing diff spec association";
+			default:
+				return "Unknown rejection reason";
 		}
 	}
 
@@ -62,6 +68,19 @@
 	}
 
 	const groupedData = groupByReason(data);
+	const hasConflictReason = groupedData.some(({ reason }) =>
+		reason === "workspaceMergeConflict" ||
+		reason === "workspaceMergeConflictOfUnrelatedFile" ||
+		reason === "cherryPickMergeConflict",
+	);
+	const requiredSteps =
+		data.requiredSteps.length > 0
+			? data.requiredSteps
+			: [
+					"Review rejected files and lock details listed below.",
+					"Recover/apply missing stacks from lock actions, or open Branches to recreate missing stack context.",
+					"Retry the commit once dependency and conflict blockers are cleared.",
+				];
 
 	let isScrollTopVisible = $state(true);
 </script>
@@ -108,6 +127,26 @@
 					</div>
 				{/each}
 			</div>
+
+			<div class="commit-failed__steps">
+				<hr class="commit-failed__reasons-divider" />
+				<p class="text-13">Required steps to resolve:</p>
+				<ol class="commit-failed__steps-list text-13">
+					{#each requiredSteps as step (step)}
+						<li>{step}</li>
+					{/each}
+				</ol>
+				{#if hasConflictReason}
+					<p class="text-12 clr-text-2">
+						Some locks reference commits outside the active workspace. Use the lock actions above to recover
+						or re-associate stack context before retrying.
+					</p>
+				{/if}
+				<div class="commit-failed__actions">
+					<Button kind="outline" onclick={() => goto(branchesPath(data.projectId))}>Open Branches</Button>
+					<Button kind="ghost" onclick={() => oncloseclick?.()}>Ignore for now</Button>
+				</div>
+			</div>
 		</div>
 	</ConfigurableScrollableContainer>
 </div>
@@ -150,6 +189,25 @@
 	.commit-failed__reason-file-list {
 		display: flex;
 		flex-direction: column;
+		gap: 8px;
+	}
+
+	.commit-failed__steps {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.commit-failed__steps-list {
+		margin: 0;
+		padding-left: 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.commit-failed__actions {
+		display: flex;
 		gap: 8px;
 	}
 </style>

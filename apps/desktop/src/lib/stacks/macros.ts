@@ -76,6 +76,7 @@ export default class StackMacros {
 				},
 				{},
 			);
+			const requiredSteps = outcome.requiredSteps;
 
 			this.uiState.global.modal.set({
 				type: "commit-failed",
@@ -84,6 +85,7 @@ export default class StackMacros {
 				newCommitId: outcome.newCommit ?? undefined,
 				commitTitle: message ?? STUB_COMMIT_MESSAGE,
 				pathsToRejectedChanges,
+				requiredSteps,
 			});
 		}
 		return { stack, outcome, branchName };

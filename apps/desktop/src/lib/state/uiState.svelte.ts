@@ -90,6 +90,7 @@ export type CommitFailedModalState = BaseGlobalModalState & {
 	newCommitId: string | undefined;
 	commitTitle: string | undefined;
 	pathsToRejectedChanges: Record<string, RejectionReason>;
+	requiredSteps: string[];
 };
 
 export type AuthorMissingModalState = BaseGlobalModalState & {

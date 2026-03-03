@@ -7,7 +7,11 @@ use but_api::{
     json::HexHash,
     legacy::{diff, repo, workspace},
 };
-use but_core::{DiffSpec, ui::TreeChange};
+use but_core::{
+    DiffSpec,
+    tree::create_tree::RejectionReason,
+    ui::TreeChange,
+};
 use but_rebase::graph_rebase::mutate::InsertSide;
 use colored::Colorize;
 use gitbutler_repo::hooks;
@@ -95,6 +99,87 @@ pub(crate) fn insert_blank_commit(
         writeln!(out, "{success_message}")?;
     }
     Ok(())
+}
+
+fn format_created_commit_id(new_commit: Option<gix::ObjectId>) -> String {
+    match new_commit {
+        Some(id) => id.to_hex_with_len(7).to_string(),
+        None => "unknown".to_string(),
+    }
+}
+
+fn summarize_rejection_reason(reason: RejectionReason) -> (&'static str, &'static str) {
+    match reason {
+        RejectionReason::WorkspaceMergeConflict => (
+            "workspace merge conflict",
+            "Resolve conflicted commits first: run `but status -f`, then `but resolve <commit-id>`, and finish with `but resolve finish`.",
+        ),
+        RejectionReason::WorkspaceMergeConflictOfUnrelatedFile => (
+            "workspace merge conflict in an unrelated file",
+            "A file outside your selected `--changes` blocked commit creation. Resolve workspace conflicts with `but status -f` and `but resolve <commit-id>` before retrying.",
+        ),
+        RejectionReason::CherryPickMergeConflict => (
+            "commit rebase/cherry-pick conflict",
+            "The selected parent or dependent commits conflict with these edits. Try committing on a different stack tip or resolve conflicts first.",
+        ),
+        RejectionReason::NoEffectiveChanges => (
+            "no effective changes",
+            "The selected hunks produced no tree change. Verify selected file IDs via `but status -f` and retry with valid IDs.",
+        ),
+        RejectionReason::MissingDiffSpecAssociation => (
+            "selected hunks no longer match current file state",
+            "Refresh IDs with `but status -f` and select current file/hunk IDs again.",
+        ),
+        RejectionReason::PathNotFoundInBaseTree => (
+            "path missing from base tree",
+            "The selected file no longer exists at the commit base. Re-check file assignment and retry.",
+        ),
+        RejectionReason::UnsupportedDirectoryEntry => (
+            "unsupported entry type",
+            "The selected path is not a regular file (for example, a submodule). Commit supported file changes only.",
+        ),
+        RejectionReason::UnsupportedTreeEntry => (
+            "unsupported base tree entry",
+            "Git could not map the selected change onto the base tree entry type. Re-check the selected file and parent commit.",
+        ),
+        RejectionReason::FileToLargeOrBinary => (
+            "file is binary or too large for patch application",
+            "Commit this file without hunk selection or adjust diff/textconv configuration if applicable.",
+        ),
+        RejectionReason::WorktreeFileMissingForObjectConversion => (
+            "worktree file disappeared while committing",
+            "Ensure the file still exists and retry.",
+        ),
+    }
+}
+
+fn format_commit_creation_failure<T: AsRef<[u8]>>(
+    rejected_specs: &[(RejectionReason, T)],
+) -> String {
+    let mut out = String::new();
+    out.push_str("Commit could not be created because GitButler could not safely apply all requested changes.\n\n");
+    out.push_str("Underlying problem(s):\n");
+
+    if rejected_specs.is_empty() {
+        out.push_str("  - No commit id was produced, but no rejected specs were reported by the commit engine.\n");
+    } else {
+        for (reason, path) in rejected_specs {
+            let (summary, fix) = summarize_rejection_reason(*reason);
+            let path = path.as_ref().as_bstr().to_str_lossy();
+
+            out.push_str(&format!(
+                "  - {} at `{}` (reason: {:?})\n",
+                summary, path, reason
+            ));
+            out.push_str(&format!("    fix: {fix}\n"));
+        }
+    }
+
+    out.push_str("\nNext steps:\n");
+    out.push_str("  1. Run `but status -f` to identify conflicted commits/files.\n");
+    out.push_str("  2. Resolve any conflicted commits with `but resolve <commit-id>` and `but resolve finish`.\n");
+    out.push_str("  3. Refresh selectable IDs with `but status -f` and retry `but commit ... --changes <ids>`.\n");
+    out
 }
 
 /// Generate a unified diff string from files to be committed
@@ -446,6 +531,14 @@ pub(crate) fn commit(
 
     // Get the HEAD commit of the target branch to use as parent (preserves stacking)
     let parent_commit_id = target_branch.tip;
+    let change_count = diff_specs.len();
+    tracing::info!(
+        target_stack_id = %target_stack_id,
+        target_branch = %target_branch.name,
+        parent_commit = %parent_commit_id,
+        change_count,
+        "creating commit from worktree changes"
+    );
 
     // Use but-api to create the commit
     let outcome = workspace::create_commit_from_worktree_changes(
@@ -457,11 +550,29 @@ pub(crate) fn commit(
         target_branch.name.to_string(),
     )?;
 
+    if outcome.new_commit.is_none() {
+        tracing::warn!(
+            target_stack_id = %target_stack_id,
+            target_branch = %target_branch.name,
+            parent_commit = %parent_commit_id,
+            change_count,
+            rejected_specs = ?outcome.paths_to_rejected_changes,
+            "commit operation returned without a new commit id"
+        );
+        bail!(format_commit_creation_failure(
+            &outcome.paths_to_rejected_changes
+        ));
+    } else {
+        tracing::info!(
+            target_stack_id = %target_stack_id,
+            target_branch = %target_branch.name,
+            new_commit = ?outcome.new_commit,
+            "commit operation produced a new commit id"
+        );
+    }
+
     if let Some(out) = out.for_human() {
-        let commit_short = match outcome.new_commit {
-            Some(id) => id.to_hex_with_len(7).to_string(),
-            None => "unknown".to_string(),
-        };
+        let commit_short = format_created_commit_id(outcome.new_commit);
         writeln!(
             out,
             "{} {} {} {}",
@@ -527,6 +638,41 @@ fn create_independent_branch(
         ))
     } else {
         bail!("Failed to create new branch '{branch_name}'");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_commit_creation_failure;
+    use but_core::tree::create_tree::RejectionReason;
+
+    #[test]
+    fn failure_message_includes_underlying_reason_path_and_fix_commands() {
+        let msg = format_commit_creation_failure(&[(
+            RejectionReason::WorkspaceMergeConflictOfUnrelatedFile,
+            ".config/dotnet-tools.json",
+        )]);
+
+        assert!(
+            msg.contains("Underlying problem(s):"),
+            "message should have an underlying-problems section"
+        );
+        assert!(
+            msg.contains("unrelated file"),
+            "message should explain this is an unrelated-file conflict"
+        );
+        assert!(
+            msg.contains(".config/dotnet-tools.json"),
+            "message should include the exact problematic path"
+        );
+        assert!(
+            msg.contains("but status -f"),
+            "message should include concrete diagnostic commands"
+        );
+        assert!(
+            msg.contains("but resolve <commit-id>"),
+            "message should include concrete conflict-resolution commands"
+        );
     }
 }
 

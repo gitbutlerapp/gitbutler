@@ -130,6 +130,7 @@ export interface BranchPushResult {
  * @note - This reasons are in order of priority, from most to least important!
  */
 export const REJECTTION_REASONS = [
+	"workspaceMergeConflictOfUnrelatedFile",
 	"workspaceMergeConflict",
 	"cherryPickMergeConflict",
 	"noEffectiveChanges",
@@ -146,6 +147,7 @@ export type RejectionReason = (typeof REJECTTION_REASONS)[number];
 export type CreateCommitOutcome = {
 	newCommit: string | null;
 	pathsToRejectedChanges: [RejectionReason, string][];
+	requiredSteps: string[];
 };
 
 export type RelativeTo =
@@ -204,6 +206,24 @@ export class StackService {
 			{ projectId },
 			{
 				transform: (stacks) => stackSelectors.selectById(stacks, id) ?? null,
+			},
+		);
+	}
+
+	allStacks(projectId: string) {
+		return this.api.endpoints.stacks.useQuery(
+			{ projectId, all: true },
+			{
+				transform: (stacks) => stackSelectors.selectAll(stacks),
+			},
+		);
+	}
+
+	async fetchAllStacks(projectId: string) {
+		return await this.api.endpoints.stacks.fetch(
+			{ projectId, all: true },
+			{
+				transform: (stacks) => stackSelectors.selectAll(stacks),
 			},
 		);
 	}

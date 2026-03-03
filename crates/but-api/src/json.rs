@@ -462,17 +462,82 @@ pub struct UICommitCreateResult {
         but_core::tree::create_tree::RejectionReason,
         but_serde::BStringForFrontend,
     )>,
+    /// Ordered, user-facing remediation steps intended for non-CLI consumers.
+    pub required_steps: Vec<String>,
+}
+
+fn required_steps_from_rejections(
+    rejected_specs: &[(but_core::tree::create_tree::RejectionReason, but_serde::BStringForFrontend)],
+) -> Vec<String> {
+    use but_core::tree::create_tree::RejectionReason;
+
+    if rejected_specs.is_empty() {
+        return Vec::new();
+    }
+
+    let mut steps = vec![
+        "Review rejected files and lock details listed in this dialog.".to_string(),
+        "If a lock references an unknown or missing stack, open Branches and apply/recreate the stack context.".to_string(),
+        "Resolve conflicting/dependent changes in affected branches, then retry the commit.".to_string(),
+    ];
+
+    if rejected_specs.iter().any(|(reason, _)| {
+        matches!(
+            reason,
+            RejectionReason::WorkspaceMergeConflict
+                | RejectionReason::WorkspaceMergeConflictOfUnrelatedFile
+                | RejectionReason::CherryPickMergeConflict
+        )
+    }) {
+        steps.push(
+            "Conflicts were detected: resolve conflicted commits first before retrying this commit."
+                .to_string(),
+        );
+    }
+
+    if rejected_specs
+        .iter()
+        .any(|(reason, _)| matches!(reason, RejectionReason::MissingDiffSpecAssociation))
+    {
+        steps.push(
+            "Some selected hunks are stale: re-open the changed file and reselect the desired hunks."
+                .to_string(),
+        );
+    }
+
+    steps
 }
 
 impl From<CommitCreateResult> for UICommitCreateResult {
     fn from(value: CommitCreateResult) -> Self {
+        let paths_to_rejected_changes: Vec<_> = value
+            .rejected_specs
+            .into_iter()
+            .map(|(r, d)| (r, d.path.into()))
+            .collect();
+
         Self {
             new_commit: value.new_commit.map(Into::into),
-            paths_to_rejected_changes: value
-                .rejected_specs
-                .into_iter()
-                .map(|(r, d)| (r, d.path.into()))
-                .collect(),
+            required_steps: required_steps_from_rejections(&paths_to_rejected_changes),
+            paths_to_rejected_changes,
         }
+    }
+}
+
+#[cfg(test)]
+mod commit_create_result_tests {
+    use super::required_steps_from_rejections;
+    use but_core::tree::create_tree::RejectionReason;
+
+    #[test]
+    fn required_steps_are_present_when_specs_are_rejected() {
+        let steps = required_steps_from_rejections(&[(
+            RejectionReason::WorkspaceMergeConflict,
+            "file.txt".into(),
+        )]);
+        assert!(
+            !steps.is_empty(),
+            "required steps must be populated for non-CLI clients when commit creation has rejections"
+        );
     }
 }

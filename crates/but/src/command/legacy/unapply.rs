@@ -34,6 +34,12 @@ pub fn handle(
 
     let id_map = IdMap::new_from_context(ctx, None)?;
     let parsed_ids = id_map.parse_using_context(identifier, ctx)?;
+    tracing::debug!(
+        identifier,
+        parsed_ids_count = parsed_ids.len(),
+        applied_stacks_count = stacks.len(),
+        "resolving unapply identifier"
+    );
 
     // Try to find the stack to unapply
     let (stack_id, branches) = if parsed_ids.is_empty() {
@@ -50,6 +56,11 @@ pub fn handle(
                 if let Some(stack_id) = stack_id {
                     get_stack_branches(&stacks, *stack_id, name)?
                 } else {
+                    tracing::error!(
+                        branch_name = %name,
+                        identifier,
+                        "branch cli id had no associated stack during unapply"
+                    );
                     bail!("Branch '{name}' does not have an associated stack");
                 }
             }
