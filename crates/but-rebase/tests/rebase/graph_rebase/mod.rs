@@ -10,6 +10,7 @@ mod conflictable_restriction;
 mod disconnect;
 mod editor_creation;
 mod insert;
+mod insert_segment;
 mod materialize;
 mod multiple_operations;
 mod parents_must_be_references_restriction;
