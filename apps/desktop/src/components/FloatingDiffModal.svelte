@@ -67,19 +67,6 @@
 
 	const selectedChange = $derived(changes[selectedIndex]);
 
-	const totalLinesAdded = $derived(
-		changes.reduce((sum, change) => {
-			const diff = diffService.getDiff(projectId, change).response;
-			return sum + (diff?.type === "Patch" ? diff.subject.linesAdded : 0);
-		}, 0),
-	);
-	const totalLinesRemoved = $derived(
-		changes.reduce((sum, change) => {
-			const diff = diffService.getDiff(projectId, change).response;
-			return sum + (diff?.type === "Patch" ? diff.subject.linesRemoved : 0);
-		}, 0),
-	);
-
 	function selectChange(index: number) {
 		selectedIndex = index;
 		if (!singleDiffView) {
@@ -123,8 +110,6 @@
 					bind:mode={listMode}
 					persistId="floating-diff-modal"
 					fileCount={changes.length}
-					linesAdded={totalLinesAdded}
-					linesRemoved={totalLinesRemoved}
 				/>
 			</div>
 			<div class="file-list" bind:this={fileListEl}>
