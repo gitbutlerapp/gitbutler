@@ -416,6 +416,9 @@ importers:
       effect:
         specifier: ^3.19.19
         version: 3.19.19
+      electron:
+        specifier: ^41.0.0
+        version: 41.0.0
       electron-devtools-installer:
         specifier: ^4.0.0
         version: 4.0.0
@@ -453,9 +456,6 @@ importers:
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0
-      electron:
-        specifier: ^41.0.0
-        version: 41.0.0
       electron-builder:
         specifier: ^26.8.1
         version: 26.8.1(electron-builder-squirrel-windows@26.7.0)
