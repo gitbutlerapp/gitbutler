@@ -223,6 +223,12 @@
 			max-height: none;
 		}
 
+		&.rounded.collapsed {
+			:global(.drawer-header) {
+				border-bottom-color: var(--clr-bg-2);
+			}
+		}
+
 		&.highlighted {
 			&::after {
 				z-index: 1;
