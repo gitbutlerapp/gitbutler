@@ -9,16 +9,12 @@ const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
 
 function registerIpcHandlers(): void {
-	ipcMain.handle(
-		liteIpcChannels.ping,
-		async (_event, input: string) => await Promise.resolve(`pong: ${input}`),
+	ipcMain.handle(liteIpcChannels.ping, (_event, input: string) =>
+		Promise.resolve(`pong: ${input}`),
 	);
-	ipcMain.handle(liteIpcChannels.getVersion, async () => await Promise.resolve(app.getVersion()));
-	ipcMain.handle(liteIpcChannels.listProjects, async () => await listProjectsStatelessNapi());
-	ipcMain.handle(
-		liteIpcChannels.headInfo,
-		async (_e, projectId: string) => await headInfoNapi(projectId),
-	);
+	ipcMain.handle(liteIpcChannels.getVersion, () => Promise.resolve(app.getVersion()));
+	ipcMain.handle(liteIpcChannels.listProjects,  () => listProjectsStatelessNapi());
+	ipcMain.handle(liteIpcChannels.headInfo, (_e, projectId: string) => headInfoNapi(projectId));
 }
 
 async function createMainWindow(): Promise<void> {
