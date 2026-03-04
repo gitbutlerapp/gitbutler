@@ -10,7 +10,25 @@ export declare function branchDiffNapi(projectId: string, branch: string): Promi
 export declare function changesInWorktreeNapi(projectId: string): Promise<WorktreeChanges>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
+export declare function commitAmendNapi(projectId: string, commitId: string, changes: Array<DiffSpec>): Promise<UICommitCreateResult>
+
+/** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
+export declare function commitCreateNapi(projectId: string, relativeTo: RelativeTo, side: InsertSide, changes: Array<DiffSpec>, message: string): Promise<UICommitCreateResult>
+
+/** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
 export declare function commitDetailsWithLineStatsNapi(projectId: string, commitId: string): Promise<CommitDetails>
+
+/** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
+export declare function commitInsertBlankNapi(projectId: string, relativeTo: RelativeTo, side: InsertSide): Promise<string>
+
+/** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
+export declare function commitMoveChangesBetweenNapi(projectId: string, sourceCommitId: string, destinationCommitId: string, changes: Array<DiffSpec>): Promise<UIMoveChangesResult>
+
+/** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
+export declare function commitRewordNapi(projectId: string, commitId: string, message: string): Promise<string>
+
+/** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
+export declare function commitUncommitChangesNapi(projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: StackId | null): Promise<UIMoveChangesResult>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
 export declare function headInfoNapi(projectId: string): Promise<RefInfo>
@@ -52,6 +70,25 @@ export type CommitDetails = {
   conflictEntries?: ConflictEntries | null;
 };
 
+/** A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it. */
+export type DiffSpec = {
+  /** The previous location of the entry, the source of a rename if there was one. */
+  previousPathBytes: string | null;
+  /**
+   * The worktree-relative path to the worktree file with the content to commit.
+   *
+   * If `hunks` is empty, this means the current content of the file should be committed.
+   */
+  pathBytes: string;
+  /**
+   * If one or more hunks are specified, match them with actual changes currently in the worktree.
+   * Failure to match them will lead to the change being dropped.
+   * If empty, the whole file is taken as is if this seems to be an addition.
+   * Otherwise, the whole file is being deleted.
+   */
+  hunkHeaders: Array<HunkHeader>;
+};
+
 /**
  * A request to update a hunk assignment.
  * If a a file has multiple hunks, the UI client should send a list of assignment requests with the appropriate hunk headers.
@@ -71,6 +108,9 @@ export type HunkAssignmentRequest = {
    */
   stackId?: Id_S | null;
 };
+
+/** Describes where relative to the selector a step should be inserted */
+export type InsertSide = "above" | "below";
 
 /**
  * API-specific project type that can be enriched with computed/derived data
@@ -158,6 +198,18 @@ export type RefInfo = {
   isManagedCommit: boolean;
   /** The workspace represents what `HEAD` is pointing to. */
   isEntrypoint: boolean;
+};
+
+/**
+ * Specifies a location, usually used to either have something inserted
+ * relative to it, or for the selected object to actually be replaced.
+ */
+export type RelativeTo = {
+  type: "commit";
+  subject: string;
+} | {
+  type: "reference";
+  subject: string;
 };
 
 /** A reference in `refs/remotes`. */
@@ -312,6 +364,20 @@ export type TreeChanges = {
   changes: Array<TreeChange>;
   /** The stats of the changes. */
   stats: TreeStats;
+};
+
+/** UI type for creating a commit in the rebase graph. */
+export type UICommitCreateResult = {
+  /** The new commit if one was created. */
+  newCommit?: string | null;
+  /** Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics. */
+  pathsToRejectedChanges: Array<[string, string]>;
+};
+
+/** UI type for a move changes between commits result */
+export type UIMoveChangesResult = {
+  /** Commits that have been mapped from one thing to another */
+  replacedCommits: Array<[string, string]>;
 };
 
 /**
