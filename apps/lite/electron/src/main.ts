@@ -14,7 +14,6 @@ function registerIpcHandlers(): void {
 		liteIpcChannels.ping,
 		async (_event, input: string): Promise<string> => await Promise.resolve(`pong: ${input}`),
 	);
-
 	ipcMain.handle(
 		liteIpcChannels.getVersion,
 		async (): Promise<string> => await Promise.resolve(app.getVersion()),
