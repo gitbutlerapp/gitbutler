@@ -572,6 +572,15 @@ impl Graph {
         self.inner.node_indices()
     }
 
+    /// Look for a segment in the graph by its index.
+    pub fn find_segment(&self, segment_idx: SegmentIndex) -> Option<Segment> {
+        if self.inner.contains_node(segment_idx) {
+            Some(self.inner[segment_idx].clone())
+        } else {
+            None
+        }
+    }
+
     /// Visit all segments, including `start`, until `visit_and_prune(segment)` returns `true`.
     /// Pruned segments aren't returned and not traversed, but note that `visit_and_prune` may
     /// be called multiple times until the traversal stops.
