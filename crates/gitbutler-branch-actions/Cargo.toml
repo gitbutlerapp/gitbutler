@@ -58,6 +58,7 @@ gix = { workspace = true, features = [] }
 glob = "0.3.3"
 tempfile.workspace = true
 but-hunk-assignment.workspace = true
+ctor = "0.6.3"
 
 [lints]
 workspace = true

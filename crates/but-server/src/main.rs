@@ -8,6 +8,11 @@ async fn main() -> anyhow::Result<()> {
     if cfg!(debug_assertions) && cfg!(target_os = "macos") {
         but_secret::secret::git_credentials::setup().ok();
     }
+
+    // To be able to use the askpass broker when running but-server, it needs to be hooked up to
+    // the websocket. As the askpass broker historically hasn't been initialized for but-server,
+    // it does not seem worthwhile to hook that up right now.
+    gitbutler_repo_actions::askpass::disable();
     but_server::run().await;
     Ok(())
 }

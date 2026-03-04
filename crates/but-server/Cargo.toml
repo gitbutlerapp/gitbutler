@@ -29,6 +29,7 @@ but-ctx.workspace = true
 
 gitbutler-project.workspace = true
 gitbutler-watcher.workspace = true
+gitbutler-repo-actions.workspace = true
 
 serde.workspace = true
 axum = { version = "0.8.8", features = ["ws"] }
