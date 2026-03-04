@@ -1,0 +1,51 @@
+name: "Smoke test version compatibility"
+on:
+  workflow_call:
+    inputs:
+      channel:
+        type: string
+        description: If publishing a new release, the channel should go here
+        default: ""
+      expected_nightly_version:
+        type: string
+        description: If publishing a new nightly, the version should go here. This is ignored if `channel != nightly`.
+        default: ""
+
+jobs:
+  smoke-test-adjacent-release-compatibility:
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-15 # [macOs, ARM64] - no way to run macOS x86_64 on GH Actions
+          - platform: ubuntu-22.04 # [linux, x64]
+          - platform: ubuntu-22.04-arm # [linux, ARM64]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Smoke test latest nightly <-> latest release upgrade/downgrade compatibility
+        # We can only perform this post-upload check _properly_ when building nightly, as the release
+        # build has a manual step required to actually publish the release in the API. Without that
+        # manual step we cannot install the release with the installer, so there is no way to
+        # validate against a mainline release here. The best we can do is latest nightly vs latest
+        # release.
+        #
+        # A careful release process therefore involves building a nightly first on the exact commit
+        # we intend to do a release on. If you don't do that, this test cannot be fully trusted.
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          EXPECTED_NIGHTLY_VERSION: ${{ inputs.expected_nightly_version }}
+        run: |
+          release_version="$(curl -s https://app.gitbutler.com/releases | jq -r .version)"
+          nightly_version="$(curl -s https://app.gitbutler.com/releases/nightly | jq -r .version)"
+          if [[ "$CHANNEL" == "nightly" ]] && [[ "$nightly_version" != "$EXPECTED_NIGHTLY_VERSION" ]]; then
+            echo "Expected latest nightly to be the current build $EXPECTED_NIGHTLY_VERSION, but was $nightly_version"
+            exit 1
+          fi
+
+          ./scripts/validate-version-compatibility.sh "$release_version" "$nightly_version"
