@@ -9,7 +9,7 @@
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { portal } from "@gitbutler/ui/utils/portal";
 	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
-	import { onMount, type Snippet } from "svelte";
+	import { onMount, untrack, type Snippet } from "svelte";
 	import type { SnapPositionName } from "$lib/floating/types";
 	import type { SnapPoint, ModalBounds } from "$lib/floating/types";
 
@@ -205,7 +205,8 @@
 	// Re-calculate snap points when zoom changes (VIEWPORT_EDGE scales with zoom)
 	$effect(() => {
 		snapPoints = snapManager.calcSnapPoints();
-		updatePositionForSnapPoint();
+		// untrack prevents currentSnapPoint writes inside from re-triggering this effect
+		untrack(() => updatePositionForSnapPoint());
 	});
 
 	// Reactively wire the drag handle — handles element changes after mount.
