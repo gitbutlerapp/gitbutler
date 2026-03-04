@@ -8,7 +8,7 @@
 	import { getStorageItem, setStorageItem } from "@gitbutler/shared/persisted";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { portal } from "@gitbutler/ui/utils/portal";
-	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
+	import { pxToRem, remToPx } from "@gitbutler/ui/utils/pxToRem";
 	import { onMount, type Snippet } from "svelte";
 	import type { SnapPositionName } from "$lib/floating/types";
 	import type { SnapPoint, ModalBounds } from "$lib/floating/types";
@@ -55,17 +55,19 @@
 		setStorageItem(`${persistId}-height`, nextHeight);
 	}
 
-	// Margin constants for viewport constraints (px)
-	const VIEWPORT_MARGIN = 80; // 40px on each side
-	const VIEWPORT_EDGE = 40; // minimum distance from any edge
-
-	// Managers
-	const snapManager = new SnapPointManager(VIEWPORT_EDGE);
-	const resizeCalculator = new ResizeCalculator(defaults.minWidth, defaults.minHeight);
-	const dragResizeHandler = new DragResizeHandler(snapManager, resizeCalculator);
-
 	const userSettings = inject(SETTINGS);
 	const zoom = $derived($userSettings.zoom);
+
+	// Margin constants for viewport constraints (in rem; actual px depend on root font size and zoom)
+	const VIEWPORT_MARGIN_REM = 5; // total horizontal margin of 5rem (e.g., 2.5rem on each side)
+	const VIEWPORT_EDGE_REM = 2.5; // minimum distance from any viewport edge in rem
+	const VIEWPORT_MARGIN = $derived(remToPx(VIEWPORT_MARGIN_REM, zoom));
+	const VIEWPORT_EDGE = $derived(remToPx(VIEWPORT_EDGE_REM, zoom));
+
+	// Managers
+	const snapManager = $derived(new SnapPointManager(VIEWPORT_EDGE));
+	const resizeCalculator = $derived(new ResizeCalculator(defaults.minWidth, defaults.minHeight));
+	const dragResizeHandler = $derived(new DragResizeHandler(snapManager, resizeCalculator));
 
 	// Modal state
 	let x = $state(0);
@@ -164,41 +166,46 @@
 		y = Math.max(VIEWPORT_EDGE, Math.min(y, constrainedPosition.y));
 	}
 
-	// Setup drag/resize callbacks
-	dragResizeHandler.onDrag = (bounds: ModalBounds) => {
-		x = bounds.x;
-		y = bounds.y;
-	};
-
-	dragResizeHandler.onResize = (bounds: ModalBounds) => {
-		// Constrain size to viewport
-		const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
-		const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
-
-		x = bounds.x;
-		y = bounds.y;
-		width = Math.min(bounds.width, maxWidth);
-		height = Math.min(bounds.height, maxHeight);
-		persistSize(width, height);
-
-		onUpdateSize?.(width, height);
-	};
-
-	dragResizeHandler.onDragEnd = () => {
-		snapToNearestPoint();
-	};
-
-	dragResizeHandler.onResizeEnd = () => {
-		const constrainedPosition = snapManager.constrainToViewport({ x, y, width, height });
-		if (Math.abs(x - constrainedPosition.x) > 1 || Math.abs(y - constrainedPosition.y) > 1) {
-			animateToPosition(constrainedPosition.x, constrainedPosition.y, 1);
-		}
-		// Don't snap to nearest point on resize end - maintain current position
-	};
-
-	// Update current snap position for resize calculations
+	// Setup drag/resize callbacks and keep currentSnapPosition in sync
 	$effect(() => {
+		dragResizeHandler.onDrag = (bounds: ModalBounds) => {
+			x = bounds.x;
+			y = bounds.y;
+		};
+
+		dragResizeHandler.onResize = (bounds: ModalBounds) => {
+			// Constrain size to viewport
+			const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
+			const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
+
+			x = bounds.x;
+			y = bounds.y;
+			width = Math.min(bounds.width, maxWidth);
+			height = Math.min(bounds.height, maxHeight);
+			persistSize(width, height);
+
+			onUpdateSize?.(width, height);
+		};
+
+		dragResizeHandler.onDragEnd = () => {
+			snapToNearestPoint();
+		};
+
+		dragResizeHandler.onResizeEnd = () => {
+			const constrainedPosition = snapManager.constrainToViewport({ x, y, width, height });
+			if (Math.abs(x - constrainedPosition.x) > 1 || Math.abs(y - constrainedPosition.y) > 1) {
+				animateToPosition(constrainedPosition.x, constrainedPosition.y, 1);
+			}
+			// Don't snap to nearest point on resize end - maintain current position
+		};
+
 		dragResizeHandler.currentSnapPosition = currentSnapPoint?.name || "";
+	});
+
+	// Re-calculate snap points when zoom changes (VIEWPORT_EDGE scales with zoom)
+	$effect(() => {
+		snapPoints = snapManager.calcSnapPoints();
+		updatePositionForSnapPoint();
 	});
 
 	// Reactively wire the drag handle — handles element changes after mount.
@@ -269,8 +276,8 @@
 	style:top={pxToRem(y, zoom) + "rem"}
 	style:width={pxToRem(width, zoom) + "rem"}
 	style:height={pxToRem(height, zoom) + "rem"}
-	style:max-width="calc(100vw - 5rem)"
-	style:max-height="calc(100vh - 5rem)"
+	style:max-width={`calc(100vw - ${VIEWPORT_MARGIN_REM}rem)`}
+	style:max-height={`calc(100vh - ${VIEWPORT_MARGIN_REM}rem)`}
 >
 	<ResizeHandles onResizeStart={handleResizeStart} snapPosition={currentSnapPoint?.name || ""} />
 	{@render children()}
