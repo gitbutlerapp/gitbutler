@@ -30,8 +30,8 @@ napi-auto = ["but-api/napi"]
 
 [dependencies]
 but-api.workspace = true
-napi = { version = "3.0.0", features = ["serde-json"] }
-napi-derive = "3.0.0"
+napi = { version = "3", features = ["serde-json", "async"] }
+napi-derive = "3"
 
 [build-dependencies]
 napi-build = "2"

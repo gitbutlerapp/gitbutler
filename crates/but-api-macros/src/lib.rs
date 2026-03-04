@@ -273,7 +273,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Compute the TypeScript return type name string for napi's ts_return_type attribute.
-    let ts_return_type_str = type_to_ts_name(&json_ty);
+    let ts_return_type_str = format!("Promise<{}>", type_to_ts_name(&json_ty));
 
     // The napi function needs `legacy` when json_ty_by_name is non-empty (Context parameter).
     let napi_legacy_cfg = if !json_ty_by_name.is_empty() {
@@ -283,7 +283,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     // Build the napi function body.
-    // For async functions, we use an `async {}` block; for sync, a closure.
+    // For async functions, we use an `async {}` block; for sync, spawn_blocking.
     // Both return anyhow::Result to handle any error type uniformly.
     let napi_body = if asyncness.is_some() {
         quote! {
@@ -302,21 +302,36 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             })
         }
     } else {
+        // For sync functions, param conversions must be inside spawn_blocking
+        // so that non-Send types (e.g. Context with Rc) are never moved across threads.
         quote! {
-            let __napi_body_result: ::anyhow::Result<::serde_json::Value> = (|| {
-                let result = #napi_call_fn_args?;
-                #convert_to_json_result_type
-                Ok(::serde_json::to_value(result)?)
-            })();
-            __napi_body_result.map_err(|e: ::anyhow::Error| {
-                let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
-                let message = ctx
-                    .message
-                    .map(|m| m.to_string())
-                    .unwrap_or_else(|| format!("{e:#}"));
-                napi::Error::new(napi::Status::GenericFailure, message)
+            ::tokio::task::spawn_blocking(move || {
+                #(#napi_param_conversions);*
+                let __napi_body_result: ::anyhow::Result<::serde_json::Value> = (|| {
+                    let result = #napi_call_fn_args?;
+                    #convert_to_json_result_type
+                    Ok(::serde_json::to_value(result)?)
+                })();
+                __napi_body_result.map_err(|e: ::anyhow::Error| {
+                    let ctx = but_error::AnyhowContextExt::custom_context_or_error_chain(&e);
+                    let message = ctx
+                        .message
+                        .map(|m| m.to_string())
+                        .unwrap_or_else(|| format!("{e:#}"));
+                    napi::Error::new(napi::Status::GenericFailure, message)
+                })
             })
+            .await
+            .map_err(|e| napi::Error::new(napi::Status::GenericFailure, format!("spawn_blocking join error: {e}")))?
         }
+    };
+
+    // For async functions, param conversions happen outside the body (in the async fn).
+    // For sync functions, they're already inside spawn_blocking in napi_body.
+    let napi_external_conversions = if asyncness.is_some() {
+        quote! { #(#napi_param_conversions);* }
+    } else {
+        quote! {}
     };
 
     let napi_fn_block = if opts.napi {
@@ -324,10 +339,10 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             /// napi function - strongly typed params, serde_json::Value output, automatic error conversion.
             #napi_legacy_cfg
             #[napi_derive::napi(ts_return_type = #ts_return_type_str)]
-            #vis #asyncness fn #fn_napi_name(
+            #vis async fn #fn_napi_name(
                 #(#napi_fn_params),*
             ) -> napi::Result<::serde_json::Value> {
-                #(#napi_param_conversions);*
+                #napi_external_conversions
                 #napi_body
             }
 
