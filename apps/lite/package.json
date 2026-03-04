@@ -5,7 +5,11 @@
 	"type": "module",
 	"main": "dist/electron/main.js",
 	"imports": {
-		"#electron/*": "./dist/electron/*.js"
+		"#ui/*": "./ui/src/*.tsx",
+		"#electron/*": {
+			"types": "./electron/src/*.ts",
+			"default": "./dist/electron/*.js"
+		}
 	},
 	"scripts": {
 		"dev": "concurrently -k \"pnpm dev:ui\" \"pnpm dev:electron\"",

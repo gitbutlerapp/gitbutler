@@ -19,11 +19,6 @@ export default defineConfig({
 		outDir: "../dist/ui",
 		emptyOutDir: true,
 	},
-	resolve: {
-		alias: {
-			"@": path.resolve(currentDirPath, "./src"),
-		},
-	},
 	server: {
 		port: 5173,
 		strictPort: true,
