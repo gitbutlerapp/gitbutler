@@ -79,8 +79,8 @@
 		}
 	}
 
-	export function openFloatingDiff(index = 0) {
-		floatingDiffInitialIndex = index;
+	export function openFloatingDiff() {
+		floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
 		floatingDiffOpen = true;
 	}
 </script>
