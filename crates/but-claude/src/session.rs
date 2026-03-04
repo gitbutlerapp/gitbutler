@@ -783,7 +783,7 @@ async fn broadcast_gitbutler_messages(
     stack_id: StackId,
     session_start_time: chrono::NaiveDateTime,
 ) -> Result<()> {
-    let project_id = sync_ctx.legacy_project.id;
+    let project_id = sync_ctx.legacy_project.id.clone();
     let all_messages = {
         let ctx = sync_ctx.clone().into_thread_local();
         db::list_messages_by_session(&ctx, session_id)?
@@ -1390,7 +1390,7 @@ fn create_can_use_tool_callback(
                     .insert_permission(permission_request.clone(), session_id);
 
                 // Broadcast to frontend so it can display the permission request
-                let project_id = sync_ctx.legacy_project.id;
+                let project_id = sync_ctx.legacy_project.id.clone();
                 broadcaster.lock().await.send(FrontendEvent {
                     name: format!("project://{project_id}/claude-permission-requests"),
                     payload: serde_json::json!({

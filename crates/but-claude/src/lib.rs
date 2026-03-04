@@ -529,7 +529,7 @@ pub fn send_claude_message(
     content: MessagePayload,
 ) -> Result<()> {
     let message = db::save_new_message(ctx, session_id, content.clone())?;
-    let project_id = ctx.legacy_project.id;
+    let project_id = ctx.legacy_project.id.clone();
 
     broadcaster.send(FrontendEvent {
         name: format!("project://{project_id}/claude/{stack_id}/message_received"),

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use but_api_macros::but_api;
 use but_ctx::Context;
-use but_ctx::ProjectHandleOrLegacyProjectId;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use tracing::instrument;
 
 use super::legacy_project;
@@ -51,9 +51,18 @@ pub fn get_project(
         }
         ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => {
             if no_validation {
-                Ok(gitbutler_project::get_raw(project_id)?.migrated()?.into())
+                Ok(
+                    gitbutler_project::get_raw(ProjectHandleOrLegacyProjectId::LegacyProjectId(
+                        project_id,
+                    ))?
+                    .migrated()?
+                    .into(),
+                )
             } else {
-                Ok(gitbutler_project::get_validated(project_id)?.into())
+                Ok(gitbutler_project::get_validated(
+                    ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id),
+                )?
+                .into())
             }
         }
     }

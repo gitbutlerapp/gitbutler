@@ -1,5 +1,6 @@
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_ctx::Context;
 use but_tools::emit::Emittable;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 
 use crate::{
     agent::{Agent, AgentGraphNode},

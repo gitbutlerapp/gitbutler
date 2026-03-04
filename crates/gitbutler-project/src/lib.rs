@@ -3,13 +3,17 @@ mod controller;
 mod default_true;
 pub mod gerrit;
 mod project;
+mod project_handle;
 mod storage;
 
 use std::path::Path;
 
 use controller::Controller;
 use project::ApiProject;
-pub use project::{AddProjectOutcome, AuthKey, CodePushState, FetchResult, Project, ProjectId};
+pub use project::{
+    AddProjectOutcome, AuthKey, CodePushState, FetchResult, LegacyProjectId, Project, ProjectId,
+};
+pub use project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 pub use storage::UpdateRequest;
 
 /// A utility to be used from applications to optimize `git2` configuration.
@@ -27,23 +31,26 @@ pub fn configure_git2() {
 /// **Inactive for now** while it's hard to tell if it's safe *not* to pick up everything.
 pub const AUTO_TRACK_LIMIT_BYTES: u64 = 0;
 
-pub fn get(id: ProjectId) -> anyhow::Result<Project> {
+pub fn get(id: ProjectHandleOrLegacyProjectId) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.get(id)
 }
 
 /// Testing purpose only.
-pub fn get_with_path<P: AsRef<Path>>(app_data_dir: P, id: ProjectId) -> anyhow::Result<Project> {
+pub fn get_with_path<P: AsRef<Path>>(
+    app_data_dir: P,
+    id: ProjectHandleOrLegacyProjectId,
+) -> anyhow::Result<Project> {
     let controller = Controller::from_path(app_data_dir.as_ref());
     controller.get(id)
 }
 
-pub fn get_validated(id: ProjectId) -> anyhow::Result<Project> {
+pub fn get_validated(id: ProjectHandleOrLegacyProjectId) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.get_validated(id)
 }
 
-pub fn get_raw(id: ProjectId) -> anyhow::Result<Project> {
+pub fn get_raw(id: ProjectHandleOrLegacyProjectId) -> anyhow::Result<Project> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.get_raw(id)
 }
@@ -89,13 +96,16 @@ pub fn dangerously_list_projects_without_migration() -> anyhow::Result<Vec<Proje
     controller.list()
 }
 
-pub fn delete(id: ProjectId) -> anyhow::Result<()> {
+pub fn delete(id: ProjectHandleOrLegacyProjectId) -> anyhow::Result<()> {
     let controller = Controller::from_path(but_path::app_data_dir()?);
     controller.delete(id)
 }
 
 /// Testing purpose only.
-pub fn delete_with_path<P: AsRef<Path>>(app_data_dir: P, id: ProjectId) -> anyhow::Result<()> {
+pub fn delete_with_path<P: AsRef<Path>>(
+    app_data_dir: P,
+    id: ProjectHandleOrLegacyProjectId,
+) -> anyhow::Result<()> {
     let controller = Controller::from_path(app_data_dir.as_ref());
     controller.delete(id)
 }

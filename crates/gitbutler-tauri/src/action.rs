@@ -1,6 +1,6 @@
 use but_api::json::Error;
 use but_core::ui::TreeChange;
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_ctx::Context;
 use but_hunk_assignment::AbsorptionTarget;
 use but_llm::LLMProvider;
 use but_settings::AppSettings;
@@ -8,6 +8,7 @@ use gitbutler_oplog::{
     OplogExt,
     entry::{OperationKind, SnapshotDetails},
 };
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use tauri::Emitter;
 use tracing::instrument;
 

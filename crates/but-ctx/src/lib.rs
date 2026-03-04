@@ -25,34 +25,19 @@ pub use legacy::types::{LegacyProject, LegacyProjectId};
 /// Utilities to control access to the project directory of the context.
 pub mod access;
 
-/// Functionality to convert project paths to URL-safe handles and back.
+/// Conversions from project identifier values into context types.
 mod project_handle;
+/// Project identifier types are temporarily sourced from `gitbutler-project` while legacy
+/// project storage still exists.
+///
+/// Once `gitbutler-project` is dissolved, these types are expected to live in `but-ctx` again.
+pub use gitbutler_project::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 
 mod ondemand;
 pub use ondemand::OnDemand;
 
 mod ondemand_cache;
 use crate::ondemand_cache::OnDemandCache;
-
-/// A self-describing handle to the path of the project on disk, typically the `.git` directory of a Git repository.
-///
-/// With it, all project data and metadata can be accessed. See also: [`Context::new_from_project_handle()`].
-/// Further, this ID is URL-safe.
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub struct ProjectHandle(String);
-
-/// JSON input for `project_id` parameters.
-///
-/// This accepts a [`ProjectHandle`] in all builds, and also accepts a legacy [`LegacyProjectId`]
-/// when the `legacy` feature is enabled.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ProjectHandleOrLegacyProjectId {
-    /// Self-describing project handle.
-    ProjectHandle(ProjectHandle),
-    /// Legacy UUID project identifier.
-    #[cfg(feature = "legacy")]
-    LegacyProjectId(LegacyProjectId),
-}
 
 /// A context specific to a repository, along with commonly used information to make higher-level functions
 /// more convenient to implement.
@@ -792,9 +777,11 @@ fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
 
 #[cfg(feature = "legacy")]
 fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
-    LegacyProject::default_with_id(LegacyProjectId::from_number_for_testing(1))
-        .with_paths_for_testing(
-            repo.git_dir().to_owned(),
-            repo.workdir().map(ToOwned::to_owned),
-        )
+    LegacyProject::default_with_id(ProjectHandleOrLegacyProjectId::LegacyProjectId(
+        LegacyProjectId::from_number_for_testing(1),
+    ))
+    .with_paths_for_testing(
+        repo.git_dir().to_owned(),
+        repo.workdir().map(ToOwned::to_owned),
+    )
 }

@@ -14,9 +14,10 @@ use axum::{
 };
 use but_api::{commit, diff, github, gitlab, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_ctx::Context;
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;

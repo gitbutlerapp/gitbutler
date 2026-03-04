@@ -946,6 +946,7 @@ dependencies = [
  "but-ctx",
  "but-error",
  "futures",
+ "gitbutler-project",
  "gix",
  "napi",
  "napi-derive",
@@ -1078,11 +1079,9 @@ dependencies = [
  "git2",
  "gitbutler-project",
  "gix",
- "hex",
  "serde",
  "serde_json",
  "tracing",
- "urlencoding",
 ]
 
 [[package]]
@@ -1140,6 +1139,7 @@ dependencies = [
  "but-ctx",
  "but-graph",
  "chrono",
+ "gitbutler-project",
  "tempfile",
  "walkdir",
  "zip",
@@ -4070,6 +4070,7 @@ dependencies = [
  "git2",
  "gitbutler-testsupport",
  "gix",
+ "hex",
  "insta",
  "resolve-path",
  "schemars 1.2.1",
@@ -4078,6 +4079,7 @@ dependencies = [
  "strum",
  "tempfile",
  "tracing",
+ "urlencoding",
 ]
 
 [[package]]

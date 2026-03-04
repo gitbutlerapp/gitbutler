@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_ctx::Context;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 
 /// A utility to keep important paths to make archival/zip-file creation easier later.
 pub struct Archival {

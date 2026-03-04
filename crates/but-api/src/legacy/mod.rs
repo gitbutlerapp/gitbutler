@@ -2,7 +2,7 @@
 //! Legacy data structures and functionality tied to `gitbutler-*` crates.
 //!
 
-use but_ctx::ProjectHandleOrLegacyProjectId;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 pub mod absorb;
 pub mod askpass;
 pub mod cherry_apply;
@@ -37,7 +37,7 @@ fn legacy_project(
             Ok(ctx.legacy_project)
         }
         ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => {
-            gitbutler_project::get(project_id)
+            gitbutler_project::get(ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id))
         }
     }
 }

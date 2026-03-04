@@ -1,5 +1,6 @@
 use but_api::json::Error;
-use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
+use but_ctx::Context;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use tauri::Emitter;
 use tracing::instrument;
 
