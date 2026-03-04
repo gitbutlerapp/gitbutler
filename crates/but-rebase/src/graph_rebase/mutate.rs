@@ -224,11 +224,10 @@ impl Editor {
     /// Replaces the node that the function was pointing to.
     ///
     /// Returns the replaced step.
-    pub fn replace(&mut self, target: impl ToSelector, step: Step) -> Result<Step> {
+    pub fn replace(&mut self, target: impl ToSelector, mut step: Step) -> Result<Step> {
         let target = self.history.normalize_selector(target.to_selector(self)?)?;
-        let old = self.graph[target.id].clone();
-        self.graph[target.id] = step;
-        Ok(old)
+        std::mem::swap(&mut self.graph[target.id], &mut step);
+        Ok(step)
     }
 
     /// Disconnect a segment from a parent segment.
