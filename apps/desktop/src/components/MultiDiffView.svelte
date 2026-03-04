@@ -90,7 +90,7 @@
 		kind="ghost"
 		icon="pop-out-bottom-right"
 		size="tag"
-		tooltip="Pop in diff view"
+		tooltip="Pop out diff view"
 		onclick={() => {
 			floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
 			floatingDiffOpen = true;
@@ -202,7 +202,7 @@
 				kind="ghost"
 				icon="pop-out-bottom-right"
 				size="tag"
-				tooltip="Pop in diff view"
+				tooltip="Pop out diff view"
 				onclick={() => {
 					floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
 					floatingDiffOpen = true;
