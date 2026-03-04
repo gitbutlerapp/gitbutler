@@ -141,6 +141,8 @@
 		return modeService !== undefined && !isReadOnly;
 	}
 
+	let drawer = $state<ReturnType<typeof Drawer>>();
+
 	function cancelEdit() {
 		setMode("view");
 	}
@@ -149,6 +151,7 @@
 <ReduxResult {stackId} {projectId} result={commitQuery.result} {onerror}>
 	{#snippet children(commit, env)}
 		<Drawer
+			bind:this={drawer}
 			bind:clientHeight
 			testId={TestId.CommitDrawer}
 			persistId="commit-view-drawer-{projectId}-{stackId}-{commitKey.commitId}"
@@ -194,7 +197,10 @@
 						size="tag"
 						kind="ghost"
 						icon="edit"
-						onclick={() => setMode("edit")}
+						onclick={() => {
+							drawer?.open();
+							setMode("edit");
+						}}
 						tooltip={isReadOnly ? "Read-only mode" : "Edit commit message"}
 						disabled={isReadOnly}
 					/>
@@ -207,7 +213,10 @@
 							commitStatus: commit.state.type,
 							commitUrl: forge.current.commitUrl(commit.id),
 							onUncommitClick: () => handleUncommit(),
-							onEditMessageClick: () => setMode("edit"),
+							onEditMessageClick: () => {
+								drawer?.open();
+								setMode("edit");
+							},
 						}
 					: undefined}
 				{#if data}
