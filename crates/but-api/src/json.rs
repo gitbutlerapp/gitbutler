@@ -432,10 +432,12 @@ impl From<gix::refs::Reference> for Reference {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 /// UI type for a move changes between commits result
 pub struct UIMoveChangesResult {
     /// Commits that have been mapped from one thing to another
+    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
     pub replaced_commits: Vec<(HexHash, HexHash)>,
 }
 
@@ -452,12 +454,15 @@ impl From<MoveChangesResult> for UIMoveChangesResult {
 }
 
 #[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 /// UI type for creating a commit in the rebase graph.
 pub struct UICommitCreateResult {
     /// The new commit if one was created.
+    #[cfg_attr(feature = "export-schema", schemars(with = "Option<String>"))]
     pub new_commit: Option<HexHash>,
     /// Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics.
+    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
     pub paths_to_rejected_changes: Vec<(
         but_core::tree::create_tree::RejectionReason,
         but_serde::BStringForFrontend,

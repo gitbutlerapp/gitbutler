@@ -52,7 +52,7 @@ pub fn commit_reword_only(
 /// Rewords a commit, but without updating the oplog.
 ///
 /// Returns the ID of the newly renamed commit
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn commit_reword(
     ctx: &mut but_ctx::Context,
@@ -79,15 +79,18 @@ pub mod ui {
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
     /// Specifies a location, usually used to either have something inserted
     /// relative to it, or for the selected object to actually be replaced.
     pub enum RelativeTo {
         /// Relative to a commit
         #[serde(with = "but_serde::object_id")]
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         Commit(gix::ObjectId),
         /// Relative to a reference
         #[serde(with = "but_serde::fullname_lossy")]
+        #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
         Reference(gix::refs::FullName),
     }
 
@@ -156,7 +159,7 @@ pub(crate) fn commit_insert_blank_only_impl(
 /// Inserts a blank commit relative to either a commit or a reference, with oplog support
 ///
 /// Returns the ID of the newly created blank commit
-#[but_api(json::HexHash)]
+#[but_api(napi, json::HexHash)]
 #[instrument(err(Debug))]
 pub fn commit_insert_blank(
     ctx: &mut but_ctx::Context,
@@ -245,7 +248,7 @@ pub(crate) fn commit_create_only_impl(
 }
 
 /// Creates and inserts a commit relative to either a commit or a reference, with oplog support.
-#[but_api(json::UICommitCreateResult)]
+#[but_api(napi, json::UICommitCreateResult)]
 #[instrument(err(Debug))]
 pub fn commit_create(
     ctx: &mut but_ctx::Context,
@@ -331,7 +334,7 @@ pub(crate) fn commit_amend_only_impl(
 }
 
 /// Amends an existing commit with selected changes, with oplog support.
-#[but_api(json::UICommitCreateResult)]
+#[but_api(napi, json::UICommitCreateResult)]
 #[instrument(err(Debug))]
 pub fn commit_amend(
     ctx: &mut but_ctx::Context,
@@ -403,7 +406,7 @@ pub fn commit_move_changes_between_only(
 /// Moves changes between two commits
 ///
 /// Returns where the source and destination commits were mapped to.
-#[but_api(json::UIMoveChangesResult)]
+#[but_api(napi, json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_move_changes_between(
     ctx: &mut but_ctx::Context,
@@ -518,7 +521,7 @@ pub fn commit_uncommit_changes_only(
 ///
 /// If `assign_to` is provided, the newly uncommitted changes will be assigned
 /// to the specified stack.
-#[but_api(json::UIMoveChangesResult)]
+#[but_api(napi, json::UIMoveChangesResult)]
 #[instrument(err(Debug))]
 pub fn commit_uncommit_changes(
     ctx: &mut but_ctx::Context,
