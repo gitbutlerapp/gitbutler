@@ -28,6 +28,7 @@
 		"build": "turbo run build --no-daemon",
 		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
 		"build:lite": "turbo run --filter @gitbutler/lite build --no-daemon",
+		"build:sdk": "turbo run --filter @gitbutler/but-sdk build --no-daemon",
 		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json -- --profile dev",
 		"start:desktop": "pnpm --filter @gitbutler/desktop run preview",
 		"check": "turbo run check --no-daemon",
