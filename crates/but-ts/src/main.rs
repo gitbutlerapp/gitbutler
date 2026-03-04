@@ -327,11 +327,9 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
                     let close_padding = "  ".repeat(indent);
 
                     let mut fields: Vec<String> = Vec::new();
-                    let mut props = props_obj.into_iter().collect::<Vec<_>>();
-                    // We only need a stable ordering here - we don't need to
-                    // really worry about the "best" way to order strings.
-                    props.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
-                    for (key, value) in props {
+                    // The map impl with `preserve_order` feature flag is stable
+                    // and matches the order properties were declared in rust.
+                    for (key, value) in props_obj {
                         let doc = if let Some(desc) = get_description(value) {
                             format_jsdoc(&desc, next_indent)
                         } else {
@@ -402,11 +400,11 @@ mod tests {
     fn object_with_tuples_and_arrays() {
         insta::assert_snapshot!(ts_for::<ObjectWithTuplesAndArrays>(), @"
         {
-          nested_optional_tuple_nested_array?: Array<Array<[string, number]>> | null;
-          optional_array?: Array<string> | null;
-          optional_tuple_array?: Array<[string, number]> | null;
           simple_array: Array<string>;
+          optional_array?: Array<string> | null;
           tuple_array: Array<[string, number]>;
+          optional_tuple_array?: Array<[string, number]> | null;
+          nested_optional_tuple_nested_array?: Array<Array<[string, number]>> | null;
           tuple_with_optional_members?: Array<[number | null, Array<string> | null]> | null;
         }
         ");
