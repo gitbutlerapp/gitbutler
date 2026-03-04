@@ -487,3 +487,7 @@ pub use remove_reference::function::remove_reference;
 /// related types for creating a workspace reference.
 pub mod create_reference;
 pub use create_reference::function::create_reference;
+
+/// Functions and types related to moving branches across stacks.
+pub mod move_branch;
+pub use move_branch::function::move_branch;
