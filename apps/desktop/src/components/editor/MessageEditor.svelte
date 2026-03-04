@@ -361,7 +361,7 @@
 			<div class="message-textarea__toolbar__left">
 				<Button
 					kind="ghost"
-					icon={useFloatingBox.current ? "pop-in" : "pop-out"}
+					icon={useFloatingBox.current ? "pop-out-top-left" : "pop-out-bottom-right"}
 					tooltip={useFloatingBox.current ? "Exit floating mode" : "Use floating mode"}
 					onclick={() => {
 						useFloatingBox.set(!useFloatingBox.current);

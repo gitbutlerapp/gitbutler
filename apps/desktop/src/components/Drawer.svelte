@@ -13,6 +13,7 @@
 	type Props = {
 		header: Snippet<[HTMLDivElement]>;
 		actions?: Snippet<[element: HTMLElement]>;
+		closeActions?: Snippet;
 		children: Snippet;
 		testId?: string;
 		collapsable?: boolean;
@@ -31,6 +32,7 @@
 		rounded?: boolean;
 		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
+		closeButtonPlaceholderWidth?: string;
 		scrollRoot?: HTMLElement | null;
 		highlighted?: boolean;
 		onclose?: () => void;
@@ -40,6 +42,7 @@
 	let {
 		header,
 		actions,
+		closeActions,
 		children,
 		testId,
 		collapsable = true,
@@ -58,6 +61,7 @@
 		rounded,
 		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
+		closeButtonPlaceholderWidth,
 		scrollRoot,
 		highlighted,
 		ontoggle,
@@ -124,6 +128,7 @@
 >
 	<PreviewHeader
 		{actions}
+		{closeActions}
 		bind:headerHeight
 		{transparent}
 		sticky={stickyHeader}
@@ -132,6 +137,7 @@
 		{onclose}
 		ondblclick={toggleCollapsed}
 		{closeButtonPlaceholder}
+		{closeButtonPlaceholderWidth}
 	>
 		{#snippet content()}
 			{#if collapsable}

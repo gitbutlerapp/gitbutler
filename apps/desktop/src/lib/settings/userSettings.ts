@@ -51,7 +51,8 @@ export interface Settings {
 	defaultTerminal: TerminalSettings;
 	defaultFileListMode: "tree" | "list";
 	pathFirst: boolean;
-	singleDiffView: boolean;
+	allInOneDiff: boolean;
+	highlightDiffs: boolean;
 }
 
 const defaults: Settings = {
@@ -77,7 +78,8 @@ const defaults: Settings = {
 	defaultTerminal: { identifier: "terminal", displayName: "Terminal", platform: "macos" },
 	defaultFileListMode: "list",
 	pathFirst: true,
-	singleDiffView: false,
+	allInOneDiff: false,
+	highlightDiffs: false,
 };
 
 export function loadUserSettings(platformName: string): Writable<Settings> {

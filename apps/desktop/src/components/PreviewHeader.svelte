@@ -7,11 +7,13 @@
 	interface Props {
 		content: Snippet;
 		actions?: Snippet<[element: HTMLElement]>;
+		closeActions?: Snippet;
 		headerHeight?: number;
 		transparent?: boolean;
 		sticky?: boolean;
 		reserveSpaceOnStuck?: boolean;
 		closeButtonPlaceholder?: boolean;
+		closeButtonPlaceholderWidth?: string;
 		scrollRoot?: HTMLElement | null;
 		onclose?: () => void;
 		/**
@@ -24,11 +26,13 @@
 	let {
 		content,
 		actions,
+		closeActions,
 		headerHeight = $bindable(),
 		transparent,
 		sticky,
 		reserveSpaceOnStuck,
 		closeButtonPlaceholder,
+		closeButtonPlaceholderWidth = "3rem",
 		scrollRoot,
 		onclose,
 		ondblclick,
@@ -80,24 +84,32 @@
 		{@render content()}
 	</div>
 
-	{#if actions || onclose || closeButtonPlaceholder}
+	{#if actions || onclose || closeButtonPlaceholder || closeActions}
 		<div class="drawer-header__actions">
 			{#if actions}
-				<div class="drawer-header__optional-actions">
+				<div class="flex items-center gap-4">
 					{@render actions(headerDiv)}
 				</div>
 			{/if}
 
-			{#if (onclose && actions) || (closeButtonPlaceholder && isStuck)}
+			{#if ((onclose || closeActions) && actions) || (closeButtonPlaceholder && isStuck)}
 				<div class="divider"></div>
 			{/if}
 
-			{#if (closeButtonPlaceholder && !actions) || isStuck}
-				<div style="width: 22px; height: var(--size-button);"></div>
-			{/if}
+			{#if closeActions || (closeButtonPlaceholder && !actions) || isStuck || onclose}
+				<div class="flex items-center gap-4">
+					{#if closeActions}
+						{@render closeActions()}
+					{/if}
 
-			{#if onclose}
-				<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+					{#if (closeButtonPlaceholder && !actions) || isStuck}
+						<div class="close-button-placeholder" style:width={closeButtonPlaceholderWidth}></div>
+					{/if}
+
+					{#if onclose}
+						<Button kind="ghost" icon="cross" size="tag" onclick={() => onclose()} />
+					{/if}
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -153,15 +165,13 @@
 		gap: 10px;
 	}
 
-	.drawer-header__optional-actions {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-	}
-
 	.drawer-header__actions :global(.divider) {
 		width: 1px;
 		height: 18px;
 		background-color: var(--clr-border-2);
+	}
+
+	.close-button-placeholder {
+		height: var(--size-button);
 	}
 </style>

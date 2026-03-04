@@ -17,8 +17,7 @@
 	import { combineResults } from "$lib/state/helpers";
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { inject } from "@gitbutler/core/context";
-	import { Icon, TestId, Tooltip } from "@gitbutler/ui";
-
+	import { Icon, TestId, Tooltip, Button } from "@gitbutler/ui";
 	import type { ComponentProps } from "svelte";
 
 	interface Props {
@@ -34,6 +33,7 @@
 		ontoggle?: (collapsed: boolean) => void;
 		onerror?: (err: unknown) => void;
 		onclose?: () => void;
+		onpopout?: () => void;
 	}
 
 	let {
@@ -48,6 +48,7 @@
 		ontoggle,
 		onerror,
 		onclose,
+		onpopout,
 	}: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
@@ -103,6 +104,17 @@
 			{rounded}
 			noshrink
 		>
+			{#snippet closeActions()}
+				{#if onpopout}
+					<Button
+						kind="ghost"
+						icon="pop-out-bottom-right"
+						size="tag"
+						tooltip="Pop out diff view"
+						onclick={onpopout}
+					/>
+				{/if}
+			{/snippet}
 			{#snippet header()}
 				<div class="branch__header">
 					{#if hasCommits}
