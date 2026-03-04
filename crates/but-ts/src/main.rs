@@ -269,7 +269,13 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
                 "boolean" => "boolean".to_string(),
                 "null" => "null".to_string(),
                 "array" => {
-                    if let Some(items) = obj.get("items") {
+                    if let Some(prefix_items) = obj.get("prefixItems")
+                        && let Some(arr) = prefix_items.as_array()
+                    {
+                        let types: Vec<String> =
+                            arr.iter().map(|s| schema_to_ts(s, indent)).collect();
+                        format!("[{}]", types.join(", "))
+                    } else if let Some(items) = obj.get("items") {
                         let item_ty = schema_to_ts(items, indent);
                         format!("Array<{item_ty}>")
                     } else {
@@ -291,7 +297,12 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
         Some("boolean") => "boolean".to_string(),
         Some("null") => "null".to_string(),
         Some("array") => {
-            if let Some(items) = obj.get("items") {
+            if let Some(prefix_items) = obj.get("prefixItems")
+                && let Some(arr) = prefix_items.as_array()
+            {
+                let types: Vec<String> = arr.iter().map(|s| schema_to_ts(s, indent)).collect();
+                format!("[{}]", types.join(", "))
+            } else if let Some(items) = obj.get("items") {
                 let item_ty = schema_to_ts(items, indent);
                 format!("Array<{item_ty}>")
             } else {
@@ -316,7 +327,11 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
                     let close_padding = "  ".repeat(indent);
 
                     let mut fields: Vec<String> = Vec::new();
-                    for (key, value) in props_obj {
+                    let mut props = props_obj.into_iter().collect::<Vec<_>>();
+                    // We only need a stable ordering here - we don't need to
+                    // really worry about the "best" way to order strings.
+                    props.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+                    for (key, value) in props {
                         let doc = if let Some(desc) = get_description(value) {
                             format_jsdoc(&desc, next_indent)
                         } else {
@@ -355,5 +370,45 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
                 "any".to_string()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use schemars::JsonSchema;
+    use serde::Serialize;
+
+    /// Convert a schemars-annotated type to its TypeScript representation.
+    fn ts_for<T: JsonSchema>() -> String {
+        let schema = schemars::schema_for!(T);
+        let json = serde_json::to_value(&schema).unwrap();
+        schema_to_ts(&json, 0)
+    }
+
+    #[derive(Serialize, JsonSchema)]
+    struct ObjectWithTuplesAndArrays {
+        simple_array: Vec<String>,
+        optional_array: Option<Vec<String>>,
+        tuple_array: Vec<(String, i64)>,
+        optional_tuple_array: Option<Vec<(String, i64)>>,
+        #[expect(clippy::type_complexity)]
+        nested_optional_tuple_nested_array: Option<Option<Vec<Vec<(String, i64)>>>>,
+        #[expect(clippy::type_complexity)]
+        tuple_with_optional_members: Option<Vec<(Option<i64>, Option<Vec<String>>)>>,
+    }
+
+    #[test]
+    fn object_with_tuples_and_arrays() {
+        insta::assert_snapshot!(ts_for::<ObjectWithTuplesAndArrays>(), @"
+        {
+          nested_optional_tuple_nested_array?: Array<Array<[string, number]>> | null;
+          optional_array?: Array<string> | null;
+          optional_tuple_array?: Array<[string, number]> | null;
+          simple_array: Array<string>;
+          tuple_array: Array<[string, number]>;
+          tuple_with_optional_members?: Array<[number | null, Array<string> | null]> | null;
+        }
+        ");
     }
 }
