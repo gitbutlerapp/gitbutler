@@ -26,7 +26,6 @@ but-graph.workspace = true
 
 gitbutler-project.workspace = true
 
-serde.workspace = true
 tracing.workspace = true
 anyhow.workspace = true
 gix.workspace = true
