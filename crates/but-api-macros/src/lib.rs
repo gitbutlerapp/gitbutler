@@ -60,8 +60,10 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let opts = if attr.is_empty() {
         Options::default()
     } else {
-        let meta = syn::parse_macro_input!(attr as syn::Meta);
-        match parse_attrs_to_options(meta, is_result_option) {
+        let metas = syn::parse_macro_input!(
+            attr with syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated
+        );
+        match parse_attrs_to_options(metas.into_iter().collect(), is_result_option) {
             Ok(opts) => opts,
             Err(err) => return err.into_compile_error().into(),
         }
@@ -248,11 +250,16 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
             FromMode::TryFrom => {
                 if is_result_option {
                     quote! {
-                        let result: Option<#json_ty> = result.map(TryInto::try_into).transpose()?;
+                        let result: Option<#json_ty> = result
+                            .map(TryInto::try_into)
+                            .transpose()
+                            .map_err(::anyhow::Error::from)?;
                     }
                 } else {
                     quote! {
-                        let result: #json_ty = result.try_into()?;
+                        let result: #json_ty = result
+                            .try_into()
+                            .map_err(::anyhow::Error::from)?;
                     }
                 }
             }
@@ -579,59 +586,58 @@ struct ResultConversion {
     json_ty_rval: syn::Type,
 }
 
-fn parse_attrs_to_options(meta: syn::Meta, is_result_option: bool) -> Result<Options, syn::Error> {
+fn parse_attrs_to_options(
+    metas: Vec<syn::Meta>,
+    is_result_option: bool,
+) -> Result<Options, syn::Error> {
     let mut napi = false;
-    let path = match meta {
-        syn::Meta::Path(path) => {
-            if path.is_ident("napi") {
-                // #[but_api(napi)]
-                napi = true;
-                None
-            } else {
-                // #[but_api(Foo)]
-                Some((FromMode::From, path))
+    let mut path: Option<(FromMode, syn::Path)> = None;
+
+    for meta in metas {
+        match meta {
+            syn::Meta::Path(meta_path) => {
+                if meta_path.is_ident("napi") {
+                    napi = true;
+                } else if path.is_some() {
+                    return Err(syn::Error::new_spanned(
+                        meta_path,
+                        "Only one return-type conversion may be specified",
+                    ));
+                } else {
+                    path = Some((FromMode::From, meta_path));
+                }
             }
-        }
-        syn::Meta::NameValue(nv) => {
-            if let (Some(ident), Expr::Path(path)) = (&nv.path.get_ident(), &nv.value) {
-                if *ident == "try_from" {
-                    // #[but_api(try_from = Foo)]
-                    Some((FromMode::TryFrom, path.path.clone()))
+            syn::Meta::NameValue(nv) => {
+                if let (Some(ident), Expr::Path(path_expr)) = (&nv.path.get_ident(), &nv.value) {
+                    if *ident == "try_from" {
+                        if path.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                nv,
+                                "Only one return-type conversion may be specified",
+                            ));
+                        }
+                        path = Some((FromMode::TryFrom, path_expr.path.clone()));
+                    } else {
+                        return Err(syn::Error::new_spanned(
+                            ident,
+                            "Need `try_from = path` to use try-from instead of from",
+                        ));
+                    }
                 } else {
                     return Err(syn::Error::new_spanned(
-                        ident,
+                        nv,
                         "Need `try_from = path` to use try-from instead of from",
                     ));
                 }
-            } else {
+            }
+            syn::Meta::List(list) => {
                 return Err(syn::Error::new_spanned(
-                    nv,
-                    "Need `try_from = path` to use try-from instead of from",
+                    list,
+                    "Unexpected nested meta list in #[but_api(...)]",
                 ));
             }
         }
-        syn::Meta::List(list) => {
-            // #[but_api(napi, try_from = Foo)] or #[but_api(napi, Foo)]
-            let mut conversion_path = None;
-            list.parse_nested_meta(|nested| {
-                if nested.path.is_ident("napi") {
-                    napi = true;
-                    Ok(())
-                } else if nested.path.is_ident("try_from") {
-                    // try_from = Foo
-                    let value = nested.value()?;
-                    let path: syn::Path = value.parse()?;
-                    conversion_path = Some((FromMode::TryFrom, path));
-                    Ok(())
-                } else {
-                    // Bare path like `Foo` → FromMode::From
-                    conversion_path = Some((FromMode::From, nested.path.clone()));
-                    Ok(())
-                }
-            })?;
-            conversion_path
-        }
-    };
+    }
 
     let result_conversion = path.map(|(conv, p)| {
         let base_ty = syn::Type::Path(syn::TypePath {
@@ -986,5 +992,43 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
         }
         syn::Type::Reference(r) => type_to_ts_name(&r.elem),
         _ => "any".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use syn::parse::Parser;
+
+    use super::*;
+
+    fn parse_attr_metas(input: &str) -> Vec<syn::Meta> {
+        syn::punctuated::Punctuated::<syn::Meta, syn::Token![,]>::parse_terminated
+            .parse_str(input)
+            .expect("valid attribute meta list")
+            .into_iter()
+            .collect()
+    }
+
+    #[test]
+    fn parses_napi_with_try_from() {
+        let opts = parse_attrs_to_options(
+            parse_attr_metas("napi, try_from = json::UICommitCreateResult"),
+            false,
+        )
+        .expect("options parse");
+
+        assert!(opts.napi);
+        let conversion = opts.result_conversion.expect("conversion exists");
+        match conversion.mode {
+            FromMode::TryFrom => {}
+            FromMode::From => panic!("expected try_from conversion mode"),
+        }
+    }
+
+    #[test]
+    fn parses_napi_without_conversion() {
+        let opts = parse_attrs_to_options(parse_attr_metas("napi"), false).expect("options parse");
+        assert!(opts.napi);
+        assert!(opts.result_conversion.is_none());
     }
 }
