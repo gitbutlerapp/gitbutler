@@ -18,7 +18,7 @@
 		"prepare": "svelte-kit sync"
 	},
 	"devDependencies": {
-		"@anthropic-ai/sdk": "^0.74.0",
+		"@anthropic-ai/sdk": "^0.78.0",
 		"@gitbutler/core": "workspace:*",
 		"@gitbutler/design-core": "1.8.3",
 		"@gitbutler/shared": "workspace:*",
@@ -66,7 +66,7 @@
 		"postcss-load-config": "catalog:postcss",
 		"postcss-nesting": "catalog:postcss",
 		"postcss-pxtorem": "catalog:postcss",
-		"posthog-js": "1.347.2",
+		"posthog-js": "1.353.1",
 		"reflect-metadata": "^0.2.2",
 		"sass-embedded": "^1.97.3",
 		"svelte": "catalog:svelte",
