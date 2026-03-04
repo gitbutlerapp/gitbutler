@@ -11,12 +11,9 @@ const currentDirPath = path.dirname(currentFilePath);
 function registerIpcHandlers(): void {
 	ipcMain.handle(
 		liteIpcChannels.ping,
-		async (_event, input: string): Promise<string> => await Promise.resolve(`pong: ${input}`),
+		async (_event, input: string) => await Promise.resolve(`pong: ${input}`),
 	);
-	ipcMain.handle(
-		liteIpcChannels.getVersion,
-		async (): Promise<string> => await Promise.resolve(app.getVersion()),
-	);
+	ipcMain.handle(liteIpcChannels.getVersion, async () => await Promise.resolve(app.getVersion()));
 	ipcMain.handle(liteIpcChannels.listProjects, async () => await listProjectsStatelessNapi());
 	ipcMain.handle(
 		liteIpcChannels.headInfo,
