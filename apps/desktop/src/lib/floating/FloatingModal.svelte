@@ -5,6 +5,7 @@
 	import { SnapPointManager } from "$lib/floating/snapPointManager";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { inject } from "@gitbutler/core/context";
+	import { getStorageItem, setStorageItem } from "@gitbutler/shared/persisted";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { portal } from "@gitbutler/ui/utils/portal";
 	import { pxToRem } from "@gitbutler/ui/utils/pxToRem";
@@ -24,6 +25,7 @@
 		};
 		onUpdateSnapPosition?: (snapPosition: SnapPositionName) => void;
 		onUpdateSize?: (width: number, height: number) => void;
+		persistId?: string;
 		onCancel?: () => void;
 	}
 
@@ -33,12 +35,37 @@
 		defaults,
 		onUpdateSnapPosition,
 		onUpdateSize,
+		persistId,
 		onCancel,
 	}: Props = $props();
 
+	function getDefaultMinWidth() {
+		return defaults.minWidth;
+	}
+
+	function getDefaultMinHeight() {
+		return defaults.minHeight;
+	}
+
+	function getPersistedSize() {
+		if (!persistId) return;
+		const savedWidth = getStorageItem(`${persistId}-width`);
+		const savedHeight = getStorageItem(`${persistId}-height`);
+		return {
+			width: typeof savedWidth === "number" ? savedWidth : undefined,
+			height: typeof savedHeight === "number" ? savedHeight : undefined,
+		};
+	}
+
+	function persistSize(nextWidth: number, nextHeight: number) {
+		if (!persistId) return;
+		setStorageItem(`${persistId}-width`, nextWidth);
+		setStorageItem(`${persistId}-height`, nextHeight);
+	}
+
 	// Managers
 	const snapManager = new SnapPointManager(40);
-	const resizeCalculator = new ResizeCalculator(defaults.minWidth, defaults.minHeight);
+	const resizeCalculator = new ResizeCalculator(getDefaultMinWidth(), getDefaultMinHeight());
 	const dragResizeHandler = new DragResizeHandler(snapManager, resizeCalculator);
 
 	const userSettings = inject(SETTINGS);
@@ -47,8 +74,8 @@
 	// Modal state
 	let x = $state(0);
 	let y = $state(0);
-	let width = $state(defaults.width);
-	let height = $state(defaults.height);
+	let width = $state(0);
+	let height = $state(0);
 	let currentSnapPoint: SnapPoint | null = $state(null);
 	let snapping = $state(false);
 	let snapPoints: SnapPoint[] = [];
@@ -156,6 +183,7 @@
 		y = bounds.y;
 		width = Math.min(bounds.width, maxWidth);
 		height = Math.min(bounds.height, maxHeight);
+		persistSize(width, height);
 
 		onUpdateSize?.(width, height);
 	};
@@ -178,6 +206,13 @@
 	});
 
 	onMount(() => {
+		width = defaults.width;
+		height = defaults.height;
+
+		const persistedSize = getPersistedSize();
+		if (persistedSize?.width !== undefined) width = persistedSize.width;
+		if (persistedSize?.height !== undefined) height = persistedSize.height;
+
 		snapPoints = snapManager.calcSnapPoints();
 
 		// Constrain initial size to viewport

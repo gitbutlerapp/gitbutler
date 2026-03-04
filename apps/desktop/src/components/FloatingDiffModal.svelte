@@ -109,6 +109,7 @@
 </script>
 
 <FloatingModal
+	persistId="floating-diff-modal-size"
 	defaults={{
 		width: 1000,
 		height: 680,
@@ -127,7 +128,7 @@
 					viewport={leftPanelEl}
 					direction="right"
 					persistId="floating-diff-modal-left-panel-width"
-					minWidth={10}
+					minWidth={14}
 					maxWidth={30}
 					defaultValue={15}
 					showBorder
