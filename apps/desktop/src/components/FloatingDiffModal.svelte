@@ -257,7 +257,7 @@
 					<!-- All-in-one mode: virtual list of all diffs, file list navigates by scrolling -->
 					<VirtualList
 						bind:this={virtualList}
-						startIndex={initialIndex}
+						startIndex={selectedIndex}
 						grow
 						items={changes}
 						defaultHeight={102}
