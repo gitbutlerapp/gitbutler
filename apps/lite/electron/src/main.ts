@@ -56,9 +56,9 @@ app.on("window-all-closed", () => {
 	}
 });
 
-ipcMain.handle(liteIpcChannels.listProjects, () => {
-	return listProjects();
+ipcMain.handle(liteIpcChannels.listProjects, async () => {
+	return await listProjects();
 });
-ipcMain.handle(liteIpcChannels.headInfo, (_e, projectId: string) => {
-	return headInfo(projectId);
+ipcMain.handle(liteIpcChannels.headInfo, async (_e, projectId: string) => {
+	return await headInfo(projectId);
 });
