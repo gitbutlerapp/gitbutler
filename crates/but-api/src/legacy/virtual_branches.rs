@@ -399,7 +399,7 @@ pub fn move_commit(
 
 #[but_api]
 #[instrument(err(Debug))]
-pub fn move_branch(
+pub fn move_branch_legacy(
     ctx: &mut but_ctx::Context,
     target_stack_id: StackId,
     target_branch_name: String,
