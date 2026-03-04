@@ -15,12 +15,7 @@
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "pnpm check --watch",
 		"tauri": "tauri",
-		"prepare": "svelte-kit sync",
-		"cy:install": "cypress install",
-		"cy:install-more-browsers": "pnpm exec playwright install",
-		"cy:open": "cypress open",
-		"cy:chrome": "cypress run --browser chrome",
-		"cy:ci": "cypress run"
+		"prepare": "svelte-kit sync"
 	},
 	"devDependencies": {
 		"@anthropic-ai/sdk": "^0.74.0",
@@ -57,7 +52,6 @@
 		"autoprefixer": "^10.4.24",
 		"class-transformer": "^0.5.1",
 		"cssnano": "^7.1.0",
-		"cypress": "^14.5.3",
 		"diff-match-patch": "^1.0.5",
 		"fuse.js": "^7.1.0",
 		"git-url-parse": "^14.1.0",

@@ -116,7 +116,6 @@
 		"ignoredBuiltDependencies": [
 			"@parcel/watcher",
 			"@sentry/cli",
-			"cypress",
 			"edgedriver",
 			"esbuild",
 			"geckodriver",
