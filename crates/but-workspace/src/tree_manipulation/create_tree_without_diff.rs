@@ -138,11 +138,21 @@ pub fn create_tree_without_diff(
                 if change.hunk_headers.is_empty() {
                     revert_file_to_before_state(&before_entry, &mut builder, &change)?;
                 } else {
-                    let Some(before_entry) = before_entry else {
-                        anyhow::bail!(
-                            "Deletions or additions aren't well-defined for hunk-based operations - use the whole-file mode instead"
-                        );
-                    };
+                    // For file additions (no before_entry), use None/empty as
+                    // the "before" state so the hunk subtraction still works.
+                    let (before_state, before_data): (Option<ChangeState>, Vec<u8>) =
+                        if let Some(ref be) = before_entry {
+                            let blob = be.object()?.into_blob();
+                            (
+                                Some(ChangeState {
+                                    id: be.id().detach(),
+                                    kind: be.mode().kind(),
+                                }),
+                                blob.data.clone(),
+                            )
+                        } else {
+                            (None, Vec::new())
+                        };
 
                     let diff = but_core::UnifiedPatch::compute(
                         repository,
@@ -152,10 +162,7 @@ pub fn create_tree_without_diff(
                             id: after_entry.id().detach(),
                             kind: after_entry.mode().kind(),
                         },
-                        ChangeState {
-                            id: before_entry.id().detach(),
-                            kind: before_entry.mode().kind(),
-                        },
+                        before_state,
                         context_lines,
                     )?
                     .context(
@@ -192,28 +199,37 @@ pub fn create_tree_without_diff(
                     }
 
                     // TODO: Validate that the hunks correspond with actual changes?
-                    let before_blob = before_entry.object()?.into_blob();
-
                     let new_hunks = new_hunks_after_removals(
                         diff_hunks.into_iter().map(Into::into).collect(),
                         good_hunk_headers,
                     )?;
                     let new_after_contents = but_core::apply_hunks(
-                        before_blob.data.as_bstr(),
+                        before_data.as_bstr(),
                         after_blob.data.as_bstr(),
                         &new_hunks,
                     )?;
-                    let mode = if new_after_contents == before_blob.data {
-                        before_entry.mode().kind()
-                    } else {
-                        after_entry.mode().kind()
-                    };
-                    let new_after_contents = repository.write_blob(&new_after_contents)?;
 
-                    // Keep the mode of the after state. We _should_ at some
-                    // point introduce the mode specifically as part of the
-                    // DiscardSpec, but for now, we can just use the after state.
-                    builder.upsert(change.path.as_bstr(), mode, new_after_contents)?;
+                    if before_entry.is_none() && new_after_contents == before_data {
+                        // All changes removed from a file addition - remove
+                        // the file from the tree entirely.
+                        builder.remove(change.path.as_bstr())?;
+                    } else {
+                        let mode = if new_after_contents == before_data {
+                            before_entry
+                                .as_ref()
+                                .expect("before_entry.is_none() case handled above")
+                                .mode()
+                                .kind()
+                        } else {
+                            after_entry.mode().kind()
+                        };
+                        let new_after_contents = repository.write_blob(&new_after_contents)?;
+
+                        // Keep the mode of the after state. We _should_ at some
+                        // point introduce the mode specifically as part of the
+                        // DiscardSpec, but for now, we can just use the after state.
+                        builder.upsert(change.path.as_bstr(), mode, new_after_contents)?;
+                    }
                 }
             }
             _ => {
