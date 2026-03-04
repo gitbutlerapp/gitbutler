@@ -1,7 +1,8 @@
 use but_api_macros::but_api;
-use but_core::{ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
+use but_core::{RefMetadata, ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+use but_rebase::graph_rebase::GraphExt;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -97,4 +98,26 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let branch = repo.find_reference(&branch)?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, branch.name())
+}
+
+/// Move a branch on top of another
+#[but_api]
+#[instrument(err(Debug))]
+pub fn move_branch(
+    ctx: &mut but_ctx::Context,
+    subject_branch: &gix::refs::FullNameRef,
+    target_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
+    let editor = ws.graph.to_editor(&repo)?;
+
+    let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
+        but_workspace::branch::move_branch(&ws, editor, &mut meta, subject_branch, target_branch)?;
+
+    rebase.materialize()?;
+    meta.set_workspace(&ws_meta)?;
+    ws.refresh_from_head(&repo, &meta)?;
+
+    Ok(())
 }
