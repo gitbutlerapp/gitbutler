@@ -192,6 +192,9 @@
 
 			{#snippet actions()}
 				{#if canEdit()}
+					{@const isEditingMessage =
+						projectState.exclusiveAction.current?.type === "edit-commit-message" &&
+						projectState.exclusiveAction.current.commitId === commit.id}
 					<Button
 						testId={TestId.CommitDrawerActionEditMessage}
 						size="tag"
@@ -202,7 +205,7 @@
 							setMode("edit");
 						}}
 						tooltip={isReadOnly ? "Read-only mode" : "Edit commit message"}
-						disabled={isReadOnly}
+						disabled={isReadOnly || isEditingMessage}
 					/>
 				{/if}
 				{@const data = isLocalAndRemoteCommit(commit)
