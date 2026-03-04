@@ -84,7 +84,7 @@
 		{@render content()}
 	</div>
 
-	{#if actions || onclose || closeButtonPlaceholder}
+	{#if actions || onclose || closeButtonPlaceholder || closeActions}
 		<div class="drawer-header__actions">
 			{#if actions}
 				<div class="flex items-center gap-4">
