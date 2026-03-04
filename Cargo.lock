@@ -1579,6 +1579,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-api",
+ "insta",
+ "schemars 1.2.1",
+ "serde",
  "serde_json",
 ]
 
