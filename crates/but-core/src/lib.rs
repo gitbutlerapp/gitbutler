@@ -252,6 +252,7 @@ pub struct CommitOwned {
 /// A patch in unified diff format to show how a resource changed or now looks like (in case it was newly added),
 /// or how it previously looked like in case of a deletion.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "subject")]
 pub enum UnifiedPatch {
     /// The resource was a binary and couldn't be diffed.

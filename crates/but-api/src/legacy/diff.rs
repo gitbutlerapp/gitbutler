@@ -10,7 +10,7 @@ use tracing::instrument;
 
 /// Provide a unified diff for `change`, but fail if `change` is a [type-change](but_core::ModeFlags::TypeChange)
 /// or if it involves a change to a [submodule](gix::object::Kind::Commit).
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn tree_change_diffs(
     ctx: &Context,
