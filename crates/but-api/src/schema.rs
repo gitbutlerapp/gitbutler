@@ -83,6 +83,14 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 schema_fn: || schema_for!(crate::legacy::projects::ProjectForFrontend),
             },
             TypeSchemaEntry {
+                name: "UnifiedPatch",
+                schema_fn: || schema_for!(but_core::UnifiedPatch),
+            },
+            TypeSchemaEntry {
+                name: "TreeChange",
+                schema_fn: || schema_for!(but_core::ui::TreeChange),
+            },
+            TypeSchemaEntry {
                 name: "TreeChange",
                 schema_fn: || schema_for!(but_core::ui::TreeChange),
             },
