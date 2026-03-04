@@ -33,7 +33,7 @@
 		}
 	},
 	"dependencies": {
-		"@tanstack/react-router": "^1.160.2",
+		"@tanstack/react-router": "^1.163.2",
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",
 		"@gitbutler/but-sdk": "workspace:*"
