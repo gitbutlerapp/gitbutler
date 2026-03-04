@@ -1,6 +1,5 @@
 import { liteIpcChannels } from "#electron/ipc";
-import { listProjects } from "#electron/model/projects";
-import { headInfo } from "#electron/model/workspace";
+import { headInfoNapi, listProjectsStatelessNapi } from "@gitbutler/but-sdk";
 import { app, BrowserWindow, ipcMain } from "electron";
 import { REACT_DEVELOPER_TOOLS, installExtension } from "electron-devtools-installer";
 import path from "node:path";
@@ -18,10 +17,10 @@ function registerIpcHandlers(): void {
 		liteIpcChannels.getVersion,
 		async (): Promise<string> => await Promise.resolve(app.getVersion()),
 	);
-	ipcMain.handle(liteIpcChannels.listProjects, async () => await listProjects());
+	ipcMain.handle(liteIpcChannels.listProjects, async () => await listProjectsStatelessNapi());
 	ipcMain.handle(
 		liteIpcChannels.headInfo,
-		async (_e, projectId: string) => await headInfo(projectId),
+		async (_e, projectId: string) => await headInfoNapi(projectId),
 	);
 }
 
