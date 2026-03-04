@@ -39,14 +39,6 @@
 		onCancel,
 	}: Props = $props();
 
-	function getDefaultMinWidth() {
-		return defaults.minWidth;
-	}
-
-	function getDefaultMinHeight() {
-		return defaults.minHeight;
-	}
-
 	function getPersistedSize() {
 		if (!persistId) return;
 		const savedWidth = getStorageItem(`${persistId}-width`);
@@ -65,7 +57,7 @@
 
 	// Managers
 	const snapManager = new SnapPointManager(40);
-	const resizeCalculator = new ResizeCalculator(getDefaultMinWidth(), getDefaultMinHeight());
+	const resizeCalculator = new ResizeCalculator(defaults.minWidth, defaults.minHeight);
 	const dragResizeHandler = new DragResizeHandler(snapManager, resizeCalculator);
 
 	const userSettings = inject(SETTINGS);
