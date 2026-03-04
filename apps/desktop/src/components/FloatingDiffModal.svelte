@@ -6,6 +6,7 @@
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import Resizer from "$components/Resizer.svelte";
 	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
+	import { FileContextMenuState } from "$lib/diffState/fileContextMenuState.svelte";
 	import FloatingModal from "$lib/floating/FloatingModal.svelte";
 	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
@@ -49,15 +50,13 @@
 	const allInOneDiff = $derived($userSettings.allInOneDiff);
 	const highlightDiffs = $derived($userSettings.highlightDiffs);
 
-	// Track expanded/collapsed state for each diff (for virtual list mode)
+	// Not reactive by design — feeds `defaultCollapsed` as an initial value only,
+	// so Svelte does not need to track mutations.
 	const diffExpandedState = new Map<string, boolean>();
 
 	let listMode: "list" | "tree" = $state("list");
-	// eslint-disable-next-line svelte/prefer-writable-derived
-	let selectedIndex = $state(0);
-	$effect(() => {
-		selectedIndex = initialIndex;
-	});
+	// Seeded from prop once on mount; subsequent user selection is independent.
+	let selectedIndex = $state(initialIndex);
 	let headerElRef = $state<HTMLDivElement | undefined>(undefined);
 	let leftPanelEl = $state<HTMLDivElement | undefined>(undefined);
 	let virtualList = $state<VirtualList<TreeChange>>();
@@ -65,10 +64,7 @@
 	let fileListEl = $state<HTMLDivElement>();
 	let fileListContextMenu = $state<ReturnType<typeof ChangedFilesContextMenu>>();
 	let visibleRange = $state<{ start: number; end: number } | undefined>(undefined);
-	let contextMenus = $state<Record<string, ReturnType<typeof ChangedFilesContextMenu>>>({});
-	let headerTriggers = $state<Record<string, HTMLElement>>({});
-	let buttonElements = $state<Record<string, HTMLElement>>({});
-	let menuOpenStates = $state<Record<string, boolean>>({});
+	const menuState = new FileContextMenuState<ReturnType<typeof ChangedFilesContextMenu>>();
 
 	const selectedChange = $derived(changes[selectedIndex] ?? changes[0]);
 
@@ -169,11 +165,10 @@
 
 		<!-- Right panel: diff area -->
 		<div class="right-panel">
-			{#if allInOneDiff}
-				<div class="floating-actions">
-					<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
-				</div>
-			{/if}
+			<!-- Close button is always floating so its position is consistent across both diff modes. -->
+			<div class="floating-actions">
+				<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
+			</div>
 			<!-- Diff area (single-file or virtual list depending on user setting) -->
 			<div class="diff-area" bind:this={diffScrollContainer}>
 				{#if !allInOneDiff}
@@ -186,7 +181,6 @@
 							collapsable={false}
 							scrollRoot={diffScrollContainer}
 							highlighted={false}
-							{onclose}
 						>
 							{#snippet header()}
 								<FileViewHeader
@@ -198,28 +192,28 @@
 
 							{#snippet actions()}
 								<ChangedFilesContextMenu
-									bind:this={contextMenus[selectedChange.path]}
+									bind:this={menuState.contextMenus[selectedChange.path]}
 									{projectId}
 									{stackId}
 									{selectionId}
-									leftClickTrigger={buttonElements[selectedChange.path]}
-									trigger={buttonElements[selectedChange.path]}
+									leftClickTrigger={menuState.buttonElements[selectedChange.path]}
+									trigger={menuState.buttonElements[selectedChange.path]}
 									onopen={() => {
-										menuOpenStates[selectedChange.path] = true;
+										menuState.menuOpenStates[selectedChange.path] = true;
 									}}
 									onclose={() => {
-										menuOpenStates[selectedChange.path] = false;
+										menuState.menuOpenStates[selectedChange.path] = false;
 									}}
 								/>
 								<Button
-									bind:el={buttonElements[selectedChange.path]}
+									bind:el={menuState.buttonElements[selectedChange.path]}
 									kind="ghost"
 									icon="kebab"
 									size="tag"
-									activated={menuOpenStates[selectedChange.path]}
+									activated={menuState.menuOpenStates[selectedChange.path]}
 									onclick={async () => {
-										const contextMenu = contextMenus[selectedChange.path];
-										const buttonEl = buttonElements[selectedChange.path];
+										const contextMenu = menuState.contextMenus[selectedChange.path];
+										const buttonEl = menuState.buttonElements[selectedChange.path];
 										if (!contextMenu || !buttonEl) return;
 
 										const allChanges = await idSelection.treeChanges(projectId, selectionId);
@@ -294,7 +288,7 @@
 								}}
 							>
 								{#snippet header()}
-									<div class="full-width" bind:this={headerTriggers[change.path]}>
+									<div class="full-width" bind:this={menuState.headerTriggers[change.path]}>
 										<FileViewHeader
 											filePath={change.path}
 											fileStatus={computeChangeStatus(change)}
@@ -307,28 +301,28 @@
 
 								{#snippet actions()}
 									<ChangedFilesContextMenu
-										bind:this={contextMenus[change.path]}
+										bind:this={menuState.contextMenus[change.path]}
 										{projectId}
 										{stackId}
 										{selectionId}
-										leftClickTrigger={buttonElements[change.path]}
-										trigger={headerTriggers[change.path]}
+										leftClickTrigger={menuState.buttonElements[change.path]}
+										trigger={menuState.headerTriggers[change.path]}
 										onopen={() => {
-											menuOpenStates[change.path] = true;
+											menuState.menuOpenStates[change.path] = true;
 										}}
 										onclose={() => {
-											menuOpenStates[change.path] = false;
+											menuState.menuOpenStates[change.path] = false;
 										}}
 									/>
 									<Button
-										bind:el={buttonElements[change.path]}
+										bind:el={menuState.buttonElements[change.path]}
 										kind="ghost"
 										icon="kebab"
 										size="tag"
-										activated={menuOpenStates[change.path]}
+										activated={menuState.menuOpenStates[change.path]}
 										onclick={async () => {
-											const contextMenu = contextMenus[change.path];
-											const buttonEl = buttonElements[change.path];
+											const contextMenu = menuState.contextMenus[change.path];
+											const buttonEl = menuState.buttonElements[change.path];
 											if (!contextMenu || !buttonEl) return;
 
 											const allChanges = await idSelection.treeChanges(projectId, selectionId);

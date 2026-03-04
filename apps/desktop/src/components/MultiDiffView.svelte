@@ -14,6 +14,7 @@
 	import FloatingDiffModal from "$components/FloatingDiffModal.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
+	import { FileContextMenuState } from "$lib/diffState/fileContextMenuState.svelte";
 	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -58,17 +59,14 @@
 	const allInOneDiff = $derived($userSettings.allInOneDiff);
 	const highlightDiffs = $derived($userSettings.highlightDiffs);
 
-	// Track expanded/collapsed state for each diff by file path
-	// This persists across re-renders (e.g., when VirtualList recycles items)
+	// Not reactive by design — feeds `defaultCollapsed` as an initial value only,
+	// so Svelte does not need to track mutations. Persists across VirtualList recycles.
 	const diffExpandedState = new Map<string, boolean>();
 
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let highlightedIndex = $state<number | undefined>(startIndex);
-	let contextMenus = $state<Record<string, ReturnType<typeof ChangedFilesContextMenu>>>({});
-	let headerTriggers = $state<Record<string, HTMLElement>>({});
-	let buttonElements = $state<Record<string, HTMLElement>>({});
-	let menuOpenStates = $state<Record<string, boolean>>({});
+	const menuState = new FileContextMenuState<ReturnType<typeof ChangedFilesContextMenu>>();
 	let floatingDiffOpen = $state(false);
 	let floatingDiffInitialIndex = $state(0);
 
@@ -120,7 +118,7 @@
 		closeActions={!allInOneDiff && onclose ? popOutSnippet : undefined}
 	>
 		{#snippet header()}
-			<div class="full-width" bind:this={headerTriggers[change.path]}>
+			<div class="full-width" bind:this={menuState.headerTriggers[change.path]}>
 				<FileViewHeader
 					filePath={change.path}
 					fileStatus={computeChangeStatus(change)}
@@ -133,28 +131,28 @@
 
 		{#snippet actions()}
 			<ChangedFilesContextMenu
-				bind:this={contextMenus[change.path]}
+				bind:this={menuState.contextMenus[change.path]}
 				{projectId}
 				{stackId}
 				{selectionId}
-				leftClickTrigger={buttonElements[change.path]}
-				trigger={headerTriggers[change.path]}
+				leftClickTrigger={menuState.buttonElements[change.path]}
+				trigger={menuState.headerTriggers[change.path]}
 				onopen={() => {
-					menuOpenStates[change.path] = true;
+					menuState.menuOpenStates[change.path] = true;
 				}}
 				onclose={() => {
-					menuOpenStates[change.path] = false;
+					menuState.menuOpenStates[change.path] = false;
 				}}
 			/>
 			<Button
-				bind:el={buttonElements[change.path]}
+				bind:el={menuState.buttonElements[change.path]}
 				kind="ghost"
 				icon="kebab"
 				size="tag"
-				activated={menuOpenStates[change.path]}
+				activated={menuState.menuOpenStates[change.path]}
 				onclick={async () => {
-					const contextMenu = contextMenus[change.path];
-					const buttonEl = buttonElements[change.path];
+					const contextMenu = menuState.contextMenus[change.path];
+					const buttonEl = menuState.buttonElements[change.path];
 					if (!contextMenu || !buttonEl) return;
 
 					const changes = await idSelection.treeChanges(projectId, selectionId);
@@ -203,10 +201,7 @@
 				icon="pop-out-bottom-right"
 				size="tag"
 				tooltip="Pop out diff view"
-				onclick={() => {
-					floatingDiffInitialIndex = highlightedIndex ?? startIndex ?? 0;
-					floatingDiffOpen = true;
-				}}
+				onclick={openFloatingDiff}
 			/>
 			<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
 		</div>

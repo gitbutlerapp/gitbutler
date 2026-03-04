@@ -56,14 +56,9 @@
 	const hasConflicts = $derived(conflictEntries && Object.keys(conflictEntries).length > 0);
 	// eslint-disable-next-line svelte/prefer-writable-derived
 	let folded = $state(false);
+	// Empty changesets are always folded; otherwise defer to the prop.
 	$effect(() => {
-		folded = foldedByDefault;
-	});
-
-	$effect(() => {
-		if (changes.length === 0 && !hasConflicts) {
-			folded = true;
-		}
+		folded = changes.length === 0 && !hasConflicts ? true : foldedByDefault;
 	});
 
 	$effect(() => {

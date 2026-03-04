@@ -55,8 +55,12 @@
 		setStorageItem(`${persistId}-height`, nextHeight);
 	}
 
+	// Margin constants for viewport constraints (px)
+	const VIEWPORT_MARGIN = 80; // 40px on each side
+	const VIEWPORT_EDGE = 40; // minimum distance from any edge
+
 	// Managers
-	const snapManager = new SnapPointManager(40);
+	const snapManager = new SnapPointManager(VIEWPORT_EDGE);
 	const resizeCalculator = new ResizeCalculator(defaults.minWidth, defaults.minHeight);
 	const dragResizeHandler = new DragResizeHandler(snapManager, resizeCalculator);
 
@@ -149,15 +153,15 @@
 		updatePositionForSnapPoint();
 
 		// Constrain size to viewport
-		const maxWidth = window.innerWidth - 80; // Leave 40px margin on each side
-		const maxHeight = window.innerHeight - 80; // Leave 40px margin on top and bottom
+		const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
+		const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
 		width = Math.min(width, maxWidth);
 		height = Math.min(height, maxHeight);
 
 		// Constrain position to viewport
 		const constrainedPosition = snapManager.constrainToViewport({ x, y, width, height });
-		x = Math.max(40, Math.min(x, constrainedPosition.x));
-		y = Math.max(40, Math.min(y, constrainedPosition.y));
+		x = Math.max(VIEWPORT_EDGE, Math.min(x, constrainedPosition.x));
+		y = Math.max(VIEWPORT_EDGE, Math.min(y, constrainedPosition.y));
 	}
 
 	// Setup drag/resize callbacks
@@ -168,8 +172,8 @@
 
 	dragResizeHandler.onResize = (bounds: ModalBounds) => {
 		// Constrain size to viewport
-		const maxWidth = window.innerWidth - 80; // Leave 40px margin on each side
-		const maxHeight = window.innerHeight - 80; // Leave 40px margin on top and bottom
+		const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
+		const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
 
 		x = bounds.x;
 		y = bounds.y;
@@ -197,6 +201,15 @@
 		dragResizeHandler.currentSnapPosition = currentSnapPoint?.name || "";
 	});
 
+	// Reactively wire the drag handle — handles element changes after mount.
+	$effect(() => {
+		if (!dragHandleElement) return;
+		dragHandleElement.addEventListener("pointerdown", handleHeaderPointerDown);
+		return () => {
+			dragHandleElement!.removeEventListener("pointerdown", handleHeaderPointerDown);
+		};
+	});
+
 	onMount(() => {
 		width = defaults.width;
 		height = defaults.height;
@@ -208,8 +221,8 @@
 		snapPoints = snapManager.calcSnapPoints();
 
 		// Constrain initial size to viewport
-		const maxWidth = window.innerWidth - 80; // Leave 40px margin on each side
-		const maxHeight = window.innerHeight - 80; // Leave 40px margin on top and bottom
+		const maxWidth = window.innerWidth - VIEWPORT_MARGIN;
+		const maxHeight = window.innerHeight - VIEWPORT_MARGIN;
 		width = Math.min(width, maxWidth);
 		height = Math.min(height, maxHeight);
 
@@ -229,17 +242,9 @@
 			currentSnapPoint = defaultSnapPoint;
 		}
 
-		// Connect drag handle element if provided
-		if (dragHandleElement) {
-			dragHandleElement.addEventListener("pointerdown", handleHeaderPointerDown);
-		}
-
 		window.addEventListener("resize", handleWindowResize);
 		return () => {
 			window.removeEventListener("resize", handleWindowResize);
-			if (dragHandleElement) {
-				dragHandleElement.removeEventListener("pointerdown", handleHeaderPointerDown);
-			}
 		};
 	});
 </script>

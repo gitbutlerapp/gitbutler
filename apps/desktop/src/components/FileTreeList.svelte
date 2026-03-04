@@ -40,6 +40,8 @@
 
 {#snippet treeNodes(node: TreeNode, depth: number)}
 	{#if node.kind === "file"}
+		<!-- `selected` = visual highlight; `active` = keyboard/focus state.
+		     Both track the same index because selection and focus are always linked here. -->
 		<FileListItem
 			filePath={node.change.path}
 			fileStatus={computeChangeStatus(node.change)}
@@ -78,6 +80,7 @@
 	{@render treeNodes(tree, 0)}
 {:else}
 	{#each changes as change, index}
+		<!-- See tree branch above for why `selected` and `active` are always the same value. -->
 		<FileListItem
 			filePath={change.path}
 			fileStatus={computeChangeStatus(change)}
