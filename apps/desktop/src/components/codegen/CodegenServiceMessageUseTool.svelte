@@ -10,6 +10,8 @@
 		switch (toolCall.name) {
 			case "Task":
 				return "start a subagent";
+			case "Agent":
+				return "start a subagent";
 			case "Bash":
 				return "run a command";
 			case "Glob":
@@ -36,6 +38,8 @@
 	const actionName = $derived.by(() => {
 		switch (toolCall.name) {
 			case "Task":
+				return "subagent request";
+			case "Agent":
 				return "subagent request";
 			case "Bash":
 				return "command";

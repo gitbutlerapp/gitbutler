@@ -77,6 +77,7 @@ export type ToolCallName =
 	| "Grep"
 	| "Glob"
 	| "Task"
+	| "Agent"
 	| "TodoWrite"
 	| "WebFetch"
 	| "WebSearch"
