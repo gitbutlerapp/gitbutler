@@ -165,10 +165,11 @@
 
 		<!-- Right panel: diff area -->
 		<div class="right-panel">
-			<!-- Close button is always floating so its position is consistent across both diff modes. -->
-			<div class="floating-actions">
-				<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
-			</div>
+			{#if allInOneDiff}
+				<div class="floating-actions">
+					<Button kind="ghost" icon="cross" size="tag" onclick={onclose} />
+				</div>
+			{/if}
 			<!-- Diff area (single-file or virtual list depending on user setting) -->
 			<div class="diff-area" bind:this={diffScrollContainer}>
 				{#if !allInOneDiff}
@@ -181,6 +182,7 @@
 							collapsable={false}
 							scrollRoot={diffScrollContainer}
 							highlighted={false}
+							{onclose}
 						>
 							{#snippet header()}
 								<FileViewHeader
