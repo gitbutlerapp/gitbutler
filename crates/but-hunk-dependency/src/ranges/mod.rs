@@ -23,13 +23,23 @@ pub struct WorkspaceRanges {
 
 /// An error that can say what went wrong when computing the hunk ranges for a commit in a stack at a given path.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[expect(missing_docs)]
 pub struct CalculationError {
     pub error_message: String,
     pub target: HunkLockTarget,
     #[serde(serialize_with = "but_serde::object_id::serialize")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id")
+    )]
     pub commit_id: gix::ObjectId,
+    #[serde(serialize_with = "but_serde::bstring_lossy::serialize")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring")
+    )]
     pub path: BString,
 }
 

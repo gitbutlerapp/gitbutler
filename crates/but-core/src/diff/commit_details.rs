@@ -13,6 +13,7 @@ pub struct CommitDetails {
 
 /// Line statistics obtained from diffing the blobs of one or more [TreeChange](crate::TreeChange).
 #[derive(Default, Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, serde::Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct LineStats {
     /// The total amount of lines added in the between blobs of the two trees.

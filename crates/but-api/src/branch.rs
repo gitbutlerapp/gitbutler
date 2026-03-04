@@ -62,7 +62,7 @@ pub fn apply(
 }
 
 /// Gets the changes for a given branch.
-#[but_api(TreeChanges)]
+#[but_api(napi, TreeChanges)]
 #[instrument(err(Debug))]
 pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
     let (_guard, _, ws, _) = ctx.workspace_and_db()?;

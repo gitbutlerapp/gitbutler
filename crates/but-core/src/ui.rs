@@ -8,6 +8,7 @@ use crate::IgnoredWorktreeChange;
 
 /// The type returned by [`crate::diff::worktree_changes()`].
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct WorktreeChanges {
     /// Changes that could be committed.
     pub changes: Vec<TreeChange>,
@@ -43,6 +44,7 @@ impl From<crate::WorktreeChanges> for WorktreeChanges {
 
 /// All the changes that were made to the tree, including stats
 #[derive(Default, Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct TreeChanges {
     /// The changes that were made to the tree.
@@ -80,13 +82,22 @@ fn changes_to_unidiff(
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct TreeChange {
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_for_frontend")
+    )]
     pub path: BStringForFrontend,
     /// Something silently carried back and forth between the frontend and the backend.
     #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
     pub path_bytes: BString,
     pub status: TreeStatus,
 }
@@ -102,6 +113,7 @@ impl From<gix::object::tree::diff::Stats> for TreeStats {
 }
 
 #[derive(Default, Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct TreeStats {
     /// The total amount of lines added.
@@ -114,6 +126,7 @@ pub struct TreeStats {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(tag = "type", content = "subject")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum TreeStatus {
@@ -135,10 +148,18 @@ pub enum TreeStatus {
     Rename {
         #[serde(rename = "previousPath")]
         #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(schema_with = "but_schemars::bstring_for_frontend")
+        )]
         previous_path: BStringForFrontend,
         /// Something silently carried back and forth between the frontend and the backend.
         #[serde(rename = "previousPathBytes")]
         #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
+        #[cfg_attr(
+            feature = "export-schema",
+            schemars(schema_with = "but_schemars::bstring_bytes")
+        )]
         previous_path_bytes: BString,
         #[serde(rename = "previousState")]
         previous_state: ChangeState,
@@ -225,21 +246,31 @@ impl From<crate::TreeStatus> for TreeStatus {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub struct ChangeState {
     #[serde(with = "but_serde::object_id")]
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id")
+    )]
     pub id: gix::ObjectId,
     #[cfg_attr(
         feature = "export-ts",
         ts(type = "'Tree' | 'Blob' | 'BlobExecutable' | 'Link' | 'Commit'")
+    )]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::entry_kind")
     )]
     pub kind: EntryKind,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[expect(missing_docs)]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/ui.ts"))]
 pub enum ModeFlags {

@@ -4,6 +4,10 @@ pub fn stack_id_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schem
     generate.subschema_for::<Option<String>>()
 }
 
+pub fn stack_id(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
 pub fn bstring(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<String>()
 }
@@ -57,4 +61,40 @@ struct GixTime {
 
 pub fn gix_time_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<Option<GixTime>>()
+}
+
+pub fn bstring_for_frontend(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<String>()
+}
+
+#[derive(schemars::JsonSchema)]
+#[schemars(rename = "EntryKind")]
+#[allow(dead_code)]
+enum EntryKindSchema {
+    Tree,
+    Blob,
+    BlobExecutable,
+    Link,
+    Commit,
+}
+
+pub fn entry_kind(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<EntryKindSchema>()
+}
+
+/// Schema for `serde_error::Error` which serializes as `{description: string, source?: Error | null}`.
+#[derive(schemars::JsonSchema)]
+#[schemars(rename = "SerdeError")]
+#[allow(dead_code)]
+struct SerdeErrorSchema {
+    description: String,
+    source: Option<Box<SerdeErrorSchema>>,
+}
+
+pub fn serde_error(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<SerdeErrorSchema>()
+}
+
+pub fn serde_error_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<SerdeErrorSchema>>()
 }

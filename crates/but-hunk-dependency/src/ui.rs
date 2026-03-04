@@ -34,8 +34,13 @@ pub fn hunk_dependencies_for_workspace_changes_by_worktree_dir(
 /// Note that the [`errors`](Self::errors) field may contain information about specific failures, while other paths
 /// may have succeeded computing.
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct HunkDependencies {
     /// A map from hunk diffs to stack and commit dependencies.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "hunk_dependency_diffs_schema")
+    )]
     pub diffs: Vec<(String, DiffHunk, Vec<HunkLock>)>,
     /// Errors that occurred during the calculation that should be presented in some way.
     // TODO: Does the UI really use whatever partial result that there may be? Should this be a real error?
@@ -78,10 +83,21 @@ impl HunkDependencies {
     }
 }
 
+#[cfg(feature = "export-schema")]
+fn hunk_dependency_diffs_schema(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    /// A mirror of the tuple `(String, DiffHunk, Vec<HunkLock>)` for schema generation.
+    #[derive(schemars::JsonSchema)]
+    #[allow(dead_code)]
+    struct HunkDependencyDiff(String, DiffHunk, Vec<HunkLock>);
+
+    generate.subschema_for::<Vec<HunkDependencyDiff>>()
+}
+
 /// A commit that owns this lock, along with the stack that owns it.
 /// A hunk is locked when it depends on changes in commits that are in your workspace. A hunk can
 /// be locked to more than one branch if it overlaps with more than one committed hunk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
     /// The ID if available of the stack that contains
@@ -89,12 +105,17 @@ pub struct HunkLock {
     pub target: HunkLockTarget,
     /// The commit the hunk applies to.
     #[serde(with = "but_serde::object_id")]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::object_id")
+    )]
     pub commit_id: gix::ObjectId,
 }
 
 /// The target of a hunk lock. If a stack is identifiable, then it's StackId
 /// will be provided.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase", tag = "type", content = "subject")]
 pub enum HunkLockTarget {
     /// References a stack that has a StackId.

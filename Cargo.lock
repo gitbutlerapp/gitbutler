@@ -1238,9 +1238,11 @@ dependencies = [
  "but-db",
  "but-graph",
  "but-hunk-dependency",
+ "but-schemars",
  "but-serde",
  "gix",
  "itertools",
+ "schemars 1.2.1",
  "serde",
  "serde-error",
  "serde_json",
@@ -1257,11 +1259,13 @@ dependencies = [
  "but-core",
  "but-ctx",
  "but-graph",
+ "but-schemars",
  "but-serde",
  "but-testsupport",
  "gix",
  "insta",
  "itertools",
+ "schemars 1.2.1",
  "serde",
  "serde_json",
 ]
@@ -9104,6 +9108,7 @@ dependencies = [
  "schemars_derive 1.2.1",
  "serde",
  "serde_json",
+ "uuid",
 ]
 
 [[package]]

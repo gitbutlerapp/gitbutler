@@ -15,6 +15,7 @@ pub mod json {
 
     /// The JSON sibling of [but_core::diff::CommitDetails].
     #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
     #[serde(rename_all = "camelCase")]
     pub struct CommitDetails {
         /// The commit itself.
@@ -62,7 +63,7 @@ pub fn commit_details(
 }
 
 /// This function just exists for the frontend to work without the need for line-stats to be enabled explicitly.
-#[but_api(json::CommitDetails)]
+#[but_api(napi, json::CommitDetails)]
 #[instrument(err(Debug))]
 pub fn commit_details_with_line_stats(
     ctx: &Context,

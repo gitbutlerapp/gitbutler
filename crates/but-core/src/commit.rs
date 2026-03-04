@@ -305,6 +305,7 @@ impl Commit<'_> {
 
 /// Represents what was causing a particular commit to conflict when rebased.
 #[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 pub struct ConflictEntries {
     /// The ancestors that were conflicted

@@ -30,7 +30,7 @@ pub fn tree_change_diffs(
 /// * conflicts are ignored
 ///
 /// All ignored status changes are also provided so they can be displayed separately.
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges> {
     let context_lines = ctx.settings.context_lines;
@@ -89,7 +89,7 @@ pub fn changes_in_worktree(ctx: &mut Context) -> anyhow::Result<WorktreeChanges>
     })
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn assign_hunk(
     ctx: &mut Context,

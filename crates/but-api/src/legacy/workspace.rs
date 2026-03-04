@@ -38,7 +38,7 @@ pub fn head_info(ctx: &but_ctx::Context) -> Result<but_workspace::ui::RefInfo> {
     })
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn stacks(
     ctx: &Context,
@@ -138,7 +138,7 @@ fn remove_in_workspace_flag_below_lower_bound(
     }
 }
 
-#[but_api(napi)]
+#[but_api]
 #[instrument(err(Debug))]
 pub fn stack_details(
     ctx: &Context,

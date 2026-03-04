@@ -39,6 +39,7 @@ path-bytes = []
 ## Generate JSON schemas for TypeScript type generation via schemars.
 export-schema = [
     "but-workspace/export-schema",
+    "but-hunk-assignment/export-schema",
     "gitbutler-project/export-schema",
 ]
 ## Make legacy functionality available.

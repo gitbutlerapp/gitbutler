@@ -30,6 +30,7 @@ use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(
     feature = "export-ts",
@@ -49,6 +50,10 @@ pub struct HunkAssignment {
     pub path: String,
     /// The file path of the hunk in bytes.
     #[cfg_attr(feature = "export-ts", ts(type = "number[]"))]
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If None, the hunk is not assigned to any stack.
     #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
@@ -246,6 +251,7 @@ pub struct JsonAbsorbOutput {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 /// Indicates that the assignment request was rejected due to locking - the hunk depends on a commit in the stack it is currently in.
 pub struct AssignmentRejection {
@@ -256,6 +262,7 @@ pub struct AssignmentRejection {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 /// A request to update a hunk assignment.
 /// If a a file has multiple hunks, the UI client should send a list of assignment requests with the appropriate hunk headers.
@@ -265,6 +272,10 @@ pub struct HunkAssignmentRequest {
     /// If the file has hunk headers, then header info MUST be provided.
     pub hunk_header: Option<HunkHeader>,
     /// The file path of the hunk in bytes.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::bstring_bytes")
+    )]
     pub path_bytes: BString,
     /// The stack to which the hunk is assigned. If set to None, the hunk is set as "unassigned".
     /// If a stack id is set, it must be one of the applied stacks.
@@ -272,14 +283,23 @@ pub struct HunkAssignmentRequest {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 /// Same as `but_core::ui::WorktreeChanges`, but with the addition of hunk assignments.
 pub struct WorktreeChanges {
     #[serde(flatten)]
     pub worktree_changes: but_core::ui::WorktreeChanges,
     pub assignments: Vec<HunkAssignment>,
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::serde_error_opt")
+    )]
     pub assignments_error: Option<serde_error::Error>,
     pub dependencies: Option<HunkDependencies>,
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(schema_with = "but_schemars::serde_error_opt")
+    )]
     pub dependencies_error: Option<serde_error::Error>,
 }
 
