@@ -316,7 +316,11 @@ fn schema_to_ts(schema: &serde_json::Value, indent: usize) -> String {
                     let close_padding = "  ".repeat(indent);
 
                     let mut fields: Vec<String> = Vec::new();
-                    for (key, value) in props_obj {
+                    let mut props = props_obj.into_iter().collect::<Vec<_>>();
+                    // We only need a stable ordering here - we don't need to
+                    // really worry about the "best" way to order strings.
+                    props.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+                    for (key, value) in props {
                         let doc = if let Some(desc) = get_description(value) {
                             format_jsdoc(&desc, next_indent)
                         } else {
