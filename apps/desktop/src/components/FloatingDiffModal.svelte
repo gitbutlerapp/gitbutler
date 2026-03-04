@@ -70,7 +70,7 @@
 	let buttonElements = $state<Record<string, HTMLElement>>({});
 	let menuOpenStates = $state<Record<string, boolean>>({});
 
-	const selectedChange = $derived(changes[selectedIndex]);
+	const selectedChange = $derived(changes[selectedIndex] ?? changes[0]);
 
 	function selectChange(index: number) {
 		selectedIndex = index;
@@ -256,10 +256,6 @@
 								{/snippet}
 							</ReduxResult>
 						</Drawer>
-					{:else}
-						<div class="no-file-selected">
-							<p class="text-13 text-body">Select a file to preview its diff</p>
-						</div>
 					{/if}
 				{:else}
 					<!-- All-in-one mode: virtual list of all diffs, file list navigates by scrolling -->
@@ -454,14 +450,6 @@
 		flex-direction: column;
 		overflow-x: hidden;
 		overflow-y: auto;
-	}
-
-	.no-file-selected {
-		display: flex;
-		flex: 1;
-		align-items: center;
-		justify-content: center;
-		color: var(--clr-text-3);
 	}
 
 	/* Virtual list mode: ensure FileViewHeader fills drawer header */
