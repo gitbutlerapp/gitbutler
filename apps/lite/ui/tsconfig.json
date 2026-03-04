@@ -11,10 +11,6 @@
 		"allowImportingTsExtensions": true,
 		"isolatedModules": true,
 		"skipLibCheck": true,
-		"paths": {
-			"@/*": ["./src/*"],
-			"#electron/*": ["../electron/src/*"]
-		},
 		"types": ["vite/client"]
 	},
 	"include": ["src", "../electron/src/ipc.ts", "vite.config.ts", "vitest.config.ts"]

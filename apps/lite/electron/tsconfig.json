@@ -10,9 +10,6 @@
 		"outDir": "../dist/electron",
 		"rootDir": "./src",
 		"verbatimModuleSyntax": false,
-		"paths": {
-			"#electron/*": ["./src/*"]
-		},
 		"types": ["node"],
 		"skipLibCheck": true
 	},
