@@ -72,3 +72,14 @@ impl<const KIND: char> str::FromStr for Id<KIND> {
         Uuid::parse_str(s).map(Into::into)
     }
 }
+
+#[cfg(feature = "export-schema")]
+impl<const KIND: char> schemars::JsonSchema for Id<KIND> {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Owned(format!("Id_{KIND}"))
+    }
+
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        generator.subschema_for::<String>()
+    }
+}

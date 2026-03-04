@@ -82,6 +82,30 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 name: "ProjectForFrontend",
                 schema_fn: || schema_for!(crate::legacy::projects::ProjectForFrontend),
             },
+            TypeSchemaEntry {
+                name: "TreeChange",
+                schema_fn: || schema_for!(but_core::ui::TreeChange),
+            },
+            TypeSchemaEntry {
+                name: "TreeChanges",
+                schema_fn: || schema_for!(but_core::ui::TreeChanges),
+            },
+            TypeSchemaEntry {
+                name: "CommitDetails",
+                schema_fn: || schema_for!(crate::diff::json::CommitDetails),
+            },
+            TypeSchemaEntry {
+                name: "WorktreeChanges",
+                schema_fn: || schema_for!(but_hunk_assignment::WorktreeChanges),
+            },
+            TypeSchemaEntry {
+                name: "HunkAssignmentRequest",
+                schema_fn: || schema_for!(but_hunk_assignment::HunkAssignmentRequest),
+            },
+            TypeSchemaEntry {
+                name: "AssignmentRejection",
+                schema_fn: || schema_for!(but_hunk_assignment::AssignmentRejection),
+            },
         ]
         .into_iter()
         .map(|entry| (entry.name, (entry.schema_fn)()))

@@ -45,6 +45,7 @@ impl From<TreeChange> for DiffSpec {
 /// The header of a hunk that represents a change to a file.
 #[derive(Clone, Copy, PartialEq, Eq, Ord, PartialOrd, Serialize, Deserialize, Hash)]
 #[cfg_attr(feature = "export-ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "export-ts", ts(export, export_to = "./core/diffTypes.ts"))]
 pub struct HunkHeader {

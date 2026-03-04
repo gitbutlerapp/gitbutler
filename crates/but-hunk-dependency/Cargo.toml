@@ -9,6 +9,9 @@ rust-version.workspace = true
 [lib]
 doctest = false
 
+[features]
+export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema"]
+
 [dependencies]
 but-core.workspace = true
 but-serde.workspace = true
@@ -19,6 +22,8 @@ anyhow.workspace = true
 itertools.workspace = true
 serde.workspace = true
 gix = { workspace = true, features = [] }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 but-testsupport.workspace = true

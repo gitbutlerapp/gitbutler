@@ -11,6 +11,7 @@ doctest = false
 
 [features]
 export-ts = ["dep:ts-rs", "but-core/export-ts"]
+export-schema = ["dep:schemars", "dep:but-schemars", "but-core/export-schema", "but-hunk-dependency/export-schema"]
 
 [dependencies]
 but-core.workspace = true
@@ -30,6 +31,8 @@ uuid.workspace = true
 bstr.workspace = true
 tracing.workspace = true
 ts-rs = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+but-schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 uuid.workspace = true
