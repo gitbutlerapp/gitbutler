@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { abbreviateFolders, changesToFileTree } from "$lib/files/filetreeV3";
+	import { abbreviateFolders, changesToFileTree, nodePath } from "$lib/files/filetreeV3";
 	import { isExecutableStatus } from "$lib/hunks/change";
 	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { FileListItem, FolderListItem } from "@gitbutler/ui";
@@ -62,11 +62,11 @@
 	{:else}
 		<FolderListItem
 			name={node.name}
-			isExpanded={isFolderExpanded(node.name)}
+			isExpanded={isFolderExpanded(nodePath(node))}
 			{depth}
-			ontoggle={(v) => folderExpanded.set(node.name, v)}
+			ontoggle={(v) => folderExpanded.set(nodePath(node), v)}
 		/>
-		{#if isFolderExpanded(node.name)}
+		{#if isFolderExpanded(nodePath(node))}
 			{#each node.children as child (child.name)}
 				{@render treeNodes(child, depth + 1)}
 			{/each}
