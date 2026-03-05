@@ -12,7 +12,7 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
 };
 
-use crate::{CliId, IdMap, command::legacy::rub::parse_sources, utils::OutputChannel};
+use crate::{CliId, IdMap, id::parser::parse_sources, utils::OutputChannel};
 
 /// Handle the `but discard <id>` command.
 ///

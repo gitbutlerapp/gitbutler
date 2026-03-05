@@ -14,7 +14,9 @@ use gitbutler_oplog::{
 use itertools::Itertools;
 
 use crate::{
-    CliId, IdMap, command::legacy::rub::parse_sources, id::UncommittedCliId, utils::OutputChannel,
+    CliId, IdMap,
+    id::{UncommittedCliId, parser::parse_sources},
+    utils::OutputChannel,
 };
 /// Amends changes into the appropriate commits where they belong.
 ///
