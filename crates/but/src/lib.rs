@@ -319,6 +319,13 @@ async fn match_subcommand(
 
             result.emit_metrics(metrics_ctx)
         }
+        Subcommands::Stack {
+            branch,
+            target_branch,
+        } => {
+            let ctx = but_ctx::Context::discover(&args.current_dir)?;
+            command::branch::move_branch(ctx, &branch, &target_branch, out)
+        }
         Subcommands::Branch(branch::Platform { cmd }) => match cmd {
             #[cfg(not(feature = "legacy"))]
             None => todo!("implement list and call recursively"),

@@ -345,6 +345,17 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Branch(branch::Platform),
 
+    /// Move branches on top of others to stack them.
+    #[clap(verbatim_doc_comment)]
+    Stack {
+        /// The branch being moved.
+        #[clap(value_name = "BRANCH")]
+        branch: String,
+        /// The branch to move the other on top off.
+        #[clap(value_name = "TARGET_BRANCH")]
+        target_branch: String,
+    },
+
     /// Commands for managing worktrees.
     ///
     /// GitButler worktrees allow you to have multiple working directories
