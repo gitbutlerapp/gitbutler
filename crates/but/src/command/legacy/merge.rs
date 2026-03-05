@@ -4,7 +4,10 @@ use anyhow::bail;
 use but_ctx::Context;
 use colored::Colorize;
 
-use crate::{CliId, IdMap, utils::OutputChannel};
+use crate::{
+    CliId, IdMap,
+    utils::{OutputChannel, shorten_object_id},
+};
 
 pub async fn handle(
     ctx: &mut Context,
@@ -70,9 +73,9 @@ pub async fn handle(
             progress,
             "Merging {} ({}) into {} ({})",
             branch_name.bright_cyan(),
-            merge_in_branch_head_oid.to_string()[..7].bright_black(),
+            shorten_object_id(&repo, merge_in_branch_head_oid).bright_black(),
             local_branch_name.bright_cyan(),
-            local_branch_head_oid.to_string()[..7].bright_black()
+            shorten_object_id(&repo, local_branch_head_oid).bright_black()
         )?;
 
         // do the merge

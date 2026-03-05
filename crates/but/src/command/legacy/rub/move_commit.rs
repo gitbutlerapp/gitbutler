@@ -7,7 +7,7 @@ use gitbutler_stack::VirtualBranchesHandle;
 use gix::ObjectId;
 
 use super::{assign::branch_name_to_stack_id, undo::stack_id_by_commit_id};
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, shorten_object_id};
 
 pub(crate) fn to_branch(
     ctx: &mut Context,
@@ -69,10 +69,11 @@ pub(crate) fn to_branch(
         bail!("Illegal move")
     }
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
         writeln!(
             out,
             "Moved {} → {}",
-            oid.to_string()[..7].blue(),
+            shorten_object_id(&repo, *oid).blue(),
             format!("[{branch_name}]").green()
         )?;
     } else if let Some(out) = out.for_json() {
