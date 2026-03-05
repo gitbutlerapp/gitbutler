@@ -12,7 +12,7 @@ pub struct DiffSpec {
     #[serde(rename = "previousPathBytes")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring_opt")
+        schemars(schema_with = "but_schemars::bstring_bytes_opt")
     )]
     pub previous_path: Option<BString>,
     /// The worktree-relative path to the worktree file with the content to commit.
@@ -21,7 +21,7 @@ pub struct DiffSpec {
     #[serde(rename = "pathBytes")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring")
+        schemars(schema_with = "but_schemars::bstring_bytes")
     )]
     pub path: BString,
     /// If one or more hunks are specified, match them with actual changes currently in the worktree.
