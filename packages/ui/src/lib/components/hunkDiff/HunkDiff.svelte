@@ -249,15 +249,11 @@
 	}
 
 	.table__drag-handle {
-		box-sizing: border-box;
 		display: flex;
 		position: absolute;
 		top: 6px;
 		right: 6px;
-		align-items: center;
-		justify-content: center;
-		transform-origin: top right;
-		color: var(--clr-text-2);
+		color: var(--clr-text-3);
 		opacity: 0;
 		pointer-events: none;
 		transition: opacity 0.15s;
