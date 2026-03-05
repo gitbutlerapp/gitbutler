@@ -228,6 +228,16 @@
 				onVisibleChange={(range) => {
 					if (range) {
 						highlightedIndex = range.start;
+						const firstVisibleChange = changes[range.start];
+						const selectionSize = idSelection.collectionSize(selectionId);
+						const shouldFollowScrollSelection = selectionSize <= 1;
+						if (
+							firstVisibleChange &&
+							shouldFollowScrollSelection &&
+							!idSelection.has(firstVisibleChange.path, selectionId)
+						) {
+							idSelection.set(firstVisibleChange.path, selectionId, range.start);
+						}
 					}
 					onVisibleChange?.(range);
 				}}
