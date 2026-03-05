@@ -20,7 +20,7 @@ export function getToolIcon(toolName: string): IconName {
 	if (name.includes("todo")) {
 		return "checklist";
 	}
-	if (name.includes("grep") || name.includes("search")) {
+	if (name.includes("grep") || name.includes("search") || name.includes("toolsearch")) {
 		return "search";
 	}
 	if (name.includes("bash") || name.includes("terminal") || name.includes("shell")) {
@@ -75,6 +75,9 @@ const KNOWN_TOOLS = [
 	"Agent",
 	"EnterPlanMode",
 	"ExitPlanMode",
+	"ToolSearch",
+	"EnterWorktree",
+	"LSP",
 ] as const;
 
 export function formatToolCall(toolCall: ToolCall): string {
@@ -141,6 +144,15 @@ export function formatToolCall(toolCall: ToolCall): string {
 
 		case "ExitPlanMode":
 			return "Exiting plan mode";
+
+		case "ToolSearch":
+			return input["query"] || "Searching tools";
+
+		case "EnterWorktree":
+			return input["path"] || "Entering worktree";
+
+		case "LSP":
+			return input["command"] || "LSP operation";
 
 		default: {
 			// Log unknown tool types for debugging
