@@ -3,7 +3,7 @@
 		| "branch"
 		| "branch-local"
 		| "branch-double-commit"
-		| "branch-tick"
+		| "branch-merge"
 		| "home";
 </script>
 
@@ -21,7 +21,7 @@
 </script>
 
 <div class="stack__status--icon" style:--bg-color={color} class:small class:large>
-	<Icon name={iconName} />
+	<Icon name={iconName} size={15} />
 </div>
 
 <style>

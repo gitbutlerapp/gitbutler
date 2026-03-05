@@ -25,7 +25,7 @@ export function getIconFromCommitState(
 		case "LocalAndRemote":
 			return commitState.subject !== commitId ? "branch-double-commit" : "branch";
 		case "Integrated":
-			return "branch-tick";
+			return "branch-merge";
 		default:
 			return "branch-local";
 	}
