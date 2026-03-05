@@ -445,8 +445,15 @@ jobs:
             --header "X-Auth-Token: ${BOT_AUTH_TOKEN}" \
             --data "$payload"
 
-  create-git-tag:
+  smoke-test-version-compatibility:
     needs: [notify-gitbutler-api, build-tauri, publish-tauri]
+    uses: ./.github/workflows/smoke-test-version-compatibility.yaml
+    with:
+      channel: ${{ needs.build-tauri.outputs.channel }}
+      expected_nightly_version: ${{ needs.publish-tauri.outputs.version }}
+
+  create-git-tag:
+    needs: [smoke-test-version-compatibility, build-tauri, publish-tauri]
     runs-on: ubuntu-latest
     permissions:
       contents: write # needed to push tags

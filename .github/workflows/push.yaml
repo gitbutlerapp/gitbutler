@@ -70,6 +70,16 @@ jobs:
             install_script:
               - 'scripts/install.sh'
 
+  # This smoke test is here only because we have somewhat poor visibility on the scheduled nightly
+  # builds (whether they fail or succeed). It's my hope that by having this as a non-required check
+  # on every push, we'll be quicker to detect that there is an incompatibility.
+  #
+  # It should absolutely _not_ be a required check, however, as it checks nightly <-> release. The
+  # fact that the latest nightly is incompatible with the latest release cannot possibly be related
+  # to the current push. This is just a signal for us that we should check it out.
+  smoke-test-adjacent-release-compatibility:
+    uses: ./.github/workflows/smoke-test-version-compatibility.yaml
+
   prettier:
     needs: changes
     if: ${{ needs.changes.outputs.node == 'true' || needs.changes.outputs.docs == 'true' }}
