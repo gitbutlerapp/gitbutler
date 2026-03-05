@@ -25,17 +25,14 @@
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
-
-	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 	import { AsyncButton, Button, Modal, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
 	import type { BranchFilterOption, SidebarEntrySubject } from "$lib/branches/branchListing";
+
 	type Props = {
 		projectId: string;
 	};
-
-	const { projectId }: Props = $props();
 
 	type BranchesSelection =
 		| {
@@ -48,6 +45,9 @@
 		| { type: "pr"; prNumber: number }
 		| { type: "target"; commitId?: string };
 
+	const { projectId }: Props = $props();
+
+	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
