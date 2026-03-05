@@ -24,6 +24,7 @@ use crate::id::{
 
 mod file_info;
 mod id_usage;
+pub mod parser;
 mod stacks_info;
 mod uncommitted_info;
 

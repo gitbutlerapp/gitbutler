@@ -12,7 +12,7 @@ use tracing::instrument;
 
 use crate::{
     CliId, IdMap,
-    command::legacy::rub::parse_sources,
+    id::parser::parse_sources,
     tui::get_text::{self, HTML_COMMENT_END_MARKER, HTML_COMMENT_START_MARKER},
     utils::{Confirm, ConfirmDefault, OutputChannel},
 };
