@@ -4,22 +4,17 @@ import { createSelectByIds } from "$lib/state/customSelectors";
 import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { toSerializable } from "@gitbutler/shared/network/types";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import {
-	createEntityAdapter,
-	type EntityState,
-	type ThunkDispatch,
-	type UnknownAction,
-} from "@reduxjs/toolkit";
+import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import type { ForgeListingService } from "$lib/forge/interface/forgeListingService";
 import type { PullRequest } from "$lib/forge/interface/types";
-import type { GitLabApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch, GitLabApi } from "$lib/state/clientState.svelte";
 
 export class GitLabListingService implements ForgeListingService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
 		gitLabApi: GitLabApi,
-		private readonly dispatch: ThunkDispatch<any, any, UnknownAction>,
+		private readonly dispatch: AppDispatch,
 	) {
 		this.api = injectEndpoints(gitLabApi);
 	}

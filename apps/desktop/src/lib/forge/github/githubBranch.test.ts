@@ -1,7 +1,7 @@
 import { GitHub } from "$lib/forge/github/github";
 import { setupMockGitHubApi } from "$lib/testing/mockGitHubApi.svelte";
 import { expect, test, describe, vi } from "vitest";
-import type { BackendApi } from "$lib/state/clientState.svelte";
+import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe("GitHubBranch", () => {
@@ -28,7 +28,7 @@ describe("GitHubBranch", () => {
 			baseBranch,
 			authenticated: true,
 			isLoading: false,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 		});
 		const branch = gh.branch(name);
 		expect(branch?.url).toMatch(new RegExp(`...${name}$`));
@@ -45,7 +45,7 @@ describe("GitHubBranch", () => {
 			forkStr,
 			authenticated: true,
 			isLoading: false,
-			dispatch: () => {},
+			dispatch: vi.fn() as unknown as AppDispatch,
 		});
 		const branch = gh.branch(name);
 		expect(branch?.url).toMatch(new RegExp(`...${forkStr}:${name}$`));

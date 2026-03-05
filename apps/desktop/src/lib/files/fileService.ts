@@ -1,7 +1,7 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
 import type { FileInfo } from "$lib/files/file";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const FILE_SERVICE = new InjectionToken<FileService>("FileService");
 
@@ -10,9 +10,9 @@ export class FileService {
 
 	constructor(
 		private backend: IBackend,
-		state: ClientState,
+		api: BackendApi,
 	) {
-		this.api = injectEndpoints(state.backendApi);
+		this.api = injectEndpoints(api);
 	}
 
 	async readFromWorkspace(filePath: string, projectId: string) {
@@ -70,7 +70,7 @@ function isLarge(size: number | undefined) {
 	return size && size > 5 * 1024 * 1024 ? true : false;
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			findFiles: build.query<string[], { projectId: string; query: string; limit: number }>({

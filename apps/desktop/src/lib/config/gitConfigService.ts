@@ -1,7 +1,7 @@
 import { invalidatesItem, invalidatesList, providesItem, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
 import type { GitConfigSettings } from "@gitbutler/core/api";
 
 export const GIT_CONFIG_SERVICE = new InjectionToken<GitConfigService>("GitConfigService");
@@ -10,10 +10,11 @@ export class GitConfigService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		private clientApi: ClientState,
+		api: BackendApi,
+		private dispatch: AppDispatch,
 		private backend: IBackend,
 	) {
-		this.api = injectEndpoints(clientApi.backendApi);
+		this.api = injectEndpoints(api);
 	}
 	async get<T extends string>(key: string): Promise<T | undefined> {
 		return ((await this.api.endpoints.gitGetGlobalConfig.fetch({ key })) as T) ?? undefined;
@@ -33,9 +34,7 @@ export class GitConfigService {
 	}
 
 	invalidateGitConfig() {
-		this.clientApi.dispatch(
-			this.api.util.invalidateTags([invalidatesList(ReduxTag.GitConfigProperty)]),
-		);
+		this.dispatch(this.api.util.invalidateTags([invalidatesList(ReduxTag.GitConfigProperty)]));
 	}
 
 	gbConfig(projectId: string) {
@@ -100,7 +99,7 @@ export class GitConfigService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			gitGetGlobalConfig: build.query<unknown, { key: string }>({

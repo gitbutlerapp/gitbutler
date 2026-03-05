@@ -22,8 +22,6 @@ import {
 import { showError } from "$lib/notifications/toasts";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
-import persistReducer from "redux-persist/es/persistReducer";
-import storage from "redux-persist/lib/storage";
 import type { IrcClient } from "$lib/irc/ircClient.svelte";
 import type { IrcEvent } from "$lib/irc/parser";
 import type { IrcChannel, IrcChat, WhoInfo } from "$lib/irc/types";
@@ -46,20 +44,10 @@ export class IrcService {
 		private dispatch: ThunkDispatch<any, any, UnknownAction>,
 		private ircClient: IrcClient,
 	) {
-		const persistConfig = {
-			key: ircSlice.reducerPath,
-			storage: storage,
-		};
-
-		clientState.inject(ircSlice.reducerPath, persistReducer(persistConfig, ircSlice.reducer));
+		const getSlice = clientState.injectPersistedSlice(ircSlice);
 
 		$effect(() => {
-			if (clientState.reactiveState) {
-				if (ircSlice.reducerPath in clientState.reactiveState) {
-					// @ts-expect-error code-splitting means it's not defined in client state.
-					this.state = clientState.reactiveState[ircSlice.reducerPath] as IRCState;
-				}
-			}
+			this.state = getSlice() ?? ircSlice.getInitialState();
 		});
 
 		$effect(() => {

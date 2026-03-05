@@ -1,6 +1,6 @@
 import { InjectionToken } from "@gitbutler/core/context";
 import type { TreeChanges } from "$lib/hunks/change";
-import type { BackendApi, ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const OPLOG_SERVICE = new InjectionToken<OplogService>("OplogService");
 
@@ -36,7 +36,7 @@ export class OplogService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			oplogDiffWorktrees: build.query<TreeChanges, { projectId: string; snapshotId: string }>({

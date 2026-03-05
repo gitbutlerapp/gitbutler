@@ -3,7 +3,7 @@ import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { ConflictEntryPresence } from "$lib/conflictEntryPresence";
 import type { TreeChange } from "$lib/hunks/change";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export interface EditModeMetadata {
 	commitOid: string;
@@ -41,8 +41,8 @@ export const MODE_SERVICE = new InjectionToken<ModeService>("ModeService");
 export class ModeService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(state: ClientState["backendApi"]) {
-		this.api = injectEndpoints(state);
+	constructor(api: BackendApi) {
+		this.api = injectEndpoints(api);
 	}
 
 	get enterEditMode() {
@@ -88,7 +88,7 @@ export class ModeService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			enterEditMode: build.mutation<void, { projectId: string; commitId: string; stackId: string }>(

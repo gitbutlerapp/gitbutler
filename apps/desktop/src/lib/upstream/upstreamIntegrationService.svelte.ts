@@ -2,7 +2,7 @@ import { invalidatesList, providesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
 import type { StackService } from "$lib/stacks/stackService.svelte";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 import type {
 	BaseBranchResolution,
 	BaseBranchResolutionApproach,
@@ -20,10 +20,10 @@ export class UpstreamIntegrationService {
 	private api: ReturnType<typeof injectEndpoints>;
 
 	constructor(
-		state: ClientState,
+		api: BackendApi,
 		private stackService: StackService,
 	) {
-		this.api = injectEndpoints(state.backendApi);
+		this.api = injectEndpoints(api);
 	}
 
 	async upstreamStatuses(
@@ -70,7 +70,7 @@ export class UpstreamIntegrationService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			upstreamIntegrationStatuses: build.query<
