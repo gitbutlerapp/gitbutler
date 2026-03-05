@@ -473,6 +473,7 @@ pub fn split_branch(
         &refname,
         None,
         None,
+        None,
         guard.write_permission(),
     )?;
 

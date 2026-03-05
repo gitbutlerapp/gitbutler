@@ -109,9 +109,10 @@ pub fn create_virtual_branch_from_branch(
     branch: Refname,
     remote: Option<RemoteRefname>,
     pr_number: Option<usize>,
+    order: Option<usize>,
 ) -> Result<gitbutler_branch_actions::CreateBranchFromBranchOutcome> {
     let outcome = gitbutler_branch_actions::create_virtual_branch_from_branch(
-        ctx, &branch, remote, pr_number,
+        ctx, &branch, remote, pr_number, order,
     )?;
     Ok(outcome.into())
 }

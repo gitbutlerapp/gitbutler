@@ -25,6 +25,8 @@
 	import { combineResults } from "$lib/state/helpers";
 	import { inject } from "@gitbutler/core/context";
 	import { persisted } from "@gitbutler/shared/persisted";
+
+	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 	import { AsyncButton, Button, Modal, TestId } from "@gitbutler/ui";
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
@@ -80,6 +82,7 @@
 				branch: branchRef,
 				remote: remoteRef,
 				prNumber,
+				order: $addToLeftmost ? 0 : undefined,
 			});
 			handleCreateBranchFromBranchOutcome(outcome);
 			await baseBranchService.refreshBaseBranch(projectId);

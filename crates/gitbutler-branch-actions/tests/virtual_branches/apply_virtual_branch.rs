@@ -106,6 +106,7 @@ fn rebase_commit() {
             &unapplied_branch,
             None,
             None,
+            None,
         )
         .unwrap();
 
