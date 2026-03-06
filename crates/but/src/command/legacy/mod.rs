@@ -8,6 +8,7 @@ pub mod branch;
 pub mod commit;
 pub mod diff;
 pub mod discard;
+pub mod edit_mode;
 pub mod forge;
 pub mod mark;
 pub mod mcp;

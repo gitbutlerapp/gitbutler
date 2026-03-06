@@ -11,6 +11,7 @@ pub enum CommandName {
     Rub,
     Diff,
     Edit,
+    EditMode,
     Show,
     Commit,
     CommitEmpty,

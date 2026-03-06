@@ -384,6 +384,50 @@ but resolve cancel
 3. `but resolve status` - Check progress
 4. `but resolve finish` - Complete
 
+## Edit Mode
+
+Edit any commit in your stack by checking it out, making changes, and saving.
+
+### `but edit-mode <commit>`
+
+Enter edit mode for a commit.
+
+```bash
+but edit-mode <commit-id>
+```
+
+### `but edit-mode status`
+
+Show files changed during the edit session.
+
+```bash
+but edit-mode status
+```
+
+### `but edit-mode finish`
+
+Save changes and return to workspace mode.
+
+```bash
+but edit-mode finish
+```
+
+### `but edit-mode cancel`
+
+Cancel edit and return to workspace mode.
+
+```bash
+but edit-mode cancel
+but edit-mode cancel --force  # discard changes
+```
+
+**Workflow:**
+
+1. `but edit-mode <commit>` - Enter edit mode
+2. Make your changes to files
+3. `but edit-mode status` - Check changes
+4. `but edit-mode finish` - Save
+
 ## Remote Operations
 
 ### `but push [branch]`
