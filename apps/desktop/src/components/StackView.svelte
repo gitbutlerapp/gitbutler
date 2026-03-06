@@ -644,7 +644,7 @@
 												{#snippet children(commit)}
 													<MultiDiffView
 														{stackId}
-														selectionId={{ type: "commit", commitId }}
+														selectionId={{ type: "commit", commitId, stackId: stableStackId }}
 														bind:this={multiDiffView}
 														projectId={stableProjectId}
 														changes={commit.changes}
@@ -681,7 +681,12 @@
 									{#snippet children(result)}
 										<MultiDiffView
 											{stackId}
-											selectionId={{ type: "branch", branchName, remote: undefined }}
+											selectionId={{
+												type: "branch",
+												branchName,
+												remote: undefined,
+												stackId: stableStackId,
+											}}
 											changes={result.changes}
 											bind:this={multiDiffView}
 											projectId={stableProjectId}
