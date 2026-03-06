@@ -46,14 +46,15 @@ pub(crate) mod function {
     ) -> Result<CommitAmendOutcome> {
         let (target_selector, target) = editor.find_selectable_commit(commit)?;
 
-        if target.is_conflicted() {
+        let target_id = target.id;
+        if target.attach(editor.repo()).is_conflicted() {
             bail!("Cannot amend a conflicted commit")
         }
 
         let create_out = create_commit(
             editor.repo(),
             Destination::AmendCommit {
-                commit_id: target.id.into(),
+                commit_id: target_id,
                 new_message: None,
             },
             changes,

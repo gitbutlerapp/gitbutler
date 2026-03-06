@@ -44,6 +44,8 @@ impl Editor {
         let mut output_graph = StepGraph::new();
         let mut unchanged_references = vec![];
 
+        let mut history = self.history;
+
         for step_idx in steps_to_pick {
             // Do the frikkin rebase man!
             let step = self.graph[step_idx].clone();
@@ -87,6 +89,9 @@ impl Editor {
                             new_pick.id = new_id;
                             let new_idx = output_graph.add_node(Step::Pick(new_pick));
                             graph_mapping.insert(step_idx, new_idx);
+                            if !pick.exclude_from_tracking {
+                                history.update_mapping(pick.id, new_id);
+                            }
 
                             new_idx
                         }
@@ -202,7 +207,6 @@ impl Editor {
             }
         }
 
-        let mut history = self.history;
         history.add_revision(graph_mapping);
 
         Ok(SuccessfulRebase {

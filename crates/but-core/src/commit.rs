@@ -211,6 +211,20 @@ impl std::ops::DerefMut for Commit<'_> {
     }
 }
 
+impl std::ops::Deref for CommitOwned {
+    type Target = gix::objs::Commit;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::ops::DerefMut for CommitOwned {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
 impl Headers {
     /// Return `true` if this commit contains a tree that is conflicted.
     pub fn is_conflicted(&self) -> bool {

@@ -6,7 +6,7 @@
 
 mod creation;
 pub mod rebase;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result, bail};
 pub use creation::GraphExt;
@@ -41,6 +41,11 @@ pub struct Pick {
     /// If set to true, the rebase engine will try to sign the commit if it
     /// gets cherry-picked and the user has configured signing.
     pub sign_if_configured: bool,
+    /// Exclude the commit from being included in the
+    /// [`RevisionHistory::commit_mappings()`]. This is helpful if we are
+    /// creating a new commit since the the mappings will be non-sensical to the
+    /// frontend consumers.
+    pub exclude_from_tracking: bool,
 }
 
 impl Pick {
@@ -52,7 +57,18 @@ impl Pick {
             conflictable: true,
             parents_must_be_references: false,
             sign_if_configured: true,
+            exclude_from_tracking: false,
         }
+    }
+
+    /// Creates a pick with the expected defaults, but is excluded from being
+    /// included from the [`RevisionHistory::commit_mappings()`] output. This is
+    /// often preferable if you are doing something like an
+    /// `insert_blank_commit` operation.
+    pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
+        let mut pick = Self::new_pick(id);
+        pick.exclude_from_tracking = true;
+        pick
     }
 
     /// Creates a pick with the defaults set for a workspace commit
@@ -63,6 +79,7 @@ impl Pick {
             conflictable: false,
             parents_must_be_references: true,
             sign_if_configured: false,
+            exclude_from_tracking: false,
         }
     }
 }
@@ -85,6 +102,14 @@ impl Step {
     /// Creates a pick with the expected defaults
     pub fn new_pick(id: gix::ObjectId) -> Self {
         Self::Pick(Pick::new_pick(id))
+    }
+
+    /// Creates a pick with the expected defaults, but is excluded from being
+    /// included from the [`RevisionHistory::commit_mappings()`] output. This is
+    /// often preferable if you are doing something like an
+    /// `insert_blank_commit` operation.
+    pub fn new_untracked_pick(id: gix::ObjectId) -> Self {
+        Self::Pick(Pick::new_untracked_pick(id))
     }
 }
 
@@ -195,6 +220,7 @@ pub struct Editor {
     checkouts: Vec<Checkout>,
     /// The in-memory repository that the rebase engine works with.
     repo: gix::Repository,
+    /// Provides data about how the editor instance was transformed.
     history: RevisionHistory,
 }
 
@@ -210,14 +236,16 @@ pub struct SuccessfulRebase {
     /// The new step graph
     pub(crate) graph: StepGraph,
     pub(crate) checkouts: Vec<Checkout>,
-    pub(crate) history: RevisionHistory,
+    /// Provides data about how the editor instance was transformed.
+    pub history: RevisionHistory,
 }
 
 /// The outcome of a materialize
 #[derive(Debug, Clone)]
 pub struct MaterializeOutcome {
     pub(crate) graph: StepGraph,
-    pub(crate) history: RevisionHistory,
+    /// Provides data about how the editor instance was transformed.
+    pub history: RevisionHistory,
 }
 
 /// Provides lookup for different steps that a selector might point to.
@@ -265,9 +293,16 @@ fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector)
     Ok(graph[normalized.id].clone())
 }
 
+/// Provides data about how the editor instance was transformed.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct RevisionHistory {
+pub struct RevisionHistory {
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
+    /// A mapping from any commits that were in the origional mapping to a
+    /// rewritten version.
+    ///
+    /// Unintuatively, the values are the origional values, and the keys are the
+    /// _new_ values that they have been mapped to.
+    commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }
 
 impl RevisionHistory {
@@ -277,6 +312,27 @@ impl RevisionHistory {
 
     pub(crate) fn current_revision(&self) -> usize {
         self.mappings.len()
+    }
+
+    /// The commit mappings starts empty, and gets updated when we perform a cherry pick.
+    /// If there is no entry whose old `to` that cooresponds with the new
+    /// `from`, then we just add a `to <- from` entry.
+    /// If there is an entry whose old `to` that cooresponds with the new
+    /// `from`, then we replace `old_to <- old_from` with `new_to <- old_from`
+    pub(crate) fn update_mapping(&mut self, from: gix::ObjectId, to: gix::ObjectId) {
+        if let Some(value) = self.commit_mappings.remove(&from) {
+            self.commit_mappings.insert(to, value);
+        } else {
+            self.commit_mappings.insert(to, from);
+        };
+    }
+
+    /// Provides a mapping between commits that were rewritten as part of the transformation.
+    pub fn commit_mappings(&self) -> BTreeMap<gix::ObjectId, gix::ObjectId> {
+        self.commit_mappings
+            .iter()
+            .filter_map(|(k, v)| if k == v { None } else { Some((*v, *k)) })
+            .collect()
     }
 
     pub(crate) fn normalize_selector(&self, mut selector: Selector) -> Result<Selector> {
@@ -312,7 +368,8 @@ mod test {
                 preserved_parents: None,
                 conflictable: false,
                 parents_must_be_references: true,
-                sign_if_configured: false
+                sign_if_configured: false,
+                exclude_from_tracking: false
             }
         );
 
@@ -330,7 +387,8 @@ mod test {
                 preserved_parents: None,
                 conflictable: true,
                 parents_must_be_references: false,
-                sign_if_configured: true
+                sign_if_configured: true,
+                exclude_from_tracking: false
             }
         );
 
