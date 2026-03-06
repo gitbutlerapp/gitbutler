@@ -334,19 +334,19 @@ pub fn get_branch_listing_details(
     Ok(branches)
 }
 
+/// Squash `source_commit_ids` into `target_commit_id` within the stack identified by `stack_id`.
 #[but_api]
 #[instrument(err(Debug))]
 pub fn squash_commits(
     ctx: &mut Context,
     stack_id: StackId,
-    source_commit_ids: Vec<String>,
+    source_commit_ids: Vec<gix::ObjectId>,
     target_commit_id: gix::ObjectId,
 ) -> Result<()> {
     let source_commit_ids: Vec<git2::Oid> = source_commit_ids
         .into_iter()
-        .map(|oid| git2::Oid::from_str(&oid))
-        .collect::<Result<_, _>>()
-        .map_err(|e| anyhow!(e))?;
+        .map(|oid| oid.to_git2())
+        .collect();
     gitbutler_branch_actions::squash_commits(
         ctx,
         stack_id,
@@ -442,16 +442,15 @@ pub fn update_commit_message(
     Ok(new_commit_id.to_string())
 }
 
+/// Compute upstream integration statuses, optionally scoped to `target_commit_id`.
 #[but_api]
 #[instrument(err(Debug))]
 pub async fn upstream_integration_statuses(
     ctx: ThreadSafeContext,
-    target_commit_id: Option<String>,
+    target_commit_id: Option<gix::ObjectId>,
 ) -> Result<StackStatuses> {
     let (base_branch, commit_id, ctx) = {
-        let commit_id = target_commit_id
-            .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
-            .transpose()?;
+        let commit_id = target_commit_id.map(|commit_id| commit_id.to_git2());
         let ctx = ctx.into_thread_local();
 
         // Get all the actively applied reviews

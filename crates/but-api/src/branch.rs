@@ -8,6 +8,34 @@ use but_workspace::branch::{
 };
 use tracing::instrument;
 
+/// JSON transport types for branch APIs.
+pub mod json {
+    use serde::Serialize;
+
+    /// JSON sibling of [`but_workspace::branch::apply::Outcome`].
+    #[derive(Debug, Serialize)]
+    #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+    #[serde(rename_all = "camelCase")]
+    pub struct ApplyOutcome {
+        /// Whether the workspace changed while applying the branch.
+        pub workspace_changed: bool,
+        /// The branches that were actually applied.
+        pub applied_branches: Vec<crate::json::FullRefName>,
+        /// Whether the workspace reference had to be created.
+        pub workspace_ref_created: bool,
+    }
+
+    impl<'a> From<but_workspace::branch::apply::Outcome<'a>> for ApplyOutcome {
+        fn from(value: but_workspace::branch::apply::Outcome<'a>) -> Self {
+            ApplyOutcome {
+                workspace_changed: value.workspace_changed(),
+                applied_branches: value.applied_branches.into_iter().map(Into::into).collect(),
+                workspace_ref_created: value.workspace_ref_created,
+            }
+        }
+    }
+}
+
 /// Apply `existing_branch` to the workspace in the repository that `ctx` refers to, or create the workspace with default name.
 pub fn apply_only(
     ctx: &mut but_ctx::Context,
@@ -37,8 +65,9 @@ pub fn apply_only(
     Ok(out)
 }
 
-// TODO: generate this with an improved `api_cmd` macro.
 /// Just like [apply_only()], but will create an oplog entry as well on success.
+#[but_api(json::ApplyOutcome)]
+#[instrument(err(Debug))]
 pub fn apply(
     ctx: &mut but_ctx::Context,
     existing_branch: &gix::refs::FullNameRef,
@@ -65,8 +94,7 @@ pub fn apply(
 #[but_api(napi, TreeChanges)]
 #[instrument(err(Debug))]
 pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges> {
-    let (_guard, _, ws, _) = ctx.workspace_and_db()?;
-    let repo = ctx.repo.get()?;
-    let reference = repo.find_reference(&branch)?;
-    but_workspace::ui::diff::changes_in_branch(&repo, &ws, reference.name())
+    let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
+    let branch = repo.find_reference(&branch)?;
+    but_workspace::ui::diff::changes_in_branch(&repo, &ws, branch.name())
 }

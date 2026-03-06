@@ -69,7 +69,7 @@ pub fn handle(
         let commit_hex = commit_oid.to_string();
 
         // Check cherry-apply status for each commit
-        let status = cherry_apply::cherry_apply_status(ctx, commit_hex.clone())
+        let status = cherry_apply::cherry_apply_status(ctx, *commit_oid)
             .context("Failed to check cherry-apply status")?;
 
         // Resolve the target stack based on status and user input
@@ -77,7 +77,7 @@ pub fn handle(
             resolve_target_stack(ctx, out, &stacks, effective_target, &status, &commit_hex)?;
 
         // Execute cherry-apply
-        cherry_apply::cherry_apply(ctx, commit_hex.clone(), target_stack_id)
+        cherry_apply::cherry_apply(ctx, *commit_oid, target_stack_id)
             .context("Failed to cherry-pick commit")?;
 
         picked.push((commit_hex, target_branch_name, target_stack_id));
