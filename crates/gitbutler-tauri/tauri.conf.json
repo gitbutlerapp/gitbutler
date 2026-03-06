@@ -29,7 +29,9 @@
 				"compression": {
 					"type": "zstd",
 					"level": 3
-				}
+				},
+				"postInstallScript": "rpm-postinstall.sh",
+				"preRemoveScript": "rpm-preremove.sh"
 			},
 			"deb": {
 				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"],

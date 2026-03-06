@@ -259,6 +259,8 @@ elif [ "$OS" = "linux" ]; then
 	RPM="$(find "$BUNDLE_DIR/rpm" -name \*.rpm)"
 	BUT_CLI="$(readlink -f "$BUILD_DIR/but")"
 
+	"$PWD/add-but-symlink-to-deb.sh" "$DEB"
+
 	cp "$APPIMAGE" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER" "$RELEASE_DIR"
 	cp "$APPIMAGE_UPDATER_SIG" "$RELEASE_DIR"
