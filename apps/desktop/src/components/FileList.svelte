@@ -114,6 +114,8 @@
 
 	const canUseGBAI = $derived($aiGenEnabled && aiConfigurationValid);
 	const selectedFileIds = $derived(idSelection.values(selectionId));
+	const selectedPaths = $derived(new Set(selectedFileIds.map((selectedFile) => selectedFile.path)));
+	const hasSelectionInList = $derived(changes.some((change) => selectedPaths.has(change.path)));
 
 	$effect(() => {
 		aiService.validateGitButlerAPIConfiguration().then((value) => {
@@ -277,7 +279,10 @@
 		{lockedCommitIds}
 		{lockedTargets}
 		{isLast}
-		notched={visibleRange && idx >= visibleRange.start && idx < visibleRange.end}
+		notched={hasSelectionInList &&
+			visibleRange !== undefined &&
+			idx >= visibleRange.start &&
+			idx < visibleRange.end}
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
