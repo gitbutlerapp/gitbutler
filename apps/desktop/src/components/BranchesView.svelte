@@ -29,11 +29,10 @@
 	import { focusable } from "@gitbutler/ui/focus/focusable";
 	import { getTimeAgo } from "@gitbutler/ui/utils/timeAgo";
 	import type { BranchFilterOption, SidebarEntrySubject } from "$lib/branches/branchListing";
+
 	type Props = {
 		projectId: string;
 	};
-
-	const { projectId }: Props = $props();
 
 	type BranchesSelection =
 		| {
@@ -46,6 +45,9 @@
 		| { type: "pr"; prNumber: number }
 		| { type: "target"; commitId?: string };
 
+	const { projectId }: Props = $props();
+
+	const addToLeftmost = persisted<boolean>(false, "branch-placement-leftmost");
 	const stackService = inject(STACK_SERVICE);
 	const baseBranchService = inject(BASE_BRANCH_SERVICE);
 	const forge = inject(DEFAULT_FORGE_FACTORY);
@@ -80,6 +82,7 @@
 				branch: branchRef,
 				remote: remoteRef,
 				prNumber,
+				order: $addToLeftmost ? 0 : undefined,
 			});
 			handleCreateBranchFromBranchOutcome(outcome);
 			await baseBranchService.refreshBaseBranch(projectId);

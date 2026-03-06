@@ -34,6 +34,7 @@ fn no_conflicts() {
         &"refs/remotes/origin/branch".parse().unwrap(),
         None,
         None,
+        None,
     )
     .map(|o| o.0)
     .unwrap();
@@ -88,6 +89,7 @@ fn conflicts_with_uncommited() {
     let new_branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
         ctx,
         &"refs/remotes/origin/branch".parse().unwrap(),
+        None,
         None,
         None,
     )
@@ -148,6 +150,7 @@ fn conflicts_with_commited() {
         &"refs/remotes/origin/branch".parse().unwrap(),
         None,
         None,
+        None,
     )
     .map(|o| o.0)
     .unwrap();
@@ -179,6 +182,7 @@ fn from_default_target() {
             &"refs/remotes/origin/master".parse().unwrap(),
             None,
             None,
+            None,
         )
         .unwrap_err()
         .to_string(),
@@ -205,6 +209,7 @@ fn from_non_existent_branch() {
         gitbutler_branch_actions::create_virtual_branch_from_branch(
             ctx,
             &"refs/remotes/origin/branch".parse().unwrap(),
+            None,
             None,
             None,
         )
@@ -245,6 +250,7 @@ fn from_state_remote_branch() {
     let _ = gitbutler_branch_actions::create_virtual_branch_from_branch(
         ctx,
         &"refs/remotes/origin/branch".parse().unwrap(),
+        None,
         None,
         None,
     )
