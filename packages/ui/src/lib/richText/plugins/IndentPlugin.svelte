@@ -3,6 +3,101 @@
 This component overrides enter key command to handle indentation and bullets in rich text mode.
 -->
 <script lang="ts" module>
+	import type { TextNode, ParagraphNode, LexicalNode } from "lexical";
+
+	/**
+	 * If the cursor is on a non-simple text node (e.g. InlineCodeNode), adjust
+	 * to an adjacent simple TextNode so the split moves the node whole.
+	 *
+	 * - Cursor at end → normalize to the start of the next simple sibling
+	 *   (the node stays on the current line).
+	 * - Cursor at start/middle → normalize to the end of the previous simple
+	 *   sibling (the node moves to the new line).
+	 */
+	function normalizeNonSimpleTextNode(
+		textNode: TextNode,
+		offset: number,
+	): { textNode: TextNode; offset: number } {
+		if (textNode.isSimpleText()) return { textNode, offset };
+
+		if (offset === textNode.getTextContent().length) {
+			// Cursor at end — node stays on current line, split after it.
+			const next = textNode.getNextSibling();
+			if (next && isTextNode(next) && next.isSimpleText()) {
+				return { textNode: next, offset: 0 };
+			}
+			const empty = createTextNode("");
+			textNode.insertAfter(empty);
+			return { textNode: empty, offset: 0 };
+		}
+
+		// Cursor at start/middle — node moves to new line, split before it.
+		// Walk backwards past any adjacent non-simple nodes (e.g. consecutive
+		// InlineCodeNodes) to find a simple TextNode we can safely split.
+		let cursor = textNode.getPreviousSibling();
+		while (cursor && isTextNode(cursor) && !cursor.isSimpleText()) {
+			cursor = cursor.getPreviousSibling();
+		}
+		if (cursor && isTextNode(cursor)) {
+			return { textNode: cursor, offset: cursor.getTextContent().length };
+		}
+		const empty = createTextNode("");
+		textNode.insertBefore(empty);
+		return { textNode: empty, offset: 0 };
+	}
+
+	/**
+	 * Split a paragraph at the cursor position, moving text after the cursor
+	 * and any subsequent sibling nodes into a new paragraph.
+	 */
+	function splitParagraph(
+		textNode: TextNode,
+		offset: number,
+		parent: ParagraphNode,
+		newIndent: string,
+	): boolean {
+		const textContent = textNode.getTextContent();
+		let textBeforeCursor = textContent.substring(0, offset);
+		let textAfterCursor = textContent.substring(offset);
+
+		// Collect sibling nodes BEFORE modifying the text node — setTextContent
+		// on certain node types (e.g. InlineCodeNode) can replace the node in
+		// the tree, which would break the sibling chain.
+		const siblingsToMove: LexicalNode[] = [];
+		let sibling = textNode.getNextSibling();
+		while (sibling) {
+			siblingsToMove.push(sibling);
+			sibling = sibling.getNextSibling();
+		}
+
+		// Discard separator whitespace at the split boundary when the cursor
+		// is between text and sibling nodes (e.g. "Hello |`world`" — the space
+		// is just a word separator and shouldn't appear on either line).
+		if (siblingsToMove.length > 0 && textAfterCursor.trim() === "") {
+			textBeforeCursor = textBeforeCursor.trimEnd();
+			textAfterCursor = "";
+		}
+
+		textNode.setTextContent(textBeforeCursor);
+
+		const newParagraph = createParagraphNode();
+		const newTextNode = createTextNode(newIndent + textAfterCursor);
+		newParagraph.append(newTextNode);
+
+		for (const sib of siblingsToMove) {
+			newParagraph.append(sib);
+		}
+
+		parent.insertAfter(newParagraph);
+
+		const newSelection = createRangeSelection();
+		newSelection.anchor.set(newTextNode.getKey(), newIndent.length, "text");
+		newSelection.focus.set(newTextNode.getKey(), newIndent.length, "text");
+		setSelection(newSelection);
+
+		return true;
+	}
+
 	export function handleEnter(event: KeyboardEvent | null) {
 		// Prevent the default browser behavior that creates extra paragraphs
 		if (event) {
@@ -17,39 +112,18 @@ This component overrides enter key command to handle indentation and bullets in 
 
 		// If shift key is pressed, insert a plain newline with indentation but without bullet
 		if (event?.shiftKey) {
-			const textNode = isTextNode(node) ? node : node.getFirstChild();
+			const rawNode = isTextNode(node) ? node : node.getFirstChild();
 			const parent = isTextNode(node) ? node.getParent() : node;
 
-			if (!isParagraphNode(parent) || !textNode || !isTextNode(textNode)) return false;
+			if (!isParagraphNode(parent) || !rawNode || !isTextNode(rawNode)) return false;
 
-			const offset = anchor.offset;
-			const textContent = textNode.getTextContent();
-			const textAfterCursor = textContent.substring(offset);
-			const textBeforeCursor = textContent.substring(0, offset);
+			const normalized = normalizeNonSimpleTextNode(rawNode, anchor.offset);
 
-			// Get the current line's indentation (without bullet)
 			const currentLineText = parent.getTextContent();
 			const bullet = parseBullet(currentLineText);
 			const indent = bullet ? bullet.indent : parseIndent(currentLineText);
 
-			// Update current node's text to everything before cursor
-			textNode.setTextContent(textBeforeCursor);
-
-			// Create new paragraph with indentation but no bullet
-			const newParagraph = createParagraphNode();
-			const newTextNode = createTextNode(indent + textAfterCursor);
-			newParagraph.append(newTextNode);
-
-			// Insert the new paragraph after the current one
-			parent.insertAfter(newParagraph);
-
-			// Set selection after the indentation in the new paragraph
-			const newSelection = createRangeSelection();
-			newSelection.anchor.set(newTextNode.getKey(), indent.length, "text");
-			newSelection.focus.set(newTextNode.getKey(), indent.length, "text");
-			setSelection(newSelection);
-
-			return true;
+			return splitParagraph(normalized.textNode, normalized.offset, parent, indent);
 		}
 
 		// Handle both text nodes and paragraph nodes (for empty paragraphs)
@@ -57,7 +131,10 @@ This component overrides enter key command to handle indentation and bullets in 
 		let textNode;
 		let offset = anchor.offset;
 
-		if (isTextNode(node)) {
+		if (isTextNode(node) && !node.isSimpleText()) {
+			parent = node.getParent();
+			({ textNode, offset } = normalizeNonSimpleTextNode(node, offset));
+		} else if (isTextNode(node)) {
 			textNode = node;
 			parent = node.getParent();
 		} else if (isParagraphNode(node)) {
@@ -90,9 +167,8 @@ This component overrides enter key command to handle indentation and bullets in 
 		// Check the previous sibling to see if it's part of a bullet list
 		let shouldCreateNewBullet = false;
 		let bulletToCreate: ReturnType<typeof parseBullet> = undefined;
-		const textContent = textNode.getTextContent();
 
-		if (isContinuationLine && offset === textContent.length) {
+		if (isContinuationLine && offset === textNode.getTextContent().length) {
 			// We're at the end of a continuation line - look backwards for the bullet
 			let prevSibling = parent.getPreviousSibling();
 			while (prevSibling && isParagraphNode(prevSibling)) {
@@ -161,29 +237,7 @@ This component overrides enter key command to handle indentation and bullets in 
 			return true;
 		}
 
-		// Split the paragraph at the cursor position
-		const textAfterCursor = textContent.substring(offset);
-		const textBeforeCursor = textContent.substring(0, offset);
-
-		// Update current node's text to everything before cursor
-		textNode.setTextContent(textBeforeCursor);
-
-		// Create new paragraph with indented text
-		const newParagraph = createParagraphNode();
-		const newTextNode = createTextNode(newIndent + textAfterCursor);
-		newParagraph.append(newTextNode);
-
-		// Insert the new paragraph after the current one
-		parent.insertAfter(newParagraph);
-
-		// Set selection to after the indent in the new paragraph
-		// Use explicit selection API to ensure it's set correctly
-		const newSelection = createRangeSelection();
-		newSelection.anchor.set(newTextNode.getKey(), newIndent.length, "text");
-		newSelection.focus.set(newTextNode.getKey(), newIndent.length, "text");
-		setSelection(newSelection);
-
-		return true;
+		return splitParagraph(textNode, offset, parent, newIndent);
 	}
 </script>
 
