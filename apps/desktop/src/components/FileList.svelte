@@ -114,6 +114,16 @@
 
 	const canUseGBAI = $derived($aiGenEnabled && aiConfigurationValid);
 	const selectedFileIds = $derived(idSelection.values(selectionId));
+	const selectedPaths = $derived(new Set(selectedFileIds.map((selectedFile) => selectedFile.path)));
+	const hasSelectionInList = $derived(changes.some((change) => selectedPaths.has(change.path)));
+
+	function getSelectedTreeChanges(): TreeChange[] | undefined {
+		const selectedFiles = idSelection.values(selectionId);
+		if (selectionId.type !== "worktree" || selectedFiles.length === 0) return;
+
+		const selectedPaths = new Set(selectedFiles.map((file) => file.path));
+		return changes.filter((change) => selectedPaths.has(change.path));
+	}
 
 	$effect(() => {
 		aiService.validateGitButlerAPIConfiguration().then((value) => {
@@ -131,18 +141,14 @@
 	 * - Anonymous
 	 */
 	async function branchSelection() {
-		const selectedFiles = idSelection.values(selectionId);
-		if (selectionId.type !== "worktree" || selectedFiles.length === 0 || !canUseGBAI) return;
+		const treeChanges = getSelectedTreeChanges();
+		if (!treeChanges || !canUseGBAI) return;
 
 		showToast({
 			style: "info",
 			title: "Creating a branch and committing the changes",
 			message: "This may take a few seconds.",
 		});
-
-		const treeChanges = changes.filter((change) =>
-			selectedFiles.some((file) => file.path === change.path),
-		);
 
 		await branchChanges({
 			projectId,
@@ -158,12 +164,8 @@
 	}
 
 	async function autoCommitSelection() {
-		const selectedFiles = idSelection.values(selectionId);
-		if (selectionId.type !== "worktree" || selectedFiles.length === 0) return;
-
-		const treeChanges = changes.filter((change) =>
-			selectedFiles.some((file) => file.path === change.path),
-		);
+		const treeChanges = getSelectedTreeChanges();
+		if (!treeChanges) return;
 
 		await autoCommit({
 			projectId,
@@ -191,17 +193,7 @@
 	function handleKeyDown(change: TreeChange, idx: number, e: KeyboardEvent) {
 		if (e.key === "Enter" || e.key === " " || e.key === "l") {
 			e.stopPropagation();
-			selectFilesInList(
-				e,
-				change,
-				changes,
-				idSelection,
-				selectedFileIds,
-				true,
-				idx,
-				selectionId,
-				allowUnselect,
-			);
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId, allowUnselect);
 			onFileClick?.(idx);
 			return true;
 		}
@@ -244,7 +236,7 @@
 	const lastAdded = $derived(currentSelection.lastAdded);
 	const lastAddedIndex = $derived($lastAdded?.index);
 	$effect(() => {
-		if (lastAddedIndex) {
+		if (lastAddedIndex !== undefined) {
 			untrack(() => {
 				if (active) {
 					focusManager.focusNthSibling(lastAddedIndex);
@@ -277,7 +269,10 @@
 		{lockedCommitIds}
 		{lockedTargets}
 		{isLast}
-		notched={visibleRange && idx >= visibleRange.start && idx < visibleRange.end}
+		notched={hasSelectionInList &&
+			visibleRange !== undefined &&
+			idx >= visibleRange.start &&
+			idx < visibleRange.end}
 		draggable={draggableFiles}
 		executable={isExecutable}
 		showCheckbox={showCheckboxes}
@@ -287,17 +282,7 @@
 		}}
 		onclick={(e) => {
 			e.stopPropagation();
-			selectFilesInList(
-				e,
-				change,
-				changes,
-				idSelection,
-				selectedFileIds,
-				true,
-				idx,
-				selectionId,
-				allowUnselect,
-			);
+			selectFilesInList(e, change, changes, idSelection, true, idx, selectionId, allowUnselect);
 			if (idSelection.has(change.path, selectionId)) {
 				onFileClick?.(idx);
 			}

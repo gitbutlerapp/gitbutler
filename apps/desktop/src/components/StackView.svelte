@@ -171,6 +171,10 @@
 	const defaultBranchQuery = $derived(stackService.defaultBranch(stableProjectId, stableStackId));
 	const defaultBranch = $derived(defaultBranchQuery?.response);
 
+	function selectedPathsForSelection(selectionId: SelectionId): string[] {
+		return idSelection.values(selectionId).map((entry) => entry.path);
+	}
+
 	function checkSelectedFilesForCommit() {
 		const stackAssignments = stableStackId
 			? uncommittedService.getAssignmentsByStackId(stableStackId)
@@ -178,7 +182,7 @@
 		if (stableStackId && stackAssignments.length > 0) {
 			// If there are assignments for this stack, we check those.
 			const selectionId = createWorktreeSelection({ stackId: stableStackId });
-			const selectedPaths = idSelection.values(selectionId).map((entry) => entry.path);
+			const selectedPaths = selectedPathsForSelection(selectionId);
 
 			// If there are selected paths, we check those.
 			if (selectedPaths.length > 0) {
@@ -192,7 +196,7 @@
 		}
 
 		const selectionId = createWorktreeSelection({});
-		const selectedPaths = idSelection.values(selectionId).map((entry) => entry.path);
+		const selectedPaths = selectedPathsForSelection(selectionId);
 
 		// If there are selected paths in the unassigned selection, we check those.
 		if (selectedPaths.length > 0) {
@@ -644,7 +648,7 @@
 												{#snippet children(commit)}
 													<MultiDiffView
 														{stackId}
-														selectionId={{ type: "commit", commitId }}
+														selectionId={{ type: "commit", commitId, stackId: stableStackId }}
 														bind:this={multiDiffView}
 														projectId={stableProjectId}
 														changes={commit.changes}
@@ -681,7 +685,12 @@
 									{#snippet children(result)}
 										<MultiDiffView
 											{stackId}
-											selectionId={{ type: "branch", branchName, remote: undefined }}
+											selectionId={{
+												type: "branch",
+												branchName,
+												remote: undefined,
+												stackId: stableStackId,
+											}}
 											changes={result.changes}
 											bind:this={multiDiffView}
 											projectId={stableProjectId}
