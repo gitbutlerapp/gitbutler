@@ -34,3 +34,11 @@ clippy:
 .PHONY: clippy-fix
 clippy-fix:
 	cargo clippy --workspace --all-targets --fix --allow-dirty
+
+# Test: compile-time coverage for `but-api-macros` across relevant feature combinations.
+.PHONY: test-but-api-macros
+test-but-api-macros:
+	cargo test -p but-api-macros-tests
+	cargo test -p but-api-macros-tests --features legacy
+	cargo test -p but-api-macros-tests --features tauri
+	cargo test -p but-api-macros-tests --features napi
