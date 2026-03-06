@@ -73,13 +73,13 @@ export type CommitDetails = {
 /** A change that should be used to create a new commit or alter an existing one, along with enough information to know where to find it. */
 export type DiffSpec = {
   /** The previous location of the entry, the source of a rename if there was one. */
-  previousPathBytes: string | null;
+  previousPathBytes: Array<number> | null;
   /**
    * The worktree-relative path to the worktree file with the content to commit.
    *
    * If `hunks` is empty, this means the current content of the file should be committed.
    */
-  pathBytes: string;
+  pathBytes: Array<number>;
   /**
    * If one or more hunks are specified, match them with actual changes currently in the worktree.
    * Failure to match them will lead to the change being dropped.

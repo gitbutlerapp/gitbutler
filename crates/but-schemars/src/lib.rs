@@ -52,6 +52,10 @@ pub fn bstring_bytes(generate: &mut schemars::SchemaGenerator) -> schemars::Sche
     generate.subschema_for::<Vec<u8>>()
 }
 
+pub fn bstring_bytes_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+    generate.subschema_for::<Option<Vec<u8>>>()
+}
+
 #[derive(schemars::JsonSchema)]
 #[allow(dead_code)]
 struct GixTime {
