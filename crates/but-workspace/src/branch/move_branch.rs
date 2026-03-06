@@ -149,7 +149,7 @@ fn get_disconnect_parameters(
 
     let graph_base_segment = subject_segment
         .base_segment_id
-        .and_then(|segment_idx| workspace.graph.find_segment(segment_idx));
+        .map(|segment_idx| &workspace.graph[segment_idx]);
 
     let parents_to_disconnect = match (stack_base_segment, graph_base_segment) {
         (Some(stack_base_segment), _) => {
