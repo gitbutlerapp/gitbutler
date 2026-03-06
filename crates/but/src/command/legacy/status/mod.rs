@@ -123,9 +123,23 @@ struct StatusContext<'a> {
     mode: &'a gitbutler_operating_modes::OperatingMode,
 }
 
-fn show_edit_mode_status(ctx: &mut Context, out: &mut OutputChannel) -> anyhow::Result<()> {
-    // Delegate to the resolve status logic to show actual conflict details
-    crate::command::legacy::resolve::show_resolve_status(ctx, out)
+fn show_edit_mode_status(
+    ctx: &mut Context,
+    out: &mut OutputChannel,
+    metadata: &gitbutler_operating_modes::EditModeMetadata,
+) -> anyhow::Result<()> {
+    use gitbutler_commit::commit_ext::CommitExt as _;
+
+    let gix_repo = ctx.repo.get()?;
+    let commit = gix_repo.find_commit(metadata.commit_oid)?;
+    if commit.is_conflicted() {
+        drop(commit);
+        drop(gix_repo);
+        return crate::command::legacy::resolve::show_resolve_status(ctx, out);
+    }
+    drop(commit);
+    drop(gix_repo);
+    crate::command::legacy::edit_mode::show_edit_status(ctx, out)
 }
 
 pub(crate) async fn worktree(
@@ -136,9 +150,10 @@ pub(crate) async fn worktree(
 ) -> anyhow::Result<()> {
     // Check if we're in edit mode first, before doing any expensive operations
     let mode = but_api::legacy::modes::operating_mode(ctx)?.operating_mode;
-    if let gitbutler_operating_modes::OperatingMode::Edit(_metadata) = mode {
-        // In edit mode, show the conflict resolution status
-        return show_edit_mode_status(ctx, out);
+    if let gitbutler_operating_modes::OperatingMode::Edit(metadata) = mode {
+        // In edit mode, show either conflict resolution status (for conflicted commits)
+        // or the general edit-mode status for non-conflicted commits.
+        return show_edit_mode_status(ctx, out, &metadata);
     }
 
     let status_ctx = build_status_context(ctx, out, &mode, flags, render_mode).await?;

@@ -13,6 +13,8 @@ mod commit;
 mod cursor;
 #[cfg(feature = "legacy")]
 mod diff;
+#[cfg(feature = "legacy")]
+mod edit_mode;
 mod format;
 mod gui;
 mod help;
