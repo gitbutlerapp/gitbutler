@@ -317,8 +317,6 @@
 	const rulesService = inject(RULES_SERVICE);
 	const attachmentService = inject(ATTACHMENT_SERVICE);
 
-	let mcpConfigModal = $state<CodegenMcpConfigModal>();
-
 	const claudeConfigQuery = $derived(claudeCodeService.claudeConfig({ projectId }));
 	const isStackActiveQuery = $derived(claudeCodeService.isStackActive(projectId, stackId));
 	const isStackActive = $derived(isStackActiveQuery?.response || false);
@@ -345,6 +343,15 @@
 	);
 	const initialPrompt = $derived(messageSender?.prompt);
 
+	const assignedFiles = $derived(uncommittedService.getChangesByStackId(stackId || null));
+	const commitFiles = $derived(
+		commitId ? stackService.commitChanges(projectId, commitId) : undefined,
+	);
+
+	let mcpConfigModal = $state<CodegenMcpConfigModal>();
+	let multiDiffView = $state<MultiDiffView>();
+	let visibleRange = $state<{ start: number; end: number } | undefined>();
+
 	async function onAbort() {
 		if (stackId) {
 			await claudeCodeService.cancelSession({ projectId, stackId });
@@ -364,12 +371,6 @@
 			answers,
 		});
 	}
-
-	const assignedFiles = $derived(uncommittedService.getChangesByStackId(stackId || null));
-
-	let multiDiffView = $state<MultiDiffView>();
-
-	let visibleRange = $state<{ start: number; end: number } | undefined>();
 
 	function onVisibleChange(change: { start: number; end: number } | undefined) {
 		visibleRange = change;
@@ -606,7 +607,6 @@
 									})
 								: { amendHandler: undefined, squashHandler: undefined, hunkHandler: undefined }}
 						{#if branchName && commitId}
-							{@const commitFiles = stackService.commitChanges(projectId, commitId)}
 							<Dropzone
 								handlers={[amendHandler, squashHandler, hunkHandler].filter(isDefined)}
 								fillHeight
