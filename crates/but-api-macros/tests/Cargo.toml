@@ -35,3 +35,6 @@ trybuild = "1.0.114"
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-machete]
+ignored = ["futures", "napi", "napi-derive", "tauri", "but-error", "tokio"]

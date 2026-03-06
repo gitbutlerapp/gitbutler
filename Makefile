@@ -38,7 +38,6 @@ clippy-fix:
 # Test: compile-time coverage for `but-api-macros` across relevant feature combinations.
 .PHONY: test-but-api-macros
 test-but-api-macros:
-	set -x
 	cargo test -p but-api-macros-tests
 	cargo test -p but-api-macros-tests --features legacy
 	cargo test -p but-api-macros-tests --features tauri
