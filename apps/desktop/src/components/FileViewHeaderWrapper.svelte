@@ -127,6 +127,7 @@
 	.fileviewheader-wrapper {
 		display: block;
 		z-index: var(--z-lifted);
+		padding: 14px;
 
 		&.stuck {
 			border-bottom: 1px solid var(--clr-border-2);
