@@ -10,41 +10,52 @@ import { get } from "svelte/store";
 import type { TreeChange } from "$lib/hunks/change";
 import type { FileSelectionManager } from "$lib/selection/fileSelectionManager.svelte";
 
-function getFile(files: TreeChange[], id: string): TreeChange | undefined {
-	return files.find((f) => f.path === id);
+function getFile(
+	files: TreeChange[],
+	id: string,
+	filePathIndices: Map<string, number>,
+): TreeChange | undefined {
+	const fileIndex = filePathIndices.get(id);
+	if (fileIndex === undefined) return undefined;
+	return files[fileIndex];
 }
 
-function getNextFile(files: TreeChange[], currentId: string): TreeChange | undefined {
-	const fileIndex = files.findIndex((f) => f.path === currentId);
-	if (fileIndex === -1) return undefined;
+function getNextFile(
+	files: TreeChange[],
+	currentId: string,
+	filePathIndices: Map<string, number>,
+): TreeChange | undefined {
+	const fileIndex = filePathIndices.get(currentId);
+	if (fileIndex === undefined) return undefined;
 
 	const nextFileIndex = fileIndex + 1;
 	return files[nextFileIndex];
 }
 
-function getPreviousFile(files: TreeChange[], currentId: string): TreeChange | undefined {
-	const fileIndex = files.findIndex((f) => f.path === currentId);
-	if (fileIndex === -1) return undefined;
+function getPreviousFile(
+	files: TreeChange[],
+	currentId: string,
+	filePathIndices: Map<string, number>,
+): TreeChange | undefined {
+	const fileIndex = filePathIndices.get(currentId);
+	if (fileIndex === undefined) return undefined;
 	const previousFileIndex = fileIndex - 1;
 	return files[previousFileIndex];
 }
 
-function getTopFile(files: TreeChange[], selectedFileIds: SelectedFile[]): TreeChange | undefined {
+function getTopFile(files: TreeChange[], selectedPaths: Set<string>): TreeChange | undefined {
 	for (const file of files) {
-		if (selectedFileIds.find((f) => f.path === file.path)) {
+		if (selectedPaths.has(file.path)) {
 			return file;
 		}
 	}
 	return undefined;
 }
 
-function getBottomFile(
-	files: TreeChange[],
-	selectedFileIds: SelectedFile[],
-): TreeChange | undefined {
+function getBottomFile(files: TreeChange[], selectedPaths: Set<string>): TreeChange | undefined {
 	for (let i = files.length - 1; i >= 0; i--) {
 		const file = files[i]!;
-		if (selectedFileIds.find((f) => f.path === file.path)) {
+		if (selectedPaths.has(file.path)) {
 			return file;
 		}
 	}
@@ -79,38 +90,48 @@ export function updateSelection({
 	preventDefault,
 }: UpdateSelectionParams): boolean {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return false;
+	const selectedPaths = new Set(selectedFileIds.map((file) => file.path));
+	const filePathIndices = new Map(files.map((file, index) => [file.path, index]));
 
 	const firstFileId = selectedFileIds[0].path;
 	const lastFileId = selectedFileIds.at(-1)!.path;
 
-	const topFileId = getTopFile(files, selectedFileIds)?.path;
-	const bottomFileId = getBottomFile(files, selectedFileIds)?.path;
+	const topFileId = getTopFile(files, selectedPaths)?.path;
+	const bottomFileId = getBottomFile(files, selectedPaths)?.path;
 
 	let selectionDirection = getSelectionDirection(
-		files.findIndex((f) => f.path === lastFileId),
-		files.findIndex((f) => f.path === firstFileId),
+		filePathIndices.get(lastFileId) ?? -1,
+		filePathIndices.get(firstFileId) ?? -1,
 	);
 
 	function getAndAddFile(
 		id: string,
-		getFileFunc?: (files: TreeChange[], id: string) => TreeChange | undefined,
+		getFileFunc?: (
+			files: TreeChange[],
+			id: string,
+			filePathIndices: Map<string, number>,
+		) => TreeChange | undefined,
 	) {
-		const file = getFileFunc?.(files, id) ?? getFile(files, id);
+		const file = getFileFunc?.(files, id, filePathIndices) ?? getFile(files, id, filePathIndices);
 		if (file) {
-			const fileIndex = files.findIndex((f) => f.path === file.path);
-			if (fileIndex === -1) return; // should never happen
+			const fileIndex = filePathIndices.get(file.path);
+			if (fileIndex === undefined) return; // should never happen
 			fileIdSelection.add(file.path, selectionId, fileIndex);
 		}
 	}
 
 	function getAndClearExcept(
 		id: string,
-		getFileFunc?: (files: TreeChange[], id: string) => TreeChange | undefined,
+		getFileFunc?: (
+			files: TreeChange[],
+			id: string,
+			filePathIndices: Map<string, number>,
+		) => TreeChange | undefined,
 	) {
-		const file = getFileFunc?.(files, id) ?? getFile(files, id);
+		const file = getFileFunc?.(files, id, filePathIndices) ?? getFile(files, id, filePathIndices);
 		if (file) {
-			const fileIndex = files.findIndex((f) => f.path === file.path);
-			if (fileIndex === -1) return; // should never happen
+			const fileIndex = filePathIndices.get(file.path);
+			if (fileIndex === undefined) return; // should never happen
 			fileIdSelection.set(file.path, selectionId, fileIndex);
 		}
 	}
@@ -197,7 +218,6 @@ export function selectFilesInList(
 	change: TreeChange,
 	sortedFiles: TreeChange[],
 	idSelection: FileSelectionManager,
-	selectedFileIds: SelectedFile[],
 	allowMultiple: boolean,
 	index: number,
 	selectionId: SelectionId,
@@ -210,10 +230,13 @@ export function selectFilesInList(
 	if (e.ctrlKey || e.metaKey) {
 		if (isAlreadySelected) {
 			idSelection.remove(change.path, selectionId);
-			selectedFileIds.splice(selectedFileIds.findIndex((f) => f.path === change.path));
-			const previous = selectedFileIds.at(-1);
+			const remainingSelection = idSelection.values(selectionId);
+			const previous = remainingSelection.at(-1);
 			if (previous) {
-				idSelection.add(previous.path, selectionId, selectedFileIds.length - 1);
+				const previousIndex = sortedFiles.findIndex((file) => file.path === previous.path);
+				if (previousIndex !== -1) {
+					idSelection.add(previous.path, selectionId, previousIndex);
+				}
 			}
 		} else {
 			idSelection.add(change.path, selectionId, index);
