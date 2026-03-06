@@ -13,7 +13,7 @@ doctest = false
 default = []
 legacy = []
 tauri = ["dep:tauri", "legacy"]
-napi = ["dep:napi", "dep:napi-derive", "legacy"]
+napi = ["dep:napi", "dep:napi-derive", "dep:tokio", "legacy"]
 
 [dependencies]
 but-api-macros = { path = ".." }
@@ -28,6 +28,7 @@ bstr = { workspace = true, features = ["serde"] }
 tauri = { version = "^2.9.5", features = ["unstable"], optional = true }
 napi = { version = "3.0.0", features = ["serde-json", "tokio_rt"], optional = true }
 napi-derive = { version = "3.0.0", optional = true }
+tokio = { workspace = true, optional = true, features = ["rt"] }
 
 [dev-dependencies]
 trybuild = "1.0.114"
