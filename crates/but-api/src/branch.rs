@@ -80,9 +80,8 @@ pub fn move_branch(
     subject_branch: String,
     target_branch: String,
 ) -> anyhow::Result<()> {
-    let mut guard = ctx.exclusive_worktree_access();
     let meta = ctx.meta()?;
-    let (repo, mut ws, _) = ctx.workspace_mut_and_db_with_perm(guard.write_permission())?;
+    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
     let editor = ws.graph.to_editor(&repo)?;
 
     let subject_ref = repo.find_reference(&subject_branch)?;
@@ -92,6 +91,7 @@ pub fn move_branch(
         but_workspace::branch::move_branch(&ws, editor, subject_ref.name(), target_ref.name())?;
 
     rebase.materialize()?;
+
     ws.refresh_from_head(&repo, &meta)?;
 
     Ok(())
