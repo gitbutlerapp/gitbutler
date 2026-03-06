@@ -1,4 +1,4 @@
-// Case: references are restricted; only `Context` references are allowed remap targets.
+// Case: references are restricted; only context-like references and `&gix::refs::FullNameRef` are allowed.
 // Extend when: additional reference parameter types become supported.
 
 use but_api_macros::but_api;

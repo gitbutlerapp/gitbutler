@@ -42,14 +42,13 @@ use tracing::instrument;
 pub fn list_snapshots(
     ctx: &but_ctx::Context,
     limit: usize,
-    sha: Option<String>,
+    sha: Option<gix::ObjectId>,
     exclude_kind: Option<Vec<OperationKind>>,
     include_kind: Option<Vec<OperationKind>>,
 ) -> Result<Vec<Snapshot>> {
     let snapshots = ctx.list_snapshots(
         limit,
-        sha.map(|hex| hex.parse().map_err(anyhow::Error::from))
-            .transpose()?,
+        sha.map(|id| id.to_git2()),
         exclude_kind.unwrap_or_default(),
         include_kind,
     )?;

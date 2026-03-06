@@ -72,102 +72,15 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let json_ty_by_name = match build_json_type_mapping(input.iter()) {
-        Ok(m) => m,
+    let wrapper_params = match build_wrapper_params(input.iter()) {
+        Ok(info) => info,
         Err(err) => return err.into_compile_error().into(),
     };
-
-    // Collect parameter names and types
-    let mut struct_fields_with_json_types = Vec::new();
-    let mut param_field_names = Vec::new();
-    for arg in input {
-        if let FnArg::Typed(pat_ty) = arg {
-            let pat = &pat_ty.pat;
-            if let Pat::Ident(ident) = &**pat {
-                let name = &ident.ident;
-                let (name, name_type_declaration) = if let Some(JsonParameterMapping {
-                    json_ty,
-                    json_ident,
-                    from_mode: _,
-                }) =
-                    json_ty_by_name.get(&ident.ident.to_string())
-                {
-                    let name = json_ident.as_ref().unwrap_or(name);
-                    (name, quote! { pub #name: #json_ty })
-                } else {
-                    let ty = &pat_ty.ty;
-                    (name, quote! { pub #name: #ty })
-                };
-                param_field_names.push(name);
-                struct_fields_with_json_types.push(name_type_declaration);
-            }
-        }
-    }
-
-    // JSON-typed input parameters for the json function
-    let mut json_fn_input_params: Vec<FnArg> = Vec::new();
-    // Each JSON parameter gets a conversion to turn it into our desired type.
-    let mut param_conversions = Vec::new();
-    // The names of all of our parameters for the purpose of calling the inner function.
-    let mut call_arg_idents = Vec::new();
-    for arg in input {
-        match arg {
-            FnArg::Typed(pat_ty) => {
-                let pat = &pat_ty.pat;
-                let Pat::Ident(ident) = &**pat else {
-                    return syn::Error::new_spanned(pat_ty, "Cannot handle this identifier")
-                        .to_compile_error()
-                        .into();
-                };
-
-                let ident = &ident.ident;
-                let json_type_mapping = json_ty_by_name.get(&ident.to_string());
-                let (arg_ident, ty) = match &*pat_ty.ty {
-                    syn::Type::Reference(r) if json_type_mapping.is_some() => {
-                        // Only if a remapping happens we want to change the argument identifier to use
-                        // when passing then converted arguments to the function, while always producing an owned
-                        // version.
-                        let and = &r.and_token;
-                        let mutability = &r.mutability;
-                        let arg_ident: syn::Type = syn::parse_quote! { #and #mutability #ident };
-                        (arg_ident, &*r.elem)
-                    }
-                    other => (syn::parse_quote! { #ident }, other),
-                };
-                call_arg_idents.push(arg_ident);
-                let param = if let Some(JsonParameterMapping {
-                    json_ty,
-                    json_ident,
-                    from_mode,
-                }) = json_type_mapping
-                {
-                    // We control these conversions, and must just make them work to keep this simple.
-                    let json_ident = json_ident.as_ref().unwrap_or(ident);
-                    param_conversions.push(match from_mode {
-                        FromMode::From => {
-                            quote! {
-                                let mut #ident = <#ty>::from(#json_ident);
-                            }
-                        }
-                        FromMode::TryFrom => {
-                            quote! {
-                                let mut #ident = <#ty>::try_from(#json_ident)?;
-                            }
-                        }
-                    });
-                    syn::parse_quote! { #json_ident: #json_ty }
-                } else {
-                    arg.clone()
-                };
-                json_fn_input_params.push(param);
-            }
-            FnArg::Receiver(r) => {
-                return syn::Error::new_spanned(r, "Cannot handle &self, &mut self or self")
-                    .to_compile_error()
-                    .into();
-            }
-        }
-    }
+    let struct_fields_with_json_types = &wrapper_params.struct_fields_with_json_types;
+    let param_field_names = &wrapper_params.param_field_names;
+    let json_fn_input_params = &wrapper_params.json_fn_input_params;
+    let param_conversions = &wrapper_params.param_conversions;
+    let call_arg_idents = &wrapper_params.call_arg_idents;
 
     let call_fn_args = if asyncness.is_some() {
         quote! {{
@@ -196,9 +109,17 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     // Build napi-specific parameter list and conversions.
     // For napi, Context → String (project_id), ObjectId/HexHash → String,
     // BString → String, other serde types → serde_json::Value.
-    let napi_info = match build_napi_params(input.iter(), &json_ty_by_name) {
-        Ok(info) => info,
-        Err(err) => return err.into_compile_error().into(),
+    let napi_info = if opts.napi {
+        let json_ty_by_name = match build_json_type_mapping(input.iter()) {
+            Ok(m) => m,
+            Err(err) => return err.into_compile_error().into(),
+        };
+        match build_napi_params(input.iter(), &json_ty_by_name) {
+            Ok(info) => info,
+            Err(err) => return err.into_compile_error().into(),
+        }
+    } else {
+        NapiParamsInfo::default()
     };
 
     let napi_fn_params = &napi_info.params;
@@ -271,7 +192,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
         (quote! {}, return_type)
     };
 
-    let legacy_cfg_if_json_mapping_is_used = if !json_ty_by_name.is_empty() {
+    let legacy_cfg_if_json_mapping_is_used = if wrapper_params.requires_legacy {
         quote! { #[cfg(feature = "legacy")] }
     } else {
         quote! {}
@@ -281,7 +202,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let ts_return_type_str = format!("Promise<{}>", type_to_ts_name(&json_ty));
 
     // The napi function needs `legacy` when json_ty_by_name is non-empty (Context parameter).
-    let napi_legacy_cfg = if !json_ty_by_name.is_empty() {
+    let napi_legacy_cfg = if wrapper_params.requires_legacy {
         quote! { #[cfg(all(feature = "napi", feature = "legacy"))] }
     } else {
         quote! { #[cfg(feature = "napi")] }
@@ -416,6 +337,247 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+struct WrapperParamsInfo {
+    struct_fields_with_json_types: Vec<proc_macro2::TokenStream>,
+    param_field_names: Vec<syn::Ident>,
+    json_fn_input_params: Vec<FnArg>,
+    param_conversions: Vec<proc_macro2::TokenStream>,
+    call_arg_idents: Vec<proc_macro2::TokenStream>,
+    requires_legacy: bool,
+}
+
+struct WrapperParameterMapping {
+    transport_ty: syn::Type,
+    binding_ty: syn::Type,
+    json_ident: Option<syn::Ident>,
+    conversion_kind: WrapperConversionKind,
+    call_arg_kind: WrapperCallArgKind,
+    requires_legacy: bool,
+}
+
+enum WrapperConversionKind {
+    From,
+    TryFrom,
+    OptionFrom,
+    VecFrom,
+    Identity,
+}
+
+enum WrapperCallArgKind {
+    Same,
+    Ref { mutable: bool },
+    AsRef,
+}
+
+fn build_wrapper_params<'a>(
+    input: impl IntoIterator<Item = &'a syn::FnArg>,
+) -> Result<WrapperParamsInfo, syn::Error> {
+    let mut struct_fields_with_json_types = Vec::new();
+    let mut param_field_names = Vec::new();
+    let mut json_fn_input_params = Vec::new();
+    let mut param_conversions = Vec::new();
+    let mut call_arg_idents = Vec::new();
+    let mut requires_legacy = false;
+
+    for arg in input {
+        let FnArg::Typed(pat_ty) = arg else {
+            return Err(syn::Error::new_spanned(
+                arg,
+                "Cannot handle &self, &mut self or self",
+            ));
+        };
+        let Pat::Ident(pat_ident) = &*pat_ty.pat else {
+            return Err(syn::Error::new_spanned(
+                pat_ty,
+                "Cannot handle this identifier",
+            ));
+        };
+        let ident = &pat_ident.ident;
+
+        if let Some(mapping) = build_wrapper_parameter_mapping(&pat_ty.ty)? {
+            let json_ident = mapping.json_ident.unwrap_or_else(|| ident.clone());
+            let transport_ty = &mapping.transport_ty;
+            let binding_ty = &mapping.binding_ty;
+            param_field_names.push(json_ident.clone());
+            struct_fields_with_json_types.push(quote! { pub #json_ident: #transport_ty });
+            json_fn_input_params.push(syn::parse_quote! { #json_ident: #transport_ty });
+            param_conversions.push(match mapping.conversion_kind {
+                WrapperConversionKind::From => quote! {
+                    let mut #ident: #binding_ty = <#binding_ty>::from(#json_ident);
+                },
+                WrapperConversionKind::TryFrom => quote! {
+                    let mut #ident: #binding_ty = <#binding_ty>::try_from(#json_ident)?;
+                },
+                WrapperConversionKind::OptionFrom => quote! {
+                    let mut #ident: #binding_ty = #json_ident.map(Into::into);
+                },
+                WrapperConversionKind::VecFrom => quote! {
+                    let mut #ident: #binding_ty = #json_ident.into_iter().map(Into::into).collect();
+                },
+                WrapperConversionKind::Identity => quote! {
+                    let mut #ident: #binding_ty = #json_ident;
+                },
+            });
+            call_arg_idents.push(match mapping.call_arg_kind {
+                WrapperCallArgKind::Same => quote! { #ident },
+                WrapperCallArgKind::Ref { mutable: true } => quote! { &mut #ident },
+                WrapperCallArgKind::Ref { mutable: false } => quote! { &#ident },
+                WrapperCallArgKind::AsRef => quote! { #ident.as_ref() },
+            });
+            requires_legacy |= mapping.requires_legacy;
+        } else {
+            param_field_names.push(ident.clone());
+            let ty = &pat_ty.ty;
+            struct_fields_with_json_types.push(quote! { pub #ident: #ty });
+            json_fn_input_params.push(arg.clone());
+            call_arg_idents.push(quote! { #ident });
+        }
+    }
+
+    Ok(WrapperParamsInfo {
+        struct_fields_with_json_types,
+        param_field_names,
+        json_fn_input_params,
+        param_conversions,
+        call_arg_idents,
+        requires_legacy,
+    })
+}
+
+fn build_wrapper_parameter_mapping(
+    ty: &syn::Type,
+) -> Result<Option<WrapperParameterMapping>, syn::Error> {
+    match ty {
+        syn::Type::Reference(reference) => {
+            let syn::Type::Path(type_path) = &*reference.elem else {
+                return Err(syn::Error::new_spanned(
+                    &reference.elem,
+                    "Expected a type path inside reference",
+                ));
+            };
+            let path = &type_path.path;
+            if is_context_path(path) {
+                let binding_ty: syn::Type = (*reference.elem).clone();
+                return Ok(Some(WrapperParameterMapping {
+                    transport_ty: syn::parse_quote! { but_ctx::LegacyProjectId },
+                    binding_ty,
+                    json_ident: Some(syn::parse_str("project_id")?),
+                    conversion_kind: WrapperConversionKind::TryFrom,
+                    call_arg_kind: WrapperCallArgKind::Ref {
+                        mutable: reference.mutability.is_some(),
+                    },
+                    requires_legacy: true,
+                }));
+            }
+            if is_full_name_ref_path(path) {
+                return Ok(Some(WrapperParameterMapping {
+                    transport_ty: syn::parse_quote! { gix::refs::FullName },
+                    binding_ty: syn::parse_quote! { gix::refs::FullName },
+                    json_ident: None,
+                    conversion_kind: WrapperConversionKind::Identity,
+                    call_arg_kind: WrapperCallArgKind::AsRef,
+                    requires_legacy: false,
+                }));
+            }
+            Err(syn::Error::new_spanned(
+                ty,
+                "Only `&Context`, `&but_ctx::Context`, `&ThreadSafeContext`, or `&gix::refs::FullNameRef` may be references",
+            ))
+        }
+        syn::Type::Path(type_path) => {
+            let path = &type_path.path;
+            if is_context_path(path) {
+                return Ok(Some(WrapperParameterMapping {
+                    transport_ty: syn::parse_quote! { but_ctx::LegacyProjectId },
+                    binding_ty: ty.clone(),
+                    json_ident: Some(syn::parse_str("project_id")?),
+                    conversion_kind: WrapperConversionKind::TryFrom,
+                    call_arg_kind: WrapperCallArgKind::Same,
+                    requires_legacy: true,
+                }));
+            }
+            if is_object_id_path(path) {
+                return Ok(Some(WrapperParameterMapping {
+                    transport_ty: syn::parse_quote! { crate::json::HexHash },
+                    binding_ty: ty.clone(),
+                    json_ident: None,
+                    conversion_kind: WrapperConversionKind::From,
+                    call_arg_kind: WrapperCallArgKind::Same,
+                    requires_legacy: false,
+                }));
+            }
+            if let Some(inner_ty) = single_generic_type_arg(path, "Option")
+                && is_object_id_type(inner_ty)
+            {
+                return Ok(Some(WrapperParameterMapping {
+                    transport_ty: syn::parse_quote! { Option<crate::json::HexHash> },
+                    binding_ty: ty.clone(),
+                    json_ident: None,
+                    conversion_kind: WrapperConversionKind::OptionFrom,
+                    call_arg_kind: WrapperCallArgKind::Same,
+                    requires_legacy: false,
+                }));
+            }
+            if let Some(inner_ty) = single_generic_type_arg(path, "Vec")
+                && is_object_id_type(inner_ty)
+            {
+                return Ok(Some(WrapperParameterMapping {
+                    transport_ty: syn::parse_quote! { Vec<crate::json::HexHash> },
+                    binding_ty: ty.clone(),
+                    json_ident: None,
+                    conversion_kind: WrapperConversionKind::VecFrom,
+                    call_arg_kind: WrapperCallArgKind::Same,
+                    requires_legacy: false,
+                }));
+            }
+            Ok(None)
+        }
+        _ => Ok(None),
+    }
+}
+
+fn is_context_path(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|last| last.ident == "Context" || last.ident == "ThreadSafeContext")
+        && (path.segments.len() == 1 || path.segments[0].ident == "but_ctx")
+}
+
+fn is_object_id_path(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|last| last.ident == "ObjectId")
+        && (path.segments.len() == 1 || path.segments[0].ident == "gix")
+}
+
+fn is_object_id_type(ty: &syn::Type) -> bool {
+    matches!(ty, syn::Type::Path(type_path) if is_object_id_path(&type_path.path))
+}
+
+fn is_full_name_ref_path(path: &syn::Path) -> bool {
+    path.segments
+        .last()
+        .is_some_and(|last| last.ident == "FullNameRef")
+        && (path.segments.len() == 1
+            || (path.segments.len() >= 3
+                && path.segments[0].ident == "gix"
+                && path.segments[1].ident == "refs"))
+}
+
+fn single_generic_type_arg<'a>(path: &'a syn::Path, expected: &str) -> Option<&'a syn::Type> {
+    let last = path.segments.last()?;
+    if last.ident != expected {
+        return None;
+    }
+    let syn::PathArguments::AngleBracketed(args) = &last.arguments else {
+        return None;
+    };
+    match args.args.first()? {
+        syn::GenericArgument::Type(ty) => Some(ty),
+        _ => None,
+    }
+}
+
 struct JsonParameterMapping {
     /// The mapped type to which the actual type can be converted.
     json_ty: syn::Path,
@@ -423,8 +585,6 @@ struct JsonParameterMapping {
     ///
     /// This is important as the frontend actually uses the parameter names as identifiers.
     json_ident: Option<syn::Ident>,
-    /// How to convert `json_ty` to the actual type.
-    from_mode: FromMode,
 }
 
 /// The mapping is from type name to their respective json types.
@@ -479,7 +639,6 @@ fn build_json_type_mapping<'a>(
                 JsonParameterMapping {
                     json_ty: syn::parse_str("but_ctx::LegacyProjectId")?,
                     json_ident: Some(syn::parse_str("project_id")?),
-                    from_mode: FromMode::TryFrom,
                 },
             )
         } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
@@ -488,7 +647,6 @@ fn build_json_type_mapping<'a>(
                 JsonParameterMapping {
                     json_ty: syn::parse_str("crate::json::HexHash")?,
                     json_ident: None,
-                    from_mode: FromMode::From,
                 },
             )
         } else if is_reference {
@@ -669,6 +827,7 @@ fn is_result_option(ty: &syn::Type) -> bool {
 }
 
 /// Information about the napi-specific parameters for a function.
+#[derive(Default)]
 struct NapiParamsInfo {
     /// The napi-compatible function parameters.
     params: Vec<proc_macro2::TokenStream>,
@@ -979,5 +1138,121 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
         }
         syn::Type::Reference(r) => type_to_ts_name(&r.elem),
         _ => "any".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use quote::quote;
+    use syn::{FnArg, parse_quote};
+
+    use super::{
+        WrapperCallArgKind, WrapperConversionKind, build_wrapper_parameter_mapping,
+        build_wrapper_params,
+    };
+
+    #[test]
+    fn maps_object_id_to_hex_hash_transport() {
+        let ty = parse_quote!(gix::ObjectId);
+        let mapping = build_wrapper_parameter_mapping(&ty).unwrap().unwrap();
+        let transport_ty = &mapping.transport_ty;
+
+        assert_eq!(
+            quote!(#transport_ty).to_string(),
+            quote!(crate::json::HexHash).to_string()
+        );
+        assert!(
+            matches!(mapping.conversion_kind, WrapperConversionKind::From),
+            "gix::ObjectId should use a direct From-based transport conversion"
+        );
+        assert!(
+            matches!(mapping.call_arg_kind, WrapperCallArgKind::Same),
+            "gix::ObjectId wrapper parameters should be passed through without call-site remapping"
+        );
+    }
+
+    #[test]
+    fn maps_option_and_vec_of_object_id_to_hex_hash_containers() {
+        let option_ty = parse_quote!(Option<gix::ObjectId>);
+        let option_mapping = build_wrapper_parameter_mapping(&option_ty)
+            .unwrap()
+            .unwrap();
+        let option_transport_ty = &option_mapping.transport_ty;
+        assert_eq!(
+            quote!(#option_transport_ty).to_string(),
+            quote!(Option<crate::json::HexHash>).to_string()
+        );
+        assert!(
+            matches!(
+                option_mapping.conversion_kind,
+                WrapperConversionKind::OptionFrom
+            ),
+            "Option<gix::ObjectId> should map with OptionFrom conversion"
+        );
+
+        let vec_ty = parse_quote!(Vec<gix::ObjectId>);
+        let vec_mapping = build_wrapper_parameter_mapping(&vec_ty).unwrap().unwrap();
+        let vec_transport_ty = &vec_mapping.transport_ty;
+        assert_eq!(
+            quote!(#vec_transport_ty).to_string(),
+            quote!(Vec<crate::json::HexHash>).to_string()
+        );
+        assert!(matches!(
+            vec_mapping.conversion_kind,
+            WrapperConversionKind::VecFrom
+        ),);
+    }
+
+    #[test]
+    fn maps_context_to_project_id() {
+        let arg: FnArg = parse_quote!(ctx: &mut but_ctx::Context);
+        let params = build_wrapper_params([&arg]).unwrap();
+        let struct_fields = &params.struct_fields_with_json_types;
+        let json_inputs = &params.json_fn_input_params;
+        let call_args = &params.call_arg_idents;
+
+        assert_eq!(
+            quote!(#(#struct_fields),*).to_string(),
+            quote!(pub project_id: but_ctx::LegacyProjectId).to_string()
+        );
+        assert_eq!(
+            quote!(#(#json_inputs),*).to_string(),
+            quote!(project_id: but_ctx::LegacyProjectId).to_string()
+        );
+        assert_eq!(
+            quote!(#(#call_args),*).to_string(),
+            quote!(&mut ctx).to_string()
+        );
+        assert!(
+            params.requires_legacy,
+            "context parameters should require the legacy project-id wrapper setup"
+        );
+    }
+
+    #[test]
+    /// Verifies that `&FullNameRef` parameters are transported as owned `FullName` values.
+    fn maps_full_name_ref_to_owned_full_name_transport() {
+        let arg: FnArg = parse_quote!(existing_branch: &gix::refs::FullNameRef);
+        let params = build_wrapper_params([&arg]).unwrap();
+        let struct_fields = &params.struct_fields_with_json_types;
+        let json_inputs = &params.json_fn_input_params;
+        let call_args = &params.call_arg_idents;
+
+        assert_eq!(
+            quote!(#(#struct_fields),*).to_string(),
+            quote!(pub existing_branch: gix::refs::FullName).to_string()
+        );
+        assert_eq!(
+            quote!(#(#json_inputs),*).to_string(),
+            quote!(existing_branch: gix::refs::FullName).to_string()
+        );
+        assert_eq!(
+            quote!(#(#call_args),*).to_string(),
+            quote!(existing_branch.as_ref()).to_string()
+        );
+        assert!(
+            !params.requires_legacy,
+            "full-name references should not force legacy wrapper generation"
+        );
     }
 }

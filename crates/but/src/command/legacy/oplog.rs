@@ -38,7 +38,7 @@ pub(crate) fn show_oplog(
         let resolved = repo
             .rev_parse_single(sha_prefix)
             .map_err(|_| anyhow::anyhow!("No oplog entry found matching SHA: {sha_prefix}"))?;
-        Some(resolved.detach().to_string())
+        Some(resolved.detach())
     } else {
         None
     };
