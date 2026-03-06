@@ -19,6 +19,7 @@
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { type SelectionId } from "$lib/selection/key";
+	import { ScrollSelectionLock } from "$lib/selection/scrollSelectionLock.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
@@ -63,15 +64,23 @@
 	// so Svelte does not need to track mutations. Persists across VirtualList recycles.
 	const diffExpandedState = new Map<string, boolean>();
 
+	function getInitialLockedIndex() {
+		if (startIndex === undefined) return undefined;
+		return idSelection.collectionSize(selectionId) > 0 ? startIndex : undefined;
+	}
+
 	let virtualList = $state<VirtualList<TreeChange>>();
 	let scrollContainer = $state<HTMLElement | null>(null);
 	let highlightedIndex = $state<number | undefined>(startIndex);
+	// Prevents VirtualList scroll events from overwriting a user-clicked selection.
+	const scrollLock = new ScrollSelectionLock(getInitialLockedIndex());
 	const menuState = new FileContextMenuState<ReturnType<typeof ChangedFilesContextMenu>>();
 	let floatingDiffOpen = $state(false);
 	let floatingDiffInitialIndex = $state(0);
 
 	export function jumpToIndex(index: number) {
 		highlightedIndex = index;
+		scrollLock.set(index);
 		if (allInOneDiff) {
 			virtualList?.jumpToIndex(index);
 		}
@@ -227,16 +236,18 @@
 				renderDistance={100}
 				onVisibleChange={(range) => {
 					if (range) {
-						highlightedIndex = range.start;
-						const firstVisibleChange = changes[range.start];
+						const activeIndex = scrollLock.resolve(range);
+
+						highlightedIndex = activeIndex;
+						const activeChange = changes[activeIndex];
 						const selectionSize = idSelection.collectionSize(selectionId);
 						const shouldFollowScrollSelection = selectionSize <= 1;
 						if (
-							firstVisibleChange &&
+							activeChange &&
 							shouldFollowScrollSelection &&
-							!idSelection.has(firstVisibleChange.path, selectionId)
+							!idSelection.has(activeChange.path, selectionId)
 						) {
-							idSelection.set(firstVisibleChange.path, selectionId, range.start);
+							idSelection.set(activeChange.path, selectionId, activeIndex);
 						}
 					}
 					onVisibleChange?.(range);

@@ -12,6 +12,7 @@
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
 	import { type SelectionId } from "$lib/selection/key";
+	import { ScrollSelectionLock } from "$lib/selection/scrollSelectionLock.svelte";
 	import { SETTINGS } from "$lib/settings/userSettings";
 	import { computeChangeStatus } from "$lib/utils/fileStatus";
 	import { inject } from "@gitbutler/core/context";
@@ -54,9 +55,15 @@
 	// so Svelte does not need to track mutations.
 	const diffExpandedState = new Map<string, boolean>();
 
+	function getInitialLockedIndex() {
+		return idSelection.collectionSize(selectionId) > 0 ? initialIndex : undefined;
+	}
+
 	let listMode: "list" | "tree" = $state("list");
 	// Seeded from prop once on mount; subsequent user selection is independent.
 	let selectedIndex = $state(initialIndex);
+	// Prevents VirtualList scroll events from overwriting a user-clicked selection.
+	const scrollLock = new ScrollSelectionLock(getInitialLockedIndex());
 	let headerElRef = $state<HTMLDivElement | undefined>(undefined);
 	let leftPanelEl = $state<HTMLDivElement | undefined>(undefined);
 	let virtualList = $state<VirtualList<TreeChange>>();
@@ -71,6 +78,7 @@
 	function selectChange(index: number) {
 		selectedIndex = index;
 		if (allInOneDiff) {
+			scrollLock.set(index);
 			// In virtual list mode, scroll to the selected file
 			virtualList?.jumpToIndex(index);
 		}
@@ -266,7 +274,9 @@
 						getId={(change) => change.path}
 						onVisibleChange={(range) => {
 							visibleRange = range;
-							if (range) selectedIndex = range.start;
+							if (range) {
+								selectedIndex = scrollLock.resolve(range);
+							}
 						}}
 					>
 						{#snippet template(change, index)}
