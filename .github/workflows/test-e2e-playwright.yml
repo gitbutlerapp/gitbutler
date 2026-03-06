@@ -64,7 +64,7 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
       - run: cd e2e && pnpm exec playwright install --with-deps
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' && github.ref != 'refs/heads/master' }}
-      - run: apt install -y libnss3
+      - run: apt-get update && apt-get install -y libnss3
         if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' && github.ref != 'refs/heads/master' }}
         name: Install missing deps after cache hit
       - name: Build gitbutler-git
