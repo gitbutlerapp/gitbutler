@@ -46,7 +46,10 @@
 	function readFoldedStacks(key: string): string[] {
 		try {
 			const raw = localStorage.getItem(key);
-			return raw ? JSON.parse(raw) : [];
+			if (!raw) return [];
+			const parsed = JSON.parse(raw);
+			if (!Array.isArray(parsed)) return [];
+			return parsed.filter((id): id is string => typeof id === "string");
 		} catch {
 			return [];
 		}
