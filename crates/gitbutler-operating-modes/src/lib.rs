@@ -67,7 +67,7 @@ pub struct EditModeMetadata {
 #[serde(rename_all = "camelCase")]
 pub struct OutsideWorkspaceMetadata {
     /// The name of the currently checked out branch or None if in detached head state.
-    #[serde(with = "but_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_lossy_opt")]
     pub branch_name: Option<BString>,
     /// The paths of any files that would conflict with the workspace as it currently is
     pub worktree_conflicts: Vec<BStringForFrontend>,

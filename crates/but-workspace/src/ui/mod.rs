@@ -89,7 +89,7 @@ pub struct Commit {
     #[serde(with = "but_serde::bstring_lossy")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring")
+        schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub message: BString,
@@ -184,7 +184,7 @@ pub struct UpstreamCommit {
     #[serde(with = "but_serde::bstring_lossy")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring")
+        schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub message: BString,
@@ -235,32 +235,32 @@ pub struct BranchDetails {
     #[serde(with = "but_serde::bstring_lossy")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring")
+        schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     pub name: BString,
     #[serde(with = "but_serde::fullname_lossy")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::ref_full_name")
+        schemars(schema_with = "but_schemars::fullname_lossy")
     )]
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     /// The full reference of the branch
     pub reference: gix::refs::FullName,
     /// The id of the linked worktree that has the reference of `name` checked out.
     /// Note that we don't list the main worktree here.
-    #[serde(with = "but_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_lossy_opt")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring_opt")
+        schemars(schema_with = "but_schemars::bstring_lossy_opt")
     )]
     #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub linked_worktree_id: Option<BString>,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "but_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_lossy_opt")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring_opt")
+        schemars(schema_with = "but_schemars::bstring_lossy_opt")
     )]
     #[cfg_attr(feature = "export-ts", ts(type = "string | null"))]
     pub remote_tracking_branch: Option<BString>,
@@ -328,7 +328,7 @@ pub struct Branch {
     #[serde(with = "but_serde::bstring_lossy")]
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "but_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_lossy_opt")]
     pub remote_tracking_branch: Option<BString>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,

@@ -89,7 +89,7 @@ pub struct TreeChange {
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring_for_frontend")
+        schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     pub path: BStringForFrontend,
     /// Something silently carried back and forth between the frontend and the backend.
@@ -150,7 +150,7 @@ pub enum TreeStatus {
         #[cfg_attr(feature = "export-ts", ts(type = "string"))]
         #[cfg_attr(
             feature = "export-schema",
-            schemars(schema_with = "but_schemars::bstring_for_frontend")
+            schemars(schema_with = "but_schemars::bstring_lossy")
         )]
         previous_path: BStringForFrontend,
         /// Something silently carried back and forth between the frontend and the backend.
