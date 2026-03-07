@@ -20,7 +20,10 @@ All commands support multiple `--path` flags for batch operations.
 - `but link post "<message>" --agent-id <id>`
 - `but link read --agent-id <id>`
 - `but link check --path <file1> --path <file2> --format compact --agent-id <id>`
-- `but link claim --path <file1> --path <file2> --ttl 15m --agent-id <id>`
+- `but link acquire --path <file1> --path <file2> --ttl 15m --agent-id <id>`
+- `but link block --path <file1> --reason "<reason>" --mode advisory --agent-id <id>`
+- `but link ack --agent <other-agent> --path <file1> --note "<note>" --agent-id <id>`
+- `but link resolve --block-id <id> --agent-id <id>`
 - `but link release --path <file1> --path <file2> --agent-id <id>`
 - `but link done "<summary>" --agent-id <id>`
 
@@ -28,22 +31,22 @@ All commands support multiple `--path` flags for batch operations.
 
 Minimize coordination overhead — batch operations across files, don't coordinate per-file.
 
-1. **Read state**: `but link read --agent-id <id>` — sync coordination state once at the start. If you see messages from other agents that relate to your work (analysis, triage, questions), reply before proceeding.
-2. **Check all target files in one command** before editing any of them:
-   `but link check --path <file1> --path <file2> --path <file3> --format compact --agent-id <id>`
-   Output is one line per file: `allow src/foo.rs no_conflict` or `warn src/bar.rs claimed_by_other peer-a`.
-   Sort files into two lists: **allowed** (can edit) and **blocked** (must skip).
-3. **If any files are blocked**: post one message covering ALL blocked files — include each file path, its blocker/owner, and why you're skipping it. Use the word "skip" or "avoid" if a discovery message said to avoid a file.
-4. **Claim all allowed files in one command**:
-   `but link claim --path <file1> --path <file2> --ttl 15m --agent-id <id>`
-5. **Edit all claimed files** — do the actual coding work. After editing, verify changes landed with `cat <file>` or `grep` for each edited file.
-6. **Done**: `but link done "<summary>" --agent-id <id>` — mandatory, even if running low on turns. Done auto-releases all your claims, so no explicit release step is needed. The summary replaces per-file posts, so make it comprehensive.
+1. **Read state**: `but link read --agent-id <id>` — this returns your inbox by default. Read directed updates and your own pending acknowledgements first. Path-scoped typed blocks and advisories become relevant once you have active claims or switch to a more specific read view.
+2. **Acquire all target files in one command** before editing any of them:
+   `but link acquire --path <file1> --path <file2> --path <file3> --ttl 15m --agent-id <id>`
+   Output is one decision per file. `acquired` means the file is now safely claimed. `blocked` means do not edit it.
+3. **If any files are blocked**: either skip them or coordinate with typed state:
+   - use `but link ack` to acknowledge another agent's typed update
+   - use `but link block` if you need to publish your own advisory/hard blocker
+   - use `but link resolve` only to close a specific typed block
+4. **Edit only acquired files** — do the actual coding work. After editing, verify changes landed with `cat <file>` or `grep` for each edited file.
+5. **Done**: `but link done "<summary>" --agent-id <id>` — mandatory, even if running low on turns. Done auto-releases all your claims, so no explicit release step is needed.
 
 ## Read-Only Checklist (No File Edits)
 
 Use this for PR review, triage, or analysis-only tasks where you are not editing files.
 
-1. **Read state**: `but link read --agent-id <id>` — sync channel state first.
+1. **Read state**: `but link read --agent-id <id>` — sync your inbox first.
 2. **Announce start**: `but link post "<what you are reviewing>" --agent-id <id>`.
 3. **Run one meaningful pass**: for example, fetch new comments, inspect code paths, run validation commands.
 4. **Post pass summary**: `but link post "<agree/disagree + key findings>" --agent-id <id>` after each meaningful pass.
@@ -53,10 +56,10 @@ Use this for PR review, triage, or analysis-only tasks where you are not editing
 
 Keep messages few but high-quality. **Always use full file paths** (e.g., `src/api.rs`, not just `api.rs` or `api`).
 
-The channel is a team conversation, not just a lock protocol. Three message types:
+The channel is a team conversation, but typed state is authoritative for blockers/acks/resolution. Free-text posts are for visibility and handoff quality, not for creating coordination state.
 
-- **Reply** (when relevant messages exist): if you read analysis, a triage, findings, or questions from another agent that relate to your work, reply with `@<agent-id>: ack:` plus your perspective. Don't leave teammates talking into the void. A short reply like `"@peer-a: ack: your triage matches what I landed — X, Y fixed; skipped Z (intentional)"` is enough.
-- **Blocker post** (only if blocked files exist): list every blocked file with full path, its owner agent, and your action. If a discovery message said to avoid a file, echo "skip" or "avoid" — e.g., "Skipping src/api.rs — peer-c discovery says avoid, will skip."
+- **Reply** (when relevant messages exist): if you read analysis, a triage, findings, or questions from another agent that relate to your work, record authoritative acknowledgement with `but link ack --agent <peer> --note "<summary>" --agent-id <id>`. Add a free-text `but link post` only when you need extra commentary or handoff detail.
+- **Typed coordination**: use `but link block`, `but link ack`, and `but link resolve` to create authoritative coordination state. Do not rely on free-text words like "blocked", "skip", or "ack" to drive decisions.
 - **Done summary** (always required): list every target file with full path and status. For each file, note the claim lifecycle:
   - `src/db.rs: completed, claimed fresh (no prior claim).`
   - `src/config.rs: completed, stale claim refreshed/renewed.`

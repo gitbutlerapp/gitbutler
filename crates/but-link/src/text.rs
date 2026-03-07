@@ -2,9 +2,13 @@
 //!
 //! All functions in this module are side-effect free and do not depend on the database.
 
-use serde::Serialize;
 use serde_json::Value;
 
+#[cfg(test)]
+use serde::Serialize;
+
+#[cfg(test)]
+#[allow(dead_code)]
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct DiscoveryBlocker {
     pub agent_id: String,
@@ -14,6 +18,8 @@ pub(crate) struct DiscoveryBlocker {
     pub text: String,
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 const DISCOVERY_BLOCK_KEYWORDS: [&str; 10] = [
     "please avoid",
     "avoid ",
@@ -112,6 +118,7 @@ pub(crate) fn parse_body(body_json: &str) -> (Value, String) {
     (obj, text)
 }
 
+#[cfg(test)]
 /// Strip common list-item prefixes like `- `, `* `, `1. `, `- [x] `.
 pub(crate) fn strip_common_list_prefix(line: &str) -> &str {
     let b = line.as_bytes();
@@ -163,6 +170,8 @@ pub(crate) fn strip_common_list_prefix(line: &str) -> &str {
     &line[i..]
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 /// Strip leading markdown emphasis (`**`, `*`, `_`) when directly followed by `@`.
 pub(crate) fn strip_leading_markdown_emphasis(line: &str) -> &str {
     let b = line.as_bytes();
@@ -180,6 +189,8 @@ pub(crate) fn strip_leading_markdown_emphasis(line: &str) -> &str {
     &line[i..]
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 /// Strip leading wrapper characters (`(`, `[`, `{`, `` ` ``) when preceding `@`.
 pub(crate) fn strip_leading_wrappers(line: &str) -> &str {
     let b = line.as_bytes();
@@ -215,6 +226,8 @@ pub(crate) fn strip_leading_wrappers(line: &str) -> &str {
     &line[i..]
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 /// Detect indented `@`-mentions that are likely quoted context, not direct mentions.
 fn is_indented_at_mention(line: &str) -> bool {
     let b = line.as_bytes();
@@ -243,6 +256,8 @@ fn is_indented_at_mention(line: &str) -> bool {
     saw_tab || spaces >= 4
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 fn build_ack_needles(ack_to_me_prefix: &str) -> (Vec<String>, Vec<String>) {
     let ack_to_me_prefix_lower = ack_to_me_prefix.to_ascii_lowercase();
     let ack_to_me_prefix_space_lower = ack_to_me_prefix_lower.replacen(": ack:", " ack:", 1);
@@ -269,6 +284,8 @@ fn build_ack_needles(ack_to_me_prefix: &str) -> (Vec<String>, Vec<String>) {
     (ack_needles_lower, ack_bare_lower)
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 fn build_closure_needles(closure_to_me_prefixes_lower: [&str; 3]) -> (Vec<String>, Vec<String>) {
     let mut closure_needles: Vec<String> = Vec::with_capacity(12);
     for n in closure_to_me_prefixes_lower {
@@ -288,6 +305,8 @@ fn build_closure_needles(closure_to_me_prefixes_lower: [&str; 3]) -> (Vec<String
     (closure_needles, closure_bare)
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 /// Check whether a message text contains an explicit closure directed at a specific agent.
 ///
 /// Recognizes `@<me>: ack:`, `@<me>: resolve:`, `@<me>: resolved:`, `@<me>: released:`,
@@ -380,6 +399,8 @@ pub(crate) fn is_explicit_closure_to_me(
     false
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 /// Check whether a line matches any closure needle (resolve/resolved/released).
 fn matches_closure_needle(
     raw: &str,
@@ -416,6 +437,8 @@ fn matches_closure_needle(
     false
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 /// Validate that a closure needle at `idx` is in a valid position (not quoted/indented).
 fn is_valid_closure_position(raw: &str, idx: usize) -> bool {
     if idx > 0 {
@@ -428,6 +451,8 @@ fn is_valid_closure_position(raw: &str, idx: usize) -> bool {
     !(prefix.contains('"') || prefix.contains('\'') || prefix.contains('`') || prefix.contains('>'))
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 pub(crate) fn discovery_block_window_ms() -> i64 {
     let default_s: i64 = 10 * 60;
     let s = std::env::var("DISCOVERY_BLOCK_SECONDS")
@@ -438,6 +463,8 @@ pub(crate) fn discovery_block_window_ms() -> i64 {
     s.saturating_mul(1000)
 }
 
+#[cfg(test)]
+#[allow(dead_code)]
 pub(crate) fn is_discovery_block_text(txt: &str) -> bool {
     let lower = txt.to_ascii_lowercase();
     // Scrub "unblocked"/"unblocking" so they don't false-positive on "blocked"/"blocking".

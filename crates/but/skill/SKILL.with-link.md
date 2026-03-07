@@ -14,7 +14,7 @@ Use GitButler CLI (`but`) as the default version-control interface.
 1. Use `but` for all write operations. Never run `git add`, `git commit`, `git push`, `git checkout`, `git merge`, `git rebase`, `git stash`, or `git cherry-pick`. If the user says a `git` write command, translate it to `but` and run that.
 2. Always add `--json --status-after` to mutation commands.
 3. Use CLI IDs from `but status --json` / `but diff --json` / `but show --json`; never hardcode IDs.
-4. Before any file edit, coordinate via `but link` (read → check → claim → edit → done). No exceptions for "small" changes. See Core Flow.
+4. Before any file edit, coordinate via `but link` (read → acquire → edit → done). No exceptions for "small" changes. See Core Flow.
 5. Use one stable `agent-id` per task on every `but link` command. Batch file paths when possible.
 6. For review/analysis tasks with no file edits, still coordinate: post once at start and post after each meaningful review pass.
 
@@ -35,8 +35,7 @@ but link read --agent-id <id>
 # Ignoring what others have posted is a coordination failure.
 
 # 2. Coordinate BEFORE touching any file
-but link check <file1>,<file2> --agent-id <id>
-but link claim <file1>,<file2> --agent-id <id>
+but link acquire <file1>,<file2> --agent-id <id> --ttl 15m
 
 # 3. Status
 but status --json
@@ -53,13 +52,13 @@ but <mutation> ... --json --status-after
 but link done "<summary of what changed>" --agent-id <id>
 ```
 
-If you are about to use the Edit or Write tool and have NOT run `but link check` + `but link claim` for that file yet, STOP and run them first.
+If you are about to use the Edit or Write tool and have NOT run `but link acquire` for that file yet, STOP and run it first.
 
 If a file is blocked by another agent, skip it and post one coordination update; do not retry in a loop.
 
 ## Typed Messages
 
-Use typed messages when your work affects other agents or when you discover important context.
+Use typed messages when your work affects other agents or when you discover important context. Typed state drives coordination decisions; free-text posts are transcript only.
 
 ### Discovery: "I found something important"
 
@@ -80,11 +79,12 @@ When to use:
 
 ### Intent: "I'm about to work on this API"
 
-Post before making changes that affect shared API surfaces. Enables dependency-hint detection in `but link check`.
+Post before making changes that affect shared API surfaces. Add `--path` when the surface is scoped to specific files/modules so dependency hints stay relevant.
 
 ```bash
 but link intent "crate::auth" \
   --tag api --surface AuthToken --surface verify_token \
+  --path src/auth.rs \
   --agent-id <id>
 ```
 
@@ -99,12 +99,27 @@ Post to declare ownership of an API contract so other agents get dependency hint
 ```bash
 but link declare "crate::auth" \
   --tag api --surface AuthToken --surface verify_token \
+  --path src/auth.rs \
   --agent-id <id>
 ```
 
 When to use:
 - You are the author of a module's public API
 - You want agents consuming your API to coordinate before changing it
+
+### Block / Ack / Resolve
+
+Use authoritative typed coordination state instead of free-text blocker/ack messages.
+
+```bash
+but link block --path src/auth.rs --reason "shared refactor" --mode advisory --agent-id <id>
+but link ack --agent peer-a --path src/auth.rs --note "saw it" --agent-id <id>
+but link resolve --block-id <id> --agent-id <id>
+```
+
+- `block` creates an authoritative advisory or hard block for one or more paths.
+- `ack` records acknowledgement of another agent's typed update.
+- `resolve` closes a specific typed block.
 
 ## Command Patterns
 
@@ -121,9 +136,9 @@ When to use:
 
 This is the most common recipe. Use it for ALL file edits — even single-line changes.
 
-1. `but link read --agent-id <id>` — read recent messages. If another agent already completed work that overlaps with yours, adjust your plan. Do not repeat or overwrite their work.
-2. `but link check <file> --agent-id <id>`
-3. `but link claim <file> --agent-id <id> --ttl 15m`
+1. `but link read --agent-id <id>` — this returns your inbox by default. Read directed updates and your own pending acknowledgements first. Path-scoped typed blocks and advisories become relevant once you have active claims or use a more specific read view.
+2. `but link acquire <file> --agent-id <id> --ttl 15m`
+3. If acquisition blocks the file, skip it or coordinate with `but link block` / `but link ack`; do not edit without acquiring.
 4. Edit the file (Edit/Write tool)
 5. `but link done "<what changed>" --agent-id <id>` — auto-releases all claims
 
@@ -133,7 +148,7 @@ Skipping this because the edit is "trivial" is the #1 coordination failure mode.
 
 Use this for PR review, comment triage, investigation, or validation-only work.
 
-1. `but link read --agent-id <id>` — sync channel state first.
+1. `but link read --agent-id <id>` — sync your inbox first.
 2. `but link post "<what you are reviewing>" --agent-id <id>` — announce start.
 3. Perform one review pass (for example: fetch comments, inspect code, validate behavior).
 4. `but link post "<pass summary: agree/disagree + key findings>" --agent-id <id>` — required after each meaningful pass.

@@ -46,7 +46,8 @@ struct AgentEntry {
     agent_id: String,
     status: Option<String>,
     plan: Option<String>,
-    updated_at_ms: i64,
+    last_seen_at_ms: i64,
+    last_progress_at_ms: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -55,11 +56,21 @@ struct ClaimEntry {
     agent_id: String,
 }
 
+#[derive(Clone, Debug)]
+struct BlockEntry {
+    id: i64,
+    agent_id: String,
+    mode: String,
+    reason: String,
+    paths: Vec<String>,
+}
+
 #[derive(Debug)]
 struct App {
     messages: Vec<MessageEntry>,
     agents: Vec<AgentEntry>,
     claims: Vec<ClaimEntry>,
+    blocks: Vec<BlockEntry>,
     last_message_id: i64,
     scroll_offset: usize,
     auto_scroll: bool,
@@ -74,6 +85,7 @@ impl App {
             messages: Vec::new(),
             agents: Vec::new(),
             claims: Vec::new(),
+            blocks: Vec::new(),
             last_message_id: 0,
             scroll_offset: 0,
             auto_scroll: true,
@@ -253,14 +265,23 @@ fn poll_db(app: &mut App, db_path: &Path) {
         record_poll_error(app, &format!("claims: {err}"));
         return;
     }
+    if let Err(err) = poll_blocks(app, &conn) {
+        record_poll_error(app, &format!("blocks: {err}"));
+        return;
+    }
 
     // Hide agents inactive beyond AGENT_STALE_MS that hold no active claims.
     if let Ok(now_ms) = crate::db::now_unix_ms() {
         let cutoff_ms = now_ms.saturating_sub(AGENT_STALE_MS);
         let agents_with_claims: BTreeSet<String> =
             app.claims.iter().map(|c| c.agent_id.clone()).collect();
-        app.agents
-            .retain(|a| a.updated_at_ms >= cutoff_ms || agents_with_claims.contains(&a.agent_id));
+        let agents_with_blocks: BTreeSet<String> =
+            app.blocks.iter().map(|b| b.agent_id.clone()).collect();
+        app.agents.retain(|a| {
+            a.last_progress_at_ms >= cutoff_ms
+                || agents_with_claims.contains(&a.agent_id)
+                || agents_with_blocks.contains(&a.agent_id)
+        });
     }
 
     app.consecutive_poll_errors = 0;
@@ -328,15 +349,17 @@ fn map_message_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<MessageEntry> {
 
 fn poll_agents(app: &mut App, conn: &Connection) -> anyhow::Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT agent_id, status, plan, updated_at_ms FROM agent_state \
-         ORDER BY updated_at_ms DESC, agent_id ASC",
+        "SELECT agent_id, status, plan, last_seen_at_ms, last_progress_at_ms
+         FROM agent_state \
+         ORDER BY last_progress_at_ms DESC, agent_id ASC",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok(AgentEntry {
             agent_id: row.get::<_, String>(0)?,
             status: row.get::<_, Option<String>>(1)?,
             plan: row.get::<_, Option<String>>(2)?,
-            updated_at_ms: row.get::<_, i64>(3)?,
+            last_seen_at_ms: row.get::<_, i64>(3)?,
+            last_progress_at_ms: row.get::<_, i64>(4)?,
         })
     })?;
 
@@ -359,6 +382,42 @@ fn poll_claims(app: &mut App, conn: &Connection) -> anyhow::Result<()> {
     })?;
 
     app.claims = rows.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(())
+}
+
+fn poll_blocks(app: &mut App, conn: &Connection) -> anyhow::Result<()> {
+    let now_ms = crate::db::now_unix_ms()?;
+    let mut stmt = conn.prepare(
+        "SELECT b.id, b.agent_id, b.mode, b.reason, bp.path
+         FROM blocks b
+         JOIN block_paths bp ON bp.block_id = b.id
+         WHERE b.resolved_at_ms IS NULL
+           AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
+         ORDER BY b.id ASC, bp.path ASC",
+    )?;
+    let rows = stmt.query_map(params![now_ms], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, String>(4)?,
+        ))
+    })?;
+
+    let mut grouped: BTreeMap<i64, BlockEntry> = BTreeMap::new();
+    for row in rows {
+        let (id, agent_id, mode, reason, path) = row?;
+        let entry = grouped.entry(id).or_insert_with(|| BlockEntry {
+            id,
+            agent_id,
+            mode,
+            reason,
+            paths: Vec::new(),
+        });
+        entry.paths.push(path);
+    }
+    app.blocks = grouped.into_values().collect();
     Ok(())
 }
 
@@ -451,6 +510,30 @@ fn render_agents(frame: &mut ratatui::Frame<'_>, app: &App, area: Rect) {
     }
 
     let mut lines: Vec<Line<'_>> = Vec::new();
+    if !app.blocks.is_empty() {
+        lines.push(Line::from(Span::styled(
+            format!("open blocks: {}", app.blocks.len()),
+            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        )));
+        for block in app.blocks.iter().take(3) {
+            lines.push(Line::from(Span::styled(
+                format!(
+                    "  #{} {} {} [{}]",
+                    block.id,
+                    block.agent_id,
+                    block.reason,
+                    block.paths.join(", ")
+                ),
+                if block.mode == "hard" {
+                    Style::default().fg(Color::Red)
+                } else {
+                    Style::default().fg(Color::Yellow)
+                },
+            )));
+        }
+        lines.push(Line::raw(""));
+    }
+
     for agent in &app.agents {
         if !lines.is_empty() {
             lines.push(Line::raw(""));
@@ -461,7 +544,11 @@ fn render_agents(frame: &mut ratatui::Frame<'_>, app: &App, area: Rect) {
                 Style::default().add_modifier(Modifier::BOLD),
             ),
             Span::styled(
-                format!(" ({})", relative_age(agent.updated_at_ms)),
+                format!(
+                    " (seen {} · progress {})",
+                    relative_age(agent.last_seen_at_ms),
+                    relative_age(agent.last_progress_at_ms)
+                ),
                 Style::default().fg(Color::DarkGray),
             ),
         ]));
@@ -558,6 +645,9 @@ fn kind_color(kind: &str) -> Color {
         "intent" => Color::Yellow,
         "declaration" => Color::Magenta,
         "block" => Color::Red,
+        "resolve" => Color::Green,
+        "ack" => Color::Yellow,
+        "acquire" => Color::Green,
         "claim" => Color::Green,
         "release" => Color::DarkGray,
         _ => Color::Gray,
@@ -632,6 +722,50 @@ fn format_message_content(kind: &str, body_json: &str) -> String {
                 tags.join(", "),
                 surface.join(", ")
             )
+        }
+        "block" => {
+            let reason = obj
+                .get("reason")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&fallback);
+            let mode = obj
+                .get("mode")
+                .and_then(|v| v.as_str())
+                .unwrap_or("advisory");
+            let paths: Vec<&str> = obj
+                .get("paths")
+                .and_then(|v| v.as_array())
+                .map_or(Vec::new(), |a| {
+                    a.iter().filter_map(|v| v.as_str()).collect()
+                });
+            format!("{mode} block: {reason}\n  paths: {}", paths.join(", "))
+        }
+        "ack" => {
+            let target = obj
+                .get("target_agent_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("?");
+            format!("ack -> {target}: {fallback}")
+        }
+        "resolve" => {
+            let block_id = obj
+                .get("block_id")
+                .and_then(|v| v.as_i64())
+                .unwrap_or_default();
+            format!("resolved block #{block_id}")
+        }
+        "acquire" => {
+            let paths: Vec<&str> = obj
+                .get("acquired_paths")
+                .and_then(|v| v.as_array())
+                .map_or(Vec::new(), |a| {
+                    a.iter().filter_map(|v| v.as_str()).collect()
+                });
+            if paths.is_empty() {
+                fallback
+            } else {
+                format!("acquired: {}", paths.join(", "))
+            }
         }
         _ => fallback,
     }

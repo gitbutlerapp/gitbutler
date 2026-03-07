@@ -1,232 +1,133 @@
-//! Command dispatch and handlers for all `but link` subcommands.
+//! Command dispatch and handlers for `but link`.
 
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::cli::{CheckFormat, Cmd, cmd_name, normalize_claim_path};
+use crate::cli::{BlockMode, CheckFormat, Cmd, ReadView, cmd_name, normalize_claim_path};
 use crate::db;
-use crate::text;
 
+/// Emit raw JSON text to stdout.
 pub(crate) fn print_json(s: &str) {
     println!("{s}");
 }
 
-fn emit<T: Serialize>(v: &T) -> anyhow::Result<()> {
-    print_json(&serde_json::to_string(v)?);
+/// Serialize a value to stdout as JSON.
+fn emit<T: Serialize>(value: &T) -> anyhow::Result<()> {
+    print_json(&serde_json::to_string(value)?);
     Ok(())
 }
 
+/// Emit a standard success payload.
 fn emit_ok() -> anyhow::Result<()> {
     emit(&json!({ "ok": true }))
 }
 
-fn build_read_message(created_at_ms: i64, agent_id: String, kind: &str, body_json: &str) -> Value {
-    let (mut obj, content) = text::parse_body(body_json);
-    if let Value::Object(m) = &mut obj {
-        m.insert("agent_id".to_owned(), Value::String(agent_id));
-        m.insert("created_at_ms".to_owned(), Value::from(created_at_ms));
-        m.insert("kind".to_owned(), Value::String(kind.to_owned()));
-        m.insert("content".to_owned(), Value::String(content));
-    }
-    obj
-}
-
-fn suggested_run_step(obj: &Value) -> Option<Value> {
-    obj.get("suggested_action")
-        .and_then(|sa| sa.get("cmd"))
-        .and_then(|cmd| cmd.as_str())
-        .map(|cmd| json!({ "kind": "run", "cmd": cmd }))
-}
-
-/// Load messages for `but link read`, optionally filtered by message kind.
-fn load_read_messages(conn: &Connection, kind: Option<&str>) -> anyhow::Result<Vec<Value>> {
-    let mut messages = Vec::new();
-    let kind = kind.filter(|kind| *kind != "all");
-
-    if let Some(kind) = kind {
-        let mut stmt = conn.prepare(
-            "SELECT created_at_ms, agent_id, body_json FROM messages WHERE kind = ?1 ORDER BY id ASC",
-        )?;
-        let rows = stmt.query_map(params![kind], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-            ))
-        })?;
-
-        for row in rows {
-            let (created_at_ms, agent_id, body_json) = row?;
-            messages.push(build_read_message(
-                created_at_ms,
-                agent_id,
-                kind,
-                &body_json,
-            ));
-        }
-        return Ok(messages);
-    }
-
-    let mut stmt = conn
-        .prepare("SELECT created_at_ms, agent_id, kind, body_json FROM messages ORDER BY id ASC")?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, i64>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, String>(3)?,
-        ))
-    })?;
-
-    for row in rows {
-        let (created_at_ms, agent_id, kind, body_json) = row?;
-        messages.push(build_read_message(
-            created_at_ms,
-            agent_id,
-            kind.as_str(),
-            &body_json,
-        ));
-    }
-
-    Ok(messages)
-}
-
-/// Load currently active claims for the read snapshot.
-fn load_read_claims(conn: &Connection) -> anyhow::Result<Vec<Value>> {
-    let now_ms = db::now_unix_ms()?;
-    let mut stmt = conn.prepare(
-        "SELECT path, agent_id, expires_at_ms FROM claims \
-         WHERE expires_at_ms > ?1 \
-         ORDER BY expires_at_ms ASC, path ASC",
-    )?;
-    let rows = stmt.query_map(params![now_ms], |row| {
-        Ok(json!({
-            "path": row.get::<_, String>(0)?,
-            "agent_id": row.get::<_, String>(1)?,
-            "expires_at_ms": row.get::<_, i64>(2)?,
-        }))
-    })?;
-
-    rows.collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(Into::into)
-}
-
-/// Load agent state rows for the read snapshot.
-fn load_read_agents(conn: &Connection) -> anyhow::Result<Vec<Value>> {
-    let mut stmt = conn.prepare(
-        "SELECT agent_id, status, plan, updated_at_ms FROM agent_state ORDER BY agent_id ASC",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok(json!({
-            "agent_id": row.get::<_, String>(0)?,
-            "status": row.get::<_, Option<String>>(1)?,
-            "plan": row.get::<_, Option<String>>(2)?,
-            "updated_at_ms": row.get::<_, i64>(3)?,
-        }))
-    })?;
-
-    rows.collect::<rusqlite::Result<Vec<_>>>()
-        .map_err(Into::into)
-}
-
-fn map_claim_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<(String, String, i64)> {
-    Ok((
-        row.get::<_, String>(0)?,
-        row.get::<_, String>(1)?,
-        row.get::<_, i64>(2)?,
-    ))
-}
-
+/// Check response describing path coordination state.
 #[derive(Serialize)]
-struct ClaimEntry {
+struct CheckResponse {
+    /// Checked path.
     path: String,
-    agent_id: String,
-    expires_at_ms: i64,
+    /// `allow`, `warn`, or `deny`.
+    decision: &'static str,
+    /// Stable reason code for machine consumers.
+    reason_code: &'static str,
+    /// Current claim state for the requester.
+    self_claim: Value,
+    /// Conflicting claims from other agents.
+    blocking_claims: Vec<db::ActiveClaim>,
+    /// Relevant hard typed blocks.
+    typed_blocks: Vec<db::TypedBlock>,
+    /// Relevant advisories (advisory blocks and path discoveries).
+    advisories: Vec<Value>,
+    /// Relevant dependency hints.
+    dependency_hints: Vec<db::DependencyHint>,
+    /// Stale claim holders relevant to this path.
+    stale_agents: Vec<db::StaleAgent>,
 }
 
-#[derive(Serialize)]
-struct ClaimsResponse {
+/// Per-path acquisition outcome.
+#[derive(Clone, Debug, Serialize)]
+struct AcquireDecision {
+    /// Path evaluated for acquisition.
+    path: String,
+    /// `acquired` or `blocked`.
+    decision: &'static str,
+    /// Stable reason code for machine consumers.
+    reason_code: &'static str,
+    /// Claim blockers from other agents.
+    blocking_claims: Vec<db::ActiveClaim>,
+    /// Relevant hard typed blocks.
+    typed_blocks: Vec<db::TypedBlock>,
+    /// Relevant advisories (advisory blocks and path discoveries).
+    advisories: Vec<Value>,
+    /// Final claim row when acquired.
+    claim: Option<db::ActiveClaim>,
+}
+
+/// Aggregated acquire response payload.
+#[derive(Debug, Serialize)]
+struct AcquireResponse {
+    /// Standard success marker.
     ok: bool,
-    claims: Vec<ClaimEntry>,
+    /// Paths successfully acquired.
+    acquired_paths: Vec<String>,
+    /// Paths that remained blocked.
+    blocked_paths: Vec<String>,
+    /// Per-path final outcomes.
+    decisions: Vec<AcquireDecision>,
+    /// Requester claims after acquisition.
+    active_claims: Vec<db::ActiveClaim>,
+    /// Relevant typed blocks across the requested paths.
+    typed_blocks: Vec<db::TypedBlock>,
+    /// Relevant dependency hints.
+    dependency_hints: Vec<db::DependencyHint>,
+    /// Relevant stale claim holders.
+    stale_agents: Vec<db::StaleAgent>,
 }
 
-#[derive(Serialize)]
-struct AgentState {
-    agent_id: String,
-    status: Option<String>,
-    plan: Option<String>,
-    updated_at_ms: i64,
-}
-
-#[derive(Serialize)]
-struct AgentsResponse {
-    ok: bool,
-    agents: Vec<AgentState>,
-}
-
+/// Structured payload for `done`.
 #[derive(Serialize)]
 struct DoneResponse<'a> {
+    /// Standard success marker.
     ok: bool,
+    /// Number of released claims.
     released_claims: i64,
+    /// Cleared agent-state fields.
     cleared: Vec<&'a str>,
 }
 
-#[derive(Serialize)]
-struct BlockingClaim {
-    agent_id: String,
+/// Claim detail selected for a requester.
+#[derive(Clone)]
+struct SelfClaimState {
+    status: &'static str,
     path: String,
     expires_at_ms: i64,
 }
 
-#[derive(Serialize)]
-struct CommandStep {
-    cmd: String,
-}
-
-#[derive(Serialize)]
-struct ActionPlanHints {
-    requires_coordination: bool,
-    has_read_step: bool,
-    has_post_step: bool,
-    has_ack_step: bool,
-    has_retry_check_step: bool,
-    has_claim_step: bool,
-}
-
-#[derive(Serialize)]
-struct CheckResponse<'a> {
-    path: String,
-    decision: &'a str,
-    reason_code: &'a str,
-    self_claim: Value,
-    blocking_agents: Vec<String>,
-    blocking_claims: Vec<BlockingClaim>,
-    blocking_claim_paths_by_agent: BTreeMap<String, Vec<String>>,
-    blocking_agents_state: Vec<AgentState>,
-    action_plan: Vec<String>,
-    next_steps: Vec<CommandStep>,
-    action_plan_hints: ActionPlanHints,
-    action_plan_by_agent: BTreeMap<String, Vec<String>>,
-    discovery_blockers: Vec<text::DiscoveryBlocker>,
-    dependency_hints: Vec<db::DependencyHint>,
-    stale_agents: Vec<db::StaleAgent>,
-    unread_relevant_updates_label: &'static str,
-    unread_relevant_updates_prev_cursor: i64,
-    unread_relevant_updates_cursor: i64,
-    unread_relevant_updates: Vec<db::UnreadUpdate>,
-}
+/// Joined block row used when grouping block query results in this module.
+type BlockRow = (
+    i64,
+    String,
+    String,
+    String,
+    i64,
+    Option<i64>,
+    Option<i64>,
+    Option<String>,
+    String,
+);
 
 /// Maximum command log size before truncation (1 MB).
 const MAX_LOG_SIZE: u64 = 1_024 * 1_024;
 
+/// Append a lightweight command log entry for local debugging.
 fn append_command_log(path: &Path, agent_id: &str, cmd: &str) {
-    // Truncate if the log exceeds MAX_LOG_SIZE to prevent unbounded growth.
     if let Ok(meta) = std::fs::metadata(path)
         && meta.len() > MAX_LOG_SIZE
     {
@@ -242,6 +143,7 @@ fn append_command_log(path: &Path, agent_id: &str, cmd: &str) {
     }
 }
 
+/// Deduplicate and normalize already-resolved command paths.
 fn normalized_unique_paths(paths: &[String]) -> Vec<String> {
     let mut seen = HashSet::with_capacity(paths.len());
     let mut out = Vec::with_capacity(paths.len());
@@ -255,6 +157,7 @@ fn normalized_unique_paths(paths: &[String]) -> Vec<String> {
     out
 }
 
+/// Normalize an absolute path by collapsing `.` and `..`.
 fn normalize_absolute_path(path: &Path) -> PathBuf {
     let mut normalized = PathBuf::new();
     let mut saw_root = false;
@@ -271,7 +174,7 @@ fn normalize_absolute_path(path: &Path) -> PathBuf {
                 if normalized
                     .components()
                     .next_back()
-                    .is_some_and(|c| matches!(c, Component::Normal(_)))
+                    .is_some_and(|component| matches!(component, Component::Normal(_)))
                 {
                     normalized.pop();
                 } else if !saw_root {
@@ -285,6 +188,7 @@ fn normalize_absolute_path(path: &Path) -> PathBuf {
     normalized
 }
 
+/// Canonicalize the longest existing prefix of a path while preserving the suffix.
 fn canonicalize_existing_prefix(path: &Path) -> PathBuf {
     let mut existing = path;
     let mut suffix = Vec::new();
@@ -309,6 +213,7 @@ fn canonicalize_existing_prefix(path: &Path) -> PathBuf {
     canonical
 }
 
+/// Resolve an input path to a normalized repo-relative path.
 fn resolve_repo_relative_path(
     raw: &str,
     current_dir: &Path,
@@ -332,6 +237,7 @@ fn resolve_repo_relative_path(
     Ok(normalized)
 }
 
+/// Resolve multiple input paths to normalized repo-relative paths.
 fn resolve_repo_relative_paths(
     paths: Vec<String>,
     current_dir: &Path,
@@ -343,11 +249,23 @@ fn resolve_repo_relative_paths(
         .collect()
 }
 
+/// Normalize runtime paths for commands that accept repo paths.
 fn normalize_command_paths(cmd: Cmd, current_dir: &Path, repo_root: &Path) -> anyhow::Result<Cmd> {
     Ok(match cmd {
         Cmd::Claim { paths, ttl } => Cmd::Claim {
             paths: resolve_repo_relative_paths(paths, current_dir, repo_root)?,
             ttl,
+        },
+        Cmd::Acquire {
+            paths,
+            ttl,
+            strict,
+            format,
+        } => Cmd::Acquire {
+            paths: resolve_repo_relative_paths(paths, current_dir, repo_root)?,
+            ttl,
+            strict,
+            format,
         },
         Cmd::Release { paths } => Cmd::Release {
             paths: resolve_repo_relative_paths(paths, current_dir, repo_root)?,
@@ -366,13 +284,53 @@ fn normalize_command_paths(cmd: Cmd, current_dir: &Path, repo_root: &Path) -> an
             strict,
             format,
         },
+        Cmd::Intent {
+            scope,
+            tags,
+            surface,
+            paths,
+        } => Cmd::Intent {
+            scope,
+            tags,
+            surface,
+            paths: resolve_repo_relative_paths(paths, current_dir, repo_root)?,
+        },
+        Cmd::Declare {
+            scope,
+            tags,
+            surface,
+            paths,
+        } => Cmd::Declare {
+            scope,
+            tags,
+            surface,
+            paths: resolve_repo_relative_paths(paths, current_dir, repo_root)?,
+        },
+        Cmd::Block {
+            paths,
+            reason,
+            mode,
+            ttl,
+        } => Cmd::Block {
+            paths: resolve_repo_relative_paths(paths, current_dir, repo_root)?,
+            reason,
+            mode,
+            ttl,
+        },
+        Cmd::Ack {
+            target_agent_id,
+            paths,
+            note,
+        } => Cmd::Ack {
+            target_agent_id,
+            paths: resolve_repo_relative_paths(paths, current_dir, repo_root)?,
+            note,
+        },
         other => other,
     })
 }
 
-/// Discover the `.git` directory by walking up from `start` to find the repository root.
-/// Handles both normal repos (`.git` is a directory) and worktrees (`.git` is a file
-/// containing `gitdir: <path>`).
+/// Discover the shared `.git` directory for the repository or worktree.
 pub(crate) fn discover_git_dir(start: &Path) -> anyhow::Result<PathBuf> {
     let mut current = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
     loop {
@@ -381,7 +339,6 @@ pub(crate) fn discover_git_dir(start: &Path) -> anyhow::Result<PathBuf> {
             return Ok(dot_git);
         }
         if dot_git.is_file() {
-            // Worktree: .git is a file like "gitdir: /path/to/main/.git/worktrees/name"
             let content = std::fs::read_to_string(&dot_git)?;
             let gitdir = content
                 .strip_prefix("gitdir:")
@@ -394,13 +351,9 @@ pub(crate) fn discover_git_dir(start: &Path) -> anyhow::Result<PathBuf> {
             } else {
                 current.join(gitdir)
             };
-            // In a worktree, gitdir points to e.g. `.git/worktrees/name`.
-            // We want the main `.git` dir so all agents share the same DB.
-            // Walk up from the gitdir to find the root `.git` directory.
             let resolved = gitdir_path.canonicalize().unwrap_or(gitdir_path);
-            // If it's inside a `.git/worktrees/` directory, go up to `.git`.
             if let Some(parent) = resolved.parent()
-                && parent.file_name().is_some_and(|n| n == "worktrees")
+                && parent.file_name().is_some_and(|name| name == "worktrees")
                 && let Some(git_dir) = parent.parent()
                 && git_dir.is_dir()
             {
@@ -417,6 +370,7 @@ pub(crate) fn discover_git_dir(start: &Path) -> anyhow::Result<PathBuf> {
     }
 }
 
+/// Discover the repository root.
 pub(crate) fn discover_repo_root(start: &Path) -> anyhow::Result<PathBuf> {
     let mut current = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
     loop {
@@ -433,6 +387,7 @@ pub(crate) fn discover_repo_root(start: &Path) -> anyhow::Result<PathBuf> {
     }
 }
 
+/// Entry point from the top-level `but` binary.
 pub(crate) fn run(platform: crate::cli::Platform, current_dir: &Path) -> anyhow::Result<()> {
     let (agent_id, cmd) = platform.into_runtime()?;
 
@@ -454,11 +409,17 @@ pub(crate) fn run(platform: crate::cli::Platform, current_dir: &Path) -> anyhow:
 
     let mut conn = Connection::open(db_path)?;
     db::init_db(&conn)?;
-    db::touch_agent(&conn, &agent_id)?;
+    db::touch_agent_seen(&conn, &agent_id)?;
     append_command_log(&log_path, &agent_id, cmd_name(&cmd));
 
     match cmd {
         Cmd::Claim { paths, ttl } => handle_claim_batch(&mut conn, &agent_id, &paths, ttl),
+        Cmd::Acquire {
+            paths,
+            ttl,
+            strict,
+            format,
+        } => handle_acquire_batch(&mut conn, &agent_id, &paths, ttl, strict, format),
         Cmd::Release { paths } => handle_release_batch(&mut conn, &agent_id, &paths),
         Cmd::Claims { path_prefix } => handle_claims(&conn, path_prefix.as_deref()),
         Cmd::Check {
@@ -468,7 +429,7 @@ pub(crate) fn run(platform: crate::cli::Platform, current_dir: &Path) -> anyhow:
         } => handle_check_batch(&conn, &agent_id, &paths, strict, format),
         Cmd::Post { message } => handle_post(&conn, &agent_id, &message),
         Cmd::PostTyped { kind, json } => handle_post_typed(&conn, &agent_id, &kind, &json),
-        Cmd::Read { kind, since } => handle_read(&conn, kind, since),
+        Cmd::Read { view, since } => handle_read(&conn, &agent_id, view, since),
         Cmd::Brief { kind, all } => handle_brief(&conn, kind, all),
         Cmd::Digest { kind, all } => handle_digest(&conn, kind, all),
         Cmd::Status { value } => handle_status(&conn, &agent_id, value.as_deref()),
@@ -493,16 +454,104 @@ pub(crate) fn run(platform: crate::cli::Platform, current_dir: &Path) -> anyhow:
             scope,
             tags,
             surface,
-        } => handle_surface(&conn, &agent_id, "intent", &scope, &tags, &surface),
+            paths,
+        } => handle_surface(&conn, &agent_id, "intent", &scope, &tags, &surface, &paths),
         Cmd::Declare {
             scope,
             tags,
             surface,
-        } => handle_surface(&conn, &agent_id, "declaration", &scope, &tags, &surface),
+            paths,
+        } => handle_surface(
+            &conn,
+            &agent_id,
+            "declaration",
+            &scope,
+            &tags,
+            &surface,
+            &paths,
+        ),
+        Cmd::Block {
+            paths,
+            reason,
+            mode,
+            ttl,
+        } => handle_block(&mut conn, &agent_id, &paths, &reason, mode, ttl),
+        Cmd::Resolve { block_id } => handle_resolve(&conn, &agent_id, block_id),
+        Cmd::Ack {
+            target_agent_id,
+            paths,
+            note,
+        } => handle_ack(
+            &mut conn,
+            &agent_id,
+            &target_agent_id,
+            &paths,
+            note.as_deref(),
+        ),
         Cmd::EvalUserPromptSubmit => handle_eval_user_prompt_submit(&conn),
     }
 }
 
+/// Persist a free-text history message.
+fn insert_history_message(
+    conn: &Connection,
+    created_at_ms: i64,
+    agent_id: &str,
+    kind: &str,
+    body_json: &str,
+) -> anyhow::Result<()> {
+    conn.execute(
+        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, ?3, ?4)",
+        params![created_at_ms, agent_id, kind, body_json],
+    )?;
+    Ok(())
+}
+
+/// Persist a claim message alongside a batch mutation.
+fn insert_history_message_tx(
+    tx: &Transaction<'_>,
+    created_at_ms: i64,
+    agent_id: &str,
+    kind: &str,
+    body_json: &str,
+) -> anyhow::Result<()> {
+    tx.execute(
+        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, ?3, ?4)",
+        params![created_at_ms, agent_id, kind, body_json],
+    )?;
+    Ok(())
+}
+
+/// Update agent progress inside an existing transaction.
+fn touch_agent_progress_tx(
+    tx: &Transaction<'_>,
+    agent_id: &str,
+    now_ms: i64,
+) -> anyhow::Result<()> {
+    tx.execute(
+        "INSERT INTO agent_state(
+            agent_id,
+            status,
+            plan,
+            updated_at_ms,
+            last_seen_at_ms,
+            last_progress_at_ms
+         ) VALUES (?1, NULL, NULL, 0, 0, 0)
+         ON CONFLICT(agent_id) DO NOTHING",
+        params![agent_id],
+    )?;
+    tx.execute(
+        "UPDATE agent_state
+         SET updated_at_ms = ?2,
+             last_seen_at_ms = ?2,
+             last_progress_at_ms = ?2
+         WHERE agent_id = ?1",
+        params![agent_id, now_ms],
+    )?;
+    Ok(())
+}
+
+/// Claim the provided paths without conflict checks.
 fn handle_claim_batch(
     conn: &mut Connection,
     agent_id: &str,
@@ -519,22 +568,22 @@ fn handle_claim_batch(
         let mut insert_stmt =
             tx.prepare("INSERT INTO claims(path, agent_id, expires_at_ms) VALUES (?1, ?2, ?3)")?;
         for path in &normalized {
-            // Treat repeated claims by the same agent as "renewal" rather than creating duplicates.
             delete_stmt.execute(params![path, agent_id])?;
             insert_stmt.execute(params![path, agent_id, expires_at_ms])?;
         }
     }
-    // Post a structured log message so the TUI messages panel shows the claim.
-    let body_json = json!({ "text": format!("claimed: {}", normalized.join(", ")) }).to_string();
-    tx.execute(
-        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, 'claim', ?3)",
-        params![now_ms, agent_id, body_json],
-    )?;
+    let body_json = json!({
+        "text": format!("claimed: {}", normalized.join(", ")),
+        "paths": normalized,
+    })
+    .to_string();
+    insert_history_message_tx(&tx, now_ms, agent_id, "claim", &body_json)?;
+    touch_agent_progress_tx(&tx, agent_id, now_ms)?;
     tx.commit()?;
-    emit_ok()?;
-    Ok(())
+    emit_ok()
 }
 
+/// Release the provided paths.
 fn handle_release_batch(
     conn: &mut Connection,
     agent_id: &str,
@@ -548,57 +597,27 @@ fn handle_release_batch(
             delete_stmt.execute(params![path, agent_id])?;
         }
     }
-    // Post a structured log message so the TUI messages panel shows the release.
     let now_ms = db::now_unix_ms()?;
-    let body_json = json!({ "text": format!("released: {}", normalized.join(", ")) }).to_string();
-    tx.execute(
-        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, 'release', ?3)",
-        params![now_ms, agent_id, body_json],
-    )?;
+    let body_json = json!({
+        "text": format!("released: {}", normalized.join(", ")),
+        "paths": normalized,
+    })
+    .to_string();
+    insert_history_message_tx(&tx, now_ms, agent_id, "release", &body_json)?;
+    touch_agent_progress_tx(&tx, agent_id, now_ms)?;
     tx.commit()?;
-    emit_ok()?;
-    Ok(())
+    emit_ok()
 }
 
+/// Return current claims as JSON.
 fn handle_claims(conn: &Connection, path_prefix: Option<&str>) -> anyhow::Result<()> {
-    let now_ms = db::now_unix_ms()?;
-    let mut stmt = if path_prefix.is_some() {
-        conn.prepare(
-            "SELECT path, agent_id, expires_at_ms FROM claims \
-             WHERE expires_at_ms > ?1 \
-               AND (path = ?2 \
-                    OR substr(?2, 1, length(path) + 1) = path || '/' \
-                    OR substr(path, 1, length(?2) + 1) = ?2 || '/') \
-             ORDER BY expires_at_ms ASC, path ASC",
-        )?
-    } else {
-        conn.prepare(
-            "SELECT path, agent_id, expires_at_ms FROM claims \
-             WHERE expires_at_ms > ?1 \
-             ORDER BY expires_at_ms ASC, path ASC",
-        )?
-    };
-
-    let rows = if let Some(prefix) = path_prefix {
-        stmt.query_map(params![now_ms, prefix], map_claim_row)?
-    } else {
-        stmt.query_map(params![now_ms], map_claim_row)?
-    };
-
-    let claims: Vec<ClaimEntry> = rows
-        .collect::<rusqlite::Result<Vec<_>>>()?
-        .into_iter()
-        .map(|(path, agent_id, expires_at_ms)| ClaimEntry {
-            path,
-            agent_id,
-            expires_at_ms,
-        })
-        .collect();
-
-    emit(&ClaimsResponse { ok: true, claims })?;
-    Ok(())
+    emit(&json!({
+        "ok": true,
+        "claims": db::load_active_claims(conn, path_prefix)?,
+    }))
 }
 
+/// Handle `check` for single or multiple paths.
 fn handle_check_batch(
     conn: &Connection,
     agent_id: &str,
@@ -607,23 +626,20 @@ fn handle_check_batch(
     format: CheckFormat,
 ) -> anyhow::Result<()> {
     match format {
-        CheckFormat::Full if paths.len() == 1 => handle_check(conn, agent_id, &paths[0], strict),
+        CheckFormat::Full if paths.len() == 1 => {
+            emit(&check_result(conn, agent_id, &paths[0], strict)?)
+        }
         CheckFormat::Full => {
-            let results: Vec<CheckResponse<'static>> = paths
+            let results: Vec<CheckResponse> = paths
                 .iter()
                 .map(|path| check_result(conn, agent_id, path, strict))
                 .collect::<anyhow::Result<_>>()?;
-            emit(&results)?;
-            Ok(())
+            emit(&results)
         }
         CheckFormat::Compact => {
             for path in paths {
                 let result = check_result(conn, agent_id, path, strict)?;
-                let blockers = if result.blocking_agents.is_empty() {
-                    String::new()
-                } else {
-                    format!(" {}", result.blocking_agents.join(","))
-                };
+                let blockers = blocker_summary(&result.blocking_claims, &result.typed_blocks);
                 println!(
                     "{} {} {}{}",
                     result.decision, result.path, result.reason_code, blockers
@@ -634,491 +650,557 @@ fn handle_check_batch(
     }
 }
 
-fn handle_check(conn: &Connection, agent_id: &str, path: &str, strict: bool) -> anyhow::Result<()> {
-    let result = check_result(conn, agent_id, path, strict)?;
-    emit(&result)?;
-    Ok(())
-}
-
+/// Build the read-only check result for a single path.
 fn check_result(
     conn: &Connection,
     agent_id: &str,
     path: &str,
     strict: bool,
-) -> anyhow::Result<CheckResponse<'static>> {
+) -> anyhow::Result<CheckResponse> {
     let path = normalize_claim_path(path)?;
-    let path_needles = text::relevant_needles_for_path(&path);
     let now_ms = db::now_unix_ms()?;
-
-    // --- Self-claim status ---
-    let self_claim_active: Option<(String, i64)> = conn
-        .query_row(
-            "SELECT path, expires_at_ms FROM claims \
-             WHERE agent_id = ?1 AND expires_at_ms > ?2 \
-               AND (path = ?3 \
-                    OR substr(?3, 1, length(path) + 1) = path || '/' \
-                    OR substr(path, 1, length(?3) + 1) = ?3 || '/') \
-             ORDER BY LENGTH(path) DESC, expires_at_ms DESC, path ASC \
-             LIMIT 1",
-            params![agent_id, now_ms, path],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-        )
-        .optional()?;
-    let self_claim_stale: Option<(String, i64)> = if self_claim_active.is_none() {
-        conn.query_row(
-            "SELECT path, expires_at_ms FROM claims \
-             WHERE agent_id = ?1 AND expires_at_ms <= ?2 \
-               AND (path = ?3 \
-                    OR substr(?3, 1, length(path) + 1) = path || '/' \
-                    OR substr(path, 1, length(?3) + 1) = ?3 || '/') \
-             ORDER BY expires_at_ms DESC, LENGTH(path) DESC, path ASC \
-             LIMIT 1",
-            params![agent_id, now_ms, path],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)),
-        )
-        .optional()?
-    } else {
-        None
-    };
-    let self_claim = if let Some((p, exp)) = &self_claim_active {
-        json!({ "status": "active", "path": p, "expires_at_ms": exp })
-    } else if let Some((p, exp)) = &self_claim_stale {
-        json!({
-            "status": "stale", "path": p, "expires_at_ms": exp,
-            "stale_for_ms": now_ms.saturating_sub(*exp),
-        })
-    } else {
-        json!({ "status": "none" })
-    };
-
-    // --- Blocking claims from other agents ---
-    let mut stmt = conn.prepare(
-        "SELECT agent_id, path, expires_at_ms FROM claims \
-         WHERE agent_id <> ?2 AND expires_at_ms > ?3 \
-           AND (path = ?1 \
-                OR substr(?1, 1, length(path) + 1) = path || '/' \
-                OR substr(path, 1, length(?1) + 1) = ?1 || '/') \
-         ORDER BY expires_at_ms DESC \
-         LIMIT 20",
-    )?;
-    let blocking_claims_raw: Vec<(String, String, i64)> = stmt
-        .query_map(params![path, agent_id, now_ms], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, i64>(2)?,
-            ))
-        })?
-        .collect::<rusqlite::Result<_>>()?;
-
-    let mut seen = HashSet::<String>::new();
-    let mut blocking_agents = Vec::<String>::new();
-    let mut best_overlap_claim_by_agent =
-        std::collections::BTreeMap::<String, (String, i64)>::new();
-    for (blocker, claim_path, expires_at_ms) in blocking_claims_raw {
-        if seen.insert(blocker.clone()) {
-            blocking_agents.push(blocker.clone());
-        }
-        match best_overlap_claim_by_agent.get_mut(&blocker) {
-            None => {
-                best_overlap_claim_by_agent.insert(blocker, (claim_path, expires_at_ms));
-            }
-            Some((best_path, best_exp)) => {
-                let better = claim_path.len() > best_path.len()
-                    || (claim_path.len() == best_path.len()
-                        && (expires_at_ms > *best_exp
-                            || (expires_at_ms == *best_exp && claim_path < *best_path)));
-                if better {
-                    *best_path = claim_path;
-                    *best_exp = expires_at_ms;
-                }
-            }
-        }
-    }
-    let has_claim_blockers = !blocking_agents.is_empty();
-
-    // --- Discovery blockers ---
-    let discovery_blockers_all = db::discovery_blockers_for_path(conn, agent_id, &path, now_ms)?;
-    let mut discovery_blocker_agents: HashSet<String> = HashSet::new();
-    for b in &discovery_blockers_all {
-        if discovery_blocker_agents.insert(b.agent_id.clone()) {
-            if seen.insert(b.agent_id.clone()) {
-                blocking_agents.push(b.agent_id.clone());
-            }
-            best_overlap_claim_by_agent
-                .entry(b.agent_id.clone())
-                .or_insert_with(|| (path.clone(), b.created_at_ms));
-        }
-    }
-
-    // Cap blocking agents list.
-    if blocking_agents.len() > 5 {
-        blocking_agents.truncate(5);
-    }
-    let kept_blockers: HashSet<String> = blocking_agents.iter().cloned().collect();
-    best_overlap_claim_by_agent.retain(|k, _| kept_blockers.contains(k));
-    let discovery_blockers: Vec<text::DiscoveryBlocker> = discovery_blockers_all
-        .into_iter()
-        .filter(|b| kept_blockers.contains(&b.agent_id))
+    let self_claim = self_claim_state(conn, agent_id, &path, now_ms)?;
+    let blocking_claims = claim_conflicts(conn, agent_id, &path, now_ms)?;
+    let relevant_blocks = db::load_open_blocks(conn, Some(agent_id), Some(&path))?;
+    let typed_blocks: Vec<db::TypedBlock> = relevant_blocks
+        .iter()
+        .filter(|block| block.mode == "hard")
+        .cloned()
         .collect();
-    discovery_blocker_agents.retain(|a| kept_blockers.contains(a));
+    let mut advisories: Vec<Value> = relevant_blocks
+        .iter()
+        .filter(|block| block.mode == "advisory")
+        .map(block_to_advisory_value)
+        .collect();
+    advisories.extend(db::recent_discoveries_for_paths(
+        conn,
+        std::slice::from_ref(&path),
+        5,
+    )?);
+    let dependency_hints =
+        db::dependency_hints_for_paths(conn, agent_id, std::slice::from_ref(&path))?;
+    let stale_agents = db::stale_agents_for_paths(conn, std::slice::from_ref(&path), now_ms)?;
 
-    // --- Blocking claims detail ---
-    let mut blocking_claims: Vec<BlockingClaim> = Vec::new();
-    let mut blocking_claim_paths_by_agent = BTreeMap::<String, Vec<String>>::new();
-    if !blocking_agents.is_empty() {
-        let mut stmt_blocking = conn.prepare(
-            "SELECT path, expires_at_ms FROM claims \
-             WHERE agent_id = ?1 AND expires_at_ms > ?2 \
-               AND (path = ?3 \
-                    OR substr(?3, 1, length(path) + 1) = path || '/' \
-                    OR substr(path, 1, length(?3) + 1) = ?3 || '/') \
-             ORDER BY LENGTH(path) DESC, expires_at_ms DESC, path ASC \
-             LIMIT 20",
-        )?;
-        for blocker in &blocking_agents {
-            let mut paths_for_blocker: Vec<String> = Vec::new();
-            let rows = stmt_blocking.query_map(params![blocker, now_ms, path], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-            })?;
-            for r in rows {
-                let (p, expires_at_ms) = r?;
-                paths_for_blocker.push(p.clone());
-                blocking_claims.push(BlockingClaim {
-                    agent_id: blocker.clone(),
-                    path: p,
-                    expires_at_ms,
-                });
-            }
-            if !paths_for_blocker.is_empty() {
-                blocking_claim_paths_by_agent.insert(blocker.to_owned(), paths_for_blocker);
-            }
-        }
-    }
-
-    // --- Decision ---
-    let (decision, reason_code) = if has_claim_blockers {
+    let (decision, reason_code) = if !blocking_claims.is_empty() {
         if strict {
             ("deny", "claimed_by_other")
         } else {
             ("warn", "claimed_by_other")
         }
-    } else if !discovery_blocker_agents.is_empty() {
+    } else if !typed_blocks.is_empty() {
+        ("deny", "hard_block")
+    } else if !relevant_blocks.is_empty() {
         if strict {
-            ("deny", "discovery_block")
+            ("deny", "advisory_block")
         } else {
-            ("warn", "discovery_block")
+            ("warn", "advisory_block")
         }
     } else {
         ("allow", "no_conflict")
-    };
-
-    // --- Unread relevant updates ---
-    let (unread_relevant_updates, unread_prev_cursor, unread_cursor) =
-        db::unread_relevant_updates_for_check(conn, agent_id, &path, now_ms)?;
-
-    // --- Ack/closure analysis ---
-    let ack_to_me_prefix = format!("@{agent_id}: ack:");
-    let closure_to_me_prefixes_lower = [
-        format!("@{agent_id}: resolve:").to_ascii_lowercase(),
-        format!("@{agent_id}: resolved:").to_ascii_lowercase(),
-        format!("@{agent_id}: released:").to_ascii_lowercase(),
-    ];
-
-    let blocking_set: HashSet<&str> = blocking_agents.iter().map(String::as_str).collect();
-    let blockers_with_unread_update: HashSet<String> = unread_relevant_updates
-        .iter()
-        .map(|u| u.agent_id.clone())
-        .filter(|a| blocking_set.contains(a.as_str()))
-        .collect();
-
-    let mut blockers_with_any_relevant_update: HashSet<String> = HashSet::new();
-    let mut pending_ack_blockers: HashSet<String> = HashSet::new();
-    for blocker in &blocking_agents {
-        if let Some((_id, created_at_ms, txt)) =
-            db::last_relevant_update_from_agent(conn, blocker, &path)?
-        {
-            blockers_with_any_relevant_update.insert(blocker.to_owned());
-            if text::is_explicit_closure_to_me(
-                &txt,
-                &ack_to_me_prefix,
-                [
-                    closure_to_me_prefixes_lower[0].as_str(),
-                    closure_to_me_prefixes_lower[1].as_str(),
-                    closure_to_me_prefixes_lower[2].as_str(),
-                ],
-            ) {
-                continue;
-            }
-            if !db::requester_has_acked_since(
-                conn,
-                agent_id,
-                blocker,
-                created_at_ms,
-                &path_needles,
-            )? {
-                pending_ack_blockers.insert(blocker.to_owned());
-            }
-        }
-    }
-
-    // --- Action plan ---
-    let mut pinged_blockers: HashSet<String> = HashSet::new();
-    let mut action_plan: Vec<String> = if blocking_agents.is_empty() {
-        Vec::new()
-    } else {
-        let mut plan = vec![format!("but link --agent-id {agent_id} read")];
-        for blocker in &blocking_agents {
-            let is_discovery_blocker = discovery_blocker_agents.contains(blocker);
-            if !is_discovery_blocker
-                && (blockers_with_any_relevant_update.contains(blocker)
-                    || blockers_with_unread_update.contains(blocker))
-            {
-                continue;
-            }
-            if db::requester_already_pinged_blocker(conn, agent_id, blocker, &path)? {
-                continue;
-            }
-            let overlap_claim_path = best_overlap_claim_by_agent
-                .get(blocker)
-                .map_or(path.as_str(), |(p, _)| p.as_str());
-            let message = if is_discovery_blocker {
-                format!(
-                    "but link --agent-id {agent_id} post \"@{blocker}: ack: saw your update re {path}. Skipping {path} for now; please reply with ETA or mark it safe when refactor wraps.\""
-                )
-            } else {
-                format!(
-                    "but link --agent-id {agent_id} post \"@{blocker}: blocked on {path} (overlaps your claim {overlap_claim_path}). Are you working on it? Skipping {path} for now; please reply with ETA or release if you're not working on it.\""
-                )
-            };
-            plan.push(message);
-            pinged_blockers.insert(blocker.to_owned());
-            if is_discovery_blocker {
-                pending_ack_blockers.remove(blocker);
-            }
-        }
-        plan.push(format!(
-            "but link --agent-id {agent_id} check --path {path}{}",
-            if strict { " --strict" } else { "" }
-        ));
-        plan
-    };
-
-    // Suggest renewal if self-claim is stale.
-    if blocking_agents.is_empty()
-        && let Some((claim_path, _exp)) = &self_claim_stale
-    {
-        action_plan.push(format!(
-            "but link --agent-id {agent_id} claim --path {claim_path} --ttl 15m"
-        ));
-        action_plan.push(format!(
-            "but link --agent-id {agent_id} check --path {path}{}",
-            if strict { " --strict" } else { "" }
-        ));
-    }
-
-    // --- Per-agent action plans ---
-    let mut action_plan_by_agent = BTreeMap::<String, Vec<String>>::new();
-    let mut stmt_agents = conn.prepare("SELECT agent_id FROM agent_state ORDER BY agent_id ASC")?;
-    let agents: Vec<String> = stmt_agents
-        .query_map([], |row| row.get::<_, String>(0))?
-        .collect::<rusqlite::Result<_>>()?;
-
-    for a in agents {
-        if a == agent_id {
-            continue;
-        }
-
-        if let Some((claim_path, _)) = best_overlap_claim_by_agent.get(&a) {
-            let plan = if discovery_blocker_agents.contains(&a) {
-                vec![
-                    format!("but link --agent-id {a} read"),
-                    format!(
-                        "but link --agent-id {a} post \"@{agent_id}: still wrapping work on {path}. Will shout when it's safe.\""
-                    ),
-                ]
-            } else {
-                vec![
-                    format!("but link --agent-id {a} read"),
-                    format!(
-                        "but link --agent-id {a} post \"@{agent_id}: I'm holding a claim on {claim_path} (overlaps {path}). ETA update soon.\""
-                    ),
-                    format!("but link --agent-id {a} release --path {claim_path}"),
-                ]
-            };
-            action_plan_by_agent.insert(a.clone(), plan);
-            continue;
-        }
-
-        let active_claim_path: Option<String> = conn
-            .query_row(
-                "SELECT path FROM claims WHERE agent_id = ?1 AND expires_at_ms > ?2 ORDER BY expires_at_ms DESC LIMIT 1",
-                params![a, now_ms],
-                |row| row.get(0),
-            )
-            .optional()?;
-
-        if let Some(p) = active_claim_path {
-            action_plan_by_agent.insert(
-                a.clone(),
-                vec![format!(
-                    "but link --agent-id {a} post \"@{agent_id}: FYI I am working on {p}; not touching {path}.\""
-                )],
-            );
-        }
-    }
-
-    // --- Ack suggestions for unread updates ---
-    if !unread_relevant_updates.is_empty() || !pending_ack_blockers.is_empty() {
-        let pinged_set: HashSet<&str> = pinged_blockers.iter().map(String::as_str).collect();
-        let mut ack_agents: BTreeSet<String> = BTreeSet::new();
-        for u in &unread_relevant_updates {
-            let a = u.agent_id.as_str();
-            if a == agent_id || pinged_set.contains(a) {
-                continue;
-            }
-            let body_text = match &u.body {
-                Value::Object(m) => m.get("text").and_then(|v| v.as_str()),
-                Value::String(s) => Some(s.as_str()),
-                _ => None,
-            };
-            if body_text.is_some_and(|t| {
-                text::is_explicit_closure_to_me(
-                    t,
-                    &ack_to_me_prefix,
-                    [
-                        closure_to_me_prefixes_lower[0].as_str(),
-                        closure_to_me_prefixes_lower[1].as_str(),
-                        closure_to_me_prefixes_lower[2].as_str(),
-                    ],
-                )
-            }) {
-                continue;
-            }
-            ack_agents.insert(a.to_owned());
-        }
-
-        for a in &pending_ack_blockers {
-            if a != agent_id && !pinged_set.contains(a.as_str()) {
-                ack_agents.insert(a.to_owned());
-            }
-        }
-
-        for a in ack_agents {
-            let cmd = format!(
-                "but link --agent-id {agent_id} post \"@{a}: ack: saw your update re {path}.\""
-            );
-            if action_plan
-                .last()
-                .is_some_and(|s| s.contains(" check --path "))
-            {
-                let idx = action_plan.len().saturating_sub(1);
-                action_plan.insert(idx, cmd);
-            } else {
-                action_plan.push(cmd);
-            }
-        }
-    }
-
-    action_plan_by_agent.insert(agent_id.to_owned(), action_plan.clone());
-
-    // --- Supplemental data ---
-    let dependency_hints = db::dependency_hints_for_check(conn, agent_id)?;
-    let stale_agents =
-        db::stale_agents_for_blockers(conn, agent_id, &blocking_agents, &path, now_ms)?;
-
-    let mut blocking_agents_state: Vec<AgentState> = Vec::new();
-    if !blocking_agents.is_empty() {
-        let mut stmt = conn
-            .prepare("SELECT status, plan, updated_at_ms FROM agent_state WHERE agent_id = ?1")?;
-        for blocker in &blocking_agents {
-            let row: Option<(Option<String>, Option<String>, i64)> = stmt
-                .query_row(params![blocker], |row| {
-                    Ok((
-                        row.get::<_, Option<String>>(0)?,
-                        row.get::<_, Option<String>>(1)?,
-                        row.get::<_, i64>(2)?,
-                    ))
-                })
-                .optional()?;
-            let (status, plan, updated_at_ms) = row.unwrap_or((None, None, 0));
-            blocking_agents_state.push(AgentState {
-                agent_id: blocker.clone(),
-                status,
-                plan,
-                updated_at_ms,
-            });
-        }
-    }
-
-    let next_steps: Vec<CommandStep> = action_plan
-        .iter()
-        .map(|cmd| CommandStep { cmd: cmd.clone() })
-        .collect();
-    let action_plan_hints = ActionPlanHints {
-        requires_coordination: decision != "allow",
-        has_read_step: action_plan.iter().any(|cmd| cmd.contains(" read")),
-        has_post_step: action_plan.iter().any(|cmd| cmd.contains(" post ")),
-        has_ack_step: action_plan.iter().any(|cmd| cmd.contains(": ack:")),
-        has_retry_check_step: action_plan.iter().any(|cmd| cmd.contains(" check --path ")),
-        has_claim_step: action_plan.iter().any(|cmd| cmd.contains(" claim --path ")),
     };
 
     Ok(CheckResponse {
         path,
         decision,
         reason_code,
-        self_claim,
-        blocking_agents,
+        self_claim: self_claim_json(self_claim),
         blocking_claims,
-        blocking_claim_paths_by_agent,
-        blocking_agents_state,
-        action_plan,
-        next_steps,
-        action_plan_hints,
-        action_plan_by_agent,
-        discovery_blockers,
+        typed_blocks,
+        advisories,
         dependency_hints,
         stale_agents,
-        unread_relevant_updates_label: "unread relevant updates since last seen",
-        unread_relevant_updates_prev_cursor: unread_prev_cursor,
-        unread_relevant_updates_cursor: unread_cursor,
-        unread_relevant_updates,
     })
 }
 
+/// Acquire the provided paths transactionally with partial success across the batch.
+fn handle_acquire_batch(
+    conn: &mut Connection,
+    agent_id: &str,
+    paths: &[String],
+    ttl: std::time::Duration,
+    strict: bool,
+    format: CheckFormat,
+) -> anyhow::Result<()> {
+    let response = acquire_batch(conn, agent_id, paths, ttl, strict)?;
+    match format {
+        CheckFormat::Full => emit(&response),
+        CheckFormat::Compact => {
+            for decision in &response.decisions {
+                let blockers = blocker_summary(&decision.blocking_claims, &decision.typed_blocks);
+                println!(
+                    "{} {} {}{}",
+                    decision.decision, decision.path, decision.reason_code, blockers
+                );
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Acquire the provided paths transactionally with partial success across the batch.
+fn acquire_batch(
+    conn: &mut Connection,
+    agent_id: &str,
+    paths: &[String],
+    ttl: std::time::Duration,
+    strict: bool,
+) -> anyhow::Result<AcquireResponse> {
+    let now_ms = db::now_unix_ms()?;
+    let ttl_ms: i64 = ttl.as_millis().try_into()?;
+    let expires_at_ms = now_ms.saturating_add(ttl_ms);
+    let normalized = normalized_unique_paths(paths);
+    // Serialize acquisition writers so the conflict check sees the latest committed claims.
+    let tx = conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let mut decisions = Vec::new();
+    let mut acquired_paths = Vec::new();
+
+    for path in &normalized {
+        let blocking_claims = claim_conflicts_tx(&tx, agent_id, path, now_ms)?;
+        let relevant_blocks = open_blocks_tx(&tx, Some(agent_id), Some(path), now_ms)?;
+        let hard_blocks: Vec<db::TypedBlock> = relevant_blocks
+            .iter()
+            .filter(|block| block.mode == "hard")
+            .cloned()
+            .collect();
+        let mut advisories: Vec<Value> = relevant_blocks
+            .iter()
+            .filter(|block| block.mode == "advisory")
+            .map(block_to_advisory_value)
+            .collect();
+        advisories.extend(db::recent_discoveries_for_paths(
+            &tx,
+            std::slice::from_ref(path),
+            5,
+        )?);
+
+        let (decision, reason_code) = if !blocking_claims.is_empty() {
+            ("blocked", "claimed_by_other")
+        } else if !hard_blocks.is_empty() {
+            ("blocked", "hard_block")
+        } else if strict && relevant_blocks.iter().any(|block| block.mode == "advisory") {
+            ("blocked", "advisory_block")
+        } else if relevant_blocks.iter().any(|block| block.mode == "advisory") {
+            ("acquired", "advisory_block")
+        } else {
+            ("acquired", "no_conflict")
+        };
+
+        let claim = if decision == "acquired" {
+            tx.execute(
+                "DELETE FROM claims WHERE path = ?1 AND agent_id = ?2",
+                params![path, agent_id],
+            )?;
+            tx.execute(
+                "INSERT INTO claims(path, agent_id, expires_at_ms) VALUES (?1, ?2, ?3)",
+                params![path, agent_id, expires_at_ms],
+            )?;
+            acquired_paths.push(path.clone());
+            Some(db::ActiveClaim {
+                path: path.clone(),
+                agent_id: agent_id.to_owned(),
+                expires_at_ms,
+            })
+        } else {
+            None
+        };
+
+        decisions.push(AcquireDecision {
+            path: path.clone(),
+            decision,
+            reason_code,
+            blocking_claims,
+            typed_blocks: hard_blocks,
+            advisories,
+            claim,
+        });
+    }
+
+    if !acquired_paths.is_empty()
+        || decisions
+            .iter()
+            .any(|decision| decision.decision == "blocked")
+    {
+        let body_json = json!({
+            "text": if acquired_paths.is_empty() {
+                format!("acquire blocked: {}", normalized.join(", "))
+            } else {
+                format!("acquired: {}", acquired_paths.join(", "))
+            },
+            "paths": normalized,
+            "acquired_paths": acquired_paths,
+        })
+        .to_string();
+        insert_history_message_tx(&tx, now_ms, agent_id, "acquire", &body_json)?;
+    }
+
+    touch_agent_progress_tx(&tx, agent_id, now_ms)?;
+    tx.commit()?;
+
+    let active_claims = db::load_active_claims_for_agent(conn, agent_id)?;
+    let typed_blocks = collect_unique_blocks(
+        decisions
+            .iter()
+            .flat_map(|decision| decision.typed_blocks.clone())
+            .collect(),
+    );
+    let dependency_hints = db::dependency_hints_for_paths(conn, agent_id, &normalized)?;
+    let stale_agents = db::stale_agents_for_paths(conn, &normalized, now_ms)?;
+    let blocked_paths: Vec<String> = decisions
+        .iter()
+        .filter(|decision| decision.decision == "blocked")
+        .map(|decision| decision.path.clone())
+        .collect();
+    Ok(AcquireResponse {
+        ok: true,
+        acquired_paths: active_claims
+            .iter()
+            .map(|claim| claim.path.clone())
+            .filter(|path| normalized.contains(path))
+            .collect(),
+        blocked_paths,
+        decisions,
+        active_claims,
+        typed_blocks,
+        dependency_hints,
+        stale_agents,
+    })
+}
+
+/// Build a compact blocker summary string.
+fn blocker_summary(blocking_claims: &[db::ActiveClaim], typed_blocks: &[db::TypedBlock]) -> String {
+    let mut blockers = Vec::new();
+    for claim in blocking_claims {
+        blockers.push(claim.agent_id.clone());
+    }
+    for block in typed_blocks {
+        blockers.push(block.agent_id.clone());
+    }
+    blockers.sort();
+    blockers.dedup();
+    if blockers.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", blockers.join(","))
+    }
+}
+
+/// Convert a typed block into an advisory JSON object.
+fn block_to_advisory_value(block: &db::TypedBlock) -> Value {
+    json!({
+        "kind": "block",
+        "id": block.id,
+        "agent_id": block.agent_id,
+        "mode": block.mode,
+        "reason": block.reason,
+        "paths": block.paths,
+        "created_at_ms": block.created_at_ms,
+        "expires_at_ms": block.expires_at_ms,
+    })
+}
+
+/// Deduplicate typed blocks by id.
+fn collect_unique_blocks(blocks: Vec<db::TypedBlock>) -> Vec<db::TypedBlock> {
+    let mut grouped = BTreeMap::new();
+    for block in blocks {
+        grouped.entry(block.id).or_insert(block);
+    }
+    grouped.into_values().collect()
+}
+
+/// Determine the requester's current claim state for a path.
+fn self_claim_state(
+    conn: &Connection,
+    agent_id: &str,
+    path: &str,
+    now_ms: i64,
+) -> anyhow::Result<Option<SelfClaimState>> {
+    let active = conn
+        .query_row(
+            "SELECT path, expires_at_ms FROM claims
+             WHERE agent_id = ?1 AND expires_at_ms > ?2
+               AND (path = ?3
+                    OR substr(?3, 1, length(path) + 1) = path || '/'
+                    OR substr(path, 1, length(?3) + 1) = ?3 || '/')
+             ORDER BY LENGTH(path) DESC, expires_at_ms DESC, path ASC
+             LIMIT 1",
+            params![agent_id, now_ms, path],
+            |row| {
+                Ok(SelfClaimState {
+                    status: "active",
+                    path: row.get(0)?,
+                    expires_at_ms: row.get(1)?,
+                })
+            },
+        )
+        .optional()?;
+    if active.is_some() {
+        return Ok(active);
+    }
+
+    conn.query_row(
+        "SELECT path, expires_at_ms FROM claims
+         WHERE agent_id = ?1 AND expires_at_ms <= ?2
+           AND (path = ?3
+                OR substr(?3, 1, length(path) + 1) = path || '/'
+                OR substr(path, 1, length(?3) + 1) = ?3 || '/')
+         ORDER BY expires_at_ms DESC, LENGTH(path) DESC, path ASC
+         LIMIT 1",
+        params![agent_id, now_ms, path],
+        |row| {
+            Ok(SelfClaimState {
+                status: "stale",
+                path: row.get(0)?,
+                expires_at_ms: row.get(1)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
+/// Serialize requester claim state to JSON.
+fn self_claim_json(claim: Option<SelfClaimState>) -> Value {
+    if let Some(claim) = claim {
+        json!({
+            "status": claim.status,
+            "path": claim.path,
+            "expires_at_ms": claim.expires_at_ms,
+        })
+    } else {
+        json!({ "status": "none" })
+    }
+}
+
+/// Query claim conflicts for a single path.
+fn claim_conflicts(
+    conn: &Connection,
+    agent_id: &str,
+    path: &str,
+    now_ms: i64,
+) -> anyhow::Result<Vec<db::ActiveClaim>> {
+    let mut stmt = conn.prepare(
+        "SELECT path, agent_id, expires_at_ms FROM claims
+         WHERE agent_id <> ?2 AND expires_at_ms > ?3
+           AND (path = ?1
+                OR substr(?1, 1, length(path) + 1) = path || '/'
+                OR substr(path, 1, length(?1) + 1) = ?1 || '/')
+         ORDER BY LENGTH(path) DESC, expires_at_ms DESC, path ASC",
+    )?;
+    let rows = stmt.query_map(params![path, agent_id, now_ms], |row| {
+        Ok(db::ActiveClaim {
+            path: row.get(0)?,
+            agent_id: row.get(1)?,
+            expires_at_ms: row.get(2)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+/// Query claim conflicts for a single path inside a transaction.
+fn claim_conflicts_tx(
+    tx: &Transaction<'_>,
+    agent_id: &str,
+    path: &str,
+    now_ms: i64,
+) -> anyhow::Result<Vec<db::ActiveClaim>> {
+    let mut stmt = tx.prepare(
+        "SELECT path, agent_id, expires_at_ms FROM claims
+         WHERE agent_id <> ?2 AND expires_at_ms > ?3
+           AND (path = ?1
+                OR substr(?1, 1, length(path) + 1) = path || '/'
+                OR substr(path, 1, length(?1) + 1) = ?1 || '/')
+         ORDER BY LENGTH(path) DESC, expires_at_ms DESC, path ASC",
+    )?;
+    let rows = stmt.query_map(params![path, agent_id, now_ms], |row| {
+        Ok(db::ActiveClaim {
+            path: row.get(0)?,
+            agent_id: row.get(1)?,
+            expires_at_ms: row.get(2)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+/// Query open typed blocks inside a transaction.
+fn open_blocks_tx(
+    tx: &Transaction<'_>,
+    except_agent_id: Option<&str>,
+    overlap_path: Option<&str>,
+    now_ms: i64,
+) -> anyhow::Result<Vec<db::TypedBlock>> {
+    let rows = match (except_agent_id, overlap_path) {
+        (Some(agent_id), Some(path)) => {
+            let mut stmt = tx.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.agent_id <> ?1
+                   AND b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
+                   AND (bp.path = ?3
+                        OR substr(?3, 1, length(bp.path) + 1) = bp.path || '/'
+                        OR substr(bp.path, 1, length(?3) + 1) = ?3 || '/')
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            stmt.query_map(params![agent_id, now_ms, path], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (Some(agent_id), None) => {
+            let mut stmt = tx.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.agent_id <> ?1
+                   AND b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            stmt.query_map(params![agent_id, now_ms], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (None, Some(path)) => {
+            let mut stmt = tx.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
+                   AND (bp.path = ?2
+                        OR substr(?2, 1, length(bp.path) + 1) = bp.path || '/'
+                        OR substr(bp.path, 1, length(?2) + 1) = ?2 || '/')
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            stmt.query_map(params![now_ms, path], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (None, None) => {
+            let mut stmt = tx.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            stmt.query_map(params![now_ms], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+        }
+    };
+    Ok(group_blocks_local(rows))
+}
+
+/// Group block rows inside this module.
+fn group_blocks_local(rows: Vec<BlockRow>) -> Vec<db::TypedBlock> {
+    let mut grouped = BTreeMap::<i64, db::TypedBlock>::new();
+    for (
+        id,
+        agent_id,
+        mode,
+        reason,
+        created_at_ms,
+        expires_at_ms,
+        resolved_at_ms,
+        resolved_by_agent_id,
+        path,
+    ) in rows
+    {
+        let entry = grouped.entry(id).or_insert_with(|| db::TypedBlock {
+            id,
+            agent_id,
+            mode,
+            reason,
+            paths: Vec::new(),
+            created_at_ms,
+            expires_at_ms,
+            resolved_at_ms,
+            resolved_by_agent_id,
+        });
+        entry.paths.push(path);
+    }
+    grouped.into_values().collect()
+}
+
+/// Insert a free-text message.
 fn handle_post(conn: &Connection, agent_id: &str, message: &str) -> anyhow::Result<()> {
     let now_ms = db::now_unix_ms()?;
     let body_json = json!({ "text": message }).to_string();
-    conn.execute(
-        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, 'message', ?3)",
-        params![now_ms, agent_id, body_json],
-    )?;
-    emit_ok()?;
-    Ok(())
+    insert_history_message(conn, now_ms, agent_id, "message", &body_json)?;
+    db::touch_agent_progress_at(conn, agent_id, now_ms)?;
+    emit_ok()
 }
 
+/// Insert typed discovery/intent/declaration messages.
 fn handle_post_typed(
     conn: &Connection,
     agent_id: &str,
     kind: &str,
     body_json: &str,
 ) -> anyhow::Result<()> {
-    let now_ms = db::now_unix_ms()?;
-    let v: Value = serde_json::from_str(body_json)?;
+    let value: Value = serde_json::from_str(body_json)?;
     match kind {
-        "discovery" => db::validate_discovery_payload(&v)?,
-        "declaration" | "intent" => db::validate_surface_payload(&v)?,
+        "discovery" => db::validate_discovery_payload(&value)?,
+        "declaration" | "intent" => db::validate_surface_payload(&value)?,
         _ => anyhow::bail!("unsupported message kind: {kind}"),
     }
-    conn.execute(
-        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, ?3, ?4)",
-        params![now_ms, agent_id, kind, body_json],
-    )?;
-    emit_ok()?;
-    Ok(())
+    let now_ms = db::now_unix_ms()?;
+    insert_history_message(conn, now_ms, agent_id, kind, body_json)?;
+    db::touch_agent_progress_at(conn, agent_id, now_ms)?;
+    emit_ok()
 }
 
+/// Insert a discovery helper payload.
 fn handle_discovery(
     conn: &Connection,
     agent_id: &str,
@@ -1128,24 +1210,23 @@ fn handle_discovery(
     signal: Option<&str>,
 ) -> anyhow::Result<()> {
     let now_ms = db::now_unix_ms()?;
-    let evidence_array: Vec<Value> = evidence.iter().map(|e| json!({ "detail": e })).collect();
-    let signal = signal.unwrap_or("high");
+    let evidence_array: Vec<Value> = evidence
+        .iter()
+        .map(|item| json!({ "detail": item }))
+        .collect();
     let payload = json!({
         "title": title,
         "evidence": evidence_array,
         "suggested_action": { "cmd": action },
-        "signal": signal,
+        "signal": signal.unwrap_or("high"),
     });
     db::validate_discovery_payload(&payload)?;
-    let body_json = payload.to_string();
-    conn.execute(
-        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, 'discovery', ?3)",
-        params![now_ms, agent_id, body_json],
-    )?;
-    emit_ok()?;
-    Ok(())
+    insert_history_message(conn, now_ms, agent_id, "discovery", &payload.to_string())?;
+    db::touch_agent_progress_at(conn, agent_id, now_ms)?;
+    emit_ok()
 }
 
+/// Insert an intent or declaration payload.
 fn handle_surface(
     conn: &Connection,
     agent_id: &str,
@@ -1153,148 +1234,328 @@ fn handle_surface(
     scope: &str,
     tags: &[String],
     surface: &[String],
+    paths: &[String],
 ) -> anyhow::Result<()> {
     let now_ms = db::now_unix_ms()?;
     let payload = json!({
         "scope": scope,
         "tags": tags,
         "surface": surface,
+        "paths": paths,
     });
     db::validate_surface_payload(&payload)?;
-    let body_json = payload.to_string();
-    conn.execute(
-        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, ?3, ?4)",
-        params![now_ms, agent_id, kind, body_json],
+    insert_history_message(conn, now_ms, agent_id, kind, &payload.to_string())?;
+    db::touch_agent_progress_at(conn, agent_id, now_ms)?;
+    emit_ok()
+}
+
+/// Create a typed authoritative block.
+fn handle_block(
+    conn: &mut Connection,
+    agent_id: &str,
+    paths: &[String],
+    reason: &str,
+    mode: BlockMode,
+    ttl: Option<std::time::Duration>,
+) -> anyhow::Result<()> {
+    let now_ms = db::now_unix_ms()?;
+    let normalized = normalized_unique_paths(paths);
+    let expires_at_ms = ttl
+        .map(|duration| i64::try_from(duration.as_millis()))
+        .transpose()?
+        .map(|millis| now_ms.saturating_add(millis));
+    let mode_str = match mode {
+        BlockMode::Advisory => "advisory",
+        BlockMode::Hard => "hard",
+    };
+
+    let tx = conn.transaction()?;
+    tx.execute(
+        "INSERT INTO blocks(agent_id, mode, reason, created_at_ms, expires_at_ms, resolved_at_ms, resolved_by_agent_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, NULL, NULL)",
+        params![agent_id, mode_str, reason, now_ms, expires_at_ms],
     )?;
-    emit_ok()?;
-    Ok(())
-}
-
-fn handle_read(conn: &Connection, kind: Option<String>, since: Option<i64>) -> anyhow::Result<()> {
-    if let Some(since_ms) = since {
-        let messages = db::load_messages_since(conn, kind.as_deref(), since_ms)?;
-        emit(&messages)?;
-        return Ok(());
-    }
-
-    let kind = kind.unwrap_or_else(|| "all".to_owned());
-    if kind == "all" {
-        let messages = load_read_messages(conn, None)?;
-        let discoveries: Vec<Value> = messages
-            .iter()
-            .filter(|message| message["kind"] == "discovery")
-            .cloned()
-            .collect();
-        let next_steps: Vec<Value> = discoveries.iter().filter_map(suggested_run_step).collect();
-        let claims = load_read_claims(conn)?;
-        let agents = load_read_agents(conn)?;
-
-        emit(&json!({
-            "ok": true,
-            "kind": kind,
-            "messages": messages,
-            "discoveries": discoveries,
-            "next_steps": next_steps,
-            "claims": claims,
-            "agents": agents,
-        }))?;
-    } else if kind == "discovery" {
-        let mut discoveries: Vec<Value> = Vec::new();
-        let mut next_steps: Vec<Value> = Vec::new();
-
-        let mut stmt = conn.prepare(
-            "SELECT created_at_ms, agent_id, body_json FROM messages WHERE kind = 'discovery' ORDER BY id ASC",
+    let block_id = tx.last_insert_rowid();
+    for path in &normalized {
+        tx.execute(
+            "INSERT INTO block_paths(block_id, path) VALUES (?1, ?2)",
+            params![block_id, path],
         )?;
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, i64>(0)?,
-                row.get::<_, String>(1)?,
-                row.get::<_, String>(2)?,
-            ))
-        })?;
-
-        for r in rows {
-            let (created_at_ms, agent, body_json) = r?;
-            let obj = build_read_message(created_at_ms, agent, "discovery", &body_json);
-            if let Some(step) = suggested_run_step(&obj) {
-                next_steps.push(step);
-            }
-            discoveries.push(obj);
-        }
-
-        emit(&json!({
-            "ok": true,
-            "kind": kind,
-            "discoveries": discoveries,
-            "next_steps": next_steps,
-        }))?;
-    } else if matches!(
-        kind.as_str(),
-        "claim" | "release" | "declaration" | "intent" | "message" | "block"
-    ) {
-        let messages = load_read_messages(conn, Some(kind.as_str()))?;
-
-        emit(&json!({ "ok": true, "kind": kind, "messages": messages }))?;
-    } else {
-        emit(&json!({ "ok": true, "kind": kind, "messages": [] }))?;
     }
-    Ok(())
+    let body_json = json!({
+        "text": format!("block {block_id}: {reason}"),
+        "block_id": block_id,
+        "mode": mode_str,
+        "reason": reason,
+        "paths": normalized,
+    })
+    .to_string();
+    insert_history_message_tx(&tx, now_ms, agent_id, "block", &body_json)?;
+    touch_agent_progress_tx(&tx, agent_id, now_ms)?;
+    tx.commit()?;
+    emit(&json!({ "ok": true, "block_id": block_id }))
 }
 
+/// Resolve a typed authoritative block.
+fn handle_resolve(conn: &Connection, agent_id: &str, block_id: i64) -> anyhow::Result<()> {
+    let now_ms = db::now_unix_ms()?;
+    let target_agent_id = db::load_block_owner(conn, block_id)?
+        .ok_or_else(|| anyhow::anyhow!("block not found or already resolved: {block_id}"))?;
+    let updated = conn.execute(
+        "UPDATE blocks
+         SET resolved_at_ms = ?2, resolved_by_agent_id = ?3
+         WHERE id = ?1 AND resolved_at_ms IS NULL",
+        params![block_id, now_ms, agent_id],
+    )?;
+    anyhow::ensure!(
+        updated > 0,
+        "block not found or already resolved: {block_id}"
+    );
+
+    let body_json = json!({
+        "text": format!("resolved block {block_id}"),
+        "block_id": block_id,
+        "target_agent_id": target_agent_id,
+        "resolved_by_agent_id": agent_id,
+    })
+    .to_string();
+    insert_history_message(conn, now_ms, agent_id, "resolve", &body_json)?;
+    db::touch_agent_progress_at(conn, agent_id, now_ms)?;
+    emit(&json!({ "ok": true, "resolved_block_id": block_id }))
+}
+
+/// Record an authoritative acknowledgement.
+fn handle_ack(
+    conn: &mut Connection,
+    agent_id: &str,
+    target_agent_id: &str,
+    paths: &[String],
+    note: Option<&str>,
+) -> anyhow::Result<()> {
+    let now_ms = db::now_unix_ms()?;
+    let normalized = normalized_unique_paths(paths);
+    let tx = conn.transaction()?;
+    tx.execute(
+        "INSERT INTO acknowledgements(agent_id, target_agent_id, note, created_at_ms)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![agent_id, target_agent_id, note, now_ms],
+    )?;
+    let ack_id = tx.last_insert_rowid();
+    for path in &normalized {
+        tx.execute(
+            "INSERT INTO ack_paths(ack_id, path) VALUES (?1, ?2)",
+            params![ack_id, path],
+        )?;
+    }
+    let body_json = json!({
+        "text": note
+            .map(|note| format!("@{target_agent_id}: ack: {note}"))
+            .unwrap_or_else(|| format!("@{target_agent_id}: ack")),
+        "ack_id": ack_id,
+        "target_agent_id": target_agent_id,
+        "paths": normalized,
+        "note": note,
+    })
+    .to_string();
+    insert_history_message_tx(&tx, now_ms, agent_id, "ack", &body_json)?;
+    touch_agent_progress_tx(&tx, agent_id, now_ms)?;
+    tx.commit()?;
+    emit(&json!({ "ok": true, "ack_id": ack_id }))
+}
+
+/// Handle `read`.
+fn handle_read(
+    conn: &Connection,
+    agent_id: &str,
+    view: ReadView,
+    since: Option<i64>,
+) -> anyhow::Result<()> {
+    if let Some(since_ms) = since {
+        let kind = match view {
+            ReadView::Discoveries => Some("discovery"),
+            _ => None,
+        };
+        return emit(&db::load_messages_since(conn, kind, since_ms)?);
+    }
+
+    match view {
+        ReadView::Inbox => handle_read_inbox(conn, agent_id),
+        ReadView::Full => handle_read_full(conn),
+        ReadView::Discoveries => {
+            let (discoveries, next_steps) =
+                db::load_discoveries_and_next_steps(conn, "discovery", true)?;
+            emit(&json!({
+                "ok": true,
+                "view": "discoveries",
+                "discoveries": discoveries,
+                "next_steps": next_steps,
+            }))
+        }
+        ReadView::Messages => emit(&json!({
+            "ok": true,
+            "view": "messages",
+            "messages": db::load_messages_since(conn, None, 0)?,
+        })),
+        ReadView::Claims => emit(&json!({
+            "ok": true,
+            "view": "claims",
+            "claims": db::load_active_claims(conn, None)?,
+        })),
+        ReadView::Agents => emit(&json!({
+            "ok": true,
+            "view": "agents",
+            "agents": db::load_agent_snapshots(conn)?,
+        })),
+    }
+}
+
+/// Emit the inbox view for a specific agent.
+fn handle_read_inbox(conn: &Connection, agent_id: &str) -> anyhow::Result<()> {
+    let now_ms = db::now_unix_ms()?;
+    let my_active_claims = db::load_active_claims_for_agent(conn, agent_id)?;
+    let my_claim_paths: Vec<String> = my_active_claims
+        .iter()
+        .map(|claim| claim.path.clone())
+        .collect();
+    let open_blocks = db::load_open_blocks(conn, Some(agent_id), None)?;
+    let open_blocks_relevant_to_me: Vec<db::TypedBlock> = if my_claim_paths.is_empty() {
+        Vec::new()
+    } else {
+        open_blocks
+            .iter()
+            .filter(|block| {
+                block.paths.iter().any(|block_path| {
+                    my_claim_paths
+                        .iter()
+                        .any(|claim_path| db::paths_overlap(block_path, claim_path))
+                })
+            })
+            .cloned()
+            .collect()
+    };
+
+    let pending_acks: Vec<db::TypedBlock> = open_blocks_relevant_to_me
+        .iter()
+        .filter(|block| {
+            block.paths.is_empty()
+                || block.paths.iter().any(|path| {
+                    db::ack_exists_since(conn, agent_id, &block.agent_id, path, block.created_at_ms)
+                        .map(|acked| !acked)
+                        .unwrap_or(true)
+                })
+        })
+        .cloned()
+        .collect();
+
+    let (mentions_or_directed_updates, prev_cursor, new_cursor) =
+        db::unread_inbox_updates(conn, agent_id, now_ms)?;
+    let dependency_hints_relevant_to_requested_paths =
+        db::dependency_hints_for_paths(conn, agent_id, &my_claim_paths)?;
+    let stale_agents_holding_relevant_claims = if my_claim_paths.is_empty() {
+        Vec::new()
+    } else {
+        db::stale_agents_for_paths(conn, &my_claim_paths, now_ms)?
+    };
+
+    let mut recent_advisories: Vec<Value> = open_blocks
+        .iter()
+        .filter(|block| block.mode == "advisory")
+        .map(block_to_advisory_value)
+        .collect();
+    if my_claim_paths.is_empty() {
+        recent_advisories.clear();
+    } else {
+        recent_advisories.extend(db::recent_discoveries_for_paths(conn, &my_claim_paths, 10)?);
+    }
+
+    emit(&json!({
+        "ok": true,
+        "view": "inbox",
+        "mentions_or_directed_updates": mentions_or_directed_updates,
+        "open_blocks_relevant_to_me": open_blocks_relevant_to_me,
+        "my_active_claims": my_active_claims,
+        "pending_acks": pending_acks,
+        "dependency_hints_relevant_to_requested_paths": dependency_hints_relevant_to_requested_paths,
+        "stale_agents_holding_relevant_claims": stale_agents_holding_relevant_claims,
+        "recent_advisories": recent_advisories,
+        "cursor": {
+            "topic": "inbox",
+            "prev": prev_cursor,
+            "next": new_cursor,
+        }
+    }))
+}
+
+/// Emit the full transcript-style snapshot.
+fn handle_read_full(conn: &Connection) -> anyhow::Result<()> {
+    let (discoveries, next_steps) = db::load_discoveries_and_next_steps(conn, "discovery", true)?;
+    emit(&json!({
+        "ok": true,
+        "view": "full",
+        "messages": db::load_messages_since(conn, None, 0)?,
+        "discoveries": discoveries,
+        "next_steps": next_steps,
+        "claims": db::load_active_claims(conn, None)?,
+        "agents": db::load_agent_snapshots(conn)?,
+        "blocks": db::load_open_blocks(conn, None, None)?,
+    }))
+}
+
+/// Emit the discovery brief.
 fn handle_brief(conn: &Connection, kind: Option<String>, all: bool) -> anyhow::Result<()> {
     let kind = kind.unwrap_or_else(|| "discovery".to_owned());
     let (discoveries, next_steps) = db::load_discoveries_and_next_steps(conn, &kind, all)?;
-
     emit(&json!({
         "ok": true,
         "mode": "brief",
         "kind": kind,
         "discoveries": discoveries,
         "next_steps": next_steps,
-    }))?;
-    Ok(())
+    }))
 }
 
+/// Emit the discovery digest.
 fn handle_digest(conn: &Connection, kind: Option<String>, all: bool) -> anyhow::Result<()> {
     let kind = kind.unwrap_or_else(|| "discovery".to_owned());
     let (discoveries, next_steps) = db::load_discoveries_and_next_steps(conn, &kind, all)?;
-
     let discoveries: Vec<Value> = discoveries
         .into_iter()
-        .map(|d| match d {
-            Value::Object(mut m) => {
-                let title = m.remove("title");
-                let agent_id = m.remove("agent_id");
+        .map(|discovery| match discovery {
+            Value::Object(mut map) => {
+                let title = map.remove("title");
+                let agent_id = map.remove("agent_id");
                 json!({ "title": title, "agent_id": agent_id })
             }
             other => other,
         })
         .collect();
-
     emit(&json!({
         "ok": true,
         "mode": "digest",
         "kind": kind,
         "discoveries": discoveries,
         "next_steps": next_steps,
-    }))?;
-    Ok(())
+    }))
 }
 
+/// Update the agent status.
 fn handle_status(conn: &Connection, agent_id: &str, value: Option<&str>) -> anyhow::Result<()> {
     update_agent_state_field(conn, agent_id, AgentStateField::Status, value)
 }
 
+/// Update the agent plan.
 fn handle_plan(conn: &Connection, agent_id: &str, value: Option<&str>) -> anyhow::Result<()> {
     update_agent_state_field(conn, agent_id, AgentStateField::Plan, value)
 }
 
+/// Agent-state field selector.
 #[derive(Clone, Copy)]
 enum AgentStateField {
     Status,
     Plan,
 }
 
+/// Update one agent-state field.
 fn update_agent_state_field(
     conn: &Connection,
     agent_id: &str,
@@ -1305,75 +1566,58 @@ fn update_agent_state_field(
     db::ensure_agent_row(conn, agent_id, now_ms)?;
     let sql = match field {
         AgentStateField::Status => {
-            "UPDATE agent_state SET status = ?2, updated_at_ms = ?3 WHERE agent_id = ?1"
+            "UPDATE agent_state
+             SET status = ?2, updated_at_ms = ?3, last_seen_at_ms = ?3, last_progress_at_ms = ?3
+             WHERE agent_id = ?1"
         }
         AgentStateField::Plan => {
-            "UPDATE agent_state SET plan = ?2, updated_at_ms = ?3 WHERE agent_id = ?1"
+            "UPDATE agent_state
+             SET plan = ?2, updated_at_ms = ?3, last_seen_at_ms = ?3, last_progress_at_ms = ?3
+             WHERE agent_id = ?1"
         }
     };
     conn.execute(sql, params![agent_id, value, now_ms])?;
-    emit_ok()?;
-    Ok(())
+    emit_ok()
 }
 
+/// Emit agent snapshots.
 fn handle_agents(conn: &Connection) -> anyhow::Result<()> {
-    let mut stmt = conn.prepare(
-        "SELECT agent_id, status, plan, updated_at_ms FROM agent_state ORDER BY agent_id ASC",
-    )?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Option<String>>(1)?,
-            row.get::<_, Option<String>>(2)?,
-            row.get::<_, i64>(3)?,
-        ))
-    })?;
-
-    let agents: Vec<AgentState> = rows
-        .collect::<rusqlite::Result<Vec<_>>>()?
-        .into_iter()
-        .map(|(agent_id, status, plan, updated_at_ms)| AgentState {
-            agent_id,
-            status,
-            plan,
-            updated_at_ms,
-        })
-        .collect();
-
-    emit(&AgentsResponse { ok: true, agents })?;
-    Ok(())
+    emit(&json!({
+        "ok": true,
+        "agents": db::load_agent_snapshots(conn)?,
+    }))
 }
 
+/// Finish work, release claims, and clear status/plan.
 fn handle_done(conn: &Connection, agent_id: &str, summary: &str) -> anyhow::Result<()> {
     let now_ms = db::now_unix_ms()?;
-
     let released: i64 = conn.query_row(
         "SELECT COUNT(1) FROM claims WHERE agent_id = ?1",
         params![agent_id],
         |row| row.get(0),
     )?;
     conn.execute("DELETE FROM claims WHERE agent_id = ?1", params![agent_id])?;
-
     db::ensure_agent_row(conn, agent_id, now_ms)?;
     conn.execute(
-        "UPDATE agent_state SET status = NULL, plan = NULL, updated_at_ms = ?2 WHERE agent_id = ?1",
+        "UPDATE agent_state
+         SET status = NULL,
+             plan = NULL,
+             updated_at_ms = ?2,
+             last_seen_at_ms = ?2,
+             last_progress_at_ms = ?2
+         WHERE agent_id = ?1",
         params![agent_id, now_ms],
     )?;
-
     let body_json = json!({ "text": format!("DONE: {summary}") }).to_string();
-    conn.execute(
-        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, 'message', ?3)",
-        params![now_ms, agent_id, body_json],
-    )?;
-
+    insert_history_message(conn, now_ms, agent_id, "message", &body_json)?;
     emit(&DoneResponse {
         ok: true,
         released_claims: released,
         cleared: vec!["status", "plan"],
-    })?;
-    Ok(())
+    })
 }
 
+/// Hidden evaluation prompt output.
 fn handle_eval_user_prompt_submit(conn: &Connection) -> anyhow::Result<()> {
     let now_ms = db::now_unix_ms()?;
     let active_claims: i64 = conn.query_row(
@@ -1381,16 +1625,18 @@ fn handle_eval_user_prompt_submit(conn: &Connection) -> anyhow::Result<()> {
         params![now_ms],
         |row| row.get(0),
     )?;
-
-    println!("Announce what you'll do (files), read the channel, then proceed.");
+    println!("Read your inbox, acquire files, then proceed.");
     println!("claims: {active_claims}");
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Barrier};
+
     use super::*;
 
+    /// Create a temporary repository-like directory for path resolution tests.
     fn temp_test_dir(name: &str) -> anyhow::Result<PathBuf> {
         let unique = format!(
             "but-link-{}-{}-{}",
@@ -1401,32 +1647,6 @@ mod tests {
         let path = std::env::temp_dir().join(unique);
         std::fs::create_dir_all(&path)?;
         Ok(path)
-    }
-
-    #[test]
-    fn discovery_subcommand_defaults_signal_to_high() -> anyhow::Result<()> {
-        let conn = Connection::open_in_memory()?;
-        db::init_db(&conn)?;
-
-        handle_discovery(
-            &conn,
-            "agent-a",
-            "coordination default",
-            &["observed regression".to_owned()],
-            "but link read --agent-id agent-a",
-            None,
-        )?;
-
-        let (discoveries, next_steps) =
-            db::load_discoveries_and_next_steps(&conn, "discovery", false)?;
-
-        assert_eq!(discoveries.len(), 1);
-        assert_eq!(discoveries[0]["title"], "coordination default");
-        assert_eq!(discoveries[0]["signal"], "high");
-        assert_eq!(next_steps.len(), 1);
-        assert_eq!(next_steps[0]["cmd"], "but link read --agent-id agent-a");
-
-        Ok(())
     }
 
     #[test]
@@ -1455,24 +1675,6 @@ mod tests {
             .expect_err("outside-repo paths must be rejected");
 
         assert!(err.to_string().contains("path must stay within repository"));
-        Ok(())
-    }
-
-    #[test]
-    fn check_result_handles_literal_glob_metacharacters_in_paths() -> anyhow::Result<()> {
-        let conn = Connection::open_in_memory()?;
-        db::init_db(&conn)?;
-        let now_ms = db::now_unix_ms()?;
-        conn.execute(
-            "INSERT INTO claims(path, agent_id, expires_at_ms) VALUES (?1, ?2, ?3)",
-            params!["src/[core]", "agent-b", now_ms + 60_000],
-        )?;
-
-        let result = check_result(&conn, "agent-a", "src/[core]/mod.rs", false)?;
-
-        assert_eq!(result.decision, "warn");
-        assert_eq!(result.reason_code, "claimed_by_other");
-        assert_eq!(result.blocking_agents, vec!["agent-b"]);
         Ok(())
     }
 
@@ -1521,6 +1723,136 @@ mod tests {
         let claim_count: i64 =
             conn.query_row("SELECT COUNT(*) FROM claims", [], |row| row.get(0))?;
         assert_eq!(claim_count, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn check_ignores_free_text_blocking_words() -> anyhow::Result<()> {
+        let conn = Connection::open_in_memory()?;
+        db::init_db(&conn)?;
+        handle_post(&conn, "peer", "please avoid src/app.txt while I refactor")?;
+
+        let result = check_result(&conn, "me", "src/app.txt", false)?;
+        assert_eq!(result.decision, "allow");
+        assert_eq!(result.reason_code, "no_conflict");
+        Ok(())
+    }
+
+    #[test]
+    fn check_respects_typed_blocks() -> anyhow::Result<()> {
+        let mut conn = Connection::open_in_memory()?;
+        db::init_db(&conn)?;
+        handle_block(
+            &mut conn,
+            "peer",
+            &[String::from("src/app.txt")],
+            "shared refactor",
+            BlockMode::Hard,
+            None,
+        )?;
+
+        let result = check_result(&conn, "me", "src/app.txt", false)?;
+        assert_eq!(result.decision, "deny");
+        assert_eq!(result.reason_code, "hard_block");
+        Ok(())
+    }
+
+    #[test]
+    fn acquire_claims_clear_paths_and_skips_blocked_paths() -> anyhow::Result<()> {
+        let mut conn = Connection::open_in_memory()?;
+        db::init_db(&conn)?;
+        handle_block(
+            &mut conn,
+            "peer",
+            &[String::from("src/blocked.txt")],
+            "shared refactor",
+            BlockMode::Hard,
+            None,
+        )?;
+
+        handle_acquire_batch(
+            &mut conn,
+            "me",
+            &[
+                String::from("src/clear.txt"),
+                String::from("src/blocked.txt"),
+            ],
+            std::time::Duration::from_secs(900),
+            false,
+            CheckFormat::Full,
+        )?;
+
+        let claims = db::load_active_claims_for_agent(&conn, "me")?;
+        assert_eq!(claims.len(), 1);
+        assert_eq!(claims[0].path, "src/clear.txt");
+        Ok(())
+    }
+
+    #[test]
+    fn acquire_serializes_concurrent_writers_into_blocked_result() -> anyhow::Result<()> {
+        let tempdir = temp_test_dir("acquire-concurrent")?;
+        let db_path = tempdir.join("coord.db");
+
+        let conn = Connection::open(&db_path)?;
+        db::init_db(&conn)?;
+        drop(conn);
+
+        let barrier = Arc::new(Barrier::new(2));
+        let db_path_a = db_path.clone();
+        let barrier_a = barrier.clone();
+        let thread_a = std::thread::spawn(move || -> anyhow::Result<AcquireResponse> {
+            let mut conn = Connection::open(db_path_a)?;
+            db::init_db(&conn)?;
+            barrier_a.wait();
+            acquire_batch(
+                &mut conn,
+                "agent-a",
+                &[String::from("src/app.txt")],
+                std::time::Duration::from_secs(900),
+                false,
+            )
+        });
+
+        let barrier_b = barrier.clone();
+        let thread_b = std::thread::spawn(move || -> anyhow::Result<AcquireResponse> {
+            let mut conn = Connection::open(db_path)?;
+            db::init_db(&conn)?;
+            barrier_b.wait();
+            acquire_batch(
+                &mut conn,
+                "agent-b",
+                &[String::from("src/app.txt")],
+                std::time::Duration::from_secs(900),
+                false,
+            )
+        });
+
+        let response_a = thread_a.join().expect("thread a panicked")?;
+        let response_b = thread_b.join().expect("thread b panicked")?;
+        let decisions = [
+            response_a.decisions[0].decision,
+            response_b.decisions[0].decision,
+        ];
+
+        assert_eq!(
+            decisions
+                .iter()
+                .filter(|decision| **decision == "acquired")
+                .count(),
+            1
+        );
+        assert_eq!(
+            decisions
+                .iter()
+                .filter(|decision| **decision == "blocked")
+                .count(),
+            1
+        );
+
+        let conn = Connection::open(tempdir.join("coord.db"))?;
+        db::init_db(&conn)?;
+        let claims = db::load_active_claims(&conn, Some("src/app.txt"))?;
+        assert_eq!(claims.len(), 1);
         Ok(())
     }
 }

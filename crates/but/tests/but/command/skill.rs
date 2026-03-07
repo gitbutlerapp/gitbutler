@@ -149,6 +149,10 @@ fn skill_install_with_link_installs_coordination_variant() -> anyhow::Result<()>
         "--with-link install should include coordination workflow"
     );
     assert!(
+        installed_skill.contains("but link acquire <file> --agent-id <id> --ttl 15m"),
+        "--with-link install should teach acquire as the default edit workflow"
+    );
+    assert!(
         installed_skill.contains("Review / triage task (no file edits)"),
         "--with-link install should include read-only coordination workflow"
     );
@@ -157,6 +161,11 @@ fn skill_install_with_link_installs_coordination_variant() -> anyhow::Result<()>
     assert!(
         installed_link_reference.contains("## Read-Only Checklist (No File Edits)"),
         "--with-link install should include read-only checklist in link reference"
+    );
+    assert!(
+        installed_link_reference
+            .contains("but link acquire --path <file1> --path <file2> --ttl 15m --agent-id <id>"),
+        "--with-link install should teach acquire in the link reference"
     );
 
     Ok(())

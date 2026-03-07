@@ -1,8 +1,8 @@
-//! Database initialization, queries, and coordination-state helpers.
+//! Database initialization, migrations, and typed coordination queries.
 //!
-//! All functions that take a `rusqlite::Connection` live here.
+//! All database access shared across command handlers and the TUI lives here.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
@@ -10,52 +10,138 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde_json::{Value, json};
 
-#[derive(Serialize)]
-pub(crate) struct StaleAgent {
-    pub kind: &'static str,
+use crate::text::{
+    contains_path_token, extract_message_text, parse_body, relevant_needles_for_path,
+};
+
+/// Agent snapshot used by commands and the TUI.
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct AgentSnapshot {
+    /// Stable agent identifier.
     pub agent_id: String,
+    /// Optional short status string.
+    pub status: Option<String>,
+    /// Optional short plan string.
+    pub plan: Option<String>,
+    /// Legacy compatibility timestamp seeded from progress updates.
     pub updated_at_ms: i64,
-    pub stale_for_ms: i64,
-    pub threshold_ms: i64,
-    pub is_stale: bool,
-    pub suggested_cmd: String,
+    /// Last observed command from the agent.
+    pub last_seen_at_ms: i64,
+    /// Last command that counts as progress.
+    pub last_progress_at_ms: i64,
 }
 
-#[derive(Serialize)]
-pub(crate) struct DependencyNextStep {
-    pub kind: &'static str,
-    pub suggested_cmd: String,
-}
-
-#[derive(Serialize)]
-pub(crate) struct DependencyHint {
-    pub kind: &'static str,
-    pub provider_agent_id: String,
-    pub scope: String,
-    pub tags: Vec<String>,
-    pub overlap_tokens: Vec<String>,
-    pub why: String,
-    pub next_step: DependencyNextStep,
-}
-
-#[derive(Serialize)]
-pub(crate) struct UnreadUpdate {
-    pub id: i64,
-    pub created_at_ms: i64,
+/// Active claim row used in structured responses.
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct ActiveClaim {
+    /// Claimed repo-relative path.
+    pub path: String,
+    /// Owning agent identifier.
     pub agent_id: String,
+    /// Claim expiry in unix milliseconds.
+    pub expires_at_ms: i64,
+}
+
+/// Typed coordination block used in structured responses.
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct TypedBlock {
+    /// Block identifier.
+    pub id: i64,
+    /// Agent that created the block.
+    pub agent_id: String,
+    /// `hard` or `advisory`.
+    pub mode: String,
+    /// Human-readable reason.
+    pub reason: String,
+    /// Covered repo-relative paths.
+    pub paths: Vec<String>,
+    /// Creation timestamp in unix milliseconds.
+    pub created_at_ms: i64,
+    /// Optional expiry timestamp in unix milliseconds.
+    pub expires_at_ms: Option<i64>,
+    /// Optional resolution timestamp in unix milliseconds.
+    pub resolved_at_ms: Option<i64>,
+    /// Optional resolving agent.
+    pub resolved_by_agent_id: Option<String>,
+}
+
+/// Dependency hint emitted when intents and declarations overlap.
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct DependencyHint {
+    /// Stable kind tag for machine consumers.
+    pub kind: &'static str,
+    /// Agent that declared the dependency surface.
+    pub provider_agent_id: String,
+    /// Shared scope of the surface.
+    pub scope: String,
+    /// Tags attached to the declaration.
+    pub tags: Vec<String>,
+    /// Overlapping surface tokens.
+    pub overlap_tokens: Vec<String>,
+    /// Optional overlapping scoped paths.
+    pub overlap_paths: Vec<String>,
+    /// Human-readable explanation.
+    pub why: String,
+}
+
+/// Stale claim holder summary.
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct StaleAgent {
+    /// Stable kind tag for machine consumers.
+    pub kind: &'static str,
+    /// Agent id of the stale holder.
+    pub agent_id: String,
+    /// Last progress timestamp.
+    pub last_progress_at_ms: i64,
+    /// How long the holder has been stale.
+    pub stale_for_ms: i64,
+    /// Configured stale threshold.
+    pub threshold_ms: i64,
+    /// Whether the holder is stale.
+    pub is_stale: bool,
+    /// Relevant claimed paths owned by the stale agent.
+    pub claim_paths: Vec<String>,
+}
+
+/// Unread inbox entry surfaced by `read`.
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct UnreadUpdate {
+    /// Message id cursor.
+    pub id: i64,
+    /// Creation timestamp.
+    pub created_at_ms: i64,
+    /// Sender agent.
+    pub agent_id: String,
+    /// Message kind.
     pub kind: String,
+    /// Parsed body payload.
     pub body: Value,
 }
 
-use crate::text::{
-    DiscoveryBlocker, contains_path_token, discovery_block_window_ms, extract_message_text,
-    is_discovery_block_text, parse_body, relevant_needles_for_path, strip_common_list_prefix,
-    strip_leading_markdown_emphasis, strip_leading_wrappers,
-};
+/// Optional scoped surface payload parsed from intent/declaration messages.
+#[derive(Clone, Debug)]
+struct SurfaceMessage {
+    scope: String,
+    tags: Vec<String>,
+    surface: Vec<String>,
+    paths: Vec<String>,
+}
 
+/// Joined block row used when grouping block query results in this module.
+type BlockRow = (
+    i64,
+    String,
+    String,
+    String,
+    i64,
+    Option<i64>,
+    Option<i64>,
+    Option<String>,
+    String,
+);
+
+/// Initialize and migrate the coordination database.
 pub(crate) fn init_db(conn: &Connection) -> anyhow::Result<()> {
-    // Enable WAL mode and set a busy timeout so concurrent agent processes
-    // don't immediately fail with "database is locked".
     conn.execute_batch(
         "PRAGMA journal_mode = WAL;\
          PRAGMA busy_timeout = 5000;",
@@ -72,7 +158,9 @@ pub(crate) fn init_db(conn: &Connection) -> anyhow::Result<()> {
             agent_id TEXT PRIMARY KEY,\
             status TEXT,\
             plan TEXT,\
-            updated_at_ms INTEGER NOT NULL\
+            updated_at_ms INTEGER NOT NULL DEFAULT 0,\
+            last_seen_at_ms INTEGER NOT NULL DEFAULT 0,\
+            last_progress_at_ms INTEGER NOT NULL DEFAULT 0\
          );\
          CREATE TABLE IF NOT EXISTS messages (\
             id INTEGER PRIMARY KEY AUTOINCREMENT,\
@@ -88,19 +176,86 @@ pub(crate) fn init_db(conn: &Connection) -> anyhow::Result<()> {
             updated_at_ms INTEGER NOT NULL,\
             PRIMARY KEY(agent_id, topic)\
          );\
-        ",
+         CREATE TABLE IF NOT EXISTS blocks (\
+            id INTEGER PRIMARY KEY AUTOINCREMENT,\
+            agent_id TEXT NOT NULL,\
+            mode TEXT NOT NULL,\
+            reason TEXT NOT NULL,\
+            created_at_ms INTEGER NOT NULL,\
+            expires_at_ms INTEGER,\
+            resolved_at_ms INTEGER,\
+            resolved_by_agent_id TEXT\
+         );\
+         CREATE TABLE IF NOT EXISTS block_paths (\
+            block_id INTEGER NOT NULL,\
+            path TEXT NOT NULL\
+         );\
+         CREATE INDEX IF NOT EXISTS idx_block_paths_path ON block_paths(path);\
+         CREATE INDEX IF NOT EXISTS idx_blocks_active ON blocks(resolved_at_ms, expires_at_ms, created_at_ms);\
+         CREATE TABLE IF NOT EXISTS acknowledgements (\
+            id INTEGER PRIMARY KEY AUTOINCREMENT,\
+            agent_id TEXT NOT NULL,\
+            target_agent_id TEXT NOT NULL,\
+            note TEXT,\
+            created_at_ms INTEGER NOT NULL\
+         );\
+         CREATE TABLE IF NOT EXISTS ack_paths (\
+            ack_id INTEGER NOT NULL,\
+            path TEXT NOT NULL\
+         );\
+         CREATE INDEX IF NOT EXISTS idx_ack_paths_path ON ack_paths(path);",
     )
     .context("init_db")?;
 
-    // Prune expired claims and old messages to prevent unbounded DB growth.
+    migrate_agent_state_columns(conn)?;
     prune(conn)?;
     Ok(())
 }
 
-/// Maximum number of messages to retain in the database.
+/// Maximum number of transcript messages retained in the database.
 const MAX_MESSAGES: i64 = 10_000;
 
-/// Delete expired claims and cap messages to the most recent MAX_MESSAGES.
+/// Ensure agent state has the split seen/progress columns.
+fn migrate_agent_state_columns(conn: &Connection) -> anyhow::Result<()> {
+    let columns = table_columns(conn, "agent_state")?;
+    if !columns.contains("last_seen_at_ms") {
+        conn.execute(
+            "ALTER TABLE agent_state ADD COLUMN last_seen_at_ms INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+    if !columns.contains("last_progress_at_ms") {
+        conn.execute(
+            "ALTER TABLE agent_state ADD COLUMN last_progress_at_ms INTEGER NOT NULL DEFAULT 0",
+            [],
+        )?;
+    }
+    conn.execute(
+        "UPDATE agent_state
+         SET last_seen_at_ms = CASE
+                 WHEN last_seen_at_ms = 0 THEN updated_at_ms
+                 ELSE last_seen_at_ms
+             END,
+             last_progress_at_ms = CASE
+                 WHEN last_progress_at_ms = 0 THEN updated_at_ms
+                 ELSE last_progress_at_ms
+             END",
+        [],
+    )?;
+    Ok(())
+}
+
+/// Look up table column names with `PRAGMA table_info`.
+fn table_columns(conn: &Connection, table_name: &str) -> anyhow::Result<HashSet<String>> {
+    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table_name})"))?;
+    let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+    Ok(rows
+        .collect::<rusqlite::Result<Vec<_>>>()?
+        .into_iter()
+        .collect())
+}
+
+/// Prune expired claims and cap message growth.
 fn prune(conn: &Connection) -> anyhow::Result<()> {
     let now_ms = now_unix_ms()?;
     conn.execute(
@@ -111,8 +266,8 @@ fn prune(conn: &Connection) -> anyhow::Result<()> {
     let count: i64 = conn.query_row("SELECT COUNT(1) FROM messages", [], |row| row.get(0))?;
     if count > MAX_MESSAGES {
         conn.execute(
-            "DELETE FROM messages WHERE id NOT IN (\
-                SELECT id FROM messages ORDER BY id DESC LIMIT ?1\
+            "DELETE FROM messages WHERE id NOT IN (
+                SELECT id FROM messages ORDER BY id DESC LIMIT ?1
              )",
             params![MAX_MESSAGES],
         )?;
@@ -120,25 +275,69 @@ fn prune(conn: &Connection) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Ensure an agent row exists.
 pub(crate) fn ensure_agent_row(
     conn: &Connection,
     agent_id: &str,
-    now_ms: i64,
+    _now_ms: i64,
 ) -> anyhow::Result<()> {
     conn.execute(
-        "INSERT INTO agent_state(agent_id, status, plan, updated_at_ms) VALUES (?1, NULL, NULL, ?2) \
-         ON CONFLICT(agent_id) DO UPDATE SET updated_at_ms = excluded.updated_at_ms",
-        params![agent_id, now_ms],
+        "INSERT INTO agent_state(
+            agent_id,
+            status,
+            plan,
+            updated_at_ms,
+            last_seen_at_ms,
+            last_progress_at_ms
+         ) VALUES (?1, NULL, NULL, 0, 0, 0)
+         ON CONFLICT(agent_id) DO NOTHING",
+        params![agent_id],
     )
     .context("ensure_agent_row")?;
     Ok(())
 }
 
-pub(crate) fn touch_agent(conn: &Connection, agent_id: &str) -> anyhow::Result<()> {
+/// Record that an agent was seen executing any command.
+pub(crate) fn touch_agent_seen(conn: &Connection, agent_id: &str) -> anyhow::Result<()> {
     let now_ms = now_unix_ms()?;
-    ensure_agent_row(conn, agent_id, now_ms)
+    ensure_agent_row(conn, agent_id, now_ms)?;
+    conn.execute(
+        "UPDATE agent_state SET last_seen_at_ms = ?2 WHERE agent_id = ?1",
+        params![agent_id, now_ms],
+    )?;
+    Ok(())
 }
 
+/// Record that an agent made coordination progress at a specific timestamp.
+pub(crate) fn touch_agent_progress_at(
+    conn: &Connection,
+    agent_id: &str,
+    now_ms: i64,
+) -> anyhow::Result<()> {
+    ensure_agent_row(conn, agent_id, now_ms)?;
+    conn.execute(
+        "UPDATE agent_state
+         SET updated_at_ms = ?2,
+             last_seen_at_ms = ?2,
+             last_progress_at_ms = ?2
+         WHERE agent_id = ?1",
+        params![agent_id, now_ms],
+    )?;
+    Ok(())
+}
+
+/// Load the owner of a typed block when it exists.
+pub(crate) fn load_block_owner(conn: &Connection, block_id: i64) -> anyhow::Result<Option<String>> {
+    conn.query_row(
+        "SELECT agent_id FROM blocks WHERE id = ?1",
+        params![block_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
+/// Return the current unix timestamp in milliseconds.
 pub(crate) fn now_unix_ms() -> anyhow::Result<i64> {
     let dur = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -146,280 +345,279 @@ pub(crate) fn now_unix_ms() -> anyhow::Result<i64> {
     dur.as_millis().try_into().context("timestamp overflow")
 }
 
-fn value_string(v: &Value, key: &str) -> Option<String> {
-    v.get(key)
-        .and_then(|field| field.as_str())
-        .map(std::borrow::ToOwned::to_owned)
+/// Load all active claims, optionally filtered by path prefix overlap.
+pub(crate) fn load_active_claims(
+    conn: &Connection,
+    path_prefix: Option<&str>,
+) -> anyhow::Result<Vec<ActiveClaim>> {
+    let now_ms = now_unix_ms()?;
+    let claims = if let Some(prefix) = path_prefix {
+        let mut stmt = conn.prepare(
+            "SELECT path, agent_id, expires_at_ms FROM claims
+             WHERE expires_at_ms > ?1
+               AND (path = ?2
+                    OR substr(?2, 1, length(path) + 1) = path || '/'
+                    OR substr(path, 1, length(?2) + 1) = ?2 || '/')
+             ORDER BY expires_at_ms ASC, path ASC",
+        )?;
+        let rows = stmt.query_map(params![now_ms, prefix], |row| {
+            Ok(ActiveClaim {
+                path: row.get(0)?,
+                agent_id: row.get(1)?,
+                expires_at_ms: row.get(2)?,
+            })
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    } else {
+        let mut stmt = conn.prepare(
+            "SELECT path, agent_id, expires_at_ms FROM claims
+             WHERE expires_at_ms > ?1
+             ORDER BY expires_at_ms ASC, path ASC",
+        )?;
+        let rows = stmt.query_map(params![now_ms], |row| {
+            Ok(ActiveClaim {
+                path: row.get(0)?,
+                agent_id: row.get(1)?,
+                expires_at_ms: row.get(2)?,
+            })
+        })?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()?
+    };
+    Ok(claims)
 }
 
-fn value_string_array(v: &Value, key: &str) -> Vec<String> {
-    v.get(key)
-        .and_then(|field| field.as_array())
-        .map(|a| {
-            a.iter()
-                .filter_map(|item| item.as_str().map(std::borrow::ToOwned::to_owned))
-                .collect()
+/// Load active claims owned by a specific agent.
+pub(crate) fn load_active_claims_for_agent(
+    conn: &Connection,
+    agent_id: &str,
+) -> anyhow::Result<Vec<ActiveClaim>> {
+    let now_ms = now_unix_ms()?;
+    let mut stmt = conn.prepare(
+        "SELECT path, agent_id, expires_at_ms FROM claims
+         WHERE agent_id = ?1 AND expires_at_ms > ?2
+         ORDER BY expires_at_ms ASC, path ASC",
+    )?;
+    let rows = stmt.query_map(params![agent_id, now_ms], |row| {
+        Ok(ActiveClaim {
+            path: row.get(0)?,
+            agent_id: row.get(1)?,
+            expires_at_ms: row.get(2)?,
         })
-        .unwrap_or_default()
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
-/// Find the most recent message from `from_agent_id` that mentions `path`.
-pub(crate) fn last_relevant_update_from_agent(
+/// Load agent state snapshots ordered by recent progress.
+pub(crate) fn load_agent_snapshots(conn: &Connection) -> anyhow::Result<Vec<AgentSnapshot>> {
+    let mut stmt = conn.prepare(
+        "SELECT agent_id, status, plan, updated_at_ms, last_seen_at_ms, last_progress_at_ms
+         FROM agent_state
+         ORDER BY last_progress_at_ms DESC, agent_id ASC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(AgentSnapshot {
+            agent_id: row.get(0)?,
+            status: row.get(1)?,
+            plan: row.get(2)?,
+            updated_at_ms: row.get(3)?,
+            last_seen_at_ms: row.get(4)?,
+            last_progress_at_ms: row.get(5)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+/// Load open typed blocks, optionally filtered to overlaps with a path.
+pub(crate) fn load_open_blocks(
+    conn: &Connection,
+    except_agent_id: Option<&str>,
+    overlap_path: Option<&str>,
+) -> anyhow::Result<Vec<TypedBlock>> {
+    let now_ms = now_unix_ms()?;
+    let rows = match (except_agent_id, overlap_path) {
+        (Some(agent_id), Some(path)) => {
+            let mut stmt = conn.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.agent_id <> ?1
+                   AND b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
+                   AND (bp.path = ?3
+                        OR substr(?3, 1, length(bp.path) + 1) = bp.path || '/'
+                        OR substr(bp.path, 1, length(?3) + 1) = ?3 || '/')
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![agent_id, now_ms, path], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (Some(agent_id), None) => {
+            let mut stmt = conn.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.agent_id <> ?1
+                   AND b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![agent_id, now_ms], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (None, Some(path)) => {
+            let mut stmt = conn.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
+                   AND (bp.path = ?2
+                        OR substr(?2, 1, length(bp.path) + 1) = bp.path || '/'
+                        OR substr(bp.path, 1, length(?2) + 1) = ?2 || '/')
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![now_ms, path], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (None, None) => {
+            let mut stmt = conn.prepare(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![now_ms], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+    };
+
+    Ok(group_blocks(rows))
+}
+
+/// Group joined block rows into block objects.
+fn group_blocks(rows: Vec<BlockRow>) -> Vec<TypedBlock> {
+    let mut grouped = BTreeMap::<i64, TypedBlock>::new();
+    for (
+        id,
+        agent_id,
+        mode,
+        reason,
+        created_at_ms,
+        expires_at_ms,
+        resolved_at_ms,
+        resolved_by_agent_id,
+        path,
+    ) in rows
+    {
+        let entry = grouped.entry(id).or_insert_with(|| TypedBlock {
+            id,
+            agent_id,
+            mode,
+            reason,
+            paths: Vec::new(),
+            created_at_ms,
+            expires_at_ms,
+            resolved_at_ms,
+            resolved_by_agent_id,
+        });
+        entry.paths.push(path);
+    }
+    grouped.into_values().collect()
+}
+
+/// Check if an acknowledgement exists for the target and path scope.
+pub(crate) fn ack_exists_since(
     conn: &Connection,
     from_agent_id: &str,
-    path: &str,
-) -> anyhow::Result<Option<(i64, i64, String)>> {
-    let needles = relevant_needles_for_path(path);
-    let mut stmt = conn.prepare(
-        "SELECT id, created_at_ms, body_json FROM messages \
-         WHERE agent_id = ?1 AND kind IN ('message','discovery') \
-         ORDER BY id DESC \
-         LIMIT 500",
-    )?;
-    let rows = stmt.query_map(params![from_agent_id], |row| {
-        Ok((
-            row.get::<_, i64>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
-
-    for r in rows {
-        let (id, created_at_ms, body_json) = r?;
-        let (_, txt) = parse_body(&body_json);
-        if needles.iter().any(|n| contains_path_token(&txt, n)) {
-            return Ok(Some((id, created_at_ms, txt)));
-        }
-    }
-    Ok(None)
-}
-
-/// Check whether `requester_agent_id` has posted an ack for `target_agent_id` since `since_created_at_ms`.
-pub(crate) fn requester_has_acked_since(
-    conn: &Connection,
-    requester_agent_id: &str,
     target_agent_id: &str,
-    since_created_at_ms: i64,
-    path_needles: &[String],
-) -> anyhow::Result<bool> {
-    let mut ack_needles_lower: Vec<String> = Vec::with_capacity(8);
-    for base in [
-        format!("@{target_agent_id}: ack"),
-        format!("@{target_agent_id} ack"),
-        format!("@{target_agent_id}: acknowledged"),
-        format!("@{target_agent_id} acknowledged"),
-        format!("@{target_agent_id}: thanks"),
-        format!("@{target_agent_id} thanks"),
-        format!("@{target_agent_id}: got it"),
-        format!("@{target_agent_id} got it"),
-    ] {
-        let base_lower = base.to_ascii_lowercase();
-        ack_needles_lower.push(base_lower.clone());
-        ack_needles_lower.push(format!("{base_lower} "));
-        ack_needles_lower.push(format!("{base_lower}\t"));
-        for p in [':', '.', '!', '?', ','] {
-            ack_needles_lower.push(format!("{base_lower}{p}"));
-        }
-    }
-    let mut stmt = conn.prepare(
-        "SELECT body_json FROM messages \
-         WHERE agent_id = ?1 AND kind = 'message' AND created_at_ms >= ?2 \
-         ORDER BY id DESC \
-         LIMIT 500",
-    )?;
-    let rows = stmt.query_map(params![requester_agent_id, since_created_at_ms], |row| {
-        row.get::<_, String>(0)
-    })?;
-
-    for r in rows {
-        let body_json = r?;
-        let (_, txt) = parse_body(&body_json);
-        if !path_needles.is_empty() && !path_needles.iter().any(|n| contains_path_token(&txt, n)) {
-            continue;
-        }
-        let mut scanned_bytes: usize = 0;
-        let mut in_fenced_code_block = false;
-        for line in txt.lines().take(16) {
-            scanned_bytes = scanned_bytes.saturating_add(line.len());
-            if scanned_bytes > 1024 {
-                break;
-            }
-            let l = line.trim_start();
-            if l.starts_with("```") {
-                in_fenced_code_block = !in_fenced_code_block;
-                continue;
-            }
-            if in_fenced_code_block || l.is_empty() {
-                continue;
-            }
-            for candidate in [
-                l,
-                strip_common_list_prefix(l),
-                strip_leading_markdown_emphasis(l),
-                strip_leading_markdown_emphasis(strip_common_list_prefix(l)),
-            ] {
-                for c in [candidate, strip_leading_wrappers(candidate)] {
-                    let c_lower = c.to_ascii_lowercase();
-                    if ack_needles_lower.iter().any(|n| c_lower.starts_with(n)) {
-                        return Ok(true);
-                    }
-                }
-            }
-        }
-    }
-    Ok(false)
-}
-
-/// Find discovery-style blocker messages for a path.
-pub(crate) fn discovery_blockers_for_path(
-    conn: &Connection,
-    agent_id: &str,
     path: &str,
-    now_ms: i64,
-) -> anyhow::Result<Vec<DiscoveryBlocker>> {
-    let window_ms = discovery_block_window_ms();
-    if window_ms <= 0 {
-        return Ok(Vec::new());
-    }
-    let since_ms = now_ms.saturating_sub(window_ms);
-    let needles = relevant_needles_for_path(path);
-    if needles.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut stmt = conn.prepare(
-        "SELECT id, created_at_ms, agent_id, kind, body_json FROM messages \
-         WHERE agent_id <> ?1 AND created_at_ms >= ?2 AND kind IN ('message','discovery') \
-         ORDER BY id DESC \
-         LIMIT 200",
-    )?;
-    let rows = stmt.query_map(params![agent_id, since_ms], |row| {
-        Ok((
-            row.get::<_, i64>(0)?,
-            row.get::<_, i64>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, String>(3)?,
-            row.get::<_, String>(4)?,
-        ))
-    })?;
-
-    let mut blockers: Vec<DiscoveryBlocker> = Vec::new();
-    for r in rows {
-        let (_id, created_at_ms, from_agent, kind, body_json) = r?;
-        let (body_v, txt) = parse_body(&body_json);
-        if !needles.iter().any(|n| contains_path_token(&txt, n)) {
-            continue;
-        }
-        if !is_discovery_block_text(&txt) {
-            continue;
-        }
-        blockers.push(DiscoveryBlocker {
-            agent_id: from_agent,
-            created_at_ms,
-            kind,
-            body: body_v,
-            text: txt,
-        });
-        if blockers.len() >= 10 {
-            break;
-        }
-    }
-    Ok(blockers)
-}
-
-/// Check whether the requester has already pinged a blocker about a specific path.
-pub(crate) fn requester_already_pinged_blocker(
-    conn: &Connection,
-    requester_agent_id: &str,
-    blocker_agent_id: &str,
-    path: &str,
+    since_ms: i64,
 ) -> anyhow::Result<bool> {
-    let prefix = format!("@{blocker_agent_id}:");
     let mut stmt = conn.prepare(
-        "SELECT body_json FROM messages \
-         WHERE agent_id = ?1 AND kind = 'message' \
-         ORDER BY id DESC \
-         LIMIT 200",
+        "SELECT a.id, ap.path
+         FROM acknowledgements a
+         LEFT JOIN ack_paths ap ON ap.ack_id = a.id
+         WHERE a.agent_id = ?1
+           AND a.target_agent_id = ?2
+           AND a.created_at_ms >= ?3
+         ORDER BY a.id DESC",
     )?;
-    let rows = stmt.query_map(params![requester_agent_id], |row| row.get::<_, String>(0))?;
-    for r in rows {
-        let body_json = r?;
-        let v: Value = serde_json::from_str(&body_json).unwrap_or(Value::String(body_json));
-        let text = v
-            .get("text")
-            .and_then(|t| t.as_str())
-            .or_else(|| v.as_str())
-            .unwrap_or("");
-        if !text.contains(&prefix) || !crate::text::contains_path_token(text, path) {
-            continue;
-        }
-        if text.contains("Are you working on it?") {
-            return Ok(true);
-        }
-        let lower = text.to_ascii_lowercase();
-        if lower.contains("blocked") || lower.contains("skipping") || lower.contains("skip ") {
+    let rows = stmt.query_map(params![from_agent_id, target_agent_id, since_ms], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, Option<String>>(1)?))
+    })?;
+    for row in rows {
+        let (_id, ack_path) = row?;
+        if ack_path
+            .as_deref()
+            .is_none_or(|candidate| paths_overlap(candidate, path))
+        {
             return Ok(true);
         }
     }
     Ok(false)
 }
 
-/// Identify blocking agents whose state is stale.
-pub(crate) fn stale_agents_for_blockers(
-    conn: &Connection,
-    requester_agent_id: &str,
-    blockers: &[String],
-    path: &str,
-    now_ms: i64,
-) -> anyhow::Result<Vec<StaleAgent>> {
-    let thresh_ms = coord_stale_threshold_ms();
-    if thresh_ms <= 0 || blockers.is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let mut out: Vec<StaleAgent> = Vec::new();
-    for a in blockers {
-        let updated_at_ms: Option<i64> = conn
-            .query_row(
-                "SELECT updated_at_ms FROM agent_state WHERE agent_id = ?1",
-                params![a],
-                |row| row.get(0),
-            )
-            .optional()?;
-        let Some(updated_at_ms) = updated_at_ms else {
-            continue;
-        };
-
-        let stale_for_ms = now_ms.saturating_sub(updated_at_ms);
-        if stale_for_ms < thresh_ms {
-            continue;
-        }
-
-        out.push(StaleAgent {
-            kind: "stale_agent",
-            agent_id: a.clone(),
-            updated_at_ms,
-            stale_for_ms,
-            threshold_ms: thresh_ms,
-            is_stale: true,
-            suggested_cmd: format!(
-                "but link --agent-id {requester_agent_id} post \"@{a}: can you update your status and plan for {path}? (stale)\""
-            ),
-        });
-    }
-
-    Ok(out)
-}
-
-/// Get unread relevant updates for a check operation, advancing the cursor.
-pub(crate) fn unread_relevant_updates_for_check(
+/// Load unread inbox updates for an agent and advance the cursor.
+pub(crate) fn unread_inbox_updates(
     conn: &Connection,
     agent_id: &str,
-    path: &str,
     now_ms: i64,
 ) -> anyhow::Result<(Vec<UnreadUpdate>, i64, i64)> {
-    let topic = format!("check_path:{path}");
-
+    let topic = "inbox";
     let prev_cursor: i64 = conn
         .query_row(
             "SELECT last_seen_msg_id FROM agent_cursors WHERE agent_id = ?1 AND topic = ?2",
@@ -429,15 +627,14 @@ pub(crate) fn unread_relevant_updates_for_check(
         .optional()?
         .unwrap_or(0);
 
-    let needles = relevant_needles_for_path(path);
-
+    let mention = format!("@{agent_id}");
     let mut stmt = conn.prepare(
-        "SELECT id, created_at_ms, agent_id, kind, body_json FROM messages \
-         WHERE id > ?1 AND agent_id <> ?2 AND kind IN ('message','discovery') \
-         ORDER BY id ASC \
+        "SELECT id, created_at_ms, agent_id, kind, body_json
+         FROM messages
+         WHERE id > ?1 AND agent_id <> ?2
+         ORDER BY id ASC
          LIMIT 500",
     )?;
-
     let rows = stmt.query_map(params![prev_cursor, agent_id], |row| {
         Ok((
             row.get::<_, i64>(0)?,
@@ -448,164 +645,228 @@ pub(crate) fn unread_relevant_updates_for_check(
         ))
     })?;
 
-    let mut updates: Vec<UnreadUpdate> = Vec::new();
+    let mut updates = Vec::new();
     let mut max_id = prev_cursor;
-    let mut last_returned_relevant_id = prev_cursor;
-    let mut reached_return_limit = false;
-    for r in rows {
-        let (id, created_at_ms, from_agent, kind, body_json) = r?;
+    let mut last_returned_id = prev_cursor;
+    let mut reached_limit = false;
+    for row in rows {
+        let (id, created_at_ms, from_agent, kind, body_json) = row?;
         max_id = max_id.max(id);
-
-        let body_v: Value =
+        let body: Value =
             serde_json::from_str(&body_json).unwrap_or(Value::String(body_json.clone()));
-        let txt = extract_message_text(&body_v, &body_json);
-        if !needles.iter().any(|n| contains_path_token(&txt, n)) {
+        let text = extract_message_text(&body, &body_json);
+        let is_directed = text.contains(&mention)
+            || body
+                .get("target_agent_id")
+                .and_then(Value::as_str)
+                .is_some_and(|target| target == agent_id);
+        if !is_directed {
             continue;
         }
         if updates.len() >= 20 {
-            reached_return_limit = true;
+            reached_limit = true;
             continue;
         }
-
-        last_returned_relevant_id = id;
+        last_returned_id = id;
         updates.push(UnreadUpdate {
             id,
             created_at_ms,
             agent_id: from_agent,
             kind,
-            body: body_v,
+            body,
         });
     }
 
-    let new_cursor = if reached_return_limit {
-        last_returned_relevant_id
+    let new_cursor = if reached_limit {
+        last_returned_id
     } else {
         max_id
     };
     if new_cursor != prev_cursor {
         conn.execute(
-            "INSERT INTO agent_cursors(agent_id, topic, last_seen_msg_id, updated_at_ms) VALUES (?1, ?2, ?3, ?4) \
-             ON CONFLICT(agent_id, topic) DO UPDATE SET last_seen_msg_id = excluded.last_seen_msg_id, updated_at_ms = excluded.updated_at_ms",
+            "INSERT INTO agent_cursors(agent_id, topic, last_seen_msg_id, updated_at_ms)
+             VALUES (?1, ?2, ?3, ?4)
+             ON CONFLICT(agent_id, topic)
+             DO UPDATE SET last_seen_msg_id = excluded.last_seen_msg_id, updated_at_ms = excluded.updated_at_ms",
             params![agent_id, topic, new_cursor, now_ms],
         )?;
     }
-
     Ok((updates, prev_cursor, new_cursor))
 }
 
-/// Compute dependency hints based on intent/declaration surface overlap.
-pub(crate) fn dependency_hints_for_check(
+/// Load path-filtered stale claim holders.
+pub(crate) fn stale_agents_for_paths(
     conn: &Connection,
-    agent_id: &str,
-) -> anyhow::Result<Vec<DependencyHint>> {
-    let intent_json: Option<String> = conn
-        .query_row(
-            "SELECT body_json FROM messages WHERE kind = 'intent' AND agent_id = ?1 ORDER BY id DESC LIMIT 1",
-            params![agent_id],
-            |row| row.get(0),
-        )
-        .optional()?;
-
-    let Some(intent_json) = intent_json else {
-        return Ok(Vec::new());
-    };
-    let intent_v: Value = serde_json::from_str(&intent_json)?;
-    let intent_scope = value_string(&intent_v, "scope");
-    let intent_surface: Vec<String> = value_string_array(&intent_v, "surface");
-
-    if intent_surface.is_empty() {
+    paths: &[String],
+    now_ms: i64,
+) -> anyhow::Result<Vec<StaleAgent>> {
+    let threshold_ms = coord_stale_threshold_ms();
+    if threshold_ms <= 0 {
         return Ok(Vec::new());
     }
-    let intent_surface_set: HashSet<&str> = intent_surface.iter().map(String::as_str).collect();
 
-    let mut stmt = conn.prepare(
-        "SELECT agent_id, body_json FROM messages WHERE kind = 'declaration' AND agent_id <> ?1 ORDER BY id DESC",
+    let claims = load_active_claims(conn, None)?;
+    let mut claims_by_agent = BTreeMap::<String, Vec<String>>::new();
+    for claim in claims {
+        if !paths.is_empty() && !paths.iter().any(|path| paths_overlap(path, &claim.path)) {
+            continue;
+        }
+        claims_by_agent
+            .entry(claim.agent_id)
+            .or_default()
+            .push(claim.path);
+    }
+
+    let snapshots = load_agent_snapshots(conn)?;
+    let mut stale = Vec::new();
+    for snapshot in snapshots {
+        let Some(claim_paths) = claims_by_agent.remove(&snapshot.agent_id) else {
+            continue;
+        };
+        let stale_for_ms = now_ms.saturating_sub(snapshot.last_progress_at_ms);
+        if stale_for_ms < threshold_ms {
+            continue;
+        }
+        stale.push(StaleAgent {
+            kind: "stale_agent",
+            agent_id: snapshot.agent_id,
+            last_progress_at_ms: snapshot.last_progress_at_ms,
+            stale_for_ms,
+            threshold_ms,
+            is_stale: true,
+            claim_paths,
+        });
+    }
+    Ok(stale)
+}
+
+/// Compute dependency hints scoped to the requested paths.
+pub(crate) fn dependency_hints_for_paths(
+    conn: &Connection,
+    agent_id: &str,
+    requested_paths: &[String],
+) -> anyhow::Result<Vec<DependencyHint>> {
+    if requested_paths.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut intent_stmt = conn.prepare(
+        "SELECT body_json FROM messages
+         WHERE kind = 'intent' AND agent_id = ?1
+         ORDER BY id DESC
+         LIMIT 50",
     )?;
-    let rows = stmt.query_map(params![agent_id], |row| {
+    let intents = intent_stmt
+        .query_map(params![agent_id], |row| row.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    if intents.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let requester_intents: Vec<SurfaceMessage> = intents
+        .into_iter()
+        .filter_map(|body| parse_surface_message(&body).ok())
+        .filter(|intent| {
+            intent.paths.is_empty()
+                || intent.paths.iter().any(|intent_path| {
+                    requested_paths
+                        .iter()
+                        .any(|req| paths_overlap(intent_path, req))
+                })
+        })
+        .collect();
+    if requester_intents.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut decl_stmt = conn.prepare(
+        "SELECT agent_id, body_json FROM messages
+         WHERE kind = 'declaration' AND agent_id <> ?1
+         ORDER BY id DESC",
+    )?;
+    let declarations = decl_stmt.query_map(params![agent_id], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })?;
 
-    let mut hints: Vec<DependencyHint> = Vec::new();
-    let mut seen_provider_scope: HashSet<(String, String)> = HashSet::new();
-    for r in rows {
-        let (provider_agent_id, decl_json) = r?;
-        let decl_v: Value = serde_json::from_str(&decl_json)?;
-        let decl_obj = decl_v
-            .as_object()
-            .context("declaration must be an object")?;
-
-        let scope = decl_obj
-            .get("scope")
-            .and_then(Value::as_str)
-            .unwrap_or("unknown")
-            .to_owned();
-
-        if let Some(ref intent_scope) = intent_scope
-            && scope != *intent_scope
-        {
+    let mut hints = Vec::new();
+    let mut seen_provider_scope = HashSet::<(String, String)>::new();
+    for row in declarations {
+        let (provider_agent_id, body_json) = row?;
+        let declaration = match parse_surface_message(&body_json) {
+            Ok(parsed) => parsed,
+            Err(_) => continue,
+        };
+        if !declaration.tags.iter().any(|tag| tag_has_api_segment(tag)) {
             continue;
         }
 
-        let tags: Vec<String> = value_string_array(&decl_v, "tags");
-
-        if !tags.iter().any(|t| tag_has_api_segment(t)) {
-            continue;
-        }
-
-        let decl_surface: Vec<String> = value_string_array(&decl_v, "surface");
-        if decl_surface.is_empty() {
-            continue;
-        }
-
-        let overlap: Vec<String> = decl_surface
-            .iter()
-            .filter(|tok| intent_surface_set.contains(tok.as_str()))
-            .cloned()
-            .collect();
-        if overlap.is_empty() {
-            continue;
-        }
-
-        if !seen_provider_scope.insert((provider_agent_id.clone(), scope.clone())) {
-            continue;
-        }
-
-        let why = format!(
-            "intent.surface intersects declaration.surface on token(s): {} (declaration tagged api). Coordinate before consuming/changing it.",
-            overlap.join(", ")
-        );
-        let suggested_cmd = format!(
-            "but link --agent-id {agent_id} post \"@{provider_agent_id}: I'm about to consume {scope} (overlap: {tok}). Are you changing the contract? Any migration notes?\"",
-            tok = overlap
-                .first()
+        for intent in &requester_intents {
+            if !intent.scope.is_empty()
+                && !declaration.scope.is_empty()
+                && intent.scope != declaration.scope
+            {
+                continue;
+            }
+            let overlap_tokens: Vec<String> = declaration
+                .surface
+                .iter()
+                .filter(|token| intent.surface.iter().any(|own| own == *token))
                 .cloned()
-                .unwrap_or_else(|| "unknown".to_owned())
-        );
+                .collect();
+            if overlap_tokens.is_empty() {
+                continue;
+            }
 
-        hints.push(DependencyHint {
-            kind: "dependency_hint",
-            provider_agent_id,
-            scope,
-            tags,
-            overlap_tokens: overlap,
-            why,
-            next_step: DependencyNextStep {
-                kind: "ask",
-                suggested_cmd,
-            },
-        });
+            let overlap_paths =
+                scoped_overlap_paths(&intent.paths, &declaration.paths, requested_paths);
+            let path_match = if intent.paths.is_empty() && declaration.paths.is_empty() {
+                true
+            } else {
+                !overlap_paths.is_empty()
+            };
+            if !path_match {
+                continue;
+            }
+
+            if !seen_provider_scope.insert((provider_agent_id.clone(), declaration.scope.clone())) {
+                continue;
+            }
+
+            let why = if overlap_paths.is_empty() {
+                format!(
+                    "intent/declaration overlap on token(s): {} within scope {}",
+                    overlap_tokens.join(", "),
+                    declaration.scope
+                )
+            } else {
+                format!(
+                    "intent/declaration overlap on token(s): {} for path(s): {}",
+                    overlap_tokens.join(", "),
+                    overlap_paths.join(", ")
+                )
+            };
+            hints.push(DependencyHint {
+                kind: "dependency_hint",
+                provider_agent_id: provider_agent_id.clone(),
+                scope: declaration.scope.clone(),
+                tags: declaration.tags.clone(),
+                overlap_tokens,
+                overlap_paths,
+                why,
+            });
+        }
     }
 
     Ok(hints)
 }
 
-/// Load messages since a timestamp, optionally filtered by kind.
+/// Load transcript messages since a timestamp.
 pub(crate) fn load_messages_since(
     conn: &Connection,
     kind: Option<&str>,
     since_ms: i64,
 ) -> anyhow::Result<Vec<Value>> {
-    let mut messages: Vec<Value> = Vec::new();
+    let mut messages = Vec::new();
     let mut push_message = |created_at_ms: i64, agent: String, kind: String, body_json: String| {
         let (body_v, content) = parse_body(&body_json);
         messages.push(json!({
@@ -616,14 +877,14 @@ pub(crate) fn load_messages_since(
             "content": content,
         }));
     };
-    let kind = kind.filter(|k| !k.is_empty());
 
+    let kind = kind.filter(|kind| !kind.is_empty());
     if let Some(kind_filter) = kind
         && kind_filter != "all"
     {
         let mut stmt = conn.prepare(
-            "SELECT created_at_ms, agent_id, kind, body_json FROM messages \
-             WHERE created_at_ms >= ?1 AND kind = ?2 \
+            "SELECT created_at_ms, agent_id, kind, body_json FROM messages
+             WHERE created_at_ms >= ?1 AND kind = ?2
              ORDER BY id ASC",
         )?;
         let rows = stmt.query_map(params![since_ms, kind_filter], |row| {
@@ -634,16 +895,16 @@ pub(crate) fn load_messages_since(
                 row.get::<_, String>(3)?,
             ))
         })?;
-        for r in rows {
-            let (created_at_ms, agent, kind, body_json) = r?;
+        for row in rows {
+            let (created_at_ms, agent, kind, body_json) = row?;
             push_message(created_at_ms, agent, kind, body_json);
         }
         return Ok(messages);
     }
 
     let mut stmt = conn.prepare(
-        "SELECT created_at_ms, agent_id, kind, body_json FROM messages \
-         WHERE created_at_ms >= ?1 \
+        "SELECT created_at_ms, agent_id, kind, body_json FROM messages
+         WHERE created_at_ms >= ?1
          ORDER BY id ASC",
     )?;
     let rows = stmt.query_map(params![since_ms], |row| {
@@ -654,8 +915,8 @@ pub(crate) fn load_messages_since(
             row.get::<_, String>(3)?,
         ))
     })?;
-    for r in rows {
-        let (created_at_ms, agent, kind, body_json) = r?;
+    for row in rows {
+        let (created_at_ms, agent, kind, body_json) = row?;
         push_message(created_at_ms, agent, kind, body_json);
     }
     Ok(messages)
@@ -667,8 +928,8 @@ pub(crate) fn load_discoveries_and_next_steps(
     kind: &str,
     all: bool,
 ) -> anyhow::Result<(Vec<Value>, Vec<Value>)> {
-    let mut discoveries: Vec<Value> = Vec::new();
-    let mut next_steps: Vec<Value> = Vec::new();
+    let mut discoveries = Vec::new();
+    let mut next_steps = Vec::new();
 
     if kind == "discovery" || kind == "all" {
         let mut stmt = conn.prepare(
@@ -677,27 +938,22 @@ pub(crate) fn load_discoveries_and_next_steps(
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
-
-        for r in rows {
-            let (agent, body_json) = r?;
+        for row in rows {
+            let (agent, body_json) = row?;
             let (mut obj, _) = parse_body(&body_json);
-
-            if let Value::Object(m) = &mut obj {
-                m.insert("agent_id".to_owned(), Value::String(agent));
+            if let Value::Object(map) = &mut obj {
+                map.insert("agent_id".to_owned(), Value::String(agent));
             }
-
             if !all && !is_high_signal_discovery(&obj) {
                 continue;
             }
-
             if let Some(cmd) = obj
                 .get("suggested_action")
-                .and_then(|sa| sa.get("cmd"))
-                .and_then(|c| c.as_str())
+                .and_then(|value| value.get("cmd"))
+                .and_then(Value::as_str)
             {
-                next_steps.push(json!({"kind":"run","cmd":cmd}));
+                next_steps.push(json!({ "kind": "run", "cmd": cmd }));
             }
-
             discoveries.push(obj);
         }
     }
@@ -705,146 +961,357 @@ pub(crate) fn load_discoveries_and_next_steps(
     Ok((discoveries, next_steps))
 }
 
+/// Validate discovery payloads accepted by `post --type discovery`.
 pub(crate) fn validate_discovery_payload(v: &Value) -> anyhow::Result<()> {
     let obj = v.as_object().context("discovery must be an object")?;
-
     anyhow::ensure!(
         obj.get("title")
-            .and_then(|t| t.as_str())
-            .is_some_and(|t| !t.trim().is_empty()),
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty()),
         "title required"
     );
     anyhow::ensure!(
         obj.get("evidence")
-            .and_then(|e| e.as_array())
-            .is_some_and(|a| !a.is_empty()),
+            .and_then(Value::as_array)
+            .is_some_and(|value| !value.is_empty()),
         "evidence required"
     );
     anyhow::ensure!(
         obj.get("suggested_action")
-            .and_then(|sa| sa.get("cmd"))
-            .and_then(|c| c.as_str())
-            .is_some_and(|c| !c.trim().is_empty()),
+            .and_then(|value| value.get("cmd"))
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty()),
         "suggested_action.cmd required"
     );
     Ok(())
 }
 
+/// Validate typed surface payloads accepted by `post --type intent|declaration`.
 pub(crate) fn validate_surface_payload(v: &Value) -> anyhow::Result<()> {
     let obj = v.as_object().context("payload must be an object")?;
-
     anyhow::ensure!(
         obj.get("scope")
-            .and_then(|s| s.as_str())
-            .is_some_and(|s| !s.trim().is_empty()),
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty()),
         "scope required"
     );
     anyhow::ensure!(
-        obj.get("tags")
-            .and_then(|t| t.as_array())
-            .is_some_and(|a| !a.is_empty() && a.iter().all(|v| v.as_str().is_some())),
+        obj.get("tags").and_then(Value::as_array).is_some_and(
+            |value| !value.is_empty() && value.iter().all(|item| item.as_str().is_some())
+        ),
         "tags required (non-empty string array)"
     );
     anyhow::ensure!(
-        obj.get("surface")
-            .and_then(|t| t.as_array())
-            .is_some_and(|a| !a.is_empty() && a.iter().all(|v| v.as_str().is_some())),
+        obj.get("surface").and_then(Value::as_array).is_some_and(
+            |value| !value.is_empty() && value.iter().all(|item| item.as_str().is_some())
+        ),
         "surface required (non-empty string array)"
     );
+    if let Some(paths) = obj.get("paths") {
+        anyhow::ensure!(
+            paths
+                .as_array()
+                .is_some_and(|value| value.iter().all(|item| item.as_str().is_some())),
+            "paths must be a string array when provided"
+        );
+    }
     Ok(())
 }
 
-fn is_high_signal_discovery(v: &Value) -> bool {
-    v.get("signal")
-        .and_then(|s| s.as_str())
-        .is_some_and(|s| s.eq_ignore_ascii_case("high"))
+/// Return path overlap between scoped intent/declaration data and requested paths.
+fn scoped_overlap_paths(
+    intent_paths: &[String],
+    declaration_paths: &[String],
+    requested_paths: &[String],
+) -> Vec<String> {
+    if intent_paths.is_empty() && declaration_paths.is_empty() {
+        return Vec::new();
+    }
+
+    let mut overlap = Vec::new();
+    if !intent_paths.is_empty() && !declaration_paths.is_empty() {
+        for intent_path in intent_paths {
+            if declaration_paths
+                .iter()
+                .any(|decl_path| paths_overlap(intent_path, decl_path))
+            {
+                overlap.push(intent_path.clone());
+            }
+        }
+        overlap.sort();
+        overlap.dedup();
+        return overlap;
+    }
+
+    let scoped = if intent_paths.is_empty() {
+        declaration_paths
+    } else {
+        intent_paths
+    };
+    for path in scoped {
+        if requested_paths
+            .iter()
+            .any(|requested| paths_overlap(path, requested))
+        {
+            overlap.push(path.clone());
+        }
+    }
+    overlap.sort();
+    overlap.dedup();
+    overlap
 }
 
+/// Parse a stored surface message payload.
+fn parse_surface_message(body_json: &str) -> anyhow::Result<SurfaceMessage> {
+    let value: Value = serde_json::from_str(body_json)?;
+    let scope = value
+        .get("scope")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let tags = value_string_array(&value, "tags");
+    let surface = value_string_array(&value, "surface");
+    let paths = value_string_array(&value, "paths");
+    Ok(SurfaceMessage {
+        scope,
+        tags,
+        surface,
+        paths,
+    })
+}
+
+/// Extract a string array from a JSON field.
+fn value_string_array(v: &Value, key: &str) -> Vec<String> {
+    v.get(key)
+        .and_then(Value::as_array)
+        .map(|array| {
+            array
+                .iter()
+                .filter_map(|item| item.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Check if a tag contains an `api` segment.
 fn tag_has_api_segment(tag: &str) -> bool {
     tag.split(|c: char| !c.is_ascii_alphanumeric())
-        .any(|seg| seg.eq_ignore_ascii_case("api"))
+        .any(|segment| segment.eq_ignore_ascii_case("api"))
 }
 
-fn coord_stale_threshold_ms() -> i64 {
+/// Check whether two repo-relative paths overlap literally.
+pub(crate) fn paths_overlap(lhs: &str, rhs: &str) -> bool {
+    lhs == rhs || lhs.starts_with(&format!("{rhs}/")) || rhs.starts_with(&format!("{lhs}/"))
+}
+
+/// Determine whether a discovery is high signal.
+fn is_high_signal_discovery(value: &Value) -> bool {
+    value
+        .get("signal")
+        .and_then(Value::as_str)
+        .is_some_and(|signal| signal.eq_ignore_ascii_case("high"))
+}
+
+/// Resolve the stale coordination threshold.
+pub(crate) fn coord_stale_threshold_ms() -> i64 {
     let default_s: i64 = 15 * 60;
-    let s = std::env::var("COORD_STALE_SECONDS")
+    let seconds = std::env::var("COORD_STALE_SECONDS")
         .ok()
-        .and_then(|v| v.trim().parse::<i64>().ok())
-        .filter(|v| *v >= 0)
+        .and_then(|value| value.trim().parse::<i64>().ok())
+        .filter(|value| *value >= 0)
         .unwrap_or(default_s);
-    s.saturating_mul(1000)
+    seconds.saturating_mul(1000)
+}
+
+/// Load recent discovery messages that mention any requested path.
+pub(crate) fn recent_discoveries_for_paths(
+    conn: &Connection,
+    paths: &[String],
+    limit: usize,
+) -> anyhow::Result<Vec<Value>> {
+    if paths.is_empty() || limit == 0 {
+        return Ok(Vec::new());
+    }
+    let needles: Vec<String> = paths
+        .iter()
+        .flat_map(|path| relevant_needles_for_path(path))
+        .collect();
+    let mut stmt = conn.prepare(
+        "SELECT created_at_ms, agent_id, body_json FROM messages
+         WHERE kind = 'discovery'
+         ORDER BY id DESC
+         LIMIT 100",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, i64>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    })?;
+
+    let mut discoveries = Vec::new();
+    for row in rows {
+        let (created_at_ms, agent_id, body_json) = row?;
+        let (mut body, text) = parse_body(&body_json);
+        if !needles
+            .iter()
+            .any(|needle| contains_path_token(&text, needle))
+        {
+            continue;
+        }
+        if let Value::Object(map) = &mut body {
+            map.insert("created_at_ms".to_owned(), Value::from(created_at_ms));
+            map.insert("agent_id".to_owned(), Value::String(agent_id));
+            map.insert("kind".to_owned(), Value::String("discovery".to_owned()));
+        }
+        discoveries.push(body);
+        if discoveries.len() >= limit {
+            break;
+        }
+    }
+    Ok(discoveries)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Insert a message row used by unread-update cursor tests.
+    /// Insert a message row used by cursor and dependency-hint tests.
     fn insert_message(
         conn: &Connection,
         created_at_ms: i64,
         agent_id: &str,
         kind: &str,
-        text: &str,
+        body: Value,
     ) -> anyhow::Result<()> {
         conn.execute(
             "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, ?3, ?4)",
-            params![created_at_ms, agent_id, kind, json!({ "text": text }).to_string()],
+            params![created_at_ms, agent_id, kind, body.to_string()],
         )?;
         Ok(())
     }
 
     #[test]
-    fn unread_cursor_stops_at_last_returned_relevant_update_when_capped() -> anyhow::Result<()> {
+    fn init_db_migrates_agent_state_columns() -> anyhow::Result<()> {
         let conn = Connection::open_in_memory()?;
+        conn.execute_batch(
+            "CREATE TABLE agent_state (
+                agent_id TEXT PRIMARY KEY,
+                status TEXT,
+                plan TEXT,
+                updated_at_ms INTEGER NOT NULL
+            );",
+        )?;
+        conn.execute(
+            "INSERT INTO agent_state(agent_id, status, plan, updated_at_ms) VALUES ('a', NULL, NULL, 42)",
+            [],
+        )?;
+
         init_db(&conn)?;
 
-        for idx in 0..25 {
-            insert_message(
-                &conn,
-                idx,
-                "peer",
-                "message",
-                &format!("touching src/app.txt update {idx}"),
-            )?;
-        }
-
-        let (first_batch, first_prev_cursor, first_new_cursor) =
-            unread_relevant_updates_for_check(&conn, "me", "src/app.txt", 1_000)?;
-        assert_eq!(first_prev_cursor, 0);
-        assert_eq!(first_batch.len(), 20);
-        assert_eq!(first_new_cursor, first_batch[19].id);
-
-        let (second_batch, second_prev_cursor, second_new_cursor) =
-            unread_relevant_updates_for_check(&conn, "me", "src/app.txt", 2_000)?;
-        assert_eq!(second_prev_cursor, first_new_cursor);
-        assert_eq!(second_batch.len(), 5);
-        assert_eq!(second_new_cursor, 25);
-
+        let snapshot = load_agent_snapshots(&conn)?.remove(0);
+        assert_eq!(snapshot.last_seen_at_ms, 42);
+        assert_eq!(snapshot.last_progress_at_ms, 42);
         Ok(())
     }
 
     #[test]
-    fn unread_cursor_advances_past_irrelevant_updates_when_not_capped() -> anyhow::Result<()> {
+    fn unread_inbox_updates_track_directed_messages() -> anyhow::Result<()> {
         let conn = Connection::open_in_memory()?;
         init_db(&conn)?;
+        insert_message(
+            &conn,
+            1,
+            "peer",
+            "message",
+            json!({ "text": "@me: ack: saw it" }),
+        )?;
+        insert_message(&conn, 2, "peer", "message", json!({ "text": "unrelated" }))?;
 
-        insert_message(&conn, 1, "peer", "message", "touching src/app.txt update 1")?;
-        insert_message(&conn, 2, "peer", "message", "unrelated note")?;
-        insert_message(&conn, 3, "peer", "message", "still unrelated")?;
-
-        let (updates, prev_cursor, new_cursor) =
-            unread_relevant_updates_for_check(&conn, "me", "src/app.txt", 1_000)?;
+        let (updates, prev_cursor, new_cursor) = unread_inbox_updates(&conn, "me", 1_000)?;
         assert_eq!(prev_cursor, 0);
         assert_eq!(updates.len(), 1);
-        assert_eq!(new_cursor, 3);
+        assert_eq!(updates[0].agent_id, "peer");
+        assert_eq!(new_cursor, 2);
+        Ok(())
+    }
 
-        let (next_updates, next_prev_cursor, next_new_cursor) =
-            unread_relevant_updates_for_check(&conn, "me", "src/app.txt", 2_000)?;
-        assert_eq!(next_prev_cursor, 3);
-        assert!(next_updates.is_empty());
-        assert_eq!(next_new_cursor, 3);
+    #[test]
+    fn dependency_hints_filter_by_requested_paths() -> anyhow::Result<()> {
+        let conn = Connection::open_in_memory()?;
+        init_db(&conn)?;
+        insert_message(
+            &conn,
+            1,
+            "me",
+            "intent",
+            json!({
+                "scope": "crate::auth",
+                "tags": ["api"],
+                "surface": ["AuthToken"],
+                "paths": ["src/auth.rs"]
+            }),
+        )?;
+        insert_message(
+            &conn,
+            2,
+            "peer",
+            "declaration",
+            json!({
+                "scope": "crate::auth",
+                "tags": ["api"],
+                "surface": ["AuthToken"],
+                "paths": ["src/auth.rs"]
+            }),
+        )?;
+        insert_message(
+            &conn,
+            3,
+            "peer-b",
+            "declaration",
+            json!({
+                "scope": "crate::auth",
+                "tags": ["api"],
+                "surface": ["AuthToken"],
+                "paths": ["src/other.rs"]
+            }),
+        )?;
 
+        let hints = dependency_hints_for_paths(&conn, "me", &[String::from("src/auth.rs")])?;
+        assert_eq!(hints.len(), 1);
+        assert_eq!(hints[0].provider_agent_id, "peer");
+        Ok(())
+    }
+
+    #[test]
+    fn ack_exists_since_matches_scoped_and_generic_acks() -> anyhow::Result<()> {
+        let conn = Connection::open_in_memory()?;
+        init_db(&conn)?;
+        conn.execute(
+            "INSERT INTO acknowledgements(agent_id, target_agent_id, note, created_at_ms)
+             VALUES ('me', 'peer', NULL, 10)",
+            [],
+        )?;
+        let generic_ack_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO acknowledgements(agent_id, target_agent_id, note, created_at_ms)
+             VALUES ('me', 'peer', NULL, 11)",
+            [],
+        )?;
+        let scoped_ack_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO ack_paths(ack_id, path) VALUES (?1, 'src/app.txt')",
+            params![scoped_ack_id],
+        )?;
+
+        assert!(ack_exists_since(&conn, "me", "peer", "src/other.txt", 0)?);
+        conn.execute(
+            "DELETE FROM acknowledgements WHERE id = ?1",
+            params![generic_ack_id],
+        )?;
+        assert!(ack_exists_since(&conn, "me", "peer", "src/app.txt", 0)?);
+        assert!(!ack_exists_since(&conn, "me", "peer", "src/other.txt", 0)?);
         Ok(())
     }
 }
