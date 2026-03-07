@@ -174,12 +174,30 @@ mod run {
         first | two
         "#);
 
-        let err = migration::run(&mut db, [old]).expect_err("cannot omit prior migrations");
-        assert!(matches!(err, backoff::Error::Permanent(_)));
+        let count = migration::run(&mut db, [old])
+            .expect("older migration list is accepted if DB is compatible");
+        assert_eq!(
+            count, 0,
+            "extra migrations in the DB are tolerated when forward-compatibility allows it"
+        );
 
         let newer_new = M::up(2, "ALTER TABLE `T1` ADD COLUMN `two` TEXT");
         let err = migration::run(&mut db, [old, /* 'new' missing */ newer_new])
             .expect_err("cannot skip a migration");
+        assert!(matches!(err, backoff::Error::Permanent(_)));
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_forward_incompatible_database() -> anyhow::Result<()> {
+        let mut db = rusqlite::Connection::open_in_memory()?;
+
+        db.execute_batch("PRAGMA user_version = 2147483647;")?;
+        let err = migration::run(
+            &mut db,
+            [M::up(0, "CREATE TABLE T1 ( first TEXT PRIMARY KEY );")],
+        )
+        .expect_err("future forward-compatibility version must be rejected");
         assert!(matches!(err, backoff::Error::Permanent(_)));
         Ok(())
     }
