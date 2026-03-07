@@ -83,7 +83,7 @@
 </script>
 
 <div class="drag-handle-row" data-remove-from-panning data-drag-handle draggable="true">
-	<CollapseStackButton {stackId} {projectId} {disabled} onClick={onFold} />
+	<CollapseStackButton {disabled} onClick={onFold} />
 
 	<div class="drag-handle-icon">
 		<Icon name="drag-horizontal" />

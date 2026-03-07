@@ -242,9 +242,7 @@
 			>
 				{#if stack.id && foldedStackIds.includes(stack.id)}
 					<CollapsedLane
-						stackId={stack.id}
 						branchNames={stack.heads.map((head) => head.name)}
-						{projectId}
 						onUnfold={() => unfoldStack(stack.id)}
 					/>
 				{:else}

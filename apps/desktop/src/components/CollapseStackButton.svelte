@@ -1,40 +1,13 @@
 <script lang="ts">
-	import { persisted } from "@gitbutler/shared/persisted";
 	import { Tooltip } from "@gitbutler/ui";
-	import { untrack } from "svelte";
 
 	interface Props {
-		stackId?: string;
-		projectId: string;
 		disabled?: boolean;
 		isFolded?: boolean;
 		onClick?: () => void;
 	}
 
-	let { stackId, projectId, disabled, isFolded, onClick }: Props = $props();
-
-	// Persisted folded stacks state per project (without expiration)
-	const foldedStacks = persisted<string[]>([], `folded-stacks-${untrack(() => projectId)}`);
-
-	function toggleFold() {
-		if (onClick) {
-			onClick();
-			return;
-		}
-
-		if (!stackId || disabled) return;
-
-		const currentFolded = $foldedStacks;
-		if (isFolded) {
-			// Unfold: remove from folded list
-			foldedStacks.set(currentFolded.filter((id) => id !== stackId));
-		} else {
-			// Fold: add to folded list
-			if (!currentFolded.includes(stackId)) {
-				foldedStacks.set([...currentFolded, stackId]);
-			}
-		}
-	}
+	let { disabled, isFolded, onClick }: Props = $props();
 </script>
 
 <Tooltip text={isFolded ? "Expand stack" : "Collapse stack"}>
@@ -43,7 +16,7 @@
 		class:isFolded
 		type="button"
 		aria-label="Collapse stack"
-		onclick={toggleFold}
+		onclick={onClick}
 		{disabled}
 	>
 		<div class="collapse-icon">
