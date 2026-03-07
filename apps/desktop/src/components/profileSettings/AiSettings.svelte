@@ -129,20 +129,16 @@
 			value: AnthropicModelName.Haiku,
 		},
 		{
-			label: "Sonnet 3.5",
-			value: AnthropicModelName.Sonnet35,
+			label: "Sonnet 4.6 (recommended)",
+			value: AnthropicModelName.Sonnet46,
 		},
 		{
-			label: "Sonnet 3.7 (recommended)",
-			value: AnthropicModelName.Sonnet37,
+			label: "Opus 4.6",
+			value: AnthropicModelName.Opus46,
 		},
 		{
-			label: "Sonnet 4",
-			value: AnthropicModelName.Sonnet4,
-		},
-		{
-			label: "Opus 4",
-			value: AnthropicModelName.Opus4,
+			label: "Opus 4.5",
+			value: AnthropicModelName.Opus45,
 		},
 	];
 
