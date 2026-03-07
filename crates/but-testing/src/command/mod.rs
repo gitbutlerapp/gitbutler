@@ -43,6 +43,7 @@ use gitbutler_branch_actions::BranchListingFilter;
 use crate::command::discard_change::IndicesOrHeaders;
 
 pub mod diff;
+pub mod poc;
 pub mod project;
 
 pub mod assignment {
