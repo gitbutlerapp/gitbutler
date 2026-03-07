@@ -15,7 +15,7 @@
 		class="collapse-button"
 		class:isFolded
 		type="button"
-		aria-label="Collapse stack"
+		aria-label={isFolded ? "Expand stack" : "Collapse stack"}
 		onclick={onClick}
 		{disabled}
 	>
