@@ -1,8 +1,12 @@
 //! Minimal CLI for `but link` — multi-agent coordination via repo-scoped `SQLite`.
 
+mod claiming;
 mod cli;
 mod commands;
 mod db;
+mod payloads;
+mod read;
+mod repo;
 mod text;
 mod tui;
 

@@ -18,6 +18,9 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use rusqlite::{Connection, OpenFlags, params};
 
+use crate::payloads::{
+    AckHistory, AcquireHistory, BlockHistory, DiscoveryPayload, ResolveHistory, SurfacePayload,
+};
 use crate::text;
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(50);
@@ -164,7 +167,7 @@ pub(crate) fn run(current_dir: &Path) -> anyhow::Result<()> {
         anyhow::bail!("but link tui requires an interactive terminal (TTY)");
     }
 
-    let git_dir = crate::commands::discover_git_dir(current_dir)?;
+    let git_dir = crate::repo::discover_git_dir(current_dir)?;
     let db_path = git_dir.join("gitbutler").join("but-link.db");
     if !db_path.is_file() {
         anyhow::bail!(
@@ -681,92 +684,81 @@ fn relative_age(updated_at_ms: i64) -> String {
 fn format_message_content(kind: &str, body_json: &str) -> String {
     let (obj, fallback) = text::parse_body(body_json);
     match kind {
-        "discovery" => {
-            let title = obj
-                .get("title")
-                .and_then(|v| v.as_str())
-                .unwrap_or(&fallback);
-            let evidence_count = obj
-                .get("evidence")
-                .and_then(|e| e.as_array())
-                .map_or(0, |a| a.len());
-            let mut out = title.to_owned();
-            if evidence_count > 0 {
-                out.push_str(&format!(" ({evidence_count} evidence)"));
-            }
-            if let Some(cmd) = obj
-                .get("suggested_action")
-                .and_then(|sa| sa.get("cmd"))
-                .and_then(|c| c.as_str())
-            {
-                out.push_str(&format!("\n  action: {cmd}"));
-            }
-            out
-        }
-        "intent" | "declaration" => {
-            let scope = obj.get("scope").and_then(|v| v.as_str()).unwrap_or("?");
-            let tags: Vec<&str> = obj
-                .get("tags")
-                .and_then(|t| t.as_array())
-                .map_or(Vec::new(), |a| {
-                    a.iter().filter_map(|v| v.as_str()).collect()
-                });
-            let surface: Vec<&str> = obj
-                .get("surface")
-                .and_then(|t| t.as_array())
-                .map_or(Vec::new(), |a| {
-                    a.iter().filter_map(|v| v.as_str()).collect()
-                });
-            format!(
-                "{scope} [{}] surface: {}",
-                tags.join(", "),
-                surface.join(", ")
-            )
-        }
-        "block" => {
-            let reason = obj
-                .get("reason")
-                .and_then(|v| v.as_str())
-                .unwrap_or(&fallback);
-            let mode = obj
-                .get("mode")
-                .and_then(|v| v.as_str())
-                .unwrap_or("advisory");
-            let paths: Vec<&str> = obj
-                .get("paths")
-                .and_then(|v| v.as_array())
-                .map_or(Vec::new(), |a| {
-                    a.iter().filter_map(|v| v.as_str()).collect()
-                });
-            format!("{mode} block: {reason}\n  paths: {}", paths.join(", "))
-        }
-        "ack" => {
-            let target = obj
-                .get("target_agent_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("?");
-            format!("ack -> {target}: {fallback}")
-        }
-        "resolve" => {
-            let block_id = obj
-                .get("block_id")
-                .and_then(|v| v.as_i64())
-                .unwrap_or_default();
-            format!("resolved block #{block_id}")
-        }
-        "acquire" => {
-            let paths: Vec<&str> = obj
-                .get("acquired_paths")
-                .and_then(|v| v.as_array())
-                .map_or(Vec::new(), |a| {
-                    a.iter().filter_map(|v| v.as_str()).collect()
-                });
-            if paths.is_empty() {
-                fallback
-            } else {
-                format!("acquired: {}", paths.join(", "))
-            }
-        }
+        "discovery" => DiscoveryPayload::from_json_str(body_json)
+            .map(|payload| {
+                let mut out = payload.title.clone();
+                if !payload.evidence.is_empty() {
+                    out.push_str(&format!(" ({} evidence)", payload.evidence.len()));
+                }
+                if let Some(cmd) = payload.command() {
+                    out.push_str(&format!("\n  action: {cmd}"));
+                }
+                out
+            })
+            .unwrap_or(fallback),
+        "intent" | "declaration" => SurfacePayload::from_json_str(body_json)
+            .map(|payload| {
+                format!(
+                    "{} [{}] surface: {}",
+                    payload.scope,
+                    payload.tags.join(", "),
+                    payload.surface.join(", ")
+                )
+            })
+            .unwrap_or(fallback),
+        "block" => BlockHistory::from_json_str(body_json)
+            .map(|payload| {
+                format!(
+                    "{} block: {}\n  paths: {}",
+                    payload.mode,
+                    payload.reason,
+                    payload.paths.join(", ")
+                )
+            })
+            .unwrap_or_else(|_| {
+                let reason = obj
+                    .get("reason")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&fallback);
+                let mode = obj
+                    .get("mode")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("advisory");
+                let paths: Vec<&str> = obj
+                    .get("paths")
+                    .and_then(|v| v.as_array())
+                    .map_or(Vec::new(), |a| {
+                        a.iter().filter_map(|v| v.as_str()).collect()
+                    });
+                format!("{mode} block: {reason}\n  paths: {}", paths.join(", "))
+            }),
+        "ack" => AckHistory::from_json_str(body_json)
+            .map(|payload| format!("ack -> {}: {}", payload.target_agent_id, payload.text))
+            .unwrap_or_else(|_| {
+                let target = obj
+                    .get("target_agent_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("?");
+                format!("ack -> {target}: {fallback}")
+            }),
+        "resolve" => ResolveHistory::from_json_str(body_json)
+            .map(|payload| format!("resolved block #{}", payload.block_id))
+            .unwrap_or_else(|_| {
+                let block_id = obj
+                    .get("block_id")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or_default();
+                format!("resolved block #{block_id}")
+            }),
+        "acquire" => AcquireHistory::from_json_str(body_json)
+            .map(|payload| {
+                if payload.acquired_paths.is_empty() {
+                    payload.text
+                } else {
+                    format!("acquired: {}", payload.acquired_paths.join(", "))
+                }
+            })
+            .unwrap_or(fallback),
         _ => fallback,
     }
 }

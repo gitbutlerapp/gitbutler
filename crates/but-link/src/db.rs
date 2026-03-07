@@ -6,10 +6,11 @@ use std::collections::{BTreeMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, Transaction, params};
 use serde::Serialize;
 use serde_json::{Value, json};
 
+use crate::payloads::{DiscoveryPayload, SurfacePayload};
 use crate::text::{
     contains_path_token, extract_message_text, parse_body, relevant_needles_for_path,
 };
@@ -118,13 +119,15 @@ pub(crate) struct UnreadUpdate {
     pub body: Value,
 }
 
-/// Optional scoped surface payload parsed from intent/declaration messages.
+/// Claim detail selected for a requester.
 #[derive(Clone, Debug)]
-struct SurfaceMessage {
-    scope: String,
-    tags: Vec<String>,
-    surface: Vec<String>,
-    paths: Vec<String>,
+pub(crate) struct SelfClaimState {
+    /// `active` or `stale`.
+    pub status: &'static str,
+    /// Matching claimed path.
+    pub path: String,
+    /// Claim expiry in unix milliseconds.
+    pub expires_at_ms: i64,
 }
 
 /// Joined block row used when grouping block query results in this module.
@@ -139,6 +142,24 @@ type BlockRow = (
     Option<String>,
     String,
 );
+
+/// Shared statement preparation across connections and transactions.
+pub(crate) trait PrepareSql {
+    /// Prepare an SQL statement on the underlying SQLite handle.
+    fn prepare_query<'a>(&'a self, sql: &str) -> rusqlite::Result<rusqlite::Statement<'a>>;
+}
+
+impl PrepareSql for Connection {
+    fn prepare_query<'a>(&'a self, sql: &str) -> rusqlite::Result<rusqlite::Statement<'a>> {
+        self.prepare(sql)
+    }
+}
+
+impl PrepareSql for Transaction<'_> {
+    fn prepare_query<'a>(&'a self, sql: &str) -> rusqlite::Result<rusqlite::Statement<'a>> {
+        self.prepare(sql)
+    }
+}
 
 /// Initialize and migrate the coordination database.
 pub(crate) fn init_db(conn: &Connection) -> anyhow::Result<()> {
@@ -326,6 +347,65 @@ pub(crate) fn touch_agent_progress_at(
     Ok(())
 }
 
+/// Record that an agent made coordination progress inside an existing transaction.
+pub(crate) fn touch_agent_progress_tx(
+    tx: &Transaction<'_>,
+    agent_id: &str,
+    now_ms: i64,
+) -> anyhow::Result<()> {
+    tx.execute(
+        "INSERT INTO agent_state(
+            agent_id,
+            status,
+            plan,
+            updated_at_ms,
+            last_seen_at_ms,
+            last_progress_at_ms
+         ) VALUES (?1, NULL, NULL, 0, 0, 0)
+         ON CONFLICT(agent_id) DO NOTHING",
+        params![agent_id],
+    )?;
+    tx.execute(
+        "UPDATE agent_state
+         SET updated_at_ms = ?2,
+             last_seen_at_ms = ?2,
+             last_progress_at_ms = ?2
+         WHERE agent_id = ?1",
+        params![agent_id, now_ms],
+    )?;
+    Ok(())
+}
+
+/// Persist a transcript message.
+pub(crate) fn insert_history_message(
+    conn: &Connection,
+    created_at_ms: i64,
+    agent_id: &str,
+    kind: &str,
+    body_json: &str,
+) -> anyhow::Result<()> {
+    conn.execute(
+        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, ?3, ?4)",
+        params![created_at_ms, agent_id, kind, body_json],
+    )?;
+    Ok(())
+}
+
+/// Persist a transcript message inside an existing transaction.
+pub(crate) fn insert_history_message_tx(
+    tx: &Transaction<'_>,
+    created_at_ms: i64,
+    agent_id: &str,
+    kind: &str,
+    body_json: &str,
+) -> anyhow::Result<()> {
+    tx.execute(
+        "INSERT INTO messages(created_at_ms, agent_id, kind, body_json) VALUES (?1, ?2, ?3, ?4)",
+        params![created_at_ms, agent_id, kind, body_json],
+    )?;
+    Ok(())
+}
+
 /// Load the owner of a typed block when it exists.
 pub(crate) fn load_block_owner(conn: &Connection, block_id: i64) -> anyhow::Result<Option<String>> {
     conn.query_row(
@@ -407,6 +487,77 @@ pub(crate) fn load_active_claims_for_agent(
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
+/// Determine the requester's current claim state for a path.
+pub(crate) fn load_self_claim_state(
+    conn: &Connection,
+    agent_id: &str,
+    path: &str,
+    now_ms: i64,
+) -> anyhow::Result<Option<SelfClaimState>> {
+    let active = conn
+        .query_row(
+            "SELECT path, expires_at_ms FROM claims
+             WHERE agent_id = ?1 AND expires_at_ms > ?2
+               AND (path = ?3
+                    OR substr(?3, 1, length(path) + 1) = path || '/'
+                    OR substr(path, 1, length(?3) + 1) = ?3 || '/')
+             ORDER BY LENGTH(path) DESC, expires_at_ms DESC, path ASC
+             LIMIT 1",
+            params![agent_id, now_ms, path],
+            |row| {
+                Ok(SelfClaimState {
+                    status: "active",
+                    path: row.get(0)?,
+                    expires_at_ms: row.get(1)?,
+                })
+            },
+        )
+        .optional()?;
+    if active.is_some() {
+        return Ok(active);
+    }
+
+    conn.query_row(
+        "SELECT path, expires_at_ms FROM claims
+         WHERE agent_id = ?1 AND expires_at_ms <= ?2
+           AND (path = ?3
+                OR substr(?3, 1, length(path) + 1) = path || '/'
+                OR substr(path, 1, length(?3) + 1) = ?3 || '/')
+         ORDER BY expires_at_ms DESC, LENGTH(path) DESC, path ASC
+         LIMIT 1",
+        params![agent_id, now_ms, path],
+        |row| {
+            Ok(SelfClaimState {
+                status: "stale",
+                path: row.get(0)?,
+                expires_at_ms: row.get(1)?,
+            })
+        },
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
+/// Query claim conflicts for a single path.
+pub(crate) fn claim_conflicts(
+    conn: &Connection,
+    agent_id: &str,
+    path: &str,
+    now_ms: i64,
+) -> anyhow::Result<Vec<ActiveClaim>> {
+    claim_conflicts_on(conn, agent_id, path, now_ms)
+}
+
+/// Query claim conflicts for a single path inside a transaction.
+pub(crate) fn claim_conflicts_tx(
+    tx: &Transaction<'_>,
+    agent_id: &str,
+    path: &str,
+    now_ms: i64,
+) -> anyhow::Result<Vec<ActiveClaim>> {
+    claim_conflicts_on(tx, agent_id, path, now_ms)
+}
+
 /// Load agent state snapshots ordered by recent progress.
 pub(crate) fn load_agent_snapshots(conn: &Connection) -> anyhow::Result<Vec<AgentSnapshot>> {
     let mut stmt = conn.prepare(
@@ -433,119 +584,17 @@ pub(crate) fn load_open_blocks(
     except_agent_id: Option<&str>,
     overlap_path: Option<&str>,
 ) -> anyhow::Result<Vec<TypedBlock>> {
-    let now_ms = now_unix_ms()?;
-    let rows = match (except_agent_id, overlap_path) {
-        (Some(agent_id), Some(path)) => {
-            let mut stmt = conn.prepare(
-                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
-                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
-                 FROM blocks b
-                 JOIN block_paths bp ON bp.block_id = b.id
-                 WHERE b.agent_id <> ?1
-                   AND b.resolved_at_ms IS NULL
-                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
-                   AND (bp.path = ?3
-                        OR substr(?3, 1, length(bp.path) + 1) = bp.path || '/'
-                        OR substr(bp.path, 1, length(?3) + 1) = ?3 || '/')
-                 ORDER BY b.id ASC, bp.path ASC",
-            )?;
-            let iter = stmt.query_map(params![agent_id, now_ms, path], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    row.get(8)?,
-                ))
-            })?;
-            iter.collect::<rusqlite::Result<Vec<_>>>()?
-        }
-        (Some(agent_id), None) => {
-            let mut stmt = conn.prepare(
-                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
-                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
-                 FROM blocks b
-                 JOIN block_paths bp ON bp.block_id = b.id
-                 WHERE b.agent_id <> ?1
-                   AND b.resolved_at_ms IS NULL
-                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
-                 ORDER BY b.id ASC, bp.path ASC",
-            )?;
-            let iter = stmt.query_map(params![agent_id, now_ms], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    row.get(8)?,
-                ))
-            })?;
-            iter.collect::<rusqlite::Result<Vec<_>>>()?
-        }
-        (None, Some(path)) => {
-            let mut stmt = conn.prepare(
-                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
-                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
-                 FROM blocks b
-                 JOIN block_paths bp ON bp.block_id = b.id
-                 WHERE b.resolved_at_ms IS NULL
-                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
-                   AND (bp.path = ?2
-                        OR substr(?2, 1, length(bp.path) + 1) = bp.path || '/'
-                        OR substr(bp.path, 1, length(?2) + 1) = ?2 || '/')
-                 ORDER BY b.id ASC, bp.path ASC",
-            )?;
-            let iter = stmt.query_map(params![now_ms, path], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    row.get(8)?,
-                ))
-            })?;
-            iter.collect::<rusqlite::Result<Vec<_>>>()?
-        }
-        (None, None) => {
-            let mut stmt = conn.prepare(
-                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
-                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
-                 FROM blocks b
-                 JOIN block_paths bp ON bp.block_id = b.id
-                 WHERE b.resolved_at_ms IS NULL
-                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
-                 ORDER BY b.id ASC, bp.path ASC",
-            )?;
-            let iter = stmt.query_map(params![now_ms], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    row.get(8)?,
-                ))
-            })?;
-            iter.collect::<rusqlite::Result<Vec<_>>>()?
-        }
-    };
+    load_open_blocks_on(conn, except_agent_id, overlap_path, now_unix_ms()?)
+}
 
-    Ok(group_blocks(rows))
+/// Load open typed blocks inside an existing transaction.
+pub(crate) fn load_open_blocks_tx(
+    tx: &Transaction<'_>,
+    except_agent_id: Option<&str>,
+    overlap_path: Option<&str>,
+    now_ms: i64,
+) -> anyhow::Result<Vec<TypedBlock>> {
+    load_open_blocks_on(tx, except_agent_id, overlap_path, now_ms)
 }
 
 /// Group joined block rows into block objects.
@@ -577,6 +626,152 @@ fn group_blocks(rows: Vec<BlockRow>) -> Vec<TypedBlock> {
         entry.paths.push(path);
     }
     grouped.into_values().collect()
+}
+
+/// Query claim conflicts using either a connection or a transaction.
+fn claim_conflicts_on(
+    conn: &impl PrepareSql,
+    agent_id: &str,
+    path: &str,
+    now_ms: i64,
+) -> anyhow::Result<Vec<ActiveClaim>> {
+    let mut stmt = conn.prepare_query(
+        "SELECT path, agent_id, expires_at_ms FROM claims
+         WHERE agent_id <> ?2 AND expires_at_ms > ?3
+           AND (path = ?1
+                OR substr(?1, 1, length(path) + 1) = path || '/'
+                OR substr(path, 1, length(?1) + 1) = ?1 || '/')
+         ORDER BY LENGTH(path) DESC, expires_at_ms DESC, path ASC",
+    )?;
+    let rows = stmt.query_map(params![path, agent_id, now_ms], |row| {
+        Ok(ActiveClaim {
+            path: row.get(0)?,
+            agent_id: row.get(1)?,
+            expires_at_ms: row.get(2)?,
+        })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+/// Query open blocks using either a connection or a transaction.
+fn load_open_blocks_on(
+    conn: &impl PrepareSql,
+    except_agent_id: Option<&str>,
+    overlap_path: Option<&str>,
+    now_ms: i64,
+) -> anyhow::Result<Vec<TypedBlock>> {
+    let rows = match (except_agent_id, overlap_path) {
+        (Some(agent_id), Some(path)) => {
+            let mut stmt = conn.prepare_query(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.agent_id <> ?1
+                   AND b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
+                   AND (bp.path = ?3
+                        OR substr(?3, 1, length(bp.path) + 1) = bp.path || '/'
+                        OR substr(bp.path, 1, length(?3) + 1) = ?3 || '/')
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![agent_id, now_ms, path], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (Some(agent_id), None) => {
+            let mut stmt = conn.prepare_query(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.agent_id <> ?1
+                   AND b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?2)
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![agent_id, now_ms], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (None, Some(path)) => {
+            let mut stmt = conn.prepare_query(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
+                   AND (bp.path = ?2
+                        OR substr(?2, 1, length(bp.path) + 1) = bp.path || '/'
+                        OR substr(bp.path, 1, length(?2) + 1) = ?2 || '/')
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![now_ms, path], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+        (None, None) => {
+            let mut stmt = conn.prepare_query(
+                "SELECT b.id, b.agent_id, b.mode, b.reason, b.created_at_ms, b.expires_at_ms,
+                        b.resolved_at_ms, b.resolved_by_agent_id, bp.path
+                 FROM blocks b
+                 JOIN block_paths bp ON bp.block_id = b.id
+                 WHERE b.resolved_at_ms IS NULL
+                   AND (b.expires_at_ms IS NULL OR b.expires_at_ms > ?1)
+                 ORDER BY b.id ASC, bp.path ASC",
+            )?;
+            let iter = stmt.query_map(params![now_ms], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                    row.get(7)?,
+                    row.get(8)?,
+                ))
+            })?;
+            iter.collect::<rusqlite::Result<Vec<_>>>()?
+        }
+    };
+
+    Ok(group_blocks(rows))
 }
 
 /// Check if an acknowledgement exists for the target and path scope.
@@ -763,9 +958,9 @@ pub(crate) fn dependency_hints_for_paths(
         return Ok(Vec::new());
     }
 
-    let requester_intents: Vec<SurfaceMessage> = intents
+    let requester_intents: Vec<SurfacePayload> = intents
         .into_iter()
-        .filter_map(|body| parse_surface_message(&body).ok())
+        .filter_map(|body| SurfacePayload::from_json_str(&body).ok())
         .filter(|intent| {
             intent.paths.is_empty()
                 || intent.paths.iter().any(|intent_path| {
@@ -792,7 +987,7 @@ pub(crate) fn dependency_hints_for_paths(
     let mut seen_provider_scope = HashSet::<(String, String)>::new();
     for row in declarations {
         let (provider_agent_id, body_json) = row?;
-        let declaration = match parse_surface_message(&body_json) {
+        let declaration = match SurfacePayload::from_json_str(&body_json) {
             Ok(parsed) => parsed,
             Err(_) => continue,
         };
@@ -940,21 +1135,34 @@ pub(crate) fn load_discoveries_and_next_steps(
         })?;
         for row in rows {
             let (agent, body_json) = row?;
-            let (mut obj, _) = parse_body(&body_json);
-            if let Value::Object(map) = &mut obj {
-                map.insert("agent_id".to_owned(), Value::String(agent));
+            match DiscoveryPayload::from_json_str(&body_json) {
+                Ok(payload) => {
+                    if !all && !payload.is_high_signal() {
+                        continue;
+                    }
+                    if let Some(cmd) = payload.command() {
+                        next_steps.push(json!({ "kind": "run", "cmd": cmd }));
+                    }
+                    discoveries.push(payload.to_value_with_metadata(&agent, None, false)?);
+                }
+                Err(_) => {
+                    let (mut obj, _) = parse_body(&body_json);
+                    if let Value::Object(map) = &mut obj {
+                        map.insert("agent_id".to_owned(), Value::String(agent));
+                    }
+                    if !all && !is_high_signal_discovery(&obj) {
+                        continue;
+                    }
+                    if let Some(cmd) = obj
+                        .get("suggested_action")
+                        .and_then(|value| value.get("cmd"))
+                        .and_then(Value::as_str)
+                    {
+                        next_steps.push(json!({ "kind": "run", "cmd": cmd }));
+                    }
+                    discoveries.push(obj);
+                }
             }
-            if !all && !is_high_signal_discovery(&obj) {
-                continue;
-            }
-            if let Some(cmd) = obj
-                .get("suggested_action")
-                .and_then(|value| value.get("cmd"))
-                .and_then(Value::as_str)
-            {
-                next_steps.push(json!({ "kind": "run", "cmd": cmd }));
-            }
-            discoveries.push(obj);
         }
     }
 
@@ -963,59 +1171,12 @@ pub(crate) fn load_discoveries_and_next_steps(
 
 /// Validate discovery payloads accepted by `post --type discovery`.
 pub(crate) fn validate_discovery_payload(v: &Value) -> anyhow::Result<()> {
-    let obj = v.as_object().context("discovery must be an object")?;
-    anyhow::ensure!(
-        obj.get("title")
-            .and_then(Value::as_str)
-            .is_some_and(|value| !value.trim().is_empty()),
-        "title required"
-    );
-    anyhow::ensure!(
-        obj.get("evidence")
-            .and_then(Value::as_array)
-            .is_some_and(|value| !value.is_empty()),
-        "evidence required"
-    );
-    anyhow::ensure!(
-        obj.get("suggested_action")
-            .and_then(|value| value.get("cmd"))
-            .and_then(Value::as_str)
-            .is_some_and(|value| !value.trim().is_empty()),
-        "suggested_action.cmd required"
-    );
-    Ok(())
+    DiscoveryPayload::from_value(v.clone())?.validate()
 }
 
 /// Validate typed surface payloads accepted by `post --type intent|declaration`.
 pub(crate) fn validate_surface_payload(v: &Value) -> anyhow::Result<()> {
-    let obj = v.as_object().context("payload must be an object")?;
-    anyhow::ensure!(
-        obj.get("scope")
-            .and_then(Value::as_str)
-            .is_some_and(|value| !value.trim().is_empty()),
-        "scope required"
-    );
-    anyhow::ensure!(
-        obj.get("tags").and_then(Value::as_array).is_some_and(
-            |value| !value.is_empty() && value.iter().all(|item| item.as_str().is_some())
-        ),
-        "tags required (non-empty string array)"
-    );
-    anyhow::ensure!(
-        obj.get("surface").and_then(Value::as_array).is_some_and(
-            |value| !value.is_empty() && value.iter().all(|item| item.as_str().is_some())
-        ),
-        "surface required (non-empty string array)"
-    );
-    if let Some(paths) = obj.get("paths") {
-        anyhow::ensure!(
-            paths
-                .as_array()
-                .is_some_and(|value| value.iter().all(|item| item.as_str().is_some())),
-            "paths must be a string array when provided"
-        );
-    }
-    Ok(())
+    SurfacePayload::from_value(v.clone())?.validate()
 }
 
 /// Return path overlap between scoped intent/declaration data and requested paths.
@@ -1061,38 +1222,6 @@ fn scoped_overlap_paths(
     overlap
 }
 
-/// Parse a stored surface message payload.
-fn parse_surface_message(body_json: &str) -> anyhow::Result<SurfaceMessage> {
-    let value: Value = serde_json::from_str(body_json)?;
-    let scope = value
-        .get("scope")
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
-    let tags = value_string_array(&value, "tags");
-    let surface = value_string_array(&value, "surface");
-    let paths = value_string_array(&value, "paths");
-    Ok(SurfaceMessage {
-        scope,
-        tags,
-        surface,
-        paths,
-    })
-}
-
-/// Extract a string array from a JSON field.
-fn value_string_array(v: &Value, key: &str) -> Vec<String> {
-    v.get(key)
-        .and_then(Value::as_array)
-        .map(|array| {
-            array
-                .iter()
-                .filter_map(|item| item.as_str().map(str::to_owned))
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 /// Check if a tag contains an `api` segment.
 fn tag_has_api_segment(tag: &str) -> bool {
     tag.split(|c: char| !c.is_ascii_alphanumeric())
@@ -1125,7 +1254,7 @@ pub(crate) fn coord_stale_threshold_ms() -> i64 {
 
 /// Load recent discovery messages that mention any requested path.
 pub(crate) fn recent_discoveries_for_paths(
-    conn: &Connection,
+    conn: &impl PrepareSql,
     paths: &[String],
     limit: usize,
 ) -> anyhow::Result<Vec<Value>> {
@@ -1136,7 +1265,7 @@ pub(crate) fn recent_discoveries_for_paths(
         .iter()
         .flat_map(|path| relevant_needles_for_path(path))
         .collect();
-    let mut stmt = conn.prepare(
+    let mut stmt = conn.prepare_query(
         "SELECT created_at_ms, agent_id, body_json FROM messages
          WHERE kind = 'discovery'
          ORDER BY id DESC
@@ -1160,12 +1289,20 @@ pub(crate) fn recent_discoveries_for_paths(
         {
             continue;
         }
-        if let Value::Object(map) = &mut body {
-            map.insert("created_at_ms".to_owned(), Value::from(created_at_ms));
-            map.insert("agent_id".to_owned(), Value::String(agent_id));
-            map.insert("kind".to_owned(), Value::String("discovery".to_owned()));
+        if let Ok(payload) = DiscoveryPayload::from_json_str(&body_json) {
+            discoveries.push(payload.to_value_with_metadata(
+                &agent_id,
+                Some(created_at_ms),
+                true,
+            )?);
+        } else {
+            if let Value::Object(map) = &mut body {
+                map.insert("created_at_ms".to_owned(), Value::from(created_at_ms));
+                map.insert("agent_id".to_owned(), Value::String(agent_id));
+                map.insert("kind".to_owned(), Value::String("discovery".to_owned()));
+            }
+            discoveries.push(body);
         }
-        discoveries.push(body);
         if discoveries.len() >= limit {
             break;
         }
@@ -1312,6 +1449,31 @@ mod tests {
         )?;
         assert!(ack_exists_since(&conn, "me", "peer", "src/app.txt", 0)?);
         assert!(!ack_exists_since(&conn, "me", "peer", "src/other.txt", 0)?);
+        Ok(())
+    }
+
+    #[test]
+    fn load_open_blocks_matches_between_connection_and_transaction() -> anyhow::Result<()> {
+        let mut conn = Connection::open_in_memory()?;
+        init_db(&conn)?;
+        conn.execute(
+            "INSERT INTO blocks(agent_id, mode, reason, created_at_ms, expires_at_ms, resolved_at_ms, resolved_by_agent_id)
+             VALUES ('peer', 'hard', 'shared refactor', 10, NULL, NULL, NULL)",
+            [],
+        )?;
+        let block_id = conn.last_insert_rowid();
+        conn.execute(
+            "INSERT INTO block_paths(block_id, path) VALUES (?1, 'src/app.rs')",
+            params![block_id],
+        )?;
+
+        let expected = load_open_blocks(&conn, Some("me"), Some("src/app.rs"))?;
+        let tx = conn.transaction()?;
+        let actual = load_open_blocks_tx(&tx, Some("me"), Some("src/app.rs"), now_unix_ms()?)?;
+
+        assert_eq!(actual.len(), expected.len());
+        assert_eq!(actual[0].id, expected[0].id);
+        assert_eq!(actual[0].paths, expected[0].paths);
         Ok(())
     }
 }
