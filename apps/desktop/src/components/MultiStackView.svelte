@@ -23,7 +23,6 @@
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
-	import { untrack } from "svelte";
 	import { flip } from "svelte/animate";
 	import type { Stack } from "$lib/stacks/stack";
 
@@ -42,22 +41,29 @@
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
 	// Persisted folded stacks state per project using pure $state + localStorage
-	const storageKey = `folded-stacks-${untrack(() => projectId)}`;
+	const storageKey = $derived(`folded-stacks-${projectId}`);
 
-	function readFoldedStacks(): string[] {
+	function readFoldedStacks(key: string): string[] {
 		try {
-			const raw = localStorage.getItem(storageKey);
+			const raw = localStorage.getItem(key);
 			return raw ? JSON.parse(raw) : [];
 		} catch {
 			return [];
 		}
 	}
 
-	let foldedStackIds = $state<string[]>(readFoldedStacks());
+	// Track local writes separately so $derived can stay pure
+	let foldedOverride = $state<{ key: string; ids: string[] } | null>(null);
+
+	// Reactively pick from override (if for current key) or localStorage
+	const foldedStackIds = $derived.by(() => {
+		if (foldedOverride?.key === storageKey) return foldedOverride.ids;
+		return readFoldedStacks(storageKey);
+	});
 
 	function writeFoldedStacks(ids: string[]): void {
 		localStorage.setItem(storageKey, JSON.stringify(ids));
-		foldedStackIds = ids;
+		foldedOverride = { key: storageKey, ids };
 	}
 
 	function unfoldStack(stackId: string | null | undefined): void {
