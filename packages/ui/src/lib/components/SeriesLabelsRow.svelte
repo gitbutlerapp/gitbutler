@@ -68,6 +68,7 @@
 	}
 
 	.more-series-arrow {
+		flex-shrink: 0;
 		stroke: var(--clr-text-2);
 		opacity: 0.6;
 	}
