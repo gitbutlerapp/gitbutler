@@ -1,6 +1,6 @@
 /**
  * Auto-generated icon name list from `src/lib/icons/svg/*.svg`.
- * Run `pnpm update-icons` to regenerate.
+ * Run `pnpm optimize-icons` to regenerate.
  */
 export const iconNames = [
 	"agent",
@@ -32,7 +32,6 @@ export const iconNames = [
 	"branch-double-commit",
 	"branch-local",
 	"branch-merge",
-	"branch-stash",
 	"branch-top-down-arrow",
 	"branch-top-up-arrow",
 	"bulb",

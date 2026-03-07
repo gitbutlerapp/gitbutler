@@ -392,7 +392,7 @@
 						/>
 						<ContextMenuItem
 							label="Stash into branch…"
-							icon="branch-stash"
+							icon="branch-bottom-up-arrow"
 							onclick={async () => {
 								stashConfirmationModal?.show(item);
 								stashBranchName = await stackService.fetchNewBranchName(projectId);
