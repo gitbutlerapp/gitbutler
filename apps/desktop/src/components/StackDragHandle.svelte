@@ -9,15 +9,16 @@
 		stackId?: string;
 		projectId: string;
 		disabled?: boolean;
+		onFold?: () => void;
 		onOptionsClick?: () => void;
 	};
 
-	let { stackId, projectId, disabled = false }: Props = $props();
+	let { stackId, projectId, disabled = false, onFold }: Props = $props();
 
 	const stackService = inject(STACK_SERVICE);
 
 	// Get all stacks to determine if we can move left/right
-	const stacksQuery = stackService.stacks(projectId);
+	const stacksQuery = $derived(stackService.stacks(projectId));
 	const stacks = $derived(stacksQuery.response ?? []);
 
 	const currentStackIndex = $derived(
@@ -82,7 +83,7 @@
 </script>
 
 <div class="drag-handle-row" data-remove-from-panning data-drag-handle draggable="true">
-	<CollapseStackButton {stackId} {projectId} {disabled} />
+	<CollapseStackButton {stackId} {projectId} {disabled} onClick={onFold} />
 
 	<div class="drag-handle-icon">
 		<Icon name="drag-horizontal" />

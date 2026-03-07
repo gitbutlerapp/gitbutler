@@ -56,6 +56,7 @@
 		projectId: string;
 		stackId: string | undefined;
 		laneId: string;
+		onFoldStack?: () => void;
 		topBranchName?: string;
 		onVisible: (visible: boolean) => void;
 		clientWidth?: number;
@@ -66,6 +67,7 @@
 		projectId,
 		stackId,
 		laneId,
+		onFoldStack,
 		topBranchName,
 		clientHeight = $bindable(),
 		clientWidth = $bindable(),
@@ -433,7 +435,12 @@
 				>
 					<div class="stack-v" data-fade-on-reorder>
 						<!-- If we are currently committing, we should keep this open so users can actually stop committing again :wink: -->
-						<StackDragHandle stackId={stableStackId} {projectId} disabled={isCommitting} />
+						<StackDragHandle
+							stackId={stableStackId}
+							{projectId}
+							disabled={isCommitting}
+							onFold={onFoldStack}
+						/>
 
 						<div
 							class="assignments-wrap"

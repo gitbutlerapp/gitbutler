@@ -20,10 +20,10 @@
 	import { UI_STATE } from "$lib/state/uiState.svelte";
 	import { throttle } from "$lib/utils/misc";
 	import { inject } from "@gitbutler/core/context";
-	import { persisted } from "@gitbutler/shared/persisted";
 	import { DRAG_STATE_SERVICE } from "@gitbutler/ui/drag/dragStateService.svelte";
 	import { resizeObserver } from "@gitbutler/ui/utils/resizeObserver";
 	import { isDefined } from "@gitbutler/ui/utils/typeguards";
+	import { untrack } from "svelte";
 	import { flip } from "svelte/animate";
 	import type { Stack } from "$lib/stacks/stack";
 
@@ -41,8 +41,34 @@
 	const stackService = inject(STACK_SERVICE);
 	const dragStateService = inject(DRAG_STATE_SERVICE);
 
-	// Persisted folded stacks state per project (without expiration)
-	const foldedStacks = persisted<string[]>([], `folded-stacks-${projectId}`);
+	// Persisted folded stacks state per project using pure $state + localStorage
+	const storageKey = `folded-stacks-${untrack(() => projectId)}`;
+
+	function readFoldedStacks(): string[] {
+		try {
+			const raw = localStorage.getItem(storageKey);
+			return raw ? JSON.parse(raw) : [];
+		} catch {
+			return [];
+		}
+	}
+
+	let foldedStackIds = $state<string[]>(readFoldedStacks());
+
+	function writeFoldedStacks(ids: string[]): void {
+		localStorage.setItem(storageKey, JSON.stringify(ids));
+		foldedStackIds = ids;
+	}
+
+	function unfoldStack(stackId: string | null | undefined): void {
+		if (!stackId) return;
+		writeFoldedStacks(foldedStackIds.filter((id) => id !== stackId));
+	}
+
+	function foldStack(stackId: string | null | undefined): void {
+		if (!stackId || foldedStackIds.includes(stackId)) return;
+		writeFoldedStacks([...foldedStackIds, stackId]);
+	}
 
 	let lanesScrollableEl = $state<HTMLDivElement>();
 	let lanesScrollableWidth = $state<number>(0);
@@ -195,7 +221,7 @@
 				onmousedown={onReorderMouseDown}
 				ondragstart={(e) => {
 					if (!stack.id) return;
-					const isCollapsedLane = $foldedStacks.includes(stack.id);
+					const isCollapsedLane = foldedStackIds.includes(stack.id);
 					onReorderStart(
 						e,
 						stack.id,
@@ -214,17 +240,19 @@
 					onReorderEnd();
 				}}
 			>
-				{#if stack.id && $foldedStacks.includes(stack.id)}
+				{#if stack.id && foldedStackIds.includes(stack.id)}
 					<CollapsedLane
 						stackId={stack.id}
 						branchNames={stack.heads.map((head) => head.name)}
 						{projectId}
+						onUnfold={() => unfoldStack(stack.id)}
 					/>
 				{:else}
 					<StackView
 						{projectId}
 						laneId={stack.id || "banana"}
 						stackId={stack.id ?? undefined}
+						onFoldStack={() => foldStack(stack.id)}
 						topBranchName={stack.heads.at(0)?.name}
 						bind:clientWidth={laneWidths[i]}
 						bind:clientHeight={lineHights[i]}

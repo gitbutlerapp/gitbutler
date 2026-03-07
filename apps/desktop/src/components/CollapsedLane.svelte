@@ -6,16 +6,13 @@
 		stackId?: string;
 		branchNames?: string[];
 		projectId: string;
+		onUnfold: () => void;
 	};
 
-	const { stackId, branchNames, projectId }: Props = $props();
-
-	let toggleFold: (() => void) | undefined = $state();
+	const { stackId, branchNames, projectId, onUnfold }: Props = $props();
 
 	function handleDoubleClick() {
-		if (toggleFold) {
-			toggleFold();
-		}
+		onUnfold();
 	}
 </script>
 
@@ -27,7 +24,7 @@
 	draggable="true"
 	ondblclick={handleDoubleClick}
 >
-	<CollapseStackButton {stackId} {projectId} isFolded onToggle={(fn) => (toggleFold = fn)} />
+	<CollapseStackButton {stackId} {projectId} isFolded onClick={onUnfold} />
 
 	<div class="drag-handle-icon">
 		<Icon name="drag-horizontal" />
