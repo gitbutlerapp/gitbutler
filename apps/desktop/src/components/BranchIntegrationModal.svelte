@@ -314,7 +314,7 @@
 					kind="outline"
 					size="tag"
 					tooltip="Squash these commits into below"
-					icon="commit-squash"
+					icon="commit-arrow-down"
 					onclick={() => squashStepById(stepId, squashCommits)}
 					disabled={isSkipStep}
 				>
@@ -463,7 +463,7 @@
 	<Button
 		kind="outline"
 		size="tag"
-		icon="commit-squash"
+		icon="commit-arrow-down"
 		tooltip="Squash this commit into the one below"
 		onclick={() => squashStepById(stepId, [commitId])}
 		{disabled}

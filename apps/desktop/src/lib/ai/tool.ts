@@ -385,7 +385,7 @@ export function getToolCallIcon(name: ToolName, isError: boolean): IconName {
 		case "get_commit_details":
 			return "info";
 		case "squash_commits":
-			return "commit-squash";
+			return "commit-arrow-down";
 		case "split_branch":
 			return "branch-local";
 		case "get_branch_changes":
