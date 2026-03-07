@@ -16,7 +16,7 @@ pub fn add(data_dir: PathBuf, path: PathBuf, refname: Option<RemoteRefname>) -> 
     let outcome = gitbutler_project::add_at_app_data_dir(data_dir, path)?;
     let project = outcome.try_project()?;
 
-    let mut ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+    let mut ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default())?;
     if let Some(refname) = refname {
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(&ctx, &refname, guard.write_permission())?;

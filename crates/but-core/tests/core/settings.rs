@@ -1,6 +1,15 @@
 mod git {
     use but_core::{GitConfigSettings, RepositoryExt};
     use but_testsupport::gix_testtools;
+    use std::path::Path;
+
+    fn storage_key() -> String {
+        match option_env!("CHANNEL") {
+            Some("release") => "gitbutler.storagePath".to_string(),
+            Some(channel) => format!("gitbutler.{channel}.storagePath"),
+            None => "gitbutler.dev.storagePath".to_string(),
+        }
+    }
 
     #[test]
     fn set_git_settings() -> anyhow::Result<()> {
@@ -70,6 +79,51 @@ mod git {
             "it only writes what is given (as changed)"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn storage_path_from_absolute_config() -> anyhow::Result<()> {
+        let tmp = gix_testtools::tempfile::TempDir::new()?;
+        gix::init(tmp.path())?;
+        let repo = gix::open_opts(tmp.path(), gix::open::Options::isolated())?;
+
+        let custom_path = if cfg!(windows) {
+            Path::new(r"C:\gitbutler-storage")
+        } else {
+            Path::new("/tmp/gitbutler-storage")
+        };
+        let custom = custom_path
+            .to_str()
+            .expect("test path should be utf-8")
+            .to_owned();
+        let key = storage_key();
+        git2::Repository::open(repo.path())?
+            .config()?
+            .set_str(&key, custom.as_str())?;
+
+        let repo = gix::open_opts(repo.path(), gix::open::Options::isolated())?;
+
+        assert_eq!(repo.gitbutler_storage_path()?, custom_path);
+        Ok(())
+    }
+
+    #[test]
+    fn storage_path_from_relative_config() -> anyhow::Result<()> {
+        let tmp = gix_testtools::tempfile::TempDir::new()?;
+        gix::init(tmp.path())?;
+        let repo = gix::open_opts(tmp.path(), gix::open::Options::isolated())?;
+        let key = storage_key();
+
+        git2::Repository::open(repo.path())?
+            .config()?
+            .set_str(&key, "gitbutler-custom")?;
+        let repo = gix::open_opts(repo.path(), gix::open::Options::isolated())?;
+
+        assert_eq!(
+            repo.gitbutler_storage_path()?,
+            repo.git_dir().join("gitbutler-custom")
+        );
         Ok(())
     }
 }

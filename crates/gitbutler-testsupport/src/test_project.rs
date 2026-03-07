@@ -395,6 +395,13 @@ pub(crate) fn setup_config(config: &git2::Config) -> anyhow::Result<()> {
             local.set_str("commit.gpgsign", "false")?;
             local.set_str("user.name", "gitbutler-test")?;
             local.set_str("user.email", "gitbutler-test@example.com")?;
+            // Keep fixtures that expect `.git/gitbutler` stable regardless of build channel.
+            let key = match option_env!("CHANNEL") {
+                Some("release") => "gitbutler.storagePath".to_string(),
+                Some(channel) => format!("gitbutler.{channel}.storagePath"),
+                None => "gitbutler.dev.storagePath".to_string(),
+            };
+            local.set_str(&key, "gitbutler")?;
             Ok(())
         }
         Err(err) => Err(err.into()),
