@@ -119,7 +119,7 @@ pub struct BranchDetails {
     #[serde(with = "but_serde::bstring_lossy")]
     pub name: BString,
     /// Upstream reference, e.g. `refs/remotes/origin/base-branch-improvements`
-    #[serde(with = "but_serde::bstring_opt_lossy")]
+    #[serde(with = "but_serde::bstring_lossy_opt")]
     pub remote_tracking_branch: Option<BString>,
     /// The pull(merge) request associated with the branch, or None if no such entity has not been created.
     pub pr_number: Option<usize>,

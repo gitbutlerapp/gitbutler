@@ -49,7 +49,7 @@ pub mod bstring_vec_lossy {
     }
 }
 
-pub mod bstring_opt_lossy {
+pub mod bstring_lossy_opt {
     use bstr::{BString, ByteSlice};
     use serde::Serialize;
 

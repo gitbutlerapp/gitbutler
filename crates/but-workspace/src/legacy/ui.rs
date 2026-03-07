@@ -19,7 +19,7 @@ pub struct StackHeadInfo {
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::bstring")
+        schemars(schema_with = "but_schemars::bstring_lossy")
     )]
     pub name: BString,
     /// The tip of the branch.

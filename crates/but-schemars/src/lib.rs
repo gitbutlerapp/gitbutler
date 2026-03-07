@@ -45,32 +45,40 @@ pub fn stack_id(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<String>()
 }
 
-/// Use on *lossy* `BString` fields serialized with `but_serde::bstring_lossy`.
+/// Use on string-like fields that serialize lossily as plain strings.
+///
+/// This applies to:
+/// - `BString` fields serialized with `but_serde::bstring_lossy`
+/// - `BStringForFrontend` fields serialized as strings
 ///
 /// ```rust
 /// #[derive(serde::Serialize, schemars::JsonSchema)]
 /// struct Example {
 ///     #[serde(with = "but_serde::bstring_lossy")]
-///     #[schemars(schema_with = "but_schemars::bstring")]
+///     #[schemars(schema_with = "but_schemars::bstring_lossy")]
 ///     name: bstr::BString,
 /// }
 /// ```
-pub fn bstring(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+pub fn bstring_lossy(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<String>()
 }
 
 /// Use on optional *lossy* `BString` fields serialized with
-/// `but_serde::bstring_opt_lossy`.
+/// `but_serde::bstring_lossy_opt`.
+/// 
+/// This applies to:
+/// - `BString` fields serialized with `but_serde::bstring_lossy`
+/// - `BStringForFrontend` fields serialized as strings
 ///
 /// ```rust
 /// #[derive(serde::Serialize, schemars::JsonSchema)]
 /// struct Example {
-///     #[serde(with = "but_serde::bstring_opt_lossy")]
-///     #[schemars(schema_with = "but_schemars::bstring_opt")]
+///     #[serde(with = "but_serde::bstring_lossy_opt")]
+///     #[schemars(schema_with = "but_schemars::bstring_lossy_opt")]
 ///     linked_worktree_id: Option<bstr::BString>,
 /// }
 /// ```
-pub fn bstring_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+pub fn bstring_lossy_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<Option<String>>()
 }
 
@@ -231,19 +239,6 @@ struct GixTime {
 /// ```
 pub fn gix_time_opt(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<Option<GixTime>>()
-}
-
-/// Use on `BStringForFrontend` fields that serialize to plain strings.
-///
-/// ```rust
-/// #[derive(schemars::JsonSchema)]
-/// struct Example {
-///     #[schemars(schema_with = "but_schemars::bstring_for_frontend")]
-///     path: but_serde::BStringForFrontend,
-/// }
-/// ```
-pub fn bstring_for_frontend(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
-    generate.subschema_for::<String>()
 }
 
 #[derive(schemars::JsonSchema)]
