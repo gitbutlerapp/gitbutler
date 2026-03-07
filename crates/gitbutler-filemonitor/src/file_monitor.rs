@@ -5,8 +5,8 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow};
+use but_project_handle::ProjectHandleOrLegacyProjectId;
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
-use gitbutler_project::ProjectId;
 use gix::bstr::BStr;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;
@@ -166,7 +166,7 @@ fn watch_backoff_policy() -> backoff::ExponentialBackoff {
 
 fn setup_watch_plan(
     debouncer: &mut Debouncer<RecommendedWatcher, NoCache>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     repo: &gix::Repository,
     worktree_path: &Path,
     git_dir: &Path,
@@ -263,7 +263,7 @@ fn setup_legacy_watch(
 ///
 /// Additionally, a channel plays better with how events are handled downstream.
 pub fn spawn(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     worktree_path: &std::path::Path,
     out: tokio::sync::mpsc::UnboundedSender<InternalEvent>,
     watch_mode: WatchMode,
@@ -292,9 +292,13 @@ pub fn spawn(
             setup_legacy_watch(&mut debouncer, &worktree_path, &git_dir)?;
         }
         WatchMode::Modern => {
-            if let Err(err) =
-                setup_watch_plan(&mut debouncer, project_id, &repo, &worktree_path, &git_dir)
-            {
+            if let Err(err) = setup_watch_plan(
+                &mut debouncer,
+                project_id.clone(),
+                &repo,
+                &worktree_path,
+                &git_dir,
+            ) {
                 tracing::warn!(
                     %project_id,
                     ?err,
@@ -306,8 +310,13 @@ pub fn spawn(
         }
         WatchMode::Auto => {
             if is_wsl() {
-                match setup_watch_plan(&mut debouncer, project_id, &repo, &worktree_path, &git_dir)
-                {
+                match setup_watch_plan(
+                    &mut debouncer,
+                    project_id.clone(),
+                    &repo,
+                    &worktree_path,
+                    &git_dir,
+                ) {
                     Ok(()) => {
                         effective_watch_mode = WatchMode::Modern;
                     }
@@ -512,7 +521,7 @@ pub fn spawn(
                     if !stripped_git_paths.is_empty() {
                         let paths_dedup: Vec<_> = stripped_git_paths.into_iter().collect();
                         stats.record("git_dedup", paths_dedup.len());
-                        let event = InternalEvent::GitFilesChange(project_id, paths_dedup);
+                        let event = InternalEvent::GitFilesChange(project_id.clone(), paths_dedup);
                         if out.send(event).is_err() {
                             tracing::info!("channel closed - stopping file watcher");
                             break 'outer;
@@ -521,7 +530,8 @@ pub fn spawn(
                     if !worktree_relative_paths.is_empty() {
                         let paths_dedup: Vec<_> = worktree_relative_paths.into_iter().collect();
                         stats.record("project_dedup", paths_dedup.len());
-                        let event = InternalEvent::ProjectFilesChange(project_id, paths_dedup);
+                        let event =
+                            InternalEvent::ProjectFilesChange(project_id.clone(), paths_dedup);
                         if out.send(event).is_err() {
                             tracing::info!("channel closed - stopping file watcher");
                             break 'outer;

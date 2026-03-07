@@ -113,7 +113,8 @@ impl Case {
     }
 
     pub fn refresh(mut self, _suite: &Suite) -> Self {
-        let project = gitbutler_project::get(self.project.id).expect("failed to get project");
+        let project =
+            gitbutler_project::get(self.project.id.clone()).expect("failed to get project");
         let ctx = Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
         Self {
             ctx,

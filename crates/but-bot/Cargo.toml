@@ -16,8 +16,6 @@ but-ctx.workspace = true
 but-forge.workspace = true
 but-llm.workspace = true
 
-gitbutler-project.workspace = true
-
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

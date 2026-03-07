@@ -14,10 +14,9 @@ use axum::{
 };
 use but_api::{commit, diff, github, gitlab, json, legacy, platform};
 use but_claude::{Broadcaster, Claude};
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
 use futures_util::{SinkExt, StreamExt as _};
-use gitbutler_project::ProjectId;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
@@ -56,7 +55,7 @@ struct AppState {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ClaudeGetSessionDetailsParams {
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     session_id: uuid::Uuid,
 }
 
@@ -1060,7 +1059,7 @@ async fn handle_command(
             #[derive(Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct GetProjectArchivePathParams {
-                pub project_id: ProjectId,
+                pub project_id: ProjectHandleOrLegacyProjectId,
             }
             let params = serde_json::from_value::<GetProjectArchivePathParams>(request.params)?;
             extra
@@ -1082,10 +1081,10 @@ async fn handle_command(
             #[derive(Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Params {
-                project_id: ProjectId,
+                project_id: ProjectHandleOrLegacyProjectId,
             }
             let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx = Context::new_from_legacy_project_id(params.project_id)?;
+            let ctx: Context = params.project_id.try_into()?;
             let result = legacy::claude::claude_get_config(ctx.into_sync()).await;
             result.map(|r| json!(r))
         }
@@ -1106,7 +1105,7 @@ async fn handle_command(
                     project_id,
                     session_id,
                 }) => {
-                    let ctx = Context::new_from_legacy_project_id(project_id)?;
+                    let ctx: Context = project_id.try_into()?;
                     let result =
                         legacy::claude::claude_get_session_details(ctx.into_sync(), session_id)
                             .await;
@@ -1153,10 +1152,10 @@ async fn handle_command(
             #[derive(Deserialize)]
             #[serde(rename_all = "camelCase")]
             struct Params {
-                project_id: ProjectId,
+                project_id: ProjectHandleOrLegacyProjectId,
             }
             let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx = Context::new_from_legacy_project_id(params.project_id)?;
+            let ctx: Context = params.project_id.try_into()?;
             let result = legacy::claude::claude_get_sub_agents(ctx.into_sync()).await;
             result.map(|r| json!(r))
         }
@@ -1164,11 +1163,11 @@ async fn handle_command(
             #[derive(Debug, Deserialize)]
             #[serde(rename_all = "camelCase")]
             pub struct Params {
-                pub project_id: ProjectId,
+                pub project_id: ProjectHandleOrLegacyProjectId,
                 pub path: String,
             }
             let params = serde_json::from_value::<Params>(request.params)?;
-            let ctx = Context::new_from_legacy_project_id(params.project_id)?;
+            let ctx: Context = params.project_id.try_into()?;
             let result = legacy::claude::claude_verify_path(ctx.into_sync(), params.path).await;
             result.map(|r| json!(r))
         }

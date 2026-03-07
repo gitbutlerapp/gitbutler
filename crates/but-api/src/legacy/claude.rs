@@ -7,23 +7,24 @@ use but_claude::{
     prompt_templates,
 };
 use but_core::ref_metadata::StackId;
-use but_ctx::{Context, ThreadSafeContext};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId, ThreadSafeContext};
 use but_settings::AppSettings;
-use gitbutler_project::ProjectId;
 use serde::Deserialize;
 use tracing::instrument;
+
+use super::legacy_project;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SendMessageParams {
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub stack_id: StackId,
     #[serde(flatten)]
     pub user_params: ClaudeUserParams,
 }
 
 pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> Result<()> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = legacy_project(params.project_id)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     claude
         .instance_by_stack
@@ -40,8 +41,7 @@ pub async fn claude_send_message(claude: &Claude, params: SendMessageParams) -> 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetMessagesParams {
-    // TODO(ctx): make this `ProjectHandle`.
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub stack_id: StackId,
 }
 
@@ -49,7 +49,7 @@ pub fn claude_get_messages(
     claude: &Claude,
     params: GetMessagesParams,
 ) -> Result<Vec<ClaudeMessage>> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = legacy_project(params.project_id)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     let messages = claude
         .instance_by_stack
@@ -120,11 +120,11 @@ pub fn claude_update_permission_request(
 #[but_api]
 #[instrument(err(Debug))]
 pub fn claude_answer_ask_user_question(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     stack_id: StackId,
     answers: std::collections::HashMap<String, String>,
 ) -> Result<bool> {
-    let project = gitbutler_project::get(project_id)?;
+    let project = legacy_project(project_id)?;
     let mut ctx = Context::new_from_legacy_project(project.clone())?;
     but_claude::db::set_ask_user_question_answers_by_stack(&mut ctx, stack_id, answers)
 }
@@ -132,7 +132,7 @@ pub fn claude_answer_ask_user_question(
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelSessionParams {
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub stack_id: StackId,
 }
 
@@ -155,7 +155,7 @@ pub async fn claude_check_available() -> Result<ClaudeCheckResult> {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct IsStackActiveParams {
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub stack_id: StackId,
 }
 
@@ -170,13 +170,12 @@ pub async fn claude_is_stack_active(claude: &Claude, params: IsStackActiveParams
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CompactHistoryParams {
-    // TODO(ctx): turn into `ProjectHandle`
-    pub project_id: ProjectId,
+    pub project_id: ProjectHandleOrLegacyProjectId,
     pub stack_id: StackId,
 }
 
 pub async fn claude_compact_history(claude: &Claude, params: CompactHistoryParams) -> Result<()> {
-    let project = gitbutler_project::get(params.project_id)?;
+    let project = legacy_project(params.project_id)?;
     let ctx = Context::new_from_legacy_project(project.clone())?;
     claude
         .instance_by_stack

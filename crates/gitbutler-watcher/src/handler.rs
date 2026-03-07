@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context as _, Result};
 use but_core::{TreeChange, sync::RepoExclusive};
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
@@ -11,7 +11,6 @@ use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
-use gitbutler_project::ProjectId;
 use tracing::instrument;
 
 use crate::Change;
@@ -67,14 +66,12 @@ impl Handler {
 
     fn open_command_context(
         &self,
-        project_id: ProjectId,
+        project_id: ProjectHandleOrLegacyProjectId,
         app_settings: AppSettings,
     ) -> Result<Context> {
-        let project = gitbutler_project::get(project_id).context("failed to get project")?;
-        Ok(Context::new_from_legacy_project_and_settings(
-            &project,
-            app_settings,
-        ))
+        let mut ctx: Context = project_id.try_into()?;
+        ctx.settings = app_settings;
+        Ok(ctx)
     }
 
     #[instrument(skip_all, fields(paths = paths.len()))]
@@ -149,7 +146,7 @@ impl Handler {
             };
         }
         let _ = self.emit_app_event(Change::WorktreeChanges {
-            project_id: ctx.legacy_project.id,
+            project_id: ctx.legacy_project.id.clone(),
             changes,
         });
         Ok(())
@@ -162,25 +159,25 @@ impl Handler {
         perm: &mut RepoExclusive,
     ) -> Result<()> {
         let (head_ref_name, head_sha) = head_info(ctx)?;
-
+        let project_id = ctx.legacy_project.id.clone();
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
             };
             match file_name {
                 FETCH_HEAD => {
-                    self.emit_app_event(Change::GitFetch(ctx.legacy_project.id))?;
+                    self.emit_app_event(Change::GitFetch(project_id.clone()))?;
                 }
                 // Watch all local branches. Only emit activity if the HEAD points to that ref.
                 _ if file_name.starts_with(LOCAL_REFS_DIR) && file_name == head_ref_name => {
                     self.emit_app_event(Change::GitActivity {
-                        project_id: ctx.legacy_project.id,
+                        project_id: project_id.clone(),
                         head_sha: head_sha.clone(),
                     })?;
                 }
                 HEAD_ACTIVITY => {
                     self.emit_app_event(Change::GitActivity {
-                        project_id: ctx.legacy_project.id,
+                        project_id: project_id.clone(),
                         head_sha: head_sha.clone(),
                     })?;
                 }
@@ -192,7 +189,7 @@ impl Handler {
                     let head_ref = git2_repo.head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
                         self.emit_app_event(Change::GitHead {
-                            project_id: ctx.legacy_project.id,
+                            project_id: project_id.clone(),
                             head: head.to_string(),
                             operating_mode: operating_mode(ctx),
                         })?;

@@ -17,12 +17,11 @@ but-serde.workspace = true
 but-hunk-dependency.workspace = true
 but-hunk-assignment.workspace = true
 but-oxidize.workspace = true
-but-ctx.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 
 gitbutler-oplog.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
-gitbutler-project.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-reference.workspace = true
 

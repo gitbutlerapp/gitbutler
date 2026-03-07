@@ -77,6 +77,10 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 name: "Segment",
                 schema_fn: || schema_for!(Segment),
             },
+            TypeSchemaEntry {
+                name: "ProjectHandleOrLegacyProjectId",
+                schema_fn: || schema_for!(String),
+            },
             #[cfg(feature = "legacy")]
             TypeSchemaEntry {
                 name: "ProjectForFrontend",
