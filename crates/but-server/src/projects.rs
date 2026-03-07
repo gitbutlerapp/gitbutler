@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 use but_api::json::ToJsonError;
 use but_claude::{Claude, broadcaster::FrontendEvent};
-use but_ctx::{Context, ProjectHandle, ProjectHandleOrLegacyProjectId};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
 use gitbutler_watcher::{Change, WatcherHandle};
@@ -43,9 +43,7 @@ impl ActiveProjects {
         claude: &Claude,
         app_settings_sync: AppSettingsWithDiskSync,
     ) -> Result<()> {
-        let project_id =
-            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&ctx.gitdir)?);
-        if self.projects.contains_key(&project_id) {
+        if self.projects.contains_key(&ctx.legacy_project.id) {
             return Ok(());
         }
 
@@ -97,7 +95,7 @@ impl ActiveProjects {
         let file_watcher = gitbutler_watcher::watch_in_background(
             handler,
             ctx.workdir_or_fail()?,
-            project_id.clone(),
+            ctx.legacy_project.id.clone(),
             app_settings_sync.clone(),
             watch_mode,
         )?;
@@ -107,7 +105,7 @@ impl ActiveProjects {
             let db = &mut *ctx.db.get_mut()?;
             but_db::poll::watch_in_background(db, {
                 let broadcaster = claude.broadcaster.clone();
-                let project_id = project_id.clone();
+                let project_id = ctx.legacy_project.id.clone();
                 move |item| {
                     let event = FrontendEvent::from_db_item(project_id.clone(), item);
                     let broadcaster = broadcaster.clone();
@@ -120,7 +118,7 @@ impl ActiveProjects {
         };
 
         self.projects.insert(
-            project_id,
+            ctx.legacy_project.id.clone(),
             ProjectHandles {
                 _file_watcher: file_watcher,
                 _db_watcher: db_watcher,

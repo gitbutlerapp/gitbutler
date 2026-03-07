@@ -45,12 +45,12 @@ pub fn set_project_active(
     window: Window,
     id: ProjectHandleOrLegacyProjectId,
 ) -> Result<Option<ProjectInfo>, json::Error> {
-    // We don't get the legcay object in a validated fashion anymore, but that should be fine
+    // We don't get the legacy object in a validated fashion anymore, but that should be fine
     // as this only tries to open a Repo, and that's something we do later here as well.
     let mut ctx: Context = match id.clone().try_into() {
         Ok(ctx) => ctx,
         Err(err) => {
-            tracing::warn!("Project with ID {id:?} not found, cannot set it active: {err}");
+            tracing::warn!("Project with ID {id} not found, cannot set it active: {err}");
             return Ok(None);
         }
     };

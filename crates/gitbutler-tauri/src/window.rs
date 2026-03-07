@@ -2,8 +2,7 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
-    use but_ctx::Context;
-    use but_ctx::{ProjectHandle, ProjectHandleOrLegacyProjectId};
+    use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
     use but_settings::AppSettingsWithDiskSync;
     use tauri::AppHandle;
     use tracing::instrument;
@@ -162,11 +161,8 @@ pub(crate) mod state {
             ctx: &mut Context,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
-            let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
-                ProjectHandle::from_path(&ctx.gitdir)?,
-            );
             if let Some(state) = state_by_label.get(window)
-                && state.project_id == project_id
+                && state.project_id == ctx.legacy_project.id
             {
                 return Ok(state
                     .exclusive_access
@@ -184,7 +180,7 @@ pub(crate) mod state {
             let watcher = gitbutler_watcher::watch_in_background(
                 handler,
                 worktree_dir,
-                project_id.clone(),
+                ctx.legacy_project.id.clone(),
                 app_settings.clone(),
                 watch_mode,
             )?;
@@ -192,7 +188,7 @@ pub(crate) mod state {
             let db = ctx.db.get()?;
             let db_watcher = but_db::poll::watch_in_background(&db, {
                 let app_handle = self.app_handle.clone();
-                let project_id = project_id.clone();
+                let project_id = ctx.legacy_project.id.clone();
                 move |item| ChangeForFrontend::from((project_id.clone(), item)).send(&app_handle)
             })?;
 
@@ -200,7 +196,7 @@ pub(crate) mod state {
             state_by_label.insert(
                 window.to_owned(),
                 State {
-                    project_id,
+                    project_id: ctx.legacy_project.id.clone(),
                     watcher,
                     exclusive_access,
                     db_watcher,

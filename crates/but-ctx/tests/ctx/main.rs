@@ -31,7 +31,7 @@ fn new_from_project_handle_uses_repo_gitdir() -> anyhow::Result<()> {
     assert_eq!(
         ctx.gitdir,
         repo.path(),
-        "When creatinga a context from a repo directly, it will not alter the stored path though."
+        "When creating a context from a repo directly, it will not alter the stored path though."
     );
     Ok(())
 }

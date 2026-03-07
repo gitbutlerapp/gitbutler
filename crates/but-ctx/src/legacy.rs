@@ -58,27 +58,6 @@ impl Context {
             workspace: Default::default(),
         })
     }
-
-    /// Create a context from a legacy `project_id`,
-    /// which requires reading `projects.json` to map it to metadata.
-    pub fn new_from_legacy_project_id(
-        project_id: ProjectHandleOrLegacyProjectId,
-    ) -> anyhow::Result<Self> {
-        let legacy_project = gitbutler_project::get(project_id)?;
-        let gitdir = legacy_project.git_dir().to_owned();
-        let app_cache_dir = but_path::app_cache_dir().ok();
-        Ok(Context {
-            settings: app_settings(but_path::app_config_dir()?)?,
-            gitdir: gitdir.clone(),
-            legacy_project,
-            repo: new_ondemand_repo(gitdir.clone()),
-            git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-            db: new_ondemand_db(gitdir),
-            app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
-            app_cache_dir,
-            workspace: Default::default(),
-        })
-    }
 }
 
 impl TryFrom<LegacyProjectId> for Context {

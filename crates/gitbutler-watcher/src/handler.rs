@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context as _, Result};
 use but_core::{TreeChange, sync::RepoExclusive};
-use but_ctx::{Context, ProjectHandle, ProjectHandleOrLegacyProjectId};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
@@ -145,9 +145,8 @@ impl Handler {
                     .map(|err| serde_error::Error::new(&**err)),
             };
         }
-        let project_id = project_id_from_context(ctx)?;
         let _ = self.emit_app_event(Change::WorktreeChanges {
-            project_id,
+            project_id: ctx.legacy_project.id.clone(),
             changes,
         });
         Ok(())
@@ -159,9 +158,8 @@ impl Handler {
         ctx: &mut Context,
         perm: &mut RepoExclusive,
     ) -> Result<()> {
-        let project_id = project_id_from_context(ctx)?;
         let (head_ref_name, head_sha) = head_info(ctx)?;
-
+        let project_id = ctx.legacy_project.id.clone();
         for path in paths {
             let Some(file_name) = path.to_str() else {
                 continue;
@@ -202,13 +200,6 @@ impl Handler {
         }
         Ok(())
     }
-}
-
-fn project_id_from_context(ctx: &Context) -> Result<ProjectHandleOrLegacyProjectId> {
-    Ok(ProjectHandleOrLegacyProjectId::ProjectHandle(
-        ProjectHandle::from_path(&ctx.gitdir)
-            .context("failed to build project handle from context gitdir")?,
-    ))
 }
 
 fn head_info(ctx: &mut Context) -> Result<(String, String)> {

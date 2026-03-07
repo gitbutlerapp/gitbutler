@@ -41,11 +41,14 @@ pub fn get_project(
     let no_validation = no_validation.unwrap_or(false);
     match project_id {
         ProjectHandleOrLegacyProjectId::ProjectHandle(handle) => {
-            let ctx = Context::new_from_project_handle(handle)?;
             if no_validation {
+                let ctx = Context::new_from_project_handle(handle)?;
                 Ok(ctx.legacy_project.migrated()?.into())
             } else {
-                Ok(gitbutler_project::get_validated(ctx.legacy_project.id)?.into())
+                Ok(gitbutler_project::get_validated(
+                    ProjectHandleOrLegacyProjectId::ProjectHandle(handle),
+                )?
+                .into())
             }
         }
         ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id) => Ok(if no_validation {

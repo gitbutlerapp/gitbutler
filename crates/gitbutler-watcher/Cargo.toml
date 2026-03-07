@@ -10,7 +10,7 @@ test = false
 doctest = false
 
 [dependencies]
-but-ctx.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 but-db.workspace = true
 but-core.workspace = true
 but-graph.workspace = true
