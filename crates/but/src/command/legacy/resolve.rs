@@ -384,14 +384,14 @@ fn cancel_resolution(ctx: &mut Context, out: &mut OutputChannel, force: bool) ->
 
 /// Structure to hold information about a conflicted commit
 #[derive(Debug)]
-struct ConflictedCommit {
-    commit_oid: gix::ObjectId,
-    commit_short_id: String,
-    commit_message: String,
+pub(crate) struct ConflictedCommit {
+    pub(crate) commit_oid: gix::ObjectId,
+    pub(crate) commit_short_id: String,
+    pub(crate) commit_message: String,
 }
 
 /// Check for new conflicts introduced during rebase and report them
-fn check_for_new_conflicts_after_rebase(
+pub(crate) fn check_for_new_conflicts_after_rebase(
     ctx: &mut Context,
     out: &mut OutputChannel,
     conflicts_before: BTreeMap<String, Vec<ConflictedCommit>>,
@@ -470,7 +470,9 @@ fn check_for_new_conflicts_after_rebase(
 }
 
 /// Find all conflicted commits across all stacks, grouped by branch
-fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<ConflictedCommit>>> {
+pub(crate) fn find_conflicted_commits(
+    ctx: &mut Context,
+) -> Result<BTreeMap<String, Vec<ConflictedCommit>>> {
     use gix::{prelude::ObjectIdExt as _, revision::walk::Sorting};
 
     let stacks = but_api::legacy::workspace::stacks(ctx, None)?;
