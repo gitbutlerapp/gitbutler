@@ -1643,7 +1643,7 @@ function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
 				}
 			>({
 				extraOptions: {
-					command: "move_branch",
+					command: "move_branch_legacy",
 					actionName: "Move Branch",
 				},
 				query: (args) => args,

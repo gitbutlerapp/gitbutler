@@ -319,18 +319,111 @@ async fn match_subcommand(
 
             result.emit_metrics(metrics_ctx)
         }
-        Subcommands::Branch(branch::Platform { cmd }) => {
-            cfg_if! {
-                if #[cfg(feature = "legacy")]  {
-                    let mut ctx = setup::init_ctx(&args, InitCtxOptions { background_sync: BackgroundSync::Enabled, ..Default::default() }, out)?;
-                    command::legacy::branch::handle(cmd, &mut ctx, out)
-                        .emit_metrics(metrics_ctx)
-                } else {
-                    let ctx = but_ctx::Context::discover(&args.current_dir)?;
-                    command::branch::handle(cmd, ctx, out)
-                }
-            }
+        Subcommands::Stack {
+            branch,
+            target_branch,
+        } => {
+            let ctx = but_ctx::Context::discover(&args.current_dir)?;
+            command::branch::move_branch(ctx, &branch, &target_branch, out)
         }
+        Subcommands::Branch(branch::Platform { cmd }) => match cmd {
+            #[cfg(not(feature = "legacy"))]
+            None => todo!("implement list and call recursively"),
+            #[cfg(feature = "legacy")]
+            None => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled,
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::handle_no_subcommand(&mut ctx, out)
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::List {
+                filter,
+                local,
+                remote,
+                all,
+                no_ahead,
+                review,
+                no_check,
+                empty,
+            }) => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled,
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::list_branches(
+                    &mut ctx, out, filter, local, remote, all, no_ahead, review, no_check, empty,
+                )
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::Show {
+                branch_id,
+                review,
+                files,
+                ai,
+                check,
+            }) => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled,
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::show_branches(
+                    &mut ctx, out, branch_id, review, files, ai, check,
+                )
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::New {
+                branch_name,
+                anchor,
+            }) => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled,
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::new(&mut ctx, out, branch_name, anchor)
+            }
+            #[cfg(feature = "legacy")]
+            Some(branch::Subcommands::Delete { branch_name, force }) => {
+                let mut ctx = setup::init_ctx(
+                    &args,
+                    InitCtxOptions {
+                        background_sync: BackgroundSync::Enabled,
+                        ..Default::default()
+                    },
+                    out,
+                )?;
+                command::legacy::branch::delete(&mut ctx, out, branch_name, force)
+            }
+            #[cfg(not(feature = "legacy"))]
+            Some(branch::Subcommands::Apply { branch_name }) => {
+                let ctx = but_ctx::Context::discover(&args.current_dir)?;
+                command::branch::apply(ctx, &branch_name, out)
+            }
+            Some(branch::Subcommands::Move {
+                branch,
+                target_branch,
+            }) => {
+                let ctx = but_ctx::Context::discover(&args.current_dir)?;
+                command::branch::move_branch(ctx, &branch, &target_branch, out)
+            }
+        },
         #[cfg(feature = "legacy")]
         Subcommands::Mcp { internal } => {
             if internal {

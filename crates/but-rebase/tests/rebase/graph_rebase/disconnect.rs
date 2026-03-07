@@ -34,7 +34,12 @@ fn disconnect_and_remove_middle_commit_in_linear_history() -> Result<()> {
         parent: b_selector,
     };
 
-    editor.disconnect_segment_from(target, mutate::SelectorSet::All, mutate::SelectorSet::All)?;
+    editor.disconnect_segment_from(
+        target,
+        mutate::SelectorSet::All,
+        mutate::SelectorSet::All,
+        false,
+    )?;
     editor.replace(b_selector, Step::None)?;
 
     let outcome = editor.rebase()?;
@@ -83,6 +88,7 @@ fn disconnect_and_remove_two_middle_commits_in_linear_history() -> Result<()> {
         delimiter,
         mutate::SelectorSet::All,
         mutate::SelectorSet::All,
+        false,
     )?;
     editor.replace(b_selector, Step::None)?;
     editor.replace(a_selector, Step::None)?;
@@ -131,6 +137,7 @@ fn disconnect_and_remove_commit_in_merge_history_rewires_children() -> Result<()
         delimiter,
         mutate::SelectorSet::All,
         mutate::SelectorSet::All,
+        false,
     )?;
     editor.replace(a_selector, Step::None)?;
 
@@ -190,6 +197,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children() -> Result<()>
         delimiter,
         mutate::SelectorSet::All,
         mutate::SelectorSet::All,
+        false,
     )?;
     editor.replace(merge_selector, Step::None)?;
 
@@ -294,6 +302,7 @@ fn disconnect_and_remove_merge_with_two_parents_and_two_children_from_one_side()
         delimiter,
         mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
         mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
+        false,
     )?;
 
     let outcome = editor.rebase()?;
@@ -389,6 +398,7 @@ fn disconnect_remove_merge_with_two_parents_and_two_children_children_only() -> 
         delimiter,
         mutate::SelectorSet::None,
         mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
+        false,
     )?;
 
     let outcome = editor.rebase()?;
@@ -498,6 +508,7 @@ fn disconnect_fails_when_parents_to_disconnect_is_none() -> Result<()> {
             delimiter,
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
             mutate::SelectorSet::None,
+            false,
         )
         .expect_err("expected disconnect to fail for parents=SelectorSet::None");
     assert!(
@@ -547,6 +558,7 @@ fn disconnect_fails_fast_if_parent_to_disconnect_is_not_direct_parent() -> Resul
             delimiter,
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![child_one_selector])?),
+            false,
         )
         .expect_err("expected disconnect to fail for non-parent selector");
     assert!(
@@ -596,6 +608,7 @@ fn disconnect_fails_fast_if_child_to_disconnect_is_not_direct_child() -> Result<
             delimiter,
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
             mutate::SelectorSet::Some(mutate::SomeSelectors::new(vec![parent_one_selector])?),
+            false,
         )
         .expect_err("expected disconnect to fail for non-child selector");
     assert!(
