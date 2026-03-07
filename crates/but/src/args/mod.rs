@@ -449,7 +449,7 @@ pub enum Subcommands {
     /// running `but reword <commit-id>` and providing a new message in the
     /// editor.
     ///
-    /// This will rewrite the commit with the new message and then rebase any
+    /// This will recreate the commit with the new message and then rebase any
     /// dependent commits on top of it.
     ///
     /// You can also use `but reword <branch-id>` to rename the branch.
@@ -1045,6 +1045,11 @@ pub enum Subcommands {
     #[clap(verbatim_doc_comment)]
     Skill(skill::Platform),
 
+    /// Coordination commands for shared-agent linking workflows.
+    #[clap(hide = true)]
+    #[clap(verbatim_doc_comment)]
+    Link(link::Platform),
+
     /// Show help information grouped by category.
     ///
     /// Displays all available commands organized into functional categories
@@ -1074,6 +1079,7 @@ pub enum Subcommands {
 pub mod alias;
 pub mod commit;
 pub mod config;
+pub mod link;
 pub mod skill;
 pub mod update;
 
