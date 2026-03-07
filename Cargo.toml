@@ -43,9 +43,9 @@ members = [
     "crates/but-claude",            # 📄Orchestrate `claude` instances
     # 👉but at least one item lacks documentation.
     "crates/but-path",              # 📄Provide paths interesting to the application, with global redirects for testing.
-    # 👉Lacks docs and tests, and overview, but still useful and simple enough to 'just works'
-    "crates/but-serde",             # 📄Serde attributes for ser-de of custom datatypes.
-    # 👉Lacks docs and tests. Centralized simple utility schema generation modules.
+    # 👉Lacks tests, and overview, but still useful and simple enough to 'just works'
+    "crates/but-serde",             # 📄Serde attributes for serialisation and deserialisation of custom datatypes.
+    # 👉Lacks tests. Centralized simple utility schema generation modules.
     "crates/but-schemars",          # 📄`schemars` json schema generation utilities.
     # 👉Feels overengingeered, uses `but-ctx` and legacy crates.
     "crates/but-worktrees",         # 📄Worktree creation and removal;
