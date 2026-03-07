@@ -85,7 +85,7 @@
 	let stackElements = $state<Record<string, HTMLElement>>({});
 
 	let laneWidths = $state<number[]>([]);
-	let lineHights = $state<number[]>([]);
+	let lineHeights = $state<number[]>([]);
 	let isNotEnoughHorzSpace = $derived(
 		(lanesScrollableWidth ?? 0) < laneWidths.length * (laneWidths[0] ?? 0),
 	);
@@ -262,7 +262,7 @@
 						onFoldStack={() => foldStack(stack.id)}
 						topBranchName={stack.heads.at(0)?.name}
 						bind:clientWidth={laneWidths[i]}
-						bind:clientHeight={lineHights[i]}
+						bind:clientHeight={lineHeights[i]}
 						onVisible={(visible) => {
 							if (visible) {
 								visibleIndexes = [...visibleIndexes, i];

@@ -8,10 +8,6 @@
 	};
 
 	const { branchNames, onUnfold }: Props = $props();
-
-	function handleDoubleClick() {
-		onUnfold();
-	}
 </script>
 
 <div
@@ -20,7 +16,7 @@
 	data-remove-from-panning
 	data-drag-handle
 	draggable="true"
-	ondblclick={handleDoubleClick}
+	ondblclick={onUnfold}
 >
 	<CollapseStackButton isFolded onClick={onUnfold} />
 

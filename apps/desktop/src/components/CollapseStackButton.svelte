@@ -8,14 +8,16 @@
 	}
 
 	let { disabled, isFolded, onClick }: Props = $props();
+
+	const label = $derived(isFolded ? "Expand stack" : "Collapse stack");
 </script>
 
-<Tooltip text={isFolded ? "Expand stack" : "Collapse stack"}>
+<Tooltip text={label}>
 	<button
 		class="collapse-button"
 		class:isFolded
 		type="button"
-		aria-label={isFolded ? "Expand stack" : "Collapse stack"}
+		aria-label={label}
 		onclick={onClick}
 		{disabled}
 	>
