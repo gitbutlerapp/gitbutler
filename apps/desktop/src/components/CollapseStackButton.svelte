@@ -1,50 +1,24 @@
 <script lang="ts">
-	import { persisted } from "@gitbutler/shared/persisted";
 	import { Tooltip } from "@gitbutler/ui";
 
 	interface Props {
-		stackId?: string;
-		projectId: string;
 		disabled?: boolean;
 		isFolded?: boolean;
-		onToggle?: (toggleFn: () => void) => void;
+		onClick?: () => void;
 	}
 
-	const { stackId, projectId, disabled, isFolded, onToggle }: Props = $props();
+	let { disabled, isFolded, onClick }: Props = $props();
 
-	// Persisted folded stacks state per project (without expiration)
-	const foldedStacks = persisted<string[]>([], `folded-stacks-${projectId}`);
-
-	function toggleFold() {
-		if (!stackId || disabled) return;
-
-		const currentFolded = $foldedStacks;
-		if (isFolded) {
-			// Unfold: remove from folded list
-			foldedStacks.set(currentFolded.filter((id) => id !== stackId));
-		} else {
-			// Fold: add to folded list
-			if (!currentFolded.includes(stackId)) {
-				foldedStacks.set([...currentFolded, stackId]);
-			}
-		}
-	}
-
-	// Call onToggle callback with toggleFold function if provided
-	$effect(() => {
-		if (onToggle) {
-			onToggle(toggleFold);
-		}
-	});
+	const label = $derived(isFolded ? "Expand stack" : "Collapse stack");
 </script>
 
-<Tooltip text={isFolded ? "Expand stack" : "Collapse stack"}>
+<Tooltip text={label}>
 	<button
 		class="collapse-button"
 		class:isFolded
 		type="button"
-		aria-label="Collapse stack"
-		onclick={toggleFold}
+		aria-label={label}
+		onclick={onClick}
 		{disabled}
 	>
 		<div class="collapse-icon">

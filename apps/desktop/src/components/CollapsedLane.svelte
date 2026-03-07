@@ -3,20 +3,11 @@
 	import { Icon } from "@gitbutler/ui";
 
 	type Props = {
-		stackId?: string;
 		branchNames?: string[];
-		projectId: string;
+		onUnfold: () => void;
 	};
 
-	const { stackId, branchNames, projectId }: Props = $props();
-
-	let toggleFold: (() => void) | undefined = $state();
-
-	function handleDoubleClick() {
-		if (toggleFold) {
-			toggleFold();
-		}
-	}
+	const { branchNames, onUnfold }: Props = $props();
 </script>
 
 <div
@@ -25,9 +16,9 @@
 	data-remove-from-panning
 	data-drag-handle
 	draggable="true"
-	ondblclick={handleDoubleClick}
+	ondblclick={onUnfold}
 >
-	<CollapseStackButton {stackId} {projectId} isFolded onToggle={(fn) => (toggleFold = fn)} />
+	<CollapseStackButton isFolded onClick={onUnfold} />
 
 	<div class="drag-handle-icon">
 		<Icon name="drag-horizontal" />
