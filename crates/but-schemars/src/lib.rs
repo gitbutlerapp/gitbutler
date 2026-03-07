@@ -65,7 +65,7 @@ pub fn bstring_lossy(generate: &mut schemars::SchemaGenerator) -> schemars::Sche
 
 /// Use on optional *lossy* `BString` fields serialized with
 /// `but_serde::bstring_lossy_opt`.
-/// 
+///
 /// This applies to:
 /// - `BString` fields serialized with `but_serde::bstring_lossy`
 /// - `BStringForFrontend` fields serialized as strings
@@ -117,11 +117,11 @@ pub fn object_id_vec(generate: &mut schemars::SchemaGenerator) -> schemars::Sche
 /// #[derive(serde::Serialize, schemars::JsonSchema)]
 /// struct Example {
 ///     #[serde(with = "but_serde::fullname_lossy")]
-///     #[schemars(schema_with = "but_schemars::ref_full_name")]
+///     #[schemars(schema_with = "but_schemars::fullname_lossy")]
 ///     reference: gix::refs::FullName,
 /// }
 /// ```
-pub fn ref_full_name(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
+pub fn fullname_lossy(generate: &mut schemars::SchemaGenerator) -> schemars::Schema {
     generate.subschema_for::<String>()
 }
 

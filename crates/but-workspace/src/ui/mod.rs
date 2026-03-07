@@ -242,7 +242,7 @@ pub struct BranchDetails {
     #[serde(with = "but_serde::fullname_lossy")]
     #[cfg_attr(
         feature = "export-schema",
-        schemars(schema_with = "but_schemars::ref_full_name")
+        schemars(schema_with = "but_schemars::fullname_lossy")
     )]
     #[cfg_attr(feature = "export-ts", ts(type = "string"))]
     /// The full reference of the branch
