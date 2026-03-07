@@ -2,9 +2,9 @@ use std::path::Path;
 
 use bstr::BString;
 use but_core::sync::RepoExclusiveGuard;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_hunk_assignment::{CommitMap, convert_assignments_to_diff_specs};
 use but_workspace::commit_engine;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use serde::Serialize;
 
 type AutoCommitEmitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;

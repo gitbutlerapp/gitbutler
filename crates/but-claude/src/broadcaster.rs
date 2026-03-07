@@ -1,5 +1,5 @@
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_db::poll::ItemKind;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use serde::Serialize;
 use serde_json::json;
 

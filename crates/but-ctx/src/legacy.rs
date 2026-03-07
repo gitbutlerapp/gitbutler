@@ -12,7 +12,7 @@ pub(crate) mod types {
     ///
     /// The goal is to bring this metadata into `<project-data-dir>/`, and use `ProjectHandle` in future
     /// which is self-describing and able to point to a path on disk while being URL safe.
-    pub type LegacyProjectId = gitbutler_project::LegacyProjectId;
+    pub type LegacyProjectId = but_project_handle::LegacyProjectId;
 
     /// Project metadata and utilities to access it. Superseded by [`crate::Context`].
     pub type LegacyProject = gitbutler_project::Project;

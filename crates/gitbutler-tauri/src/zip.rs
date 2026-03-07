@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 
 use but_api::json::Error;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use tauri::State;
 use tracing::instrument;
 

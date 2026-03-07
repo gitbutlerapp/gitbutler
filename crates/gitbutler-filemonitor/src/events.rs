@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::PathBuf};
 
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
+use but_project_handle::ProjectHandleOrLegacyProjectId;
 
 /// An event for internal use, representing file system changes.
 #[derive(Debug)]

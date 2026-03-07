@@ -5,8 +5,8 @@
 use std::path::Path;
 
 use anyhow::Result;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 pub use handler::Handler;
 use tokio::{
     sync::mpsc::{UnboundedSender, unbounded_channel},

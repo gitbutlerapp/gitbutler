@@ -3,16 +3,16 @@ pub(crate) mod state {
 
     use anyhow::Result;
     use but_ctx::Context;
+    use but_ctx::{ProjectHandle, ProjectHandleOrLegacyProjectId};
     use but_settings::AppSettingsWithDiskSync;
-    use gitbutler_project::{ProjectHandle, ProjectHandleOrLegacyProjectId};
     use tauri::AppHandle;
     use tracing::instrument;
 
     pub(crate) mod event {
         use anyhow::{Context as _, Result};
+        use but_ctx::ProjectHandleOrLegacyProjectId;
         use but_db::poll::ItemKind;
         use but_settings::AppSettings;
-        use gitbutler_project::ProjectHandleOrLegacyProjectId;
         use gitbutler_watcher::Change;
         use tauri::Emitter;
 

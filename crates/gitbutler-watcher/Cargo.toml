@@ -21,7 +21,6 @@ but-hunk-dependency.workspace = true
 
 gitbutler-filemonitor.workspace = true
 gitbutler-operating-modes.workspace = true
-gitbutler-project.workspace = true
 
 gix.workspace = true
 anyhow.workspace = true

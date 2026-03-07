@@ -32,7 +32,7 @@ use syn::{FnArg, ItemFn, Pat, parse_macro_input};
 ///     - **Parameter Transformation**
 ///         - It supports `but_ctx::Context`, `&Context`, `&mut Context` or `ThreadSafeContext` as parameter,
 ///           which will be translated to `project_id`:
-///           - `gitbutler_project::ProjectHandleOrLegacyProjectId`
+///           - `but_ctx::ProjectHandleOrLegacyProjectId`
 ///         - `gix::ObjectId` will be translated into `json::HexHash`.
 /// * `func_cmd` for calls from the `but-server`, taking `(params: Params) ` and returning `Result<serde_json::Value, json::Error>`.
 ///     - It performs all **Parameter Transformations** of `func_json`.
@@ -460,7 +460,7 @@ fn build_wrapper_parameter_mapping(
             if is_context_path(path) {
                 let binding_ty: syn::Type = (*reference.elem).clone();
                 return Ok(Some(WrapperParameterMapping {
-                    transport_ty: syn::parse_quote! { gitbutler_project::ProjectHandleOrLegacyProjectId },
+                    transport_ty: syn::parse_quote! { but_ctx::ProjectHandleOrLegacyProjectId },
                     binding_ty,
                     json_ident: Some(syn::parse_str("project_id")?),
                     conversion_kind: WrapperConversionKind::TryFrom,
@@ -489,7 +489,7 @@ fn build_wrapper_parameter_mapping(
             let path = &type_path.path;
             if is_context_path(path) {
                 return Ok(Some(WrapperParameterMapping {
-                    transport_ty: syn::parse_quote! { gitbutler_project::ProjectHandleOrLegacyProjectId },
+                    transport_ty: syn::parse_quote! { but_ctx::ProjectHandleOrLegacyProjectId },
                     binding_ty: ty.clone(),
                     json_ident: Some(syn::parse_str("project_id")?),
                     conversion_kind: WrapperConversionKind::TryFrom,
@@ -638,7 +638,7 @@ fn build_json_type_mapping<'a>(
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
-                    json_ty: syn::parse_str("gitbutler_project::ProjectHandleOrLegacyProjectId")?,
+                    json_ty: syn::parse_str("but_ctx::ProjectHandleOrLegacyProjectId")?,
                     json_ident: Some(syn::parse_str("project_id")?),
                 },
             )
@@ -1215,11 +1215,11 @@ mod tests {
 
         assert_eq!(
             quote!(#(#struct_fields),*).to_string(),
-            quote!(pub project_id: gitbutler_project::ProjectHandleOrLegacyProjectId).to_string()
+            quote!(pub project_id: but_ctx::ProjectHandleOrLegacyProjectId).to_string()
         );
         assert_eq!(
             quote!(#(#json_inputs),*).to_string(),
-            quote!(project_id: gitbutler_project::ProjectHandleOrLegacyProjectId).to_string()
+            quote!(project_id: but_ctx::ProjectHandleOrLegacyProjectId).to_string()
         );
         assert_eq!(
             quote!(#(#call_args),*).to_string(),

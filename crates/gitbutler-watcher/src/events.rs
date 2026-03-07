@@ -1,5 +1,5 @@
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use gitbutler_operating_modes::OperatingMode;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 
 /// An event telling the receiver something about the state of the application which just changed.
 #[derive(Debug, Clone)]

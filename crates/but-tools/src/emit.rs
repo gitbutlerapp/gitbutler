@@ -1,5 +1,5 @@
 use but_core::ref_metadata::StackId;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 
 pub type Emitter = dyn Fn(&str, serde_json::Value) + Send + Sync + 'static;
 pub trait Emittable {

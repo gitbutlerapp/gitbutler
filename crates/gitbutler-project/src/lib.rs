@@ -10,9 +10,7 @@ use std::path::Path;
 pub use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use controller::Controller;
 use project::ApiProject;
-pub use project::{
-    AddProjectOutcome, AuthKey, CodePushState, FetchResult, LegacyProjectId, Project,
-};
+pub use project::{AddProjectOutcome, AuthKey, CodePushState, FetchResult, Project};
 pub use storage::UpdateRequest;
 
 /// A utility to be used from applications to optimize `git2` configuration.

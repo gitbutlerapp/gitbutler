@@ -5,8 +5,8 @@ use std::{
 };
 
 use anyhow::{Context as _, Result, anyhow};
+use but_project_handle::ProjectHandleOrLegacyProjectId;
 use gitbutler_notify_debouncer::{Debouncer, NoCache, new_debouncer};
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use gix::bstr::BStr;
 use notify::{RecommendedWatcher, Watcher};
 use tokio::task;

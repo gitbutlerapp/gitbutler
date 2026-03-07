@@ -5,8 +5,8 @@ mod spawn {
         time::Duration,
     };
 
+    use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
     use gitbutler_filemonitor::{InternalEvent, WatchMode};
-    use gitbutler_project::{ProjectHandle, ProjectHandleOrLegacyProjectId};
     use tokio::sync::mpsc;
 
     async fn expect_matching_event(

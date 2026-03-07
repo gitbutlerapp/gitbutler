@@ -7,9 +7,8 @@ use but_claude::{
     prompt_templates,
 };
 use but_core::ref_metadata::StackId;
-use but_ctx::{Context, ThreadSafeContext};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId, ThreadSafeContext};
 use but_settings::AppSettings;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use serde::Deserialize;
 use tracing::instrument;
 

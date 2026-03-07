@@ -74,8 +74,6 @@ pub struct CodePushState {
     pub timestamp: time::SystemTime,
 }
 
-pub type LegacyProjectId = but_core::Id<'P'>;
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct Project {

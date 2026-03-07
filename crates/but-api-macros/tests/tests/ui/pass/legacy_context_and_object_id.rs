@@ -36,13 +36,12 @@ pub fn with_thread_safe_context(
 }
 
 fn main() {
-    let project_id: gitbutler_project::LegacyProjectId =
+    let project_id: but_ctx::LegacyProjectId =
         "d7377618-b9cd-4964-a3c3-05c58ed5602b".parse().unwrap();
-    let project =
-        gitbutler_project::ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id.clone());
-    let project_handle: gitbutler_project::ProjectHandle = "L3RtcC9yZXBv".parse().unwrap();
+    let project = but_ctx::ProjectHandleOrLegacyProjectId::LegacyProjectId(project_id.clone());
+    let project_handle: but_ctx::ProjectHandle = "L3RtcC9yZXBv".parse().unwrap();
     let project_by_handle =
-        gitbutler_project::ProjectHandleOrLegacyProjectId::ProjectHandle(project_handle.clone());
+        but_ctx::ProjectHandleOrLegacyProjectId::ProjectHandle(project_handle.clone());
     let oid = oid_from_hex("0123456789abcdef0123456789abcdef01234567");
     let hash = json::HexHash::from(oid);
 

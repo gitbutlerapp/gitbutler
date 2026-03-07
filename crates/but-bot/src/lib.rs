@@ -1,6 +1,6 @@
 use but_ctx::Context;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_tools::emit::{Emittable, Emitter};
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 
 mod butbot;
 mod state;

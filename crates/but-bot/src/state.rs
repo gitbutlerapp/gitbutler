@@ -1,11 +1,10 @@
 use std::{collections::BTreeMap, fmt::Display};
 
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_tools::{
     emit::Emittable,
     tool::{Tool, Toolset},
 };
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use gix::ObjectId;
 use schemars::{JsonSchema, schema_for};
 use serde_json::json;

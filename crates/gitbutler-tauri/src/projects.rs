@@ -5,9 +5,8 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use but_api::json;
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use gix::bstr::ByteSlice;
 use tauri::{State, Window};
 use tracing::instrument;

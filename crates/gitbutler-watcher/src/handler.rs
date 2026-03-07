@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context as _, Result};
 use but_core::{TreeChange, sync::RepoExclusive};
-use but_ctx::Context;
+use but_ctx::{Context, ProjectHandle, ProjectHandleOrLegacyProjectId};
 use but_db::HunkAssignmentsHandleMut;
 use but_hunk_assignment::HunkAssignment;
 use but_hunk_dependency::ui::hunk_dependencies_for_workspace_changes_by_worktree_dir;
@@ -11,7 +11,6 @@ use gitbutler_filemonitor::{
     FETCH_HEAD, HEAD, HEAD_ACTIVITY, INDEX, InternalEvent, LOCAL_REFS_DIR,
 };
 use gitbutler_operating_modes::operating_mode;
-use gitbutler_project::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use tracing::instrument;
 
 use crate::Change;

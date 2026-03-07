@@ -7,12 +7,11 @@ use std::{
 };
 
 use but_core::{TreeChange, sync::RepoExclusiveGuard};
-use but_ctx::{Context, access::RepoExclusive};
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId, access::RepoExclusive};
 use but_hunk_assignment::CommitAbsorption;
 use but_oxidize::ObjectIdExt;
 use but_workspace::legacy::ui::StackEntry;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 

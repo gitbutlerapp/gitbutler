@@ -5,13 +5,13 @@ use but_core::{
     DiffSpec, HunkHeader, RepositoryExt, UnifiedPatch, ref_metadata::StackId,
     worktree::checkout::UncommitedWorktreeChanges,
 };
+use but_ctx::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use but_db::poll::ItemKind;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     create_reference::{Anchor, Position},
 };
-use gitbutler_project::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use gix::{
     bstr::{BString, ByteSlice},
     refs::Category,

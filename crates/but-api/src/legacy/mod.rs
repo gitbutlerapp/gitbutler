@@ -2,7 +2,7 @@
 //! Legacy data structures and functionality tied to `gitbutler-*` crates.
 //!
 
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 pub mod absorb;
 pub mod askpass;
 pub mod cherry_apply;

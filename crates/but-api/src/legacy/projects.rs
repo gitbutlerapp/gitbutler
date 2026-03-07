@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use but_api_macros::but_api;
-use but_ctx::Context;
-use gitbutler_project::ProjectHandleOrLegacyProjectId;
+use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
 use tracing::instrument;
 
 use super::legacy_project;
