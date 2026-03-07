@@ -43,6 +43,9 @@ async fn main() -> Result<()> {
             switch_to_workspace.to_owned(),
         ),
         args::Subcommands::RemoveProject { project_name } => command::project::remove(project_name),
+        args::Subcommands::LongRunning { duration } => {
+            command::poc::long_running(*duration, args.trace > 0)
+        }
         args::Subcommands::RemoveReference {
             permit_empty_stacks,
             keep_metadata,
