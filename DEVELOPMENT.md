@@ -8,6 +8,7 @@ you right. Let's get started.
 ## Table of Contents
 
 - [Overview](#overview)
+- [CLI-only development](#cli-only-development)
 - [The Basics](#the-basics)
   - [Prerequisites](#prerequisites)
   - [Install dependencies](#install-dependencies)
@@ -51,6 +52,50 @@ in Typescript for that layer.
 For a deep dive into the architecture, see [DEEPWIKI](https://deepwiki.com/gitbutlerapp/gitbutler).
 
 ---
+
+## CLI-only development
+
+The easiest way to get started is by hacking on the `but` CLI.
+
+You only need Rust installed…[^cli-build-prereqs]
+
+```bash
+$ cd gitbutler-repo
+$ curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+```
+
+…to build and run the CLI:
+
+```bash
+$ cargo build -p but
+$ cargo run -p but -- --help
+$ cargo run -p but -- -C /path/to/git-repo status
+```
+
+To test only the CLI:
+
+```bash
+$ cargo test -p but
+```
+
+Useful locations in the source tree:
+
+- `crates/but/src/args` for CLI argument parsing and help text
+- `crates/but/src/command` for command implementations
+- `crates/but/tests` for integration tests
+
+[^cli-build-prereqs]:
+    In practice, `cargo build -p but` also builds native
+    dependencies such as `git2` with vendored `openssl` and `libgit2`, so you
+    still need a working C toolchain. On Linux, that commonly means tools such
+    as `build-essential`, `make`, `perl`, `cmake`, and `pkg-config`; on macOS,
+    install Xcode Command Line Tools. On Windows, you’ll need a working
+    MSVC-based toolchain and related native dependencies; see
+    [Building on Windows](#building-on-windows) below for details (including
+    `perl` for `openssl-sys`). If you already completed the desktop
+    prerequisites in [The Basics](#the-basics), you already have the stricter setup.
+    If you already completed the desktop prerequisites in [The Basics](#the-basics) below,
+    you already have the stricter setup.
 
 ## The Basics
 
