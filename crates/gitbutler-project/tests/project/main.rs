@@ -156,9 +156,10 @@ mod delete {
         let project = gitbutler_project::add_at_app_data_dir(data_dir.path(), path)
             .unwrap()
             .unwrap_project();
-        assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok());
-        assert!(gitbutler_project::delete_with_path(data_dir.path(), project.id).is_ok()); // idempotent
-        assert!(gitbutler_project::get_with_path(data_dir.path(), project.id).is_err());
+        let project_id = project.id.clone();
+        assert!(gitbutler_project::delete_with_path(data_dir.path(), project_id.clone()).is_ok());
+        assert!(gitbutler_project::delete_with_path(data_dir.path(), project_id.clone()).is_ok()); // idempotent
+        assert!(gitbutler_project::get_with_path(data_dir.path(), project_id).is_err());
         assert!(repo.path().exists());
         assert!(!repo.path().join("gitbutler").exists());
     }

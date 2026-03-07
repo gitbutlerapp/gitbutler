@@ -6,7 +6,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_project::ProjectId;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 pub use handler::Handler;
 use tokio::{
     sync::mpsc::{UnboundedSender, unbounded_channel},
@@ -27,7 +27,7 @@ pub use gitbutler_filemonitor::WatchMode;
 /// An abstraction over a link to the spawned watcher, which runs in the background.
 pub struct WatcherHandle {
     /// The id of the project we are watching.
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     signal_flush: UnboundedSender<()>,
     /// A way to tell the background process to stop handling events.
     cancellation_token: CancellationToken,
@@ -41,8 +41,8 @@ impl Drop for WatcherHandle {
 
 impl WatcherHandle {
     /// Return the id of the project we are watching.
-    pub fn project_id(&self) -> ProjectId {
-        self.project_id
+    pub fn project_id(&self) -> &ProjectHandleOrLegacyProjectId {
+        &self.project_id
     }
 
     pub fn flush(&self) -> Result<()> {
@@ -69,7 +69,7 @@ impl WatcherHandle {
 pub fn watch_in_background(
     handler: handler::Handler,
     worktree_path: impl AsRef<Path>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     app_settings: AppSettingsWithDiskSync,
     watch_mode: WatchMode,
 ) -> Result<WatcherHandle, anyhow::Error> {
@@ -77,7 +77,7 @@ pub fn watch_in_background(
     let (flush_tx, mut flush_rx) = unbounded_channel();
 
     let monitor = gitbutler_filemonitor::spawn(
-        project_id,
+        project_id.clone(),
         worktree_path.as_ref(),
         events_out.clone(),
         watch_mode,
@@ -85,7 +85,7 @@ pub fn watch_in_background(
 
     let cancellation_token = CancellationToken::new();
     let handle = WatcherHandle {
-        project_id,
+        project_id: project_id.clone(),
         signal_flush: flush_tx,
         cancellation_token: cancellation_token.clone(),
     };

@@ -11,7 +11,7 @@ use but_workspace::branch::{
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
     create_reference::{Anchor, Position},
 };
-use gitbutler_project::ProjectId;
+use gitbutler_project::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use gix::{
     bstr::{BString, ByteSlice},
     refs::Category,
@@ -352,8 +352,10 @@ pub async fn watch(args: &super::Args, watch_mode: Option<&str>) -> anyhow::Resu
     let (tx, mut rx) = unbounded_channel();
     let start = std::time::Instant::now();
     let workdir = ctx.workdir_or_fail()?;
+    let project_id =
+        ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
     let _monitor = gitbutler_filemonitor::spawn(
-        ProjectId::generate(),
+        project_id,
         &workdir,
         tx,
         watch_mode.and_then(|m| m.parse().ok()).unwrap_or_default(),

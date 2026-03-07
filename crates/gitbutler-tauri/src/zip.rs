@@ -2,7 +2,7 @@
 use std::path::PathBuf;
 
 use but_api::json::Error;
-use gitbutler_project::ProjectId;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use tauri::State;
 use tracing::instrument;
 
@@ -10,7 +10,7 @@ use tracing::instrument;
 #[instrument(skip(archival), err(Debug))]
 pub fn get_project_archive_path(
     archival: State<'_, but_feedback::Archival>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
 ) -> Result<PathBuf, Error> {
     archival
         .zip_entire_repository(project_id)
@@ -21,7 +21,7 @@ pub fn get_project_archive_path(
 #[instrument(skip(archival), err(Debug))]
 pub fn get_anonymous_graph_path(
     archival: State<'_, but_feedback::Archival>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
 ) -> Result<PathBuf, Error> {
     archival.zip_anonymous_graph(project_id).map_err(Into::into)
 }

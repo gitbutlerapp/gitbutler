@@ -18,7 +18,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
     gitbutler_project::update_with_path(
         data_dir.as_ref().unwrap(),
-        projects::UpdateRequest::default_with_id(*project_id),
+        projects::UpdateRequest::default_with_id(project_id.clone()),
     )
     .unwrap();
 
@@ -33,7 +33,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
     gitbutler_project::update_with_path(
         data_dir.as_ref().unwrap(),
-        projects::UpdateRequest::default_with_id(*project_id),
+        projects::UpdateRequest::default_with_id(project_id.clone()),
     )
     .unwrap();
 

@@ -3,7 +3,8 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
-use but_ctx::LegacyProjectId;
+use but_ctx::Context;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 
 /// A utility to keep important paths to make archival/zip-file creation easier later.
 pub struct Archival {
@@ -20,8 +21,11 @@ fn filesafe_date_time() -> String {
 
 impl Archival {
     /// Create an archive of the entire repository behind `project_id`.
-    pub fn zip_entire_repository(&self, project_id: LegacyProjectId) -> Result<PathBuf> {
-        let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
+    pub fn zip_entire_repository(
+        &self,
+        project_id: ProjectHandleOrLegacyProjectId,
+    ) -> Result<PathBuf> {
+        let ctx: Context = project_id.try_into()?;
         let output_file = self
             .cache_dir
             .join(format!("project-{date}.zip", date = filesafe_date_time()));
@@ -29,8 +33,11 @@ impl Archival {
     }
 
     /// Create an archive commit graph behind `project_id` such that it doesn't reveal PII.
-    pub fn zip_anonymous_graph(&self, project_id: LegacyProjectId) -> Result<PathBuf> {
-        let ctx = but_ctx::Context::new_from_legacy_project_id(project_id)?;
+    pub fn zip_anonymous_graph(
+        &self,
+        project_id: ProjectHandleOrLegacyProjectId,
+    ) -> Result<PathBuf> {
+        let ctx: Context = project_id.try_into()?;
         let _guard = ctx.shared_worktree_access();
         let repo = ctx.repo.get()?;
         let meta = ctx.meta()?;

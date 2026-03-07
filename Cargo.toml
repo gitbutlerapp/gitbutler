@@ -19,6 +19,7 @@ members = [
     "crates/but-error",            # 📄Error codes to communicate specific failures; JSON Error for frontends.
     "crates/but-testsupport",      # 📄Despite lacking tests, it is the foundation for all tests.
     "crates/but-feedback",         # 📄It's very small and very special, but documented and well-enough tested.
+    "crates/but-project-handle",   # 📄Temporary home of ProjectHandle until `gitbutler-project` is gone and it can merge back into `but-ctx`.
 
     ##
     ### 👷Needs work
@@ -175,6 +176,7 @@ but-update = { path = "crates/but-update" }
 but-installer = { path = "crates/but-installer" }
 but-secret = { path = "crates/but-secret" }
 but-feedback = { path = "crates/but-feedback" }
+but-project-handle = { path = "crates/but-project-handle" }
 but-forge-storage = { path = "crates/but-forge-storage" }
 but-settings = { path = "crates/but-settings" }
 but-oxidize = { path = "crates/but-oxidize" }

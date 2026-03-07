@@ -947,6 +947,7 @@ dependencies = [
  "but-ctx",
  "but-error",
  "futures",
+ "gitbutler-project",
  "gix",
  "napi",
  "napi-derive",
@@ -1075,16 +1076,14 @@ dependencies = [
  "but-graph",
  "but-meta",
  "but-path",
+ "but-project-handle",
  "but-settings",
  "but-testsupport",
  "git2",
  "gitbutler-project",
  "gix",
- "hex",
- "serde",
  "serde_json",
  "tracing",
- "urlencoding",
 ]
 
 [[package]]
@@ -1142,6 +1141,7 @@ dependencies = [
  "but-ctx",
  "but-graph",
  "chrono",
+ "gitbutler-project",
  "tempfile",
  "walkdir",
  "zip",
@@ -1397,6 +1397,18 @@ dependencies = [
  "anyhow",
  "dirs 6.0.0",
  "open",
+]
+
+[[package]]
+name = "but-project-handle"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "but-core",
+ "gix",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -4076,6 +4088,7 @@ dependencies = [
  "but-forge",
  "but-fs",
  "but-path",
+ "but-project-handle",
  "but-schemars",
  "but-serde",
  "git2",

@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use anyhow::{Context as _, Result};
 use serde::Deserialize;
 
-use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
+use crate::{
+    ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectHandleOrLegacyProjectId,
+};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -14,7 +16,7 @@ pub(crate) struct Storage {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct UpdateRequest {
-    pub id: ProjectId,
+    pub id: ProjectHandleOrLegacyProjectId,
     pub title: Option<String>,
     pub description: Option<String>,
     pub git_dir: Option<PathBuf>,
@@ -40,7 +42,7 @@ pub struct UpdateRequest {
 
 impl UpdateRequest {
     /// A way to default the project data, while making its project ID explicit.
-    pub fn default_with_id(id: ProjectId) -> Self {
+    pub fn default_with_id(id: ProjectHandleOrLegacyProjectId) -> Self {
         Self {
             id,
             title: None,
@@ -148,12 +150,12 @@ impl Storage {
         }
     }
 
-    pub fn get(&self, id: ProjectId) -> Result<Project> {
-        self.try_get(id)?
+    pub fn get(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Project> {
+        self.try_get(id.clone())?
             .with_context(|| format!("project {id} not found"))
     }
 
-    pub fn try_get(&self, id: ProjectId) -> Result<Option<Project>> {
+    pub fn try_get(&self, id: ProjectHandleOrLegacyProjectId) -> Result<Option<Project>> {
         let projects = self.list()?;
         Ok(projects.into_iter().find(|p| p.id == id))
     }
@@ -267,7 +269,7 @@ impl Storage {
         Ok(projects.iter().find(|p| p.id == id).unwrap().clone())
     }
 
-    pub fn purge(&self, id: ProjectId) -> Result<()> {
+    pub fn purge(&self, id: ProjectHandleOrLegacyProjectId) -> Result<()> {
         let mut projects = self.list()?;
         if let Some(index) = projects.iter().position(|p| p.id == id) {
             projects.remove(index);

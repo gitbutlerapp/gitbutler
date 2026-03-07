@@ -5,7 +5,7 @@ use but_tools::{
     emit::Emittable,
     tool::{Tool, Toolset},
 };
-use gitbutler_project::ProjectId;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use gix::ObjectId;
 use schemars::{JsonSchema, schema_for};
 use serde_json::json;
@@ -132,14 +132,14 @@ pub struct AgentState {
     pub todos: Vec<Todo>,
     pub sys_prompt: String,
     tools: BTreeMap<String, std::sync::Arc<dyn Tool>>,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     message_id: String,
     emitter: std::sync::Arc<but_tools::emit::Emitter>,
 }
 
 impl AgentState {
     pub fn new(
-        project_id: ProjectId,
+        project_id: ProjectHandleOrLegacyProjectId,
         message_id: String,
         emitter: std::sync::Arc<but_tools::emit::Emitter>,
     ) -> Self {
@@ -162,7 +162,7 @@ impl AgentState {
         let todos: Vec<but_tools::emit::TodoState> =
             self.todos.iter().map(|todo| todo.clone().into()).collect();
         let todo_update = but_tools::emit::TodoUpdate {
-            project_id: self.project_id,
+            project_id: self.project_id.clone(),
             message_id: self.message_id.clone(),
             list: todos,
         };

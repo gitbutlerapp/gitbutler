@@ -1,6 +1,6 @@
 use but_api::json::Error;
 use but_ctx::Context;
-use gitbutler_project::ProjectId;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use tauri::Emitter;
 use tracing::instrument;
 
@@ -8,12 +8,12 @@ use tracing::instrument;
 #[instrument(skip(app_handle), err(Debug))]
 pub fn bot(
     app_handle: tauri::AppHandle,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     message_id: String,
     chat_messages: Vec<but_llm::ChatMessage>,
 ) -> anyhow::Result<String, Error> {
-    let project = gitbutler_project::get(project_id)?;
-    let mut ctx = Context::new_from_legacy_project(project.clone())?;
+    let project_id_for_events = project_id.clone();
+    let mut ctx: Context = project_id.try_into()?;
 
     let emitter = std::sync::Arc::new(move |name: &str, payload: serde_json::Value| {
         app_handle.emit(name, payload).unwrap_or_else(|e| {
@@ -27,7 +27,7 @@ pub fn bot(
     let llm = but_llm::LLMProvider::from_git_config(&git_config);
     match llm {
         Some(llm) => but_bot::bot(
-            project_id,
+            project_id_for_events,
             message_id,
             emitter,
             &mut ctx,
@@ -45,14 +45,15 @@ pub fn bot(
 #[instrument(skip(app_handle), err(Debug))]
 pub async fn forge_branch_chat(
     app_handle: tauri::AppHandle,
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     branch: String,
     message_id: String,
     chat_messages: Vec<but_llm::ChatMessage>,
     filter: Option<but_forge::ForgeReviewFilter>,
     model: String,
 ) -> anyhow::Result<String, Error> {
-    let ctx = Context::new_from_legacy_project_id(project_id)?;
+    let project_id_for_events = project_id.clone();
+    let ctx: Context = project_id.try_into()?;
     let reviews =
         but_api::legacy::forge::list_reviews_for_branch(ctx.into_sync(), branch.clone(), filter)
             .await?;
@@ -67,7 +68,7 @@ pub async fn forge_branch_chat(
     let llm = but_llm::LLMProvider::from_git_config(&git_config);
     match llm {
         Some(llm) => but_bot::forge_branch_chat(
-            project_id,
+            project_id_for_events,
             branch,
             message_id,
             emitter,

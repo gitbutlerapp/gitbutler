@@ -6,7 +6,7 @@ use but_claude::{Claude, broadcaster::FrontendEvent};
 use but_ctx::Context;
 use but_db::poll::DBWatcherHandle;
 use but_settings::AppSettingsWithDiskSync;
-use gitbutler_project::ProjectId;
+use gitbutler_project::{ProjectHandle, ProjectHandleOrLegacyProjectId};
 use gitbutler_watcher::{Change, WatcherHandle};
 use serde::Deserialize;
 use serde_json::json;
@@ -16,7 +16,7 @@ use crate::Extra;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SetProjectActiveParams {
-    id: ProjectId,
+    id: ProjectHandleOrLegacyProjectId,
 }
 
 struct ProjectHandles {
@@ -27,7 +27,8 @@ struct ProjectHandles {
 }
 
 pub struct ActiveProjects {
-    projects: HashMap<ProjectId, ProjectHandles>,
+    /// The .git directory of the project we know as active.
+    projects: HashMap<ProjectHandleOrLegacyProjectId, ProjectHandles>,
 }
 
 impl ActiveProjects {
@@ -43,7 +44,9 @@ impl ActiveProjects {
         claude: &Claude,
         app_settings_sync: AppSettingsWithDiskSync,
     ) -> Result<()> {
-        if self.projects.contains_key(&ctx.legacy_project.id) {
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&ctx.gitdir)?);
+        if self.projects.contains_key(&project_id) {
             return Ok(());
         }
 
@@ -95,7 +98,7 @@ impl ActiveProjects {
         let file_watcher = gitbutler_watcher::watch_in_background(
             handler,
             ctx.workdir_or_fail()?,
-            ctx.legacy_project.id,
+            project_id.clone(),
             app_settings_sync.clone(),
             watch_mode,
         )?;
@@ -105,9 +108,9 @@ impl ActiveProjects {
             let db = &mut *ctx.db.get_mut()?;
             but_db::poll::watch_in_background(db, {
                 let broadcaster = claude.broadcaster.clone();
-                let project_id = ctx.legacy_project.id;
+                let project_id = project_id.clone();
                 move |item| {
-                    let event = FrontendEvent::from_db_item(project_id, item);
+                    let event = FrontendEvent::from_db_item(project_id.clone(), item);
                     let broadcaster = broadcaster.clone();
                     tokio::task::spawn(async move {
                         broadcaster.lock().await.send(event);
@@ -118,7 +121,7 @@ impl ActiveProjects {
         };
 
         self.projects.insert(
-            ctx.legacy_project.id,
+            project_id,
             ProjectHandles {
                 _file_watcher: file_watcher,
                 _db_watcher: db_watcher,
@@ -141,7 +144,8 @@ pub struct ProjectInfo {
 
 pub async fn list_projects(extra: &Extra) -> anyhow::Result<serde_json::Value> {
     let active_projects = extra.active_projects.lock().await;
-    let project_ids: Vec<ProjectId> = active_projects.projects.keys().copied().collect();
+    let project_ids: Vec<ProjectHandleOrLegacyProjectId> =
+        active_projects.projects.keys().cloned().collect();
     let projects_for_frontend = but_api::legacy::projects::list_projects(project_ids)?;
     Ok(json!(projects_for_frontend))
 }
@@ -158,7 +162,7 @@ pub async fn set_project_active(
     //            knowledge around how many unique tabs are looking at it
 
     let mut active_projects = extra.active_projects.lock().await;
-    let mut ctx = Context::new_from_legacy_project_id(params.id)?;
+    let mut ctx: Context = params.id.try_into()?;
     active_projects.set_active(&mut ctx, claude, app_settings_sync)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);

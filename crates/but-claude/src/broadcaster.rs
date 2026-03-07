@@ -1,5 +1,5 @@
 use but_db::poll::ItemKind;
-use gitbutler_project::ProjectId;
+use gitbutler_project::ProjectHandleOrLegacyProjectId;
 use serde::Serialize;
 use serde_json::json;
 
@@ -13,7 +13,7 @@ pub struct FrontendEvent {
 impl FrontendEvent {
     /// Converts a database ItemKind to a FrontendEvent that can be sent over WebSocket.
     /// This matches the implementation used in both gitbutler-tauri and but-server for consistency.
-    pub fn from_db_item(project_id: ProjectId, item: ItemKind) -> Self {
+    pub fn from_db_item(project_id: ProjectHandleOrLegacyProjectId, item: ItemKind) -> Self {
         match item {
             ItemKind::Actions => FrontendEvent {
                 name: format!("project://{project_id}/db-updates"),
