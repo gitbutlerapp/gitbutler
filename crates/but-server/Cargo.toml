@@ -25,9 +25,7 @@ but-path.workspace = true
 but-settings.workspace = true
 but-feedback.workspace = true
 but-secret.workspace = true
-but-ctx.workspace = true
-
-gitbutler-project.workspace = true
+but-ctx = { workspace = true, features = ["legacy"] }
 gitbutler-watcher.workspace = true
 gitbutler-repo-actions.workspace = true
 

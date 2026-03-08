@@ -845,7 +845,6 @@ dependencies = [
  "gitbutler-branch-actions",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
- "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
@@ -967,7 +966,6 @@ dependencies = [
  "but-llm",
  "but-tools",
  "chrono",
- "gitbutler-project",
  "gix",
  "schemars 1.2.1",
  "serde",
@@ -1023,7 +1021,6 @@ dependencies = [
  "futures",
  "gitbutler-branch",
  "gitbutler-branch-actions",
- "gitbutler-project",
  "gitbutler-stack",
  "gix",
  "notify-rust",
@@ -1075,10 +1072,13 @@ dependencies = [
  "but-graph",
  "but-meta",
  "but-path",
+ "but-project-handle",
  "but-settings",
+ "but-testsupport",
  "git2",
  "gitbutler-project",
  "gix",
+ "serde_json",
  "tracing",
 ]
 
@@ -1395,6 +1395,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-project-handle"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "but-core",
+ "gix",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "but-rebase"
 version = "0.0.0"
 dependencies = [
@@ -1482,7 +1494,6 @@ dependencies = [
  "but-secret",
  "but-settings",
  "futures-util",
- "gitbutler-project",
  "gitbutler-repo-actions",
  "gitbutler-watcher",
  "serde",
@@ -1589,7 +1600,6 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-branch-actions",
  "gitbutler-oplog",
- "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-stack",
  "gix",
@@ -3970,9 +3980,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backoff",
+ "but-project-handle",
  "but-testsupport",
  "gitbutler-notify-debouncer",
- "gitbutler-project",
  "gix",
  "insta",
  "notify",
@@ -4071,6 +4081,7 @@ dependencies = [
  "but-forge",
  "but-fs",
  "but-path",
+ "but-project-handle",
  "but-schemars",
  "but-serde",
  "git2",
@@ -4316,7 +4327,6 @@ dependencies = [
  "but-settings",
  "gitbutler-filemonitor",
  "gitbutler-operating-modes",
- "gitbutler-project",
  "gix",
  "serde-error",
  "tokio",

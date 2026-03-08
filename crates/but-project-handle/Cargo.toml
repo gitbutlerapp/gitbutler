@@ -1,0 +1,28 @@
+[package]
+name = "but-project-handle"
+version = "0.0.0"
+edition.workspace = true
+authors.workspace = true
+publish = false
+description = "Temporary home for ProjectHandle until gitbutler-project is removed and the types can merge back into but-ctx"
+rust-version.workspace = true
+
+[lib]
+doctest = false
+
+[features]
+legacy = ["dep:but-core"]
+
+[dependencies]
+but-core = { workspace = true, optional = true }
+
+anyhow.workspace = true
+gix.workspace = true
+serde.workspace = true
+base64 = "0.22.1"
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

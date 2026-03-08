@@ -25,19 +25,20 @@ pub use legacy::types::{LegacyProject, LegacyProjectId};
 /// Utilities to control access to the project directory of the context.
 pub mod access;
 
+/// Conversions from project identifier values into context types.
+mod project_handle;
+/// Project identifier types live in a temporary transition crate while legacy
+/// project storage still exists.
+///
+/// Once `gitbutler-project` is dissolved, these types are expected to merge back into `but-ctx`.
+/// Thus, use it through this crate only to simplify dependencies.
+pub use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
+
 mod ondemand;
 pub use ondemand::OnDemand;
 
 mod ondemand_cache;
 use crate::ondemand_cache::OnDemandCache;
-
-/// A self-describing handle to the path of the project on disk, typically the `.git` directory of a Git repository.
-///
-/// With it, all project data and metadata can be accessed.
-/// Further, this ID is URL-safe, but it is *not* for human consumption.
-// TODO(ctx): needs actual implementation to make it usable in the `Context` API.
-//            Needs implementation to turn it into a `PathBuf`, and to create it from a `Path`.
-pub struct ProjectHandle(#[expect(dead_code)] String);
 
 /// A context specific to a repository, along with commonly used information to make higher-level functions
 /// more convenient to implement.
@@ -163,6 +164,23 @@ impl TryFrom<gix::Repository> for Context {
     }
 }
 
+impl TryFrom<ProjectHandle> for Context {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ProjectHandle) -> Result<Self, Self::Error> {
+        Context::new_from_project_handle(value)
+    }
+}
+
+impl TryFrom<ProjectHandle> for ThreadSafeContext {
+    type Error = anyhow::Error;
+
+    fn try_from(value: ProjectHandle) -> Result<Self, Self::Error> {
+        let ctx: Context = value.try_into()?;
+        Ok(ctx.into_sync())
+    }
+}
+
 impl std::fmt::Debug for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Context")
@@ -235,6 +253,13 @@ impl Context {
         Self::from_repo_with_legacy_support(repo)
     }
 
+    /// Create a context from a `project_handle`, which directly encodes the repository path.
+    pub fn new_from_project_handle(project_handle: ProjectHandle) -> anyhow::Result<Self> {
+        let repository_path = project_handle.into_path()?;
+        let repo = gix::open(repository_path)?;
+        Self::from_repo_with_legacy_support(repo)
+    }
+
     /// Open the Git repository in `directory` and return it as context.
     pub fn open(directory: impl AsRef<Path>) -> anyhow::Result<Context> {
         let directory = directory.as_ref();
@@ -279,7 +304,8 @@ impl Context {
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
-            })
+            }
+            .with_repo(repo))
         }
     }
 
@@ -752,9 +778,11 @@ fn app_settings(config_dir: impl AsRef<Path>) -> anyhow::Result<AppSettings> {
 
 #[cfg(feature = "legacy")]
 fn default_legacy_project_at_repo(repo: &gix::Repository) -> LegacyProject {
-    LegacyProject::default_with_id(LegacyProjectId::from_number_for_testing(1))
-        .with_paths_for_testing(
-            repo.git_dir().to_owned(),
-            repo.workdir().map(ToOwned::to_owned),
-        )
+    LegacyProject::default_with_id(ProjectHandleOrLegacyProjectId::LegacyProjectId(
+        LegacyProjectId::from_number_for_testing(1),
+    ))
+    .with_paths_for_testing(
+        repo.git_dir().to_owned(),
+        repo.workdir().map(ToOwned::to_owned),
+    )
 }

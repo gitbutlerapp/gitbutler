@@ -5,8 +5,8 @@ mod spawn {
         time::Duration,
     };
 
+    use but_project_handle::{ProjectHandle, ProjectHandleOrLegacyProjectId};
     use gitbutler_filemonitor::{InternalEvent, WatchMode};
-    use gitbutler_project::ProjectId;
     use tokio::sync::mpsc;
 
     async fn expect_matching_event(
@@ -36,10 +36,12 @@ mod spawn {
         let generous_timeout_for_ci = Duration::from_secs(10);
         let (repo, _tmp) = but_testsupport::writable_scenario("watch-plan-rename-dir");
         let workdir = repo.workdir().expect("non-bare").to_owned();
-        let project_id = ProjectId::from_number_for_testing(1);
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&workdir)?);
 
         let (tx, mut rx) = mpsc::unbounded_channel();
-        let monitor = gitbutler_filemonitor::spawn(project_id, &workdir, tx, WatchMode::Modern)?;
+        let monitor =
+            gitbutler_filemonitor::spawn(project_id.clone(), &workdir, tx, WatchMode::Modern)?;
 
         std::fs::create_dir(workdir.join("dir"))?;
         monitor.flush()?;

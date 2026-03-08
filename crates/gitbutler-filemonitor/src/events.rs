@@ -1,13 +1,13 @@
 use std::{fmt::Display, path::PathBuf};
 
-use gitbutler_project::ProjectId;
+use but_project_handle::ProjectHandleOrLegacyProjectId;
 
 /// An event for internal use, representing file system changes.
 #[derive(Debug)]
 pub enum InternalEvent {
     // From file monitor
-    GitFilesChange(ProjectId, Vec<PathBuf>),
-    ProjectFilesChange(ProjectId, Vec<PathBuf>),
+    GitFilesChange(ProjectHandleOrLegacyProjectId, Vec<PathBuf>),
+    ProjectFilesChange(ProjectHandleOrLegacyProjectId, Vec<PathBuf>),
 }
 
 impl Display for InternalEvent {

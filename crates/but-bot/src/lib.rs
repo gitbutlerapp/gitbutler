@@ -1,6 +1,6 @@
 use but_ctx::Context;
+use but_ctx::ProjectHandleOrLegacyProjectId;
 use but_tools::emit::{Emittable, Emitter};
-use gitbutler_project::ProjectId;
 
 mod butbot;
 mod state;
@@ -10,7 +10,7 @@ use crate::{agent::AgentGraph, butbot::ButBot};
 pub mod agent;
 
 pub fn bot(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     message_id: String,
     emitter: std::sync::Arc<Emitter>,
     ctx: &mut Context,
@@ -24,7 +24,7 @@ pub fn bot(
 
 #[allow(clippy::too_many_arguments)]
 pub fn forge_branch_chat(
-    project_id: ProjectId,
+    project_id: ProjectHandleOrLegacyProjectId,
     branch: String,
     message_id: String,
     emitter: std::sync::Arc<Emitter>,
@@ -61,7 +61,7 @@ pub fn forge_branch_chat(
     );
 
     let message_id_cloned = message_id.clone();
-    let project_id_cloned = project_id;
+    let project_id_cloned = project_id.clone();
 
     let response = llm
         .stream_response(&sys_prompt, chat_messages, &model, {
@@ -71,7 +71,7 @@ pub fn forge_branch_chat(
             move |token: &str| {
                 let token_update = but_tools::emit::TokenUpdate {
                     token: token.to_string(),
-                    project_id,
+                    project_id: project_id.clone(),
                     message_id: message_id.clone(),
                 };
                 let (name, payload) = token_update.emittable();

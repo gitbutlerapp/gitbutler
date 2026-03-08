@@ -2,17 +2,16 @@ pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::Result;
-    use but_ctx::Context;
+    use but_ctx::{Context, ProjectHandleOrLegacyProjectId};
     use but_settings::AppSettingsWithDiskSync;
-    use gitbutler_project::ProjectId;
     use tauri::AppHandle;
     use tracing::instrument;
 
     pub(crate) mod event {
         use anyhow::{Context as _, Result};
+        use but_ctx::ProjectHandleOrLegacyProjectId;
         use but_db::poll::ItemKind;
         use but_settings::AppSettings;
-        use gitbutler_project::ProjectId;
         use gitbutler_watcher::Change;
         use tauri::Emitter;
 
@@ -21,7 +20,6 @@ pub(crate) mod state {
         pub struct ChangeForFrontend {
             name: String,
             payload: serde_json::Value,
-            project_id: ProjectId,
         }
 
         impl From<Change> for ChangeForFrontend {
@@ -30,7 +28,6 @@ pub(crate) mod state {
                     Change::GitFetch(project_id) => ChangeForFrontend {
                         name: format!("project://{project_id}/git/fetch"),
                         payload: serde_json::json!({}),
-                        project_id,
                     },
                     Change::GitHead {
                         project_id,
@@ -39,7 +36,6 @@ pub(crate) mod state {
                     } => ChangeForFrontend {
                         name: format!("project://{project_id}/git/head"),
                         payload: serde_json::json!({ "head": head, "operatingMode": operating_mode }),
-                        project_id,
                     },
                     Change::GitActivity {
                         project_id,
@@ -49,7 +45,6 @@ pub(crate) mod state {
                         payload: serde_json::json!({
                             "headSha": head_sha,
                         }),
-                        project_id,
                     },
                     Change::WorktreeChanges {
                         project_id,
@@ -57,7 +52,6 @@ pub(crate) mod state {
                     } => ChangeForFrontend {
                         name: format!("project://{project_id}/worktree_changes"),
                         payload: serde_json::json!(&changes),
-                        project_id,
                     },
                 }
             }
@@ -68,21 +62,19 @@ pub(crate) mod state {
                 ChangeForFrontend {
                     name: "settings://update".to_string(),
                     payload: serde_json::json!(settings),
-                    // TODO: remove dummy project id
-                    project_id: ProjectId::generate(),
                 }
             }
         }
 
-        impl From<(ProjectId, ItemKind)> for ChangeForFrontend {
-            fn from(project_item: (ProjectId, ItemKind)) -> Self {
+        impl From<(ProjectHandleOrLegacyProjectId, ItemKind)> for ChangeForFrontend {
+            fn from(project_item: (ProjectHandleOrLegacyProjectId, ItemKind)) -> Self {
                 let (project_id, item) = project_item;
                 // Use the shared conversion function from but_broadcaster
-                let event = but_claude::broadcaster::FrontendEvent::from_db_item(project_id, item);
+                let event =
+                    but_claude::broadcaster::FrontendEvent::from_db_item(project_id.clone(), item);
                 ChangeForFrontend {
                     name: event.name,
                     payload: event.payload,
-                    project_id,
                 }
             }
         }
@@ -101,7 +93,7 @@ pub(crate) mod state {
 
     struct State {
         /// The id of the project displayed by the window.
-        project_id: ProjectId,
+        project_id: ProjectHandleOrLegacyProjectId,
         /// The watcher of the currently active project.
         watcher: gitbutler_watcher::WatcherHandle,
         /// An active lock to signal that the entire project is locked for the Window this state belongs to.
@@ -169,9 +161,8 @@ pub(crate) mod state {
             ctx: &mut Context,
         ) -> Result<ProjectAccessMode> {
             let mut state_by_label = self.state.lock();
-            let project_id = ctx.legacy_project.id;
             if let Some(state) = state_by_label.get(window)
-                && state.project_id == project_id
+                && state.project_id == ctx.legacy_project.id
             {
                 return Ok(state
                     .exclusive_access
@@ -189,7 +180,7 @@ pub(crate) mod state {
             let watcher = gitbutler_watcher::watch_in_background(
                 handler,
                 worktree_dir,
-                project_id,
+                ctx.legacy_project.id.clone(),
                 app_settings.clone(),
                 watch_mode,
             )?;
@@ -197,14 +188,15 @@ pub(crate) mod state {
             let db = ctx.db.get()?;
             let db_watcher = but_db::poll::watch_in_background(&db, {
                 let app_handle = self.app_handle.clone();
-                move |item| ChangeForFrontend::from((project_id, item)).send(&app_handle)
+                let project_id = ctx.legacy_project.id.clone();
+                move |item| ChangeForFrontend::from((project_id.clone(), item)).send(&app_handle)
             })?;
 
             let has_exclusive_access = exclusive_access.is_some();
             state_by_label.insert(
                 window.to_owned(),
                 State {
-                    project_id,
+                    project_id: ctx.legacy_project.id.clone(),
                     watcher,
                     exclusive_access,
                     db_watcher,
@@ -236,11 +228,11 @@ pub(crate) mod state {
         }
 
         /// Return the list of project ids that are currently open.
-        pub fn open_projects(&self) -> Vec<ProjectId> {
+        pub fn open_projects(&self) -> Vec<ProjectHandleOrLegacyProjectId> {
             let state_by_label = self.state.lock();
             state_by_label
                 .values()
-                .map(|state| state.project_id)
+                .map(|state| state.project_id.clone())
                 .collect()
         }
     }

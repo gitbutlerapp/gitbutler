@@ -6,7 +6,7 @@ use std::{
 use anyhow::Context as _;
 use serde::{Deserialize, Serialize};
 
-use crate::default_true::DefaultTrue;
+use crate::{ProjectHandle, ProjectHandleOrLegacyProjectId, default_true::DefaultTrue};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
@@ -74,8 +74,6 @@ pub struct CodePushState {
     pub timestamp: time::SystemTime,
 }
 
-pub type ProjectId = but_core::Id<'P'>;
-
 #[derive(Debug, Deserialize, Serialize, Clone)]
 #[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct Project {
@@ -85,7 +83,7 @@ pub struct Project {
         feature = "export-schema",
         schemars(schema_with = "but_schemars::project_id")
     )]
-    pub id: ProjectId,
+    pub id: ProjectHandleOrLegacyProjectId,
     pub title: String,
     pub description: Option<String>,
     /// The worktree directory of the project's repository.
@@ -144,7 +142,7 @@ pub struct Project {
 
 impl Project {
     /// Return a new instance with `id` and all other fields defaulted.
-    pub fn default_with_id(id: ProjectId) -> Self {
+    pub fn default_with_id(id: ProjectHandleOrLegacyProjectId) -> Self {
         Project {
             id,
             title: "".to_string(),
@@ -186,10 +184,14 @@ impl Project {
 impl Project {
     /// A special constructor needed as `worktree_dir` isn't accessible anymore.
     pub fn new_for_gitbutler_testsupport(title: String, worktree_dir: PathBuf) -> Self {
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
+            ProjectHandle::from_path(&worktree_dir)
+                .expect("testsupport projects require a valid path for ProjectHandle"),
+        );
         Project {
             title,
             worktree_dir,
-            ..Project::default_with_id(ProjectId::generate())
+            ..Project::default_with_id(project_id)
         }
         .migrated()
         .unwrap()
@@ -197,10 +199,14 @@ impl Project {
 
     /// A special constructor needed as `worktree_dir` isn't accessible anymore.
     pub fn new_for_gitbutler_repo(worktree_dir: PathBuf, preferred_key: AuthKey) -> Self {
+        let project_id = ProjectHandleOrLegacyProjectId::ProjectHandle(
+            ProjectHandle::from_path(&worktree_dir)
+                .expect("repo projects require a valid path for ProjectHandle"),
+        );
         Project {
             worktree_dir,
             preferred_key,
-            ..Project::default_with_id(ProjectId::generate())
+            ..Project::default_with_id(project_id)
         }
         .migrated()
         .unwrap()
@@ -250,9 +256,11 @@ impl Project {
             .workdir()
             .context("Bare repositories aren't supported")?
             .to_owned();
+        let project_id =
+            ProjectHandleOrLegacyProjectId::ProjectHandle(ProjectHandle::from_path(&worktree_dir)?);
         Project {
             worktree_dir,
-            ..Project::default_with_id(ProjectId::generate())
+            ..Project::default_with_id(project_id)
         }
         .migrated()
     }

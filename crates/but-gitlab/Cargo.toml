@@ -24,7 +24,7 @@ but-error.workspace = true
 serde.workspace = true
 anyhow.workspace = true
 reqwest = { workspace = true, features = ["json"] }
-urlencoding = "2.1"
+urlencoding.workspace = true
 ts-rs = { workspace = true, optional = true }
 schemars = { workspace = true, optional = true }
 

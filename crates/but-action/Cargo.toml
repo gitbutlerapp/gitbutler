@@ -31,7 +31,6 @@ gitbutler-operating-modes.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-oplog.workspace = true
-gitbutler-project.workspace = true
 gitbutler-reference.workspace = true
 
 serde.workspace = true
