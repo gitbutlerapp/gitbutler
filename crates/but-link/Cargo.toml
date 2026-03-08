@@ -12,6 +12,7 @@ doctest = false
 
 [dependencies]
 but-ctx.workspace = true
+but-db.workspace = true
 
 anyhow.workspace = true
 gix.workspace = true

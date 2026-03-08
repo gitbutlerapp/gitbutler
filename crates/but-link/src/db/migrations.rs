@@ -12,10 +12,7 @@ const MAX_MESSAGES: i64 = 10_000;
 
 /// Initialize and migrate the coordination database.
 pub(crate) fn init_db(conn: &Connection) -> anyhow::Result<()> {
-    conn.execute_batch(
-        "PRAGMA journal_mode = WAL;\
-         PRAGMA busy_timeout = 5000;",
-    )?;
+    but_db::migration::improve_concurrency(conn)?;
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS claims (\
             path TEXT NOT NULL,\

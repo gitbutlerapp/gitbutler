@@ -1318,6 +1318,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-ctx",
+ "but-db",
  "clap",
  "crossterm",
  "gix",
