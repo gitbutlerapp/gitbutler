@@ -52,21 +52,19 @@ fn append_command_log(path: &Path, agent_id: &str, cmd: &str) {
 /// Entry point from the top-level `but` binary.
 pub(crate) fn run(platform: crate::cli::Platform, current_dir: &Path) -> anyhow::Result<()> {
     let (agent_id, cmd) = platform.into_runtime()?;
+    let current_dir = gix::path::realpath(current_dir)?;
+    let ctx = but_ctx::Context::discover(&current_dir)?;
 
     if matches!(cmd, Cmd::Tui) {
-        return crate::tui::run(current_dir);
+        return crate::tui::run(&ctx);
     }
 
-    let git_dir = repo::discover_git_dir(current_dir)?;
-    let repo_root = repo::discover_repo_root(current_dir)?;
-    let cwd = current_dir
-        .canonicalize()
-        .unwrap_or_else(|_| current_dir.to_path_buf());
-    let cmd = repo::normalize_command_paths(cmd, &cwd, &repo_root)?;
-    let data_dir = git_dir.join("gitbutler");
+    let data_dir = ctx.project_data_dir();
+    let worktree_dir = ctx.workdir_or_fail()?;
+    let cmd = repo::normalize_command_paths(cmd, &current_dir, &worktree_dir)?;
     std::fs::create_dir_all(&data_dir)?;
 
-    let db_path = data_dir.join("but-link.db");
+    let db_path = crate::db::db_path(&ctx.project_data_dir());
     let log_path = data_dir.join("but-link.commands.log");
 
     let mut conn = Connection::open(db_path)?;

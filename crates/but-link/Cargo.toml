@@ -5,12 +5,16 @@ edition.workspace = true
 authors.workspace = true
 publish = false
 rust-version.workspace = true
+description = "multi-agent coordination via repo-scoped `SQLite`"
 
 [lib]
 doctest = false
 
 [dependencies]
+but-ctx.workspace = true
+
 anyhow.workspace = true
+gix.workspace = true
 clap.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

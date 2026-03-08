@@ -5,20 +5,18 @@ mod render;
 mod terminal;
 
 use std::io::{self, IsTerminal as _};
-use std::path::Path;
 
 /// Run the read-only `but link` terminal UI.
 ///
 /// # Errors
 ///
 /// Returns an error when a TTY is unavailable or the link database cannot be opened.
-pub(crate) fn run(current_dir: &Path) -> anyhow::Result<()> {
+pub(crate) fn run(ctx: &but_ctx::Context) -> anyhow::Result<()> {
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         anyhow::bail!("but link tui requires an interactive terminal (TTY)");
     }
 
-    let git_dir = crate::repo::discover_git_dir(current_dir)?;
-    let db_path = git_dir.join("gitbutler").join("but-link.db");
+    let db_path = crate::db::db_path(&ctx.project_data_dir());
     if !db_path.is_file() {
         anyhow::bail!(
             "no link database found at {} (run a `but link` command first)",

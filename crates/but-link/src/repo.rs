@@ -1,5 +1,4 @@
 //! Repository discovery and repo-relative path normalization helpers.
-
 use std::collections::HashSet;
 use std::path::{Component, Path, PathBuf};
 
@@ -175,61 +174,4 @@ pub(crate) fn normalize_command_paths(
         },
         other => other,
     })
-}
-
-/// Discover the shared `.git` directory for the repository or worktree.
-pub(crate) fn discover_git_dir(start: &Path) -> anyhow::Result<PathBuf> {
-    let mut current = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
-    loop {
-        let dot_git = current.join(".git");
-        if dot_git.is_dir() {
-            return Ok(dot_git);
-        }
-        if dot_git.is_file() {
-            let content = std::fs::read_to_string(&dot_git)?;
-            let gitdir = content
-                .strip_prefix("gitdir:")
-                .map(str::trim)
-                .ok_or_else(|| {
-                    anyhow::anyhow!("unexpected .git file format at {}", dot_git.display())
-                })?;
-            let gitdir_path = if Path::new(gitdir).is_absolute() {
-                PathBuf::from(gitdir)
-            } else {
-                current.join(gitdir)
-            };
-            let resolved = gitdir_path.canonicalize().unwrap_or(gitdir_path);
-            if let Some(parent) = resolved.parent()
-                && parent.file_name().is_some_and(|name| name == "worktrees")
-                && let Some(git_dir) = parent.parent()
-                && git_dir.is_dir()
-            {
-                return Ok(git_dir.to_path_buf());
-            }
-            return Ok(resolved);
-        }
-        if !current.pop() {
-            anyhow::bail!(
-                "not a git repository (or any of the parent directories): {}",
-                start.display()
-            );
-        }
-    }
-}
-
-/// Discover the repository root.
-pub(crate) fn discover_repo_root(start: &Path) -> anyhow::Result<PathBuf> {
-    let mut current = start.canonicalize().unwrap_or_else(|_| start.to_path_buf());
-    loop {
-        let dot_git = current.join(".git");
-        if dot_git.is_dir() || dot_git.is_file() {
-            return Ok(current);
-        }
-        if !current.pop() {
-            anyhow::bail!(
-                "not a git repository (or any of the parent directories): {}",
-                start.display()
-            );
-        }
-    }
 }

@@ -1317,8 +1317,10 @@ name = "but-link"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-ctx",
  "clap",
  "crossterm",
+ "gix",
  "ratatui",
  "rusqlite",
  "serde",
