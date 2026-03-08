@@ -4,6 +4,7 @@ use gix::{
     merge::tree::{Options, TreatAsUnresolved},
     prelude::ObjectIdExt,
 };
+use std::path::PathBuf;
 
 use crate::{GitConfigSettings, commit::TreeKind};
 
@@ -11,6 +12,22 @@ use crate::{GitConfigSettings, commit::TreeKind};
 pub trait RepositoryExt: Sized {
     /// Returns a bundle of settings by querying the git configuration itself, assuring fresh data is loaded.
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings>;
+    /// Return the path to store per-project GitButler data, which is guaranteed to be inside
+    /// of the `.git` directory, or in a unique folder outside of it.
+    ///
+    /// Resolution:
+    /// * `gitbutler.storagePath` on release builds, or `gitbutler.<channel>.storagePath`
+    ///   on non-release builds, with values like `gitbutler-alt`, `gitbutler-alt/nested`, or
+    ///   `~/gitbutler-projects`.
+    /// * If it is relative, it is interpreted relative to [`gix::Repository::git_dir`].
+    ///   Paths that stay inside `.git` must live under a top-level directory whose name starts
+    ///   with `gitbutler`.
+    /// * If the resolved path is outside of [`gix::Repository::git_dir`], the storage path
+    ///   becomes `<configured-path>/<project-handle>` so multiple projects can share one base path
+    ///   without clobbering each other. This also applies to relative paths like `../../shared`.
+    /// * Otherwise defaults to `<git-dir>/gitbutler` for release builds and
+    ///   `<git-dir>/gitbutler.<channel>` for non-release builds.
+    fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf>;
     /// Set all fields in `config` that are not `None` to disk into local repository configuration, or none of them.
     fn set_git_settings(&self, config: &GitConfigSettings) -> anyhow::Result<()>;
     /// Return all signatures that would be needed to perform a commit as configured in Git: `(author, committer)`.
@@ -141,6 +158,10 @@ impl RepositoryExt for gix::Repository {
 
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings> {
         GitConfigSettings::try_from_snapshot(&self.config_snapshot())
+    }
+
+    fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf> {
+        but_project_handle::gitbutler_storage_path(self)
     }
 
     fn set_git_settings(&self, settings: &GitConfigSettings) -> anyhow::Result<()> {

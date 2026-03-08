@@ -2,7 +2,10 @@
 //!
 //! All database access shared across command handlers and the TUI lives here.
 
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::Context;
 use rusqlite::{Connection, Transaction};
@@ -241,4 +244,9 @@ pub(crate) fn coord_stale_threshold_ms() -> i64 {
         .filter(|value| *value >= 0)
         .unwrap_or(default_s);
     seconds.saturating_mul(1000)
+}
+
+/// Produce the path at which our db-file is located, given the `project_data_dir`.
+pub(crate) fn db_path(project_data_dir: &Path) -> PathBuf {
+    project_data_dir.join("but-link.db")
 }

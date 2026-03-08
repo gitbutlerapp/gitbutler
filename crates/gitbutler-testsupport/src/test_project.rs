@@ -395,6 +395,8 @@ pub(crate) fn setup_config(config: &git2::Config) -> anyhow::Result<()> {
             local.set_str("commit.gpgsign", "false")?;
             local.set_str("user.name", "gitbutler-test")?;
             local.set_str("user.email", "gitbutler-test@example.com")?;
+            let key = but_project_handle::storage_path_config_key();
+            local.set_str(key, "gitbutler.dev")?;
             Ok(())
         }
         Err(err) => Err(err.into()),

@@ -1043,6 +1043,7 @@ dependencies = [
  "bstr",
  "but-error",
  "but-oxidize",
+ "but-project-handle",
  "but-schemars",
  "but-serde",
  "but-testsupport",
@@ -1316,8 +1317,11 @@ name = "but-link"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "but-ctx",
+ "but-db",
  "clap",
  "crossterm",
+ "gix",
  "ratatui",
  "rusqlite",
  "serde",
@@ -1416,10 +1420,13 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
- "but-core",
+ "but-path",
+ "but-testsupport",
  "gix",
  "serde",
  "serde_json",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -3884,6 +3891,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-meta",
  "but-oxidize",
+ "but-project-handle",
  "but-rebase",
  "but-serde",
  "but-settings",
@@ -4283,6 +4291,7 @@ dependencies = [
  "but-ctx",
  "but-fs",
  "but-oxidize",
+ "but-project-handle",
  "but-settings",
  "but-workspace",
  "git2",

@@ -86,6 +86,17 @@ pub struct Context {
     /// (or repository associated with a submodule or worktree).
     /// It's also used for various derived directories to store GitButler data in.
     pub gitdir: PathBuf,
+    /// The directory where per-project GitButler data is stored.
+    ///
+    /// Derived from [`gix::Repository::config_snapshot`] using a channel-specific
+    /// Git config key (`gitbutler.storagePath` for release builds and
+    /// `gitbutler.<channel>.storagePath` otherwise). Relative values are resolved
+    /// against `gitdir`; paths that stay inside `gitdir` must live under a
+    /// top-level directory whose name starts with `gitbutler`. Any resolved
+    /// path outside `gitdir` gets a `<configured-path>/<project-handle>`
+    /// suffix. If that key is not configured, a channel-specific default is
+    /// used.
+    pub project_data_dir: PathBuf,
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
@@ -118,6 +129,8 @@ pub struct ThreadSafeContext {
     pub settings: AppSettings,
     /// The directory at which the repository itself is located.
     pub gitdir: PathBuf,
+    /// The directory where per-project GitButler data is stored.
+    pub project_data_dir: PathBuf,
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
     /// The most recently opened repository of the project, which also provides access to the `git_dir`.
@@ -132,6 +145,7 @@ impl From<ThreadSafeContext> for Context {
         let ThreadSafeContext {
             settings,
             gitdir,
+            project_data_dir,
             app_cache_dir,
             repo,
             #[cfg(feature = "legacy")]
@@ -145,9 +159,10 @@ impl From<ThreadSafeContext> for Context {
             settings,
             repo: ondemand,
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-            db: new_ondemand_db(gitdir.clone()),
+            db: new_ondemand_db(project_data_dir.clone()),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             gitdir,
+            project_data_dir,
             app_cache_dir,
             #[cfg(feature = "legacy")]
             legacy_project,
@@ -209,23 +224,26 @@ impl Context {
     ) -> anyhow::Result<Context> {
         let gitdir = gitdir.into();
         let settings = app_settings(app_config_dir)?;
+        let repo = gix::open(&gitdir)?;
+        let project_data_dir = repo.gitbutler_storage_path()?;
         #[cfg(not(feature = "legacy"))]
         {
             Ok(Context {
                 gitdir: gitdir.clone(),
+                project_data_dir: project_data_dir.clone(),
                 settings,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(gitdir),
+                db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
-            })
+            }
+            .with_repo(repo))
         }
         #[cfg(feature = "legacy")]
         {
             use anyhow::Context as _;
-            let repo = gix::open(&gitdir)?;
             let worktree_dir = repo
                 .workdir()
                 .context("Bare repositories aren't yet supported.")?;
@@ -234,10 +252,11 @@ impl Context {
             Ok(Context {
                 settings,
                 gitdir: gitdir.clone(),
+                project_data_dir: project_data_dir.clone(),
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(gitdir),
+                db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -269,6 +288,7 @@ impl Context {
 
     fn from_repo_with_legacy_support(repo: gix::Repository) -> anyhow::Result<Context> {
         let app_cache_dir = but_path::app_cache_dir().ok();
+        let project_data_dir = repo.gitbutler_storage_path()?;
         #[cfg(feature = "legacy")]
         {
             use anyhow::Context as _;
@@ -281,10 +301,11 @@ impl Context {
             Ok(Context {
                 settings: app_settings(but_path::app_config_dir()?)?,
                 gitdir: gitdir.clone(),
+                project_data_dir: project_data_dir.clone(),
                 legacy_project,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(gitdir),
+                db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -297,10 +318,11 @@ impl Context {
             let gitdir = repo.git_dir().to_owned();
             Ok(crate::Context {
                 gitdir: gitdir.clone(),
+                project_data_dir: project_data_dir.clone(),
                 settings: app_settings(but_path::app_config_dir()?)?,
                 repo: new_ondemand_repo(gitdir.clone()),
                 git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-                db: new_ondemand_db(gitdir),
+                db: new_ondemand_db(project_data_dir),
                 app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
                 app_cache_dir,
                 workspace: Default::default(),
@@ -315,6 +337,7 @@ impl Context {
     /// **Note that it does not have support for legacy projects to encourage single-branch compatible code.**
     pub fn from_repo(repo: gix::Repository) -> anyhow::Result<Context> {
         let gitdir = repo.git_dir().to_owned();
+        let project_data_dir = repo.gitbutler_storage_path()?;
         let settings = app_settings(but_path::app_config_dir()?)?;
         let app_cache_dir = but_path::app_cache_dir().ok();
 
@@ -322,10 +345,11 @@ impl Context {
             #[cfg(feature = "legacy")]
             legacy_project: default_legacy_project_at_repo(&repo),
             gitdir: gitdir.clone(),
+            project_data_dir: project_data_dir.clone(),
             settings,
             repo: new_ondemand_repo(gitdir.clone()),
             git2_repo: new_ondemand_git2_repo(gitdir.clone()),
-            db: new_ondemand_db(gitdir),
+            db: new_ondemand_db(project_data_dir),
             app_cache: new_ondemand_app_cache(app_cache_dir.clone()),
             app_cache_dir,
             workspace: Default::default(),
@@ -625,6 +649,7 @@ impl Context {
         ThreadSafeContext {
             settings: self.settings.clone(),
             gitdir: self.gitdir.clone(),
+            project_data_dir: self.project_data_dir.clone(),
             app_cache_dir: self.app_cache_dir.clone(),
             repo: self.repo.get_opt().clone().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
@@ -637,6 +662,7 @@ impl Context {
         let Context {
             settings,
             gitdir,
+            project_data_dir,
             mut repo,
             git2_repo: _,
             db: _,
@@ -649,6 +675,7 @@ impl Context {
         ThreadSafeContext {
             settings,
             gitdir,
+            project_data_dir,
             app_cache_dir,
             repo: repo.take().map(|r| r.into_sync()),
             #[cfg(feature = "legacy")]
@@ -668,7 +695,7 @@ impl ThreadSafeContext {
 impl Context {
     /// The location where project-specific data can be stored that is owned by the application.
     pub fn project_data_dir(&self) -> PathBuf {
-        project_data_dir(&self.gitdir)
+        self.project_data_dir.clone()
     }
 
     /// The path to the worktree directory or the `.git` directory if there is no worktree directory.
@@ -733,10 +760,6 @@ impl Context {
     }
 }
 
-fn project_data_dir(gitdir: &Path) -> PathBuf {
-    gitdir.join("gitbutler")
-}
-
 /// For now, always make sure we have object caches setup to make diffs fast in the common case.
 /// Optimizing this based on better heuristics can be done with [Context::clone_repo_for_merging()].
 #[instrument(level = "trace")]
@@ -760,8 +783,8 @@ fn new_ondemand_git2_repo(gitdir: PathBuf) -> OnDemand<git2::Repository> {
 }
 
 #[instrument(level = "trace")]
-fn new_ondemand_db(gitdir: PathBuf) -> OnDemand<but_db::DbHandle> {
-    OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir(&gitdir)))
+fn new_ondemand_db(project_data_dir: PathBuf) -> OnDemand<but_db::DbHandle> {
+    OnDemand::new(move || but_db::DbHandle::new_in_directory(project_data_dir.clone()))
 }
 
 #[instrument(level = "trace")]

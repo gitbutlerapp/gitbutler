@@ -1,7 +1,7 @@
 use std::{io::Write, ops::DerefMut, path::Path};
 
 use but_core::{
-    RefMetadata,
+    RefMetadata, RepositoryExt,
     ref_metadata::{StackId, WorkspaceCommitRelation},
 };
 use but_meta::VirtualBranchesTomlMetadata;
@@ -143,7 +143,7 @@ impl Sandbox {
             && let Ok(commit_id) = repo.rev_parse_single("origin/main")
         {
             sandbox.file(
-                ".git/gitbutler/virtual_branches.toml",
+                repo.gitbutler_storage_path()?.join("virtual_branches.toml"),
                 r#"
 [default_target]
 branchName = "main"
@@ -240,8 +240,9 @@ impl Sandbox {
     /// Create a metadata instance on the project.
     pub fn meta(&self) -> anyhow::Result<impl but_core::RefMetadata> {
         VirtualBranchesTomlMetadata::from_path(
-            self.projects_root()
-                .join(".git/gitbutler/virtual_branches.toml"),
+            self.open_repo()?
+                .gitbutler_storage_path()?
+                .join("virtual_branches.toml"),
         )
     }
 

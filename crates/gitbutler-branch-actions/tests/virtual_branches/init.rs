@@ -13,7 +13,8 @@ fn twice() {
             .expect("failed to add project")
             .unwrap_project();
         let mut ctx =
-            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+            Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+                .expect("can create context");
 
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
@@ -33,7 +34,8 @@ fn twice() {
             .unwrap()
             .unwrap_project();
         let mut ctx =
-            Context::new_from_legacy_project_and_settings(&project, AppSettings::default());
+            Context::new_from_legacy_project_and_settings(&project, AppSettings::default())
+                .expect("can create context");
         let mut guard = ctx.exclusive_worktree_access();
         gitbutler_branch_actions::set_base_branch(
             &ctx,
@@ -212,4 +214,71 @@ fn submodule() {
     drop(guard);
     let stacks = stack_details(ctx);
     assert_eq!(stacks.len(), 1);
+}
+
+#[test]
+fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result<()> {
+    let test = &mut Test::default();
+    let Test {
+        repo,
+        project_id,
+        ctx,
+        ..
+    } = test;
+
+    repo.checkout(&"refs/heads/some-feature".parse().unwrap());
+    fs::write(repo.path().join("file.txt"), "content")?;
+    repo.commit_all("commit on feature");
+
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::set_base_branch(
+        ctx,
+        &"refs/remotes/origin/master".parse().unwrap(),
+        guard.write_permission(),
+    )?;
+    drop(guard);
+
+    let original_workspace_ref_target = ctx
+        .git2_repo
+        .get()?
+        .find_reference("refs/heads/gitbutler/workspace")?
+        .target()
+        .expect("workspace ref should point to a commit");
+    let expected_stack_name = stack_details(ctx)[0].1.derived_name.clone();
+
+    ctx.git2_repo.get()?.config()?.set_str(
+        but_project_handle::storage_path_config_key(),
+        "gitbutler-alt",
+    )?;
+
+    let mut reopened: Context = project_id.clone().try_into()?;
+    assert!(
+        gitbutler_stack::VirtualBranchesHandle::new(reopened.project_data_dir())
+            .maybe_get_default_target()?
+            .is_none()
+    );
+
+    let mut guard = reopened.exclusive_worktree_access();
+    assert!(gitbutler_branch_actions::base::bootstrap_default_target_if_missing(&reopened)?);
+    let meta = reopened.legacy_meta_mut(guard.write_permission())?;
+    let repo = reopened.repo.get()?;
+    meta.write_reconciled(&repo)?;
+    drop(repo);
+    drop(guard);
+
+    let workspace_ref_target_after_activation = reopened
+        .git2_repo
+        .get()?
+        .find_reference("refs/heads/gitbutler/workspace")?
+        .target()
+        .expect("workspace ref should still point to a commit");
+    assert_eq!(
+        workspace_ref_target_after_activation,
+        original_workspace_ref_target
+    );
+
+    let stacks = stack_details(&reopened);
+    assert_eq!(stacks.len(), 1);
+    assert_eq!(stacks[0].1.derived_name, expected_stack_name);
+    Ok(())
 }
