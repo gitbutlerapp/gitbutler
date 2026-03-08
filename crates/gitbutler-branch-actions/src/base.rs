@@ -63,6 +63,42 @@ pub fn get_base_branch_data(ctx: &Context) -> Result<BaseBranch> {
     Ok(base)
 }
 
+/// Restore the default target metadata if it is missing in the currently configured storage
+/// location while an existing `gitbutler/workspace` ref already proves the repository was
+/// initialized before.
+///
+/// This is intentionally metadata-only recovery for activation flows. Unlike
+/// `set_base_branch()`, it must not create stacks, update the workspace commit, or move the
+/// `gitbutler/workspace` reference.
+///
+/// Returns `true` if a target was inferred and written, `false` if no recovery was needed or
+/// there wasn't enough repository state to infer a safe target.
+#[instrument(skip(ctx), err(Debug))]
+pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
+    let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
+    if vb_state.maybe_get_default_target()?.is_some() {
+        return Ok(false);
+    }
+
+    let repo = ctx.repo.get()?;
+    if repo
+        .try_find_reference(GITBUTLER_WORKSPACE_REFERENCE.to_string().as_str())?
+        .is_none()
+    {
+        return Ok(false);
+    }
+
+    let Some(remote_name) = repo.remote_default_name(gix::remote::Direction::Push) else {
+        return Ok(false);
+    };
+    let remote_name = remote_name.to_string();
+
+    let target = inferred_default_target(&repo, &remote_name)?;
+    vb_state.set_default_target(target)?;
+    set_exclude_decoration(ctx)?;
+    Ok(true)
+}
+
 #[instrument(skip(ctx), err(Debug))]
 fn go_back_to_integration(ctx: &Context, default_target: &Target) -> Result<BaseBranch> {
     let repo = ctx.repo.get()?;
@@ -387,6 +423,70 @@ pub(crate) fn target_to_base_branch(ctx: &Context, target: &Target) -> Result<Ba
 
 fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
+}
+
+/// Infer the default target from the Git repository without mutating workspace refs.
+///
+/// Preference order:
+/// 1. `refs/remotes/<remote>/HEAD`
+/// 2. `refs/remotes/<remote>/main`
+/// 3. `refs/remotes/<remote>/master`
+fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<Target> {
+    let remote_url = repo
+        .find_remote(remote_name)
+        .ok()
+        .and_then(|remote| {
+            remote
+                .url(gix::remote::Direction::Fetch)
+                .map(ToOwned::to_owned)
+        })
+        .map(|url| url.to_bstring().to_string())
+        .unwrap_or_default();
+
+    let remote_head_ref = format!("refs/remotes/{remote_name}/HEAD");
+    if let Ok(mut head_ref) = repo.find_reference(remote_head_ref.as_str()) {
+        let branch_name = head_ref.target().try_name().map_or_else(
+            || head_ref.name().as_bstr().to_string(),
+            |name| name.as_bstr().to_string(),
+        );
+        let branch = branch_name
+            .parse()
+            .with_context(|| format!("Remote HEAD resolved to invalid ref '{branch_name}'"))?;
+        let sha = head_ref
+            .peel_to_commit()
+            .context("Remote HEAD did not point to a commit")?
+            .id
+            .to_git2();
+        return Ok(Target {
+            branch,
+            remote_url,
+            sha,
+            push_remote_name: Some(remote_name.to_owned()),
+        });
+    }
+
+    for branch_name in ["main", "master"] {
+        let full_name = format!("refs/remotes/{remote_name}/{branch_name}");
+        if let Ok(mut reference) = repo.find_reference(&full_name) {
+            let sha = reference
+                .peel_to_commit()
+                .with_context(|| {
+                    format!("Fallback target '{full_name}' did not point to a commit")
+                })?
+                .id
+                .to_git2();
+            return Ok(Target {
+                branch: full_name.parse()?,
+                remote_url,
+                sha,
+                push_remote_name: Some(remote_name.to_owned()),
+            });
+        }
+    }
+
+    Err(anyhow!(
+        "Could not infer a default target branch from remote '{remote_name}'"
+    ))
 }
 
 pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {

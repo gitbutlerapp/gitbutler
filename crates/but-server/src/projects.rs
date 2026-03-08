@@ -160,6 +160,7 @@ pub async fn set_project_active(
 
     let mut active_projects = extra.active_projects.lock().await;
     let mut ctx: Context = params.id.try_into()?;
+    but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
     active_projects.set_active(&mut ctx, claude, app_settings_sync)?;
 
     // let is_exclusive = !active_projects.projects.contains(&params.id);

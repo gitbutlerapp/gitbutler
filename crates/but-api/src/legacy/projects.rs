@@ -104,6 +104,18 @@ pub fn delete_project(project_id: ProjectHandleOrLegacyProjectId) -> Result<()> 
     gitbutler_project::delete(project.id)
 }
 
+/// Prepare an already-known project for activation in the UI or server.
+///
+/// This repairs missing target metadata in freshly selected storage locations and then reconciles
+/// the legacy metadata view with the workspace currently present in Git. It is safe for activation
+/// paths because it avoids rewriting `gitbutler/workspace`.
+pub fn prepare_project_for_activation(ctx: &mut Context) -> Result<()> {
+    let mut guard = ctx.exclusive_worktree_access();
+    gitbutler_branch_actions::base::bootstrap_default_target_if_missing(ctx)?;
+    super::meta::reconcile_in_workspace_state_of_vb_toml(ctx, guard.write_permission()).ok();
+    Ok(())
+}
+
 #[but_api]
 #[instrument(err(Debug))]
 pub fn is_gerrit(ctx: &but_ctx::Context) -> Result<bool> {

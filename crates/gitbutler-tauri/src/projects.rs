@@ -69,14 +69,7 @@ pub fn set_project_active(
     // --> WARNING <-- Be sure this runs BEFORE the database on `ctx` is used.
     ctx = ctx.with_git2_repo(repo);
 
-    {
-        let mut guard = ctx.exclusive_worktree_access();
-        but_api::legacy::meta::reconcile_in_workspace_state_of_vb_toml(
-            &mut ctx,
-            guard.write_permission(),
-        )
-        .ok();
-    }
+    but_api::legacy::projects::prepare_project_for_activation(&mut ctx)?;
 
     let db_error = assure_database_valid(ctx.project_data_dir())?;
     let filter_error = warn_about_filters_and_git_lfs(&*ctx.repo.get()?)?;

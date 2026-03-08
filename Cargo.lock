@@ -3888,6 +3888,7 @@ dependencies = [
  "but-hunk-assignment",
  "but-meta",
  "but-oxidize",
+ "but-project-handle",
  "but-rebase",
  "but-serde",
  "but-settings",
