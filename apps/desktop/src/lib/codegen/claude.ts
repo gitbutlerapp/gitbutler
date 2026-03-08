@@ -22,14 +22,14 @@ import {
 	ReduxTag,
 } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 
 export const CLAUDE_CODE_SERVICE = new InjectionToken<ClaudeCodeService>("Claude code service");
 
 export class ClaudeCodeService {
 	private api: ReturnType<typeof injectEndpoints>;
 
-	constructor(clientState: ClientState["backendApi"]) {
+	constructor(clientState: BackendApi) {
 		this.api = injectEndpoints(clientState);
 	}
 
@@ -136,7 +136,7 @@ export class ClaudeCodeService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			sendMessage: build.mutation<

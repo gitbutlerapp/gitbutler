@@ -21,12 +21,9 @@ import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { type Reactive } from "@gitbutler/shared/storeUtils";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import { type ThunkDispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { persistReducer } from "redux-persist";
-import storage from "redux-persist/es/storage";
 import type { UnifiedDiff } from "$lib/hunks/diff";
 import type { ChangeDiff, DiffService } from "$lib/hunks/diffService.svelte";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { AppDispatch, ClientState } from "$lib/state/clientState.svelte";
 import type { WorktreeService } from "$lib/worktree/worktreeService.svelte";
 import type { LineId } from "@gitbutler/ui/utils/diffParsing";
 
@@ -54,7 +51,7 @@ type PreprocessedHunkHeader = CompletePreprocessedHunkHeader | PartialPreprocess
 export class UncommittedService {
 	/** The change selection slice of the full redux state. */
 	private state = $state.raw(uncommittedSlice.getInitialState());
-	private dispatch: ThunkDispatch<any, any, UnknownAction>;
+	private dispatch: AppDispatch;
 
 	constructor(
 		clientState: ClientState,
@@ -62,21 +59,10 @@ export class UncommittedService {
 		private diffService: DiffService,
 	) {
 		this.dispatch = clientState.dispatch;
-		const persistConfig = {
-			key: uncommittedSlice.reducerPath,
-			storage: storage,
-		};
-
-		clientState.inject(
-			uncommittedSlice.reducerPath,
-			persistReducer(persistConfig, uncommittedSlice.reducer),
-		);
+		const getSlice = clientState.injectPersistedSlice(uncommittedSlice);
 
 		$effect(() => {
-			if (clientState.reactiveState && uncommittedSlice.reducerPath in clientState.reactiveState) {
-				// @ts-expect-error code-splitting means it's not defined in client state.
-				this.state = clientState.reactiveState[uncommittedSlice.reducerPath];
-			}
+			this.state = getSlice() ?? uncommittedSlice.getInitialState();
 		});
 	}
 

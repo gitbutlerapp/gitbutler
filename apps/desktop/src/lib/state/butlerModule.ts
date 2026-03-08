@@ -166,12 +166,6 @@ export type CustomResult<T extends QueryDefinition<any, any, any, any>> =
 	QueryResultSelectorResult<T>;
 
 /**
- * Custom return type for the `QueryHooks` extensions with refetch.
- */
-export type CustomQueryResult<T extends QueryDefinition<any, any, any, any>> =
-	QueryResultSelectorResult<T>;
-
-/**
  * This is used for extending the result type in `ReactiveResult`.
  */
 export type QueryExtensions = {
@@ -186,7 +180,7 @@ export type ReactiveQuery<
 	T,
 	Extensions extends Record<string, unknown> = Record<string, unknown>,
 > = {
-	readonly result: CustomQueryResult<CustomQuery<T>> & Extensions;
+	readonly result: CustomResult<CustomQuery<T>> & Extensions;
 	readonly response: T | undefined;
 };
 export type AsyncResult<T> = Promise<CustomResult<CustomQuery<T>>>;

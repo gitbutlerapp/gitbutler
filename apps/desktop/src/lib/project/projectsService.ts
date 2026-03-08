@@ -13,7 +13,7 @@ import { persisted } from "@gitbutler/shared/persisted";
 import { chipToasts } from "@gitbutler/ui";
 import { get } from "svelte/store";
 import type { IBackend } from "$lib/backend";
-import type { ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 import type { ForgeUser } from "@gitbutler/core/api";
 
 export type ProjectInfo = {
@@ -29,11 +29,11 @@ export class ProjectsService {
 	private persistedId = persisted<string | undefined>(undefined, "lastProject");
 
 	constructor(
-		state: ClientState,
+		api: BackendApi,
 		private homeDir: string | undefined,
 		private backend: IBackend,
 	) {
-		this.api = injectEndpoints(state.backendApi);
+		this.api = injectEndpoints(api);
 	}
 
 	projects() {
@@ -201,7 +201,7 @@ export class ProjectsService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			listProjects: build.query<Project[], void>({

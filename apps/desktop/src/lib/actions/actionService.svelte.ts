@@ -2,7 +2,7 @@ import { invalidatesList, ReduxTag } from "$lib/state/tags";
 import { InjectionToken } from "@gitbutler/core/context";
 import type { IBackend } from "$lib/backend";
 import type { TreeChange } from "$lib/hunks/change";
-import type { BackendApi, ClientState } from "$lib/state/clientState.svelte";
+import type { BackendApi } from "$lib/state/clientState.svelte";
 import type { HunkAssignment, Action } from "@gitbutler/core/api";
 
 type ChatMessage = {
@@ -44,7 +44,7 @@ export class ActionService {
 	}
 }
 
-function injectEndpoints(api: ClientState["backendApi"]) {
+function injectEndpoints(api: BackendApi) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			autoCommit: build.mutation<

@@ -155,8 +155,8 @@ export function initDependencies(args: {
 	// CONFIGURATION & SETTINGS
 	// ============================================================================
 
-	const projectsService = new ProjectsService(clientState, homeDir, backend);
-	const gitConfig = new GitConfigService(clientState, backend);
+	const projectsService = new ProjectsService(clientState.backendApi, homeDir, backend);
+	const gitConfig = new GitConfigService(clientState.backendApi, clientState.dispatch, backend);
 
 	// ============================================================================
 	// AI SERVICES
@@ -173,11 +173,11 @@ export function initDependencies(args: {
 	const forgeFactory = new DefaultForgeFactory({
 		gitHubClient,
 		gitLabClient,
-		backendApi: clientState["backendApi"],
-		gitHubApi: clientState["githubApi"],
-		gitLabApi: clientState["gitlabApi"],
+		backendApi: clientState.backendApi,
+		gitHubApi: clientState.githubApi,
+		gitLabApi: clientState.gitlabApi,
 		dispatch: clientState.dispatch,
-		posthog: posthog,
+		posthog,
 	});
 
 	// ============================================================================
@@ -186,7 +186,7 @@ export function initDependencies(args: {
 
 	const gitService = new GitService(backend, clientState.backendApi);
 	const baseBranchService = new BaseBranchService(clientState.backendApi);
-	const branchService = new BranchService(clientState["backendApi"]);
+	const branchService = new BranchService(clientState.backendApi);
 	const cherryApplyService = new CherryApplyService(clientState.backendApi);
 	const remotesService = new RemotesService(backend);
 	const hooksService = new HooksService(clientState.backendApi);
@@ -196,21 +196,21 @@ export function initDependencies(args: {
 	// ============================================================================
 
 	const stackService = new StackService(
-		clientState["backendApi"],
+		clientState.backendApi,
 		clientState.dispatch,
 		forgeFactory,
 		uiState,
 	);
-	const modeService = new ModeService(clientState["backendApi"]);
-	const rulesService = new RulesService(clientState["backendApi"]);
-	const worktreeService = new WorktreeService(clientState);
+	const modeService = new ModeService(clientState.backendApi);
+	const rulesService = new RulesService(clientState.backendApi);
+	const worktreeService = new WorktreeService(clientState.backendApi);
 
 	// ============================================================================
 	// FILE & DIFF MANAGEMENT
 	// ============================================================================
 
-	const fileService = new FileService(backend, clientState);
-	const diffService = new DiffService(clientState);
+	const fileService = new FileService(backend, clientState.backendApi);
+	const diffService = new DiffService(clientState.backendApi);
 
 	// ============================================================================
 	// HISTORY & OPERATIONS
@@ -218,8 +218,8 @@ export function initDependencies(args: {
 
 	const fModeManager = new FModeManager();
 	const focusManager = new FocusManager(fModeManager);
-	const historyService = new HistoryService(backend, clientState["backendApi"]);
-	const oplogService = new OplogService(clientState["backendApi"]);
+	const historyService = new HistoryService(backend, clientState.backendApi);
+	const oplogService = new OplogService(clientState.backendApi);
 	const commitAnalytics = new CommitAnalytics(
 		stackService,
 		uiState,
@@ -253,8 +253,11 @@ export function initDependencies(args: {
 	// ACTIONS & WORKFLOWS
 	// ============================================================================
 
-	const actionService = new ActionService(clientState["backendApi"], backend);
-	const upstreamIntegrationService = new UpstreamIntegrationService(clientState, stackService);
+	const actionService = new ActionService(clientState.backendApi, backend);
+	const upstreamIntegrationService = new UpstreamIntegrationService(
+		clientState.backendApi,
+		stackService,
+	);
 
 	// ============================================================================
 	// FEEDS & NOTIFICATIONS
@@ -285,8 +288,8 @@ export function initDependencies(args: {
 	// SYSTEM SERVICES
 	// ============================================================================
 
-	const cliManager = new CLIManager(clientState["backendApi"]);
-	const dataSharingService = new DataSharingService(clientState["backendApi"]);
+	const cliManager = new CLIManager(clientState.backendApi);
+	const dataSharingService = new DataSharingService(clientState.backendApi);
 	const promptService = new PromptService(backend);
 	const updaterService = new UpdaterService(
 		backend,

@@ -3,7 +3,6 @@ import { ConflictEntries, type ConflictEntriesObj } from "$lib/files/conflicts";
 import { sortLikeFileTree } from "$lib/files/filetreeV3";
 import { showToast } from "$lib/notifications/toasts";
 import { hasBackendExtra } from "$lib/state/backendQuery";
-import { ClientState, type BackendApi } from "$lib/state/clientState.svelte";
 import { createSelectByIds, createSelectNth } from "$lib/state/customSelectors";
 import {
 	invalidatesItem,
@@ -23,12 +22,7 @@ import { getBranchNameFromRef } from "$lib/utils/branch";
 import { InjectionToken } from "@gitbutler/core/context";
 import { reactive } from "@gitbutler/shared/reactiveUtils.svelte";
 import { isDefined } from "@gitbutler/ui/utils/typeguards";
-import {
-	createEntityAdapter,
-	type EntityState,
-	type ThunkDispatch,
-	type UnknownAction,
-} from "@reduxjs/toolkit";
+import { createEntityAdapter, type EntityState } from "@reduxjs/toolkit";
 import { get } from "svelte/store";
 import type { StackOrder } from "$lib/branches/branch";
 import type { Commit, CommitDetails, UpstreamCommit } from "$lib/branches/v3";
@@ -46,6 +40,7 @@ import type {
 	MoveBranchResult,
 	GerritPushFlag,
 } from "$lib/stacks/stack";
+import type { AppDispatch, BackendApi } from "$lib/state/clientState.svelte";
 import type { ReduxError } from "$lib/state/reduxError";
 import type { HunkAssignment } from "@gitbutler/core/api";
 
@@ -165,7 +160,7 @@ export class StackService {
 
 	constructor(
 		backendApi: BackendApi,
-		private dispatch: ThunkDispatch<any, any, UnknownAction>,
+		private dispatch: AppDispatch,
 		private forgeFactory: DefaultForgeFactory,
 		private uiState: UiState,
 	) {
@@ -997,7 +992,7 @@ function toCommitCreatePlacement(args: CreateCommitRequest): {
 	};
 }
 
-function injectEndpoints(api: ClientState["backendApi"], uiState: UiState) {
+function injectEndpoints(api: BackendApi, uiState: UiState) {
 	return api.injectEndpoints({
 		endpoints: (build) => ({
 			stacks: build.query<EntityState<Stack, string>, { projectId: string; all?: boolean }>({
