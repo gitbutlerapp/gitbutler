@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Context as _;
 use but_path::AppChannel;
@@ -29,16 +32,13 @@ fn resolve_configured_storage_path(
     git_dir: &Path,
     configured_path: &Path,
 ) -> anyhow::Result<PathBuf> {
-    if !configured_path.is_absolute() {
-        return Ok(git_dir.join(configured_path));
+    let mut storage_path = gix::path::normalize(configured_path.into(), git_dir)
+        .unwrap_or(Cow::Borrowed(configured_path))
+        .into_owned();
+    if storage_path.is_relative() {
+        storage_path = git_dir.join(storage_path);
     }
-
-    let storage_path = configured_path.to_owned();
-    if storage_path.starts_with(git_dir) {
-        return Ok(storage_path);
-    }
-    let gitdir_real = gix::path::realpath(git_dir)?;
-    if storage_path.starts_with(&gitdir_real) {
+    if storage_path_is_inside_git_dir(git_dir, &storage_path)? {
         return Ok(storage_path);
     }
 
@@ -50,6 +50,15 @@ fn resolve_configured_storage_path(
         "Resolved GitButler storage path; set this config key to override"
     );
     Ok(storage_path)
+}
+
+fn storage_path_is_inside_git_dir(git_dir: &Path, storage_path: &Path) -> anyhow::Result<bool> {
+    if storage_path.starts_with(git_dir) {
+        return Ok(true);
+    }
+
+    let gitdir_real = gix::path::realpath(git_dir)?;
+    Ok(storage_path.starts_with(&gitdir_real))
 }
 
 fn default_gitbutler_storage_dir_name(channel: &AppChannel) -> &'static str {

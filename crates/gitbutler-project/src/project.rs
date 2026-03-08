@@ -351,10 +351,10 @@ impl Project {
     /// By default this is `.git/gitbutler` for release builds and `.git/gitbutler.<channel>`
     /// for non-release builds. It can be overridden by setting `gitbutler.storagePath`
     /// on release, or `gitbutler.<channel>.storagePath` on non-release builds. Relative
-    /// configured values stay under `.git`, while absolute values outside `.git` get a
-    /// project-handle suffix to keep different projects isolated.
+    /// configured values are resolved against `.git`, and any resolved path outside `.git`
+    /// gets a project-handle suffix to keep different projects isolated.
     pub(crate) fn gb_dir(&self) -> anyhow::Result<PathBuf> {
-        self.open_isolated_repo()?.gitbutler_storage_path()
+        gix::open(self.git_dir())?.gitbutler_storage_path()
     }
 }
 

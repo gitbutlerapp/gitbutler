@@ -247,7 +247,7 @@ fn bootstrap_missing_target_preserves_existing_workspace_ref() -> anyhow::Result
     let expected_stack_name = stack_details(ctx)[0].1.derived_name.clone();
 
     ctx.git2_repo.get()?.config()?.set_str(
-        &but_project_handle::storage_path_config_key(),
+        but_project_handle::storage_path_config_key(),
         "gitbutler-alt",
     )?;
 

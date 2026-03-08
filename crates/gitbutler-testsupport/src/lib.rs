@@ -310,18 +310,11 @@ pub mod read_only {
 }
 
 fn set_storage_path_for_testing(git_dir: &Path) -> anyhow::Result<()> {
-    git2::Repository::open(git_dir)?
-        .config()?
-        .set_str(&storage_path_key(), "gitbutler")?;
+    git2::Repository::open(git_dir)?.config()?.set_str(
+        but_project_handle::storage_path_config_key(),
+        "gitbutler.dev",
+    )?;
     Ok(())
-}
-
-fn storage_path_key() -> String {
-    match option_env!("CHANNEL") {
-        Some("release") => "gitbutler.storagePath".to_string(),
-        Some(channel) => format!("gitbutler.{channel}.storagePath"),
-        None => "gitbutler.dev.storagePath".to_string(),
-    }
 }
 
 use std::path::{Path, PathBuf};

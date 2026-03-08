@@ -93,7 +93,18 @@ pub fn bootstrap_default_target_if_missing(ctx: &Context) -> Result<bool> {
     };
     let remote_name = remote_name.to_string();
 
-    let target = inferred_default_target(&repo, &remote_name)?;
+    let target = match inferred_default_target(&repo, &remote_name) {
+        Ok(Some(target)) => target,
+        Ok(None) => return Ok(false),
+        Err(err) => {
+            tracing::debug!(
+                error = ?err,
+                remote_name,
+                "failed to infer default target; leaving default target uninitialized"
+            );
+            return Ok(false);
+        }
+    };
     vb_state.set_default_target(target)?;
     set_exclude_decoration(ctx)?;
     Ok(true)
@@ -431,7 +442,7 @@ fn default_target(base_path: &Path) -> Result<Target> {
 /// 1. `refs/remotes/<remote>/HEAD`
 /// 2. `refs/remotes/<remote>/main`
 /// 3. `refs/remotes/<remote>/master`
-fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<Target> {
+fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<Option<Target>> {
     let remote_url = repo
         .find_remote(remote_name)
         .ok()
@@ -444,11 +455,12 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
         .unwrap_or_default();
 
     let remote_head_ref = format!("refs/remotes/{remote_name}/HEAD");
-    if let Ok(mut head_ref) = repo.find_reference(remote_head_ref.as_str()) {
-        let branch_name = head_ref.target().try_name().map_or_else(
-            || head_ref.name().as_bstr().to_string(),
-            |name| name.as_bstr().to_string(),
-        );
+    if let Ok(mut head_ref) = repo.find_reference(remote_head_ref.as_str())
+        && let Some(branch_name) = head_ref
+            .target()
+            .try_name()
+            .map(|name| name.as_bstr().to_string())
+    {
         let branch = branch_name
             .parse()
             .with_context(|| format!("Remote HEAD resolved to invalid ref '{branch_name}'"))?;
@@ -457,12 +469,12 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
             .context("Remote HEAD did not point to a commit")?
             .id
             .to_git2();
-        return Ok(Target {
+        return Ok(Some(Target {
             branch,
             remote_url,
             sha,
             push_remote_name: Some(remote_name.to_owned()),
-        });
+        }));
     }
 
     for branch_name in ["main", "master"] {
@@ -475,18 +487,16 @@ fn inferred_default_target(repo: &gix::Repository, remote_name: &str) -> Result<
                 })?
                 .id
                 .to_git2();
-            return Ok(Target {
+            return Ok(Some(Target {
                 branch: full_name.parse()?,
                 remote_url,
                 sha,
                 push_remote_name: Some(remote_name.to_owned()),
-            });
+            }));
         }
     }
 
-    Err(anyhow!(
-        "Could not infer a default target branch from remote '{remote_name}'"
-    ))
+    Ok(None)
 }
 
 pub(crate) fn push(ctx: &Context, with_force: bool) -> Result<()> {

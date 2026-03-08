@@ -45,6 +45,25 @@ fn storage_path_from_relative_config() -> anyhow::Result<()> {
 }
 
 #[test]
+fn storage_path_from_relative_config_outside_git_dir_is_project_unique() -> anyhow::Result<()> {
+    let (_tmp, repo) = init_repo()?;
+    let key = storage_path_config_key();
+
+    let repo = set_git_config(&repo, key, "../../gitbutler-shared")?;
+    let configured_base = repo
+        .git_dir()
+        .parent()
+        .expect("git dir has repo parent")
+        .parent()
+        .expect("repo parent has tempdir parent")
+        .join("gitbutler-shared");
+    let expected = configured_base.join(ProjectHandle::from_path(repo.git_dir())?.to_string());
+
+    assert_eq!(gitbutler_storage_path(&repo)?, expected);
+    Ok(())
+}
+
+#[test]
 fn storage_path_from_absolute_config_inside_git_dir() -> anyhow::Result<()> {
     let (_tmp, repo) = init_repo()?;
     let key = storage_path_config_key();
@@ -89,6 +108,7 @@ fn docs_examples_are_viable_paths() -> anyhow::Result<()> {
     let examples = [
         Path::new("gitbutler-alt").to_path_buf(),
         Path::new("custom/gitbutler").to_path_buf(),
+        Path::new("../gitbutler-projects").to_path_buf(),
         if cfg!(windows) {
             PathBuf::from(r"C:\gitbutler-projects")
         } else {

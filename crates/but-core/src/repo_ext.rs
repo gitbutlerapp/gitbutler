@@ -12,7 +12,7 @@ use crate::{GitConfigSettings, commit::TreeKind};
 pub trait RepositoryExt: Sized {
     /// Returns a bundle of settings by querying the git configuration itself, assuring fresh data is loaded.
     fn git_settings(&self) -> anyhow::Result<GitConfigSettings>;
-    /// Return the path to store per-project GitButler data, which is garantueed to be inside
+    /// Return the path to store per-project GitButler data, which is guaranteed to be inside
     /// of the `.git` directory, or in a unique folder outside of it.
     ///
     /// Resolution:
@@ -21,9 +21,9 @@ pub trait RepositoryExt: Sized {
     ///   `~/gitbutler-projects`.
     /// * If it is relative, it is interpreted relative to [`gix::Repository::git_dir`], so
     ///   `custom/gitbutler` resolves to `<git-dir>/custom/gitbutler`.
-    /// * If it is absolute and outside of [`gix::Repository::git_dir`], the resolved storage path
-    ///   becomes `<configured-path>/<project-handle>` so multiple projects can share one base path.
-    ///   This is common if the storagePath is set on a global level, so it's shared among all projects.
+    /// * If the resolved path is outside of [`gix::Repository::git_dir`], the storage path
+    ///   becomes `<configured-path>/<project-handle>` so multiple projects can share one base path
+    ///   without clobbering each other. This also applies to relative paths like `../../shared`.
     /// * Otherwise defaults to `<git-dir>/gitbutler` for release builds and
     ///   `<git-dir>/gitbutler.<channel>` for non-release builds.
     fn gitbutler_storage_path(&self) -> anyhow::Result<PathBuf>;

@@ -4288,6 +4288,7 @@ dependencies = [
  "but-ctx",
  "but-fs",
  "but-oxidize",
+ "but-project-handle",
  "but-settings",
  "but-workspace",
  "git2",
