@@ -22,8 +22,10 @@ impl std::error::Error for UserCancelled {}
 
 // Embedded skill files
 const SKILL_MD: &[u8] = include_bytes!("../../skill/SKILL.md");
+const SKILL_WITH_LINK_MD: &[u8] = include_bytes!("../../skill/SKILL.with-link.md");
 const CONCEPTS_MD: &[u8] = include_bytes!("../../skill/references/concepts.md");
 const EXAMPLES_MD: &[u8] = include_bytes!("../../skill/references/examples.md");
+const LINK_MD: &[u8] = include_bytes!("../../skill/references/link.md");
 const REFERENCE_MD: &[u8] = include_bytes!("../../skill/references/reference.md");
 
 /// Metadata for a skill file to be installed
@@ -52,6 +54,11 @@ const SKILL_FILES: &[SkillFile] = &[
         path: "references/examples.md",
         content: EXAMPLES_MD,
         display_name: "examples.md",
+    },
+    SkillFile {
+        path: "references/link.md",
+        content: LINK_MD,
+        display_name: "link.md",
     },
     SkillFile {
         path: "references/reference.md",
@@ -225,7 +232,8 @@ pub fn handle(
             global,
             path,
             detect,
-        } => install_skill(ctx, out, global, path, detect),
+            with_link,
+        } => install_skill(ctx, out, global, path, detect, with_link),
         skill::Subcommands::Check {
             global,
             local,
@@ -324,6 +332,13 @@ fn is_gitbutler_skill(skill_md_path: &std::path::Path) -> bool {
 fn extract_installed_version(skill_md_path: &std::path::Path) -> Option<String> {
     let content = std::fs::read_to_string(skill_md_path).ok()?;
     extract_installed_version_from_content(&content)
+}
+
+/// Detect whether an installed SKILL.md uses the optional with-link variant.
+fn is_with_link_variant(skill_md_path: &std::path::Path) -> bool {
+    std::fs::read_to_string(skill_md_path)
+        .map(|content| content.contains("but link read --agent-id <id>"))
+        .unwrap_or(false)
 }
 
 /// Extract the version from YAML frontmatter content.
@@ -495,8 +510,10 @@ fn check_skills(
         writeln!(progress)?;
 
         for path_str in &outdated_paths {
+            let skill_md_path = PathBuf::from(path_str).join("SKILL.md");
+            let with_link = is_with_link_variant(&skill_md_path);
             // Pass None for ctx since the paths are already absolute and don't require repo context
-            install_skill(None, out, false, Some(path_str.clone()), false)?;
+            install_skill(None, out, false, Some(path_str.clone()), false, with_link)?;
         }
     }
 
@@ -808,15 +825,39 @@ fn prompt_for_install_path(
 }
 
 /// Prepare SKILL.md content with version injection and validate all files
-fn prepare_skill_content(version: &str) -> Result<String> {
+fn prepare_skill_content(version: &str, with_link: bool) -> Result<String> {
     // Validate all embedded files are valid UTF-8
     let skill_content = std::str::from_utf8(SKILL_MD).context("SKILL.md is not valid UTF-8")?;
+    let skill_with_link_content =
+        std::str::from_utf8(SKILL_WITH_LINK_MD).context("SKILL.with-link.md is not valid UTF-8")?;
     std::str::from_utf8(CONCEPTS_MD).context("concepts.md is not valid UTF-8")?;
     std::str::from_utf8(EXAMPLES_MD).context("examples.md is not valid UTF-8")?;
+    std::str::from_utf8(LINK_MD).context("link.md is not valid UTF-8")?;
     std::str::from_utf8(REFERENCE_MD).context("reference.md is not valid UTF-8")?;
 
+    let selected_content = if with_link {
+        skill_with_link_content
+    } else {
+        skill_content
+    };
+
     // Inject version into SKILL.md
-    Ok(inject_version(skill_content, version))
+    Ok(inject_version(selected_content, version))
+}
+
+/// Resolve which skill variant should be written for this installation.
+fn resolve_install_with_link_variant(
+    skill_md_path: &std::path::Path,
+    detect: bool,
+    with_link: bool,
+) -> bool {
+    if with_link {
+        return true;
+    }
+    if detect && skill_md_path.exists() {
+        return is_with_link_variant(skill_md_path);
+    }
+    false
 }
 
 /// Write a skill file with proper error context
@@ -839,6 +880,7 @@ fn install_skill(
     global: bool,
     custom_path: Option<String>,
     detect: bool,
+    with_link: bool,
 ) -> Result<()> {
     // Validate that embedded files are not empty (catches build issues)
     if SKILL_FILES.iter().any(|f| f.content.is_empty()) {
@@ -912,7 +954,8 @@ fn install_skill(
 
     // Prepare all content before writing (validate UTF-8 and inject version)
     let version = option_env!("VERSION").unwrap_or("dev");
-    let skill_md_content = prepare_skill_content(version)?;
+    let effective_with_link = resolve_install_with_link_variant(&skill_md_path, detect, with_link);
+    let skill_md_content = prepare_skill_content(version, effective_with_link)?;
 
     // Create the directory structure
     let references_dir = install_path.join("references");
@@ -961,6 +1004,7 @@ fn install_skill(
             "success": true,
             "version": version,
             "path": install_path.display().to_string(),
+            "with_link": effective_with_link,
             "files": file_paths
         });
         out.write_value(result)?;
@@ -1057,15 +1101,50 @@ mod tests {
     fn prepare_skill_content_validates_utf8() {
         // This tests that the function checks UTF-8 validity
         // The actual embedded files should be valid, so this should succeed
-        let result = prepare_skill_content("1.0.0");
+        let result = prepare_skill_content("1.0.0", false);
         assert!(result.is_ok());
         assert!(!result.unwrap().is_empty());
     }
 
     #[test]
     fn prepare_skill_content_injects_version() {
-        let result = prepare_skill_content("9.9.9").unwrap();
+        let result = prepare_skill_content("9.9.9", false).unwrap();
         assert!(result.contains("version: 9.9.9"));
+    }
+
+    #[test]
+    fn prepare_skill_content_selects_with_link_variant() {
+        let result = prepare_skill_content("9.9.9", true).unwrap();
+        assert!(result.contains("version: 9.9.9"));
+        assert!(result.contains("but link read --agent-id <id>"));
+    }
+
+    #[test]
+    fn resolve_install_with_link_variant_preserves_detected_with_link_installation() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+        fs::write(&skill_path, "...\nbut link read --agent-id <id>\n...").unwrap();
+
+        let result = resolve_install_with_link_variant(&skill_path, true, false);
+        assert!(result);
+    }
+
+    #[test]
+    fn resolve_install_with_link_variant_keeps_default_variant_without_detect() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+        fs::write(&skill_path, "...\nbut link read --agent-id <id>\n...").unwrap();
+
+        let result = resolve_install_with_link_variant(&skill_path, false, false);
+        assert!(!result);
     }
 
     #[test]
@@ -1275,6 +1354,32 @@ mod tests {
         let nonexistent = PathBuf::from("/nonexistent/path/SKILL.md");
         let version = extract_installed_version(&nonexistent);
         assert_eq!(version, None);
+    }
+
+    #[test]
+    fn is_with_link_variant_detects_link_workflow_content() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+        fs::write(&skill_path, "...\nbut link read --agent-id <id>\n...").unwrap();
+
+        assert!(is_with_link_variant(&skill_path));
+    }
+
+    #[test]
+    fn is_with_link_variant_returns_false_when_link_workflow_missing() {
+        use std::fs;
+
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let skill_path = temp_dir.path().join("SKILL.md");
+        fs::write(&skill_path, "default skill content without coordination").unwrap();
+
+        assert!(!is_with_link_variant(&skill_path));
     }
 
     #[test]

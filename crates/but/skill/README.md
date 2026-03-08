@@ -8,6 +8,7 @@ Install this skill using the GitButler CLI:
 
 ```bash
 but skill install    # Prompts for scope and format
+but skill install --with-link   # Install optional coordination-enabled variant
 ```
 
 The command prompts you to choose local (repository) or global (home directory) scope first, then prompts you to select a skill format (Claude Code, OpenCode, Codex, GitHub Copilot, Cursor, or Windsurf) and installs to the appropriate location. When run outside a git repository, local scope is unavailable and the default install location is global (home directory), but you can still install to a custom location with `--path` using an absolute or `~` path.
@@ -16,6 +17,7 @@ The command prompts you to choose local (repository) or global (home directory) 
 - `--path <path>` - Install to a custom path (outside a repository, relative paths require `--global`)
 - `--global` - Install globally (in home directory) instead of current repository
 - `--detect` - Auto-detect installation location from existing installation (useful for updates)
+- `--with-link` - Install the optional variant that includes `but link` coordination workflow instructions
 
 In non-interactive mode, use `--path` or `--detect`.
 
@@ -46,19 +48,21 @@ The skill directory contains both distributable skill files and development docu
 
 ```text
 crates/but/skill/
-├── SKILL.md                   ← Main skill entry point (INSTALLED)
+├── SKILL.md                   ← Default skill entry point (INSTALLED by default)
+├── SKILL.with-link.md         ← Optional coordination-enabled variant (INSTALLED with --with-link)
 ├── README.md                  ← This file - development docs (NOT installed)
 ├── RESEARCH.md                ← Tier 4 testing research and strategy (NOT installed)
 ├── eval/                      ← Tier 4 integration eval harness (NOT installed)
 └── references/                ← Additional skill documentation (INSTALLED)
     ├── reference.md           - Command reference
     ├── concepts.md            - Deep concepts
-    └── examples.md            - Workflow examples
+    ├── examples.md            - Workflow examples
+    └── link.md                - `but link` coordination workflow reference
 ```
 
 **What gets installed:**
 The `but skill install` command only copies the distributable files to the user's system:
-- `SKILL.md` - Main skill entry point
+- `SKILL.md` - Main skill entry point (selected from default or `--with-link` variant)
 - `references/` - All reference documentation files
 
 **What stays in the repository:**
