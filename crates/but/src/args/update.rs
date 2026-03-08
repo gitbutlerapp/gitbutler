@@ -19,7 +19,7 @@ pub enum Subcommands {
         days: u32,
     },
 
-    /// Install or update the GitButler desktop application.
+    /// Install or update the GitButler CLI.
     ///
     /// By default, auto-detects your current channel (release/nightly) and installs the latest
     /// version for that channel.
@@ -29,8 +29,10 @@ pub enum Subcommands {
     ///
     /// Linux: Installs and updates only the CLI itself.
     ///
+    /// Windows: If installed via npm, performs the update through npm. Otherwise, provides
+    /// download instructions.
+    ///
     /// Note: For other platforms and install forms, see <https://gitbutler.com/downloads>
-    #[cfg(unix)]
     Install {
         /// What to install: "nightly", "release", or a version like "0.18.7"
         ///

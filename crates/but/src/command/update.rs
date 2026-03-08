@@ -15,7 +15,6 @@ pub fn handle(
     match cmd {
         update::Subcommands::Check => check_for_updates(out, app_settings),
         update::Subcommands::Suppress { days } => suppress_updates(out, days),
-        #[cfg(unix)]
         update::Subcommands::Install { target } => install(out, target),
     }
 }
@@ -109,7 +108,6 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
     Ok(())
 }
 
-#[cfg(unix)]
 fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
     // Installation requires interactive output and cannot be used with JSON mode
     // because the installer writes directly to stdout/stderr
@@ -122,6 +120,23 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
         );
     }
 
+    #[cfg(unix)]
+    {
+        install_unix(out, target)
+    }
+    #[cfg(windows)]
+    {
+        install_windows(out, target)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (out, target);
+        anyhow::bail!("Update installation is not supported on this platform.\nPlease visit https://gitbutler.com/downloads")
+    }
+}
+
+#[cfg(unix)]
+fn install_unix(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
     // Parse target to determine what to install
     let version_request = match target.as_deref() {
         Some("nightly") => VersionRequest::Nightly,
@@ -161,6 +176,186 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
         writeln!(writer)?;
     }
 
+    invalidate_update_cache(out);
+
+    Ok(())
+}
+
+#[cfg(windows)]
+fn install_windows(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
+    let exe_path = std::env::current_exe()?;
+
+    // Detect if installed via npm by checking if the executable is under a node_modules directory.
+    if let Some(npm_pkg_name) = detect_npm_package(&exe_path) {
+        return install_via_npm(out, &npm_pkg_name, target);
+    }
+
+    // Not an npm installation - provide download instructions
+    if let Some(writer) = out.for_human() {
+        writeln!(
+            writer,
+            "{} Automatic updates are not yet supported for this installation type on Windows.",
+            "→".yellow().bold()
+        )?;
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "Please download the latest version from: {}",
+            "https://gitbutler.com/downloads".cyan()
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Detect if the executable is installed via npm and return the package name.
+///
+/// npm global installations on Windows place executables at paths like:
+///   `C:\Users\<user>\AppData\Roaming\npm\node_modules\<package>\...`
+/// or shims at:
+///   `C:\Users\<user>\AppData\Roaming\npm\<name>.cmd`
+///
+/// We look for `node_modules` in the path to find the package name.
+#[cfg(windows)]
+fn detect_npm_package(exe_path: &std::path::Path) -> Option<String> {
+    let components: Vec<_> = exe_path.components().collect();
+
+    for (i, component) in components.iter().enumerate() {
+        if let std::path::Component::Normal(name) = component {
+            if name.to_string_lossy() == "node_modules" {
+                // The next component should be the package name (or scope)
+                if let Some(std::path::Component::Normal(pkg)) = components.get(i + 1) {
+                    let pkg_name = pkg.to_string_lossy().to_string();
+                    if pkg_name.starts_with('@') {
+                        // Scoped package: @scope/name
+                        if let Some(std::path::Component::Normal(name)) = components.get(i + 2) {
+                            return Some(format!("{}/{}", pkg_name, name.to_string_lossy()));
+                        }
+                    }
+                    return Some(pkg_name);
+                }
+            }
+        }
+    }
+
+    // Also check for npm shim pattern: <npm_dir>/<name>.cmd alongside <npm_dir>/node_modules/<name>
+    if let Some(parent) = exe_path.parent() {
+        let node_modules = parent.join("node_modules");
+        if node_modules.is_dir() {
+            // Check if we look like an npm shim (e.g., but.cmd, but.exe next to node_modules/)
+            if let Some(stem) = exe_path.file_stem() {
+                let candidate = node_modules.join(stem.to_string_lossy().as_ref());
+                if candidate.is_dir() {
+                    return Some(stem.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+
+    // Check the `npm_package_name` env var as a fallback (set during npm lifecycle scripts)
+    std::env::var("npm_package_name").ok().filter(|s| !s.is_empty())
+}
+
+/// Perform an npm-based update by spawning a detached process.
+///
+/// On Windows, the EBUSY error occurs because npm cannot rename the package directory
+/// while the current process (running from that directory) is still active. The solution
+/// is to spawn a detached updater script and immediately exit, allowing npm to proceed
+/// without file locks.
+#[cfg(windows)]
+fn install_via_npm(
+    out: &mut OutputChannel,
+    npm_pkg_name: &str,
+    target: Option<String>,
+) -> Result<()> {
+    let version_suffix = match target.as_deref() {
+        Some(version) => format!("@{version}"),
+        None => "@latest".to_string(),
+    };
+
+    let install_spec = format!("{npm_pkg_name}{version_suffix}");
+
+    if let Some(writer) = out.for_human() {
+        writeln!(
+            writer,
+            "{} Detected npm installation (package: {})",
+            "→".cyan().bold(),
+            npm_pkg_name.bold()
+        )?;
+        writeln!(
+            writer,
+            "{} Spawning background updater to avoid EBUSY file lock errors...",
+            "→".cyan().bold(),
+        )?;
+    }
+
+    // Create a temporary batch script that:
+    // 1. Waits for this process to exit (via a short delay)
+    // 2. Runs npm install -g <package>
+    // 3. Reports the result
+    let temp_dir = std::env::temp_dir();
+    let script_path = temp_dir.join("but-update.cmd");
+    let log_path = temp_dir.join("but-update.log");
+
+    let script_content = format!(
+        "@echo off\r\n\
+         echo Waiting for the CLI process to exit...\r\n\
+         timeout /t 3 /nobreak >nul 2>&1\r\n\
+         echo Updating {install_spec}...\r\n\
+         npm install -g {install_spec} > \"{log}\" 2>&1\r\n\
+         if %errorlevel% equ 0 (\r\n\
+             echo.\r\n\
+             echo Update completed successfully.\r\n\
+         ) else (\r\n\
+             echo.\r\n\
+             echo Update failed. Check the log at: {log}\r\n\
+             echo You can also try updating manually:\r\n\
+             echo   1. Close all terminals running 'but'\r\n\
+             echo   2. Run: npm install -g {install_spec}\r\n\
+         )\r\n\
+         pause\r\n",
+        log = log_path.display(),
+    );
+
+    std::fs::write(&script_path, &script_content)?;
+
+    // Spawn the script in a new, visible console window so the user can see progress.
+    // The CREATE_NEW_CONSOLE flag ensures the script runs independently.
+    use std::os::windows::process::CommandExt;
+    const CREATE_NEW_CONSOLE: u32 = 0x00000010;
+
+    std::process::Command::new("cmd.exe")
+        .args(["/c", "start", "\"GitButler Update\"", "/wait"])
+        .arg(&script_path)
+        .creation_flags(CREATE_NEW_CONSOLE)
+        .spawn()?;
+
+    if let Some(writer) = out.for_human() {
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "{} Update is running in a separate window.",
+            "✓".green().bold()
+        )?;
+        writeln!(
+            writer,
+            "  The update log will be saved to: {}",
+            log_path.display()
+        )?;
+        writeln!(writer)?;
+        writeln!(
+            writer,
+            "  If the update fails, close all terminals running 'but' and run:"
+        )?;
+        writeln!(writer, "    npm install -g {install_spec}")?;
+    }
+
+    invalidate_update_cache(out);
+
+    Ok(())
+}
+
+fn invalidate_update_cache(out: &mut OutputChannel) {
     let mut cache = but_ctx::Context::app_cache();
     if let Err(err) = cache.update_check_mut().and_then(|handle| handle.delete()) {
         tracing::warn!(?err, "Failed to invalidate update check cache");
@@ -168,9 +363,8 @@ fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
             writeln!(
                 writer,
                 "Failed to invalidate update check cache - skipping invalidation: {err:?}",
-            )?;
+            )
+            .ok();
         }
     }
-
-    Ok(())
 }
