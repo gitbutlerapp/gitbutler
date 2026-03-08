@@ -332,6 +332,32 @@ mod delete {
         Ok(())
     }
 
+    #[test]
+    fn refuses_to_delete_git_dir_when_storage_path_points_to_dot_git() -> anyhow::Result<()> {
+        let data_dir = paths::data_dir();
+        let repo = gitbutler_testsupport::TestProject::default();
+        let key = storage_key();
+        let git_dir = git2::Repository::open(repo.path())?.path().to_path_buf();
+        git2::Repository::open(repo.path())?
+            .config()?
+            .set_str(&key, ".")?;
+        let path = repo.path();
+        let project =
+            gitbutler_project::add_at_app_data_dir(data_dir.path(), path)?.unwrap_project();
+
+        gitbutler_project::delete_with_path(data_dir.path(), project.id)?;
+
+        assert!(
+            git_dir.exists(),
+            "the repository .git directory must remain"
+        );
+        assert!(
+            git_dir.join("objects").exists(),
+            "git internals must remain after project deletion"
+        );
+        Ok(())
+    }
+
     fn all_refs(repo: &gix::Repository) -> anyhow::Result<Vec<String>> {
         Ok(repo
             .references()?

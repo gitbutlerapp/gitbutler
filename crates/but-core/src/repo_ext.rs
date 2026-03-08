@@ -17,10 +17,11 @@ pub trait RepositoryExt: Sized {
     ///
     /// Resolution:
     /// * `gitbutler.storagePath` on release builds, or `gitbutler.<channel>.storagePath`
-    ///   on non-release builds, with values like `gitbutler-alt`, `custom/gitbutler`, or
+    ///   on non-release builds, with values like `gitbutler-alt`, `gitbutler-alt/nested`, or
     ///   `~/gitbutler-projects`.
-    /// * If it is relative, it is interpreted relative to [`gix::Repository::git_dir`], so
-    ///   `custom/gitbutler` resolves to `<git-dir>/custom/gitbutler`.
+    /// * If it is relative, it is interpreted relative to [`gix::Repository::git_dir`].
+    ///   Paths that stay inside `.git` must live under a top-level directory whose name starts
+    ///   with `gitbutler`.
     /// * If the resolved path is outside of [`gix::Repository::git_dir`], the storage path
     ///   becomes `<configured-path>/<project-handle>` so multiple projects can share one base path
     ///   without clobbering each other. This also applies to relative paths like `../../shared`.

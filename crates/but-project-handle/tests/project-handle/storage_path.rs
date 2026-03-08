@@ -107,7 +107,8 @@ fn docs_examples_are_viable_paths() -> anyhow::Result<()> {
     let key = storage_path_config_key();
     let examples = [
         Path::new("gitbutler-alt").to_path_buf(),
-        Path::new("custom/gitbutler").to_path_buf(),
+        Path::new("gitbutler-alt/nested").to_path_buf(),
+        Path::new("GitButler").to_path_buf(),
         Path::new("../gitbutler-projects").to_path_buf(),
         if cfg!(windows) {
             PathBuf::from(r"C:\gitbutler-projects")
@@ -121,5 +122,39 @@ fn docs_examples_are_viable_paths() -> anyhow::Result<()> {
         let resolved = gitbutler_storage_path(&repo)?;
         assert!(resolved.is_absolute());
     }
+    Ok(())
+}
+
+#[test]
+fn storage_path_from_relative_config_cannot_be_git_dir_root() -> anyhow::Result<()> {
+    let (_tmp, repo) = init_repo()?;
+    let key = storage_path_config_key();
+    let repo = set_git_config(&repo, key, ".")?;
+
+    let err = gitbutler_storage_path(&repo).expect_err("'.' inside .git must be rejected");
+    assert!(err.to_string().contains("resolves to '.git' itself"));
+    Ok(())
+}
+
+#[test]
+fn storage_path_from_relative_config_cannot_target_git_internals() -> anyhow::Result<()> {
+    let (_tmp, repo) = init_repo()?;
+    let key = storage_path_config_key();
+    let repo = set_git_config(&repo, key, "objects")?;
+
+    let err = gitbutler_storage_path(&repo).expect_err("'objects' inside .git must be rejected");
+    assert!(err.to_string().contains("top-level 'gitbutler*' directory"));
+    Ok(())
+}
+
+#[test]
+fn storage_path_from_relative_config_must_use_gitbutler_top_level_dir() -> anyhow::Result<()> {
+    let (_tmp, repo) = init_repo()?;
+    let key = storage_path_config_key();
+    let repo = set_git_config(&repo, key, "custom/gitbutler")?;
+
+    let err =
+        gitbutler_storage_path(&repo).expect_err("'custom/gitbutler' inside .git must be rejected");
+    assert!(err.to_string().contains("top-level 'gitbutler*' directory"));
     Ok(())
 }

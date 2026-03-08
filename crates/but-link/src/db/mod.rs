@@ -246,7 +246,7 @@ pub(crate) fn coord_stale_threshold_ms() -> i64 {
     seconds.saturating_mul(1000)
 }
 
-/// Produce the path at which our db-file is located, given the `project_deta_dir`.
+/// Produce the path at which our db-file is located, given the `project_data_dir`.
 pub(crate) fn db_path(project_data_dir: &Path) -> PathBuf {
     project_data_dir.join("but-link.db")
 }

@@ -91,9 +91,11 @@ pub struct Context {
     /// Derived from [`gix::Repository::config_snapshot`] using a channel-specific
     /// Git config key (`gitbutler.storagePath` for release builds and
     /// `gitbutler.<channel>.storagePath` otherwise). Relative values are resolved
-    /// against `gitdir`, and any resolved path outside `gitdir` gets a
-    /// `<configured-path>/<project-handle>` suffix. If that key is not
-    /// configured, a channel-specific default is used.
+    /// against `gitdir`; paths that stay inside `gitdir` must live under a
+    /// top-level directory whose name starts with `gitbutler`. Any resolved
+    /// path outside `gitdir` gets a `<configured-path>/<project-handle>`
+    /// suffix. If that key is not configured, a channel-specific default is
+    /// used.
     pub project_data_dir: PathBuf,
     /// The directory to store application caches in.
     pub app_cache_dir: Option<PathBuf>,
