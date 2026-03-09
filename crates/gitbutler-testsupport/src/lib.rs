@@ -1,10 +1,11 @@
-pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
-
 use but_ctx::Context;
 use but_oxidize::OidExt;
 use but_workspace::{legacy::StacksFilter, ui::StackDetails};
 use gitbutler_stack::StackId;
 use gix::bstr::BStr;
+
+pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
+
 /// Direct access to lower-level utilities for cases where this is enough.
 ///
 /// Prefer to use [`read_only`] and [`writable`] otherwise.
