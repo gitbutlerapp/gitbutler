@@ -23,9 +23,10 @@ fn four_commits() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
+    insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");
 
     Ok(())
 }
@@ -56,9 +57,10 @@ fn four_commits_with_short_traversal() -> Result<()> {
 
     let editor = ws.graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
+    insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");
 
     Ok(())
 }
@@ -82,9 +84,10 @@ fn merge_in_the_middle() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
+    insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");
 
     Ok(())
 }
@@ -112,9 +115,10 @@ fn three_branches_merged() -> Result<()> {
 
     let editor = graph.to_editor(&repo)?;
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let outcome = outcome.materialize()?;
 
     assert_eq!(visualize_commit_graph_all(&repo)?, before);
+    insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"{}");
 
     Ok(())
 }

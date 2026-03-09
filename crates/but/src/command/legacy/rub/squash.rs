@@ -264,9 +264,11 @@ fn squash_commits_internal(
             new_commit_oid.to_gix(),
             BString::from(ai_message),
         )?
+        .new_commit
         .to_git2()
     } else if let Some(msg) = custom_message {
         but_api::commit::commit_reword_only(ctx, new_commit_oid.to_gix(), BString::from(msg))?
+            .new_commit
             .to_git2()
     } else if let Some(target_msg) = target_message {
         but_api::commit::commit_reword_only(
@@ -274,6 +276,7 @@ fn squash_commits_internal(
             new_commit_oid.to_gix(),
             BString::from(target_msg),
         )?
+        .new_commit
         .to_git2()
     } else {
         new_commit_oid

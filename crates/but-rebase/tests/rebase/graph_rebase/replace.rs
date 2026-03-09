@@ -44,7 +44,7 @@ fn reword_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let outcome = outcome.materialize()?;
 
     assert_eq!(head_tree, repo.head_tree()?.id);
 
@@ -58,6 +58,12 @@ fn reword_a_commit() -> Result<()> {
     * 8f0d338 (tag: base, main) base
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
+    insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"
+    {
+        Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(3d1e2c5e12ac74bec07707581688e576ec7643a0),
+        Sha1(e8ee978dac10e6a85006543ef08be07c5824b4f7): Sha1(b475cbc480a447b44d56b703665d2b57ef19a5d0),
+    }
+    ");
 
     Ok(())
 }
@@ -116,7 +122,7 @@ fn amend_a_commit() -> Result<()> {
     editor.replace(a_selector, Step::new_pick(a_new))?;
 
     let outcome = editor.rebase()?;
-    outcome.materialize()?;
+    let outcome = outcome.materialize()?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
     * 4772ab7 (HEAD -> with-inner-merge) on top of inner merge
@@ -128,6 +134,12 @@ fn amend_a_commit() -> Result<()> {
     * 8f0d338 (tag: base, main) base
     ");
     insta::assert_snapshot!(git_status(&repo)?, @"");
+    insta::assert_debug_snapshot!(outcome.history.commit_mappings(), @"
+    {
+        Sha1(2fc288c36c8bb710c78203f78ea9883724ce142b): Sha1(e7d8400bb33d6e4a947da3485c38193ca3964b81),
+        Sha1(e8ee978dac10e6a85006543ef08be07c5824b4f7): Sha1(4772ab72b13718f64fb387e7e7f2bc124e2c6e13),
+    }
+    ");
 
     // A should include our extra blob
     let a = repo.rev_parse_single("A")?;

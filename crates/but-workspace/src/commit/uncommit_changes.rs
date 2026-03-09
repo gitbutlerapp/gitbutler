@@ -31,15 +31,13 @@ pub(crate) mod function {
     ) -> Result<UncommitChangesOutcome> {
         let (commit_selector, commit) = editor.find_selectable_commit(commit)?;
 
-        if commit.is_conflicted() {
+        if commit.clone().attach(editor.repo()).is_conflicted() {
             bail!("Cannot uncommit changes from a conflicted commit")
         }
 
         let (tree_without_changes, dropped_diffs) = create_tree_without_diff(
             editor.repo(),
-            ChangesSource::Commit {
-                id: commit.id.into(),
-            },
+            ChangesSource::Commit { id: commit.id },
             changes,
             context_lines,
         )?;
