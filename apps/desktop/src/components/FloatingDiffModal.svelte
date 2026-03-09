@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ChangedFileStats from "$components/ChangedFileStats.svelte";
 	import ChangedFilesContextMenu from "$components/ChangedFilesContextMenu.svelte";
+	import ConfigurableScrollableContainer from "$components/ConfigurableScrollableContainer.svelte";
 	import Drawer from "$components/Drawer.svelte";
 	import FileTreeList from "$components/FileTreeList.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
@@ -157,17 +158,19 @@
 					{selectionId}
 					trigger={fileListEl}
 				/>
-				<FileTreeList
-					{changes}
-					{listMode}
-					{selectedIndex}
-					{visibleRange}
-					{getItemFocusableOpts}
-					onFileClick={selectChange}
-					onFileContextMenu={(e, change) => {
-						fileListContextMenu?.open(e, { changes: [change] });
-					}}
-				/>
+				<ConfigurableScrollableContainer>
+					<FileTreeList
+						{changes}
+						{listMode}
+						{selectedIndex}
+						{visibleRange}
+						{getItemFocusableOpts}
+						onFileClick={selectChange}
+						onFileContextMenu={(e, change) => {
+							fileListContextMenu?.open(e, { changes: [change] });
+						}}
+					/>
+				</ConfigurableScrollableContainer>
 			</div>
 		</div>
 
@@ -419,10 +422,7 @@
 
 	/* File list */
 	.file-list {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		overflow-y: auto;
+		overflow: hidden;
 		background-color: var(--clr-bg-1);
 	}
 
