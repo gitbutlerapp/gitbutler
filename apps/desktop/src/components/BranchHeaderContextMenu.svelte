@@ -224,7 +224,7 @@
 				{#if branch.commits.length > 1}
 					<ContextMenuItem
 						label="Squash all commits"
-						icon="commit-squash-multiple"
+						icon="commit-double-chevron-down"
 						testId={TestId.BranchHeaderContextMenu_SquashAllCommits}
 						onclick={async () => {
 							await stackService.squashAllCommits({

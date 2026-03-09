@@ -130,7 +130,7 @@
 					commitMessage: entryTrailer("message"),
 				};
 			case "SquashCommit":
-				return { text: "Squash commit", icon: "commit-squash" };
+				return { text: "Squash commit", icon: "commit-arrow-down" };
 			case "MoveCommit":
 			case "ReorderCommit":
 				return { text: camelToTitleCase(snapshotDetails.operation), icon: "commit" };
