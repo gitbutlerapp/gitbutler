@@ -370,6 +370,8 @@
 	bind:this={contextMenu}
 	{leftClickTrigger}
 	rightClickTrigger={trigger}
+	side="bottom"
+	align="start"
 	{onopen}
 	{onclose}
 >
