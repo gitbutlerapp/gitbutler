@@ -1,13 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type {
-	AssignHunkParams,
-	CommitAmendParams,
-	CommitDetailsWithLineStatsParams,
-	CommitMoveChangesBetweenParams,
-	CommitUncommitChangesParams,
-	LiteElectronApi,
-	TreeChangeDiffParams,
-} from "#electron/ipc";
+import type { LiteElectronApi } from "#electron/ipc";
 import type {
 	AssignmentRejection,
 	CommitDetails,
@@ -20,31 +12,27 @@ import type {
 } from "@gitbutler/but-sdk";
 
 const api: LiteElectronApi = {
-	async assignHunk(params: AssignHunkParams): Promise<Array<AssignmentRejection>> {
+	async assignHunk(params): Promise<Array<AssignmentRejection>> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:assign-hunk", params);
 	},
-	async changesInWorktree(projectId: string): Promise<WorktreeChanges> {
+	async changesInWorktree(projectId): Promise<WorktreeChanges> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:changes-in-worktree", projectId);
 	},
-	async commitAmend(params: CommitAmendParams): Promise<UICommitCreateResult> {
+	async commitAmend(params): Promise<UICommitCreateResult> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:commit-amend", params);
 	},
-	async commitDetailsWithLineStats(
-		params: CommitDetailsWithLineStatsParams,
-	): Promise<CommitDetails> {
+	async commitDetailsWithLineStats(params): Promise<CommitDetails> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:commit-details-with-line-stats", params);
 	},
-	async commitMoveChangesBetween(
-		params: CommitMoveChangesBetweenParams,
-	): Promise<UIMoveChangesResult> {
+	async commitMoveChangesBetween(params): Promise<UIMoveChangesResult> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:commit-move-changes-between", params);
 	},
-	async commitUncommitChanges(params: CommitUncommitChangesParams): Promise<UIMoveChangesResult> {
+	async commitUncommitChanges(params): Promise<UIMoveChangesResult> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:commit-uncommit-changes", params);
 	},
@@ -52,7 +40,7 @@ const api: LiteElectronApi = {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("lite:get-version");
 	},
-	async headInfo(projectId: string): Promise<RefInfo> {
+	async headInfo(projectId): Promise<RefInfo> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:head-info", projectId);
 	},
@@ -60,11 +48,11 @@ const api: LiteElectronApi = {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("projects:list");
 	},
-	async ping(input: string): Promise<string> {
+	async ping(input): Promise<string> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("lite:ping", input);
 	},
-	async treeChangeDiffs(params: TreeChangeDiffParams): Promise<UnifiedPatch | null> {
+	async treeChangeDiffs(params): Promise<UnifiedPatch | null> {
 		// oxlint-disable-next-line typescript/no-unsafe-return
 		return await ipcRenderer.invoke("workspace:tree-change-diffs", params);
 	},
