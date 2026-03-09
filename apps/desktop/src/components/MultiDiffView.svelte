@@ -221,7 +221,7 @@
 			{@const index = highlightedIndex ?? startIndex ?? 0}
 			{@const change = changes[index]}
 			{#if change}
-				<div class="single-diff-view">
+				<div class="single-diff-view" data-remove-from-panning>
 					{@render changeItem(change, index)}
 				</div>
 			{/if}
