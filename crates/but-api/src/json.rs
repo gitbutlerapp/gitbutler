@@ -10,7 +10,7 @@ mod hex_hash {
     use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     /// A type that deserializes a hexadecimal hash into an object id automatically.
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct HexHash(pub gix::ObjectId);
 
     impl From<HexHash> for gix::ObjectId {
@@ -124,7 +124,9 @@ mod hex_hash {
 }
 pub use hex_hash::{HexHash, HexHashString};
 
-use crate::commit::{CommitCreateResult, MoveChangesResult};
+use crate::commit::{
+    CommitCreateResult, CommitInsertBlankResult, CommitRewordResult, MoveChangesResult,
+};
 
 mod error {
     //! Utilities to control which errors show in the frontend.
@@ -436,9 +438,13 @@ impl From<gix::refs::Reference> for Reference {
 #[serde(rename_all = "camelCase")]
 /// UI type for a move changes between commits result
 pub struct UIMoveChangesResult {
-    /// Commits that have been mapped from one thing to another
-    #[cfg_attr(feature = "export-schema", schemars(with = "Vec<(String, String)>"))]
-    pub replaced_commits: Vec<(HexHash, HexHash)>,
+    /// Commits that have been mapped from one thing to another.
+    /// Maps `oldId → newId`.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(with = "std::collections::BTreeMap<String, String>")
+    )]
+    pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
 }
 
 impl From<MoveChangesResult> for UIMoveChangesResult {
@@ -467,6 +473,13 @@ pub struct UICommitCreateResult {
         but_core::tree::create_tree::RejectionReason,
         but_serde::BStringForFrontend,
     )>,
+    /// Commits that have been replaced as a side-effect of the create/amend.
+    /// Maps `oldId → newId`.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(with = "std::collections::BTreeMap<String, String>")
+    )]
+    pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
 }
 
 impl From<CommitCreateResult> for UICommitCreateResult {
@@ -477,6 +490,71 @@ impl From<CommitCreateResult> for UICommitCreateResult {
                 .rejected_specs
                 .into_iter()
                 .map(|(r, d)| (r, d.path.into()))
+                .collect(),
+            replaced_commits: value
+                .replaced_commits
+                .into_iter()
+                .map(|(old, new)| (old.into(), new.into()))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+/// UI type for rewording a commit.
+pub struct UICommitRewordResult {
+    /// The new commit ID after rewording.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub new_commit: HexHash,
+    /// Commits that have been replaced as a side-effect of the reword.
+    /// Maps `oldId → newId`.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(with = "std::collections::BTreeMap<String, String>")
+    )]
+    pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+}
+
+impl From<CommitRewordResult> for UICommitRewordResult {
+    fn from(value: CommitRewordResult) -> Self {
+        Self {
+            new_commit: value.new_commit.into(),
+            replaced_commits: value
+                .replaced_commits
+                .into_iter()
+                .map(|(old, new)| (old.into(), new.into()))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
+#[serde(rename_all = "camelCase")]
+/// UI type for inserting a blank commit.
+pub struct UICommitInsertBlankResult {
+    /// The new blank commit ID.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
+    pub new_commit: HexHash,
+    /// Commits that have been replaced as a side-effect of the insertion.
+    /// Maps `oldId → newId`.
+    #[cfg_attr(
+        feature = "export-schema",
+        schemars(with = "std::collections::BTreeMap<String, String>")
+    )]
+    pub replaced_commits: std::collections::BTreeMap<HexHash, HexHash>,
+}
+
+impl From<CommitInsertBlankResult> for UICommitInsertBlankResult {
+    fn from(value: CommitInsertBlankResult) -> Self {
+        Self {
+            new_commit: value.new_commit.into(),
+            replaced_commits: value
+                .replaced_commits
+                .into_iter()
+                .map(|(old, new)| (old.into(), new.into()))
                 .collect(),
         }
     }

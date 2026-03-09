@@ -297,10 +297,10 @@ fn lookup_step(graph: &StepGraph, history: &RevisionHistory, selector: Selector)
 #[derive(Debug, Clone, Default)]
 pub struct RevisionHistory {
     mappings: Vec<HashMap<StepGraphIndex, StepGraphIndex>>,
-    /// A mapping from any commits that were in the origional mapping to a
+    /// A mapping from any commits that were in the original mapping to a
     /// rewritten version.
     ///
-    /// Unintuatively, the values are the origional values, and the keys are the
+    /// Unintuatively, the values are the original values, and the keys are the
     /// _new_ values that they have been mapped to.
     commit_mappings: BTreeMap<gix::ObjectId, gix::ObjectId>,
 }

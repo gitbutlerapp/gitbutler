@@ -19,13 +19,13 @@ export declare function commitCreateNapi(projectId: string, relativeTo: Relative
 export declare function commitDetailsWithLineStatsNapi(projectId: string, commitId: string): Promise<CommitDetails>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
-export declare function commitInsertBlankNapi(projectId: string, relativeTo: RelativeTo, side: InsertSide): Promise<string>
+export declare function commitInsertBlankNapi(projectId: string, relativeTo: RelativeTo, side: InsertSide): Promise<UICommitInsertBlankResult>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
 export declare function commitMoveChangesBetweenNapi(projectId: string, sourceCommitId: string, destinationCommitId: string, changes: Array<DiffSpec>): Promise<UIMoveChangesResult>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
-export declare function commitRewordNapi(projectId: string, commitId: string, message: string): Promise<string>
+export declare function commitRewordNapi(projectId: string, commitId: string, message: string): Promise<UICommitRewordResult>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
 export declare function commitUncommitChangesNapi(projectId: string, commitId: string, changes: Array<DiffSpec>, assignTo: StackId | null): Promise<UIMoveChangesResult>
@@ -372,12 +372,42 @@ export type UICommitCreateResult = {
   newCommit?: string | null;
   /** Paths that contained at least one rejected hunk, matching legacy rejection reporting semantics. */
   pathsToRejectedChanges: Array<[string, string]>;
+  /**
+   * Commits that have been replaced as a side-effect of the create/amend.
+   * Maps `oldId → newId`.
+   */
+  replacedCommits: Record<string, string>;
+};
+
+/** UI type for inserting a blank commit. */
+export type UICommitInsertBlankResult = {
+  /** The new blank commit ID. */
+  newCommit: string;
+  /**
+   * Commits that have been replaced as a side-effect of the insertion.
+   * Maps `oldId → newId`.
+   */
+  replacedCommits: Record<string, string>;
+};
+
+/** UI type for rewording a commit. */
+export type UICommitRewordResult = {
+  /** The new commit ID after rewording. */
+  newCommit: string;
+  /**
+   * Commits that have been replaced as a side-effect of the reword.
+   * Maps `oldId → newId`.
+   */
+  replacedCommits: Record<string, string>;
 };
 
 /** UI type for a move changes between commits result */
 export type UIMoveChangesResult = {
-  /** Commits that have been mapped from one thing to another */
-  replacedCommits: Array<[string, string]>;
+  /**
+   * Commits that have been mapped from one thing to another.
+   * Maps `oldId → newId`.
+   */
+  replacedCommits: Record<string, string>;
 };
 
 /**
