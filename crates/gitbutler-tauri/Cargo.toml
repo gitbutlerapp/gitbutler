@@ -49,7 +49,6 @@ tauri = { version = "^2.10.2", features = ["unstable"] }
 tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
-tauri-plugin-http = "2.5.7"
 tauri-plugin-log = "2.8.0"
 tauri-plugin-os = "2.3.2"
 tauri-plugin-process = "2.3.1"
