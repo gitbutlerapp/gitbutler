@@ -14,7 +14,6 @@
 	import FloatingDiffModal from "$components/FloatingDiffModal.svelte";
 	import ReduxResult from "$components/ReduxResult.svelte";
 	import UnifiedDiffView from "$components/UnifiedDiffView.svelte";
-	import { FileContextMenuState } from "$lib/diffState/fileContextMenuState.svelte";
 	import { isExecutableStatus, type TreeChange } from "$lib/hunks/change";
 	import { DIFF_SERVICE } from "$lib/hunks/diffService.svelte";
 	import { FILE_SELECTION_MANAGER } from "$lib/selection/fileSelectionManager.svelte";
@@ -70,13 +69,13 @@
 	}
 
 	let virtualList = $state<VirtualList<TreeChange>>();
-	let scrollContainer = $state<HTMLElement | null>(null);
 	let highlightedIndex = $state<number | undefined>(startIndex);
 	// Prevents VirtualList scroll events from overwriting a user-clicked selection.
 	const scrollLock = new ScrollSelectionLock(getInitialLockedIndex());
-	const menuState = new FileContextMenuState<ReturnType<typeof ChangedFilesContextMenu>>();
 	let floatingDiffOpen = $state(false);
 	let floatingDiffInitialIndex = $state(0);
+	let contextMenu = $state<ChangedFilesContextMenu>();
+	let activeMenuPath = $state<string | undefined>();
 
 	export function jumpToIndex(index: number) {
 		highlightedIndex = index;
@@ -116,7 +115,6 @@
 		stickyHeader={allInOneDiff}
 		reserveSpaceOnStuck={!!onclose}
 		closeButtonPlaceholder={!!onclose}
-		scrollRoot={scrollContainer}
 		collapsable={allInOneDiff}
 		defaultCollapsed={isCollapsed}
 		highlighted={allInOneDiff && highlightDiffs && highlight && highlightedIndex === index}
@@ -127,7 +125,7 @@
 		closeActions={!allInOneDiff && onclose ? popOutSnippet : undefined}
 	>
 		{#snippet header()}
-			<div class="full-width" bind:this={menuState.headerTriggers[change.path]}>
+			<div class="full-width">
 				<FileViewHeader
 					filePath={change.path}
 					fileStatus={computeChangeStatus(change)}
@@ -139,37 +137,24 @@
 		{/snippet}
 
 		{#snippet actions()}
-			<ChangedFilesContextMenu
-				bind:this={menuState.contextMenus[change.path]}
-				{projectId}
-				{stackId}
-				{selectionId}
-				leftClickTrigger={menuState.buttonElements[change.path]}
-				trigger={menuState.headerTriggers[change.path]}
-				onopen={() => {
-					menuState.menuOpenStates[change.path] = true;
-				}}
-				onclose={() => {
-					menuState.menuOpenStates[change.path] = false;
-				}}
-			/>
 			<Button
-				bind:el={menuState.buttonElements[change.path]}
 				kind="ghost"
 				icon="kebab"
 				size="tag"
-				activated={menuState.menuOpenStates[change.path]}
-				onclick={async () => {
-					const contextMenu = menuState.contextMenus[change.path];
-					const buttonEl = menuState.buttonElements[change.path];
-					if (!contextMenu || !buttonEl) return;
-
+				activated={activeMenuPath === change.path}
+				onclick={async (e) => {
+					if (!contextMenu || !(e.target instanceof HTMLElement)) return;
+					if (activeMenuPath === change.path) {
+						contextMenu.close();
+						return;
+					}
 					const changes = await idSelection.treeChanges(projectId, selectionId);
 					if (idSelection.has(change.path, selectionId) && changes.length > 0) {
-						contextMenu.open(buttonEl, { changes });
+						contextMenu.open(e.target, { changes });
 					} else {
-						contextMenu.open(buttonEl, { changes: [change] });
+						contextMenu.open(e.target, { changes: [change] });
 					}
+					activeMenuPath = change.path;
 				}}
 			/>
 		{/snippet}
@@ -197,12 +182,7 @@
 	</Drawer>
 {/snippet}
 
-<div
-	class="multi-diff-view"
-	bind:this={scrollContainer}
-	class:no-border={!showBorder}
-	class:no-rounded={!showRoundedEdges}
->
+<div class="multi-diff-view" class:no-border={!showBorder} class:no-rounded={!showRoundedEdges}>
 	{#if onclose && allInOneDiff}
 		<div class="floating-actions">
 			<Button
@@ -217,6 +197,15 @@
 	{/if}
 
 	{#if changes && changes.length > 0}
+		<ChangedFilesContextMenu
+			bind:this={contextMenu}
+			{projectId}
+			{stackId}
+			{selectionId}
+			onclose={() => {
+				activeMenuPath = undefined;
+			}}
+		/>
 		{#if !allInOneDiff}
 			{@const index = highlightedIndex ?? startIndex ?? 0}
 			{@const change = changes[index]}

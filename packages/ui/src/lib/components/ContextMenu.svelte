@@ -220,7 +220,7 @@
 				menuManager.register({
 					id: menuId,
 					element: menuContainer,
-					triggerElement: leftClickTrigger,
+					triggerElement: leftClickTrigger ?? savedElement,
 					parentMenuId,
 					close: () => {
 						isVisible = false;
@@ -295,6 +295,20 @@
 			close();
 		}
 	}
+
+	// Close on any scroll event (use capture since scroll doesn't bubble).
+	$effect(() => {
+		if (!isVisible) return;
+
+		function onScroll(e: Event) {
+			// Don't close if the scroll is inside the menu itself.
+			if (menuContainer?.contains(e.target as Node)) return;
+			close();
+		}
+
+		document.addEventListener("scroll", onScroll, true);
+		return () => document.removeEventListener("scroll", onScroll, true);
+	});
 
 	$effect(() => {
 		if (!menuContainer) return;

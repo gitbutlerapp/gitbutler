@@ -49,6 +49,7 @@
 		trigger?: HTMLElement;
 		leftClickTrigger?: HTMLElement;
 		editMode?: boolean;
+		align?: "start" | "center" | "end";
 		onopen?: () => void;
 		onclose?: () => void;
 	};
@@ -82,6 +83,7 @@
 		stackId,
 		projectId,
 		editMode = false,
+		align,
 		onopen,
 		onclose,
 	}: Props = $props();
@@ -199,6 +201,10 @@
 		aiService.validateGitButlerAPIConfiguration().then((value) => {
 			aiConfigurationValid = value;
 		});
+	}
+
+	export function close() {
+		contextMenu.close();
 	}
 
 	async function uncommitChanges(stackId: string, commitId: string, changes: TreeChange[]) {
@@ -371,7 +377,7 @@
 	{leftClickTrigger}
 	rightClickTrigger={trigger}
 	side="bottom"
-	align="start"
+	{align}
 	{onopen}
 	{onclose}
 >

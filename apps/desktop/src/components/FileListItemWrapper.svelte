@@ -165,6 +165,7 @@
 		{stackId}
 		trigger={draggableEl}
 		{selectionId}
+		align="start"
 	/>
 	<FileListItem
 		id={key({ ...selectionId, path: change.path })}
