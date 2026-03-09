@@ -6,6 +6,7 @@
 		"jsx": "react-jsx",
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
+		"noImplicitReturns": true,
 		"noEmit": true,
 		"allowImportingTsExtensions": true,
 		"isolatedModules": true,

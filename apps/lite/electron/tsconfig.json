@@ -5,6 +5,7 @@
 		"moduleResolution": "NodeNext",
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
+		"noImplicitReturns": true,
 		"sourceMap": true,
 		"outDir": "../dist/electron",
 		"rootDir": "./src",
