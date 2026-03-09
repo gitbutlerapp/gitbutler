@@ -195,6 +195,9 @@ elif [ "$OS" = "macos" ]; then
 	# installers bundled with version <=0.19.3 will validate that it's there for macOS.
 	EXTERNAL_BIN='["gitbutler-git-askpass", "gitbutler-git-setsid"]'
 	FEATURES="builtin-but"
+else
+	echo "Unsupported OS: $OS"
+	exit 1
 fi
 
 # update the version in the tauri release config
