@@ -8,7 +8,7 @@ use axum::{
         ws::{Message, WebSocket},
     },
     http::StatusCode,
-    middleware::Next,
+    middleware::{self, Next},
     response::IntoResponse,
     routing::{any, post},
 };
@@ -20,6 +20,7 @@ use futures_util::{SinkExt, StreamExt as _};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::Mutex;
+use tower::ServiceBuilder;
 use tower_http::cors::{self, CorsLayer};
 
 mod projects;
@@ -752,16 +753,27 @@ pub async fn run() {
         // Spawning in a separate thread to prevent abort if the client
         // disconnects. We need this to ensure locks are removed after
         // the claude processes finishes.
-        .route_layer(axum::middleware::from_fn(
+        .route_layer(middleware::from_fn(
             |req: axum::extract::Request<Body>, next: Next| async move {
                 tokio::task::spawn(next.run(req)).await.unwrap()
             },
         ))
-        .layer(cors)
-        // Middleware to ensure only localhost connections are accepted.
-        // Note: In Axum, layers are applied in reverse order, so this middleware
-        // runs BEFORE CORS processing, ensuring these security checks happen first.
-        .layer(axum::middleware::from_fn(localhost_only_middleware))
+        .layer(
+            ServiceBuilder::new()
+                // Middleware to ensure only localhost connections are accepted.
+                //
+                // NOTE: `ServiceBuilder` runs middlewares top to bottom:
+                // - `localhost_only_middleware` will receive the request first and performs the
+                //    security checks.
+                // - Then `cors`
+                // - Then our `route_layer` middleware
+                // - Then the axum router calls the handler and produces a response
+                // - `cors` receives the response
+                // - `localhost_only_middleware` receives the response
+                // - And finally the response is sent to the client
+                .layer(middleware::from_fn(localhost_only_middleware))
+                .layer(cors),
+        )
         .with_state(state);
 
     let port = std::env::var("BUTLER_PORT").unwrap_or("6978".into());

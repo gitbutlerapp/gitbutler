@@ -36,6 +36,7 @@ futures-util = { version = "0.3", default-features = false, features = [
     "std",
 ] }
 tower-http = { version = "0.6.8", features = ["cors"] }
+tower = { version = "0.5.3" }
 tokio = { workspace = true, features = ["full"] }
 anyhow.workspace = true
 serde_json.workspace = true
