@@ -34,6 +34,7 @@ export const iconNames = [
 	"branch-local",
 	"branch-merge",
 	"branch-plus",
+	"branch-tick",
 	"branch-top-down-arrow",
 	"branch-top-up-arrow",
 	"bulb",
