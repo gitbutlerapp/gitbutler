@@ -48,17 +48,19 @@ export interface TreeChangeDiffParams {
 }
 
 export interface LiteElectronApi {
-	assignHunk(params: AssignHunkParams): Promise<Array<AssignmentRejection>>;
-	changesInWorktree(projectId: string): Promise<WorktreeChanges>;
-	commitAmend(params: CommitAmendParams): Promise<UICommitCreateResult>;
-	commitDetailsWithLineStats(params: CommitDetailsWithLineStatsParams): Promise<CommitDetails>;
-	commitMoveChangesBetween(params: CommitMoveChangesBetweenParams): Promise<UIMoveChangesResult>;
-	commitUncommitChanges(params: CommitUncommitChangesParams): Promise<UIMoveChangesResult>;
-	getVersion(): Promise<string>;
-	headInfo(projectId: string): Promise<RefInfo>;
-	listProjects(): Promise<Array<ProjectForFrontend>>;
-	ping(input: string): Promise<string>;
-	treeChangeDiffs(params: TreeChangeDiffParams): Promise<UnifiedPatch | null>;
+	assignHunk: (params: AssignHunkParams) => Promise<Array<AssignmentRejection>>;
+	changesInWorktree: (projectId: string) => Promise<WorktreeChanges>;
+	commitAmend: (params: CommitAmendParams) => Promise<UICommitCreateResult>;
+	commitDetailsWithLineStats: (params: CommitDetailsWithLineStatsParams) => Promise<CommitDetails>;
+	commitMoveChangesBetween: (
+		params: CommitMoveChangesBetweenParams,
+	) => Promise<UIMoveChangesResult>;
+	commitUncommitChanges: (params: CommitUncommitChangesParams) => Promise<UIMoveChangesResult>;
+	getVersion: () => Promise<string>;
+	headInfo: (projectId: string) => Promise<RefInfo>;
+	listProjects: () => Promise<Array<ProjectForFrontend>>;
+	ping: (input: string) => Promise<string>;
+	treeChangeDiffs: (params: TreeChangeDiffParams) => Promise<UnifiedPatch | null>;
 }
 
 export const liteIpcChannels = {
