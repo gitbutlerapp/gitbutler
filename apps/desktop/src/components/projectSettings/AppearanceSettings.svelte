@@ -318,6 +318,27 @@
 			/>
 		{/snippet}
 	</CardGroup.Item>
+
+	<CardGroup.Item labelFor="svgAsImage">
+		{#snippet title()}
+			Preview SVG files as images
+		{/snippet}
+		{#snippet caption()}
+			Show SVG file changes as an image diff instead of a code diff.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="svgAsImage"
+				checked={$userSettings.svgAsImage}
+				onclick={() => {
+					userSettings.update((s) => ({
+						...s,
+						svgAsImage: !s.svgAsImage,
+					}));
+				}}
+			/>
+		{/snippet}
+	</CardGroup.Item>
 </CardGroup>
 
 <CardGroup>
