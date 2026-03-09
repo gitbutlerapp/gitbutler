@@ -1,4 +1,4 @@
-use crate::M;
+use crate::{M, SchemaVersion};
 
 mod open_with_migrations_infallible {
     use super::{migrations, table_exists};
@@ -58,6 +58,7 @@ mod open_with_migrations_infallible {
 fn migrations() -> impl Iterator<Item = M<'static>> + Clone {
     Some(M::up(
         1,
+        SchemaVersion::Zero,
         "CREATE TABLE `foo`(
             `id` TEXT NOT NULL PRIMARY KEY
         );",

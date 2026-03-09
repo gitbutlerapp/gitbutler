@@ -3,11 +3,12 @@
 use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 
-use crate::{DbHandle, M, Transaction};
+use crate::{DbHandle, M, SchemaVersion, Transaction};
 
 pub(crate) const M: &[M<'static>] = &[
     M::up(
         20250703203544,
+        SchemaVersion::Zero,
         "CREATE TABLE `claude_code_sessions`(
 	`id` TEXT NOT NULL PRIMARY KEY,
 	`created_at` TIMESTAMP NOT NULL,
@@ -16,6 +17,7 @@ pub(crate) const M: &[M<'static>] = &[
     ),
     M::up(
         20250811130145,
+        SchemaVersion::Zero,
         "CREATE TABLE `claude_sessions`(
 	`id` TEXT NOT NULL PRIMARY KEY,
 	`current_id` TEXT NOT NULL UNIQUE,
@@ -36,9 +38,14 @@ CREATE TABLE `claude_messages`(
 CREATE INDEX index_claude_messages_on_session_id ON claude_messages (session_id);
 CREATE INDEX index_claude_messages_on_created_at ON claude_messages (created_at);",
     ),
-    M::up(20250812093543, "DROP TABLE IF EXISTS `claude_code_sessions`;"),
+    M::up(
+        20250812093543,
+        SchemaVersion::Zero,
+        "DROP TABLE IF EXISTS `claude_code_sessions`;",
+    ),
     M::up(
         20250817195624,
+        SchemaVersion::Zero,
         "CREATE TABLE `claude_permission_requests`(
 	`id` TEXT NOT NULL PRIMARY KEY,
 	`created_at` TIMESTAMP NOT NULL,
@@ -50,10 +57,12 @@ CREATE INDEX index_claude_messages_on_created_at ON claude_messages (created_at)
     ),
     M::up(
         20250821095340,
+        SchemaVersion::Zero,
         "ALTER TABLE claude_sessions ADD COLUMN in_gui BOOLEAN NOT NULL DEFAULT FALSE;",
     ),
     M::up(
         20250821142109,
+        SchemaVersion::Zero,
         "-- Add session_ids column to claude_sessions table to track all session IDs used
 ALTER TABLE claude_sessions ADD COLUMN session_ids TEXT NOT NULL DEFAULT '[]';
 
@@ -62,6 +71,7 @@ UPDATE claude_sessions SET session_ids = json_array(current_id);",
     ),
     M::up(
         20251106102333,
+        SchemaVersion::Zero,
         r#"-- Replace approved (bool) and scope (text) with a single decision (text) column
 ALTER TABLE `claude_permission_requests` ADD COLUMN `decision` TEXT;
 
@@ -78,12 +88,14 @@ ALTER TABLE `claude_permission_requests` DROP COLUMN `approved`;"#,
     ),
     M::up(
         20251107134016,
+        SchemaVersion::Zero,
         "-- Add permissions columns to claude_sessions table to track approved and denied permissions
 ALTER TABLE claude_sessions ADD COLUMN approved_permissions TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE claude_sessions ADD COLUMN denied_permissions TEXT NOT NULL DEFAULT '[]';",
     ),
     M::up(
         20251110103940,
+        SchemaVersion::Zero,
         "-- Add use_wildcard column to claude_permission_requests table
 ALTER TABLE `claude_permission_requests` ADD COLUMN `use_wildcard` BOOLEAN NOT NULL DEFAULT 0;",
     ),
