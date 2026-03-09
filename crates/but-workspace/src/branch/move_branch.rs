@@ -9,11 +9,12 @@ use but_rebase::graph_rebase::{
 ///
 /// Returned by [function::move_branch()].
 #[derive(Debug)]
-pub struct Outcome<WorkspaceMeta> {
+pub struct Outcome {
     /// A successful rebase result for continuing operations.
     pub rebase: SuccessfulRebase,
     /// The updated workspace metadata that accompanies the move operation.
-    pub ws_meta: WorkspaceMeta,
+    /// It should replace the actual workspace metadata to configure moved 'virtual' branches segments, if `Some()`.
+    pub ws_meta: Option<but_core::ref_metadata::Workspace>,
 }
 
 pub(super) mod function {
@@ -23,13 +24,11 @@ pub(super) mod function {
     use super::Outcome;
     use anyhow::Context;
     use anyhow::bail;
-    use but_core::RefMetadata;
-    use but_core::ref_metadata::Workspace;
     use but_graph::projection::WorkspaceKind;
     use but_rebase::graph_rebase::Editor;
     use gix::refs::FullNameRef;
 
-    /// Move a branch between stacks in the workspace.
+    /// Move a branch between stacks in the `workspace`.
     ///
     /// `subject_branch_name` is the full reference name of the branch to move.
     ///
@@ -38,13 +37,12 @@ pub(super) mod function {
     ///
     /// Returns:
     /// - Successful rebase
-    pub fn move_branch<M: RefMetadata>(
+    pub fn move_branch(
         workspace: &but_graph::projection::Workspace,
         mut editor: Editor,
-        meta: &mut M,
         subject_branch_name: &FullNameRef,
         target_branch_name: &FullNameRef,
-    ) -> anyhow::Result<Outcome<M::Handle<Workspace>>> {
+    ) -> anyhow::Result<Outcome> {
         let Some(source) = workspace.find_segment_and_stack_by_refname(subject_branch_name) else {
             bail!(
                 "Couldn't find branch to move in workspace with reference name: {subject_branch_name}"
@@ -62,17 +60,20 @@ pub(super) mod function {
             bail!("Couldn't find workspace head.")
         };
 
-        let workspace_ref = match &workspace.kind {
-            WorkspaceKind::Managed { ref_info }
-            | WorkspaceKind::ManagedMissingWorkspaceCommit { ref_info } => {
-                ref_info.ref_name.clone()
+        // We're currently stopping the move branch operations imperatively at this stage, in order to
+        // reduce the scope of this first iteration of moving the branches.
+        // TODO: Enable and test that we can move branches in any kind of workspace.
+        match &workspace.kind {
+            WorkspaceKind::Managed { .. } => {}
+            WorkspaceKind::ManagedMissingWorkspaceCommit { .. } => {
+                bail!("Moving branches currently need a workspace commit")
             }
             WorkspaceKind::AdHoc => {
                 bail!("Moving branches in non-managed workspaces is not supported");
             }
         };
 
-        let mut ws_meta = meta.workspace(workspace_ref.as_ref())?;
+        let mut ws_meta = workspace.metadata.clone();
 
         let (source_stack, subject_segment) = source;
         let (_, target_segment) = destination;
@@ -107,15 +108,14 @@ pub(super) mod function {
 
         // Update the workspace meta if any of the branches we're handling is empty.
         // This is needed in order to disambiguate the intended operation.
-        let ws_meta = if subject_segment.commits.is_empty() || target_segment.commits.is_empty() {
+        if let Some(ws_meta) = ws_meta.as_mut()
+            && (subject_segment.commits.is_empty() || target_segment.commits.is_empty())
+        {
             ws_meta.remove_segment(subject_branch_name);
             ws_meta.insert_new_segment_above_anchor_if_not_present(
                 subject_branch_name,
                 target_branch_name,
             );
-            ws_meta
-        } else {
-            ws_meta
         };
 
         Ok(Outcome {
@@ -178,29 +178,25 @@ fn get_disconnect_parameters(
         .base_segment_id
         .map(|segment_idx| &workspace.graph[segment_idx]);
 
-    let parents_to_disconnect = match (stack_base_segment, graph_base_segment) {
-        (Some(stack_base_segment), _) => {
-            // Base segment is part of the source stack.
-            let base_segment_ref_name = stack_base_segment
-                .ref_name()
-                .context("Base segment doesn't have a ref name.")?;
-            let reference_selector = editor.select_reference(base_segment_ref_name)?;
-            let selectors = SomeSelectors::new(vec![reference_selector])?;
-            SelectorSet::Some(selectors)
-        }
-        (None, Some(graph_base_segment)) => {
-            // Base segment is outside of workspace (probably target branch).
-            let ref_name = graph_base_segment
-                .ref_name()
-                .context("Graph base segment doesn't have a ref name.")?;
-            let reference_selector = editor.select_reference(ref_name)?;
-            let selectors = SomeSelectors::new(vec![reference_selector])?;
-            SelectorSet::Some(selectors)
-        }
-        (None, None) => {
-            // No parents could be determined. Detach all.
-            SelectorSet::All
-        }
+    let parents_to_disconnect = if let Some(stack_base_segment) = stack_base_segment {
+        // Base segment is part of the source stack.
+        let base_segment_ref_name = stack_base_segment
+            .ref_name()
+            .context("Base segment doesn't have a ref name.")?;
+        let reference_selector = editor.select_reference(base_segment_ref_name)?;
+        let selectors = SomeSelectors::new(vec![reference_selector])?;
+        SelectorSet::Some(selectors)
+    } else if let Some(graph_base_segment) = graph_base_segment {
+        // Base segment is outside of workspace (probably target branch).
+        let ref_name = graph_base_segment
+            .ref_name()
+            .context("Graph base segment doesn't have a ref name.")?;
+        let reference_selector = editor.select_reference(ref_name)?;
+        let selectors = SomeSelectors::new(vec![reference_selector])?;
+        SelectorSet::Some(selectors)
+    } else {
+        // No parents could be determined. Detach all.
+        SelectorSet::All
     };
 
     if index_of_segment == 0 {

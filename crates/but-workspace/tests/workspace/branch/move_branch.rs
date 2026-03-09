@@ -45,14 +45,13 @@ fn move_top_branch_to_top_of_another_stack() -> anyhow::Result<()> {
         but_workspace::branch::move_branch(
             &ws,
             editor,
-            &mut meta,
             "refs/heads/C".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
     // Materialize the operation
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     ws.refresh_from_head(&repo, &meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -118,14 +117,13 @@ fn move_bottom_branch_to_top_of_another_stack() -> anyhow::Result<()> {
         but_workspace::branch::move_branch(
             &ws,
             editor,
-            &mut meta,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
     // Materialize the operation
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     ws.refresh_from_head(&repo, &meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -192,14 +190,13 @@ fn move_single_branch_to_top_of_another_stack() -> anyhow::Result<()> {
         but_workspace::branch::move_branch(
             &ws,
             editor,
-            &mut meta,
             "refs/heads/A".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
 
     // Materialize the operation
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     ws.refresh_from_head(&repo, &meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -263,14 +260,13 @@ fn reorder_branch_in_stack() -> anyhow::Result<()> {
         but_workspace::branch::move_branch(
             &ws,
             editor,
-            &mut meta,
             "refs/heads/B".try_into()?,
             "refs/heads/C".try_into()?,
         )?;
 
     // Materialize the operation
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     ws.refresh_from_head(&repo, &meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @r"
@@ -337,14 +333,13 @@ fn insert_branch_in_the_middle_of_a_stack() -> anyhow::Result<()> {
         but_workspace::branch::move_branch(
             &ws,
             editor,
-            &mut meta,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
 
     // Materialize the operation
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     ws.refresh_from_head(&repo, &meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -400,14 +395,13 @@ fn move_empty_branch() -> anyhow::Result<()> {
         but_workspace::branch::move_branch(
             &ws,
             editor,
-            &mut meta,
             "refs/heads/B".try_into()?,
             "refs/heads/A".try_into()?,
         )?;
 
     // Materialize the operation
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     ws.refresh_from_head(&repo, &meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -457,15 +451,13 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
         but_workspace::branch::move_branch(
             &ws,
             editor,
-            &mut meta,
             "refs/heads/A".try_into()?,
             "refs/heads/B".try_into()?,
         )?;
 
     // Materialize the operation
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
-
+    set_workspace_metadata(&mut meta, &ws, ws_meta)?;
     ws.refresh_from_head(&repo, &meta)?;
 
     insta::assert_snapshot!(visualize_commit_graph_all(&repo)?, @"
@@ -481,5 +473,18 @@ fn move_branch_on_top_of_empty_branch() -> anyhow::Result<()> {
         │   └── ·09d8e52 (🏘️)
         └── 📙:4:B
     ");
+    Ok(())
+}
+
+fn set_workspace_metadata(
+    meta: &mut impl RefMetadata,
+    ws: &but_graph::projection::Workspace,
+    ws_meta: Option<but_core::ref_metadata::Workspace>,
+) -> anyhow::Result<()> {
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(ws.ref_name()) {
+        let mut md = meta.workspace(ref_name)?;
+        *md = ws_meta;
+        meta.set_workspace(&md)?;
+    }
     Ok(())
 }

@@ -108,16 +108,39 @@ pub fn move_branch(
     subject_branch: &gix::refs::FullNameRef,
     target_branch: &gix::refs::FullNameRef,
 ) -> anyhow::Result<()> {
-    let mut meta = ctx.meta()?;
-    let (_guard, repo, mut ws, _) = ctx.workspace_mut_and_db()?;
-    let editor = ws.graph.to_editor(&repo)?;
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::MoveBranch),
+    )
+    .ok();
 
+    let move_branch_result = move_branch_impl(ctx, subject_branch, target_branch);
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| move_branch_result.is_ok()) {
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
+    }
+    move_branch_result
+}
+
+/// Move the branch, updating the workspace and the metadata.
+fn move_branch_impl(
+    ctx: &mut but_ctx::Context,
+    subject_branch: &gix::refs::FullNameRef,
+    target_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut workspace, _) = ctx.workspace_mut_and_db()?;
+    let editor = workspace.graph.to_editor(&repo)?;
     let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
-        but_workspace::branch::move_branch(&ws, editor, &mut meta, subject_branch, target_branch)?;
+        but_workspace::branch::move_branch(&workspace, editor, subject_branch, target_branch)?;
 
     rebase.materialize()?;
-    meta.set_workspace(&ws_meta)?;
-    ws.refresh_from_head(&repo, &meta)?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {
+        let mut md = meta.workspace(ref_name)?;
+        *md = ws_meta;
+        meta.set_workspace(&md)?;
+    }
+    workspace.refresh_from_head(&repo, &meta)?;
 
     Ok(())
 }
