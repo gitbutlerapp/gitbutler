@@ -7,7 +7,7 @@ use gix::ObjectId;
 use nonempty::NonEmpty;
 
 use super::assign::branch_name_to_stack_id;
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, shorten_object_id, split_short_id};
 
 pub(crate) fn uncommitted_to_commit(
     ctx: &mut Context,
@@ -24,14 +24,18 @@ pub(crate) fn uncommitted_to_commit(
         .map(|assignment| assignment.to_owned().into())
         .collect();
 
-    let mut guard = ctx.exclusive_worktree_access();
-    let outcome = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?;
+    let outcome = {
+        let mut guard = ctx.exclusive_worktree_access();
+        amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?
+    };
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
         let new_commit = outcome
             .new_commit
             .map(|c| {
-                let s = c.to_string();
-                format!("{}{}", s[..2].blue().bold(), s[2..7].blue())
+                let short = shorten_object_id(&repo, c);
+                let (lead, rest) = split_short_id(&short, 2);
+                format!("{}{}", lead.blue().bold(), rest.blue())
             })
             .unwrap_or_default();
         writeln!(out, "Amended {description} → {new_commit}")?;
@@ -58,12 +62,15 @@ pub(crate) fn assignments_to_commit(
         .collect();
     let mut guard = ctx.exclusive_worktree_access();
     let outcome = amend_diff_specs(ctx, diff_specs, stack_id, *oid, guard.write_permission())?;
+    drop(guard);
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
         let new_commit = outcome
             .new_commit
             .map(|c| {
-                let s = c.to_string();
-                format!("{}{}", s[..2].blue().bold(), s[2..7].blue())
+                let short = shorten_object_id(&repo, c);
+                let (lead, rest) = split_short_id(&short, 2);
+                format!("{}{}", lead.blue().bold(), rest.blue())
             })
             .unwrap_or_default();
         if let Some(branch_name) = branch_name {

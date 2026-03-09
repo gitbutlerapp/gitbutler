@@ -19,7 +19,7 @@ use crate::{
     IdMap,
     args::resolve::Subcommands,
     id::CliId,
-    utils::{Confirm, ConfirmDefault, OutputChannel},
+    utils::{Confirm, ConfirmDefault, OutputChannel, shorten_object_id},
 };
 
 pub(crate) fn handle(
@@ -79,15 +79,15 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     };
 
     // Get the commit and check if it's conflicted
-    let gix_repo = ctx.repo.get()?;
-    let commit = gix_repo
+    let repo = ctx.repo.get()?;
+    let commit = repo
         .find_commit(commit_gix_oid)
         .context("Failed to find commit")?;
 
     if !commit.is_conflicted() {
+        let commit_short = shorten_object_id(&repo, commit_gix_oid);
         bail!(
-            "Commit {} is not in a conflicted state. Only conflicted commits can be resolved.",
-            &commit_gix_oid.to_string()[..7]
+            "Commit {commit_short} is not in a conflicted state. Only conflicted commits can be resolved."
         );
     }
 
@@ -102,7 +102,7 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
             // Walk the commit history to see if our commit is in this stack
             let traversal = head
                 .tip
-                .attach(&gix_repo)
+                .attach(&repo)
                 .ancestors()
                 .sorting(Sorting::BreadthFirst)
                 .all()?;
@@ -118,25 +118,24 @@ fn enter_resolution(ctx: &mut Context, out: &mut OutputChannel, commit_id_str: &
     }
 
     let stack_id = found_stack_id.ok_or_else(|| {
-        anyhow::anyhow!(
-            "Could not find stack containing commit {}",
-            &commit_gix_oid.to_string()[..7]
-        )
+        let commit_short = shorten_object_id(&repo, commit_gix_oid);
+        anyhow::anyhow!("Could not find stack containing commit {commit_short}")
     })?;
 
     drop(commit);
-    drop(gix_repo);
+    drop(repo);
 
     // Enter edit mode
     enter_edit_mode(ctx, commit_gix_oid, stack_id).context("Failed to enter edit mode")?;
 
     // Show checkout message
     if let Some(out) = out.for_human() {
+        let repo = ctx.repo.get()?;
         writeln!(
             out,
             "{} {}",
             "Checking out conflicted commit".bold(),
-            commit_gix_oid.to_string()[..7].cyan()
+            shorten_object_id(&repo, commit_gix_oid).cyan()
         )?;
     }
 
@@ -513,7 +512,7 @@ fn find_conflicted_commits(ctx: &mut Context) -> Result<BTreeMap<String, Vec<Con
 
                     let conflicted = ConflictedCommit {
                         commit_oid: oid,
-                        commit_short_id: oid.to_string()[..7].to_string(),
+                        commit_short_id: shorten_object_id(&gix_repo, oid),
                         commit_message: message,
                     };
 

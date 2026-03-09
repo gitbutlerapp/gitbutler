@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::{
     CliId, IdMap,
     args::{push, push::Command},
-    utils::OutputChannel,
+    utils::{OutputChannel, shorten_hex_object_id, shorten_object_id},
 };
 
 /// Represents the result of branch selection when no branch is specified
@@ -194,7 +194,7 @@ fn handle_dry_run(
     let vb_state = gitbutler_stack::VirtualBranchesHandle::new(ctx.project_data_dir());
     let default_target = vb_state.get_default_target()?;
     let remote = default_target.push_remote_name();
-
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
     for (branch_name, unpushed_count, stack_name) in &branches_to_show {
         // Find the stack containing this branch
         for stack_entry in &stacks {
@@ -224,7 +224,7 @@ fn handle_dry_run(
                         .take(10) // Limit to first 10 commits for display
                         .map(|c| {
                             let sha = c.id.to_string();
-                            let sha_short: String = sha.chars().take(7).collect();
+                            let sha_short = shorten_object_id(&repo, c.id);
                             let message = c
                                 .message
                                 .to_string()
@@ -247,7 +247,7 @@ fn handle_dry_run(
                         .take(10) // Limit to first 10 commits for display
                         .map(|c| {
                             let sha = c.id.to_string();
-                            let sha_short: String = sha.chars().take(7).collect();
+                            let sha_short = shorten_object_id(&repo, c.id);
                             let message = c
                                 .message
                                 .to_string()
@@ -597,13 +597,14 @@ fn push_single_branch(
     )?;
     writeln!(progress)?;
     if !result.branch_sha_updates.is_empty() {
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         for (branch, before_sha, after_sha) in &result.branch_sha_updates {
             let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                 "(new branch)".to_string()
             } else {
-                before_sha.chars().take(7).collect()
+                shorten_hex_object_id(&repo, before_sha)
             };
-            let after_str: String = after_sha.chars().take(7).collect();
+            let after_str = shorten_hex_object_id(&repo, after_sha);
 
             // Construct simple remote ref format: remote/branch
             let remote_ref = format!("{}/{}", result.remote, branch);
@@ -745,14 +746,15 @@ fn push_all_branches(
         writeln!(progress)?;
 
         // Print combined branch, remote, and SHA information for all pushed branches
+        let repo = ctx.repo.get()?.clone().for_commit_shortening();
         for result in &pushed_results {
             for (branch, before_sha, after_sha) in &result.branch_sha_updates {
                 let before_str = if before_sha == "0000000000000000000000000000000000000000" {
                     "(new branch)".to_string()
                 } else {
-                    before_sha.chars().take(7).collect()
+                    shorten_hex_object_id(&repo, before_sha)
                 };
-                let after_str: String = after_sha.chars().take(7).collect();
+                let after_str = shorten_hex_object_id(&repo, after_sha);
 
                 // Construct simple remote ref format: remote/branch
                 let remote_ref = format!("{}/{}", result.remote, branch);
@@ -1112,6 +1114,7 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
         ctx,
         Some(but_workspace::legacy::StacksFilter::InWorkspace),
     )?;
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
 
     // Find the stack containing this branch and get its details
     for stack in &stacks {
@@ -1131,7 +1134,7 @@ fn check_for_conflicted_commits(ctx: &Context, branch_name: &str) -> anyhow::Res
                         .commits
                         .iter()
                         .filter(|c| c.has_conflicts)
-                        .map(|c| c.id.to_string()[..7].to_string())
+                        .map(|c| shorten_object_id(&repo, c.id))
                         .collect();
 
                     if !conflicted_commits.is_empty() {

@@ -15,7 +15,7 @@ use crate::{
     CliId, IdMap,
     command::legacy::status::assignment::{CLIHunkAssignment, FileAssignment},
     tui,
-    utils::{InputOutputChannel, OutputChannel},
+    utils::{InputOutputChannel, OutputChannel, shorten_object_id},
 };
 
 pub(crate) fn insert_blank_commit(
@@ -54,16 +54,16 @@ pub(crate) fn insert_blank_commit(
     // Determine target commit ID and use provided insert_side
     let success_message = match cli_id {
         CliId::Commit { commit_id: oid, .. } => {
+            let short_oid = {
+                let repo = ctx.repo.get()?;
+                shorten_object_id(&repo, *oid)
+            };
             commit_insert_blank(
                 ctx,
                 but_api::commit::ui::RelativeTo::Commit(*oid),
                 insert_side,
             )?;
-            format!(
-                "Created blank commit {} commit {}",
-                position_desc,
-                &oid.to_string()[..7]
-            )
+            format!("Created blank commit {position_desc} commit {short_oid}")
         }
         CliId::Branch { name, .. } => {
             let reference = {

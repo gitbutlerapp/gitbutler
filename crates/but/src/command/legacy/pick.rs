@@ -4,7 +4,7 @@ use anyhow::{Context as _, Result, bail};
 use bstr::ByteSlice;
 use but_api::legacy::{cherry_apply, virtual_branches, workspace};
 use but_cherry_apply::CherryApplyStatus;
-use but_core::ref_metadata::StackId;
+use but_core::{RepositoryExt, ref_metadata::StackId};
 use but_ctx::Context;
 use but_oxidize::{ObjectIdExt, OidExt};
 use but_workspace::legacy::{StacksFilter, ui::StackEntry};
@@ -19,7 +19,7 @@ use gix::{revision::walk::Sorting, traverse::commit::simple::CommitTimeOrder};
 
 use crate::{
     CliId, IdMap,
-    utils::{OutputChannel, WriteWithUtils},
+    utils::{OutputChannel, WriteWithUtils, shorten_hex_object_id, shorten_object_id},
 };
 
 /// Handle the `but pick` command.
@@ -84,8 +84,9 @@ pub fn handle(
     }
 
     // Output results
+    let repo = ctx.repo.get()?.clone().for_commit_shortening();
     for (commit_hex, target_branch_name, _) in &picked {
-        let commit_short = &commit_hex[..7.min(commit_hex.len())];
+        let commit_short = shorten_hex_object_id(&repo, commit_hex);
         if let Some(out) = out.for_human() {
             writeln!(
                 out,
@@ -257,8 +258,8 @@ fn select_commits_from_branch(
     let options: Vec<String> = commits
         .iter()
         .enumerate()
-        .map(|(i, (_oid, c))| {
-            let short_id = &c.id().to_string()[..7];
+        .map(|(i, (oid, c))| {
+            let short_id = shorten_object_id(&gix_repo, *oid);
             let message = c.summary().unwrap_or("(no message)");
             let display = out.truncate_if_unpaged(message, 60);
             format!("[{}] {} {}", i + 1, short_id, display)
@@ -311,10 +312,11 @@ fn resolve_target_stack(
             bail!("No applied stacks in workspace. Apply a branch first with 'but branch apply'.");
         }
         CherryApplyStatus::CausesWorkspaceConflict => {
+            let repo = ctx.repo.get()?;
+            let commit_short = shorten_hex_object_id(&repo, commit_hex);
             bail!(
-                "Commit {} would cause conflicts with multiple stacks. \
-                 Resolve workspace conflicts first.",
-                &commit_hex[..7.min(commit_hex.len())]
+                "Commit {commit_short} would cause conflicts with multiple stacks. \
+                 Resolve workspace conflicts first."
             );
         }
         CherryApplyStatus::LockedToStack(locked_stack_id) => {

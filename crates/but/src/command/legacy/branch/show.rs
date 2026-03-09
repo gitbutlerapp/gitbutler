@@ -4,7 +4,7 @@ use but_oxidize::{ObjectIdExt, OidExt};
 use colored::Colorize;
 use tracing::instrument;
 
-use crate::utils::OutputChannel;
+use crate::utils::{OutputChannel, shorten_object_id};
 
 #[allow(clippy::too_many_arguments)]
 pub fn show(
@@ -238,7 +238,7 @@ fn get_merge_conflict_paths(
 
 fn find_commits_modifying_file(
     git2_repo: &git2::Repository,
-    gix_repo: &gix::Repository,
+    repo: &gix::Repository,
     path: &str,
     from_commit: gix::ObjectId,
     to_commit: gix::ObjectId,
@@ -246,7 +246,7 @@ fn find_commits_modifying_file(
     use gix::prelude::ObjectIdExt as _;
 
     let traversal = to_commit
-        .attach(gix_repo)
+        .attach(repo)
         .ancestors()
         .with_hidden(Some(from_commit))
         .all()?;
@@ -289,7 +289,7 @@ fn find_commits_modifying_file(
             let author = commit.author();
             commits.push(CommitRef {
                 sha: oid.to_string(),
-                short_sha: oid.to_string()[..7].to_string(),
+                short_sha: shorten_object_id(repo, info.id),
                 message: commit
                     .message()
                     .unwrap_or("(no message)")
@@ -430,7 +430,7 @@ fn get_commits_ahead(
 
         commits.push(CommitInfo {
             sha: oid.to_string(),
-            short_sha: oid.to_string()[..7].to_string(),
+            short_sha: shorten_object_id(&gix_repo, info.id),
             message: commit
                 .message()
                 .unwrap_or("(no message)")
