@@ -1,6 +1,6 @@
 /**
  * Auto-generated icon name list from `src/lib/icons/svg/*.svg`.
- * Run `pnpm optimize-icons` to regenerate.
+ * Run `pnpm optimize-ui-icons` to regenerate.
  */
 export const iconNames = [
 	"agent",
@@ -63,10 +63,10 @@ export const iconNames = [
 	"commit-arrow-left",
 	"commit-arrow-right",
 	"commit-arrow-top",
-	"commit-double-cehvron-down",
-	"commit-double-cehvron-left",
-	"commit-double-cehvron-right",
-	"commit-double-cehvron-top",
+	"commit-double-chevron-down",
+	"commit-double-chevron-left",
+	"commit-double-chevron-right",
+	"commit-double-chevron-top",
 	"commit-edit",
 	"commit-plus",
 	"commit-remove",
