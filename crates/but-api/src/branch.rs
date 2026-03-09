@@ -1,7 +1,8 @@
 use but_api_macros::but_api;
-use but_core::{ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
+use but_core::{RefMetadata, ui::TreeChanges, worktree::checkout::UncommitedWorktreeChanges};
 use but_ctx::Context;
 use but_oplog::legacy::{OperationKind, SnapshotDetails, Trailer};
+use but_rebase::graph_rebase::GraphExt;
 use but_workspace::branch::{
     OnWorkspaceMergeConflict,
     apply::{WorkspaceMerge, WorkspaceReferenceNaming},
@@ -97,4 +98,49 @@ pub fn branch_diff(ctx: &Context, branch: String) -> anyhow::Result<TreeChanges>
     let (_guard, repo, ws, _) = ctx.workspace_and_db()?;
     let branch = repo.find_reference(&branch)?;
     but_workspace::ui::diff::changes_in_branch(&repo, &ws, branch.name())
+}
+
+/// Move a branch on top of another
+#[but_api]
+#[instrument(err(Debug))]
+pub fn move_branch(
+    ctx: &mut but_ctx::Context,
+    subject_branch: &gix::refs::FullNameRef,
+    target_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    let maybe_oplog_entry = but_oplog::UnmaterializedOplogSnapshot::from_details(
+        ctx,
+        SnapshotDetails::new(OperationKind::MoveBranch),
+    )
+    .ok();
+
+    let move_branch_result = move_branch_impl(ctx, subject_branch, target_branch);
+    if let Some(snapshot) = maybe_oplog_entry.filter(|_| move_branch_result.is_ok()) {
+        let mut guard = ctx.exclusive_worktree_access();
+        snapshot.commit(ctx, guard.write_permission()).ok();
+    }
+    move_branch_result
+}
+
+/// Move the branch, updating the workspace and the metadata.
+fn move_branch_impl(
+    ctx: &mut but_ctx::Context,
+    subject_branch: &gix::refs::FullNameRef,
+    target_branch: &gix::refs::FullNameRef,
+) -> anyhow::Result<()> {
+    let mut meta = ctx.meta()?;
+    let (_guard, repo, mut workspace, _) = ctx.workspace_mut_and_db()?;
+    let editor = workspace.graph.to_editor(&repo)?;
+    let but_workspace::branch::move_branch::Outcome { rebase, ws_meta } =
+        but_workspace::branch::move_branch(&workspace, editor, subject_branch, target_branch)?;
+
+    rebase.materialize()?;
+    if let Some((ws_meta, ref_name)) = ws_meta.zip(workspace.ref_name()) {
+        let mut md = meta.workspace(ref_name)?;
+        *md = ws_meta;
+        meta.set_workspace(&md)?;
+    }
+    workspace.refresh_from_head(&repo, &meta)?;
+
+    Ok(())
 }

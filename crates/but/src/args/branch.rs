@@ -119,6 +119,20 @@ pub enum Subcommands {
         #[clap(long)]
         check: bool,
     },
+    /// Move a branch on top of another branch, effectively stacking them.
+    ///
+    /// This allows you to e.g. create a stack out of two branches.
+    ///
+    /// Just specify the branch to move (or take out of a stack) and insert it into another stack,
+    /// on top of another branch.
+    Move {
+        /// The name or CLI ID of the branch to move
+        #[clap(value_name = "BRANCH")]
+        branch: String,
+        /// The name or CLI ID of the branch to move the branch on top of
+        #[clap(value_name = "TARGET_BRANCH")]
+        target_branch: String,
+    },
     /// Apply a branch to the workspace (non-legacy path)
     ///
     /// If you want to apply an unapplied branch to your workspace so you

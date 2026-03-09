@@ -73,6 +73,7 @@ impl Subcommands {
             Subcommands::Pull { .. } => Pull,
             #[cfg(feature = "legacy")]
             Subcommands::Fetch => Pull,
+            Subcommands::Stack { .. } => BranchMove,
             Subcommands::Branch(branch::Platform { cmd }) => match cmd {
                 None => BranchList,
                 #[cfg(feature = "legacy")]
@@ -83,6 +84,7 @@ impl Subcommands {
                 Some(branch::Subcommands::Delete { .. }) => BranchDelete,
                 #[cfg(feature = "legacy")]
                 Some(branch::Subcommands::Show { .. }) => BranchShow,
+                Some(branch::Subcommands::Move { .. }) => BranchMove,
                 #[cfg(not(feature = "legacy"))]
                 Some(branch::Subcommands::Apply { .. }) => BranchApply,
             },

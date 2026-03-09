@@ -463,8 +463,10 @@ pub async fn run() {
             post(json_response(legacy::virtual_branches::move_commit_cmd)),
         )
         .route(
-            "/move_branch",
-            post(json_response(legacy::virtual_branches::move_branch_cmd)),
+            "/move_branch_legacy",
+            post(json_response(
+                legacy::virtual_branches::move_branch_legacy_cmd,
+            )),
         )
         .route(
             "/tear_off_branch",
