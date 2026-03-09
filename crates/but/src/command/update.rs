@@ -1,5 +1,5 @@
 use anyhow::Result;
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "packaged-but-distribution")))]
 use but_installer::VersionRequest;
 use but_settings::AppSettings;
 use but_update::{AppName, CheckUpdateStatus, check_status};
@@ -15,7 +15,7 @@ pub fn handle(
     match cmd {
         update::Subcommands::Check => check_for_updates(out, app_settings),
         update::Subcommands::Suppress { days } => suppress_updates(out, days),
-        #[cfg(unix)]
+        #[cfg(all(unix, not(feature = "packaged-but-distribution")))]
         update::Subcommands::Install { target } => install(out, target),
     }
 }
@@ -55,13 +55,26 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
         )?;
     } else {
         let current_version = option_env!("VERSION").unwrap_or("0.0.0");
+
+        let install_hint = {
+            #[cfg(feature = "packaged-but-distribution")]
+            {
+                "Install it with your package manager"
+            }
+            #[cfg(not(feature = "packaged-but-distribution"))]
+            {
+                "Install it with 'but update install'"
+            }
+        };
+
         writeln!(
             writer,
-            "{} A new version is available: {} {} {}. Install it with 'but update install'",
+            "{} A new version is available: {} {} {}. {}",
             "→".yellow().bold(),
             current_version.dimmed(),
             "→".dimmed(),
-            status.latest_version.green().bold()
+            status.latest_version.green().bold(),
+            install_hint,
         )?;
 
         if let Some(notes) = &status.release_notes {
@@ -72,6 +85,8 @@ fn print_human_output(writer: &mut dyn std::fmt::Write, status: &CheckUpdateStat
             }
         }
 
+        // currently always shows the AppImage URL on Linux, which is rarely what you want
+        #[cfg(not(target_os = "linux"))]
         if let Some(url) = &status.url {
             writeln!(writer)?;
             writeln!(writer, "Download: {}", url.cyan())?;
@@ -109,7 +124,7 @@ fn suppress_updates(out: &mut OutputChannel, days: u32) -> Result<()> {
     Ok(())
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(feature = "packaged-but-distribution")))]
 fn install(out: &mut OutputChannel, target: Option<String>) -> Result<()> {
     // Installation requires interactive output and cannot be used with JSON mode
     // because the installer writes directly to stdout/stderr
