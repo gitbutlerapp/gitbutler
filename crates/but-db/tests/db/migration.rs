@@ -86,6 +86,12 @@ mod run {
 
             let count = migration::run(&mut db2, migrations)?;
             assert_eq!(count, 0, "It reads first which doesn't run into the lock");
+
+            let count = migration::run(&mut db2, [migrations[0]])?;
+            assert_eq!(
+                count, 0,
+                "older compatible migration lists also stay read-only despite extra migration rows in the DB"
+            );
         }
 
         insta::assert_snapshot!(dump_schema(&db1)?, @"
@@ -288,6 +294,35 @@ mod run {
             bumped_version,
             SchemaVersion::One as u32,
             "schema version is still bumped when the migration list is otherwise up-to-date"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn schema_version_bumps_even_if_database_has_extra_migrations() -> anyhow::Result<()> {
+        let mut db = rusqlite::Connection::open_in_memory()?;
+        let first_sql = "CREATE TABLE T1 ( first TEXT PRIMARY KEY );";
+        let compatible = [
+            M::up(0, ZERO, first_sql),
+            M::up(1, ZERO, "CREATE TABLE T2 ( first TEXT PRIMARY KEY );"),
+        ];
+        migration::run(&mut db, compatible)?;
+
+        let initial_version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        assert_eq!(initial_version, ZERO as u32);
+
+        let forward_incompatible = [M::up(0, SchemaVersion::One, first_sql)];
+        let count = migration::run(&mut db, forward_incompatible)?;
+        assert_eq!(
+            count, 0,
+            "no SQL migration reruns when only the schema version changes and the DB already has extra compatible migrations"
+        );
+
+        let bumped_version: u32 = db.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        assert_eq!(
+            bumped_version,
+            SchemaVersion::One as u32,
+            "schema version is still bumped when the DB contains additional compatible migrations"
         );
         Ok(())
     }

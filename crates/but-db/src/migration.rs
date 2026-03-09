@@ -60,30 +60,10 @@ pub fn run<'m>(
     }
 
     // Bail early if our read detects that nothing is to be done
-    let maybe_num_applied_versions = num_applied_versions(&trans, &migrations).ok();
-    if let Some(count) = maybe_num_applied_versions
-        && count == migrations.len()
-        && db_schema_version == application_schema_version
-    {
-        return Ok(0);
-    }
-
-    let db_schema_version = db_forward_compatibility_version(&trans)?;
-    if db_schema_version > application_schema_version {
-        return Err(backoff::Error::permanent(
-            rusqlite::Error::ToSqlConversionFailure(
-                format!(
-                    "Database forward-compatibility version is {db_schema_version}, but this binary only supports up to {application_schema_version}"
-                )
-                .into(),
-            ),
-        ));
-    }
     let should_bump_forward_compatibility_version = db_schema_version != application_schema_version;
-
     let maybe_num_applied_versions = num_applied_versions(&trans, &migrations).ok();
     if let Some(count) = maybe_num_applied_versions
-        && count == migrations.len()
+        && count >= migrations.len()
     {
         if should_bump_forward_compatibility_version {
             set_db_forward_compatibility_version(&trans, application_schema_version)?;
