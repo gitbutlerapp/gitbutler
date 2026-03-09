@@ -175,7 +175,9 @@
 		class:top-padding={topPadding}
 		bind:this={viewport}
 	>
-		{#if diff === null}
+		{#if $userSettings.svgAsImage && change.path.toLowerCase().endsWith(".svg")}
+			<ImageDiff {projectId} {change} {commitId} />
+		{:else if diff === null}
 			<div class="hunk-placehoder">
 				<EmptyStatePlaceholder image={binarySvg} gap={12} topBottomPadding={34}>
 					{#snippet caption()}
