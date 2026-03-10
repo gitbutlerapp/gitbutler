@@ -34,7 +34,10 @@ export declare function commitUncommitChangesNapi(projectId: string, commitId: s
 export declare function headInfoNapi(projectId: string): Promise<RefInfo>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
-export declare function listProjectsNapi(openedProjects: Array<ProjectId>): Promise<Array<ProjectForFrontend>>
+export declare function listBranchesNapi(projectId: string, filter: BranchListingFilter | null): Promise<Array<BranchListing>>
+
+/** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
+export declare function listProjectsNapi(openedProjects: Array<ProjectHandleOrLegacyProjectId>): Promise<Array<ProjectForFrontend>>
 
 /** r" napi function - strongly typed params, serde_json::Value output, automatic error conversion. */
 export declare function treeChangeDiffsNapi(projectId: string, change: TreeChange): Promise<UnifiedPatch | null>
@@ -48,6 +51,48 @@ export type AssignmentRejection = {
   request: HunkAssignmentRequest;
   /** The locks that caused the rejection. */
   locks: Array<HunkLock>;
+};
+
+/**
+ * Represents a branch that exists for the repository
+ * This also combines the concept of a remote, local and virtual branch in order to provide a unified interface for the UI
+ * Branch entry is not meant to contain all the data a branch can have (e.g. full commit history, all files and diffs, etc.).
+ * It is intended a summary that can be quickly retrieved and displayed in the UI.
+ * For more detailed information, each branch can be queried individually for it's `BranchData`.
+ */
+export type BranchListing = {
+  /** The `identity` of the branch (e.g. `main`, `feature/branch`), excluding the remote name. */
+  name: BranchIdentity;
+  /**
+   * This is a list of remotes that this branch can be found on (e.g. `origin`, `upstream` etc.),
+   * by collecting remotes from all local branches with the same identity that have a tracking setup.
+   */
+  remotes: Array<string>;
+  /** The branch may or may not have a virtual branch associated with it. */
+  stack?: StackReference | null;
+  /**
+   * Timestamp in milliseconds since the branch was last updated.
+   * This includes any commits, uncommitted changes or even updates to the branch metadata (e.g. renaming).
+   */
+  updatedAt: number;
+  /** The person who committed the head commit. */
+  lastCommiter: BranchAuthor;
+  /** Whether there is a local branch under the name. */
+  hasLocal: boolean;
+};
+
+/** A filter that can be applied to the branch listing */
+export type BranchListingFilter = {
+  /**
+   * If the value is true, the listing will only include branches that have local references or virtual branches.
+   * If the value is false, the listing will include only branches that have local references or virtual branches.
+   */
+  local?: boolean | null;
+  /**
+   * If the value is true, the listing will only include branches that are applied in the workspace.
+   * If the value is false, the listing will only include branches that are not applied in the workspace.
+   */
+  applied?: boolean | null;
 };
 
 /** A reference in `refs/heads`. */
@@ -155,6 +200,8 @@ export type ProjectForFrontend = {
   /** Tell if the project is known to be open in a Window in the frontend. */
   is_open: boolean;
 };
+
+export type ProjectHandleOrLegacyProjectId = string;
 
 export type ProjectId = string;
 
@@ -401,7 +448,7 @@ export type UICommitRewordResult = {
   replacedCommits: Record<string, string>;
 };
 
-/** UI type for a move changes between commits result */
+/** UI type for a move changes between commits result. */
 export type UIMoveChangesResult = {
   /**
    * Commits that have been mapped from one thing to another.
@@ -492,6 +539,15 @@ export type Branch = {
   review: Review;
 };
 
+/** Represents a "commit author" or "signature", based on the data from the git history */
+export type BranchAuthor = {
+  /** The name of the author as configured in the git config */
+  name?: string | null;
+  /** The email of the author as configured in the git config */
+  email?: string | null;
+  gravatarUrl?: string | null;
+};
+
 /** Information about the current state of a branch. */
 export type BranchDetails = {
   /** The name of the branch. This is the "given name" IE, just `foo` out of `refs/heads/foo` */
@@ -535,6 +591,18 @@ export type BranchDetails = {
   /** Whether it's representing a remote head */
   isRemoteHead: boolean;
 };
+
+/**
+ * The identity of a branch as to allow to group similar branches together.
+ *
+ * * For *local* branches, it is what's left without the standard prefix, like `refs/heads`, e.g. `main`
+ *   for `refs/heads/main` or `feat/one` for `refs/heads/feat/one`.
+ * * For *remote* branches, it is what's without the prefix and remote name, like `main` for `refs/remotes/origin/main`.
+ *   or `feat/one` for `refs/remotes/my/special/remote/feat/one`.
+ * * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
+ *   name of the virtual branch.
+ */
+export type BranchIdentity = string;
 
 /** An error that can say what went wrong when computing the hunk ranges for a commit in a stack at a given path. */
 export type CalculationError = {
@@ -841,6 +909,23 @@ export type StackHeadInfo = {
    * This is `false` if the worktree is checked out.
    */
   isCheckedOut: boolean;
+};
+
+/** Represents a reference to an associated virtual branch */
+export type StackReference = {
+  /** A non-normalized name of the branch, set by the user */
+  givenName: string;
+  /** Virtual Branch UUID identifier */
+  id: Id_S;
+  /** Determines if the virtual branch is applied in the workspace */
+  inWorkspace: boolean;
+  /**
+   * List of branches that are part of the stack
+   * Ordered from newest to oldest (the most recent branch is first in the list)
+   */
+  branches: Array<string>;
+  /** Pull Request numbers by branch name associated with the stack */
+  pullRequests: Record<string, number>;
 };
 
 export type SystemTime = {

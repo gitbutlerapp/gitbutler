@@ -314,7 +314,7 @@ pub fn reorder_stack(
     Ok(())
 }
 
-#[but_api]
+#[but_api(napi)]
 #[instrument(err(Debug))]
 pub fn list_branches(
     ctx: &Context,
