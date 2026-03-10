@@ -91,15 +91,6 @@ pub(crate) async fn worktree(
         return show_edit_mode_status(ctx, out);
     }
 
-    // Check for available updates and display if present
-    if let Some(out) = out.for_human() {
-        let cache = ctx.app_cache.get_cache()?;
-        if let Ok(Some(update)) = but_update::available_update(&cache) {
-            writeln!(out, "{}", update.display_cli(verbose, out.is_paged()))?;
-            writeln!(out)?;
-        }
-    }
-
     // Process rules with exclusive access to create repo and workspace
     let head_info = {
         let mut guard = ctx.exclusive_worktree_access();
@@ -282,6 +273,8 @@ pub(crate) async fn worktree(
             .unwrap_or_default()
     };
 
+    print_update_notice(ctx, out, verbose)?;
+
     print_status(
         ctx,
         out,
@@ -315,6 +308,21 @@ pub(crate) async fn worktree(
         has_branches,
         &worktree_changes.worktree_changes.changes,
     )?;
+
+    Ok(())
+}
+
+/// Print update information for human output when a newer `but` version is available.
+fn print_update_notice(
+    ctx: &mut Context,
+    out: &mut dyn WriteWithUtils,
+    verbose: bool,
+) -> anyhow::Result<()> {
+    let cache = ctx.app_cache.get_cache()?;
+    if let Ok(Some(update)) = but_update::available_update(&cache) {
+        writeln!(out, "{}", update.display_cli(verbose, out.is_paged()))?;
+        writeln!(out)?;
+    }
 
     Ok(())
 }
