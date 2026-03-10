@@ -71,6 +71,24 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
     opts
 }
 
+/// Run `git` in `dir`, returning trimmed stdout on success.
+pub fn run_git_at_dir(dir: impl AsRef<std::path::Path>, args: &[&str]) -> anyhow::Result<String> {
+    let output = std::process::Command::new("git")
+        .args(args)
+        .current_dir(dir.as_ref())
+        .output()?;
+    if !output.status.success() {
+        anyhow::bail!(
+            "git command failed in {}: git {}\nstderr: {}",
+            dir.as_ref().display(),
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
 pub mod writable {
     use but_ctx::Context;
     use but_settings::AppSettings;

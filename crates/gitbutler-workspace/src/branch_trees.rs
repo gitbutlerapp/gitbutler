@@ -9,9 +9,8 @@ use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::VirtualBranchesHandle;
 
 use crate::{
-    submodules::remove_untracked_excluding_submodule_paths,
-    workspace_base,
-    workspace_base_from_heads,
+    submodules::{configured_submodule_paths, remove_untracked_excluding_submodule_paths},
+    workspace_base, workspace_base_from_heads,
 };
 
 /// A snapshot of the workspace at a point in time.
@@ -105,6 +104,7 @@ pub fn update_uncommitted_changes_with_tree(
     if let Some(worktree_id) = old_uncommitted_changes {
         let mut new_uncommitted_changes =
             move_tree_between_workspaces(repo, worktree_id, old, new)?;
+        let submodule_paths = configured_submodule_paths(repo);
 
         // If the new tree and old tree are the same, then we don't need to do anything
         if !new_uncommitted_changes.has_conflicts() && !always_checkout.unwrap_or(false) {
@@ -116,9 +116,14 @@ pub fn update_uncommitted_changes_with_tree(
 
         let mut checkout = git2::build::CheckoutBuilder::new();
         checkout.force().conflict_style_diff3(true);
+        if submodule_paths.is_empty() {
+            checkout.remove_untracked(true);
+        }
 
         repo.checkout_index(Some(&mut new_uncommitted_changes), Some(&mut checkout))?;
-        remove_untracked_excluding_submodule_paths(repo)?;
+        if !submodule_paths.is_empty() {
+            remove_untracked_excluding_submodule_paths(repo)?;
+        }
     } else {
         let old_tree_id = merge_workspace(repo, old)?.to_gix();
         let new_tree_id = merge_workspace(repo, new)?.to_gix();

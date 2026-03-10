@@ -6,25 +6,11 @@ use gitbutler_edit_mode::commands::{
 };
 use gitbutler_operating_modes::{EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF};
 use gitbutler_stack::VirtualBranchesHandle;
-use std::process::Command;
+use gitbutler_testsupport::run_git_at_dir;
 use tempfile::TempDir;
 
 fn command_ctx(folder: &str) -> Result<(Context, TempDir)> {
     gitbutler_testsupport::writable::fixture("edit_mode.sh", folder)
-}
-
-fn run_git(cwd: &std::path::Path, args: &[&str]) -> Result<String> {
-    let output = Command::new("git").args(args).current_dir(cwd).output()?;
-    if !output.status.success() {
-        anyhow::bail!(
-            "git command failed in {}: git {}\nstderr: {}",
-            cwd.display(),
-            args.join(" "),
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 // Fixture:
@@ -128,7 +114,8 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
 
 #[test]
 fn save_and_return_to_workspace_preserves_submodule_worktree() -> Result<()> {
-    let (mut ctx, _tempdir) = command_ctx("save_and_return_to_workspace_preserves_submodule_worktree")?;
+    let (mut ctx, _tempdir) =
+        command_ctx("save_and_return_to_workspace_preserves_submodule_worktree")?;
     let (foobar, worktree_dir) = {
         let repo = ctx.git2_repo.get()?;
         let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
@@ -160,7 +147,8 @@ fn save_and_return_to_workspace_preserves_submodule_worktree() -> Result<()> {
 
 #[test]
 fn abort_preserves_preexisting_dirty_and_diverged_submodule_state() -> Result<()> {
-    let (mut ctx, _tempdir) = command_ctx("save_and_return_to_workspace_preserves_submodule_worktree")?;
+    let (mut ctx, _tempdir) =
+        command_ctx("save_and_return_to_workspace_preserves_submodule_worktree")?;
     let (foobar, worktree_dir) = {
         let repo = ctx.git2_repo.get()?;
         let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
@@ -168,24 +156,23 @@ fn abort_preserves_preexisting_dirty_and_diverged_submodule_state() -> Result<()
     };
     let submodule_dir = worktree_dir.join("submodules/test-module");
 
-    run_git(
-        &submodule_dir,
-        &["config", "user.name", "Submodule Author"],
-    )?;
-    run_git(
+    run_git_at_dir(&submodule_dir, &["config", "user.name", "Submodule Author"])?;
+    run_git_at_dir(
         &submodule_dir,
         &["config", "user.email", "submodule@example.com"],
     )?;
     std::fs::write(submodule_dir.join("diverged.txt"), "diverged commit\n")?;
-    run_git(&submodule_dir, &["add", "diverged.txt"])?;
-    run_git(&submodule_dir, &["commit", "-m", "local diverged commit"])?;
+    run_git_at_dir(&submodule_dir, &["add", "diverged.txt"])?;
+    run_git_at_dir(&submodule_dir, &["commit", "-m", "local diverged commit"])?;
 
     std::fs::write(submodule_dir.join("dirty.txt"), "dirty worktree change\n")?;
 
-    let baseline_submodule_head = run_git(&submodule_dir, &["rev-parse", "HEAD"])?;
-    let baseline_submodule_status = run_git(&submodule_dir, &["status", "--porcelain"])?;
-    let baseline_superproject_submodule_status =
-        run_git(&worktree_dir, &["status", "--porcelain", "submodules/test-module"])?;
+    let baseline_submodule_head = run_git_at_dir(&submodule_dir, &["rev-parse", "HEAD"])?;
+    let baseline_submodule_status = run_git_at_dir(&submodule_dir, &["status", "--porcelain"])?;
+    let baseline_superproject_submodule_status = run_git_at_dir(
+        &worktree_dir,
+        &["status", "--porcelain", "submodules/test-module"],
+    )?;
 
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
     let stacks = vb_state.list_stacks_in_workspace()?;
@@ -194,10 +181,12 @@ fn abort_preserves_preexisting_dirty_and_diverged_submodule_state() -> Result<()
     enter_edit_mode(&mut ctx, foobar, stack.id)?;
     abort_and_return_to_workspace(&mut ctx, true)?;
 
-    let final_submodule_head = run_git(&submodule_dir, &["rev-parse", "HEAD"])?;
-    let final_submodule_status = run_git(&submodule_dir, &["status", "--porcelain"])?;
-    let final_superproject_submodule_status =
-        run_git(&worktree_dir, &["status", "--porcelain", "submodules/test-module"])?;
+    let final_submodule_head = run_git_at_dir(&submodule_dir, &["rev-parse", "HEAD"])?;
+    let final_submodule_status = run_git_at_dir(&submodule_dir, &["status", "--porcelain"])?;
+    let final_superproject_submodule_status = run_git_at_dir(
+        &worktree_dir,
+        &["status", "--porcelain", "submodules/test-module"],
+    )?;
 
     assert_eq!(
         final_submodule_head, baseline_submodule_head,
@@ -217,7 +206,8 @@ fn abort_preserves_preexisting_dirty_and_diverged_submodule_state() -> Result<()
 
 #[test]
 fn abort_requires_force_warns_about_submodule_and_gitlink_reversion() -> Result<()> {
-    let (mut ctx, _tempdir) = command_ctx("save_and_return_to_workspace_preserves_submodule_worktree")?;
+    let (mut ctx, _tempdir) =
+        command_ctx("save_and_return_to_workspace_preserves_submodule_worktree")?;
     let (foobar, worktree_dir) = {
         let repo = ctx.git2_repo.get()?;
         let foobar = repo.head()?.peel_to_commit()?.parent(0)?.id();
@@ -231,11 +221,8 @@ fn abort_requires_force_warns_about_submodule_and_gitlink_reversion() -> Result<
 
     enter_edit_mode(&mut ctx, foobar, stack.id)?;
 
-    run_git(
-        &submodule_dir,
-        &["config", "user.name", "Submodule Author"],
-    )?;
-    run_git(
+    run_git_at_dir(&submodule_dir, &["config", "user.name", "Submodule Author"])?;
+    run_git_at_dir(
         &submodule_dir,
         &["config", "user.email", "submodule@example.com"],
     )?;
@@ -243,11 +230,17 @@ fn abort_requires_force_warns_about_submodule_and_gitlink_reversion() -> Result<
         submodule_dir.join("during-edit-mode-gitlink-change.txt"),
         "changed during edit mode\n",
     )?;
-    run_git(&submodule_dir, &["add", "during-edit-mode-gitlink-change.txt"])?;
-    run_git(&submodule_dir, &["commit", "-m", "gitlink change during edit mode"])?;
+    run_git_at_dir(
+        &submodule_dir,
+        &["add", "during-edit-mode-gitlink-change.txt"],
+    )?;
+    run_git_at_dir(
+        &submodule_dir,
+        &["commit", "-m", "gitlink change during edit mode"],
+    )?;
 
     // Stage the submodule entry so superproject tree diff includes the gitlink change.
-    run_git(&worktree_dir, &["add", "submodules/test-module"])?;
+    run_git_at_dir(&worktree_dir, &["add", "submodules/test-module"])?;
 
     let result = abort_and_return_to_workspace(&mut ctx, false);
     assert!(result.is_err());
@@ -263,4 +256,3 @@ fn abort_requires_force_warns_about_submodule_and_gitlink_reversion() -> Result<
 
     Ok(())
 }
-

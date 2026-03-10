@@ -22,9 +22,7 @@ use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_workspace::{
     branch_trees::{WorkspaceState, update_uncommitted_changes_with_tree},
     submodules::{
-        configured_submodule_paths,
-        has_submodules_configured,
-        is_submodule_related_path,
+        configured_submodule_paths, is_submodule_related_path,
         remove_untracked_excluding_submodule_paths,
     },
 };
@@ -188,12 +186,8 @@ fn collect_checkout_paths(
 
 fn checkout_edit_branch(ctx: &Context, commit: git2::Commit) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
-    let has_submodules = has_submodules_configured(repo);
-    let submodule_paths = if has_submodules {
-        configured_submodule_paths(repo)
-    } else {
-        Vec::new()
-    };
+    let submodule_paths = configured_submodule_paths(repo);
+    let preserve_submodule_worktrees = !submodule_paths.is_empty();
     let result = (|| -> Result<()> {
         let current_head_tree = repo.head()?.peel_to_tree()?;
 
@@ -211,36 +205,40 @@ fn checkout_edit_branch(ctx: &Context, commit: git2::Commit) -> Result<()> {
         repo.set_head(EDIT_BRANCH_REF)?;
         let mut checkout_head = CheckoutBuilder::new();
         checkout_head.force();
-        if has_submodules {
+        if preserve_submodule_worktrees {
             for path in &checkout_head_paths {
                 checkout_head.path(path);
             }
+        } else {
+            checkout_head.remove_untracked(true);
         }
-        if !has_submodules || !checkout_head_paths.is_empty() {
+        if !preserve_submodule_worktrees || !checkout_head_paths.is_empty() {
             repo.checkout_head(Some(&mut checkout_head))?;
-            remove_untracked_excluding_submodule_paths(repo)?;
+            if preserve_submodule_worktrees {
+                remove_untracked_excluding_submodule_paths(repo)?;
+            }
         }
 
         // Checkout the commit as unstaged changes
         let mut index = get_commit_index(ctx, &commit)?;
         let commit_tree = commit.tree()?;
-        let checkout_index_paths = collect_checkout_paths(
-            repo,
-            &commit_parent_tree,
-            &commit_tree,
-            &submodule_paths,
-        )?;
+        let checkout_index_paths =
+            collect_checkout_paths(repo, &commit_parent_tree, &commit_tree, &submodule_paths)?;
         let mut checkout_index = CheckoutBuilder::new();
         checkout_index.force().conflict_style_diff3(true);
-        if has_submodules {
+        if preserve_submodule_worktrees {
             for path in &checkout_index_paths {
                 checkout_index.path(path);
             }
+        } else {
+            checkout_index.remove_untracked(true);
         }
 
-        if !has_submodules || !checkout_index_paths.is_empty() {
+        if !preserve_submodule_worktrees || !checkout_index_paths.is_empty() {
             repo.checkout_index(Some(&mut index), Some(&mut checkout_index))?;
-            remove_untracked_excluding_submodule_paths(repo)?;
+            if preserve_submodule_worktrees {
+                remove_untracked_excluding_submodule_paths(repo)?;
+            }
         }
 
         Ok(())
@@ -276,12 +274,13 @@ pub(crate) fn abort_and_return_to_workspace(
     perm: &mut RepoExclusive,
 ) -> Result<()> {
     let repo = &*ctx.git2_repo.get()?;
+    let submodule_paths = configured_submodule_paths(repo);
+    let preserve_submodule_worktrees = !submodule_paths.is_empty();
     let changes = changes_from_initial(ctx, perm.read_permission())?;
     if !force && !changes.is_empty() {
-        let submodule_paths = configured_submodule_paths(repo);
-        let has_submodule_or_gitlink_changes = changes.iter().any(|change| {
-            is_submodule_related_path(&change.path.to_str_lossy(), &submodule_paths)
-        });
+        let has_submodule_or_gitlink_changes = changes
+            .iter()
+            .any(|change| is_submodule_related_path(&change.path.to_str_lossy(), &submodule_paths));
 
         if has_submodule_or_gitlink_changes {
             bail!(
@@ -303,10 +302,15 @@ pub(crate) fn abort_and_return_to_workspace(
 
     let mut checkout_tree = CheckoutBuilder::new();
     checkout_tree.force();
+    if !preserve_submodule_worktrees {
+        checkout_tree.remove_untracked(true);
+    }
     repo.checkout_tree(uncommited_changes.as_object(), Some(&mut checkout_tree))?;
-    remove_untracked_excluding_submodule_paths(repo)?;
+    if preserve_submodule_worktrees {
+        remove_untracked_excluding_submodule_paths(repo)?;
+    }
 
-    // Keep index in sync with HEAD after forceful checkout + cleanup.
+    // Keep index in sync with HEAD after the forceful checkout.
     let mut index = repo.index()?;
     index.read_tree(&repo.head()?.peel_to_tree()?)?;
     index.write()?;
