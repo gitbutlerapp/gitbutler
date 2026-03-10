@@ -31,6 +31,8 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
         use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
         use schemars::schema_for;
 
+        use crate::branch::json::ApplyOutcome;
+
         // Register types that have JsonSchema derives. Add more entries here as derives
         // are added across the codebase.
         let mut schemas: Vec<_> = [
@@ -162,6 +164,10 @@ pub fn collect_all_schemas() -> Vec<(&'static str, schemars::Schema)> {
                 name: "BranchListing",
                 schema_fn: || schema_for!(BranchListing)
             },
+            TypeSchemaEntry {
+                name: "ApplyOutcome",
+                schema_fn: || schema_for!(ApplyOutcome)
+            }
         ]
         .into_iter()
         .map(|entry| (entry.name, (entry.schema_fn)()))

@@ -640,10 +640,7 @@ fn build_json_type_mapping<'a>(
             ));
         }
 
-        let last = &segments.last().unwrap().ident;
-        let (name, mapping) = if (last == "Context" || last == "ThreadSafeContext")
-            && (segments.len() == 1 || segments[0].ident == "but_ctx")
-        {
+        let (name, mapping) = if is_context_path(path) {
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
@@ -651,7 +648,7 @@ fn build_json_type_mapping<'a>(
                     json_ident: Some(syn::parse_str("project_id")?),
                 },
             )
-        } else if last == "ObjectId" && (segments.len() == 1 || segments[0].ident == "gix") {
+        } else if is_object_id_path(path) {
             (
                 pat_ident.ident.to_string(),
                 JsonParameterMapping {
@@ -659,10 +656,18 @@ fn build_json_type_mapping<'a>(
                     json_ident: None,
                 },
             )
+        } else if is_full_name_ref_path(path) {
+            (
+                pat_ident.ident.to_string(),
+                JsonParameterMapping {
+                    json_ty: syn::parse_str("gix::refs::FullName")?,
+                    json_ident: None,
+                },
+            )
         } else if is_reference {
             return Err(syn::Error::new_spanned(
                 ty,
-                "Only `&Context` or `&but_ctx::Context` may be references",
+                "Only `&Context`, `&but_ctx::Context`, `&ThreadSafeContext`, or `&gix::refs::FullNameRef` may be references",
             ));
         } else {
             continue;
@@ -919,6 +924,18 @@ fn build_napi_params<'a>(
                         let mutability = &r.mutability;
                         quote! { &#mutability #ident }
                     }
+                    _ => quote! { #ident },
+                };
+                call_arg_idents.push(call_ident);
+            } else if *last_ident == "FullName" {
+                // FullNameRef via FullName transport → String, then parse
+                params.push(quote! { #param_name: String });
+                conversions.push(quote! {
+                    let #ident: gix::refs::FullName = gix::refs::FullName::try_from(#param_name)
+                        .map_err(|e: gix::refs::name::Error| napi::Error::new(napi::Status::InvalidArg, format!("{e}")))?;
+                });
+                let call_ident = match &*pat_ty.ty {
+                    syn::Type::Reference(_) => quote! { #ident.as_ref() },
                     _ => quote! { #ident },
                 };
                 call_arg_idents.push(call_ident);
