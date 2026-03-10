@@ -99,7 +99,7 @@ default = ["custom-protocol", "devtools", "opener"]
 ## If enabled, we will pretend to be `but` when the binary filename is `but`.
 builtin-but = ["dep:but", "but-action/builtin-but"]
 ## A very specific utility flag to make clear that the 'but' binary is managed by a package manager.
-packaged-but-distribution = []
+packaged-but-distribution = ["but?/packaged-but-distribution"]
 ## Disable the auto-updater in the frontend.
 ##
 ## Note that it will still be compiled into the backend, so the technical capability of auto-updates remains.

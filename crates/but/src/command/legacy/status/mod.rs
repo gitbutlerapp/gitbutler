@@ -1065,6 +1065,17 @@ impl CliDisplay for but_update::AvailableUpdate {
             self.available_version.green().bold()
         );
 
+        let upgrade_hint = {
+            #[cfg(feature = "packaged-but-distribution")]
+            {
+                "upgrade with your package manager"
+            }
+            #[cfg(not(feature = "packaged-but-distribution"))]
+            {
+                "upgrade with `but update install`"
+            }
+        };
+
         if verbose {
             if let Some(url) = &self.url {
                 format!(
@@ -1079,7 +1090,7 @@ impl CliDisplay for but_update::AvailableUpdate {
             format!(
                 "Update available: {} {}",
                 version_info,
-                "(you can run `but update install` or `but update suppress` to dismiss)".dimmed()
+                format!("({upgrade_hint} or `but update suppress` to dismiss)").dimmed(),
             )
         }
     }
