@@ -52,6 +52,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
     let fn_name = &sig.ident;
+    let napi_doc_attrs = doc_attributes(&input_fn.attrs);
     let asyncness = &sig.asyncness;
     let input = &sig.inputs;
     let output = &sig.output;
@@ -263,7 +264,7 @@ pub fn but_api(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let napi_fn_block = if opts.napi {
         quote! {
-            /// napi function - strongly typed params, serde_json::Value output, automatic error conversion.
+            #(#napi_doc_attrs)*
             #napi_legacy_cfg
             #[napi_derive::napi(ts_return_type = #ts_return_type_str)]
             #vis async fn #fn_napi_name(
@@ -577,6 +578,14 @@ fn single_generic_type_arg<'a>(path: &'a syn::Path, expected: &str) -> Option<&'
         syn::GenericArgument::Type(ty) => Some(ty),
         _ => None,
     }
+}
+
+fn doc_attributes(attrs: &[syn::Attribute]) -> Vec<syn::Attribute> {
+    attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("doc"))
+        .cloned()
+        .collect()
 }
 
 struct JsonParameterMapping {
@@ -1146,12 +1155,35 @@ fn type_to_ts_name(ty: &syn::Type) -> String {
 #[cfg(test)]
 mod tests {
     use quote::quote;
-    use syn::{FnArg, parse_quote};
+    use syn::{FnArg, ItemFn, parse_quote};
 
     use super::{
         WrapperCallArgKind, WrapperConversionKind, build_wrapper_parameter_mapping,
-        build_wrapper_params,
+        build_wrapper_params, doc_attributes,
     };
+
+    #[test]
+    fn collects_only_doc_attributes_for_napi_forwarding() {
+        let item_fn: ItemFn = parse_quote! {
+            #[doc = "First line."]
+            #[cfg(feature = "napi")]
+            #[doc = "Second line."]
+            pub fn my_api() -> anyhow::Result<()> {
+                Ok(())
+            }
+        };
+
+        let attrs = doc_attributes(&item_fn.attrs);
+
+        assert_eq!(
+            quote!(#(#attrs)*).to_string(),
+            quote!(
+                #[doc = "First line."]
+                #[doc = "Second line."]
+            )
+            .to_string()
+        );
+    }
 
     #[test]
     fn maps_object_id_to_hex_hash_transport() {
