@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use anyhow::Context;
 use bstr::BStr;
 use but_core::{RefMetadata, extract_remote_name_and_short_name, ref_metadata::StackId};
+use gix::prelude::ObjectIdExt as _;
 use petgraph::Direction;
 use tracing::instrument;
 
@@ -63,6 +64,37 @@ impl Workspace {
     pub fn ref_name_display(&self) -> &BStr {
         self.ref_name()
             .map_or("<anonymous>".into(), |rn| rn.as_bstr())
+    }
+
+    /// Return the commit that acts as the workspace's *stored* integration target.
+    ///
+    /// It uses [`Self::target_commit`], which stores a remembered target commit to
+    /// keep the workspace anchored even when the reference itself is unavailable
+    /// or no longer suitable.
+    ///
+    /// An error is returned if the target commit isn't set.
+    pub fn target_commit_id(&self) -> anyhow::Result<gix::ObjectId> {
+        self.target_commit
+            .as_ref()
+            .map(|target| target.commit_id)
+            .context("there is no default target")
+    }
+
+    /// Resolve [`Self::lower_bound`] to the tree it points to in `repo`.
+    ///
+    /// The lower bound is stored as a commit id, so this method looks that object up and peels it
+    /// to its tree. Workspaces without a lower bound are rejected because there is no stable base
+    /// tree to resolve in that case, leading to an error.
+    pub fn lower_bound_tree<'repo>(
+        &self,
+        repo: &'repo gix::Repository,
+    ) -> anyhow::Result<gix::Tree<'repo>> {
+        Ok(self
+            .lower_bound
+            .context("Cannot handle workspaces without lower bound")?
+            .attach(repo)
+            .object()?
+            .peel_to_tree()?)
     }
 }
 

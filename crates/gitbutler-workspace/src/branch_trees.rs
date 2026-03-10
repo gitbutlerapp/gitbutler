@@ -3,12 +3,12 @@ use but_ctx::{
     Context,
     access::{RepoExclusive, RepoShared},
 };
+use but_graph::projection::legacy;
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_stack::VirtualBranchesHandle;
 
-use crate::{workspace_base, workspace_base_from_heads};
+use crate::{workspace_base_from_heads, workspace_stack_heads};
 
 /// A snapshot of the workspace at a point in time.
 #[derive(Debug)]
@@ -21,26 +21,24 @@ pub struct WorkspaceState {
 
 impl WorkspaceState {
     pub fn create(ctx: &Context, perm: &RepoShared) -> Result<Self> {
-        let repo = &*ctx.git2_repo.get()?;
-        let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
-
-        let heads = vb_state
-            .list_stacks_in_workspace()?
-            .iter()
-            .map(|stack| -> Result<git2::Oid> {
-                let head = stack.head_oid(ctx)?.to_git2();
-                let commit = repo.find_commit(head)?;
-                let tree = repo.find_real_tree(&commit, Default::default())?;
+        let git2_repo = &*ctx.git2_repo.get()?;
+        let (repo, ws, _) = ctx.workspace_and_db_with_perm(perm)?;
+        let meta = ctx.meta()?;
+        let ws = legacy::to_global_workspace(&repo, &ws, &meta)?;
+        let heads = workspace_stack_heads(&ws)
+            .into_iter()
+            .map(|head| -> Result<git2::Oid> {
+                let commit = git2_repo.find_commit(head.to_git2())?;
+                let tree = git2_repo.find_real_tree(&commit, Default::default())?;
                 Ok(tree.id())
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let base = workspace_base(ctx, perm)?.to_git2();
-        let base_tree_id = repo.find_commit(base)?.tree_id();
+        let base = ws.lower_bound_tree(&repo)?.id;
 
         Ok(WorkspaceState {
             heads,
-            base: base_tree_id,
+            base: base.to_git2(),
         })
     }
 

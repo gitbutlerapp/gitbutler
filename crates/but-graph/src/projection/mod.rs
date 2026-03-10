@@ -11,6 +11,11 @@
 mod stack;
 pub use stack::{Stack, StackCommit, StackCommitDebugFlags, StackCommitFlags, StackSegment};
 
+/// Transitional helpers for legacy code paths that still need projection-specific compatibility
+/// behavior during the migration to graph-native workflows.
+#[cfg(feature = "legacy")]
+pub mod legacy;
+
 pub(crate) mod workspace;
 pub use workspace::{TargetCommit, TargetRef, Workspace, WorkspaceKind};
 
