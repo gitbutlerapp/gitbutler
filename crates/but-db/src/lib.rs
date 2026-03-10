@@ -1,4 +1,4 @@
-//! # VORM - a vibe-code friendly ORM
+//! # An agent-friendly ORM
 //!
 //! There are a couple of layers that work together to make this possible.
 //!
@@ -19,7 +19,8 @@
 //! still open the database safely after the migration, for example when the change is
 //! additive or only affects data that older code ignores. Add the next schema-version
 //! variant only when an older binary must reject the migrated database, for example after
-//! dropping or repurposing persisted data that older code still depends on.
+//! dropping or repurposing persisted data that older code still depends on. Doing so
+//! is the exception, and backward compatible changes are what we aim for.
 //!
 //! ## ORM Types - for `Connection` and `Transaction`
 //!
