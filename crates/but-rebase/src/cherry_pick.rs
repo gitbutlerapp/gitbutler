@@ -27,7 +27,7 @@ pub(crate) mod function {
 
     use anyhow::{Context as _, bail};
     use bstr::BString;
-    use but_core::commit::{HEADERS_CONFLICTED_FIELD, Headers, TreeKind};
+    use but_core::commit::{HEADERS_CONFLICTED_FIELD, Headers, SignCommit, TreeKind};
     use gix::{object::tree::EntryKind, prelude::ObjectIdExt};
     use serde::Serialize;
 
@@ -188,10 +188,13 @@ pub(crate) mod function {
                 )));
         }
         set_parent(&mut new_commit, head.id.detach())?;
-        Ok(
-            crate::commit::create(repo, new_commit, DateMode::CommitterUpdateAuthorKeep, true)?
-                .attach(repo),
-        )
+        Ok(crate::commit::create(
+            repo,
+            new_commit,
+            DateMode::CommitterUpdateAuthorKeep,
+            SignCommit::IfSignCommitsEnabled,
+        )?
+        .attach(repo))
     }
 
     fn commit_from_conflicted_tree<'repo>(
@@ -254,7 +257,7 @@ pub(crate) mod function {
             repo,
             to_rebase.inner,
             DateMode::CommitterUpdateAuthorKeep,
-            true,
+            SignCommit::IfSignCommitsEnabled,
         )?
         .attach(repo))
     }
