@@ -25,8 +25,10 @@ pub struct BranchCreateRequest {
 /// * For virtual branches, it's either the above if there is a `source_refname` or an `upstream`, or it's the normalized
 ///   name of the virtual branch.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[cfg_attr(feature = "export-schema", derive(schemars::JsonSchema))]
 pub struct BranchIdentity(
     /// The identity is always a valid reference name, full or partial.
+    #[cfg_attr(feature = "export-schema", schemars(with = "String"))]
     pub gix::refs::PartialName,
 );
 

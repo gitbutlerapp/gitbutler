@@ -7,6 +7,9 @@ publish = false
 rust-version.workspace = true
 autotests = false
 
+[features]
+export-schema = []
+
 [lib]
 doctest = false
 
@@ -19,6 +22,7 @@ git2.workspace = true
 gix = { workspace = true, features = [] }
 itertools.workspace = true
 serde.workspace = true
+schemars.workspace = true
 bstr.workspace = true
 lazy_static = "1.4.0"
 
