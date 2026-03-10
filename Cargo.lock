@@ -748,6 +748,7 @@ name = "but"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "boolean-enums",
  "bstr",
  "but-action",
  "but-api",
@@ -1395,7 +1396,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-ctx",
- "but-oxidize",
  "gitbutler-oplog",
  "gix",
 ]
@@ -4031,8 +4031,8 @@ dependencies = [
  "but-fs",
  "but-serde",
  "but-workspace",
- "git2",
  "gitbutler-testsupport",
+ "gix",
  "serde",
  "toml 0.9.12+spec-1.1.0",
  "tracing",
@@ -4097,7 +4097,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
- "git2",
  "gix",
  "serde",
  "thiserror 2.0.18",

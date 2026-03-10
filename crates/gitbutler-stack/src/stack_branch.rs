@@ -253,7 +253,7 @@ impl StackBranch {
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
-    pub fn pushed(&self, remote: &str, repo: &git2::Repository) -> bool {
+    pub fn pushed(&self, remote: &str, repo: &gix::Repository) -> bool {
         repo.find_reference(&self.remote_reference(remote)).is_ok()
     }
 
@@ -309,7 +309,7 @@ impl StackBranch {
             .clone()
             .map(|ref_name| ref_name.remote().to_owned())
             .unwrap_or(default_target.push_remote_name());
-        if self.pushed(&remote, repo) {
+        if self.pushed(&remote, &gix_repo) {
             let upstream_head = repo
                 .find_reference(self.remote_reference(&remote).as_str())?
                 .peel_to_commit()?;

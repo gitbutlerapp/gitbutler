@@ -198,7 +198,7 @@ pub(crate) fn enter_edit_mode(
     _perm: &mut RepoExclusive,
 ) -> Result<EditModeMetadata> {
     let edit_mode_metadata = EditModeMetadata {
-        commit_oid: commit.id(),
+        commit_oid: commit.id().to_gix(),
         stack_id,
     };
 
@@ -251,10 +251,10 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
 
     // Get important references
     let commit = repo
-        .find_commit(edit_mode_metadata.commit_oid)
+        .find_commit(edit_mode_metadata.commit_oid.to_git2())
         .context("Failed to find commit")?;
     let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
-    let commit_obj = gix_commit.decode()?.into_owned()?;
+    let commit_obj = gix_commit.decode()?;
 
     let mut stack = vb_state.get_stack_in_workspace(edit_mode_metadata.stack_id)?;
 
@@ -267,10 +267,13 @@ pub(crate) fn save_and_return_to_workspace(ctx: &Context, perm: &mut RepoExclusi
     let tree = repo.create_wd_tree(0)?;
 
     let (_, committer) = repo.signatures()?;
-    let commit_headers = Headers::try_from_commit(&commit_obj).map(|commit_headers| Headers {
-        conflicted: None,
-        ..commit_headers
-    });
+    let commit_headers =
+        Headers::try_from_commit_headers(|| commit_obj.extra_headers()).map(|commit_headers| {
+            Headers {
+                conflicted: None,
+                ..commit_headers
+            }
+        });
     let new_commit_oid = ctx
         .git2_repo
         .get()?
@@ -351,7 +354,7 @@ pub(crate) fn starting_index_state(
     let repo = &*ctx.git2_repo.get()?;
     let gix_repo = &*ctx.repo.get()?;
 
-    let commit = repo.find_commit(metadata.commit_oid)?;
+    let commit = repo.find_commit(metadata.commit_oid.to_git2())?;
     let gix_commit = gix_repo.find_commit(commit.id().to_gix())?;
     let commit_parent_tree = if gix_commit.is_conflicted() {
         repo.find_real_tree(&commit, ConflictedTreeKey::Base)?
@@ -410,7 +413,7 @@ pub(crate) fn changes_from_initial(ctx: &Context, perm: &RepoShared) -> Result<V
     };
 
     let repo = &*ctx.git2_repo.get()?;
-    let commit = repo.find_commit(metadata.commit_oid)?;
+    let commit = repo.find_commit(metadata.commit_oid.to_git2())?;
     let base = repo
         .find_real_tree(&commit, Default::default())?
         .id()

@@ -275,7 +275,7 @@ fn amend_with_commit_engine(
     Ok(new_commit.to_git2())
 }
 
-pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
+pub fn undo_commit(ctx: &mut Context, stack_id: StackId, commit_oid: gix::ObjectId) -> Result<()> {
     let mut guard = ctx.exclusive_worktree_access();
     ctx.verify(guard.write_permission())?;
     ensure_open_workspace_mode(ctx, guard.read_permission())
@@ -374,7 +374,7 @@ pub fn fetch_from_remotes(ctx: &Context, askpass: Option<String>) -> Result<Fetc
 pub fn move_commit(
     ctx: &mut Context,
     target_stack_id: StackId,
-    commit_oid: git2::Oid,
+    commit_oid: gix::ObjectId,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
     let mut guard = ctx.exclusive_worktree_access();

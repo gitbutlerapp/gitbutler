@@ -299,7 +299,7 @@ pub fn undo_commit(
     stack_id: StackId,
     commit_id: gix::ObjectId,
 ) -> Result<()> {
-    gitbutler_branch_actions::undo_commit(ctx, stack_id, commit_id.to_git2())?;
+    gitbutler_branch_actions::undo_commit(ctx, stack_id, commit_id)?;
     Ok(())
 }
 
@@ -389,12 +389,7 @@ pub fn move_commit(
     target_stack_id: StackId,
     source_stack_id: StackId,
 ) -> Result<Option<MoveCommitIllegalAction>> {
-    gitbutler_branch_actions::move_commit(
-        ctx,
-        target_stack_id,
-        commit_id.to_git2(),
-        source_stack_id,
-    )
+    gitbutler_branch_actions::move_commit(ctx, target_stack_id, commit_id, source_stack_id)
 }
 
 #[but_api]
@@ -508,8 +503,7 @@ pub async fn resolve_upstream_integration(
         resolution_approach,
         &resolved_reviews,
     )?;
-    let commit_id = git2::Oid::to_string(&new_target_id);
-    Ok(commit_id)
+    Ok(new_target_id.to_string())
 }
 
 /// Resolve all actively applied reviews for the given project and command context

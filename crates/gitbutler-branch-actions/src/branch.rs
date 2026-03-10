@@ -569,26 +569,6 @@ pub struct Author {
 #[cfg(feature = "export-schema")]
 but_schemars::register_sdk_type!(Author);
 
-impl From<git2::Signature<'_>> for Author {
-    fn from(value: git2::Signature) -> Self {
-        let name = value.name().map(str::to_string).map(Into::into);
-        let email = value.email().map(str::to_string).map(Into::into);
-
-        let gravatar_url = match value.email() {
-            Some(email) => gravatar_url_from_email(email)
-                .map(|url| url.as_ref().into())
-                .ok(),
-            None => None,
-        };
-
-        Author {
-            name,
-            email,
-            gravatar_url,
-        }
-    }
-}
-
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
         let gravatar_url = {
@@ -652,7 +632,7 @@ pub fn get_branch_listing_details(
         let target_branch_name = target_branch_name.as_str();
         let mut target_branch = repo.find_reference(target_branch_name)?;
 
-        (target_branch.peel_to_commit()?.id.to_git2(), target.sha)
+        (target_branch.peel_to_commit()?.id, target.sha)
     };
 
     let mut enriched_branches = Vec::new();
@@ -724,11 +704,7 @@ pub fn get_branch_listing_details(
                     for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
                         let branch_head = branch_head.to_gix();
                         let base = repo
-                            .merge_base_with_graph(
-                                other_branch_commit_id.to_gix(),
-                                branch_head,
-                                &mut graph,
-                            )
+                            .merge_base_with_graph(other_branch_commit_id, branch_head, &mut graph)
                             .ok()
                             .map(gix::Id::detach);
                         let res = match base {

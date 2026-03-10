@@ -162,7 +162,7 @@ impl Stack {
         } else {
             let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
             let default_target = vb_state.get_default_target()?;
-            Ok(default_target.sha.to_gix())
+            Ok(default_target.sha)
         }
     }
 
@@ -187,13 +187,13 @@ impl Stack {
         name: String,
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
-        head: git2::Oid,
+        head: gix::ObjectId,
         order: usize,
     ) -> Result<Self> {
         let state = branch_state(ctx);
         let repo = ctx.repo.get()?;
         let name = Stack::new_name(&repo, &state, upstream.clone(), name, true)?;
-        let stack_branch = Stack::create_stack_branch(&repo, head.to_gix(), name.clone())?;
+        let stack_branch = Stack::create_stack_branch(&repo, head, name.clone())?;
         Ok(Self {
             id: StackId::generate(),
             source_refname,
@@ -204,11 +204,16 @@ impl Stack {
         })
     }
 
-    pub fn new_empty(ctx: &Context, name: String, head: git2::Oid, order: usize) -> Result<Self> {
+    pub fn new_empty(
+        ctx: &Context,
+        name: String,
+        head: gix::ObjectId,
+        order: usize,
+    ) -> Result<Self> {
         let state = branch_state(ctx);
         let repo = ctx.repo.get()?;
         let name = Stack::new_name(&repo, &state, None, name, false)?;
-        let stack_branch = Stack::create_stack_branch(&repo, head.to_gix(), name.clone())?;
+        let stack_branch = Stack::create_stack_branch(&repo, head, name.clone())?;
         Ok(Self {
             id: StackId::generate(),
             source_refname: None,
@@ -227,14 +232,14 @@ impl Stack {
     /// # Errors
     /// - If a merge base cannot be found
     /// - If logging between the head and merge base fails
-    pub fn commits(&self, ctx: &Context) -> Result<Vec<git2::Oid>> {
+    pub fn commits(&self, ctx: &Context) -> Result<Vec<gix::ObjectId>> {
         let repo = &*ctx.git2_repo.get()?;
         let stack_commits = repo.l(
             self.head_oid(ctx)?.to_git2(),
             LogUntil::Commit(self.merge_base(ctx)?.to_git2()),
             false,
         )?;
-        Ok(stack_commits)
+        Ok(stack_commits.into_iter().map(|oid| oid.to_gix()).collect())
     }
 
     /// Returns the commits between the stack head (including) and the merge base (including) for the stack.
@@ -245,10 +250,10 @@ impl Stack {
     /// # Errors
     /// - If a merge base cannot be found
     /// - If logging between the head and merge base fails
-    fn commits_with_merge_base(&self, ctx: &Context) -> Result<Vec<git2::Oid>> {
+    fn commits_with_merge_base(&self, ctx: &Context) -> Result<Vec<gix::ObjectId>> {
         let mut commits = self.commits(ctx)?;
         let base_commit = self.merge_base(ctx)?;
-        commits.push(base_commit.to_git2());
+        commits.push(base_commit);
         Ok(commits)
     }
 
@@ -266,7 +271,7 @@ impl Stack {
         let virtual_branch_state = VirtualBranchesHandle::new(ctx.project_data_dir());
         let target = virtual_branch_state.get_default_target()?;
         let gix_repo = ctx.repo.get()?;
-        let merge_base = gix_repo.merge_base(self.head_oid(ctx)?, target.sha.to_gix())?;
+        let merge_base = gix_repo.merge_base(self.head_oid(ctx)?, target.sha)?;
         Ok(merge_base.detach())
     }
 
@@ -691,8 +696,7 @@ impl Stack {
         } else {
             self.commits(ctx)?
         };
-        let patches: Vec<gix::ObjectId> =
-            commits.into_iter().rev().map(|oid| oid.to_gix()).collect();
+        let patches: Vec<gix::ObjectId> = commits.into_iter().rev().collect();
         Ok(patches)
     }
 }
@@ -736,7 +740,7 @@ fn validate_target(
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
 
-    let merge_base = repo.merge_base(stack_head, default_target.sha)?;
+    let merge_base = repo.merge_base(stack_head, default_target.sha.to_git2())?;
     let mut stack_commits = repo
         .log(stack_head, LogUntil::Commit(merge_base), false)?
         .iter()

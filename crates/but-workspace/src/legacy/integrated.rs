@@ -3,7 +3,7 @@
 //! This code is a fork of the [`gitbutler_branch_actions::virtual::IsCommitIntegrated`]
 
 use anyhow::{Context as _, Result, anyhow};
-use but_core::RepositoryExt;
+use but_core::{RepositoryExt, commit::Headers};
 use but_oxidize::{ObjectIdExt, OidExt};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
@@ -37,8 +37,11 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         let remote_head = remote_branch.get().peel_to_commit()?;
         let upstream_tree_id = git2_repo.find_commit(remote_head.id())?.tree_id();
 
-        let upstream_commits =
-            git2_repo.log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_commits = git2_repo.log(
+            remote_head.id(),
+            LogUntil::Commit(target.sha.to_git2()),
+            true,
+        )?;
         let upstream_change_ids = upstream_commits
             .iter()
             .filter_map(|commit| {
@@ -57,15 +60,15 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
         Ok(Self {
             repo,
             graph,
-            target_commit_id: target.sha.to_gix(),
+            target_commit_id: target.sha,
             upstream_tree_id: upstream_tree_id.to_gix(),
             upstream_commits,
             upstream_change_ids,
         })
     }
 
-    pub(crate) fn is_integrated(&mut self, commit: &git2::Commit<'_>) -> Result<bool> {
-        if self.target_commit_id == commit.id().to_gix() {
+    pub(crate) fn is_integrated(&mut self, commit_id: gix::ObjectId) -> Result<bool> {
+        if self.target_commit_id == commit_id {
             // could not be integrated if heads are the same.
             return Ok(false);
         }
@@ -80,9 +83,11 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(false);
         }
 
-        let gix_commit = self.repo.find_commit(commit.id().to_gix())?;
+        let gix_commit = self.repo.find_commit(commit_id)?;
+        let gix_commit = gix_commit.decode()?;
 
-        if let Some(change_id) = gix_commit.change_id()
+        if let Some(change_id) = Headers::try_from_commit_headers(|| gix_commit.extra_headers())
+            .and_then(|hdr| hdr.change_id)
             && self
                 .upstream_change_ids
                 .binary_search(&change_id.to_string())
@@ -91,20 +96,14 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             return Ok(true);
         }
 
-        if self
-            .upstream_commits
-            .binary_search(&commit.id().to_gix())
-            .is_ok()
-        {
+        if self.upstream_commits.binary_search(&commit_id).is_ok() {
             return Ok(true);
         }
 
-        let merge_base_id = self.repo.merge_base_with_graph(
-            self.target_commit_id,
-            commit.id().to_gix(),
-            self.graph,
-        )?;
-        if merge_base_id.to_git2().eq(&commit.id()) {
+        let merge_base_id =
+            self.repo
+                .merge_base_with_graph(self.target_commit_id, commit_id, self.graph)?;
+        if merge_base_id == commit_id {
             // if merge branch is the same as branch head and there are upstream commits
             // then it's integrated
             return Ok(true);
@@ -126,7 +125,7 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .repo
             .merge_trees(
                 merge_base_tree_id,
-                commit.tree_id().to_gix(),
+                gix_commit.tree(),
                 self.upstream_tree_id,
                 Default::default(),
                 merge_options,
@@ -139,10 +138,17 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
 
         let merge_tree_id = merge_output.tree.write()?.detach();
 
-        let parent_tree = commit.parents().next().map(|c| c.tree_id());
+        let parent_tree = gix_commit
+            .parents()
+            .next()
+            .map(|parent_id| -> Result<gix::ObjectId> {
+                let parent = self.repo.find_commit(parent_id)?;
+                Ok(parent.tree_id()?.detach())
+            })
+            .transpose()?;
         if let Some(parent_tree) = parent_tree {
             // if the commit tree is the same as its the parent tree, it must be an empty commit, so dont classify it as integrated
-            if commit.tree_id() == parent_tree {
+            if gix_commit.tree() == parent_tree {
                 return Ok(false);
             }
         }

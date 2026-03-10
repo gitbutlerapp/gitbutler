@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use anyhow::anyhow;
 use but_core::{DiffSpec, ref_metadata::StackId};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::OidExt;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_oplog::{
     OplogExt,
@@ -37,12 +36,10 @@ pub(crate) fn handle_changes(
     let vb_state = &VirtualBranchesHandle::new(ctx.project_data_dir());
     default_target_setting_if_none(ctx, vb_state)?; // Create a default target if none exists.
 
-    let snapshot_before = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
-            perm,
-        )?
-        .to_gix();
+    let snapshot_before = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::AutoHandleChangesBefore),
+        perm,
+    )?;
 
     let response = handle_changes_simple_inner(
         ctx,
@@ -53,12 +50,10 @@ pub(crate) fn handle_changes(
         exclusive_stack,
     );
 
-    let snapshot_after = ctx
-        .create_snapshot(
-            SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
-            perm,
-        )?
-        .to_gix();
+    let snapshot_after = ctx.create_snapshot(
+        SnapshotDetails::new(OperationKind::AutoHandleChangesAfter),
+        perm,
+    )?;
 
     let action = crate::action::ButlerAction::new(
         crate::ActionHandler::HandleChangesSimple,

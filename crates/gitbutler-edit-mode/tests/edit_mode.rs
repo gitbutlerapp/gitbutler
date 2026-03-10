@@ -1,5 +1,6 @@
 use anyhow::{Result, anyhow};
 use but_ctx::Context;
+use but_oxidize::OidExt as _;
 use git2::build::CheckoutBuilder;
 use gitbutler_edit_mode::commands::{
     abort_and_return_to_workspace, enter_edit_mode, save_and_return_to_workspace,
@@ -31,7 +32,7 @@ fn conficted_entries_get_written_when_leaving_edit_mode() -> Result<()> {
     let stacks = vb_state.list_stacks_in_workspace()?;
     let stack = stacks.first().unwrap();
     drop(repo);
-    enter_edit_mode(&mut ctx, foobar, stack.id)?;
+    enter_edit_mode(&mut ctx, foobar.to_gix(), stack.id)?;
 
     let repo = ctx.git2_repo.get()?;
     let init = repo.find_reference("refs/heads/main")?.peel_to_commit()?;
@@ -85,7 +86,7 @@ fn abort_requires_force_when_changes_were_made() -> Result<()> {
     let stack = stacks.first().unwrap();
     drop(repo);
 
-    enter_edit_mode(&mut ctx, foobar, stack.id)?;
+    enter_edit_mode(&mut ctx, foobar.to_gix(), stack.id)?;
 
     let repo = ctx.git2_repo.get()?;
     insta::assert_debug_snapshot!(
@@ -149,7 +150,7 @@ fn enter_edit_mode_checks_out_conflicted_commit() -> Result<()> {
     let stack = stacks.first().unwrap();
     drop(repo);
 
-    enter_edit_mode(&mut ctx, conflicted_commit, stack.id)?;
+    enter_edit_mode(&mut ctx, conflicted_commit.to_gix(), stack.id)?;
 
     let repo = ctx.git2_repo.get()?;
     insta::assert_debug_snapshot!(

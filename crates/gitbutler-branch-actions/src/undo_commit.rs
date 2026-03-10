@@ -1,6 +1,6 @@
 use anyhow::{Context as _, Result};
 use but_ctx::{Context, access::RepoExclusive};
-use but_oxidize::{ObjectIdExt, OidExt};
+use but_oxidize::ObjectIdExt;
 use but_rebase::RebaseStep;
 use but_workspace::legacy::stack_ext::StackExt;
 use gitbutler_stack::{Stack, StackId};
@@ -23,7 +23,7 @@ use crate::VirtualBranchesExt as _;
 pub(crate) fn undo_commit(
     ctx: &Context,
     stack_id: StackId,
-    commit_to_remove: git2::Oid,
+    commit_to_remove: gix::ObjectId,
     _perm: &mut RepoExclusive,
 ) -> Result<Stack> {
     let vb_state = ctx.virtual_branches();
@@ -39,7 +39,7 @@ pub(crate) fn undo_commit(
             RebaseStep::Pick {
                 commit_id,
                 new_message: _,
-            } => commit_id != &commit_to_remove.to_gix(),
+            } => commit_id != &commit_to_remove,
             _ => true,
         })
         .collect::<Vec<_>>();

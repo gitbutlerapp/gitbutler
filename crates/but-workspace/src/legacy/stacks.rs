@@ -557,7 +557,7 @@ pub fn local_and_remote_commits(
     // Reverse first instead of later, so that we catch the first integrated commit
     for commit in branch_commits.clone().local_commits.iter().rev() {
         if !is_integrated {
-            is_integrated = check_commit.is_integrated(commit)?;
+            is_integrated = check_commit.is_integrated(commit.id().to_gix())?;
         }
         let copied_from_remote_id = CommitData::try_from(commit)
             .ok()
@@ -605,7 +605,7 @@ pub fn local_and_remote_commits(
             has_conflicts: gix_commit.is_conflicted(),
             state,
             created_at,
-            author: commit.author().into(),
+            author: git2_signature_to_gix_signature(commit.author()).into(),
             gerrit_review_url: None,
         };
         local_and_remote.push(api_commit);

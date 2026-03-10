@@ -208,7 +208,7 @@ fn select_commits_from_branch(
     let default_target = vb_state.get_default_target()?;
 
     let branch_head_gix = branch_head.to_gix();
-    let target_oid_gix = default_target.sha.to_gix();
+    let target_oid_gix = default_target.sha;
 
     // Find merge base
     let merge_base = gix_repo

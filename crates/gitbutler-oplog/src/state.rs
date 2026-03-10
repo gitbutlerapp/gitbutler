@@ -26,8 +26,8 @@ fn unix_epoch() -> SystemTime {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Oplog {
     /// This is the sha of the last oplog commit
-    #[serde(with = "but_serde::oid_opt", default)]
-    pub head_sha: Option<git2::Oid>,
+    #[serde(with = "but_serde::object_id_opt", default)]
+    pub head_sha: Option<gix::ObjectId>,
     /// The time when the last snapshot was created. Seconds since Epoch
     #[serde(
         deserialize_with = "unfailing_system_time_deserialize",
@@ -60,7 +60,7 @@ impl OplogHandle {
     /// Persists the oplog head for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_oplog_head(&self, sha: git2::Oid) -> Result<()> {
+    pub fn set_oplog_head(&self, sha: gix::ObjectId) -> Result<()> {
         let mut oplog = self.read_file()?;
         oplog.head_sha = Some(sha);
         self.write_file(oplog)?;
@@ -70,7 +70,7 @@ impl OplogHandle {
     /// Gets the oplog head sha for the given repository.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn oplog_head(&self) -> Result<Option<git2::Oid>> {
+    pub fn oplog_head(&self) -> Result<Option<gix::ObjectId>> {
         let oplog = self.read_file()?;
         Ok(oplog.head_sha)
     }

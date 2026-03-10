@@ -56,8 +56,8 @@ pub fn write_edit_mode_metadata(
 #[serde(rename_all = "camelCase")]
 pub struct EditModeMetadata {
     /// The sha of the commit getting edited.
-    #[serde(with = "but_serde::oid")]
-    pub commit_oid: git2::Oid,
+    #[serde(with = "but_serde::object_id")]
+    pub commit_oid: gix::ObjectId,
     /// The ref of the vbranch which owns this commit.
     pub stack_id: StackId,
 }

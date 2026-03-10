@@ -35,7 +35,7 @@ pub(crate) fn squash_commits(
     let result = do_squash_commits(ctx, stack_id, source_ids, desitnation_id, perm);
     // if result is error, restore from snapshot
     if result.is_err() {
-        ctx.restore_snapshot(snap, perm)?;
+        ctx.restore_snapshot(snap.to_git2(), perm)?;
     }
     result
 }
@@ -69,7 +69,8 @@ fn do_squash_commits(
 
         let default_target = vb_state.get_default_target()?;
         let repo = ctx.git2_repo.get()?;
-        let merge_base = repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha)?;
+        let merge_base =
+            repo.merge_base(stack.head_oid(ctx)?.to_git2(), default_target.sha.to_git2())?;
 
         // =========== Step 1: Reorder
 
@@ -217,8 +218,8 @@ fn do_squash_commits(
         let parents: Vec<_> = parent_most_source_commit.parents().collect();
 
         let gix_destination = gix_repo.find_commit(destination_commit.id().to_gix())?;
-        let obj = gix_destination.decode()?.into_owned()?;
-        let headers = Headers::try_from_commit(&obj);
+        let obj = gix_destination.decode()?;
+        let headers = Headers::try_from_commit_headers(|| obj.extra_headers());
 
         // Create a new commit with the final tree
         let new_commit_oid = repo

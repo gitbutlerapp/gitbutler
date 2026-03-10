@@ -87,7 +87,7 @@ pub fn update_workspace_commit(
         .context("failed to list virtual branches")?;
 
     let workspace_head =
-        repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?)?;
+        repo.find_commit(but_workspace::legacy::remerged_workspace_commit_v2(ctx)?.to_git2())?;
 
     // message that says how to get back to where they were
     let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
@@ -113,7 +113,7 @@ pub fn update_workspace_commit(
             message.push_str(format!(" ({})", &branch.refname()?).as_str());
             message.push('\n');
 
-            if branch.head_oid(ctx)? != target.sha.to_gix() {
+            if branch.head_oid(ctx)? != target.sha {
                 message.push_str("   branch head: ");
                 message.push_str(&branch.head_oid(ctx)?.to_string());
                 message.push('\n');
@@ -247,7 +247,7 @@ fn verify_head_is_clean(ctx: &Context, perm: &mut RepoExclusive) -> Result<()> {
     let commits = git2_repo
         .log(
             head_commit.id(),
-            LogUntil::Commit(default_target.sha),
+            LogUntil::Commit(default_target.sha.to_git2()),
             false,
         )
         .context("failed to get log")?;

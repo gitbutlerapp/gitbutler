@@ -12,7 +12,7 @@ use but_ctx::{
     access::{RepoExclusive, RepoShared},
 };
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt as _, OidExt, gix_time_to_git2};
+use but_oxidize::{ObjectIdExt as _, OidExt};
 use git2::FileMode;
 use gitbutler_cherry_pick::RepositoryExtLite;
 use gitbutler_repo::{RepositoryExt as _, SignaturePurpose};
@@ -55,7 +55,7 @@ pub trait OplogExt {
     /// Prepares a snapshot of the current state of the working directory as well as GitButler data.
     /// Returns a tree hash of the snapshot. The snapshot is not discoverable until it is committed with [`commit_snapshot`](Self::commit_snapshot())
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
-    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<git2::Oid>;
+    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId>;
 
     /// Commits the snapshot tree that is created with the [`prepare_snapshot`](Self::prepare_snapshot) method,
     /// which yielded the `snapshot_tree_id` for the entire snapshot state.
@@ -68,10 +68,10 @@ pub trait OplogExt {
     /// commit and the current one (after comparing trees).
     fn commit_snapshot(
         &self,
-        snapshot_tree_id: git2::Oid,
+        snapshot_tree_id: gix::ObjectId,
         details: SnapshotDetails,
         perm: &mut RepoExclusive,
-    ) -> Result<git2::Oid>;
+    ) -> Result<gix::ObjectId>;
 
     /// Creates a snapshot of the current state of the working directory as well as GitButler data.
     /// This is a convenience method that combines [`prepare_snapshot`](Self::prepare_snapshot) and
@@ -85,7 +85,7 @@ pub trait OplogExt {
         &self,
         details: SnapshotDetails,
         perm: &mut RepoExclusive,
-    ) -> Result<git2::Oid>;
+    ) -> Result<gix::ObjectId>;
 
     /// Lists the snapshots that have been created for the given repository, up to the given limit,
     /// and with the most recent snapshot first, and at the end of the vec.
@@ -100,7 +100,7 @@ pub trait OplogExt {
     fn list_snapshots(
         &self,
         limit: usize,
-        oplog_commit_id: Option<git2::Oid>,
+        oplog_commit_id: Option<gix::ObjectId>,
         exclude_kind: Vec<OperationKind>,
         include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>>;
@@ -128,30 +128,31 @@ pub trait OplogExt {
     fn snapshot_diff(&self, sha: git2::Oid) -> Result<Vec<TreeChange>>;
 
     /// Gets a specific snapshot by its commit sha.
-    fn get_snapshot(&self, sha: git2::Oid) -> Result<Snapshot>;
+    fn get_snapshot(&self, sha: gix::ObjectId) -> Result<Snapshot>;
 
     /// Gets the sha of the last snapshot commit if present.
-    fn oplog_head(&self) -> Result<Option<git2::Oid>>;
+    fn oplog_head(&self) -> Result<Option<gix::ObjectId>>;
 }
 
 impl OplogExt for Context {
-    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<git2::Oid> {
-        prepare_snapshot(self, perm)
+    fn prepare_snapshot(&self, perm: &RepoShared) -> Result<gix::ObjectId> {
+        prepare_snapshot(self, perm).map(|id| id.to_gix())
     }
 
     fn commit_snapshot(
         &self,
-        snapshot_tree_id: git2::Oid,
+        snapshot_tree_id: gix::ObjectId,
         details: SnapshotDetails,
         perm: &mut RepoExclusive,
-    ) -> Result<git2::Oid> {
+    ) -> Result<gix::ObjectId> {
         commit_snapshot(
             &self.project_data_dir(),
             &*self.git2_repo.get()?,
-            snapshot_tree_id,
+            snapshot_tree_id.to_git2(),
             details,
             perm,
         )
+        .map(|id| id.to_gix())
     }
 
     #[instrument(skip(self, details, perm), err(Debug))]
@@ -159,7 +160,7 @@ impl OplogExt for Context {
         &self,
         details: SnapshotDetails,
         perm: &mut RepoExclusive,
-    ) -> Result<git2::Oid> {
+    ) -> Result<gix::ObjectId> {
         let tree_id = prepare_snapshot(self, perm.read_permission())?;
         commit_snapshot(
             &self.project_data_dir(),
@@ -168,13 +169,13 @@ impl OplogExt for Context {
             details,
             perm,
         )
+        .map(|id| id.to_gix())
     }
 
     #[instrument(skip(self), err(Debug))]
-    fn get_snapshot(&self, sha: git2::Oid) -> Result<Snapshot> {
+    fn get_snapshot(&self, sha: gix::ObjectId) -> Result<Snapshot> {
         let repo = self.repo.get()?;
-        let commit = repo.find_commit(sha.to_gix())?;
-        let commit_time = gix_time_to_git2(commit.time()?);
+        let commit = repo.find_commit(sha)?;
         let details = commit
             .message_raw()?
             .to_str()
@@ -184,7 +185,7 @@ impl OplogExt for Context {
 
         let snapshot = Snapshot {
             commit_id: sha,
-            created_at: commit_time,
+            created_at: commit.time()?,
             details: Some(details),
         };
         Ok(snapshot)
@@ -194,7 +195,7 @@ impl OplogExt for Context {
     fn list_snapshots(
         &self,
         limit: usize,
-        oplog_commit_id: Option<git2::Oid>,
+        oplog_commit_id: Option<gix::ObjectId>,
         exclude_kind: Vec<OperationKind>,
         include_kind: Option<Vec<OperationKind>>,
     ) -> Result<Vec<Snapshot>> {
@@ -210,7 +211,6 @@ impl OplogExt for Context {
                 }
             }
         }
-        .to_gix()
         .attach(&repo);
 
         let mut snapshots = Vec::new();
@@ -240,13 +240,12 @@ impl OplogExt for Context {
                 continue;
             }
 
-            let commit_id = commit_id.to_git2();
             let details = commit
                 .message_raw()?
                 .to_str()
                 .ok()
                 .and_then(|msg| SnapshotDetails::from_str(msg).ok());
-            let commit_time = gix_time_to_git2(commit.time()?);
+            let commit_time = commit.time()?;
             if let Some(details) = &details {
                 // Skip if this kind is excluded
                 if exclude_kind.contains(&details.operation) {
@@ -264,7 +263,7 @@ impl OplogExt for Context {
             }
 
             snapshots.push(Snapshot {
-                commit_id,
+                commit_id: commit_id.detach(),
                 details,
                 created_at: commit_time,
             });
@@ -315,7 +314,7 @@ impl OplogExt for Context {
     }
 
     /// Gets the sha of the last snapshot commit if present.
-    fn oplog_head(&self) -> Result<Option<git2::Oid>> {
+    fn oplog_head(&self) -> Result<Option<gix::ObjectId>> {
         let oplog_state = OplogHandle::new(&self.project_data_dir());
         oplog_state.oplog_head()
     }
@@ -373,7 +372,7 @@ pub fn prepare_snapshot(ctx: &Context, _shared_access: &RepoShared) -> Result<gi
     let vb_state = VirtualBranchesHandle::new(ctx.project_data_dir());
 
     // grab the target commit
-    let default_target_commit = repo.find_commit(vb_state.get_default_target()?.sha)?;
+    let default_target_commit = repo.find_commit(vb_state.get_default_target()?.sha.to_git2())?;
     let target_tree_id = default_target_commit.tree_id();
 
     // Create a tree out of the conflicts state if present
@@ -504,7 +503,7 @@ fn commit_snapshot(
     let oplog_state = OplogHandle::new(project_data_dir);
     let oplog_head_commit = oplog_state
         .oplog_head()?
-        .and_then(|head_id| repo.find_commit(head_id).ok());
+        .and_then(|head_id| repo.find_commit(head_id.to_git2()).ok());
 
     // Construct a new commit
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
@@ -522,7 +521,7 @@ fn commit_snapshot(
         parents.as_slice(),
     )?;
 
-    oplog_state.set_oplog_head(snapshot_commit_id)?;
+    oplog_state.set_oplog_head(snapshot_commit_id.to_gix())?;
 
     set_reference_to_oplog(repo.path(), ReflogCommits::new(project_data_dir)?)?;
 

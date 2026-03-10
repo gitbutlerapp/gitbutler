@@ -124,7 +124,7 @@ napi = { version = "3.0.0", features = [
     "tokio_rt",
 ], optional = true }
 napi-derive = { version = "3.0.0", optional = true }
-boolean-enums = { version = "0.4.1", features = ["serde"] }
+boolean-enums.workspace = true
 bstr = { workspace = true }
 schemars.workspace = true
 serde.workspace = true

@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Result, anyhow};
 use but_error::Code;
 use but_meta::virtual_branches_legacy_types;
-use but_oxidize::{ObjectIdExt, OidExt as _, RepoExt};
+use but_oxidize::{ObjectIdExt, RepoExt};
 use git2::Repository;
 use gitbutler_reference::Refname;
 use gitbutler_repo::commit_message::CommitMessage;
@@ -349,7 +349,7 @@ impl VirtualBranchesHandle {
                 } else {
                     // if there are no commits between the head and the merge base,
                     // i.e. the head is the merge base, we can GC the branch
-                    if branch_head == repo.merge_base(branch_head, target.sha)? {
+                    if branch_head == repo.merge_base(branch_head, target.sha.to_git2())? {
                         to_remove.push(branch.id);
                     }
                 }
@@ -385,7 +385,7 @@ impl VirtualBranchesHandle {
         };
 
         let base_tree_id = repository
-            .find_commit(default_target.sha.to_gix())?
+            .find_commit(default_target.sha)?
             .tree_id()?
             .detach();
 
@@ -411,17 +411,14 @@ impl VirtualBranchesHandle {
 
             virtual_branches.last_pushed_base = Some(alter_parentage(
                 repository,
-                default_target.sha.to_gix(),
+                default_target.sha,
                 &[last_pushed_base],
             )?);
         } else {
             // There was no previous last_pushed_base to point to, so we create
             // the first base which doesn't have any parents.
-            virtual_branches.last_pushed_base = Some(alter_parentage(
-                repository,
-                default_target.sha.to_gix(),
-                &[],
-            )?);
+            virtual_branches.last_pushed_base =
+                Some(alter_parentage(repository, default_target.sha, &[])?);
         }
 
         self.write_file(&virtual_branches)?;
