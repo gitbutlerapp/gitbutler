@@ -1054,7 +1054,7 @@ HTML comments are stripped before submit.
 
     template.push_str(&format!("<!-- GITBUTLER INSTRUCTIONS{instructions}-->"));
 
-    let content = get_text::from_editor("pr_message", &template, ".md")?.to_string();
+    let content = get_text::from_editor("pr_message", &template, None, ".md")?.to_string();
     let content_without_comments = get_text::strip_html_comments(&content);
     let message = parse_review_message(&content_without_comments)?;
     Ok((message.title, message.body))

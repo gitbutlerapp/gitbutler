@@ -1,5 +1,5 @@
 use anyhow::{Result, bail};
-use bstr::BString;
+use bstr::{BString, ByteSlice};
 use but_api::diff::ComputeLineStats;
 use but_ctx::Context;
 use gix::prelude::ObjectIdExt;
@@ -12,6 +12,7 @@ pub(crate) fn reword_target(
     target: &str,
     message: Option<&str>,
     format: bool,
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> Result<()> {
     let id_map = IdMap::new_from_context(ctx, None)?;
 
@@ -40,7 +41,7 @@ pub(crate) fn reword_target(
             edit_branch_name(ctx, name, out, message)?;
         }
         CliId::Commit { commit_id: oid, .. } => {
-            edit_commit_message_by_id(ctx, *oid, out, message, format)?;
+            edit_commit_message_by_id(ctx, *oid, out, message, format, show_diff_in_editor)?;
         }
         _ => {
             bail!(
@@ -51,6 +52,27 @@ pub(crate) fn reword_target(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub(crate) enum ShowDiffInEditor {
+    /// The user requested we always show the diff.
+    Always,
+    /// The user requested we never show the diff.
+    Never,
+    /// The user didn't specify a preference.
+    Unspecified,
+}
+
+impl ShowDiffInEditor {
+    pub(crate) fn from_args(diff: bool, no_diff: bool) -> Option<Self> {
+        match (diff, no_diff) {
+            (true, true) => None,
+            (true, false) => Some(Self::Always),
+            (false, true) => Some(Self::Never),
+            (false, false) => Some(Self::Unspecified),
+        }
+    }
 }
 
 fn edit_branch_name(
@@ -99,12 +121,21 @@ fn prepare_provided_message(msg: Option<&str>, entity: &str) -> Option<Result<St
     })
 }
 
+/// The maximum total blob size (in bytes) for which we'll show the diff in the editor
+/// when the user hasn't specified a preference. This uses object header lookups
+/// which are cheap compared to actually computing diffs.
+///
+/// 900KB is very roughly 15,000 lines at ~60 bytes per line. Just to protect the user from
+/// stalling their system if they accidentally commit a big log file.
+const MAX_DIFF_BLOB_SIZE_FOR_EDITOR_IF_UNSPECIFIED: u64 = 900_000;
+
 fn edit_commit_message_by_id(
     ctx: &mut Context,
     commit_oid: gix::ObjectId,
     out: &mut OutputChannel,
     message: Option<&str>,
     format: bool,
+    show_diff_in_editor: ShowDiffInEditor,
 ) -> Result<()> {
     // Get commit details directly - no need to iterate through stacks
     let commit_details = but_api::diff::commit_details(ctx, commit_oid, ComputeLineStats::No)?;
@@ -121,8 +152,28 @@ fn edit_commit_message_by_id(
         prepare_provided_message(message, "commit message").unwrap_or_else(|| {
             let changed_files = get_changed_files_from_commit_details(&commit_details);
 
+            let should_show_diff = match show_diff_in_editor {
+                ShowDiffInEditor::Always => true,
+                ShowDiffInEditor::Never => false,
+                ShowDiffInEditor::Unspecified => {
+                    let total_blob_size =
+                        estimate_diff_blob_size(&commit_details.diff_with_first_parent, ctx)?;
+                    total_blob_size <= MAX_DIFF_BLOB_SIZE_FOR_EDITOR_IF_UNSPECIFIED
+                }
+            };
+            let diff = should_show_diff
+                .then(|| {
+                    commit_details
+                        .diff_with_first_parent
+                        .iter()
+                        .map(|change| change.unified_diff(&*ctx.repo.get()?, 3))
+                        .filter_map(|diff| diff.transpose())
+                        .collect::<Result<Vec<_>>>()
+                })
+                .transpose()?;
+
             // Open editor with current message and file list
-            get_commit_message_from_editor(&current_message, &changed_files)
+            get_commit_message_from_editor(&current_message, &changed_files, diff.as_deref())
         })?
     };
 
@@ -149,6 +200,40 @@ fn edit_commit_message_by_id(
     Ok(())
 }
 
+/// Sum the blob sizes involved in the given tree changes using cheap object header lookups.
+/// For modifications/renames, uses the larger of the two sides as an upper bound.
+fn estimate_diff_blob_size(changes: &[but_core::TreeChange], ctx: &mut Context) -> Result<u64> {
+    fn blob_size(repo: &gix::Repository, id: &gix::ObjectId) -> u64 {
+        repo.find_header(*id).map(|h| h.size()).unwrap_or(0)
+    }
+
+    let repo = ctx.repo.get()?;
+
+    Ok(changes
+        .iter()
+        .map(|change| match &change.status {
+            but_core::TreeStatus::Addition { state, .. } => blob_size(&repo, &state.id),
+            but_core::TreeStatus::Deletion { previous_state } => {
+                blob_size(&repo, &previous_state.id)
+            }
+            but_core::TreeStatus::Modification {
+                previous_state,
+                state,
+                ..
+            }
+            | but_core::TreeStatus::Rename {
+                previous_state,
+                state,
+                ..
+            } => {
+                let a = blob_size(&repo, &previous_state.id);
+                let b = blob_size(&repo, &state.id);
+                a.max(b)
+            }
+        })
+        .fold(0, |a, b| a.saturating_add(b)))
+}
+
 fn get_changed_files_from_commit_details(
     commit_details: &but_core::diff::CommitDetails,
 ) -> Vec<String> {
@@ -173,6 +258,7 @@ fn get_changed_files_from_commit_details(
 fn get_commit_message_from_editor(
     current_message: &str,
     changed_files: &[String],
+    diff: Option<&[BString]>,
 ) -> Result<String> {
     // Generate commit message template with current message
     let mut template = String::new();
@@ -190,9 +276,22 @@ fn get_commit_message_from_editor(
     }
     template.push_str("#\n");
 
+    let mut template_rest = String::new();
+    if let Some(diff) = diff
+        && !diff.is_empty()
+    {
+        for line in diff {
+            template_rest.push_str(&line.to_str_lossy());
+        }
+    }
+
     // Read the result and strip comments
-    let lossy_message =
-        tui::get_text::from_editor_no_comments("commit_msg", &template)?.to_string();
+    let lossy_message = tui::get_text::from_editor_no_comments_as_patch(
+        "commit_msg",
+        &template,
+        Some(template_rest.as_str()).filter(|s| !s.is_empty()),
+    )?
+    .to_string();
 
     if lossy_message.is_empty() {
         bail!("Aborting due to empty commit message");
@@ -223,9 +322,10 @@ fn get_branch_name_from_editor(current_name: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     mod prepare_provided_message {
-        use super::super::*;
+        use super::*;
 
         #[test]
         fn empty_is_fails() {
@@ -248,5 +348,24 @@ mod tests {
                 "Aborting due to empty message"
             );
         }
+    }
+    #[test]
+    fn test_show_diff_in_editor() {
+        assert_eq!(
+            Some(ShowDiffInEditor::Always),
+            ShowDiffInEditor::from_args(true, false)
+        );
+
+        assert_eq!(
+            Some(ShowDiffInEditor::Never),
+            ShowDiffInEditor::from_args(false, true)
+        );
+
+        assert_eq!(
+            Some(ShowDiffInEditor::Unspecified),
+            ShowDiffInEditor::from_args(false, false)
+        );
+
+        assert_eq!(None, ShowDiffInEditor::from_args(true, true));
     }
 }

@@ -476,6 +476,15 @@ pub enum Subcommands {
         /// Format the existing commit message to 72-char line wrapping without opening an editor
         #[clap(short = 'f', long = "format", conflicts_with = "message")]
         format: bool,
+        /// Always show diff inside the editor.
+        ///
+        /// By default the diff will be shown unless it's large. The diff will always be shown if
+        /// `--diff` is passed, regardless of the size of the diff.
+        #[clap(long = "diff", default_value_t, conflicts_with_all = &["no_diff", "format"])]
+        diff: bool,
+        /// Never show the diff inside the editor.
+        #[clap(long = "no-diff", default_value_t, conflicts_with_all = &["diff", "format"])]
+        no_diff: bool,
     },
 
     /// Commands for viewing and managing operation history.

@@ -861,7 +861,11 @@ async fn match_subcommand(
             target,
             message,
             format,
+            diff,
+            no_diff,
         } => {
+            use crate::command::legacy::reword::ShowDiffInEditor;
+
             let mut ctx = setup::init_ctx(
                 &args,
                 InitCtxOptions {
@@ -876,6 +880,9 @@ async fn match_subcommand(
                 &target,
                 message.as_deref(),
                 format,
+                // clap's `conflicts_with` should prevent this being `None` but better safe than
+                // sorry
+                ShowDiffInEditor::from_args(diff, no_diff).unwrap_or(ShowDiffInEditor::Unspecified),
             )
             .emit_metrics(metrics_ctx)
         }

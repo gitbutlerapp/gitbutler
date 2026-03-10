@@ -694,6 +694,9 @@ fn get_commit_message_from_editor(
     }
     template.push_str("#\n");
 
+    // TODO(david): show diff in editor
+    let todo_ = ();
+
     // Read the result from the editor and strip comments
     let lossy_message =
         tui::get_text::from_editor_no_comments("commit_msg", &template)?.to_string();

@@ -1,10 +1,12 @@
 //! Various functions that involve launching the Git editor (i.e. `GIT_EDITOR`).
 //!
 //! When no external editor is configured, falls back to the built-in TUI editor.
-use std::ffi::OsStr;
+use std::{ffi::OsStr, io::Write as _};
 
-use anyhow::{Result, bail};
+use anyhow::{Context as _, Result, bail};
 use bstr::{BStr, BString, ByteSlice};
+
+const REST_TEXT_MARKER: &str = "# --- ignore-rest ---";
 
 /// Launches the user's preferred text editor to edit some `initial_text`,
 /// identified by a `filename_safe_intent` to help the user understand what's wanted of them.
@@ -12,16 +14,36 @@ use bstr::{BStr, BString, ByteSlice};
 ///
 /// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
 pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
-    let content = from_editor(filename_safe_intent, initial_text, ".txt")?;
+    let content = from_editor(filename_safe_intent, initial_text, None, ".txt")?;
+    let filtered_lines = filter_content_from_editor(content.as_bstr());
+    Ok(filtered_lines.into_iter().collect())
+}
 
-    // Strip comment lines (starting with '#')
-    let filtered_lines: Vec<&BStr> = content
+/// Like `from_editor_no_comments` but uses ".patch" file extension that enables syntax
+/// highlighting in some editors.
+///
+/// If `diff_text` is `Some`, appends it after a `REST_TEXT_MARKER` separator line in the editor.
+/// The marker and everything below it is automatically stripped from the returned text.
+///
+/// Returns the edited text (*without known encoding*), with comment lines (starting with `#`) removed.
+pub fn from_editor_no_comments_as_patch(
+    filename_safe_intent: &str,
+    initial_text: &str,
+    diff_text: Option<&str>,
+) -> Result<BString> {
+    let content = from_editor(filename_safe_intent, initial_text, diff_text, ".patch")?;
+    let filtered_lines = filter_content_from_editor(content.as_bstr());
+    Ok(filtered_lines.into_iter().collect())
+}
+
+/// Strip comment lines (starting with '#') and everything below `REST_TEXT_MARKER`.
+fn filter_content_from_editor(content: &BStr) -> Vec<&BStr> {
+    content
         .lines_with_terminator()
+        .take_while(|line| !line.trim_start().starts_with_str(REST_TEXT_MARKER))
         .filter(|line| !line.trim_start().starts_with_str("#"))
         .map(|line| line.as_bstr())
-        .collect();
-
-    Ok(filtered_lines.into_iter().collect())
+        .collect()
 }
 
 /// Launches the user's preferred text editor to edit some `initial_text`,
@@ -35,9 +57,10 @@ pub fn from_editor_no_comments(filename_safe_intent: &str, initial_text: &str) -
 pub fn from_editor(
     filename_safe_intent: &str,
     initial_text: &str,
+    rest_text: Option<&str>,
     file_suffix: &str,
 ) -> Result<BString> {
-    const ALLOWED_SUFFIXES: &[&str] = &[".txt", ".md"]; // feel free to add more allowed suffixes
+    const ALLOWED_SUFFIXES: &[&str] = &[".txt", ".md", ".patch"]; // feel free to add more allowed suffixes
     if !ALLOWED_SUFFIXES.contains(&file_suffix) {
         bail!(
             "File suffix '{}' is not allowed. Must be one of: {}",
@@ -47,10 +70,14 @@ pub fn from_editor(
     }
 
     match get_editor_command() {
-        Some(editor_cmd) => {
-            from_external_editor(&editor_cmd, filename_safe_intent, initial_text, file_suffix)
-        }
-        None => from_builtin_editor(filename_safe_intent, initial_text),
+        Some(editor_cmd) => from_external_editor(
+            &editor_cmd,
+            filename_safe_intent,
+            initial_text,
+            rest_text,
+            file_suffix,
+        ),
+        None => from_builtin_editor(filename_safe_intent, initial_text, rest_text),
     }
 }
 
@@ -59,14 +86,24 @@ fn from_external_editor(
     editor_cmd: &str,
     filename_safe_intent: &str,
     initial_text: &str,
+    rest_text: Option<&str>,
     file_suffix: &str,
 ) -> Result<BString> {
     // Create a temporary file with the initial text
-    let tempfile = tempfile::Builder::new()
+    let mut tempfile = tempfile::Builder::new()
         .prefix(&format!("but_{filename_safe_intent}_"))
         .suffix(file_suffix)
         .tempfile()?;
-    std::fs::write(&tempfile, initial_text)?;
+
+    write!(&mut tempfile, "{initial_text}")?;
+
+    if let Some(rest_text) = rest_text {
+        if !initial_text.ends_with('\n') {
+            writeln!(&mut tempfile)?;
+        }
+        writeln!(&mut tempfile, "{REST_TEXT_MARKER}")?;
+        writeln!(&mut tempfile, "{rest_text}")?;
+    }
 
     // The editor command is allowed to be a shell expression, e.g. "code --wait" is somewhat common.
     // We need to execute within a shell to make sure we don't get "No such file or directory" errors.
@@ -81,11 +118,18 @@ fn from_external_editor(
     if !status.success() {
         bail!("Editor exited with non-zero status");
     }
-    Ok(std::fs::read(&tempfile)?.into())
+
+    Ok(std::fs::read(&tempfile)
+        .context("failed to read contents of commit message file")?
+        .into())
 }
 
 /// Launch the built-in TUI editor.
-fn from_builtin_editor(filename_safe_intent: &str, initial_text: &str) -> Result<BString> {
+fn from_builtin_editor(
+    filename_safe_intent: &str,
+    initial_text: &str,
+    rest_text: Option<&str>,
+) -> Result<BString> {
     // Determine editor mode based on the intent
     let mode = if filename_safe_intent.contains("commit") {
         super::editor::EditorMode::CommitMessage
@@ -95,7 +139,19 @@ fn from_builtin_editor(filename_safe_intent: &str, initial_text: &str) -> Result
         super::editor::EditorMode::PullRequest
     };
 
-    match super::editor::run_builtin_editor(filename_safe_intent, initial_text, mode)? {
+    let editor_output = if let Some(rest_text) = rest_text {
+        let mut initial_text = initial_text.to_owned();
+        if !initial_text.ends_with('\n') {
+            initial_text.push('\n');
+        }
+        initial_text.push_str(REST_TEXT_MARKER);
+        initial_text.push('\n');
+        initial_text.push_str(rest_text);
+        super::editor::run_builtin_editor(filename_safe_intent, &initial_text, mode)?
+    } else {
+        super::editor::run_builtin_editor(filename_safe_intent, initial_text, mode)?
+    };
+    match editor_output {
         Some(content) => Ok(content.into()),
         None => bail!("Editor cancelled"),
     }
@@ -255,7 +311,7 @@ mod tests {
         // The controlling terminal tends to go insane when this test fails, but at least it
         // doesn't hang forever :)
         let (tx, rx) = std::sync::mpsc::channel();
-        thread::spawn(move || tx.send(from_editor("filename", "", ".notasuffix")));
+        thread::spawn(move || tx.send(from_editor("filename", "", None, ".notasuffix")));
         let err = rx
             .recv_timeout(Duration::from_secs(1))
             .expect("Test timed out after 1 second")
@@ -327,5 +383,40 @@ This should remain
         let stripped = strip_html_comments(input);
 
         assert_eq!(stripped, expected_output)
+    }
+
+    #[test]
+    fn test_filter_content_from_editor() {
+        let raw_content = BString::from(format!(
+            r#"commit message
+
+here is a longer description about the commit
+
+1. It does the thing
+2. It does the other thing
+
+# this line will be ignored
+# as will this
+{REST_TEXT_MARKER}
+all
+this
+will
+be
+ignored"#
+        ));
+        let filtered_content = filter_content_from_editor(raw_content.as_bstr());
+
+        assert_eq!(
+            filtered_content,
+            Vec::from([
+                "commit message\n",
+                "\n",
+                "here is a longer description about the commit\n",
+                "\n",
+                "1. It does the thing\n",
+                "2. It does the other thing\n",
+                "\n",
+            ])
+        );
     }
 }

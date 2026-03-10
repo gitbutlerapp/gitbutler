@@ -1,5 +1,7 @@
 use super::*;
 
+mod reword;
+
 #[test]
 fn clap() {
     use clap::CommandFactory;
