@@ -270,6 +270,18 @@ pub(crate) async fn worktree(
     // Drop repo to release the borrow on ctx before printing status details.
     drop(repo);
 
+    // Format the last fetched time as relative time, unless NO_BG_TASKS is set
+    let last_checked_text = if std::env::var("NO_BG_TASKS").is_ok() {
+        String::new()
+    } else {
+        last_fetched_ms
+            .map(|ms| {
+                let relative_time = format_relative_time_verbose(std::time::SystemTime::now(), ms);
+                format!("(checked {relative_time})")
+            })
+            .unwrap_or_default()
+    };
+
     print_status(
         ctx,
         out,
@@ -283,66 +295,14 @@ pub(crate) async fn worktree(
         &branch_merge_statuses,
     )?;
 
-    // Format the last fetched time as relative time, unless NO_BG_TASKS is set
-    let last_checked_text = if std::env::var("NO_BG_TASKS").is_ok() {
-        String::new()
-    } else {
-        last_fetched_ms
-            .map(|ms| {
-                let relative_time = format_relative_time_verbose(std::time::SystemTime::now(), ms);
-                format!("(checked {relative_time})")
-            })
-            .unwrap_or_default()
-    };
-
-    // Display upstream state if there are new commits
-    if let Some(upstream) = &upstream_state {
-        let dot = "●".yellow();
-
-        if show_upstream {
-            // When showing detailed commits, only show count in summary
-            writeln!(
-                out,
-                "┊╭┄(upstream) ⏫ {} new commits{}",
-                upstream.behind_count,
-                last_checked_text.dimmed()
-            )?;
-
-            // Display detailed list of upstream commits
-            if let Some(ref base_branch) = base_branch
-                && !base_branch.upstream_commits.is_empty()
-            {
-                let repo = ctx.repo.get()?;
-                let commits = base_branch.upstream_commits.iter().take(8);
-                for commit in commits {
-                    // Measure prefix width using plain text (no ANSI codes)
-                    let commit_short = shorten_hex_object_id(&repo, &commit.id);
-                    let truncated_msg = out
-                        .truncate_if_unpaged(&commit.description.to_string().replace('\n', " "), 72)
-                        .dimmed();
-                    writeln!(out, "┊{dot} {} {truncated_msg}", commit_short.yellow())?;
-                }
-                let hidden_commits = base_branch.behind.saturating_sub(8);
-                if hidden_commits > 0 {
-                    writeln!(
-                        out,
-                        "┊    {}",
-                        format!("and {hidden_commits} more…").dimmed()
-                    )?;
-                }
-            }
-            writeln!(out, "┊┊")?;
-        } else {
-            // Without --upstream, show the summary with latest commit info
-            writeln!(
-                out,
-                "┊{dot} {} (upstream) ⏫ {} new commits {}",
-                upstream.latest_commit.dimmed(),
-                upstream.behind_count,
-                last_checked_text.dimmed()
-            )?;
-        }
-    }
+    print_upstream_state(
+        ctx,
+        out,
+        upstream_state.as_ref(),
+        show_upstream,
+        base_branch.as_ref(),
+        &last_checked_text,
+    )?;
 
     let first_line = common_merge_base_data.message.lines().next().unwrap_or("");
     let connector = if upstream_state.is_some() {
@@ -404,6 +364,68 @@ pub(crate) async fn worktree(
         } else {
             writeln!(out, "{}", "Hint: run `but help` for all commands".dimmed())?;
         }
+    }
+
+    Ok(())
+}
+
+/// Display upstream state information when upstream has commits ahead of the workspace base.
+fn print_upstream_state(
+    ctx: &mut Context,
+    out: &mut dyn WriteWithUtils,
+    upstream_state: Option<&UpstreamState>,
+    show_upstream: bool,
+    base_branch: Option<&gitbutler_branch_actions::base::BaseBranch>,
+    last_checked_text: &str,
+) -> anyhow::Result<()> {
+    let Some(upstream) = upstream_state else {
+        return Ok(());
+    };
+
+    let dot = "●".yellow();
+
+    if show_upstream {
+        // When showing detailed commits, only show count in summary
+        writeln!(
+            out,
+            "┊╭┄(upstream) ⏫ {} new commits{}",
+            upstream.behind_count,
+            last_checked_text.dimmed()
+        )?;
+
+        // Display detailed list of upstream commits
+        if let Some(base_branch) = base_branch
+            && !base_branch.upstream_commits.is_empty()
+        {
+            let repo = ctx.repo.get()?;
+            let commits = base_branch.upstream_commits.iter().take(8);
+            for commit in commits {
+                // Measure prefix width using plain text (no ANSI codes)
+                let commit_short = shorten_hex_object_id(&repo, &commit.id);
+                let truncated_msg = out
+                    .truncate_if_unpaged(&commit.description.to_string().replace('\n', " "), 72)
+                    .dimmed();
+                writeln!(out, "┊{dot} {} {truncated_msg}", commit_short.yellow())?;
+            }
+            let hidden_commits = base_branch.behind.saturating_sub(8);
+            if hidden_commits > 0 {
+                writeln!(
+                    out,
+                    "┊    {}",
+                    format!("and {hidden_commits} more…").dimmed()
+                )?;
+            }
+        }
+        writeln!(out, "┊┊")?;
+    } else {
+        // Without --upstream, show the summary with latest commit info
+        writeln!(
+            out,
+            "┊{dot} {} (upstream) ⏫ {} new commits {}",
+            upstream.latest_commit.dimmed(),
+            upstream.behind_count,
+            last_checked_text.dimmed()
+        )?;
     }
 
     Ok(())
